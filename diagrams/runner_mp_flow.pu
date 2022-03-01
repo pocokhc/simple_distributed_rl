@@ -1,0 +1,48 @@
+@startuml
+actor Runner
+participant TrainerProcess
+participant WorkerProcess
+entity Memory
+entity Board
+queue LastParamQueue
+
+note right
+TrainerToBoardQueue
+MemoryQueue
+BoardToWorkerQueue
+end note
+
+activate Runner
+
+group create area
+    Runner -> Memory ** : create
+    Runner -> Board ** : create
+    Runner -> LastParamQueue ** : create Queue
+    Runner -> TrainerProcess ** : new process
+    loop worker num
+        Runner -> WorkerProcess ** : new process
+    end
+end
+
+group run area
+    loop wait
+
+        Runner -> TrainerProcess: check alive
+        Runner -> WorkerProcess: check alive
+
+    end
+end
+
+group end area
+
+    TrainerProcess ->> LastParamQueue: send weight
+    LastParamQueue ->> Runner: recv weight
+
+    Runner -> WorkerProcess !! : terminate
+    Runner -> TrainerProcess !! : terminate
+
+end
+
+deactivate Runner
+
+@enduml

@@ -1,0 +1,48 @@
+@startuml
+autoactivate on
+
+participant WorkerProcess
+participant Env
+participant Worker
+participant Parameter
+
+entity Memory
+entity Board
+
+
+activate WorkerProcess
+WorkerProcess -> Env ** : create
+WorkerProcess -> Parameter ** : create
+WorkerProcess -> Worker ** : create
+loop episodes
+    WorkerProcess -> Env: on_reset
+    return
+    WorkerProcess -> Worker: on_reset
+    return
+
+    loop episode
+        WorkerProcess -> Worker: policy
+            Worker -> Parameter
+            return
+        return action
+        WorkerProcess -> Env: step(action)
+        return next_state, reward, done, info
+
+        WorkerProcess -> Worker: on_step
+            Worker -> Parameter
+            return
+        return batch, priority
+        WorkerProcess -> Memory: add(batch, priority)
+        return
+
+        WorkerProcess -> Board: read
+        return parameter
+        WorkerProcess -> Parameter: restore(parameter)
+        return
+
+    end
+end
+deactivate WorkerProcess
+
+
+@enduml

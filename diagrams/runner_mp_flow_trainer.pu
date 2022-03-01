@@ -1,0 +1,39 @@
+@startuml
+autoactivate on
+
+participant TrainerProcess
+participant Trainer
+participant Parameter
+entity Memory
+entity Board
+queue LastParamQueue
+
+
+activate TrainerProcess
+TrainerProcess -> Parameter ** : create
+TrainerProcess -> Trainer ** : create
+loop wait
+
+    TrainerProcess -> Trainer: train
+        Trainer -> Memory: sample
+        return batchs, weights
+        Trainer -> Trainer: train_on_batchs(batchs, weights)
+            Trainer -> Parameter: 
+            return
+        return priorities
+        Trainer -> Memory: update(batchs, priorities)
+        return
+    return
+
+    TrainerProcess -> Parameter: backup
+    return parameter
+    TrainerProcess -> Board: write(parameter)
+    return
+
+end
+
+TrainerProcess -> Parameter: backup
+return parameter
+TrainerProcess ->> LastParamQueue: put(parameter)
+
+@enduml

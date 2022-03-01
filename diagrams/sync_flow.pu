@@ -1,0 +1,49 @@
+@startuml
+autoactivate on
+
+actor Runner
+participant Env
+participant Worker
+participant Trainer
+participant Parameter
+participant Memory
+
+
+activate Runner
+
+Runner -> Env: reset
+return
+Runner -> Worker: on_reset
+return
+
+loop episode
+    Runner -> Worker: policy
+        Worker -> Parameter
+        return
+    return action
+    Runner -> Env: step(action)
+    return next_state, reward, done, info
+
+    Runner -> Worker: on_step
+        Worker -> Parameter
+        return
+    return batch, priority
+    
+    Runner -> Memory: add(batch, priority)
+    return
+
+    Runner -> Trainer: train
+        Trainer -> Memory: sample
+        return batchs, weights
+        Trainer -> Trainer: train_on_batchs(batchs, weights)
+            Trainer -> Parameter: 
+            return
+        return priorities
+        Trainer -> Memory: update(batchs, priorities)
+        return
+    return
+
+end
+deactivate Runner
+
+@enduml

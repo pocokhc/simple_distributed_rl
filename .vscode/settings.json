@@ -1,0 +1,49 @@
+{
+    "extensions.ignoreRecommendations": false,  // 推奨拡張機能を表示
+    "python.envFile": "${workspaceFolder}/.env",  // 環境変数設定
+    
+    // --- リンター
+    "python.linting.enabled": true,  // リンターの有効化
+    "python.linting.pylintEnabled": false,  // defaultではpylintが有効なので無効化
+    "python.linting.flake8Enabled": true,  // flake8を有効化
+    "python.linting.lintOnSave": true,  // ファイル保存時にリンター実行
+    "python.linting.flake8Args": [
+        "--max-line-length=119",  // defaultは79、119はgit向け
+    ],
+
+    // --- フォーマッタ(Python)
+    "python.formatting.provider": "black",
+    "[python]": {
+        "editor.formatOnSave": true,  // ファイル保存時にフォーマッタ実行
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+        }
+    },
+    "python.formatting.blackArgs": [
+        "--line-length=119",  // defaultは79、119はgit向け
+    ],
+
+    // --- フォーマッタ
+    "[lua]": {
+        "editor.formatOnSave": true,  // ファイル保存時にフォーマッタ実行
+    },
+
+    // --- 型アノテーション(Pylance)
+    "python.analysis.typeCheckingMode": "basic",
+    
+    // --- テスト
+    "python.testing.unittestEnabled": true,
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        "./tests",
+        "-p",
+        "test_*.py"
+    ],
+    "python.testing.pytestEnabled": false,
+
+    // --- plant uml
+    "plantuml.exportFormat": "png",
+    "plantuml.exportOutDir": ".",
+    "plantuml.exportSubFolder": false,
+}

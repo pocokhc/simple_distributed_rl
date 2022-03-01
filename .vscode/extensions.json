@@ -1,0 +1,8 @@
+{
+    "recommendations": [
+        "jebbs.plantuml",
+        "ms-python.python",
+        "ms-toolsai.jupyter",
+        "ms-python.vscode-pylance"
+    ]
+}

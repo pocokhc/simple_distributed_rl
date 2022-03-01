@@ -1,13 +1,14 @@
 
-
 log/
 tmp*/
 *.zip
 *.log
 *.dat
-_*.py
 *.prof
+_*.*
+!__init__.py
 _*/
+
 
 
 #---------------------------
@@ -113,11 +114,11 @@ celerybeat-schedule
 *.sage.py
 
 # Environments
-.env
+#.env
 .venv
-env/
+#env/
 venv/
-ENV/
+#ENV/
 env.bak/
 venv.bak/
 

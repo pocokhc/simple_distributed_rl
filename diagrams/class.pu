@@ -1,0 +1,101 @@
+@startuml
+
+abstract gym.Env {
+    action_space : gym.spaces.Space
+    observation_space : gym.spaces.Space
+    reset()
+    step(action)
+    render()
+}
+
+enum RLActionType {
+    DISCRETE
+    CONTINUOUS
+}
+
+enum RLObservationType {
+    DISCRETE
+    CONTINUOUS
+}
+
+enum EnvObservationType {
+    DISCRETE
+    CONTINUOUS
+    GRAY_2ch
+    GRAY_3ch
+    COLOR
+    SHAPE2
+    SHAPE3
+}
+
+abstract EnvBase {
+    action_space : gym.spaces.Space
+    observation_space : gym.spaces.Space
+    reset()
+    step(action)
+    render()
+    - observation_type : EnvObservationType
+    - max_episode_steps : int
+    - fetch_valid_actions()
+    - backup()
+    - restore()
+} 
+
+class EnvForRL
+
+abstract Memory {
+    add()
+    sample()
+    update()
+    backup()
+    restore()
+}
+
+
+abstract RLConfig {
+    {static} getName() : str
+    action_type : RLActionType
+    observation_type : RLObservationType
+    set_config_by_env(EnvForRL)
+}
+
+abstract RLParameter {
+    restore()
+    backup()
+}
+
+abstract RLTrainer {
+    config : RLConfig
+    memory : Memory
+    board : ParameterBoard
+    train()
+    train_on_batchs(batchs, weights) : priorities
+}
+
+abstract RLWorker {
+    config : RLConfig
+    memory : Memory
+    board : ParameterBoard
+    worker_id : int
+    on_reset(state, valid_actions)
+    policy(state, valid_actions)
+    on_step(state, action, next_state, reward, done, valid_actions, next_valid_actions)
+    render(state, valid_actions)
+}
+
+
+EnvBase <|-- gym.Env 
+EnvForRL -- EnvBase
+
+RLConfig -- RLWorker
+RLConfig -- RLTrainer
+RLConfig -- RLParameter
+RLParameter -- RLWorker
+RLParameter -- RLTrainer
+Memory -- RLWorker
+Memory -- RLTrainer
+
+RLWorker .. EnvForRL
+RLTrainer .. EnvForRL
+
+@enduml

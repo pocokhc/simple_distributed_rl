@@ -1,7 +1,7 @@
 import os
 import pickle
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, List, Tuple
 
 
 class MemoryConfig(ABC):
@@ -17,11 +17,11 @@ class Memory(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def update(self, indexes: list[int], batchs: list[Any], priorities: list[float]) -> None:
+    def update(self, indexes: List[int], batchs: List[Any], priorities: List[float]) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def sample(self, batch_size: int, steps: int) -> tuple[list, list, list]:
+    def sample(self, batch_size: int, steps: int) -> Tuple[list, list, list]:
         raise NotImplementedError()
         # return (indexes, batchs, weights)
 

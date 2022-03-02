@@ -1,10 +1,8 @@
-from __future__ import annotations
-
 import itertools
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Optional, cast
+from typing import Any, List, Optional, Tuple, Union, cast
 
 import gym
 import gym.spaces
@@ -25,7 +23,7 @@ def create_env_for_rl(env_name: str, rl_config: RLConfig):
 @dataclass
 class EnvForRL:
 
-    env: gym.Env | EnvBase
+    env: Union[gym.Env, EnvBase]
     config: RLConfig
     action_division_count: int = 5
     observation_division_count: int = 50
@@ -80,7 +78,7 @@ class EnvForRL:
             return f"{space.__class__.__name__} {space.n}"  # type: ignore
         if isinstance(space, gym.spaces.Tuple):
             return f"{space.__class__.__name__} {len(space)}"  # type: ignore
-        return f"{space.__class__.__name__}{space.shape} ({space.low} {space.high})"
+        return f"{space.__class__.__name__}{space.shape} ({space.low.flatten()[0]} - {space.high.flatten()[0]})"
 
     # アクションの離散化
     def _action_discrete(self, space):
@@ -290,14 +288,14 @@ class EnvForRL:
         self._valid_actions = None
         return state
 
-    def step(self, action: Any) -> tuple[Any, float, bool, dict]:
+    def step(self, action: Any) -> Tuple[Any, float, bool, dict]:
         action = self._action_encode(action)
         state, reward, done, info = self.env.step(action)
         state = self._observation_encode(state)
         self._valid_actions = None
         return state, float(reward), bool(done), info
 
-    def fetch_valid_actions(self) -> Optional[list[int]]:
+    def fetch_valid_actions(self) -> Optional[List[int]]:
         if self.config.action_type == RLActionType.CONTINUOUS:
             return None
 

@@ -2,7 +2,7 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Optional, cast
+from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 from srl.base.rl import RLParameter, RLTrainer, RLWorker, TableConfig
@@ -82,7 +82,7 @@ class Trainer(RLTrainer):
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
 
-    def train_on_batchs(self, batchs: list, weights: list[float]):
+    def train_on_batchs(self, batchs: list, weights: List[float]):
         priorities = []
         td_error_mean = 0
         for i in range(self.config.batch_size):
@@ -126,10 +126,10 @@ class Worker(RLWorker):
 
         self.step = 0
 
-    def on_reset(self, state: np.ndarray, valid_actions: list[int]) -> None:
+    def on_reset(self, state: np.ndarray, valid_actions: List[int]) -> None:
         pass
 
-    def policy(self, state: np.ndarray, valid_actions: list[int]) -> tuple[int, Any]:
+    def policy(self, state: np.ndarray, valid_actions: List[int]) -> Tuple[int, Any]:
         s = str(state.tolist())
 
         if self.training:
@@ -158,8 +158,8 @@ class Worker(RLWorker):
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        valid_actions: list[int],
-        next_valid_actions: list[int],
+        valid_actions: List[int],
+        next_valid_actions: List[int],
     ):
         if not self.training:
             return {}
@@ -184,7 +184,7 @@ class Worker(RLWorker):
         }
         return (batch, priority, {"Q": len(self.parameter.Q)})
 
-    def render(self, state: np.ndarray, valid_actions: list[int]) -> None:
+    def render(self, state: np.ndarray, valid_actions: List[int]) -> None:
         s = str(state.tolist())
         q = self.parameter._get_q(s, valid_actions)
         maxa = np.argmax(q)

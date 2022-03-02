@@ -1,10 +1,8 @@
-from __future__ import annotations
-
 import os
 import pickle
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from srl.base.rl.config import RLConfig
 from srl.base.rl.memory import Memory
@@ -44,10 +42,10 @@ class RLTrainer(ABC):
         self.train_count = 0
 
     @abstractmethod
-    def train_on_batchs(self, batchs: list, weights: list[float]) -> tuple[list[float], dict[str, float | int]]:
+    def train_on_batchs(self, batchs: list, weights: List[float]) -> Tuple[List[float], Dict[str, Union[float, int]]]:
         raise NotImplementedError()
 
-    def train(self, memory: Memory) -> dict[str, Any]:
+    def train(self, memory: Memory) -> Dict[str, Any]:
         memory_len = memory.length()
         warmup_size = self.config.memory_warmup_size
         batch_size = self.config.batch_size
@@ -90,11 +88,11 @@ class RLWorker(ABC):
         self.training = training
 
     @abstractmethod
-    def on_reset(self, state: Any, valid_actions: Optional[list[int]]) -> None:
+    def on_reset(self, state: Any, valid_actions: Optional[List[int]]) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def policy(self, state: Any, valid_actions: Optional[list[int]]) -> tuple[Any, Any]:  # (env_action, agent_action)
+    def policy(self, state: Any, valid_actions: Optional[List[int]]) -> Tuple[Any, Any]:  # (env_action, agent_action)
         raise NotImplementedError()
 
     @abstractmethod
@@ -105,9 +103,9 @@ class RLWorker(ABC):
         next_state: Any,
         reward: float,
         done: bool,
-        valid_actions: Optional[list[int]],
-        next_valid_actions: Optional[list[int]],
-    ) -> dict[str, float | int] | tuple[Any, float, dict[str, float | int]]:
+        valid_actions: Optional[List[int]],
+        next_valid_actions: Optional[List[int]],
+    ) -> Union[Dict[str, Union[float, int]], Tuple[Any, float, Dict[str, Union[float, int]]]]:
         # if self.training:
         #    return batch, priority, info
         # else:
@@ -115,7 +113,7 @@ class RLWorker(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def render(self, state: Any, valid_actions: Optional[list[int]]) -> None:
+    def render(self, state: Any, valid_actions: Optional[List[int]]) -> None:
         raise NotImplementedError()
 
 

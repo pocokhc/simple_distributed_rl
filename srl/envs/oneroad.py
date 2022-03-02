@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, List, Tuple
 
 import gym
 import gym.envs.registration
@@ -59,7 +59,7 @@ class OneRoad(EnvBase):
         return [self.player_pos]
 
     # override
-    def step(self, action: int) -> tuple[Any, float, bool, dict]:
+    def step(self, action: int) -> Tuple[Any, float, bool, dict]:
         if action == 0:
             self.player_pos += 1
         else:
@@ -75,7 +75,7 @@ class OneRoad(EnvBase):
         return [self.player_pos], reward, done, {}
 
     # override
-    def fetch_valid_actions(self) -> list[int]:
+    def fetch_valid_actions(self) -> List[int]:
         return [a for a in range(self.action_num)]
 
     # override

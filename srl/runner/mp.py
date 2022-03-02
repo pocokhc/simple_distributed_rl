@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import ctypes
 import logging
 import multiprocessing as mp
@@ -7,7 +5,7 @@ import time
 import traceback
 from dataclasses import dataclass, field
 from multiprocessing.managers import BaseManager
-from typing import Any
+from typing import Any, List, Union
 
 import tensorflow as tf
 from srl.base.rl.memory import Memory
@@ -42,15 +40,15 @@ class Config:
 
     allocate_main: str = "/CPU:0"
     allocate_trainer: str = "/GPU:0"
-    allocate_worker: list[str] | str = "/CPU:0"
+    allocate_worker: Union[List[str], str] = "/CPU:0"
 
-    callbacks: list[MPCallback] = field(default_factory=list)
+    callbacks: List[MPCallback] = field(default_factory=list)
 
     def set_train_config(
         self,
         max_train_count: int = -1,
         timeout: int = -1,
-        callbacks: list[MPCallback] = None,
+        callbacks: List[MPCallback] = None,
     ):
         if callbacks is None:
             callbacks = []

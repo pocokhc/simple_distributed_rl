@@ -1,6 +1,6 @@
 import pickle
 from abc import ABCMeta, abstractmethod
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 import gym
 import gym.spaces
@@ -48,7 +48,7 @@ class EnvBase(gym.Env, metaclass=ABCMeta):
 
     # gym.Env
     @abstractmethod
-    def step(self, action: Any) -> tuple[Any, float, bool, dict]:
+    def step(self, action: Any) -> Tuple[Any, float, bool, dict]:
         # return state, reward, done, info
         raise NotImplementedError()
 
@@ -99,7 +99,7 @@ class GymEnvWrapper(EnvBase):
     def reset(self) -> Any:
         return self.env.reset()
 
-    def step(self, action: int) -> tuple[Any, float, bool, dict]:
+    def step(self, action: int) -> Tuple[Any, float, bool, dict]:
         return self.env.step(action)
 
     def fetch_valid_actions(self) -> Optional[list]:

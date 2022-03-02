@@ -108,5 +108,5 @@ def main_use_runner(is_mp):
 if __name__ == "__main__":
 
     # main_raw()
-    main_use_runner(is_mp=False)
-    # main_use_runner(is_mp=True)
+    # main_use_runner(is_mp=False)
+    main_use_runner(is_mp=True)

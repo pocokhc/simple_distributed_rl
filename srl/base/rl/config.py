@@ -1,14 +1,7 @@
-# 型チェックのみ使う(circular import 対策)
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 from srl.base.define import EnvObservationType, RLActionType, RLObservationType
-
-# 型チェックのみ使う(circular import 対策)
-if TYPE_CHECKING:
-    from .env_for_rl import EnvForRL
 
 
 class RLConfig(ABC):
@@ -42,7 +35,7 @@ class RLConfig(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def set_config_by_env(self, env: EnvForRL) -> None:
+    def set_config_by_env(self, env: "srl.base.rl.env_for_rl.EnvForRL") -> None:
         raise NotImplementedError()
 
 
@@ -55,7 +48,7 @@ class TableConfig(RLConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.DISCRETE
 
-    def set_config_by_env(self, env: EnvForRL) -> None:
+    def set_config_by_env(self, env: "srl.base.rl.env_for_rl.EnvForRL") -> None:
         self._nb_actions = env.action_space.n  # type: ignore
 
     @property
@@ -72,7 +65,7 @@ class DiscreteActionConfig(RLConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.CONTINUOUS
 
-    def set_config_by_env(self, env: EnvForRL) -> None:
+    def set_config_by_env(self, env: "srl.base.rl.env_for_rl.EnvForRL") -> None:
         self._nb_actions = env.action_space.n  # type: ignore
         self._env_observation_shape = cast(tuple, env.observation_space.shape)  # type: ignore
         self._env_observation_type = env.observation_type
@@ -99,7 +92,7 @@ class ContinuousActionConfig(RLConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.CONTINUOUS
 
-    def set_config_by_env(self, env: EnvForRL) -> None:
+    def set_config_by_env(self, env: "srl.base.rl.env_for_rl.EnvForRL") -> None:
         assert len(env.action_space.shape) == 1  # type: ignore
         self._action_num = env.action_space.shape[0]  # type: ignore
         self._action_low = env.action_space.low  # type: ignore

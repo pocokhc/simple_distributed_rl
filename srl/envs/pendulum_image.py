@@ -1,13 +1,13 @@
 import logging
 import pickle
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Tuple
 
 import gym
 import gym.envs.registration
 import gym.spaces
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw  # pip install pillow
 from srl.base.define import EnvObservationType
 from srl.base.env import EnvBase
 
@@ -50,7 +50,7 @@ class PendulumImage(EnvBase):
     def reset(self) -> Any:
         return self._get_rgb_state(self.env.reset())
 
-    def step(self, action: Any) -> tuple[Any, float, bool, dict]:
+    def step(self, action: Any) -> Tuple[Any, float, bool, dict]:
         state, reward, done, info = self.env.step(action)
         return self._get_rgb_state(state), reward, done, info
 

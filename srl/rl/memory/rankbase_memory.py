@@ -2,7 +2,7 @@ import bisect
 import math
 import random
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, List
 
 import numpy as np
 from srl.base.rl.memory import Memory, MemoryConfig
@@ -11,7 +11,7 @@ from srl.rl.memory.registory import register
 
 @dataclass
 class Config(MemoryConfig):
-    capacity: int = 1_000_000
+    capacity: int = 100_000
     alpha: float = 0.6
     beta_initial: float = 0.4
     beta_steps: int = 1_000_000
@@ -61,7 +61,7 @@ class RankBaseMemory(Memory):
         exp = _bisect_wrapper(exp, priority)
         bisect.insort(self.buffer, exp)
 
-    def update(self, indexes: list[int], batchs: list[Any], priorities: list[float]) -> None:
+    def update(self, indexes: List[int], batchs: List[Any], priorities: List[float]) -> None:
         for i in range(len(batchs)):
 
             exp = _bisect_wrapper(batchs[i], priorities[i])

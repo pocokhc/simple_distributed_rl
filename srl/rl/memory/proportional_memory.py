@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, List
 
 import numpy as np
 from srl.base.rl.memory import Memory, MemoryConfig
@@ -9,7 +9,7 @@ from srl.rl.memory.registory import register
 
 @dataclass
 class Config(MemoryConfig):
-    capacity: int = 1_000_000
+    capacity: int = 100_000
     alpha: float = 0.6
     beta_initial: float = 0.4
     beta_steps: int = 1_000_000
@@ -91,13 +91,13 @@ class ProportionalMemory(Memory):
         if priority == 0:
             priority = self.max_priority
         if not _alpha_skip:
-            priority = priority ** self.alpha
+            priority = priority**self.alpha
         self.tree.add(priority, exp)
         self.size += 1
         if self.size > self.capacity:
             self.size = self.capacity
 
-    def update(self, indexes: list[int], batchs: list[Any], priorities: list[float]) -> None:
+    def update(self, indexes: List[int], batchs: List[Any], priorities: List[float]) -> None:
         for i in range(len(batchs)):
             priority = priorities[i] ** self.alpha
             self.tree.update(indexes[i], priority)

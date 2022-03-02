@@ -15,7 +15,7 @@ def compute_logprob(mean, stddev, action):
 @tf.function
 def compute_logprob_sgp(mean, stddev, action):
     logmu = compute_logprob(mean, stddev, action)
-    logpi = 1 - tf.tanh(action) ** 2
+    logpi = 1.0 - tf.tanh(action) ** 2
     logpi = tf.clip_by_value(logpi, 1e-10, 1.0)  # log(0)回避用
     logpi = logmu - tf.reduce_sum(tf.math.log(logpi), axis=1, keepdims=True)
     return logpi

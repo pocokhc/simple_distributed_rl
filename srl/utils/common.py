@@ -1,8 +1,9 @@
 import json
 import logging
 import os
+import random
 import warnings
-from typing import Any
+from typing import Any, Dict, List
 
 import numpy as np
 
@@ -31,9 +32,6 @@ def set_logger(name: str = "", level=logging.DEBUG) -> None:
 
 
 def set_seed(seed: int):
-    import random
-
-    import numpy as np
     import tensorflow as tf
 
     random.seed(seed)
@@ -43,7 +41,7 @@ def set_seed(seed: int):
     tf.random.set_seed(seed)
 
 
-def listdict_to_dictlist(data: list[dict[str, Any]]) -> dict[str, list[Any]]:
+def listdict_to_dictlist(data: List[Dict[str, Any]]) -> Dict[str, List[Any]]:
     _info = {}
     for h in data:
         if h is None:
@@ -55,7 +53,7 @@ def listdict_to_dictlist(data: list[dict[str, Any]]) -> dict[str, list[Any]]:
     return _info
 
 
-def listdictdict_to_dictlist(data: list[dict[str, dict[str, Any]]], key: str) -> dict[str, list[Any]]:
+def listdictdict_to_dictlist(data: List[Dict[str, Dict[str, Any]]], key: str) -> Dict[str, List[Any]]:
     _info = {}
     for h in data:
         if key not in h:
@@ -78,7 +76,7 @@ def to_str_time(sec: float) -> str:
         return "{:6.2f}s".format(sec)
     if sec < 180 * 60:
         return "{:5.1f}m".format(sec / 60)
-    return "{:.1f}h".format((sec / 60) / 60)
+    return "{:.2f}h".format((sec / 60) / 60)
 
 
 class JsonNumpyEncoder(json.JSONEncoder):

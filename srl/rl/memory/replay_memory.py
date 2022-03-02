@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, List
 
 from srl.base.rl.memory import Memory, MemoryConfig
 from srl.rl.memory.registory import register
@@ -28,7 +28,7 @@ class ReplayMemory(Memory):
         self.buffer[self.index] = exp
         self.index = (self.index + 1) % self.capacity
 
-    def update(self, indexes: list[int], batchs: list[Any], priorities: list[float]) -> None:
+    def update(self, indexes: List[int], batchs: List[Any], priorities: List[float]) -> None:
         pass
 
     def sample(self, batch_size, step):

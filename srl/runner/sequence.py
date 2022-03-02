@@ -2,7 +2,7 @@ import logging
 import pickle
 import time
 from dataclasses import dataclass, field
-from typing import Optional, cast
+from typing import List, Optional, Tuple, cast
 
 import srl.rl.memory.registory
 from srl import rl
@@ -34,7 +34,7 @@ class Config:
     training: bool = False
 
     # other
-    callbacks: list[Callback] = field(default_factory=list)
+    callbacks: List[Callback] = field(default_factory=list)
 
     def __post_init__(self):
         if self.rl_config is not None:
@@ -53,7 +53,7 @@ class Config:
         timeout: int = -1,
         training: bool = False,
         parameter_path: str = "",
-        callbacks: list[Callback] = None,
+        callbacks: List[Callback] = None,
     ):
         if callbacks is None:
             callbacks = []
@@ -137,7 +137,7 @@ def play(
     parameter: Optional[RLParameter] = None,
     memory: Optional[Memory] = None,
     env=None,
-) -> tuple[list[float], RLParameter, Memory]:
+) -> Tuple[List[float], RLParameter, Memory]:
     if env is None:
         env = config.create_env()
     if parameter is None:

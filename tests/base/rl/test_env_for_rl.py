@@ -1,7 +1,7 @@
 import itertools
 import unittest
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Tuple
 
 import gym
 import gym.spaces
@@ -44,7 +44,7 @@ class StubEnv(EnvBase):
     def reset(self) -> Any:
         return self.return_state
 
-    def step(self, action: Any) -> tuple[Any, float, bool, dict]:
+    def step(self, action: Any) -> Tuple[Any, float, bool, dict]:
         return self.return_state, self.return_reward, self.return_done, self.return_info
 
     def fetch_valid_actions(self) -> Any:

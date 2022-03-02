@@ -3,7 +3,7 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, List, Tuple
 
 import gym
 import gym.envs.registration
@@ -139,7 +139,7 @@ class NeonGrid(EnvBase):
         return 50
 
     # override
-    def fetch_valid_actions(self) -> list[int]:
+    def fetch_valid_actions(self) -> List[int]:
         return [e.value for e in Action]
 
     # override
@@ -167,7 +167,7 @@ class NeonGrid(EnvBase):
         return tuple(map(tuple, field))
 
     # override
-    def step(self, action_: int) -> tuple[Any, float, bool, dict]:
+    def step(self, action_: int) -> Tuple[Any, float, bool, dict]:
         action = Action(action_)
 
         items = self.action_probs[action].items()

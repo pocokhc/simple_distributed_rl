@@ -1,6 +1,6 @@
 import enum
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Tuple
 
 import gym
 import gym.envs.registration
@@ -53,7 +53,7 @@ class MyEnvGym(gym.Env):
         return tuple(self.player_pos)
 
     # override
-    def step(self, action_: int) -> tuple[Any, float, bool, dict]:
+    def step(self, action_: int) -> Tuple[Any, float, bool, dict]:
         action = Action(action_)
 
         next_player_pos = self.player_pos[:]

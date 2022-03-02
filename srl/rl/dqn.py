@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass
-from typing import Any, Optional, cast
+from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -83,11 +83,10 @@ class _QNetwork(keras.Model):
         self.model = keras.Model(input_, c)
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.env_observation_shape, dtype=np.float32)
+        dummy_state = np.zeros(shape=(1, config.input_sequence) + config.env_observation_shape, dtype=np.float32)
         val = self(dummy_state)
         assert val.shape == (1, config.nb_actions)
 
-    @tf.function
     def call(self, state):
         return self.model(state)
 
@@ -152,7 +151,7 @@ class Trainer(RLTrainer):
         self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
         self.loss = keras.losses.Huber()
 
-    def train_on_batchs(self, batchs: list, weights: list[float]):
+    def train_on_batchs(self, batchs: list, weights: List[float]):
 
         # データ形式を変形
         states = []
@@ -161,9 +160,9 @@ class Trainer(RLTrainer):
         rewards = []
         done_list = []
         for b in batchs:
-            states.append(b["states"][0])
+            states.append(b["states"][:-1])
             actions.append(b["action"])
-            n_states.append(b["states"][1])
+            n_states.append(b["states"][1:])
             rewards.append(b["reward"])
             done_list.append(b["done"])
         states = np.asarray(states)
@@ -203,7 +202,7 @@ class Worker(RLWorker):
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
 
-    def on_reset(self, state: np.ndarray, valid_actions: list[int]) -> None:
+    def on_reset(self, state: np.ndarray, valid_actions: List[int]) -> None:
         self.recent_states = [
             np.zeros(self.config.env_observation_shape) for _ in range(self.config.input_sequence + 1)
         ]
@@ -211,14 +210,14 @@ class Worker(RLWorker):
         self.recent_states.pop(0)
         self.recent_states.append(state)
 
-    def policy(self, _state: np.ndarray, valid_actions: list[int]) -> tuple[int, Any]:  # (env_action, agent_action)
+    def policy(self, _state: np.ndarray, valid_actions: List[int]) -> Tuple[int, Any]:  # (env_action, agent_action)
         if self.training:
             epsilon = self.config.epsilon
         else:
             epsilon = self.config.test_epsilon
 
         # Q値を取得
-        state = self.recent_states[1]
+        state = self.recent_states[1:]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
 
         if random.random() < epsilon:
@@ -239,8 +238,8 @@ class Worker(RLWorker):
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        valid_actions: list[int],
-        next_valid_actions: list[int],
+        valid_actions: List[int],
+        next_valid_actions: List[int],
     ):
 
         self.recent_states.pop(0)
@@ -253,7 +252,7 @@ class Worker(RLWorker):
         q = action_[1]
 
         # priority を計算
-        n_state = self.recent_states[1]
+        n_state = self.recent_states[1:]
         target_q = self.parameter._calc_target_q(np.asarray([n_state]), [reward], [done])[0]
         priority = abs(target_q - q) + 0.0001
 
@@ -266,8 +265,8 @@ class Worker(RLWorker):
 
         return batch, priority, {}
 
-    def render(self, state_: np.ndarray, valid_actions: list[int]) -> None:
-        state = self.recent_states[1]
+    def render(self, state_: np.ndarray, valid_actions: List[int]) -> None:
+        state = self.recent_states[1:]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):

@@ -57,7 +57,7 @@ class TrainFileLogger(MPCallback):
 
     # file logger
     enable_log: bool = True
-    log_interval: int = 10  # s
+    log_interval: int = 1  # s
 
     # checkpoint
     enable_checkpoint: bool = True

@@ -10,18 +10,13 @@ from typing import Optional
 
 import numpy as np
 import psutil
+import pynvml
 import tensorflow as tf
 from srl.runner import sequence
 from srl.runner.callbacks import Callback
 from srl.utils.common import JsonNumpyEncoder, listdictdict_to_dictlist, to_str_time
 
-# --- GPU(nvidia) の計測をするかどうか
-try:
-    import pynvml
-
-    enable_nvidia = True
-except ModuleNotFoundError:
-    enable_nvidia = False
+G_ENABLE_NVIDIA = False
 
 logger = logging.getLogger(__name__)
 
@@ -149,8 +144,16 @@ class TrainFileLogger(MPCallback):
             "cpu(MHz)": [c.max for c in psutil.cpu_freq(percpu=True)],  # type: ignore
         }
         info["tensorflow device list"] = [d.name for d in tf.config.list_logical_devices()]
-        if enable_nvidia:
+
+        # --- GPU(nvidia) の計測をするかどうか
+        global G_ENABLE_NVIDIA
+        try:
             pynvml.nvmlInit()
+            G_ENABLE_NVIDIA = True
+        except:
+            G_ENABLE_NVIDIA = False
+
+        if G_ENABLE_NVIDIA:
             info["nvidea driver varsion"] = str(pynvml.nvmlSystemGetDriverVersion())
             info["gpu"] = []
             for i in range(pynvml.nvmlDeviceGetCount()):
@@ -207,7 +210,7 @@ class TrainFileLogger(MPCallback):
             self.checkpoint_t0 = time.time()
             self.env = info["config"].create_env()
 
-        if enable_nvidia:
+        if G_ENABLE_NVIDIA:
             pynvml.nvmlInit()
 
     def on_trainer_end(self, info):
@@ -215,7 +218,7 @@ class TrainFileLogger(MPCallback):
         self._trainer_log(True)
         self._save_checkpoint(info, True)
 
-        if enable_nvidia:
+        if G_ENABLE_NVIDIA:
             pynvml.nvmlShutdown()
         self.close()
 
@@ -299,7 +302,7 @@ class TrainFileLogger(MPCallback):
         # system info
         d["memory percent"] = psutil.virtual_memory().percent
         d["cpu percent"] = psutil.cpu_percent(percpu=True)
-        if enable_nvidia:
+        if G_ENABLE_NVIDIA:
             d["gpu"] = []
             for i in range(pynvml.nvmlDeviceGetCount()):
                 handle = pynvml.nvmlDeviceGetHandleByIndex(i)

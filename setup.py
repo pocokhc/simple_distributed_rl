@@ -24,7 +24,8 @@ setup(
         "gym",
         "tensorflow",
         "psutil",
-        "pygame",
+        "pynvml",
+        # "pygame",
     ],
     python_requires=">=3.6",
     classifiers=[

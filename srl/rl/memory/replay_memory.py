@@ -18,7 +18,9 @@ class Config(MemoryConfig):
 class ReplayMemory(Memory):
     def __init__(self, config: Config):
         self.capacity = config.capacity
+        self.init()
 
+    def init(self):
         self.index = 0
         self.buffer = []
 

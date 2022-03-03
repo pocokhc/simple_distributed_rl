@@ -13,6 +13,10 @@ class MemoryConfig(ABC):
 
 class Memory(ABC):
     @abstractmethod
+    def init(self) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
     def add(self, exp: Any, priority: float = 0) -> None:
         raise NotImplementedError()
 

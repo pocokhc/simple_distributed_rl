@@ -47,7 +47,9 @@ class RankBaseMemory(Memory):
         self.alpha = config.alpha
         self.beta_initial = config.beta_initial
         self.beta_steps = config.beta_steps
+        self.init()
 
+    def init(self):
         self.buffer = []
         self.max_priority = 1
 

@@ -83,6 +83,9 @@ class ProportionalMemory(Memory):
         self.beta_initial = config.beta_initial
         self.beta_steps = config.beta_steps
 
+        self.init()
+
+    def init(self):
         self.tree = SumTree(self.capacity)
         self.max_priority = 1
         self.size = 0
@@ -91,7 +94,7 @@ class ProportionalMemory(Memory):
         if priority == 0:
             priority = self.max_priority
         if not _alpha_skip:
-            priority = priority**self.alpha
+            priority = priority ** self.alpha
         self.tree.add(priority, exp)
         self.size += 1
         if self.size > self.capacity:

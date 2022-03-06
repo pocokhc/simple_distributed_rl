@@ -25,7 +25,7 @@ setup(
         "tensorflow",
         "psutil",
         "pynvml",
-        # "pygame",
+        "opencv-python",
     ],
     python_requires=">=3.6",
     classifiers=[

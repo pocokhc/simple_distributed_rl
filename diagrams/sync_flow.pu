@@ -6,7 +6,7 @@ participant Env
 participant Worker
 participant Trainer
 participant Parameter
-participant ReplayMemory
+participant RemoteMemory
 
 
 activate Runner
@@ -25,12 +25,12 @@ loop episode
     return next_state, reward, done, info
 
     Runner -> Worker: on_step(state, action, next_state, reward, done)
-        Worker -> ReplayMemory: add batchs
+        Worker -> RemoteMemory: add batchs
         return
     return info
 
     Runner -> Trainer: train
-        Trainer -> ReplayMemory: sample
+        Trainer -> RemoteMemory: sample
         return batchs
 
         Trainer -> Parameter: update parameter

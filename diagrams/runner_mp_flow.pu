@@ -3,7 +3,7 @@ actor Runner
 participant TrainerProcess
 participant WorkerProcess
 queue LastParamQueue
-participant ReplayMemory
+participant RemoteMemory
 entity Board
 
 
@@ -11,7 +11,7 @@ entity Board
 activate Runner
 
 group create area
-    Runner -> ReplayMemory ** : create
+    Runner -> RemoteMemory ** : create
     Runner -> Board ** : create
     Runner -> LastParamQueue ** : create Queue
 
@@ -33,7 +33,7 @@ group end area
     Runner -> WorkerProcess !! : terminate
     Runner -> TrainerProcess !! : terminate
     Runner -> LastParamQueue !! : close
-    Runner -> ReplayMemory !!
+    Runner -> RemoteMemory !!
     Runner -> Board !!
 
 end

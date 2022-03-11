@@ -4,7 +4,7 @@ autoactivate on
 participant TrainerProcess
 participant Trainer
 participant Parameter
-participant ReplayMemory
+participant RemoteMemory
 entity Board
 queue LastParamQueue
 
@@ -15,7 +15,7 @@ TrainerProcess -> Trainer ** : create
 loop wait
 
     TrainerProcess -> Trainer: train
-        Trainer ->> ReplayMemory: sample
+        Trainer ->> RemoteMemory: sample
         return batchs
 
         Trainer -> Parameter: update parameter

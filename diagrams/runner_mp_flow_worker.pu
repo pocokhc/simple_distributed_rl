@@ -5,7 +5,7 @@ participant WorkerProcess
 participant Env
 participant Worker
 participant Parameter
-participant ReplayMemory
+participant RemoteMemory
 entity Board
 
 
@@ -28,7 +28,7 @@ loop episodes
         return next_state, reward, done, info
 
         WorkerProcess -> Worker: on_step(state, action, next_state, reward, done)
-            Worker ->> ReplayMemory: add batchs
+            Worker ->> RemoteMemory: add batchs
             return
         return info
 

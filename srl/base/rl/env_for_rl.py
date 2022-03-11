@@ -25,7 +25,7 @@ class EnvForRL(EnvBase):
     observation_division_num: int = 50
     prediction_by_simulation: bool = True
     enable_image_gray: bool = True
-    image_resize: Optional[tuple[int, int]] = None
+    image_resize: Optional[Tuple[int, int]] = None
 
     # コンストラクタ
     def __post_init__(self):

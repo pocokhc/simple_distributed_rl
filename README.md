@@ -5,7 +5,7 @@
 シンプルな強化学習フレームワークを目指して作成しました。
 以下の特徴があります。
 
-+ 分散強化学習の標準サポート
++ 分散強化学習のサポート
 + カスタマイズ可能な環境
 + カスタマイズ可能な強化学習アルゴリズム
 
@@ -23,14 +23,14 @@ pip install git+https://github.com/pocokhc/simple_rl
 
 ``` python
 from srl import rl
-from srl.runner import sequence. mp
+from srl.runner import mp, sequence
 from srl.runner.callbacks import PrintProgress, RenderingEpisode
+from srl.runner.callbacks_mp import TrainFileLogger
 
 # config
 config = sequence.Config(
     env_name="FrozenLake-v1",  # select env
     rl_config=rl.ql.Config(),  # select rl & rl config
-    memory_config=rl.memory.remote_memory.Config(),  # select memory & memory config
 )
 
 # train
@@ -41,7 +41,7 @@ if True:
 else:
     # distribute training
     mp_config = mp.Config(worker_num=2)  # select distribute config
-    mp_config.set_train_config(timeout=60, callbacks=[TrainFileLogger(enable_log=False, enable_checkpoint=False)])
+    mp_config.set_train_config(timeout=60, callbacks=[TrainFileLogger(enable_log=True, enable_checkpoint=False)])
     parameter = mp.train(config, mp_config)
 
 # test
@@ -74,11 +74,11 @@ sequence.play(config, parameter)
 # Algorithms
 
 
-|Algorithm|Observation Type|Action Type|Progress Rate|
-|---------|----------------|-----------|-------------|
-|QL       |Discrete        |Discrete   |100%         |
-|DQN      |Continuous      |Discrete   |100%         |
-|Rainbow  |Continuous      |Discrete   | 90%         |
+|Algorithm|Algorithm Type|Observation Type|Action Type|Progress Rate|
+|---------|--------------|----------------|-----------|-------------|
+|QL       |Table         |Discrete        |Discrete   |100%         |
+|DQN      |NeuralNet     |Continuous      |Discrete   |100%         |
+|Rainbow  |NeuralNet     |Continuous      |Discrete   | 90%         |
 
 
 

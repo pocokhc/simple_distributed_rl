@@ -49,7 +49,7 @@ class MyEnv(EnvBase):
         self._action_space = gym.spaces.Discrete(len(Action))
         self._observation_space = gym.spaces.Box(
             low=0,
-            high=np.maximum(self.H, self.W),
+            high=np.asarray([self.W, self.H]),
             shape=(2,),
         )
 
@@ -149,6 +149,17 @@ class MyEnv(EnvBase):
     # override
     def restore(self, data: Any) -> None:
         self.player_pos = json.loads(data)
+
+    def action_to_str(self, action) -> str:
+        if Action.DOWN.value == action:
+            return "↓"
+        if Action.LEFT.value == action:
+            return "←"
+        if Action.RIGHT.value == action:
+            return "→"
+        if Action.UP.value == action:
+            return "↑"
+        return str(action)
 
 
 if __name__ == "__main__":

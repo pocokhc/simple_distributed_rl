@@ -5,8 +5,7 @@ participant WorkerProcess
 participant Env
 participant Worker
 participant Parameter
-
-entity Memory
+participant ReplayMemory
 entity Board
 
 
@@ -15,27 +14,25 @@ WorkerProcess -> Env ** : create
 WorkerProcess -> Parameter ** : create
 WorkerProcess -> Worker ** : create
 loop episodes
-    WorkerProcess -> Env: on_reset
+    WorkerProcess -> Env: reset
     return
     WorkerProcess -> Worker: on_reset
     return
 
     loop episode
         WorkerProcess -> Worker: policy
-            Worker -> Parameter
-            return
+            Worker -> Parameter: get parameter
+            return parameter
         return action
         WorkerProcess -> Env: step(action)
         return next_state, reward, done, info
 
-        WorkerProcess -> Worker: on_step
-            Worker -> Parameter
+        WorkerProcess -> Worker: on_step(state, action, next_state, reward, done)
+            Worker ->> ReplayMemory: add batchs
             return
-        return batch, priority
-        WorkerProcess -> Memory: add(batch, priority)
-        return
+        return info
 
-        WorkerProcess -> Board: read
+        WorkerProcess ->> Board: read
         return parameter
         WorkerProcess -> Parameter: restore(parameter)
         return

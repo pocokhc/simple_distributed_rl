@@ -4,20 +4,20 @@ import unittest
 
 import numpy as np
 from srl import rl
-from srl.rl.memory import registory
+from srl.rl.memory import factory
 
 
 class TestMemory(unittest.TestCase):
     def test_memory(self):
         capacity = 10
 
-        memorys = [
-            (rl.memory.replay_memory.Config(capacity=capacity), False),
-            (rl.memory.proportional_memory.Config(capacity=capacity, alpha=0.8, beta_initial=1, beta_steps=10), True),
-            (rl.memory.rankbase_memory.Config(capacity=capacity, alpha=0.8, beta_initial=1, beta_steps=10), True),
+        memories = [
+            ("ReplayMemory", {"capacity": capacity}, False),
+            ("ProportionalMemory", {"capacity": capacity, "alpha": 0.8, "beta_initial": 1, "beta_steps": 10}, False),
+            ("RankBaseMemory", {"capacity": capacity, "alpha": 0.8, "beta_initial": 1, "beta_steps": 10}, False),
         ]
-        for memory_config, use_priority in memorys:
-            memory = registory.make(memory_config)
+        for name, config, use_priority in memories:
+            memory = factory.create(name, config)
             with self.subTest(memory.__class__.__name__):
                 self._test_memory(memory, use_priority)
 
@@ -28,13 +28,13 @@ class TestMemory(unittest.TestCase):
         # add
         for i in range(100):
             memory.add((i, i, i, i), 0)
-        assert memory.length() == capacity
+        assert len(memory) == capacity
 
         # 中身を1～10にする
         for i in range(10):
             i += 1
             memory.add((i, i, i, i), i)
-        assert memory.length() == capacity
+        assert len(memory) == capacity
 
         # --- 複数回やって比率をだす
         counter = []
@@ -53,7 +53,7 @@ class TestMemory(unittest.TestCase):
 
             # update priority
             memory.update(indexes, batchs, [b[3] for b in batchs])
-            assert memory.length() == capacity
+            assert len(memory) == capacity
 
             # save/load
             d = memory.backup()
@@ -80,8 +80,12 @@ class TestMemory(unittest.TestCase):
         capacity = 10
         for alpha in [0, 0.5, 0.8, 1.0]:
             with self.subTest(alpha=alpha):
-                config = rl.memory.proportional_memory.Config(capacity=capacity, alpha=alpha, beta_initial=1)
-                memory = registory.make(config)
+                config = {
+                    "capacity": capacity,
+                    "alpha": alpha,
+                    "beta_initial": 1,
+                }
+                memory = factory.create("ProportionalMemory", config)
                 priorities = [
                     1 ** alpha,
                     2 ** alpha,
@@ -99,8 +103,12 @@ class TestMemory(unittest.TestCase):
         capacity = 10
         for alpha in [0, 0.5, 0.8, 1.0]:
             with self.subTest(alpha=alpha):
-                config = rl.memory.rankbase_memory.Config(capacity=capacity, alpha=alpha, beta_initial=1)
-                memory = registory.make(config)
+                config = {
+                    "capacity": capacity,
+                    "alpha": alpha,
+                    "beta_initial": 1,
+                }
+                memory = factory.create("RankBaseMemory", config)
                 priorities = [
                     1 + 0 * alpha,  # 3位
                     1 + 1 * alpha,  # 2位

@@ -4,20 +4,18 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Tuple
 
 
-class MemoryConfig(ABC):
+class Memory(ABC):
     @staticmethod
     @abstractmethod
     def getName() -> str:
         raise NotImplementedError()
 
-
-class Memory(ABC):
     @abstractmethod
     def init(self) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def add(self, exp: Any, priority: float = 0) -> None:
+    def add(self, batch: Any, priority: float = 0) -> None:
         raise NotImplementedError()
 
     @abstractmethod
@@ -25,12 +23,12 @@ class Memory(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def sample(self, batch_size: int, steps: int) -> Tuple[list, list, list]:
+    def sample(self, batch_size: int, step: int) -> Tuple[list, list, list]:
         raise NotImplementedError()
         # return (indexes, batchs, weights)
 
     @abstractmethod
-    def length(self) -> int:
+    def __len__(self) -> int:
         raise NotImplementedError()
 
     @abstractmethod
@@ -40,6 +38,9 @@ class Memory(ABC):
     @abstractmethod
     def restore(self, data: Any) -> None:
         raise NotImplementedError()
+
+    def clear(self) -> None:
+        self.init()
 
     def save(self, path: str) -> None:
         with open(path, "wb") as f:

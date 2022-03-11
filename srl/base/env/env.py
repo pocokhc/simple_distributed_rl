@@ -1,5 +1,5 @@
 import pickle
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from typing import Any, Optional, Tuple
 
 import gym
@@ -7,7 +7,7 @@ import gym.spaces
 from srl.base.define import EnvObservationType
 
 
-class EnvBase(gym.Env, metaclass=ABCMeta):
+class EnvBase(gym.Env, ABC):
     def __del__(self):
         self.close()
 
@@ -69,6 +69,9 @@ class EnvBase(gym.Env, metaclass=ABCMeta):
     def restore(self, data: Any) -> None:
         raise NotImplementedError()
 
+    def action_to_str(self, action: Any) -> str:
+        return str(action)
+
 
 class GymEnvWrapper(EnvBase):
     def __init__(self, env: gym.Env):
@@ -89,7 +92,7 @@ class GymEnvWrapper(EnvBase):
     @property
     def max_episode_steps(self) -> int:
         if hasattr(self.env, "_max_episode_steps"):
-            return self.env._max_episode_steps  # type: ignore
+            return self.env._max_episode_steps
         else:
             return 999_999
 
@@ -104,7 +107,7 @@ class GymEnvWrapper(EnvBase):
 
     def fetch_valid_actions(self) -> Optional[list]:
         if isinstance(self.action_space, gym.spaces.Discrete):
-            return [a for a in range(self.action_space.n)]  # type: ignore
+            return [a for a in range(self.action_space.n)]
         return None
 
     def render(self, mode: str = "human") -> Any:

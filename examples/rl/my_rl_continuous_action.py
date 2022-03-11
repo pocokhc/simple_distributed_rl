@@ -1,16 +1,19 @@
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, cast
+from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras  # type: ignore
-import tensorflow.keras.layers as kl  # type: ignore
+import tensorflow.keras as keras
+import tensorflow.keras.layers as kl
+import tensorflow_probability as tfp
 from srl.base.rl import RLTrainer, RLWorker
 from srl.base.rl.config import ContinuousActionConfig
-from srl.base.rl.rl import RLParameter
-from srl.rl.functions.common_tf import compute_logprob
+from srl.base.rl.rl import RLParameter, RLRemoteMemory
+from srl.rl.functions.common_tf import compute_logprob, compute_logprob_sgp
 from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
 from srl.rl.registory import register
+
+tfd = tfp.distributions
 
 
 # ------------------------------------------------------
@@ -22,19 +25,13 @@ class Config(ContinuousActionConfig):
     epsilon: float = 0.1
     test_epsilon: float = 0
     gamma: float = 0.9
+    lr: float = 0.001
 
-    std_clip_range: float = 2.0  # 勾配爆発抑制用
-
-    # common
-    batch_size: int = 16
-    memory_warmup_size: int = 100
-
-    def __post_init__(self):
-        super().__init__(self.batch_size, self.memory_warmup_size)
+    # std_clip_range: float = 1.0  # 勾配爆発抑制用
 
     @staticmethod
     def getName() -> str:
-        return "MyRLContinuousAction"
+        return "ContinuousAction"
 
 
 register(Config, __name__)
@@ -69,9 +66,11 @@ class Parameter(RLParameter):
         pi_stddev = kl.Dense(self.config.action_num, activation="linear")(c)
         self.actor = keras.Model(input_, [pi_mean, pi_stddev])
 
-    def restore(self, data: Optional[Any]) -> None:
-        if data is None:
-            return
+    def summary(self):
+        self.critic.summary()
+        self.actor.summary()
+
+    def restore(self, data: Any) -> None:
         self.critic.set_weights(data[0])
         self.actor.set_weights(data[1])
 
@@ -83,6 +82,36 @@ class Parameter(RLParameter):
 
 
 # ------------------------------------------------------
+# RemoteMemory
+# ------------------------------------------------------
+class RemoteMemory(RLRemoteMemory):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.config = cast(Config, self.config)
+
+        self.buffer = []
+
+    def length(self) -> int:
+        return len(self.buffer)
+
+    def restore(self, data: Any) -> None:
+        self.buffer = data
+
+    def backup(self):
+        return self.buffer
+
+    # --------------------
+
+    def add(self, batch: Any) -> None:
+        self.buffer.append(batch)
+
+    def sample(self):
+        buffer = self.buffer
+        self.buffer = []
+        return buffer
+
+
+# ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
 class Trainer(RLTrainer):
@@ -90,22 +119,29 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
+        self.memory = cast(RemoteMemory, self.memory)
 
-        self.optimizer = keras.optimizers.Adam()
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
 
-    def train_on_batchs(self, batchs: list, weights: List[float]):
+        self.train_count = 0
 
-        # データ形式を変形
+    def get_train_count(self):
+        return self.train_count
+
+    def train(self):
+        if self.memory.length() == 0:
+            return {}
+
+        batchs = self.memory.sample()
+
         states = []
         actions = []
-        old_logpi = []
         n_states = []
         rewards = []
         done_list = []
         for b in batchs:
             states.append(b["state"])
             actions.append(b["action"])
-            old_logpi.append(b["logpi"])
             n_states.append(b["next_state"])
             rewards.append(b["reward"])
             done_list.append(b["done"])
@@ -113,7 +149,6 @@ class Trainer(RLTrainer):
         n_states = np.asarray(n_states)
         done_list = np.asarray(done_list)
         actions = np.asarray(actions)
-        old_logpi = np.asarray(old_logpi)
 
         # value
         n_v = self.parameter.critic(n_states).numpy()
@@ -122,12 +157,9 @@ class Trainer(RLTrainer):
             if done_list[i]:
                 gain = rewards[i]
             else:
-                gain = rewards[i] + self.config.gamma * n_v[i]
+                gain = rewards[i] + self.config.gamma * n_v[i][0]
             advantages.append([gain])
         advantages = np.asarray(advantages)
-
-        # baseline
-        advantages -= np.mean(advantages)
 
         # --- critic(MSE)
         with tf.GradientTape() as tape:
@@ -136,27 +168,24 @@ class Trainer(RLTrainer):
         grads = tape.gradient(v_loss, self.parameter.critic.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.critic.trainable_variables))
 
+        # baseline
+        advantages -= np.mean(advantages)
+
         # --- actor
         with tf.GradientTape() as tape:
             mean, stddev = self.parameter.actor(states)
-            stddev = tf.clip_by_value(stddev, -self.config.std_clip_range, self.config.std_clip_range)
             stddev = tf.math.exp(stddev)
 
             # log(π(a|s))
-            new_logpi = compute_logprob(mean, stddev, actions)
+            new_logpi = compute_logprob_sgp(mean, stddev, actions)
 
-            # IS
-            ratio = tf.exp(new_logpi - old_logpi)
-
-            policy_loss = new_logpi * ratio * advantages
+            policy_loss = new_logpi * advantages
             policy_loss = -tf.reduce_mean(policy_loss)
 
         grads = tape.gradient(policy_loss, self.parameter.actor.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.actor.trainable_variables))
 
-        # priorities
-        priorities = [0 for _ in range(len(batchs))]
-        return priorities, {
+        return {
             "v_loss": v_loss.numpy(),
             "policy_loss": policy_loss.numpy(),
         }
@@ -170,6 +199,7 @@ class Worker(RLWorker):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
+        self.memory = cast(RemoteMemory, self.memory)
 
         self.action_centor = (self.config.action_high + self.config.action_low) / 2
         self.action_scale = self.config.action_high - self.action_centor
@@ -177,32 +207,32 @@ class Worker(RLWorker):
         self.action_scale = np.asarray([self.action_scale])
 
     def on_reset(self, state: np.ndarray, valid_actions: List[int]) -> None:
-        pass
+        self.episode_batchs = []
 
     def policy(self, state: np.ndarray, valid_actions: List[int]) -> Tuple[int, Any]:
 
-        mean, stddev = self.parameter.actor(state.reshape((1, -1)))
-        stddev = tf.clip_by_value(stddev, -self.config.std_clip_range, self.config.std_clip_range)
+        mean, stddev = self.parameter.actor(state[np.newaxis, ...])
         stddev = tf.math.exp(stddev)
 
         if self.training:
             # ガウス分布に従った乱数をだす
             action = tf.random.normal(tf.shape(mean), mean=mean, stddev=stddev)
-            logpi = compute_logprob(mean, stddev, action).numpy()[0]
         else:
             # テストは平均
             action = mean
-            logpi = 0
 
-        # [-∞,∞]([-1,1]) -> [low, high]
-        env_action = action * self.action_scale + self.action_centor
+        # Squashed Gaussian Policy [-∞,∞] -> [1, 1]
+        env_action = tf.tanh(action)
 
-        return env_action.numpy()[0], (action.numpy()[0], logpi, mean.numpy()[0])
+        # [-1,1] -> [low, high]
+        env_action = env_action * self.action_scale + self.action_centor
+
+        return env_action.numpy()[0], action.numpy()[0]
 
     def on_step(
         self,
         state: np.ndarray,
-        action_: Any,
+        action: Any,
         next_state: np.ndarray,
         reward: float,
         done: bool,
@@ -210,31 +240,35 @@ class Worker(RLWorker):
         next_valid_actions: List[int],
     ):
         if not self.training:
-            return None, 0, {}
+            return {}
 
         batch = {
             "state": state,
             "next_state": next_state,
-            "action": action_[0],
-            "logpi": action_[1],
+            "action": action,
             "reward": reward,
             "done": done,
         }
-        priority = 0
-        return (
-            batch,
-            priority,
-            {
-                "logpi": action_[1],
-                "pi": np.exp(action_[1]),
-                "mean": action_[2],
-            },
-        )
+        self.episode_batchs.append(batch)
 
-    def render(self, state: np.ndarray, valid_actions: List[int]) -> None:
-        v = self.parameter.critic(state[np.newaxis, ...]).numpy()[0]
-        mean = self.parameter.actor(state[np.newaxis, ...])
+        if done:
+            # MC
+            r = 0
+            for batch in reversed(self.episode_batchs):
+                r = batch["reward"] + self.config.gamma * r
+                batch["reward"] = r
+                self.memory.add(batch)
 
-        action = mean * self.action_scale + self.action_centor
-        action = action[0].numpy()
-        print(v, mean, np.round(action))
+        return {}
+
+    def render(self, state: np.ndarray, valid_actions: List[int], action_to_str) -> None:
+        v = self.parameter.critic(state[np.newaxis, ...]).numpy()[0][0]
+        mean, stddev = self.parameter.actor(state[np.newaxis, ...])
+
+        action = tf.tanh(mean)
+        action = action * self.action_scale + self.action_centor
+        action = action.numpy()[0][0]
+        print(f"V            : {v}")
+        print(f"action mean  : {mean.numpy()[0][0]}")
+        print(f"action stddev: {stddev.numpy()[0][0]}")
+        print(f"action       : {action_to_str(action)}")

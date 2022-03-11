@@ -5,6 +5,7 @@ from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 from srl.base.rl import RLParameter, RLTrainer, RLWorker, TableConfig
+from srl.base.rl.rl import RLRemoteMemory
 from srl.rl.registory import register
 
 
@@ -19,19 +20,9 @@ class Config(TableConfig):
     gamma: float = 0.9  # 割引率
     lr: float = 0.1  # 学習率
 
-    # common
-    batch_size: int = 1
-    memory_warmup_size: int = 10
-
-    def __post_init__(self):
-        super().__init__(self.batch_size, self.memory_warmup_size)
-
     @staticmethod
     def getName() -> str:
         return "MyRLTable"
-
-    def assert_params(self) -> None:
-        super().assert_params()
 
 
 register(Config, __name__)
@@ -48,8 +39,6 @@ class Parameter(RLParameter):
         self.Q = {}
 
     def restore(self, data: Optional[Any]) -> None:
-        if data is None:
-            return
         self.Q = json.loads(data)
 
     def backup(self):
@@ -62,14 +51,35 @@ class Parameter(RLParameter):
             self.Q[state] = [0 if a in valid_actions else -np.inf for a in range(self.config.nb_actions)]
         return self.Q[state]
 
-    def _calc_target_q(self, n_state, n_valid_actions, reward, done):
-        n_q = self._get_q(n_state, n_valid_actions)
 
-        if done:
-            target_q = reward
-        else:
-            target_q = reward + self.config.gamma * max(n_q)
-        return target_q
+# ------------------------------------------------------
+# RemoteMemory
+# ------------------------------------------------------
+class RemoteMemory(RLRemoteMemory):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.config = cast(Config, self.config)
+
+        self.buffer = []
+
+    def length(self) -> int:
+        return len(self.buffer)
+
+    def restore(self, data: Any) -> None:
+        self.buffer = data
+
+    def backup(self):
+        return self.buffer
+
+    # --------------------
+
+    def add(self, batch: Any) -> None:
+        self.buffer.append(batch)
+
+    def sample(self):
+        buffer = self.buffer
+        self.buffer = []
+        return buffer
 
 
 # ------------------------------------------------------
@@ -80,36 +90,40 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
+        self.memory = cast(RemoteMemory, self.memory)
 
-    def train_on_batchs(self, batchs: list, weights: List[float]):
-        priorities = []
-        td_error_mean = 0
-        for i in range(self.config.batch_size):
+        self.train_count = 0
+
+    def get_train_count(self):
+        return self.train_count
+
+    def train(self):
+        batchs = self.memory.sample()
+        for batch in batchs:
 
             # データ形式を変形
-            s = batchs[i]["state"]
-            n_s = batchs[i]["next_state"]
-            action = batchs[i]["action"]
-            reward = batchs[i]["reward"]
-            done = batchs[i]["done"]
-            valid_actions = batchs[i]["valid_actions"]
-            next_valid_actions = batchs[i]["next_valid_actions"]
-            weight = weights[i]
+            s = batch["state"]
+            n_s = batch["next_state"]
+            action = batch["action"]
+            reward = batch["reward"]
+            done = batch["done"]
+            valid_actions = batch["valid_actions"]
+            next_valid_actions = batch["next_valid_actions"]
 
             q = self.parameter._get_q(s, valid_actions)
+            n_q = self.parameter._get_q(n_s, next_valid_actions)
 
-            # Q値の計算
-            target_q = self.parameter._calc_target_q(n_s, next_valid_actions, reward, done)
+            if done:
+                target_q = reward
+            else:
+                target_q = reward + self.config.gamma * max(n_q)
+
             td_error = target_q - q[action]
-            q[action] += self.config.lr * td_error * weight
+            q[action] += self.config.lr * td_error
 
-            priority = abs(td_error) + 0.0001
-            priorities.append(priority)
+            self.train_count += 1
 
-            td_error_mean += td_error
-
-        return priorities, {
-            "td_error": td_error_mean / self.config.batch_size,
+        return {
             "Q": len(self.parameter.Q),
         }
 
@@ -122,38 +136,35 @@ class Worker(RLWorker):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
-
-        self.step = 0
+        self.memory = cast(RemoteMemory, self.memory)
 
     def on_reset(self, state: np.ndarray, valid_actions: List[int]) -> None:
-        pass
+        if self.training:
+            self.epsilon = self.config.epsilon
+        else:
+            self.epsilon = self.config.test_epsilon
 
     def policy(self, state: np.ndarray, valid_actions: List[int]) -> Tuple[int, Any]:
         s = str(state.tolist())
 
-        if self.training:
-            epsilon = self.config.epsilon
-        else:
-            epsilon = self.config.test_epsilon
-
-        q = self.parameter._get_q(s, valid_actions)
-
-        if random.random() < epsilon:
+        if random.random() < self.epsilon:
             # epsilonより低いならランダムに移動
             action = random.choice(valid_actions)
         else:
+            q = self.parameter._get_q(s, valid_actions)
+
             # valid actionsでfilter
             q = np.asarray([val if a in valid_actions else -np.inf for a, val in enumerate(q)])
 
             # 最大値を選ぶ（複数あればランダム）
             action = random.choice(np.where(q == q.max())[0])
 
-        return action, (action, q[action])
+        return action, action
 
     def on_step(
         self,
         state: np.ndarray,
-        action_: Any,
+        action: Any,
         next_state: np.ndarray,
         reward: float,
         done: bool,
@@ -163,27 +174,19 @@ class Worker(RLWorker):
         if not self.training:
             return {}
 
-        action = action_[0]
-        q = action_[1]
-        s = str(state.tolist())
-        n_s = str(next_state.tolist())
-
-        # priority を計算
-        target_q = self.parameter._calc_target_q(n_s, next_valid_actions, reward, done)
-        priority = abs(target_q - q) + 0.0001
-
         batch = {
-            "state": s,
-            "next_state": n_s,
+            "state": str(state.tolist()),
+            "next_state": str(next_state.tolist()),
             "action": action,
             "reward": reward,
             "done": done,
             "valid_actions": valid_actions,
             "next_valid_actions": next_valid_actions,
         }
-        return (batch, priority, {"Q": len(self.parameter.Q)})
+        self.memory.add(batch)
+        return {}
 
-    def render(self, state: np.ndarray, valid_actions: List[int]) -> None:
+    def render(self, state: np.ndarray, valid_actions: List[int], action_to_str) -> None:
         s = str(state.tolist())
         q = self.parameter._get_q(s, valid_actions)
         maxa = np.argmax(q)
@@ -192,5 +195,5 @@ class Worker(RLWorker):
                 s = "*"
             else:
                 s = " "
-            s += f"{a:3d}: {q[a]:7.5f}"
+            s += f"{action_to_str(a)}: {q[a]:7.5f}"
             print(s)

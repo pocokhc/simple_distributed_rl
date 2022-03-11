@@ -39,14 +39,13 @@ abstract EnvBase {
     - fetch_valid_actions()
     - backup()
     - restore()
+    - action_to_str()
 } 
 
 class EnvForRL
 
-abstract Memory {
-    add()
-    sample()
-    update()
+abstract RLRemoteMemory {
+    length()
     backup()
     restore()
 }
@@ -56,6 +55,7 @@ abstract RLConfig {
     {static} getName() : str
     action_type : RLActionType
     observation_type : RLObservationType
+    assert_params()
     set_config_by_env(EnvForRL)
 }
 
@@ -66,21 +66,21 @@ abstract RLParameter {
 
 abstract RLTrainer {
     config : RLConfig
-    memory : Memory
+    memory : RLRemoteMemory
     board : ParameterBoard
+    get_train_count() : int
     train()
-    train_on_batchs(batchs, weights) : priorities
 }
 
 abstract RLWorker {
     config : RLConfig
-    memory : Memory
+    memory : RLRemoteMemory
     board : ParameterBoard
     worker_id : int
     on_reset(state, valid_actions)
     policy(state, valid_actions)
     on_step(state, action, next_state, reward, done, valid_actions, next_valid_actions)
-    render(state, valid_actions)
+    render(state, valid_actions, action_to_str)
 }
 
 
@@ -92,8 +92,8 @@ RLConfig -- RLTrainer
 RLConfig -- RLParameter
 RLParameter -- RLWorker
 RLParameter -- RLTrainer
-Memory -- RLWorker
-Memory -- RLTrainer
+RLRemoteMemory -- RLWorker
+RLRemoteMemory -- RLTrainer
 
 RLWorker .. EnvForRL
 RLTrainer .. EnvForRL

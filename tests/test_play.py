@@ -19,6 +19,7 @@ class TestRL(unittest.TestCase):
         rl_list = [
             (rl.ql.Config(), 100),
             (rl.dqn.Config(), 10),
+            (rl.rainbow.Config(), 10),
         ]
 
         for env_name in env_list:
@@ -26,7 +27,6 @@ class TestRL(unittest.TestCase):
                 config = sequence.Config(
                     env_name=env_name,
                     rl_config=rl_config,
-                    memory_config=rl.memory.replay_memory.Config(),
                 )
                 with self.subTest((env_name, rl_config.getName())):
                     # --- train

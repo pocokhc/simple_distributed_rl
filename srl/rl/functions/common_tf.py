@@ -3,7 +3,7 @@ import tensorflow as tf
 
 
 # 方策が正規分布時の logπ(a|s)
-@tf.function
+# @tf.function
 def compute_logprob(mean, stddev, action):
     a1 = -0.5 * np.log(2 * np.pi)
     a2 = -tf.math.log(stddev)
@@ -12,7 +12,7 @@ def compute_logprob(mean, stddev, action):
 
 
 # Squashed Gaussian Policy の logπ(a|s)
-@tf.function
+# @tf.function
 def compute_logprob_sgp(mean, stddev, action):
     logmu = compute_logprob(mean, stddev, action)
     logpi = 1.0 - tf.tanh(action) ** 2

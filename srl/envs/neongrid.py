@@ -205,6 +205,18 @@ class NeonGrid(EnvBase):
         print("")
 
     # override
+    def action_to_str(self, action) -> str:
+        if Action.DOWN.value == action:
+            return "↓"
+        if Action.LEFT.value == action:
+            return "←"
+        if Action.RIGHT.value == action:
+            return "→"
+        if Action.UP.value == action:
+            return "↑"
+        return str(action)
+
+    # override
     def backup(self) -> Any:
         return json.dumps(
             [

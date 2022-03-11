@@ -140,8 +140,8 @@ class TrainFileLogger(MPCallback):
         info = {
             "memory size": psutil.virtual_memory().total,
             "memory percent": psutil.virtual_memory().percent,
-            "cpu count": len(psutil.Process().cpu_affinity()),  # type: ignore
-            "cpu(MHz)": [c.max for c in psutil.cpu_freq(percpu=True)],  # type: ignore
+            "cpu count": len(psutil.Process().cpu_affinity()),
+            "cpu(MHz)": [c.max for c in psutil.cpu_freq(percpu=True)],
         }
         info["tensorflow device list"] = [d.name for d in tf.config.list_logical_devices()]
 
@@ -150,7 +150,7 @@ class TrainFileLogger(MPCallback):
         try:
             pynvml.nvmlInit()
             G_ENABLE_NVIDIA = True
-        except:
+        except Exception:
             G_ENABLE_NVIDIA = False
 
         if G_ENABLE_NVIDIA:
@@ -161,7 +161,7 @@ class TrainFileLogger(MPCallback):
                 info["gpu"].append(
                     {
                         "device": str(pynvml.nvmlDeviceGetName(handle)),
-                        "memory": pynvml.nvmlDeviceGetMemoryInfo(handle).total,  # type: ignore
+                        "memory": pynvml.nvmlDeviceGetMemoryInfo(handle).total,
                     }
                 )
             pynvml.nvmlShutdown()
@@ -225,13 +225,30 @@ class TrainFileLogger(MPCallback):
     def on_trainer_train_end(self, info):
         self._step_time = time.time()
         self.elapsed_time = self._step_time - self.t0  # 経過時間
+        memory_len = info["remote_remote_memory"].length()
 
         if self.enable_print_progress:
-            self.progress_history.append(info["train_info"])
+            self.progress_history.append(
+                {
+                    "sync_count": info["sync_count"],
+                    "train_count": info["train_count"],
+                    "train_time": info["train_time"],
+                    "train_info": info["train_info"],
+                    "memory": memory_len,
+                }
+            )
             self._trainer_print_progress()
 
         if self.enable_log:
-            self.log_history.append(info["train_info"])
+            self.log_history.append(
+                {
+                    "sync_count": info["sync_count"],
+                    "train_count": info["train_count"],
+                    "train_time": info["train_time"],
+                    "train_info": info["train_info"],
+                    "memory": memory_len,
+                }
+            )
             self._trainer_log()
 
         self._save_checkpoint(info, False)
@@ -245,7 +262,8 @@ class TrainFileLogger(MPCallback):
             return
 
         info = self.progress_history[-1]
-        train_count = info["train"]
+        train_count = info["train_count"]
+        sync_count = info["sync_count"]
         memory_len = info["memory"]
         train_time = np.mean([t["train_time"] for t in self.progress_history])
 
@@ -253,8 +271,9 @@ class TrainFileLogger(MPCallback):
         s += " trainer:{:8d} train".format(train_count)
         s += ",{:6.3f}s/train".format(train_time)
         s += ",{:8d} memory ".format(memory_len)
+        s += ",{:8d} sync ".format(sync_count)
 
-        d = listdictdict_to_dictlist(self.progress_history, "info")
+        d = listdictdict_to_dictlist(self.progress_history, "train_info")
         for k, arr in d.items():
             s += f"|{k} {np.mean(arr):.3f}"
 
@@ -282,19 +301,21 @@ class TrainFileLogger(MPCallback):
             return
 
         info = self.log_history[-1]
-        train_count = info["train"]
+        train_count = info["train_count"]
+        sync_count = info["sync_count"]
         memory_len = info["memory"]
         train_time = np.mean([t["train_time"] for t in self.log_history])
 
         # 平均
-        info = listdictdict_to_dictlist(self.progress_history, "info")
+        info = listdictdict_to_dictlist(self.progress_history, "train_info")
         for k, arr in info.items():
             info[k] = np.mean(arr)
 
         d = {
             "date": dt.datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
-            "train_count": train_count,
             "rl_memory": memory_len,
+            "parameter_sync_count": sync_count,
+            "train_count": train_count,
             "train_time": train_time,
             "train_info": info,
         }
@@ -309,8 +330,8 @@ class TrainFileLogger(MPCallback):
                 rate = pynvml.nvmlDeviceGetUtilizationRates(handle)
                 d["gpu"].append(
                     {
-                        "percent": rate.gpu,  # type: ignore
-                        "memory percent": rate.memory,  # type: ignore
+                        "percent": rate.gpu,
+                        "memory percent": rate.memory,
                     }
                 )
         self._write_log(self.fp_dict["trainer"], d)
@@ -334,7 +355,7 @@ class TrainFileLogger(MPCallback):
         reward = np.mean(rewards)
 
         # save
-        train_count = info["train_info"]["train"]
+        train_count = info["train_count"]
         parameter.save(os.path.join(self.param_dir, f"{train_count}_{reward}.pickle"))
 
         if self.enable_print_progress:

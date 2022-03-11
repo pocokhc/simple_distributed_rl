@@ -1,11 +1,9 @@
 import os
 import pickle
-import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from srl.base.rl.config import RLConfig
-from srl.base.rl.memory import Memory
 
 
 class RLParameter(ABC):
@@ -13,7 +11,7 @@ class RLParameter(ABC):
         self.config = config
 
     @abstractmethod
-    def restore(self, data: Optional[Any]) -> None:
+    def restore(self, data: Any) -> None:
         raise NotImplementedError()
 
     @abstractmethod
@@ -34,42 +32,46 @@ class RLParameter(ABC):
         pass
 
 
-class RLTrainer(ABC):
-    def __init__(self, config: RLConfig, parameter: RLParameter):
+class RLRemoteMemory(ABC):
+    def __init__(self, config: RLConfig):
         self.config = config
-        self.parameter = parameter
-
-        self.train_count = 0
 
     @abstractmethod
-    def train_on_batchs(self, batchs: list, weights: List[float]) -> Tuple[List[float], Dict[str, Union[float, int]]]:
+    def length(self) -> int:
         raise NotImplementedError()
 
-    def train(self, memory: Memory) -> Dict[str, Any]:
-        memory_len = memory.length()
-        warmup_size = self.config.memory_warmup_size
-        batch_size = self.config.batch_size
+    @abstractmethod
+    def restore(self, data: Any) -> None:
+        raise NotImplementedError()
 
-        info: dict[str, Any] = {
-            "memory": memory_len,
-            "train": self.train_count,
-        }
+    @abstractmethod
+    def backup(self) -> Any:
+        raise NotImplementedError()
 
-        if memory_len < warmup_size:
-            return info
+    def save(self, path: str) -> None:
+        with open(path, "wb") as f:
+            pickle.dump(self.backup(), f)
 
-        t0 = time.time()
-        (indexes, batchs, weights) = memory.sample(batch_size, self.train_count)
-        priorities, train_info = self.train_on_batchs(batchs, weights)
-        self.train_count += 1
+    def load(self, path: str) -> None:
+        if not os.path.isfile(path):
+            return
+        with open(path, "rb") as f:
+            self.restore(pickle.load(f))
 
-        # memory update
-        memory.update(indexes, batchs, priorities)
 
-        # info
-        info["train_time"] = time.time() - t0
-        info["info"] = train_info
-        return info
+class RLTrainer(ABC):
+    def __init__(self, config: RLConfig, parameter: RLParameter, memory: RLRemoteMemory):
+        self.config = config
+        self.parameter = parameter
+        self.memory = memory
+
+    @abstractmethod
+    def get_train_count(self) -> int:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def train(self) -> Dict[str, Any]:
+        raise NotImplementedError()
 
 
 class RLWorker(ABC):
@@ -77,10 +79,12 @@ class RLWorker(ABC):
         self,
         config: RLConfig,
         parameter: Optional[RLParameter] = None,
+        memory: Optional[RLRemoteMemory] = None,
         worker_id: int = 0,
     ):
         self.config = config
         self.parameter = parameter
+        self.memory = memory
         self.worker_id = worker_id
         self.training = False
 
@@ -105,15 +109,17 @@ class RLWorker(ABC):
         done: bool,
         valid_actions: Optional[List[int]],
         next_valid_actions: Optional[List[int]],
-    ) -> Union[Dict[str, Union[float, int]], Tuple[Any, float, Dict[str, Union[float, int]]]]:
-        # if self.training:
-        #    return batch, priority, info
-        # else:
-        #    return info
+    ) -> Dict[str, Union[float, int]]:
+        # return info
         raise NotImplementedError()
 
     @abstractmethod
-    def render(self, state: Any, valid_actions: Optional[List[int]]) -> None:
+    def render(
+        self,
+        state: Any,
+        valid_actions: Optional[List[int]],
+        action_to_str: Callable[[Any], str],
+    ) -> None:
         raise NotImplementedError()
 
 

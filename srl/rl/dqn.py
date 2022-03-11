@@ -1,26 +1,26 @@
 import random
+from collections import deque
 from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
-from srl.base.rl import DiscreteActionConfig, RLParameter, RLTrainer, RLWorker
+from srl.base.rl import DiscreteActionConfig, RLParameter, RLRemoteMemory, RLTrainer, RLWorker
 from srl.rl.functions.model import ImageLayerType, create_input_layers
 from srl.rl.registory import register
 from tensorflow.keras import layers as kl
 
 """
-DQN
-    window_length(input_sequence): o
-    Target Network      : o (Double DQN)
-    Huber loss function : o
-    Delay update Target Network: o
-    Experience Replay   : o(distribute)
-    Frame skip          : x
-    Annealing e-greedy  : x
-    Reward clip         : x
-    Image preprocessor  : x
+window_length(input_sequence): o
+Target Network               : o (+Double DQN)
+Huber loss function          : o
+Delay update Target Network  : o
+Experience Replay   : o
+Frame skip          : x
+Annealing e-greedy  : o
+Reward clip         : o
+Image preprocessor  : x
 """
 
 
@@ -30,8 +30,13 @@ DQN
 @dataclass
 class Config(DiscreteActionConfig):
 
-    epsilon: float = 0.1
     test_epsilon: float = 0
+
+    epsilon: float = 0.1
+    # Annealing e-greedy
+    initial_epsilon: float = 1.0
+    final_epsilon: float = 0.01
+    exploration_steps: int = -1
 
     # model
     input_sequence: int = 1
@@ -40,14 +45,14 @@ class Config(DiscreteActionConfig):
 
     gamma: float = 0.99  # 割引率
     lr: float = 0.001  # 学習率
-    target_model_update_interval: int = 100
-
-    # common
     batch_size: int = 32
+    capacity: int = 100_000
     memory_warmup_size: int = 1000
+    target_model_update_interval: int = 100
+    reward_clip: Optional[Tuple[float, float]] = None
+    enable_double_dqn: bool = True
 
-    def __post_init__(self):
-        super().__init__(self.batch_size, self.memory_warmup_size)
+    dummy_state_val: float = 0.0
 
     @staticmethod
     def getName() -> str:
@@ -56,6 +61,8 @@ class Config(DiscreteActionConfig):
     def assert_params(self) -> None:
         super().assert_params()
         assert self.input_sequence > 0
+        assert self.memory_warmup_size < self.capacity
+        assert self.batch_size < self.memory_warmup_size
 
 
 register(Config, __name__)
@@ -102,9 +109,7 @@ class Parameter(RLParameter):
         self.q_online = _QNetwork(self.config)
         self.q_target = _QNetwork(self.config)
 
-    def restore(self, data: Optional[Any]) -> None:
-        if data is None:
-            return
+    def restore(self, data: Any) -> None:
         self.q_online.set_weights(data)
         self.q_target.set_weights(data)
 
@@ -114,29 +119,46 @@ class Parameter(RLParameter):
     def summary(self):
         self.q_online.model.summary()
 
-    # ---------------------------------
 
-    def _calc_target_q(self, n_states, rewards, done_list):
+# ------------------------------------------------------
+# RemoteMemory
+# ------------------------------------------------------
+class RemoteMemory(RLRemoteMemory):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.config = cast(Config, self.config)
 
-        # Q値をだす
-        n_q = self.q_online(n_states).numpy()
-        n_q_target = self.q_target(n_states).numpy()
+        self.memory = deque(maxlen=self.config.capacity)
+        self.invalid_memory = deque(maxlen=self.config.capacity)
 
-        # 各バッチのQ値を計算
-        target_q = []
-        for i in range(len(rewards)):
-            reward = rewards[i]
-            if done_list[i]:
-                gain = reward
-            else:
-                # DoubleDQN: indexはQが最大を選び、値はそのtargetQを選ぶ
-                n_act_idx = np.argmax(n_q[i])
-                maxq = n_q_target[i][n_act_idx]
-                gain = reward + self.config.gamma * maxq
-            target_q.append(gain)
-        target_q = np.asarray(target_q)
+    def length(self) -> int:
+        return len(self.memory)
 
-        return target_q
+    def restore(self, data: Any) -> None:
+        self.memory = data[0]
+        self.invalid_memory = data[1]
+
+    def backup(self):
+        return [self.memory, self.invalid_memory]
+
+    # ---------------------------
+    def length_invalid(self) -> int:
+        return len(self.invalid_memory)
+
+    def add(self, batch):
+        self.memory.append(batch)
+
+    def add_invalid(self, batch):
+        self.invalid_memory.append(batch)
+
+    def sample(self):
+        return random.sample(self.memory, self.config.batch_size)
+
+    def sample_invalid(self):
+        return random.sample(self.invalid_memory, self.config.batch_size)
+
+    def clear_invalid(self):
+        return self.invalid_memory.clear()
 
 
 # ------------------------------------------------------
@@ -147,13 +169,42 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
+        self.memory = cast(RemoteMemory, self.memory)
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
         self.loss = keras.losses.Huber()
 
-    def train_on_batchs(self, batchs: list, weights: List[float]):
+        self.train_count = 0
 
-        # データ形式を変形
+    def get_train_count(self):
+        return self.train_count
+
+    def train(self):
+
+        if self.memory.length() < self.config.memory_warmup_size:
+            return {}
+
+        batchs = self.memory.sample()
+        loss = self._train_on_batchs(batchs)
+
+        # invalid action
+        mem_invalid_len = self.memory.length_invalid()
+        if mem_invalid_len > self.config.memory_warmup_size:
+            batchs = self.memory.sample_invalid()
+            self._train_on_batchs(batchs)
+
+        # targetと同期
+        if self.train_count % self.config.target_model_update_interval == 0:
+            self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
+
+        self.train_count += 1
+        return {
+            "loss": loss,
+            "mem2": mem_invalid_len,
+        }
+
+    def _train_on_batchs(self, batchs):
+
         states = []
         actions = []
         n_states = []
@@ -169,7 +220,25 @@ class Trainer(RLTrainer):
         n_states = np.asarray(n_states)
 
         # next Q
-        target_q = self.parameter._calc_target_q(n_states, rewards, done_list)
+        n_q = self.parameter.q_online(n_states).numpy()
+        n_q_target = self.parameter.q_target(n_states).numpy()
+
+        # 各バッチのQ値を計算
+        target_q = []
+        for i in range(len(rewards)):
+            reward = rewards[i]
+            if done_list[i]:
+                gain = reward
+            else:
+                # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
+                if self.config.enable_double_dqn:
+                    n_act_idx = np.argmax(n_q[i])
+                else:
+                    n_act_idx = np.argmax(n_q_target[i])
+                maxq = n_q_target[i][n_act_idx]
+                gain = reward + self.config.gamma * maxq
+            target_q.append(gain)
+        target_q = np.asarray(target_q)
 
         with tf.GradientTape() as tape:
             q = self.parameter.q_online(states)
@@ -178,19 +247,12 @@ class Trainer(RLTrainer):
             actions_onehot = tf.one_hot(actions, self.config.nb_actions)
             q = tf.reduce_sum(q * actions_onehot, axis=1)
 
-            loss = self.loss(target_q * weights, q * weights)
+            loss = self.loss(target_q, q)
 
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
 
-        # priority
-        priorities = np.abs(target_q - q) + 0.0001
-
-        # targetと同期
-        if self.train_count % self.config.target_model_update_interval == 0:
-            self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
-
-        return priorities, {"loss": loss.numpy()}
+        return loss.numpy()
 
 
 # ------------------------------------------------------
@@ -201,40 +263,57 @@ class Worker(RLWorker):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
+        self.memory = cast(RemoteMemory, self.memory)
+
+        self.dummy_state = np.full(self.config.env_observation_shape, self.config.dummy_state_val)
+        self.invalid_action_reward = -1
+        self.step = 0
+
+        if self.config.exploration_steps > 0:
+            self.initial_epsilon = self.config.initial_epsilon
+            self.epsilon_step = (
+                self.config.initial_epsilon - self.config.final_epsilon
+            ) / self.config.exploration_steps
+            self.final_epsilon = self.config.final_epsilon
 
     def on_reset(self, state: np.ndarray, valid_actions: List[int]) -> None:
-        self.recent_states = [
-            np.zeros(self.config.env_observation_shape) for _ in range(self.config.input_sequence + 1)
-        ]
+        self.recent_states = [self.dummy_state for _ in range(self.config.input_sequence + 1)]
 
         self.recent_states.pop(0)
         self.recent_states.append(state)
 
-    def policy(self, _state: np.ndarray, valid_actions: List[int]) -> Tuple[int, Any]:  # (env_action, agent_action)
+    def policy(self, _state: np.ndarray, valid_actions: List[int]) -> Tuple[int, Any]:
+
         if self.training:
-            epsilon = self.config.epsilon
+            if self.config.exploration_steps > 0:
+                # Annealing ε-greedy
+                epsilon = self.initial_epsilon - self.step * self.epsilon_step
+                if epsilon < self.final_epsilon:
+                    epsilon = self.final_epsilon
+            else:
+                epsilon = self.config.epsilon
         else:
             epsilon = self.config.test_epsilon
-
-        # Q値を取得
-        state = self.recent_states[1:]
-        q = self.parameter.q_online(np.asarray([state]))[0].numpy()
 
         if random.random() < epsilon:
             # epsilonより低いならランダム
             action = random.choice(valid_actions)
         else:
+            state = self.recent_states[1:]
+            q = self.parameter.q_online(np.asarray([state]))[0].numpy()
+
             # valid actions以外は -inf にする
             q = np.array([(v if i in valid_actions else -np.inf) for i, v in enumerate(q)])
+
             # 最大値を選ぶ（複数はほぼないので無視）
             action = int(np.argmax(q))
 
-        return action, (action, q[action])
+        return action, action
 
     def on_step(
         self,
         state: np.ndarray,
-        action_: Any,
+        action: Any,
         next_state: np.ndarray,
         reward: float,
         done: bool,
@@ -247,14 +326,18 @@ class Worker(RLWorker):
 
         if not self.training:
             return {}
+        self.step += 1
 
-        action = action_[0]
-        q = action_[1]
+        # reward clip
+        if self.config.reward_clip is not None:
+            if reward < self.config.reward_clip[0]:
+                reward = self.config.reward_clip[0]
+            elif reward > self.config.reward_clip[1]:
+                reward = self.config.reward_clip[1]
 
-        # priority を計算
-        n_state = self.recent_states[1:]
-        target_q = self.parameter._calc_target_q(np.asarray([n_state]), [reward], [done])[0]
-        priority = abs(target_q - q) + 0.0001
+        if self.invalid_action_reward > reward - 1:
+            self.invalid_action_reward = reward - 1
+            self.memory.clear_invalid()
 
         batch = {
             "states": self.recent_states[:],
@@ -262,21 +345,37 @@ class Worker(RLWorker):
             "reward": reward,
             "done": done,
         }
+        self.memory.add(batch)
 
-        return batch, priority, {}
+        # --- valid action
+        states = self.recent_states[:]
+        states[-1] = self.dummy_state
+        for a in range(self.config.nb_actions):
+            if a in valid_actions:
+                continue
 
-    def render(self, state_: np.ndarray, valid_actions: List[int]) -> None:
+            batch = {
+                "states": states,
+                "action": a,
+                "reward": self.invalid_action_reward,
+                "done": True,
+            }
+            self.memory.add_invalid(batch)
+
+        return {}
+
+    def render(self, state_: np.ndarray, valid_actions: List[int], action_to_str) -> None:
         state = self.recent_states[1:]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
-            if a not in valid_actions:
-                continue
+            # if a not in valid_actions:
+            #    continue
             if a == maxa:
                 s = "*"
             else:
                 s = " "
-            s += f"{a:3d}: {q[a]:5.3f}"
+            s += f"{action_to_str(a)}: {q[a]:5.3f}"
             print(s)
 
 

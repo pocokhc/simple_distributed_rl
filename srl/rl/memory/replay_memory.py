@@ -2,55 +2,55 @@ import random
 from dataclasses import dataclass
 from typing import Any, List
 
-from srl.base.rl.memory import Memory, MemoryConfig
-from srl.rl.memory.registory import register
+from srl.base.rl.memory import Memory
 
 
 @dataclass
-class Config(MemoryConfig):
+class ReplayMemory(Memory):
+
     capacity: int = 100_000
+
+    # no use
+    alpha: float = 0
+    beta_initial: float = 0
+    beta_steps: int = 0
 
     @staticmethod
     def getName() -> str:
         return "ReplayMemory"
 
-
-class ReplayMemory(Memory):
-    def __init__(self, config: Config):
-        self.capacity = config.capacity
+    def __post_init__(self):
         self.init()
 
     def init(self):
         self.index = 0
-        self.buffer = []
+        self.memory = []
 
-    def add(self, exp, priority=0):
-        if len(self.buffer) < self.capacity:
-            self.buffer.append(None)
-        self.buffer[self.index] = exp
+    def add(self, batch, priority=0):
+        if len(self.memory) < self.capacity:
+            self.memory.append(None)
+        self.memory[self.index] = batch
         self.index = (self.index + 1) % self.capacity
 
     def update(self, indexes: List[int], batchs: List[Any], priorities: List[float]) -> None:
         pass
 
     def sample(self, batch_size, step):
-        batchs = random.sample(self.buffer, batch_size)
+        batchs = random.sample(self.memory, batch_size)
         indexes = [0 for _ in range(batch_size)]
         weights = [1 for _ in range(batch_size)]
         return (indexes, batchs, weights)
 
-    def length(self) -> int:
-        return len(self.buffer)
+    def __len__(self) -> int:
+        return len(self.memory)
 
     def backup(self):
-        return self.buffer[:]
+        return self.memory[:]
 
     def restore(self, data):
         for d in data:
             self.add(d)
 
-
-register(Config, ReplayMemory)
 
 if __name__ == "__main__":
     pass

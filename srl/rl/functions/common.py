@@ -71,6 +71,8 @@ def random_choice_by_probs(probs):
 
 def calc_epsilon_greedy_probs(q, valid_actions, epsilon, nb_actions):
     nb_valid_actions = len(valid_actions)
+    if nb_valid_actions == 0:
+        return [1 / nb_actions for _ in range(nb_actions)]
 
     qmax = np.amax(q, axis=0)
     qmax_num = np.count_nonzero(q == qmax)

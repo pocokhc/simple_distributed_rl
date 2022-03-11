@@ -4,6 +4,7 @@ import random
 from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple, Union, cast
 
+import cv2
 import gym
 import gym.spaces
 import numpy as np
@@ -14,20 +15,17 @@ from srl.base.rl.config import RLConfig
 logger = logging.getLogger(__name__)
 
 
-def create_env_for_rl(env_name: str, rl_config: RLConfig):
-    env = EnvForRL(gym.make(env_name), rl_config)
-    rl_config.set_config_by_env(env)
-    return env
-
-
 @dataclass
-class EnvForRL:
+class EnvForRL(EnvBase):
 
     env: Union[gym.Env, EnvBase]
     config: RLConfig
-    action_division_count: int = 5
-    observation_division_count: int = 50
+
+    action_division_num: int = 5
+    observation_division_num: int = 50
     prediction_by_simulation: bool = True
+    enable_image_gray: bool = True
+    image_resize: Optional[tuple[int, int]] = None
 
     # コンストラクタ
     def __post_init__(self):
@@ -63,6 +61,13 @@ class EnvForRL:
             if self.after_observation_type == EnvObservationType.UNKOWN:
                 self.after_observation_type = EnvObservationType.CONTINUOUS
 
+        # 画像の場合グレー化
+        if self.enable_image_gray:
+            if self.env.observation_type == EnvObservationType.GRAY_3ch:
+                self.after_observation_type = EnvObservationType.GRAY_2ch
+            elif self.env.observation_type == EnvObservationType.COLOR:
+                self.after_observation_type = EnvObservationType.GRAY_2ch
+
         # 変更後
         logger.info(f"before_action          : {self._space_str(self.env.action_space)}")
         logger.info(f"before_observation     : {self._space_str(self.env.observation_space)}")
@@ -73,11 +78,14 @@ class EnvForRL:
         logger.info(f"after_observation      : {self._space_str(self.after_observation_space)}")
         logger.info(f"after_observation type : {self.after_observation_type}")
 
+        # RLConfig側を設定する
+        self.config.set_config_by_env(self)
+
     def _space_str(self, space):
         if isinstance(space, gym.spaces.Discrete):
-            return f"{space.__class__.__name__} {space.n}"  # type: ignore
+            return f"{space.__class__.__name__} {space.n}"
         if isinstance(space, gym.spaces.Tuple):
-            return f"{space.__class__.__name__} {len(space)}"  # type: ignore
+            return f"{space.__class__.__name__} {len(space)}"
         return f"{space.__class__.__name__}{space.shape} ({space.low.flatten()[0]} - {space.high.flatten()[0]})"
 
     # アクションの離散化
@@ -86,24 +94,24 @@ class EnvForRL:
             return space, ""
 
         if isinstance(space, gym.spaces.Tuple):
-            self.action_tbl = list(itertools.product(*[[n for n in range(s.n)] for s in space.spaces]))  # type: ignore
+            self.action_tbl = list(itertools.product(*[[n for n in range(s.n)] for s in space.spaces]))
             next_space = gym.spaces.Discrete(len(self.action_tbl))
             return next_space, "Tuple->Discrete"
 
         if isinstance(space, gym.spaces.Box):
-            division_count = self.action_division_count
+            division_num = self.action_division_num
 
-            shape = space.shape  # type: ignore
-            low_flatten = space.low.flatten()  # type: ignore
-            high_flatten = space.high.flatten()  # type: ignore
+            shape = space.shape
+            low_flatten = space.low.flatten()
+            high_flatten = space.high.flatten()
 
             act_list = []
             for i in range(len(low_flatten)):
                 act = []
-                for j in range(division_count):
+                for j in range(division_num):
                     low = low_flatten[i]
                     high = high_flatten[i]
-                    diff = (high - low) / (division_count - 1)
+                    diff = (high - low) / (division_num - 1)
 
                     a = low + diff * j
                     act.append(a)
@@ -146,31 +154,29 @@ class EnvForRL:
     # Box に変換
     def _to_box(self, space):
         if isinstance(space, gym.spaces.Discrete):
-            next_space = gym.spaces.Box(low=0, high=space.n - 1, shape=(1,))  # type: ignore
+            next_space = gym.spaces.Box(low=0, high=space.n - 1, shape=(1,))
             return next_space, "Discrete->Box"
 
         if isinstance(space, gym.spaces.Tuple):
             low = []
             high = []
             shape_num = 0
-            for s in space.spaces:  # type: ignore
+            for s in space.spaces:
                 if isinstance(s, gym.spaces.Discrete):
                     low.append(0)
-                    high.append(s.n)  # type: ignore
+                    high.append(s.n)
                     shape_num += 1
                     continue
 
-                if isinstance(s, gym.spaces.Box) and len(s.shape) == 1:  # type: ignore
-                    for _ in range(s.shape[0]):  # type: ignore
-                        low.append(s.low)  # type: ignore
-                        high.append(s.high)  # type: ignore
+                if isinstance(s, gym.spaces.Box) and len(s.shape) == 1:
+                    for _ in range(s.shape[0]):
+                        low.append(s.low)
+                        high.append(s.high)
                         shape_num += 1
                     continue
 
                 raise ValueError(f"{s.__class__.__name__}")
-            next_space = gym.spaces.Box(
-                low=np.array(low), high=np.array(high), shape=(len(space.spaces),)  # type: ignore
-            )
+            next_space = gym.spaces.Box(low=np.array(low), high=np.array(high), shape=(len(space.spaces),))
             return next_space, "Tuple->Box"
 
         if isinstance(space, gym.spaces.Box):
@@ -180,24 +186,31 @@ class EnvForRL:
 
     # 状態の離散化
     def _observation_discrete(self):
-        space = self.before_observation_space
         self._observation_discrete_diff = None
+        space = self.before_observation_space
+
+        if self.env.observation_type not in [
+            EnvObservationType.UNKOWN,
+            EnvObservationType.CONTINUOUS,
+        ]:
+            logger.debug("observation type: discrete")
+            return
 
         # Discrete は離散
         if isinstance(space, gym.spaces.Discrete):
-            logger.info("observation type: discrete")
+            logger.debug("observation type: discrete")
             return
 
         if isinstance(space, gym.spaces.Tuple):
             # 全部Discreteなら離散
             is_discrete = True
-            for s in space.spaces:  # type: ignore
+            for s in space.spaces:
                 if not isinstance(s, gym.spaces.Discrete):
                     is_discrete = False
                     break
 
             if is_discrete:
-                logger.info("observation type: discrete")
+                logger.debug("observation type: discrete")
                 return
 
         # 実際の値を取得して、小数がある場合は離散化する
@@ -217,21 +230,21 @@ class EnvForRL:
                 if "int" not in str(np.asarray(state).dtype):
                     is_discrete = False
             if is_discrete:
-                logger.info("observation type: discrete")
+                logger.debug("observation type: discrete")
                 return
 
         # --- 離散化
-        division_count = self.observation_division_count
-        low = self.after_observation_space.low  # type: ignore
-        high = self.after_observation_space.high  # type: ignore
-        self._observation_discrete_diff = (high - low) / division_count
+        division_num = self.observation_division_num
+        low = self.after_observation_space.low
+        high = self.after_observation_space.high
+        self._observation_discrete_diff = (high - low) / division_num
 
-        logger.info(f"observation type: continuous(division {division_count})")
+        logger.debug(f"observation type: continuous(division {division_num})")
 
     def _observation_encode_discrete(self, state):
         if self._observation_discrete_diff is None:
             return state
-        next_state = (state - self.after_observation_space.low) / self._observation_discrete_diff  # type: ignore
+        next_state = (state - self.after_observation_space.low) / self._observation_discrete_diff
         next_state = np.int64(next_state)
         return next_state
 
@@ -245,8 +258,28 @@ class EnvForRL:
         else:
             raise ValueError()
         state = np.asarray(state)
+
+        # 画像の場合グレー化
+        self.env = cast(EnvBase, self.env)
+        if self.enable_image_gray:
+            if self.env.observation_type == EnvObservationType.GRAY_3ch:
+                # (w,h,1) -> (w,h)
+                state = np.squeeze(state, -1)
+            elif self.env.observation_type == EnvObservationType.COLOR:
+                # (w,h,ch) -> (w,h)
+                state = cv2.cvtColor(state, cv2.COLOR_RGB2GRAY)
+
+        # 画像のresize
+        if self.image_resize is not None:
+            if self.env.observation_type in [
+                EnvObservationType.GRAY_2ch,
+                EnvObservationType.GRAY_3ch,
+                EnvObservationType.COLOR,
+            ]:
+                state = cv2.resize(state, self.image_resize[0], self.image_resize[1])
+
         # assert state.shape == self.after_observation_space.shape
-        state = state.reshape(self.after_observation_space.shape)  # type: ignore
+        state = state.reshape(self.after_observation_space.shape)
         state = self._observation_encode_discrete(state)
         return state
 
@@ -277,7 +310,7 @@ class EnvForRL:
 
     @property
     def max_episode_steps(self) -> int:
-        return self.env.max_episode_steps  # type: ignore
+        return self.env.max_episode_steps
 
     def close(self) -> None:
         self.env.close()
@@ -300,7 +333,7 @@ class EnvForRL:
             return None
 
         if self._valid_actions is None:
-            self._valid_actions = self.env.fetch_valid_actions()  # type: ignore
+            self._valid_actions = self.env.fetch_valid_actions()
             if self._valid_actions is None:
                 self._valid_actions = self._valid_actions_encode()
         return self._valid_actions
@@ -308,11 +341,14 @@ class EnvForRL:
     def render(self, mode: str = "human") -> Any:
         return self.env.render(mode)
 
+    def action_to_str(self, action: Any) -> str:
+        return self.env.action_to_str(action)
+
     def backup(self) -> Any:
-        return self.env.backup()  # type: ignore
+        return self.env.backup()
 
     def restore(self, state: Any) -> None:
-        return self.env.restore(state)  # type: ignore
+        return self.env.restore(state)
 
 
 if __name__ == "__main__":

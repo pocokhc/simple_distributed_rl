@@ -4,7 +4,7 @@ autoactivate on
 participant TrainerProcess
 participant Trainer
 participant Parameter
-entity Memory
+participant ReplayMemory
 entity Board
 queue LastParamQueue
 
@@ -15,19 +15,16 @@ TrainerProcess -> Trainer ** : create
 loop wait
 
     TrainerProcess -> Trainer: train
-        Trainer -> Memory: sample
-        return batchs, weights
-        Trainer -> Trainer: train_on_batchs(batchs, weights)
-            Trainer -> Parameter: 
-            return
-        return priorities
-        Trainer -> Memory: update(batchs, priorities)
+        Trainer ->> ReplayMemory: sample
+        return batchs
+
+        Trainer -> Parameter: update parameter
         return
     return
 
     TrainerProcess -> Parameter: backup
     return parameter
-    TrainerProcess -> Board: write(parameter)
+    TrainerProcess ->> Board: write(parameter)
     return
 
 end
@@ -35,5 +32,6 @@ end
 TrainerProcess -> Parameter: backup
 return parameter
 TrainerProcess ->> LastParamQueue: put(parameter)
+return
 
 @enduml

@@ -5,7 +5,7 @@ from abc import ABCMeta
 from dataclasses import dataclass
 
 import numpy as np
-from srl.utils.common import listdict_to_dictlist, listdictdict_to_dictlist, to_str_time
+from srl.utils.common import listdictdict_to_dictlist, to_str_time
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class RenderingEpisode(Callback):
 
         print("### 0")
         env.render()
-        worker.render(state, valid_actions)
+        worker.render(state, valid_actions, env.action_to_str)
 
         if self.step_stop:
             input("Enter to continue:")
@@ -69,7 +69,7 @@ class RenderingEpisode(Callback):
         print(f"work_info : {work_info}")
         print(f"train_info: {train_info}")
         env.render()
-        worker.render(state, valid_actions)
+        worker.render(state, valid_actions, env.action_to_str)
 
         if self.step_stop:
             input("Enter to continue:")
@@ -164,6 +164,7 @@ class PrintProgress(Callback):
         if len(self.history_step) == 0:
             return
 
+        # 1エピソードの結果を平均でまとめる
         env_info = listdictdict_to_dictlist(self.history_step, "env_info")
         if "TimeLimit.truncated" in env_info:
             del env_info["TimeLimit.truncated"]
@@ -173,31 +174,23 @@ class PrintProgress(Callback):
         for k, v in work_info.items():
             work_info[k] = np.mean(v)
 
-        step_times = [h["step_time"] for h in self.history_step]
-
         d = {
             "step": info["step"],
             "reward": info["reward"],
             "episode_time": info["episode_time"],
-            "step_time": np.mean(step_times),
+            "step_time": np.mean([h["step_time"] for h in self.history_step]),
+            "remote_memory": info["remote_memory"].length(),
             "env_info": env_info,
             "work_info": work_info,
+            "train_time": np.mean([h["step_time"] for h in self.history_step]),
         }
 
         # train info
         if self.history_step[0]["train_info"] is not None:
             train_info = listdictdict_to_dictlist(self.history_step, "train_info")
-            d["memory"] = max(train_info["memory"])
-            d["train"] = max(train_info["train"])
-
-            if "train_time" in train_info:
-                d["train_time"] = np.mean(train_info["train_time"])
-
-            if "info" in train_info:
-                train_info2 = listdict_to_dictlist(train_info["info"])
-                for k, v in train_info2.items():
-                    train_info2[k] = np.mean(v)
-                d["train_info"] = train_info2
+            for k, v in train_info.items():
+                train_info[k] = np.mean(v)
+            d["train_info"] = train_info
 
         self.progress_history.append(d)
 
@@ -207,6 +200,7 @@ class PrintProgress(Callback):
             "work_info": info["work_info"],
             "train_info": info["train_info"],
             "step_time": info["step_time"],
+            "train_time": info["train_time"],
         }
         if info["train_info"] is not None:
             d["train_info"] = info["train_info"]
@@ -261,15 +255,11 @@ class PrintProgress(Callback):
             s += f", {np.mean(_s):.1f} step"
             s += f", {episode_time:.2f}s/epi"
 
-            if "memory" in self.progress_history[0]:
-                _m = [h["memory"] for h in self.progress_history]
-                s += f", {max(_m):8d} mem"
-            if "train" in self.progress_history[0]:
-                _m = [h["train"] for h in self.progress_history]
-                s += f", {max(_m):8d} train"
-            if "train_time" in self.progress_history[0]:
-                _m = [h["train_time"] for h in self.progress_history]
-                s += f", {np.mean(_m):.4f}s/train"
+            train_time = np.mean([h["train_time"] for h in self.progress_history])
+            s += f", {train_time:.4f}s/train"
+
+            memory_len = max([h["remote_memory"] for h in self.progress_history])
+            s += f", {memory_len:8d} mem"
 
             d = listdictdict_to_dictlist(self.progress_history, "env_info")
             for k, arr in d.items():

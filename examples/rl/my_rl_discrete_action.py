@@ -1,13 +1,15 @@
 import random
+from collections import deque
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, cast
+from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras  # type: ignore
-import tensorflow.keras.layers as kl  # type: ignore
+import tensorflow.keras as keras
+import tensorflow.keras.layers as kl
 from srl.base.rl import DiscreteActionConfig, RLParameter, RLTrainer, RLWorker
-from srl.rl.functions.model import ImageLayerType, create_input_layers
+from srl.base.rl.rl import RLRemoteMemory
+from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
 from srl.rl.registory import register
 
 
@@ -20,13 +22,9 @@ class Config(DiscreteActionConfig):
     epsilon: float = 0.1
     test_epsilon: float = 0
     gamma: float = 0.9
-
-    # common
     batch_size: int = 16
     memory_warmup_size: int = 100
-
-    def __post_init__(self):
-        super().__init__(self.batch_size, self.memory_warmup_size)
+    capacity: int = 100_000
 
     @staticmethod
     def getName() -> str:
@@ -34,6 +32,8 @@ class Config(DiscreteActionConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
+        assert self.memory_warmup_size < self.capacity
+        assert self.batch_size < self.memory_warmup_size
 
 
 register(Config, __name__)
@@ -47,8 +47,7 @@ class Parameter(RLParameter):
         super().__init__(*args)
         self.config = cast(Config, self.config)
 
-        input_, c = create_input_layers(
-            1,
+        input_, c = create_input_layers_one_sequence(
             self.config.env_observation_shape,
             self.config.env_observation_type,
             ImageLayerType.DQN,
@@ -57,13 +56,41 @@ class Parameter(RLParameter):
         c = kl.Dense(self.config.nb_actions, activation="linear")(c)
         self.Q = keras.Model(input_, c)
 
-    def restore(self, data: Optional[Any]) -> None:
-        if data is None:
-            return
+    def restore(self, data: Any) -> None:
         self.Q.set_weights(data)
 
     def backup(self):
         return self.Q.get_weights()
+
+    def summary(self):
+        self.Q.summary()
+
+
+# ------------------------------------------------------
+# RemoteMemory
+# ------------------------------------------------------
+class RemoteMemory(RLRemoteMemory):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.config = cast(Config, self.config)
+
+        self.memory = deque(maxlen=self.config.capacity)
+
+    def length(self) -> int:
+        return len(self.memory)
+
+    def restore(self, data: Any) -> None:
+        self.memory = data
+
+    def backup(self):
+        return self.memory.copy()
+
+    # ---------------------------
+    def add(self, batch):
+        self.memory.append(batch)
+
+    def sample(self):
+        return random.sample(self.memory, self.config.batch_size)
 
 
 # ------------------------------------------------------
@@ -74,13 +101,22 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
+        self.memory = cast(RemoteMemory, self.memory)
 
         self.optimizer = keras.optimizers.Adam()
         self.loss = keras.losses.Huber()
 
-    def train_on_batchs(self, batchs: list, weights: List[float]):
+        self.train_count = 0
 
-        # データ形式を変形
+    def get_train_count(self):
+        return self.train_count
+
+    def train(self):
+        if self.memory.length() < self.config.memory_warmup_size:
+            return {}
+
+        batchs = self.memory.sample()
+
         states = []
         actions = []
         n_states = []
@@ -106,15 +142,12 @@ class Trainer(RLTrainer):
             actions_onehot = tf.one_hot(actions, self.config.nb_actions)
             q = tf.reduce_sum(q * actions_onehot, axis=1)
 
-            loss = self.loss(target_q * weights, q * weights)
+            loss = self.loss(target_q, q)
 
         grads = tape.gradient(loss, self.parameter.Q.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.Q.trainable_variables))
 
-        # priority
-        priorities = np.abs(target_q - q) + 0.0001
-
-        return priorities, {"loss": loss.numpy()}
+        return {"loss": loss.numpy()}
 
 
 # ------------------------------------------------------
@@ -125,17 +158,17 @@ class Worker(RLWorker):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
+        self.memory = cast(RemoteMemory, self.memory)
 
     def on_reset(self, state: np.ndarray, valid_actions: List[int]) -> None:
-        pass
+        if self.training:
+            self.epsilon = self.config.epsilon
+        else:
+            self.epsilon = self.config.test_epsilon
 
     def policy(self, state: np.ndarray, valid_actions: List[int]) -> Tuple[int, Any]:
-        if self.training:
-            epsilon = self.config.epsilon
-        else:
-            epsilon = self.config.test_epsilon
 
-        if random.random() < epsilon:
+        if random.random() < self.epsilon:
             # epsilonより低いならランダム
             action = random.choice(valid_actions)
         else:
@@ -167,10 +200,10 @@ class Worker(RLWorker):
             "reward": reward,
             "done": done,
         }
-        priority = 0
-        return batch, priority, {}
+        self.memory.add(batch)
+        return {}
 
-    def render(self, state: np.ndarray, valid_actions: List[int]) -> None:
+    def render(self, state: np.ndarray, valid_actions: List[int], action_to_str) -> None:
         q = self.parameter.Q(state[np.newaxis, ...])[0].numpy()
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
@@ -180,5 +213,5 @@ class Worker(RLWorker):
                 s = "*"
             else:
                 s = " "
-            s += f"{a:3d}: {q[a]:5.3f}"
+            s += f"{action_to_str(a)}: {q[a]:5.3f}"
             print(s)

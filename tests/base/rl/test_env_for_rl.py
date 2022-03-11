@@ -66,9 +66,6 @@ class StubConfig(RLConfig):
     action_type_: RLActionType
     observation_type_: RLObservationType
 
-    def __post_init__(self):
-        super().__init__(0, 1)
-
     @staticmethod
     def getName() -> str:
         return "Stub"
@@ -94,7 +91,7 @@ class TestEnvForRL_Action(unittest.TestCase):
             action_space = gym.spaces.Discrete(5)
             env = EnvForRL(GymEnvWrapper(StubEnv(action_space, observation_space)), rl_config)
             self.assertTrue(env.action_change_type == "")
-            self.assertTrue(env.action_space.n == action_space.n)  # type: ignore
+            self.assertTrue(env.action_space.n == action_space.n)
 
         with self.subTest("TupleDiscrete"):
             action_space = gym.spaces.Tuple(
@@ -106,18 +103,18 @@ class TestEnvForRL_Action(unittest.TestCase):
             )
             env = EnvForRL(GymEnvWrapper(StubEnv(action_space, observation_space)), rl_config)
             self.assertTrue(env.action_change_type == "Tuple->Discrete")
-            self.assertTrue(env.action_space.n == 2 * 5 * 3)  # type: ignore
+            self.assertTrue(env.action_space.n == 2 * 5 * 3)
 
         with self.subTest("Box1"):
-            action_division_count = 5
+            action_division_num = 5
             action_space = gym.spaces.Box(low=-1, high=3, shape=(1,))
             env = EnvForRL(
                 GymEnvWrapper(StubEnv(action_space, observation_space)),
                 rl_config,
-                action_division_count=action_division_count,
+                action_division_num=action_division_num,
             )
             self.assertTrue(env.action_change_type == "Box->Discrete")
-            self.assertTrue(env.action_space.n == action_division_count)  # type: ignore
+            self.assertTrue(env.action_space.n == action_division_num)
             self.assertTrue(env.action_tbl[0] == [-1])
             self.assertTrue(env.action_tbl[1] == [0])
             self.assertTrue(env.action_tbl[2] == [1])
@@ -130,10 +127,10 @@ class TestEnvForRL_Action(unittest.TestCase):
             env = EnvForRL(
                 GymEnvWrapper(StubEnv(action_space, observation_space)),
                 rl_config,
-                action_division_count=action_division_count,
+                action_division_num=action_division_num,
             )
             self.assertTrue(env.action_change_type == "Box->Discrete")
-            self.assertTrue(env.action_space.n == 5 ** (3 * 2))  # type: ignore
+            self.assertTrue(env.action_space.n == 5 ** (3 * 2))
 
             _t = list(itertools.product([-1, 0, 1, 2, 3], [-1, 0, 1, 2, 3]))
             true_tbl = list(itertools.product(_t, _t, _t))
@@ -148,9 +145,9 @@ class TestEnvForRL_Action(unittest.TestCase):
             action_space = gym.spaces.Discrete(5)
             env = EnvForRL(GymEnvWrapper(StubEnv(action_space, observation_space)), rl_config)
             self.assertTrue(env.action_change_type == "Discrete->Box")
-            self.assertTrue(env.action_space.shape == (1,))  # type: ignore
-            np.testing.assert_array_equal(env.action_space.low, np.full((1,), 0))  # type: ignore
-            np.testing.assert_array_equal(env.action_space.high, np.full((1,), 4))  # type: ignore
+            self.assertTrue(env.action_space.shape == (1,))
+            np.testing.assert_array_equal(env.action_space.low, np.full((1,), 0))
+            np.testing.assert_array_equal(env.action_space.high, np.full((1,), 4))
 
         with self.subTest("TupleDiscrete"):
             action_space = gym.spaces.Tuple(
@@ -162,17 +159,17 @@ class TestEnvForRL_Action(unittest.TestCase):
             )
             env = EnvForRL(GymEnvWrapper(StubEnv(action_space, observation_space)), rl_config)
             self.assertTrue(env.action_change_type == "Tuple->Box")
-            self.assertTrue(env.action_space.shape == (3,))  # type: ignore
-            np.testing.assert_array_equal(env.action_space.low, [0, 0, 0])  # type: ignore
-            np.testing.assert_array_equal(env.action_space.high, [2, 5, 3])  # type: ignore
+            self.assertTrue(env.action_space.shape == (3,))
+            np.testing.assert_array_equal(env.action_space.low, [0, 0, 0])
+            np.testing.assert_array_equal(env.action_space.high, [2, 5, 3])
 
         with self.subTest("Box"):
             action_space = gym.spaces.Box(low=-1, high=3, shape=(5, 2, 3))
             env = EnvForRL(GymEnvWrapper(StubEnv(action_space, observation_space)), rl_config)
             self.assertTrue(env.action_change_type == "")
-            self.assertTrue(env.action_space.shape == action_space.shape)  # type: ignore
-            np.testing.assert_array_equal(env.action_space.low, action_space.low)  # type: ignore
-            np.testing.assert_array_equal(env.action_space.high, action_space.high)  # type: ignore
+            self.assertTrue(env.action_space.shape == action_space.shape)
+            np.testing.assert_array_equal(env.action_space.low, action_space.low)
+            np.testing.assert_array_equal(env.action_space.high, action_space.high)
 
 
 class TestEnvForRL_Observation(unittest.TestCase):
@@ -186,9 +183,9 @@ class TestEnvForRL_Observation(unittest.TestCase):
 
             self.assertTrue(env.observation_change_type == "Discrete->Box")
             self.assertTrue(env.observation_type == EnvObservationType.DISCRETE)
-            self.assertTrue(env.observation_space.shape == (1,))  # type: ignore
-            np.testing.assert_array_equal(env.observation_space.low, np.full((1,), 0))  # type: ignore
-            np.testing.assert_array_equal(env.observation_space.high, np.full((1,), 4))  # type: ignore
+            self.assertTrue(env.observation_space.shape == (1,))
+            np.testing.assert_array_equal(env.observation_space.low, np.full((1,), 0))
+            np.testing.assert_array_equal(env.observation_space.high, np.full((1,), 4))
             self.assertTrue(env._observation_discrete_diff is None)
 
         with self.subTest("TupleDiscrete"):
@@ -203,9 +200,9 @@ class TestEnvForRL_Observation(unittest.TestCase):
 
             self.assertTrue(env.observation_change_type == "Tuple->Box")
             self.assertTrue(env.observation_type == EnvObservationType.DISCRETE)
-            self.assertTrue(env.observation_space.shape == (3,))  # type: ignore
-            np.testing.assert_array_equal(env.observation_space.low, [0, 0, 0])  # type: ignore
-            np.testing.assert_array_equal(env.observation_space.high, [2, 5, 3])  # type: ignore
+            self.assertTrue(env.observation_space.shape == (3,))
+            np.testing.assert_array_equal(env.observation_space.low, [0, 0, 0])
+            np.testing.assert_array_equal(env.observation_space.high, [2, 5, 3])
             self.assertTrue(env._observation_discrete_diff is None)
 
         with self.subTest("Box(discrete)"):
@@ -217,29 +214,29 @@ class TestEnvForRL_Observation(unittest.TestCase):
 
             self.assertTrue(env.observation_change_type == "")
             self.assertTrue(env.observation_type == EnvObservationType.DISCRETE)
-            self.assertTrue(env.observation_space.shape == observation_space.shape)  # type: ignore
-            np.testing.assert_array_equal(env.observation_space.low, observation_space.low)  # type: ignore
-            np.testing.assert_array_equal(env.observation_space.high, observation_space.high)  # type: ignore
+            self.assertTrue(env.observation_space.shape == observation_space.shape)
+            np.testing.assert_array_equal(env.observation_space.low, observation_space.low)
+            np.testing.assert_array_equal(env.observation_space.high, observation_space.high)
             self.assertTrue(env._observation_discrete_diff is None)
 
         with self.subTest("Box(continous)"):
             observation_space = gym.spaces.Box(low=-1, high=4, shape=(2, 2))
             env_org = StubEnv(action_space, observation_space)
             env_org.return_state = [[0, 0.11], [0.99, 1]]
-            observation_division_count = 5
+            observation_division_num = 5
             prediction_by_simulation = True
             env = EnvForRL(
                 GymEnvWrapper(env_org),
                 rl_config,
                 prediction_by_simulation=prediction_by_simulation,
-                observation_division_count=observation_division_count,
+                observation_division_num=observation_division_num,
             )
 
             self.assertTrue(env.observation_change_type == "")
             self.assertTrue(env.observation_type == EnvObservationType.DISCRETE)
-            self.assertTrue(env.observation_space.shape == observation_space.shape)  # type: ignore
-            np.testing.assert_array_equal(env.observation_space.low, observation_space.low)  # type: ignore
-            np.testing.assert_array_equal(env.observation_space.high, observation_space.high)  # type: ignore
+            self.assertTrue(env.observation_space.shape == observation_space.shape)
+            np.testing.assert_array_equal(env.observation_space.low, observation_space.low)
+            np.testing.assert_array_equal(env.observation_space.high, observation_space.high)
             # -1-0 :0
             #  0-1 :1
             #  1-2 :2
@@ -261,5 +258,5 @@ class TestEnvForRL_Observation(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    # unittest.main(module=__name__, defaultTest="TestEnvForRL_Action.test_at_rl_continuous", verbosity=2)
-    unittest.main(module=__name__, defaultTest="TestEnvForRL_Observation.test_at_rl_discrete", verbosity=2)
+    unittest.main(module=__name__, defaultTest="TestEnvForRL_Action.test_at_rl_discrete", verbosity=2)
+    # unittest.main(module=__name__, defaultTest="TestEnvForRL_Observation.test_at_rl_discrete", verbosity=2)

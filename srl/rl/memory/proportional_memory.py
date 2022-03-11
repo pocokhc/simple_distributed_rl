@@ -3,20 +3,7 @@ from dataclasses import dataclass
 from typing import Any, List
 
 import numpy as np
-from srl.base.rl.memory import Memory, MemoryConfig
-from srl.rl.memory.registory import register
-
-
-@dataclass
-class Config(MemoryConfig):
-    capacity: int = 100_000
-    alpha: float = 0.6
-    beta_initial: float = 0.4
-    beta_steps: int = 1_000_000
-
-    @staticmethod
-    def getName() -> str:
-        return "ProportionalMemory"
+from srl.base.rl.memory import Memory
 
 
 class SumTree:
@@ -76,13 +63,19 @@ class SumTree:
         return (idx, self.tree[idx], self.data[dataIdx])
 
 
+@dataclass
 class ProportionalMemory(Memory):
-    def __init__(self, config: Config):
-        self.capacity = config.capacity
-        self.alpha = config.alpha
-        self.beta_initial = config.beta_initial
-        self.beta_steps = config.beta_steps
 
+    capacity: int = 100_000
+    alpha: float = 0.6
+    beta_initial: float = 0.4
+    beta_steps: int = 1_000_000
+
+    @staticmethod
+    def getName() -> str:
+        return "ProportionalMemory"
+
+    def __post_init__(self):
         self.init()
 
     def init(self):
@@ -90,12 +83,12 @@ class ProportionalMemory(Memory):
         self.max_priority = 1
         self.size = 0
 
-    def add(self, exp, priority=0, _alpha_skip=False):
+    def add(self, batch, priority=0, _alpha_skip=False):
         if priority == 0:
             priority = self.max_priority
         if not _alpha_skip:
             priority = priority ** self.alpha
-        self.tree.add(priority, exp)
+        self.tree.add(priority, batch)
         self.size += 1
         if self.size > self.capacity:
             self.size = self.capacity
@@ -143,7 +136,7 @@ class ProportionalMemory(Memory):
 
         return (indexes, batchs, weights)
 
-    def length(self):
+    def __len__(self):
         return self.size
 
     def backup(self):
@@ -162,8 +155,6 @@ class ProportionalMemory(Memory):
         for d in data:
             self.add(d[0], d[1], _alpha_skip=True)
 
-
-register(Config, ProportionalMemory)
 
 if __name__ == "__main__":
     pass

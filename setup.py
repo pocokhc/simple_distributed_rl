@@ -12,7 +12,7 @@ exec(open(version_path).read())
 setup(
     name=package_name,
     packages=[package for package in find_packages() if package.startswith(package_name)],
-    version=VERSION,  # type: ignore  # noqa F821
+    version=VERSION,  # noqa F821
     license="MIT",
     author="poco",
     author_email="pocopococpp198@gmail.com",
@@ -23,6 +23,7 @@ setup(
         "numpy",
         "gym",
         "tensorflow",
+        "tensorflow-addons",
         "psutil",
         "pynvml",
         "opencv-python",

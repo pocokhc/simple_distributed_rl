@@ -5,12 +5,11 @@ import time
 import traceback
 from dataclasses import dataclass, field
 from multiprocessing.managers import BaseManager
-from typing import Any, List, Union
+from typing import List, Union
 
 import tensorflow as tf
-from srl.base.rl.memory import Memory
-from srl.base.rl.rl import RLParameter
-from srl.rl.memory import registory
+from srl import rl
+from srl.base.rl.rl import RLParameter, RLRemoteMemory
 from srl.runner import sequence
 from srl.runner.callbacks_mp import MPCallback
 
@@ -26,12 +25,6 @@ class Config:
     worker_num: int
     max_train_count: int = -1
     timeout: int = -1
-
-    sync_parameter_interval: int = 100
-
-    memory_recv_max: int = 1  # memoryが１度に受信する最大値
-    memory_send_summarize_num: int = 100  # workerがまとめて送る数
-    worker_wait_memory_num: int = 1000
 
     trainer_parameter_send_interval_by_train_count: int = 100
     worker_parameter_sync_interval_by_step: int = 10
@@ -116,11 +109,11 @@ class _SyncParameter(sequence.Callback):
         update_count = self.remote_board.get_update_count()
         if update_count == self.prev_update_count:
             return
+        self.prev_update_count = update_count
         params = self.remote_board.read()
         if params is None:
             return
         self.parameter.restore(params)
-        self.prev_update_count = update_count
 
 
 class _InterruptEnd(sequence.Callback):
@@ -136,7 +129,7 @@ class _InterruptEnd(sequence.Callback):
 def _run_worker(
     config: sequence.Config,
     mp_config: Config,
-    remote_memory: Memory,
+    remote_memory: RLRemoteMemory,
     remote_board: Board,
     worker_id: int,
     train_end_signal: ctypes.c_bool,
@@ -168,7 +161,7 @@ def _run_worker(
 def _run_trainer(
     config: sequence.Config,
     mp_config: Config,
-    remote_memory: Memory,
+    remote_memory: RLRemoteMemory,
     remote_board: Board,
     last_param_q: mp.Queue,
     train_end_signal: ctypes.c_bool,
@@ -177,9 +170,9 @@ def _run_trainer(
         logger.debug("trainer start")
 
         parameter = config.create_parameter()
-        trainer = config.create_trainer(parameter)
+        trainer = config.create_trainer(parameter, remote_memory)
         callbacks = [c for c in mp_config.callbacks if issubclass(c.__class__, MPCallback)]
-        sync_cout = 0
+        sync_count = 0
 
         # callbacks
         _info = {
@@ -187,6 +180,7 @@ def _run_trainer(
             "mp_config": mp_config,
             "trainer": trainer,
             "parameter": parameter,
+            "remote_remote_memory": remote_memory,
         }
         [c.on_trainer_start(_info) for c in callbacks]
 
@@ -195,25 +189,27 @@ def _run_trainer(
                 if train_end_signal.value:
                     break
 
-                if mp_config.max_train_count > 0 and trainer.train_count >= mp_config.max_train_count:
+                if mp_config.max_train_count > 0 and trainer.get_train_count() >= mp_config.max_train_count:
                     break
 
-                train_info = trainer.train(remote_memory)
+                t0 = time.time()
+                train_info = trainer.train()
+                train_time = time.time() - t0
 
-                if trainer.train_count == 0:
+                if trainer.get_train_count() == 0:
                     time.sleep(1)
                     continue
 
                 # send parameter
-                is_sync = trainer.train_count % mp_config.trainer_parameter_send_interval_by_train_count == 0
-                if is_sync:
+                if trainer.get_train_count() % mp_config.trainer_parameter_send_interval_by_train_count == 0:
                     remote_board.write(parameter.backup())
-                    sync_cout += 1
+                    sync_count += 1
 
                 # callbacks
-                _info["is_sync"] = is_sync
                 _info["train_info"] = train_info
-                _info["sync_cout"] = sync_cout
+                _info["train_count"] = trainer.get_train_count()
+                _info["train_time"] = train_time
+                _info["sync_count"] = sync_count
                 [c.on_trainer_train_end(_info) for c in callbacks]
 
         except Exception:
@@ -241,7 +237,7 @@ class MPManager(BaseManager):
 def train(config: sequence.Config, mp_config: Config):
     with tf.device(mp_config.allocate_main):
 
-        MPManager.register("Memory", registory.get_class(config.memory_config))
+        MPManager.register("RemoteMemory", rl.make(config.rl_config.getName()).RemoteMemory)
         MPManager.register("Board", Board)
 
         with MPManager() as manager:
@@ -254,6 +250,7 @@ def _train(config: sequence.Config, mp_config: Config, manager):
     config.training = True
     config.init_rl_config()
     config.callbacks.extend(mp_config.callbacks)
+    config.rl_config.assert_params()
 
     # callbacks
     _info = {
@@ -264,7 +261,7 @@ def _train(config: sequence.Config, mp_config: Config, manager):
 
     # --- share values
     train_end_signal = mp.Value(ctypes.c_bool, False)
-    remote_memory = manager.Memory(config.memory_config)
+    remote_memory = manager.RemoteMemory(config.rl_config)
     remote_board = manager.Board()
     last_param_q = mp.Queue()  # trainer -> main(last)
 
@@ -349,10 +346,10 @@ def _train(config: sequence.Config, mp_config: Config, manager):
     t0 = time.time()
     logger.info("wait param...")
     param = last_param_q.get(timeout=mp_config.parameter_send_timeout)
+    last_param_q.close()
     parameter = config.create_parameter()
     parameter.restore(param)
     param = None
-    last_param_q.close()
     logger.info(f"success({time.time()-t0:.2f}s)")
 
     # --- end

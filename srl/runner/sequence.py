@@ -2,15 +2,14 @@ import logging
 import pickle
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, cast
+from typing import List, Optional, Tuple
 
-import srl.rl.memory.registory
+import gym
 from srl import rl
 from srl.base.rl import RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
-from srl.base.rl.env_for_rl import EnvForRL, create_env_for_rl
-from srl.base.rl.memory import Memory, MemoryConfig
-from srl.base.rl.rl import RLParameter
+from srl.base.rl.env_for_rl import EnvForRL
+from srl.base.rl.rl import RLParameter, RLRemoteMemory
 from srl.runner.callbacks import Callback
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,6 @@ class Config:
 
     env_name: str
     rl_config: RLConfig
-    memory_config: MemoryConfig
 
     # episode option
     max_episode_steps: int = 10_000
@@ -39,10 +37,9 @@ class Config:
     def __post_init__(self):
         if self.rl_config is not None:
             self.rl_name = self.rl_config.getName()
-        if self.memory_config is not None:
-            self.memory_name = self.memory_config.getName()
         self.is_init_rl_config = False
         self.parameter_path = ""
+        self.memory_path = ""
         self.worker_id = 0
         self.trainer_disable = False
 
@@ -70,37 +67,38 @@ class Config:
         self.rl_config.assert_params()
 
     def init_rl_config(self) -> None:
-        self.create_env()
+        if not self.is_init_rl_config:
+            self.create_env()
 
-    def create_env(self) -> EnvForRL:
-        env = create_env_for_rl(self.env_name, self.rl_config)
+    def create_env(self, **kwargs) -> EnvForRL:
+        env = EnvForRL(gym.make(self.env_name), self.rl_config, **kwargs)
         self.is_init_rl_config = True
         return env
 
     def create_parameter(self) -> RLParameter:
-        if not self.is_init_rl_config:
-            self.init_rl_config()
+        self.init_rl_config()
         module = rl.make(self.rl_name)
         parameter = module.Parameter(self.rl_config)
         parameter.load(self.parameter_path)
         return parameter
 
-    def create_memory(self) -> Memory:
-        memory = srl.rl.memory.registory.make(self.memory_config)
+    def create_remote_memory(self) -> RLRemoteMemory:
+        self.init_rl_config()
+        module = rl.make(self.rl_name)
+        memory = module.RemoteMemory(self.rl_config)
+        memory.load(self.memory_path)
         return memory
 
-    def create_trainer(self, parameter: RLParameter) -> RLTrainer:
-        if not self.is_init_rl_config:
-            self.init_rl_config()
+    def create_trainer(self, parameter: RLParameter, memory: RLRemoteMemory) -> RLTrainer:
+        self.init_rl_config()
         module = rl.make(self.rl_name)
-        trainer = module.Trainer(self.rl_config, parameter)
+        trainer = module.Trainer(self.rl_config, parameter, memory)
         return trainer
 
-    def create_worker(self, parameter: RLParameter) -> RLWorker:
-        if not self.is_init_rl_config:
-            self.init_rl_config()
+    def create_worker(self, parameter: Optional[RLParameter], memory: Optional[RLRemoteMemory]) -> RLWorker:
+        self.init_rl_config()
         module = rl.make(self.rl_name)
-        worker = module.Worker(self.rl_config, parameter, self.worker_id)
+        worker = module.Worker(self.rl_config, parameter, memory, self.worker_id)
         worker.set_training(self.training)
         return worker
 
@@ -115,40 +113,34 @@ class Config:
             if type(v) in [int, float, bool, str]:
                 conf["rl_config"][k] = v
 
-        conf["memory_config"] = {}
-        for k, v in self.memory_config.__dict__.items():
-            if type(v) in [int, float, bool, str]:
-                conf["memory_config"][k] = v
-
         return conf
 
     def copy(self):
-        config = Config("", None, None)  # type: ignore
+        config = Config("", None, None)
         for k, v in self.__dict__.items():
             if type(v) in [int, float, bool, str]:
                 setattr(config, k, v)
         config.rl_config = pickle.loads(pickle.dumps(self.rl_config))
-        config.memory_config = pickle.loads(pickle.dumps(self.memory_config))
         return config
 
 
 def play(
     config: Config,
     parameter: Optional[RLParameter] = None,
-    memory: Optional[Memory] = None,
+    remote_memory: Optional[RLRemoteMemory] = None,
     env=None,
-) -> Tuple[List[float], RLParameter, Memory]:
+) -> Tuple[List[float], RLParameter, RLRemoteMemory]:
     if env is None:
         env = config.create_env()
     if parameter is None:
         parameter = config.create_parameter()
-    if memory is None:
-        memory = config.create_memory()
+    if remote_memory is None:
+        remote_memory = config.create_remote_memory()
     if config.training and not config.trainer_disable:
-        trainer = config.create_trainer(parameter)
+        trainer = config.create_trainer(parameter, remote_memory)
     else:
         trainer = None
-    worker = config.create_worker(parameter)
+    worker = config.create_worker(parameter, remote_memory)
     config.assert_params()
 
     # callback
@@ -157,6 +149,7 @@ def play(
         "config": config,
         "env": env,
         "parameter": parameter,
+        "remote_memory": remote_memory,
         "trainer": trainer,
         "worker": worker,
     }
@@ -215,6 +208,7 @@ def play(
                 "config": config,
                 "env": env,
                 "parameter": parameter,
+                "remote_memory": remote_memory,
                 "trainer": trainer,
                 "worker": worker,
                 "episode_count": episode_count,
@@ -232,6 +226,7 @@ def play(
             "config": config,
             "env": env,
             "parameter": parameter,
+            "remote_memory": remote_memory,
             "trainer": trainer,
             "worker": worker,
             "episode_count": episode_count,
@@ -260,25 +255,21 @@ def play(
             done = True
 
         # --- rl step
-        work_return = worker.on_step(state, worker_action, next_state, reward, done, valid_actions, next_valid_actions)
-        if config.training:
-            batch, priority, work_info = work_return
-            priority = cast(float, priority)
-            memory.add(batch, priority)
-            if trainer is None:
-                train_info = None
-            else:
-                train_info = trainer.train(memory)
+        work_info = worker.on_step(state, worker_action, next_state, reward, done, valid_actions, next_valid_actions)
+        if config.training and trainer is not None:
+            _t0 = time.time()
+            train_info = trainer.train()
+            train_time = time.time() - _t0
         else:
-            work_info = work_return
-            priority = 0
             train_info = None
+            train_time = 0
 
         # callback
         _params = {
             "config": config,
             "env": env,
             "parameter": parameter,
+            "remote_memory": remote_memory,
             "trainer": trainer,
             "worker": worker,
             "episode_count": episode_count,
@@ -289,10 +280,10 @@ def play(
             "valid_actions": next_valid_actions,
             "reward": reward,
             "done": done,
-            "priority": priority,
             "env_info": env_info,
             "work_info": work_info,
             "train_info": train_info,
+            "train_time": train_time,
         }
         [c.on_step_end(_params) for c in callbacks]
 
@@ -311,6 +302,7 @@ def play(
                 "config": config,
                 "env": env,
                 "parameter": parameter,
+                "remote_memory": remote_memory,
                 "trainer": trainer,
                 "worker": worker,
                 "episode_count": episode_count,
@@ -325,13 +317,14 @@ def play(
         "config": config,
         "env": env,
         "parameter": parameter,
+        "remote_memory": remote_memory,
         "trainer": trainer,
         "worker": worker,
         "episode_count": episode_count,
     }
     [c.on_episodes_end(_params) for c in callbacks]
 
-    return episode_rewards, parameter, memory
+    return episode_rewards, parameter, remote_memory
 
 
 if __name__ == "__main__":

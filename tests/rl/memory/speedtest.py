@@ -2,21 +2,21 @@ import random
 import time
 
 from srl import rl
-from srl.rl.memory import registory
+from srl.rl.memory import factory
 from tqdm import tqdm
 
 
 def speed_test():
     capacity = 100_000_000
 
-    memorys = [
-        rl.memory.replay_memory.Config(capacity=capacity),
-        rl.memory.proportional_memory.Config(capacity=capacity, alpha=0.8, beta_initial=1, beta_steps=10),
-        rl.memory.rankbase_memory.Config(capacity=capacity, alpha=0.8, beta_initial=1, beta_steps=10),
+    memories = [
+        ("ReplayMemory", {"capacity": capacity}),
+        ("ProportionalMemory", {"capacity": capacity, "alpha": 0.8, "beta_initial": 1, "beta_steps": 10}),
+        ("RankBaseMemory", {"capacity": capacity, "alpha": 0.8, "beta_initial": 1, "beta_steps": 10}),
     ]
 
-    for memory_config in memorys:
-        memory = registory.make(memory_config)
+    for name, config in memories:
+        memory = factory.create(name, config)
         _speed_test(memory)
 
 

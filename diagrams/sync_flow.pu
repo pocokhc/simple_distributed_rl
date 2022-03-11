@@ -6,7 +6,7 @@ participant Env
 participant Worker
 participant Trainer
 participant Parameter
-participant Memory
+participant ReplayMemory
 
 
 activate Runner
@@ -18,30 +18,24 @@ return
 
 loop episode
     Runner -> Worker: policy
-        Worker -> Parameter
-        return
+        Worker -> Parameter: get parameter
+        return parameter
     return action
     Runner -> Env: step(action)
     return next_state, reward, done, info
 
-    Runner -> Worker: on_step
-        Worker -> Parameter
+    Runner -> Worker: on_step(state, action, next_state, reward, done)
+        Worker -> ReplayMemory: add batchs
         return
-    return batch, priority
-    
-    Runner -> Memory: add(batch, priority)
-    return
+    return info
 
     Runner -> Trainer: train
-        Trainer -> Memory: sample
-        return batchs, weights
-        Trainer -> Trainer: train_on_batchs(batchs, weights)
-            Trainer -> Parameter: 
-            return
-        return priorities
-        Trainer -> Memory: update(batchs, priorities)
+        Trainer -> ReplayMemory: sample
+        return batchs
+
+        Trainer -> Parameter: update parameter
         return
-    return
+    return info
 
 end
 deactivate Runner

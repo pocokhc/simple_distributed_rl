@@ -1,10 +1,9 @@
-from srl import rl
 from srl.runner import sequence
 from srl.runner.callbacks import PrintProgress, RenderingEpisode
 
 from env import my_env  # noqa F402
 from env import my_env_gym  # noqa F402
-from rl import my_rl_discrete_action, my_rl_table  # noqa F402
+from examples.rl import my_rl_continuous_action, my_rl_discrete_action, my_rl_table  # noqa F402
 
 
 def main():
@@ -14,11 +13,11 @@ def main():
         # env_name="MyEnvGym-v0",
         rl_config=my_rl_table.Config(),
         # rl_config=my_rl_discrete_action.Config(),
-        memory_config=rl.memory.replay_memory.Config(),
+        # rl_config=my_rl_continuous_action.Config(),
     )
 
     # train
-    config.set_play_config(timeout=10, training=True, callbacks=[PrintProgress()])
+    config.set_play_config(timeout=60, training=True, callbacks=[PrintProgress()])
     episode_rewards, parameter, memory = sequence.play(config)
 
     # test

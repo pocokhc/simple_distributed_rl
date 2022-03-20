@@ -78,6 +78,7 @@ sequence.play(config, parameter)
 |---------|--------------|----------------|-----------|-------------|
 |QL       |Table         |Discrete        |Discrete   |100%         |
 |DQN      |NeuralNet     |Continuous      |Discrete   |100%         |
+|C51      |NeuralNet     |Continuous      |Discrete   | 90%         |
 |Rainbow  |NeuralNet     |Continuous      |Discrete   | 90%         |
 
 

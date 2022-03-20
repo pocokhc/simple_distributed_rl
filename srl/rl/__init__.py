@@ -1,3 +1,4 @@
+from . import c51  # noqa F402
 from . import dqn  # noqa F402
 from . import memory  # noqa F402
 from . import ql  # noqa F402

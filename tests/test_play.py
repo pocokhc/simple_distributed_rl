@@ -1,14 +1,13 @@
 import unittest
 
-import numpy as np
-import srl.envs.neongrid
-import srl.envs.oneroad
+import srl.envs.neongrid  # noqa F401
+import srl.envs.oneroad  # noqa F401
 from srl import rl
-from srl.runner import sequence
+from srl.runner import mp, sequence
 
 
-class TestRL(unittest.TestCase):
-    def test_rl(self):
+class TestPlay(unittest.TestCase):
+    def test_play(self):
 
         env_list = [
             "FrozenLake-v1",
@@ -17,28 +16,47 @@ class TestRL(unittest.TestCase):
         ]
 
         rl_list = [
-            (rl.ql.Config(), 100),
-            (rl.dqn.Config(), 10),
-            (rl.rainbow.Config(), 10),
+            rl.ql.Config(),
+            rl.dqn.Config(),
+            rl.c51.Config(),
+            rl.rainbow.Config(),
         ]
 
         for env_name in env_list:
-            for rl_config, max_episodes in rl_list:
+            for rl_config in rl_list:
                 config = sequence.Config(
                     env_name=env_name,
                     rl_config=rl_config,
                 )
                 with self.subTest((env_name, rl_config.getName())):
-                    # --- train
-                    config.set_play_config(max_episodes=max_episodes, training=True)
-                    episode_rewards, parameter, memory = sequence.play(config)
-                    # self.assertTrue(np.mean(episode_rewards) > 0.01)
+                    self._sequence(config)
 
-                    # test
-                    config.set_play_config(max_episodes=10)
-                    episode_rewards, _, _ = sequence.play(config, parameter)
-                    # self.assertTrue(np.mean(episode_rewards) > 0.1)
+                with self.subTest((env_name, rl_config.getName())):
+                    self._mq(config)
+
+    def _sequence(self, config):
+        # --- train
+        config.set_play_config(timeout=10, training=True)
+        episode_rewards, parameter, memory = sequence.play(config)
+        # self.assertTrue(np.mean(episode_rewards) > 0.01)
+
+        # --- test
+        config.set_play_config(max_episodes=10)
+        episode_rewards, _, _ = sequence.play(config, parameter)
+        # self.assertTrue(np.mean(episode_rewards) > 0.1)
+
+    def _mq(self, config):
+        # --- train
+        mp_config = mp.Config(worker_num=2)
+        mp_config.set_train_config(timeout=10)
+        parameter = mp.train(config, mp_config)
+        # self.assertTrue(np.mean(episode_rewards) > 0.01)
+
+        # --- test
+        config.set_play_config(max_episodes=10)
+        episode_rewards, _, _ = sequence.play(config, parameter)
+        # self.assertTrue(np.mean(episode_rewards) > 0.1)
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="TestRL.test_rl", verbosity=2)
+    unittest.main(module=__name__, defaultTest="TestPlay.test_play", verbosity=2)

@@ -307,7 +307,7 @@ class Trainer(RLTrainer):
                 reward = b["rewards"][n]
                 valid_actions = b["valid_actions"][n]
                 next_valid_actions = b["valid_actions"][n + 1]
-                done = b["done_list"][n]
+                done = b["dones"][n]
 
                 # retrace
                 if n >= 1:
@@ -500,7 +500,7 @@ class Worker(RLWorker):
             "actions": self.recent_actions[:],
             "probs": self.recent_probs[:],
             "rewards": self.recent_rewards[:],
-            "done_list": self.recent_done[:],
+            "dones": self.recent_done[:],
             "valid_actions": self.recent_valid_actions[:],
         }
         self.memory.add(batch, priority)
@@ -520,7 +520,7 @@ class Worker(RLWorker):
                     "actions": self.recent_actions[:],
                     "probs": self.recent_probs[:],
                     "rewards": self.recent_rewards[:],
-                    "done_list": self.recent_done[:],
+                    "dones": self.recent_done[:],
                     "valid_actions": self.recent_valid_actions[:],
                 }
                 self.memory.add(batch, priority)
@@ -534,8 +534,8 @@ class Worker(RLWorker):
         rewards[-1] = self.invalid_action_reward
         probs = self.recent_probs[:]
         probs[-1] = 1.0
-        done_list = self.recent_done[:]
-        done_list[-1] = True
+        dones = self.recent_done[:]
+        dones[-1] = True
         for a in range(self.config.nb_actions):
             if a in valid_actions:
                 continue
@@ -547,7 +547,7 @@ class Worker(RLWorker):
                 "actions": actions,
                 "probs": probs,
                 "rewards": rewards,
-                "done_list": done_list,
+                "dones": dones,
                 "valid_actions": self.recent_valid_actions[:],
             }
             self.memory.add_invalid(batch)
@@ -559,12 +559,14 @@ class Worker(RLWorker):
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
-            # if a not in valid_actions:
-            #    continue
-            if a == maxa:
-                s = "*"
+            if a not in valid_actions:
+                s = "x"
             else:
                 s = " "
+            if a == maxa:
+                s += "*"
+            else:
+                s += " "
             s += f"{action_to_str(a)}: {q[a]:5.3f}"
             print(s)
 

@@ -121,20 +121,20 @@ class Trainer(RLTrainer):
         actions = []
         n_states = []
         rewards = []
-        done_list = []
+        dones = []
         for b in batchs:
             states.append(b["state"])
             actions.append(b["action"])
             n_states.append(b["next_state"])
             rewards.append(b["reward"])
-            done_list.append(b["done"])
+            dones.append(b["done"])
         states = np.asarray(states)
         n_states = np.asarray(n_states)
-        done_list = np.asarray(done_list)
+        dones = np.asarray(dones)
 
         # Q
         n_q = self.parameter.Q(n_states).numpy()
-        target_q = rewards + (1 - done_list) * self.config.gamma * np.max(n_q, axis=1)
+        target_q = rewards + (1 - dones) * self.config.gamma * np.max(n_q, axis=1)
         with tf.GradientTape() as tape:
             q = self.parameter.Q(states)
 

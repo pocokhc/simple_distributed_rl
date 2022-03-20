@@ -138,23 +138,23 @@ class Trainer(RLTrainer):
         actions = []
         n_states = []
         rewards = []
-        done_list = []
+        dones = []
         for b in batchs:
             states.append(b["state"])
             actions.append(b["action"])
             n_states.append(b["next_state"])
             rewards.append(b["reward"])
-            done_list.append(b["done"])
+            dones.append(b["done"])
         states = np.asarray(states)
         n_states = np.asarray(n_states)
-        done_list = np.asarray(done_list)
+        dones = np.asarray(dones)
         actions = np.asarray(actions)
 
         # value
         n_v = self.parameter.critic(n_states).numpy()
         advantages = []
         for i in range(len(batchs)):
-            if done_list[i]:
+            if dones[i]:
                 gain = rewards[i]
             else:
                 gain = rewards[i] + self.config.gamma * n_v[i][0]

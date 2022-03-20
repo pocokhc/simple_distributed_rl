@@ -84,9 +84,10 @@ class _QNetwork(keras.Model):
 
         # --- hidden layer
         c = kl.Dense(config.dense_units, activation="relu", kernel_initializer="he_normal")(c)
+        c = kl.LayerNormalization()(c)  # 勾配爆発抑制用
 
         # --- out layer
-        c = kl.Dense(config.nb_actions, activation="linear", kernel_initializer="truncated_normal")(c)
+        c = kl.Dense(config.nb_actions, activation="linear", kernel_initializer="he_normal")(c)
         self.model = keras.Model(input_, c)
 
         # 重みを初期化
@@ -209,13 +210,13 @@ class Trainer(RLTrainer):
         actions = []
         n_states = []
         rewards = []
-        done_list = []
+        dones = []
         for b in batchs:
             states.append(b["states"][:-1])
             actions.append(b["action"])
             n_states.append(b["states"][1:])
             rewards.append(b["reward"])
-            done_list.append(b["done"])
+            dones.append(b["done"])
         states = np.asarray(states)
         n_states = np.asarray(n_states)
 
@@ -227,7 +228,7 @@ class Trainer(RLTrainer):
         target_q = []
         for i in range(len(rewards)):
             reward = rewards[i]
-            if done_list[i]:
+            if dones[i]:
                 gain = reward
             else:
                 # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
@@ -369,12 +370,14 @@ class Worker(RLWorker):
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
-            # if a not in valid_actions:
-            #    continue
-            if a == maxa:
-                s = "*"
+            if a not in valid_actions:
+                s = "x"
             else:
                 s = " "
+            if a == maxa:
+                s += "*"
+            else:
+                s += " "
             s += f"{action_to_str(a)}: {q[a]:5.3f}"
             print(s)
 

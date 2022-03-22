@@ -54,8 +54,6 @@ class Config(DiscreteActionConfig):
     dense_units: int = 512
     image_layer_type: ImageLayerType = ImageLayerType.DQN
     enable_noisy_dense: bool = False
-    # enable_categorical_dqn: bool = False
-    # categorical_num_atoms: int = 51
 
     gamma: float = 0.99  # 割引率
     lr: float = 0.001  # 学習率
@@ -179,6 +177,79 @@ class Parameter(RLParameter):
     def summary(self):
         self.q_online.model.summary()
 
+    # ----------------------------------------------
+
+    def calc_target_q(self, batchs):
+
+        n_states_list = []
+        for b in batchs:
+            n_states_list.extend(b["states"][1:])
+        n_states_list = np.asarray(n_states_list)
+
+        n_q_list = self.q_online(n_states_list).numpy()
+        n_q_list_target = self.q_target(n_states_list).numpy()
+
+        target_q_list = []
+        n_states_idx_start = 0
+        for i, b in enumerate(batchs):
+            target_q = 0.0
+            retrace = 1.0
+            n_states_idx = n_states_idx_start
+            for n in range(len(b["rewards"])):
+
+                action = b["actions"][n]
+                mu_prob = b["probs"][n]
+                reward = b["rewards"][n]
+                valid_actions = b["valid_actions"][n]
+                next_valid_actions = b["valid_actions"][n + 1]
+                done = b["dones"][n]
+
+                # retrace
+                if n >= 1:
+                    pi_probs = calc_epsilon_greedy_probs(
+                        n_q_list[n_states_idx - 1],
+                        valid_actions,
+                        0.0,
+                        self.config.nb_actions,
+                    )
+                    retrace *= self.config.retrace_h * np.minimum(1, pi_probs[action] / mu_prob)
+                    if retrace == 0:
+                        break  # 0以降は伝搬しないので切りあげる
+
+                if done:
+                    gain = reward
+                else:
+                    # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
+                    if self.config.enable_double_dqn:
+                        n_pi_probs = calc_epsilon_greedy_probs(
+                            n_q_list[n_states_idx],
+                            next_valid_actions,
+                            0.0,
+                            self.config.nb_actions,
+                        )
+                    else:
+                        n_pi_probs = calc_epsilon_greedy_probs(
+                            n_q_list_target[n_states_idx],
+                            next_valid_actions,
+                            0.0,
+                            self.config.nb_actions,
+                        )
+                    P = 0
+                    for j in range(self.config.nb_actions):
+                        P += n_pi_probs[j] * n_q_list_target[n_states_idx][j]
+                    gain = reward + self.config.gamma * P
+
+                if n == 0:
+                    target_q += gain
+                else:
+                    td_error = gain - n_q_list[n_states_idx - 1][action]
+                    target_q += (self.config.gamma ** n) * retrace * td_error
+                n_states_idx += 1
+            n_states_idx_start += len(b["rewards"])
+            target_q_list.append(target_q)
+
+        return np.asarray(target_q_list)
+
 
 # ------------------------------------------------------
 # RemoteMemory
@@ -283,76 +354,12 @@ class Trainer(RLTrainer):
 
         states = []
         actions = []
-        n_states_list = []
         for b in batchs:
             states.append(b["states"][0])
             actions.append(b["actions"][0])
-            n_states_list.extend(b["states"][1:])
         states = np.asarray(states)
-        n_states_list = np.asarray(n_states_list)
 
-        n_q_list = self.parameter.q_online(n_states_list).numpy()
-        n_q_list_target = self.parameter.q_target(n_states_list).numpy()
-
-        target_q_list = []
-        n_states_idx_start = 0
-        for i, b in enumerate(batchs):
-            target_q = 0.0
-            retrace = 1.0
-            n_states_idx = n_states_idx_start
-            for n in range(len(b["rewards"])):
-
-                action = b["actions"][n]
-                mu_prob = b["probs"][n]
-                reward = b["rewards"][n]
-                valid_actions = b["valid_actions"][n]
-                next_valid_actions = b["valid_actions"][n + 1]
-                done = b["dones"][n]
-
-                # retrace
-                if n >= 1:
-                    pi_probs = calc_epsilon_greedy_probs(
-                        n_q_list[n_states_idx - 1],
-                        valid_actions,
-                        0.0,
-                        self.config.nb_actions,
-                    )
-                    retrace *= self.config.retrace_h * np.minimum(1, pi_probs[action] / mu_prob)
-                    if retrace == 0:
-                        break  # 0以降は伝搬しないので切りあげる
-
-                if done:
-                    gain = reward
-                else:
-                    # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
-                    if self.config.enable_double_dqn:
-                        n_pi_probs = calc_epsilon_greedy_probs(
-                            n_q_list[n_states_idx],
-                            next_valid_actions,
-                            0.0,
-                            self.config.nb_actions,
-                        )
-                    else:
-                        n_pi_probs = calc_epsilon_greedy_probs(
-                            n_q_list_target[n_states_idx],
-                            next_valid_actions,
-                            0.0,
-                            self.config.nb_actions,
-                        )
-                    P = 0
-                    for j in range(self.config.nb_actions):
-                        P += n_pi_probs[j] * n_q_list_target[n_states_idx][j]
-                    gain = reward + self.config.gamma * P
-
-                if n == 0:
-                    target_q += gain
-                else:
-                    td_error = gain - n_q_list[n_states_idx - 1][action]
-                    target_q += (self.config.gamma ** n) * retrace * td_error
-                n_states_idx += 1
-            n_states_idx_start += len(b["rewards"])
-            target_q_list.append(target_q)
-        target_q_list = np.asarray(target_q_list)
+        target_q_list = self.parameter.calc_target_q(batchs)
 
         with tf.GradientTape() as tape:
             q = self.parameter.q_online(states)
@@ -477,33 +484,7 @@ class Worker(RLWorker):
         self.recent_valid_actions.pop(0)
         self.recent_valid_actions.append(next_valid_actions)
 
-        # priority
-        if self.config.memory_name == "ReplayMemory":
-            priority = 1
-        else:
-            n_state = np.asarray([self.recent_bundle_states[-1]])
-            n_q = self.parameter.q_online(n_state).numpy()[0]
-            n_q_target = self.parameter.q_target(n_state).numpy()[0]
-            if done:
-                target_q = reward
-            else:
-                # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
-                if self.config.enable_double_dqn:
-                    n_act_idx = np.argmax(n_q)
-                else:
-                    n_act_idx = np.argmax(n_q_target)
-                target_q = reward + self.config.gamma * n_q_target[n_act_idx]
-            priority = abs(target_q - q) + 0.0001
-
-        batch = {
-            "states": self.recent_bundle_states[:],
-            "actions": self.recent_actions[:],
-            "probs": self.recent_probs[:],
-            "rewards": self.recent_rewards[:],
-            "dones": self.recent_done[:],
-            "valid_actions": self.recent_valid_actions[:],
-        }
-        self.memory.add(batch, priority)
+        priority = self._add_memory(q, None)
 
         if done:
             # 残りstepも追加
@@ -515,15 +496,7 @@ class Worker(RLWorker):
                 self.recent_done.pop(0)
                 self.recent_valid_actions.pop(0)
 
-                batch = {
-                    "states": self.recent_bundle_states[:],
-                    "actions": self.recent_actions[:],
-                    "probs": self.recent_probs[:],
-                    "rewards": self.recent_rewards[:],
-                    "dones": self.recent_done[:],
-                    "valid_actions": self.recent_valid_actions[:],
-                }
-                self.memory.add(batch, priority)
+                self._add_memory(q, priority)
 
         # --- valid action
         states = self.recent_states[:]
@@ -553,6 +526,28 @@ class Worker(RLWorker):
             self.memory.add_invalid(batch)
 
         return {"priority": priority}
+
+    def _add_memory(self, q, priority):
+
+        batch = {
+            "states": self.recent_bundle_states[:],
+            "actions": self.recent_actions[:],
+            "probs": self.recent_probs[:],
+            "rewards": self.recent_rewards[:],
+            "dones": self.recent_done[:],
+            "valid_actions": self.recent_valid_actions[:],
+        }
+
+        # priority
+        if priority is None:
+            if self.config.memory_name == "ReplayMemory":
+                priority = 1
+            else:
+                target_q = self.parameter.calc_target_q([batch])[0]
+                priority = abs(target_q - q) + 0.0001
+
+        self.memory.add(batch, priority)
+        return priority
 
     def render(self, state_: np.ndarray, valid_actions: List[int], action_to_str) -> None:
         state = self.recent_bundle_states[-1]

@@ -75,8 +75,9 @@ sequence.play(config, parameter)
 
 
 |Algorithm|Algorithm Type|Observation Type|Action Type|Progress Rate|
-|---------|--------------|----------------|-----------|-------------|
+|---------|--------------|----------------|-----------|-------------|---|
 |QL       |Table         |Discrete        |Discrete   |100%         |
+|QL_agent57|Table         |Discrete        |Discrete   |100%        |QL + Agent57|
 |DQN      |NeuralNet     |Continuous      |Discrete   |100%         |
 |C51      |NeuralNet     |Continuous      |Discrete   | 90%         |
 |Rainbow  |NeuralNet     |Continuous      |Discrete   | 90%         |

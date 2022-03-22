@@ -17,6 +17,7 @@ class TestPlay(unittest.TestCase):
 
         rl_list = [
             rl.ql.Config(),
+            rl.ql_agent57.Config(multisteps=3),
             rl.dqn.Config(),
             rl.c51.Config(),
             rl.rainbow.Config(),
@@ -36,7 +37,7 @@ class TestPlay(unittest.TestCase):
 
     def _sequence(self, config):
         # --- train
-        config.set_play_config(timeout=10, training=True)
+        config.set_play_config(timeout=5, training=True)
         episode_rewards, parameter, memory = sequence.play(config)
         # self.assertTrue(np.mean(episode_rewards) > 0.01)
 
@@ -48,7 +49,7 @@ class TestPlay(unittest.TestCase):
     def _mq(self, config):
         # --- train
         mp_config = mp.Config(worker_num=2)
-        mp_config.set_train_config(timeout=10)
+        mp_config.set_train_config(timeout=5)
         parameter = mp.train(config, mp_config)
         # self.assertTrue(np.mean(episode_rewards) > 0.01)
 

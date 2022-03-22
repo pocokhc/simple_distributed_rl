@@ -46,7 +46,7 @@ class Parameter(RLParameter):
 
     # ----------------------------------------
 
-    def _get_q(self, state, valid_actions):
+    def get_q(self, state, valid_actions):
         if state not in self.Q:
             self.Q[state] = [0 if a in valid_actions else -np.inf for a in range(self.config.nb_actions)]
         return self.Q[state]
@@ -110,8 +110,8 @@ class Trainer(RLTrainer):
             valid_actions = batch["valid_actions"]
             next_valid_actions = batch["next_valid_actions"]
 
-            q = self.parameter._get_q(s, valid_actions)
-            n_q = self.parameter._get_q(n_s, next_valid_actions)
+            q = self.parameter.get_q(s, valid_actions)
+            n_q = self.parameter.get_q(n_s, next_valid_actions)
 
             if done:
                 target_q = reward
@@ -151,7 +151,7 @@ class Worker(RLWorker):
             # epsilonより低いならランダムに移動
             action = random.choice(valid_actions)
         else:
-            q = self.parameter._get_q(s, valid_actions)
+            q = self.parameter.get_q(s, valid_actions)
 
             # valid actionsでfilter
             q = np.asarray([val if a in valid_actions else -np.inf for a, val in enumerate(q)])
@@ -188,7 +188,7 @@ class Worker(RLWorker):
 
     def render(self, state: np.ndarray, valid_actions: List[int], action_to_str) -> None:
         s = str(state.tolist())
-        q = self.parameter._get_q(s, valid_actions)
+        q = self.parameter.get_q(s, valid_actions)
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
             if a == maxa:

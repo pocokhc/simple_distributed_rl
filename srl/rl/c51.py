@@ -30,6 +30,11 @@ class Config(DiscreteActionConfig):
     memory_warmup_size: int = 100
     capacity: int = 100_000
 
+    # model
+    hidden_layer_sizes: Tuple[int, ...] = (512,)
+    activation: str = "relu"
+    image_layer_type: ImageLayerType = ImageLayerType.DQN
+
     categorical_num_atoms: int = 51
     categorical_v_min: float = -10
     categorical_v_max: float = 10
@@ -58,9 +63,10 @@ class Parameter(RLParameter):
         input_, c = create_input_layers_one_sequence(
             self.config.env_observation_shape,
             self.config.env_observation_type,
-            ImageLayerType.DQN,
+            self.config.image_layer_type,
         )
-        c = kl.Dense(512, activation="relu")(c)
+        for h in self.config.hidden_layer_sizes:
+            c = kl.Dense(h, activation=self.config.activation, kernel_initializer="he_normal")(c)
         c = kl.Dense(self.config.nb_actions * self.config.categorical_num_atoms, activation="linear")(c)
         c = kl.Reshape((self.config.nb_actions, self.config.categorical_num_atoms))(c)
         self.Q = keras.Model(input_, c)

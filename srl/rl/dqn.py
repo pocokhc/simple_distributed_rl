@@ -6,7 +6,8 @@ from typing import Any, List, Optional, Tuple, cast
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
-from srl.base.rl import DiscreteActionConfig, RLParameter, RLRemoteMemory, RLTrainer, RLWorker
+from srl.base.rl import (DiscreteActionConfig, RLParameter, RLRemoteMemory,
+                         RLTrainer, RLWorker)
 from srl.rl.functions.model import ImageLayerType, create_input_layers
 from srl.rl.registory import register
 from tensorflow.keras import layers as kl
@@ -40,7 +41,8 @@ class Config(DiscreteActionConfig):
 
     # model
     input_sequence: int = 1
-    dense_units: int = 512
+    hidden_layer_sizes: Tuple[int, ...] = (512,)
+    activation: str = "relu"
     image_layer_type: ImageLayerType = ImageLayerType.DQN
 
     gamma: float = 0.99  # 割引率
@@ -83,11 +85,11 @@ class _QNetwork(keras.Model):
         )
 
         # --- hidden layer
-        c = kl.Dense(config.dense_units, activation="relu", kernel_initializer="he_normal")(c)
-        c = kl.LayerNormalization()(c)  # 勾配爆発抑制用
+        for h in config.hidden_layer_sizes:
+            c = kl.Dense(h, activation=config.activation, kernel_initializer="he_normal")(c)
 
         # --- out layer
-        c = kl.Dense(config.nb_actions, activation="linear", kernel_initializer="he_normal")(c)
+        c = kl.Dense(config.nb_actions, activation="linear", kernel_initializer="truncated_normal")(c)
         self.model = keras.Model(input_, c)
 
         # 重みを初期化

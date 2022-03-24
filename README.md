@@ -73,8 +73,9 @@ sequence.play(config, parameter)
 
 |path                      |   |
 |--------------------------|---|
-|examples/minimum_raw_sequence.py|逐次学習の最低限の実装内容|
-|examples/minimum_raw_mp.py      |分散学習の最低限の実装内容|
+|examples/sample_minimum_raw_sequence.py|逐次学習の最低限の実装内容|
+|examples/sample_minimum_raw_mp.py      |分散学習の最低限の実装内容|
+|examples/sample_minimum_runner.py      |runnerを使う場合の最低限の実装内容|
 |examples/sample_custom.py       |自作環境を使った実行例|
 |examples/env/my_env_gym.py      |GymEnvの実装例|
 |examples/env/my_env.py          |本ライブラリ用のEnvの実装例|

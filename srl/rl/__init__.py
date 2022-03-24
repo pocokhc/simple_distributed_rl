@@ -1,7 +1,10 @@
+from . import agent57_light  # noqa F402
 from . import c51  # noqa F402
 from . import dqn  # noqa F402
 from . import memory  # noqa F402
 from . import ql  # noqa F402
 from . import ql_agent57  # noqa F402
+from . import r2d2  # noqa F402
 from . import rainbow  # noqa F402
+from . import sac  # noqa F402
 from .registory import make  # noqa F402

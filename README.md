@@ -3,6 +3,7 @@
 # Simple Reinforcement Learning (シンプルな強化学習)
 
 シンプルな強化学習フレームワークを目指して作成しました。
+どちらかというと強化学習の学習用フレームワークです。
 以下の特徴があります。
 
 + 分散強化学習のサポート
@@ -27,13 +28,25 @@ from srl.runner import mp, sequence
 from srl.runner.callbacks import PrintProgress, RenderingEpisode
 from srl.runner.callbacks_mp import TrainFileLogger
 
-# config
+#---------------------
+# Configのパラメータは、引数補完または元コードを参照してください。
+# For the parameters of Config, refer to the argument completion or the original code.
+#
+# rl.xxx.Config   : Algorithm hyperparameters
+# sequence.Config : Basic Running Config
+# mp.Config       : Distributed Config
+#---------------------
+
+# rl algorithm config
+rl_config = rl.ql.Config()
+
+# running config
 config = sequence.Config(
     env_name="FrozenLake-v1",  # select env
-    rl_config=rl.ql.Config(),  # select rl & rl config
+    rl_config=rl_config,
 )
 
-# train
+# --- train
 if True:
     # sequence training
     config.set_play_config(timeout=60, training=True, callbacks=[PrintProgress()])
@@ -44,11 +57,11 @@ else:
     mp_config.set_train_config(timeout=60, callbacks=[TrainFileLogger(enable_log=True, enable_checkpoint=False)])
     parameter = mp.train(config, mp_config)
 
-# test
+# --- test
 config.set_play_config(max_episodes=10, callbacks=[PrintProgress()])
 sequence.play(config, parameter)
 
-# test(rendering)
+# --- test(rendering)
 config.set_play_config(max_episodes=1, callbacks=[RenderingEpisode()])
 sequence.play(config, parameter)
 ```
@@ -74,33 +87,31 @@ sequence.play(config, parameter)
 # Algorithms
 
 
-|Algorithm|Algorithm Type|Observation Type|Action Type|Progress Rate|
-|---------|--------------|----------------|-----------|-------------|---|
-|QL       |Table         |Discrete        |Discrete   |100%         |
-|QL_agent57|Table         |Discrete        |Discrete   |100%        |QL + Agent57|
-|DQN      |NeuralNet     |Continuous      |Discrete   |100%         |
-|C51      |NeuralNet     |Continuous      |Discrete   | 90%         |
-|Rainbow  |NeuralNet     |Continuous      |Discrete   | 90%         |
+|Algorithm|Algorithm Type|Observation Type|Action Type|Progress Rate||Paper|
+|---------|-----|--------------|----------------|----------|-------------|---|
+|QL       |Table    |Discrete  |Discrete  |100%|Basic Q Learning||
+|QL_agent57|Table   |Discrete  |Discrete  |100%|QL + Agent57|
+|DQN      |NeuralNet|Continuous|Discrete  |100%||[Paper](https://arxiv.org/pdf/1312.5602.pdf)|
+|C51      |NeuralNet|Continuous|Discrete  | 90%|Categorical DQN|[Paper](https://arxiv.org/abs/1707.06887)|
+|Rainbow  |NeuralNet|Continuous|Discrete  | 90%||[Paper](https://arxiv.org/pdf/1710.02298.pdf)|
+|R2D2  |NeuralNet|Continuous|Discrete  | 70%||[Paper](https://openreview.net/forum?id=r1lyTjAqYX)|
+|Agent57_light  |NeuralNet|Continuous|Discrete  | 90%|Agent57 - (LSTM,MultiStep)||
+|SAC      |NeuralNet|Continuous|Continuous| 70%||[Paper](https://arxiv.org/abs/1812.05905)|
 
 
 
-# Other Info
-
-
-* Sequence flow
+# Diaglams
+## Sequence flow
 
 ![sequence diagram](diagrams/sync_flow.png)
 
-
-* Distribute flow
+## Distribute flow
 
 ![sequence diagram](diagrams/runner_mp_flow.png)
 ![sequence diagram](diagrams/runner_mp_flow_trainer.png)
 ![sequence diagram](diagrams/runner_mp_flow_worker.png)
 
-* Class diagram
+## Class diagram
 
 ![sequence diagram](diagrams/class.png)
-
-
 

@@ -23,11 +23,11 @@ def create_input_layers_one_sequence(
 ) -> Tuple[kl.Layer, kl.Layer]:
 
     logger.debug(f"input shape: (batch_size,) + {input_shape}")
-    input_ = c = kl.Input(shape=input_shape)
+    in_state = c = kl.Input(shape=input_shape)
 
     if observation_type == EnvObservationType.DISCRETE or observation_type == EnvObservationType.CONTINUOUS:
         c = kl.Flatten()(c)
-        return input_, c
+        return in_state, c
 
     # --- image head
     if observation_type == EnvObservationType.GRAY_2ch:
@@ -58,7 +58,7 @@ def create_input_layers_one_sequence(
         assert len(input_shape) == 3
 
         # (n, width, height) -> (width, height, n)
-        pass
+        c = kl.Permute((2, 3, 1))(c)
 
     else:
         raise ValueError()
@@ -66,7 +66,7 @@ def create_input_layers_one_sequence(
     # --- image layers
     c = _create_image_layers(c, image_layer_type)
 
-    return input_, c
+    return in_state, c
 
 
 def create_input_layers(
@@ -78,15 +78,15 @@ def create_input_layers(
 
     input_shape = (input_sequence,) + input_shape
     logger.debug(f"input shape: (batch_size,) + {input_shape}")
-    input_ = c = kl.Input(shape=input_shape)
+    in_state = c = kl.Input(shape=input_shape)
 
     if observation_type == EnvObservationType.DISCRETE or observation_type == EnvObservationType.CONTINUOUS:
         c = kl.Flatten()(c)
-        return input_, c
+        return in_state, c
 
+    # --- image head
     if input_sequence == 1:
 
-        # --- image head
         if observation_type == EnvObservationType.GRAY_2ch:
             assert len(input_shape) == 3
 
@@ -124,19 +124,18 @@ def create_input_layers(
 
     else:  # input_sequence > 1
 
-        # --- image head
         if observation_type == EnvObservationType.GRAY_2ch:
             assert len(input_shape) == 3
 
-            # (input_seq, w, h) -> (w, h, input_seq)
+            # (in_stateseq, w, h) -> (w, h, in_stateseq)
             c = kl.Permute((2, 3, 1))(c)
 
         elif observation_type == EnvObservationType.GRAY_3ch:
             assert len(input_shape) == 4
             assert input_shape[-1] == 1
 
-            # (input_seq, width, height, 1) -> (input_seq, width, height)
-            # (input_seq, width, height) -> (width, height, input_seq)
+            # (in_stateseq, width, height, 1) -> (in_stateseq, width, height)
+            # (in_stateseq, width, height) -> (width, height, in_stateseq)
             c = kl.Reshape(input_shape[:3])(c)
             c = kl.Permute((2, 3, 1))(c)
 
@@ -146,7 +145,7 @@ def create_input_layers(
         elif observation_type == EnvObservationType.SHAPE2:
             assert len(input_shape) == 3
 
-            # (input_seq, width, height) -> (w, h, input_seq)
+            # (in_stateseq, width, height) -> (w, h, in_stateseq)
             c = kl.Permute((2, 3, 1))(c)
 
         elif observation_type == EnvObservationType.SHAPE3:
@@ -158,21 +157,76 @@ def create_input_layers(
     # --- image layers
     c = _create_image_layers(c, image_layer_type)
 
-    return input_, c
+    return in_state, c
 
 
-def _create_image_layers(c, image_layer_type):
+def create_input_layers_lstm_stateful(
+    batch_size: int,
+    input_sequence: int,
+    input_shape: tuple,
+    observation_type: EnvObservationType,
+    image_layer_type: ImageLayerType,
+) -> Tuple[kl.Layer, kl.Layer]:
+
+    input_shape = (input_sequence,) + input_shape
+    logger.debug(f"lstm stateful input shape: ({batch_size},) + {input_shape}")
+    in_state = c = kl.Input(batch_input_shape=(batch_size,) + input_shape)
+
+    if observation_type == EnvObservationType.DISCRETE or observation_type == EnvObservationType.CONTINUOUS:
+        c = kl.TimeDistributed(kl.Flatten())(c)
+        return in_state, c
+
+    if observation_type == EnvObservationType.GRAY_2ch:
+        assert len(input_shape) == 3
+
+        # (timesteps, w, h) -> (timesteps, w, h, 1)
+        c = kl.Reshape(input_shape + (-1,))(c)
+
+    elif observation_type == EnvObservationType.GRAY_3ch:
+        assert len(input_shape) == 4
+        assert input_shape[-1] == 1
+
+        # (timesteps, width, height, 1)
+        pass
+
+    elif observation_type == EnvObservationType.COLOR:
+        assert len(input_shape) == 4
+
+        # (timesteps, width, height, ch)
+        pass
+
+    elif observation_type == EnvObservationType.SHAPE2:
+        assert len(input_shape) == 3
+
+        # (timesteps, width, height) -> (timesteps, width, height, 1)
+        c = kl.Reshape(input_shape + (-1,))(c)
+
+    elif observation_type == EnvObservationType.SHAPE3:
+        assert len(input_shape) == 4
+
+        # (timesteps, n, width, height) -> (timesteps, width, height, n)
+        c = kl.Permute((1, 3, 4, 2))(c)
+
+    else:
+        raise ValueError()
+
+    # --- image layers
+    c = _create_image_layers(c, image_layer_type, use_lstm=True)
+
+    return in_state, c
+
+
+def _create_image_layers(c, image_layer_type, use_lstm: bool = False):
 
     # --- Image Layers
     if image_layer_type == ImageLayerType.NONE:
-        c = kl.Flatten()(c)
+        pass
 
     elif image_layer_type == ImageLayerType.DQN:
         # --- DQN Image Model
         c = kl.Conv2D(32, (8, 8), strides=(4, 4), padding="same", activation="relu")(c)
         c = kl.Conv2D(64, (4, 4), strides=(2, 2), padding="same", activation="relu")(c)
         c = kl.Conv2D(64, (3, 3), strides=(1, 1), padding="same", activation="relu")(c)
-        c = kl.Flatten()(c)
 
     elif image_layer_type == ImageLayerType.R2D3:
         # --- R2D3 Image Model
@@ -181,17 +235,24 @@ def _create_image_layers(c, image_layer_type):
         c = _resblock(c, 32)
         c = _resblock(c, 32)
         c = kl.Activation("relu")(c)
-        c = kl.Flatten()(c)
+
+        # TODO: lstm
 
     elif image_layer_type == ImageLayerType.AlphaZero:
         c = _resblock(c, 16)
         c = _resblock(c, 32)
         c = _resblock(c, 32)
         c = kl.Activation("relu")(c)
-        c = kl.Flatten()(c)
+
+        # TODO
 
     else:
         raise ValueError()
+
+    if use_lstm:
+        c = kl.TimeDistributed(kl.Flatten())(c)
+    else:
+        c = kl.Flatten()(c)
 
     return c
 

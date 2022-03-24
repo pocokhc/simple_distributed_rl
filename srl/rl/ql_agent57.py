@@ -39,6 +39,7 @@ Rainbow
     Noisy Network            : -
     Categorical DQN          : -
 Recurrent Replay Distributed DQN(R2D2)
+    LSTM                     : -
     Value function rescaling : o
 Never Give Up(NGU)
     Intrinsic Reward : o

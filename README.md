@@ -108,8 +108,16 @@ sequence.play(config, parameter)
 
 ## Distribute flow
 
+* main
+
 ![sequence diagram](diagrams/runner_mp_flow.png)
+
+* Trainer
+
 ![sequence diagram](diagrams/runner_mp_flow_trainer.png)
+
+* Workers
+
 ![sequence diagram](diagrams/runner_mp_flow_worker.png)
 
 ## Class diagram

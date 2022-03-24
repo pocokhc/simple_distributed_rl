@@ -47,14 +47,14 @@ class Parameter(RLParameter):
         super().__init__(*args)
         self.config = cast(Config, self.config)
 
-        input_, c = create_input_layers_one_sequence(
+        in_state, c = create_input_layers_one_sequence(
             self.config.env_observation_shape,
             self.config.env_observation_type,
             ImageLayerType.DQN,
         )
         c = kl.Dense(512, activation="relu")(c)
         c = kl.Dense(self.config.nb_actions, activation="linear")(c)
-        self.Q = keras.Model(input_, c)
+        self.Q = keras.Model(in_state, c)
 
     def restore(self, data: Any) -> None:
         self.Q.set_weights(data)

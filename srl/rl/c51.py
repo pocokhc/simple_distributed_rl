@@ -60,7 +60,7 @@ class Parameter(RLParameter):
         super().__init__(*args)
         self.config = cast(Config, self.config)
 
-        input_, c = create_input_layers_one_sequence(
+        in_state, c = create_input_layers_one_sequence(
             self.config.env_observation_shape,
             self.config.env_observation_type,
             self.config.image_layer_type,
@@ -69,7 +69,7 @@ class Parameter(RLParameter):
             c = kl.Dense(h, activation=self.config.activation, kernel_initializer="he_normal")(c)
         c = kl.Dense(self.config.nb_actions * self.config.categorical_num_atoms, activation="linear")(c)
         c = kl.Reshape((self.config.nb_actions, self.config.categorical_num_atoms))(c)
-        self.Q = keras.Model(input_, c)
+        self.Q = keras.Model(in_state, c)
 
     def restore(self, data: Any) -> None:
         self.Q.set_weights(data)

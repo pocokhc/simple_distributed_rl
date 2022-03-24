@@ -46,17 +46,17 @@ class Parameter(RLParameter):
         self.config = cast(Config, self.config)
 
         # critic
-        input_, c = create_input_layers_one_sequence(
+        in_state, c = create_input_layers_one_sequence(
             self.config.env_observation_shape,
             self.config.env_observation_type,
             ImageLayerType.DQN,
         )
         c = kl.Dense(512, activation="relu")(c)
         c = kl.Dense(1, activation="linear")(c)
-        self.critic = keras.Model(input_, c)
+        self.critic = keras.Model(in_state, c)
 
         # actor
-        input_, c = create_input_layers_one_sequence(
+        in_state, c = create_input_layers_one_sequence(
             self.config.env_observation_shape,
             self.config.env_observation_type,
             ImageLayerType.DQN,
@@ -64,7 +64,7 @@ class Parameter(RLParameter):
         c = kl.Dense(512, activation="relu")(c)
         pi_mean = kl.Dense(self.config.action_num, activation="linear")(c)
         pi_stddev = kl.Dense(self.config.action_num, activation="linear")(c)
-        self.actor = keras.Model(input_, [pi_mean, pi_stddev])
+        self.actor = keras.Model(in_state, [pi_mean, pi_stddev])
 
     def summary(self):
         self.critic.summary()

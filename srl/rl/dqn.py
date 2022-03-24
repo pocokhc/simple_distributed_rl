@@ -6,22 +6,21 @@ from typing import Any, List, Optional, Tuple, cast
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
-from srl.base.rl import (DiscreteActionConfig, RLParameter, RLRemoteMemory,
-                         RLTrainer, RLWorker)
+from srl.base.rl import DiscreteActionConfig, RLParameter, RLRemoteMemory, RLTrainer, RLWorker
 from srl.rl.functions.model import ImageLayerType, create_input_layers
 from srl.rl.registory import register
 from tensorflow.keras import layers as kl
 
 """
-window_length(input_sequence): o
-Target Network               : o (+Double DQN)
-Huber loss function          : o
-Delay update Target Network  : o
-Experience Replay   : o
-Frame skip          : x
-Annealing e-greedy  : o
-Reward clip         : o
-Image preprocessor  : x
+window_length               : o (option)
+Target Network              : o (+Double DQN)(option)
+Huber loss function         : o
+Delay update Target Network : o
+Experience Replay  : o
+Frame skip         : x
+Annealing e-greedy : o (option)
+Reward clip        : o (option)
+Image preprocessor : x
 """
 
 
@@ -40,7 +39,7 @@ class Config(DiscreteActionConfig):
     exploration_steps: int = -1
 
     # model
-    input_sequence: int = 1
+    window_length: int = 1
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
     image_layer_type: ImageLayerType = ImageLayerType.DQN
@@ -62,7 +61,7 @@ class Config(DiscreteActionConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.input_sequence > 0
+        assert self.window_length > 0
         assert self.memory_warmup_size < self.capacity
         assert self.batch_size < self.memory_warmup_size
 
@@ -77,8 +76,8 @@ class _QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        input_, c = create_input_layers(
-            config.input_sequence,
+        in_state, c = create_input_layers(
+            config.window_length,
             config.env_observation_shape,
             config.env_observation_type,
             config.image_layer_type,
@@ -90,10 +89,10 @@ class _QNetwork(keras.Model):
 
         # --- out layer
         c = kl.Dense(config.nb_actions, activation="linear", kernel_initializer="truncated_normal")(c)
-        self.model = keras.Model(input_, c)
+        self.model = keras.Model(in_state, c)
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1, config.input_sequence) + config.env_observation_shape, dtype=np.float32)
+        dummy_state = np.zeros(shape=(1, config.window_length) + config.env_observation_shape, dtype=np.float32)
         val = self(dummy_state)
         assert val.shape == (1, config.nb_actions)
 
@@ -280,7 +279,7 @@ class Worker(RLWorker):
             self.final_epsilon = self.config.final_epsilon
 
     def on_reset(self, state: np.ndarray, valid_actions: List[int]) -> None:
-        self.recent_states = [self.dummy_state for _ in range(self.config.input_sequence + 1)]
+        self.recent_states = [self.dummy_state for _ in range(self.config.window_length + 1)]
 
         self.recent_states.pop(0)
         self.recent_states.append(state)
@@ -338,10 +337,6 @@ class Worker(RLWorker):
             elif reward > self.config.reward_clip[1]:
                 reward = self.config.reward_clip[1]
 
-        if self.invalid_action_reward > reward - 1:
-            self.invalid_action_reward = reward - 1
-            self.memory.clear_invalid()
-
         batch = {
             "states": self.recent_states[:],
             "action": action,
@@ -350,7 +345,11 @@ class Worker(RLWorker):
         }
         self.memory.add(batch)
 
-        # --- valid action
+        # --- invalid action
+        if self.invalid_action_reward > reward - 1:
+            self.invalid_action_reward = reward - 1
+            self.memory.clear_invalid()
+
         states = self.recent_states[:]
         states[-1] = self.dummy_state
         for a in range(self.config.nb_actions):

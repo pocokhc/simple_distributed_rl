@@ -16,21 +16,21 @@ from tensorflow.keras import layers as kl
 
 """
 DQN
-    window_length(input_sequence): o
-    Target Network               : o
-    Huber loss function          : o
-    Delay update Target Network  : o
-    Experience Replay   : o
-    Frame skip          : x
-    Annealing e-greedy  : o
-    Reward clip         : o
-    Image preprocessor  : x
+    window_length               : o (option)
+    Target Network              : o
+    Huber loss function         : o
+    Delay update Target Network : o
+    Experience Replay  : o
+    Frame skip         : x
+    Annealing e-greedy : o (option)
+    Reward clip        : o (option)
+    Image preprocessor : x
 Rainbow
-    Double DQN                  : o
-    Priority Experience Replay  : o
-    Dueling Network             : o
-    Multi-Step learning(retrace): o
-    Noisy Network               : o
+    Double DQN                  : o (option)
+    Priority Experience Replay  : o (option)
+    Dueling Network             : o (option)
+    Multi-Step learning(retrace): o (option)
+    Noisy Network               : o (option)
     Categorical DQN             : x
 """
 
@@ -50,7 +50,7 @@ class Config(DiscreteActionConfig):
     exploration_steps: int = -1
 
     # model
-    input_sequence: int = 1
+    window_length: int = 1
     dense_units: int = 512
     image_layer_type: ImageLayerType = ImageLayerType.DQN
     enable_noisy_dense: bool = False
@@ -84,7 +84,7 @@ class Config(DiscreteActionConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.input_sequence > 0
+        assert self.window_length > 0
         assert self.memory_warmup_size < self.capacity
         assert self.batch_size < self.memory_warmup_size
 
@@ -99,8 +99,8 @@ class _QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        input_, c = create_input_layers(
-            config.input_sequence,
+        in_state, c = create_input_layers(
+            config.window_length,
             config.env_observation_shape,
             config.env_observation_type,
             config.image_layer_type,
@@ -144,10 +144,10 @@ class _QNetwork(keras.Model):
             c = Dense(config.dense_units, activation="relu", kernel_initializer="he_normal")(c)
             c = Dense(config.nb_actions, kernel_initializer="truncated_normal")(c)
 
-        self.model = keras.Model(input_, c)
+        self.model = keras.Model(in_state, c)
 
         # 重みを初期化
-        in_shape = (config.input_sequence,) + config.env_observation_shape
+        in_shape = (config.window_length,) + config.env_observation_shape
         dummy_state = np.zeros(shape=(1,) + in_shape, dtype=np.float32)
         val = self(dummy_state)
         assert val.shape == (1, config.nb_actions)
@@ -387,7 +387,7 @@ class Worker(RLWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.memory = cast(RemoteMemory, self.memory)
 
-        self.dummy_state = np.full(self.config.env_observation_shape, self.config.dummy_state_val)
+        self.dummy_state = np.full(self.config.env_observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.invalid_action_reward = -1
         self.step = 0
 
@@ -399,7 +399,7 @@ class Worker(RLWorker):
             self.final_epsilon = self.config.final_epsilon
 
     def on_reset(self, state: np.ndarray, valid_actions: List[int]) -> None:
-        self.recent_states = [self.dummy_state for _ in range(self.config.input_sequence)]
+        self.recent_states = [self.dummy_state for _ in range(self.config.window_length)]
         self.recent_bundle_states = [self.recent_states[:] for _ in range(self.config.multisteps + 1)]
 
         self.recent_actions = [random.randint(0, self.config.nb_actions - 1) for _ in range(self.config.multisteps)]

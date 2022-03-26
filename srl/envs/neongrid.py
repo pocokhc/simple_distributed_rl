@@ -221,7 +221,7 @@ class NeonGrid(EnvBase):
         return json.dumps(
             [
                 self.player_pos,
-                self.return_field,
+                self.return_state,
             ]
         )
 
@@ -229,7 +229,7 @@ class NeonGrid(EnvBase):
     def restore(self, data: Any) -> None:
         d = json.loads(data)
         self.player_pos = d[0]
-        self.return_field = d[1]
+        self.return_state = d[1]
 
     # ------------------------------------
     @property

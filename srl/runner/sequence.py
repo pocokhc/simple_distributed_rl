@@ -201,7 +201,7 @@ def play(
             episode_t0 = _time
 
             # rl reset
-            worker.on_reset(state, valid_actions)
+            worker.on_reset(state, valid_actions, env)
 
             # callback
             _params = {
@@ -235,7 +235,7 @@ def play(
         [c.on_step_begin(_params) for c in callbacks]
 
         # action
-        env_action, worker_action = worker.policy(state, valid_actions)
+        env_action, worker_action = worker.policy(state, valid_actions, env)
         if valid_actions is not None:
             assert env_action in valid_actions
 
@@ -255,7 +255,16 @@ def play(
             done = True
 
         # --- rl step
-        work_info = worker.on_step(state, worker_action, next_state, reward, done, valid_actions, next_valid_actions)
+        work_info = worker.on_step(
+            state,
+            worker_action,
+            next_state,
+            reward,
+            done,
+            valid_actions,
+            next_valid_actions,
+            env,
+        )
         if config.training and trainer is not None:
             _t0 = time.time()
             train_info = trainer.train()

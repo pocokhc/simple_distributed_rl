@@ -243,7 +243,7 @@ class Parameter(RLParameter):
                     target_q += gain
                 else:
                     td_error = gain - n_q_list[n_states_idx - 1][action]
-                    target_q += (self.config.gamma ** n) * retrace * td_error
+                    target_q += (self.config.gamma**n) * retrace * td_error
                 n_states_idx += 1
             n_states_idx_start += len(b["rewards"])
             target_q_list.append(target_q)
@@ -398,7 +398,7 @@ class Worker(RLWorker):
             ) / self.config.exploration_steps
             self.final_epsilon = self.config.final_epsilon
 
-    def on_reset(self, state: np.ndarray, valid_actions: List[int]) -> None:
+    def on_reset(self, state: np.ndarray, valid_actions: List[int], _) -> None:
         self.recent_states = [self.dummy_state for _ in range(self.config.window_length)]
         self.recent_bundle_states = [self.recent_states[:] for _ in range(self.config.multisteps + 1)]
 
@@ -415,7 +415,7 @@ class Worker(RLWorker):
         self.recent_valid_actions.pop(0)
         self.recent_valid_actions.append(valid_actions)
 
-    def policy(self, _state: np.ndarray, valid_actions: List[int]) -> Tuple[int, Any]:
+    def policy(self, _state: np.ndarray, valid_actions: List[int], _) -> Tuple[int, Any]:
         state = self.recent_bundle_states[-1]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
 
@@ -448,6 +448,7 @@ class Worker(RLWorker):
         done: bool,
         valid_actions: List[int],
         next_valid_actions: List[int],
+        _,
     ):
         self.recent_states.pop(0)
         self.recent_states.append(next_state)

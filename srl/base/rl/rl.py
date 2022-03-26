@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from srl.base.rl.config import RLConfig
+from srl.base.rl.env_for_rl import EnvForRL
 
 
 class RLParameter(ABC):
@@ -92,11 +93,13 @@ class RLWorker(ABC):
         self.training = training
 
     @abstractmethod
-    def on_reset(self, state: Any, valid_actions: Optional[List[int]]) -> None:
+    def on_reset(self, state: Any, valid_actions: Optional[List[int]], env: EnvForRL) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def policy(self, state: Any, valid_actions: Optional[List[int]]) -> Tuple[Any, Any]:  # (env_action, agent_action)
+    def policy(
+        self, state: Any, valid_actions: Optional[List[int]], env: EnvForRL
+    ) -> Tuple[Any, Any]:  # (env_action, agent_action)
         raise NotImplementedError()
 
     @abstractmethod
@@ -109,8 +112,8 @@ class RLWorker(ABC):
         done: bool,
         valid_actions: Optional[List[int]],
         next_valid_actions: Optional[List[int]],
-    ) -> Dict[str, Union[float, int]]:
-        # return info
+        env: EnvForRL,
+    ) -> Dict[str, Union[float, int]]:  # info
         raise NotImplementedError()
 
     @abstractmethod

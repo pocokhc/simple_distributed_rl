@@ -207,7 +207,7 @@ class Parameter(RLParameter):
             target_q = rescaling(target_q)
 
             td_error = target_q - Q[s][action]
-            TQ += (gamma ** n) * _retrace * td_error
+            TQ += (gamma**n) * _retrace * td_error
 
         return TQ
 
@@ -329,7 +329,7 @@ class Worker(RLWorker):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def on_reset(self, state: np.ndarray, valid_actions: List[int]) -> None:
+    def on_reset(self, state: np.ndarray, valid_actions: List[int], _) -> None:
         if self.training:
             # エピソード毎に actor を決める
             self.actor_index = self._calc_actor_index()
@@ -398,7 +398,7 @@ class Worker(RLWorker):
         # UCB値最大のポリシー（複数あればランダム）
         return random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def policy(self, state: np.ndarray, valid_actions: List[int]) -> Tuple[int, Any]:
+    def policy(self, state: np.ndarray, valid_actions: List[int], _) -> Tuple[int, Any]:
         s = str(state.tolist())
         q = self.parameter.get_q(s, valid_actions, self.beta)
         probs = calc_epsilon_greedy_probs(q, valid_actions, self.epsilon, self.config.nb_actions)
@@ -415,6 +415,7 @@ class Worker(RLWorker):
         done: bool,
         valid_actions: List[int],
         next_valid_actions: List[int],
+        _,
     ):
         if not self.training:
             return {}

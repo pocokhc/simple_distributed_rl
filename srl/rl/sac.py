@@ -354,10 +354,10 @@ class Worker(RLWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.memory = cast(RemoteMemory, self.memory)
 
-    def on_reset(self, state: np.ndarray, valid_actions) -> None:
+    def on_reset(self, state: np.ndarray, valid_actions, _) -> None:
         pass
 
-    def policy(self, state: np.ndarray, valid_actions) -> Tuple[int, Any]:
+    def policy(self, state: np.ndarray, valid_actions, _) -> Tuple[int, Any]:
         action, mean, _, _ = self.parameter.policy(state.reshape(1, -1))
 
         # TODO action rerange
@@ -378,6 +378,7 @@ class Worker(RLWorker):
         done: bool,
         valid_actions,
         next_valid_actions,
+        _,
     ):
         if not self.training:
             return {}

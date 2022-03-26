@@ -170,6 +170,7 @@ class Worker(RLWorker):
         done: bool,
         valid_actions: List[int],
         next_valid_actions: List[int],
+        _,
     ):
         if not self.training:
             return {}

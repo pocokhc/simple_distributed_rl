@@ -278,13 +278,13 @@ class Worker(RLWorker):
             ) / self.config.exploration_steps
             self.final_epsilon = self.config.final_epsilon
 
-    def on_reset(self, state: np.ndarray, valid_actions: List[int]) -> None:
+    def on_reset(self, state: np.ndarray, valid_actions: List[int], _) -> None:
         self.recent_states = [self.dummy_state for _ in range(self.config.window_length + 1)]
 
         self.recent_states.pop(0)
         self.recent_states.append(state)
 
-    def policy(self, _state: np.ndarray, valid_actions: List[int]) -> Tuple[int, Any]:
+    def policy(self, _state: np.ndarray, valid_actions: List[int], _) -> Tuple[int, Any]:
 
         if self.training:
             if self.config.exploration_steps > 0:
@@ -321,6 +321,7 @@ class Worker(RLWorker):
         done: bool,
         valid_actions: List[int],
         next_valid_actions: List[int],
+        _,
     ):
 
         self.recent_states.pop(0)

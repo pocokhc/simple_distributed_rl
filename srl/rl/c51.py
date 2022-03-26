@@ -220,13 +220,13 @@ class Worker(RLWorker):
         self.Vmax = 10
         self.Z = np.linspace(self.Vmin, self.Vmax, self.config.categorical_num_atoms)
 
-    def on_reset(self, state: np.ndarray, valid_actions: List[int]) -> None:
+    def on_reset(self, state: np.ndarray, valid_actions: List[int], _) -> None:
         if self.training:
             self.epsilon = self.config.epsilon
         else:
             self.epsilon = self.config.test_epsilon
 
-    def policy(self, state: np.ndarray, valid_actions: List[int]) -> Tuple[int, Any]:
+    def policy(self, state: np.ndarray, valid_actions: List[int], _) -> Tuple[int, Any]:
 
         if random.random() < self.epsilon:
             # epsilonより低いならランダム
@@ -254,6 +254,7 @@ class Worker(RLWorker):
         done: bool,
         valid_actions: List[int],
         next_valid_actions: List[int],
+        _,
     ):
         if not self.training:
             return {}

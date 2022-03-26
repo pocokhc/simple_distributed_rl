@@ -558,7 +558,7 @@ class Worker(RLWorker):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def on_reset(self, state: np.ndarray, valid_actions: list[int]) -> None:
+    def on_reset(self, state: np.ndarray, valid_actions: List[int], _) -> None:
         if self.training:
             # エピソード毎に actor を決める
             self.actor_index = self._calc_actor_index()
@@ -624,7 +624,7 @@ class Worker(RLWorker):
         # UCB値最大のポリシー（複数あればランダム）
         return random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def policy(self, state_: np.ndarray, valid_actions: list[int]) -> tuple[int, Any]:  # (env_action, agent_action)
+    def policy(self, state_: np.ndarray, valid_actions: List[int], _):
         state = np.asarray([self.recent_states[1:]])
 
         q_ext = self.parameter.q_ext_online(state)[0].numpy()
@@ -650,6 +650,7 @@ class Worker(RLWorker):
         done: bool,
         valid_actions: List[int],
         next_valid_actions: List[int],
+        _,
     ):
         self.episode_reward += reward_ext
 
@@ -774,7 +775,7 @@ class Worker(RLWorker):
 
         return reward
 
-    def render(self, state: np.ndarray, valid_actions: list[int]) -> None:
+    def render(self, state: np.ndarray, valid_actions: List[int]) -> None:
         state = np.asarray([self.recent_states[1:]])
         q_ext = self.parameter.q_ext_online(state)[0].numpy()
         q_int = self.parameter.q_int_online(state)[0].numpy()

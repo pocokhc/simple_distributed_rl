@@ -147,13 +147,13 @@ class Worker(RLWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.memory = cast(RemoteMemory, self.memory)
 
-    def on_reset(self, state: np.ndarray, valid_actions: List[int]) -> None:
+    def on_reset(self, state: np.ndarray, valid_actions: List[int], _) -> None:
         if self.training:
             self.epsilon = self.config.epsilon
         else:
             self.epsilon = self.config.test_epsilon
 
-    def policy(self, state: np.ndarray, valid_actions: List[int]) -> Tuple[int, Any]:
+    def policy(self, state: np.ndarray, valid_actions: List[int], _) -> Tuple[int, Any]:
         s = str(state.tolist())
 
         if random.random() < self.epsilon:
@@ -179,6 +179,7 @@ class Worker(RLWorker):
         done: bool,
         valid_actions: List[int],
         next_valid_actions: List[int],
+        _,
     ):
         if not self.training:
             return {}

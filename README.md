@@ -87,6 +87,8 @@ sequence.play(config, parameter)
 
 # Algorithms
 
+## Model Free
+### Value Base
 
 |Algorithm|Algorithm Type|Observation Type|Action Type|Progress Rate||Paper|
 |---------|-----|--------------|----------------|----------|-------------|---|
@@ -96,8 +98,25 @@ sequence.play(config, parameter)
 |C51      |NeuralNet|Continuous|Discrete  | 90%|Categorical DQN|[Paper](https://arxiv.org/abs/1707.06887)|
 |Rainbow  |NeuralNet|Continuous|Discrete  | 90%||[Paper](https://arxiv.org/pdf/1710.02298.pdf)|
 |R2D2  |NeuralNet|Continuous|Discrete  | 70%||[Paper](https://openreview.net/forum?id=r1lyTjAqYX)|
+|Agent57  |NeuralNet|Continuous|Discrete  | 0%||[Paper](https://arxiv.org/abs/2003.13350)|
 |Agent57_light  |NeuralNet|Continuous|Discrete  | 90%|Agent57 - (LSTM,MultiStep)||
+
+
+### Policy Base/Actor-Critic
+
+|Algorithm|Algorithm Type|Observation Type|Action Type|Progress Rate||Paper|
+|---------|-----|--------------|----------------|----------|-------------|---|
 |SAC      |NeuralNet|Continuous|Continuous| 70%||[Paper](https://arxiv.org/abs/1812.05905)|
+
+
+## Model Base
+
+|Algorithm|Algorithm Type|Observation Type|Action Type|Progress Rate||Paper|
+|---------|-----|--------------|----------------|----------|-------------|---|
+|MCTS      |Table|Discrete|Discrete| -%|Single play||
+|AlphaZero |Table/NeuralNet|Continuous|Discrete| -%|Single play||
+
+
 
 
 

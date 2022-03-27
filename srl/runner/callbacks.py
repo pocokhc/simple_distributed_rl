@@ -226,7 +226,9 @@ class PrintProgress(Callback):
         # --- print
         s = dt.datetime.now().strftime("%H:%M:%S")
         s += f" {to_str_time(self.elapsed_time)}"
-        s += " {:7d}epi".format(info["episode_count"])
+        s += " {:7d}ep".format(info["episode_count"])
+        if info["trainer"] is not None:
+            s += " {:7d}tr".format(info["trainer"].get_train_count())
 
         if len(self.progress_history) > 0:
             episode_time = np.mean([h["episode_time"] for h in self.progress_history])
@@ -253,10 +255,10 @@ class PrintProgress(Callback):
             _s = [h["step"] for h in self.progress_history]
             s += f", {min(_r):.3f} {np.mean(_r):.3f} {max(_r):.3f} reward"
             s += f", {np.mean(_s):.1f} step"
-            s += f", {episode_time:.2f}s/epi"
+            s += f", {episode_time:.2f}s/ep"
 
             train_time = np.mean([h["train_time"] for h in self.progress_history])
-            s += f", {train_time:.4f}s/train"
+            s += f", {train_time:.4f}s/tr"
 
             memory_len = max([h["remote_memory"] for h in self.progress_history])
             s += f", {memory_len:8d} mem"

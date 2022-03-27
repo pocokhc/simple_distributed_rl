@@ -6,6 +6,7 @@ from typing import List, Optional, Tuple
 
 import gym
 from srl import rl
+from srl.base.define import EnvObservationType
 from srl.base.rl import RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.env_for_rl import EnvForRL
@@ -30,6 +31,9 @@ class Config:
     max_episodes: int = -1
     timeout: int = -1
     training: bool = False
+
+    # preprocessor
+    env_observation_type: EnvObservationType = EnvObservationType.UNKOWN  # 指定があれば上書きする
 
     # other
     callbacks: List[Callback] = field(default_factory=list)
@@ -71,7 +75,12 @@ class Config:
             self.create_env()
 
     def create_env(self, **kwargs) -> EnvForRL:
-        env = EnvForRL(gym.make(self.env_name), self.rl_config, **kwargs)
+        env = EnvForRL(
+            gym.make(self.env_name),
+            self.rl_config,
+            self.env_observation_type,
+            **kwargs,
+        )
         self.is_init_rl_config = True
         return env
 

@@ -20,6 +20,7 @@ class EnvForRL(EnvBase):
 
     env: Union[gym.Env, EnvBase]
     config: RLConfig
+    override_env_observation_type: EnvObservationType = EnvObservationType.UNKOWN
 
     action_division_num: int = 5
     observation_division_num: int = 50
@@ -67,6 +68,10 @@ class EnvForRL(EnvBase):
                 self.after_observation_type = EnvObservationType.GRAY_2ch
             elif self.env.observation_type == EnvObservationType.COLOR:
                 self.after_observation_type = EnvObservationType.GRAY_2ch
+
+        # configの上書き
+        if self.override_env_observation_type != EnvObservationType.UNKOWN:
+            self.after_observation_type = self.override_env_observation_type
 
         # 変更後
         logger.info(f"before_action          : {self._space_str(self.env.action_space)}")

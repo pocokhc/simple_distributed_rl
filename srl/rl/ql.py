@@ -161,9 +161,7 @@ class Worker(RLWorker):
             action = random.choice(valid_actions)
         else:
             q = self.parameter.get_q(s, valid_actions)
-
-            # valid actionsでfilter
-            q = np.asarray([val if a in valid_actions else -np.inf for a, val in enumerate(q)])
+            q = np.asarray(q)
 
             # 最大値を選ぶ（複数あればランダム）
             action = random.choice(np.where(q == q.max())[0])

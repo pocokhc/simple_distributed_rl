@@ -122,6 +122,8 @@ class Parameter(RLParameter):
         self.lifelong_C = {}
         self.Q_C = {}
 
+        self.init_state("", [a for a in range(self.config.nb_actions)])
+
         self.beta_list = create_beta_list(self.config.actor_num)
         self.gamma_list = create_gamma_list(self.config.actor_num)
         self.epsilon_list = create_epsilon_list(self.config.actor_num)
@@ -129,7 +131,9 @@ class Parameter(RLParameter):
     def restore(self, data: Any) -> None:
         d = json.loads(data)
         self.Q_ext = d[0]
+        self.Q_ext_target = d[0]
         self.Q_int = d[1]
+        self.Q_int_target = d[1]
         self.lifelong_C = d[2]
         self.Q_C = d[3]
 
@@ -145,7 +149,7 @@ class Parameter(RLParameter):
 
     # ----------------------------------------
 
-    def get_q(self, state, valid_actions, beta):
+    def init_state(self, state, valid_actions):
         if state not in self.Q_ext:
             self.Q_ext[state] = [0 if a in valid_actions else -np.inf for a in range(self.config.nb_actions)]
             self.Q_ext_target[state] = [0 if a in valid_actions else -np.inf for a in range(self.config.nb_actions)]
@@ -153,6 +157,8 @@ class Parameter(RLParameter):
             self.Q_int_target[state] = [self.config.lifelong_reward_L for a in range(self.config.nb_actions)]
             self.Q_C[state] = 0
 
+    def get_q(self, state, valid_actions, beta):
+        self.init_state(state, valid_actions)
         q_ext = np.asarray(self.Q_ext[state])
         q_int = np.asarray(self.Q_int[state])
         q = q_ext + beta * q_int
@@ -353,6 +359,8 @@ class Worker(RLWorker):
         self.recent_valid_actions.pop(0)
         self.recent_valid_actions.append(valid_actions)
 
+        self.parameter.init_state(s, valid_actions)
+
         # sliding-window UCB 用に報酬を保存
         self.prev_episode_reward = 0.0
 
@@ -423,6 +431,7 @@ class Worker(RLWorker):
         action = action_[0]
         prob = action_[1]
         n_state = str(next_state.tolist())
+        self.parameter.init_state(n_state, next_valid_actions)
 
         # 内部報酬
         episodic_reward = self._calc_episodic_reward(n_state)

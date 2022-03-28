@@ -1,5 +1,5 @@
 from srl.runner import sequence
-from srl.runner.callbacks import PrintProgress, RenderingEpisode
+from srl.runner.callbacks import PrintProgress, Rendering
 
 from env import my_env  # noqa F402
 from env import my_env_gym  # noqa F402
@@ -25,7 +25,7 @@ def main():
     sequence.play(config, parameter)
 
     # rendering
-    config.set_play_config(max_episodes=1, callbacks=[RenderingEpisode(step_stop=True)])
+    config.set_play_config(max_episodes=1, callbacks=[Rendering(step_stop=True)])
     sequence.play(config, parameter)
 
 

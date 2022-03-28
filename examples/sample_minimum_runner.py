@@ -1,6 +1,6 @@
 from srl import rl
 from srl.runner import mp, sequence
-from srl.runner.callbacks import PrintProgress, RenderingEpisode
+from srl.runner.callbacks import PrintProgress, Rendering
 from srl.runner.callbacks_mp import TrainFileLogger
 
 
@@ -26,7 +26,7 @@ def main_use_runner(is_mp):
     sequence.play(config, parameter)
 
     # --- rendering
-    config.set_play_config(max_episodes=1, callbacks=[RenderingEpisode(step_stop=True)])
+    config.set_play_config(max_episodes=1, callbacks=[Rendering(step_stop=True)])
     sequence.play(config, parameter)
 
 

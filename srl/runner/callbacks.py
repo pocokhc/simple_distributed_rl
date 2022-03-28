@@ -4,7 +4,10 @@ import time
 from abc import ABCMeta
 from dataclasses import dataclass
 
+import matplotlib.pyplot as plt
 import numpy as np
+from IPython import display
+from matplotlib import animation
 from srl.utils.common import listdictdict_to_dictlist, to_str_time
 
 logger = logging.getLogger(__name__)
@@ -34,9 +37,10 @@ class Callback(metaclass=ABCMeta):
         return False
 
 
-class RenderingEpisode(Callback):
-    def __init__(self, step_stop: bool = False):
-        self.step_stop = step_stop
+@dataclass
+class Rendering(Callback):
+
+    step_stop: bool = False
 
     def on_episode_begin(self, info):
         env = info["env"]
@@ -73,6 +77,41 @@ class RenderingEpisode(Callback):
 
         if self.step_stop:
             input("Enter to continue:")
+
+
+class RenderingAnimation(Callback):
+    def __init__(self):
+        self.frames = []
+
+    def on_episode_begin(self, info):
+        env = info["env"]
+        self.frames.append(env.render("rgb_array"))
+
+    def on_step_end(self, info):
+        env = info["env"]
+        self.frames.append(env.render("rgb_array"))
+
+    # -------------------------------
+    def create_anime(self, scale: float = 1.0, fps: int = 60) -> animation.ArtistAnimation:
+        if len(self.frames) == 0:
+            return None
+        interval = 1000 / fps
+        fig = plt.figure(figsize=(6.4 * scale, 4.8 * scale))
+        plt.axis("off")
+        images = []
+        for f in self.frames:
+            images.append([plt.imshow(f, animated=True)])
+        anime = animation.ArtistAnimation(fig, images, interval=interval, repeat=False)
+        plt.close()
+        return anime
+
+    def display(self, scale: float = 1.0, fps: int = 60):
+        if len(self.frames) == 0:
+            return
+        t0 = time.time()
+        anime = self.create_anime(scale, fps)
+        display.display(display.HTML(data=anime.to_jshtml()))
+        logger.debug("create movie({:.1f}s)".format(time.time() - t0))
 
 
 # 進捗初期化、進捗に対して表示、少しずつ間隔を長くする(上限あり)

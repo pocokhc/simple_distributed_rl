@@ -24,9 +24,11 @@ setup(
         "gym",
         "tensorflow",
         "tensorflow-addons",
-        "psutil",
-        "pynvml",
+        "matplotlib",
         "opencv-python",
+        "dataclasses",  # py3.6
+        "psutil",  # CPU info
+        "pynvml",  # GPU info
     ],
     python_requires=">=3.6",
     classifiers=[

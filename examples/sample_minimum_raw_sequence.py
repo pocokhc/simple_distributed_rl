@@ -14,12 +14,12 @@ def _run_episode(
     step = 0
     total_reward = 0
     valid_actions = env.fetch_valid_actions()
-    worker.on_reset(state, valid_actions)
+    worker.on_reset(state, valid_actions, env)
 
     for step in range(env.max_episode_steps):
 
         # action
-        env_action, worker_action = worker.policy(state, valid_actions)
+        env_action, worker_action = worker.policy(state, valid_actions, env)
         if valid_actions is not None:
             assert env_action in valid_actions
 
@@ -30,7 +30,9 @@ def _run_episode(
         next_valid_actions = env.fetch_valid_actions()
 
         # rl step
-        work_info = worker.on_step(state, worker_action, next_state, reward, done, valid_actions, next_valid_actions)
+        work_info = worker.on_step(
+            state, worker_action, next_state, reward, done, valid_actions, next_valid_actions, env
+        )
         if trainer is not None:
             train_info = trainer.train()
         else:

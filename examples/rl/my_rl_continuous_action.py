@@ -5,15 +5,12 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
-import tensorflow_probability as tfp
 from srl.base.rl import RLTrainer, RLWorker
 from srl.base.rl.config import ContinuousActionConfig
 from srl.base.rl.rl import RLParameter, RLRemoteMemory
 from srl.rl.functions.common_tf import compute_logprob, compute_logprob_sgp
 from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
 from srl.rl.registory import register
-
-tfd = tfp.distributions
 
 
 # ------------------------------------------------------
@@ -206,10 +203,10 @@ class Worker(RLWorker):
         self.action_centor = np.asarray([self.action_centor])
         self.action_scale = np.asarray([self.action_scale])
 
-    def on_reset(self, state: np.ndarray, valid_actions: List[int]) -> None:
+    def on_reset(self, state: np.ndarray, valid_actions: List[int], _) -> None:
         self.episode_batchs = []
 
-    def policy(self, state: np.ndarray, valid_actions: List[int]) -> Tuple[int, Any]:
+    def policy(self, state: np.ndarray, valid_actions: List[int], _) -> Tuple[int, Any]:
 
         mean, stddev = self.parameter.actor(state[np.newaxis, ...])
         stddev = tf.math.exp(stddev)

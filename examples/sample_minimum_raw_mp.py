@@ -19,12 +19,12 @@ def _run_episode(
     step = 0
     total_reward = 0
     valid_actions = env.fetch_valid_actions()
-    worker.on_reset(state, valid_actions)
+    worker.on_reset(state, valid_actions, env)
 
     for step in range(env.max_episode_steps):
 
         # action
-        env_action, worker_action = worker.policy(state, valid_actions)
+        env_action, worker_action = worker.policy(state, valid_actions, env)
         if valid_actions is not None:
             assert env_action in valid_actions
 
@@ -35,7 +35,9 @@ def _run_episode(
         next_valid_actions = env.fetch_valid_actions()
 
         # rl step
-        work_info = worker.on_step(state, worker_action, next_state, reward, done, valid_actions, next_valid_actions)
+        work_info = worker.on_step(
+            state, worker_action, next_state, reward, done, valid_actions, next_valid_actions, env
+        )
 
         # render
         if rendering:
@@ -108,7 +110,7 @@ def _run_worker(
                 parameter.restore(params)
 
         if episode % 1000 == 0:
-            print(f"{worker_id} {episode} episode, {step} step, {reward} reward")
+            print(f"{worker_id}: {episode} episode, {step} step, {reward} reward")
 
 
 def _run_trainer(
@@ -139,7 +141,7 @@ def _run_trainer(
         if train_count % config["trainer_parameter_send_interval_by_train_count"] == 0:
             remote_board.write(parameter.backup())
 
-        if train_count % 10000 == 0:
+        if train_count > 0 and train_count % 10000 == 0:
             print(f"{train_count} / 100000 train")
 
     train_end_signal.value = True

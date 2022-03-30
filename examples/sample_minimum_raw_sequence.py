@@ -1,6 +1,12 @@
 import gym
 from srl import rl
 from srl.base.rl.env_for_rl import EnvForRL
+from srl.rl.processor import (
+    ActionContinuousProcessor,
+    ActionDiscreteProcessor,
+    ObservationContinuousProcessor,
+    ObservationDiscreteProcessor,
+)
 
 
 def _run_episode(
@@ -63,9 +69,17 @@ def main():
     env_name = "FrozenLake-v1"
     rl_config = rl.ql.Config()
 
+    # processors
+    processors = [
+        ActionDiscreteProcessor(),
+        ActionContinuousProcessor(),
+        ObservationDiscreteProcessor(),
+        ObservationContinuousProcessor(),
+    ]
+
     # init
     rl_config.assert_params()
-    env = EnvForRL(gym.make(env_name), rl_config)
+    env = EnvForRL(gym.make(env_name), rl_config, processors=processors)
     rl_module = rl.make(rl_config.getName())
     parameter = rl_module.Parameter(rl_config)
     memory = rl_module.RemoteMemory(rl_config)

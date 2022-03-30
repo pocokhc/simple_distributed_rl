@@ -1,0 +1,43 @@
+@startuml
+autoactivate on
+
+actor Runner
+participant EnvForRL
+participant EnvBase
+participant Processors
+
+
+Runner -> EnvForRL: __init__
+    EnvForRL -> EnvBase: action_space
+    return action_space
+    EnvForRL -> Processors: observation_encode(action_space, rl_action_type)
+    return action_space
+
+    EnvForRL -> EnvBase: observation_space
+    return obs_space
+    EnvForRL -> EnvBase: observation_type
+    return obs_type
+    EnvForRL -> Processors: change_observation_info(obs_space, obs_type, rl_obs_type)
+    return obs_space, obs_type
+    
+return
+
+Runner -> EnvForRL: reset
+    EnvForRL -> EnvBase: reset()
+    return state
+    EnvForRL -> Processors: observation_encode(state)
+    return state
+return state
+
+Runner -> EnvForRL: step(action)
+    EnvForRL -> Processors: action_decode(action)
+    return action
+
+    EnvForRL -> EnvBase: step(action)
+    return state, reward, done, info
+
+    EnvForRL -> Processors: observation_encode(state)
+    return state
+return state
+
+@enduml

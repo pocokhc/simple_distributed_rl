@@ -6,6 +6,10 @@ import gym
 from srl import rl
 from srl.base.rl.env_for_rl import EnvForRL
 from srl.base.rl.rl import RLRemoteMemory
+from srl.rl.processor import (ActionContinuousProcessor,
+                              ActionDiscreteProcessor,
+                              ObservationContinuousProcessor,
+                              ObservationDiscreteProcessor)
 
 
 def _run_episode(
@@ -167,10 +171,18 @@ def main():
         "trainer_parameter_send_interval_by_train_count": 100,
     }
 
+    # processors
+    processors = [
+        ActionDiscreteProcessor(),
+        ActionContinuousProcessor(),
+        ObservationDiscreteProcessor(),
+        ObservationContinuousProcessor(),
+    ]
+
     # init
     rl_config.assert_params()
     rl_module = rl.make(rl_config.getName())
-    env = EnvForRL(gym.make(env_name), rl_config)  # (rl_config init by env)
+    env = EnvForRL(gym.make(env_name), rl_config, processors=processors)
 
     # --- async
     MPManager.register("RemoteMemory", rl_module.RemoteMemory)

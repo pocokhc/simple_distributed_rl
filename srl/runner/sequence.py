@@ -2,7 +2,7 @@ import logging
 import pickle
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import gym
 from srl import rl
@@ -10,7 +10,12 @@ from srl.base.define import EnvObservationType
 from srl.base.rl import RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.env_for_rl import EnvForRL
+from srl.base.rl.processor import Processor
 from srl.base.rl.rl import RLParameter, RLRemoteMemory
+from srl.rl.processor.action_continuous_processor import ActionContinuousProcessor
+from srl.rl.processor.action_discrete_processor import ActionDiscreteProcessor
+from srl.rl.processor.observation_continuous_processor import ObservationContinuousProcessor
+from srl.rl.processor.observation_discrete_processor import ObservationDiscreteProcessor
 from srl.runner.callbacks import Callback
 
 logger = logging.getLogger(__name__)
@@ -32,11 +37,18 @@ class Config:
     timeout: int = -1
     training: bool = False
 
-    # preprocessor
-    env_observation_type: EnvObservationType = EnvObservationType.UNKOWN  # 指定があれば上書きする
+    # EnvForRL parameter
+    override_env_observation_type: EnvObservationType = EnvObservationType.UNKOWN
+    prediction_by_simulation: bool = True
+    action_division_num: int = 5
+    observation_division_num: int = 50
+    processors: List[Processor] = field(default_factory=list)
+
+    # callbacks
+    callbacks: List[Callback] = field(default_factory=list)
 
     # other
-    callbacks: List[Callback] = field(default_factory=list)
+    skip_frames: int = 0
 
     def __post_init__(self):
         if self.rl_config is not None:
@@ -74,12 +86,21 @@ class Config:
         if not self.is_init_rl_config:
             self.create_env()
 
-    def create_env(self, **kwargs) -> EnvForRL:
+    def create_env(self) -> EnvForRL:
+
+        processors = [
+            ActionDiscreteProcessor(self.action_division_num),
+            ActionContinuousProcessor(),
+            ObservationDiscreteProcessor(self.observation_division_num),
+            ObservationContinuousProcessor(),
+        ]
+        processors.extend(self.processors)
         env = EnvForRL(
             gym.make(self.env_name),
             self.rl_config,
-            self.env_observation_type,
-            **kwargs,
+            self.override_env_observation_type,
+            self.prediction_by_simulation,
+            processors,
         )
         self.is_init_rl_config = True
         return env
@@ -137,7 +158,7 @@ def play(
     config: Config,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
-    env=None,
+    env: Optional[EnvForRL] = None,
 ) -> Tuple[List[float], RLParameter, RLRemoteMemory]:
     if env is None:
         env = config.create_env()
@@ -243,13 +264,39 @@ def play(
         }
         [c.on_step_begin(_params) for c in callbacks]
 
-        # action
+        # --- action
         env_action, worker_action = worker.policy(state, valid_actions, env)
         if valid_actions is not None:
             assert env_action in valid_actions
 
-        # env step
-        next_state, reward, done, env_info = env.step(env_action)
+        # --- env step
+        # skip frame の間は同じアクションを繰り返す
+        reward = 0
+        for j in range(config.skip_frames + 1):
+            next_state, step_reward, done, env_info = env.step(env_action)
+            reward += step_reward
+            if done:
+                break
+
+            # callback
+            if j < config.skip_frames:
+                _params = {
+                    "config": config,
+                    "env": env,
+                    "parameter": parameter,
+                    "remote_memory": remote_memory,
+                    "trainer": trainer,
+                    "worker": worker,
+                    "episode_count": episode_count,
+                    "step": step,
+                    "state": next_state,
+                    "action": env_action,
+                    "reward": reward,
+                    "done": done,
+                    "env_info": env_info,
+                }
+                [c.on_skip_step(_params) for c in callbacks]
+
         episode_reward += reward
         step += 1
         next_valid_actions = env.fetch_valid_actions()

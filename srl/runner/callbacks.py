@@ -43,6 +43,7 @@ class Callback(ABC):
 @dataclass
 class Rendering(Callback):
 
+    mode: str = "human"
     step_stop: bool = False
 
     def on_episode_begin(self, info):
@@ -52,7 +53,8 @@ class Rendering(Callback):
         valid_actions = info["valid_actions"]
 
         print("### 0")
-        env.render()
+        if self.mode != "":
+            env.render(self.mode)
         worker.render(state, valid_actions, env.action_to_str)
 
         if self.step_stop:
@@ -75,14 +77,16 @@ class Rendering(Callback):
         print(f"env_info  : {env_info}")
         print(f"work_info : {work_info}")
         print(f"train_info: {train_info}")
-        env.render()
+        if self.mode != "":
+            env.render(self.mode)
         worker.render(state, valid_actions, env.action_to_str)
 
         if self.step_stop:
             input("Enter to continue:")
 
     def on_skip_step(self, info):
-        info["env"].render()
+        if self.mode != "":
+            info["env"].render(self.mode)
 
 
 class RenderingAnimation(Callback):

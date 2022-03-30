@@ -13,10 +13,24 @@
 
 # Install
 
-今のところは github からの pip install を想定しています。
+github からの pip install または clone を想定しています。
 
 ``` bash
 pip install git+https://github.com/pocokhc/simple_rl
+```
+
+or
+
+``` bash
+# pip
+pip install tensorflow (or tensorflow-cpu or tensorflow-gpu)
+pip install gym numpy tensorflow-addons matplotlib opencv-python psutil pynvml ipython
+pip install dataclasses  # py3.6
+
+# clone & sample run
+git clone https://github.com/pocokhc/simple_rl.git
+cd simple_rl/examples
+python sample_minimum_runner.py
 ```
 
 
@@ -25,7 +39,7 @@ pip install git+https://github.com/pocokhc/simple_rl
 ``` python
 from srl import rl
 from srl.runner import mp, sequence
-from srl.runner.callbacks import PrintProgress, RenderingEpisode
+from srl.runner.callbacks import PrintProgress, Rendering
 from srl.runner.callbacks_mp import TrainFileLogger
 
 #---------------------
@@ -62,7 +76,7 @@ config.set_play_config(max_episodes=10, callbacks=[PrintProgress()])
 sequence.play(config, parameter)
 
 # --- test(rendering)
-config.set_play_config(max_episodes=1, callbacks=[RenderingEpisode()])
+config.set_play_config(max_episodes=1, callbacks=[Rendering()])
 sequence.play(config, parameter)
 ```
 
@@ -102,7 +116,7 @@ sequence.play(config, parameter)
 |Agent57_light  |NeuralNet|Continuous|Discrete  | 90%|Agent57 - (LSTM,MultiStep)||
 
 
-### Policy Base/Actor-Critic
+### Policy Base/ActorCritic
 
 |Algorithm|Algorithm Type|Observation Type|Action Type|Progress Rate||Paper|
 |---------|-----|--------------|----------------|----------|-------------|---|
@@ -113,8 +127,9 @@ sequence.play(config, parameter)
 
 |Algorithm|Algorithm Type|Observation Type|Action Type|Progress Rate||Paper|
 |---------|-----|--------------|----------------|----------|-------------|---|
-|MCTS      |Table|Discrete|Discrete| -%|Single play||
-|AlphaZero |Table/NeuralNet|Continuous|Discrete| -%|Single play||
+|MCTS      |Table|Discrete|Discrete| 100%|Single play||
+|AlphaZero |Table/NeuralNet|Continuous|Discrete| -%|Single play|[Paper](https://arxiv.org/abs/1712.01815)|
+|MuZero |Table/NeuralNet|Continuous|Discrete| -%||[Paper](https://www.nature.com/articles/s41586-020-03051-4)|
 
 
 

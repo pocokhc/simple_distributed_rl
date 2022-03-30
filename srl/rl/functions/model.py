@@ -22,7 +22,6 @@ def create_input_layers_one_sequence(
     image_layer_type: ImageLayerType,
 ) -> Tuple[kl.Layer, kl.Layer]:
 
-    logger.debug(f"input shape: (batch_size,) + {input_shape}")
     in_state = c = kl.Input(shape=input_shape)
 
     if observation_type == EnvObservationType.DISCRETE or observation_type == EnvObservationType.CONTINUOUS:
@@ -77,7 +76,6 @@ def create_input_layers(
 ) -> Tuple[kl.Layer, kl.Layer]:
 
     input_shape = (input_sequence,) + input_shape
-    logger.debug(f"input shape: (batch_size,) + {input_shape}")
     in_state = c = kl.Input(shape=input_shape)
 
     if observation_type == EnvObservationType.DISCRETE or observation_type == EnvObservationType.CONTINUOUS:
@@ -169,7 +167,6 @@ def create_input_layers_lstm_stateful(
 ) -> Tuple[kl.Layer, kl.Layer]:
 
     input_shape = (input_sequence,) + input_shape
-    logger.debug(f"lstm stateful input shape: ({batch_size},) + {input_shape}")
     in_state = c = kl.Input(batch_input_shape=(batch_size,) + input_shape)
 
     if observation_type == EnvObservationType.DISCRETE or observation_type == EnvObservationType.CONTINUOUS:

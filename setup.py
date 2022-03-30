@@ -29,6 +29,7 @@ setup(
         "dataclasses",  # py3.6
         "psutil",  # CPU info
         "pynvml",  # GPU info
+        "ipython",  # notebook
     ],
     python_requires=">=3.6",
     classifiers=[

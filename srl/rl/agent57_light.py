@@ -31,10 +31,10 @@ DQN
     Huber loss function : o
     Delay update Target Network: o
     Experience Replay   : o (Priority Experience Reply)
-    Frame skip          : x
+    Frame skip          : -
     Annealing e-greedy  : x (actor)
     Reward clip         : x
-    Image preprocessor  : x
+    Image preprocessor  : -
 Rainbow
     Double DQN               : o
     Priority Experience Reply: o
@@ -386,7 +386,7 @@ class Trainer(RLTrainer):
             return {}
 
         indexes, batchs, weights = self.memory.sample(self.train_count)
-        td_error, loss = self._train_on_batchs(batchs, weights)
+        td_error, info = self._train_on_batchs(batchs, weights)
         priorities = abs(td_error) + 0.0001
         self.memory.update(indexes, batchs, priorities)
 
@@ -402,11 +402,9 @@ class Trainer(RLTrainer):
             self.parameter.q_int_target.set_weights(self.parameter.q_int_online.get_weights())
 
         self.train_count += 1
-        return {
-            "loss": loss,
-            "mem2": mem_invalid_len,
-            "priority": np.mean(priorities),
-        }
+        info["mem2"] = mem_invalid_len
+        info["priority"] = np.mean(priorities)
+        return info
 
     def _train_on_batchs(self, batchs, weights):
 

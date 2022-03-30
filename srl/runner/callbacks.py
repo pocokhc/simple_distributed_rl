@@ -1,7 +1,7 @@
 import datetime as dt
 import logging
 import time
-from abc import ABCMeta
+from abc import ABC
 from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
@@ -13,7 +13,7 @@ from srl.utils.common import listdictdict_to_dictlist, to_str_time
 logger = logging.getLogger(__name__)
 
 
-class Callback(metaclass=ABCMeta):
+class Callback(ABC):
     def on_episodes_begin(self, info) -> None:
         pass
 
@@ -30,6 +30,9 @@ class Callback(metaclass=ABCMeta):
         pass
 
     def on_step_end(self, info) -> None:
+        pass
+
+    def on_skip_step(self, info) -> None:
         pass
 
     # 外部から途中停止用
@@ -78,6 +81,9 @@ class Rendering(Callback):
         if self.step_stop:
             input("Enter to continue:")
 
+    def on_skip_step(self, info):
+        info["env"].render()
+
 
 class RenderingAnimation(Callback):
     def __init__(self):
@@ -88,6 +94,10 @@ class RenderingAnimation(Callback):
         self.frames.append(env.render("rgb_array"))
 
     def on_step_end(self, info):
+        env = info["env"]
+        self.frames.append(env.render("rgb_array"))
+
+    def on_skip_step(self, info):
         env = info["env"]
         self.frames.append(env.render("rgb_array"))
 

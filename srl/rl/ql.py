@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from typing import Any, List, Tuple, cast
 
 import numpy as np
-from srl.base.rl import RLParameter, RLRemoteMemory, RLTrainer, RLWorker, TableConfig
+from srl.base.rl import (RLParameter, RLRemoteMemory, RLTrainer, RLWorker,
+                         TableConfig)
 from srl.rl.registory import register
 
 logger = logging.getLogger(__name__)

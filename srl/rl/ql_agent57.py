@@ -27,10 +27,10 @@ DQN
     Huber loss function : -
     Delay update Target Network: o
     Experience Replay   : o
-    Frame skip          : x
+    Frame skip          : -
     Annealing e-greedy  : x (sliding-window UCB)
     Reward clip         : x
-    Image preprocessor  : x
+    Image preprocessor  : -
 Rainbow
     Double DQN               : o
     Priority Experience Reply: o
@@ -213,7 +213,7 @@ class Parameter(RLParameter):
             target_q = rescaling(target_q)
 
             td_error = target_q - Q[s][action]
-            TQ += (gamma**n) * _retrace * td_error
+            TQ += (gamma ** n) * _retrace * td_error
 
         return TQ
 

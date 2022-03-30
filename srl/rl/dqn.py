@@ -17,10 +17,10 @@ Target Network              : o (+Double DQN)(option)
 Huber loss function         : o
 Delay update Target Network : o
 Experience Replay  : o
-Frame skip         : x
+Frame skip         : -
 Annealing e-greedy : o (option)
 Reward clip        : o (option)
-Image preprocessor : x
+Image preprocessor : -
 """
 
 

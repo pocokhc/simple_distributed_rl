@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.rl import DiscreteActionConfig, RLParameter, RLRemoteMemory, RLTrainer, RLWorker
-from srl.rl.functions.common import calc_epsilon_greedy_probs
+from srl.rl.functions.common import calc_epsilon_greedy_probs, inverse_rescaling, rescaling
 from srl.rl.functions.model import ImageLayerType, create_input_layers_lstm_stateful
 from srl.rl.memory import factory
 from srl.rl.registory import register
@@ -20,10 +20,10 @@ DQN
     Huber loss function         : o
     Delay update Target Network : o
     Experience Replay  : o
-    Frame skip         : x
+    Frame skip         : -
     Annealing e-greedy : o (option)
     Reward clip        : x
-    Image preprocessor : x
+    Image preprocessor : -
 Rainbow
     Double DQN                  : o (option)
     Priority Experience Replay  : o (option)
@@ -419,7 +419,9 @@ class Trainer(RLTrainer):
                 else:
                     n_act_idx = np.argmax(n_q_target[i])
                 maxq = n_q_target[i][n_act_idx]
+                maxq = inverse_rescaling(maxq)
                 gain = reward + self.config.gamma * maxq
+            gain = rescaling(gain)
             target_q.append(gain)
         target_q = np.asarray(target_q)
 

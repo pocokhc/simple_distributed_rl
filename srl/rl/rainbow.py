@@ -21,10 +21,10 @@ DQN
     Huber loss function         : o
     Delay update Target Network : o
     Experience Replay  : o
-    Frame skip         : x
+    Frame skip         : -
     Annealing e-greedy : o (option)
     Reward clip        : o (option)
-    Image preprocessor : x
+    Image preprocessor : -
 Rainbow
     Double DQN                  : o (option)
     Priority Experience Replay  : o (option)
@@ -243,7 +243,7 @@ class Parameter(RLParameter):
                     target_q += gain
                 else:
                     td_error = gain - n_q_list[n_states_idx - 1][action]
-                    target_q += (self.config.gamma**n) * retrace * td_error
+                    target_q += (self.config.gamma ** n) * retrace * td_error
                 n_states_idx += 1
             n_states_idx_start += len(b["rewards"])
             target_q_list.append(target_q)

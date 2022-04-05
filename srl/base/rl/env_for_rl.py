@@ -84,6 +84,16 @@ class EnvForRL(EnvBase):
             return f"{space.__class__.__name__} {len(space)}"
         return f"{space.__class__.__name__}{space.shape} ({space.low.flatten()[0]} - {space.high.flatten()[0]})"
 
+    def observation_encode(self, state):
+        for processor in self.processors:
+            state = processor.observation_encode(state)
+        return state
+
+    def action_decode(self, action):
+        for processor in self.processors:
+            action = processor.action_decode(action)
+        return action
+
     # ------------------------------------------
     # ABC method
     # ------------------------------------------
@@ -118,17 +128,14 @@ class EnvForRL(EnvBase):
 
     def reset(self) -> Any:
         state = self.env.reset()
-        for processor in self.processors:
-            state = processor.observation_encode(state)
+        state = self.observation_encode(state)
         self._valid_actions = None
         return state
 
     def step(self, action: Any) -> Tuple[Any, float, bool, dict]:
-        for processor in self.processors:
-            action = processor.action_decode(action)
+        action = self.action_decode(action)
         state, reward, done, info = self.env.step(action)
-        for processor in self.processors:
-            state = processor.observation_encode(state)
+        state = self.observation_encode(state)
         self._valid_actions = None
         return state, float(reward), bool(done), info
 

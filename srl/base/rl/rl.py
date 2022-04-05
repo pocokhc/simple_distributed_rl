@@ -32,6 +32,10 @@ class RLParameter(ABC):
     def summary(self):
         pass
 
+    # test function(option) TODO
+    def get_action_values(self, state, valid_actions):
+        return None
+
 
 class RLRemoteMemory(ABC):
     def __init__(self, config: RLConfig):

@@ -16,18 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 gym.envs.registration.register(
-    id="NeonGrid-v0",
-    entry_point=__name__ + ":NeonGrid",
-    kwargs={
-        "move_reward": -0.04,
-        "move_prob": 0.8,
-        "state_type": "neon",
-    },
-)
-
-gym.envs.registration.register(
     id="Grid-v0",
-    entry_point=__name__ + ":NeonGrid",
+    entry_point=__name__ + ":Grid",
     kwargs={
         "move_reward": -0.04,
         "move_prob": 0.8,
@@ -37,8 +27,18 @@ gym.envs.registration.register(
 
 
 gym.envs.registration.register(
+    id="NeonGrid-v0",
+    entry_point=__name__ + ":Grid",
+    kwargs={
+        "move_reward": -0.04,
+        "move_prob": 0.8,
+        "state_type": "neon",
+    },
+)
+
+gym.envs.registration.register(
     id="ImageGrid-v0",
-    entry_point=__name__ + ":NeonGrid",
+    entry_point=__name__ + ":Grid",
     kwargs={
         "move_reward": -0.04,
         "move_prob": 0.8,
@@ -55,7 +55,7 @@ class Action(enum.Enum):
 
 
 @dataclass
-class NeonGrid(EnvBase):
+class Grid(EnvBase):
 
     move_prob: float = 0.8
     move_reward: float = -0.04
@@ -150,7 +150,7 @@ class NeonGrid(EnvBase):
 
     def _create_field(self, player_pos, state_type) -> Any:
         if state_type == "pos":
-            return player_pos
+            return tuple(player_pos)
 
         field = json.loads(json.dumps(self.base_field))  # deepcopy
 
@@ -377,13 +377,13 @@ class NeonGrid(EnvBase):
                     r += state_prob * gain
                 Q[s][a.value] = r
 
-        return Q, V
+        return V, Q
 
     def print_state_values(self, V):
         for y in range(1, self.H - 1):
             s = ""
             for x in range(1, self.W - 1):
-                state = (x, y)
+                state = self._create_field((x, y), self.state_type)
                 if state in V:
                     v = V[state]
                 else:
@@ -394,10 +394,10 @@ class NeonGrid(EnvBase):
     def print_action_values(self, Q):
         def _Q(x, y, a):
             s = self._create_field((x, y), self.state_type)
-            a = a.value
             if s in Q:
-                return Q[s][a]
-            return 0.0
+                return Q[s][a.value]
+            else:
+                return 0
 
         print("-" * 60)
         for y in range(1, self.H - 1):
@@ -418,10 +418,31 @@ class NeonGrid(EnvBase):
             print(s)
             print("-" * 60)
 
+    def reward_prediction(self, Q, times=1000):
+        rewards = []
+        for _ in range(times):
+            game = Grid()
+            state = game.reset()
+            done = False
+            total_reward = 0
+            while not done:
+                if state in Q:
+                    q = []
+                    for a in self.actions:
+                        q.append(Q[state][a.value])
+                    action = np.argmax(q)
+                else:
+                    action = random.choice(self.actions)
+                state, reward, done, _ = game.step(action)
+                total_reward += reward
+
+            rewards.append(total_reward)
+        return np.mean(rewards)
+
 
 if __name__ == "__main__":
 
-    game = NeonGrid()
+    game = Grid()
     game.reset()
     done = False
     total_reward = 0

@@ -125,7 +125,9 @@ class Config:
         trainer = module.Trainer(self.rl_config, parameter, memory)
         return trainer
 
-    def create_worker(self, parameter: Optional[RLParameter], memory: Optional[RLRemoteMemory]) -> RLWorker:
+    def create_worker(
+        self, parameter: Optional[RLParameter] = None, memory: Optional[RLRemoteMemory] = None
+    ) -> RLWorker:
         self.init_rl_config()
         module = rl.make(self.rl_name)
         worker = module.Worker(self.rl_config, parameter, memory, self.worker_id)
@@ -209,7 +211,7 @@ def play(
         if config.timeout > 0 and elapsed_time > config.timeout:
             break
 
-        # step end
+        # max steps
         if config.max_steps > 0 and total_step > config.max_steps:
             break
 

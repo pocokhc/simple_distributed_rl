@@ -5,8 +5,7 @@ from dataclasses import dataclass
 from typing import Any, List, Tuple, cast
 
 import numpy as np
-from srl.base.rl import (RLParameter, RLRemoteMemory, RLTrainer, RLWorker,
-                         TableConfig)
+from srl.base.rl import RLParameter, RLRemoteMemory, RLTrainer, RLWorker, TableConfig
 from srl.rl.registory import register
 
 logger = logging.getLogger(__name__)
@@ -47,9 +46,9 @@ class Parameter(RLParameter):
     def backup(self):
         return json.dumps(self.Q)
 
-    # ----------------------------------------
-
-    def get_q(self, state, valid_actions):
+    def get_action_values(self, state, valid_actions, to_str: bool = True):
+        if to_str:
+            state = str(state.tolist())
         if state not in self.Q:
             self.Q[state] = [0 if a in valid_actions else -np.inf for a in range(self.config.nb_actions)]
         return self.Q[state]
@@ -115,8 +114,8 @@ class Trainer(RLTrainer):
             valid_actions = batch["valid_actions"]
             next_valid_actions = batch["next_valid_actions"]
 
-            q = self.parameter.get_q(s, valid_actions)
-            n_q = self.parameter.get_q(n_s, next_valid_actions)
+            q = self.parameter.get_action_values(s, valid_actions, False)
+            n_q = self.parameter.get_action_values(n_s, next_valid_actions, False)
 
             if done:
                 target_q = reward
@@ -155,13 +154,12 @@ class Worker(RLWorker):
             self.epsilon = self.config.test_epsilon
 
     def policy(self, state: np.ndarray, valid_actions: List[int], _) -> Tuple[int, Any]:
-        s = str(state.tolist())
 
         if random.random() < self.epsilon:
             # epsilonより低いならランダムに移動
             action = random.choice(valid_actions)
         else:
-            q = self.parameter.get_q(s, valid_actions)
+            q = self.parameter.get_action_values(state, valid_actions)
             q = np.asarray(q)
 
             # 最大値を選ぶ（複数あればランダム）
@@ -196,8 +194,7 @@ class Worker(RLWorker):
         return {}
 
     def render(self, state: np.ndarray, valid_actions: List[int], action_to_str) -> None:
-        s = str(state.tolist())
-        q = self.parameter.get_q(s, valid_actions)
+        q = self.parameter.get_action_values(state, valid_actions)
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
             if a == maxa:

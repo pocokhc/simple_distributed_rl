@@ -13,24 +13,10 @@
 
 # Install
 
-github からの pip install または clone を想定しています。
+github からの pip install を想定しています。
 
 ``` bash
 pip install git+https://github.com/pocokhc/simple_rl
-```
-
-or
-
-``` bash
-# pip
-pip install tensorflow (or tensorflow-cpu or tensorflow-gpu)
-pip install gym numpy tensorflow-addons matplotlib opencv-python psutil pynvml ipython
-pip install dataclasses  # py3.6
-
-# clone & sample run
-git clone https://github.com/pocokhc/simple_rl.git
-cd simple_rl/examples
-python sample_minimum_runner.py
 ```
 
 

@@ -134,6 +134,11 @@ class Config:
         worker.set_training(self.training)
         return worker
 
+    def model_summary(self):
+        parameter = self.create_parameter()
+        parameter.summary()
+        return parameter
+
     def to_dict(self) -> dict:
         conf = {}
         for k, v in self.__dict__.items():

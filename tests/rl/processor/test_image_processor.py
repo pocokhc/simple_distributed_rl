@@ -19,7 +19,7 @@ class Test(unittest.TestCase):
         for env_type, img_shape, image_resize in test_pattens:
             with self.subTest(f"COLOR {env_type} {img_shape} {image_resize}"):
                 processor = ImageProcessor(
-                    change_gray=True,
+                    gray=True,
                     resize=image_resize,
                     enable_norm=True,
                 )

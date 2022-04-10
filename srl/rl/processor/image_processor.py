@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ImageProcessor(Processor):
 
-    change_gray: bool = True
+    gray: bool = True
     resize: Optional[Tuple[int, int]] = None
     enable_norm: bool = False
 

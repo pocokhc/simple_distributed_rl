@@ -16,7 +16,7 @@ def main_use_runner(is_mp):
     config.skip_frames = 4
     config.max_episode_steps = 100
     config.override_env_observation_type = EnvObservationType.COLOR
-    config.processors = [ImageProcessor(change_gray=True, resize=(84, 84), enable_norm=True)]
+    config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
 
     # (option) print tensorflow model
     config.create_parameter().summary()

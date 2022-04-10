@@ -248,6 +248,7 @@ class PrintProgress(Callback):
         self.progress_history.append(d)
 
     def on_step_end(self, info):
+        self.step_count += 1
         d = {
             "env_info": info["env_info"],
             "work_info": info["work_info"],

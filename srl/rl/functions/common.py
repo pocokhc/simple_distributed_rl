@@ -10,7 +10,7 @@ def rescaling(x, eps=0.001):
 def inverse_rescaling(x, eps=0.001):
     n = np.sqrt(1.0 + 4.0 * eps * (np.abs(x) + 1.0 + eps)) - 1.0
     n = n / (2.0 * eps)
-    return np.sign(x) * ((n ** 2) - 1.0)
+    return np.sign(x) * ((n**2) - 1.0)
 
 
 def sigmoid(x, a=1):
@@ -73,6 +73,9 @@ def calc_epsilon_greedy_probs(q, valid_actions, epsilon, nb_actions):
     nb_valid_actions = len(valid_actions)
     if nb_valid_actions == 0:
         return [1 / nb_actions for _ in range(nb_actions)]
+
+    # filter
+    q = np.array([(v if a in valid_actions else -np.inf) for a, v in enumerate(q)])
 
     qmax = np.amax(q, axis=0)
     qmax_num = np.count_nonzero(q == qmax)

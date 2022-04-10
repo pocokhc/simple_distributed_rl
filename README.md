@@ -1,4 +1,3 @@
-(まだ作成中です)(WIP)
 
 # Simple Reinforcement Learning (シンプルな強化学習)
 
@@ -19,6 +18,19 @@ github からの pip install を想定しています。
 pip install git+https://github.com/pocokhc/simple_rl
 ```
 
+or
+
+``` bash
+git clone https://github.com/pocokhc/simple_rl.git
+cd simplr_rl
+pip install .
+
+# run sample
+python examples/sample_minimum_runner.py
+```
+
+
+
 
 # Usage
 
@@ -34,7 +46,7 @@ from srl.runner.callbacks_mp import TrainFileLogger
 #
 # rl.xxx.Config   : Algorithm hyperparameters
 # sequence.Config : Basic Running Config
-# mp.Config       : Distributed Config
+# mp.Config       : Distributed training Config
 #---------------------
 
 # rl algorithm config
@@ -97,8 +109,8 @@ sequence.play(config, parameter)
 |DQN      |NeuralNet|Continuous|Discrete  |100%||[Paper](https://arxiv.org/pdf/1312.5602.pdf)|
 |C51      |NeuralNet|Continuous|Discrete  | 90%|Categorical DQN|[Paper](https://arxiv.org/abs/1707.06887)|
 |Rainbow  |NeuralNet|Continuous|Discrete  | 90%||[Paper](https://arxiv.org/pdf/1710.02298.pdf)|
-|R2D2  |NeuralNet|Continuous|Discrete  | 70%||[Paper](https://openreview.net/forum?id=r1lyTjAqYX)|
-|Agent57  |NeuralNet|Continuous|Discrete  | 0%||[Paper](https://arxiv.org/abs/2003.13350)|
+|R2D2  |NeuralNet|Continuous|Discrete  | 90%||[Paper](https://openreview.net/forum?id=r1lyTjAqYX)|
+|Agent57  |NeuralNet|Continuous|Discrete  | 70%||[Paper](https://arxiv.org/abs/2003.13350)|
 |Agent57_light  |NeuralNet|Continuous|Discrete  | 90%|Agent57 - (LSTM,MultiStep)||
 
 
@@ -114,8 +126,10 @@ sequence.play(config, parameter)
 |Algorithm|Algorithm Type|Observation Type|Action Type|Progress Rate||Paper|
 |---------|-----|--------------|----------------|----------|-------------|---|
 |MCTS      |Table|Discrete|Discrete| 100%|Single play||
-|AlphaZero |Table/NeuralNet|Continuous|Discrete| -%|Single play|[Paper](https://arxiv.org/abs/1712.01815)|
-|MuZero |Table/NeuralNet|Continuous|Discrete| -%||[Paper](https://www.nature.com/articles/s41586-020-03051-4)|
+|AlphaZero |Table+NeuralNet|Continuous|Discrete| -%|Single play|[Paper](https://arxiv.org/abs/1712.01815)|
+|MuZero |Table+NeuralNet|Continuous|Discrete| -%||[Paper](https://www.nature.com/articles/s41586-020-03051-4)|
+|DynaQ |NeuralNet|Continuous|Discrete| 90%|||
+
 
 
 

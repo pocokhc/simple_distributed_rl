@@ -20,7 +20,8 @@ class Test(unittest.TestCase):
             gamma=0.9,
             lr=0.001,
             dense_units=16,
-            lstm_units=16,
+            lstm_units=64,
+            dueling_dense_units=16,
         )
         self.tester.play_verify(self, "Grid-v0", rl_config, 2000, 100)
 
@@ -31,13 +32,13 @@ class Test(unittest.TestCase):
             dense_units=64,
             lstm_units=64,
             enable_dueling_network=True,
-            batch_size=16,
+            dueling_dense_units=64,
         )
-        self.tester.play_verify(self, "Pendulum-v1", rl_config, 5000, 100)
+        self.tester.play_verify(self, "Pendulum-v1", rl_config, 200 * 30, 100)
 
     def test_verify_IGrid(self):
         rl_config = rl.r2d2.Config(
-            epsilon=0.5,
+            epsilon=0.2,
             burnin=4,
             multisteps=1,
             memory_name="ReplayMemory",
@@ -49,4 +50,5 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum", verbosity=2)
+    # unittest.main(module=__name__, defaultTest="Test.test_play", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_Grid", verbosity=2)

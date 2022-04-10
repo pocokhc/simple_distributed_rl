@@ -7,7 +7,8 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.rl import DiscreteActionConfig, RLParameter, RLRemoteMemory, RLTrainer, RLWorker
-from srl.rl.functions.common import calc_epsilon_greedy_probs, inverse_rescaling, rescaling
+from srl.rl.functions.common import calc_epsilon_greedy_probs, inverse_rescaling, random_choice_by_probs, rescaling
+from srl.rl.functions.dueling_network import create_dueling_network_layers
 from srl.rl.functions.model import ImageLayerType, create_input_layers_lstm_stateful
 from srl.rl.memory import factory
 from srl.rl.registory import register
@@ -15,20 +16,20 @@ from tensorflow.keras import layers as kl
 
 """
 DQN
-    window_length               : x
+    window_length               : -
     Target Network              : o
     Huber loss function         : o
     Delay update Target Network : o
     Experience Replay  : o
     Frame skip         : -
-    Annealing e-greedy : o (option)
+    Annealing e-greedy : x
     Reward clip        : x
     Image preprocessor : -
 Rainbow
-    Double DQN                  : o (option)
-    Priority Experience Replay  : o (option)
-    Dueling Network             : o (option)
-    Multi-Step learning(retrace): TODO
+    Double DQN                  : o (config selection)
+    Priority Experience Replay  : o (config selection)
+    Dueling Network             : o (config selection)
+    Multi-Step learning(retrace): o (config selection)
     Noisy Network               : x
     Categorical DQN             : x
 Recurrent Replay Distributed DQN(R2D2)
@@ -44,23 +45,20 @@ Recurrent Replay Distributed DQN(R2D2)
 class Config(DiscreteActionConfig):
 
     test_epsilon: float = 0
-
     epsilon: float = 0.1
-    # Annealing e-greedy
-    initial_epsilon: float = 1.0
-    final_epsilon: float = 0.01
-    exploration_steps: int = -1
 
     # model
     dense_units: int = 512
     lstm_units: int = 512
     image_layer_type: ImageLayerType = ImageLayerType.DQN
-    burnin: int = 10
+    burnin: int = 40
 
     gamma: float = 0.99  # 割引率
     lr: float = 0.001  # 学習率
     batch_size: int = 32
     target_model_update_interval: int = 100
+
+    # double dqn
     enable_double_dqn: bool = True
 
     # retrace
@@ -70,6 +68,7 @@ class Config(DiscreteActionConfig):
     # DuelingNetwork
     enable_dueling_network: bool = True
     dueling_network_type: str = "average"
+    dueling_dense_units: int = 512
 
     # Priority Experience Replay
     capacity: int = 100_000
@@ -88,6 +87,7 @@ class Config(DiscreteActionConfig):
     def assert_params(self) -> None:
         super().assert_params()
         assert self.burnin >= 0
+        assert self.multisteps >= 1
         assert self.memory_warmup_size < self.capacity
         assert self.batch_size < self.memory_warmup_size
 
@@ -116,34 +116,9 @@ class _QNetwork(keras.Model):
         c = kl.LSTM(config.lstm_units, stateful=True, name="lstm")(c)
 
         if config.enable_dueling_network:
-            # value
-            v = kl.Dense(config.dense_units, activation="relu", kernel_initializer="he_normal")(c)
-            v = kl.Dense(1, kernel_initializer="truncated_normal", name="v")(v)
-
-            # advance
-            adv = kl.Dense(config.dense_units, activation="relu", kernel_initializer="he_normal")(c)
-            adv = kl.Dense(config.nb_actions, kernel_initializer="truncated_normal", name="adv")(adv)
-
-            # 連結で結合
-            c = kl.Concatenate()([v, adv])
-            if config.dueling_network_type == "average":
-                c = kl.Lambda(
-                    lambda a: tf.expand_dims(a[:, 0], -1)
-                    + a[:, 1:]
-                    - tf.math.reduce_mean(a[:, 1:], axis=1, keepdims=True),
-                    output_shape=(config.nb_actions,),
-                )(c)
-            elif config.dueling_network_type == "max":
-                c = kl.Lambda(
-                    lambda a: tf.expand_dims(a[:, 0], -1)
-                    + a[:, 1:]
-                    - tf.math.reduce_max(a[:, 1:], axis=1, keepdims=True),
-                    output_shape=(config.nb_actions,),
-                )(c)
-            elif config.dueling_network_type == "":  # naive
-                c = kl.Lambda(lambda a: tf.expand_dims(a[:, 0], -1) + a[:, 1:], output_shape=(config.nb_actions,))(c)
-            else:
-                raise ValueError("dueling_network_type is undefined")
+            c = create_dueling_network_layers(
+                c, config.nb_actions, config.dueling_dense_units, config.dueling_network_type
+            )
         else:
             c = kl.Dense(config.dense_units, activation="relu", kernel_initializer="he_normal")(c)
             c = kl.Dense(config.nb_actions, kernel_initializer="truncated_normal")(c)
@@ -154,7 +129,7 @@ class _QNetwork(keras.Model):
         # 重みを初期化
         in_shape = (1,) + config.env_observation_shape
         dummy_state = np.zeros(shape=(config.batch_size,) + in_shape, dtype=np.float32)
-        val, states = self(dummy_state, None)
+        val, _ = self(dummy_state, None)
         assert val.shape == (config.batch_size, config.nb_actions)
 
     def call(self, state, hidden_states):
@@ -189,79 +164,6 @@ class Parameter(RLParameter):
 
     def summary(self):
         self.q_online.model.summary()
-
-    # ----------------------------------------------
-
-    def calc_target_q(self, batchs):
-
-        n_states_list = []
-        for b in batchs:
-            n_states_list.extend(b["states"][1:])
-        n_states_list = np.asarray(n_states_list)
-
-        n_q_list = self.q_online(n_states_list).numpy()
-        n_q_list_target = self.q_target(n_states_list).numpy()
-
-        target_q_list = []
-        n_states_idx_start = 0
-        for i, b in enumerate(batchs):
-            target_q = 0.0
-            retrace = 1.0
-            n_states_idx = n_states_idx_start
-            for n in range(len(b["rewards"])):
-
-                action = b["actions"][n]
-                mu_prob = b["probs"][n]
-                reward = b["rewards"][n]
-                valid_actions = b["valid_actions"][n]
-                next_valid_actions = b["valid_actions"][n + 1]
-                done = b["dones"][n]
-
-                # retrace
-                if n >= 1:
-                    pi_probs = calc_epsilon_greedy_probs(
-                        n_q_list[n_states_idx - 1],
-                        valid_actions,
-                        0.0,
-                        self.config.nb_actions,
-                    )
-                    retrace *= self.config.retrace_h * np.minimum(1, pi_probs[action] / mu_prob)
-                    if retrace == 0:
-                        break  # 0以降は伝搬しないので切りあげる
-
-                if done:
-                    gain = reward
-                else:
-                    # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
-                    if self.config.enable_double_dqn:
-                        n_pi_probs = calc_epsilon_greedy_probs(
-                            n_q_list[n_states_idx],
-                            next_valid_actions,
-                            0.0,
-                            self.config.nb_actions,
-                        )
-                    else:
-                        n_pi_probs = calc_epsilon_greedy_probs(
-                            n_q_list_target[n_states_idx],
-                            next_valid_actions,
-                            0.0,
-                            self.config.nb_actions,
-                        )
-                    P = 0
-                    for j in range(self.config.nb_actions):
-                        P += n_pi_probs[j] * n_q_list_target[n_states_idx][j]
-                    gain = reward + self.config.gamma * P
-
-                if n == 0:
-                    target_q += gain
-                else:
-                    td_error = gain - n_q_list[n_states_idx - 1][action]
-                    target_q += (self.config.gamma**n) * retrace * td_error
-                n_states_idx += 1
-            n_states_idx_start += len(b["rewards"])
-            target_q_list.append(target_q)
-
-        return np.asarray(target_q_list)
 
 
 # ------------------------------------------------------
@@ -342,8 +244,8 @@ class Trainer(RLTrainer):
             return {}
 
         indexes, batchs, weights = self.memory.sample(self.train_count)
-        td_error, loss = self._train_on_batchs(batchs, weights)
-        priorities = abs(td_error) + 0.0001
+        td_errors, loss = self._train_on_batchs(batchs, weights)
+        priorities = np.abs(td_errors) + 0.0001
         self.memory.update(indexes, batchs, priorities)
 
         # invalid action
@@ -366,7 +268,7 @@ class Trainer(RLTrainer):
     def _train_on_batchs(self, batchs, weights):
 
         # burnin=2
-        # input_sequence=3
+        # multisteps=3
         # states  [0,1,2,3,4,5,6]
         # burnin   o o
         # state        o,o
@@ -374,71 +276,134 @@ class Trainer(RLTrainer):
         # n_state2         o,o
         # n_state3           o,o
 
+        # (batch, dict[x], multisteps) -> (multisteps, batch, x)
         states_list = []
-        for n in range(len(batchs[0]["states"])):
-            states = []
-            for b in batchs:
-                states.append([b["states"][n]])
-            states_list.append(np.asarray(states))
+        for i in range(self.config.multisteps + 1):
+            states_list.append(np.asarray([[b["states"][i]] for b in batchs]))
+        actions_list = []
+        mu_probs_list = []
+        rewards_list = []
+        dones_list = []
+        for i in range(self.config.multisteps):
+            actions_list.append([b["actions"][i] for b in batchs])
+            rewards_list.append([b["rewards"][i] for b in batchs])
+            mu_probs_list.append([b["probs"][i] for b in batchs])
+            dones_list.append([b["dones"][i] for b in batchs])
 
-        actions = []
-        rewards = []
-        dones = []
+        # hidden_states
         states_h = []
         states_c = []
         for b in batchs:
             states_h.append(b["hidden_states"][0])
             states_c.append(b["hidden_states"][1])
-            actions.append(b["actions"][0])
-            rewards.append(b["rewards"][0])
-            dones.append(b["dones"][0])
         hidden_states = [np.asarray(states_h), np.asarray(states_c)]
 
         # burnin
         for i in range(self.config.burnin):
-            _, hidden_states = self.parameter.q_online(states_list[i], hidden_states)
+            burnin_state = np.asarray([[b["burnin_states"][i]] for b in batchs])
+            _, hidden_states = self.parameter.q_online(burnin_state, hidden_states)
 
-        # next hidden states
-        state_idx = self.config.burnin
-        _, n_hidden_states = self.parameter.q_online(states_list[state_idx], hidden_states)
+        _, _, td_error, _, loss = self._train_steps(
+            states_list,
+            actions_list,
+            mu_probs_list,
+            rewards_list,
+            dones_list,
+            weights,
+            hidden_states,
+            0,
+        )
+        return td_error, loss
 
-        # next Q
-        n_q, _ = self.parameter.q_online(states_list[state_idx + 1], n_hidden_states)
-        n_q_target, _ = self.parameter.q_target(states_list[state_idx + 1], n_hidden_states)
+    # Q値(LSTM hidden states)の予測はforward、td_error,retraceはbackで予測する必要あり
+    def _train_steps(
+        self,
+        states_list,
+        actions_list,
+        mu_probs_list,
+        rewards_list,
+        dones_list,
+        weights,
+        hidden_states,
+        idx,
+    ):
 
-        # 各バッチのQ値を計算
-        target_q = []
-        for i in range(len(rewards)):
-            reward = rewards[i]
-            if dones[i]:
-                gain = reward
-            else:
-                # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
-                if self.config.enable_double_dqn:
-                    n_act_idx = np.argmax(n_q[i])
-                else:
-                    n_act_idx = np.argmax(n_q_target[i])
-                maxq = n_q_target[i][n_act_idx]
-                maxq = inverse_rescaling(maxq)
-                gain = reward + self.config.gamma * maxq
-            gain = rescaling(gain)
-            target_q.append(gain)
-        target_q = np.asarray(target_q)
+        # 最後
+        if idx == self.config.multisteps:
+            n_states = states_list[idx]
+            n_q, _ = self.parameter.q_online(n_states, hidden_states)
+            n_q_target, _ = self.parameter.q_target(n_states, hidden_states)
+            n_q = tf.stop_gradient(n_q).numpy()
+            n_q_target = tf.stop_gradient(n_q_target).numpy()
+            return n_q, n_q_target, np.zeros(self.config.batch_size), 1.0, 0
 
+        states = states_list[idx]
+        n_states = states_list[idx + 1]
+        actions = actions_list[idx]
+        dones = dones_list[idx]
+        rewards = rewards_list[idx]
+        mu_probs = mu_probs_list[idx]
+
+        q_target, _ = self.parameter.q_target(states, hidden_states)
+        q_target = tf.stop_gradient(q_target).numpy()
         with tf.GradientTape() as tape:
-            q, _ = self.parameter.q_online(states_list[state_idx], hidden_states)
+            q, n_hidden_states = self.parameter.q_online(states, hidden_states)
+
+            n_q, n_q_target, n_td_error, retrace, _ = self._train_steps(
+                states_list,
+                actions_list,
+                mu_probs_list,
+                rewards_list,
+                dones_list,
+                weights,
+                n_hidden_states,
+                idx + 1,
+            )
+
+            target_q = []
+            for i in range(self.config.batch_size):
+                if dones[i]:
+                    gain = rewards[i]
+                else:
+                    # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
+                    if self.config.enable_double_dqn:
+                        n_act_idx = np.argmax(n_q[i])
+                    else:
+                        n_act_idx = np.argmax(n_q_target[i])
+                    maxq = n_q_target[i][n_act_idx]
+                    maxq = inverse_rescaling(maxq)
+                    gain = rewards[i] + self.config.gamma * maxq
+                gain = rescaling(gain)
+                target_q.append(gain)
+            target_q = np.asarray(target_q)
+
+            # retrace
+            _retrace = []
+            for i in range(self.config.batch_size):
+                pi_probs = calc_epsilon_greedy_probs(
+                    n_q[i],
+                    [a for a in range(self.config.nb_actions)],
+                    0.0,
+                    self.config.nb_actions,
+                )
+                r = self.config.retrace_h * np.minimum(1, pi_probs[actions[i]] / mu_probs[i])
+                _retrace.append(r)
+            retrace *= np.asarray(_retrace)
+
+            target_q += self.config.gamma * retrace * n_td_error
 
             # 現在選んだアクションのQ値
-            actions_onehot = tf.one_hot(actions, self.config.nb_actions)
-            q = tf.reduce_sum(q * actions_onehot, axis=1)
+            action_onehot = tf.one_hot(actions, self.config.nb_actions)
+            q_onehot = tf.reduce_sum(q * action_onehot, axis=1)
 
-            loss = self.loss(target_q * weights, q * weights)
+            loss = self.loss(target_q * weights, q_onehot * weights)
 
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
 
-        td_error = (target_q - q).numpy()
-        return td_error, loss.numpy()
+        n_td_error = (target_q - q_onehot).numpy() + self.config.gamma * retrace * n_td_error
+        q = tf.stop_gradient(q).numpy()
+        return q, q_target, n_td_error, retrace, loss.numpy()
 
 
 # ------------------------------------------------------
@@ -453,14 +418,6 @@ class Worker(RLWorker):
 
         self.dummy_state = np.full(self.config.env_observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.invalid_action_reward = -1
-        self.step = 0
-
-        if self.config.exploration_steps > 0:
-            self.initial_epsilon = self.config.initial_epsilon
-            self.epsilon_step = (
-                self.config.initial_epsilon - self.config.final_epsilon
-            ) / self.config.exploration_steps
-            self.final_epsilon = self.config.final_epsilon
 
     def on_reset(self, state: np.ndarray, valid_actions: List[int], _) -> None:
         self.recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.multisteps + 1)]
@@ -487,18 +444,12 @@ class Worker(RLWorker):
         q = q[0].numpy()
 
         if self.training:
-            if self.config.exploration_steps > 0:
-                # Annealing ε-greedy
-                epsilon = self.initial_epsilon - self.step * self.epsilon_step
-                if epsilon < self.final_epsilon:
-                    epsilon = self.final_epsilon
-            else:
-                epsilon = self.config.epsilon
+            epsilon = self.config.epsilon
         else:
             epsilon = self.config.test_epsilon
 
         probs = calc_epsilon_greedy_probs(q, valid_actions, epsilon, self.config.nb_actions)
-        action = random.choices([a for a in range(self.config.nb_actions)], weights=probs)[0]
+        action = random_choice_by_probs(probs)
 
         return action, (action, probs[action], q[action])
 
@@ -515,7 +466,6 @@ class Worker(RLWorker):
     ):
         if not self.training:
             return {}
-        self.step += 1
 
         action = action_[0]
         prob = action_[1]
@@ -547,21 +497,27 @@ class Worker(RLWorker):
 
         priority = self._add_memory(q, None)
 
-        if False:
-            # if done:
+        if done:
             # 残りstepも追加
             for _ in range(len(self.recent_rewards) - 1):
-                self.recent_bundle_states.pop(0)
+                self.recent_states.pop(0)
+                self.recent_states.append(self.dummy_state)
                 self.recent_actions.pop(0)
+                self.recent_actions.append(random.randint(0, self.config.nb_actions - 1))
                 self.recent_probs.pop(0)
+                self.recent_probs.append(1.0 / self.config.nb_actions)
                 self.recent_rewards.pop(0)
+                self.recent_rewards.append(0.0)
                 self.recent_done.pop(0)
+                self.recent_done.append(True)
                 self.recent_valid_actions.pop(0)
+                self.recent_valid_actions.append([])
+                self.recent_hidden_states.pop(0)
 
                 self._add_memory(q, priority)
 
         # --- valid action
-        if False:
+        if False:  # TODO
             states = self.recent_states[:]
             states[-1] = self.dummy_state
             bundle_states = self.recent_bundle_states[:]
@@ -593,12 +549,13 @@ class Worker(RLWorker):
     def _add_memory(self, q, priority):
 
         batch = {
-            "states": self.recent_states[:],
+            "states": self.recent_states[self.config.burnin :],
             "actions": self.recent_actions[:],
             "probs": self.recent_probs[:],
             "rewards": self.recent_rewards[:],
             "dones": self.recent_done[:],
             "valid_actions": self.recent_valid_actions[:],
+            "burnin_states": self.recent_states[: self.config.burnin],
             "hidden_states": self.recent_hidden_states[0],
         }
 

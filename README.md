@@ -128,7 +128,7 @@ sequence.play(config, parameter)
 |MCTS      |Table|Discrete|Discrete| 100%|Single play||
 |AlphaZero |Table+NeuralNet|Continuous|Discrete| -%|Single play|[Paper](https://arxiv.org/abs/1712.01815)|
 |MuZero |Table+NeuralNet|Continuous|Discrete| -%||[Paper](https://www.nature.com/articles/s41586-020-03051-4)|
-|DynaQ |NeuralNet|Continuous|Discrete| 90%|||
+|DynaQ |Table|Discrete|Discrete| 90%|||
 
 
 

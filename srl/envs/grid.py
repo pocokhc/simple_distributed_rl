@@ -25,6 +25,16 @@ gym.envs.registration.register(
     },
 )
 
+gym.envs.registration.register(
+    id="Grid-v1",
+    entry_point=__name__ + ":Grid",
+    kwargs={
+        "move_reward": 0.0,
+        "move_prob": 1.0,
+        "state_type": "pos",
+    },
+)
+
 
 gym.envs.registration.register(
     id="NeonGrid-v0",

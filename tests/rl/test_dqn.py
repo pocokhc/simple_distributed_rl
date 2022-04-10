@@ -37,6 +37,13 @@ class Test(unittest.TestCase):
         )
         self.tester.play_verify(self, "IGrid-v0", rl_config, 15000, 100)
 
+    def test_verify_OX(self):
+        rl_config = rl.dqn.Config(
+            hidden_layer_sizes=(128,),
+            epsilon=0.5,
+        )
+        self.tester.play_verify(self, "OX-v0", rl_config, 3000, 100)
+
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_IGrid", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_OX", verbosity=2)

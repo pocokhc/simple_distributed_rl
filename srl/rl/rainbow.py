@@ -8,7 +8,8 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow_addons as tfa
 from srl.base.rl import DiscreteActionConfig, RLParameter, RLRemoteMemory, RLTrainer, RLWorker
-from srl.rl.functions.common import calc_epsilon_greedy_probs
+from srl.rl.functions.common import calc_epsilon_greedy_probs, random_choice_by_probs
+from srl.rl.functions.dueling_network import create_dueling_network_layers
 from srl.rl.functions.model import ImageLayerType, create_input_layers
 from srl.rl.memory import factory
 from srl.rl.registory import register
@@ -16,21 +17,21 @@ from tensorflow.keras import layers as kl
 
 """
 DQN
-    window_length               : o (option)
+    window_length               : o (config selection)
     Target Network              : o
     Huber loss function         : o
     Delay update Target Network : o
     Experience Replay  : o
     Frame skip         : -
-    Annealing e-greedy : o (option)
-    Reward clip        : o (option)
+    Annealing e-greedy : o (config selection)
+    Reward clip        : o (config selection)
     Image preprocessor : -
 Rainbow
-    Double DQN                  : o (option)
-    Priority Experience Replay  : o (option)
-    Dueling Network             : o (option)
-    Multi-Step learning(retrace): o (option)
-    Noisy Network               : o (option)
+    Double DQN                  : o (config selection)
+    Priority Experience Replay  : o (config selection)
+    Dueling Network             : o (config selection)
+    Multi-Step learning(retrace): o (config selection)
+    Noisy Network               : o (config selection)
     Categorical DQN             : x
 """
 
@@ -67,6 +68,7 @@ class Config(DiscreteActionConfig):
     # DuelingNetwork
     enable_dueling_network: bool = True
     dueling_network_type: str = "average"
+    dueling_dense_units: int = 512
 
     # Priority Experience Replay
     capacity: int = 100_000
@@ -113,11 +115,11 @@ class _QNetwork(keras.Model):
 
         if config.enable_dueling_network:
             # value
-            v = Dense(config.dense_units, activation="relu", kernel_initializer="he_normal")(c)
+            v = Dense(config.dueling_dense_units, activation="relu", kernel_initializer="he_normal")(c)
             v = Dense(1, kernel_initializer="truncated_normal", name="v")(v)
 
             # advance
-            adv = Dense(config.dense_units, activation="relu", kernel_initializer="he_normal")(c)
+            adv = Dense(config.dueling_dense_units, activation="relu", kernel_initializer="he_normal")(c)
             adv = Dense(config.nb_actions, kernel_initializer="truncated_normal", name="adv")(adv)
 
             # 連結で結合
@@ -191,7 +193,7 @@ class Parameter(RLParameter):
 
         target_q_list = []
         n_states_idx_start = 0
-        for i, b in enumerate(batchs):
+        for b in batchs:
             target_q = 0.0
             retrace = 1.0
             n_states_idx = n_states_idx_start
@@ -243,7 +245,7 @@ class Parameter(RLParameter):
                     target_q += gain
                 else:
                     td_error = gain - n_q_list[n_states_idx - 1][action]
-                    target_q += (self.config.gamma ** n) * retrace * td_error
+                    target_q += (self.config.gamma**n) * retrace * td_error
                 n_states_idx += 1
             n_states_idx_start += len(b["rewards"])
             target_q_list.append(target_q)
@@ -435,7 +437,7 @@ class Worker(RLWorker):
             epsilon = self.config.test_epsilon
 
         probs = calc_epsilon_greedy_probs(q, valid_actions, epsilon, self.config.nb_actions)
-        action = random.choices([a for a in range(self.config.nb_actions)], weights=probs)[0]
+        action = random_choice_by_probs(probs)
 
         return action, (action, probs[action], q[action])
 
@@ -556,6 +558,7 @@ class Worker(RLWorker):
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
             if a not in valid_actions:
+                continue
                 s = "x"
             else:
                 s = " "

@@ -5,15 +5,12 @@ from dataclasses import dataclass
 from typing import Any, List, Tuple, cast
 
 import numpy as np
-from srl.base.rl import RLParameter, RLRemoteMemory, RLTrainer, RLWorker, TableConfig
-from srl.rl.functions.common import (
-    calc_epsilon_greedy_probs,
-    create_beta_list,
-    create_epsilon_list,
-    create_gamma_list,
-    inverse_rescaling,
-    rescaling,
-)
+from srl.base.rl import (RLParameter, RLRemoteMemory, RLTrainer, RLWorker,
+                         TableConfig)
+from srl.rl.functions.common import (calc_epsilon_greedy_probs,
+                                     create_beta_list, create_epsilon_list,
+                                     create_gamma_list, inverse_rescaling,
+                                     random_choice_by_probs, rescaling)
 from srl.rl.memory import factory
 from srl.rl.registory import register
 
@@ -28,14 +25,14 @@ DQN
     Delay update Target Network: o
     Experience Replay   : o
     Frame skip          : -
-    Annealing e-greedy  : x (sliding-window UCB)
+    Annealing e-greedy  : x
     Reward clip         : x
     Image preprocessor  : -
 Rainbow
-    Double DQN               : o
-    Priority Experience Reply: o
+    Double DQN               : o (config selection)
+    Priority Experience Reply: o (config selection)
     Dueling Network          : -
-    Multi-Step learning      : o
+    Multi-Step learning      : (retrace)
     Noisy Network            : -
     Categorical DQN          : -
 Recurrent Replay Distributed DQN(R2D2)
@@ -44,7 +41,7 @@ Recurrent Replay Distributed DQN(R2D2)
 Never Give Up(NGU)
     Intrinsic Reward : o
     UVFA             : -
-    Retrace          : o
+    Retrace          : o (config selection)
 Agent57
     Meta controller(sliding-window UCB) : o
     Intrinsic Reward split              : o
@@ -101,7 +98,7 @@ class Config(TableConfig):
 
     @staticmethod
     def getName() -> str:
-        return "QL_agent57"
+        return "QL_Agent57"
 
 
 register(Config, __name__)
@@ -213,7 +210,7 @@ class Parameter(RLParameter):
             target_q = rescaling(target_q)
 
             td_error = target_q - Q[s][action]
-            TQ += (gamma ** n) * _retrace * td_error
+            TQ += (gamma**n) * _retrace * td_error
 
         return TQ
 
@@ -410,7 +407,7 @@ class Worker(RLWorker):
         s = str(state.tolist())
         q = self.parameter.get_q(s, valid_actions, self.beta)
         probs = calc_epsilon_greedy_probs(q, valid_actions, self.epsilon, self.config.nb_actions)
-        action = random.choices([a for a in range(self.config.nb_actions)], weights=probs)[0]
+        action = random_choice_by_probs(probs)
 
         return action, (action, probs[action])
 

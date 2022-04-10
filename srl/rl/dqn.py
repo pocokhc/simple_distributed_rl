@@ -12,15 +12,16 @@ from srl.rl.registory import register
 from tensorflow.keras import layers as kl
 
 """
-window_length               : o (option)
-Target Network              : o (+Double DQN)(option)
+window_length               : o (config selection)
+Target Network              : o
 Huber loss function         : o
 Delay update Target Network : o
 Experience Replay  : o
 Frame skip         : -
-Annealing e-greedy : o (option)
-Reward clip        : o (option)
+Annealing e-greedy : o (config selection)
+Reward clip        : o (config selection)
 Image preprocessor : -
+(+Double DQN)      : o (config selection)
 """
 
 
@@ -228,9 +229,8 @@ class Trainer(RLTrainer):
         # 各バッチのQ値を計算
         target_q = []
         for i in range(len(rewards)):
-            reward = rewards[i]
             if dones[i]:
-                gain = reward
+                gain = rewards[i]
             else:
                 # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
                 if self.config.enable_double_dqn:
@@ -238,7 +238,7 @@ class Trainer(RLTrainer):
                 else:
                     n_act_idx = np.argmax(n_q_target[i])
                 maxq = n_q_target[i][n_act_idx]
-                gain = reward + self.config.gamma * maxq
+                gain = rewards[i] + self.config.gamma * maxq
             target_q.append(gain)
         target_q = np.asarray(target_q)
 

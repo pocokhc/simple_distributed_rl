@@ -17,6 +17,7 @@ from srl.rl.functions.common import (
     inverse_rescaling,
     rescaling,
 )
+from srl.rl.functions.dueling_network import create_dueling_network_layers
 from srl.rl.functions.model import ImageLayerType, create_input_layers
 from srl.rl.memory import factory
 from srl.rl.registory import register
@@ -26,19 +27,19 @@ logger = logging.getLogger(__name__)
 
 """
 DQN
-    window_length       : o
-    Target Network      : o (Double DQN)
+    window_length       : o (config selection)
+    Target Network      : o
     Huber loss function : o
     Delay update Target Network: o
-    Experience Replay   : o (Priority Experience Reply)
+    Experience Replay   : o
     Frame skip          : -
-    Annealing e-greedy  : x (actor)
+    Annealing e-greedy  : x
     Reward clip         : x
     Image preprocessor  : -
 Rainbow
-    Double DQN               : o
-    Priority Experience Reply: o
-    Dueling Network          : o
+    Double DQN               : o (config selection)
+    Priority Experience Reply: o (config selection)
+    Dueling Network          : o (config selection)
     Multi-Step learning      : x
     Noisy Network            : x
     Categorical DQN          : x
@@ -70,12 +71,18 @@ class Config(DiscreteActionConfig):
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
     image_layer_type: ImageLayerType = ImageLayerType.DQN
-
     batch_size: int = 32
-    enable_double_dqn: bool = True
     q_ext_lr: float = 0.001
     q_int_lr: float = 0.001
     target_model_update_interval: int = 100
+
+    # double dqn
+    enable_double_dqn: bool = True
+
+    # DuelingNetwork
+    enable_dueling_network: bool = True
+    dueling_network_type: str = "average"
+    dueling_dense_units: int = 512
 
     # Priority Experience Replay
     capacity: int = 100_000
@@ -102,7 +109,8 @@ class Config(DiscreteActionConfig):
     # lifelong
     lifelong_lr: float = 0.00001
     lifelong_max: float = 5.0  # L
-    lifelong_norm: bool = False
+
+    dummy_state_val: float = 0.0
 
     @staticmethod
     def getName() -> str:
@@ -130,12 +138,16 @@ class _QNetwork(keras.Model):
             config.image_layer_type,
         )
 
-        # --- hidden layer
         for h in config.hidden_layer_sizes:
             c = kl.Dense(h, activation=config.activation, kernel_initializer="he_normal")(c)
 
-        # out layer
-        c = kl.Dense(config.nb_actions, activation="linear", kernel_initializer="truncated_normal")(c)
+        if config.enable_dueling_network:
+            c = create_dueling_network_layers(
+                c, config.nb_actions, config.dueling_dense_units, config.dueling_network_type
+            )
+        else:
+            c = kl.Dense(config.nb_actions, kernel_initializer="truncated_normal")(c)
+
         self.model = keras.Model(in_state, c)
 
         # 重みを初期化
@@ -237,16 +249,14 @@ class Parameter(RLParameter):
         self.lifelong_target = _LifelongNetwork(self.config)
         self.lifelong_train = _LifelongNetwork(self.config)
 
-    def restore(self, data: Optional[Any]) -> None:
-        if data is None:
-            return
-        self.q_ext_online.set_weights(data[0]),
-        self.q_ext_target.set_weights(data[0]),
-        self.q_int_online.set_weights(data[1]),
-        self.q_int_target.set_weights(data[1]),
-        self.emb_network.set_weights(data[2]),
-        self.lifelong_target.set_weights(data[3]),
-        self.lifelong_train.set_weights(data[4]),
+    def restore(self, data: Any) -> None:
+        self.q_ext_online.set_weights(data[0])
+        self.q_ext_target.set_weights(data[0])
+        self.q_int_online.set_weights(data[1])
+        self.q_int_target.set_weights(data[1])
+        self.emb_network.set_weights(data[2])
+        self.lifelong_target.set_weights(data[3])
+        self.lifelong_train.set_weights(data[4])
 
     def backup(self):
         d = [
@@ -542,7 +552,7 @@ class Worker(RLWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.memory = cast(RemoteMemory, self.memory)
 
-        # self.dummy_state = np.full(self.config.env_observation_shape, self.config.dummy_state_val)
+        self.dummy_state = np.full(self.config.env_observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.invalid_action_reward = -1
 
         # actor
@@ -568,9 +578,7 @@ class Worker(RLWorker):
             self.epsilon = self.config.test_epsilon
             self.beta = self.config.test_beta
 
-        self.recent_states = [
-            np.zeros(self.config.env_observation_shape) for _ in range(self.config.window_length + 1)
-        ]
+        self.recent_states = [self.dummy_state for _ in range(self.config.window_length + 1)]
         self.recent_states.pop(0)
         self.recent_states.append(state)
 
@@ -658,7 +666,7 @@ class Worker(RLWorker):
         action = action_[0]
         q = action_[1]
 
-        # --- 内部報酬を計算
+        # 内部報酬
         n_s = np.asarray([self.recent_states[1:]])
         episodic_reward = self._calc_episodic_reward(n_s)
         lifelong_reward = self._calc_lifelong_reward(n_s)
@@ -773,7 +781,12 @@ class Worker(RLWorker):
 
         return reward
 
-    def render(self, state: np.ndarray, valid_actions: List[int]) -> None:
+    def render(
+        self,
+        state: np.ndarray,
+        valid_actions: List[int],
+        action_to_str,
+    ) -> None:
         state = np.asarray([self.recent_states[1:]])
         q_ext = self.parameter.q_ext_online(state)[0].numpy()
         q_int = self.parameter.q_int_online(state)[0].numpy()
@@ -789,7 +802,7 @@ class Worker(RLWorker):
                 s += "*"
             else:
                 s += " "
-            s += f"{a:2d}: {q[a]:5.3f} = {q_ext[a]:5.3f} + {self.beta} * {q_int[a]:5.3f}"
+            s += f"{action_to_str(a)}: {q[a]:5.3f} = {q_ext[a]:5.3f} + {self.beta} * {q_int[a]:5.3f}"
             print(s)
 
 

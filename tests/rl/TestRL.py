@@ -2,6 +2,9 @@ import numpy as np
 import srl.envs.grid  # noqa F401
 import srl.envs.igrid  # noqa F401
 import srl.envs.oneroad  # noqa F401
+import srl.envs.ox
+from srl.base.define import EnvObservationType
+from srl.rl.processor.image_processor import ImageProcessor  # noqa F401
 from srl.runner import mp, sequence
 from srl.runner.callbacks import PrintProgress
 
@@ -31,7 +34,7 @@ class TestRL:
 
     def _sequence(self, config):
         # --- train
-        config.set_play_config(max_train_count=10, training=True)
+        config.set_play_config(max_steps=10, training=True)
         episode_rewards, parameter, memory = sequence.play(config)
 
         # --- test
@@ -55,11 +58,14 @@ class TestRL:
         rl_config,
         train_count,
         test_episodes,
+        is_atari=False,
     ):
         base_score = {
             "Grid-v0": 0.7,  # 0.7318 ぐらい
             "Pendulum-v1": -500,  # -179.51776165585284ぐらい
             "IGrid-v0": 1,  # 乱数要素なし
+            "OX-v0": 0.8,  # 0.9ぐらい
+            "ALE/Pong-v5": 0.0,
         }
         assert env_name in base_score
 
@@ -68,8 +74,13 @@ class TestRL:
             rl_config=rl_config,
         )
 
-        config.set_play_config(max_steps=1, training=True, callbacks=[PrintProgress(max_progress_time=5)])
-        config.set_play_config(max_steps=train_count, training=True, callbacks=[PrintProgress(max_progress_time=5)])
+        if is_atari:
+            config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
+            config.max_episode_steps = 50
+            config.override_env_observation_type = EnvObservationType.COLOR
+            config.skip_frames = 4
+
+        config.set_play_config(max_steps=train_count, training=True, callbacks=[PrintProgress(max_progress_time=10)])
         episode_rewards, parameter, memory = sequence.play(config)
 
         config.set_play_config(max_episodes=test_episodes)

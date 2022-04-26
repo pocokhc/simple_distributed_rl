@@ -6,6 +6,7 @@ import tensorflow as tf
 # @tf.function
 def compute_logprob(mean, stddev, action):
     a1 = -0.5 * np.log(2 * np.pi)
+    stddev = tf.clip_by_value(stddev, 1e-6, np.inf)  # log(0)回避用
     a2 = -tf.math.log(stddev)
     a3 = -0.5 * tf.square((action - mean) / stddev)
     return a1 + a2 + a3

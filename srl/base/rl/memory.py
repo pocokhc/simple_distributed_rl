@@ -1,7 +1,9 @@
-import os
+import logging
 import pickle
 from abc import ABC, abstractmethod
 from typing import Any, List, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 class Memory(ABC):
@@ -43,12 +45,12 @@ class Memory(ABC):
         self.init()
 
     def save(self, path: str) -> None:
+        logger.debug(f"save: {path}")
         with open(path, "wb") as f:
             pickle.dump(self.backup(), f)
 
     def load(self, path: str) -> None:
-        if not os.path.isfile(path):
-            return
+        logger.debug(f"load: {path}")
         with open(path, "rb") as f:
             self.restore(pickle.load(f))
 

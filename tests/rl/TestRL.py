@@ -1,12 +1,17 @@
+import os
+from typing import cast
+
 import numpy as np
-import srl.envs.grid  # noqa F401
-import srl.envs.igrid  # noqa F401
-import srl.envs.oneroad  # noqa F401
-import srl.envs.ox
+import srl.rl
 from srl.base.define import EnvObservationType
+from srl.base.env.singleplay_wrapper import SinglePlayerWrapper
+from srl.envs.grid import Grid
+from srl.rl.functions.common import to_str_observaten
 from srl.rl.processor.image_processor import ImageProcessor  # noqa F401
 from srl.runner import mp, sequence
 from srl.runner.callbacks import PrintProgress
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
 class TestRL:
@@ -18,7 +23,8 @@ class TestRL:
 
         env_list = [
             "FrozenLake-v1",
-            "OneRoad-v0",
+            "OneRoad",
+            "OX",
         ]
 
         for env_name in env_list:
@@ -34,8 +40,8 @@ class TestRL:
 
     def _sequence(self, config):
         # --- train
-        config.set_play_config(max_steps=10, training=True)
-        episode_rewards, parameter, memory = sequence.play(config)
+        config.set_train_config(max_steps=10)
+        parameter, memory = sequence.train(config)
 
         # --- test
         config.set_play_config(max_episodes=1)
@@ -45,13 +51,13 @@ class TestRL:
         # --- train
         mp_config = mp.Config(worker_num=2)
         mp_config.set_train_config(max_train_count=10)
-        parameter = mp.train(config, mp_config)
+        parameter, memory = mp.train(config, mp_config)
 
         # --- test
         config.set_play_config(max_episodes=1)
         episode_rewards, _, _ = sequence.play(config, parameter)
 
-    def play_verify(
+    def play_verify_singleplay(
         self,
         tester,
         env_name,
@@ -61,10 +67,10 @@ class TestRL:
         is_atari=False,
     ):
         base_score = {
-            "Grid-v0": 0.7,  # 0.7318 ぐらい
+            "Grid": 0.65,  # 0.7318 ぐらい
+            "2DGrid": 0.65,
             "Pendulum-v1": -500,  # -179.51776165585284ぐらい
-            "IGrid-v0": 1,  # 乱数要素なし
-            "OX-v0": 0.8,  # 0.9ぐらい
+            "IGrid": 1,  # 乱数要素なし
             "ALE/Pong-v5": 0.0,
         }
         assert env_name in base_score
@@ -80,29 +86,98 @@ class TestRL:
             config.override_env_observation_type = EnvObservationType.COLOR
             config.skip_frames = 4
 
-        config.set_play_config(max_steps=train_count, training=True, callbacks=[PrintProgress(max_progress_time=10)])
-        episode_rewards, parameter, memory = sequence.play(config)
+        config.set_train_config(max_steps=train_count, callbacks=[PrintProgress(max_progress_time=10)])
+        parameter, memory = sequence.train(config)
 
         config.set_play_config(max_episodes=test_episodes)
         episode_rewards, _, _ = sequence.play(config, parameter)
-        print(f"{np.mean(episode_rewards)} >= {base_score[env_name]}")
-        tester.assertTrue(np.mean(episode_rewards) >= base_score[env_name])
+        s = f"{np.mean(episode_rewards)} >= {base_score[env_name]}"
+        print(s)
+        tester.assertTrue(np.mean(episode_rewards) >= base_score[env_name], s)
 
         self.parameter = parameter
         self.config = config
 
-    def check_policy(self, tester):
-        assert self.config.env_name == "Grid-v0"
+    def play_verify_2play(
+        self,
+        tester,
+        env_name,
+        rl_config,
+        train_count,
+        test_episodes,
+        is_atari=False,
+    ):
+        base_score = {
+            "OX": [0.8, 0.65],  # [0.987, 0.813] ぐらい
+        }
+        assert env_name in base_score
 
-        env = self.config.create_env()
-        V, _Q = env.env.calc_action_values()
+        config = sequence.Config(
+            env_name=env_name,
+            rl_config=rl_config,
+            players=[None, None],
+        )
+
+        config.set_train_config(max_steps=train_count, callbacks=[PrintProgress(max_progress_time=10)])
+        parameter, memory = sequence.train(config)
+
+        # 2p random
+        with tester.subTest("1p test"):
+            config.players = [None, srl.rl.random_play.Config()]
+            config.set_play_config(max_episodes=test_episodes)
+            episode_rewards, _, _ = sequence.play(config, parameter)
+            reward = np.mean([r[0] for r in episode_rewards])
+            s = f"{reward} >= {base_score[env_name][0]}"
+            print(s)
+            tester.assertTrue(reward >= base_score[env_name][0], s)
+
+        # 1p random
+        with tester.subTest("2p test"):
+            config.players = [srl.rl.random_play.Config(), None]
+            config.set_play_config(max_episodes=test_episodes)
+            episode_rewards, _, _ = sequence.play(config, parameter)
+            reward = np.mean([r[1] for r in episode_rewards])
+            s = f"{reward} >= {base_score[env_name][1]}"
+            print(s)
+            tester.assertTrue(reward >= base_score[env_name][1], s)
+
+        self.parameter = parameter
+        self.config = config
+
+    def verify_grid_action_values(self, tester):
+        assert self.config.env_name == "Grid"
+
+        env = self.config.make_env()
+        env_org = cast(Grid, env.get_original_env())
+        V, Q = env_org.calc_action_values()
+        for s, q in Q.items():
+            q = list(q.values())
+            rl_s = env.observation_encode(s)
+            true_a = np.argmax(q)
+
+            rl_q = self.parameter.get_action_values(rl_s, [])
+            rl_a = np.argmax(rl_q)
+
+            diff = abs(q[true_a] - rl_q[true_a])
+            print(s, true_a, rl_a, diff)
+
+            tester.assertTrue(true_a == rl_a)
+            tester.assertTrue(diff < 0.2)
+
+    def verify_grid_policy(self, tester):
+        assert self.config.env_name == "Grid"
+
+        env_for_rl = self.config.make_env()
+        env = SinglePlayerWrapper(env_for_rl)
+        env_org = cast(Grid, env.get_original_env())
+        V, _Q = env_org.calc_action_values()
         Q = {}
         for k, v in _Q.items():
-            new_k = env.observation_encode(k)
-            new_k = str(new_k.tolist())
+            new_k = env_for_rl.observation_encode(k)
+            new_k = to_str_observaten(new_k)
             Q[new_k] = v
 
-        worker = self.config.create_worker(self.parameter)
+        worker = self.config.make_worker(self.parameter)
         worker.set_training(False)
 
         # 数ステップ回してactionを確認
@@ -112,19 +187,18 @@ class TestRL:
                 state = env.reset()
                 done = False
                 total_reward = 0
-                valid_actions = env.fetch_valid_actions()
-                worker.on_reset(state, valid_actions, env)
+                invalid_actions = env.fetch_invalid_actions()
+                worker.on_reset(state, invalid_actions, env, [0])
 
             # action
-            env_action, worker_action = worker.policy(state, valid_actions, env)
-            if valid_actions is not None:
-                assert env_action in valid_actions
+            env_action, worker_action = worker.policy(state, invalid_actions, env, [0])
+            assert env_action not in invalid_actions
 
             # -----------
             # policyのアクションと最適アクションが等しいか確認
-            key = str(state.tolist())
+            key = to_str_observaten(state)
             true_a = np.argmax(list(Q[key].values()))
-            pred_a = env.action_decode(env_action)
+            pred_a = env_for_rl.action_decode(env_action)
             print(f"{state}: {true_a} == {pred_a}")
             tester.assertTrue(true_a == pred_a)
             # -----------
@@ -133,29 +207,10 @@ class TestRL:
             next_state, reward, done, env_info = env.step(env_action)
             step += 1
             total_reward += reward
-            next_valid_actions = env.fetch_valid_actions()
+            next_invalid_actions = env.fetch_invalid_actions()
 
             # rl step
             work_info = worker.on_step(
-                state, worker_action, next_state, reward, done, valid_actions, next_valid_actions, env
+                state, worker_action, next_state, reward, done, invalid_actions, next_invalid_actions, env
             )
             state = next_state
-
-    def check_action_values(self, tester):
-        assert self.config.env_name == "Grid-v0"
-
-        env = self.config.create_env()
-        V, Q = env.env.calc_action_values()
-        for s, q in Q.items():
-            q = list(q.values())
-            rl_s = env.observation_encode(s)
-            true_a = np.argmax(q)
-
-            rl_q = self.parameter.get_action_values(rl_s, env.env.actions)
-            rl_a = np.argmax(rl_q)
-
-            diff = abs(q[true_a] - rl_q[true_a])
-            print(s, true_a, rl_a, diff)
-
-            tester.assertTrue(true_a == rl_a)
-            tester.assertTrue(diff < 0.2)

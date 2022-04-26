@@ -11,9 +11,9 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.rl import ContinuousActionConfig, RLParameter, RLRemoteMemory, RLTrainer, RLWorker
+from srl.base.rl.registory import register
 from srl.rl.functions.common_tf import compute_logprob_sgp
 from srl.rl.functions.model import ImageLayerType, create_input_layers, create_input_layers_one_sequence
-from srl.rl.registory import register
 
 logger = logging.getLogger(__name__)
 
@@ -354,10 +354,10 @@ class Worker(RLWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.memory = cast(RemoteMemory, self.memory)
 
-    def on_reset(self, state: np.ndarray, valid_actions, _) -> None:
+    def on_reset(self, state: np.ndarray, invalid_actions, _) -> None:
         pass
 
-    def policy(self, state: np.ndarray, valid_actions, _) -> Tuple[int, Any]:
+    def policy(self, state: np.ndarray, invalid_actions, _) -> Tuple[int, Any]:
         action, mean, _, _ = self.parameter.policy(state.reshape(1, -1))
 
         # TODO action rerange
@@ -376,8 +376,8 @@ class Worker(RLWorker):
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        valid_actions,
-        next_valid_actions,
+        invalid_actions,
+        next_invalid_actions,
         _,
     ):
         if not self.training:
@@ -394,11 +394,16 @@ class Worker(RLWorker):
 
         return {}
 
-    def render(self, state: np.ndarray, valid_actions, action_to_str) -> None:
+    def render(
+        self,
+        state: np.ndarray,
+        invalid_actions,
+        env: EnvForRL,
+    ) -> None:
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
-            if a not in valid_actions:
+            if a not in invalid_actions:
                 continue
             if a == maxa:
                 s = "*"

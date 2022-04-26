@@ -3,20 +3,19 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, List, Tuple
+from typing import Any, Tuple
 
-import gym
-import gym.envs.registration
 import gym.spaces
 import numpy as np
 from srl.base.define import EnvObservationType
-from srl.base.env import EnvBase
+from srl.base.env import registration
+from srl.base.env.genre.singleplay import SingleActionDiscrete
 
 logger = logging.getLogger(__name__)
 
 
-gym.envs.registration.register(
-    id="Grid-v0",
+registration.register(
+    id="Grid",
     entry_point=__name__ + ":Grid",
     kwargs={
         "move_reward": -0.04,
@@ -25,34 +24,22 @@ gym.envs.registration.register(
     },
 )
 
-gym.envs.registration.register(
-    id="Grid-v1",
-    entry_point=__name__ + ":Grid",
-    kwargs={
-        "move_reward": 0.0,
-        "move_prob": 1.0,
-        "state_type": "pos",
-    },
-)
-
-
-gym.envs.registration.register(
-    id="NeonGrid-v0",
-    entry_point=__name__ + ":Grid",
-    kwargs={
-        "move_reward": -0.04,
-        "move_prob": 0.8,
-        "state_type": "neon",
-    },
-)
-
-gym.envs.registration.register(
-    id="ImageGrid-v0",
+registration.register(
+    id="2DGrid",
     entry_point=__name__ + ":Grid",
     kwargs={
         "move_reward": -0.04,
         "move_prob": 0.8,
         "state_type": "2d",
+    },
+)
+registration.register(
+    id="NeonGrid",
+    entry_point=__name__ + ":Grid",
+    kwargs={
+        "move_reward": -0.04,
+        "move_prob": 0.8,
+        "state_type": "neon",
     },
 )
 
@@ -65,7 +52,7 @@ class Action(enum.Enum):
 
 
 @dataclass
-class Grid(EnvBase):
+class Grid(SingleActionDiscrete):
 
     move_prob: float = 0.8
     move_reward: float = -0.04
@@ -128,39 +115,30 @@ class Grid(EnvBase):
         else:
             raise ValueError()
 
-    # override
     @property
-    def action_space(self) -> gym.spaces.Space:
-        return self._action_space
+    def action_num(self) -> int:
+        return len(Action)
 
-    # override
     @property
     def observation_space(self) -> gym.spaces.Space:
         return self._observation_space
 
-    # override
     @property
     def observation_type(self) -> EnvObservationType:
         return self._observation_type
 
-    # override
     @property
     def max_episode_steps(self) -> int:
         return 50
 
-    # override
-    def fetch_valid_actions(self) -> List[int]:
-        return [e.value for e in Action]
-
-    # override
-    def reset(self) -> Any:
+    def reset_single(self) -> np.ndarray:
         self.player_pos = (1, 3)
         self.return_state = self._create_field(self.player_pos, self.state_type)
         return self.return_state
 
     def _create_field(self, player_pos, state_type) -> Any:
         if state_type == "pos":
-            return tuple(player_pos)
+            return np.asarray(player_pos)
 
         field = json.loads(json.dumps(self.base_field))  # deepcopy
 
@@ -174,10 +152,22 @@ class Grid(EnvBase):
                 for x in range(self.W):
                     if field[y][x] == 9:
                         field[y][x] = random.randint(-1, 9)
-        return tuple(map(tuple, field))
+        return np.asarray(field)
 
-    # override
-    def step(self, action_: int) -> Tuple[Any, float, bool, dict]:
+    def backup(self) -> Any:
+        return json.dumps(
+            [
+                self.player_pos,
+                self.return_state,
+            ]
+        )
+
+    def restore(self, data: Any) -> None:
+        d = json.loads(data)
+        self.player_pos = d[0]
+        self.return_state = d[1]
+
+    def step_single(self, action_: int) -> Tuple[Any, float, bool, dict]:
         action = Action(action_)
 
         items = self.action_probs[action].items()
@@ -191,8 +181,7 @@ class Grid(EnvBase):
         self.return_state = self._create_field(self.player_pos, self.state_type)
         return self.return_state, reward, done, {}
 
-    # override
-    def render(self, mode="human"):
+    def render_terminal(self):
         if self.state_type == "pos":
             state = self._create_field(self.player_pos, "2d")
         else:
@@ -204,17 +193,18 @@ class Grid(EnvBase):
                 if n == 2:  # player
                     s += "P"
                 elif n == 0:  # 道
-                    s += "."
+                    s += " "
                 elif n == 1:  # goal
                     s += "G"
                 elif n == -1:  # 穴
                     s += "X"
+                elif n == 9:  # 壁
+                    s += "O"
                 else:
                     s += str(n)
             print(s)
         print("")
 
-    # override
     def action_to_str(self, action) -> str:
         if Action.DOWN.value == action:
             return "↓"
@@ -225,21 +215,6 @@ class Grid(EnvBase):
         if Action.UP.value == action:
             return "↑"
         return str(action)
-
-    # override
-    def backup(self) -> Any:
-        return json.dumps(
-            [
-                self.player_pos,
-                self.return_state,
-            ]
-        )
-
-    # override
-    def restore(self, data: Any) -> None:
-        d = json.loads(data)
-        self.player_pos = d[0]
-        self.return_state = d[1]
 
     # ------------------------------------
     @property
@@ -460,8 +435,7 @@ if __name__ == "__main__":
     game.render()
 
     while not done:
-        valid_actions = game.fetch_valid_actions()
-        action = random.choice(valid_actions)
+        action = game.sample()
         state, reward, done, _ = game.step(action)
         total_reward += reward
         step += 1

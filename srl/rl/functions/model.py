@@ -11,9 +11,9 @@ logger = logging.getLogger(__name__)
 
 class ImageLayerType(enum.Enum):
     NONE = 0
-    DQN = 1
-    R2D3 = 2
-    AlphaZero = 3
+    DQN = enum.auto()
+    R2D3 = enum.auto()
+    AlphaZero = enum.auto()
 
 
 def create_input_layers_one_sequence(

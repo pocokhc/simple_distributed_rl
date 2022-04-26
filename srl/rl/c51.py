@@ -7,10 +7,12 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
-from srl.base.rl import DiscreteActionConfig, RLParameter, RLTrainer, RLWorker
-from srl.base.rl.rl import RLRemoteMemory
+from srl.base.env.env_for_rl import EnvForRL
+from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.registration import register
 from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
-from srl.rl.registory import register
+from srl.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
 
 """
 Categorical DQN（C51）
@@ -26,8 +28,9 @@ class Config(DiscreteActionConfig):
     epsilon: float = 0.1
     test_epsilon: float = 0
     gamma: float = 0.9
+    lr: float = 0.001
     batch_size: int = 16
-    memory_warmup_size: int = 100
+    memory_warmup_size: int = 1000
     capacity: int = 100_000
 
     # model
@@ -49,7 +52,24 @@ class Config(DiscreteActionConfig):
         assert self.batch_size < self.memory_warmup_size
 
 
-register(Config, __name__)
+register(
+    Config,
+    __name__ + ":RemoteMemory",
+    __name__ + ":Parameter",
+    __name__ + ":Trainer",
+    __name__ + ":Worker",
+)
+
+
+# ------------------------------------------------------
+# RemoteMemory
+# ------------------------------------------------------
+class RemoteMemory(ExperienceReplayBuffer):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.config = cast(Config, self.config)
+
+        self.init(self.config.capacity)
 
 
 # ------------------------------------------------------
@@ -82,33 +102,6 @@ class Parameter(RLParameter):
 
 
 # ------------------------------------------------------
-# RemoteMemory
-# ------------------------------------------------------
-class RemoteMemory(RLRemoteMemory):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config = cast(Config, self.config)
-
-        self.memory = deque(maxlen=self.config.capacity)
-
-    def length(self) -> int:
-        return len(self.memory)
-
-    def restore(self, data: Any) -> None:
-        self.memory = data
-
-    def backup(self):
-        return self.memory.copy()
-
-    # ---------------------------
-    def add(self, batch):
-        self.memory.append(batch)
-
-    def sample(self):
-        return random.sample(self.memory, self.config.batch_size)
-
-
-# ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
 class Trainer(RLTrainer):
@@ -116,10 +109,9 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
-        self.memory = cast(RemoteMemory, self.memory)
+        self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-        self.optimizer = keras.optimizers.Adam()
-        self.loss = keras.losses.Huber()
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
 
         self.train_count = 0
 
@@ -133,10 +125,10 @@ class Trainer(RLTrainer):
         return self.train_count
 
     def train(self):
-        if self.memory.length() < self.config.memory_warmup_size:
+        if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
-        batchs = self.memory.sample()
+        batchs = self.remote_memory.sample(self.config.batch_size)
 
         states = []
         actions = []
@@ -203,34 +195,35 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, self.parameter.Q.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.Q.trainable_variables))
 
+        self.train_count += 1
         return {"loss": loss.numpy()}
 
 
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
-        self.memory = cast(RemoteMemory, self.memory)
+        self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.Vmin = -10
         self.Vmax = 10
         self.Z = np.linspace(self.Vmin, self.Vmax, self.config.categorical_num_atoms)
 
-    def on_reset(self, state: np.ndarray, valid_actions: List[int], _) -> None:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
         if self.training:
             self.epsilon = self.config.epsilon
         else:
             self.epsilon = self.config.test_epsilon
 
-    def policy(self, state: np.ndarray, valid_actions: List[int], _) -> Tuple[int, Any]:
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, Any]:
 
         if random.random() < self.epsilon:
             # epsilonより低いならランダム
-            action = random.choice(valid_actions)
+            action = random.choice([a for a in range(self.config.nb_actions) if a not in invalid_actions])
         else:
             logits = self.parameter.Q(np.asarray([state]))
             probs = tf.nn.softmax(logits, axis=2)
@@ -238,23 +231,22 @@ class Worker(RLWorker):
             q_means = q_means.reshape(-1)
 
             # valid actions以外は -inf にする
-            q = np.array([(v if i in valid_actions else -np.inf) for i, v in enumerate(q_means)])
+            q = np.array([(-np.inf if a in invalid_actions else v) for a, v in enumerate(q_means)])
 
             # 最大値を選ぶ（複数あればランダム）
             action = random.choice(np.where(q == q.max())[0])
 
         return action, action
 
-    def on_step(
+    def call_on_step(
         self,
         state: np.ndarray,
         action: Any,
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        valid_actions: List[int],
-        next_valid_actions: List[int],
-        _,
+        invalid_actions: List[int],
+        next_invalid_actions: List[int],
     ):
         if not self.training:
             return {}
@@ -266,10 +258,15 @@ class Worker(RLWorker):
             "reward": reward,
             "done": done,
         }
-        self.memory.add(batch)
+        self.remote_memory.add(batch)
         return {}
 
-    def render(self, state: np.ndarray, valid_actions: List[int], action_to_str) -> None:
+    def render(
+        self,
+        state: np.ndarray,
+        invalid_actions: List[int],
+        env: EnvForRL,
+    ):
         logits = self.parameter.Q(state[np.newaxis, ...])
         probs = tf.nn.softmax(logits, axis=2)
         q_means = tf.reduce_sum(probs * self.Z, axis=2, keepdims=True)
@@ -278,7 +275,7 @@ class Worker(RLWorker):
         maxa = np.argmax(q)
 
         for a in range(self.config.nb_actions):
-            if a not in valid_actions:
+            if a not in invalid_actions:
                 s = "x"
             else:
                 s = " "
@@ -286,5 +283,5 @@ class Worker(RLWorker):
                 s += "*"
             else:
                 s += " "
-            s += f"{action_to_str(a)}: {q[a]:5.3f}"
+            s += f"{env.action_to_str(a)}: {q[a]:5.3f}"
             print(s)

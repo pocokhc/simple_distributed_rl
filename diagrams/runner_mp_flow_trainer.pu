@@ -6,7 +6,6 @@ participant Trainer
 participant Parameter
 participant RemoteMemory
 entity Board
-queue LastParamQueue
 
 
 activate TrainerProcess
@@ -31,7 +30,8 @@ end
 
 TrainerProcess -> Parameter: backup
 return parameter
-TrainerProcess ->> LastParamQueue: put(parameter)
+TrainerProcess ->> Board: write(parameter)
 return
+
 
 @enduml

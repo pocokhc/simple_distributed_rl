@@ -26,7 +26,7 @@ from srl.rl.functions.model import (
     create_input_layers_one_sequence,
 )
 from srl.rl.memory import factory
-from srl.rl.registory import register
+from srl.base.rl.registory import register
 from tensorflow.keras import layers as kl
 
 """
@@ -647,14 +647,14 @@ class Worker(RLWorker):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def on_reset(self, state: np.ndarray, valid_actions: List[int], _) -> None:
+    def on_reset(self, state: np.ndarray, invalid_actions: List[int], _) -> None:
         self.recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.multisteps + 1)]
         self.recent_actions = [random.randint(0, self.config.nb_actions - 1) for _ in range(self.config.multisteps)]
         self.recent_probs = [1.0 / self.config.nb_actions for _ in range(self.config.multisteps)]
         self.recent_rewards_ext = [0.0 for _ in range(self.config.multisteps)]
         self.recent_rewards_int = [0.0 for _ in range(self.config.multisteps)]
         self.recent_done = [False for _ in range(self.config.multisteps)]
-        self.recent_valid_actions = [[] for _ in range(self.config.multisteps + 1)]
+        self.recent_invalid_actions = [[] for _ in range(self.config.multisteps + 1)]
 
         self.hidden_state_ext = self.parameter.q_ext_online.init_hidden_state()
         self.hidden_state_int = self.parameter.q_int_online.init_hidden_state()
@@ -669,8 +669,8 @@ class Worker(RLWorker):
 
         self.recent_states.pop(0)
         self.recent_states.append(state.astype(np.float32))
-        self.recent_valid_actions.pop(0)
-        self.recent_valid_actions.append(valid_actions)
+        self.recent_invalid_actions.pop(0)
+        self.recent_invalid_actions.append(invalid_actions)
 
         if self.training:
             # エピソード毎に actor を決める
@@ -731,7 +731,7 @@ class Worker(RLWorker):
         # UCB値最大のポリシー（複数あればランダム）
         return random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def policy(self, state: np.ndarray, valid_actions: List[int], _) -> Tuple[int, Any]:
+    def policy(self, state: np.ndarray, invalid_actions: List[int], _) -> Tuple[int, Any]:
         state = np.asarray([[state]] * self.config.batch_size)
 
         q_ext, self.hidden_state_ext = self.parameter.q_ext_online(state, self.hidden_state_ext)
@@ -739,7 +739,7 @@ class Worker(RLWorker):
         q = q_ext[0] + self.beta * q_int[0]
         q = q.numpy()
 
-        probs = calc_epsilon_greedy_probs(q, valid_actions, self.epsilon, self.config.nb_actions)
+        probs = calc_epsilon_greedy_probs(q, invalid_actions, self.epsilon, self.config.nb_actions)
         action = random_choice_by_probs(probs)
 
         return action, (action, probs[action], q[action])
@@ -751,8 +751,8 @@ class Worker(RLWorker):
         next_state: np.ndarray,
         reward_ext: float,
         done: bool,
-        valid_actions: List[int],
-        next_valid_actions: List[int],
+        invalid_actions: List[int],
+        next_invalid_actions: List[int],
         _,
     ):
         self.episode_reward += reward_ext
@@ -792,8 +792,8 @@ class Worker(RLWorker):
         self.recent_rewards_int.append(reward_int)
         self.recent_done.pop(0)
         self.recent_done.append(done)
-        self.recent_valid_actions.pop(0)
-        self.recent_valid_actions.append(next_valid_actions)
+        self.recent_invalid_actions.pop(0)
+        self.recent_invalid_actions.append(next_invalid_actions)
         self.recent_hidden_states_ext.pop(0)
         self.recent_hidden_states_ext.append(
             [
@@ -826,8 +826,8 @@ class Worker(RLWorker):
                 self.recent_rewards_int.append(0.0)
                 self.recent_done.pop(0)
                 self.recent_done.append(True)
-                self.recent_valid_actions.pop(0)
-                self.recent_valid_actions.append([])
+                self.recent_invalid_actions.pop(0)
+                self.recent_invalid_actions.append([])
                 self.recent_hidden_states_ext.pop(0)
                 self.recent_hidden_states_int.pop(0)
 
@@ -846,7 +846,7 @@ class Worker(RLWorker):
             dones = self.recent_done[:]
             dones[-1] = True
             for a in range(self.config.nb_actions):
-                if a in valid_actions:
+                if a in invalid_actions:
                     continue
                 actions = self.recent_actions[:]
                 actions[-1] = a
@@ -857,7 +857,7 @@ class Worker(RLWorker):
                     "probs": probs,
                     "rewards": rewards,
                     "dones": dones,
-                    "valid_actions": self.recent_valid_actions[:],
+                    "invalid_actions": self.recent_invalid_actions[:],
                 }
                 self.memory.add_invalid(batch)
 
@@ -873,7 +873,7 @@ class Worker(RLWorker):
             "rewards_int": self.recent_rewards_int[:],
             "dones": self.recent_done[:],
             "actor": self.actor_index,
-            "valid_actions": self.recent_valid_actions[:],
+            "invalid_actions": self.recent_invalid_actions[:],
             "burnin_states": self.recent_states[: self.config.burnin],
             "hidden_states_ext": self.recent_hidden_states_ext[0],
             "hidden_states_int": self.recent_hidden_states_int[0],
@@ -953,8 +953,8 @@ class Worker(RLWorker):
     def render(
         self,
         state: np.ndarray,
-        valid_actions: List[int],
-        action_to_str,
+        invalid_actions: List[int],
+        env: EnvForRL,
     ) -> None:
         states = np.asarray([[state]] * self.config.batch_size)
         q_ext, _ = self.parameter.q_ext_online(states, self.hidden_state_ext)
@@ -974,7 +974,7 @@ class Worker(RLWorker):
 
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
-            if a not in valid_actions:
+            if a not in invalid_actions:
                 s = "x"
             else:
                 s = " "

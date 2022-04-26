@@ -7,8 +7,10 @@ from typing import Any, List, Optional, Tuple, cast
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
+from srl.base.env.env_for_rl import EnvForRL
 from srl.base.rl import RLParameter, RLRemoteMemory, RLTrainer, RLWorker
 from srl.base.rl.config import DiscreteActionConfig
+from srl.base.rl.registory import register
 from srl.rl.functions.common import (
     calc_epsilon_greedy_probs,
     create_beta_list,
@@ -20,7 +22,6 @@ from srl.rl.functions.common import (
 from srl.rl.functions.dueling_network import create_dueling_network_layers
 from srl.rl.functions.model import ImageLayerType, create_input_layers
 from srl.rl.memory import factory
-from srl.rl.registory import register
 from tensorflow.keras import layers as kl
 
 logger = logging.getLogger(__name__)
@@ -566,7 +567,7 @@ class Worker(RLWorker):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def on_reset(self, state: np.ndarray, valid_actions: List[int], _) -> None:
+    def on_reset(self, state: np.ndarray, invalid_actions: List[int], _) -> None:
         if self.training:
             # エピソード毎に actor を決める
             self.actor_index = self._calc_actor_index()
@@ -630,7 +631,7 @@ class Worker(RLWorker):
         # UCB値最大のポリシー（複数あればランダム）
         return random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def policy(self, state_: np.ndarray, valid_actions: List[int], _):
+    def policy(self, state_: np.ndarray, invalid_actions: List[int], _):
         state = np.asarray([self.recent_states[1:]])
 
         q_ext = self.parameter.q_ext_online(state)[0].numpy()
@@ -638,10 +639,10 @@ class Worker(RLWorker):
         q = q_ext + self.beta * q_int
 
         if random.random() < self.epsilon:
-            action = random.choice(valid_actions)
+            action = random.choice(invalid_actions)
         else:
             # valid actions以外は -inf にする
-            q = np.array([(v if i in valid_actions else -np.inf) for i, v in enumerate(q)])
+            q = np.array([(v if i in invalid_actions else -np.inf) for i, v in enumerate(q)])
             # 最大値を選ぶ（複数はほぼないので無視）
             action = int(np.argmax(q))
 
@@ -654,8 +655,8 @@ class Worker(RLWorker):
         next_state: np.ndarray,
         reward_ext: float,
         done: bool,
-        valid_actions: List[int],
-        next_valid_actions: List[int],
+        invalid_actions: List[int],
+        next_invalid_actions: List[int],
         _,
     ):
         self.episode_reward += reward_ext
@@ -784,8 +785,8 @@ class Worker(RLWorker):
     def render(
         self,
         state: np.ndarray,
-        valid_actions: List[int],
-        action_to_str,
+        invalid_actions: List[int],
+        env: EnvForRL,
     ) -> None:
         state = np.asarray([self.recent_states[1:]])
         q_ext = self.parameter.q_ext_online(state)[0].numpy()
@@ -794,7 +795,7 @@ class Worker(RLWorker):
 
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
-            if a not in valid_actions:
+            if a not in invalid_actions:
                 s = "x"
             else:
                 s = " "
@@ -802,7 +803,7 @@ class Worker(RLWorker):
                 s += "*"
             else:
                 s += " "
-            s += f"{action_to_str(a)}: {q[a]:5.3f} = {q_ext[a]:5.3f} + {self.beta} * {q_int[a]:5.3f}"
+            s += f"{env.action_to_str(a)}: {q[a]:5.3f} = {q_ext[a]:5.3f} + {self.beta} * {q_int[a]:5.3f}"
             print(s)
 
 

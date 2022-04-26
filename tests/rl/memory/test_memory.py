@@ -3,8 +3,9 @@ import math
 import unittest
 
 import numpy as np
-from srl import rl
-from srl.rl.memory import factory
+from srl.rl.memory.proportional_memory import ProportionalMemory
+from srl.rl.memory.rankbase_memory import RankBaseMemory
+from srl.rl.memory.replay_memory import ReplayMemory
 
 
 class TestMemory(unittest.TestCase):
@@ -12,12 +13,11 @@ class TestMemory(unittest.TestCase):
         capacity = 10
 
         memories = [
-            ("ReplayMemory", {"capacity": capacity}, False),
-            ("ProportionalMemory", {"capacity": capacity, "alpha": 0.8, "beta_initial": 1, "beta_steps": 10}, False),
-            ("RankBaseMemory", {"capacity": capacity, "alpha": 0.8, "beta_initial": 1, "beta_steps": 10}, False),
+            (ReplayMemory(capacity), False),
+            (ProportionalMemory(capacity, 0.8, 1, 10), False),
+            (RankBaseMemory(capacity, 0.8, 1, 10), False),
         ]
-        for name, config, use_priority in memories:
-            memory = factory.create(name, config)
+        for memory, use_priority in memories:
             with self.subTest(memory.__class__.__name__):
                 self._test_memory(memory, use_priority)
 
@@ -85,11 +85,11 @@ class TestMemory(unittest.TestCase):
                     "alpha": alpha,
                     "beta_initial": 1,
                 }
-                memory = factory.create("ProportionalMemory", config)
+                memory = ProportionalMemory(**config)
                 priorities = [
-                    1 ** alpha,
-                    2 ** alpha,
-                    3 ** alpha,
+                    1**alpha,
+                    2**alpha,
+                    3**alpha,
                 ]
                 sum_priority = sum(priorities)
                 probs = [
@@ -108,7 +108,7 @@ class TestMemory(unittest.TestCase):
                     "alpha": alpha,
                     "beta_initial": 1,
                 }
-                memory = factory.create("RankBaseMemory", config)
+                memory = RankBaseMemory(**config)
                 priorities = [
                     1 + 0 * alpha,  # 3位
                     1 + 1 * alpha,  # 2位

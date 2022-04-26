@@ -1,3 +1,4 @@
+import importlib
 import json
 import logging
 import os
@@ -72,11 +73,9 @@ def listdictdict_to_dictlist(data: List[Dict[str, Dict[str, Any]]], key: str) ->
 def to_str_time(sec: float) -> str:
     if sec == np.inf:
         return "inf"
-    if sec < 180:
+    if sec < 60:
         return "{:6.2f}s".format(sec)
-    if sec < 180 * 60:
-        return "{:5.1f}m".format(sec / 60)
-    return "{:.2f}h".format((sec / 60) / 60)
+    return "{:5.1f}m".format(sec / 60)
 
 
 class JsonNumpyEncoder(json.JSONEncoder):
@@ -89,3 +88,13 @@ class JsonNumpyEncoder(json.JSONEncoder):
             return obj.tolist()
         else:
             return super(JsonNumpyEncoder, self).default(obj)
+
+
+def load_module(entry_point):
+    if ":" not in entry_point:
+        raise
+
+    mod_name, cls_name = entry_point.split(":")
+    module = importlib.import_module(mod_name)
+    cls = getattr(module, cls_name)
+    return cls

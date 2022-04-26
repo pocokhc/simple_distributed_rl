@@ -36,7 +36,7 @@ abstract EnvBase {
     render()
     - observation_type : EnvObservationType
     - max_episode_steps : int
-    - fetch_valid_actions()
+    - fetch_invalid_actions()
     - backup()
     - restore()
     - action_to_str()
@@ -45,7 +45,6 @@ abstract EnvBase {
 class EnvForRL
 
 abstract RLRemoteMemory {
-    length()
     backup()
     restore()
 }
@@ -77,10 +76,10 @@ abstract RLWorker {
     memory : RLRemoteMemory
     board : ParameterBoard
     worker_id : int
-    on_reset(state, valid_actions)
-    policy(state, valid_actions)
-    on_step(state, action, next_state, reward, done, valid_actions, next_valid_actions)
-    render(state, valid_actions, action_to_str)
+    on_reset(state, invalid_actions)
+    policy(state, invalid_actions)
+    on_step(state, action, next_state, reward, done, invalid_actions, next_invalid_actions)
+    render(state, invalid_actions, action_to_str)
 }
 
 

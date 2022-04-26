@@ -1,0 +1,59 @@
+@startuml
+autoactivate on
+
+actor Runner
+participant Env
+participant Player1
+participant Player2
+
+
+activate Runner
+
+Runner -> Env: reset
+return state, next player 1
+
+group 1 turn
+    Runner -> Player1: on_reset
+    return
+
+    Runner -> Player1: policy
+    return action1
+
+    Runner -> Env: step(action1)
+    return state2, reward, next player 2, done, info
+
+    Runner -> Player2: on_reset
+    return
+
+    Runner -> Player2: policy
+    return action2
+
+    Runner -> Env: step(action2)
+    return next_state1, reward1, next player 1, done, info
+
+end
+
+loop episode
+
+    Runner -> Player1: on_step(state1, action1, next_state1, reward1, done)
+    return info
+
+    Runner -> Player1: policy
+    return action1
+
+    Runner -> Env: step(action1)
+    return next_state2, reward2, next player 2, done, info
+
+    Runner -> Player2: on_step(state2, action2, next_state2, reward2, done)
+    return info
+
+    Runner -> Player2: policy
+    return action2
+
+    Runner -> Env: step(action2)
+    return next_state1, reward1, next player 1, done, info
+
+end
+deactivate Runner
+
+@enduml

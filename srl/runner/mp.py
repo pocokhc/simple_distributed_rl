@@ -5,11 +5,11 @@ import time
 import traceback
 from dataclasses import dataclass, field
 from multiprocessing.managers import BaseManager
-from typing import List, Union
+from typing import List, Optional, Tuple, Union
 
 import tensorflow as tf
-from srl import rl
-from srl.base.rl.rl import RLParameter, RLRemoteMemory
+from srl.base.rl.base import RLParameter, RLRemoteMemory
+from srl.base.rl.registration import make_remote_memory
 from srl.runner import sequence
 from srl.runner.callbacks_mp import MPCallback
 
@@ -102,7 +102,7 @@ class _SyncParameter(sequence.Callback):
         self.step = 0
         self.prev_update_count = 0
 
-    def on_step_end(self, info):
+    def on_step_end(self, **kwargs):
         self.step += 1
         if self.step % self.worker_parameter_sync_interval_by_step != 0:
             return
@@ -120,7 +120,7 @@ class _InterruptEnd(sequence.Callback):
     def __init__(self, train_end_signal: ctypes.c_bool) -> None:
         self.train_end_signal = train_end_signal
 
-    def intermediate_stop(self, _params) -> bool:
+    def intermediate_stop(self, **kwargs) -> bool:
         if self.train_end_signal.value:
             return True
         return False
@@ -137,16 +137,18 @@ def _run_worker(
 ):
     with tf.device(allocate):
         logger.debug(f"worker{worker_id} start")
-        config.worker_id = worker_id
 
         try:
             config.callbacks.append(_InterruptEnd(train_end_signal))
             config.trainer_disable = True
 
-            parameter = config.create_parameter()
+            parameter = config.make_parameter()
+            params = remote_board.read()
+            if params is not None:
+                parameter.restore(params)
             config.callbacks.append(_SyncParameter(remote_board, parameter, mp_config))
 
-            sequence.play(config, parameter, remote_memory)
+            sequence.play(config, parameter, remote_memory, None, worker_id)
 
         except Exception:
             logger.warn(traceback.format_exc())
@@ -163,14 +165,16 @@ def _run_trainer(
     mp_config: Config,
     remote_memory: RLRemoteMemory,
     remote_board: Board,
-    last_param_q: mp.Queue,
     train_end_signal: ctypes.c_bool,
 ):
     with tf.device(mp_config.allocate_trainer):
         logger.debug("trainer start")
 
-        parameter = config.create_parameter()
-        trainer = config.create_trainer(parameter, remote_memory)
+        parameter = config.make_parameter()
+        params = remote_board.read()
+        if params is not None:
+            parameter.restore(params)
+        trainer = config.make_trainer(parameter, remote_memory)
         callbacks = [c for c in mp_config.callbacks if issubclass(c.__class__, MPCallback)]
         sync_count = 0
 
@@ -180,9 +184,9 @@ def _run_trainer(
             "mp_config": mp_config,
             "trainer": trainer,
             "parameter": parameter,
-            "remote_remote_memory": remote_memory,
+            "remote_memory": remote_memory,
         }
-        [c.on_trainer_start(_info) for c in callbacks]
+        [c.on_trainer_start(**_info) for c in callbacks]
 
         try:
             while True:
@@ -206,25 +210,23 @@ def _run_trainer(
                     sync_count += 1
 
                 # callbacks
+                _info["time_"] = time.time()
                 _info["train_info"] = train_info
                 _info["train_count"] = trainer.get_train_count()
                 _info["train_time"] = train_time
                 _info["sync_count"] = sync_count
-                [c.on_trainer_train_end(_info) for c in callbacks]
+                [c.on_trainer_train_end(**_info) for c in callbacks]
 
         except Exception:
             logger.warn(traceback.format_exc())
         finally:
             train_end_signal.value = True
 
-            # --- 最後に重さを送信
-            logger.info("send weight...")
-            last_param_q.put(parameter.backup(), timeout=mp_config.parameter_send_timeout)
-            logger.info("send success...")
+            remote_board.write(parameter.backup())
             logger.debug("trainer end")
 
             # callbacks
-            [c.on_trainer_end(_info) for c in callbacks]
+            [c.on_trainer_end(**_info) for c in callbacks]
 
 
 # ----------------------------
@@ -234,21 +236,43 @@ class MPManager(BaseManager):
     pass
 
 
-def train(config: sequence.Config, mp_config: Config):
+def train(
+    config: sequence.Config,
+    mp_config: Config,
+    init_parameter: Optional[RLParameter] = None,
+    init_remote_memory: Optional[RLRemoteMemory] = None,
+    return_memory: bool = False,
+) -> Tuple[RLParameter, RLRemoteMemory]:
     with tf.device(mp_config.allocate_main):
 
-        MPManager.register("RemoteMemory", rl.make(config.rl_config.getName()).RemoteMemory)
+        # config の初期化
+        config.init_rl_config()
+
+        MPManager.register("RemoteMemory", make_remote_memory(config.rl_config, None, get_class=True))
         MPManager.register("Board", Board)
 
         with MPManager() as manager:
-            return _train(config, mp_config, manager)
+            return _train(
+                config,
+                mp_config,
+                init_parameter,
+                init_remote_memory,
+                manager,
+                return_memory,
+            )
 
 
-def _train(config: sequence.Config, mp_config: Config, manager):
+def _train(
+    config: sequence.Config,
+    mp_config: Config,
+    init_parameter: Optional[RLParameter],
+    init_remote_memory: Optional[RLRemoteMemory],
+    manager: MPManager,
+    return_memory: bool,
+):
 
     # config
     config.training = True
-    config.init_rl_config()
     config.callbacks.extend(mp_config.callbacks)
     config.rl_config.assert_params()
 
@@ -257,13 +281,18 @@ def _train(config: sequence.Config, mp_config: Config, manager):
         "config": config,
         "mp_config": mp_config,
     }
-    [c.on_init(_info) for c in mp_config.callbacks]
+    [c.on_init(**_info) for c in mp_config.callbacks]
 
     # --- share values
     train_end_signal = mp.Value(ctypes.c_bool, False)
     remote_memory = manager.RemoteMemory(config.rl_config)
     remote_board = manager.Board()
-    last_param_q = mp.Queue()  # trainer -> main(last)
+
+    # init
+    if init_remote_memory is not None:
+        remote_memory.restore(init_remote_memory.backup())
+    if init_parameter is not None:
+        remote_board.write(init_parameter.backup())
 
     # --- worker
     workers_ps_list = []
@@ -290,7 +319,6 @@ def _train(config: sequence.Config, mp_config: Config, manager):
         mp_config,
         remote_memory,
         remote_board,
-        last_param_q,
         train_end_signal,
     )
     trainer_ps = mp.Process(target=_run_trainer, args=params)
@@ -300,11 +328,7 @@ def _train(config: sequence.Config, mp_config: Config, manager):
     trainer_ps.start()
 
     # callbacks
-    _info = {
-        "config": config,
-        "mp_config": mp_config,
-    }
-    [c.on_start(_info) for c in mp_config.callbacks]
+    [c.on_start(**_info) for c in mp_config.callbacks]
 
     # 終了を待つ
     try:
@@ -313,7 +337,8 @@ def _train(config: sequence.Config, mp_config: Config, manager):
             time.sleep(1)  # polling time
 
             # timeout
-            elapsed_time = time.time() - t0
+            _time = time.time()
+            elapsed_time = _time - t0
             if mp_config.timeout > 0 and elapsed_time > mp_config.timeout:
                 train_end_signal.value = True
                 logger.info("train end(reason: timeout)")
@@ -327,12 +352,9 @@ def _train(config: sequence.Config, mp_config: Config, manager):
                 logger.info("train end(reason: worker_ps dead)")
 
             # callbacks
-            _info = {
-                "config": config,
-                "mp_config": mp_config,
-                "elapsed_time": elapsed_time,
-            }
-            [c.on_polling(_info) for c in mp_config.callbacks]
+            _info["time_"] = _time
+            _info["elapsed_time"] = elapsed_time
+            [c.on_polling(**_info) for c in mp_config.callbacks]
 
             if train_end_signal.value:
                 break
@@ -342,34 +364,41 @@ def _train(config: sequence.Config, mp_config: Config, manager):
     finally:
         train_end_signal.value = True
 
-    # --- recv last param
-    t0 = time.time()
-    logger.info("wait param...")
-    param = last_param_q.get(timeout=mp_config.parameter_send_timeout)
-    last_param_q.close()
-    parameter = config.create_parameter()
-    parameter.restore(param)
-    param = None
-    logger.info(f"success({time.time()-t0:.2f}s)")
-
-    # --- end
-    time.sleep(1)  # 終了前に少し待つ
+    # --- end, 終了前に少し待つ
+    time.sleep(1)
     for w in workers_ps_list:
-        if w.is_alive():
-            time.sleep(5)  # 強制終了前に少し待つ
+        for _ in range(10):
+            if w.is_alive():
+                time.sleep(1)
+            else:
+                break
+        else:
             w.terminate()
-    if trainer_ps.is_alive():
-        time.sleep(5)  # 強制終了前に少し待つ
+    for _ in range(10):
+        if trainer_ps.is_alive():
+            time.sleep(1)
+        else:
+            break
+    else:
         trainer_ps.terminate()
 
-    # callbacks
-    _info = {
-        "config": config,
-        "mp_config": mp_config,
-    }
-    [c.on_end(_info) for c in mp_config.callbacks]
+    # --- last parameter
+    return_parameter = config.make_parameter()
+    params = remote_board.read()
+    if params is not None:
+        return_parameter.restore(params)
 
-    return parameter
+    # --- last memory
+    if return_memory:
+        return_remote_memory = config.make_remote_memory()
+        return_remote_memory.restore(remote_memory.backup())
+    else:
+        return_remote_memory = None
+
+    # callbacks
+    [c.on_end(**_info) for c in mp_config.callbacks]
+
+    return return_parameter, return_remote_memory
 
 
 if __name__ == "__main__":

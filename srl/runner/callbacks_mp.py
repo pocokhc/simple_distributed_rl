@@ -9,46 +9,58 @@ from io import TextIOWrapper
 from typing import Optional
 
 import numpy as np
-import psutil
-import pynvml
 import tensorflow as tf
 from srl.runner import sequence
 from srl.runner.callbacks import Callback
 from srl.utils.common import JsonNumpyEncoder, listdictdict_to_dictlist, to_str_time
 
-G_ENABLE_NVIDIA = False
+try:
+    import psutil
+
+    ENABLE_PS = True
+except ModuleNotFoundError:
+    ENABLE_PS = False
+
+try:
+    import pynvml
+
+    ENABLE_NVIDIA = True
+except ModuleNotFoundError:
+    ENABLE_NVIDIA = False
 
 logger = logging.getLogger(__name__)
 
 
 class MPCallback(Callback, ABC):
-    def on_init(self, info):
+    def on_init(self, **kwargs) -> None:
         pass
 
     # main
-    def on_start(self, info):
+    def on_start(self, **kwargs) -> None:
         pass
 
-    def on_polling(self, info):
+    def on_polling(self, **kwargs) -> None:
         pass
 
-    def on_end(self, info):
+    def on_end(self, **kwargs) -> None:
         pass
 
     # trainer
-    def on_trainer_start(self, info):
+    def on_trainer_start(self, **kwargs) -> None:
         pass
 
-    def on_trainer_train_end(self, info):
+    def on_trainer_train_end(self, **kwargs) -> None:
         pass
 
-    def on_trainer_end(self, info):
+    def on_trainer_end(self, **kwargs) -> None:
         pass
 
 
 @dataclass
 class TrainFileLogger(MPCallback):
     dir_path: str = "tmp"
+
+    print_worker: int = 0
 
     # file logger
     enable_log: bool = True
@@ -67,8 +79,6 @@ class TrainFileLogger(MPCallback):
         self.fp_dict: dict[str, Optional[TextIOWrapper]] = {}
 
         self.t0 = time.time()
-        self._step_time = 0
-        self.elapsed_time = 0
 
         # file logger
         if self.enable_log:
@@ -90,13 +100,12 @@ class TrainFileLogger(MPCallback):
                 self.fp_dict[k] = None
                 v.close()
 
-    def _check_progress(self, is_last):
-        if is_last:
-            return True
-        taken_time = self._step_time - self.progress_t0
+    def _check_print_progress(self, time_):
+
+        taken_time = time_ - self.progress_t0
         if taken_time < self.progress_timeout:
             return False
-        self.progress_t0 = self._step_time
+        self.progress_t0 = time_
 
         # 表示間隔を増やす
         self.progress_timeout *= 2
@@ -105,18 +114,14 @@ class TrainFileLogger(MPCallback):
 
         return True
 
-    def _check_log(self, is_last):
-        if is_last:
-            return True
-        taken_time = self._step_time - self.log_t0
+    def _check_log_progress(self, time_):
+        taken_time = time_ - self.log_t0
         if taken_time < self.log_interval:
             return False
-        self.log_t0 = self._step_time
-
+        self.log_t0 = time_
         return True
 
-    def on_init(self, info):
-        config = info["config"]
+    def on_init(self, config, mp_config, **kwargs):
 
         # init
         dir_name = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -134,26 +139,27 @@ class TrainFileLogger(MPCallback):
         with open(os.path.join(self.base_dir, "config.json"), "w", encoding="utf-8") as f:
             json.dump(config.to_dict(), f, indent=2)
         with open(os.path.join(self.base_dir, "mp_config.json"), "w", encoding="utf-8") as f:
-            json.dump(info["mp_config"].to_dict(), f, indent=2)
+            json.dump(mp_config.to_dict(), f, indent=2)
 
         # system info
-        info = {
-            "memory size": psutil.virtual_memory().total,
-            "memory percent": psutil.virtual_memory().percent,
-            "cpu count": len(psutil.Process().cpu_affinity()),
-            "cpu(MHz)": [c.max for c in psutil.cpu_freq(percpu=True)],
-        }
+        info = {}
+        if ENABLE_PS:
+            info["memory size"] = psutil.virtual_memory().total
+            info["memory percent"] = psutil.virtual_memory().percent
+            info["cpu count"] = len(psutil.Process().cpu_affinity())
+            info["cpu(MHz)"] = [c.max for c in psutil.cpu_freq(percpu=True)]
         info["tensorflow device list"] = [d.name for d in tf.config.list_logical_devices()]
 
         # --- GPU(nvidia) の計測をするかどうか
-        global G_ENABLE_NVIDIA
-        try:
-            pynvml.nvmlInit()
-            G_ENABLE_NVIDIA = True
-        except Exception:
-            G_ENABLE_NVIDIA = False
+        global ENABLE_NVIDIA
+        if ENABLE_NVIDIA:
+            try:
+                pynvml.nvmlInit()
+                ENABLE_NVIDIA = True
+            except Exception:
+                ENABLE_NVIDIA = False
 
-        if G_ENABLE_NVIDIA:
+        if ENABLE_NVIDIA:
             info["nvidea driver varsion"] = str(pynvml.nvmlSystemGetDriverVersion())
             info["gpu"] = []
             for i in range(pynvml.nvmlDeviceGetCount()):
@@ -180,85 +186,96 @@ class TrainFileLogger(MPCallback):
     # ---------------------------
     # main
     # ---------------------------
-    def on_start(self, info):
-        self.max_train_count = info["mp_config"].max_train_count
-        self.timeout = info["mp_config"].timeout
+    def on_start(self, config, mp_config, **kwargs):
+        self.max_train_count = mp_config.max_train_count
+        self.timeout = mp_config.timeout
         print(f"### max train: {self.max_train_count}, timeout: {to_str_time(self.timeout)}")
 
-    def on_polling(self, info):
-        self._step_time = time.time()
-        self.elapsed_time = self._step_time - self.t0  # 経過時間
+    def on_polling(self, time_, elapsed_time, **kwargs):
 
         if self.timeout > 0:
-            if self._check_progress(False):
-                remain_time = self.timeout - self.elapsed_time
+            if self._check_print_progress(time_):
+                remain_time = self.timeout - elapsed_time
                 s = dt.datetime.now().strftime("%H:%M:%S")
-                s += f" --- {to_str_time(self.elapsed_time)}(elapsed time)"
+                s += f" --- {to_str_time(elapsed_time)}(elapsed time)"
                 s += f" {to_str_time(remain_time)}(timeout remain time)"
                 print(s)
 
     # ---------------------------
     # trainer
     # ---------------------------
-    def on_trainer_start(self, info):
+    def on_trainer_start(self, config, mp_config, **kwargs):
         self.fp_dict["trainer"] = open(os.path.join(self.log_dir, "trainer.txt"), "w", encoding="utf-8")
 
-        self.max_train_count = info["mp_config"].max_train_count
+        self.max_train_count = mp_config.max_train_count
+        self.elapsed_time = 0
 
         # checkpoint
         if self.enable_checkpoint:
             self.checkpoint_t0 = time.time()
-            self.env = info["config"].create_env()
+            self.env = config.make_env()
 
-        if G_ENABLE_NVIDIA:
+        if ENABLE_NVIDIA:
             pynvml.nvmlInit()
 
-    def on_trainer_end(self, info):
-        self._trainer_print_progress(True)
-        self._trainer_log(True)
-        self._save_checkpoint(info, True)
+    def on_trainer_end(self, **kwargs):
+        if self.enable_print_progress:
+            self._trainer_print_progress()
+        if self.enable_log:
+            self._trainer_log()
+        if self.enable_checkpoint:
+            self._save_checkpoint(**kwargs)
 
-        if G_ENABLE_NVIDIA:
+        if ENABLE_NVIDIA:
             pynvml.nvmlShutdown()
         self.close()
 
-    def on_trainer_train_end(self, info):
-        self._step_time = time.time()
-        self.elapsed_time = self._step_time - self.t0  # 経過時間
-        memory_len = info["remote_remote_memory"].length()
+    def on_trainer_train_end(
+        self,
+        time_,
+        remote_memory,
+        train_count,
+        train_time,
+        train_info,
+        sync_count,
+        **kwargs,
+    ):
+        self.elapsed_time = time_ - self.t0  # 経過時間
+        memory_len = remote_memory.length()
 
         if self.enable_print_progress:
             self.progress_history.append(
                 {
-                    "sync_count": info["sync_count"],
-                    "train_count": info["train_count"],
-                    "train_time": info["train_time"],
-                    "train_info": info["train_info"],
+                    "train_count": train_count,
+                    "train_time": train_time,
+                    "train_info": train_info,
+                    "sync_count": sync_count,
                     "memory": memory_len,
                 }
             )
-            self._trainer_print_progress()
+            if self._check_print_progress(time_):
+                self._trainer_print_progress()
 
         if self.enable_log:
             self.log_history.append(
                 {
-                    "sync_count": info["sync_count"],
-                    "train_count": info["train_count"],
-                    "train_time": info["train_time"],
-                    "train_info": info["train_info"],
+                    "train_count": train_count,
+                    "train_time": train_time,
+                    "train_info": train_info,
+                    "sync_count": sync_count,
                     "memory": memory_len,
                 }
             )
-            self._trainer_log()
+            if self._check_log_progress(time_):
+                self._trainer_log()
 
-        self._save_checkpoint(info, False)
+        if self.enable_checkpoint:
+            if time_ - self.checkpoint_t0 > self.checkpoint_interval:
+                self.checkpoint_t0 = time_
+                self._save_checkpoint(**kwargs)
 
-    def _trainer_print_progress(self, is_last=False):
-        if not self.enable_print_progress:
-            return
+    def _trainer_print_progress(self):
         if len(self.progress_history) == 0:
-            return
-        if not self._check_progress(is_last):
             return
 
         info = self.progress_history[-1]
@@ -268,8 +285,8 @@ class TrainFileLogger(MPCallback):
         train_time = np.mean([t["train_time"] for t in self.progress_history])
 
         s = dt.datetime.now().strftime("%H:%M:%S")
-        s += " trainer:{:8d} train".format(train_count)
-        s += ",{:6.3f}s/train".format(train_time)
+        s += " trainer :{:8d} tra".format(train_count)
+        s += ",{:6.3f}s/tra".format(train_time)
         s += ",{:8d} memory ".format(memory_len)
         s += ",{:8d} sync ".format(sync_count)
 
@@ -290,14 +307,10 @@ class TrainFileLogger(MPCallback):
             s += f"({train_count} / {self.max_train_count})"
             print(s)
 
-    def _trainer_log(self, is_last: bool = False):
-        if not self.enable_log:
-            return
+    def _trainer_log(self):
         if self.fp_dict["trainer"] is None:
             return
         if len(self.log_history) == 0:
-            return
-        if not self._check_log(is_last):
             return
 
         info = self.log_history[-1]
@@ -321,9 +334,10 @@ class TrainFileLogger(MPCallback):
         }
 
         # system info
-        d["memory percent"] = psutil.virtual_memory().percent
-        d["cpu percent"] = psutil.cpu_percent(percpu=True)
-        if G_ENABLE_NVIDIA:
+        if ENABLE_PS:
+            d["memory percent"] = psutil.virtual_memory().percent
+            d["cpu percent"] = psutil.cpu_percent(percpu=True)
+        if ENABLE_NVIDIA:
             d["gpu"] = []
             for i in range(pynvml.nvmlDeviceGetCount()):
                 handle = pynvml.nvmlDeviceGetHandleByIndex(i)
@@ -336,26 +350,24 @@ class TrainFileLogger(MPCallback):
                 )
         self._write_log(self.fp_dict["trainer"], d)
 
-    def _save_checkpoint(self, info, is_last):
-        if not self.enable_checkpoint:
-            return
-        if not is_last:
-            if self._step_time - self.checkpoint_t0 < self.checkpoint_interval:
-                return
-        self.checkpoint_t0 = self._step_time
-
-        # parameter
-        parameter = info["parameter"]
+    def _save_checkpoint(
+        self,
+        train_count,
+        config,
+        parameter,
+        **kwargs,
+    ):
 
         # test play
         t0 = time.time()
-        config = info["config"].copy()
+        config = config.copy()
         config.set_play_config(max_episodes=self.test_env_episode)
         rewards, _, _ = sequence.play(config, parameter, env=self.env)
+        if self.env.player_num > 1:
+            rewards = [r[0] for r in rewards]
         reward = np.mean(rewards)
 
         # save
-        train_count = info["train_count"]
         parameter.save(os.path.join(self.param_dir, f"{train_count}_{reward}.pickle"))
 
         if self.enable_print_progress:
@@ -372,40 +384,66 @@ class TrainFileLogger(MPCallback):
     # ---------------------------
     # worker
     # ---------------------------
-    def on_episodes_begin(self, info) -> None:
-        self.worker_id = info["config"].worker_id
-        self.fp_dict["worker"] = open(
-            os.path.join(self.log_dir, f"worker_{self.worker_id}.txt"), "w", encoding="utf-8"
-        )
+    def on_episodes_begin(self, worker_id, **kwargs):
+        self.worker_id = worker_id
+        self.fp_dict["worker"] = open(os.path.join(self.log_dir, f"worker_{worker_id}.txt"), "w", encoding="utf-8")
         self.progress_history = []
 
-    def on_episodes_end(self, info):
-        self._worker_print_progress(True)
-        self._worker_log(True)
+    def on_episodes_end(self, **kwargs):
+        if self.enable_print_progress:
+            self._worker_print_progress()
+        if self.enable_log:
+            self._worker_log()
         self.close()
 
-    def on_episode_begin(self, info) -> None:
+    def on_episode_begin(self, **kwargs):
         self.history_step = []
 
-    def on_step_end(self, info) -> None:
-        self._step_time = time.time()
-        self.elapsed_time = self._step_time - self.t0  # 経過時間
+    def on_step_end(
+        self,
+        episode_count,
+        env_info,
+        worker_indexes,
+        work_info_list,
+        step_time,
+        **kwargs,
+    ):
+        _time = time.time()
+        self.elapsed_time = _time - self.t0  # 経過時間
 
+        worker_idx = worker_indexes[self.print_worker]
         self.history_step.append(
             {
-                "episode_count": info["episode_count"],
-                "step": info["step"],
-                "env_info": info["env_info"],
-                "work_info": info["work_info"],
-                "train_info": info["train_info"],
+                "episode_count": episode_count,
+                "env_info": env_info,
+                "work_info": work_info_list[worker_idx],
+                "step_time": step_time,
             }
         )
 
-        self._worker_print_progress(False)
-        self._worker_log(False)
+        if self.enable_print_progress:
+            if self._check_print_progress(_time):
+                self._worker_print_progress()
 
-    def on_episode_end(self, info) -> None:
-        # step情報をまとめる
+        if self.enable_log:
+            if self._check_log_progress(_time):
+                self._worker_log()
+
+    def on_episode_end(
+        self,
+        step,
+        episode_count,
+        episode_rewards,
+        episode_time,
+        remote_memory,
+        worker_indexes,
+        **kwargs,
+    ):
+        if len(self.history_step) == 0:
+            return
+        worker_idx = worker_indexes[self.print_worker]
+
+        # 1エピソードの結果を平均でまとめる
         if self.enable_print_progress or self.enable_log:
             env_info = listdictdict_to_dictlist(self.history_step, "env_info")
             if "TimeLimit.truncated" in env_info:
@@ -415,56 +453,51 @@ class TrainFileLogger(MPCallback):
             work_info = listdictdict_to_dictlist(self.history_step, "work_info")
             for k, v in work_info.items():
                 work_info[k] = np.mean(v)
-        else:
-            env_info = None
-            work_info = None
+
+            epi_data = {
+                "episode_count": episode_count,
+                "step": step,
+                "reward": episode_rewards[worker_idx],
+                "episode_time": episode_time,
+                "step_time": np.mean([h["step_time"] for h in self.history_step]),
+                "env_info": env_info,
+                "work_info": work_info,
+            }
 
         if self.enable_print_progress:
-            self.progress_history.append(
-                {
-                    "episode": info["episode_count"],
-                    "episode_time": info["episode_time"],
-                    "step": info["step"],
-                    "reward": info["reward"],
-                    "env_info": env_info,
-                    "work_info": work_info,
-                }
-            )
-        if self.enable_log:
-            self.log_history.append(
-                {
-                    "episode": info["episode_count"],
-                    "episode_time": info["episode_time"],
-                    "step": info["step"],
-                    "reward": info["reward"],
-                    "env_info": env_info,
-                    "work_info": work_info,
-                }
-            )
+            if self.worker_id < 5:
+                self.progress_history.append(epi_data)
 
-    def _worker_print_progress(self, is_last):
-        if not self.enable_print_progress:
-            return
-        if not self._check_progress(is_last):
+        if self.enable_log:
+            self.log_history.append(epi_data)
+
+    def _worker_print_progress(self):
+        if len(self.progress_history) == 0:
             return
 
         s = dt.datetime.now().strftime("%H:%M:%S")
-        s += f"{self.worker_id:7d}w:"
+        s += f" worker{self.worker_id:2d}:"
 
         if len(self.progress_history) == 0:
             if len(self.history_step) > 0:
-                info = self.history_step[-1]
-                s += "{:8d} episode, {:8d} step".format(info["episode_count"], info["step"])
+                episode_count = self.history_step[-1]["episode_count"]
+                step_num = len(self.history_step)
+                step_time = np.mean([h["step_time"] for h in self.history_step])
+                s += f" {episode_count:8d} episode"
+                s += f", {step_num:5d} step"
+                s += f", {step_time:.5f}s/step"
         else:
-            s += "{:8d} epi".format(self.progress_history[-1]["episode"])
+            episode_time = np.mean([h["episode_time"] for h in self.progress_history])
+            step_time = np.mean([h["step_time"] for h in self.progress_history])
+            episode_count = self.progress_history[-1]["episode_count"]
 
-            _t = np.mean([h["episode_time"] for h in self.progress_history])
-            s += ", {:.2f}s/epi".format(_t)
+            s += " {:7d} epi".format(episode_count)
+            s += f", {episode_time:.3f}s/epi"
 
             _r = [h["reward"] for h in self.progress_history]
             _s = [h["step"] for h in self.progress_history]
             s += f", {min(_r):.3f} {np.mean(_r):.3f} {max(_r):.3f} reward"
-            s += f", {np.mean(_s):.1f} step "
+            s += f", {np.mean(_s):.1f} step"
 
             d = listdictdict_to_dictlist(self.progress_history, "env_info")
             for k, arr in d.items():
@@ -476,14 +509,10 @@ class TrainFileLogger(MPCallback):
         print(s)
         self.progress_history = []
 
-    def _worker_log(self, is_last):
-        if not self.enable_log:
-            return
+    def _worker_log(self):
         if self.fp_dict["worker"] is None:
             return
         if len(self.log_history) == 0:
-            return
-        if not self._check_log(is_last):
             return
 
         # 平均
@@ -498,7 +527,7 @@ class TrainFileLogger(MPCallback):
 
         d = {
             "date": dt.datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
-            "episode": self.log_history[-1]["episode"],
+            "episode_count": self.log_history[-1]["episode_count"],
             "episode_time": np.mean([h["episode_time"] for h in self.log_history]),
             "step": np.mean([h["step"] for h in self.log_history]),
             "reward": np.mean([h["reward"] for h in self.log_history]),

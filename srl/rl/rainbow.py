@@ -1,5 +1,4 @@
 import random
-from collections import deque
 from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple, cast
 
@@ -7,12 +6,14 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow_addons as tfa
-from srl.base.rl import DiscreteActionConfig, RLParameter, RLRemoteMemory, RLTrainer, RLWorker
+from srl.base.env.env_for_rl import EnvForRL
+from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.registration import register
 from srl.rl.functions.common import calc_epsilon_greedy_probs, random_choice_by_probs
 from srl.rl.functions.dueling_network import create_dueling_network_layers
 from srl.rl.functions.model import ImageLayerType, create_input_layers
-from srl.rl.memory import factory
-from srl.rl.registory import register
+from srl.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
 from tensorflow.keras import layers as kl
 
 """
@@ -68,13 +69,12 @@ class Config(DiscreteActionConfig):
     # DuelingNetwork
     enable_dueling_network: bool = True
     dueling_network_type: str = "average"
-    dueling_dense_units: int = 512
 
     # Priority Experience Replay
     capacity: int = 100_000
     memory_name: str = "RankBaseMemory"
     memory_warmup_size: int = 1000
-    memory_alpha: float = 0.6
+    memory_alpha: float = 0.8
     memory_beta_initial: float = 0.4
     memory_beta_steps: int = 1_000_000
 
@@ -91,7 +91,30 @@ class Config(DiscreteActionConfig):
         assert self.batch_size < self.memory_warmup_size
 
 
-register(Config, __name__)
+register(
+    Config,
+    __name__ + ":RemoteMemory",
+    __name__ + ":Parameter",
+    __name__ + ":Trainer",
+    __name__ + ":Worker",
+)
+
+
+# ------------------------------------------------------
+# RemoteMemory
+# ------------------------------------------------------
+class RemoteMemory(PriorityExperienceReplay):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.config = cast(Config, self.config)
+
+        self.init(
+            self.config.memory_name,
+            self.config.capacity,
+            self.config.memory_alpha,
+            self.config.memory_beta_initial,
+            self.config.memory_beta_steps,
+        )
 
 
 # ------------------------------------------------------
@@ -114,34 +137,13 @@ class _QNetwork(keras.Model):
             Dense = kl.Dense
 
         if config.enable_dueling_network:
-            # value
-            v = Dense(config.dueling_dense_units, activation="relu", kernel_initializer="he_normal")(c)
-            v = Dense(1, kernel_initializer="truncated_normal", name="v")(v)
-
-            # advance
-            adv = Dense(config.dueling_dense_units, activation="relu", kernel_initializer="he_normal")(c)
-            adv = Dense(config.nb_actions, kernel_initializer="truncated_normal", name="adv")(adv)
-
-            # 連結で結合
-            c = kl.Concatenate()([v, adv])
-            if config.dueling_network_type == "average":
-                c = kl.Lambda(
-                    lambda a: tf.expand_dims(a[:, 0], -1)
-                    + a[:, 1:]
-                    - tf.math.reduce_mean(a[:, 1:], axis=1, keepdims=True),
-                    output_shape=(config.nb_actions,),
-                )(c)
-            elif config.dueling_network_type == "max":
-                c = kl.Lambda(
-                    lambda a: tf.expand_dims(a[:, 0], -1)
-                    + a[:, 1:]
-                    - tf.math.reduce_max(a[:, 1:], axis=1, keepdims=True),
-                    output_shape=(config.nb_actions,),
-                )(c)
-            elif config.dueling_network_type == "":  # naive
-                c = kl.Lambda(lambda a: tf.expand_dims(a[:, 0], -1) + a[:, 1:], output_shape=(config.nb_actions,))(c)
-            else:
-                raise ValueError("dueling_network_type is undefined")
+            c = create_dueling_network_layers(
+                c,
+                config.nb_actions,
+                config.dense_units,
+                config.dueling_network_type,
+                config.enable_noisy_dense,
+            )
         else:
             c = Dense(config.dense_units, activation="relu", kernel_initializer="he_normal")(c)
             c = Dense(config.nb_actions, kernel_initializer="truncated_normal")(c)
@@ -202,15 +204,15 @@ class Parameter(RLParameter):
                 action = b["actions"][n]
                 mu_prob = b["probs"][n]
                 reward = b["rewards"][n]
-                valid_actions = b["valid_actions"][n]
-                next_valid_actions = b["valid_actions"][n + 1]
+                invalid_actions = b["invalid_actions"][n]
+                next_invalid_actions = b["invalid_actions"][n + 1]
                 done = b["dones"][n]
 
                 # retrace
                 if n >= 1:
                     pi_probs = calc_epsilon_greedy_probs(
                         n_q_list[n_states_idx - 1],
-                        valid_actions,
+                        invalid_actions,
                         0.0,
                         self.config.nb_actions,
                     )
@@ -225,14 +227,14 @@ class Parameter(RLParameter):
                     if self.config.enable_double_dqn:
                         n_pi_probs = calc_epsilon_greedy_probs(
                             n_q_list[n_states_idx],
-                            next_valid_actions,
+                            next_invalid_actions,
                             0.0,
                             self.config.nb_actions,
                         )
                     else:
                         n_pi_probs = calc_epsilon_greedy_probs(
                             n_q_list_target[n_states_idx],
-                            next_valid_actions,
+                            next_invalid_actions,
                             0.0,
                             self.config.nb_actions,
                         )
@@ -254,60 +256,6 @@ class Parameter(RLParameter):
 
 
 # ------------------------------------------------------
-# RemoteMemory
-# ------------------------------------------------------
-class RemoteMemory(RLRemoteMemory):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config = cast(Config, self.config)
-
-        self.memory = factory.create(
-            self.config.memory_name,
-            {
-                "capacity": self.config.capacity,
-                "alpha": self.config.memory_alpha,
-                "beta_initial": self.config.memory_beta_initial,
-                "beta_steps": self.config.memory_beta_steps,
-            },
-        )
-        self.invalid_memory = deque(maxlen=self.config.capacity)
-
-    def length(self) -> int:
-        return len(self.memory)
-
-    def restore(self, data: Any) -> None:
-        self.memory.restore(data[0])
-        self.invalid_memory = data[1]
-
-    def backup(self):
-        d = [self.memory.backup(), self.invalid_memory]
-        return d
-
-    # ---------------------------
-
-    def add(self, batch, priority):
-        self.memory.add(batch, priority)
-
-    def sample(self, step: int) -> Tuple[list, list, list]:
-        return self.memory.sample(self.config.batch_size, step)
-
-    def update(self, indexes: List[int], batchs: List[Any], priorities: List[float]) -> None:
-        self.memory.update(indexes, batchs, priorities)
-
-    def length_invalid(self) -> int:
-        return len(self.invalid_memory)
-
-    def add_invalid(self, batch):
-        self.invalid_memory.append(batch)
-
-    def sample_invalid(self):
-        return random.sample(self.invalid_memory, self.config.batch_size)
-
-    def clear_invalid(self):
-        return self.invalid_memory.clear()
-
-
-# ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
 class Trainer(RLTrainer):
@@ -315,7 +263,7 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
-        self.memory = cast(RemoteMemory, self.memory)
+        self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
         self.loss = keras.losses.Huber()
@@ -327,19 +275,13 @@ class Trainer(RLTrainer):
 
     def train(self):
 
-        if self.memory.length() < self.config.memory_warmup_size:
+        if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
-        indexes, batchs, weights = self.memory.sample(self.train_count)
+        indexes, batchs, weights = self.remote_memory.sample(self.train_count, self.config.batch_size)
         td_error, loss = self._train_on_batchs(batchs, weights)
         priorities = abs(td_error) + 0.0001
-        self.memory.update(indexes, batchs, priorities)
-
-        # invalid action
-        mem_invalid_len = self.memory.length_invalid()
-        if mem_invalid_len > self.config.memory_warmup_size:
-            batchs = self.memory.sample_invalid()
-            self._train_on_batchs(batchs, [1 for _ in range(self.config.batch_size)])
+        self.remote_memory.update(indexes, batchs, priorities)
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
@@ -348,7 +290,6 @@ class Trainer(RLTrainer):
         self.train_count += 1
         return {
             "loss": loss,
-            "mem2": mem_invalid_len,
             "priority": np.mean(priorities),
         }
 
@@ -366,7 +307,6 @@ class Trainer(RLTrainer):
         with tf.GradientTape() as tape:
             q = self.parameter.q_online(states)
 
-            # 現在選んだアクションのQ値
             actions_onehot = tf.one_hot(actions, self.config.nb_actions)
             q = tf.reduce_sum(q * actions_onehot, axis=1)
 
@@ -382,16 +322,15 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
-        self.memory = cast(RemoteMemory, self.memory)
+        self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.dummy_state = np.full(self.config.env_observation_shape, self.config.dummy_state_val, dtype=np.float32)
-        self.invalid_action_reward = -1
-        self.step = 0
+        self.epsilon_step = 0
 
         if self.config.exploration_steps > 0:
             self.initial_epsilon = self.config.initial_epsilon
@@ -400,7 +339,7 @@ class Worker(RLWorker):
             ) / self.config.exploration_steps
             self.final_epsilon = self.config.final_epsilon
 
-    def on_reset(self, state: np.ndarray, valid_actions: List[int], _) -> None:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
         self.recent_states = [self.dummy_state for _ in range(self.config.window_length)]
         self.recent_bundle_states = [self.recent_states[:] for _ in range(self.config.multisteps + 1)]
 
@@ -408,16 +347,16 @@ class Worker(RLWorker):
         self.recent_probs = [1.0 / self.config.nb_actions for _ in range(self.config.multisteps)]
         self.recent_rewards = [0.0 for _ in range(self.config.multisteps)]
         self.recent_done = [False for _ in range(self.config.multisteps)]
-        self.recent_valid_actions = [[] for _ in range(self.config.multisteps + 1)]
+        self.recent_invalid_actions = [[] for _ in range(self.config.multisteps + 1)]
 
         self.recent_states.pop(0)
         self.recent_states.append(state)
         self.recent_bundle_states.pop(0)
         self.recent_bundle_states.append(self.recent_states[:])
-        self.recent_valid_actions.pop(0)
-        self.recent_valid_actions.append(valid_actions)
+        self.recent_invalid_actions.pop(0)
+        self.recent_invalid_actions.append(invalid_actions)
 
-    def policy(self, _state: np.ndarray, valid_actions: List[int], _) -> Tuple[int, Any]:
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, Any]:
         state = self.recent_bundle_states[-1]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
 
@@ -428,7 +367,7 @@ class Worker(RLWorker):
         if self.training:
             if self.config.exploration_steps > 0:
                 # Annealing ε-greedy
-                epsilon = self.initial_epsilon - self.step * self.epsilon_step
+                epsilon = self.initial_epsilon - self.epsilon_step * self.epsilon_step
                 if epsilon < self.final_epsilon:
                     epsilon = self.final_epsilon
             else:
@@ -436,21 +375,20 @@ class Worker(RLWorker):
         else:
             epsilon = self.config.test_epsilon
 
-        probs = calc_epsilon_greedy_probs(q, valid_actions, epsilon, self.config.nb_actions)
+        probs = calc_epsilon_greedy_probs(q, invalid_actions, epsilon, self.config.nb_actions)
         action = random_choice_by_probs(probs)
 
         return action, (action, probs[action], q[action])
 
-    def on_step(
+    def call_on_step(
         self,
         state: np.ndarray,
         action_: Any,
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        valid_actions: List[int],
-        next_valid_actions: List[int],
-        _,
+        invalid_actions: List[int],
+        next_invalid_actions: List[int],
     ):
         self.recent_states.pop(0)
         self.recent_states.append(next_state)
@@ -459,7 +397,7 @@ class Worker(RLWorker):
 
         if not self.training:
             return {}
-        self.step += 1
+        self.epsilon_step += 1
 
         action = action_[0]
         prob = action_[1]
@@ -472,10 +410,6 @@ class Worker(RLWorker):
             elif reward > self.config.reward_clip[1]:
                 reward = self.config.reward_clip[1]
 
-        if self.invalid_action_reward > reward - 1:
-            self.invalid_action_reward = reward - 1
-            self.memory.clear_invalid()
-
         self.recent_actions.pop(0)
         self.recent_actions.append(action)
         self.recent_probs.pop(0)
@@ -484,8 +418,8 @@ class Worker(RLWorker):
         self.recent_rewards.append(reward)
         self.recent_done.pop(0)
         self.recent_done.append(done)
-        self.recent_valid_actions.pop(0)
-        self.recent_valid_actions.append(next_valid_actions)
+        self.recent_invalid_actions.pop(0)
+        self.recent_invalid_actions.append(next_invalid_actions)
 
         priority = self._add_memory(q, None)
 
@@ -497,36 +431,9 @@ class Worker(RLWorker):
                 self.recent_probs.pop(0)
                 self.recent_rewards.pop(0)
                 self.recent_done.pop(0)
-                self.recent_valid_actions.pop(0)
+                self.recent_invalid_actions.pop(0)
 
                 self._add_memory(q, priority)
-
-        # --- valid action
-        states = self.recent_states[:]
-        states[-1] = self.dummy_state
-        bundle_states = self.recent_bundle_states[:]
-        bundle_states[-1] = states
-        rewards = self.recent_rewards[:]
-        rewards[-1] = self.invalid_action_reward
-        probs = self.recent_probs[:]
-        probs[-1] = 1.0
-        dones = self.recent_done[:]
-        dones[-1] = True
-        for a in range(self.config.nb_actions):
-            if a in valid_actions:
-                continue
-            actions = self.recent_actions[:]
-            actions[-1] = a
-
-            batch = {
-                "states": bundle_states,
-                "actions": actions,
-                "probs": probs,
-                "rewards": rewards,
-                "dones": dones,
-                "valid_actions": self.recent_valid_actions[:],
-            }
-            self.memory.add_invalid(batch)
 
         return {"priority": priority}
 
@@ -538,7 +445,7 @@ class Worker(RLWorker):
             "probs": self.recent_probs[:],
             "rewards": self.recent_rewards[:],
             "dones": self.recent_done[:],
-            "valid_actions": self.recent_valid_actions[:],
+            "invalid_actions": self.recent_invalid_actions[:],
         }
 
         # priority
@@ -549,15 +456,20 @@ class Worker(RLWorker):
                 target_q = self.parameter.calc_target_q([batch])[0]
                 priority = abs(target_q - q) + 0.0001
 
-        self.memory.add(batch, priority)
+        self.remote_memory.add(batch, priority)
         return priority
 
-    def render(self, state_: np.ndarray, valid_actions: List[int], action_to_str) -> None:
+    def render(
+        self,
+        state: np.ndarray,
+        invalid_actions: List[int],
+        env: EnvForRL,
+    ) -> None:
         state = self.recent_bundle_states[-1]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
-            if a not in valid_actions:
+            if a not in invalid_actions:
                 continue
                 s = "x"
             else:
@@ -566,7 +478,7 @@ class Worker(RLWorker):
                 s += "*"
             else:
                 s += " "
-            s += f"{action_to_str(a)}: {q[a]:5.3f}"
+            s += f"{env.action_to_str(a)}: {q[a]:5.3f}"
             print(s)
 
 

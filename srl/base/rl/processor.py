@@ -4,22 +4,23 @@ from typing import Any, List, Tuple
 import gym
 import gym.spaces
 import numpy as np
-from srl.base.define import EnvObservationType, RLActionType, RLObservationType
+from srl.base.define import EnvActionType, EnvObservationType, RLActionType, RLObservationType
 
 
 class Processor(ABC):
     def change_action_info(
         self,
         action_space: gym.spaces.Space,
+        action_type: EnvActionType,
         rl_action_type: RLActionType,
-    ) -> gym.spaces.Space:
-        return action_space
+    ) -> Tuple[gym.spaces.Space, EnvActionType]:
+        return action_space, action_type
 
     def action_decode(self, action: Any) -> Any:
         return action
 
-    def valid_actions_encode(self, valid_actions: List) -> List:
-        return valid_actions
+    def invalid_actions_encode(self, invalid_actions: List) -> List:
+        return invalid_actions
 
     def change_observation_info(
         self,

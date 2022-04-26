@@ -6,7 +6,7 @@ from typing import Any, List, cast
 import numpy as np
 from srl.base.rl import RLParameter, RLRemoteMemory, RLTrainer, RLWorker, TableConfig
 from srl.base.rl.env_for_rl import EnvForRL
-from srl.rl.registory import register
+from srl.base.rl.registory import register
 
 
 # ------------------------------------------------------
@@ -132,26 +132,26 @@ class Worker(RLWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.memory = cast(RemoteMemory, self.memory)
 
-    def on_reset(self, state: np.ndarray, valid_actions: List[int], env: EnvForRL) -> None:
+    def on_reset(self, state: np.ndarray, invalid_actions: List[int], env: EnvForRL) -> None:
         pass
 
-    def policy(self, state: np.ndarray, valid_actions: List[int], env: EnvForRL):
+    def policy(self, state: np.ndarray, invalid_actions: List[int], env: EnvForRL):
         s = str(state.tolist())
 
         if self.training:
             # シミュレーション
             for _ in range(self.config.simulation_times):
                 save_state = env.backup()
-                self._simulation(env, str(state.tolist()), valid_actions)
+                self._simulation(env, str(state.tolist()), invalid_actions)
                 env.restore(save_state)
 
         # 試行回数のもっとも多いアクションを採用
         if s in self.parameter.N:
             c = self.parameter.N[s]
-            c = [c[a] if a in valid_actions else -np.inf for a in range(self.config.nb_actions)]  # mask
+            c = [c[a] if a in invalid_actions else -np.inf for a in range(self.config.nb_actions)]  # mask
             action = random.choice(np.where(c == np.max(c))[0])
         else:
-            action = random.choice(valid_actions)
+            action = random.choice(invalid_actions)
 
         return action, action
 
@@ -162,13 +162,13 @@ class Worker(RLWorker):
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        valid_actions: List[int],
-        next_valid_actions: List[int],
+        invalid_actions: List[int],
+        next_invalid_actions: List[int],
         env: EnvForRL,
     ):
         return {}
 
-    def _simulation(self, env: EnvForRL, state: str, valid_actions, depth: int = 0):
+    def _simulation(self, env: EnvForRL, state: str, invalid_actions, depth: int = 0):
         if depth >= env.max_episode_steps:  # for safety
             return 0
         self.parameter.init_state(state)
@@ -177,7 +177,7 @@ class Worker(RLWorker):
         N = np.sum(self.parameter.N[state])
         ucb_list = []
         for a in range(self.config.nb_actions):
-            if a not in valid_actions:
+            if a not in invalid_actions:
                 ucb = -np.inf
             else:
                 n = self.parameter.N[state][a]
@@ -198,13 +198,13 @@ class Worker(RLWorker):
             # step
             n_state, reward, done, _ = env.step(action)
             n_state = str(n_state.tolist())
-            n_valid_actions = env.fetch_valid_actions()
+            n_invalid_actions = env.fetch_invalid_actions()
 
             if done:
                 pass  # 終了(終了時の報酬が結果)
             else:
                 # 展開
-                reward += self._simulation(env, n_state, n_valid_actions, depth + 1)
+                reward += self._simulation(env, n_state, n_invalid_actions, depth + 1)
 
         # 結果を記録
         batch = {
@@ -225,8 +225,8 @@ class Worker(RLWorker):
             step += 1
 
             # ランダム
-            valid_actions = env.fetch_valid_actions()
-            action = random.choice(valid_actions)
+            invalid_actions = env.fetch_invalid_actions()
+            action = random.choice(invalid_actions)
 
             # step
             state, _reward, done, _ = env.step(action)
@@ -234,7 +234,12 @@ class Worker(RLWorker):
 
         return reward
 
-    def render(self, state: np.ndarray, valid_actions: List[int], action_to_str) -> None:
+    def render(
+        self,
+        state: np.ndarray,
+        invalid_actions: List[int],
+        env: EnvForRL,
+    ) -> None:
         s = str(state.tolist())
         for a in range(self.config.nb_actions):
             if s in self.parameter.W:

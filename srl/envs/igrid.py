@@ -3,20 +3,19 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, List, Tuple
+from typing import Any, Tuple
 
-import gym
-import gym.envs.registration
 import gym.spaces
 import numpy as np
 from srl.base.define import EnvObservationType
-from srl.base.env import EnvBase
+from srl.base.env import registration
+from srl.base.env.genre.singleplay import SingleActionDiscrete
 
 logger = logging.getLogger(__name__)
 
 
-gym.envs.registration.register(
-    id="IGrid-v0",
+registration.register(
+    id="IGrid",
     entry_point=__name__ + ":IGrid",
     kwargs={
         "N": 0,
@@ -32,7 +31,7 @@ class Action(enum.Enum):
 
 
 @dataclass
-class IGrid(EnvBase):
+class IGrid(SingleActionDiscrete):
     """
     CXD
      X
@@ -51,43 +50,29 @@ class IGrid(EnvBase):
     N: int = 0
 
     def __post_init__(self):
-
         self.length = self.N * 2 + 1
 
-        self._action_space = gym.spaces.Discrete(len(Action))
-        self._observation_space = gym.spaces.Box(
+    @property
+    def action_num(self) -> int:
+        return len(Action)
+
+    @property
+    def observation_space(self) -> gym.spaces.Space:
+        return gym.spaces.Box(
             low=0,
             high=np.maximum(self.H, self.W),
             shape=(2,),
         )
-        self._observation_type = EnvObservationType.DISCRETE
 
-    # override
-    @property
-    def action_space(self) -> gym.spaces.Space:
-        return self._action_space
-
-    # override
-    @property
-    def observation_space(self) -> gym.spaces.Space:
-        return self._observation_space
-
-    # override
     @property
     def observation_type(self) -> EnvObservationType:
-        return self._observation_type
+        return EnvObservationType.DISCRETE
 
-    # override
     @property
     def max_episode_steps(self) -> int:
         return (self.length + 2) * 2 * 2
 
-    # override
-    def fetch_valid_actions(self) -> List[int]:
-        return [e.value for e in Action]
-
-    # override
-    def reset(self) -> Any:
+    def reset_single(self) -> Any:
         self.player_pos = (1, int((self.length + 2 - 1) / 2))
 
         self.field = [[1, 1, 1]]
@@ -95,10 +80,22 @@ class IGrid(EnvBase):
             self.field.append([0, 1, 0])
         self.field.append([2, 1, 3])
 
-        return self.player_pos
+        return np.array(self.player_pos)
 
-    # override
-    def step(self, action_: int) -> Tuple[Any, float, bool, dict]:
+    def backup(self) -> Any:
+        return json.dumps(
+            [
+                self.player_pos,
+                self.field,
+            ]
+        )
+
+    def restore(self, data: Any) -> None:
+        d = json.loads(data)
+        self.player_pos = d[0]
+        self.field = d[1]
+
+    def step_single(self, action_: int) -> Tuple[Any, float, bool, dict]:
         action = Action(action_)
 
         x = self.player_pos[0]
@@ -143,10 +140,9 @@ class IGrid(EnvBase):
             reward = -1
             done = True
 
-        return self.player_pos, reward, done, {}
+        return np.array(self.player_pos), reward, done, {}
 
-    # override
-    def render(self, mode="human"):
+    def render_terminal(self):
         for y in range(self.H):
             s = ""
             for x in range(self.W):
@@ -169,7 +165,6 @@ class IGrid(EnvBase):
             print(s)
         print("")
 
-    # override
     def action_to_str(self, action) -> str:
         if Action.DOWN.value == action:
             return "↓"
@@ -180,21 +175,6 @@ class IGrid(EnvBase):
         if Action.UP.value == action:
             return "↑"
         return str(action)
-
-    # override
-    def backup(self) -> Any:
-        return json.dumps(
-            [
-                self.player_pos,
-                self.field,
-            ]
-        )
-
-    # override
-    def restore(self, data: Any) -> None:
-        d = json.loads(data)
-        self.player_pos = d[0]
-        self.field = d[1]
 
     # ------------------------------------
     @property
@@ -219,8 +199,7 @@ if __name__ == "__main__":
     game.render()
 
     while not done:
-        valid_actions = game.fetch_valid_actions()
-        action = random.choice(valid_actions)
+        action = game.sample()
         state, reward, done, _ = game.step(action)
         total_reward += reward
         step += 1

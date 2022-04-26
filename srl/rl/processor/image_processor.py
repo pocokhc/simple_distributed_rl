@@ -2,7 +2,11 @@ import logging
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-import cv2
+try:
+    import cv2
+except ModuleNotFoundError:
+    pass
+
 import gym
 import gym.spaces
 import numpy as np

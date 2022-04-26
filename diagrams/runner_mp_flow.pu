@@ -2,7 +2,6 @@
 actor Runner
 participant TrainerProcess
 participant WorkerProcess
-queue LastParamQueue
 participant RemoteMemory
 entity Board
 
@@ -13,7 +12,6 @@ activate Runner
 group create area
     Runner -> RemoteMemory ** : create
     Runner -> Board ** : create
-    Runner -> LastParamQueue ** : create Queue
 
     Runner -> TrainerProcess ** : new process
     loop worker num
@@ -27,12 +25,14 @@ hnote over Runner : wait
 
 group end area
 
-    TrainerProcess ->> LastParamQueue: send parameter
-    LastParamQueue ->> Runner: recv parameter
+    Runner ->> Board: read
+    return parameter
+
+    Runner ->> RemoteMemory: backup
+    return memory data
 
     Runner -> WorkerProcess !! : terminate
     Runner -> TrainerProcess !! : terminate
-    Runner -> LastParamQueue !! : close
     Runner -> RemoteMemory !!
     Runner -> Board !!
 

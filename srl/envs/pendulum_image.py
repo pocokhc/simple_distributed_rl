@@ -4,24 +4,30 @@ from dataclasses import dataclass
 from typing import Any, Tuple
 
 import gym
-import gym.envs.registration
 import gym.spaces
 import numpy as np
-from PIL import Image, ImageDraw  # pip install pillow
 from srl.base.define import EnvObservationType
-from srl.base.env import EnvBase
+from srl.base.env import registration
+from srl.base.env.genre.singleplay import SingleActionContinuous
+
+try:
+    import PIL.Image
+    import PIL.ImageDraw
+except ModuleNotFoundError:
+    pass
+
 
 logger = logging.getLogger(__name__)
 
-gym.envs.registration.register(
-    id="PendulumImage-v0",
+registration.register(
+    id="PendulumImage",
     entry_point=__name__ + ":PendulumImage",
     kwargs={},
 )
 
 
 @dataclass
-class PendulumImage(EnvBase):
+class PendulumImage(SingleActionContinuous):
 
     image_size = 84
 
@@ -47,20 +53,20 @@ class PendulumImage(EnvBase):
     def max_episode_steps(self) -> int:
         return 200
 
-    def reset(self) -> Any:
+    def reset_single(self) -> Any:
         return self._get_rgb_state(self.env.reset())
 
-    def step(self, action: Any) -> Tuple[Any, float, bool, dict]:
+    def step_single(self, action: Any) -> Tuple[Any, float, bool, dict]:
         state, reward, done, info = self.env.step(action)
-        return self._get_rgb_state(state), reward, done, info
+        return self._get_rgb_state(state), float(reward), done, info
 
     # 状態（x,y座標）から対応画像を描画する関数
     def _get_rgb_state(self, state):
 
         h_size = self.image_size / 2.0
 
-        img = Image.new("RGB", (self.image_size, self.image_size), (255, 255, 255))
-        dr = ImageDraw.Draw(img)
+        img = PIL.Image.new("RGB", (self.image_size, self.image_size), (255, 255, 255))
+        dr = PIL.ImageDraw.Draw(img)
 
         # 棒の長さ
         L = self.image_size / 4.0 * 3.0 / 2.0
@@ -78,16 +84,16 @@ class PendulumImage(EnvBase):
         pilImg = img.convert("L")
         img_arr = np.asarray(pilImg)
 
-        # 画像の規格化
-        img_arr = img_arr / 255.0
-        # img_arr = img_arr[..., np.newaxis]
         return img_arr
 
-    def fetch_valid_actions(self):
-        return None
+    def render_terminal(self) -> None:
+        print(self.env.render("ansi"))
 
-    def render(self, mode: str = "human") -> Any:  # super
-        return self.env.render(mode)
+    def render_gui(self) -> None:
+        self.env.render("human")
+
+    def render_rgb_array(self) -> np.ndarray:
+        return np.asarray(self.env.render("rgb_array"))
 
     def backup(self) -> Any:
         return pickle.dumps(self.env)

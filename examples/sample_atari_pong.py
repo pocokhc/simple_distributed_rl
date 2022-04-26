@@ -1,15 +1,19 @@
-from srl import rl
-from srl.base.define import EnvObservationType
+import os
+
+import srl
+from srl.base.define import EnvObservationType, RenderType
 from srl.rl.processor import ImageProcessor
 from srl.runner import mp, sequence
-from srl.runner.callbacks import PrintProgress, Rendering, RenderingAnimation
+from srl.runner.callbacks import PrintProgress, Rendering
 from srl.runner.callbacks_mp import TrainFileLogger
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
 def main_use_runner(is_mp):
     config = sequence.Config(
         env_name="ALE/Pong-v5",
-        rl_config=rl.rainbow.Config(window_length=4),
+        rl_config=srl.rl.rainbow.Config(window_length=4, multisteps=10),
     )
 
     # atari config
@@ -19,13 +23,16 @@ def main_use_runner(is_mp):
     config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
 
     # (option) print tensorflow model
-    config.create_parameter().summary()
+    config.model_summary()
+
+    # load parameter
+    # config.set_parameter_path(parameter_path="tmp/Rainbow_params.dat")
 
     # --- train
     if not is_mp:
         # sequence training
-        config.set_play_config(timeout=10, training=True, callbacks=[PrintProgress()])
-        episode_rewards, parameter, memory = sequence.play(config)
+        config.set_train_config(timeout=10, callbacks=[PrintProgress()])
+        parameter, memory = sequence.train(config)
     else:
         # distibute training
         mp_config = mp.Config(worker_num=2)
@@ -34,13 +41,16 @@ def main_use_runner(is_mp):
         )
         parameter = mp.train(config, mp_config)
 
+    # save parameter
+    # parameter.save("tmp/Rainbow_params.dat")
+
     # --- test
     config.set_play_config(max_episodes=10, callbacks=[PrintProgress()])
     sequence.play(config, parameter)
 
     # --- rendering
-    render = RenderingAnimation()
-    config.set_play_config(max_episodes=1, callbacks=[Rendering(), render])
+    render = Rendering(mode=RenderType.NONE, enable_animation=True)
+    config.set_play_config(max_episodes=1, callbacks=[render])
     sequence.play(config, parameter)
 
     # save animation
@@ -49,5 +59,5 @@ def main_use_runner(is_mp):
 
 if __name__ == "__main__":
 
-    main_use_runner(is_mp=False)
-    # main_use_runner(is_mp=True)
+    # main_use_runner(is_mp=False)
+    main_use_runner(is_mp=True)

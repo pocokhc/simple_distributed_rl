@@ -22,16 +22,20 @@ setup(
     install_requires=[
         "numpy",
         "gym",
+        "pygame",  # gym
         "tensorflow",
         "tensorflow-addons",
-        "matplotlib",
-        "opencv-python",
-        "dataclasses",  # py3.6
-        "psutil",  # CPU info
-        "pynvml",  # GPU info
-        "ipython",  # notebook
     ],
-    python_requires=">=3.6",
+    extras_require={
+        "image": ["matplotlib", "opencv-python", "pillow"],
+        "notebook": ["matplotlib", "opencv-python", "pillow", "ipython"],
+        "kaggle": ["kaggle_environments"],
+        "spec": [
+            "psutil",  # CPU info
+            "pynvml",  # GPU info
+        ],
+    },
+    python_requires=">=3.7",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Programming Language :: Python",

@@ -1,112 +1,168 @@
 import datetime as dt
+import io
 import logging
+import sys
 import time
 from abc import ABC
 from dataclasses import dataclass
 
-import matplotlib.pyplot as plt
 import numpy as np
-from IPython import display
-from matplotlib import animation
+from srl.base.define import RenderType
+
+try:
+    import matplotlib.pyplot as plt
+    import PIL.Image
+    import PIL.ImageDraw
+    import PIL.ImageFont
+    from matplotlib import animation
+except ModuleNotFoundError:
+    pass
+
+try:
+    from IPython import display
+except ModuleNotFoundError:
+    pass
+
+
 from srl.utils.common import listdictdict_to_dictlist, to_str_time
 
 logger = logging.getLogger(__name__)
 
 
 class Callback(ABC):
-    def on_episodes_begin(self, info) -> None:
+    def on_episodes_begin(self, **kwargs) -> None:
         pass
 
-    def on_episodes_end(self, info) -> None:
+    def on_episodes_end(self, **kwargs) -> None:
         pass
 
-    def on_episode_begin(self, info) -> None:
+    def on_episode_begin(self, **kwargs) -> None:
         pass
 
-    def on_episode_end(self, info) -> None:
+    def on_episode_end(self, **kwargs) -> None:
         pass
 
-    def on_step_begin(self, info) -> None:
+    def on_step_begin(self, **kwargs) -> None:
         pass
 
-    def on_step_end(self, info) -> None:
+    def on_step_end(self, **kwargs) -> None:
         pass
 
-    def on_skip_step(self, info) -> None:
+    def on_skip_step(self, **kwargs) -> None:
         pass
 
     # 外部から途中停止用
-    def intermediate_stop(self, info) -> bool:
+    def intermediate_stop(self, **kwargs) -> bool:
         return False
 
 
 @dataclass
 class Rendering(Callback):
 
-    mode: str = "human"
+    mode: RenderType = RenderType.Terminal
     step_stop: bool = False
+    enable_animation: bool = False
 
-    def on_episode_begin(self, info):
-        env = info["env"]
-        worker = info["worker"]
-        state = info["state"]
-        valid_actions = info["valid_actions"]
-
-        print("### 0")
-        if self.mode != "":
-            env.render(self.mode)
-        worker.render(state, valid_actions, env.action_to_str)
-
-        if self.step_stop:
-            input("Enter to continue:")
-
-    def on_step_end(self, info):
-        env = info["env"]
-        worker = info["worker"]
-        step = info["step"]
-        action = info["action"]
-        reward = info["reward"]
-        done = info["done"]
-        state = info["state"]
-        valid_actions = info["valid_actions"]
-        env_info = info["env_info"]
-        work_info = info["work_info"]
-        train_info = info["train_info"]
-
-        print("### {}, action {}, reward: {}, done: {}".format(step, action, reward, done))
-        print(f"env_info  : {env_info}")
-        print(f"work_info : {work_info}")
-        print(f"train_info: {train_info}")
-        if self.mode != "":
-            env.render(self.mode)
-        worker.render(state, valid_actions, env.action_to_str)
-
-        if self.step_stop:
-            input("Enter to continue:")
-
-    def on_skip_step(self, info):
-        if self.mode != "":
-            info["env"].render(self.mode)
-
-
-class RenderingAnimation(Callback):
-    def __init__(self):
+    def __post_init__(self):
         self.frames = []
 
-    def on_episode_begin(self, info):
-        env = info["env"]
-        self.frames.append(env.render("rgb_array"))
+    def on_episode_begin(
+        self,
+        env,
+        **kwargs,
+    ):
+        if self.mode != RenderType.NONE:
+            print("### 0")
+            env.render(self.mode)
 
-    def on_step_end(self, info):
-        env = info["env"]
-        self.frames.append(env.render("rgb_array"))
+        if self.enable_animation:
+            self._add_image(env)
 
-    def on_skip_step(self, info):
-        env = info["env"]
-        self.frames.append(env.render("rgb_array"))
+        if self.step_stop:
+            input("Enter to continue:")
 
-    # -------------------------------
-    def create_anime(self, scale: float = 1.0, fps: int = 60) -> animation.ArtistAnimation:
+    def on_step_begin(
+        self,
+        env,
+        states,
+        invalid_actions_list,
+        workers,
+        worker_indexes,
+        player_indexes,
+        **kwargs,
+    ) -> None:
+        if self.mode != RenderType.NONE:
+            for i in player_indexes:
+                worker_idx = worker_indexes[i]
+                workers[worker_idx].render(states[worker_idx], invalid_actions_list[worker_idx], env)
+
+    def on_step_end(
+        self,
+        env,
+        step,
+        actions,
+        rewards,
+        done,
+        worker_indexes,
+        player_indexes,
+        env_info,
+        work_info_list,
+        train_info,
+        **kwargs,
+    ):
+
+        if self.mode != RenderType.NONE:
+            print("### {}, done: {}".format(step, done))
+            for i in player_indexes:
+                print(f"player {i}, action {actions[i]}, reward: {rewards[i]}")
+            env.render(self.mode)
+            print(f"env_info  : {env_info}")
+            for i in player_indexes:
+                print(f"work_info {i}: {work_info_list[worker_indexes[i]]}")
+            print(f"train_info: {train_info}")
+
+        if self.enable_animation:
+            self._add_image(env)
+
+        if self.step_stop:
+            input("Enter to continue:")
+
+    def on_skip_step(self, env, **kwargs):
+        if self.mode != RenderType.NONE:
+            env.render(self.mode)
+
+        if self.enable_animation:
+            self._add_image(env)
+
+    # -----------------------------
+    def _add_image(self, env):
+        try:
+            self.frames.append(env.render(RenderType.RGB_Array))
+        except NotImplementedError:
+            # --- printを画像に
+            text = ""
+            try:
+                sys.stdout = io.StringIO()
+                env.render(RenderType.Terminal)
+                text = sys.stdout.getvalue()
+            finally:
+                sys.stdout.close()
+                sys.stdout = sys.__stdout__
+
+            canvasSize = (300, 300)
+            img = PIL.Image.new("RGB", canvasSize)
+            draw = PIL.ImageDraw.Draw(img)
+            textWidth, textHeight = draw.multiline_textsize(text)
+
+            canvasSize = (textWidth, textHeight)
+            backgroundRGB = (255, 255, 255)
+            textRGB = (0, 0, 0)
+            img = PIL.Image.new("RGB", canvasSize, backgroundRGB)
+            draw = PIL.ImageDraw.Draw(img)
+            draw.text((0, 0), text, fill=textRGB)
+            self.frames.append(np.asarray(img))
+
+    def create_anime(self, scale: float = 1.0, fps: int = 60):
         if len(self.frames) == 0:
             return None
         interval = 1000 / fps
@@ -133,6 +189,10 @@ class RenderingAnimation(Callback):
 class PrintProgress(Callback):
 
     max_progress_time: int = 60 * 10  # s
+    print_env_info: bool = False
+    print_worker_info: bool = True
+    print_train_info: bool = True
+    print_worker: int = 0
 
     def __post_init__(self):
         self.progress_timeout = 5
@@ -145,75 +205,39 @@ class PrintProgress(Callback):
         self.history_step = []
         self.history_episode = []
         self.history_episode_start_idx = 0
+        self.elapsed_time = 0
 
-        self.max_episodes = -1
-        self.max_steps = -1
-        self.timeout = -1
-
-    def on_episodes_begin(self, info):
-        self.max_episodes = info["config"].max_episodes
-        self.max_steps = info["config"].max_steps
-        self.timeout = info["config"].timeout
+    def on_episodes_begin(self, config, env, **kwargs):
+        self.config = config
         print(
-            f"### max episodes: {self.max_episodes}, max steps: {self.max_steps}, timeout: {to_str_time(self.timeout)}"
+            "### env: {}, max episodes: {}, max steps: {}, timeout: {}".format(
+                self.config.env_name,
+                self.config.max_episodes,
+                self.config.max_steps,
+                to_str_time(self.config.timeout),
+            )
         )
-
         self.progress_history = []
 
-    def on_episodes_end(self, info):
-        self._print(info, is_last=True)
+    def on_episodes_end(self, episode_count, trainer, **kwargs):
+        if trainer is None:
+            train_count = 0
+        else:
+            train_count = trainer.get_train_count()
+        self._print(episode_count, train_count)
 
-        if False:
-            d = self._listdict_to_dictlist(self.history_episode)
-            rolling_n = int(len(d) / 100)
-
-            fig = plt.figure()
-            ax1 = fig.add_subplot(111)
-            if len(d) > 100:
-                alpha = 0.3
-                ax1.plot(pd.Series(d["reward"]).rolling(rolling_n).mean(), "C1", label=f"reward(mean{rolling_n})")
-            else:
-                alpha = 1
-            ax1.plot(d["reward"], "C0", alpha=alpha, label="reward")
-
-            ax2 = ax1.twinx()
-            if len(d) > 100:
-                alpha = 0.3
-                ax2.plot(pd.Series(d["step"]).rolling(rolling_n).mean(), "C3", label=f"reward(mean{rolling_n})")
-            else:
-                alpha = 1
-            ax2.plot(d["step"], "C2", alpha=alpha, label="step")
-
-            h1, l1 = ax1.get_legend_handles_labels()
-            h2, l2 = ax2.get_legend_handles_labels()
-            ax1.legend(h1 + h2, l1 + l2, loc="lower right")
-
-            ax1.set_ylabel("reward")
-            ax1.grid(True)
-            ax2.set_ylabel("step")
-
-            plt.tight_layout()
-            plt.show()
-
-            for key, arr in d.items():
-                if key in ["reward", "step"]:
-                    continue
-                if len(d) > 100:
-                    plt.plot(pd.Series(arr).rolling(rolling_n).mean(), label=f"mean {rolling_n}")
-                    alpha = 0.3
-                else:
-                    alpha = 1
-                plt.plot(arr, alpha=alpha, label="raw")
-                plt.title(key)
-                plt.grid()
-                plt.legend()
-                plt.tight_layout()
-                plt.show()
-
-    def on_episode_begin(self, info):
+    def on_episode_begin(self, **kwargs):
         self.history_step = []
 
-    def on_episode_end(self, info):
+    def on_episode_end(
+        self,
+        step,
+        episode_rewards,
+        episode_time,
+        remote_memory,
+        worker_indexes,
+        **kwargs,
+    ):
         if len(self.history_step) == 0:
             return
 
@@ -227,15 +251,16 @@ class PrintProgress(Callback):
         for k, v in work_info.items():
             work_info[k] = np.mean(v)
 
+        worker_idx = worker_indexes[self.print_worker]
         d = {
-            "step": info["step"],
-            "reward": info["reward"],
-            "episode_time": info["episode_time"],
+            "step": step,
+            "episode_reward": episode_rewards[worker_idx],
+            "episode_time": episode_time,
             "step_time": np.mean([h["step_time"] for h in self.history_step]),
-            "remote_memory": info["remote_memory"].length(),
+            "remote_memory": remote_memory.length() if remote_memory is not None else 0,
             "env_info": env_info,
             "work_info": work_info,
-            "train_time": np.mean([h["step_time"] for h in self.history_step]),
+            "train_time": np.mean([h["train_time"] for h in self.history_step]),
         }
 
         # train info
@@ -247,27 +272,43 @@ class PrintProgress(Callback):
 
         self.progress_history.append(d)
 
-    def on_step_end(self, info):
+    def on_step_end(
+        self,
+        episode_count,
+        trainer,
+        worker_indexes,
+        env_info,
+        work_info_list,
+        train_info,
+        step_time,
+        train_time,
+        **kwargs,
+    ):
         self.step_count += 1
+        worker_idx = worker_indexes[self.print_worker]
         d = {
-            "env_info": info["env_info"],
-            "work_info": info["work_info"],
-            "train_info": info["train_info"],
-            "step_time": info["step_time"],
-            "train_time": info["train_time"],
+            "env_info": env_info,
+            "work_info": work_info_list[worker_idx],
+            "train_info": train_info,
+            "step_time": step_time,
+            "train_time": train_time,
         }
-        if info["train_info"] is not None:
-            d["train_info"] = info["train_info"]
         self.history_step.append(d)
-        self._print(info)
 
-    def _print(self, info, is_last=False):
+        if self._check():
+            if trainer is None:
+                train_count = 0
+            else:
+                train_count = trainer.get_train_count()
+            self._print(episode_count, train_count)
+
+    def _check(self):
 
         # --- 時間経過したか
         _time = time.time()
         taken_time = _time - self.progress_t0
-        if taken_time < self.progress_timeout and not is_last:
-            return
+        if taken_time < self.progress_timeout:
+            return False
         self.progress_t0 = _time
 
         # 表示間隔を増やす
@@ -276,56 +317,69 @@ class PrintProgress(Callback):
             self.progress_timeout = self.max_progress_time
 
         self.elapsed_time = _time - self.t0
+        return True
+
+    def _print(self, episode_count, train_count):
 
         # --- print
         s = dt.datetime.now().strftime("%H:%M:%S")
         s += f" {to_str_time(self.elapsed_time)}"
-        s += " {:7d}ep".format(info["episode_count"])
-        if info["trainer"] is not None:
-            s += " {:7d}tr".format(info["trainer"].get_train_count())
+        s += " {:7d}ep".format(episode_count)
+        if self.config.training:
+            s += " {:7d}tr".format(train_count)
 
-        if len(self.progress_history) > 0:
+        if len(self.progress_history) == 0:
+            if len(self.history_step) > 0:
+                step_num = len(self.history_step)
+                step_time = np.mean([h["step_time"] for h in self.history_step])
+                s += f", {step_num:5d} step"
+                s += f", {step_time:.3f}s/step"
+        else:
             episode_time = np.mean([h["episode_time"] for h in self.progress_history])
             step_time = np.mean([h["step_time"] for h in self.progress_history])
 
             # 残り時間
-            if self.max_steps > 0:
-                remain_step = (self.max_steps - self.step_count) * step_time
+            if self.config.max_steps > 0:
+                remain_step = (self.config.max_steps - self.step_count) * step_time
             else:
                 remain_step = np.inf
-            if self.max_episodes > 0:
-                remain_episode = (self.max_episodes - info["episode_count"]) * episode_time
+            if self.config.max_episodes > 0:
+                remain_episode = (self.config.max_episodes - episode_count) * episode_time
             else:
                 remain_episode = np.inf
-            if self.timeout > 0:
-                remain_time = self.timeout - self.elapsed_time
+            if self.config.timeout > 0:
+                remain_time = self.config.timeout - self.elapsed_time
             else:
                 remain_time = np.inf
             remain = min(min(remain_step, remain_episode), remain_time)
             s += f" {to_str_time(remain)}(remain)"
 
             # 表示
-            _r = [h["reward"] for h in self.progress_history]
+            _r = [h["episode_reward"] for h in self.progress_history]
             _s = [h["step"] for h in self.progress_history]
             s += f", {min(_r):.3f} {np.mean(_r):.3f} {max(_r):.3f} reward"
             s += f", {np.mean(_s):.1f} step"
             s += f", {episode_time:.2f}s/ep"
 
-            train_time = np.mean([h["train_time"] for h in self.progress_history])
-            s += f", {train_time:.4f}s/tr"
+            if self.config.training:
+                train_time = np.mean([h["train_time"] for h in self.progress_history])
+                s += f", {train_time:.4f}s/tr"
 
-            memory_len = max([h["remote_memory"] for h in self.progress_history])
-            s += f", {memory_len:8d} mem"
+                memory_len = max([h["remote_memory"] for h in self.progress_history])
+                s += f", {memory_len:8d} mem"
 
-            d = listdictdict_to_dictlist(self.progress_history, "env_info")
-            for k, arr in d.items():
-                s += f"|{k} {np.mean(arr):.3f}"
-            d = listdictdict_to_dictlist(self.progress_history, "work_info")
-            for k, arr in d.items():
-                s += f"|{k} {np.mean(arr):.3f}"
-            d = listdictdict_to_dictlist(self.progress_history, "train_info")
-            for k, arr in d.items():
-                s += f"|{k} {np.mean(arr):.3f}"
+            if self.print_env_info:
+                d = listdictdict_to_dictlist(self.progress_history, "env_info")
+                for k, arr in d.items():
+                    s += f"|{k} {np.mean(arr):.3f}"
+            if self.print_worker_info:
+                d = listdictdict_to_dictlist(self.progress_history, "work_info")
+                for k, arr in d.items():
+                    s += f"|{k} {np.mean(arr):.3f}"
+            if self.print_train_info:
+                d = listdictdict_to_dictlist(self.progress_history, "train_info")
+                for k, arr in d.items():
+                    s += f"|{k} {np.mean(arr):.3f}"
 
         print(s)
         self.progress_history = []

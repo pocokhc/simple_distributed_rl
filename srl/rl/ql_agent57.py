@@ -5,14 +5,21 @@ from dataclasses import dataclass
 from typing import Any, List, Tuple, cast
 
 import numpy as np
-from srl.base.rl import (RLParameter, RLRemoteMemory, RLTrainer, RLWorker,
-                         TableConfig)
-from srl.rl.functions.common import (calc_epsilon_greedy_probs,
-                                     create_beta_list, create_epsilon_list,
-                                     create_gamma_list, inverse_rescaling,
-                                     random_choice_by_probs, rescaling)
-from srl.rl.memory import factory
-from srl.rl.registory import register
+from srl.base.env.env_for_rl import EnvForRL
+from srl.base.rl.algorithms.table import TableConfig, TableWorker
+from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.registration import register
+from srl.rl.functions.common import (
+    calc_epsilon_greedy_probs,
+    create_beta_list,
+    create_epsilon_list,
+    create_gamma_list,
+    inverse_rescaling,
+    random_choice_by_probs,
+    rescaling,
+    to_str_observaten,
+)
+from srl.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +69,7 @@ class Config(TableConfig):
     capacity: int = 100_000
     memory_name: str = "RankBaseMemory"
     memory_warmup_size: int = 1000
-    memory_alpha: float = 0.6
+    memory_alpha: float = 0.8
     memory_beta_initial: float = 0.4
     memory_beta_steps: int = 1_000_000
 
@@ -101,7 +108,37 @@ class Config(TableConfig):
         return "QL_Agent57"
 
 
-register(Config, __name__)
+register(
+    Config,
+    __name__ + ":RemoteMemory",
+    __name__ + ":Parameter",
+    __name__ + ":Trainer",
+    __name__ + ":Worker",
+)
+
+
+# ------------------------------------------------------
+# RemoteMemory
+# ------------------------------------------------------
+class RemoteMemory(PriorityExperienceReplay):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.config = cast(Config, self.config)
+
+        self.init(
+            self.config.memory_name,
+            self.config.capacity,
+            self.config.memory_alpha,
+            self.config.memory_beta_initial,
+            self.config.memory_beta_steps,
+        )
+
+    def sample(self, step: int) -> Tuple[int, Any, float]:
+        indexes, batchs, weights = self.memory.sample(1, step)
+        return indexes[0], batchs[0], weights[0]
+
+    def update(self, index: int, batch: Any, priority: float) -> None:
+        self.memory.update([index], [batch], [priority])
 
 
 # ------------------------------------------------------
@@ -146,16 +183,16 @@ class Parameter(RLParameter):
 
     # ----------------------------------------
 
-    def init_state(self, state, valid_actions):
+    def init_state(self, state, invalid_actions):
         if state not in self.Q_ext:
-            self.Q_ext[state] = [0 if a in valid_actions else -np.inf for a in range(self.config.nb_actions)]
-            self.Q_ext_target[state] = [0 if a in valid_actions else -np.inf for a in range(self.config.nb_actions)]
+            self.Q_ext[state] = [0 if a in invalid_actions else -np.inf for a in range(self.config.nb_actions)]
+            self.Q_ext_target[state] = [0 if a in invalid_actions else -np.inf for a in range(self.config.nb_actions)]
             self.Q_int[state] = [self.config.lifelong_reward_L for a in range(self.config.nb_actions)]
             self.Q_int_target[state] = [self.config.lifelong_reward_L for a in range(self.config.nb_actions)]
             self.Q_C[state] = 0
 
-    def get_q(self, state, valid_actions, beta):
-        self.init_state(state, valid_actions)
+    def get_q(self, state, invalid_actions, beta):
+        self.init_state(state, invalid_actions)
         q_ext = np.asarray(self.Q_ext[state])
         q_int = np.asarray(self.Q_int[state])
         q = q_ext + beta * q_int
@@ -177,8 +214,8 @@ class Parameter(RLParameter):
             mu_prob = batch["probs"][n]
             reward = rewards[n]
             done = dones[n]
-            valid_action = batch["valid_actions"][n]
-            next_valid_action = batch["valid_actions"][n + 1]
+            valid_action = batch["invalid_actions"][n]
+            next_valid_action = batch["invalid_actions"][n + 1]
 
             q = self.get_q(s, valid_action, beta)
             n_q = self.get_q(n_s, next_valid_action, beta)
@@ -200,7 +237,7 @@ class Parameter(RLParameter):
                 n_act_idx = np.argmax(n_q)
                 P = Q_target[n_s][n_act_idx]
 
-                # ---
+                # --- original code
                 if enable_norm and self.Q_C[n_s] > 0:
                     P = P / self.Q_C[n_s]
                 # ---
@@ -216,46 +253,6 @@ class Parameter(RLParameter):
 
 
 # ------------------------------------------------------
-# RemoteMemory
-# ------------------------------------------------------
-class RemoteMemory(RLRemoteMemory):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config = cast(Config, self.config)
-
-        self.memory = factory.create(
-            self.config.memory_name,
-            {
-                "capacity": self.config.capacity,
-                "alpha": self.config.memory_alpha,
-                "beta_initial": self.config.memory_beta_initial,
-                "beta_steps": self.config.memory_beta_steps,
-            },
-        )
-
-    def length(self) -> int:
-        return len(self.memory)
-
-    def restore(self, data: Any) -> None:
-        self.memory.restore(data)
-
-    def backup(self):
-        return self.memory.backup()
-
-    # --------------------
-
-    def add(self, batch, priority):
-        self.memory.add(batch, priority)
-
-    def sample(self, step: int) -> Tuple[int, Any, float]:
-        indexes, batchs, weights = self.memory.sample(1, step)
-        return indexes[0], batchs[0], weights[0]
-
-    def update(self, index: int, batch: Any, priority: float) -> None:
-        self.memory.update([index], [batch], [priority])
-
-
-# ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
 class Trainer(RLTrainer):
@@ -263,7 +260,7 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
-        self.memory = cast(RemoteMemory, self.memory)
+        self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.train_count = 0
 
@@ -272,10 +269,10 @@ class Trainer(RLTrainer):
 
     def train(self):
 
-        if self.memory.length() < self.config.memory_warmup_size:
+        if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
-        index, batch, weight = self.memory.sample(self.train_count)
+        index, batch, weight = self.remote_memory.sample(self.train_count)
         state = batch["states"][0]
         action = batch["actions"][0]
         ext_td_error = self.parameter.calc_td_error(
@@ -298,7 +295,7 @@ class Trainer(RLTrainer):
         # 外部Qを優先
         priority = abs(ext_td_error) + 0.0001
         # priority = abs(ext_td_error) + batch["beta"] * abs(int_td_error) + 0.0001
-        self.memory.update(index, batch, priority)
+        self.remote_memory.update(index, batch, priority)
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
@@ -319,12 +316,12 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(TableWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
-        self.memory = cast(RemoteMemory, self.memory)
+        self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         # ucb
         self.actor_index = -1
@@ -332,7 +329,7 @@ class Worker(RLWorker):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def on_reset(self, state: np.ndarray, valid_actions: List[int], _) -> None:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
         if self.training:
             # エピソード毎に actor を決める
             self.actor_index = self._calc_actor_index()
@@ -348,15 +345,15 @@ class Worker(RLWorker):
         self.recent_actions = [random.randint(0, self.config.nb_actions - 1) for _ in range(self.config.multisteps)]
         self.recent_probs = [1.0 for _ in range(self.config.multisteps)]
         self.recent_states = ["" for _ in range(self.config.multisteps + 1)]
-        self.recent_valid_actions = [[] for _ in range(self.config.multisteps + 1)]
+        self.recent_invalid_actions = [[] for _ in range(self.config.multisteps + 1)]
 
-        s = str(state.tolist())
+        s = to_str_observaten(state)
         self.recent_states.pop(0)
         self.recent_states.append(s)
-        self.recent_valid_actions.pop(0)
-        self.recent_valid_actions.append(valid_actions)
+        self.recent_invalid_actions.pop(0)
+        self.recent_invalid_actions.append(invalid_actions)
 
-        self.parameter.init_state(s, valid_actions)
+        self.parameter.init_state(s, invalid_actions)
 
         # sliding-window UCB 用に報酬を保存
         self.prev_episode_reward = 0.0
@@ -403,32 +400,31 @@ class Worker(RLWorker):
         # UCB値最大のポリシー（複数あればランダム）
         return random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def policy(self, state: np.ndarray, valid_actions: List[int], _) -> Tuple[int, Any]:
-        s = str(state.tolist())
-        q = self.parameter.get_q(s, valid_actions, self.beta)
-        probs = calc_epsilon_greedy_probs(q, valid_actions, self.epsilon, self.config.nb_actions)
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, Any]:
+        s = to_str_observaten(state)
+        q = self.parameter.get_q(s, invalid_actions, self.beta)
+        probs = calc_epsilon_greedy_probs(q, invalid_actions, self.epsilon, self.config.nb_actions)
         action = random_choice_by_probs(probs)
 
         return action, (action, probs[action])
 
-    def on_step(
+    def call_on_step(
         self,
         state: np.ndarray,
-        action_: Any,
+        action_: int,
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        valid_actions: List[int],
-        next_valid_actions: List[int],
-        _,
+        invalid_actions: List[int],
+        next_invalid_actions: List[int],
     ):
         if not self.training:
             return {}
 
         action = action_[0]
         prob = action_[1]
-        n_state = str(next_state.tolist())
-        self.parameter.init_state(n_state, next_valid_actions)
+        n_state = to_str_observaten(next_state)
+        self.parameter.init_state(n_state, next_invalid_actions)
 
         # 内部報酬
         episodic_reward = self._calc_episodic_reward(n_state)
@@ -445,8 +441,8 @@ class Worker(RLWorker):
         self.recent_ext_rewards.append(reward)
         self.recent_int_rewards.pop(0)
         self.recent_int_rewards.append(int_reward)
-        self.recent_valid_actions.pop(0)
-        self.recent_valid_actions.append(next_valid_actions)
+        self.recent_invalid_actions.pop(0)
+        self.recent_invalid_actions.append(next_invalid_actions)
 
         priority = self._add_memory(done)
 
@@ -472,7 +468,7 @@ class Worker(RLWorker):
 
         batch = {
             "states": self.recent_states[:],
-            "valid_actions": self.recent_valid_actions[:],
+            "invalid_actions": self.recent_invalid_actions[:],
             "actions": self.recent_actions[:],
             "probs": self.recent_probs[:],
             "ext_rewards": self.recent_ext_rewards[:],
@@ -494,7 +490,7 @@ class Worker(RLWorker):
             )
             priority = abs(td_error) + 0.0001
 
-        self.memory.add(batch, priority)
+        self.remote_memory.add(batch, priority)
 
         return priority
 
@@ -520,17 +516,22 @@ class Worker(RLWorker):
         self.parameter.lifelong_C[state] *= self.config.lifelong_decrement_rate
         return reward + 1.0
 
-    def render(self, state: np.ndarray, valid_actions: List[int], action_to_str) -> None:
-        s = str(state.tolist())
+    def render(
+        self,
+        state: np.ndarray,
+        invalid_actions: List[int],
+        env: EnvForRL,
+    ) -> None:
+        s = to_str_observaten(state)
         episodic_reward = self._calc_episodic_reward(s)
         lifelong_reward = self._calc_lifelong_reward(s)
         int_reward = episodic_reward * lifelong_reward
         print(f"int_reward {int_reward:7.5f}(episodic {episodic_reward:7.5f}, lifelong {lifelong_reward:7.5f})")
-        q = self.parameter.get_q(s, valid_actions, self.beta)
+        q = self.parameter.get_q(s, invalid_actions, self.beta)
         q = inverse_rescaling(q)
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
-            if a not in valid_actions:
+            if a not in invalid_actions:
                 s = "x"
             else:
                 s = " "
@@ -538,7 +539,7 @@ class Worker(RLWorker):
                 s += "*"
             else:
                 s += " "
-            s += f"{action_to_str(a)}: {q[a]:7.5f}"
+            s += f"{env.action_to_str(a)}: {q[a]:7.5f}"
             print(s)
 
 

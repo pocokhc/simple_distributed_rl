@@ -1,21 +1,19 @@
 import logging
 import pickle
+import random
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
-import gym
-from srl import rl
+import numpy as np
+import srl.envs
+import srl.rl
 from srl.base.define import EnvObservationType
-from srl.base.rl import RLTrainer, RLWorker
-from srl.base.rl.config import RLConfig
-from srl.base.rl.env_for_rl import EnvForRL
+from srl.base.env.env_for_rl import EnvForRL
+from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLWorker
 from srl.base.rl.processor import Processor
-from srl.base.rl.rl import RLParameter, RLRemoteMemory
-from srl.rl.processor.action_continuous_processor import ActionContinuousProcessor
-from srl.rl.processor.action_discrete_processor import ActionDiscreteProcessor
-from srl.rl.processor.observation_continuous_processor import ObservationContinuousProcessor
-from srl.rl.processor.observation_discrete_processor import ObservationDiscreteProcessor
+from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer, make_worker
+from srl.rl.processor import ContinuousProcessor, DiscreteProcessor, ObservationBoxProcessor
 from srl.runner.callbacks import Callback
 
 logger = logging.getLogger(__name__)
@@ -26,6 +24,11 @@ class Config:
 
     env_name: str
     rl_config: RLConfig
+    env_kwargs: Dict = field(default_factory=dict)
+
+    # multi player option
+    players: List[Optional[RLConfig]] = field(default_factory=list)
+    shuffle_player: bool = False
 
     # episode option
     max_episode_steps: int = 10_000
@@ -53,11 +56,26 @@ class Config:
     def __post_init__(self):
         if self.rl_config is not None:
             self.rl_name = self.rl_config.getName()
-        self.is_init_rl_config = False
         self.parameter_path = ""
-        self.memory_path = ""
-        self.worker_id = 0
+        self.remote_memory_path = ""
         self.trainer_disable = False
+
+    # ------------------------------
+    # user functions
+    # ------------------------------
+    def set_parameter_path(self, parameter_path: str = "", remote_memory_path: str = ""):
+        self.parameter_path = parameter_path
+        self.remote_memory_path = remote_memory_path
+
+    def set_train_config(
+        self,
+        max_steps: int = -1,
+        max_episodes: int = -1,
+        timeout: int = -1,
+        shuffle_player: bool = True,
+        callbacks: List[Callback] = None,
+    ):
+        self.set_play_config(max_steps, max_episodes, timeout, True, shuffle_player, callbacks)
 
     def set_play_config(
         self,
@@ -65,7 +83,7 @@ class Config:
         max_episodes: int = -1,
         timeout: int = -1,
         training: bool = False,
-        parameter_path: str = "",
+        shuffle_player: bool = False,
         callbacks: List[Callback] = None,
     ):
         if callbacks is None:
@@ -74,70 +92,123 @@ class Config:
         self.max_episodes = max_episodes
         self.timeout = timeout
         self.training = training
-        self.parameter_path = parameter_path
+        self.shuffle_player = shuffle_player
         self.callbacks = callbacks
 
-    # ----------------------------------------------
+    def model_summary(self) -> RLParameter:
+        parameter = self.make_parameter()
+        parameter.summary()
+        return parameter
 
+    # ------------------------------
+    # runner functions
+    # ------------------------------
     def assert_params(self):
         self.rl_config.assert_params()
 
-    def init_rl_config(self) -> None:
-        if not self.is_init_rl_config:
-            self.create_env()
+    def init_rl_config(self):
+        if not self.rl_config.is_set_config_by_env:
+            self.make_env()
 
-    def create_env(self) -> EnvForRL:
+    def make_env(self) -> EnvForRL:
 
-        processors = [
-            ActionDiscreteProcessor(self.action_division_num),
-            ActionContinuousProcessor(),
-            ObservationDiscreteProcessor(self.observation_division_num),
-            ObservationContinuousProcessor(),
-        ]
-        processors.extend(self.processors)
+        processors = self.processors[:]
+        processors.extend(
+            [
+                ObservationBoxProcessor(self.prediction_by_simulation, self.env_name),
+                DiscreteProcessor(self.action_division_num, self.observation_division_num),
+                ContinuousProcessor(),
+            ]
+        )
+        env = srl.envs.make(self.env_name, self.env_kwargs)
         env = EnvForRL(
-            gym.make(self.env_name),
+            env,
             self.rl_config,
             self.override_env_observation_type,
             self.prediction_by_simulation,
             processors,
         )
-        self.is_init_rl_config = True
+
+        if len(self.players) == 0:
+            for i in range(env.player_num):
+                if i == 0:
+                    self.players.append(None)
+                else:
+                    self.players.append(srl.rl.random_play.Config())
+
         return env
 
-    def create_parameter(self) -> RLParameter:
-        self.init_rl_config()
-        module = rl.make(self.rl_name)
-        parameter = module.Parameter(self.rl_config)
-        parameter.load(self.parameter_path)
+    def make_parameter(self) -> RLParameter:
+        if not self.rl_config.is_set_config_by_env:
+            self.make_env()
+        parameter = make_parameter(self.rl_config, None)
+        if self.parameter_path != "":
+            parameter.load(self.parameter_path)
         return parameter
 
-    def create_remote_memory(self) -> RLRemoteMemory:
-        self.init_rl_config()
-        module = rl.make(self.rl_name)
-        memory = module.RemoteMemory(self.rl_config)
-        memory.load(self.memory_path)
+    def make_remote_memory(self) -> RLRemoteMemory:
+        if not self.rl_config.is_set_config_by_env:
+            self.make_env()
+        memory = make_remote_memory(self.rl_config, None)
+        if self.remote_memory_path != "":
+            memory.load(self.remote_memory_path)
         return memory
 
-    def create_trainer(self, parameter: RLParameter, memory: RLRemoteMemory) -> RLTrainer:
-        self.init_rl_config()
-        module = rl.make(self.rl_name)
-        trainer = module.Trainer(self.rl_config, parameter, memory)
-        return trainer
+    def make_trainer(self, parameter: RLParameter, remote_memory: RLRemoteMemory):
+        if not self.rl_config.is_set_config_by_env:
+            self.make_env()
+        return make_trainer(self.rl_config, None, parameter, remote_memory)
 
-    def create_worker(
-        self, parameter: Optional[RLParameter] = None, memory: Optional[RLRemoteMemory] = None
+    def make_worker(
+        self,
+        parameter: Optional[RLParameter] = None,
+        remote_memory: Optional[RLRemoteMemory] = None,
+        worker_id: int = 0,
     ) -> RLWorker:
-        self.init_rl_config()
-        module = rl.make(self.rl_name)
-        worker = module.Worker(self.rl_config, parameter, memory, self.worker_id)
+        if not self.rl_config.is_set_config_by_env:
+            self.make_env()
+        worker = make_worker(self.rl_config, None, parameter, remote_memory, worker_id)
         worker.set_training(self.training)
         return worker
 
-    def model_summary(self):
-        parameter = self.create_parameter()
-        parameter.summary()
-        return parameter
+    def make_player(
+        self,
+        player_index: int,
+        parameter: Optional[RLParameter] = None,
+        remote_memory: Optional[RLRemoteMemory] = None,
+        worker_id: int = 0,
+        env: Optional[EnvForRL] = None,
+    ):
+        if not self.rl_config.is_set_config_by_env:
+            self.make_env()
+        player_obj = self.players[player_index]
+
+        # none はベース
+        if player_obj is None:
+            return self.make_worker(parameter, remote_memory, worker_id)
+
+        # 文字列はenvに登録されているアルゴリズム
+        if isinstance(player_obj, str):
+            if player_obj == "random":
+                return make_worker(srl.rl.random_play.Config(), env)
+            elif player_obj == "human":
+                return make_worker(srl.rl.human.Config(), env)
+            else:
+                worker = env.make_worker(player_obj)
+                assert worker is not None, f"not registered: {player_obj}"
+                return worker
+
+        # それ以外は専用のWorkerを作成
+        if isinstance(player_obj, object) and issubclass(player_obj.__class__, RLConfig):
+            worker = make_worker(player_obj, env, worker_id=worker_id)
+            worker.set_training(False)
+            return worker
+
+        raise ValueError()
+
+    # ------------------------------
+    # other functions
+    # ------------------------------
 
     def to_dict(self) -> dict:
         conf = {}
@@ -157,8 +228,25 @@ class Config:
         for k, v in self.__dict__.items():
             if type(v) in [int, float, bool, str]:
                 setattr(config, k, v)
+        config.players = []
+        for player in self.players:
+            if player is None:
+                config.players.append(None)
+            else:
+                config.players.append(pickle.loads(pickle.dumps(player)))
         config.rl_config = pickle.loads(pickle.dumps(self.rl_config))
         return config
+
+
+def train(
+    config: Config,
+    parameter: Optional[RLParameter] = None,
+    remote_memory: Optional[RLRemoteMemory] = None,
+    env: Optional[EnvForRL] = None,
+    worker_id: int = 0,
+) -> Tuple[RLParameter, RLRemoteMemory]:
+    episode_rewards, parameter, memory = play(config, parameter, remote_memory, env, worker_id)
+    return parameter, memory
 
 
 def play(
@@ -166,46 +254,65 @@ def play(
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
     env: Optional[EnvForRL] = None,
-) -> Tuple[List[float], RLParameter, RLRemoteMemory]:
+    worker_id: int = 0,
+) -> Union[
+    Tuple[float, RLParameter, RLRemoteMemory],  # single play
+    Tuple[List[float], RLParameter, RLRemoteMemory],  # multi play
+]:
     if env is None:
-        env = config.create_env()
+        env = config.make_env()
+    config.assert_params()
     if parameter is None:
-        parameter = config.create_parameter()
+        parameter = config.make_parameter()
     if remote_memory is None:
-        remote_memory = config.create_remote_memory()
+        remote_memory = config.make_remote_memory()
     if config.training and not config.trainer_disable:
-        trainer = config.create_trainer(parameter, remote_memory)
+        trainer = config.make_trainer(parameter, remote_memory)
     else:
         trainer = None
-    worker = config.create_worker(parameter, remote_memory)
-    config.assert_params()
+    callbacks = config.callbacks
+
+    # workers
+    workers = [config.make_player(i, parameter, remote_memory, worker_id, env) for i in range(env.player_num)]
+    worker_indexes = [i for i in range(env.player_num)]
+
+    # players
+    players = [
+        {
+            "status": "INIT",
+            "state": None,
+            "action": None,
+            "invalid_actions": None,
+            "reward": 0,
+            "worker_idx": i,
+        }
+        for i in range(env.player_num)
+    ]
 
     # callback
-    callbacks = config.callbacks
     _params = {
         "config": config,
         "env": env,
         "parameter": parameter,
         "remote_memory": remote_memory,
         "trainer": trainer,
-        "worker": worker,
+        "worker_id": worker_id,
+        "workers": workers,
+        "worker_indexes": worker_indexes,
+        "players": players,
     }
-    [c.on_episodes_begin(_params) for c in callbacks]
+    [c.on_episodes_begin(**_params) for c in callbacks]
 
     # --- rewards
-    episode_rewards = []
+    episode_rewards_list = []
 
     # --- init
     episode_count = -1
     total_step = 0
     t0 = time.time()
     done = True
-
-    state = None
-    step = 0
-    episode_reward = 0
-    valid_actions = None
-    episode_t0 = 0
+    env_actions = [None for _ in range(env.player_num)]
+    work_info_list = [None for _ in range(env.player_num)]
 
     # --- loop
     while True:
@@ -230,84 +337,87 @@ def play(
                 break  # end
 
             # env reset
-            state = env.reset()
+            states, player_indexes = env.reset()
             done = False
             step = 0
-            episode_reward = 0
-            valid_actions = env.fetch_valid_actions()
+            episode_rewards = np.zeros(env.player_num)
+            invalid_actions_list = env.fetch_invalid_actions()
             episode_t0 = _time
 
-            # rl reset
-            worker.on_reset(state, valid_actions, env)
+            # players reset
+            for i in range(env.player_num):
+                players[i]["status"] = "INIT"
+                players[i]["state"] = states[i]
+                players[i]["invalid_actions"] = invalid_actions_list[i]
+                players[i]["action"] = None
+                players[i]["reward"] = 0
+
+            if config.shuffle_player:
+                random.shuffle(worker_indexes)
+                for i in range(env.player_num):
+                    players[i]["worker_idx"] = worker_indexes[i]
 
             # callback
-            _params = {
-                "config": config,
-                "env": env,
-                "parameter": parameter,
-                "remote_memory": remote_memory,
-                "trainer": trainer,
-                "worker": worker,
-                "episode_count": episode_count,
-                "state": state,
-                "valid_actions": valid_actions,
-            }
-            [c.on_episode_begin(_params) for c in callbacks]
+            _params["episode_count"] = episode_count
+            _params["states"] = states
+            _params["invalid_actions_list"] = invalid_actions_list
+            _params["player_indexes"] = player_indexes
+            _params["worker_indexes"] = worker_indexes
+            [c.on_episode_begin(**_params) for c in callbacks]
 
         # ------------------------
         # step
         # ------------------------
 
-        # callback
-        _params = {
-            "config": config,
-            "env": env,
-            "parameter": parameter,
-            "remote_memory": remote_memory,
-            "trainer": trainer,
-            "worker": worker,
-            "episode_count": episode_count,
-            "step": step,
-        }
-        [c.on_step_begin(_params) for c in callbacks]
+        # --- rl init
+        for i in player_indexes:
+            if players[i]["status"] == "INIT":
+                worker = workers[players[i]["worker_idx"]]
+                worker.on_reset(states[i], invalid_actions_list[i], env, player_indexes)
+                players[i]["status"] = "RUNNING"
 
-        # --- action
-        env_action, worker_action = worker.policy(state, valid_actions, env)
-        if valid_actions is not None:
-            assert env_action in valid_actions
+        # callback
+        _params["step"] = step
+        [c.on_step_begin(**_params) for c in callbacks]
+
+        # --- rl action
+        for i in player_indexes:
+            worker = workers[players[i]["worker_idx"]]
+
+            env_action, worker_action = worker.policy(states[i], invalid_actions_list[i], env, player_indexes)
+            assert env_action not in invalid_actions_list[i]
+
+            env_actions[i] = env_action
+            players[i]["state"] = states[i]
+            players[i]["action"] = worker_action
+            players[i]["invalid_actions"] = invalid_actions_list[i]
+            players[i]["reward"] = 0
 
         # --- env step
         # skip frame の間は同じアクションを繰り返す
-        reward = 0
+        rewards = np.zeros(env.player_num)
         for j in range(config.skip_frames + 1):
-            next_state, step_reward, done, env_info = env.step(env_action)
-            reward += step_reward
+            next_states, step_rewards, next_player_indexes, done, env_info = env.step(env_actions, player_indexes)
+            rewards += np.asarray(step_rewards)
             if done:
                 break
 
             # callback
             if j < config.skip_frames:
-                _params = {
-                    "config": config,
-                    "env": env,
-                    "parameter": parameter,
-                    "remote_memory": remote_memory,
-                    "trainer": trainer,
-                    "worker": worker,
-                    "episode_count": episode_count,
-                    "step": step,
-                    "state": next_state,
-                    "action": env_action,
-                    "reward": reward,
-                    "done": done,
-                    "env_info": env_info,
-                }
-                [c.on_skip_step(_params) for c in callbacks]
+                _params["states"] = next_states
+                _params["rewards"] = rewards
+                _params["done"] = done
+                _params["env_info"] = env_info
+                [c.on_skip_step(**_params) for c in callbacks]
 
-        episode_reward += reward
+        episode_rewards += rewards
         step += 1
-        next_valid_actions = env.fetch_valid_actions()
         total_step += 1
+        next_invalid_actions_list = env.fetch_invalid_actions()
+
+        # update reward
+        for i in range(len(rewards)):
+            players[i]["reward"] += rewards[i]
 
         # --- episode end
         if step >= env.max_episode_steps:
@@ -317,17 +427,29 @@ def play(
         if _time - episode_t0 > config.episode_timeout:
             done = True
 
-        # --- rl step
-        work_info = worker.on_step(
-            state,
-            worker_action,
-            next_state,
-            reward,
-            done,
-            valid_actions,
-            next_valid_actions,
-            env,
-        )
+        # --- rl after step
+        if done:
+            # 終了の場合は全playerを実行
+            _next_player_indexes = [i for i in range(env.player_num)]
+        else:
+            _next_player_indexes = next_player_indexes
+        for i in _next_player_indexes:
+            # 初期化済みのplayerのみ実行
+            if players[i]["status"] == "RUNNING":
+                worker = workers[players[i]["worker_idx"]]
+                work_info = worker.on_step(
+                    players[i]["state"],
+                    players[i]["action"],
+                    next_states[i],
+                    players[i]["reward"],
+                    done,
+                    players[i]["invalid_actions"],
+                    next_invalid_actions_list[i],
+                    env,
+                )
+                work_info_list[i] = work_info
+
+        # --- trainer
         if config.training and trainer is not None:
             _t0 = time.time()
             train_info = trainer.train()
@@ -337,66 +459,45 @@ def play(
             train_time = 0
 
         # callback
-        _params = {
-            "config": config,
-            "env": env,
-            "parameter": parameter,
-            "remote_memory": remote_memory,
-            "trainer": trainer,
-            "worker": worker,
-            "episode_count": episode_count,
-            "step": step,
-            "step_time": time.time() - _time,
-            "state": next_state,
-            "action": env_action,
-            "valid_actions": next_valid_actions,
-            "reward": reward,
-            "done": done,
-            "env_info": env_info,
-            "work_info": work_info,
-            "train_info": train_info,
-            "train_time": train_time,
-        }
-        [c.on_step_end(_params) for c in callbacks]
-
-        # callback end
-        if True in [c.intermediate_stop(_params) for c in callbacks]:
-            break
-
-        state = next_state
-        valid_actions = next_valid_actions
+        _params["step"] = step
+        _params["step_time"] = time.time() - _time
+        _params["states"] = next_states
+        _params["actions"] = env_actions
+        _params["invalid_actions_list"] = next_invalid_actions_list
+        _params["rewards"] = rewards
+        _params["done"] = done
+        _params["env_info"] = env_info
+        _params["work_info_list"] = work_info_list
+        _params["train_info"] = train_info
+        _params["train_time"] = train_time
+        [c.on_step_end(**_params) for c in callbacks]
 
         if done:
-            episode_rewards.append(episode_reward)
+            episode_rewards_list.append(episode_rewards)
 
             # callback
-            _params = {
-                "config": config,
-                "env": env,
-                "parameter": parameter,
-                "remote_memory": remote_memory,
-                "trainer": trainer,
-                "worker": worker,
-                "episode_count": episode_count,
-                "episode_time": _time - episode_t0,
-                "step": step,
-                "reward": episode_reward,
-            }
-            [c.on_episode_end(_params) for c in callbacks]
+            _params["step"] = step
+            _params["episode_time"] = _time - episode_t0
+            _params["episode_count"] = episode_count
+            _params["episode_rewards"] = episode_rewards
+            [c.on_episode_end(**_params) for c in callbacks]
+
+        # callback end
+        if True in [c.intermediate_stop(**_params) for c in callbacks]:
+            break
+
+        states = next_states
+        invalid_actions_list = next_invalid_actions_list
+        player_indexes = next_player_indexes
 
     # callback
-    _params = {
-        "config": config,
-        "env": env,
-        "parameter": parameter,
-        "remote_memory": remote_memory,
-        "trainer": trainer,
-        "worker": worker,
-        "episode_count": episode_count,
-    }
-    [c.on_episodes_end(_params) for c in callbacks]
+    _params["episode_count"] = episode_count
+    [c.on_episodes_end(**_params) for c in callbacks]
 
-    return episode_rewards, parameter, remote_memory
+    if env.player_num == 1:
+        return [r[0] for r in episode_rewards_list], parameter, remote_memory
+    else:
+        return episode_rewards_list, parameter, remote_memory
 
 
 if __name__ == "__main__":

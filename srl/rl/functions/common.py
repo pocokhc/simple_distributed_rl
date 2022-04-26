@@ -69,24 +69,26 @@ def random_choice_by_probs(probs):
     raise ValueError
 
 
-def calc_epsilon_greedy_probs(q, valid_actions, epsilon, nb_actions):
-    nb_valid_actions = len(valid_actions)
-    if nb_valid_actions == 0:
-        return [1 / nb_actions for _ in range(nb_actions)]
+def calc_epsilon_greedy_probs(q, invalid_actions, epsilon, action_num):
 
     # filter
-    q = np.array([(v if a in valid_actions else -np.inf) for a, v in enumerate(q)])
+    q = np.array([(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)])
 
     qmax = np.amax(q, axis=0)
     qmax_num = np.count_nonzero(q == qmax)
 
+    valid_action_num = action_num - len(invalid_actions)
     probs = []
-    for a in range(nb_actions):
-        if a in valid_actions:
-            prob = epsilon / nb_valid_actions
+    for a in range(action_num):
+        if a in invalid_actions:
+            probs.append(0.0)
+        else:
+            prob = epsilon / valid_action_num
             if q[a] == qmax:
                 prob += (1 - epsilon) / qmax_num
             probs.append(prob)
-        else:
-            probs.append(0.0)
     return probs
+
+
+def to_str_observaten(state: np.ndarray) -> str:
+    return str(state.flatten().tolist()).replace(" ", "")[1:-1]

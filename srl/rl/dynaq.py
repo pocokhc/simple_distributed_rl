@@ -6,7 +6,7 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 from srl.base.rl import RLParameter, RLRemoteMemory, RLTrainer, RLWorker, TableConfig
-from srl.rl.registory import register
+from srl.base.rl.registory import register
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +80,8 @@ class _A_MDP:
                     "next_state": self.sample_next_state(state, action),
                     "reward": self.sample_reward(state, action),
                     "done": self.sample_done(state, action),
-                    "valid_actions": [],
-                    "next_valid_actions": [],
+                    "invalid_actions": [],
+                    "next_invalid_actions": [],
                 }
             )
         return batchs
@@ -128,12 +128,12 @@ class Parameter(RLParameter):
     def backup(self):
         return json.dumps(self.Q)
 
-    def get_action_values(self, state, valid_actions, to_str: bool = True):
+    def get_action_values(self, state, invalid_actions, to_str: bool = True):
         if to_str:
             state = str(state.tolist())
         if state not in self.Q:
             self.Q[state] = [0 for a in range(self.config.nb_actions)]
-            # self.Q[state] = [0 if a in valid_actions else -np.inf for a in range(self.config.nb_actions)]
+            # self.Q[state] = [0 if a in invalid_actions else -np.inf for a in range(self.config.nb_actions)]
         return self.Q[state]
 
 
@@ -195,8 +195,8 @@ class Trainer(RLTrainer):
             action = batch["action"]
             reward = batch["reward"]
             done = batch["done"]
-            valid_actions = batch["valid_actions"]
-            next_valid_actions = batch["next_valid_actions"]
+            invalid_actions = batch["invalid_actions"]
+            next_invalid_actions = batch["next_invalid_actions"]
 
             model.train(state, action, n_state, reward, done)
 
@@ -211,11 +211,11 @@ class Trainer(RLTrainer):
             action = batch["action"]
             reward = batch["reward"]
             done = batch["done"]
-            valid_actions = batch["valid_actions"]
-            next_valid_actions = batch["next_valid_actions"]
+            invalid_actions = batch["invalid_actions"]
+            next_invalid_actions = batch["next_invalid_actions"]
 
-            q = self.parameter.get_action_values(s, valid_actions, False)
-            n_q = self.parameter.get_action_values(n_s, next_valid_actions, False)
+            q = self.parameter.get_action_values(s, invalid_actions, False)
+            n_q = self.parameter.get_action_values(n_s, next_invalid_actions, False)
 
             if done:
                 target_q = reward
@@ -247,19 +247,19 @@ class Worker(RLWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.memory = cast(RemoteMemory, self.memory)
 
-    def on_reset(self, state: np.ndarray, valid_actions: List[int], _) -> None:
+    def on_reset(self, state: np.ndarray, invalid_actions: List[int], _) -> None:
         if self.training:
             self.epsilon = self.config.epsilon
         else:
             self.epsilon = self.config.test_epsilon
 
-    def policy(self, state: np.ndarray, valid_actions: List[int], _) -> Tuple[int, Any]:
+    def policy(self, state: np.ndarray, invalid_actions: List[int], _) -> Tuple[int, Any]:
 
         if random.random() < self.epsilon:
             # epsilonより低いならランダムに移動
-            action = random.choice(valid_actions)
+            action = random.choice(invalid_actions)
         else:
-            q = self.parameter.get_action_values(state, valid_actions)
+            q = self.parameter.get_action_values(state, invalid_actions)
             q = np.asarray(q)
 
             # 最大値を選ぶ（複数あればランダム）
@@ -274,8 +274,8 @@ class Worker(RLWorker):
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        valid_actions: List[int],
-        next_valid_actions: List[int],
+        invalid_actions: List[int],
+        next_invalid_actions: List[int],
         _,
     ):
         if not self.training:
@@ -287,14 +287,19 @@ class Worker(RLWorker):
             "action": action,
             "reward": reward,
             "done": done,
-            "valid_actions": valid_actions,
-            "next_valid_actions": next_valid_actions,
+            "invalid_actions": invalid_actions,
+            "next_invalid_actions": next_invalid_actions,
         }
         self.memory.add(batch)
         return {}
 
-    def render(self, state: np.ndarray, valid_actions: List[int], action_to_str) -> None:
-        q = self.parameter.get_action_values(state, valid_actions)
+    def render(
+        self,
+        state: np.ndarray,
+        invalid_actions: List[int],
+        env: EnvForRL,
+    ) -> None:
+        q = self.parameter.get_action_values(state, invalid_actions)
         model = self.parameter.model
         s_str = str(state.tolist())
         maxa = np.argmax(q)

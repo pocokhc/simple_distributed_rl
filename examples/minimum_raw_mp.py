@@ -4,11 +4,9 @@ import os
 from multiprocessing.managers import BaseManager
 
 import srl
-from srl.base.env.env_for_rl import EnvForRL
-from srl.base.env.singleplay_wrapper import SinglePlayerWrapper
+from srl.base.env.single_play_wrapper import SinglePlayerWrapper
 from srl.base.rl.base import RLRemoteMemory
 from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer, make_worker
-from srl.rl.processor import ContinuousProcessor, DiscreteProcessor, ObservationBoxProcessor
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
@@ -23,12 +21,13 @@ def _run_episode(
     worker.set_training(training)
     env = SinglePlayerWrapper(env)  # change single play interface
 
-    state = env.reset()
+    state, invalid_actions = env.reset()
+
     done = False
     step = 0
     total_reward = 0
-    invalid_actions = env.fetch_invalid_actions()
-    worker.on_reset(state, invalid_actions, env, [0])
+
+    worker.on_reset(state, invalid_actions, env)
 
     if rendering:
         print("step 0")
@@ -38,25 +37,21 @@ def _run_episode(
 
         # render
         if rendering:
-            worker.render(state, invalid_actions, env)
+            worker.render(env)
 
         # action
-        env_action, worker_action = worker.policy(state, invalid_actions, env, [0])
-        assert env_action not in invalid_actions
+        action = worker.policy(state, invalid_actions, env)
 
         # env step
-        next_state, reward, done, env_info = env.step(env_action)
+        state, reward, done, invalid_actions, env_info = env.step(action)
         step += 1
         total_reward += reward
-        next_invalid_actions = env.fetch_invalid_actions()
 
         if step > env.max_episode_steps:
             done = True
 
         # rl step
-        work_info = worker.on_step(
-            state, worker_action, next_state, reward, done, invalid_actions, next_invalid_actions, env
-        )
+        work_info = worker.on_step(state, reward, done, invalid_actions, env)
 
         # train
         if training and trainer is not None:
@@ -68,7 +63,7 @@ def _run_episode(
         if rendering:
             print(
                 "step {}, action {}, reward: {}, done: {}, info: {} {} {}".format(
-                    step, env_action, reward, done, env_info, work_info, train_info
+                    step, action, reward, done, env_info, work_info, train_info
                 )
             )
             env.render()
@@ -76,8 +71,6 @@ def _run_episode(
         # step after
         if done:
             break
-        state = next_state
-        invalid_actions = next_invalid_actions
 
     return step, total_reward
 
@@ -105,11 +98,10 @@ def _run_worker(
     worker_id: int,
     train_end_signal: ctypes.c_bool,
 ):
-    env_name = config["env_name"]
+    env_config = config["env_config"]
     rl_config = config["rl_config"]
 
-    env = srl.envs.make(env_name)
-    env = EnvForRL(env, rl_config, processors=config["processors"])
+    env = srl.envs.make(env_config, rl_config)
 
     parameter = make_parameter(rl_config, None)
     worker = make_worker(rl_config, None, parameter, remote_memory, worker_id)
@@ -179,25 +171,19 @@ class MPManager(BaseManager):
 def main():
 
     # --- config
-    env_name = "FrozenLake-v1"
+    env_config = srl.envs.Config("FrozenLake-v1")
     rl_config = srl.rl.ql.Config()
     worker_num = 2
     config = {
-        "env_name": env_name,
+        "env_config": env_config,
         "rl_config": rl_config,
         "max_train_count": 100000,
         "trainer_parameter_send_interval_by_train_count": 100,
-        "processors": [
-            ObservationBoxProcessor(),
-            DiscreteProcessor(),
-            ContinuousProcessor(),
-        ],
     }
 
     # config init
     rl_config.assert_params()
-    env = srl.envs.make(env_name)
-    env = EnvForRL(env, rl_config, processors=config["processors"])
+    env = srl.envs.make(env_config, rl_config)
 
     # --- async
     MPManager.register("RemoteMemory", make_remote_memory(rl_config, env, get_class=True))

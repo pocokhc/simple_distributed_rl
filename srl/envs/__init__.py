@@ -1,4 +1,5 @@
-from ..base.env.registration import make  # noqa F402
+from ..base.env.env_for_rl import EnvConfig as Config  # noqa F402
+from ..base.env.registration import make, make_env  # noqa F402
 from . import cartpole_continuous  # noqa F402
 from . import connectx  # noqa F402
 from . import grid  # noqa F402

@@ -39,8 +39,8 @@ class TestMemory(unittest.TestCase):
         # --- 複数回やって比率をだす
         counter = []
         for i in range(10000):
-            (indexes, batchs, weights) = memory.sample(5, 1)
-            assert len(indexes) == 5
+            (indices, batchs, weights) = memory.sample(5, 1)
+            assert len(indices) == 5
             assert len(batchs) == 5
             assert len(weights) == 5
 
@@ -52,7 +52,7 @@ class TestMemory(unittest.TestCase):
                 counter.append(batch[0])
 
             # update priority
-            memory.update(indexes, batchs, [b[3] for b in batchs])
+            memory.update(indices, batchs, [b[3] for b in batchs])
             assert len(memory) == capacity
 
             # save/load
@@ -137,7 +137,7 @@ class TestMemory(unittest.TestCase):
         maxw = np.max(true_weights)
         true_weights /= maxw
 
-        (indexes, batchs, weights) = memory.sample(3, 1)
+        (indices, batchs, weights) = memory.sample(3, 1)
 
         for i, b in enumerate(batchs):
             idx = b[0]

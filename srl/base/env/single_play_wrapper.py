@@ -2,6 +2,7 @@ from typing import Any, List, Optional, Tuple
 
 import gym
 import gym.spaces
+import numpy as np
 from srl.base.define import EnvActionType, EnvObservationType
 from srl.base.env import EnvBase
 
@@ -38,16 +39,18 @@ class SinglePlayerWrapper(EnvBase):
     def player_num(self) -> int:
         return self.env.player_num
 
-    def reset(self) -> Any:
-        states, player_indexes = self.env.reset()
-        return states[0]
+    def reset(self) -> Tuple[np.ndarray, List[int]]:
+        state, next_player_indecies = self.env.reset()
+        invalid_actions = self.fetch_invalid_actions()
+        return state, invalid_actions
 
-    def step(self, action: Any) -> Tuple[Any, float, bool, dict]:
-        next_states, rewards, next_player_indexes, done, env_info = self.env.step([action], [0])
-        return next_states[0], rewards[0], done, env_info
+    def step(self, action: Any) -> Tuple[np.ndarray, float, bool, List[int], dict]:
+        next_state, rewards, done, next_player_indices, env_info = self.env.step([action])
+        invalid_actions = self.fetch_invalid_actions()
+        return next_state, rewards[0], done, invalid_actions, env_info
 
-    def fetch_invalid_actions(self) -> Optional[List[int]]:
-        return self.env.fetch_invalid_actions()[0]
+    def fetch_invalid_actions(self) -> List[int]:
+        return self.env.fetch_invalid_actions(0)
 
     def render(self, *args):
         return self.env.render(*args)
@@ -67,8 +70,8 @@ class SinglePlayerWrapper(EnvBase):
     def get_original_env(self) -> object:
         return self.env.get_original_env()
 
-    def sample(self) -> Any:
-        return self.env.sample()[0]
+    def sample(self) -> List[Any]:
+        return self.env.sample([0])[0]
 
 
 if __name__ == "__main__":

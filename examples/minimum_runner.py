@@ -10,25 +10,26 @@ from srl.runner.callbacks import PrintProgress, Rendering
 from srl.runner.callbacks_mp import TrainFileLogger
 
 
-def main(use_mp):
-    config = sequence.Config(
-        env_name="FrozenLake-v1",
-        rl_config=srl.rl.ql.Config(),
-    )
+def main(is_mp):
+
+    env_config = srl.envs.Config("FrozenLake-v1")
+    rl_config = srl.rl.ql.Config()
+    config = sequence.Config(env_config, rl_config)
 
     # load parameter
     # config.set_parameter_path(parameter_path="tmp/QL_params.dat")
 
-    # --- train
-    if not use_mp:
+    # --- training
+    if not is_mp:
         # sequence training
-        config.set_train_config(timeout=60 * 1, callbacks=[PrintProgress()])
+        config.set_train_config(timeout=30 * 1, callbacks=[PrintProgress()])
         parameter, memory = sequence.train(config)
     else:
         # distibute training
         mp_config = mp.Config(worker_num=2)
+        config.set_train_config()
         mp_config.set_train_config(
-            timeout=60 * 1, callbacks=[TrainFileLogger(enable_log=False, enable_checkpoint=False)]
+            timeout=30 * 1, callbacks=[TrainFileLogger(enable_log=False, enable_checkpoint=False)]
         )
         parameter, memory = mp.train(config, mp_config)
 
@@ -41,11 +42,11 @@ def main(use_mp):
     print(f"test reward mean: {np.mean(rewards)}")
 
     # --- rendering
-    render = Rendering(step_stop=True)
+    render = Rendering(step_stop=False)
     config.set_play_config(max_episodes=1, callbacks=[render])
     sequence.play(config, parameter)
 
 
 if __name__ == "__main__":
-    # main(use_mp=False)
-    main(use_mp=True)
+    main(is_mp=False)
+    # main(is_mp=True)

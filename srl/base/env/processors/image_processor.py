@@ -2,6 +2,8 @@ import logging
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
+from srl.base.env.processor import Processor
+
 try:
     import cv2
 except ModuleNotFoundError:
@@ -11,7 +13,6 @@ import gym
 import gym.spaces
 import numpy as np
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.processor import Processor
 
 logger = logging.getLogger(__name__)
 

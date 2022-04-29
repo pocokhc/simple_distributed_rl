@@ -21,13 +21,13 @@ class Memory(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def update(self, indexes: List[int], batchs: List[Any], priorities: List[float]) -> None:
+    def update(self, indices: List[int], batchs: List[Any], priorities: List[float]) -> None:
         raise NotImplementedError()
 
     @abstractmethod
     def sample(self, batch_size: int, step: int) -> Tuple[list, list, list]:
         raise NotImplementedError()
-        # return (indexes, batchs, weights)
+        # return (indices, batchs, weights)
 
     @abstractmethod
     def __len__(self) -> int:

@@ -3,55 +3,43 @@ autoactivate on
 
 actor Runner
 participant Env
-participant Player1
-participant Player2
-
+participant Players
+participant Trainer
 
 activate Runner
 
 Runner -> Env: reset
-return state, next player 1
+return state, next_player_indices
 
-group 1 turn
-    Runner -> Player1: on_reset
-    return
-
-    Runner -> Player1: policy
-    return action1
-
-    Runner -> Env: step(action1)
-    return state2, reward, next player 2, done, info
-
-    Runner -> Player2: on_reset
-    return
-
-    Runner -> Player2: policy
-    return action2
-
-    Runner -> Env: step(action2)
-    return next_state1, reward1, next player 1, done, info
-
-end
+Runner -> Players: _set_status("INIT")
+return
 
 loop episode
 
-    Runner -> Player1: on_step(state1, action1, next_state1, reward1, done)
+    loop next_player_indices
+        alt player status == "INIT"
+            Runner -> Players: on_reset
+            return
+            Runner -> Players: _set_status("RUNNING")
+            return
+        end
+
+        Runner -> Players: policy
+        return action
+    end
+
+    Runner -> Env: step(action)
+    return next_state, reward, done, next_player_indices, info
+
+    loop next_player_indices
+        alt player status == "RUNNING"
+            Runner -> Players: on_step(next_state, reward, done)
+            return info
+        end
+    end
+
+    Runner -> Trainer: train
     return info
-
-    Runner -> Player1: policy
-    return action1
-
-    Runner -> Env: step(action1)
-    return next_state2, reward2, next player 2, done, info
-
-    Runner -> Player2: on_step(state2, action2, next_state2, reward2, done)
-    return info
-
-    Runner -> Player2: policy
-    return action2
-
-    Runner -> Env: step(action2)
-    return next_state1, reward1, next player 1, done, info
 
 end
 deactivate Runner

@@ -1,6 +1,6 @@
 import random
 from abc import abstractmethod
-from typing import Any, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import gym
 import gym.spaces
@@ -34,11 +34,11 @@ class SingleActionDiscrete(EnvBase):
         raise NotImplementedError()
 
     @abstractmethod  # new method
-    def reset_single(self) -> Any:
+    def reset_single(self) -> np.ndarray:
         raise NotImplementedError()
 
     @abstractmethod  # new method
-    def step_single(self, action: int) -> Tuple[Any, float, bool, dict]:
+    def step_single(self, action: int) -> Tuple[np.ndarray, float, bool, dict]:
         raise NotImplementedError()
 
     # new method(option)
@@ -72,17 +72,15 @@ class SingleActionDiscrete(EnvBase):
     def player_num(self) -> int:
         return 1
 
-    def reset(self) -> Tuple[List[np.ndarray], List[int]]:
-        return [self.reset_single()], [0]
+    def reset(self) -> Tuple[np.ndarray, List[int]]:
+        return self.reset_single(), [0]
 
-    def step(
-        self, actions: List[Any], player_indexes: List[int]
-    ) -> Tuple[List[np.ndarray], List[float], List[int], bool, dict]:
+    def step(self, actions: List[Any]) -> Tuple[np.ndarray, List[float], bool, List[int], Dict[str, float]]:
         n_state, reward, done, info = self.step_single(actions[0])
-        return [n_state], [reward], [0], done, info
+        return n_state, [reward], done, [0], info
 
-    def fetch_invalid_actions(self) -> List[List[int]]:
-        return [self.fetch_invalid_actions_single()]
+    def fetch_invalid_actions(self, player_index: int) -> List[int]:
+        return self.fetch_invalid_actions_single()
 
 
 class SingleActionContinuous(EnvBase):
@@ -110,11 +108,11 @@ class SingleActionContinuous(EnvBase):
         raise NotImplementedError()
 
     @abstractmethod  # new method
-    def reset_single(self) -> Any:
+    def reset_single(self) -> np.ndarray:
         raise NotImplementedError()
 
     @abstractmethod  # new method
-    def step_single(self, action: Any) -> Tuple[Any, float, bool, dict]:
+    def step_single(self, action: Any) -> Tuple[np.ndarray, float, bool, dict]:
         raise NotImplementedError()
 
     @abstractmethod  # same parent
@@ -135,17 +133,15 @@ class SingleActionContinuous(EnvBase):
     def player_num(self) -> int:
         return 1
 
-    def reset(self) -> Tuple[List[np.ndarray], List[int]]:
-        return [self.reset_single()], [0]
+    def reset(self) -> Tuple[np.ndarray, List[int]]:
+        return self.reset_single(), [0]
 
-    def step(
-        self, actions: List[Any], player_indexes: List[int]
-    ) -> Tuple[List[np.ndarray], List[float], List[int], bool, dict]:
+    def step(self, actions: List[Any]) -> Tuple[np.ndarray, List[float], bool, List[int], Dict[str, float]]:
         n_state, reward, done, info = self.step_single(actions[0])
-        return [n_state], [reward], [0], done, info
+        return n_state, [reward], done, [0], info
 
-    def fetch_invalid_actions(self) -> List[List[int]]:
-        return [[]]
+    def fetch_invalid_actions(self, player_index: int) -> List[int]:
+        return []
 
 
 if __name__ == "__main__":

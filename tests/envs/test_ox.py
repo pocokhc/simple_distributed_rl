@@ -1,6 +1,6 @@
 import unittest
 
-from tests.envs.TestEnv import TestEnv  # noqa F402
+from srl.test import TestEnv
 
 
 class Test(unittest.TestCase):
@@ -8,7 +8,7 @@ class Test(unittest.TestCase):
         self.tester = TestEnv()
 
     def test_play(self):
-        self.tester.play_test(self, "OX")
+        self.tester.play_test("OX")
 
     def test_player(self):
         for player in [
@@ -17,8 +17,8 @@ class Test(unittest.TestCase):
             "cpu_lv3",
         ]:
             with self.subTest((player,)):
-                self.tester.play_player(self, "OX", player)
+                self.tester.player_test("OX", player)
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_play", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_player", verbosity=2)

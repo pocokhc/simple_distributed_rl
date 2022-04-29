@@ -1,16 +1,35 @@
 import logging
-from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 import gym
 import gym.spaces
 import numpy as np
 from srl.base.define import EnvActionType, EnvObservationType, RLActionType
 from srl.base.env import EnvBase
+from srl.base.env.processor import Processor
+from srl.base.env.processors import ContinuousProcessor, DiscreteProcessor, ObservationBoxProcessor
 from srl.base.rl.base import RLConfig
-from srl.base.rl.processor import Processor
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class EnvConfig:
+    name: str
+    kwargs: Dict = None
+
+    processors: List[Processor] = None
+    override_env_observation_type: EnvObservationType = EnvObservationType.UNKOWN
+    prediction_by_simulation: bool = True
+    action_division_num: int = 5
+    observation_division_num: int = 50
+
+    def __post_init__(self):
+        if self.kwargs is None:
+            self.kwargs = {}
+        if self.processors is None:
+            self.processors = []
 
 
 @dataclass
@@ -18,15 +37,18 @@ class EnvForRL(EnvBase):
 
     env: EnvBase
     rl_config: RLConfig
-
-    override_env_observation_type: EnvObservationType = EnvObservationType.UNKOWN
-    prediction_by_simulation: bool = True
-
-    processors: List[Processor] = field(default_factory=list)
+    env_config: EnvConfig
 
     # コンストラクタ
     def __post_init__(self):
-        self._invalid_actions = None  # cache
+
+        # processors
+        base_processors = [
+            ObservationBoxProcessor(self.env_config.prediction_by_simulation, self.env_config),
+            DiscreteProcessor(self.env_config.action_division_num, self.env_config.observation_division_num),
+            ContinuousProcessor(),
+        ]
+        self.processors = self.env_config.processors + base_processors
 
         # env info
         action_space = self.env.action_space
@@ -35,8 +57,8 @@ class EnvForRL(EnvBase):
         observation_type = self.env.observation_type
 
         # observation_typeの上書き
-        if self.override_env_observation_type != EnvObservationType.UNKOWN:
-            observation_type = self.override_env_observation_type
+        if self.env_config.override_env_observation_type != EnvObservationType.UNKOWN:
+            observation_type = self.env_config.override_env_observation_type
 
         # processor
         for processor in self.processors:
@@ -91,6 +113,10 @@ class EnvForRL(EnvBase):
             action = processor.action_decode(action)
         return action
 
+    @property
+    def config(self) -> EnvConfig:
+        return self.env_config
+
     # ------------------------------------------
     # ABC method
     # ------------------------------------------
@@ -122,32 +148,30 @@ class EnvForRL(EnvBase):
     def close(self) -> None:
         self.env.close()
 
-    def reset(self) -> Tuple[List[np.ndarray], List[int]]:
-        states, player_indexes = self.env.reset()
-        states = [self.observation_encode(s) for s in states]
-        self._invalid_actions = None
-        return states, player_indexes
+    def reset(self) -> Tuple[np.ndarray, List[int]]:
+        state, player_indices = self.env.reset()
+        state = self.observation_encode(state)
+        return state, player_indices
 
-    def step(
-        self, actions: List[Any], player_indexes: List[int]
-    ) -> Tuple[List[np.ndarray], List[float], List[int], bool, dict]:
+    def step(self, actions: List[Any]) -> Tuple[np.ndarray, List[float], bool, List[int], Dict[str, float]]:
         actions = [self.action_decode(a) for a in actions]
-        next_states, rewards, next_player_indexes, done, env_info = self.env.step(actions, player_indexes)
-        self._invalid_actions = None
-        next_states = [self.observation_encode(s) for s in next_states]
+        next_state, rewards, done, next_player_indices, env_info = self.env.step(actions)
+        next_state = self.observation_encode(next_state)
         rewards = [float(r) for r in rewards]
-        return next_states, rewards, next_player_indexes, bool(done), env_info
+        return next_state, rewards, bool(done), next_player_indices, env_info
 
-    def fetch_invalid_actions(self) -> List[List[int]]:
+    def fetch_invalid_actions(self, player_index: int) -> List[int]:
         if self.rl_config.action_type == RLActionType.CONTINUOUS:
-            return [None for _ in range(self.player_num)]
+            return []
 
-        if self._invalid_actions is None:
-            self._invalid_actions = self.env.fetch_invalid_actions()
-            for processor in self.processors:
-                self._invalid_actions = [processor.invalid_actions_encode(va) for va in self._invalid_actions]
+        invalid_actions = self.env.fetch_invalid_actions(player_index)
+        invalid_actions = [self._invalid_actions_encode(va) for va in invalid_actions]
+        return invalid_actions
 
-        return self._invalid_actions
+    def _invalid_actions_encode(self, action) -> int:
+        for processor in self.processors:
+            action = processor.invalid_actions_encode(action)
+        return action
 
     def render(self, *args):
         return self.env.render(*args)

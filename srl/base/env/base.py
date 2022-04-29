@@ -1,6 +1,6 @@
 import random
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import gym
 import gym.spaces
@@ -55,58 +55,45 @@ class EnvBase(ABC):
 
     # --- implement functions
     @abstractmethod
-    def reset(self) -> Tuple[List[np.ndarray], List[int]]:
+    def reset(self) -> Tuple[np.ndarray, List[int]]:
         """
         return (
-            [
-                player1 init_state,
-                player2 init_state,
-                ...
-            ],
-            start player index list,
+            init_state,
+            next_player_indecies,
         )
         """
         raise NotImplementedError()
 
     @abstractmethod
-    def step(
-        self, actions: List[Any], player_indexes: List[int]
-    ) -> Tuple[List[np.ndarray], List[float], List[int], bool, dict]:
+    def step(self, actions: List[Any]) -> Tuple[np.ndarray, List[float], bool, List[int], Dict[str, float]]:
         """
         return (
-            [
-                player1 next_state,
-                player2 next_state,
-                ...
-            ],
+            next_state,
             [
                 player1 reward,
                 player2 reward,
                 ...
             ],
-            next player index list,
             done,
+            (next_players_info) [
+                "player_index": int,
+                "invalid_actions": List[int],
+            ],
             info,
         )
         """
         raise NotImplementedError()
 
     @abstractmethod
-    def fetch_invalid_actions(self) -> List[List[int]]:
-        """
-        return [
-            player1 invalid_actions,
-            player2 invalid_actions,
-            ...
-        ]
-        """
+    def fetch_invalid_actions(self, player_index: int) -> List[int]:
         raise NotImplementedError()
 
-    def sample(self) -> List[Any]:
+    def sample(self, next_player_indices) -> List[Any]:
         if self.action_type == EnvActionType.DISCRETE:
             actions = []
-            for invalid in self.fetch_invalid_actions():
-                _actions = [a for a in range(self.action_space.n) if a not in invalid]
+            for i in next_player_indices:
+                invalid_actions = self.fetch_invalid_actions(i)
+                _actions = [a for a in range(self.action_space.n) if a not in invalid_actions]
                 action = random.choice(_actions)
                 actions.append(action)
             return actions
@@ -137,6 +124,11 @@ class EnvBase(ABC):
     @abstractmethod
     def restore(self, data: Any) -> None:
         raise NotImplementedError()
+
+    def copy(self):
+        env = self.__class__()
+        env.restore(self.backup())
+        return env
 
     def action_to_str(self, action: Any) -> str:
         return str(action)

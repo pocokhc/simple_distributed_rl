@@ -1,14 +1,16 @@
 import logging
 from dataclasses import dataclass
+from typing import Optional
 
 import gym
 import gym.spaces
 import numpy as np
 import srl
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.env.singleplay_wrapper import SinglePlayerWrapper
-from srl.base.rl.processor import Processor
-from srl.rl.processor.common import tuple_to_box
+from srl.base.env.processor import Processor
+from srl.base.env.single_play_wrapper import SinglePlayerWrapper
+
+from .common import tuple_to_box
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +20,7 @@ class ObservationBoxProcessor(Processor):
     """change Box & pred type"""
 
     prediction_by_simulation: bool = True
-    env_name: str = ""
+    env_config: Optional["srl.base.env.env_for_rl.EnvConfig"] = None
 
     def __post_init__(self):
         self.change_type = ""
@@ -68,18 +70,15 @@ class ObservationBoxProcessor(Processor):
         if not self.prediction_by_simulation:
             return EnvObservationType.UNKOWN
 
-        # 実際の値を取得して予測 TODO: multiの場合未対応
-        env = srl.envs.make(self.env_name)
-        env = SinglePlayerWrapper(env)
+        # 実際の値を取得して予測
+        env = srl.envs.make_env(self.env_config.name, self.env_config.kwargs)
         is_discrete = True
         done = True
         for _ in range(100):
             if done:
-                state = env.reset()
-                if "int" not in str(np.asarray(state).dtype):
-                    is_discrete = False
-                    break
-            state, reward, done, _ = env.step(env.sample())
+                state, _ = env.reset()
+            else:
+                state, _, done, _, _ = env.step(env.sample())
             if "int" not in str(np.asarray(state).dtype):
                 is_discrete = False
                 break

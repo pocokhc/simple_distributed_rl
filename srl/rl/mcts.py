@@ -4,9 +4,13 @@ from dataclasses import dataclass
 from typing import Any, List, cast
 
 import numpy as np
-from srl.base.rl import RLParameter, RLRemoteMemory, RLTrainer, RLWorker, TableConfig
-from srl.base.rl.env_for_rl import EnvForRL
-from srl.base.rl.registory import register
+import srl
+from srl.base.env.env_for_rl import EnvForRL
+from srl.base.rl.algorithms.table import TableConfig
+from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
+from srl.base.rl.registration import register
+from srl.rl.functions.common import to_str_observaten
+from srl.rl.remote_memory.sequence_memory import SequenceRemoteMemory
 
 
 # ------------------------------------------------------
@@ -15,7 +19,7 @@ from srl.base.rl.registory import register
 @dataclass
 class Config(TableConfig):
 
-    simulation_times: int = 1
+    simulation_times: int = 10
     action_select_threshold: int = 10
     gamma: float = 1.0  # 割引率
     uct_c: float = np.sqrt(2.0)
@@ -25,7 +29,20 @@ class Config(TableConfig):
         return "MCTS"
 
 
-register(Config, __name__)
+register(
+    Config,
+    __name__ + ":RemoteMemory",
+    __name__ + ":Parameter",
+    __name__ + ":Trainer",
+    __name__ + ":Worker",
+)
+
+
+# ------------------------------------------------------
+# RemoteMemory
+# ------------------------------------------------------
+class RemoteMemory(SequenceRemoteMemory):
+    pass
 
 
 # ------------------------------------------------------
@@ -61,36 +78,6 @@ class Parameter(RLParameter):
 
 
 # ------------------------------------------------------
-# RemoteMemory
-# ------------------------------------------------------
-class RemoteMemory(RLRemoteMemory):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config = cast(Config, self.config)
-
-        self.buffer = []
-
-    def length(self) -> int:
-        return len(self.buffer)
-
-    def restore(self, data: Any) -> None:
-        self.buffer = data
-
-    def backup(self):
-        return self.buffer
-
-    # ------------------------
-
-    def add(self, batch: Any) -> None:
-        self.buffer.append(batch)
-
-    def get(self):
-        buffer = self.buffer
-        self.buffer = []
-        return buffer
-
-
-# ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
 class Trainer(RLTrainer):
@@ -98,74 +85,31 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
-        self.memory = cast(RemoteMemory, self.memory)
+        self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.train_count = 0
+        self.env = srl.envs.make(self.config.env_config, self.config)
 
     def get_train_count(self):
         return self.train_count
 
     def train(self):
+        # シミュレーションがアクション前ではなくアクション後になっている点が異なっています
 
-        batchs = self.memory.get()
+        batchs = self.remote_memory.sample()
         for batch in batchs:
             state = batch["state"]
-            action = batch["action"]
-            reward = batch["reward"]
+            invalid_actions = batch["invalid_actions"]
+            self.env.restore(batch["env"])
 
-            self.parameter.init_state(state)
-            self.parameter.N[state][action] += 1
-            self.parameter.W[state][action] += reward
-
-            self.train_count += 1
-
-        return {}
-
-
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
-class Worker(RLWorker):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.memory = cast(RemoteMemory, self.memory)
-
-    def on_reset(self, state: np.ndarray, invalid_actions: List[int], env: EnvForRL) -> None:
-        pass
-
-    def policy(self, state: np.ndarray, invalid_actions: List[int], env: EnvForRL):
-        s = str(state.tolist())
-
-        if self.training:
             # シミュレーション
             for _ in range(self.config.simulation_times):
-                save_state = env.backup()
-                self._simulation(env, str(state.tolist()), invalid_actions)
-                env.restore(save_state)
+                save_state = self.env.backup()
+                self._simulation(self.env, state, invalid_actions)
+                self.env.restore(save_state)
 
-        # 試行回数のもっとも多いアクションを採用
-        if s in self.parameter.N:
-            c = self.parameter.N[s]
-            c = [c[a] if a in invalid_actions else -np.inf for a in range(self.config.nb_actions)]  # mask
-            action = random.choice(np.where(c == np.max(c))[0])
-        else:
-            action = random.choice(invalid_actions)
+                self.train_count += 1
 
-        return action, action
-
-    def on_step(
-        self,
-        state: np.ndarray,
-        action: Any,
-        next_state: np.ndarray,
-        reward: float,
-        done: bool,
-        invalid_actions: List[int],
-        next_invalid_actions: List[int],
-        env: EnvForRL,
-    ):
         return {}
 
     def _simulation(self, env: EnvForRL, state: str, invalid_actions, depth: int = 0):
@@ -196,8 +140,10 @@ class Worker(RLWorker):
             reward = self._rollout(env)
         else:
             # step
-            n_state, reward, done, _ = env.step(action)
-            n_state = str(n_state.tolist())
+            n_state, rewards, done, next_player_indices, done, _ = env.step(action)
+            assert len(next_player_indices) == 1  # とりあえず一人のみ対応 TODO
+
+            n_state = to_str_observaten(n_state)
             n_invalid_actions = env.fetch_invalid_actions()
 
             if done:
@@ -207,12 +153,8 @@ class Worker(RLWorker):
                 reward += self._simulation(env, n_state, n_invalid_actions, depth + 1)
 
         # 結果を記録
-        batch = {
-            "state": state,
-            "action": action,
-            "reward": reward,
-        }
-        self.memory.add(batch)
+        self.parameter.N[state][action] += 1
+        self.parameter.W[state][action] += reward
 
         return reward * self.config.gamma  # 割り引いて前に伝搬
 
@@ -234,13 +176,58 @@ class Worker(RLWorker):
 
         return reward
 
-    def render(
+
+# ------------------------------------------------------
+# Worker
+# ------------------------------------------------------
+class Worker(RLWorker):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.config = cast(Config, self.config)
+        self.parameter = cast(Parameter, self.parameter)
+        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+
+    def on_reset(self, state: np.ndarray, invalid_actions: List[int], env: EnvForRL) -> None:
+        self.remote_memory.add(
+            {
+                "state": to_str_observaten(state),
+                "action": invalid_actions,
+                "env": env.backup(),
+            }
+        )
+
+    def policy(self, state: np.ndarray, invalid_actions: List[int], env: EnvForRL) -> int:
+        s = to_str_observaten(state)
+
+        # 試行回数のもっとも多いアクションを採用
+        if s in self.parameter.N:
+            c = self.parameter.N[s]
+            c = [c[a] if a in invalid_actions else -np.inf for a in range(self.config.nb_actions)]  # mask
+            action = random.choice(np.where(c == np.max(c))[0])
+        else:
+            action = random.choice([a for a in range(self.config.nb_actions) if a not in invalid_actions])
+
+        return action
+
+    def on_step(
         self,
-        state: np.ndarray,
-        invalid_actions: List[int],
+        next_state: np.ndarray,
+        reward: float,
+        done: bool,
+        next_invalid_actions: List[int],
         env: EnvForRL,
-    ) -> None:
-        s = str(state.tolist())
+    ):
+        self.remote_memory.add(
+            {
+                "state": to_str_observaten(next_state),
+                "action": next_invalid_actions,
+                "env": env.backup(),
+            }
+        )
+        return {}
+
+    def render(self, env: EnvForRL) -> None:
+        s = env.to_str_observaten(state)
         for a in range(self.config.nb_actions):
             if s in self.parameter.W:
                 q = self.parameter.W[s][a]
@@ -250,7 +237,7 @@ class Worker(RLWorker):
             else:
                 q = 0
                 c = 0
-            print(f"{action_to_str(a)}: {q:7.3f}({c:7d})|")
+            print(f"{env.action_to_str(a)}: {q:7.3f}({c:7d})|")
 
 
 if __name__ == "__main__":

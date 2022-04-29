@@ -87,22 +87,22 @@ class ProportionalMemory(Memory):
         if priority == 0:
             priority = self.max_priority
         if not _alpha_skip:
-            priority = priority ** self.alpha
+            priority = priority**self.alpha
         self.tree.add(priority, batch)
         self.size += 1
         if self.size > self.capacity:
             self.size = self.capacity
 
-    def update(self, indexes: List[int], batchs: List[Any], priorities: List[float]) -> None:
+    def update(self, indices: List[int], batchs: List[Any], priorities: List[float]) -> None:
         for i in range(len(batchs)):
             priority = priorities[i] ** self.alpha
-            self.tree.update(indexes[i], priority)
+            self.tree.update(indices[i], priority)
 
             if self.max_priority < priority:
                 self.max_priority = priority
 
     def sample(self, batch_size, step):
-        indexes = []
+        indices = []
         batchs = []
         weights = np.empty(batch_size, dtype="float32")
 
@@ -117,14 +117,14 @@ class ProportionalMemory(Memory):
             experience = None
             priority = 0
 
-            # indexesにないものを追加
+            # indicesにないものを追加
             for _ in range(9999):  # for safety
                 r = random.random() * total
                 (idx, priority, experience) = self.tree.get(r)
-                if idx not in indexes:
+                if idx not in indices:
                     break
 
-            indexes.append(idx)
+            indices.append(idx)
             batchs.append(experience)
 
             # 重要度サンプリングを計算 w = (N * pi)
@@ -134,7 +134,7 @@ class ProportionalMemory(Memory):
         # 安定性の理由から最大値で正規化
         weights = weights / weights.max()
 
-        return (indexes, batchs, weights)
+        return (indices, batchs, weights)
 
     def __len__(self):
         return self.size

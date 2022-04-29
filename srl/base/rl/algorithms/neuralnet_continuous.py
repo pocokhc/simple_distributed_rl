@@ -18,14 +18,13 @@ class ContinuousActionConfig(RLConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.CONTINUOUS
 
-    def set_config_by_env(self, env: "srl.base.rl.env_for_rl.EnvForRL") -> None:
+    def _set_config_by_env(self, env: "srl.base.rl.env_for_rl.EnvForRL") -> None:
         assert len(env.action_space.shape) == 1
         self._action_num = env.action_space.shape[0]
         self._action_low = env.action_space.low
         self._action_high = env.action_space.high
         self._env_observation_shape = cast(tuple, env.observation_space.shape)
         self._env_observation_type = env.observation_type
-        self._is_set_config_by_env = True
 
     @property
     def action_num(self) -> int:
@@ -58,12 +57,11 @@ class ContinuousActionWorker(RLWorker):
         state: np.ndarray,
         invalid_actions: List[int],
         env: "srl.base.rl.env_for_rl.EnvForRL",
-        start_player_indexes: List[int],
     ) -> None:
         self.call_on_reset(state)
 
     @abstractmethod
-    def call_policy(self, state: np.ndarray) -> Tuple[int, Any]:
+    def call_policy(self, state: np.ndarray) -> Any:
         raise NotImplementedError()
 
     def policy(
@@ -71,8 +69,7 @@ class ContinuousActionWorker(RLWorker):
         state: np.ndarray,
         invalid_actions: List[int],
         env: "srl.base.rl.env_for_rl.EnvForRL",
-        player_indexes: List[int],
-    ) -> Tuple[Any, Any]:  # (env_action, agent_action)
+    ) -> Any:
         return self.call_policy(state)
 
     @abstractmethod

@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Any, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import gym
 import gym.spaces
@@ -9,9 +9,6 @@ from srl.base.env import EnvBase
 
 
 class TurnBase2PlayerActionDiscrete(EnvBase):
-    def __init__(self):
-        self._player_index = 0
-
     # --- inheritance target implementation(継承先の実装)
 
     @property
@@ -40,18 +37,18 @@ class TurnBase2PlayerActionDiscrete(EnvBase):
         raise NotImplementedError()
 
     @abstractmethod  # new method
-    def reset_turn(self) -> Tuple[np.ndarray, np.ndarray]:
-        # state1, state2
+    def reset_turn(self) -> np.ndarray:
+        # state
         raise NotImplementedError()
 
     @abstractmethod  # new method
-    def step_turn(self, action: int) -> Tuple[np.ndarray, np.ndarray, float, float, bool, dict]:
-        # state1, state2, reward1, reward2, done, info
+    def step_turn(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
+        # state, reward1, reward2, done, info
         raise NotImplementedError()
 
-    # new method(option)
-    def fetch_invalid_actions_turn(self) -> Tuple[List[int], List[int]]:
-        return [], []
+    # same parent(option)
+    def fetch_invalid_actions(self, player_index: int) -> List[int]:
+        return []
 
     @abstractmethod  # same parent
     def backup(self) -> Any:
@@ -80,20 +77,13 @@ class TurnBase2PlayerActionDiscrete(EnvBase):
     def player_num(self) -> int:
         return 2
 
-    def reset(self) -> Tuple[List[np.ndarray], List[int]]:
-        state1, state2 = self.reset_turn()
-        assert 0 <= self.player_index <= 1
-        return [state1, state2], [self.player_index]
+    def reset(self) -> Tuple[np.ndarray, List[int]]:
+        state = self.reset_turn()
+        return state, [self.player_index]
 
-    def step(
-        self, actions: List[Any], player_indexes: List[int]
-    ) -> Tuple[List[np.ndarray], List[float], List[int], bool, dict]:
-        n_s1, n_s2, reward1, reward2, done, info = self.step_turn(actions[self.player_index])
-        return [n_s1, n_s2], [reward1, reward2], [self.player_index], done, info
-
-    def fetch_invalid_actions(self) -> List[List[int]]:
-        va1, va2 = self.fetch_invalid_actions_turn()
-        return [va1, va2]
+    def step(self, actions: List[Any]) -> Tuple[np.ndarray, List[float], bool, List[int], Dict[str, float]]:
+        n_s, reward1, reward2, done, info = self.step_turn(actions[0])
+        return n_s, [reward1, reward2], done, [self.player_index], info
 
 
 if __name__ == "__main__":

@@ -42,8 +42,8 @@ def _speed_test(memory):
         step += 1
 
         # sample
-        (indexes, batchs, weights) = memory.sample(batch_size, step)
-        assert len(indexes) == batch_size
+        (indices, batchs, weights) = memory.sample(batch_size, step)
+        assert len(indices) == batch_size
         assert len(batchs) == batch_size
         assert len(weights) == batch_size
 
@@ -52,7 +52,7 @@ def _speed_test(memory):
         assert len(li_uniq) == batch_size
 
         # update priority
-        memory.update(indexes, batchs, [random.random() for _ in range(batch_size)])
+        memory.update(indices, batchs, [random.random() for _ in range(batch_size)])
 
     print("{}: {}s".format(memory.__class__.__name__, time.time() - t0))
 

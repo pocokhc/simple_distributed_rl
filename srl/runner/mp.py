@@ -15,6 +15,23 @@ from srl.runner.callbacks_mp import MPCallback
 
 logger = logging.getLogger(__name__)
 
+"""
+RuntimeError:
+        An attempt has been made to start a new process before the
+        current process has finished its bootstrapping phase.
+        This probably means that you are not using fork to start your
+        child processes and you have forgotten to use the proper idiom
+        in the main module:
+
+            if __name__ == '__main__':
+                freeze_support()
+                ...
+
+        The "freeze_support()" line can be omitted if the program
+        is not going to be frozen to produce an executable.
+
+→ メイン関数に "if __name__ == '__main__':" を明示していないと表示されます。
+"""
 
 # --------------------
 # Config
@@ -139,6 +156,7 @@ def _run_worker(
         logger.debug(f"worker{worker_id} start")
 
         try:
+            config.callbacks.extend(mp_config.callbacks)
             config.callbacks.append(_InterruptEnd(train_end_signal))
             config.trainer_disable = True
 
@@ -243,16 +261,17 @@ def train(
     init_remote_memory: Optional[RLRemoteMemory] = None,
     return_memory: bool = False,
 ) -> Tuple[RLParameter, RLRemoteMemory]:
+    # TODO config copy
+
     with tf.device(mp_config.allocate_main):
 
         # config の初期化
         config.init_rl_config()
-
         MPManager.register("RemoteMemory", make_remote_memory(config.rl_config, None, get_class=True))
         MPManager.register("Board", Board)
 
         with MPManager() as manager:
-            return _train(
+            return_parameter, return_remote_memory = _train(
                 config,
                 mp_config,
                 init_parameter,
@@ -260,6 +279,8 @@ def train(
                 manager,
                 return_memory,
             )
+
+        return return_parameter, return_remote_memory
 
 
 def _train(
@@ -270,10 +291,8 @@ def _train(
     manager: MPManager,
     return_memory: bool,
 ):
-
     # config
     config.training = True
-    config.callbacks.extend(mp_config.callbacks)
     config.rl_config.assert_params()
 
     # callbacks

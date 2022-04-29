@@ -26,8 +26,13 @@ class RLConfig(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def set_config_by_env(self, env: "srl.base.env.env_for_rl.EnvForRL") -> None:
+    def _set_config_by_env(self, env: "srl.base.env.env_for_rl.EnvForRL") -> None:
         raise NotImplementedError()
+
+    def set_config_by_env(self, env: "srl.base.env.env_for_rl.EnvForRL") -> None:
+        self._set_config_by_env(env)
+        self.env_config = env.env_config
+        self._is_set_config_by_env = True
 
     @property
     def is_set_config_by_env(self) -> bool:
@@ -35,6 +40,10 @@ class RLConfig(ABC):
 
     def assert_params(self) -> None:
         pass
+
+    def copy(self) -> "RLConfig":
+        # TODO
+        return pickle.loads(pickle.dumps(self))
 
 
 class RLParameter(ABC):
@@ -140,7 +149,6 @@ class RLWorker(ABC):
         state: np.ndarray,
         invalid_actions: List[int],
         env: "srl.base.env.env_for_rl.EnvForRL",
-        start_player_indexes: List[int],
     ) -> None:
         raise NotImplementedError()
 
@@ -150,31 +158,22 @@ class RLWorker(ABC):
         state: np.ndarray,
         invalid_actions: List[int],
         env: "srl.base.env.env_for_rl.EnvForRL",
-        player_indexes: List[int],
-    ) -> Tuple[Any, Any]:  # (env_action, agent_action)
+    ) -> Any:
         raise NotImplementedError()
 
     @abstractmethod
     def on_step(
         self,
-        state: np.ndarray,
-        action: Any,
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        invalid_actions: List[int],
         next_invalid_actions: List[int],
         env: "srl.base.env.env_for_rl.EnvForRL",
     ) -> Dict[str, Union[float, int]]:  # info
         raise NotImplementedError()
 
     @abstractmethod
-    def render(
-        self,
-        state: np.ndarray,
-        invalid_actions: List[int],
-        env: "srl.base.env.env_for_rl.EnvForRL",
-    ) -> None:
+    def render(self, env: "srl.base.env.env_for_rl.EnvForRL") -> None:
         raise NotImplementedError()
 
 

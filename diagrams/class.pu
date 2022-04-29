@@ -34,20 +34,17 @@ abstract EnvBase {
     reset()
     step(action)
     render()
+    - action_type : EnvActionType
     - observation_type : EnvObservationType
     - max_episode_steps : int
+    - player_num : int
     - fetch_invalid_actions()
+    - sample()
     - backup()
     - restore()
-    - action_to_str()
 } 
 
 class EnvForRL
-
-abstract RLRemoteMemory {
-    backup()
-    restore()
-}
 
 
 abstract RLConfig {
@@ -58,28 +55,34 @@ abstract RLConfig {
     set_config_by_env(EnvForRL)
 }
 
+abstract RLRemoteMemory {
+    config : RLConfig
+    backup()
+    restore()
+}
+
 abstract RLParameter {
+    config : RLConfig
     restore()
     backup()
 }
 
 abstract RLTrainer {
     config : RLConfig
-    memory : RLRemoteMemory
-    board : ParameterBoard
-    get_train_count() : int
+    parameter : RLParameter
+    remote_memory : RLRemoteMemory
     train()
 }
 
 abstract RLWorker {
     config : RLConfig
-    memory : RLRemoteMemory
-    board : ParameterBoard
+    parameter : RLParameter
+    remote_memory : RLRemoteMemory
     worker_id : int
-    on_reset(state, invalid_actions)
-    policy(state, invalid_actions)
-    on_step(state, action, next_state, reward, done, invalid_actions, next_invalid_actions)
-    render(state, invalid_actions, action_to_str)
+    on_reset()
+    policy()
+    on_step()
+    render()
 }
 
 
@@ -89,12 +92,12 @@ EnvForRL -- EnvBase
 RLConfig -- RLWorker
 RLConfig -- RLTrainer
 RLConfig -- RLParameter
+RLConfig -- RLRemoteMemory
 RLParameter -- RLWorker
 RLParameter -- RLTrainer
 RLRemoteMemory -- RLWorker
 RLRemoteMemory -- RLTrainer
 
 RLWorker .. EnvForRL
-RLTrainer .. EnvForRL
 
 @enduml

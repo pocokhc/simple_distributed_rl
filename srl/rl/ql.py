@@ -2,7 +2,7 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, List, Tuple, cast
+from typing import Any, Dict, List, Union, cast
 
 import numpy as np
 from srl.base.env.env_for_rl import EnvForRL
@@ -63,11 +63,9 @@ class Parameter(RLParameter):
     def backup(self):
         return json.dumps(self.Q)
 
-    def get_action_values(self, state, invalid_actions, to_str: bool = True):
-        if to_str:
-            state = to_str_observaten(state)
+    def get_action_values(self, state: str, invalid_actions):
         if state not in self.Q:
-            self.Q[state] = [-np.inf if a in invalid_actions else 0 for a in range(self.config.nb_actions)]
+            self.Q[state] = [-np.inf if a in invalid_actions else 0.0 for a in range(self.config.nb_actions)]
         return self.Q[state]
 
 
@@ -100,8 +98,8 @@ class Trainer(RLTrainer):
             invalid_actions = batch["invalid_actions"]
             next_invalid_actions = batch["next_invalid_actions"]
 
-            q = self.parameter.get_action_values(s, invalid_actions, False)
-            n_q = self.parameter.get_action_values(n_s, next_invalid_actions, False)
+            q = self.parameter.get_action_values(s, invalid_actions)
+            n_q = self.parameter.get_action_values(n_s, next_invalid_actions)
 
             if done:
                 target_q = reward
@@ -134,62 +132,69 @@ class Worker(TableWorker):
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
+        self.state = to_str_observaten(state)
+        self.invalid_actions = invalid_actions
+
         if self.training:
             self.epsilon = self.config.epsilon
         else:
             self.epsilon = self.config.test_epsilon
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, Any]:
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+        self.state = to_str_observaten(state)
+        self.invalid_actions = invalid_actions
 
         if random.random() < self.epsilon:
             # epsilonより低いならランダムに移動
             action = random.choice([a for a in range(self.config.nb_actions) if a not in invalid_actions])
         else:
-            q = self.parameter.get_action_values(state, invalid_actions)
+            q = self.parameter.get_action_values(self.state, self.invalid_actions)
             q = np.asarray(q)
 
             # 最大値を選ぶ（複数あればランダム）
             action = random.choice(np.where(q == q.max())[0])
 
-        return action, action
+        self.action = int(action)
+        return self.action
 
     def call_on_step(
         self,
-        state: np.ndarray,
-        action: int,
-        next_state: np.ndarray,
+        next_state: Any,
         reward: float,
         done: bool,
-        invalid_actions: List[int],
         next_invalid_actions: List[int],
-    ):
+    ) -> Dict[str, Union[float, int]]:
         if not self.training:
             return {}
 
         batch = {
-            "state": to_str_observaten(state),
+            "state": self.state,
             "next_state": to_str_observaten(next_state),
-            "action": action,
+            "action": self.action,
             "reward": reward,
             "done": done,
-            "invalid_actions": invalid_actions,
+            "invalid_actions": self.invalid_actions,
             "next_invalid_actions": next_invalid_actions,
         }
         self.remote_memory.add(batch)
         return {}
 
-    def render(
-        self,
-        state: np.ndarray,
-        invalid_actions: List[int],
-        env: EnvForRL,
-    ) -> None:
-        q = self.parameter.get_action_values(state, invalid_actions)
+    def render(self, env: EnvForRL) -> None:
+        q = self.parameter.get_action_values(self.state, self.invalid_actions)
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
-            if a == maxa:
-                s = "*"
+            if len(self.invalid_actions) > 10:
+                if a in self.invalid_actions:
+                    continue
+                s = ""
             else:
-                s = " "
+                if a in self.invalid_actions:
+                    s = "x"
+                else:
+                    s = " "
+            if a == maxa:
+                s += "*"
+            else:
+                s += " "
             s += f"{env.action_to_str(a)}: {q[a]:7.5f}"
             print(s)

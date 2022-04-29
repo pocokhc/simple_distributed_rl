@@ -1,6 +1,6 @@
 import unittest
 
-from tests.envs.TestEnv import TestEnv  # noqa F402
+from srl.test import TestEnv
 
 
 class Test(unittest.TestCase):
@@ -8,14 +8,10 @@ class Test(unittest.TestCase):
         self.tester = TestEnv()
 
     def test_play(self):
-        self.tester.play_test(self, "ConnectX")
+        self.tester.play_test("ConnectX")
 
     def test_player(self):
-        for player in [
-            "negamax",
-        ]:
-            with self.subTest((player,)):
-                self.tester.play_player(self, "ConnectX", player)
+        self.tester.player_test("ConnectX", "negamax")
 
 
 if __name__ == "__main__":

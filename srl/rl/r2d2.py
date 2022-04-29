@@ -209,10 +209,10 @@ class Trainer(RLTrainer):
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
-        indexes, batchs, weights = self.remote_memory.sample(self.train_count, self.config.batch_size)
+        indices, batchs, weights = self.remote_memory.sample(self.train_count, self.config.batch_size)
         td_errors, loss = self._train_on_batchs(batchs, weights)
         priorities = np.abs(td_errors) + 0.0001
-        self.remote_memory.update(indexes, batchs, priorities)
+        self.remote_memory.update(indices, batchs, priorities)
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:

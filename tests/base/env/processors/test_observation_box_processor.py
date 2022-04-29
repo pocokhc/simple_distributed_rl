@@ -1,16 +1,17 @@
 import unittest
-from typing import Any
+from typing import Any, List, Tuple
 
 import gym
 import gym.spaces
 import numpy as np
+import srl
 from srl.base.define import EnvActionType, EnvObservationType, RLObservationType
-from srl.base.env.base import EnvBase
+from srl.base.env.genre.singleplay import SingleActionDiscrete
+from srl.base.env.processors import ObservationBoxProcessor
 from srl.base.env.registration import register
-from srl.rl.processor import ObservationBoxProcessor
 
 
-class StubEnv(EnvBase):
+class StubEnv(SingleActionDiscrete):
     def __init__(self, return_state):
         self.return_state: Any = return_state
         self.return_reward: float = 0
@@ -18,12 +19,8 @@ class StubEnv(EnvBase):
         self.return_info: Any = {}
 
     @property
-    def action_space(self) -> gym.spaces.Space:
-        return gym.spaces.Discrete(5)
-
-    @property
-    def action_type(self) -> EnvActionType:
-        return EnvActionType.DISCRETE
+    def action_num(self) -> int:
+        return len(5)
 
     @property
     def observation_space(self) -> gym.spaces.Space:
@@ -35,23 +32,16 @@ class StubEnv(EnvBase):
 
     @property
     def max_episode_steps(self) -> int:
-        return 0
+        return 10
 
-    @property
-    def player_num(self) -> int:
-        return 1
-
-    def reset(self):
+    def reset_single(self) -> np.ndarray:
         return self.return_state
 
-    def step(self, actions, player_indexes):
-        return [self.return_state], [self.return_reward], [0], self.return_done, self.return_info
+    def step_single(self, action_: int) -> Tuple[Any, float, bool, dict]:
+        return self.return_state, self.return_reward, self.return_done, self.return_info
 
-    def fetch_invalid_actions(self):
-        return [[]]
-
-    def render(self, mode: str = "human"):
-        return
+    def render_terminal(self):
+        pass
 
     def backup(self):
         pass
@@ -127,7 +117,7 @@ class Test(unittest.TestCase):
 
     def test_Box_continuous(self):
         self.processor.prediction_by_simulation = True
-        self.processor.env_name = "StubEnv_continuous"
+        self.processor.env_config = srl.envs.Config("StubEnv_continuous")
 
         space = gym.spaces.Box(low=-1, high=4, shape=(2, 2))
 
@@ -140,7 +130,7 @@ class Test(unittest.TestCase):
 
     def test_Box_discrete(self):
         self.processor.prediction_by_simulation = True
-        self.processor.env_name = "StubEnv_discrete"
+        self.processor.env_config = srl.envs.Config("StubEnv_discrete")
 
         space = gym.spaces.Box(low=-1, high=4, shape=(2, 2))
 
@@ -153,5 +143,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    name = "test_Box_discrete"
-    unittest.main(module=__name__, defaultTest="Test." + name, verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_Box_discrete", verbosity=2)

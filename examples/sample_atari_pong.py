@@ -2,7 +2,7 @@ import os
 
 import srl
 from srl.base.define import EnvObservationType, RenderType
-from srl.rl.processor import ImageProcessor
+from srl.base.env.processors import ImageProcessor
 from srl.runner import mp, sequence
 from srl.runner.callbacks import PrintProgress, Rendering
 from srl.runner.callbacks_mp import TrainFileLogger
@@ -10,17 +10,16 @@ from srl.runner.callbacks_mp import TrainFileLogger
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
-def main_use_runner(is_mp):
-    config = sequence.Config(
-        env_name="ALE/Pong-v5",
-        rl_config=srl.rl.rainbow.Config(window_length=4, multisteps=10),
-    )
+def main(is_mp):
+    env_config = srl.envs.Config("ALE/Pong-v5")
+    rl_config = srl.rl.rainbow.Config(window_length=4, multisteps=10)
+    config = sequence.Config(env_config, rl_config)
 
     # atari config
+    env_config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
+    env_config.override_env_observation_type = EnvObservationType.COLOR
     config.skip_frames = 4
     config.max_episode_steps = 100
-    config.override_env_observation_type = EnvObservationType.COLOR
-    config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
 
     # (option) print tensorflow model
     config.model_summary()
@@ -36,10 +35,11 @@ def main_use_runner(is_mp):
     else:
         # distibute training
         mp_config = mp.Config(worker_num=2)
+        config.set_train_config()
         mp_config.set_train_config(
             timeout=60 * 60, callbacks=[TrainFileLogger(enable_log=True, enable_checkpoint=False)]
         )
-        parameter = mp.train(config, mp_config)
+        parameter, memory = mp.train(config, mp_config)
 
     # save parameter
     # parameter.save("tmp/Rainbow_params.dat")
@@ -59,5 +59,5 @@ def main_use_runner(is_mp):
 
 if __name__ == "__main__":
 
-    # main_use_runner(is_mp=False)
-    main_use_runner(is_mp=True)
+    main(is_mp=False)
+    # main(is_mp=True)

@@ -57,7 +57,7 @@ class RankBaseMemory(Memory):
         batch = _bisect_wrapper(batch, priority)
         bisect.insort(self.memory, batch)
 
-    def update(self, indexes: List[int], batchs: List[Any], priorities: List[float]) -> None:
+    def update(self, indices: List[int], batchs: List[Any], priorities: List[float]) -> None:
         for i in range(len(batchs)):
 
             batch = _bisect_wrapper(batchs[i], priorities[i])
@@ -67,7 +67,7 @@ class RankBaseMemory(Memory):
                 self.max_priority = priorities[i]
 
     def sample2(self, batch_size, step):
-        indexes = [0 for _ in range(batch_size)]
+        indices = [0 for _ in range(batch_size)]
         batchs = []
         weights = np.ones(batch_size, dtype="float32")
 
@@ -99,10 +99,10 @@ class RankBaseMemory(Memory):
         # 安定性の理由から最大値で正規化
         weights = weights / weights.max()
 
-        return (indexes, batchs, weights)
+        return (indices, batchs, weights)
 
     def sample(self, batch_size, step):
-        indexes = [0 for _ in range(batch_size)]
+        indices = [0 for _ in range(batch_size)]
         batchs = []
         weights = np.ones(batch_size, dtype="float32")
 
@@ -143,7 +143,7 @@ class RankBaseMemory(Memory):
         # 安定性の理由から最大値で正規化
         weights = weights / weights.max()
 
-        return (indexes, batchs, weights)
+        return (indices, batchs, weights)
 
     def __len__(self):
         return len(self.memory)

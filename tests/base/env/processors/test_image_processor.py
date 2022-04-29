@@ -4,7 +4,7 @@ import gym
 import gym.spaces
 import numpy as np
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.rl.processor.image_processor import ImageProcessor
+from srl.base.env.processors import ImageProcessor
 
 
 class Test(unittest.TestCase):

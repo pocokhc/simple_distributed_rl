@@ -32,14 +32,14 @@ class ReplayMemory(Memory):
         self.memory[self.index] = batch
         self.index = (self.index + 1) % self.capacity
 
-    def update(self, indexes: List[int], batchs: List[Any], priorities: List[float]) -> None:
+    def update(self, indices: List[int], batchs: List[Any], priorities: List[float]) -> None:
         pass
 
     def sample(self, batch_size, step):
         batchs = random.sample(self.memory, batch_size)
-        indexes = [0 for _ in range(batch_size)]
+        indices = [0 for _ in range(batch_size)]
         weights = [1 for _ in range(batch_size)]
-        return (indexes, batchs, weights)
+        return (indices, batchs, weights)
 
     def __len__(self) -> int:
         return len(self.memory)

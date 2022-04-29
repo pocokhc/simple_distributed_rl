@@ -134,11 +134,11 @@ class Grid(SingleActionDiscrete):
     def reset_single(self) -> np.ndarray:
         self.player_pos = (1, 3)
         self.return_state = self._create_field(self.player_pos, self.state_type)
-        return self.return_state
+        return np.asarray(self.return_state)
 
     def _create_field(self, player_pos, state_type) -> Any:
         if state_type == "pos":
-            return np.asarray(player_pos)
+            return player_pos
 
         field = json.loads(json.dumps(self.base_field))  # deepcopy
 
@@ -152,7 +152,7 @@ class Grid(SingleActionDiscrete):
                 for x in range(self.W):
                     if field[y][x] == 9:
                         field[y][x] = random.randint(-1, 9)
-        return np.asarray(field)
+        return field
 
     def backup(self) -> Any:
         return json.dumps(
@@ -167,7 +167,7 @@ class Grid(SingleActionDiscrete):
         self.player_pos = d[0]
         self.return_state = d[1]
 
-    def step_single(self, action_: int) -> Tuple[Any, float, bool, dict]:
+    def step_single(self, action_: int) -> Tuple[np.ndarray, float, bool, dict]:
         action = Action(action_)
 
         items = self.action_probs[action].items()
@@ -179,7 +179,7 @@ class Grid(SingleActionDiscrete):
         reward, done = self.reward_done_func(self.player_pos)
 
         self.return_state = self._create_field(self.player_pos, self.state_type)
-        return self.return_state, reward, done, {}
+        return np.asarray(self.return_state), reward, done, {}
 
     def render_terminal(self):
         if self.state_type == "pos":
@@ -199,7 +199,7 @@ class Grid(SingleActionDiscrete):
                 elif n == -1:  # 穴
                     s += "X"
                 elif n == 9:  # 壁
-                    s += "O"
+                    s += "."
                 else:
                     s += str(n)
             print(s)

@@ -125,7 +125,7 @@ class TrainFileLogger(MPCallback):
 
         # init
         dir_name = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-        dir_name += f"_{config.env_name}_{config.rl_config.getName()}"
+        dir_name += f"_{config.env_config.name}_{config.rl_config.getName()}"
         self.base_dir = os.path.join(os.path.abspath(self.dir_path), dir_name)
         logger.debug(f"save path: {self.base_dir}")
 
@@ -403,7 +403,7 @@ class TrainFileLogger(MPCallback):
         self,
         episode_count,
         env_info,
-        worker_indexes,
+        worker_indices,
         work_info_list,
         step_time,
         **kwargs,
@@ -411,7 +411,7 @@ class TrainFileLogger(MPCallback):
         _time = time.time()
         self.elapsed_time = _time - self.t0  # 経過時間
 
-        worker_idx = worker_indexes[self.print_worker]
+        worker_idx = worker_indices[self.print_worker]
         self.history_step.append(
             {
                 "episode_count": episode_count,
@@ -436,12 +436,12 @@ class TrainFileLogger(MPCallback):
         episode_rewards,
         episode_time,
         remote_memory,
-        worker_indexes,
+        worker_indices,
         **kwargs,
     ):
         if len(self.history_step) == 0:
             return
-        worker_idx = worker_indexes[self.print_worker]
+        worker_idx = worker_indices[self.print_worker]
 
         # 1エピソードの結果を平均でまとめる
         if self.enable_print_progress or self.enable_log:

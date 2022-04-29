@@ -2,13 +2,7 @@ import logging
 import random
 from typing import Any, Dict, List, Union, cast
 
-from srl.base.rl.algorithms.rulebase import (
-    RuleBaseConfig,
-    RuleBaseParamete,
-    RuleBaseRemoteMemory,
-    RuleBaseTrainer,
-    RuleBaseWorker,
-)
+from srl.base.rl.algorithms.rulebase import RuleBaseConfig, RuleBaseParamete, RuleBaseRemoteMemory, RuleBaseTrainer
 from srl.base.rl.base import RLWorker
 from srl.base.rl.registration import register
 
@@ -53,8 +47,7 @@ class Worker(RLWorker):
         pass
 
     def policy(self, state, invalid_actions, *args, **kwargs):
-        action = random.choice([a for a in range(self.config.env_action_space.n) if a not in invalid_actions])
-        return action, action
+        return random.choice([a for a in range(self.config.env_action_space.n) if a not in invalid_actions])
 
     def on_step(self, *args, **kwargs) -> Dict[str, Union[float, int]]:
         return {}

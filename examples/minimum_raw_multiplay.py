@@ -1,8 +1,6 @@
 import numpy as np
 import srl
-from srl.base.env.env_for_rl import EnvForRL
 from srl.base.rl.registration import make_worker
-from srl.rl.processor import ContinuousProcessor, DiscreteProcessor, ObservationBoxProcessor
 
 
 def _run_episode(
@@ -12,65 +10,49 @@ def _run_episode(
     rendering=False,
 ):
     # --- env
-    states, player_indexes = env.reset()
+    state, next_player_indices = env.reset()
+
     done = False
     step = 0
     total_rewards = np.zeros(env.player_num)
-    invalid_actions_list = env.fetch_invalid_actions()
-    env_actions = [None for _ in range(env.player_num)]
 
     if rendering:
         print("step 0")
         env.render()
 
     # --- players
-    players = [
-        {
-            "status": "INIT",
-            "state": None,
-            "action": None,
-            "invalid_actions": None,
-            "reward": 0,
-            "worker": workers[i],
-        }
-        for i in range(env.player_num)
-    ]
-    work_info_list = [None for _ in range(env.player_num)]
+    players_status = ["INIT" for _ in range(env.player_num)]
+    players_step_reward = np.zeros(env.player_num)
+    worker_info_list = [None for _ in range(env.player_num)]
 
     while True:
 
         # --- rl before step
-        for i in player_indexes:
-            worker = players[i]["worker"]
+        actions = []
+        for idx in next_player_indices:
+            invalid_actions = env.fetch_invalid_actions(idx)
 
             # --- rl init
-            if players[i]["status"] == "INIT":
-                worker.on_reset(states[i], invalid_actions_list[i], env, player_indexes)
-                players[i]["status"] = "RUNNING"
+            if players_status[idx] == "INIT":
+                workers[idx].on_reset(state, invalid_actions, env)
+                players_status[idx] = "RUNNING"
 
             if rendering:
-                print(f"player {i}")
-                players[i]["worker"].render(states[i], invalid_actions_list[i], env)
+                print(f"player {idx}")
+                workers[idx].render(env)
 
             # --- rl action
-            env_action, worker_action = worker.policy(states[i], invalid_actions_list[i], env, player_indexes)
-            assert env_action not in invalid_actions_list[i]
-
-            env_actions[i] = env_action
-            players[i]["state"] = states[i]
-            players[i]["action"] = worker_action
-            players[i]["invalid_actions"] = invalid_actions_list[i]
-            players[i]["reward"] = 0
+            action = workers[idx].policy(state, invalid_actions, env)
+            actions.append(action)
 
         # --- env step
-        next_states, rewards, next_player_indexes, done, env_info = env.step(env_actions, player_indexes)
+        state, rewards, done, next_player_indices, env_info = env.step(actions)
         step += 1
-        total_rewards += np.asarray(rewards)
-        next_invalid_actions_list = env.fetch_invalid_actions()
 
         # update reward
-        for i in range(len(rewards)):
-            players[i]["reward"] += rewards[i]
+        rewards = np.asarray(rewards)
+        total_rewards += rewards
+        players_step_reward += rewards
 
         # done
         if step > env.max_episode_steps:
@@ -79,20 +61,20 @@ def _run_episode(
         # --- rl after step
         if done:
             # 終了の場合は全playerを実行
-            next_player_indexes = [i for i in range(env.player_num)]
-        for i in next_player_indexes:
-            if players[i]["status"] == "RUNNING":
-                work_info = players[i]["worker"].on_step(
-                    players[i]["state"],
-                    players[i]["action"],
-                    next_states[i],
-                    players[i]["reward"],
-                    done,
-                    players[i]["invalid_actions"],
-                    next_invalid_actions_list[i],
-                    env,
-                )
-                work_info_list[i] = work_info
+            next_player_indices = [i for i in range(env.player_num)]
+        for idx in next_player_indices:
+            if players_status[idx] != "RUNNING":
+                continue
+            invalid_actions = env.fetch_invalid_actions(idx)
+
+            worker_info_list[idx] = workers[idx].on_step(
+                state,
+                players_step_reward[idx],
+                done,
+                invalid_actions,
+                env,
+            )
+            players_step_reward[idx] = 0
 
         # --- trainer
         if trainer is not None:
@@ -103,42 +85,32 @@ def _run_episode(
         # --- render
         if rendering:
             print(
-                "turn {}, player {}, rewards: {}, done: {}, info: {}, ".format(
-                    step, player_indexes, rewards, done, env_info
+                "turn {}, actions {}, rewards: {}, done: {}, next player {}, info: {}, ".format(
+                    step, actions, rewards, done, next_player_indices, env_info
                 )
             )
-            for i in player_indexes:
-                print("player {} action {}, info: {}".format(i, env_actions[i], work_info_list[i]))
+            for i in next_player_indices:
+                print("player {} info: {}".format(i, worker_info_list[i]))
             print("train info: {}".format(train_info))
             env.render()
 
         # step after
         if done:
             break
-        states = next_states
-        invalid_actions_list = next_invalid_actions_list
-        player_indexes = next_player_indexes
 
     return step, total_rewards
 
 
 def main():
 
-    env_name = "OX"
+    env_config = srl.envs.Config("OX")
     rl_config = srl.rl.ql.Config()
 
-    # env processors
-    processors = [
-        ObservationBoxProcessor(),
-        DiscreteProcessor(),
-        ContinuousProcessor(),
-    ]
-
+    # check rl_config
     rl_config.assert_params()
 
     # env init
-    env = srl.envs.make(env_name)
-    env = EnvForRL(env, rl_config, processors=processors)
+    env = srl.envs.make(env_config, rl_config)
 
     # rl init
     remote_memory, parameter, trainer, worker = srl.rl.make(rl_config, env)

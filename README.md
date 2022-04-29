@@ -5,9 +5,10 @@
 どちらかというと強化学習の学習用フレームワークです。  
 以下の特徴があります。  
 
-+ 分散強化学習のサポート
 + カスタマイズ可能な環境
 + カスタマイズ可能な強化学習アルゴリズム
++ 環境とアルゴリズム間のインタフェースの自動調整
++ 分散強化学習のサポート
 
 
 # Install
@@ -26,7 +27,7 @@ cd simplr_rl
 pip install .
 
 # run sample
-python examples/sample_minimum_runner.py
+python examples/minimum_runner.py
 ```
 
 
@@ -35,7 +36,7 @@ python examples/sample_minimum_runner.py
 # Usage
 
 ``` python
-from srl import rl
+import srl
 from srl.runner import mp, sequence
 from srl.runner.callbacks import PrintProgress, Rendering
 from srl.runner.callbacks_mp import TrainFileLogger
@@ -44,56 +45,106 @@ from srl.runner.callbacks_mp import TrainFileLogger
 # Configのパラメータは、引数補完または元コードを参照してください。
 # For the parameters of Config, refer to the argument completion or the original code.
 #
-# rl.xxx.Config   : Algorithm hyperparameters
-# sequence.Config : Basic Running Config
-# mp.Config       : Distributed training Config
+# srl.envs.Config   : Env processors Config
+# srl.rl.xxx.Config : Algorithm hyperparameters
+# sequence.Config   : Basic Running Config
+# mp.Config         : Distributed training Config
 #---------------------
+
+# env config
+env_config = srl.envs.Config("FrozenLake-v1")
 
 # rl algorithm config
 rl_config = rl.ql.Config()
 
 # running config
-config = sequence.Config(
-    env_name="FrozenLake-v1",  # select env
-    rl_config=rl_config,
-)
+config = sequence.Config(env_config, rl_config)
+
+# (option) load parameter
+# config.set_parameter_path(parameter_path="params.dat")
 
 # --- train
 if True:
     # sequence training
-    config.set_play_config(timeout=60, training=True, callbacks=[PrintProgress()])
-    episode_rewards, parameter, memory = sequence.play(config)
+    config.set_train_config(timeout=60, callbacks=[PrintProgress()])
+    parameter, memory = sequence.train(config)
 else:
     # distribute training
-    mp_config = mp.Config(worker_num=2)  # select distribute config
-    mp_config.set_train_config(timeout=60, callbacks=[TrainFileLogger(enable_log=True, enable_checkpoint=False)])
-    parameter = mp.train(config, mp_config)
+    mp_config = mp.Config(worker_num=2)  # distribute config
+    config.set_train_config()
+    mp_config.set_train_config(timeout=60, callbacks=[TrainFileLogger(enable_log=False, enable_checkpoint=False)])
+    parameter, memory = mp.train(config, mp_config)
+
+# (option) save parameter
+# parameter.save("params.dat")
 
 # --- test
 config.set_play_config(max_episodes=10, callbacks=[PrintProgress()])
-sequence.play(config, parameter)
+rewards, _, _ = sequence.play(config, parameter)
+print(f"test reward mean: {np.mean(rewards)}")
 
 # --- test(rendering)
-config.set_play_config(max_episodes=1, callbacks=[Rendering()])
+render = Rendering(step_stop=True)
+config.set_play_config(max_episodes=1, callbacks=[render])
 sequence.play(config, parameter)
 ```
 
 
-# Examples
+# Interfaces
+## Env
 
-実装例は以下のファイルを参照してください。
+すべてのEnvは "srl.base.env.EnvBase" クラスを継承します。
+EnvBaseは複数人でやるターン制のゲーム(環境)を想定しています。
 
-|path                      |   |
-|--------------------------|---|
-|examples/sample_minimum_raw_sequence.py|逐次学習の最低限の実装内容|
-|examples/sample_minimum_raw_mp.py      |分散学習の最低限の実装内容|
-|examples/sample_minimum_runner.py      |runnerを使う場合の最低限の実装内容|
-|examples/sample_custom.py       |自作環境を使った実行例|
-|examples/env/my_env_gym.py      |GymEnvの実装例|
-|examples/env/my_env.py          |本ライブラリ用のEnvの実装例|
-|examples/rl/my_rl_table.py      |アルゴリズムの実装例(テーブル形式)|
-|examples/rl/my_rl_discrete_action.py|アルゴリズムの実装例(ニューラルネット、離散行動空間))|
-|examples/rl/my_rl_continuous_action.py|アルゴリズムの実装例(ニューラルネット、連続行動空間)|
+各環境に特化した基底クラスは以下です。（今後増える可能性があります）
+
+|Name                         |Player|ObservationType|ActionType|ex|
+|-----------------------------|------|---------------|----------|---|
+|SingleActionDiscrete         |     1|            Any|  Discrete|Atari games|
+|SingleActionContinuous       |     1|            Any|Continuous|Pendulum-v1|
+|TurnBase2PlayerActionDiscrete|     2|            Any|  Discrete|OX|
+
+
+## RL
+
+すべてのRLは分散学習に対応するため、以下のクラスを継承します。
+
+``` python
+srl.base.rl.base.RLConfig
+srl.base.rl.base.RLRemoteMemory
+srl.base.rl.base.RLParameter
+srl.base.rl.base.RLTrainer
+srl.base.rl.base.RLWorker
+```
+
+各アルゴリズムに特化した基底クラスは以下です。（今後増える可能性があります）
+
+|Name                |ObservationType|ActionType|              Config|       Worker|ex|
+|--------------------|---------------|----------|--------------------|--------------------|---|
+|Table               |       Discrete|  Discrete|TableConfig         |TableWorker         |QL|
+|NeuralnetDiscrete   |     Continuous|  Discrete|DiscreteActionConfig|DiscreteActionWorker|DQN|
+|NeuralnetContinuous|     Continuous|  Continuous|ContinuousActionConfig|ContinuousActionWorker|SAC|
+|AlphaZero          |     TODO|  TODO| TODO| TODO|MCTS|
+|ModelBase          |     TODO|  TODO| TODO| TODO|DynaQ|
+|WorldModels        |     TODO|  TODO| TODO| TODO|WorldModels|
+
+
+* RLParameter, RLTrainer
+RLParameterとRLTrainerは現状特化したクラスはありません。
+
+* RemoteMemroy
+RemoteMemroyはアルゴリズムに依存しない部分が大きいので別途定義しています。
+
+|Name                    ||
+|------------------------|---|
+|SequenceRemoteMemory    |経験を順番通りに取り出す|
+|ExperienceReplayBuffer  |経験をランダムに取り出す|
+|PriorityExperienceReplay|経験を優先順位に基づいて取り出す|
+
+
+* RuleBase
+強化学習以外の手法としてルールベースのアルゴリズムもサポートしています。
+
 
 
 
@@ -102,7 +153,7 @@ sequence.play(config, parameter)
 ## Model Free
 ### Value Base
 
-|Algorithm|Algorithm Type|Observation Type|Action Type|Progress Rate||Paper|
+|Algorithm|AlgorithmType|ObservationType|ActionType|ProgressRate||Paper|
 |---------|-----|--------------|----------------|----------|-------------|---|
 |QL       |Table    |Discrete  |Discrete  |100%|Basic Q Learning||
 |QL_agent57|Table   |Discrete  |Discrete  |100%|QL + Agent57|
@@ -116,14 +167,14 @@ sequence.play(config, parameter)
 
 ### Policy Base/ActorCritic
 
-|Algorithm|Algorithm Type|Observation Type|Action Type|Progress Rate||Paper|
+|Algorithm|AlgorithmType|ObservationType|ActionType|ProgressRate||Paper|
 |---------|-----|--------------|----------------|----------|-------------|---|
 |SAC      |NeuralNet|Continuous|Continuous| 70%||[Paper](https://arxiv.org/abs/1812.05905)|
 
 
 ## Model Base
 
-|Algorithm|Algorithm Type|Observation Type|Action Type|Progress Rate||Paper|
+|Algorithm|Algorithm Type|ObservationType|ActionType|ProgressRate||Paper|
 |---------|-----|--------------|----------------|----------|-------------|---|
 |MCTS      |Table|Discrete|Discrete| 100%|Single play||
 |AlphaZero |Table+NeuralNet|Continuous|Discrete| -%|Single play|[Paper](https://arxiv.org/abs/1712.01815)|
@@ -131,30 +182,47 @@ sequence.play(config, parameter)
 |DynaQ |Table|Discrete|Discrete| 90%|||
 
 
+# Envs
+
+|Name|Player|ObservationType|ActionType|   |
+|----|------|----------------|-----------|---|
+|(gym)|     1|             Any|        Any|Open AI Gym に登録されている環境全般|
+|Grid|     1|        Discrete|   Discrete|baseline|
+|IGrid|    1|        Discrete|   Discrete||
+|OX|    2|        Discrete|   Discrete||
 
 
 
 
 # Diaglams
-## Sequence flow
+## SinglePlay flow
 
-![sequence diagram](diagrams/sync_flow.png)
+![](diagrams/singleplay_flow.png)
 
 ## Distribute flow
 
 * main
 
-![sequence diagram](diagrams/runner_mp_flow.png)
+![](diagrams/runner_mp_flow.png)
 
 * Trainer
 
-![sequence diagram](diagrams/runner_mp_flow_trainer.png)
+![](diagrams/runner_mp_flow_trainer.png)
 
 * Workers
 
-![sequence diagram](diagrams/runner_mp_flow_worker.png)
+![](diagrams/runner_mp_flow_worker.png)
+
+## MultiPlay flow
+
+![](diagrams/multiplay_flow.png)
+
 
 ## Class diagram
 
-![sequence diagram](diagrams/class.png)
+![](diagrams/class.png)
 
+
+## EnvForRL flow
+
+![](diagrams/env_flow.png)

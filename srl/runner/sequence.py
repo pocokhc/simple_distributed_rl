@@ -8,12 +8,9 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import srl.envs
 import srl.rl
-from srl.base.define import EnvObservationType
-from srl.base.env.env_for_rl import EnvForRL
+from srl.base.env.env_for_rl import EnvConfig, EnvForRL
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLWorker
-from srl.base.rl.processor import Processor
 from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer, make_worker
-from srl.rl.processor import ContinuousProcessor, DiscreteProcessor, ObservationBoxProcessor
 from srl.runner.callbacks import Callback
 
 logger = logging.getLogger(__name__)
@@ -22,9 +19,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Config:
 
-    env_name: str
+    env_config: EnvConfig
     rl_config: RLConfig
-    env_kwargs: Dict = field(default_factory=dict)
 
     # multi player option
     players: List[Optional[RLConfig]] = field(default_factory=list)
@@ -39,13 +35,6 @@ class Config:
     max_episodes: int = -1
     timeout: int = -1
     training: bool = False
-
-    # EnvForRL parameter
-    override_env_observation_type: EnvObservationType = EnvObservationType.UNKOWN
-    prediction_by_simulation: bool = True
-    action_division_num: int = 5
-    observation_division_num: int = 50
-    processors: List[Processor] = field(default_factory=list)
 
     # callbacks
     callbacks: List[Callback] = field(default_factory=list)
@@ -112,22 +101,7 @@ class Config:
 
     def make_env(self) -> EnvForRL:
 
-        processors = self.processors[:]
-        processors.extend(
-            [
-                ObservationBoxProcessor(self.prediction_by_simulation, self.env_name),
-                DiscreteProcessor(self.action_division_num, self.observation_division_num),
-                ContinuousProcessor(),
-            ]
-        )
-        env = srl.envs.make(self.env_name, self.env_kwargs)
-        env = EnvForRL(
-            env,
-            self.rl_config,
-            self.override_env_observation_type,
-            self.prediction_by_simulation,
-            processors,
-        )
+        env = srl.envs.make(self.env_config, self.rl_config)
 
         if len(self.players) == 0:
             for i in range(env.player_num):
@@ -259,6 +233,8 @@ def play(
     Tuple[float, RLParameter, RLRemoteMemory],  # single play
     Tuple[List[float], RLParameter, RLRemoteMemory],  # multi play
 ]:
+    # TODO config copy
+
     if env is None:
         env = config.make_env()
     config.assert_params()
@@ -274,20 +250,6 @@ def play(
 
     # workers
     workers = [config.make_player(i, parameter, remote_memory, worker_id, env) for i in range(env.player_num)]
-    worker_indexes = [i for i in range(env.player_num)]
-
-    # players
-    players = [
-        {
-            "status": "INIT",
-            "state": None,
-            "action": None,
-            "invalid_actions": None,
-            "reward": 0,
-            "worker_idx": i,
-        }
-        for i in range(env.player_num)
-    ]
 
     # callback
     _params = {
@@ -298,8 +260,6 @@ def play(
         "trainer": trainer,
         "worker_id": worker_id,
         "workers": workers,
-        "worker_indexes": worker_indexes,
-        "players": players,
     }
     [c.on_episodes_begin(**_params) for c in callbacks]
 
@@ -311,7 +271,6 @@ def play(
     total_step = 0
     t0 = time.time()
     done = True
-    env_actions = [None for _ in range(env.player_num)]
     work_info_list = [None for _ in range(env.player_num)]
 
     # --- loop
@@ -328,7 +287,7 @@ def play(
             break
 
         # ------------------------
-        # episode end
+        # episode end / init
         # ------------------------
         if done:
             episode_count += 1
@@ -337,87 +296,74 @@ def play(
                 break  # end
 
             # env reset
-            states, player_indexes = env.reset()
+            episode_t0 = _time
+            state, next_player_indices = env.reset()
             done = False
             step = 0
             episode_rewards = np.zeros(env.player_num)
-            invalid_actions_list = env.fetch_invalid_actions()
-            episode_t0 = _time
 
             # players reset
-            for i in range(env.player_num):
-                players[i]["status"] = "INIT"
-                players[i]["state"] = states[i]
-                players[i]["invalid_actions"] = invalid_actions_list[i]
-                players[i]["action"] = None
-                players[i]["reward"] = 0
+            players_status = ["INIT" for _ in range(env.player_num)]
+            players_step_reward = np.zeros(env.player_num)
+            worker_info_list = [None for _ in range(env.player_num)]
+            worker_indices = [i for i in range(env.player_num)]
 
             if config.shuffle_player:
-                random.shuffle(worker_indexes)
-                for i in range(env.player_num):
-                    players[i]["worker_idx"] = worker_indexes[i]
+                random.shuffle(worker_indices)
 
             # callback
             _params["episode_count"] = episode_count
-            _params["states"] = states
-            _params["invalid_actions_list"] = invalid_actions_list
-            _params["player_indexes"] = player_indexes
-            _params["worker_indexes"] = worker_indexes
+            _params["state"] = state
+            _params["next_player_indices"] = next_player_indices
+            _params["worker_indices"] = worker_indices
             [c.on_episode_begin(**_params) for c in callbacks]
 
         # ------------------------
         # step
         # ------------------------
+        invalid_actions_list = [env.fetch_invalid_actions(idx) for idx in next_player_indices]
 
         # --- rl init
-        for i in player_indexes:
-            if players[i]["status"] == "INIT":
-                worker = workers[players[i]["worker_idx"]]
-                worker.on_reset(states[i], invalid_actions_list[i], env, player_indexes)
-                players[i]["status"] = "RUNNING"
+        for i, idx in enumerate(next_player_indices):
+            if players_status[idx] == "INIT":
+                worker_idx = worker_indices[idx]
+                workers[worker_idx].on_reset(state, invalid_actions_list[i], env)
+                players_status[idx] = "RUNNING"
 
         # callback
         _params["step"] = step
         [c.on_step_begin(**_params) for c in callbacks]
 
         # --- rl action
-        for i in player_indexes:
-            worker = workers[players[i]["worker_idx"]]
-
-            env_action, worker_action = worker.policy(states[i], invalid_actions_list[i], env, player_indexes)
-            assert env_action not in invalid_actions_list[i]
-
-            env_actions[i] = env_action
-            players[i]["state"] = states[i]
-            players[i]["action"] = worker_action
-            players[i]["invalid_actions"] = invalid_actions_list[i]
-            players[i]["reward"] = 0
+        actions = []
+        for i, idx in enumerate(next_player_indices):
+            worker_idx = worker_indices[idx]
+            action = workers[worker_idx].policy(state, invalid_actions_list[i], env)
+            actions.append(action)
 
         # --- env step
         # skip frame の間は同じアクションを繰り返す
         rewards = np.zeros(env.player_num)
         for j in range(config.skip_frames + 1):
-            next_states, step_rewards, next_player_indexes, done, env_info = env.step(env_actions, player_indexes)
+            state, step_rewards, done, next_player_indices, env_info = env.step(actions)
             rewards += np.asarray(step_rewards)
             if done:
                 break
 
             # callback
             if j < config.skip_frames:
-                _params["states"] = next_states
-                _params["rewards"] = rewards
+                _params["state"] = state
+                _params["step_rewards"] = step_rewards
                 _params["done"] = done
                 _params["env_info"] = env_info
                 [c.on_skip_step(**_params) for c in callbacks]
 
-        episode_rewards += rewards
         step += 1
         total_step += 1
-        next_invalid_actions_list = env.fetch_invalid_actions()
 
         # update reward
-        for i in range(len(rewards)):
-            players[i]["reward"] += rewards[i]
+        episode_rewards += rewards
+        players_step_reward += rewards
 
         # --- episode end
         if step >= env.max_episode_steps:
@@ -430,24 +376,16 @@ def play(
         # --- rl after step
         if done:
             # 終了の場合は全playerを実行
-            _next_player_indexes = [i for i in range(env.player_num)]
-        else:
-            _next_player_indexes = next_player_indexes
-        for i in _next_player_indexes:
-            # 初期化済みのplayerのみ実行
-            if players[i]["status"] == "RUNNING":
-                worker = workers[players[i]["worker_idx"]]
-                work_info = worker.on_step(
-                    players[i]["state"],
-                    players[i]["action"],
-                    next_states[i],
-                    players[i]["reward"],
-                    done,
-                    players[i]["invalid_actions"],
-                    next_invalid_actions_list[i],
-                    env,
-                )
-                work_info_list[i] = work_info
+            next_player_indices = [i for i in range(env.player_num)]
+        for idx in next_player_indices:
+            if players_status[idx] != "RUNNING":
+                continue
+            invalid_actions = env.fetch_invalid_actions(idx)
+            worker_idx = worker_indices[idx]
+            worker_info_list[worker_idx] = workers[worker_idx].on_step(
+                state, players_step_reward[idx], done, invalid_actions, env
+            )
+            players_step_reward[idx] = 0
 
         # --- trainer
         if config.training and trainer is not None:
@@ -461,9 +399,8 @@ def play(
         # callback
         _params["step"] = step
         _params["step_time"] = time.time() - _time
-        _params["states"] = next_states
-        _params["actions"] = env_actions
-        _params["invalid_actions_list"] = next_invalid_actions_list
+        _params["state"] = state
+        _params["actions"] = actions
         _params["rewards"] = rewards
         _params["done"] = done
         _params["env_info"] = env_info
@@ -485,10 +422,6 @@ def play(
         # callback end
         if True in [c.intermediate_stop(**_params) for c in callbacks]:
             break
-
-        states = next_states
-        invalid_actions_list = next_invalid_actions_list
-        player_indexes = next_player_indexes
 
     # callback
     _params["episode_count"] = episode_count

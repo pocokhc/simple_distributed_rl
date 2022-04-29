@@ -18,10 +18,9 @@ class RuleBaseConfig(RLConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.ANY
 
-    def set_config_by_env(self, env: "srl.base.rl.env_for_rl.EnvForRL") -> None:
+    def _set_config_by_env(self, env: "srl.base.rl.env_for_rl.EnvForRL") -> None:
         self.env_observation_type = env.observation_type
         self.env_action_space = env.action_space
-        self._is_set_config_by_env = True
 
 
 class RuleBaseParamete(RLParameter):
@@ -44,10 +43,15 @@ class RuleBaseRemoteMemory(RLRemoteMemory):
 
 
 class RuleBaseTrainer(RLTrainer):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.train_count = 0
+
     def get_train_count(self) -> int:
-        return 0
+        return self.train_count
 
     def train(self) -> Dict[str, Any]:
+        self.train_count += 1
         return {}
 
 
@@ -61,7 +65,6 @@ class RuleBaseWorker(RLWorker):
         state: np.ndarray,
         invalid_actions: List[int],
         env: "srl.base.rl.env_for_rl.EnvForRL",
-        start_player_indexes: List[int],
     ) -> None:
         self.call_on_reset(env.get_original_env())
 
@@ -74,19 +77,14 @@ class RuleBaseWorker(RLWorker):
         state: np.ndarray,
         invalid_actions: List[int],
         env: "srl.base.rl.env_for_rl.EnvForRL",
-        player_indexes: List[int],
-    ) -> Tuple[Any, Any]:
-        action = self.call_policy(env.get_original_env())
-        return action, action
+    ) -> Any:
+        return self.call_policy(env.get_original_env())
 
     def on_step(
         self,
-        state: np.ndarray,
-        action: Any,
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        invalid_actions: List[int],
         next_invalid_actions: List[int],
         env: "srl.base.rl.env_for_rl.EnvForRL",
     ) -> Dict[str, Union[float, int]]:  # info
@@ -95,12 +93,7 @@ class RuleBaseWorker(RLWorker):
     def call_render(self, env: object) -> None:
         pass
 
-    def render(
-        self,
-        state: np.ndarray,
-        invalid_actions: List[int],
-        env: "srl.base.rl.env_for_rl.EnvForRL",
-    ) -> None:
+    def render(self, env: "srl.base.rl.env_for_rl.EnvForRL") -> None:
         self.call_render(env.get_original_env())
 
 

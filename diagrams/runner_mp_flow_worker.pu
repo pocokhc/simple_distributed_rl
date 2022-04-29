@@ -15,7 +15,7 @@ WorkerProcess -> Parameter ** : create
 WorkerProcess -> Worker ** : create
 loop episodes
     WorkerProcess -> Env: reset
-    return
+    return state
     WorkerProcess -> Worker: on_reset
     return
 
@@ -27,7 +27,7 @@ loop episodes
         WorkerProcess -> Env: step(action)
         return next_state, reward, done, info
 
-        WorkerProcess -> Worker: on_step(state, action, next_state, reward, done)
+        WorkerProcess -> Worker: on_step(next_state, reward, done)
             Worker ->> RemoteMemory: add batchs
             return
         return info

@@ -1,5 +1,5 @@
 import pickle
-from typing import Any, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import gym
 import gym.spaces
@@ -11,7 +11,6 @@ from .base import EnvBase
 
 class GymWrapper(EnvBase):
     def __init__(self, env_name: str):
-        self.name = env_name
         self.env: gym.Env = gym.make(env_name)
 
     @property
@@ -44,18 +43,16 @@ class GymWrapper(EnvBase):
     def close(self) -> None:
         self.env.close()
 
-    def reset(self) -> Tuple[List[np.ndarray], List[int]]:
+    def reset(self) -> Tuple[np.ndarray, List[int]]:
         state = self.env.reset()
-        return [np.asarray(state)], [0]
+        return np.asarray(state), [0]
 
-    def step(
-        self, actions: List[Any], player_indexes: List[int]
-    ) -> Tuple[List[np.ndarray], List[float], List[int], bool, dict]:
+    def step(self, actions: List[Any]) -> Tuple[np.ndarray, List[float], bool, List[int], Dict[str, float]]:
         state, reward, done, info = self.env.step(actions[0])
-        return [np.asarray(state)], [reward], [0], done, info
+        return np.asarray(state), [reward], done, [0], info
 
-    def fetch_invalid_actions(self) -> List[List[int]]:
-        return [[]]
+    def fetch_invalid_actions(self, player_index: int) -> List[int]:
+        return []
 
     def render_terminal(self) -> None:
         print(self.env.render("ansi"))

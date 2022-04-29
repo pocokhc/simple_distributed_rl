@@ -43,8 +43,8 @@ class PriorityExperienceReplay(RLRemoteMemory):
     def sample(self, step: int, batch_size: int) -> Tuple[list, list, list]:
         return self.memory.sample(batch_size, step)
 
-    def update(self, indexes: List[int], batchs: List[Any], priorities: List[float]) -> None:
-        self.memory.update(indexes, batchs, priorities)
+    def update(self, indices: List[int], batchs: List[Any], priorities: List[float]) -> None:
+        self.memory.update(indices, batchs, priorities)
 
 
 if __name__ == "__main__":

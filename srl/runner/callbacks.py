@@ -84,17 +84,15 @@ class Rendering(Callback):
     def on_step_begin(
         self,
         env,
-        states,
-        invalid_actions_list,
         workers,
-        worker_indexes,
-        player_indexes,
+        worker_indices,
+        next_player_indices,
         **kwargs,
     ) -> None:
         if self.mode != RenderType.NONE:
-            for i in player_indexes:
-                worker_idx = worker_indexes[i]
-                workers[worker_idx].render(states[worker_idx], invalid_actions_list[worker_idx], env)
+            for i in next_player_indices:
+                worker_idx = worker_indices[i]
+                workers[worker_idx].render(env)
 
     def on_step_end(
         self,
@@ -103,8 +101,8 @@ class Rendering(Callback):
         actions,
         rewards,
         done,
-        worker_indexes,
-        player_indexes,
+        worker_indices,
+        next_player_indices,
         env_info,
         work_info_list,
         train_info,
@@ -113,12 +111,13 @@ class Rendering(Callback):
 
         if self.mode != RenderType.NONE:
             print("### {}, done: {}".format(step, done))
-            for i in player_indexes:
-                print(f"player {i}, action {actions[i]}, reward: {rewards[i]}")
+            for i, idx in enumerate(next_player_indices):
+                print(f"player {idx}, action {actions[i]}, reward: {rewards[idx]}")
             env.render(self.mode)
             print(f"env_info  : {env_info}")
-            for i in player_indexes:
-                print(f"work_info {i}: {work_info_list[worker_indexes[i]]}")
+            for i in next_player_indices:
+                worker_idx = worker_indices[i]
+                print(f"work_info {worker_idx}: {work_info_list[worker_idx]}")
             print(f"train_info: {train_info}")
 
         if self.enable_animation:
@@ -211,7 +210,7 @@ class PrintProgress(Callback):
         self.config = config
         print(
             "### env: {}, max episodes: {}, max steps: {}, timeout: {}".format(
-                self.config.env_name,
+                self.config.env_config.name,
                 self.config.max_episodes,
                 self.config.max_steps,
                 to_str_time(self.config.timeout),
@@ -235,7 +234,7 @@ class PrintProgress(Callback):
         episode_rewards,
         episode_time,
         remote_memory,
-        worker_indexes,
+        worker_indices,
         **kwargs,
     ):
         if len(self.history_step) == 0:
@@ -251,7 +250,7 @@ class PrintProgress(Callback):
         for k, v in work_info.items():
             work_info[k] = np.mean(v)
 
-        worker_idx = worker_indexes[self.print_worker]
+        worker_idx = worker_indices[self.print_worker]
         d = {
             "step": step,
             "episode_reward": episode_rewards[worker_idx],
@@ -276,7 +275,6 @@ class PrintProgress(Callback):
         self,
         episode_count,
         trainer,
-        worker_indexes,
         env_info,
         work_info_list,
         train_info,
@@ -285,10 +283,9 @@ class PrintProgress(Callback):
         **kwargs,
     ):
         self.step_count += 1
-        worker_idx = worker_indexes[self.print_worker]
         d = {
             "env_info": env_info,
-            "work_info": work_info_list[worker_idx],
+            "work_info": work_info_list[self.print_worker],
             "train_info": train_info,
             "step_time": step_time,
             "train_time": train_time,

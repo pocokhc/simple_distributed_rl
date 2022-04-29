@@ -12,7 +12,8 @@ participant RemoteMemory
 activate Runner
 
 Runner -> Env: reset
-return
+return state
+
 Runner -> Worker: on_reset
 return
 
@@ -24,7 +25,7 @@ loop episode
     Runner -> Env: step(action)
     return next_state, reward, done, info
 
-    Runner -> Worker: on_step(state, action, next_state, reward, done)
+    Runner -> Worker: on_step(next_state, reward, done)
         Worker -> RemoteMemory: add batchs
         return
     return info

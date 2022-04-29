@@ -134,8 +134,8 @@ class RemoteMemory(PriorityExperienceReplay):
         )
 
     def sample(self, step: int) -> Tuple[int, Any, float]:
-        indexes, batchs, weights = self.memory.sample(1, step)
-        return indexes[0], batchs[0], weights[0]
+        indices, batchs, weights = self.memory.sample(1, step)
+        return indices[0], batchs[0], weights[0]
 
     def update(self, index: int, batch: Any, priority: float) -> None:
         self.memory.update([index], [batch], [priority])

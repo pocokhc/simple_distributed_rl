@@ -1,8 +1,5 @@
-import srl.envs
-import srl.rl
-from srl.base.env.env_for_rl import EnvForRL
-from srl.base.env.singleplay_wrapper import SinglePlayerWrapper
-from srl.rl.processor import ContinuousProcessor, DiscreteProcessor, ObservationBoxProcessor
+import srl
+from srl.base.env.single_play_wrapper import SinglePlayerWrapper
 
 
 def _run_episode(
@@ -15,12 +12,13 @@ def _run_episode(
     worker.set_training(training)
     env = SinglePlayerWrapper(env)  # change single play interface
 
-    state = env.reset()
+    state, invalid_actions = env.reset()
+
     done = False
     step = 0
     total_reward = 0
-    invalid_actions = env.fetch_invalid_actions()
-    worker.on_reset(state, invalid_actions, env, [0])
+
+    worker.on_reset(state, invalid_actions, env)
 
     if rendering:
         print("step 0")
@@ -30,25 +28,21 @@ def _run_episode(
 
         # render
         if rendering:
-            worker.render(state, invalid_actions, env)
+            worker.render(env)
 
         # action
-        env_action, worker_action = worker.policy(state, invalid_actions, env, [0])
-        assert env_action not in invalid_actions
+        action = worker.policy(state, invalid_actions, env)
 
         # env step
-        next_state, reward, done, env_info = env.step(env_action)
+        state, reward, done, invalid_actions, env_info = env.step(action)
         step += 1
         total_reward += reward
-        next_invalid_actions = env.fetch_invalid_actions()
 
         if step > env.max_episode_steps:
             done = True
 
         # rl step
-        work_info = worker.on_step(
-            state, worker_action, next_state, reward, done, invalid_actions, next_invalid_actions, env
-        )
+        work_info = worker.on_step(state, reward, done, invalid_actions, env)
 
         # train
         if training and trainer is not None:
@@ -60,7 +54,7 @@ def _run_episode(
         if rendering:
             print(
                 "step {}, action {}, reward: {}, done: {}, info: {} {} {}".format(
-                    step, env_action, reward, done, env_info, work_info, train_info
+                    step, action, reward, done, env_info, work_info, train_info
                 )
             )
             env.render()
@@ -68,29 +62,20 @@ def _run_episode(
         # step after
         if done:
             break
-        state = next_state
-        invalid_actions = next_invalid_actions
 
     return step, total_reward
 
 
 def main():
 
-    env_name = "Grid"
+    env_config = srl.envs.Config("Grid")
     rl_config = srl.rl.ql.Config()
 
-    # env processors
-    processors = [
-        ObservationBoxProcessor(),
-        DiscreteProcessor(),
-        ContinuousProcessor(),
-    ]
-
+    # check rl_config
     rl_config.assert_params()
 
     # env init
-    env = srl.envs.make(env_name)
-    env = EnvForRL(env, rl_config, processors=processors)
+    env = srl.envs.make(env_config, rl_config)
 
     # rl init
     remote_memory, parameter, trainer, worker = srl.rl.make(rl_config, env)

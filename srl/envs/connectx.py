@@ -58,28 +58,15 @@ class ConnectX(TurnBase2PlayerActionDiscrete):
     def player_index(self) -> int:
         return self._player_index
 
-    def reset_turn(self) -> Tuple[np.ndarray, np.ndarray]:
+    def reset_turn(self) -> np.ndarray:
         states = self.env.reset()
-        self._set_board(states)
+        self.board = states[0].observation["board"]
         self._player_index = 0
-        return self.board1, self.board2
+        return np.array(self.board)
 
-    def _set_board(self, states):
-        self.board1 = states[0].observation["board"]
-        self.board2 = []
-        for b in self.board1:
-            if b == 1:
-                self.board2.append(2)
-            elif b == 2:
-                self.board2.append(1)
-            else:
-                self.board2.append(b)
-        self.board1 = np.array(self.board1)
-        self.board2 = np.array(self.board2)
-
-    def step_turn(self, action: int) -> Tuple[np.ndarray, np.ndarray, float, float, bool, dict]:
+    def step_turn(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
         states = self.env.step([action, action])
-        self._set_board(states)
+        self.board = states[0].observation["board"]
         reward1 = states[0].reward
         reward2 = states[1].reward
         done = self.env.done
@@ -89,11 +76,11 @@ class ConnectX(TurnBase2PlayerActionDiscrete):
         else:
             self._player_index = 0
 
-        return self.board1, self.board2, reward1, reward2, done, {}
+        return np.array(self.board), reward1, reward2, done, {}
 
-    def fetch_invalid_actions_turn(self) -> Tuple[List[int], List[int]]:
-        va = [a for a in range(self.action_num) if self.board1[a] != 0]
-        return va, va
+    def fetch_invalid_actions(self, player_index: int) -> List[int]:
+        nvalid_actions = [a for a in range(self.action_num) if self.board[a] != 0]
+        return nvalid_actions
 
     def render_terminal(self, **kwargs) -> None:
         print(self.env.render(mode="ansi"))
@@ -127,8 +114,7 @@ class NegaMax(RuleBaseWorker):
         observation = env.env.state[0]["observation"]
         configuration = env.env.configuration
         action = negamax_agent(observation, configuration)
-
         return action
 
-    def render(self, state: Any, invalid_actions: List[int], action_to_str: Callable[[Any], str]) -> None:
+    def call_render(self, env: ConnectX) -> None:
         pass

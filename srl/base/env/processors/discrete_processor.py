@@ -7,7 +7,7 @@ import gym
 import gym.spaces
 import numpy as np
 from srl.base.define import EnvActionType, EnvObservationType, RLActionType, RLObservationType
-from srl.base.rl.processor import Processor
+from srl.base.env.processor import Processor
 
 logger = logging.getLogger(__name__)
 

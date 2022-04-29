@@ -45,10 +45,18 @@ class OX(TurnBase2PlayerActionDiscrete):
 
         # observation_space
         if self.state_type == StateType.ARRAY:
-            self._observation_space = gym.spaces.Box(low=-1, high=1, shape=(self.H * self.W,))
+            self._observation_space = gym.spaces.Box(
+                low=-1,
+                high=1,
+                shape=(1 + self.H * self.W,),
+            )
         elif self.state_type == StateType.MAP:
-            field = self.reset()
-            self._observation_space = gym.spaces.Box(low=0, high=1, shape=field.shape)
+            field = self.reset_turn()
+            self._observation_space = gym.spaces.Box(
+                low=0,
+                high=1,
+                shape=field.shape,
+            )
         else:
             raise ValueError()
 
@@ -77,54 +85,43 @@ class OX(TurnBase2PlayerActionDiscrete):
     def player_index(self) -> int:
         return self._player_index
 
-    def reset_turn(self) -> Tuple[np.ndarray, np.ndarray]:
+    def reset_turn(self) -> np.ndarray:
         self.field = [0 for _ in range(self.W * self.H)]
         self._player_index = 0
-        return (
-            self._encode_state(0, self.state_type),
-            self._encode_state(1, self.state_type),
-        )
+        return self._encode_state(self.state_type)
 
     # 観測用の状態を返す
-    def _encode_state(self, player, state_type):
-        # 自プレイヤー：1
-        # 敵プレイヤー：-1
-        field = self.field[:]
-        if player == 1:
-            field = []
-            for s in self.field:
-                if s == 1:
-                    field.append(-1)
-                elif s == -1:
-                    field.append(1)
-                else:
-                    field.append(0)
-
+    def _encode_state(self, state_type):
         if state_type == StateType.ARRAY:
-            return np.array(field)
-        elif state_type == StateType.MAP:
-            # 0Layer: my
-            # 1Layer: enemy
-            _field = np.zeros((2, self.H, self.W))
+            # (turn,) + field
+            return np.array([self.player_index] + self.field)
+
+        if state_type == StateType.MAP:
+            # Layer0: player1 field (0 or 1)
+            # Layer1: player2 field (0 or 1)
+            # Layer2: player_index (all0 or all1)
+            _field = np.zeros((3, self.H, self.W))
             for y in range(self.H):
                 for x in range(self.W):
                     idx = x + y * self.W
-                    if field[idx] == 1:
+                    if self.field[idx] == 1:
                         _field[0][y][x] = 1
-                    elif field[idx] == -1:
+                    elif self.field[idx] == -1:
                         _field[1][y][x] = 1
+            _field[2] = self.player_index
             return _field
 
         raise ValueError()
 
     def backup(self) -> Any:
-        return [self.field[:], self._player_index]
+        return [self.field[:], self._player_index, self.state_type]
 
     def restore(self, data: Any) -> None:
         self.field = data[0][:]
         self._player_index = data[1]
+        self.state_type = data[2]
 
-    def step_turn(self, action: int) -> Tuple[np.ndarray, np.ndarray, float, float, bool, dict]:
+    def step_turn(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
 
         reward1, reward2, done = self._step(action)
 
@@ -134,8 +131,7 @@ class OX(TurnBase2PlayerActionDiscrete):
             self._player_index = 0
 
         return (
-            self._encode_state(0, self.state_type),
-            self._encode_state(1, self.state_type),
+            self._encode_state(self.state_type),
             reward1,
             reward2,
             done,
@@ -190,14 +186,14 @@ class OX(TurnBase2PlayerActionDiscrete):
 
         return 0, 0, False
 
-    def fetch_invalid_actions_turn(self) -> Tuple[List[int], List[int]]:
+    def fetch_invalid_actions(self, player_index: int) -> List[int]:
         actions = []
         for a in range(self.H * self.W):
             if self.field[a] != 0:
                 # x = a % self.W
                 # y = a // self.W
                 actions.append(a)
-        return actions, actions
+        return actions
 
     def render_terminal(self):
         print("-" * 10)
@@ -223,11 +219,6 @@ class OX(TurnBase2PlayerActionDiscrete):
         elif name == "cpu_lv3":
             return NegaMax(0.0)
         return None
-
-    def copy(self):
-        env = OX(self.state_type)
-        env.restore(self.backup())
-        return env
 
 
 class NegaMax(RuleBaseWorker):
@@ -263,7 +254,7 @@ class NegaMax(RuleBaseWorker):
                 continue
 
             n_env = env.copy()
-            _, _, r1, r2, done, _ = n_env.step_turn(a)
+            _, r1, r2, done, _ = n_env.step_turn(a)
             if done:
                 if env.player_index == 0:
                     scores[a] = r1

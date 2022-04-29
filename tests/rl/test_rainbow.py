@@ -1,7 +1,7 @@
 import unittest
 
 from srl import rl
-from tests.rl.TestRL import TestRL
+from srl.test import TestRL
 
 
 class Test(unittest.TestCase):

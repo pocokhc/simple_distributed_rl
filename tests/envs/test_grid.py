@@ -1,6 +1,6 @@
 import unittest
 
-from tests.envs.TestEnv import TestEnv  # noqa F402
+from srl.test import TestEnv
 
 
 class Test(unittest.TestCase):
@@ -8,13 +8,13 @@ class Test(unittest.TestCase):
         self.tester = TestEnv()
 
     def test_play(self):
-        self.tester.play_test(self, "Grid")
+        self.tester.play_test("Grid")
 
     def test_play_2d(self):
-        self.tester.play_test(self, "2DGrid")
+        self.tester.play_test("2DGrid")
 
     def test_play_neon(self):
-        self.tester.play_test(self, "NeonGrid")
+        self.tester.play_test("NeonGrid")
 
 
 if __name__ == "__main__":

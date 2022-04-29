@@ -338,8 +338,8 @@ class RemoteMemory(RLRemoteMemory):
     def sample(self, step: int) -> Tuple[list, list, list]:
         return self.memory.sample(self.config.batch_size, step)
 
-    def update(self, indexes: List[int], batchs: List[Any], priorities: List[float]) -> None:
-        self.memory.update(indexes, batchs, priorities)
+    def update(self, indices: List[int], batchs: List[Any], priorities: List[float]) -> None:
+        self.memory.update(indices, batchs, priorities)
 
     def length_invalid(self) -> int:
         return len(self.invalid_memory)
@@ -388,10 +388,10 @@ class Trainer(RLTrainer):
         if self.memory.length() < self.config.memory_warmup_size:
             return {}
 
-        indexes, batchs, weights = self.memory.sample(self.train_count)
+        indices, batchs, weights = self.memory.sample(self.train_count)
         td_errors, info = self._train_on_batchs(batchs, weights)
         priorities = np.abs(td_errors) + 0.0001
-        self.memory.update(indexes, batchs, priorities)
+        self.memory.update(indices, batchs, priorities)
 
         # invalid action TODO
         # mem_invalid_len = self.memory.length_invalid()

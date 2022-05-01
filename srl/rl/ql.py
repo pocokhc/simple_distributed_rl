@@ -15,6 +15,11 @@ from srl.rl.remote_memory.sequence_memory import SequenceRemoteMemory
 logger = logging.getLogger(__name__)
 
 
+"""
+Other
+    invalid_actions : o
+"""
+
 # ------------------------------------------------------
 # config
 # ------------------------------------------------------

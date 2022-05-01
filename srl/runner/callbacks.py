@@ -78,9 +78,6 @@ class Rendering(Callback):
         if self.enable_animation:
             self._add_image(env)
 
-        if self.step_stop:
-            input("Enter to continue:")
-
     def on_step_begin(
         self,
         env,
@@ -94,6 +91,9 @@ class Rendering(Callback):
                 worker_idx = worker_indices[i]
                 workers[worker_idx].render(env)
 
+        if self.step_stop:
+            input("Enter to continue:")
+
     def on_step_end(
         self,
         env,
@@ -104,7 +104,7 @@ class Rendering(Callback):
         worker_indices,
         next_player_indices,
         env_info,
-        work_info_list,
+        worker_info_list,
         train_info,
         **kwargs,
     ):
@@ -117,14 +117,11 @@ class Rendering(Callback):
             print(f"env_info  : {env_info}")
             for i in next_player_indices:
                 worker_idx = worker_indices[i]
-                print(f"work_info {worker_idx}: {work_info_list[worker_idx]}")
+                print(f"work_info {worker_idx}: {worker_info_list[worker_idx]}")
             print(f"train_info: {train_info}")
 
         if self.enable_animation:
             self._add_image(env)
-
-        if self.step_stop:
-            input("Enter to continue:")
 
     def on_skip_step(self, env, **kwargs):
         if self.mode != RenderType.NONE:
@@ -276,7 +273,7 @@ class PrintProgress(Callback):
         episode_count,
         trainer,
         env_info,
-        work_info_list,
+        worker_info_list,
         train_info,
         step_time,
         train_time,
@@ -285,7 +282,7 @@ class PrintProgress(Callback):
         self.step_count += 1
         d = {
             "env_info": env_info,
-            "work_info": work_info_list[self.print_worker],
+            "work_info": worker_info_list[self.print_worker],
             "train_info": train_info,
             "step_time": step_time,
             "train_time": train_time,
@@ -330,7 +327,10 @@ class PrintProgress(Callback):
                 step_num = len(self.history_step)
                 step_time = np.mean([h["step_time"] for h in self.history_step])
                 s += f", {step_num:5d} step"
-                s += f", {step_time:.3f}s/step"
+                s += f", {step_time:.4f}s/step"
+                if self.config.training:
+                    train_time = np.mean([h["train_time"] for h in self.history_step])
+                    s += f", {train_time:.4f}s/tr"
         else:
             episode_time = np.mean([h["episode_time"] for h in self.progress_history])
             step_time = np.mean([h["step_time"] for h in self.progress_history])
@@ -360,7 +360,7 @@ class PrintProgress(Callback):
 
             if self.config.training:
                 train_time = np.mean([h["train_time"] for h in self.progress_history])
-                s += f", {train_time:.4f}s/tr"
+                s += f", {train_time:.3f}s/tr"
 
                 memory_len = max([h["remote_memory"] for h in self.progress_history])
                 s += f", {memory_len:8d} mem"

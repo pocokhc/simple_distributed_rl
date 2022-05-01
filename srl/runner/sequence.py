@@ -271,7 +271,6 @@ def play(
     total_step = 0
     t0 = time.time()
     done = True
-    work_info_list = [None for _ in range(env.player_num)]
 
     # --- loop
     while True:
@@ -404,7 +403,7 @@ def play(
         _params["rewards"] = rewards
         _params["done"] = done
         _params["env_info"] = env_info
-        _params["work_info_list"] = work_info_list
+        _params["worker_info_list"] = worker_info_list
         _params["train_info"] = train_info
         _params["train_time"] = train_time
         [c.on_step_end(**_params) for c in callbacks]

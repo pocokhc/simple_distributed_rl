@@ -2,7 +2,7 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, List, Tuple, cast
+from typing import Any, Dict, List, Tuple, Union, cast
 
 import numpy as np
 from srl.base.env.env_for_rl import EnvForRL
@@ -52,6 +52,8 @@ Never Give Up(NGU)
 Agent57
     Meta controller(sliding-window UCB) : o
     Intrinsic Reward split              : o
+Other
+    invalid_actions : TODO
 """
 
 
@@ -62,7 +64,7 @@ Agent57
 class Config(TableConfig):
 
     # ハイパーパラメータ
-    test_epsilon: float = 0.0001
+    test_epsilon: float = 0.0
     ext_lr: float = 0.1  # 学習率
 
     # Priority Experience Replay
@@ -74,7 +76,7 @@ class Config(TableConfig):
     memory_beta_steps: int = 1_000_000
 
     warmup_size: int = 10
-    actor_num: int = 32  # ポリシー数(0で無効)
+    actor_num: int = 32  # ポリシー数
     use_rescale: bool = True  # rescaleするか
     enable_q_int_norm: bool = False
 
@@ -94,7 +96,7 @@ class Config(TableConfig):
 
     # intrinsic_reward
     use_intrinsic_reward: bool = True  # 内部報酬を使うか
-    int_lr: float = 0.1  # 学習率
+    int_lr: float = 0.01  # 学習率
 
     # episodic
     episodic_memory_capacity: int = 30000
@@ -156,11 +158,11 @@ class Parameter(RLParameter):
         self.lifelong_C = {}
         self.Q_C = {}
 
-        self.init_state("", [a for a in range(self.config.nb_actions)])
-
         self.beta_list = create_beta_list(self.config.actor_num)
         self.gamma_list = create_gamma_list(self.config.actor_num)
         self.epsilon_list = create_epsilon_list(self.config.actor_num)
+
+        self.init_state("", [])
 
     def restore(self, data: Any) -> None:
         d = json.loads(data)
@@ -185,40 +187,36 @@ class Parameter(RLParameter):
 
     def init_state(self, state, invalid_actions):
         if state not in self.Q_ext:
-            self.Q_ext[state] = [0 if a in invalid_actions else -np.inf for a in range(self.config.nb_actions)]
-            self.Q_ext_target[state] = [0 if a in invalid_actions else -np.inf for a in range(self.config.nb_actions)]
-            self.Q_int[state] = [self.config.lifelong_reward_L for a in range(self.config.nb_actions)]
-            self.Q_int_target[state] = [self.config.lifelong_reward_L for a in range(self.config.nb_actions)]
+            self.Q_ext[state] = [-np.inf if a in invalid_actions else 0.0 for a in range(self.config.nb_actions)]
+            self.Q_ext_target[state] = [
+                -np.inf if a in invalid_actions else 0.0 for a in range(self.config.nb_actions)
+            ]
+            self.Q_int[state] = [
+                0.0 if a in invalid_actions else self.config.lifelong_reward_L for a in range(self.config.nb_actions)
+            ]
+            self.Q_int_target[state] = [
+                0.0 if a in invalid_actions else self.config.lifelong_reward_L for a in range(self.config.nb_actions)
+            ]
             self.Q_C[state] = 0
-
-    def get_q(self, state, invalid_actions, beta):
-        self.init_state(state, invalid_actions)
-        q_ext = np.asarray(self.Q_ext[state])
-        q_int = np.asarray(self.Q_int[state])
-        q = q_ext + beta * q_int
-        return q
 
     def calc_td_error(self, batch, Q, Q_target, rewards, enable_norm=False):
 
         dones = [False for _ in range(len(rewards))]
         dones[-1] = batch["done"]
-        beta = batch["beta"]
         gamma = batch["gamma"]
 
         TQ = 0
         _retrace = 1
         for n in range(len(rewards)):
-            s = batch["states"][n]
-            n_s = batch["states"][n + 1]
+            state = batch["states"][n]
+            n_state = batch["states"][n + 1]
             action = batch["actions"][n]
             mu_prob = batch["probs"][n]
             reward = rewards[n]
             done = dones[n]
-            valid_action = batch["invalid_actions"][n]
-            next_valid_action = batch["invalid_actions"][n + 1]
 
-            q = self.get_q(s, valid_action, beta)
-            n_q = self.get_q(n_s, next_valid_action, beta)
+            q = Q[state]
+            n_q = Q[n_state]
 
             # retrace
             if n >= 1:
@@ -235,18 +233,18 @@ class Parameter(RLParameter):
             else:
                 # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
                 n_act_idx = np.argmax(n_q)
-                P = Q_target[n_s][n_act_idx]
+                P = Q_target[n_state][n_act_idx]
 
                 # --- original code
-                if enable_norm and self.Q_C[n_s] > 0:
-                    P = P / self.Q_C[n_s]
+                if enable_norm and self.Q_C[n_state] > 0:
+                    P = P / self.Q_C[n_state]
                 # ---
 
                 P = inverse_rescaling(P)
                 target_q = reward + gamma * P
             target_q = rescaling(target_q)
 
-            td_error = target_q - Q[s][action]
+            td_error = target_q - Q[state][action]
             TQ += (gamma**n) * _retrace * td_error
 
         return TQ
@@ -329,7 +327,9 @@ class Worker(TableWorker):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
+    def call_on_reset(self, state_: np.ndarray, invalid_actions: List[int]) -> None:
+        state = to_str_observaten(state_)
+
         if self.training:
             # エピソード毎に actor を決める
             self.actor_index = self._calc_actor_index()
@@ -345,15 +345,11 @@ class Worker(TableWorker):
         self.recent_actions = [random.randint(0, self.config.nb_actions - 1) for _ in range(self.config.multisteps)]
         self.recent_probs = [1.0 for _ in range(self.config.multisteps)]
         self.recent_states = ["" for _ in range(self.config.multisteps + 1)]
-        self.recent_invalid_actions = [[] for _ in range(self.config.multisteps + 1)]
 
-        s = to_str_observaten(state)
         self.recent_states.pop(0)
-        self.recent_states.append(s)
-        self.recent_invalid_actions.pop(0)
-        self.recent_invalid_actions.append(invalid_actions)
-
-        self.parameter.init_state(s, invalid_actions)
+        self.recent_states.append(state)
+        self.invalid_actions = invalid_actions
+        self.parameter.init_state(state, invalid_actions)
 
         # sliding-window UCB 用に報酬を保存
         self.prev_episode_reward = 0.0
@@ -400,49 +396,48 @@ class Worker(TableWorker):
         # UCB値最大のポリシー（複数あればランダム）
         return random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, Any]:
-        s = to_str_observaten(state)
-        q = self.parameter.get_q(s, invalid_actions, self.beta)
-        probs = calc_epsilon_greedy_probs(q, invalid_actions, self.epsilon, self.config.nb_actions)
-        action = random_choice_by_probs(probs)
+    def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> int:
+        state = self.recent_states[-1]
 
-        return action, (action, probs[action])
+        q_ext = np.asarray(self.parameter.Q_ext[state])
+        q_int = np.asarray(self.parameter.Q_int[state])
+        q = q_ext + self.beta * q_int
+
+        probs = calc_epsilon_greedy_probs(q, invalid_actions, self.epsilon, self.config.nb_actions)
+        self.action = random_choice_by_probs(probs)
+        self.prob = probs[self.action]
+        return self.action
 
     def call_on_step(
         self,
-        state: np.ndarray,
-        action_: int,
-        next_state: np.ndarray,
+        next_state: Any,
         reward: float,
         done: bool,
-        invalid_actions: List[int],
         next_invalid_actions: List[int],
-    ):
+    ) -> Dict[str, Union[float, int]]:
+
+        n_state = to_str_observaten(next_state)
+        self.recent_states.pop(0)
+        self.recent_states.append(n_state)
+        self.invalid_actions = next_invalid_actions
+        self.parameter.init_state(n_state, next_invalid_actions)
+
         if not self.training:
             return {}
-
-        action = action_[0]
-        prob = action_[1]
-        n_state = to_str_observaten(next_state)
-        self.parameter.init_state(n_state, next_invalid_actions)
 
         # 内部報酬
         episodic_reward = self._calc_episodic_reward(n_state)
         lifelong_reward = self._calc_lifelong_reward(n_state)
         int_reward = episodic_reward * lifelong_reward
 
-        self.recent_states.pop(0)
-        self.recent_states.append(n_state)
         self.recent_actions.pop(0)
-        self.recent_actions.append(action)
+        self.recent_actions.append(self.action)
         self.recent_probs.pop(0)
-        self.recent_probs.append(prob)
+        self.recent_probs.append(self.prob)
         self.recent_ext_rewards.pop(0)
         self.recent_ext_rewards.append(reward)
         self.recent_int_rewards.pop(0)
         self.recent_int_rewards.append(int_reward)
-        self.recent_invalid_actions.pop(0)
-        self.recent_invalid_actions.append(next_invalid_actions)
 
         priority = self._add_memory(done)
 
@@ -458,8 +453,10 @@ class Worker(TableWorker):
                 self._add_memory(done)
 
         return {
-            "priority": priority,
+            "episodic_reward": episodic_reward,
+            "lifelong_reward": lifelong_reward,
             "int_reward": int_reward,
+            "priority": priority,
         }
 
     def _add_memory(self, done):
@@ -468,14 +465,12 @@ class Worker(TableWorker):
 
         batch = {
             "states": self.recent_states[:],
-            "invalid_actions": self.recent_invalid_actions[:],
             "actions": self.recent_actions[:],
             "probs": self.recent_probs[:],
             "ext_rewards": self.recent_ext_rewards[:],
             "int_rewards": self.recent_int_rewards[:],
             "done": done,
             "gamma": self.gamma,
-            "beta": self.beta,
         }
 
         # priority
@@ -516,30 +511,37 @@ class Worker(TableWorker):
         self.parameter.lifelong_C[state] *= self.config.lifelong_decrement_rate
         return reward + 1.0
 
-    def render(
-        self,
-        state: np.ndarray,
-        invalid_actions: List[int],
-        env: EnvForRL,
-    ) -> None:
-        s = to_str_observaten(state)
-        episodic_reward = self._calc_episodic_reward(s)
-        lifelong_reward = self._calc_lifelong_reward(s)
+    def render(self, env: EnvForRL) -> None:
+        state = self.recent_states[-1]
+        invalid_actions = self.invalid_actions
+        self.parameter.init_state(state, invalid_actions)
+
+        episodic_reward = self._calc_episodic_reward(state)
+        lifelong_reward = self._calc_lifelong_reward(state)
         int_reward = episodic_reward * lifelong_reward
-        print(f"int_reward {int_reward:7.5f}(episodic {episodic_reward:7.5f}, lifelong {lifelong_reward:7.5f})")
-        q = self.parameter.get_q(s, invalid_actions, self.beta)
+        print(f"int_reward {int_reward:.4f} = episodic {episodic_reward:.3f} * lifelong {lifelong_reward:.3f}")
+        q_ext = np.asarray(self.parameter.Q_ext[state])
+        q_int = np.asarray(self.parameter.Q_int[state])
+        q = q_ext + self.beta * q_int
+        q_ext = inverse_rescaling(q_ext)
+        q_int = inverse_rescaling(q_int)
         q = inverse_rescaling(q)
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
-            if a not in invalid_actions:
-                s = "x"
+            if len(invalid_actions) > 10:
+                if a in invalid_actions:
+                    continue
+                s = ""
             else:
-                s = " "
+                if a in invalid_actions:
+                    s = "x"
+                else:
+                    s = " "
             if a == maxa:
                 s += "*"
             else:
                 s += " "
-            s += f"{env.action_to_str(a)}: {q[a]:7.5f}"
+            s += f"{env.action_to_str(a)}: {q[a]:8.5f} = {q_ext[a]:8.5f} + {self.beta:.3f} * {q_int[a]:8.5f}"
             print(s)
 
 

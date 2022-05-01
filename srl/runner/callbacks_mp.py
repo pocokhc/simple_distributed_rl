@@ -404,7 +404,7 @@ class TrainFileLogger(MPCallback):
         episode_count,
         env_info,
         worker_indices,
-        work_info_list,
+        worker_info_list,
         step_time,
         **kwargs,
     ):
@@ -416,7 +416,7 @@ class TrainFileLogger(MPCallback):
             {
                 "episode_count": episode_count,
                 "env_info": env_info,
-                "work_info": work_info_list[worker_idx],
+                "work_info": worker_info_list[worker_idx],
                 "step_time": step_time,
             }
         )

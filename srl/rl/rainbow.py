@@ -34,6 +34,9 @@ Rainbow
     Multi-Step learning(retrace): o (config selection)
     Noisy Network               : o (config selection)
     Categorical DQN             : x
+Other
+    invalid_actions : o
+
 """
 
 
@@ -53,7 +56,8 @@ class Config(DiscreteActionConfig):
 
     # model
     window_length: int = 1
-    dense_units: int = 512
+    hidden_layer_sizes: Tuple[int, ...] = (512,)
+    activation: str = "relu"
     image_layer_type: ImageLayerType = ImageLayerType.DQN
     enable_noisy_dense: bool = False
 
@@ -89,6 +93,7 @@ class Config(DiscreteActionConfig):
         assert self.window_length > 0
         assert self.memory_warmup_size < self.capacity
         assert self.batch_size < self.memory_warmup_size
+        assert len(self.hidden_layer_sizes) > 0
 
 
 register(
@@ -136,16 +141,24 @@ class _QNetwork(keras.Model):
         else:
             Dense = kl.Dense
 
+        for i in range(len(config.hidden_layer_sizes) - 1):
+            c = Dense(
+                config.hidden_layer_sizes[i],
+                activation=config.activation,
+                kernel_initializer="he_normal",
+            )(c)
+
         if config.enable_dueling_network:
             c = create_dueling_network_layers(
                 c,
                 config.nb_actions,
-                config.dense_units,
+                config.hidden_layer_sizes[-1],
                 config.dueling_network_type,
-                config.enable_noisy_dense,
+                activation=config.activation,
+                enable_noisy_dense=config.enable_noisy_dense,
             )
         else:
-            c = Dense(config.dense_units, activation="relu", kernel_initializer="he_normal")(c)
+            c = Dense(config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal")(c)
             c = Dense(config.nb_actions, kernel_initializer="truncated_normal")(c)
 
         self.model = keras.Model(in_state, c)
@@ -356,13 +369,16 @@ class Worker(DiscreteActionWorker):
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, Any]:
+    def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> int:
         state = self.recent_bundle_states[-1]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
 
         if self.config.enable_noisy_dense:
             action = int(np.argmax(q))
-            return action, (action, 1.0, q[action])
+            self.action = action
+            self.prob = 1.0
+            self.q = q[action]
+            return action
 
         if self.training:
             if self.config.exploration_steps > 0:
@@ -376,32 +392,29 @@ class Worker(DiscreteActionWorker):
             epsilon = self.config.test_epsilon
 
         probs = calc_epsilon_greedy_probs(q, invalid_actions, epsilon, self.config.nb_actions)
-        action = random_choice_by_probs(probs)
+        self.action = random_choice_by_probs(probs)
 
-        return action, (action, probs[action], q[action])
+        self.prob = probs[self.action]
+        self.q = q[self.action]
+        return self.action
 
     def call_on_step(
         self,
-        state: np.ndarray,
-        action_: Any,
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        invalid_actions: List[int],
         next_invalid_actions: List[int],
     ):
         self.recent_states.pop(0)
         self.recent_states.append(next_state)
         self.recent_bundle_states.pop(0)
         self.recent_bundle_states.append(self.recent_states[:])
+        self.recent_invalid_actions.pop(0)
+        self.recent_invalid_actions.append(next_invalid_actions)
 
         if not self.training:
             return {}
         self.epsilon_step += 1
-
-        action = action_[0]
-        prob = action_[1]
-        q = action_[2]
 
         # reward clip
         if self.config.reward_clip is not None:
@@ -411,17 +424,15 @@ class Worker(DiscreteActionWorker):
                 reward = self.config.reward_clip[1]
 
         self.recent_actions.pop(0)
-        self.recent_actions.append(action)
+        self.recent_actions.append(self.action)
         self.recent_probs.pop(0)
-        self.recent_probs.append(prob)
+        self.recent_probs.append(self.prob)
         self.recent_rewards.pop(0)
         self.recent_rewards.append(reward)
         self.recent_done.pop(0)
         self.recent_done.append(done)
-        self.recent_invalid_actions.pop(0)
-        self.recent_invalid_actions.append(next_invalid_actions)
 
-        priority = self._add_memory(q, None)
+        priority = self._add_memory(self.q, None)
 
         if done:
             # 残りstepも追加
@@ -433,7 +444,7 @@ class Worker(DiscreteActionWorker):
                 self.recent_done.pop(0)
                 self.recent_invalid_actions.pop(0)
 
-                self._add_memory(q, priority)
+                self._add_memory(self.q, priority)
 
         return {"priority": priority}
 
@@ -459,21 +470,22 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.add(batch, priority)
         return priority
 
-    def render(
-        self,
-        state: np.ndarray,
-        invalid_actions: List[int],
-        env: EnvForRL,
-    ) -> None:
+    def render(self, env: EnvForRL) -> None:
+        invalid_actions = self.recent_invalid_actions[-1]
+
         state = self.recent_bundle_states[-1]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
-            if a not in invalid_actions:
-                continue
-                s = "x"
+            if len(invalid_actions) > 10:
+                if a in invalid_actions:
+                    continue
+                s = ""
             else:
-                s = " "
+                if a in invalid_actions:
+                    s = "x"
+                else:
+                    s = " "
             if a == maxa:
                 s += "*"
             else:

@@ -24,6 +24,9 @@ Annealing e-greedy : o (config selection)
 Reward clip        : o (config selection)
 Image preprocessor : -
 (+Double DQN)      : o (config selection)
+
+Other
+    invalid_actions : o
 """
 
 
@@ -67,6 +70,7 @@ class Config(DiscreteActionConfig):
         assert self.window_length > 0
         assert self.memory_warmup_size < self.capacity
         assert self.batch_size < self.memory_warmup_size
+        assert len(self.hidden_layer_sizes) > 0
 
 
 register(
@@ -256,8 +260,9 @@ class Worker(DiscreteActionWorker):
 
         self.recent_states.pop(0)
         self.recent_states.append(state)
+        self.invalid_actions = invalid_actions
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, Any]:
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
 
         if self.training:
             if self.config.exploration_steps > 0:
@@ -283,20 +288,19 @@ class Worker(DiscreteActionWorker):
             # 最大値を選ぶ（複数はほぼないので無視）
             action = int(np.argmax(q))
 
-        return action, action
+        self.action = action
+        return action
 
     def call_on_step(
         self,
-        state: np.ndarray,
-        action: Any,
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        invalid_actions: List[int],
         next_invalid_actions: List[int],
     ):
         self.recent_states.pop(0)
         self.recent_states.append(next_state)
+        self.invalid_actions = next_invalid_actions
 
         if not self.training:
             return {}
@@ -311,7 +315,7 @@ class Worker(DiscreteActionWorker):
 
         batch = {
             "states": self.recent_states[:],
-            "action": action,
+            "action": self.action,
             "reward": reward,
             "done": done,
             "next_invalid_actions": next_invalid_actions,
@@ -320,20 +324,20 @@ class Worker(DiscreteActionWorker):
 
         return {}
 
-    def render(
-        self,
-        state: np.ndarray,
-        invalid_actions: List[int],
-        env: EnvForRL,
-    ):
+    def render(self, env: EnvForRL):
         state = self.recent_states[1:]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
-            if a in invalid_actions:
-                s = "x"
+            if len(self.invalid_actions) > 10:
+                if a in self.invalid_actions:
+                    continue
+                s = ""
             else:
-                s = " "
+                if a in self.invalid_actions:
+                    s = "x"
+                else:
+                    s = " "
             if a == maxa:
                 s += "*"
             else:

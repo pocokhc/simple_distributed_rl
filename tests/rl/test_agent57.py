@@ -1,49 +1,44 @@
 import unittest
 
-from srl import rl
+import srl
 from srl.test import TestRL
 
 
 class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()
+        self.rl_config = srl.rl.agent57.Config(multisteps=5)
 
-    def test_play(self):
-        rl_config = rl.agent57.Config(multisteps=5)
-        self.tester.play_test(self, rl_config)
+    def test_sequence(self):
+        self.tester.play_sequence(self.rl_config)
 
-    def test_verify_Grid(self):
-        rl_config = rl.agent57.Config(
-            burnin=5,
-            multisteps=5,
-            dense_units=16,
-            lstm_units=32,
-            dueling_dense_units=16,
-        )
-        self.tester.play_verify(self, "Grid-v0", rl_config, 2000, 10)
+    def test_mp(self):
+        self.tester.play_mp(self.rl_config)
+
+    # def test_verify_Grid(self):
+    #     self.rl_config.burnin = 10
+    #     self.rl_config.multisteps = 3
+    #     self.rl_config.q_ext_lr = 0.001
+    #     self.rl_config.q_int_lr = 0.001
+    #     self.rl_config.hidden_layer_sizes = (16,)
+    #     self.rl_config.lstm_units = 32
+    #     self.rl_config.enable_dueling_network = False
+    #     self.rl_config.memory_name = "RankBaseMemory"
+    #     self.rl_config.memory_alpha = 0.8
+    #     self.rl_config.memory_beta_initial = 1.0
+    #     self.tester.play_verify_singleplay("Grid", self.rl_config, 2000, 10)
 
     def test_verify_Pendulum(self):
-        rl_config = rl.agent57.Config(
-            burnin=5,
-            multisteps=5,
-            dense_units=64,
-            lstm_units=64,
-            enable_dueling_network=False,
-        )
-        self.tester.play_verify(self, "Pendulum-v1", rl_config, 200 * 30, 10)
-
-    def test_verify_IGrid(self):
-        rl_config = rl.agent57.Config(
-            burnin=4,
-            multisteps=1,
-            memory_name="ReplayMemory",
-            enable_dueling_network=False,
-            dense_units=16,
-            lstm_units=64,
-        )
-        self.tester.play_verify(self, "IGrid-v0", rl_config, 5000, 10)
+        self.rl_config.burnin = 10
+        self.rl_config.multisteps = 3
+        self.rl_config.hidden_layer_sizes = (16, 16)
+        self.rl_config.lstm_units = 64
+        self.rl_config.enable_dueling_network = False
+        self.rl_config.memory_name = "RankBaseMemory"
+        self.rl_config.memory_alpha = 0.8
+        self.rl_config.memory_beta_initial = 1.0
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 25, 10)
 
 
 if __name__ == "__main__":
-    # unittest.main(module=__name__, defaultTest="Test.test_play", verbosity=2)
-    unittest.main(module=__name__, defaultTest="Test.test_verify_Grid", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum", verbosity=2)

@@ -1,10 +1,15 @@
 import tensorflow as tf
-from tensorflow.keras import layers as kl
 import tensorflow_addons as tfa
+from tensorflow.keras import layers as kl
 
 
 def create_dueling_network_layers(
-    c, nb_actions: int, dense_units: int, dueling_type: str, enable_noisy_dense: bool = False
+    c,
+    nb_actions: int,
+    dense_units: int,
+    dueling_type: str,
+    activation: str = "relu",
+    enable_noisy_dense: bool = False,
 ):
     if enable_noisy_dense:
         Dense = tfa.layers.NoisyDense
@@ -12,11 +17,11 @@ def create_dueling_network_layers(
         Dense = kl.Dense
 
     # value
-    v = Dense(dense_units, activation="relu", kernel_initializer="he_normal")(c)
+    v = Dense(dense_units, activation=activation, kernel_initializer="he_normal")(c)
     v = Dense(1, kernel_initializer="truncated_normal", name="v")(v)
 
     # advance
-    adv = Dense(dense_units, activation="relu", kernel_initializer="he_normal")(c)
+    adv = Dense(dense_units, activation=activation, kernel_initializer="he_normal")(c)
     adv = Dense(nb_actions, kernel_initializer="truncated_normal", name="adv")(adv)
 
     # 連結で結合

@@ -36,6 +36,12 @@ Rainbow
 Recurrent Replay Distributed DQN(R2D2)
     LSTM                     : o
     Value function rescaling : o
+Other
+    invalid_actions : o
+
+Implementation plan list
+ - Calculation of priority on the worker side
+
 """
 
 
@@ -49,8 +55,9 @@ class Config(DiscreteActionConfig):
     epsilon: float = 0.1
 
     # model
-    dense_units: int = 512
     lstm_units: int = 512
+    hidden_layer_sizes: Tuple[int, ...] = (512,)
+    activation: str = "relu"
     image_layer_type: ImageLayerType = ImageLayerType.DQN
     burnin: int = 40
 
@@ -100,6 +107,7 @@ register(
     __name__ + ":Worker",
 )
 
+
 # ------------------------------------------------------
 # RemoteMemory
 # ------------------------------------------------------
@@ -137,10 +145,25 @@ class _QNetwork(keras.Model):
         # lstm
         c = kl.LSTM(config.lstm_units, stateful=True, name="lstm")(c)
 
+        for i in range(len(config.hidden_layer_sizes) - 1):
+            c = kl.Dense(
+                config.hidden_layer_sizes[i],
+                activation=config.activation,
+                kernel_initializer="he_normal",
+            )(c)
+
         if config.enable_dueling_network:
-            c = create_dueling_network_layers(c, config.nb_actions, config.dense_units, config.dueling_network_type)
+            c = create_dueling_network_layers(
+                c,
+                config.nb_actions,
+                config.hidden_layer_sizes[-1],
+                config.dueling_network_type,
+                activation=config.activation,
+            )
         else:
-            c = kl.Dense(config.dense_units, activation="relu", kernel_initializer="he_normal")(c)
+            c = kl.Dense(config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal")(
+                c
+            )
             c = kl.Dense(config.nb_actions, kernel_initializer="truncated_normal")(c)
 
         self.model = keras.Model(in_state, c)
@@ -397,7 +420,7 @@ class Worker(DiscreteActionWorker):
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, Any]:
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
         state = np.asarray([[state]] * self.config.batch_size)
         q, self.hidden_state = self.parameter.q_online(state, self.hidden_state)
         q = q[0].numpy()
@@ -408,33 +431,28 @@ class Worker(DiscreteActionWorker):
             epsilon = self.config.test_epsilon
 
         probs = calc_epsilon_greedy_probs(q, invalid_actions, epsilon, self.config.nb_actions)
-        action = random_choice_by_probs(probs)
+        self.action = random_choice_by_probs(probs)
 
-        return action, (action, probs[action], q[action])
+        self.prob = probs[self.action]
+        self.q = q[self.action]
+        return self.action
 
     def call_on_step(
         self,
-        state: np.ndarray,
-        action_: Any,
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        invalid_actions: List[int],
         next_invalid_actions: List[int],
     ):
         if not self.training:
             return {}
 
-        action = action_[0]
-        prob = action_[1]
-        q = action_[2]
-
         self.recent_states.pop(0)
         self.recent_states.append(next_state.astype(np.float32))
         self.recent_actions.pop(0)
-        self.recent_actions.append(action)
+        self.recent_actions.append(self.action)
         self.recent_probs.pop(0)
-        self.recent_probs.append(prob)
+        self.recent_probs.append(self.prob)
         self.recent_rewards.pop(0)
         self.recent_rewards.append(reward)
         self.recent_done.pop(0)
@@ -449,7 +467,7 @@ class Worker(DiscreteActionWorker):
             ]
         )
 
-        priority = self._add_memory(q, None)
+        priority = self._add_memory(self.q, None)
 
         if done:
             # 残りstepも追加
@@ -468,7 +486,7 @@ class Worker(DiscreteActionWorker):
                 self.recent_invalid_actions.append([])
                 self.recent_hidden_states.pop(0)
 
-                self._add_memory(q, priority)
+                self._add_memory(self.q, priority)
 
         return {"priority": priority}
 
@@ -490,7 +508,6 @@ class Worker(DiscreteActionWorker):
             if self.config.memory_name == "ReplayMemory":
                 priority = 1
             else:
-                # TODO
                 priority = 1
                 # target_q = self.parameter.calc_target_q([batch])[0]
                 # priority = abs(target_q - q) + 0.0001
@@ -498,22 +515,24 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.add(batch, priority)
         return priority
 
-    def render(
-        self,
-        state: np.ndarray,
-        invalid_actions: List[int],
-        env: EnvForRL,
-    ) -> None:
+    def render(self, env: EnvForRL) -> None:
+        state = self.recent_states[-1]
+        invalid_actions = self.recent_invalid_actions[-1]
         state = np.asarray([[state]] * self.config.batch_size)
         q, self.hidden_state = self.parameter.q_online(state, self.hidden_state)
         q = q[0].numpy()
 
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
-            if a not in invalid_actions:
-                s = "x"
+            if len(invalid_actions) > 10:
+                if a in invalid_actions:
+                    continue
+                s = ""
             else:
-                s = " "
+                if a in invalid_actions:
+                    s = "x"
+                else:
+                    s = " "
             if a == maxa:
                 s += "*"
             else:

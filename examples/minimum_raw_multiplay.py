@@ -30,11 +30,10 @@ def _run_episode(
         # --- rl before step
         actions = []
         for idx in next_player_indices:
-            invalid_actions = env.fetch_invalid_actions(idx)
 
             # --- rl init
             if players_status[idx] == "INIT":
-                workers[idx].on_reset(state, invalid_actions, env)
+                workers[idx].on_reset(state, idx, env)
                 players_status[idx] = "RUNNING"
 
             if rendering:
@@ -42,7 +41,7 @@ def _run_episode(
                 workers[idx].render(env)
 
             # --- rl action
-            action = workers[idx].policy(state, invalid_actions, env)
+            action = workers[idx].policy(state, idx, env)
             actions.append(action)
 
         # --- env step
@@ -65,13 +64,11 @@ def _run_episode(
         for idx in next_player_indices:
             if players_status[idx] != "RUNNING":
                 continue
-            invalid_actions = env.fetch_invalid_actions(idx)
-
             worker_info_list[idx] = workers[idx].on_step(
                 state,
                 players_step_reward[idx],
                 done,
-                invalid_actions,
+                idx,
                 env,
             )
             players_step_reward[idx] = 0

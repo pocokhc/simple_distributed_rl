@@ -18,11 +18,11 @@ def create_dueling_network_layers(
 
     # value
     v = Dense(dense_units, activation=activation, kernel_initializer="he_normal")(c)
-    v = Dense(1, kernel_initializer="truncated_normal", name="v")(v)
+    v = Dense(1, kernel_initializer="truncated_normal", bias_initializer="truncated_normal", name="v")(v)
 
     # advance
     adv = Dense(dense_units, activation=activation, kernel_initializer="he_normal")(c)
-    adv = Dense(nb_actions, kernel_initializer="truncated_normal", name="adv")(adv)
+    adv = Dense(nb_actions, kernel_initializer="truncated_normal", bias_initializer="truncated_normal", name="adv")(adv)
 
     # 連結で結合
     c = kl.Concatenate()([v, adv])

@@ -11,7 +11,7 @@ from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig, Disc
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
-from srl.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
+from srl.base.rl.remote_memory import ExperienceReplayBuffer
 
 """
 Categorical DQN（C51）

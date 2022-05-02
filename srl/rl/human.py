@@ -1,9 +1,13 @@
 import logging
 from typing import Any, Dict, List, Tuple, Union, cast
 
-from srl.base.rl.algorithms.rulebase import (RuleBaseConfig, RuleBaseParamete,
-                                             RuleBaseRemoteMemory,
-                                             RuleBaseTrainer, RuleBaseWorker)
+from srl.base.rl.algorithms.rulebase import (
+    RuleBaseConfig,
+    RuleBaseParamete,
+    RuleBaseRemoteMemory,
+    RuleBaseTrainer,
+    RuleBaseWorker,
+)
 from srl.base.rl.base import RLWorker
 from srl.base.rl.registration import register
 
@@ -47,7 +51,7 @@ class Worker(RLWorker):
     def on_reset(self, *args, **kwargs) -> None:
         pass
 
-    def policy(self, state, invalid_actions, *args, **kwargs) -> Tuple[Any, Any]:
+    def policy(self, state, invalid_actions, *args, **kwargs) -> Any:
         actions = [a for a in range(self.action_num) if a not in invalid_actions]
         print(f"select action: {actions}")
         for _ in range(10):
@@ -56,7 +60,7 @@ class Worker(RLWorker):
                 break
             print("out of range")
 
-        return action, action
+        return action
 
     def on_step(self, *args, **kwargs):
         return {}

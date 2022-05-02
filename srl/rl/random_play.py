@@ -46,7 +46,8 @@ class Worker(RLWorker):
     def on_reset(self, *args, **kwargs) -> None:
         pass
 
-    def policy(self, state, invalid_actions, *args, **kwargs):
+    def policy(self, state, player_index, env, *args, **kwargs):
+        invalid_actions = env.get_invalid_actions(player_index)
         return random.choice([a for a in range(self.config.env_action_space.n) if a not in invalid_actions])
 
     def on_step(self, *args, **kwargs) -> Dict[str, Union[float, int]]:

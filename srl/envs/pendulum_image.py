@@ -53,10 +53,10 @@ class PendulumImage(SingleActionContinuous):
     def max_episode_steps(self) -> int:
         return 200
 
-    def reset_single(self) -> Any:
+    def reset_single(self) -> np.ndarray:
         return self._get_rgb_state(self.env.reset())
 
-    def step_single(self, action: Any) -> Tuple[Any, float, bool, dict]:
+    def step_single(self, action: Any) -> Tuple[np.ndarray, float, bool, dict]:
         state, reward, done, info = self.env.step(action)
         return self._get_rgb_state(state), float(reward), done, info
 

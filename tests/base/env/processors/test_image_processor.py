@@ -26,7 +26,9 @@ class Test(unittest.TestCase):
                 space = gym.spaces.Box(low=0, high=255, shape=(image_w, image_h, 3))
 
                 # change info
-                new_space, new_type = processor.change_observation_info(space, env_type, RLObservationType.UNKOWN)
+                new_space, new_type = processor.change_observation_info(
+                    space, env_type, RLObservationType.UNKOWN, None
+                )
                 self.assertTrue(new_type == EnvObservationType.GRAY_2ch)
                 self.assertTrue(new_space.shape == image_resize)
                 np.testing.assert_array_equal(new_space.low, np.full(image_resize, 0))
@@ -35,7 +37,7 @@ class Test(unittest.TestCase):
                 # decode
                 image = np.ones(img_shape).astype(np.float32)  # image
                 true_state = np.ones(image_resize).astype(np.float32) / 255
-                new_obs = processor.observation_encode(image)
+                new_obs = processor.observation_encode(image, None)
                 np.testing.assert_array_equal(true_state, new_obs)
 
 

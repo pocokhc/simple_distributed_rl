@@ -41,16 +41,19 @@ class SinglePlayerWrapper(EnvBase):
 
     def reset(self) -> Tuple[np.ndarray, List[int]]:
         state, next_player_indecies = self.env.reset()
-        invalid_actions = self.fetch_invalid_actions()
+        invalid_actions = self.get_invalid_actions()
         return state, invalid_actions
 
     def step(self, action: Any) -> Tuple[np.ndarray, float, bool, List[int], dict]:
         next_state, rewards, done, next_player_indices, env_info = self.env.step([action])
-        invalid_actions = self.fetch_invalid_actions()
+        invalid_actions = self.get_invalid_actions()
         return next_state, rewards[0], done, invalid_actions, env_info
 
-    def fetch_invalid_actions(self) -> List[int]:
-        return self.env.fetch_invalid_actions(0)
+    def get_next_player_indecies(self) -> List[int]:
+        return [0]
+
+    def get_invalid_actions(self, player_index: int = 0) -> List[int]:
+        return self.env.get_invalid_actions(player_index)
 
     def render(self, *args):
         return self.env.render(*args)

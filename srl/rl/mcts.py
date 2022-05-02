@@ -9,8 +9,8 @@ from srl.base.env.env_for_rl import EnvForRL
 from srl.base.rl.algorithms.table import TableConfig
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.registration import register
+from srl.base.rl.remote_memory import SequenceRemoteMemory
 from srl.rl.functions.common import to_str_observaten
-from srl.rl.remote_memory.sequence_memory import SequenceRemoteMemory
 
 
 # ------------------------------------------------------
@@ -99,29 +99,30 @@ class Trainer(RLTrainer):
         batchs = self.remote_memory.sample()
         for batch in batchs:
             state = batch["state"]
-            invalid_actions = batch["invalid_actions"]
-            self.env.restore(batch["env"])
+            player_index = batch["player_index"]
 
             # シミュレーション
             for _ in range(self.config.simulation_times):
-                save_state = self.env.backup()
-                self._simulation(self.env, state, invalid_actions)
-                self.env.restore(save_state)
+                self.env.restore(batch["env"])
+                self._simulation(self.env, state, player_index)
 
                 self.train_count += 1
 
         return {}
 
-    def _simulation(self, env: EnvForRL, state: str, invalid_actions, depth: int = 0):
+    def _simulation(self, env: EnvForRL, state: str, player_index, depth: int = 0):
         if depth >= env.max_episode_steps:  # for safety
             return 0
         self.parameter.init_state(state)
+        invalid_actions = env.get_invalid_actions(player_index)
+        next_player_indices = env.get_next_player_indecies()
+        assert len(next_player_indices) == 1  # とりあえず一人のみ対応 TODO
 
         # --- UCBに従ってアクションを選択
         N = np.sum(self.parameter.N[state])
         ucb_list = []
         for a in range(self.config.nb_actions):
-            if a not in invalid_actions:
+            if a in invalid_actions:
                 ucb = -np.inf
             else:
                 n = self.parameter.N[state][a]
@@ -135,22 +136,19 @@ class Trainer(RLTrainer):
         action = random.choice(np.where(ucb_list == np.max(ucb_list))[0])
 
         # --- step
-        if self.parameter.N[state][action] < self.config.action_select_threshold:
-            # 閾値以下はロールアウト
-            reward = self._rollout(env)
+        n_state, rewards, done, next_player_indices, _ = env.step([action])
+        n_state = to_str_observaten(n_state)
+        reward = rewards[player_index]
+
+        if done:
+            pass  # 終了
         else:
-            # step
-            n_state, rewards, done, next_player_indices, done, _ = env.step(action)
-            assert len(next_player_indices) == 1  # とりあえず一人のみ対応 TODO
-
-            n_state = to_str_observaten(n_state)
-            n_invalid_actions = env.fetch_invalid_actions()
-
-            if done:
-                pass  # 終了(終了時の報酬が結果)
+            if self.parameter.N[state][action] < self.config.action_select_threshold:
+                # 閾値以下はロールアウト
+                reward = self._rollout(env, player_index, next_player_indices)
             else:
                 # 展開
-                reward += self._simulation(env, n_state, n_invalid_actions, depth + 1)
+                reward += self._simulation(env, n_state, player_index, depth + 1)
 
         # 結果を記録
         self.parameter.N[state][action] += 1
@@ -159,20 +157,16 @@ class Trainer(RLTrainer):
         return reward * self.config.gamma  # 割り引いて前に伝搬
 
     # ロールアウト
-    def _rollout(self, env: EnvForRL):
+    def _rollout(self, env: EnvForRL, player_index, next_player_indices):
         step = 0
         done = False
         reward = 0
         while not done and step < env.max_episode_steps:
             step += 1
 
-            # ランダム
-            invalid_actions = env.fetch_invalid_actions()
-            action = random.choice(invalid_actions)
-
-            # step
-            state, _reward, done, _ = env.step(action)
-            reward = _reward + self.config.gamma * reward
+            # step, random
+            state, rewards, done, next_player_indices, _ = env.step(env.sample(next_player_indices))
+            reward = rewards[player_index] + self.config.gamma * reward
 
         return reward
 
@@ -187,25 +181,28 @@ class Worker(RLWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def on_reset(self, state: np.ndarray, invalid_actions: List[int], env: EnvForRL) -> None:
-        self.remote_memory.add(
-            {
-                "state": to_str_observaten(state),
-                "action": invalid_actions,
-                "env": env.backup(),
-            }
-        )
+    def on_reset(self, state: np.ndarray, player_index: int, env: EnvForRL) -> None:
+        self.state = to_str_observaten(state)
+        self.invalid_actions = env.get_invalid_actions(player_index)
 
-    def policy(self, state: np.ndarray, invalid_actions: List[int], env: EnvForRL) -> int:
-        s = to_str_observaten(state)
+    def policy(self, _state: np.ndarray, player_index: int, env: EnvForRL) -> int:
+
+        if self.training:
+            self.remote_memory.add(
+                {
+                    "state": self.state,
+                    "player_index": player_index,
+                    "env": env.backup(),
+                }
+            )
 
         # 試行回数のもっとも多いアクションを採用
-        if s in self.parameter.N:
-            c = self.parameter.N[s]
-            c = [c[a] if a in invalid_actions else -np.inf for a in range(self.config.nb_actions)]  # mask
+        if self.state in self.parameter.N:
+            c = self.parameter.N[self.state]
+            c = [-np.inf if a in self.invalid_actions else c[a] for a in range(self.config.nb_actions)]  # mask
             action = random.choice(np.where(c == np.max(c))[0])
         else:
-            action = random.choice([a for a in range(self.config.nb_actions) if a not in invalid_actions])
+            action = random.choice([a for a in range(self.config.nb_actions) if a not in self.invalid_actions])
 
         return action
 
@@ -214,30 +211,27 @@ class Worker(RLWorker):
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        next_invalid_actions: List[int],
+        player_index: int,
         env: EnvForRL,
     ):
-        self.remote_memory.add(
-            {
-                "state": to_str_observaten(next_state),
-                "action": next_invalid_actions,
-                "env": env.backup(),
-            }
-        )
+        self.state = to_str_observaten(next_state)
+        self.invalid_actions = env.get_invalid_actions(player_index)
+
         return {}
 
     def render(self, env: EnvForRL) -> None:
-        s = env.to_str_observaten(state)
+        self.parameter.init_state(self.state)
+        maxa = np.argmax(self.parameter.N[self.state])
         for a in range(self.config.nb_actions):
-            if s in self.parameter.W:
-                q = self.parameter.W[s][a]
-                c = self.parameter.N[s][a]
-                if c != 0:
-                    q /= c
+            if a == maxa:
+                s = "*"
             else:
-                q = 0
-                c = 0
-            print(f"{env.action_to_str(a)}: {q:7.3f}({c:7d})|")
+                s = " "
+            q = self.parameter.W[self.state][a]
+            c = self.parameter.N[self.state][a]
+            if c != 0:
+                q /= c
+            print(f"{s}{env.action_to_str(a)}: {q:7.3f}({c:7d})")
 
 
 if __name__ == "__main__":

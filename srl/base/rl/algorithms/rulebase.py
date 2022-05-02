@@ -63,7 +63,7 @@ class RuleBaseWorker(RLWorker):
     def on_reset(
         self,
         state: np.ndarray,
-        invalid_actions: List[int],
+        player_index: int,
         env: "srl.base.rl.env_for_rl.EnvForRL",
     ) -> None:
         self.call_on_reset(env.get_original_env())
@@ -75,7 +75,7 @@ class RuleBaseWorker(RLWorker):
     def policy(
         self,
         state: np.ndarray,
-        invalid_actions: List[int],
+        player_index: int,
         env: "srl.base.rl.env_for_rl.EnvForRL",
     ) -> Any:
         return self.call_policy(env.get_original_env())
@@ -85,7 +85,7 @@ class RuleBaseWorker(RLWorker):
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        next_invalid_actions: List[int],
+        player_index: int,
         env: "srl.base.rl.env_for_rl.EnvForRL",
     ) -> Dict[str, Union[float, int]]:  # info
         return {}

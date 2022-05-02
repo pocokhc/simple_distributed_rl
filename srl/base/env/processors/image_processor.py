@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
+from srl.base.env.base import EnvBase
 from srl.base.env.processor import Processor
 
 try:
@@ -33,6 +34,7 @@ class ImageProcessor(Processor):
         observation_space: gym.spaces.Box,
         observation_type: EnvObservationType,
         rl_observation_type: RLObservationType,
+        env: EnvBase,
     ) -> Tuple[gym.spaces.Box, EnvObservationType]:
         if observation_type not in [
             EnvObservationType.GRAY_3ch,
@@ -60,7 +62,7 @@ class ImageProcessor(Processor):
 
         return new_observation_space, new_observation_type
 
-    def observation_encode(self, observation: np.ndarray) -> np.ndarray:
+    def observation_encode(self, observation: np.ndarray, env: EnvBase) -> np.ndarray:
         if self.before_observation_type == EnvObservationType.GRAY_3ch:
             # (w,h,1) -> (w,h)
             observation = np.squeeze(observation, -1)

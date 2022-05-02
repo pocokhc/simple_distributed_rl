@@ -7,8 +7,8 @@ import gym.spaces
 import numpy as np
 import srl
 from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.env.base import EnvBase
 from srl.base.env.processor import Processor
-from srl.base.env.single_play_wrapper import SinglePlayerWrapper
 
 from .common import tuple_to_box
 
@@ -30,6 +30,7 @@ class ObservationBoxProcessor(Processor):
         observation_space: gym.spaces.Space,
         observation_type: EnvObservationType,
         rl_observation_type: RLObservationType,
+        env: EnvBase,
     ):
         if isinstance(observation_space, gym.spaces.Discrete):
             next_space = gym.spaces.Box(low=0, high=observation_space.n - 1, shape=(1,))
@@ -88,7 +89,7 @@ class ObservationBoxProcessor(Processor):
         else:
             return EnvObservationType.CONTINUOUS
 
-    def observation_encode(self, observation):
+    def observation_encode(self, observation, env: EnvBase):
         observation = np.asarray(observation)
         if self.change_type == "Discrete->Box":
             return observation[np.newaxis, ...]

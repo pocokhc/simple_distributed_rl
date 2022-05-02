@@ -38,7 +38,7 @@ abstract EnvBase {
     - observation_type : EnvObservationType
     - max_episode_steps : int
     - player_num : int
-    - fetch_invalid_actions()
+    - get_invalid_actions()
     - sample()
     - backup()
     - restore()

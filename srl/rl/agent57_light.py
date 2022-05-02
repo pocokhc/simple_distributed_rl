@@ -11,6 +11,7 @@ from srl.base.env.env_for_rl import EnvForRL
 from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
+from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions.common import (
     create_beta_list,
     create_epsilon_list,
@@ -20,7 +21,6 @@ from srl.rl.functions.common import (
 )
 from srl.rl.functions.dueling_network import create_dueling_network_layers
 from srl.rl.functions.model import ImageLayerType, create_input_layers
-from srl.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
 from tensorflow.keras import layers as kl
 
 logger = logging.getLogger(__name__)
@@ -184,7 +184,9 @@ class _QNetwork(keras.Model):
             c = kl.Dense(config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal")(
                 c
             )
-            c = kl.Dense(config.nb_actions, kernel_initializer="truncated_normal")(c)
+            c = kl.Dense(
+                config.nb_actions, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
+            )(c)
 
         self.model = keras.Model(in_state, c)
 

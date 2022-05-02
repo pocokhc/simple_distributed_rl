@@ -5,7 +5,8 @@ import gym
 import gym.spaces
 import numpy as np
 import srl
-from srl.base.define import EnvActionType, EnvObservationType, RLObservationType
+from srl.base.define import (EnvActionType, EnvObservationType,
+                             RLObservationType)
 from srl.base.env.genre.singleplay import SingleActionDiscrete
 from srl.base.env.processors import ObservationBoxProcessor
 from srl.base.env.registration import register
@@ -64,14 +65,14 @@ class Test(unittest.TestCase):
         space = gym.spaces.Discrete(5)
 
         # change info
-        new_space, new_type = self.processor.change_observation_info(space, self.obs_type, self.rl_obs_type)
+        new_space, new_type = self.processor.change_observation_info(space, self.obs_type, self.rl_obs_type, None)
         self.assertTrue(new_type == EnvObservationType.DISCRETE)
         self.assertTrue(new_space.shape == (1,))
         np.testing.assert_array_equal(new_space.low, np.full((1,), 0))
         np.testing.assert_array_equal(new_space.high, np.full((1,), 4))
 
         # encode
-        new_obs = self.processor.observation_encode(1)
+        new_obs = self.processor.observation_encode(1, None)
         self.assertTrue(isinstance(new_obs, np.ndarray))
         self.assertTrue(new_obs == [1])
         self.assertTrue(new_obs.shape == (1,))
@@ -86,14 +87,14 @@ class Test(unittest.TestCase):
         )
 
         # change info
-        new_space, new_type = self.processor.change_observation_info(space, self.obs_type, self.rl_obs_type)
+        new_space, new_type = self.processor.change_observation_info(space, self.obs_type, self.rl_obs_type, None)
         self.assertTrue(new_type == EnvObservationType.DISCRETE)
         self.assertTrue(new_space.shape == (3,))
         np.testing.assert_array_equal(new_space.low, [0, 0, 0])
         np.testing.assert_array_equal(new_space.high, [1, 4, 2])
 
         # decode
-        new_obs = self.processor.observation_encode([1, 2, 2])
+        new_obs = self.processor.observation_encode([1, 2, 2], None)
         self.assertTrue(isinstance(new_obs, np.ndarray))
         np.testing.assert_array_equal(new_obs, [1, 2, 2])
         self.assertTrue(new_obs.shape == (3,))
@@ -103,14 +104,14 @@ class Test(unittest.TestCase):
         space = gym.spaces.Box(low=-1, high=4, shape=(2, 2))
 
         # change info
-        new_space, new_type = self.processor.change_observation_info(space, self.obs_type, self.rl_obs_type)
+        new_space, new_type = self.processor.change_observation_info(space, self.obs_type, self.rl_obs_type, None)
         self.assertTrue(new_type == EnvObservationType.UNKOWN)
         self.assertTrue(new_space.shape == space.shape)
         np.testing.assert_array_equal(new_space.low, space.low)
         np.testing.assert_array_equal(new_space.high, space.high)
 
         # decode
-        new_obs = self.processor.observation_encode([[1.1, 2.2], [2.2, 3.3]])
+        new_obs = self.processor.observation_encode([[1.1, 2.2], [2.2, 3.3]], None)
         self.assertTrue(isinstance(new_obs, np.ndarray))
         np.testing.assert_array_equal(new_obs, [[1.1, 2.2], [2.2, 3.3]])
         self.assertTrue(new_obs.shape == (2, 2))
@@ -122,7 +123,7 @@ class Test(unittest.TestCase):
         space = gym.spaces.Box(low=-1, high=4, shape=(2, 2))
 
         # change info
-        new_space, new_type = self.processor.change_observation_info(space, self.obs_type, self.rl_obs_type)
+        new_space, new_type = self.processor.change_observation_info(space, self.obs_type, self.rl_obs_type, None)
         self.assertTrue(new_type == EnvObservationType.CONTINUOUS)
         self.assertTrue(new_space.shape == space.shape)
         np.testing.assert_array_equal(new_space.low, space.low)
@@ -135,7 +136,7 @@ class Test(unittest.TestCase):
         space = gym.spaces.Box(low=-1, high=4, shape=(2, 2))
 
         # change info
-        new_space, new_type = self.processor.change_observation_info(space, self.obs_type, self.rl_obs_type)
+        new_space, new_type = self.processor.change_observation_info(space, self.obs_type, self.rl_obs_type, None)
         self.assertTrue(new_type == EnvObservationType.DISCRETE)
         self.assertTrue(new_space.shape == space.shape)
         np.testing.assert_array_equal(new_space.low, space.low)

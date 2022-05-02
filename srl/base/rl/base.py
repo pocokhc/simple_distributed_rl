@@ -147,7 +147,7 @@ class RLWorker(ABC):
     def on_reset(
         self,
         state: np.ndarray,
-        invalid_actions: List[int],
+        player_index: int,
         env: "srl.base.env.env_for_rl.EnvForRL",
     ) -> None:
         raise NotImplementedError()
@@ -156,7 +156,7 @@ class RLWorker(ABC):
     def policy(
         self,
         state: np.ndarray,
-        invalid_actions: List[int],
+        player_index: int,
         env: "srl.base.env.env_for_rl.EnvForRL",
     ) -> Any:
         raise NotImplementedError()
@@ -167,7 +167,7 @@ class RLWorker(ABC):
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        next_invalid_actions: List[int],
+        player_index: int,
         env: "srl.base.env.env_for_rl.EnvForRL",
     ) -> Dict[str, Union[float, int]]:  # info
         raise NotImplementedError()

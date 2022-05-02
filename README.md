@@ -5,10 +5,12 @@
 どちらかというと強化学習の学習用フレームワークです。  
 以下の特徴があります。  
 
-+ カスタマイズ可能な環境
-+ カスタマイズ可能な強化学習アルゴリズム
++ （出来る限り）透明性のあるフロー
++ カスタマイズ可能な環境クラスの提供
++ カスタマイズ可能な強化学習アルゴリズムクラスの提供
 + 環境とアルゴリズム間のインタフェースの自動調整
 + 分散強化学習のサポート
+
 
 
 # Install
@@ -36,6 +38,7 @@ python examples/minimum_runner.py
 # Usage
 
 ``` python
+import numpy as np
 import srl
 from srl.runner import mp, sequence
 from srl.runner.callbacks import PrintProgress, Rendering
@@ -55,7 +58,7 @@ from srl.runner.callbacks_mp import TrainFileLogger
 env_config = srl.envs.Config("FrozenLake-v1")
 
 # rl algorithm config
-rl_config = rl.ql.Config()
+rl_config = srl.rl.ql.Config()
 
 # running config
 config = sequence.Config(env_config, rl_config)
@@ -67,19 +70,19 @@ config = sequence.Config(env_config, rl_config)
 if True:
     # sequence training
     config.set_train_config(timeout=60, callbacks=[PrintProgress()])
-    parameter, memory = sequence.train(config)
+    parameter, remote_memory = sequence.train(config)
 else:
     # distribute training
     mp_config = mp.Config(worker_num=2)  # distribute config
     config.set_train_config()
     mp_config.set_train_config(timeout=60, callbacks=[TrainFileLogger(enable_log=False, enable_checkpoint=False)])
-    parameter, memory = mp.train(config, mp_config)
+    parameter, remote_memory = mp.train(config, mp_config)
 
 # (option) save parameter
 # parameter.save("params.dat")
 
 # --- test
-config.set_play_config(max_episodes=10, callbacks=[PrintProgress()])
+config.set_play_config(max_episodes=10)
 rewards, _, _ = sequence.play(config, parameter)
 print(f"test reward mean: {np.mean(rewards)}")
 
@@ -176,8 +179,8 @@ RemoteMemroyはアルゴリズムに依存しない部分が大きいので別�
 
 |Algorithm|Algorithm Type|ObservationType|ActionType|ProgressRate||Paper|
 |---------|-----|--------------|----------------|----------|-------------|---|
-|MCTS      |Table|Discrete|Discrete| 100%|Single play||
-|AlphaZero |Table+NeuralNet|Continuous|Discrete| -%|Single play|[Paper](https://arxiv.org/abs/1712.01815)|
+|MCTS      |Table|Discrete|Discrete| 100%|||
+|AlphaZero |Table+NeuralNet|Continuous|Discrete| -%||[Paper](https://arxiv.org/abs/1712.01815)|
 |MuZero |Table+NeuralNet|Continuous|Discrete| -%||[Paper](https://www.nature.com/articles/s41586-020-03051-4)|
 |DynaQ |Table|Discrete|Discrete| 90%|||
 
@@ -195,6 +198,24 @@ RemoteMemroyはアルゴリズムに依存しない部分が大きいので別�
 
 
 # Diaglams
+
+## Overview
+
+* sequence flow
+
+![](diagrams/overview-sequence.drawio.png)
+
+* distibute flow
+
+![](diagrams/overview-distibute.drawio.png)
+
+* multiplay flow
+
+![](diagrams/overview-multiplay.drawio.png)
+
+
+
+
 ## SinglePlay flow
 
 ![](diagrams/singleplay_flow.png)

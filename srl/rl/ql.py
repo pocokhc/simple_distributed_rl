@@ -9,8 +9,8 @@ from srl.base.env.env_for_rl import EnvForRL
 from srl.base.rl.algorithms.table import TableConfig, TableWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
+from srl.base.rl.remote_memory import SequenceRemoteMemory
 from srl.rl.functions.common import to_str_observaten
-from srl.rl.remote_memory.sequence_memory import SequenceRemoteMemory
 
 logger = logging.getLogger(__name__)
 

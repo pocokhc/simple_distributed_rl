@@ -7,6 +7,7 @@ import gym
 import gym.spaces
 import numpy as np
 from srl.base.define import EnvActionType, EnvObservationType, RLActionType, RLObservationType
+from srl.base.env.base import EnvBase
 from srl.base.env.processor import Processor
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,7 @@ class DiscreteProcessor(Processor):
         action_space: gym.spaces.Space,
         action_type: EnvActionType,
         rl_action_type: RLActionType,
+        env: EnvBase,
     ) -> Tuple[gym.spaces.Space, EnvActionType]:
         if rl_action_type != RLActionType.DISCRETE:
             return action_space, action_type
@@ -78,7 +80,7 @@ class DiscreteProcessor(Processor):
         new_space = gym.spaces.Discrete(len(action_tbl))
         return new_space, action_tbl
 
-    def action_decode(self, action: Any) -> int:
+    def action_decode(self, action: Any, env: EnvBase) -> Any:
         if action is None:
             return 0
         if self.change_type == "":
@@ -90,7 +92,7 @@ class DiscreteProcessor(Processor):
 
         raise ValueError()
 
-    def invalid_actions_encode(self, invalid_actions: List) -> List:
+    def invalid_actions_encode(self, invalid_actions: List, env: EnvBase) -> List:
         return invalid_actions
 
     # --- observation
@@ -100,6 +102,7 @@ class DiscreteProcessor(Processor):
         observation_space: gym.spaces.Box,
         observation_type: EnvObservationType,
         rl_observation_type: RLObservationType,
+        env: EnvBase,
     ) -> Tuple[gym.spaces.Box, EnvObservationType]:
         if rl_observation_type != RLObservationType.DISCRETE:
             return observation_space, observation_type
@@ -118,7 +121,7 @@ class DiscreteProcessor(Processor):
         observation_type = EnvObservationType.DISCRETE
         return observation_space, observation_type
 
-    def observation_encode(self, observation: np.ndarray) -> np.ndarray:
+    def observation_encode(self, observation: np.ndarray, env: EnvBase) -> np.ndarray:
         if self._observation_discrete_diff is None:
             return observation
 

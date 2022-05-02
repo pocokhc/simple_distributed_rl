@@ -23,6 +23,10 @@ class TestEnv:
         for i in next_player_indices:
             assert 0 <= i < player_num
 
+        # --- restore/backup
+        dat = env.backup()
+        env.restore(dat)
+
         # --- episode
         done = False
         step = 0
@@ -43,8 +47,8 @@ class TestEnv:
                 for i, idx in enumerate(next_player_indices):
                     action = actions[i]
 
-                    # fetch_invalid_actions
-                    invalid_actions = env.fetch_invalid_actions(idx)
+                    # get_invalid_actions
+                    invalid_actions = env.get_invalid_actions(idx)
                     assert isinstance(invalid_actions, list)
                     for a in invalid_actions:
                         assert isinstance(a, int)

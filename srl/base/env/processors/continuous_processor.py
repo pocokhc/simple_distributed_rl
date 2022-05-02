@@ -1,11 +1,12 @@
 import logging
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Any, Tuple
 
 import gym
 import gym.spaces
 import numpy as np
 from srl.base.define import EnvActionType, EnvObservationType, RLActionType, RLObservationType
+from srl.base.env.base import EnvBase
 from srl.base.env.processor import Processor
 
 from .common import tuple_to_box
@@ -26,6 +27,7 @@ class ContinuousProcessor(Processor):
         action_space: gym.spaces.Space,
         action_type: EnvActionType,
         rl_action_type: RLActionType,
+        env: EnvBase,
     ) -> Tuple[gym.spaces.Space, EnvActionType]:
 
         if rl_action_type != RLActionType.CONTINUOUS:
@@ -46,7 +48,7 @@ class ContinuousProcessor(Processor):
 
         raise ValueError(f"Unimplemented: {action_space.__class__.__name__}")
 
-    def action_decode(self, action):
+    def action_decode(self, action: Any, env: EnvBase) -> Any:
         if self.change_type == "":
             return action
         if self.change_type == "Discrete->Box":
@@ -56,18 +58,20 @@ class ContinuousProcessor(Processor):
         raise ValueError()
 
     # --- observation
+
     def change_observation_info(
         self,
         observation_space: gym.spaces.Box,
         observation_type: EnvObservationType,
         rl_observation_type: RLObservationType,
+        env: EnvBase,
     ) -> Tuple[gym.spaces.Box, EnvObservationType]:
         if rl_observation_type != RLObservationType.CONTINUOUS:
             return observation_space, observation_type
 
         return observation_space, observation_type
 
-    def observation_encode(self, observation: np.ndarray) -> np.ndarray:
+    def observation_encode(self, observation: np.ndarray, env: EnvBase) -> np.ndarray:
         return observation
 
 

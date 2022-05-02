@@ -9,6 +9,7 @@ from srl.base.env.env_for_rl import EnvForRL
 from srl.base.rl.algorithms.table import TableConfig, TableWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
+from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions.common import (
     calc_epsilon_greedy_probs,
     create_beta_list,
@@ -19,7 +20,6 @@ from srl.rl.functions.common import (
     rescaling,
     to_str_observaten,
 )
-from srl.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
 
 logger = logging.getLogger(__name__)
 

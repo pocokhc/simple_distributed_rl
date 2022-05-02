@@ -320,13 +320,12 @@ def play(
         # ------------------------
         # step
         # ------------------------
-        invalid_actions_list = [env.fetch_invalid_actions(idx) for idx in next_player_indices]
 
         # --- rl init
         for i, idx in enumerate(next_player_indices):
             if players_status[idx] == "INIT":
                 worker_idx = worker_indices[idx]
-                workers[worker_idx].on_reset(state, invalid_actions_list[i], env)
+                workers[worker_idx].on_reset(state, idx, env)
                 players_status[idx] = "RUNNING"
 
         # callback
@@ -337,7 +336,7 @@ def play(
         actions = []
         for i, idx in enumerate(next_player_indices):
             worker_idx = worker_indices[idx]
-            action = workers[worker_idx].policy(state, invalid_actions_list[i], env)
+            action = workers[worker_idx].policy(state, idx, env)
             actions.append(action)
 
         # --- env step
@@ -373,16 +372,20 @@ def play(
             done = True
 
         # --- rl after step
+        _params["next_player_indices"] = next_player_indices
         if done:
             # 終了の場合は全playerを実行
             next_player_indices = [i for i in range(env.player_num)]
         for idx in next_player_indices:
             if players_status[idx] != "RUNNING":
                 continue
-            invalid_actions = env.fetch_invalid_actions(idx)
             worker_idx = worker_indices[idx]
             worker_info_list[worker_idx] = workers[worker_idx].on_step(
-                state, players_step_reward[idx], done, invalid_actions, env
+                state,
+                players_step_reward[idx],
+                done,
+                idx,
+                env,
             )
             players_step_reward[idx] = 0
 

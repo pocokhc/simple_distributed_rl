@@ -51,7 +51,10 @@ class GymWrapper(EnvBase):
         state, reward, done, info = self.env.step(actions[0])
         return np.asarray(state), [reward], done, [0], info
 
-    def fetch_invalid_actions(self, player_index: int) -> List[int]:
+    def get_next_player_indecies(self) -> List[int]:
+        return [0]
+
+    def get_invalid_actions(self, player_index: int) -> List[int]:
         return []
 
     def render_terminal(self) -> None:

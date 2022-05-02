@@ -47,7 +47,7 @@ class TurnBase2PlayerActionDiscrete(EnvBase):
         raise NotImplementedError()
 
     # same parent(option)
-    def fetch_invalid_actions(self, player_index: int) -> List[int]:
+    def get_invalid_actions(self, player_index: int) -> List[int]:
         return []
 
     @abstractmethod  # same parent
@@ -84,6 +84,9 @@ class TurnBase2PlayerActionDiscrete(EnvBase):
     def step(self, actions: List[Any]) -> Tuple[np.ndarray, List[float], bool, List[int], Dict[str, float]]:
         n_s, reward1, reward2, done, info = self.step_turn(actions[0])
         return n_s, [reward1, reward2], done, [self.player_index], info
+
+    def get_next_player_indecies(self) -> List[int]:
+        return [self.player_index]
 
 
 if __name__ == "__main__":

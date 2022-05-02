@@ -55,7 +55,7 @@ class ContinuousActionWorker(RLWorker):
     def on_reset(
         self,
         state: np.ndarray,
-        invalid_actions: List[int],
+        player_index: int,
         env: "srl.base.rl.env_for_rl.EnvForRL",
     ) -> None:
         self.call_on_reset(state)
@@ -67,7 +67,7 @@ class ContinuousActionWorker(RLWorker):
     def policy(
         self,
         state: np.ndarray,
-        invalid_actions: List[int],
+        player_index: int,
         env: "srl.base.rl.env_for_rl.EnvForRL",
     ) -> Any:
         return self.call_policy(state)
@@ -75,8 +75,6 @@ class ContinuousActionWorker(RLWorker):
     @abstractmethod
     def call_on_step(
         self,
-        state: np.ndarray,
-        action: np.ndarray,
         next_state: np.ndarray,
         reward: float,
         done: bool,
@@ -85,16 +83,13 @@ class ContinuousActionWorker(RLWorker):
 
     def on_step(
         self,
-        state: np.ndarray,
-        action: Any,
-        next_state: np.ndarray,
+        next_state: Any,
         reward: float,
         done: bool,
-        invalid_actions: List[int],
-        next_invalid_actions: List[int],
-        env: "srl.base.rl.env_for_rl.EnvForRL",
-    ) -> Dict[str, Union[float, int]]:  # info
-        return self.call_on_step(state, action, next_state, reward, done)
+        player_index: int,
+        env: "srl.base.env.env_for_rl.EnvForRL",
+    ) -> Dict[str, Union[float, int]]:
+        return self.call_on_step(next_state, reward, done)
 
 
 if __name__ == "__main__":

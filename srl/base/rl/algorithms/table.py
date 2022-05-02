@@ -1,6 +1,6 @@
 import logging
 from abc import abstractmethod
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Union
 
 import numpy as np
 from srl.base.define import RLActionType, RLObservationType
@@ -34,10 +34,10 @@ class TableWorker(RLWorker):
     def on_reset(
         self,
         state: np.ndarray,
-        invalid_actions: List[int],
+        player_index: int,
         env: "srl.base.rl.env_for_rl.EnvForRL",
     ) -> None:
-        self.call_on_reset(state, invalid_actions)
+        self.call_on_reset(state, env.get_invalid_actions(player_index))
 
     @abstractmethod
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
@@ -46,10 +46,10 @@ class TableWorker(RLWorker):
     def policy(
         self,
         state: np.ndarray,
-        invalid_actions: List[int],
+        player_index: int,
         env: "srl.base.env.env_for_rl.EnvForRL",
     ) -> Any:
-        return self.call_policy(state, invalid_actions)
+        return self.call_policy(state, env.get_invalid_actions(player_index))
 
     @abstractmethod
     def call_on_step(
@@ -57,7 +57,7 @@ class TableWorker(RLWorker):
         next_state: Any,
         reward: float,
         done: bool,
-        next_invalid_actions: List[int],
+        invalid_actions: List[int],
     ) -> Dict[str, Union[float, int]]:  # info
         raise NotImplementedError()
 
@@ -66,10 +66,10 @@ class TableWorker(RLWorker):
         next_state: Any,
         reward: float,
         done: bool,
-        next_invalid_actions: List[int],
+        player_index: int,
         env: "srl.base.env.env_for_rl.EnvForRL",
     ) -> Dict[str, Union[float, int]]:  # info
-        return self.call_on_step(next_state, reward, done, next_invalid_actions)
+        return self.call_on_step(next_state, reward, done, env.get_invalid_actions(player_index))
 
 
 if __name__ == "__main__":

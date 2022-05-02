@@ -4,8 +4,7 @@ import unittest
 import gym
 import gym.spaces
 import numpy as np
-from srl.base.define import (EnvActionType, EnvObservationType, RLActionType,
-                             RLObservationType)
+from srl.base.define import EnvActionType, EnvObservationType, RLActionType, RLObservationType
 from srl.base.env.processors import DiscreteProcessor
 
 
@@ -18,12 +17,12 @@ class TestAction(unittest.TestCase):
         action_type = EnvActionType.DISCRETE
 
         # change info
-        new_space, new_action_type = self.processor.change_action_info(space, action_type, RLActionType.DISCRETE)
+        new_space, new_action_type = self.processor.change_action_info(space, action_type, RLActionType.DISCRETE, None)
         self.assertTrue(new_space.n == space.n)
         self.assertTrue(new_action_type == EnvActionType.DISCRETE)
 
         # decode
-        new_action = self.processor.action_decode(3)
+        new_action = self.processor.action_decode(3, None)
         self.assertTrue(new_action == 3)
 
     def test_TupleDiscrete(self):
@@ -37,7 +36,7 @@ class TestAction(unittest.TestCase):
         action_type = EnvActionType.DISCRETE
 
         # change info
-        new_space, new_action_type = self.processor.change_action_info(space, action_type, RLActionType.DISCRETE)
+        new_space, new_action_type = self.processor.change_action_info(space, action_type, RLActionType.DISCRETE, None)
         self.assertTrue(new_space.n == 2 * 5 * 3)
         true_tbl = list(
             itertools.product(
@@ -50,7 +49,7 @@ class TestAction(unittest.TestCase):
         self.assertTrue(new_action_type == EnvActionType.DISCRETE)
 
         # decode
-        new_action = self.processor.action_decode(3)
+        new_action = self.processor.action_decode(3, None)
         self.assertTrue(new_action == (0, 1, 0))
 
     def test_Box1(self):
@@ -59,7 +58,7 @@ class TestAction(unittest.TestCase):
         action_type = EnvActionType.CONTINUOUS
 
         # change info
-        new_space, new_action_type = self.processor.change_action_info(space, action_type, RLActionType.DISCRETE)
+        new_space, new_action_type = self.processor.change_action_info(space, action_type, RLActionType.DISCRETE, None)
         self.assertTrue(new_space.n == 5)
         true_tbl = [
             [-1],
@@ -72,7 +71,7 @@ class TestAction(unittest.TestCase):
         self.assertTrue(new_action_type == EnvActionType.DISCRETE)
 
         # decode
-        new_action = self.processor.action_decode(3)
+        new_action = self.processor.action_decode(3, None)
         self.assertTrue(new_action == [2])
 
     def test_Box2(self):
@@ -81,7 +80,7 @@ class TestAction(unittest.TestCase):
         action_type = EnvActionType.CONTINUOUS
 
         # change info
-        new_space, new_action_type = self.processor.change_action_info(space, action_type, RLActionType.DISCRETE)
+        new_space, new_action_type = self.processor.change_action_info(space, action_type, RLActionType.DISCRETE, None)
         self.assertTrue(new_space.n == 5 ** (3 * 2))
         _t = list(itertools.product([-1, 0, 1, 2, 3], [-1, 0, 1, 2, 3]))
         true_tbl = list(itertools.product(_t, _t, _t))
@@ -90,36 +89,39 @@ class TestAction(unittest.TestCase):
         self.assertTrue(new_action_type == EnvActionType.DISCRETE)
 
         # decode
-        new_action = self.processor.action_decode(3)
+        new_action = self.processor.action_decode(3, None)
         np.testing.assert_array_equal(new_action, true_tbl[3])
 
     def test_rl_continuous(self):
         # rlがcontinuousは何もしない
         space = gym.spaces.Box(low=-1, high=3, shape=(5, 2, 3))
         action_type = EnvActionType.CONTINUOUS
-        new_space, new_action_type = self.processor.change_action_info(space, action_type, RLActionType.CONTINUOUS)
+        new_space, new_action_type = self.processor.change_action_info(
+            space, action_type, RLActionType.CONTINUOUS, None
+        )
         self.assertTrue(new_space.shape == space.shape)
         np.testing.assert_array_equal(space.low, new_space.low)
         np.testing.assert_array_equal(space.high, new_space.high)
         self.assertTrue(new_action_type == EnvActionType.CONTINUOUS)
 
         # decode
-        new_action = self.processor.action_decode(3)
+        new_action = self.processor.action_decode(3, None)
         np.testing.assert_array_equal(new_action, 3)
 
     def test_rl_any(self):
         # rl が any は何もしない
         space = gym.spaces.Box(low=-1, high=3, shape=(5, 2, 3))
         action_type = EnvActionType.CONTINUOUS
-        new_space, new_action_type = self.processor.change_action_info(space, action_type, RLActionType.ANY)
+        new_space, new_action_type = self.processor.change_action_info(space, action_type, RLActionType.ANY, None)
         self.assertTrue(new_space.shape == space.shape)
         np.testing.assert_array_equal(space.low, new_space.low)
         np.testing.assert_array_equal(space.high, new_space.high)
         self.assertTrue(new_action_type == EnvActionType.CONTINUOUS)
 
         # decode
-        new_action = self.processor.action_decode(3)
+        new_action = self.processor.action_decode(3, None)
         np.testing.assert_array_equal(new_action, 3)
+
 
 class TestObservation(unittest.TestCase):
     def setUp(self) -> None:
@@ -132,7 +134,7 @@ class TestObservation(unittest.TestCase):
         obs_type = EnvObservationType.CONTINUOUS
 
         # change info
-        new_space, new_type = self.processor.change_observation_info(space, obs_type, RLObservationType.DISCRETE)
+        new_space, new_type = self.processor.change_observation_info(space, obs_type, RLObservationType.DISCRETE, None)
         self.assertTrue(new_type == EnvObservationType.DISCRETE)
         self.assertTrue(new_space.shape == space.shape)
         np.testing.assert_array_equal(new_space.low, space.low)
@@ -145,7 +147,7 @@ class TestObservation(unittest.TestCase):
         np.testing.assert_allclose(self.processor._observation_discrete_diff, [[1.0, 1.0], [1.0, 1.0]])
 
         # decode
-        new_obs = self.processor.observation_encode(np.asarray([[0, 0.11], [0.99, 1]]))
+        new_obs = self.processor.observation_encode(np.asarray([[0, 0.11], [0.99, 1]]), None)
         np.testing.assert_array_equal(new_obs, [[1, 1], [1, 2]])
 
     def test_rl_any(self):
@@ -153,14 +155,14 @@ class TestObservation(unittest.TestCase):
         space = gym.spaces.Box(low=-1, high=4, shape=(2, 2))
         obs_type = EnvObservationType.CONTINUOUS
 
-        new_space, new_type = self.processor.change_observation_info(space, obs_type, RLActionType.ANY)
+        new_space, new_type = self.processor.change_observation_info(space, obs_type, RLActionType.ANY, None)
         self.assertTrue(new_type == EnvObservationType.CONTINUOUS)
         self.assertTrue(new_space.shape == space.shape)
         np.testing.assert_array_equal(new_space.low, space.low)
         np.testing.assert_array_equal(new_space.high, space.high)
 
         # decode
-        new_obs = self.processor.observation_encode(np.asarray([[0, 0.11], [0.99, 1]]))
+        new_obs = self.processor.observation_encode(np.asarray([[0, 0.11], [0.99, 1]]), None)
         np.testing.assert_array_equal(new_obs, [[0, 0.11], [0.99, 1]])
 
 

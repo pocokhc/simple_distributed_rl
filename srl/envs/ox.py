@@ -1,4 +1,3 @@
-import enum
 import logging
 import random
 from dataclasses import dataclass
@@ -8,34 +7,24 @@ import gym
 import gym.envs.registration
 import gym.spaces
 import numpy as np
-from srl.base.define import EnvObservationType
+from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.genre.turnbase import TurnBase2PlayerActionDiscrete
+from srl.base.env.processor import Processor
 from srl.base.env.registration import register
 from srl.base.rl.algorithms.rulebase import RuleBaseWorker
 from srl.base.rl.base import RLWorker
 
 logger = logging.getLogger(__name__)
 
-
-class StateType(enum.Enum):
-    ARRAY = enum.auto()
-    MAP = enum.auto()
-
-
 register(
     id="OX",
     entry_point=__name__ + ":OX",
-    kwargs={
-        "state_type": StateType.ARRAY,
-    },
+    kwargs={},
 )
 
 
 @dataclass
 class OX(TurnBase2PlayerActionDiscrete):
-
-    state_type: StateType = StateType.ARRAY
-
     def __post_init__(self):
 
         self.W = 3
@@ -44,21 +33,11 @@ class OX(TurnBase2PlayerActionDiscrete):
         self._player_index = 0
 
         # observation_space
-        if self.state_type == StateType.ARRAY:
-            self._observation_space = gym.spaces.Box(
-                low=-1,
-                high=1,
-                shape=(1 + self.H * self.W,),
-            )
-        elif self.state_type == StateType.MAP:
-            field = self.reset_turn()
-            self._observation_space = gym.spaces.Box(
-                low=0,
-                high=1,
-                shape=field.shape,
-            )
-        else:
-            raise ValueError()
+        self._observation_space = gym.spaces.Box(
+            low=-1,
+            high=1,
+            shape=(1 + self.H * self.W,),
+        )
 
     @property
     def action_num(self):
@@ -70,12 +49,7 @@ class OX(TurnBase2PlayerActionDiscrete):
 
     @property
     def observation_type(self) -> EnvObservationType:
-        if self.state_type == StateType.ARRAY:
-            return EnvObservationType.DISCRETE
-        elif self.state_type == StateType.MAP:
-            return EnvObservationType.SHAPE2
-        else:
-            raise ValueError()
+        return EnvObservationType.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:
@@ -88,38 +62,19 @@ class OX(TurnBase2PlayerActionDiscrete):
     def reset_turn(self) -> np.ndarray:
         self.field = [0 for _ in range(self.W * self.H)]
         self._player_index = 0
-        return self._encode_state(self.state_type)
+        return self._encode_state()
 
     # 観測用の状態を返す
-    def _encode_state(self, state_type):
-        if state_type == StateType.ARRAY:
-            # (turn,) + field
-            return np.array([self.player_index] + self.field)
-
-        if state_type == StateType.MAP:
-            # Layer0: player1 field (0 or 1)
-            # Layer1: player2 field (0 or 1)
-            # Layer2: player_index (all0 or all1)
-            _field = np.zeros((3, self.H, self.W))
-            for y in range(self.H):
-                for x in range(self.W):
-                    idx = x + y * self.W
-                    if self.field[idx] == 1:
-                        _field[0][y][x] = 1
-                    elif self.field[idx] == -1:
-                        _field[1][y][x] = 1
-            _field[2] = self.player_index
-            return _field
-
-        raise ValueError()
+    def _encode_state(self):
+        # (turn,) + field
+        return np.array([self.player_index] + self.field)
 
     def backup(self) -> Any:
-        return [self.field[:], self._player_index, self.state_type]
+        return [self.field[:], self._player_index]
 
     def restore(self, data: Any) -> None:
         self.field = data[0][:]
         self._player_index = data[1]
-        self.state_type = data[2]
 
     def step_turn(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
 
@@ -131,7 +86,7 @@ class OX(TurnBase2PlayerActionDiscrete):
             self._player_index = 0
 
         return (
-            self._encode_state(self.state_type),
+            self._encode_state(),
             reward1,
             reward2,
             done,
@@ -186,7 +141,7 @@ class OX(TurnBase2PlayerActionDiscrete):
 
         return 0, 0, False
 
-    def fetch_invalid_actions(self, player_index: int) -> List[int]:
+    def get_invalid_actions(self, player_index: int) -> List[int]:
         actions = []
         for a in range(self.H * self.W):
             if self.field[a] != 0:
@@ -231,7 +186,6 @@ class NegaMax(RuleBaseWorker):
 
     def call_policy(self, env_org: OX) -> int:
         env = env_org.copy()
-        env.state_type = StateType.ARRAY
 
         if random.random() < self.epsilon:
             actions = [a for a in range(env.action_num) if env.field[a] == 0]
@@ -280,6 +234,37 @@ class NegaMax(RuleBaseWorker):
                 s += "{:2d}|".format(scores[a])
             print(s)
             print("-" * 10)
+
+
+class MapProcessor(Processor):
+    def change_observation_info(
+        self,
+        observation_space: gym.spaces.Box,
+        observation_type: EnvObservationType,
+        rl_observation_type: RLObservationType,
+        env: OX,
+    ) -> Tuple[gym.spaces.Box, EnvObservationType]:
+        observation_space = gym.spaces.Box(
+            low=0,
+            high=1,
+            shape=(3, 3, 3),
+        )
+        return observation_space, EnvObservationType.SHAPE3
+
+    def observation_encode(self, observation: np.ndarray, env: OX) -> np.ndarray:
+        # Layer0: player1 field (0 or 1)
+        # Layer1: player2 field (0 or 1)
+        # Layer2: player_index (all0 or all1)
+        _field = np.zeros((3, env.H, env.W))
+        for y in range(env.H):
+            for x in range(env.W):
+                idx = x + y * env.W
+                if env.field[idx] == 1:
+                    _field[0][y][x] = 1
+                elif env.field[idx] == -1:
+                    _field[1][y][x] = 1
+        _field[2] = env.player_index
+        return _field
 
 
 if __name__ == "__main__":

@@ -85,14 +85,18 @@ class EnvBase(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def fetch_invalid_actions(self, player_index: int) -> List[int]:
+    def get_next_player_indecies(self) -> List[int]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_invalid_actions(self, player_index: int) -> List[int]:
         raise NotImplementedError()
 
     def sample(self, next_player_indices) -> List[Any]:
         if self.action_type == EnvActionType.DISCRETE:
             actions = []
             for i in next_player_indices:
-                invalid_actions = self.fetch_invalid_actions(i)
+                invalid_actions = self.get_invalid_actions(i)
                 _actions = [a for a in range(self.action_space.n) if a not in invalid_actions]
                 action = random.choice(_actions)
                 actions.append(action)

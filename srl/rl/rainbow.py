@@ -13,7 +13,7 @@ from srl.base.rl.registration import register
 from srl.rl.functions.common import calc_epsilon_greedy_probs, random_choice_by_probs
 from srl.rl.functions.dueling_network import create_dueling_network_layers
 from srl.rl.functions.model import ImageLayerType, create_input_layers
-from srl.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
+from srl.base.rl.remote_memory import PriorityExperienceReplay
 from tensorflow.keras import layers as kl
 
 """
@@ -159,7 +159,7 @@ class _QNetwork(keras.Model):
             )
         else:
             c = Dense(config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal")(c)
-            c = Dense(config.nb_actions, kernel_initializer="truncated_normal")(c)
+            c = Dense(config.nb_actions, kernel_initializer="truncated_normal", bias_initializer="truncated_normal")(c)
 
         self.model = keras.Model(in_state, c)
 
@@ -490,7 +490,7 @@ class Worker(DiscreteActionWorker):
                 s += "*"
             else:
                 s += " "
-            s += f"{env.action_to_str(a)}: {q[a]:5.3f}"
+            s += f"{env.action_to_str(a)}: {q[a]:.7f}"
             print(s)
 
 

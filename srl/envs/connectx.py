@@ -44,7 +44,7 @@ class ConnectX(TurnBase2PlayerActionDiscrete):
 
     @property
     def observation_space(self) -> gym.spaces.Space:
-        return gym.spaces.Box(low=0, high=2, shape=(self.H * self.W,))
+        return gym.spaces.Box(low=0, high=2, shape=(self.H * self.W + 1,))
 
     @property
     def observation_type(self) -> EnvObservationType:
@@ -62,7 +62,7 @@ class ConnectX(TurnBase2PlayerActionDiscrete):
         states = self.env.reset()
         self.board = states[0].observation["board"]
         self._player_index = 0
-        return np.array(self.board)
+        return np.array(self.board + [self.player_index])
 
     def step_turn(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
         states = self.env.step([action, action])
@@ -76,9 +76,9 @@ class ConnectX(TurnBase2PlayerActionDiscrete):
         else:
             self._player_index = 0
 
-        return np.array(self.board), reward1, reward2, done, {}
+        return np.array(self.board + [self.player_index]), reward1, reward2, done, {}
 
-    def fetch_invalid_actions(self, player_index: int) -> List[int]:
+    def get_invalid_actions(self, player_index: int) -> List[int]:
         nvalid_actions = [a for a in range(self.action_num) if self.board[a] != 0]
         return nvalid_actions
 

@@ -42,7 +42,7 @@ class SingleActionDiscrete(EnvBase):
         raise NotImplementedError()
 
     # new method(option)
-    def fetch_invalid_actions_single(self) -> List[int]:
+    def get_invalid_actions_single(self) -> List[int]:
         return []
 
     @abstractmethod  # same parent
@@ -79,8 +79,11 @@ class SingleActionDiscrete(EnvBase):
         n_state, reward, done, info = self.step_single(actions[0])
         return n_state, [reward], done, [0], info
 
-    def fetch_invalid_actions(self, player_index: int) -> List[int]:
-        return self.fetch_invalid_actions_single()
+    def get_next_player_indecies(self) -> List[int]:
+        return [0]
+
+    def get_invalid_actions(self, player_index: int) -> List[int]:
+        return self.get_invalid_actions_single()
 
 
 class SingleActionContinuous(EnvBase):
@@ -140,7 +143,10 @@ class SingleActionContinuous(EnvBase):
         n_state, reward, done, info = self.step_single(actions[0])
         return n_state, [reward], done, [0], info
 
-    def fetch_invalid_actions(self, player_index: int) -> List[int]:
+    def get_next_player_indecies(self) -> List[int]:
+        return [0]
+
+    def get_invalid_actions(self, player_index: int) -> List[int]:
         return []
 
 

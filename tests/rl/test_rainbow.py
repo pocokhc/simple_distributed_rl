@@ -28,8 +28,9 @@ class Test(unittest.TestCase):
         self.tester.play_verify_singleplay("IGrid", self.rl_config, 12000, 100)
 
     def test_verify_Pendulum(self):
-        self.rl_config.hidden_layer_sizes = (128,)
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 100, 10)
+        self.rl_config.hidden_layer_sizes = (64, 64)
+        self.rl_config.memory_beta_initial = 1.0
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 50, 10)
 
     # def test_verify_Pong(self):
     #    rl_config = rl.rainbow.Config(
@@ -111,5 +112,5 @@ class TestGrid(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    # unittest.main(module=__name__, defaultTest="Test.test_verify_IGrid", verbosity=2)
-    unittest.main(module=__name__, defaultTest="TestGrid.test_verify_Grid_naive", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum", verbosity=2)
+    # unittest.main(module=__name__, defaultTest="TestGrid.test_verify_Grid_naive", verbosity=2)

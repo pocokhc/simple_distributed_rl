@@ -66,11 +66,13 @@ class EnvForRL(EnvBase):
                 action_space,
                 action_type,
                 self.rl_config.action_type,
+                self.env.get_original_env(),
             )
             observation_space, observation_type = processor.change_observation_info(
                 observation_space,
                 observation_type,
                 self.rl_config.observation_type,
+                self.env.get_original_env(),
             )
 
         # unknownはcontinuousとする
@@ -105,12 +107,12 @@ class EnvForRL(EnvBase):
 
     def observation_encode(self, state):
         for processor in self.processors:
-            state = processor.observation_encode(state)
+            state = processor.observation_encode(state, self.env.get_original_env())
         return state
 
     def action_decode(self, action):
         for processor in self.processors:
-            action = processor.action_decode(action)
+            action = processor.action_decode(action, self.env.get_original_env())
         return action
 
     @property
@@ -160,17 +162,20 @@ class EnvForRL(EnvBase):
         rewards = [float(r) for r in rewards]
         return next_state, rewards, bool(done), next_player_indices, env_info
 
-    def fetch_invalid_actions(self, player_index: int) -> List[int]:
+    def get_next_player_indecies(self) -> List[int]:
+        return self.env.get_next_player_indecies()
+
+    def get_invalid_actions(self, player_index: int) -> List[int]:
         if self.rl_config.action_type == RLActionType.CONTINUOUS:
             return []
 
-        invalid_actions = self.env.fetch_invalid_actions(player_index)
+        invalid_actions = self.env.get_invalid_actions(player_index)
         invalid_actions = [self._invalid_actions_encode(va) for va in invalid_actions]
         return invalid_actions
 
     def _invalid_actions_encode(self, action) -> int:
         for processor in self.processors:
-            action = processor.invalid_actions_encode(action)
+            action = processor.invalid_actions_encode(action, self.env.get_original_env())
         return action
 
     def render(self, *args):

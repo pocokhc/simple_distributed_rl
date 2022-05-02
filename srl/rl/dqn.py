@@ -9,8 +9,8 @@ from srl.base.env.env_for_rl import EnvForRL
 from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
+from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.model import ImageLayerType, create_input_layers
-from srl.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
 from tensorflow.keras import layers as kl
 
 """
@@ -112,7 +112,12 @@ class _QNetwork(keras.Model):
             c = kl.Dense(h, activation=config.activation, kernel_initializer="he_normal")(c)
 
         # --- out layer
-        c = kl.Dense(config.nb_actions, activation="linear", kernel_initializer="truncated_normal")(c)
+        c = kl.Dense(
+            config.nb_actions,
+            activation="linear",
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+        )(c)
         self.model = keras.Model(in_state, c)
 
         # 重みを初期化

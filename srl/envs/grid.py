@@ -25,6 +25,16 @@ registration.register(
 )
 
 registration.register(
+    id="EasyGrid",
+    entry_point=__name__ + ":Grid",
+    kwargs={
+        "move_reward": 0.0,
+        "move_prob": 1.0,
+        "state_type": "pos",
+    },
+)
+
+registration.register(
     id="2DGrid",
     entry_point=__name__ + ":Grid",
     kwargs={

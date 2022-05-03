@@ -14,7 +14,7 @@ try:
     import PIL.Image
     import PIL.ImageDraw
     import PIL.ImageFont
-    from matplotlib import animation
+    from matplotlib.animation import ArtistAnimation
 except ModuleNotFoundError:
     pass
 
@@ -158,7 +158,7 @@ class Rendering(Callback):
             draw.text((0, 0), text, fill=textRGB)
             self.frames.append(np.asarray(img))
 
-    def create_anime(self, scale: float = 1.0, fps: int = 60):
+    def create_anime(self, scale: float = 1.0, fps: float = 60):
         if len(self.frames) == 0:
             return None
         interval = 1000 / fps
@@ -167,11 +167,11 @@ class Rendering(Callback):
         images = []
         for f in self.frames:
             images.append([plt.imshow(f, animated=True)])
-        anime = animation.ArtistAnimation(fig, images, interval=interval, repeat=False)
+        anime = ArtistAnimation(fig, images, interval=interval, repeat=False)
         plt.close()
         return anime
 
-    def display(self, scale: float = 1.0, fps: int = 60):
+    def display(self, scale: float = 1.0, fps: float = 60) -> None:
         if len(self.frames) == 0:
             return
         t0 = time.time()

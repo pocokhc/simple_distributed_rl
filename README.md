@@ -40,6 +40,7 @@ python examples/minimum_runner.py
 ``` python
 import numpy as np
 import srl
+from srl.base.define import RenderType
 from srl.runner import mp, sequence
 from srl.runner.callbacks import PrintProgress, Rendering
 from srl.runner.callbacks_mp import TrainFileLogger
@@ -54,46 +55,57 @@ from srl.runner.callbacks_mp import TrainFileLogger
 # mp.Config         : Distributed training Config
 #---------------------
 
-# env config
-env_config = srl.envs.Config("FrozenLake-v1")
+def main():
+    # env config
+    env_config = srl.envs.Config("FrozenLake-v1")
 
-# rl algorithm config
-rl_config = srl.rl.ql.Config()
+    # rl algorithm config
+    rl_config = srl.rl.ql.Config()
 
-# running config
-config = sequence.Config(env_config, rl_config)
+    # running config
+    config = sequence.Config(env_config, rl_config)
 
-# (option) load parameter
-# config.set_parameter_path(parameter_path="params.dat")
+    # (option) load parameter
+    # config.set_parameter_path(parameter_path="params.dat")
 
-# --- train
-if True:
-    # sequence training
-    config.set_train_config(timeout=60, callbacks=[PrintProgress()])
-    parameter, remote_memory = sequence.train(config)
-else:
-    # distribute training
-    mp_config = mp.Config(worker_num=2)  # distribute config
-    config.set_train_config()
-    mp_config.set_train_config(timeout=60, callbacks=[TrainFileLogger(enable_log=False, enable_checkpoint=False)])
-    parameter, remote_memory = mp.train(config, mp_config)
+    # --- train
+    if True:
+        # sequence training
+        config.set_train_config(timeout=60, callbacks=[PrintProgress()])
+        parameter, remote_memory = sequence.train(config)
+    else:
+        # distribute training
+        mp_config = mp.Config(worker_num=2)  # distribute config
+        config.set_train_config()
+        mp_config.set_train_config(timeout=60, callbacks=[TrainFileLogger(enable_log=False, enable_checkpoint=False)])
+        parameter, remote_memory = mp.train(config, mp_config)
 
-# (option) save parameter
-# parameter.save("params.dat")
+    # (option) save parameter
+    # parameter.save("params.dat")
 
-# --- test
-config.set_play_config(max_episodes=10)
-rewards, _, _ = sequence.play(config, parameter)
-print(f"test reward mean: {np.mean(rewards)}")
+    # --- 6.test(rendering)
+    config.set_play_config(max_episodes=1, callbacks=[Rendering(step_stop=True)])
+    sequence.play(config, parameter)
 
-# --- test(rendering)
-render = Rendering(step_stop=True)
-config.set_play_config(max_episodes=1, callbacks=[render])
-sequence.play(config, parameter)
+    # --- animation
+    render = Rendering(mode=RenderType.NONE, enable_animation=True)
+    config.set_play_config(max_episodes=1, callbacks=[render])
+    sequence.play(config, parameter)
+    render.create_anime(fps=2).save("sample.gif")
+
+if __name__ == '__main__':
+    main()
 ```
 
 
-# Interfaces
+# Customize
+
+オリジナル環境とアルゴリズムの作成例は以下のファイルを参考にしてください。
+
+examples/custom_env.ipynb
+examples/custom_rl.ipynb
+
+
 ## Env
 
 すべてのEnvは "srl.base.env.EnvBase" クラスを継承します。

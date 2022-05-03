@@ -12,14 +12,14 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 def main(is_mp):
     env_config = srl.envs.Config("ALE/Pong-v5")
-    rl_config = srl.rl.rainbow.Config(window_length=4, multisteps=10)
+    rl_config = srl.rl.rainbow.Config(window_length=4, multisteps=5)
     config = sequence.Config(env_config, rl_config)
 
     # atari config
     env_config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
     env_config.override_env_observation_type = EnvObservationType.COLOR
     config.skip_frames = 4
-    config.max_episode_steps = 100
+    config.max_episode_steps = 30
 
     # (option) print tensorflow model
     config.model_summary()
@@ -34,7 +34,7 @@ def main(is_mp):
         parameter, memory = sequence.train(config)
     else:
         # distibute training
-        mp_config = mp.Config(worker_num=2)
+        mp_config = mp.Config(worker_num=1)
         config.set_train_config()
         mp_config.set_train_config(
             timeout=60 * 60, callbacks=[TrainFileLogger(enable_log=True, enable_checkpoint=False)]
@@ -59,5 +59,5 @@ def main(is_mp):
 
 if __name__ == "__main__":
 
-    main(is_mp=False)
-    # main(is_mp=True)
+    # main(is_mp=False)
+    main(is_mp=True)

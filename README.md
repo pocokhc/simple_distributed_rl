@@ -171,20 +171,20 @@ RemoteMemroyはアルゴリズムに依存しない部分が大きいので別�
 |Algorithm|AlgorithmType|ObservationType|ActionType|ProgressRate||Paper|
 |---------|-----|--------------|----------------|----------|-------------|---|
 |QL       |Table    |Discrete  |Discrete  |100%|Basic Q Learning||
-|QL_agent57|Table   |Discrete  |Discrete  |100%|QL + Agent57|
+|QL_agent57|Table   |Discrete  |Discrete  | 99%|QL + Agent57|
 |DQN      |NeuralNet|Continuous|Discrete  |100%||[Paper](https://arxiv.org/pdf/1312.5602.pdf)|
-|C51      |NeuralNet|Continuous|Discrete  | 90%|Categorical DQN|[Paper](https://arxiv.org/abs/1707.06887)|
-|Rainbow  |NeuralNet|Continuous|Discrete  | 90%||[Paper](https://arxiv.org/pdf/1710.02298.pdf)|
-|R2D2  |NeuralNet|Continuous|Discrete  | 90%||[Paper](https://openreview.net/forum?id=r1lyTjAqYX)|
+|C51      |NeuralNet|Continuous|Discrete  | 99%|Categorical DQN|[Paper](https://arxiv.org/abs/1707.06887)|
+|Rainbow  |NeuralNet|Continuous|Discrete  |100%||[Paper](https://arxiv.org/pdf/1710.02298.pdf)|
+|R2D2  |NeuralNet|Continuous|Discrete  | 99%||[Paper](https://openreview.net/forum?id=r1lyTjAqYX)|
 |Agent57  |NeuralNet|Continuous|Discrete  | 70%||[Paper](https://arxiv.org/abs/2003.13350)|
-|Agent57_light  |NeuralNet|Continuous|Discrete  | 90%|Agent57 - (LSTM,MultiStep)||
+|Agent57_light  |NeuralNet|Continuous|Discrete  | 70%|Agent57 - (LSTM,MultiStep)||
 
 
 ### Policy Base/ActorCritic
 
 |Algorithm|AlgorithmType|ObservationType|ActionType|ProgressRate||Paper|
 |---------|-----|--------------|----------------|----------|-------------|---|
-|SAC      |NeuralNet|Continuous|Continuous| 70%||[Paper](https://arxiv.org/abs/1812.05905)|
+|SAC      |NeuralNet|Continuous|Continuous| 10%||[Paper](https://arxiv.org/abs/1812.05905)|
 
 
 ## Model Base
@@ -194,7 +194,7 @@ RemoteMemroyはアルゴリズムに依存しない部分が大きいので別�
 |MCTS      |Table|Discrete|Discrete| 100%|||
 |AlphaZero |Table+NeuralNet|Continuous|Discrete| -%||[Paper](https://arxiv.org/abs/1712.01815)|
 |MuZero |Table+NeuralNet|Continuous|Discrete| -%||[Paper](https://www.nature.com/articles/s41586-020-03051-4)|
-|DynaQ |Table|Discrete|Discrete| 90%|||
+|DynaQ |Table|Discrete|Discrete| 10%|||
 
 
 # Envs

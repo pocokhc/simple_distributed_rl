@@ -1,8 +1,8 @@
 
-# Simple Reinforcement Learning (シンプルな強化学習)
+# Simple Distributed Reinforcement Learning (シンプルな分散強化学習)
 
-シンプルな強化学習フレームワークを目指して作成しました。  
-どちらかというと強化学習の学習用フレームワークです。  
+シンプルな分散強化学習フレームワークを目指して作成しました。  
+どちらかというと学習用フレームワークに近いかもしれません。  
 以下の特徴があります。  
 
 + （出来る限り）透明性のあるフロー
@@ -18,13 +18,13 @@
 github からの pip install を想定しています。
 
 ``` bash
-pip install git+https://github.com/pocokhc/simple_rl
+pip install git+https://github.com/pocokhc/simple_distributed_rl
 ```
 
 or
 
 ``` bash
-git clone https://github.com/pocokhc/simple_rl.git
+git clone https://github.com/pocokhc/simple_distributed_rl.git
 cd simplr_rl
 pip install .
 
@@ -74,8 +74,8 @@ def main():
         config.set_train_config(timeout=60, callbacks=[PrintProgress()])
         parameter, remote_memory = sequence.train(config)
     else:
-        # distribute training
-        mp_config = mp.Config(worker_num=2)  # distribute config
+        # distributed training
+        mp_config = mp.Config(worker_num=2)  # distributed config
         config.set_train_config()
         mp_config.set_train_config(timeout=60, callbacks=[TrainFileLogger(enable_log=False, enable_checkpoint=False)])
         parameter, remote_memory = mp.train(config, mp_config)
@@ -102,8 +102,8 @@ if __name__ == '__main__':
 
 オリジナル環境とアルゴリズムの作成例は以下のファイルを参考にしてください。
 
-examples/custom_env.ipynb
-examples/custom_rl.ipynb
+examples/custom_env.ipynb  
+examples/custom_rl.ipynb  
 
 
 ## Env

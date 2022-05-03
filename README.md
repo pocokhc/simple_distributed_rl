@@ -184,6 +184,11 @@ RemoteMemroyはアルゴリズムに依存しない部分が大きいので別�
 
 |Algorithm|AlgorithmType|ObservationType|ActionType|ProgressRate||Paper|
 |---------|-----|--------------|----------------|----------|-------------|---|
+|REINFORCE |||| 0%|||
+|A3C/A2C|||| 0%|||
+|TRPO |NeuralNet|Continuous|Continuous| 0%|||
+|PPO |NeuralNet|Continuous|Continuous| 0%|||
+|DDPG/TD3 |NeuralNet|Continuous|Continuous| 0%|||
 |SAC      |NeuralNet|Continuous|Continuous| 10%||[Paper](https://arxiv.org/abs/1812.05905)|
 
 
@@ -192,9 +197,11 @@ RemoteMemroyはアルゴリズムに依存しない部分が大きいので別�
 |Algorithm|Algorithm Type|ObservationType|ActionType|ProgressRate||Paper|
 |---------|-----|--------------|----------------|----------|-------------|---|
 |MCTS      |Table|Discrete|Discrete| 100%|||
-|AlphaZero |Table+NeuralNet|Continuous|Discrete| -%||[Paper](https://arxiv.org/abs/1712.01815)|
-|MuZero |Table+NeuralNet|Continuous|Discrete| -%||[Paper](https://www.nature.com/articles/s41586-020-03051-4)|
+|AlphaZero |Table+NeuralNet|Continuous|Discrete| 0%||[Paper](https://arxiv.org/abs/1712.01815)|
+|MuZero |Table+NeuralNet|Continuous|Discrete| 0%||[Paper](https://www.nature.com/articles/s41586-020-03051-4)|
 |DynaQ |Table|Discrete|Discrete| 10%|||
+|WorldModels||| 0%|||
+|DreamerV2||| 0%|||
 
 
 # Envs

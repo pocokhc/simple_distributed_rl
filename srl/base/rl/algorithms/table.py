@@ -1,9 +1,10 @@
 import logging
 from abc import abstractmethod
-from typing import Any, Dict, List, Union
+from typing import List
 
 import numpy as np
-from srl.base.define import RLActionType, RLObservationType
+from srl.base.define import Action, DiscreteAction, EnvObservationType, Info, RLActionType, RLObservationType
+from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.rl.base import RLConfig, RLWorker
 
 logger = logging.getLogger(__name__)
@@ -18,8 +19,14 @@ class TableConfig(RLConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.DISCRETE
 
-    def _set_config_by_env(self, env: "srl.base.rl.env_for_rl.EnvForRL") -> None:
-        self._nb_actions = env.action_space.n
+    def _set_config_by_env(
+        self,
+        env: EnvBase,
+        env_action_space: SpaceBase,
+        env_observation_space: SpaceBase,
+        env_observation_type: EnvObservationType,
+    ) -> None:
+        self._nb_actions = env_action_space.get_action_discrete_info()
 
     @property
     def nb_actions(self) -> int:
@@ -28,49 +35,45 @@ class TableConfig(RLConfig):
 
 class TableWorker(RLWorker):
     @abstractmethod
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[DiscreteAction]) -> None:
         raise NotImplementedError()
 
-    def on_reset(
+    def _on_reset(
         self,
         state: np.ndarray,
         player_index: int,
-        env: "srl.base.rl.env_for_rl.EnvForRL",
+        env: EnvBase,
     ) -> None:
         self.call_on_reset(state, env.get_invalid_actions(player_index))
 
     @abstractmethod
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+    def call_policy(self, state: np.ndarray, invalid_actions: List[DiscreteAction]) -> DiscreteAction:
         raise NotImplementedError()
 
-    def policy(
+    def _policy(
         self,
         state: np.ndarray,
         player_index: int,
-        env: "srl.base.env.env_for_rl.EnvForRL",
-    ) -> Any:
+        env: EnvBase,
+    ) -> Action:
         return self.call_policy(state, env.get_invalid_actions(player_index))
 
     @abstractmethod
     def call_on_step(
         self,
-        next_state: Any,
+        next_state: np.ndarray,
         reward: float,
         done: bool,
         invalid_actions: List[int],
-    ) -> Dict[str, Union[float, int]]:  # info
+    ) -> Info:
         raise NotImplementedError()
 
-    def on_step(
+    def _on_step(
         self,
-        next_state: Any,
+        next_state: np.ndarray,
         reward: float,
         done: bool,
         player_index: int,
-        env: "srl.base.env.env_for_rl.EnvForRL",
-    ) -> Dict[str, Union[float, int]]:  # info
+        env: EnvBase,
+    ) -> Info:
         return self.call_on_step(next_state, reward, done, env.get_invalid_actions(player_index))
-
-
-if __name__ == "__main__":
-    pass

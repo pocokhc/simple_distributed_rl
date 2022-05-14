@@ -1,21 +1,17 @@
-import collections
-import logging
-import pickle
-import random
-import time
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple, cast
+from typing import Any, Dict, Optional, Tuple, Union, cast
 
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
-from srl.base.rl import ContinuousActionConfig, RLParameter, RLRemoteMemory, RLTrainer, RLWorker
-from srl.base.rl.registory import register
+from srl.base.env.base import EnvBase
+from srl.base.rl.algorithms.neuralnet_continuous import ContinuousActionConfig, ContinuousActionWorker
+from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.registration import register
+from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common_tf import compute_logprob_sgp
-from srl.rl.functions.model import ImageLayerType, create_input_layers, create_input_layers_one_sequence
-
-logger = logging.getLogger(__name__)
+from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
 
 """
 DDPG
@@ -53,6 +49,9 @@ class Config(ContinuousActionConfig):
     capacity: int = 10_000
     memory_warmup_size: int = 500
 
+    def __post_init__(self):
+        super().__init__()
+
     @staticmethod
     def getName() -> str:
         return "SAC"
@@ -63,7 +62,24 @@ class Config(ContinuousActionConfig):
         assert self.batch_size < self.memory_warmup_size
 
 
-register(Config, __name__)
+register(
+    Config,
+    __name__ + ":RemoteMemory",
+    __name__ + ":Parameter",
+    __name__ + ":Trainer",
+    __name__ + ":Worker",
+)
+
+
+# ------------------------------------------------------
+# RemoteMemory
+# ------------------------------------------------------
+class RemoteMemory(ExperienceReplayBuffer):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.config = cast(Config, self.config)
+
+        self.init(self.config.capacity)
 
 
 # ------------------------------------------------------
@@ -85,8 +101,18 @@ class _PolicyModel(keras.Model):
         c = kl.LayerNormalization()(c)  # 勾配爆発抑制用?
 
         # --- out layer
-        pi_mean = kl.Dense(config.action_num, activation="linear", kernel_initializer="truncated_normal")(c)
-        pi_stddev = kl.Dense(config.action_num, activation="linear", kernel_initializer="truncated_normal")(c)
+        pi_mean = kl.Dense(
+            config.action_num,
+            activation="linear",
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+        )(c)
+        pi_stddev = kl.Dense(
+            config.action_num,
+            activation="linear",
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+        )(c)
         self.model = keras.Model(in_state, [pi_mean, pi_stddev])
 
         # 重みを初期化
@@ -129,10 +155,14 @@ class _DualQNetwork(keras.Model):
         c = kl.LayerNormalization()(c)  # 勾配爆発抑制用?
 
         # q1
-        q1 = kl.Dense(1, activation="linear", kernel_initializer="truncated_normal")(c)
+        q1 = kl.Dense(
+            1, activation="linear", kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
+        )(c)
 
         # q2
-        q2 = kl.Dense(1, activation="linear", kernel_initializer="truncated_normal")(c)
+        q2 = kl.Dense(
+            1, activation="linear", kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
+        )(c)
 
         # out layer
         self.model = keras.Model([in_state, in_action], [q1, q2])
@@ -199,33 +229,6 @@ class Parameter(RLParameter):
 
 
 # ------------------------------------------------------
-# RemoteMemory
-# ------------------------------------------------------
-class RemoteMemory(RLRemoteMemory):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config = cast(Config, self.config)
-
-        self.memory = collections.deque(maxlen=self.config.capacity)
-
-    def length(self) -> int:
-        return len(self.memory)
-
-    def restore(self, data: Any) -> None:
-        self.buffer = data
-
-    def backup(self):
-        return self.buffer
-
-    # ---------------------------
-    def add(self, batch):
-        self.memory.append(batch)
-
-    def sample(self):
-        return random.sample(self.memory, self.config.batch_size)
-
-
-# ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
 class Trainer(RLTrainer):
@@ -233,7 +236,7 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
-        self.memory = cast(RemoteMemory, self.memory)
+        self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.train_count = 0
 
@@ -251,9 +254,9 @@ class Trainer(RLTrainer):
         return self.train_count
 
     def train(self):
-        if self.memory.length() < self.config.memory_warmup_size:
+        if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
-        batchs = self.memory.sample()
+        batchs = self.remote_memory.sample(self.config.batch_size)
 
         states = []
         actions = []
@@ -347,71 +350,54 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(ContinuousActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
-        self.memory = cast(RemoteMemory, self.memory)
+        self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def on_reset(self, state: np.ndarray, invalid_actions, _) -> None:
-        pass
+    def call_on_reset(self, state: np.ndarray) -> None:
+        self.state = state
 
-    def policy(self, state: np.ndarray, invalid_actions, _) -> Tuple[int, Any]:
+    def call_policy(self, state: np.ndarray) -> Any:
+        self.state = state
         action, mean, _, _ = self.parameter.policy(state.reshape(1, -1))
-
-        # TODO action rerange
 
         if self.training:
             action = action.numpy()[0]
         else:
             # テスト時は平均を使う
             action = mean.numpy()[0]
-        return action, action
 
-    def on_step(
+        # Squashed Gaussian Policy (-1, 1) -> (action range)
+        action = (action + 1) / 2
+        action = self.config.action_low + action * (self.config.action_high - self.config.action_low)
+
+        self.action = action
+        return self.action
+
+    def call_on_step(
         self,
-        state: np.ndarray,
-        action: Any,
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        invalid_actions,
-        next_invalid_actions,
-        _,
-    ):
+    ) -> Dict[str, Union[float, int]]:
         if not self.training:
             return {}
 
         batch = {
-            "state": state,
-            "action": action,
+            "state": self.state,
+            "action": self.action,
             "next_state": next_state,
             "reward": reward,
             "done": done,
         }
-        self.memory.add(batch)
+        self.remote_memory.add(batch)
 
         return {}
 
-    def render(
-        self,
-        state: np.ndarray,
-        invalid_actions,
-        env: EnvForRL,
-    ) -> None:
-        q = self.parameter.q_online(np.asarray([state]))[0].numpy()
-        maxa = np.argmax(q)
-        for a in range(self.config.nb_actions):
-            if a not in invalid_actions:
-                continue
-            if a == maxa:
-                s = "*"
-            else:
-                s = " "
-            s += f"{(action_to_str)}: {q[a]:5.3f}"
-            print(s)
-
-
-if __name__ == "__main__":
-    pass
+    def render(self, env: EnvBase) -> None:
+        # q = self.parameter.q_online(np.asarray([self.state]))[0].numpy()
+        # TODO
+        pass

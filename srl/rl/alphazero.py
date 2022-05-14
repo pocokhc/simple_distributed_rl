@@ -1,17 +1,19 @@
-import collections
-import json
+import pickle
 import random
 from dataclasses import dataclass
-from typing import Any, List, Tuple, cast
+from typing import Any, Tuple, cast
 
 import numpy as np
+import srl
 import tensorflow as tf
 import tensorflow.keras as keras
-from srl.base.rl import DiscreteActionConfig, RLParameter, RLRemoteMemory, RLTrainer, RLWorker
-from srl.base.rl.env_for_rl import EnvForRL
-from srl.base.rl.registory import register
-from srl.rl.functions.common import to_str_observaten
-from srl.rl.functions.model import ImageLayerType, create_input_layers, create_input_layers_one_sequence
+from srl.base.env.base import EnvBase
+from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig
+from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
+from srl.base.rl.registration import register
+from srl.base.rl.remote_memory.sequence_memory import SequenceRemoteMemory
+from srl.rl.functions.common import random_choice_by_probs, to_str_observation
+from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
 from tensorflow.keras import layers as kl
 
 
@@ -21,26 +23,33 @@ from tensorflow.keras import layers as kl
 @dataclass
 class Config(DiscreteActionConfig):
 
-    simulation_times: int = 1
+    simulation_times: int = 100
     action_select_threshold: int = 10
     gamma: float = 1.0  # 割引率
 
     puct_c: float = 1.0
     early_steps: int = 0
-    lr: float = 0.01
+    lr: float = 0.001
     batch_size: int = 16
-    buffer_size: int = 100_000
-    warmup_size: int = 100
+    train_size: int = 1_000
+    epochs: int = 5
 
     # model
     window_length: int = 1
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
-    image_layer_type: ImageLayerType = ImageLayerType.DQN
+    image_layer_type: ImageLayerType = ImageLayerType.AlphaZero
+
+    def __post_init__(self):
+        super().__init__()
 
     @staticmethod
     def getName() -> str:
         return "AlphaZero"
+
+    def assert_params(self) -> None:
+        super().assert_params()
+        assert self.batch_size < self.train_size
 
 
 register(
@@ -55,41 +64,8 @@ register(
 # ------------------------------------------------------
 # RemoteMemory
 # ------------------------------------------------------
-class RemoteMemory(RLRemoteMemory):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config = cast(Config, self.config)
-
-        self.buffer_sim = []
-        self.buffer_policy = collections.deque(maxlen=self.config.buffer_size)
-
-    def length(self) -> int:
-        return len(self.buffer_policy)
-
-    def restore(self, data: Any) -> None:
-        self.buffer_sim = data[0]
-        self.buffer_policy = data[1]
-
-    def backup(self):
-        return [
-            self.buffer_sim,
-            self.buffer_policy,
-        ]
-
-    # ------------------------
-    def add_sim(self, batch: Any) -> None:
-        self.buffer_sim.append(batch)
-
-    def get_sim(self):
-        buffer = self.buffer_sim
-        self.buffer_sim = []
-        return buffer
-
-    def add_policy(self, batch: Any) -> None:
-        self.buffer_policy.append(batch)
-
-    def sample(self):
-        return random.sample(self.buffer_policy, self.config.batch_size)
+class RemoteMemory(SequenceRemoteMemory):
+    pass
 
 
 # ------------------------------------------------------
@@ -112,7 +88,7 @@ class _Network(keras.Model):
 
         # --- out layer
         policy = kl.Dense(config.nb_actions, activation="softmax")(c)
-        value = kl.Dense(1, activation="tanh")(c)
+        value = kl.Dense(1, bias_initializer="truncated_normal")(c)
         self.model = keras.Model(in_state, [policy, value])
 
         # 重みを初期化
@@ -123,8 +99,7 @@ class _Network(keras.Model):
         assert value.shape == (1, 1)
 
     def call(self, state):
-        policy, value = self.model(state)
-        return policy, value
+        return self.model(state)
 
 
 # ------------------------------------------------------
@@ -141,27 +116,26 @@ class Parameter(RLParameter):
         self.W = {}  # 累計報酬
 
         # cache (simulationで繰り返すので)
-        self.P = {}
-        self.V = {}
+        self.reset_cache()
 
     def restore(self, data: Any) -> None:
-        d = json.loads(data)
+        d = pickle.loads(data)
         self.N = d[0]
         self.W = d[1]
         self.network.set_weights(d[2])
-        self.P = d[3]
-        self.V = d[4]
+        self.reset_cache()
 
     def backup(self):
-        return json.dumps(
+        return pickle.dumps(
             [
                 self.N,
                 self.W,
                 self.network.get_weights(),
-                self.P,
-                self.V,
             ]
         )
+
+    def summary(self):
+        self.network.model.summary()
 
     # ------------------------
 
@@ -170,7 +144,7 @@ class Parameter(RLParameter):
             self.W[state_str] = [0 for _ in range(self.config.nb_actions)]
             self.N[state_str] = [0 for _ in range(self.config.nb_actions)]
 
-    def set_cache(self, state, state_str):
+    def pred_PV(self, state, state_str):
         if state_str not in self.P:
             p, v = self.network(np.asarray([state]))
             self.P[state_str] = p[0].numpy()
@@ -196,124 +170,57 @@ class Trainer(RLTrainer):
         self.policy_loss = keras.losses.CategoricalCrossentropy()
 
         self.train_count = 0
+        self.env = srl.envs.make(self.config.env_config, self.config)
 
     def get_train_count(self):
         return self.train_count
 
     def train(self):
-        # シミュレーションがアクション前ではなくアクション後になっている点が異なっています
 
-        info = {}
+        if self.remote_memory.length() < self.config.train_size:
+            return {}
+        batchs = self.remote_memory.sample()
+        states = []
+        policies = []
+        rewards = []
+        for b in batchs:
+            states.append(b["state"])
+            policies.append(b["policy"])
+            rewards.append(b["reward"])
+        states = np.asarray(states)
+        policies = np.asarray(policies)
+        rewards = np.asarray(rewards).reshape((-1, 1))
 
-        batchs = self.memory.get_sim()
-        for batch in batchs:
-            state_str = batch["state_str"]
-            action = batch["action"]
-            reward = batch["reward"]
-
-            self.parameter.init_state(state_str)
-            self.parameter.N[state_str][action] += 1
-            self.parameter.W[state_str][action] += reward
-
-        if self.memory.length() > self.config.warmup_size:
-
-            batchs = self.memory.sample()
-
-            values = []
-            states = []
-            policies = []
-            for b in batchs:
-                states.append(b["state"])
-                policies.append(b["policy"])
-                state_str = str(b["state"].tolist())
-                self.parameter.init_state(state_str)
-
-                # 状態価値(policyは均等)
-                value = 0
-                for a in range(self.config.nb_actions):
-                    if self.parameter.N[state_str][a] > 0:
-                        value += self.parameter.W[state_str][a] / self.parameter.N[state_str][a]
-                values.append(value / self.config.nb_actions)
-
-            states = np.asarray(states)
-            values = np.asarray(values).reshape((-1, 1))
-            policies = np.asarray(policies)
+        indexes = [i for i in range(len(batchs))]
+        for _ in range(self.config.epochs):
+            idx = random.sample(indexes, self.config.batch_size)
+            state = states[idx]
+            policy = policies[idx]
+            reward = rewards[idx]
 
             with tf.GradientTape() as tape:
-                p_pred, v_pred = self.parameter.network(states)
+                p_pred, v_pred = self.parameter.network(state)
 
                 # value: 状態に対する勝率(reward)を教師に学習
-                value_loss = self.value_loss(values, v_pred)
+                value_loss = self.value_loss(reward, v_pred)
 
                 # policy: 選んだアクション(MCTSの結果)を教師に学習
-                policy_loss = self.policy_loss(policies, p_pred)
+                policy_loss = self.policy_loss(policy, p_pred)
 
-                # loss
                 loss = tf.reduce_mean(value_loss + policy_loss)
 
             grads = tape.gradient(loss, self.parameter.network.trainable_variables)
             self.optimizer.apply_gradients(zip(grads, self.parameter.network.trainable_variables))
 
-            # 学習したらキャッシュは削除
-            self.parameter.reset_cache()
             self.train_count += 1
 
-            info["value_loss"] = value_loss.numpy()
-            info["policy_loss"] = policy_loss.numpy()
+        # 学習したらキャッシュは削除
+        self.parameter.reset_cache()
 
-        return info
-
-    def _simulation(self, env: EnvForRL, state, valid_actions, depth: int = 0):
-        if depth >= env.max_episode_steps:  # for safety
-            return 0
-
-        s = str(state.tolist())
-        self.parameter.init_state(s)
-        self.parameter.set_cache(state, s)
-
-        # --- PUCTに従ってアクションを選択
-        N = np.sum(self.parameter.N[s])
-        scores = []
-        for a in range(self.config.nb_actions):
-            if a not in valid_actions:
-                score = -np.inf
-            else:
-                # P(s,a): 過去のMCTSの結果を教師あり学習した結果
-                # U(s,a) = C_puct * P(s,a) * sqrt(ΣN(s)) / (1+N(s,a))
-                puct = self.config.puct_c * self.parameter.P[s][a] * (np.sqrt(N) / (1 + self.parameter.N[s][a]))
-                # score = Q(s,a) + U(s,a)
-                if self.parameter.N[s][a] == 0:
-                    q = 0
-                else:
-                    q = self.parameter.W[s][a] / self.parameter.N[s][a]
-                score = q + puct
-            scores.append(score)
-        action = random.choice(np.where(scores == np.max(scores))[0])
-
-        # --- step
-        if self.parameter.N[s][action] < self.config.action_select_threshold:
-            # ロールアウトの代わりにNNの結果を返す
-            reward = self.parameter.V[s]
-        else:
-            # step
-            n_state, reward, done, _ = env.step(action)
-            n_valid_actions = env.fetch_valid_actions()
-
-            if done:
-                pass  # 終了(終了時の報酬が結果)
-            else:
-                # 展開
-                reward += self._simulation(env, n_state, n_valid_actions, depth + 1)
-
-        # 結果を記録
-        batch = {
-            "state_str": s,
-            "action": action,
-            "reward": reward,
+        return {
+            "value_loss": value_loss.numpy(),
+            "policy_loss": policy_loss.numpy(),
         }
-        self.memory.add_sim(batch)
-
-        return reward * self.config.gamma  # 割り引いて前に伝搬
 
 
 # ------------------------------------------------------
@@ -326,50 +233,117 @@ class Worker(RLWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def on_reset(self, state: np.ndarray, player_index: int, env: EnvForRL) -> None:
+    def on_reset(self, state: np.ndarray, player_index: int, env: EnvBase) -> None:
         self.step = 0
-        self.state = to_str_observaten(state)
+        self.state = state
+        self.state_str = to_str_observation(state)
         self.invalid_actions = env.get_invalid_actions(player_index)
 
-    def policy(self, state: np.ndarray, player_index: int, env: EnvForRL) -> int:
+        self.history = []
 
-        if self.training:
-            # シミュレーション
-            for _ in range(self.config.simulation_times):
-                save_state = env.backup()
-                self._simulation(env, state, valid_actions)
-                env.restore(save_state)
+    def policy(self, state: np.ndarray, player_index: int, env: EnvBase) -> int:
 
-        if s in self.parameter.N:
+        state_str = to_str_observation(state)
+        self.parameter.N = {}
+        self.parameter.W = {}
+        self.parameter.init_state(state_str)
 
-            N = sum(self.parameter.N[s])
-            n = self.parameter.N[s]
+        # シミュレーションしてpolicyを作成
+        dat = env.backup()
+        for _ in range(self.config.simulation_times):
+            self._simulation(state, state_str, env, player_index)
+            env.restore(dat)
+        N = sum(self.parameter.N[state_str])
+        n = self.parameter.N[state_str]
+        policy = [n[a] / N for a in range(self.config.nb_actions)]
 
-            # 0%を回避するために1回は保証
-            policy = [(n[a] + 1) / (N + nb_actions) for a in range(nb_actions)]
-
+        if self.step < self.config.early_steps:
             # episodeの序盤は試行回数に比例した確率でアクションを選択
-            if self.step < self.config.early_steps:
-                probs = np.array([v if a in valid_actions else 0 for a, v in enumerate(policy)])  # mask
-                probs = probs / sum(probs)  # total 1
-                action = np.random.choice(range(self.config.nb_actions), p=probs)
-
-            # 試行回数のもっとも多いアクションを採用
-            else:
-                n = [n[a] if a in valid_actions else -np.inf for a in range(self.config.nb_actions)]  # mask
-                action = random.choice(np.where(n == np.max(n))[0])
+            probs = np.array([0 if a in self.invalid_actions else v for a, v in enumerate(policy)])  # mask
+            action = random_choice_by_probs(probs)
         else:
-            action = random.choice(valid_actions)
-            policy = [1 / nb_actions for _ in range(nb_actions)]
+            # 確率が一番高いアクションを採用
+            action = random.choice(np.where(policy == np.max(policy))[0])
 
-        self.memory.add_policy(
+        # self.policy_ = [1 if action == a else 0 for a in range(self.config.nb_actions)]
+        self.policy_ = policy
+
+        self.remote_memory.add(
             {
                 "state": state,
-                "policy": policy,
+                "policy": self.policy_,
+                "reward": self.parameter.W[state_str][action] / self.parameter.N[state_str][action],
             }
         )
 
-        return action, policy
+        return action
+
+    def _simulation(self, state: np.ndarray, state_str: str, env: EnvBase, player_index, depth: int = 0):
+
+        action = self._select_action(env, state, state_str, player_index)
+
+        # ロールアウト
+        if self.parameter.N[state_str][action] < self.config.action_select_threshold:
+            reward = self.parameter.V[state_str]
+        else:
+            next_player_indices = env.get_next_player_indices()
+            assert player_index in next_player_indices
+
+            # --- steps
+            reward = 0
+            n_state = state
+            n_state_str = state_str
+            while True:
+                actions = [self._select_action(env, n_state, n_state_str, idx) for idx in next_player_indices]
+                n_state, rewards, done, next_player_indices, _ = env.step(actions)
+                n_state_str = to_str_observation(n_state)
+                reward += rewards[player_index]
+
+                if player_index in next_player_indices:
+                    break
+                if done:
+                    break
+
+            if done:
+                pass  # 終了
+            else:
+                # 展開
+                reward += self._simulation(n_state, n_state_str, env, player_index, depth + 1)
+
+        # 結果を記録
+        self.parameter.N[state_str][action] += 1
+        self.parameter.W[state_str][action] += reward
+        # self.remote_memory.add_simulation  TODO remote
+
+        return reward * self.config.gamma  # 割り引いて前に伝搬
+
+    def _select_action(self, env, state, state_str, idx):
+        self.parameter.init_state(state_str)
+        self.parameter.pred_PV(state, state_str)
+
+        invalid_actions = env.get_invalid_actions(idx)
+
+        # --- PUCTに従ってアクションを選択
+        N = np.sum(self.parameter.N[state_str])
+        scores = []
+        for a in range(self.config.nb_actions):
+            if a in invalid_actions:
+                score = -np.inf
+            else:
+                # P(s,a): 過去のMCTSの結果を教師あり学習した結果
+                # U(s,a) = C_puct * P(s,a) * sqrt(ΣN(s)) / (1+N(s,a))
+                # score = Q(s,a) + U(s,a)
+                P = self.parameter.P[state_str][a]
+                n = self.parameter.N[state_str][a]
+                u = self.config.puct_c * P * (np.sqrt(N) / (1 + n))
+                if self.parameter.N[state_str][a] == 0:
+                    q = 0
+                else:
+                    q = self.parameter.W[state_str][a] / n
+                score = q + u
+            scores.append(score)
+        action = random.choice(np.where(scores == np.max(scores))[0])
+        return action
 
     def on_step(
         self,
@@ -377,29 +351,41 @@ class Worker(RLWorker):
         reward: float,
         done: bool,
         player_index: int,
-        env: EnvForRL,
+        env: EnvBase,
     ):
-        self.state = to_str_observaten(next_state)
-        self.invalid_actions = env.get_invalid_actions(player_index)
+        self.history.append([self.state, self.policy_, reward])
 
         self.step += 1
+        self.state = next_state
+        self.state_str = to_str_observation(next_state)
+        self.invalid_actions = env.get_invalid_actions(player_index)
+
+        if False and done and self.training:
+            # 報酬を逆伝搬
+            reward = 0
+            for h in reversed(self.history):
+                reward = h[2] + self.config.gamma * reward
+                self.remote_memory.add(
+                    {
+                        "state": h[0],
+                        "policy": h[1],
+                        "reward": reward,
+                    }
+                )
+
         return {}
 
-    def render(self, env: EnvForRL) -> None:
-        self.parameter.init_state(self.state)
-        self.parameter.set_cache(state, s)
-        print(f"value: {self.parameter.V[s]:7.3f}")
+    def render(self, env: EnvBase) -> None:
+        self.parameter.init_state(self.state_str)
+        self.parameter.pred_PV(self.state, self.state_str)
+        print(f"value: {self.parameter.V[self.state_str]:7.3f}")
         for a in range(self.config.nb_actions):
-            if s in self.parameter.W:
-                q = self.parameter.W[s][a]
-                c = self.parameter.N[s][a]
+            if self.state_str in self.parameter.W:
+                q = self.parameter.W[self.state_str][a]
+                c = self.parameter.N[self.state_str][a]
                 if c != 0:
                     q /= c
             else:
                 q = 0
                 c = 0
-            print(f"{action_to_str(a)}: {q:7.3f}({c:7d}), policy {self.parameter.P[s][a]:7.3f}")
-
-
-if __name__ == "__main__":
-    pass
+            print(f"{env.action_to_str(a)}: {q:9.5f}({c:7d}), policy {self.parameter.P[self.state_str][a]:9.5f}")

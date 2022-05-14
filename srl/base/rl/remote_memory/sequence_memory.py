@@ -26,7 +26,3 @@ class SequenceRemoteMemory(RLRemoteMemory):
         buffer = self.buffer
         self.buffer = []
         return buffer
-
-
-if __name__ == "__main__":
-    pass

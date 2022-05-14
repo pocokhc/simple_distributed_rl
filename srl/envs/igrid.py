@@ -1,15 +1,15 @@
 import enum
 import json
 import logging
-import random
 from dataclasses import dataclass
 from typing import Any, Tuple
 
-import gym.spaces
 import numpy as np
 from srl.base.define import EnvObservationType
 from srl.base.env import registration
-from srl.base.env.genre.singleplay import SingleActionDiscrete
+from srl.base.env.base import SpaceBase
+from srl.base.env.genre import SinglePlayEnv
+from srl.base.env.spaces import BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class Action(enum.Enum):
 
 
 @dataclass
-class IGrid(SingleActionDiscrete):
+class IGrid(SinglePlayEnv):
     """
     CXD
      X
@@ -53,12 +53,12 @@ class IGrid(SingleActionDiscrete):
         self.length = self.N * 2 + 1
 
     @property
-    def action_num(self) -> int:
-        return len(Action)
+    def action_space(self) -> SpaceBase:
+        return DiscreteSpace(len(Action))
 
     @property
-    def observation_space(self) -> gym.spaces.Space:
-        return gym.spaces.Box(
+    def observation_space(self) -> SpaceBase:
+        return BoxSpace(
             low=0,
             high=np.maximum(self.H, self.W),
             shape=(2,),
@@ -188,22 +188,3 @@ class IGrid(SingleActionDiscrete):
     @property
     def actions(self):
         return [a for a in Action]
-
-
-if __name__ == "__main__":
-    game = IGrid()
-    game.reset()
-    done = False
-    total_reward = 0
-    step = 0
-    game.render()
-
-    while not done:
-        action = game.sample()
-        state, reward, done, _ = game.step(action)
-        total_reward += reward
-        step += 1
-        print(f"step {step}, action {action}")
-        game.render()
-
-    print(total_reward)

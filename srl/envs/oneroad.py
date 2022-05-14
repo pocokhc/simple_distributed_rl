@@ -1,13 +1,14 @@
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any, List, Tuple
+from typing import Any, Tuple
 
-import gym.spaces
 import numpy as np
 from srl.base.define import EnvObservationType
 from srl.base.env import registration
-from srl.base.env.genre.singleplay import SingleActionDiscrete
+from srl.base.env.base import SpaceBase
+from srl.base.env.genre import SinglePlayEnv
+from srl.base.env.spaces import BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
 
@@ -19,23 +20,23 @@ registration.register(
 registration.register(
     id="OneRoad-hard",
     entry_point=__name__ + ":OneRoad",
-    kwargs={"N": 30, "action": 16},
+    kwargs={"N": 20, "action": 16},
 )
 
 
 @dataclass
-class OneRoad(SingleActionDiscrete):
+class OneRoad(SinglePlayEnv):
 
     N: int = 10
     action: int = 2
 
     @property
-    def action_num(self) -> int:
-        return self.action
+    def action_space(self) -> SpaceBase:
+        return DiscreteSpace(self.action)
 
     @property
-    def observation_space(self) -> gym.spaces.Space:
-        return gym.spaces.Box(low=0, high=self.N, shape=(1,))
+    def observation_space(self) -> SpaceBase:
+        return BoxSpace(low=0, high=self.N, shape=(1,))
 
     @property
     def observation_type(self) -> EnvObservationType:
@@ -77,7 +78,3 @@ class OneRoad(SingleActionDiscrete):
 
     def render_terminal(self):
         print(f"{self.player_pos} / {self.N}")
-
-
-if __name__ == "__main__":
-    pass

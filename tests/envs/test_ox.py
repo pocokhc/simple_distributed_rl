@@ -12,12 +12,12 @@ class Test(unittest.TestCase):
 
     def test_player(self):
         for player in [
-            "cpu_lv1",
-            "cpu_lv2",
-            "cpu_lv3",
+            "cpu",
         ]:
             with self.subTest((player,)):
                 self.tester.player_test("OX", player)
+
+    # processor TODO
 
 
 if __name__ == "__main__":

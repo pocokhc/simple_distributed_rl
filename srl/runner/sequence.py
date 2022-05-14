@@ -3,12 +3,12 @@ import pickle
 import random
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import srl.envs
 import srl.rl
-from srl.base.env.env_for_rl import EnvConfig, EnvForRL
+from srl.base.env.base import EnvBase, EnvConfig
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLWorker
 from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer, make_worker
 from srl.runner.callbacks import Callback
@@ -35,12 +35,21 @@ class Config:
     max_episodes: int = -1
     timeout: int = -1
     training: bool = False
+    skip_frames: int = 0
+
+    # validation option
+    enable_validation: bool = False
+    validation_interval: int = 10  # episode
+    validation_episode: int = 1
 
     # callbacks
     callbacks: List[Callback] = field(default_factory=list)
 
+    # distributed
+    distributed: bool = False
+
     # other
-    skip_frames: int = 0
+    is_make_env: bool = True
 
     def __post_init__(self):
         if self.rl_config is not None:
@@ -48,6 +57,10 @@ class Config:
         self.parameter_path = ""
         self.remote_memory_path = ""
         self.trainer_disable = False
+        self.env = None
+
+        if self.is_make_env:
+            self.make_env()
 
     # ------------------------------
     # user functions
@@ -62,9 +75,10 @@ class Config:
         max_episodes: int = -1,
         timeout: int = -1,
         shuffle_player: bool = True,
+        enable_validation: bool = True,
         callbacks: List[Callback] = None,
     ):
-        self.set_play_config(max_steps, max_episodes, timeout, True, shuffle_player, callbacks)
+        self.set_play_config(max_steps, max_episodes, timeout, True, shuffle_player, enable_validation, callbacks)
 
     def set_play_config(
         self,
@@ -73,6 +87,7 @@ class Config:
         timeout: int = -1,
         training: bool = False,
         shuffle_player: bool = False,
+        enable_validation: bool = False,
         callbacks: List[Callback] = None,
     ):
         if callbacks is None:
@@ -83,6 +98,7 @@ class Config:
         self.training = training
         self.shuffle_player = shuffle_player
         self.callbacks = callbacks
+        self.enable_validation = enable_validation
 
     def model_summary(self) -> RLParameter:
         parameter = self.make_parameter()
@@ -95,43 +111,26 @@ class Config:
     def assert_params(self):
         self.rl_config.assert_params()
 
-    def init_rl_config(self):
-        if not self.rl_config.is_set_config_by_env:
-            self.make_env()
-
-    def make_env(self) -> EnvForRL:
-
-        env = srl.envs.make(self.env_config, self.rl_config)
-
-        if len(self.players) == 0:
-            for i in range(env.player_num):
-                if i == 0:
-                    self.players.append(None)
-                else:
-                    self.players.append(srl.rl.random_play.Config())
-
-        return env
+    def make_env(self) -> EnvBase:
+        if self.env is None:
+            self.env = srl.envs.make(self.env_config)
+            self.rl_config.set_config_by_env(self.env)
+        return self.env
 
     def make_parameter(self) -> RLParameter:
-        if not self.rl_config.is_set_config_by_env:
-            self.make_env()
-        parameter = make_parameter(self.rl_config, None)
+        parameter = make_parameter(self.rl_config)
         if self.parameter_path != "":
             parameter.load(self.parameter_path)
         return parameter
 
     def make_remote_memory(self) -> RLRemoteMemory:
-        if not self.rl_config.is_set_config_by_env:
-            self.make_env()
-        memory = make_remote_memory(self.rl_config, None)
+        memory = make_remote_memory(self.rl_config)
         if self.remote_memory_path != "":
             memory.load(self.remote_memory_path)
         return memory
 
     def make_trainer(self, parameter: RLParameter, remote_memory: RLRemoteMemory):
-        if not self.rl_config.is_set_config_by_env:
-            self.make_env()
-        return make_trainer(self.rl_config, None, parameter, remote_memory)
+        return make_trainer(self.rl_config, parameter, remote_memory)
 
     def make_worker(
         self,
@@ -139,10 +138,9 @@ class Config:
         remote_memory: Optional[RLRemoteMemory] = None,
         worker_id: int = 0,
     ) -> RLWorker:
-        if not self.rl_config.is_set_config_by_env:
-            self.make_env()
-        worker = make_worker(self.rl_config, None, parameter, remote_memory, worker_id)
-        worker.set_training(self.training)
+        env = self.make_env()
+        worker = make_worker(self.rl_config, env, parameter, remote_memory, worker_id)
+        worker.set_training(self.training, self.distributed)
         return worker
 
     def make_player(
@@ -151,10 +149,16 @@ class Config:
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
         worker_id: int = 0,
-        env: Optional[EnvForRL] = None,
     ):
-        if not self.rl_config.is_set_config_by_env:
-            self.make_env()
+        env = self.make_env()
+
+        if len(self.players) == 0:
+            for i in range(env.player_num):
+                if i == 0:
+                    self.players.append(None)
+                else:
+                    self.players.append(srl.rl.random_play.Config())
+
         player_obj = self.players[player_index]
 
         # none はベース
@@ -175,7 +179,7 @@ class Config:
         # それ以外は専用のWorkerを作成
         if isinstance(player_obj, object) and issubclass(player_obj.__class__, RLConfig):
             worker = make_worker(player_obj, env, worker_id=worker_id)
-            worker.set_training(False)
+            worker.set_training(False, False)
             return worker
 
         raise ValueError()
@@ -197,8 +201,10 @@ class Config:
 
         return conf
 
-    def copy(self):
-        config = Config("", None, None)
+    def copy(self, env_copy: bool = False):
+        env_config = pickle.loads(pickle.dumps(self.env_config))
+        rl_config = pickle.loads(pickle.dumps(self.rl_config))
+        config = Config(env_config, rl_config, is_make_env=False)
         for k, v in self.__dict__.items():
             if type(v) in [int, float, bool, str]:
                 setattr(config, k, v)
@@ -208,7 +214,9 @@ class Config:
                 config.players.append(None)
             else:
                 config.players.append(pickle.loads(pickle.dumps(player)))
-        config.rl_config = pickle.loads(pickle.dumps(self.rl_config))
+        config.callbacks = self.callbacks  # sync
+        if env_copy:
+            config.env = self.env
         return config
 
 
@@ -216,10 +224,9 @@ def train(
     config: Config,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
-    env: Optional[EnvForRL] = None,
     worker_id: int = 0,
 ) -> Tuple[RLParameter, RLRemoteMemory]:
-    episode_rewards, parameter, memory = play(config, parameter, remote_memory, env, worker_id)
+    episode_rewards, parameter, memory = play(config, parameter, remote_memory, worker_id)
     return parameter, memory
 
 
@@ -227,16 +234,13 @@ def play(
     config: Config,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
-    env: Optional[EnvForRL] = None,
     worker_id: int = 0,
 ) -> Union[
-    Tuple[float, RLParameter, RLRemoteMemory],  # single play
-    Tuple[List[float], RLParameter, RLRemoteMemory],  # multi play
+    Tuple[List[float], RLParameter, RLRemoteMemory],  # single play
+    Tuple[List[List[float]], RLParameter, RLRemoteMemory],  # multi play
 ]:
-    # TODO config copy
-
-    if env is None:
-        env = config.make_env()
+    config = config.copy(env_copy=True)
+    env = config.make_env()
     config.assert_params()
     if parameter is None:
         parameter = config.make_parameter()
@@ -248,8 +252,15 @@ def play(
         trainer = None
     callbacks = config.callbacks
 
+    # valid
+    if config.enable_validation:
+        valid_config = config.copy(env_copy=False)
+        valid_config.set_play_config(max_episodes=config.validation_episode)
+        valid_config.enable_validation = False
+        valid_episode = 0
+
     # workers
-    workers = [config.make_player(i, parameter, remote_memory, worker_id, env) for i in range(env.player_num)]
+    workers = [config.make_player(i, parameter, remote_memory, worker_id) for i in range(env.player_num)]
 
     # callback
     _params = {
@@ -321,23 +332,25 @@ def play(
         # step
         # ------------------------
 
-        # --- rl init
+        # --- rl before step
+        actions = []
         for i, idx in enumerate(next_player_indices):
+
+            # rl init
             if players_status[idx] == "INIT":
                 worker_idx = worker_indices[idx]
                 workers[worker_idx].on_reset(state, idx, env)
                 players_status[idx] = "RUNNING"
 
-        # callback
-        _params["step"] = step
-        [c.on_step_begin(**_params) for c in callbacks]
-
-        # --- rl action
-        actions = []
-        for i, idx in enumerate(next_player_indices):
+            # rl action
             worker_idx = worker_indices[idx]
             action = workers[worker_idx].policy(state, idx, env)
             actions.append(action)
+
+        # callback
+        _params["step"] = step
+        _params["actions"] = actions
+        [c.on_step_begin(**_params) for c in callbacks]
 
         # --- env step
         # skip frame の間は同じアクションを繰り返す
@@ -368,7 +381,7 @@ def play(
             done = True
         if step >= config.max_episode_steps:
             done = True
-        if _time - episode_t0 > config.episode_timeout:
+        if config.episode_timeout > 0 and _time - episode_t0 > config.episode_timeout:
             done = True
 
         # --- rl after step
@@ -414,9 +427,21 @@ def play(
         if done:
             episode_rewards_list.append(episode_rewards)
 
+            # validation
+            valid_reward = None
+            if config.enable_validation:
+                valid_episode += 1
+                if valid_episode > config.validation_interval:
+                    rewards, _, _ = play(valid_config, parameter=parameter)
+                    if env.player_num > 1:
+                        rewards = [r[0] for r in rewards]
+                    valid_reward = np.mean(rewards)
+                    valid_episode = 0
+
             # callback
             _params["step"] = step
             _params["episode_time"] = _time - episode_t0
+            _params["valid_reward"] = valid_reward
             _params["episode_count"] = episode_count
             _params["episode_rewards"] = episode_rewards
             [c.on_episode_end(**_params) for c in callbacks]
@@ -433,7 +458,3 @@ def play(
         return [r[0] for r in episode_rewards_list], parameter, remote_memory
     else:
         return episode_rewards_list, parameter, remote_memory
-
-
-if __name__ == "__main__":
-    pass

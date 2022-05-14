@@ -10,6 +10,9 @@ class Test(unittest.TestCase):
     def test_play(self):
         self.tester.play_test("OneRoad")
 
+    def test_play_hard(self):
+        self.tester.play_test("OneRoad-hard")
+
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_play", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_play_hard", verbosity=2)

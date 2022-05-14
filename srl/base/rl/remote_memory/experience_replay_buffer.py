@@ -27,7 +27,3 @@ class ExperienceReplayBuffer(RLRemoteMemory):
 
     def sample(self, batch_size: int):
         return random.sample(self.memory, batch_size)
-
-
-if __name__ == "__main__":
-    pass

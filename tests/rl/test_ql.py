@@ -19,7 +19,6 @@ class Test(unittest.TestCase):
         self.rl_config.epsilon = 0.5
         self.rl_config.lr = 0.01
         self.tester.play_verify_singleplay("Grid", self.rl_config, 50_000, 1000)
-        # self.tester.verify_grid_action_values()
         self.tester.verify_grid_policy()
 
     def test_verify_ox(self):
@@ -29,4 +28,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_mp", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)

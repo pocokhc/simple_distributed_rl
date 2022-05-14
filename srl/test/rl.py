@@ -1,24 +1,26 @@
 import os
+import warnings
 from typing import cast
 
 import numpy as np
 import srl
 from srl.base.define import EnvObservationType
-from srl.base.env.processors import ImageProcessor
-from srl.base.env.single_play_wrapper import SinglePlayerWrapper
+from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
+from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
 from srl.envs.grid import Grid
-from srl.rl.functions.common import to_str_observaten
+from srl.rl.functions.common import to_str_observation
 from srl.runner import mp, sequence
 from srl.runner.callbacks import PrintProgress, Rendering
 from srl.runner.callbacks_mp import TrainFileLogger
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+warnings.simplefilter("ignore")
 
 
 class TestRL:
     def __init__(self):
         self.parameter = None
-        self.config = None
+        self.config: sequence.Config = None
 
         self.env_list = [
             srl.envs.Config("FrozenLake-v1"),
@@ -35,6 +37,7 @@ class TestRL:
             "OneRoad": 1,  # 乱数要素なし
             "ALE/Pong-v5": 0.0,
             # 2p
+            "StoneTaking": [1, 1],
             "OX": [0.8, 0.65],  # [0.987, 0.813] ぐらい
         }
 
@@ -43,7 +46,7 @@ class TestRL:
             config = sequence.Config(env_config, rl_config)
 
             # --- train
-            config.set_train_config(max_steps=10, callbacks=[PrintProgress()])
+            config.set_train_config(max_steps=10, enable_validation=False, callbacks=[PrintProgress()])
             parameter, memory = sequence.train(config)
 
             # --- test
@@ -86,7 +89,9 @@ class TestRL:
             config.max_episode_steps = 50
             config.skip_frames = 4
 
-        config.set_train_config(max_steps=train_count, callbacks=[PrintProgress(max_progress_time=10)])
+        config.set_train_config(
+            max_steps=train_count, enable_validation=False, callbacks=[PrintProgress(max_progress_time=10)]
+        )
         parameter, memory = sequence.train(config)
 
         config.set_play_config(max_episodes=test_episodes)
@@ -111,7 +116,9 @@ class TestRL:
         config = sequence.Config(env_config, rl_config)
         config.players = [None, None]
 
-        config.set_train_config(max_steps=train_count, callbacks=[PrintProgress(max_progress_time=10)])
+        config.set_train_config(
+            max_steps=train_count, enable_validation=False, callbacks=[PrintProgress(max_progress_time=10)]
+        )
         parameter, memory = sequence.train(config)
 
         # 2p random
@@ -135,67 +142,46 @@ class TestRL:
         self.parameter = parameter
         self.config = config
 
-    def verify_grid_action_values(self):
-        assert self.config.env_config.name == "Grid"
-
-        env = self.config.make_env()
-        env_org = cast(Grid, env.get_original_env())
-        V, Q = env_org.calc_action_values()
-        for s, q in Q.items():
-            q = list(q.values())
-            rl_s = env.observation_encode(s)
-            true_a = np.argmax(q)
-
-            rl_q = self.parameter.get_action_values(rl_s, [])
-            rl_a = np.argmax(rl_q)
-
-            diff = abs(q[true_a] - rl_q[true_a])
-            print(s, true_a, rl_a, diff)
-
-            assert true_a == rl_a
-            assert diff < 0.2
-
     def verify_grid_policy(self):
         assert self.config.env_config.name == "Grid"
 
         env_for_rl = self.config.make_env()
-        env = SinglePlayerWrapper(env_for_rl)
+        env = SinglePlayEnvWrapper(env_for_rl)
         env_org = cast(Grid, env.get_original_env())
+
+        worker = self.config.make_worker(self.parameter)
+        worker.set_training(False, False)
+        worker = SinglePlayWorkerWrapper(worker)
+
         V, _Q = env_org.calc_action_values()
         Q = {}
         for k, v in _Q.items():
-            new_k = env_for_rl.observation_encode(k)
-            new_k = to_str_observaten(new_k)
+            new_k = worker.worker.observation_encode(k, env)
+            new_k = to_str_observation(new_k)
             Q[new_k] = v
-
-        worker = self.config.make_worker(self.parameter)
-        worker.set_training(False)
 
         # 数ステップ回してactionを確認
         done = True
-        for step in range(100):
+        for _ in range(100):
             if done:
-                state, invalid_actions = env.reset()
+                state = env.reset()
                 done = False
-                total_reward = 0
-                worker.on_reset(state, invalid_actions, env)
+                worker.on_reset(state, env)
 
             # action
-            action = worker.policy(state, invalid_actions, env)
-            assert action not in invalid_actions
+            action = worker.policy(state, env)
 
             # -----------
             # policyのアクションと最適アクションが等しいか確認
-            key = to_str_observaten(state)
+            key = to_str_observation(state)
             true_a = np.argmax(list(Q[key].values()))
-            pred_a = env_for_rl.action_decode(action)
+            pred_a = worker.worker.action_decode(action)
             print(f"{state}: {true_a} == {pred_a}")
             assert true_a == pred_a
             # -----------
 
             # env step
-            state, reward, done, invalid_actions, env_info = env.step(action)
-            step += 1
+            state, reward, done, env_info = env.step(action)
 
             # rl step
-            worker.on_step(state, reward, done, invalid_actions, env)
+            worker.on_step(state, reward, done, env)

@@ -4,8 +4,8 @@ from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
+from srl.base.env.base import EnvBase
 import tensorflow.keras as keras
-from srl.base.env.env_for_rl import EnvForRL
 from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -60,6 +60,9 @@ class Config(DiscreteActionConfig):
     enable_double_dqn: bool = True
 
     dummy_state_val: float = 0.0
+
+    def __post_init__(self):
+        super().__init__()
 
     @staticmethod
     def getName() -> str:
@@ -267,7 +270,7 @@ class Worker(DiscreteActionWorker):
         self.recent_states.append(state)
         self.invalid_actions = invalid_actions
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+    def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> int:
 
         if self.training:
             if self.config.exploration_steps > 0:
@@ -329,7 +332,7 @@ class Worker(DiscreteActionWorker):
 
         return {}
 
-    def render(self, env: EnvForRL):
+    def render(self, env: EnvBase):
         state = self.recent_states[1:]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
         maxa = np.argmax(q)
@@ -349,7 +352,3 @@ class Worker(DiscreteActionWorker):
                 s += " "
             s += f"{env.action_to_str(a)}: {q[a]:6.3f}"
             print(s)
-
-
-if __name__ == "__main__":
-    pass

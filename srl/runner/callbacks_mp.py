@@ -12,48 +12,46 @@ import numpy as np
 import tensorflow as tf
 from srl.runner import sequence
 from srl.runner.callbacks import Callback
-from srl.utils.common import JsonNumpyEncoder, listdictdict_to_dictlist, to_str_time
+from srl.utils.common import JsonNumpyEncoder, is_package_installed, listdictdict_to_dictlist, to_str_time
 
 try:
     import psutil
-
-    ENABLE_PS = True
-except ModuleNotFoundError:
-    ENABLE_PS = False
+except ImportError:
+    pass
+ENABLE_PS = is_package_installed("psutil")
 
 try:
     import pynvml
-
-    ENABLE_NVIDIA = True
-except ModuleNotFoundError:
-    ENABLE_NVIDIA = False
+except ImportError:
+    pass
+ENABLE_NVIDIA = is_package_installed("pynvml")
 
 logger = logging.getLogger(__name__)
 
 
 class MPCallback(Callback, ABC):
     def on_init(self, **kwargs) -> None:
-        pass
+        pass  # do nothing
 
     # main
     def on_start(self, **kwargs) -> None:
-        pass
+        pass  # do nothing
 
     def on_polling(self, **kwargs) -> None:
-        pass
+        pass  # do nothing
 
     def on_end(self, **kwargs) -> None:
-        pass
+        pass  # do nothing
 
     # trainer
     def on_trainer_start(self, **kwargs) -> None:
-        pass
+        pass  # do nothing
 
     def on_trainer_train_end(self, **kwargs) -> None:
-        pass
+        pass  # do nothing
 
     def on_trainer_end(self, **kwargs) -> None:
-        pass
+        pass  # do nothing
 
 
 @dataclass
@@ -223,8 +221,8 @@ class TrainFileLogger(MPCallback):
             self._trainer_print_progress()
         if self.enable_log:
             self._trainer_log()
-        if self.enable_checkpoint:
-            self._save_checkpoint(**kwargs)
+        # if self.enable_checkpoint:
+        #    self._save_checkpoint(**kwargs) TODO
 
         if ENABLE_NVIDIA:
             pynvml.nvmlShutdown()
@@ -238,6 +236,7 @@ class TrainFileLogger(MPCallback):
         train_time,
         train_info,
         sync_count,
+        valid_reward,
         **kwargs,
     ):
         self.elapsed_time = time_ - self.t0  # 経過時間
@@ -251,6 +250,7 @@ class TrainFileLogger(MPCallback):
                     "train_info": train_info,
                     "sync_count": sync_count,
                     "memory": memory_len,
+                    "valid_reward": valid_reward,
                 }
             )
             if self._check_print_progress(time_):
@@ -264,6 +264,7 @@ class TrainFileLogger(MPCallback):
                     "train_info": train_info,
                     "sync_count": sync_count,
                     "memory": memory_len,
+                    "valid_reward": valid_reward,
                 }
             )
             if self._check_log_progress(time_):
@@ -272,7 +273,7 @@ class TrainFileLogger(MPCallback):
         if self.enable_checkpoint:
             if time_ - self.checkpoint_t0 > self.checkpoint_interval:
                 self.checkpoint_t0 = time_
-                self._save_checkpoint(**kwargs)
+                # self._save_checkpoint(**kwargs) TODO
 
     def _trainer_print_progress(self):
         if len(self.progress_history) == 0:
@@ -283,12 +284,15 @@ class TrainFileLogger(MPCallback):
         sync_count = info["sync_count"]
         memory_len = info["memory"]
         train_time = np.mean([t["train_time"] for t in self.progress_history])
+        valid_rewards = [t["valid_reward"] for t in self.progress_history if t["valid_reward"] is not None]
 
         s = dt.datetime.now().strftime("%H:%M:%S")
         s += " trainer :{:8d} tra".format(train_count)
         s += ",{:6.3f}s/tra".format(train_time)
-        s += ",{:8d} memory ".format(memory_len)
-        s += ",{:8d} sync ".format(sync_count)
+        s += ",{:7d} memory ".format(memory_len)
+        s += ",{:6d} sync ".format(sync_count)
+        if len(valid_rewards) > 0:
+            s += ", {:.4f} val_reward ".format(np.mean(valid_rewards))
 
         d = listdictdict_to_dictlist(self.progress_history, "train_info")
         for k, arr in d.items():
@@ -353,31 +357,16 @@ class TrainFileLogger(MPCallback):
     def _save_checkpoint(
         self,
         train_count,
-        config,
         parameter,
         **kwargs,
     ):
-
-        # test play
-        t0 = time.time()
-        config = config.copy()
-        config.set_play_config(max_episodes=self.test_env_episode)
-        rewards, _, _ = sequence.play(config, parameter, env=self.env)
-        if self.env.player_num > 1:
-            rewards = [r[0] for r in rewards]
-        reward = np.mean(rewards)
-
         # save
-        parameter.save(os.path.join(self.param_dir, f"{train_count}_{reward}.pickle"))
+        parameter.save(os.path.join(self.param_dir, f"{train_count}.pickle"))
 
         if self.enable_print_progress:
             print(
-                "save params: {} train, test reward {:.3f} {:.3f} {:.3f}, test time {:.3f}s".format(
+                "save params: {} train".format(
                     train_count,
-                    min(rewards),
-                    reward,
-                    max(rewards),
-                    time.time() - t0,
                 )
             )
 
@@ -535,7 +524,3 @@ class TrainFileLogger(MPCallback):
             "work_info": work_info,
         }
         self._write_log(self.fp_dict["worker"], d)
-
-
-if __name__ == "__main__":
-    pass

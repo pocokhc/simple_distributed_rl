@@ -3,14 +3,13 @@ import random
 from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple
 
-import gym
-import gym.envs.registration
-import gym.spaces
 import numpy as np
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.env.genre.turnbase import TurnBase2PlayerActionDiscrete
+from srl.base.env.base import SpaceBase
+from srl.base.env.genre import TurnBase2Player
 from srl.base.env.processor import Processor
 from srl.base.env.registration import register
+from srl.base.env.spaces import BoxSpace, DiscreteSpace
 from srl.base.rl.algorithms.rulebase import RuleBaseWorker
 from srl.base.rl.base import RLWorker
 
@@ -24,7 +23,7 @@ register(
 
 
 @dataclass
-class OX(TurnBase2PlayerActionDiscrete):
+class OX(TurnBase2Player):
     def __post_init__(self):
 
         self.W = 3
@@ -32,20 +31,17 @@ class OX(TurnBase2PlayerActionDiscrete):
 
         self._player_index = 0
 
-        # observation_space
-        self._observation_space = gym.spaces.Box(
+    @property
+    def action_space(self) -> SpaceBase:
+        return DiscreteSpace(self.W * self.H)
+
+    @property
+    def observation_space(self) -> SpaceBase:
+        return BoxSpace(
             low=-1,
             high=1,
-            shape=(1 + self.H * self.W,),
+            shape=(self.H * self.W,),
         )
-
-    @property
-    def action_num(self):
-        return self.W * self.H
-
-    @property
-    def observation_space(self) -> gym.spaces.Space:
-        return self._observation_space
 
     @property
     def observation_type(self) -> EnvObservationType:
@@ -67,7 +63,7 @@ class OX(TurnBase2PlayerActionDiscrete):
     # 観測用の状態を返す
     def _encode_state(self):
         # (turn,) + field
-        return np.array([self.player_index] + self.field)
+        return np.array(self.field)
 
     def backup(self) -> Any:
         return [self.field[:], self._player_index]
@@ -167,11 +163,7 @@ class OX(TurnBase2PlayerActionDiscrete):
         print(f"next player: {self.player_index}")
 
     def make_worker(self, name: str) -> Optional[RLWorker]:
-        if name == "cpu_lv1":
-            return NegaMax(0.5)
-        elif name == "cpu_lv2":
-            return NegaMax(0.1)
-        elif name == "cpu_lv3":
+        if name == "cpu":
             return NegaMax(0.0)
         return None
 
@@ -182,13 +174,13 @@ class NegaMax(RuleBaseWorker):
         self.epsilon = epsilon
 
     def call_on_reset(self, env) -> None:
-        pass
+        pass  # do nothing
 
     def call_policy(self, env_org: OX) -> int:
         env = env_org.copy()
 
         if random.random() < self.epsilon:
-            actions = [a for a in range(env.action_num) if env.field[a] == 0]
+            actions = [a for a in range(env.action_space.n) if env.field[a] == 0]
             return random.choice(actions)
         else:
             scores = self._negamax(env)
@@ -202,8 +194,8 @@ class NegaMax(RuleBaseWorker):
         if key in self.cache:
             return self.cache[key]
 
-        scores = np.array([-9 for _ in range(env.action_num)])
-        for a in range(env.action_num):
+        scores = np.array([-9 for _ in range(env.action_space.n)])
+        for a in range(env.action_space.n):
             if env.field[a] != 0:
                 continue
 
@@ -236,22 +228,22 @@ class NegaMax(RuleBaseWorker):
             print("-" * 10)
 
 
-class MapProcessor(Processor):
+class LayerProcessor(Processor):
     def change_observation_info(
         self,
-        observation_space: gym.spaces.Box,
-        observation_type: EnvObservationType,
+        env_observation_space: SpaceBase,
+        env_observation_type: EnvObservationType,
         rl_observation_type: RLObservationType,
         env: OX,
-    ) -> Tuple[gym.spaces.Box, EnvObservationType]:
-        observation_space = gym.spaces.Box(
+    ) -> Tuple[SpaceBase, EnvObservationType]:
+        observation_space = BoxSpace(
             low=0,
             high=1,
             shape=(3, 3, 3),
         )
         return observation_space, EnvObservationType.SHAPE3
 
-    def observation_encode(self, observation: np.ndarray, env: OX) -> np.ndarray:
+    def process_observation(self, observation: np.ndarray, env: OX) -> np.ndarray:
         # Layer0: player1 field (0 or 1)
         # Layer1: player2 field (0 or 1)
         # Layer2: player_index (all0 or all1)
@@ -265,7 +257,3 @@ class MapProcessor(Processor):
                     _field[1][y][x] = 1
         _field[2] = env.player_index
         return _field
-
-
-if __name__ == "__main__":
-    pass

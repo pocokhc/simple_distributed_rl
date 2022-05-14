@@ -1,14 +1,22 @@
 import enum
+from typing import Dict, List, Union
 
+# Obsearvation = np.ndarray
+DiscreteAction = int
+ContinuousAction = List[float]
+Action = Union[DiscreteAction, ContinuousAction]
+InvalidAction = DiscreteAction
+Info = Dict[str, Union[float, int]]
 
-class EnvActionType(enum.Enum):
-    UNKOWN = 0
-    DISCRETE = enum.auto()  # 離散
-    CONTINUOUS = enum.auto()  # 連続
+# not use(本当に要らないか様子見)
+# class EnvActionType(enum.Enum):
+#    UNKNOWN = 0
+#    DISCRETE = enum.auto()  # 離散
+#    CONTINUOUS = enum.auto()  # 連続
 
 
 class EnvObservationType(enum.Enum):
-    UNKOWN = 0
+    UNKNOWN = 0
     # 値
     DISCRETE = enum.auto()  # 離散
     CONTINUOUS = enum.auto()  # 連続
@@ -22,14 +30,12 @@ class EnvObservationType(enum.Enum):
 
 
 class RLActionType(enum.Enum):
-    UNKOWN = 0
     ANY = enum.auto()
     DISCRETE = enum.auto()  # 離散
     CONTINUOUS = enum.auto()  # 連続
 
 
 class RLObservationType(enum.Enum):
-    UNKOWN = 0
     ANY = enum.auto()
     DISCRETE = enum.auto()  # 離散
     CONTINUOUS = enum.auto()  # 連続

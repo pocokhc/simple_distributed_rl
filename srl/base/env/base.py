@@ -1,11 +1,82 @@
-import random
+import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass, field
+from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
 
-import gym
-import gym.spaces
 import numpy as np
-from srl.base.define import EnvActionType, EnvObservationType, RenderType
+from srl.base.define import Action, EnvObservationType, Info, InvalidAction, RenderType
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class EnvConfig:
+    name: str
+    kwargs: Dict = field(default_factory=dict)
+
+    # gym
+    gym_prediction_by_simulation: bool = True
+
+
+T = TypeVar("T", covariant=True)
+
+
+class SpaceBase(ABC, Generic[T]):
+    @abstractmethod
+    def sample(self, invalid_actions: List[InvalidAction] = []) -> T:
+        raise NotImplementedError()
+
+    # --- action discrete
+    @abstractmethod
+    def get_action_discrete_info(self) -> int:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def action_discrete_encode(self, val) -> int:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def action_discrete_decode(self, val: int) -> T:
+        raise NotImplementedError()
+
+    # --- action continuous
+    @abstractmethod
+    def get_action_continuous_info(self) -> Tuple[int, np.ndarray, np.ndarray]:
+        raise NotImplementedError()  # n, low, high
+
+    @abstractmethod
+    def action_continuous_encode(self, val) -> List[float]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def action_continuous_decode(self, val: List[float]) -> T:
+        raise NotImplementedError()
+
+    # --- observation discrete
+    @abstractmethod
+    def get_observation_discrete_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
+        raise NotImplementedError()  # shape, low, high
+
+    @abstractmethod
+    def observation_discrete_encode(self, val) -> np.ndarray:
+        raise NotImplementedError()
+
+    # 今のところ使用してません
+    def observation_discrete_dencode(self, val: np.ndarray) -> T:
+        raise NotImplementedError()
+
+    # --- observation continouse
+    @abstractmethod
+    def get_observation_continuous_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
+        raise NotImplementedError()  # shape, low, high
+
+    @abstractmethod
+    def observation_continuous_encode(self, val) -> np.ndarray:
+        raise NotImplementedError()
+
+    # 今のところ使用してません
+    def observation_continuous_dencode(self, val: np.ndarray) -> T:
+        raise NotImplementedError()
 
 
 class EnvBase(ABC):
@@ -21,21 +92,16 @@ class EnvBase(ABC):
     def close(self) -> None:
         pass
 
-    # --- propeties
-
+    # --- action
     @property
     @abstractmethod
-    def action_space(self) -> gym.spaces.Space:
+    def action_space(self) -> SpaceBase:
         raise NotImplementedError()
 
+    # --- observation
     @property
     @abstractmethod
-    def action_type(self) -> EnvActionType:
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
-    def observation_space(self) -> gym.spaces.Space:
+    def observation_space(self) -> SpaceBase:
         raise NotImplementedError()
 
     @property
@@ -43,6 +109,7 @@ class EnvBase(ABC):
     def observation_type(self) -> EnvObservationType:
         raise NotImplementedError()
 
+    # --- properties
     @property
     @abstractmethod
     def max_episode_steps(self) -> int:
@@ -59,13 +126,13 @@ class EnvBase(ABC):
         """
         return (
             init_state,
-            next_player_indecies,
+            next_player_indices,
         )
         """
         raise NotImplementedError()
 
     @abstractmethod
-    def step(self, actions: List[Any]) -> Tuple[np.ndarray, List[float], bool, List[int], Dict[str, float]]:
+    def step(self, actions: List) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
         """
         return (
             next_state,
@@ -85,32 +152,27 @@ class EnvBase(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def get_next_player_indecies(self) -> List[int]:
+    def get_next_player_indices(self) -> List[int]:
         raise NotImplementedError()
 
     @abstractmethod
-    def get_invalid_actions(self, player_index: int) -> List[int]:
+    def get_invalid_actions(self, player_index: int) -> List[InvalidAction]:
         raise NotImplementedError()
 
-    def sample(self, next_player_indices) -> List[Any]:
-        if self.action_type == EnvActionType.DISCRETE:
-            actions = []
-            for i in next_player_indices:
-                invalid_actions = self.get_invalid_actions(i)
-                _actions = [a for a in range(self.action_space.n) if a not in invalid_actions]
-                action = random.choice(_actions)
-                actions.append(action)
-            return actions
-        else:
-            return [self.action_space.sample() for _ in range(self.player_num)]
+    def sample(self, next_player_indices) -> List[Action]:
+        return [self.action_space.sample(self.get_invalid_actions(i)) for i in next_player_indices]
 
     def render(self, mode: RenderType = RenderType.Terminal, **kwargs) -> Any:
-        if mode == RenderType.Terminal:
-            return self.render_terminal(**kwargs)
-        elif mode == RenderType.GUI:
-            return self.render_gui(**kwargs)
-        elif mode == RenderType.RGB_Array:
-            return self.render_rgb_array(**kwargs)
+        try:
+            if mode == RenderType.Terminal:
+                return self.render_terminal(**kwargs)
+            elif mode == RenderType.GUI:
+                return self.render_gui(**kwargs)
+            elif mode == RenderType.RGB_Array:
+                return self.render_rgb_array(**kwargs)
+        except NotImplementedError:
+            # logger.warn(f"render NotImplementedError({mode})")
+            pass
 
     def render_terminal(self, **kwargs) -> None:
         raise NotImplementedError()
@@ -142,7 +204,3 @@ class EnvBase(ABC):
 
     def get_original_env(self) -> object:
         return self
-
-
-if __name__ == "__main__":
-    pass

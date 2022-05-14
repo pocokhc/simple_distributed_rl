@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from multiprocessing.managers import BaseManager
 from typing import List, Optional, Tuple, Union
 
+import numpy as np
 import tensorflow as tf
 from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_remote_memory
@@ -33,6 +34,7 @@ RuntimeError:
 → メイン関数に "if __name__ == '__main__':" を明示していないと表示されます。
 """
 
+
 # --------------------
 # Config
 # --------------------
@@ -54,16 +56,23 @@ class Config:
 
     callbacks: List[MPCallback] = field(default_factory=list)
 
+    # validation
+    enable_validation = False
+    validation_interval = 10  # train count
+    validation_episode = 1
+
     def set_train_config(
         self,
         max_train_count: int = -1,
         timeout: int = -1,
+        enable_validation: bool = True,
         callbacks: List[MPCallback] = None,
     ):
         if callbacks is None:
             callbacks = []
         self.max_train_count = max_train_count
         self.timeout = timeout
+        self.enable_validation = enable_validation
         self.callbacks = callbacks
 
     # -------------------------------------
@@ -80,6 +89,8 @@ class Config:
         for k, v in self.__dict__.items():
             if type(v) in [int, float, bool, str]:
                 setattr(config, k, v)
+
+        config.callbacks = self.callbacks  # sync
         return config
 
 
@@ -166,7 +177,7 @@ def _run_worker(
                 parameter.restore(params)
             config.callbacks.append(_SyncParameter(remote_board, parameter, mp_config))
 
-            sequence.play(config, parameter, remote_memory, None, worker_id)
+            sequence.play(config, parameter, remote_memory, worker_id)
 
         except Exception:
             logger.warn(traceback.format_exc())
@@ -193,8 +204,18 @@ def _run_trainer(
         if params is not None:
             parameter.restore(params)
         trainer = config.make_trainer(parameter, remote_memory)
+
+        # loop var
         callbacks = [c for c in mp_config.callbacks if issubclass(c.__class__, MPCallback)]
         sync_count = 0
+        t0 = time.time()
+        _print_warning = True
+
+        # valid
+        valid_train = 0
+        valid_config = config.copy(env_copy=False)
+        valid_config.set_play_config(max_episodes=mp_config.validation_episode)
+        valid_config.enable_validation = False
 
         # callbacks
         _info = {
@@ -211,12 +232,19 @@ def _run_trainer(
                 if train_end_signal.value:
                     break
 
-                if mp_config.max_train_count > 0 and trainer.get_train_count() >= mp_config.max_train_count:
-                    break
+                if mp_config.max_train_count > 0:
+                    # train countが終了条件でしばらくカウントが増えない場合は警告
+                    if _print_warning:
+                        if trainer.get_train_count() == 0 and time.time() - t0 > 60:
+                            print("The 'train_count' did not increase for 1 minute. It may not end.")
+                            _print_warning = False
 
-                t0 = time.time()
+                    if trainer.get_train_count() >= mp_config.max_train_count:
+                        break
+
+                train_t0 = time.time()
                 train_info = trainer.train()
-                train_time = time.time() - t0
+                train_time = time.time() - train_t0
 
                 if trainer.get_train_count() == 0:
                     time.sleep(1)
@@ -227,12 +255,24 @@ def _run_trainer(
                     remote_board.write(parameter.backup())
                     sync_count += 1
 
+                # validation
+                valid_reward = None
+                if mp_config.enable_validation:
+                    valid_train += 1
+                    if valid_train > mp_config.validation_interval:
+                        rewards, _, _ = sequence.play(valid_config, parameter=parameter)
+                        if valid_config.make_env().player_num > 1:
+                            rewards = [r[0] for r in rewards]
+                        valid_reward = np.mean(rewards)
+                        valid_train = 0
+
                 # callbacks
                 _info["time_"] = time.time()
                 _info["train_info"] = train_info
                 _info["train_count"] = trainer.get_train_count()
                 _info["train_time"] = train_time
                 _info["sync_count"] = sync_count
+                _info["valid_reward"] = valid_reward
                 [c.on_trainer_train_end(**_info) for c in callbacks]
 
         except Exception:
@@ -261,13 +301,18 @@ def train(
     init_remote_memory: Optional[RLRemoteMemory] = None,
     return_memory: bool = False,
 ) -> Tuple[RLParameter, RLRemoteMemory]:
-    # TODO config copy
+
+    config = config.copy(env_copy=False)
+    mp_config = mp_config.copy()
+    config.enable_validation = False
+    config.training = True
+    config.distributed = True
+    config.rl_config.assert_params()
 
     with tf.device(mp_config.allocate_main):
 
         # config の初期化
-        config.init_rl_config()
-        MPManager.register("RemoteMemory", make_remote_memory(config.rl_config, None, get_class=True))
+        MPManager.register("RemoteMemory", make_remote_memory(config.rl_config, get_class=True))
         MPManager.register("Board", Board)
 
         with MPManager() as manager:
@@ -280,7 +325,7 @@ def train(
                 return_memory,
             )
 
-        return return_parameter, return_remote_memory
+    return return_parameter, return_remote_memory
 
 
 def _train(
@@ -291,9 +336,6 @@ def _train(
     manager: MPManager,
     return_memory: bool,
 ):
-    # config
-    config.training = True
-    config.rl_config.assert_params()
 
     # callbacks
     _info = {
@@ -418,7 +460,3 @@ def _train(
     [c.on_end(**_info) for c in mp_config.callbacks]
 
     return return_parameter, return_remote_memory
-
-
-if __name__ == "__main__":
-    pass

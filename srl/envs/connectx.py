@@ -1,15 +1,14 @@
 import logging
-import math
 import pickle
-from typing import Any, Callable, List, Optional, Tuple, cast
+from typing import Any, List, Optional, Tuple
 
-import gym
-import gym.envs.registration
-import gym.spaces
 import numpy as np
-from srl.base.define import EnvObservationType
+from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env import registration
-from srl.base.env.genre.turnbase import TurnBase2PlayerActionDiscrete
+from srl.base.env.base import SpaceBase
+from srl.base.env.genre import TurnBase2Player
+from srl.base.env.processor import Processor
+from srl.base.env.spaces import BoxSpace, DiscreteSpace
 from srl.base.rl.algorithms.rulebase import RuleBaseWorker
 from srl.base.rl.base import RLWorker
 
@@ -23,11 +22,11 @@ try:
         id="ConnectX",
         entry_point=__name__ + ":ConnectX",
     )
-except ModuleNotFoundError:
+except ImportError:
     logger.debug("kaggle env didn't read.")
 
 
-class ConnectX(TurnBase2PlayerActionDiscrete):
+class ConnectX(TurnBase2Player):
     def __init__(self):
         super().__init__()
 
@@ -39,12 +38,12 @@ class ConnectX(TurnBase2PlayerActionDiscrete):
         self._player_index = 0
 
     @property
-    def action_num(self) -> int:
-        return self._action_num
+    def action_space(self) -> DiscreteSpace:
+        return DiscreteSpace(self._action_num)
 
     @property
-    def observation_space(self) -> gym.spaces.Space:
-        return gym.spaces.Box(low=0, high=2, shape=(self.H * self.W + 1,))
+    def observation_space(self) -> SpaceBase:
+        return BoxSpace(low=0, high=2, shape=(self.H * self.W,))
 
     @property
     def observation_type(self) -> EnvObservationType:
@@ -62,7 +61,7 @@ class ConnectX(TurnBase2PlayerActionDiscrete):
         states = self.env.reset()
         self.board = states[0].observation["board"]
         self._player_index = 0
-        return np.array(self.board + [self.player_index])
+        return np.array(self.board)
 
     def step_turn(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
         states = self.env.step([action, action])
@@ -76,11 +75,11 @@ class ConnectX(TurnBase2PlayerActionDiscrete):
         else:
             self._player_index = 0
 
-        return np.array(self.board + [self.player_index]), reward1, reward2, done, {}
+        return np.array(self.board), reward1, reward2, done, {}
 
     def get_invalid_actions(self, player_index: int) -> List[int]:
-        nvalid_actions = [a for a in range(self.action_num) if self.board[a] != 0]
-        return nvalid_actions
+        invalid_actions = [a for a in range(self.action_space.n) if self.board[a] != 0]
+        return invalid_actions
 
     def render_terminal(self, **kwargs) -> None:
         print(self.env.render(mode="ansi"))
@@ -92,10 +91,16 @@ class ConnectX(TurnBase2PlayerActionDiscrete):
         raise NotImplementedError()
 
     def backup(self) -> Any:
-        return pickle.dumps(self.env)
+        return [
+            pickle.dumps(self.env),
+            self.board[:],
+            self._player_index,
+        ]
 
     def restore(self, data: Any) -> None:
-        self.env = pickle.loads(data)
+        self.env = pickle.loads(data[0])
+        self.board = data[1][:]
+        self._player_index = data[2]
 
     def make_worker(self, name: str) -> Optional[RLWorker]:
         if name == "negamax":
@@ -105,10 +110,10 @@ class ConnectX(TurnBase2PlayerActionDiscrete):
 
 class NegaMax(RuleBaseWorker):
     def __init__(self):
-        pass
+        pass  #
 
     def call_on_reset(self, env) -> None:
-        pass
+        pass  #
 
     def call_policy(self, env: ConnectX) -> Any:
         observation = env.env.state[0]["observation"]
@@ -117,4 +122,35 @@ class NegaMax(RuleBaseWorker):
         return action
 
     def call_render(self, env: ConnectX) -> None:
-        pass
+        pass  #
+
+
+class LayerProcessor(Processor):
+    def change_observation_info(
+        self,
+        env_observation_space: SpaceBase,
+        env_observation_type: EnvObservationType,
+        rl_observation_type: RLObservationType,
+        env: ConnectX,
+    ) -> Tuple[SpaceBase, EnvObservationType]:
+        observation_space = BoxSpace(
+            low=0,
+            high=1,
+            shape=(3, env.H, env.W),
+        )
+        return observation_space, EnvObservationType.SHAPE3
+
+    def process_observation(self, observation: np.ndarray, env: ConnectX) -> np.ndarray:
+        # Layer0: player1 field (0 or 1)
+        # Layer1: player2 field (0 or 1)
+        # Layer2: player_index (all0 or all1)
+        _field = np.zeros((3, env.H, env.W))
+        for y in range(env.H):
+            for x in range(env.W):
+                idx = x + y * env.W
+                if env.board[idx] == 1:
+                    _field[0][y][x] = 1
+                elif env.board[idx] == 2:
+                    _field[1][y][x] = 1
+        _field[2] = env.player_index
+        return _field

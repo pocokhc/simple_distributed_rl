@@ -1,15 +1,23 @@
 import logging
-import random
-from typing import Any, Dict, List, Union, cast
+from typing import cast
 
-from srl.base.rl.algorithms.rulebase import RuleBaseConfig, RuleBaseParamete, RuleBaseRemoteMemory, RuleBaseTrainer
-from srl.base.rl.base import RLWorker
+from srl.base.env.base import EnvBase
+from srl.base.rl.algorithms.rulebase import (
+    GeneralWorker,
+    RuleBaseConfig,
+    RuleBaseParamete,
+    RuleBaseRemoteMemory,
+    RuleBaseTrainer,
+)
 from srl.base.rl.registration import register
 
 logger = logging.getLogger(__name__)
 
 
 class Config(RuleBaseConfig):
+    def __init__(self):
+        super().__init__()
+
     @staticmethod
     def getName() -> str:
         return "Random"
@@ -36,22 +44,11 @@ class Trainer(RuleBaseTrainer):
     pass
 
 
-class Worker(RLWorker):
+class Worker(GeneralWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
 
-        self.action_num = self.config.env_action_space.n
-
-    def on_reset(self, *args, **kwargs) -> None:
-        pass
-
-    def policy(self, state, player_index, env, *args, **kwargs):
+    def call_policy(self, env: EnvBase, player_index: int):
         invalid_actions = env.get_invalid_actions(player_index)
-        return random.choice([a for a in range(self.config.env_action_space.n) if a not in invalid_actions])
-
-    def on_step(self, *args, **kwargs) -> Dict[str, Union[float, int]]:
-        return {}
-
-    def render(self, *args, **kwargs):
-        pass
+        return self.config.env_action_space.sample(invalid_actions)

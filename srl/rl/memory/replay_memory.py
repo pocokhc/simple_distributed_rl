@@ -50,7 +50,3 @@ class ReplayMemory(Memory):
     def restore(self, data):
         for d in data:
             self.add(d)
-
-
-if __name__ == "__main__":
-    pass

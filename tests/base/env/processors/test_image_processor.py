@@ -1,10 +1,10 @@
 import unittest
+from typing import cast
 
-import gym
-import gym.spaces
 import numpy as np
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.processors import ImageProcessor
+from srl.base.env.spaces.box import BoxSpace
 
 
 class Test(unittest.TestCase):
@@ -23,13 +23,13 @@ class Test(unittest.TestCase):
                     resize=image_resize,
                     enable_norm=True,
                 )
-                space = gym.spaces.Box(low=0, high=255, shape=(image_w, image_h, 3))
+                space = BoxSpace(low=0, high=255, shape=img_shape)
 
                 # change info
-                new_space, new_type = processor.change_observation_info(
-                    space, env_type, RLObservationType.UNKOWN, None
-                )
+                new_space, new_type = processor.change_observation_info(space, env_type, RLObservationType.ANY, None)
                 self.assertTrue(new_type == EnvObservationType.GRAY_2ch)
+                self.assertTrue(isinstance(new_space, BoxSpace))
+                new_space = cast(BoxSpace, new_space)
                 self.assertTrue(new_space.shape == image_resize)
                 np.testing.assert_array_equal(new_space.low, np.full(image_resize, 0))
                 np.testing.assert_array_equal(new_space.high, np.full(image_resize, 1))
@@ -37,10 +37,9 @@ class Test(unittest.TestCase):
                 # decode
                 image = np.ones(img_shape).astype(np.float32)  # image
                 true_state = np.ones(image_resize).astype(np.float32) / 255
-                new_obs = processor.observation_encode(image, None)
+                new_obs = processor.process_observation(image, None)
                 np.testing.assert_array_equal(true_state, new_obs)
 
 
 if __name__ == "__main__":
-    name = "test_image"
-    unittest.main(module=__name__, defaultTest="Test." + name, verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_image", verbosity=2)

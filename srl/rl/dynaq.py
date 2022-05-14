@@ -2,13 +2,23 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, List, Tuple, cast
+from typing import Any, Dict, List, Union, cast
 
 import numpy as np
-from srl.base.rl import RLParameter, RLRemoteMemory, RLTrainer, RLWorker, TableConfig
-from srl.base.rl.registory import register
+from srl.base.env.base import EnvBase
+from srl.base.rl.algorithms.table import TableConfig, TableWorker
+from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.registration import register
+from srl.base.rl.remote_memory.sequence_memory import SequenceRemoteMemory
+from srl.rl.functions.common import to_str_observation
 
 logger = logging.getLogger(__name__)
+
+
+"""
+Other
+    invalid_actions : TODO
+"""
 
 
 # ------------------------------------------------------
@@ -22,12 +32,28 @@ class Config(TableConfig):
     gamma: float = 0.9  # 割引率
     lr: float = 0.1  # 学習率
 
+    def __post_init__(self):
+        super().__init__()
+
     @staticmethod
     def getName() -> str:
         return "Dyna-Q"
 
 
-register(Config, __name__)
+register(
+    Config,
+    __name__ + ":RemoteMemory",
+    __name__ + ":Parameter",
+    __name__ + ":Trainer",
+    __name__ + ":Worker",
+)
+
+
+# ------------------------------------------------------
+# RemoteMemory
+# ------------------------------------------------------
+class RemoteMemory(SequenceRemoteMemory):
+    pass
 
 
 # ------------------------------------------------------
@@ -138,36 +164,6 @@ class Parameter(RLParameter):
 
 
 # ------------------------------------------------------
-# RemoteMemory
-# ------------------------------------------------------
-class RemoteMemory(RLRemoteMemory):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config = cast(Config, self.config)
-
-        self.buffer = []
-
-    def length(self) -> int:
-        return len(self.buffer)
-
-    def restore(self, data: Any) -> None:
-        self.buffer = data
-
-    def backup(self):
-        return self.buffer
-
-    # --------------------
-
-    def add(self, batch: Any) -> None:
-        self.buffer.append(batch)
-
-    def sample(self):
-        buffer = self.buffer
-        self.buffer = []
-        return buffer
-
-
-# ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
 class Trainer(RLTrainer):
@@ -175,7 +171,7 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
-        self.memory = cast(RemoteMemory, self.memory)
+        self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.train_count = 0
 
@@ -186,7 +182,7 @@ class Trainer(RLTrainer):
 
         # --- 近似モデルの学習
         model = self.parameter.model
-        batchs = self.memory.sample()
+        batchs = self.remote_memory.sample()
         for batch in batchs:
 
             # データ形式を変形
@@ -240,20 +236,25 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(TableWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
-        self.memory = cast(RemoteMemory, self.memory)
+        self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def on_reset(self, state: np.ndarray, invalid_actions: List[int], _) -> None:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
+        self.state = to_str_observation(state)
+        self.invalid_actions = invalid_actions
+
         if self.training:
             self.epsilon = self.config.epsilon
         else:
             self.epsilon = self.config.test_epsilon
 
-    def policy(self, state: np.ndarray, invalid_actions: List[int], _) -> Tuple[int, Any]:
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+        self.state = to_str_observation(state)
+        self.invalid_actions = invalid_actions
 
         if random.random() < self.epsilon:
             # epsilonより低いならランダムに移動
@@ -265,51 +266,42 @@ class Worker(RLWorker):
             # 最大値を選ぶ（複数あればランダム）
             action = random.choice(np.where(q == q.max())[0])
 
-        return action, action
+        self.action = int(action)
+        return self.action
 
-    def on_step(
+    def call_on_step(
         self,
-        state: np.ndarray,
-        action: Any,
-        next_state: np.ndarray,
+        next_state: Any,
         reward: float,
         done: bool,
-        invalid_actions: List[int],
         next_invalid_actions: List[int],
-        _,
-    ):
+    ) -> Dict[str, Union[float, int]]:
         if not self.training:
             return {}
 
         batch = {
-            "state": str(state.tolist()),
-            "next_state": str(next_state.tolist()),
-            "action": action,
+            "state": self.state,
+            "next_state": to_str_observation(next_state),
+            "action": self.action,
             "reward": reward,
             "done": done,
-            "invalid_actions": invalid_actions,
+            "invalid_actions": self.invalid_actions,
             "next_invalid_actions": next_invalid_actions,
         }
-        self.memory.add(batch)
+        self.remote_memory.add(batch)
         return {}
 
-    def render(
-        self,
-        state: np.ndarray,
-        invalid_actions: List[int],
-        env: EnvForRL,
-    ) -> None:
-        q = self.parameter.get_action_values(state, invalid_actions)
+    def render(self, env: EnvBase) -> None:
+        q = self.parameter.get_action_values(self.state, self.invalid_actions)
         model = self.parameter.model
-        s_str = str(state.tolist())
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
             if a == maxa:
                 s = "*"
             else:
                 s = " "
-            s += f"{action_to_str(a)}: Q {q[a]:7.5f}"
-            s += f", n_s{model.sample_next_state(s_str, a)}"
-            s += f", reward {model.sample_reward(s_str, a):.3f}"
-            s += f", done {model.sample_done(s_str, a)}"
+            s += f"{env.action_to_str(a)}: Q {q[a]:7.5f}"
+            s += f", n_s{model.sample_next_state(self.state, a)}"
+            s += f", reward {model.sample_reward(self.state, a):.3f}"
+            s += f", done {model.sample_done(self.state, a)}"
             print(s)

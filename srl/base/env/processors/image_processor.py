@@ -2,16 +2,15 @@ import logging
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-from srl.base.env.base import EnvBase
+from srl.base.env.base import SpaceBase
 from srl.base.env.processor import Processor
+from srl.base.env.spaces.box import BoxSpace
 
 try:
     import cv2
-except ModuleNotFoundError:
+except ImportError:
     pass
 
-import gym
-import gym.spaces
 import numpy as np
 from srl.base.define import EnvObservationType, RLObservationType
 
@@ -26,43 +25,51 @@ class ImageProcessor(Processor):
     enable_norm: bool = False
 
     def __post_init__(self):
-        self.before_observation_type = EnvObservationType.UNKOWN
+        self.before_observation_type = EnvObservationType.UNKNOWN
         self.max_val = 0
 
     def change_observation_info(
         self,
-        observation_space: gym.spaces.Box,
-        observation_type: EnvObservationType,
+        env_observation_space: SpaceBase,
+        env_observation_type: EnvObservationType,
         rl_observation_type: RLObservationType,
-        env: EnvBase,
-    ) -> Tuple[gym.spaces.Box, EnvObservationType]:
-        if observation_type not in [
+        original_env: object,
+    ) -> Tuple[SpaceBase, EnvObservationType]:
+
+        if env_observation_type not in [
             EnvObservationType.GRAY_3ch,
             EnvObservationType.COLOR,
         ]:
-            return observation_space, observation_type
+            return env_observation_space, env_observation_type
 
-        assert len(observation_space.shape) == 3
-        self.before_observation_type = observation_type
+        if not isinstance(env_observation_space, BoxSpace):
+            return env_observation_space, env_observation_type
+        shape = env_observation_space.shape
+        low = env_observation_space.low
+        high = env_observation_space.high
+
+        assert len(shape) == 3
+        self.before_observation_type = env_observation_type
         new_observation_type = EnvObservationType.GRAY_2ch
         if self.resize is None:
-            new_shape = (observation_space.shape[0], observation_space.shape[1])
+            new_shape = (shape[0], shape[1])
         else:
             new_shape = self.resize
-        self.max_val = np.max(observation_space.high)
+        self.max_val = np.max(high)
         if self.enable_norm:
             high = 1
         else:
             high = self.max_val
-        new_observation_space = gym.spaces.Box(
-            low=np.min(observation_space.low),
-            high=high,
-            shape=new_shape,
-        )
+        low = np.min(low)
+        new_observation_space = BoxSpace(low, high, new_shape)
 
         return new_observation_space, new_observation_type
 
-    def observation_encode(self, observation: np.ndarray, env: EnvBase) -> np.ndarray:
+    def process_observation(
+        self,
+        observation: np.ndarray,
+        original_env: object,
+    ) -> np.ndarray:
         if self.before_observation_type == EnvObservationType.GRAY_3ch:
             # (w,h,1) -> (w,h)
             observation = np.squeeze(observation, -1)
@@ -83,7 +90,3 @@ class ImageProcessor(Processor):
                 observation /= self.max_val
 
         return observation
-
-
-if __name__ == "__main__":
-    pass

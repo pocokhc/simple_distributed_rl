@@ -5,8 +5,8 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
+from srl.base.env.base import EnvBase
 import tensorflow.keras as keras
-from srl.base.env.env_for_rl import EnvForRL
 from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -120,6 +120,9 @@ class Config(DiscreteActionConfig):
     lifelong_max: float = 5.0  # L
 
     dummy_state_val: float = 0.0
+
+    def __post_init__(self):
+        super().__init__()
 
     @staticmethod
     def getName() -> str:
@@ -820,9 +823,12 @@ class Worker(DiscreteActionWorker):
         # priority
         if priority is None:
             if self.config.memory_name == "ReplayMemory":
-                priority = 1
+                priority = 0
+            elif not self.distributed:
+                priority = 0
             else:
-                priority = 1
+                priority = 0
+                # TODO
                 # target_q = self.parameter.calc_target_q([batch])[0]
                 # priority = abs(target_q - q) + 0.0001
 
@@ -887,7 +893,7 @@ class Worker(DiscreteActionWorker):
 
         return reward
 
-    def render(self, env: EnvForRL) -> None:
+    def render(self, env: EnvBase) -> None:
         state = self.recent_states[-1]
         invalid_actions = self.recent_invalid_actions[-1]
         states = np.asarray([[state]] * self.config.batch_size)
@@ -924,7 +930,3 @@ class Worker(DiscreteActionWorker):
             s += f"{env.action_to_str(a)}: {q[a]:5.3f}"
             s += f"{a:2d}: {q[a]:5.3f} = {q_ext[a]:5.3f} + {self.beta} * {q_int[a]:5.3f}"
             print(s)
-
-
-if __name__ == "__main__":
-    pass

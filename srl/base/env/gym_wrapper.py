@@ -1,40 +1,129 @@
 import pickle
-from typing import Any, Dict, List, Tuple
+from typing import Any, List, Tuple
 
-import gym
-import gym.spaces
 import numpy as np
-from srl.base.define import EnvActionType, EnvObservationType
+from srl.base.define import Action, EnvObservationType, Info, InvalidAction
+from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
+from srl.base.env.spaces.box import BoxSpace
+from srl.base.env.spaces.discrete import DiscreteSpace
 
-from .base import EnvBase
+from .base import EnvBase, SpaceBase
+
+try:
+    import gym
+    from gym import spaces
+
+except ImportError:
+    pass
 
 
 class GymWrapper(EnvBase):
-    def __init__(self, env_name: str):
+    def __init__(self, env_name: str, prediction_by_simulation: bool):
+
         self.env: gym.Env = gym.make(env_name)
+        self.prediction_by_simulation = prediction_by_simulation
+
+        self._observation_type = EnvObservationType.UNKNOWN
+        self._pred_action_space(self.env.action_space)
+        self._pred_observation_space(self.env.observation_space)
+
+        self.render_modes = ["ansi", "human", "rgb_array"]
+        if "render.modes" in self.env.metadata:
+            self.render_modes = self.env.metadata["render.modes"]
+        elif "render_modes" in self.env.metadata:
+            self.render_modes = self.env.metadata["render_modes"]
+
+    def _pred_action_space(self, space):
+        if isinstance(space, spaces.Discrete):
+            self._action_space = DiscreteSpace(space.n)
+            return
+
+        if isinstance(space, spaces.Tuple):
+            # すべてDiscreteならdiscrete
+            if self._is_tuple_all_discrete(space):
+                nvec = [s.n for s in space.spaces]
+                self._action_space = ArrayDiscreteSpace(nvec)
+                return
+            else:
+                raise ValueError  # TODO
+
+        if isinstance(space, spaces.Box):
+            self._action_space = BoxSpace(space.low, space.high, space.shape)
+
+    def _pred_observation_space(self, space):
+        if isinstance(space, spaces.Discrete):
+            self._observation_space = DiscreteSpace(space.n)
+            self._observation_type = EnvObservationType.DISCRETE
+            return
+
+        if isinstance(space, spaces.Tuple):
+            # すべてDiscreteならdiscrete
+            if self._is_tuple_all_discrete(space):
+                nvec = [s.n for s in space.spaces]
+                self._observation_space = ArrayDiscreteSpace(nvec)
+                self._observation_type = EnvObservationType.DISCRETE
+                return
+            else:
+                raise ValueError  # TODO
+
+        if isinstance(space, spaces.Box):
+            # 離散の可能性を確認
+            if self._observation_type == EnvObservationType.UNKNOWN and len(space.shape) == 1:
+                if "int" in str(space.dtype) or (self.prediction_by_simulation and self._pred_space_discrete()):
+                    self._observation_type == EnvObservationType.DISCRETE
+                    if space.shape[0] == 1:
+                        self._observation_space = DiscreteSpace(space.high[0])
+                    else:
+                        self._observation_space = BoxSpace(space.low, space.high, space.shape)
+                else:
+                    self._observation_space = BoxSpace(space.low, space.high, space.shape)
+                    self._observation_type = EnvObservationType.CONTINUOUS
+            else:
+                self._observation_space = BoxSpace(space.low, space.high, space.shape)
+
+    def _is_tuple_all_discrete(self, space) -> bool:
+        for s in space.spaces:
+            if not isinstance(s, spaces.Discrete):
+                return False
+        return True
+
+    def _pred_space_discrete(self):
+
+        # 実際に値を取得して予測
+        done = True
+        for _ in range(10):
+            if done:
+                state = self.env.reset()
+                done = False
+            else:
+                action = self.env.action_space.sample()
+                state, _, done, _ = self.env.step(action)
+            if "int" not in str(np.asarray(state).dtype):
+                return False
+        return True
+
+    # -----------------------------
 
     @property
-    def action_space(self) -> gym.spaces.Space:
-        return self.env.action_space
+    def action_space(self) -> SpaceBase:
+        return self._action_space
 
     @property
-    def action_type(self) -> EnvActionType:
-        return EnvActionType.UNKOWN
-
-    @property
-    def observation_space(self) -> gym.spaces.Space:
-        return self.env.observation_space
+    def observation_space(self) -> SpaceBase:
+        return self._observation_space
 
     @property
     def observation_type(self) -> EnvObservationType:
-        return EnvObservationType.UNKOWN
+        return self._observation_type
 
     @property
     def max_episode_steps(self) -> int:
         if hasattr(self.env, "_max_episode_steps"):
             return getattr(self.env, "_max_episode_steps")
+        elif hasattr(self.env, "spec") and self.env.spec.max_episode_steps is not None:
+            return self.env.spec.max_episode_steps
         else:
-            return 999_999
+            return 99_999
 
     @property
     def player_num(self) -> int:
@@ -47,24 +136,29 @@ class GymWrapper(EnvBase):
         state = self.env.reset()
         return np.asarray(state), [0]
 
-    def step(self, actions: List[Any]) -> Tuple[np.ndarray, List[float], bool, List[int], Dict[str, float]]:
+    def step(self, actions: List[Action]) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
         state, reward, done, info = self.env.step(actions[0])
-        return np.asarray(state), [reward], done, [0], info
+        return np.asarray(state), [float(reward)], done, [0], info
 
-    def get_next_player_indecies(self) -> List[int]:
+    def get_next_player_indices(self) -> List[int]:
         return [0]
 
-    def get_invalid_actions(self, player_index: int) -> List[int]:
+    def get_invalid_actions(self, player_index: int) -> List[InvalidAction]:
         return []
 
     def render_terminal(self) -> None:
-        print(self.env.render("ansi"))
+        if "ansi" in self.render_modes:
+            print(self.env.render("ansi"))
 
     def render_gui(self) -> None:
-        self.env.render("human")
+        if "human" in self.render_modes:
+            self.env.render("human")
 
     def render_rgb_array(self) -> np.ndarray:
-        return np.asarray(self.env.render("rgb_array"))
+        if "rgb_array" in self.render_modes:
+            return np.asarray(self.env.render("rgb_array"))
+        else:
+            raise NotImplementedError
 
     def backup(self) -> Any:
         return pickle.dumps(self.env)
@@ -74,7 +168,3 @@ class GymWrapper(EnvBase):
 
     def get_original_env(self) -> object:
         return self.env
-
-
-if __name__ == "__main__":
-    pass

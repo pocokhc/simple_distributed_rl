@@ -1,5 +1,6 @@
 import srl
-from srl.base.env.single_play_wrapper import SinglePlayerWrapper
+from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
+from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
 
 
 def _run_episode(
@@ -9,16 +10,19 @@ def _run_episode(
     training,
     rendering=False,
 ):
-    worker.set_training(training)
-    env = SinglePlayerWrapper(env)  # change single play interface
+    worker.set_training(training, False)
 
-    state, invalid_actions = env.reset()
+    # change single play interface
+    env = SinglePlayEnvWrapper(env)
+    worker = SinglePlayWorkerWrapper(worker)
+
+    state = env.reset()
 
     done = False
     step = 0
     total_reward = 0
 
-    worker.on_reset(state, invalid_actions, env)
+    worker.on_reset(state, env)
 
     if rendering:
         print("step 0")
@@ -31,10 +35,10 @@ def _run_episode(
             worker.render(env)
 
         # action
-        action = worker.policy(state, invalid_actions, env)
+        action = worker.policy(state, env)
 
         # env step
-        state, reward, done, invalid_actions, env_info = env.step(action)
+        state, reward, done, env_info = env.step(action)
         step += 1
         total_reward += reward
 
@@ -42,7 +46,7 @@ def _run_episode(
             done = True
 
         # rl step
-        work_info = worker.on_step(state, reward, done, invalid_actions, env)
+        work_info = worker.on_step(state, reward, done, env)
 
         # train
         if training and trainer is not None:
@@ -75,7 +79,7 @@ def main():
     rl_config.assert_params()
 
     # env init
-    env = srl.envs.make(env_config, rl_config)
+    env = srl.envs.make(env_config)
 
     # rl init
     remote_memory, parameter, trainer, worker = srl.rl.make(rl_config, env)

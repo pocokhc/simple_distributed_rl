@@ -5,11 +5,12 @@ import random
 from dataclasses import dataclass
 from typing import Any, Tuple
 
-import gym.spaces
 import numpy as np
 from srl.base.define import EnvObservationType
 from srl.base.env import registration
-from srl.base.env.genre.singleplay import SingleActionDiscrete
+from srl.base.env.base import SpaceBase
+from srl.base.env.genre import SinglePlayEnv
+from srl.base.env.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ class Action(enum.Enum):
 
 
 @dataclass
-class Grid(SingleActionDiscrete):
+class Grid(SinglePlayEnv):
 
     move_prob: float = 0.8
     move_reward: float = -0.04
@@ -106,17 +107,11 @@ class Grid(SingleActionDiscrete):
             },
         }
 
-        self._action_space = gym.spaces.Discrete(len(Action))
-
         if self.state_type == "pos":
-            self._observation_space = gym.spaces.Box(
-                low=-0,
-                high=np.maximum(self.H, self.W),
-                shape=(2,),
-            )
+            self._observation_space = ArrayDiscreteSpace([self.W, self.H])
             self._observation_type = EnvObservationType.DISCRETE
         elif self.state_type in ["2d", "neon"]:
-            self._observation_space = gym.spaces.Box(
+            self._observation_space = BoxSpace(
                 low=-1,
                 high=9,
                 shape=(self.H, self.W),
@@ -126,11 +121,11 @@ class Grid(SingleActionDiscrete):
             raise ValueError()
 
     @property
-    def action_num(self) -> int:
-        return len(Action)
+    def action_space(self) -> SpaceBase:
+        return DiscreteSpace(len(Action))
 
     @property
-    def observation_space(self) -> gym.spaces.Space:
+    def observation_space(self) -> SpaceBase:
         return self._observation_space
 
     @property
@@ -433,23 +428,3 @@ class Grid(SingleActionDiscrete):
 
             rewards.append(total_reward)
         return np.mean(rewards)
-
-
-if __name__ == "__main__":
-
-    game = Grid()
-    game.reset()
-    done = False
-    total_reward = 0
-    step = 0
-    game.render()
-
-    while not done:
-        action = game.sample()
-        state, reward, done, _ = game.step(action)
-        total_reward += reward
-        step += 1
-        print(f"step {step}, action {action}")
-        game.render()
-
-    print(total_reward)

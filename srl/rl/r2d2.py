@@ -4,19 +4,15 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
+from srl.base.env.base import EnvBase
 import tensorflow.keras as keras
-from srl.base.env.env_for_rl import EnvForRL
-from srl.base.rl.algorithms.neuralnet_discrete import (DiscreteActionConfig,
-                                                       DiscreteActionWorker)
+from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (calc_epsilon_greedy_probs,
-                                     inverse_rescaling, random_choice_by_probs,
-                                     rescaling)
+from srl.rl.functions.common import calc_epsilon_greedy_probs, inverse_rescaling, random_choice_by_probs, rescaling
 from srl.rl.functions.dueling_network import create_dueling_network_layers
-from srl.rl.functions.model import (ImageLayerType,
-                                    create_input_layers_lstm_stateful)
+from srl.rl.functions.model import ImageLayerType, create_input_layers_lstm_stateful
 from tensorflow.keras import layers as kl
 
 """
@@ -90,6 +86,9 @@ class Config(DiscreteActionConfig):
     memory_beta_steps: int = 1_000_000
 
     dummy_state_val: float = 0.0
+
+    def __post_init__(self):
+        super().__init__()
 
     @staticmethod
     def getName() -> str:
@@ -512,16 +511,18 @@ class Worker(DiscreteActionWorker):
         # priority
         if priority is None:
             if self.config.memory_name == "ReplayMemory":
-                priority = 1
+                priority = 0
+            elif not self.distributed:
+                priority = 0
             else:
-                priority = 1
+                priority = 0
                 # target_q = self.parameter.calc_target_q([batch])[0]
                 # priority = abs(target_q - q) + 0.0001
 
         self.remote_memory.add(batch, priority)
         return priority
 
-    def render(self, env: EnvForRL) -> None:
+    def render(self, env: EnvBase) -> None:
         state = self.recent_states[-1]
         invalid_actions = self.recent_invalid_actions[-1]
         state = np.asarray([[state]] * self.config.batch_size)
@@ -545,7 +546,3 @@ class Worker(DiscreteActionWorker):
                 s += " "
             s += f"{env.action_to_str(a)}: {q[a]:5.3f}"
             print(s)
-
-
-if __name__ == "__main__":
-    pass

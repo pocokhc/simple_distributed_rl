@@ -1,45 +1,33 @@
 import logging
-from typing import Dict
+from typing import Dict, Union
 
-from srl.base.env.base import EnvBase
-from srl.base.env.env_for_rl import EnvConfig, EnvForRL
+from srl.base.env.base import EnvBase, EnvConfig
 from srl.base.env.gym_wrapper import GymWrapper
-from srl.base.rl.base import RLConfig
-from srl.utils.common import load_module
+from srl.utils.common import is_package_installed, load_module
 
 logger = logging.getLogger(__name__)
 
 _registry = {}
 
 
-def make(
-    env_config: EnvConfig,
-    rl_config: RLConfig,
-) -> EnvForRL:
-    env = make_env(env_config.name, env_config.kwargs)
-    env = EnvForRL(env, rl_config, env_config)
-    return env
+def make(config: Union[str, EnvConfig]) -> EnvBase:
+    if isinstance(config, str):
+        config = EnvConfig(config)
 
+    env_name = config.name
+    if env_name in _registry:
+        env_cls = load_module(_registry[env_name]["entry_point"])
 
-def make_env(
-    id: str,
-    env_kwargs: Dict = None,
-) -> EnvBase:
-    if env_kwargs is None:
-        env_kwargs = {}
-
-    if id in _registry:
-        env_cls = load_module(_registry[id]["entry_point"])
-
-        _kwargs = _registry[id]["kwargs"].copy()
-        _kwargs.update(env_kwargs)
+        _kwargs = _registry[env_name]["kwargs"].copy()
+        _kwargs.update(config.kwargs)
         env = env_cls(**_kwargs)
+        return env
 
-    else:
-        # gym env
-        env = GymWrapper(id)
+    # --- gym
+    if is_package_installed("gym"):
+        return GymWrapper(env_name, config.gym_prediction_by_simulation)
 
-    return env
+    raise ValueError(f"'{env_name}' is not found.")
 
 
 def register(id: str, entry_point: str, kwargs: Dict = None) -> None:

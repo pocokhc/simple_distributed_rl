@@ -154,7 +154,3 @@ class ProportionalMemory(Memory):
 
         for d in data:
             self.add(d[0], d[1], _alpha_skip=True)
-
-
-if __name__ == "__main__":
-    pass

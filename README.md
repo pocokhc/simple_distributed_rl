@@ -25,7 +25,7 @@ or
 
 ``` bash
 git clone https://github.com/pocokhc/simple_distributed_rl.git
-cd simplr_rl
+cd simple_distributed_rl
 pip install .
 
 # run sample
@@ -39,6 +39,7 @@ python examples/minimum_runner.py
 
 ``` python
 import numpy as np
+
 import srl
 from srl.base.define import RenderType
 from srl.runner import mp, sequence
@@ -49,14 +50,15 @@ from srl.runner.callbacks_mp import TrainFileLogger
 # Configのパラメータは、引数補完または元コードを参照してください。
 # For the parameters of Config, refer to the argument completion or the original code.
 #
-# srl.envs.Config   : Env processors Config
-# srl.rl.xxx.Config : Algorithm hyperparameters
+# srl.envs.Config   : Env Config
+# srl.rl.xxx.Config : Algorithm hyperparameter
 # sequence.Config   : Basic Running Config
 # mp.Config         : Distributed training Config
 #---------------------
 
 def main():
     # env config
+    # (Run "pip install gym pygame" to use the gym environment)
     env_config = srl.envs.Config("FrozenLake-v1")
 
     # rl algorithm config
@@ -83,7 +85,12 @@ def main():
     # (option) save parameter
     # parameter.save("params.dat")
 
-    # --- 6.test(rendering)
+    # --- test
+    config.set_play_config(max_episodes=100)
+    rewards, _, _ = sequence.play(config, parameter)
+    print(f"Average reward for 100 episodes: {np.mean(rewards)}")
+
+    # --- test(rendering)
     config.set_play_config(max_episodes=1, callbacks=[Rendering(step_stop=True)])
     sequence.play(config, parameter)
 
@@ -91,12 +98,13 @@ def main():
     render = Rendering(mode=RenderType.NONE, enable_animation=True)
     config.set_play_config(max_episodes=1, callbacks=[render])
     sequence.play(config, parameter)
-    render.create_anime(fps=2).save("sample.gif")
+    render.create_anime(fps=3).save("FrozenLake.gif")
 
 if __name__ == '__main__':
     main()
 ```
 
+![](FrozenLake.gif)
 
 # Customize
 
@@ -104,63 +112,6 @@ if __name__ == '__main__':
 
 examples/custom_env.ipynb  
 examples/custom_rl.ipynb  
-
-
-## Env
-
-すべてのEnvは "srl.base.env.EnvBase" クラスを継承します。
-EnvBaseは複数人でやるターン制のゲーム(環境)を想定しています。
-
-各環境に特化した基底クラスは以下です。（今後増える可能性があります）
-
-|Name                         |Player|ObservationType|ActionType|ex|
-|-----------------------------|------|---------------|----------|---|
-|SingleActionDiscrete         |     1|            Any|  Discrete|Atari games|
-|SingleActionContinuous       |     1|            Any|Continuous|Pendulum-v1|
-|TurnBase2PlayerActionDiscrete|     2|            Any|  Discrete|OX|
-
-
-## RL
-
-すべてのRLは分散学習に対応するため、以下のクラスを継承します。
-
-``` python
-srl.base.rl.base.RLConfig
-srl.base.rl.base.RLRemoteMemory
-srl.base.rl.base.RLParameter
-srl.base.rl.base.RLTrainer
-srl.base.rl.base.RLWorker
-```
-
-各アルゴリズムに特化した基底クラスは以下です。（今後増える可能性があります）
-
-|Name                |ObservationType|ActionType|              Config|       Worker|ex|
-|--------------------|---------------|----------|--------------------|--------------------|---|
-|Table               |       Discrete|  Discrete|TableConfig         |TableWorker         |QL|
-|NeuralnetDiscrete   |     Continuous|  Discrete|DiscreteActionConfig|DiscreteActionWorker|DQN|
-|NeuralnetContinuous|     Continuous|  Continuous|ContinuousActionConfig|ContinuousActionWorker|SAC|
-|AlphaZero          |     TODO|  TODO| TODO| TODO|MCTS|
-|ModelBase          |     TODO|  TODO| TODO| TODO|DynaQ|
-|WorldModels        |     TODO|  TODO| TODO| TODO|WorldModels|
-
-
-* RLParameter, RLTrainer
-RLParameterとRLTrainerは現状特化したクラスはありません。
-
-* RemoteMemroy
-RemoteMemroyはアルゴリズムに依存しない部分が大きいので別途定義しています。
-
-|Name                    ||
-|------------------------|---|
-|SequenceRemoteMemory    |経験を順番通りに取り出す|
-|ExperienceReplayBuffer  |経験をランダムに取り出す|
-|PriorityExperienceReplay|経験を優先順位に基づいて取り出す|
-
-
-* RuleBase
-強化学習以外の手法としてルールベースのアルゴリズムもサポートしています。
-
-
 
 
 # Algorithms
@@ -216,7 +167,7 @@ RemoteMemroyはアルゴリズムに依存しない部分が大きいので別�
 
 
 
-# Diaglams
+# Diagrams
 
 ## Overview
 
@@ -224,9 +175,9 @@ RemoteMemroyはアルゴリズムに依存しない部分が大きいので別�
 
 ![](diagrams/overview-sequence.drawio.png)
 
-* distibute flow
+* distributed flow
 
-![](diagrams/overview-distibute.drawio.png)
+![](diagrams/overview-distributed.drawio.png)
 
 * multiplay flow
 
@@ -262,7 +213,3 @@ RemoteMemroyはアルゴリズムに依存しない部分が大きいので別�
 
 ![](diagrams/class.png)
 
-
-## EnvForRL flow
-
-![](diagrams/env_flow.png)

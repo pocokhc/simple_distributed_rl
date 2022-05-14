@@ -1,5 +1,4 @@
 import logging
-import pickle
 from abc import ABC, abstractmethod
 from typing import Any, List, Tuple
 
@@ -26,8 +25,7 @@ class Memory(ABC):
 
     @abstractmethod
     def sample(self, batch_size: int, step: int) -> Tuple[list, list, list]:
-        raise NotImplementedError()
-        # return (indices, batchs, weights)
+        raise NotImplementedError()  # return (indices, batchs, weights)
 
     @abstractmethod
     def __len__(self) -> int:
@@ -43,17 +41,3 @@ class Memory(ABC):
 
     def clear(self) -> None:
         self.init()
-
-    def save(self, path: str) -> None:
-        logger.debug(f"save: {path}")
-        with open(path, "wb") as f:
-            pickle.dump(self.backup(), f)
-
-    def load(self, path: str) -> None:
-        logger.debug(f"load: {path}")
-        with open(path, "rb") as f:
-            self.restore(pickle.load(f))
-
-
-if __name__ == "__main__":
-    pass

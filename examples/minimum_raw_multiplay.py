@@ -107,7 +107,7 @@ def main():
     rl_config.assert_params()
 
     # env init
-    env = srl.envs.make(env_config, rl_config)
+    env = srl.envs.make(env_config)
 
     # rl init
     remote_memory, parameter, trainer, worker = srl.rl.make(rl_config, env)
@@ -117,16 +117,16 @@ def main():
     ]
 
     # --- train loop
-    workers[0].set_training(True)
-    workers[1].set_training(False)
+    workers[0].set_training(True, False)
+    workers[1].set_training(False, False)
     for episode in range(10000):
         step, reward = _run_episode(env, workers, trainer)
         if episode % 1000 == 0:
             print(f"{episode} / 10000 episode, {step} step, {reward} reward")
 
     # --- render
-    workers[0].set_training(False)
-    workers[1].set_training(False)
+    workers[0].set_training(False, False)
+    workers[1].set_training(False, False)
     step, reward = _run_episode(env, workers, None, rendering=True)
     print(f"step: {step}, reward: {reward}")
 

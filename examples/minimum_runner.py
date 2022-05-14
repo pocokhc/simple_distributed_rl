@@ -1,13 +1,12 @@
 import os
 
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-
-
 import numpy as np
 import srl
 from srl.runner import mp, sequence
 from srl.runner.callbacks import PrintProgress, Rendering
 from srl.runner.callbacks_mp import TrainFileLogger
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
 def main(is_mp):
@@ -25,7 +24,7 @@ def main(is_mp):
         config.set_train_config(timeout=30 * 1, callbacks=[PrintProgress()])
         parameter, memory = sequence.train(config)
     else:
-        # distibute training
+        # distributed training
         mp_config = mp.Config(worker_num=2)
         config.set_train_config()
         mp_config.set_train_config(
@@ -37,7 +36,7 @@ def main(is_mp):
     # parameter.save("tmp/QL_params.dat")
 
     # --- test
-    config.set_play_config(max_episodes=100, callbacks=[PrintProgress()])
+    config.set_play_config(max_episodes=100)
     rewards, _, _ = sequence.play(config, parameter)
     print(f"test reward mean: {np.mean(rewards)}")
 

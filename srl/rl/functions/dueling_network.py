@@ -12,17 +12,19 @@ def create_dueling_network_layers(
     enable_noisy_dense: bool = False,
 ):
     if enable_noisy_dense:
-        Dense = tfa.layers.NoisyDense
+        _Dense = tfa.layers.NoisyDense
     else:
-        Dense = kl.Dense
+        _Dense = kl.Dense
 
     # value
-    v = Dense(dense_units, activation=activation, kernel_initializer="he_normal")(c)
-    v = Dense(1, kernel_initializer="truncated_normal", bias_initializer="truncated_normal", name="v")(v)
+    v = _Dense(dense_units, activation=activation, kernel_initializer="he_normal")(c)
+    v = _Dense(1, kernel_initializer="truncated_normal", bias_initializer="truncated_normal", name="v")(v)
 
     # advance
-    adv = Dense(dense_units, activation=activation, kernel_initializer="he_normal")(c)
-    adv = Dense(nb_actions, kernel_initializer="truncated_normal", bias_initializer="truncated_normal", name="adv")(adv)
+    adv = _Dense(dense_units, activation=activation, kernel_initializer="he_normal")(c)
+    adv = _Dense(nb_actions, kernel_initializer="truncated_normal", bias_initializer="truncated_normal", name="adv")(
+        adv
+    )
 
     # 連結で結合
     c = kl.Concatenate()([v, adv])

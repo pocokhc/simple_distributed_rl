@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, Union, cast
 
 import numpy as np
-from srl.base.env.env_for_rl import EnvForRL
+from srl.base.env.base import EnvBase
 from srl.base.rl.algorithms.table import TableConfig, TableWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -18,7 +18,7 @@ from srl.rl.functions.common import (
     inverse_rescaling,
     random_choice_by_probs,
     rescaling,
-    to_str_observaten,
+    to_str_observation,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,13 +44,13 @@ Rainbow
     Categorical DQN          : -
 Recurrent Replay Distributed DQN(R2D2)
     LSTM                     : -
-    Value function rescaling : o
+    Value function rescaling : o (config selection)
 Never Give Up(NGU)
-    Intrinsic Reward : o
+    Intrinsic Reward : o (config selection)
     UVFA             : -
     Retrace          : o (config selection)
 Agent57
-    Meta controller(sliding-window UCB) : o
+    Meta controller(sliding-window UCB) : o (config selection)
     Intrinsic Reward split              : o
 Other
     invalid_actions : TODO
@@ -65,37 +65,42 @@ class Config(TableConfig):
 
     # ハイパーパラメータ
     test_epsilon: float = 0.0
-    ext_lr: float = 0.1  # 学習率
+    test_beta: float = 0.0
+
+    ext_lr: float = 0.01
+    warmup_size: int = 10
+    enable_rescale: bool = True
+    enable_q_int_norm: bool = False
 
     # Priority Experience Replay
     capacity: int = 100_000
     memory_name: str = "RankBaseMemory"
-    memory_warmup_size: int = 1000
+    memory_warmup_size: int = 100
     memory_alpha: float = 0.8
     memory_beta_initial: float = 0.4
     memory_beta_steps: int = 1_000_000
-
-    warmup_size: int = 10
-    actor_num: int = 32  # ポリシー数
-    use_rescale: bool = True  # rescaleするか
-    enable_q_int_norm: bool = False
 
     # retrace
     multisteps: int = 1
     retrace_h: float = 1
 
-    # target
-    enable_target: bool = False
-    enable_double_dqn: bool = False
+    # target model
     target_model_update_interval: int = 100
+    enable_double_dqn: bool = True
 
     # ucb(160,0.5 or 3600,0.01)
+    enable_actor: bool = True
+    actor_num: int = 32
     ucb_window_size: int = 160  # UCB上限
     ucb_epsilon: float = 0.5  # UCBを使う確率
     ucb_beta: float = 1  # UCBのβ
+    # actorを使わない場合の設定
+    epsilon: float = 0.1
+    gamma: float = 0.9
+    beta: float = 0.1
 
     # intrinsic_reward
-    use_intrinsic_reward: bool = True  # 内部報酬を使うか
+    enable_intrinsic_reward: bool = True  # 内部報酬を使うか
     int_lr: float = 0.01  # 学習率
 
     # episodic
@@ -105,9 +110,18 @@ class Config(TableConfig):
     lifelong_decrement_rate: float = 0.999  # 減少割合
     lifelong_reward_L: float = 5.0
 
+    def __post_init__(self):
+        super().__init__()
+
     @staticmethod
     def getName() -> str:
         return "QL_Agent57"
+
+    def assert_params(self) -> None:
+        super().assert_params()
+        assert self.actor_num > 0
+        assert self.multisteps >= 1
+        assert self.memory_warmup_size < self.capacity
 
 
 register(
@@ -158,10 +172,6 @@ class Parameter(RLParameter):
         self.lifelong_C = {}
         self.Q_C = {}
 
-        self.beta_list = create_beta_list(self.config.actor_num)
-        self.gamma_list = create_gamma_list(self.config.actor_num)
-        self.epsilon_list = create_epsilon_list(self.config.actor_num)
-
         self.init_state("", [])
 
     def restore(self, data: Any) -> None:
@@ -191,12 +201,11 @@ class Parameter(RLParameter):
             self.Q_ext_target[state] = [
                 -np.inf if a in invalid_actions else 0.0 for a in range(self.config.nb_actions)
             ]
-            self.Q_int[state] = [
-                0.0 if a in invalid_actions else self.config.lifelong_reward_L for a in range(self.config.nb_actions)
-            ]
-            self.Q_int_target[state] = [
-                0.0 if a in invalid_actions else self.config.lifelong_reward_L for a in range(self.config.nb_actions)
-            ]
+            L = self.config.lifelong_reward_L
+            if self.config.enable_rescale:
+                L = rescaling(L)
+            self.Q_int[state] = [0.0 if a in invalid_actions else L for a in range(self.config.nb_actions)]
+            self.Q_int_target[state] = [0.0 if a in invalid_actions else L for a in range(self.config.nb_actions)]
             self.Q_C[state] = 0
 
     def calc_td_error(self, batch, Q, Q_target, rewards, enable_norm=False):
@@ -210,13 +219,19 @@ class Parameter(RLParameter):
         for n in range(len(rewards)):
             state = batch["states"][n]
             n_state = batch["states"][n + 1]
+            invalid_actions = batch["invalid_actions"][n]
+            n_invalid_actions = batch["invalid_actions"][n + 1]
             action = batch["actions"][n]
             mu_prob = batch["probs"][n]
             reward = rewards[n]
             done = dones[n]
 
+            self.init_state(state, invalid_actions)
+            self.init_state(n_state, n_invalid_actions)
+
             q = Q[state]
             n_q = Q[n_state]
+            n_q_target = Q_target[n_state]
 
             # retrace
             if n >= 1:
@@ -232,17 +247,22 @@ class Parameter(RLParameter):
                 target_q = reward
             else:
                 # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
-                n_act_idx = np.argmax(n_q)
-                P = Q_target[n_state][n_act_idx]
+                if self.config.enable_double_dqn:
+                    n_act_idx = np.argmax(n_q)
+                else:
+                    n_act_idx = np.argmax(n_q_target)
+                P = n_q_target[n_act_idx]
 
                 # --- original code
                 if enable_norm and self.Q_C[n_state] > 0:
                     P = P / self.Q_C[n_state]
                 # ---
 
-                P = inverse_rescaling(P)
+                if self.config.enable_rescale:
+                    P = inverse_rescaling(P)
                 target_q = reward + gamma * P
-            target_q = rescaling(target_q)
+            if self.config.enable_rescale:
+                target_q = rescaling(target_q)
 
             td_error = target_q - Q[state][action]
             TQ += (gamma**n) * _retrace * td_error
@@ -280,15 +300,19 @@ class Trainer(RLTrainer):
             batch["ext_rewards"],
         )
         self.parameter.Q_ext[state][action] += self.config.ext_lr * ext_td_error * weight
-        int_td_error = self.parameter.calc_td_error(
-            batch,
-            self.parameter.Q_int,
-            self.parameter.Q_int_target,
-            batch["int_rewards"],
-            enable_norm=True,
-        )
-        self.parameter.Q_int[state][action] += self.config.int_lr * int_td_error * weight
-        self.parameter.Q_C[state] += 1
+
+        if self.config.enable_intrinsic_reward:
+            int_td_error = self.parameter.calc_td_error(
+                batch,
+                self.parameter.Q_int,
+                self.parameter.Q_int_target,
+                batch["int_rewards"],
+                enable_norm=True,
+            )
+            self.parameter.Q_int[state][action] += self.config.int_lr * int_td_error * weight
+            self.parameter.Q_C[state] += 1
+        else:
+            int_td_error = 0
 
         # 外部Qを優先
         priority = abs(ext_td_error) + 0.0001
@@ -321,6 +345,10 @@ class Worker(TableWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
+        self.beta_list = create_beta_list(self.config.actor_num)
+        self.gamma_list = create_gamma_list(self.config.actor_num)
+        self.epsilon_list = create_epsilon_list(self.config.actor_num)
+
         # ucb
         self.actor_index = -1
         self.ucb_recent = []
@@ -328,28 +356,37 @@ class Worker(TableWorker):
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
     def call_on_reset(self, state_: np.ndarray, invalid_actions: List[int]) -> None:
-        state = to_str_observaten(state_)
+        state = to_str_observation(state_)
 
         if self.training:
-            # エピソード毎に actor を決める
-            self.actor_index = self._calc_actor_index()
-            self.gamma = self.parameter.gamma_list[self.actor_index]
-            self.beta = self.parameter.beta_list[self.actor_index]
-            self.epsilon = self.parameter.epsilon_list[self.actor_index]
+            if self.config.enable_actor:
+                # エピソード毎に actor を決める
+                self.actor_index = self._calc_actor_index()
+                self.epsilon = self.epsilon_list[self.actor_index]
+                self.gamma = self.gamma_list[self.actor_index]
+                self.beta = self.beta_list[self.actor_index]
+            else:
+                self.epsilon = self.config.epsilon
+                self.gamma = self.config.gamma
+                self.beta = self.config.beta
         else:
-            self.beta = 0.0
             self.epsilon = self.config.test_epsilon
+            self.beta = self.config.test_beta
+
+        if self.config.enable_intrinsic_reward:
+            self.beta = 0
 
         self.recent_ext_rewards = [0.0 for _ in range(self.config.multisteps)]
         self.recent_int_rewards = [0.0 for _ in range(self.config.multisteps)]
         self.recent_actions = [random.randint(0, self.config.nb_actions - 1) for _ in range(self.config.multisteps)]
         self.recent_probs = [1.0 for _ in range(self.config.multisteps)]
         self.recent_states = ["" for _ in range(self.config.multisteps + 1)]
+        self.recent_invalid_actions = [[] for _ in range(self.config.multisteps + 1)]
 
         self.recent_states.pop(0)
         self.recent_states.append(state)
-        self.invalid_actions = invalid_actions
-        self.parameter.init_state(state, invalid_actions)
+        self.recent_invalid_actions.pop(0)
+        self.recent_invalid_actions.append(invalid_actions)
 
         # sliding-window UCB 用に報酬を保存
         self.prev_episode_reward = 0.0
@@ -399,6 +436,7 @@ class Worker(TableWorker):
     def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> int:
         state = self.recent_states[-1]
 
+        self.parameter.init_state(state, invalid_actions)
         q_ext = np.asarray(self.parameter.Q_ext[state])
         q_int = np.asarray(self.parameter.Q_int[state])
         q = q_ext + self.beta * q_int
@@ -416,19 +454,24 @@ class Worker(TableWorker):
         next_invalid_actions: List[int],
     ) -> Dict[str, Union[float, int]]:
 
-        n_state = to_str_observaten(next_state)
+        n_state = to_str_observation(next_state)
         self.recent_states.pop(0)
         self.recent_states.append(n_state)
-        self.invalid_actions = next_invalid_actions
-        self.parameter.init_state(n_state, next_invalid_actions)
+        self.recent_invalid_actions.pop(0)
+        self.recent_invalid_actions.append(next_invalid_actions)
 
         if not self.training:
             return {}
 
         # 内部報酬
-        episodic_reward = self._calc_episodic_reward(n_state)
-        lifelong_reward = self._calc_lifelong_reward(n_state)
-        int_reward = episodic_reward * lifelong_reward
+        if self.config.enable_intrinsic_reward:
+            episodic_reward = self._calc_episodic_reward(n_state)
+            lifelong_reward = self._calc_lifelong_reward(n_state)
+            int_reward = episodic_reward * lifelong_reward
+        else:
+            episodic_reward = 0
+            lifelong_reward = 0
+            int_reward = 0
 
         self.recent_actions.pop(0)
         self.recent_actions.append(self.action)
@@ -445,6 +488,7 @@ class Worker(TableWorker):
             # 残りstepも追加
             for _ in range(len(self.recent_ext_rewards) - 1):
                 self.recent_states.pop(0)
+                self.recent_invalid_actions.pop(0)
                 self.recent_actions.pop(0)
                 self.recent_probs.pop(0)
                 self.recent_ext_rewards.pop(0)
@@ -469,13 +513,16 @@ class Worker(TableWorker):
             "probs": self.recent_probs[:],
             "ext_rewards": self.recent_ext_rewards[:],
             "int_rewards": self.recent_int_rewards[:],
+            "invalid_actions": self.recent_invalid_actions[:],
             "done": done,
             "gamma": self.gamma,
         }
 
         # priority
         if self.config.memory_name == "ReplayMemory":
-            priority = 1
+            priority = 0
+        elif not self.distributed:
+            priority = 0
         else:
             td_error = self.parameter.calc_td_error(
                 batch,
@@ -511,9 +558,9 @@ class Worker(TableWorker):
         self.parameter.lifelong_C[state] *= self.config.lifelong_decrement_rate
         return reward + 1.0
 
-    def render(self, env: EnvForRL) -> None:
+    def render(self, env: EnvBase) -> None:
         state = self.recent_states[-1]
-        invalid_actions = self.invalid_actions
+        invalid_actions = self.recent_invalid_actions[-1]
         self.parameter.init_state(state, invalid_actions)
 
         episodic_reward = self._calc_episodic_reward(state)
@@ -523,9 +570,10 @@ class Worker(TableWorker):
         q_ext = np.asarray(self.parameter.Q_ext[state])
         q_int = np.asarray(self.parameter.Q_int[state])
         q = q_ext + self.beta * q_int
-        q_ext = inverse_rescaling(q_ext)
-        q_int = inverse_rescaling(q_int)
-        q = inverse_rescaling(q)
+        if self.config.enable_rescale:
+            q_ext = inverse_rescaling(q_ext)
+            q_int = inverse_rescaling(q_int)
+            q = inverse_rescaling(q)
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):
             if len(invalid_actions) > 10:
@@ -543,7 +591,3 @@ class Worker(TableWorker):
                 s += " "
             s += f"{env.action_to_str(a)}: {q[a]:8.5f} = {q_ext[a]:8.5f} + {self.beta:.3f} * {q_int[a]:8.5f}"
             print(s)
-
-
-if __name__ == "__main__":
-    pass

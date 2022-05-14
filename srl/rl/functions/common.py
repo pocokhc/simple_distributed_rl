@@ -90,5 +90,5 @@ def calc_epsilon_greedy_probs(q, invalid_actions, epsilon, action_num):
     return probs
 
 
-def to_str_observaten(state: np.ndarray) -> str:
+def to_str_observation(state: np.ndarray) -> str:
     return str(state.flatten().tolist()).replace(" ", "")[1:-1]

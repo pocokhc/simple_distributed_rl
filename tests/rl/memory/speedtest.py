@@ -1,8 +1,9 @@
 import random
 import time
 
-from srl import rl
-from srl.rl.memory import factory
+from srl.rl.memory.proportional_memory import ProportionalMemory
+from srl.rl.memory.rankbase_memory import RankBaseMemory
+from srl.rl.memory.replay_memory import ReplayMemory
 from tqdm import tqdm
 
 
@@ -10,13 +11,12 @@ def speed_test():
     capacity = 100_000_000
 
     memories = [
-        ("ReplayMemory", {"capacity": capacity}),
-        ("ProportionalMemory", {"capacity": capacity, "alpha": 0.8, "beta_initial": 1, "beta_steps": 10}),
-        ("RankBaseMemory", {"capacity": capacity, "alpha": 0.8, "beta_initial": 1, "beta_steps": 10}),
+        ReplayMemory(capacity),
+        ProportionalMemory(capacity, 0.8, 1, 10),
+        RankBaseMemory(capacity, 0.8, 1, 10),
     ]
 
-    for name, config in memories:
-        memory = factory.create(name, config)
+    for memory in memories:
         _speed_test(memory)
 
 

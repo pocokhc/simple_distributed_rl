@@ -156,7 +156,3 @@ class RankBaseMemory(Memory):
         self.max_priority = 1
         for d in data:
             self.add(d[0], d[1])
-
-
-if __name__ == "__main__":
-    pass

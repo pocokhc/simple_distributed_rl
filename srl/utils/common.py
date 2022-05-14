@@ -2,6 +2,7 @@ import importlib
 import json
 import logging
 import os
+import pkgutil
 import random
 import warnings
 from typing import Any, Dict, List
@@ -90,11 +91,23 @@ class JsonNumpyEncoder(json.JSONEncoder):
             return super(JsonNumpyEncoder, self).default(obj)
 
 
-def load_module(entry_point):
+def load_module(entry_point: str):
     if ":" not in entry_point:
-        raise
+        raise ValueError(f"entry_point must include ':'({entry_point})")
 
     mod_name, cls_name = entry_point.split(":")
     module = importlib.import_module(mod_name)
     cls = getattr(module, cls_name)
     return cls
+
+
+def is_package_installed(name: str) -> bool:
+    try:
+        importlib.import_module(name)
+    except ImportError:
+        pass
+
+    for m in pkgutil.iter_modules():
+        if m.name == name:
+            return True
+    return False

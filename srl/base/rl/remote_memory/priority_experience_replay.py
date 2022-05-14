@@ -45,7 +45,3 @@ class PriorityExperienceReplay(RLRemoteMemory):
 
     def update(self, indices: List[int], batchs: List[Any], priorities: List[float]) -> None:
         self.memory.update(indices, batchs, priorities)
-
-
-if __name__ == "__main__":
-    pass

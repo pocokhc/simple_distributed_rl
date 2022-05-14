@@ -11,16 +11,17 @@ from srl.base.define import RenderType
 
 try:
     import matplotlib.pyplot as plt
+    import pandas as pd
     import PIL.Image
     import PIL.ImageDraw
     import PIL.ImageFont
     from matplotlib.animation import ArtistAnimation
-except ModuleNotFoundError:
+except ImportError:
     pass
 
 try:
     from IPython import display
-except ModuleNotFoundError:
+except ImportError:
     pass
 
 
@@ -31,25 +32,25 @@ logger = logging.getLogger(__name__)
 
 class Callback(ABC):
     def on_episodes_begin(self, **kwargs) -> None:
-        pass
+        pass  # do nothing
 
     def on_episodes_end(self, **kwargs) -> None:
-        pass
+        pass  # do nothing
 
     def on_episode_begin(self, **kwargs) -> None:
-        pass
+        pass  # do nothing
 
     def on_episode_end(self, **kwargs) -> None:
-        pass
+        pass  # do nothing
 
     def on_step_begin(self, **kwargs) -> None:
-        pass
+        pass  # do nothing
 
     def on_step_end(self, **kwargs) -> None:
-        pass
+        pass  # do nothing
 
     def on_skip_step(self, **kwargs) -> None:
-        pass
+        pass  # do nothing
 
     # 外部から途中停止用
     def intermediate_stop(self, **kwargs) -> bool:
@@ -133,13 +134,13 @@ class Rendering(Callback):
     # -----------------------------
     def _add_image(self, env):
         try:
-            self.frames.append(env.render(RenderType.RGB_Array))
+            self.frames.append(env.render_rgb_array())
         except NotImplementedError:
             # --- printを画像に
             text = ""
             try:
                 sys.stdout = io.StringIO()
-                env.render(RenderType.Terminal)
+                env.render_terminal()
                 text = sys.stdout.getvalue()
             finally:
                 sys.stdout.close()
@@ -230,6 +231,7 @@ class PrintProgress(Callback):
         step,
         episode_rewards,
         episode_time,
+        valid_reward,
         remote_memory,
         worker_indices,
         **kwargs,
@@ -252,6 +254,7 @@ class PrintProgress(Callback):
             "step": step,
             "episode_reward": episode_rewards[worker_idx],
             "episode_time": episode_time,
+            "valid_reward": valid_reward,
             "step_time": np.mean([h["step_time"] for h in self.history_step]),
             "remote_memory": remote_memory.length() if remote_memory is not None else 0,
             "env_info": env_info,
@@ -358,6 +361,11 @@ class PrintProgress(Callback):
             s += f", {np.mean(_s):.1f} step"
             s += f", {episode_time:.2f}s/ep"
 
+            if self.config.enable_validation:
+                valid_rewards = [h["valid_reward"] for h in self.progress_history if h["valid_reward"] is not None]
+                if len(valid_rewards) > 0:
+                    s += f", {np.mean(valid_rewards):.3f} val_reward"
+
             if self.config.training:
                 train_time = np.mean([h["train_time"] for h in self.progress_history])
                 s += f", {train_time:.3f}s/tr"
@@ -382,5 +390,100 @@ class PrintProgress(Callback):
         self.progress_history = []
 
 
-if __name__ == "__main__":
-    pass
+@dataclass
+class History(Callback):
+
+    target_worker: int = 0
+
+    def on_episodes_begin(self, config, **kwargs):
+        self.history = []
+
+    def on_episode_begin(self, **kwargs):
+        self.history_step = []
+
+    def on_step_end(self, env_info, train_info, worker_info_list, **kwargs):
+        self.history_step.append(
+            {
+                "env_info": env_info,
+                "work_info": worker_info_list[self.target_worker],
+                "train_info": train_info,
+            }
+        )
+
+    def on_episode_end(
+        self,
+        episode_count,
+        episode_rewards,
+        valid_reward,
+        **kwargs,
+    ):
+        if len(self.history_step) == 0:
+            return
+
+        env_info = listdictdict_to_dictlist(self.history_step, "env_info")
+        for k, v in env_info.items():
+            env_info[k] = np.mean(v)
+        work_info = listdictdict_to_dictlist(self.history_step, "work_info")
+        for k, v in work_info.items():
+            work_info[k] = np.mean(v)
+        if self.history_step[0]["train_info"] is not None:
+            train_info = listdictdict_to_dictlist(self.history_step, "train_info")
+            for k, v in train_info.items():
+                train_info[k] = np.mean(v)
+        else:
+            train_info = {}
+
+        self.history.append(
+            {
+                "episode": episode_count,
+                "reward": episode_rewards[self.target_worker],
+                "valid_reward": valid_reward,
+                "env_info": env_info,
+                "work_info": work_info,
+                "train_info": train_info,
+            }
+        )
+
+    # ----------------
+
+    def plot(self):
+        rewards = [h["reward"] for h in self.history]
+        valid_rewards = [h["valid_reward"] for h in self.history]
+
+        rolling_n = int(len(self.history) / 100)
+
+        if len(self.history) > 100:
+            alpha = 0.2
+            plt.plot(pd.Series(rewards).rolling(rolling_n).mean(), "C0", label=f"reward(mean{rolling_n})")
+            plt.plot(pd.Series(valid_rewards).rolling(rolling_n).mean(), "C1", label=f"valid reward(mean{rolling_n})")
+        else:
+            alpha = 1
+        plt.plot(rewards, "C0", alpha=alpha, label="reward")
+        plt.plot(valid_rewards, "C1", alpha=alpha, label="valid reward")
+
+        plt.xlabel("episode")
+        plt.ylabel("reward")
+        plt.grid()
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+    def plot_info(self, key1, key2):
+        d = listdictdict_to_dictlist(self.history, key1)
+        rolling_n = int(len(self.history) / 100)
+
+        for key, arr in d.items():
+            if key2 != key:
+                continue
+            if len(self.history) > 100:
+                alpha = 0.2
+                plt.plot(pd.Series(arr).rolling(rolling_n).mean(), label=f"mean {rolling_n}")
+            else:
+                alpha = 1
+            plt.plot(arr, alpha=alpha, label=key)
+            plt.ylabel(key)
+            plt.xlabel("episode")
+            plt.grid()
+            plt.legend()
+            plt.tight_layout()
+            plt.show()

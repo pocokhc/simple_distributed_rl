@@ -1,4 +1,5 @@
 import os
+import warnings
 
 import srl
 from srl.base.define import EnvObservationType, RenderType
@@ -8,16 +9,20 @@ from srl.runner.callbacks import PrintProgress, Rendering
 from srl.runner.callbacks_mp import TrainFileLogger
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+warnings.simplefilter("ignore")
 
 
 def main(is_mp):
     env_config = srl.envs.Config("ALE/Pong-v5")
     rl_config = srl.rl.rainbow.Config(window_length=4, multisteps=5)
-    config = sequence.Config(env_config, rl_config)
 
     # atari config
-    env_config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
-    env_config.override_env_observation_type = EnvObservationType.COLOR
+    rl_config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
+    rl_config.override_env_observation_type = EnvObservationType.COLOR
+
+    config = sequence.Config(env_config, rl_config)
+
+    # atari play config
     config.skip_frames = 4
     config.max_episode_steps = 30
 
@@ -31,15 +36,15 @@ def main(is_mp):
     if not is_mp:
         # sequence training
         config.set_train_config(timeout=10, callbacks=[PrintProgress()])
-        parameter, memory = sequence.train(config)
+        parameter, remote_memory = sequence.train(config)
     else:
-        # distibute training
+        # distribute training
         mp_config = mp.Config(worker_num=1)
         config.set_train_config()
         mp_config.set_train_config(
             timeout=60 * 60, callbacks=[TrainFileLogger(enable_log=True, enable_checkpoint=False)]
         )
-        parameter, memory = mp.train(config, mp_config)
+        parameter, remote_memory = mp.train(config, mp_config)
 
     # save parameter
     # parameter.save("tmp/Rainbow_params.dat")
@@ -59,5 +64,5 @@ def main(is_mp):
 
 if __name__ == "__main__":
 
-    # main(is_mp=False)
-    main(is_mp=True)
+    main(is_mp=False)
+    # main(is_mp=True)

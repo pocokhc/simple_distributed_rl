@@ -1,24 +1,23 @@
 from abc import abstractmethod
-from typing import Any, Dict, List, Tuple
+from typing import Any, List, Tuple
 
-import gym
-import gym.spaces
 import numpy as np
-from srl.base.define import EnvActionType, EnvObservationType
+from srl.base.define import Action, DiscreteAction, EnvObservationType, Info
 from srl.base.env import EnvBase
+from srl.base.env.base import SpaceBase
 
 
-class TurnBase2PlayerActionDiscrete(EnvBase):
+class TurnBase2Player(EnvBase):
     # --- inheritance target implementation(継承先の実装)
 
     @property
-    @abstractmethod  # new method
-    def action_num(self) -> int:
+    @abstractmethod  # same parent
+    def action_space(self) -> SpaceBase:
         raise NotImplementedError()
 
     @property
     @abstractmethod  # same parent
-    def observation_space(self) -> gym.spaces.Space:
+    def observation_space(self) -> SpaceBase:
         raise NotImplementedError()
 
     @property
@@ -42,7 +41,7 @@ class TurnBase2PlayerActionDiscrete(EnvBase):
         raise NotImplementedError()
 
     @abstractmethod  # new method
-    def step_turn(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
+    def step_turn(self, action: DiscreteAction) -> Tuple[np.ndarray, float, float, bool, Info]:
         # state, reward1, reward2, done, info
         raise NotImplementedError()
 
@@ -65,15 +64,6 @@ class TurnBase2PlayerActionDiscrete(EnvBase):
     # --- inherit implementation(継承元の実装)
 
     @property
-    def action_space(self) -> gym.spaces.Space:
-        assert self.action_num >= 2
-        return gym.spaces.Discrete(self.action_num)
-
-    @property
-    def action_type(self) -> EnvActionType:
-        return EnvActionType.DISCRETE
-
-    @property
     def player_num(self) -> int:
         return 2
 
@@ -81,13 +71,9 @@ class TurnBase2PlayerActionDiscrete(EnvBase):
         state = self.reset_turn()
         return state, [self.player_index]
 
-    def step(self, actions: List[Any]) -> Tuple[np.ndarray, List[float], bool, List[int], Dict[str, float]]:
+    def step(self, actions: List[Action]) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
         n_s, reward1, reward2, done, info = self.step_turn(actions[0])
         return n_s, [reward1, reward2], done, [self.player_index], info
 
-    def get_next_player_indecies(self) -> List[int]:
+    def get_next_player_indices(self) -> List[int]:
         return [self.player_index]
-
-
-if __name__ == "__main__":
-    pass

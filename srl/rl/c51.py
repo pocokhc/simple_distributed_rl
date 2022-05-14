@@ -4,9 +4,9 @@ from typing import Any, Dict, List, Tuple, Union, cast
 
 import numpy as np
 import tensorflow as tf
+from srl.base.env.base import EnvBase
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
-from srl.base.env.env_for_rl import EnvForRL
 from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -44,6 +44,9 @@ class Config(DiscreteActionConfig):
     categorical_num_atoms: int = 51
     categorical_v_min: float = -10
     categorical_v_max: float = 10
+
+    def __post_init__(self):
+        super().__init__()
 
     @staticmethod
     def getName() -> str:
@@ -266,7 +269,7 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.add(batch)
         return {}
 
-    def render(self, env: EnvForRL):
+    def render(self, env: EnvBase):
         logits = self.parameter.Q(self.state[np.newaxis, ...])
         probs = tf.nn.softmax(logits, axis=2)
         q_means = tf.reduce_sum(probs * self.Z, axis=2, keepdims=True)

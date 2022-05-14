@@ -5,12 +5,12 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Union, cast
 
 import numpy as np
-from srl.base.env.env_for_rl import EnvForRL
+from srl.base.env.base import EnvBase
 from srl.base.rl.algorithms.table import TableConfig, TableWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import SequenceRemoteMemory
-from srl.rl.functions.common import to_str_observaten
+from srl.rl.functions.common import to_str_observation
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 Other
     invalid_actions : o
 """
+
 
 # ------------------------------------------------------
 # config
@@ -30,6 +31,9 @@ class Config(TableConfig):
     test_epsilon: float = 0
     gamma: float = 0.9  # 割引率
     lr: float = 0.1  # 学習率
+
+    def __post_init__(self):
+        super().__init__()
 
     @staticmethod
     def getName() -> str:
@@ -68,7 +72,7 @@ class Parameter(RLParameter):
     def backup(self):
         return json.dumps(self.Q)
 
-    def get_action_values(self, state: str, invalid_actions):
+    def get_action_values(self, state: str, invalid_actions: List[int]) -> List[float]:
         if state not in self.Q:
             self.Q[state] = [-np.inf if a in invalid_actions else 0.0 for a in range(self.config.nb_actions)]
         return self.Q[state]
@@ -137,7 +141,7 @@ class Worker(TableWorker):
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
-        self.state = to_str_observaten(state)
+        self.state = to_str_observation(state)
         self.invalid_actions = invalid_actions
 
         if self.training:
@@ -146,7 +150,7 @@ class Worker(TableWorker):
             self.epsilon = self.config.test_epsilon
 
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
-        self.state = to_str_observaten(state)
+        self.state = to_str_observation(state)
         self.invalid_actions = invalid_actions
 
         if random.random() < self.epsilon:
@@ -164,7 +168,7 @@ class Worker(TableWorker):
 
     def call_on_step(
         self,
-        next_state: Any,
+        next_state: np.ndarray,
         reward: float,
         done: bool,
         next_invalid_actions: List[int],
@@ -174,7 +178,7 @@ class Worker(TableWorker):
 
         batch = {
             "state": self.state,
-            "next_state": to_str_observaten(next_state),
+            "next_state": to_str_observation(next_state),
             "action": self.action,
             "reward": reward,
             "done": done,
@@ -184,7 +188,7 @@ class Worker(TableWorker):
         self.remote_memory.add(batch)
         return {}
 
-    def render(self, env: EnvForRL) -> None:
+    def render(self, env: EnvBase) -> None:
         q = self.parameter.get_action_values(self.state, self.invalid_actions)
         maxa = np.argmax(q)
         for a in range(self.config.nb_actions):

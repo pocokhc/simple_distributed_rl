@@ -8,7 +8,7 @@ class Test(unittest.TestCase):
         self.tester = TestEnv()
 
     def test_play(self):
-        self.tester.play_test("PendulumImage")
+        self.tester.play_test("PendulumImage-v0")
 
 
 if __name__ == "__main__":

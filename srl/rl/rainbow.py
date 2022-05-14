@@ -6,14 +6,14 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow_addons as tfa
-from srl.base.env.env_for_rl import EnvForRL
+from srl.base.env.base import EnvBase
 from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
+from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions.common import calc_epsilon_greedy_probs, random_choice_by_probs
 from srl.rl.functions.dueling_network import create_dueling_network_layers
 from srl.rl.functions.model import ImageLayerType, create_input_layers
-from srl.base.rl.remote_memory import PriorityExperienceReplay
 from tensorflow.keras import layers as kl
 
 """
@@ -84,6 +84,9 @@ class Config(DiscreteActionConfig):
 
     dummy_state_val: float = 0.0
 
+    def __post_init__(self):
+        super().__init__()
+
     @staticmethod
     def getName() -> str:
         return "Rainbow"
@@ -137,12 +140,12 @@ class _QNetwork(keras.Model):
         )
 
         if config.enable_noisy_dense:
-            Dense = tfa.layers.NoisyDense
+            _Dense = tfa.layers.NoisyDense
         else:
-            Dense = kl.Dense
+            _Dense = kl.Dense
 
         for i in range(len(config.hidden_layer_sizes) - 1):
-            c = Dense(
+            c = _Dense(
                 config.hidden_layer_sizes[i],
                 activation=config.activation,
                 kernel_initializer="he_normal",
@@ -158,8 +161,10 @@ class _QNetwork(keras.Model):
                 enable_noisy_dense=config.enable_noisy_dense,
             )
         else:
-            c = Dense(config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal")(c)
-            c = Dense(config.nb_actions, kernel_initializer="truncated_normal", bias_initializer="truncated_normal")(c)
+            c = _Dense(config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal")(c)
+            c = _Dense(config.nb_actions, kernel_initializer="truncated_normal", bias_initializer="truncated_normal")(
+                c
+            )
 
         self.model = keras.Model(in_state, c)
 
@@ -462,7 +467,9 @@ class Worker(DiscreteActionWorker):
         # priority
         if priority is None:
             if self.config.memory_name == "ReplayMemory":
-                priority = 1
+                priority = 0
+            elif not self.distributed:
+                priority = 0
             else:
                 target_q = self.parameter.calc_target_q([batch])[0]
                 priority = abs(target_q - q) + 0.0001
@@ -470,7 +477,7 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.add(batch, priority)
         return priority
 
-    def render(self, env: EnvForRL) -> None:
+    def render(self, env: EnvBase) -> None:
         invalid_actions = self.recent_invalid_actions[-1]
 
         state = self.recent_bundle_states[-1]
@@ -492,7 +499,3 @@ class Worker(DiscreteActionWorker):
                 s += " "
             s += f"{env.action_to_str(a)}: {q[a]:.7f}"
             print(s)
-
-
-if __name__ == "__main__":
-    pass

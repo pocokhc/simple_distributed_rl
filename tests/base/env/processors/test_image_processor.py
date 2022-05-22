@@ -15,6 +15,7 @@ class Test(unittest.TestCase):
         test_pattens = (
             (EnvObservationType.COLOR, (image_w, image_h, 3), (84, 84)),
             (EnvObservationType.GRAY_3ch, (image_w, image_h, 1), (84, 84)),
+            (EnvObservationType.GRAY_2ch, (image_w, image_h), (84, 84)),
         )
         for env_type, img_shape, image_resize in test_pattens:
             with self.subTest(f"COLOR {env_type} {img_shape} {image_resize}"):

@@ -169,8 +169,9 @@ class OX(TurnBase2Player):
 
 
 class NegaMax(RuleBaseWorker):
+    cache = {}
+
     def __init__(self, epsilon: float):
-        self.cache = {}
         self.epsilon = epsilon
 
     def call_on_reset(self, env) -> None:
@@ -191,8 +192,8 @@ class NegaMax(RuleBaseWorker):
             return 0, 0
 
         key = str(env.field + [env.player_index])
-        if key in self.cache:
-            return self.cache[key]
+        if key in NegaMax.cache:
+            return NegaMax.cache[key]
 
         scores = np.array([-9 for _ in range(env.action_space.n)])
         for a in range(env.action_space.n):
@@ -210,7 +211,7 @@ class NegaMax(RuleBaseWorker):
                 n_scores = self._negamax(n_env, depth - 1)
                 scores[a] = -np.max(n_scores)
 
-        self.cache[key] = scores
+        NegaMax.cache[key] = scores
 
         return scores
 

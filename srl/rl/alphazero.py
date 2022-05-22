@@ -4,15 +4,15 @@ from dataclasses import dataclass
 from typing import Any, Tuple, cast
 
 import numpy as np
-import srl
 import tensorflow as tf
 import tensorflow.keras as keras
+from srl.base.define import RLObservationType
 from srl.base.env.base import EnvBase
-from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory.sequence_memory import SequenceRemoteMemory
-from srl.rl.functions.common import random_choice_by_probs, to_str_observation
+from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
 from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
 from tensorflow.keras import layers as kl
 
@@ -42,6 +42,10 @@ class Config(DiscreteActionConfig):
 
     def __post_init__(self):
         super().__init__()
+
+    @property
+    def observation_type(self) -> RLObservationType:
+        return RLObservationType.CONTINUOUS
 
     @staticmethod
     def getName() -> str:
@@ -77,7 +81,7 @@ class _Network(keras.Model):
 
         in_state, c = create_input_layers_one_sequence(
             # config.window_length,
-            config.env_observation_shape,
+            config.observation_shape,
             config.env_observation_type,
             config.image_layer_type,
         )
@@ -87,12 +91,12 @@ class _Network(keras.Model):
             c = kl.Dense(h, activation=config.activation, kernel_initializer="he_normal")(c)
 
         # --- out layer
-        policy = kl.Dense(config.nb_actions, activation="softmax")(c)
+        policy = kl.Dense(config.nb_actions, activation="softmax", bias_initializer="truncated_normal")(c)
         value = kl.Dense(1, bias_initializer="truncated_normal")(c)
         self.model = keras.Model(in_state, [policy, value])
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.env_observation_shape, dtype=np.float32)
+        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         # dummy_state = np.zeros(shape=(1, config.window_length) + config.env_observation_shape, dtype=np.float32)
         policy, value = self(dummy_state)
         assert policy.shape == (1, config.nb_actions)
@@ -170,7 +174,6 @@ class Trainer(RLTrainer):
         self.policy_loss = keras.losses.CategoricalCrossentropy()
 
         self.train_count = 0
-        self.env = srl.envs.make(self.config.env_config, self.config)
 
     def get_train_count(self):
         return self.train_count
@@ -233,7 +236,7 @@ class Worker(RLWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def on_reset(self, state: np.ndarray, player_index: int, env: EnvBase) -> None:
+    def _on_reset(self, state: np.ndarray, player_index: int, env: EnvBase) -> None:
         self.step = 0
         self.state = state
         self.state_str = to_str_observation(state)
@@ -241,7 +244,7 @@ class Worker(RLWorker):
 
         self.history = []
 
-    def policy(self, state: np.ndarray, player_index: int, env: EnvBase) -> int:
+    def _policy(self, state: np.ndarray, player_index: int, env: EnvBase) -> int:
 
         state_str = to_str_observation(state)
         self.parameter.N = {}
@@ -276,14 +279,17 @@ class Worker(RLWorker):
             }
         )
 
-        return action
+        return int(action)
 
     def _simulation(self, state: np.ndarray, state_str: str, env: EnvBase, player_index, depth: int = 0):
+        if depth >= env.max_episode_steps:  # for safety
+            return 0
 
         action = self._select_action(env, state, state_str, player_index)
 
         # ロールアウト
-        if self.parameter.N[state_str][action] < self.config.action_select_threshold:
+        if False:
+            # if self.parameter.N[state_str][action] < self.config.action_select_threshold:
             reward = self.parameter.V[state_str]
         else:
             next_player_indices = env.get_next_player_indices()
@@ -296,6 +302,7 @@ class Worker(RLWorker):
             while True:
                 actions = [self._select_action(env, n_state, n_state_str, idx) for idx in next_player_indices]
                 n_state, rewards, done, next_player_indices, _ = env.step(actions)
+                n_state = self.observation_encode(n_state, env)
                 n_state_str = to_str_observation(n_state)
                 reward += rewards[player_index]
 
@@ -322,7 +329,12 @@ class Worker(RLWorker):
         self.parameter.pred_PV(state, state_str)
 
         invalid_actions = env.get_invalid_actions(idx)
+        scores = self._calc_puct(state_str, invalid_actions)
 
+        action = random.choice(np.where(scores == np.max(scores))[0])
+        return int(action)
+
+    def _calc_puct(self, state_str, invalid_actions):
         # --- PUCTに従ってアクションを選択
         N = np.sum(self.parameter.N[state_str])
         scores = []
@@ -342,10 +354,9 @@ class Worker(RLWorker):
                     q = self.parameter.W[state_str][a] / n
                 score = q + u
             scores.append(score)
-        action = random.choice(np.where(scores == np.max(scores))[0])
-        return action
+        return scores
 
-    def on_step(
+    def _on_step(
         self,
         next_state: np.ndarray,
         reward: float,
@@ -375,11 +386,14 @@ class Worker(RLWorker):
 
         return {}
 
-    def render(self, env: EnvBase) -> None:
+    def render(self, env: EnvBase, player_index: int) -> None:
         self.parameter.init_state(self.state_str)
         self.parameter.pred_PV(self.state, self.state_str)
         print(f"value: {self.parameter.V[self.state_str]:7.3f}")
-        for a in range(self.config.nb_actions):
+        puct = self._calc_puct(self.state_str, self.invalid_actions)
+        invalid_actions = self.get_invalid_actions(env, player_index)
+
+        def _render_sub(a: int) -> str:
             if self.state_str in self.parameter.W:
                 q = self.parameter.W[self.state_str][a]
                 c = self.parameter.N[self.state_str][a]
@@ -388,4 +402,13 @@ class Worker(RLWorker):
             else:
                 q = 0
                 c = 0
-            print(f"{env.action_to_str(a)}: {q:9.5f}({c:7d}), policy {self.parameter.P[self.state_str][a]:9.5f}")
+            s = "{}: {:9.5f}({:7d}), policy {:9.5f}, puct {:.5f}".format(
+                env.action_to_str(a),
+                q,
+                c,
+                self.parameter.P[self.state_str][a],
+                puct[a],
+            )
+            return s
+
+        render_discrete_action(invalid_actions, None, env, _render_sub)

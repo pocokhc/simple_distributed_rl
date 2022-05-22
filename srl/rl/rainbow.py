@@ -1,17 +1,18 @@
 import random
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow_addons as tfa
+from srl.base.define import RLObservationType
 from srl.base.env.base import EnvBase
-from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import calc_epsilon_greedy_probs, random_choice_by_probs
+from srl.rl.functions.common import calc_epsilon_greedy_probs, random_choice_by_probs, render_discrete_action
 from srl.rl.functions.dueling_network import create_dueling_network_layers
 from srl.rl.functions.model import ImageLayerType, create_input_layers
 from tensorflow.keras import layers as kl
@@ -87,6 +88,10 @@ class Config(DiscreteActionConfig):
     def __post_init__(self):
         super().__init__()
 
+    @property
+    def observation_type(self) -> RLObservationType:
+        return RLObservationType.CONTINUOUS
+
     @staticmethod
     def getName() -> str:
         return "Rainbow"
@@ -134,7 +139,7 @@ class _QNetwork(keras.Model):
 
         in_state, c = create_input_layers(
             config.window_length,
-            config.env_observation_shape,
+            config.observation_shape,
             config.env_observation_type,
             config.image_layer_type,
         )
@@ -169,7 +174,7 @@ class _QNetwork(keras.Model):
         self.model = keras.Model(in_state, c)
 
         # 重みを初期化
-        in_shape = (config.window_length,) + config.env_observation_shape
+        in_shape = (config.window_length,) + config.observation_shape
         dummy_state = np.zeros(shape=(1,) + in_shape, dtype=np.float32)
         val = self(dummy_state)
         assert val.shape == (1, config.nb_actions)
@@ -347,7 +352,7 @@ class Worker(DiscreteActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-        self.dummy_state = np.full(self.config.env_observation_shape, self.config.dummy_state_val, dtype=np.float32)
+        self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.epsilon_step = 0
 
         if self.config.exploration_steps > 0:
@@ -409,7 +414,7 @@ class Worker(DiscreteActionWorker):
         reward: float,
         done: bool,
         next_invalid_actions: List[int],
-    ):
+    ) -> Dict:
         self.recent_states.pop(0)
         self.recent_states.append(next_state)
         self.recent_bundle_states.pop(0)
@@ -477,25 +482,13 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.add(batch, priority)
         return priority
 
-    def render(self, env: EnvBase) -> None:
-        invalid_actions = self.recent_invalid_actions[-1]
-
+    def render(self, env: EnvBase, player_index: int) -> None:
         state = self.recent_bundle_states[-1]
+        invalid_actions = self.recent_invalid_actions[-1]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
         maxa = np.argmax(q)
-        for a in range(self.config.nb_actions):
-            if len(invalid_actions) > 10:
-                if a in invalid_actions:
-                    continue
-                s = ""
-            else:
-                if a in invalid_actions:
-                    s = "x"
-                else:
-                    s = " "
-            if a == maxa:
-                s += "*"
-            else:
-                s += " "
-            s += f"{env.action_to_str(a)}: {q[a]:.7f}"
-            print(s)
+
+        def _render_sub(a: int) -> str:
+            return f"{q[a]:7.5f}"
+
+        render_discrete_action(invalid_actions, maxa, env, _render_sub)

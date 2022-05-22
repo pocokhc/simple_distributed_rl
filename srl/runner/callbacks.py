@@ -90,7 +90,7 @@ class Rendering(Callback):
         if self.mode != RenderType.NONE:
             for i in next_player_indices:
                 worker_idx = worker_indices[i]
-                workers[worker_idx].render(env)
+                workers[worker_idx].render(env, i)
 
         if self.step_stop:
             input("Enter to continue:")
@@ -321,19 +321,19 @@ class PrintProgress(Callback):
         # --- print
         s = dt.datetime.now().strftime("%H:%M:%S")
         s += f" {to_str_time(self.elapsed_time)}"
-        s += " {:7d}ep".format(episode_count)
+        s += " {:6d}ep".format(episode_count)
         if self.config.training:
-            s += " {:7d}tr".format(train_count)
+            s += " {:6d}tr".format(train_count)
 
         if len(self.progress_history) == 0:
             if len(self.history_step) > 0:
                 step_num = len(self.history_step)
                 step_time = np.mean([h["step_time"] for h in self.history_step])
                 s += f", {step_num:5d} step"
-                s += f", {step_time:.4f}s/step"
+                s += f", {step_time:.5f}s/step"
                 if self.config.training:
                     train_time = np.mean([h["train_time"] for h in self.history_step])
-                    s += f", {train_time:.4f}s/tr"
+                    s += f", {train_time:.5f}s/tr"
         else:
             episode_time = np.mean([h["episode_time"] for h in self.progress_history])
             step_time = np.mean([h["step_time"] for h in self.progress_history])
@@ -357,21 +357,21 @@ class PrintProgress(Callback):
             # 表示
             _r = [h["episode_reward"] for h in self.progress_history]
             _s = [h["step"] for h in self.progress_history]
-            s += f", {min(_r):.3f} {np.mean(_r):.3f} {max(_r):.3f} reward"
+            s += f", {min(_r):.1f} {np.mean(_r):.3f} {max(_r):.1f} rew"
             s += f", {np.mean(_s):.1f} step"
-            s += f", {episode_time:.2f}s/ep"
+            s += f", {episode_time:.3f}s/ep"
 
             if self.config.enable_validation:
                 valid_rewards = [h["valid_reward"] for h in self.progress_history if h["valid_reward"] is not None]
                 if len(valid_rewards) > 0:
-                    s += f", {np.mean(valid_rewards):.3f} val_reward"
+                    s += f", {np.mean(valid_rewards):.3f} val_rew"
 
             if self.config.training:
                 train_time = np.mean([h["train_time"] for h in self.progress_history])
-                s += f", {train_time:.3f}s/tr"
+                s += f", {train_time:.4f}s/tr"
 
                 memory_len = max([h["remote_memory"] for h in self.progress_history])
-                s += f", {memory_len:8d} mem"
+                s += f", {memory_len:7d} mem"
 
             if self.print_env_info:
                 d = listdictdict_to_dictlist(self.progress_history, "env_info")
@@ -454,12 +454,17 @@ class History(Callback):
 
         if len(self.history) > 100:
             alpha = 0.2
-            plt.plot(pd.Series(rewards).rolling(rolling_n).mean(), "C0", label=f"reward(mean{rolling_n})")
-            plt.plot(pd.Series(valid_rewards).rolling(rolling_n).mean(), "C1", label=f"valid reward(mean{rolling_n})")
+            plt.plot(pd.Series(rewards).rolling(rolling_n).mean(), "C0", marker=".", label=f"reward(mean{rolling_n})")
+            plt.plot(
+                pd.Series(valid_rewards).rolling(rolling_n).mean(),
+                "C1",
+                marker=".",
+                label=f"valid reward(mean{rolling_n})",
+            )
         else:
             alpha = 1
-        plt.plot(rewards, "C0", alpha=alpha, label="reward")
-        plt.plot(valid_rewards, "C1", alpha=alpha, label="valid reward")
+        plt.plot(rewards, "C0", alpha=alpha, label="reward", marker=".")
+        plt.plot(valid_rewards, "C1", alpha=alpha, label="valid reward", marker=".")
 
         plt.xlabel("episode")
         plt.ylabel("reward")

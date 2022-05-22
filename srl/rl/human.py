@@ -5,7 +5,7 @@ from srl.base.env.base import EnvBase
 from srl.base.rl.algorithms.rulebase import (
     GeneralWorker,
     RuleBaseConfig,
-    RuleBaseParamete,
+    RuleBaseParameter,
     RuleBaseRemoteMemory,
     RuleBaseTrainer,
 )
@@ -32,7 +32,7 @@ register(
 )
 
 
-class Parameter(RuleBaseParamete):
+class Parameter(RuleBaseParameter):
     pass
 
 

@@ -1,25 +1,32 @@
 import itertools
 import logging
-from typing import List, SupportsFloat, Tuple, Union
+from typing import List, Tuple, Union
 
 import numpy as np
-from srl.base.define import InvalidAction
+from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
 from srl.base.env.base import SpaceBase
 
 logger = logging.getLogger(__name__)
 
 
-class BoxSpace(SpaceBase[np.ndarray]):
+class BoxSpace(SpaceBase):
     def __init__(
         self,
-        low: Union[SupportsFloat, np.ndarray],
-        high: Union[SupportsFloat, np.ndarray],
         shape: Tuple[int, ...],
+        low: Union[float, np.ndarray] = -np.inf,
+        high: Union[float, np.ndarray] = np.inf,
     ) -> None:
-        self._low = np.full(shape, low, dtype=float) if np.isscalar(low) else low
-        self._high = np.full(shape, high, dtype=float) if np.isscalar(high) else high
+        self._low: np.ndarray = np.full(shape, low, dtype=float) if np.isscalar(low) else low
+        self._high: np.ndarray = np.full(shape, high, dtype=float) if np.isscalar(high) else high
         self._shape = shape
-        self._array_len = len(self._low.flatten())
+
+        assert self.shape == self.high.shape
+        assert self.low.shape == self.high.shape
+        assert np.less(self.low, self.high).all()
+
+        self._is_inf = np.isinf(low).any() or np.isinf(high).any()
+        self._is_division = False
+        self._n = 0
 
         assert isinstance(self._shape, tuple), f"shape is a tuple format. type=({type(shape)})"
 
@@ -35,12 +42,18 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def high(self) -> np.ndarray:
         return self._high
 
-    def sample(self, invalid_actions: List[InvalidAction] = []) -> np.ndarray:
+    def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> np.ndarray:
+        if self._is_inf:
+            # infの場合は正規分布に従う乱数
+            return np.random.normal(size=self.shape)
         r = np.random.random_sample(self.shape)
         return self.low + r * (self.high - self.low)
 
-    # --- action discrete
-    def set_division(self, division_num: int) -> None:
+    # --- discrete
+    def set_action_division(self, division_num: int) -> None:
+        if self._is_inf:
+            return
+
         low_flatten = self.low.flatten()
         high_flatten = self.high.flatten()
 
@@ -60,38 +73,44 @@ class BoxSpace(SpaceBase[np.ndarray]):
             act_list.append(act)
 
         act_list = list(itertools.product(*act_list))
-        self.action_tbl = np.reshape(act_list, (-1,) + self.shape).tolist()
+        self.action_tbl = np.reshape(act_list, (-1,) + self.shape)
         self._n = len(self.action_tbl)
 
+    # --- action discrete
     def get_action_discrete_info(self) -> int:
         return self._n
 
-    def action_discrete_encode(self, val: np.ndarray) -> int:
+    def action_discrete_encode(self, val: np.ndarray) -> DiscreteAction:
         raise NotImplementedError
 
-    def action_discrete_decode(self, val: int) -> np.ndarray:
+    def action_discrete_decode(self, val: DiscreteAction) -> np.ndarray:
+        if self._is_inf:
+            # infの場合は定義できない
+            return np.full(self.shape, val, dtype=float)
         return self.action_tbl[val]
 
     # --- action continuous
     def get_action_continuous_info(self) -> Tuple[int, np.ndarray, np.ndarray]:
-        return self._array_len, self.low, self.high
+        low = self.low.flatten()
+        high = self.high.flatten()
+        return len(low), low, high
 
-    def action_continuous_encode(self, val: np.ndarray) -> List[float]:
-        return val.flatten().tolist()
+    # def action_continuous_encode(self, val: np.ndarray) -> ContinuousAction:
+    #    return val.flatten().tolist()
 
-    def action_continuous_decode(self, val: List[float]) -> np.ndarray:
+    def action_continuous_decode(self, val: ContinuousAction) -> np.ndarray:
         return np.asarray(val).reshape(self.shape)
 
     # --- observation discrete
     def get_observation_discrete_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
         return self.shape, self.low, self.high
 
-    def observation_discrete_encode(self, val: np.ndarray) -> np.ndarray:
-        return np.round(val)
+    def observation_discrete_encode(self, val: np.ndarray) -> RLObservation:
+        return np.round(val).astype(int)
 
     # --- observation continuous
     def get_observation_continuous_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
         return self.shape, self.low, self.high
 
-    def observation_continuous_encode(self, val: np.ndarray) -> np.ndarray:
-        return val
+    def observation_continuous_encode(self, val: np.ndarray) -> RLObservation:
+        return val.astype(float)

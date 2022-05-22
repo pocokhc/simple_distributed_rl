@@ -28,7 +28,7 @@ class Config:
 
     # episode option
     max_episode_steps: int = 10_000
-    episode_timeout: int = 60 * 10  # s
+    episode_timeout: int = -1  # s
 
     # play option
     max_steps: int = -1
@@ -39,8 +39,9 @@ class Config:
 
     # validation option
     enable_validation: bool = False
-    validation_interval: int = 10  # episode
+    validation_interval: int = 1  # episode
     validation_episode: int = 1
+    validation_players: List[Optional[RLConfig]] = field(default_factory=list)
 
     # callbacks
     callbacks: List[Callback] = field(default_factory=list)
@@ -79,6 +80,7 @@ class Config:
         callbacks: List[Callback] = None,
     ):
         self.set_play_config(max_steps, max_episodes, timeout, True, shuffle_player, enable_validation, callbacks)
+        self.episode_timeout = 60 * 10  # s
 
     def set_play_config(
         self,
@@ -99,6 +101,7 @@ class Config:
         self.shuffle_player = shuffle_player
         self.callbacks = callbacks
         self.enable_validation = enable_validation
+        self.episode_timeout = -1
 
     def model_summary(self) -> RLParameter:
         parameter = self.make_parameter()
@@ -214,6 +217,12 @@ class Config:
                 config.players.append(None)
             else:
                 config.players.append(pickle.loads(pickle.dumps(player)))
+        config.validation_players = []
+        for player in self.validation_players:
+            if player is None:
+                config.validation_players.append(None)
+            else:
+                config.validation_players.append(pickle.loads(pickle.dumps(player)))
         config.callbacks = self.callbacks  # sync
         if env_copy:
             config.env = self.env
@@ -239,8 +248,8 @@ def play(
     Tuple[List[float], RLParameter, RLRemoteMemory],  # single play
     Tuple[List[List[float]], RLParameter, RLRemoteMemory],  # multi play
 ]:
-    config = config.copy(env_copy=True)
     env = config.make_env()
+    config = config.copy(env_copy=True)
     config.assert_params()
     if parameter is None:
         parameter = config.make_parameter()
@@ -257,6 +266,7 @@ def play(
         valid_config = config.copy(env_copy=False)
         valid_config.set_play_config(max_episodes=config.validation_episode)
         valid_config.enable_validation = False
+        valid_config.players = config.validation_players
         valid_episode = 0
 
     # workers
@@ -331,7 +341,6 @@ def play(
         # ------------------------
         # step
         # ------------------------
-
         # --- rl before step
         actions = []
         for i, idx in enumerate(next_player_indices):
@@ -440,7 +449,7 @@ def play(
 
             # callback
             _params["step"] = step
-            _params["episode_time"] = _time - episode_t0
+            _params["episode_time"] = time.time() - episode_t0
             _params["valid_reward"] = valid_reward
             _params["episode_count"] = episode_count
             _params["episode_rewards"] = episode_rewards

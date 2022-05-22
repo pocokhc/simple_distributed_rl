@@ -4,19 +4,20 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 import numpy as np
+from srl.base.define import RLObservationType
 from srl.base.env.base import EnvBase
-from srl.base.rl.algorithms.table import TableConfig
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import SequenceRemoteMemory
-from srl.rl.functions.common import to_str_observation
+from srl.rl.functions.common import render_discrete_action, to_str_observation
 
 
 # ------------------------------------------------------
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(TableConfig):
+class Config(DiscreteActionConfig):
 
     simulation_times: int = 10
     action_select_threshold: int = 5
@@ -25,6 +26,10 @@ class Config(TableConfig):
 
     def __post_init__(self):
         super().__init__()
+
+    @property
+    def observation_type(self) -> RLObservationType:
+        return RLObservationType.DISCRETE
 
     @staticmethod
     def getName() -> str:
@@ -117,11 +122,11 @@ class Worker(RLWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def on_reset(self, state: np.ndarray, player_index: int, env: EnvBase) -> None:
+    def _on_reset(self, state: np.ndarray, player_index: int, env: EnvBase) -> None:
         self.state = to_str_observation(state)
-        self.invalid_actions = env.get_invalid_actions(player_index)
+        self.invalid_actions = self.get_invalid_actions(env, player_index)
 
-    def policy(self, _state: np.ndarray, player_index: int, env: EnvBase) -> int:
+    def _policy(self, _state: np.ndarray, player_index: int, env: EnvBase) -> int:
         state = to_str_observation(_state)
 
         if self.training:
@@ -148,12 +153,13 @@ class Worker(RLWorker):
         assert player_index in next_player_indices
         action = self._select_action(env, state, player_index)
 
-        # --- steps
+        # --- steps  TODO simulation stepが複雑すぎるので何か簡単にできる方法
         reward = 0
         n_state = state
         while True:
             actions = [self._select_action(env, n_state, idx) for idx in next_player_indices]
             n_state, rewards, done, next_player_indices, _ = env.step(actions)
+            n_state = self.config.env_observation_space.observation_discrete_encode(n_state)
             n_state = to_str_observation(n_state)
             reward += rewards[player_index]
 
@@ -187,8 +193,13 @@ class Worker(RLWorker):
         return reward * self.config.gamma  # 割り引いて前に伝搬
 
     def _select_action(self, env, state, idx):
-        self.parameter.init_state(state)
         invalid_actions = env.get_invalid_actions(idx)
+        ucb_list = self._calc_ucb(state, invalid_actions)
+        action = random.choice(np.where(ucb_list == np.max(ucb_list))[0])
+        return action
+
+    def _calc_ucb(self, state, invalid_actions):
+        self.parameter.init_state(state)
 
         # --- UCBに従ってアクションを選択
         N = np.sum(self.parameter.N[state])
@@ -205,8 +216,7 @@ class Worker(RLWorker):
                     cost = self.config.uct_c * np.sqrt(np.log(N) / n)
                     ucb = self.parameter.W[state][a] / n + cost
             ucb_list.append(ucb)
-        action = random.choice(np.where(ucb_list == np.max(ucb_list))[0])
-        return action
+        return ucb_list
 
     # ロールアウト
     def _rollout(self, env: EnvBase, player_index, next_player_indices):
@@ -222,7 +232,7 @@ class Worker(RLWorker):
 
         return reward
 
-    def on_step(
+    def _on_step(
         self,
         next_state: np.ndarray,
         reward: float,
@@ -231,19 +241,19 @@ class Worker(RLWorker):
         env: EnvBase,
     ):
         self.state = to_str_observation(next_state)
-        self.invalid_actions = env.get_invalid_actions(player_index)
+        self.invalid_actions = self.get_invalid_actions(env, player_index)
         return {}
 
-    def render(self, env: EnvBase) -> None:
+    def render(self, env: EnvBase, player_index: int) -> None:
         self.parameter.init_state(self.state)
         maxa = np.argmax(self.parameter.N[self.state])
-        for a in range(self.config.nb_actions):
-            if a == maxa:
-                s = "*"
-            else:
-                s = " "
+        ucb_list = self._calc_ucb(self.state, self.invalid_actions)
+
+        def _render_sub(a: int) -> str:
             q = self.parameter.W[self.state][a]
             c = self.parameter.N[self.state][a]
             if c != 0:
                 q /= c
-            print(f"{s}{env.action_to_str(a)}: {q:9.5f}({c:7d})")
+            return f"{q:9.5f}({c:7d}), ucb {ucb_list[a]:.5f}"
+
+        render_discrete_action(self.invalid_actions, maxa, env, _render_sub)

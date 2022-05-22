@@ -5,9 +5,10 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-from srl.base.env.base import EnvBase
 import tensorflow.keras as keras
-from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.define import RLObservationType
+from srl.base.env.base import EnvBase
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
@@ -18,6 +19,7 @@ from srl.rl.functions.common import (
     create_gamma_list,
     inverse_rescaling,
     random_choice_by_probs,
+    render_discrete_action,
     rescaling,
 )
 from srl.rl.functions.dueling_network import create_dueling_network_layers
@@ -124,6 +126,10 @@ class Config(DiscreteActionConfig):
     def __post_init__(self):
         super().__init__()
 
+    @property
+    def observation_type(self) -> RLObservationType:
+        return RLObservationType.CONTINUOUS
+
     @staticmethod
     def getName() -> str:
         return "Agent57"
@@ -174,7 +180,7 @@ class _QNetwork(keras.Model):
         in_state, c = create_input_layers_lstm_stateful(
             config.batch_size,
             1,
-            config.env_observation_shape,
+            config.observation_shape,
             config.env_observation_type,
             config.image_layer_type,
         )
@@ -209,7 +215,7 @@ class _QNetwork(keras.Model):
         self.lstm_layer = self.model.get_layer("lstm")
 
         # 重みを初期化
-        in_shape = (1,) + config.env_observation_shape
+        in_shape = (1,) + config.observation_shape
         dummy_state = np.zeros(shape=(config.batch_size,) + in_shape, dtype=np.float32)
         val, states = self(dummy_state, None)
         assert val.shape == (config.batch_size, config.nb_actions)
@@ -234,7 +240,7 @@ class _EmbeddingNetwork(keras.Model):
         super().__init__()
 
         in_state, c = create_input_layers_one_sequence(
-            config.env_observation_shape,
+            config.observation_shape,
             config.env_observation_type,
             config.image_layer_type,
         )
@@ -248,20 +254,20 @@ class _EmbeddingNetwork(keras.Model):
         self.model = keras.Model(in_state, c)
 
         # out layer
-        self.concatrate = kl.Concatenate()
+        self.concatenate = kl.Concatenate()
         self.d1 = kl.Dense(128, activation="relu", kernel_initializer="he_normal")
         c = kl.LayerNormalization()(c)
         self.out = kl.Dense(config.nb_actions, activation="softmax")
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.env_observation_shape, dtype=np.float32)
+        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         val = self(dummy_state, dummy_state)
         assert val.shape == (1, config.nb_actions)
 
     def call(self, state1, state2):
         c1 = self.model(state1)
         c2 = self.model(state2)
-        c = self.concatrate([c1, c2])
+        c = self.concatenate([c1, c2])
         c = self.d1(c)
         c = self.out(c)
         return c
@@ -278,7 +284,7 @@ class _LifelongNetwork(keras.Model):
         super().__init__()
 
         in_state, c = create_input_layers_one_sequence(
-            config.env_observation_shape,
+            config.observation_shape,
             config.env_observation_type,
             config.image_layer_type,
         )
@@ -293,7 +299,7 @@ class _LifelongNetwork(keras.Model):
         self.model = keras.Model(in_state, c)
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.env_observation_shape, dtype=np.float32)
+        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         val = self(dummy_state)
         assert val.shape == (1, 128)
 
@@ -482,8 +488,8 @@ class Trainer(RLTrainer):
         # embedding network
         # ----------------------------------------
         with tf.GradientTape() as tape:
-            actions_prebs = self.parameter.emb_network(one_states, one_n_states)
-            emb_loss = self.emb_loss(actions_prebs, one_actions_onehot)
+            actions_probs = self.parameter.emb_network(one_states, one_n_states)
+            emb_loss = self.emb_loss(actions_probs, one_actions_onehot)
 
         grads = tape.gradient(emb_loss, self.parameter.emb_network.trainable_variables)
         self.emb_optimizer.apply_gradients(zip(grads, self.parameter.emb_network.trainable_variables))
@@ -614,7 +620,7 @@ class Worker(DiscreteActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-        self.dummy_state = np.full(self.config.env_observation_shape, self.config.dummy_state_val, dtype=np.float32)
+        self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
 
         # actor
         self.beta_list = create_beta_list(self.config.actor_num)
@@ -893,7 +899,7 @@ class Worker(DiscreteActionWorker):
 
         return reward
 
-    def render(self, env: EnvBase) -> None:
+    def render(self, env: EnvBase, player_index: int) -> None:
         state = self.recent_states[-1]
         invalid_actions = self.recent_invalid_actions[-1]
         states = np.asarray([[state]] * self.config.batch_size)
@@ -913,20 +919,10 @@ class Worker(DiscreteActionWorker):
         print("reward_int", reward_int)
 
         maxa = np.argmax(q)
-        for a in range(self.config.nb_actions):
-            if len(invalid_actions) > 10:
-                if a in invalid_actions:
-                    continue
-                s = ""
-            else:
-                if a in invalid_actions:
-                    s = "x"
-                else:
-                    s = " "
-            if a == maxa:
-                s += "*"
-            else:
-                s += " "
-            s += f"{env.action_to_str(a)}: {q[a]:5.3f}"
+
+        def _render_sub(a: int) -> str:
+            s = f"{q[a]:5.3f}"
             s += f"{a:2d}: {q[a]:5.3f} = {q_ext[a]:5.3f} + {self.beta} * {q_int[a]:5.3f}"
-            print(s)
+            return s
+
+        render_discrete_action(invalid_actions, maxa, env, _render_sub)

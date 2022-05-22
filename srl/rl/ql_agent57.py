@@ -5,8 +5,9 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, Union, cast
 
 import numpy as np
+from srl.base.define import RLObservationType
 from srl.base.env.base import EnvBase
-from srl.base.rl.algorithms.table import TableConfig, TableWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
@@ -17,6 +18,7 @@ from srl.rl.functions.common import (
     create_gamma_list,
     inverse_rescaling,
     random_choice_by_probs,
+    render_discrete_action,
     rescaling,
     to_str_observation,
 )
@@ -61,7 +63,7 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(TableConfig):
+class Config(DiscreteActionConfig):
 
     # ハイパーパラメータ
     test_epsilon: float = 0.0
@@ -112,6 +114,10 @@ class Config(TableConfig):
 
     def __post_init__(self):
         super().__init__()
+
+    @property
+    def observation_type(self) -> RLObservationType:
+        return RLObservationType.DISCRETE
 
     @staticmethod
     def getName() -> str:
@@ -338,7 +344,7 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(TableWorker):
+class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
@@ -452,7 +458,7 @@ class Worker(TableWorker):
         reward: float,
         done: bool,
         next_invalid_actions: List[int],
-    ) -> Dict[str, Union[float, int]]:
+    ) -> Dict:
 
         n_state = to_str_observation(next_state)
         self.recent_states.pop(0)
@@ -558,7 +564,7 @@ class Worker(TableWorker):
         self.parameter.lifelong_C[state] *= self.config.lifelong_decrement_rate
         return reward + 1.0
 
-    def render(self, env: EnvBase) -> None:
+    def render(self, env: EnvBase, player_index: int) -> None:
         state = self.recent_states[-1]
         invalid_actions = self.recent_invalid_actions[-1]
         self.parameter.init_state(state, invalid_actions)
@@ -575,19 +581,8 @@ class Worker(TableWorker):
             q_int = inverse_rescaling(q_int)
             q = inverse_rescaling(q)
         maxa = np.argmax(q)
-        for a in range(self.config.nb_actions):
-            if len(invalid_actions) > 10:
-                if a in invalid_actions:
-                    continue
-                s = ""
-            else:
-                if a in invalid_actions:
-                    s = "x"
-                else:
-                    s = " "
-            if a == maxa:
-                s += "*"
-            else:
-                s += " "
-            s += f"{env.action_to_str(a)}: {q[a]:8.5f} = {q_ext[a]:8.5f} + {self.beta:.3f} * {q_int[a]:8.5f}"
-            print(s)
+
+        def _render_sub(a: int) -> str:
+            return f"{q[a]:8.5f} = {q_ext[a]:8.5f} + {self.beta:.3f} * {q_int[a]:8.5f}"
+
+        render_discrete_action(invalid_actions, maxa, env, _render_sub)

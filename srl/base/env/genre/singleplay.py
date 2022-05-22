@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import Any, List, Tuple
 
 import numpy as np
-from srl.base.define import Action, EnvObservationType, Info, InvalidAction
+from srl.base.define import EnvAction, EnvInvalidAction, EnvObservationType, Info
 from srl.base.env import EnvBase
 from srl.base.env.base import SpaceBase
 
@@ -36,11 +36,11 @@ class SinglePlayEnv(EnvBase):
         raise NotImplementedError()
 
     @abstractmethod  # new method
-    def step_single(self, action: Action) -> Tuple[np.ndarray, float, bool, Info]:
+    def step_single(self, action: EnvAction) -> Tuple[np.ndarray, float, bool, Info]:
         raise NotImplementedError()
 
     # new method(option)
-    def get_invalid_actions_single(self) -> List[InvalidAction]:
+    def get_invalid_actions_single(self) -> List[EnvInvalidAction]:
         return []
 
     @abstractmethod  # same parent
@@ -52,7 +52,7 @@ class SinglePlayEnv(EnvBase):
         raise NotImplementedError()
 
     # same parent(option)
-    def action_to_str(self, action: Action) -> str:
+    def action_to_str(self, action: EnvAction) -> str:
         return str(action)
 
     # --- inherit implementation(継承元の実装)
@@ -64,12 +64,12 @@ class SinglePlayEnv(EnvBase):
     def reset(self) -> Tuple[np.ndarray, List[int]]:
         return self.reset_single(), [0]
 
-    def step(self, actions: List[Action]) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
+    def step(self, actions: List[EnvAction]) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
         n_state, reward, done, info = self.step_single(actions[0])
         return n_state, [reward], done, [0], info
 
     def get_next_player_indices(self) -> List[int]:
         return [0]
 
-    def get_invalid_actions(self, player_index: int) -> List[InvalidAction]:
+    def get_invalid_actions(self, player_index: int) -> List[EnvInvalidAction]:
         return self.get_invalid_actions_single()

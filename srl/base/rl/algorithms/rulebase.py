@@ -29,7 +29,7 @@ class RuleBaseConfig(RLConfig):
         pass  #
 
 
-class RuleBaseParamete(RLParameter):
+class RuleBaseParameter(RLParameter):
     def restore(self, data: Any) -> None:
         pass  # do nothing
 
@@ -63,7 +63,7 @@ class RuleBaseTrainer(RLTrainer):
 
 class RuleBaseWorker(RLWorker):
     def __init__(self):
-        pass
+        pass  # do nothing
 
     def _on_reset(self, *args) -> None:
         raise NotImplementedError()
@@ -105,7 +105,7 @@ class RuleBaseWorker(RLWorker):
     def call_render(self, env: object) -> None:
         pass  # do nothing
 
-    def render(self, env: EnvBase) -> None:
+    def render(self, env: EnvBase, player_index: int) -> None:
         self.call_render(env.get_original_env())
 
 
@@ -139,5 +139,5 @@ class GeneralWorker(RLWorker):
     def call_render(self, env: object) -> None:
         pass  # do nothing
 
-    def render(self, env: EnvBase) -> None:
+    def render(self, env: EnvBase, player_index: int) -> None:
         self.call_render(env.get_original_env())

@@ -2,15 +2,16 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Union, cast
+from typing import Any, Dict, List, cast
 
 import numpy as np
+from srl.base.define import RLObservationType
 from srl.base.env.base import EnvBase
-from srl.base.rl.algorithms.table import TableConfig, TableWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import SequenceRemoteMemory
-from srl.rl.functions.common import to_str_observation
+from srl.rl.functions.common import render_discrete_action, to_str_observation
 
 logger = logging.getLogger(__name__)
 
@@ -25,15 +26,19 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(TableConfig):
+class Config(DiscreteActionConfig):
 
     epsilon: float = 0.1
     test_epsilon: float = 0
-    gamma: float = 0.9  # 割引率
-    lr: float = 0.1  # 学習率
+    gamma: float = 0.9
+    lr: float = 0.1
 
     def __post_init__(self):
         super().__init__()
+
+    @property
+    def observation_type(self) -> RLObservationType:
+        return RLObservationType.DISCRETE
 
     @staticmethod
     def getName() -> str:
@@ -133,7 +138,7 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(TableWorker):
+class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
@@ -172,7 +177,7 @@ class Worker(TableWorker):
         reward: float,
         done: bool,
         next_invalid_actions: List[int],
-    ) -> Dict[str, Union[float, int]]:
+    ) -> Dict:
         if not self.training:
             return {}
 
@@ -188,22 +193,11 @@ class Worker(TableWorker):
         self.remote_memory.add(batch)
         return {}
 
-    def render(self, env: EnvBase) -> None:
+    def render(self, env: EnvBase, player_index: int) -> None:
         q = self.parameter.get_action_values(self.state, self.invalid_actions)
         maxa = np.argmax(q)
-        for a in range(self.config.nb_actions):
-            if len(self.invalid_actions) > 10:
-                if a in self.invalid_actions:
-                    continue
-                s = ""
-            else:
-                if a in self.invalid_actions:
-                    s = "x"
-                else:
-                    s = " "
-            if a == maxa:
-                s += "*"
-            else:
-                s += " "
-            s += f"{env.action_to_str(a)}: {q[a]:7.5f}"
-            print(s)
+
+        def _render_sub(a: int) -> str:
+            return f"{q[a]:7.5f}"
+
+        render_discrete_action(self.invalid_actions, maxa, env, _render_sub)

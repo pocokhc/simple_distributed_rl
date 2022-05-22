@@ -214,3 +214,25 @@ examples/custom_rl.ipynb
 
 ![](diagrams/class.png)
 
+
+# Interface
+
+|   |           |          |Type|
+|---|-----------|----------|------|
+|env|action     |          |Space|
+|env|observation|          |Space|
+|rl |action     |Discrete  |int|
+|rl |action     |Continuous|list[float]|
+|rl |observation|Discrete  |np.ndarray(dtype=int)|
+|rl |observation|Continuous|np.ndarray(dtype=float)|
+
+* Space(srl.base.env.spaces)
+
+|class               |Type       |
+|--------------------|-----------|
+|DiscreteSpace       |int        |
+|ArrayDiscreteSpace  |list[int]  |
+|ContinuousSpace     |float      |
+|ArrayContinuousSpace|list[float]|
+|BoxSpace            |np.ndarray |
+

@@ -1,8 +1,8 @@
 from abc import ABC
 from typing import List, Tuple
 
-import numpy as np
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import (EnvObservation, EnvObservationType,
+                             RLObservationType)
 from srl.base.env.base import SpaceBase
 
 
@@ -18,9 +18,9 @@ class Processor(ABC):
 
     def process_observation(
         self,
-        observation: np.ndarray,
+        observation: EnvObservation,
         original_env: object,
-    ) -> np.ndarray:
+    ) -> EnvObservation:
         return observation
 
     def process_rewards(

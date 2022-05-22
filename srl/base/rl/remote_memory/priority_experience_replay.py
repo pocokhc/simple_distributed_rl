@@ -1,9 +1,9 @@
 from typing import Any, List, Tuple
 
 from srl.base.rl.base import RLRemoteMemory
-from srl.rl.memory.proportional_memory import ProportionalMemory
-from srl.rl.memory.rankbase_memory import RankBaseMemory
-from srl.rl.memory.replay_memory import ReplayMemory
+from srl.rl.memories.proportional_memory import ProportionalMemory
+from srl.rl.memories.rankbase_memory import RankBaseMemory
+from srl.rl.memories.replay_memory import ReplayMemory
 
 
 class PriorityExperienceReplay(RLRemoteMemory):

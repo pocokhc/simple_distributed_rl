@@ -1,12 +1,13 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import tensorflow as tf
+from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
+from srl.base.define import RLObservationType
 from srl.base.env.base import EnvBase
-from srl.base.rl.algorithms.neuralnet_continuous import ContinuousActionConfig, ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
@@ -52,6 +53,10 @@ class Config(ContinuousActionConfig):
     def __post_init__(self):
         super().__init__()
 
+    @property
+    def observation_type(self) -> RLObservationType:
+        return RLObservationType.CONTINUOUS
+
     @staticmethod
     def getName() -> str:
         return "SAC"
@@ -90,7 +95,7 @@ class _PolicyModel(keras.Model):
         super().__init__()
 
         in_state, c = create_input_layers_one_sequence(
-            config.env_observation_shape,
+            config.observation_shape,
             config.env_observation_type,
             config.image_layer_type,
         )
@@ -116,7 +121,7 @@ class _PolicyModel(keras.Model):
         self.model = keras.Model(in_state, [pi_mean, pi_stddev])
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.env_observation_shape, dtype=np.float32)
+        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         action, mean, stddev, action_org = self(dummy_state)
         assert mean.shape == (1, config.action_num)
         assert stddev.shape == (1, config.action_num)
@@ -143,7 +148,7 @@ class _DualQNetwork(keras.Model):
         super().__init__()
 
         in_state, c = create_input_layers_one_sequence(
-            config.env_observation_shape,
+            config.observation_shape,
             config.env_observation_type,
             config.image_layer_type,
         )
@@ -168,7 +173,7 @@ class _DualQNetwork(keras.Model):
         self.model = keras.Model([in_state, in_action], [q1, q2])
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.env_observation_shape, dtype=np.float32)
+        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         dummy_action = np.zeros(shape=(1, config.action_num), dtype=np.float32)
         _q1, _q2 = self(dummy_state, dummy_action)
         assert _q1.shape == (1, 1)
@@ -360,7 +365,7 @@ class Worker(ContinuousActionWorker):
     def call_on_reset(self, state: np.ndarray) -> None:
         self.state = state
 
-    def call_policy(self, state: np.ndarray) -> Any:
+    def call_policy(self, state: np.ndarray) -> List[float]:
         self.state = state
         action, mean, _, _ = self.parameter.policy(state.reshape(1, -1))
 
@@ -397,7 +402,7 @@ class Worker(ContinuousActionWorker):
 
         return {}
 
-    def render(self, env: EnvBase) -> None:
+    def render(self, env: EnvBase, player_index: int) -> None:
         # q = self.parameter.q_online(np.asarray([self.state]))[0].numpy()
         # TODO
         pass

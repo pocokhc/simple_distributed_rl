@@ -4,7 +4,19 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
 
 import numpy as np
-from srl.base.define import Action, EnvObservationType, Info, InvalidAction, RenderType
+from srl.base.define import (
+    ContinuousAction,
+    DiscreteAction,
+    DiscreteSpaceType,
+    EnvAction,
+    EnvInvalidAction,
+    EnvObservation,
+    EnvObservationType,
+    Info,
+    RenderType,
+    RLObservation,
+    SpaceType,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +30,9 @@ class EnvConfig:
     gym_prediction_by_simulation: bool = True
 
 
-T = TypeVar("T", covariant=True)
-
-
-class SpaceBase(ABC, Generic[T]):
+class SpaceBase(ABC):
     @abstractmethod
-    def sample(self, invalid_actions: List[InvalidAction] = []) -> T:
+    def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> SpaceType:
         raise NotImplementedError()
 
     # --- action discrete
@@ -32,11 +41,11 @@ class SpaceBase(ABC, Generic[T]):
         raise NotImplementedError()
 
     @abstractmethod
-    def action_discrete_encode(self, val) -> int:
+    def action_discrete_encode(self, val: SpaceType) -> DiscreteAction:
         raise NotImplementedError()
 
     @abstractmethod
-    def action_discrete_decode(self, val: int) -> T:
+    def action_discrete_decode(self, val: DiscreteAction) -> SpaceType:
         raise NotImplementedError()
 
     # --- action continuous
@@ -44,12 +53,13 @@ class SpaceBase(ABC, Generic[T]):
     def get_action_continuous_info(self) -> Tuple[int, np.ndarray, np.ndarray]:
         raise NotImplementedError()  # n, low, high
 
-    @abstractmethod
-    def action_continuous_encode(self, val) -> List[float]:
-        raise NotImplementedError()
+    # not use
+    # @abstractmethod
+    # def action_continuous_encode(self, val: SpaceType) -> ContinuousAction:
+    #    raise NotImplementedError()
 
     @abstractmethod
-    def action_continuous_decode(self, val: List[float]) -> T:
+    def action_continuous_decode(self, val: ContinuousAction) -> SpaceType:
         raise NotImplementedError()
 
     # --- observation discrete
@@ -58,25 +68,27 @@ class SpaceBase(ABC, Generic[T]):
         raise NotImplementedError()  # shape, low, high
 
     @abstractmethod
-    def observation_discrete_encode(self, val) -> np.ndarray:
+    def observation_discrete_encode(self, val: SpaceType) -> RLObservation:
         raise NotImplementedError()
 
-    # 今のところ使用してません
-    def observation_discrete_dencode(self, val: np.ndarray) -> T:
-        raise NotImplementedError()
+    # not use
+    # @abstractmethod
+    # def observation_discrete_decode(self, val: RLObservation) -> SpaceType:
+    #    raise NotImplementedError()
 
-    # --- observation continouse
+    # --- observation continuous
     @abstractmethod
     def get_observation_continuous_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
         raise NotImplementedError()  # shape, low, high
 
     @abstractmethod
-    def observation_continuous_encode(self, val) -> np.ndarray:
+    def observation_continuous_encode(self, val: SpaceType) -> RLObservation:
         raise NotImplementedError()
 
-    # 今のところ使用してません
-    def observation_continuous_dencode(self, val: np.ndarray) -> T:
-        raise NotImplementedError()
+    # not use
+    # @abstractmethod
+    # def observation_continuous_decode(self, val: RLObservation) -> SpaceType:
+    #    raise NotImplementedError()
 
 
 class EnvBase(ABC):
@@ -122,7 +134,7 @@ class EnvBase(ABC):
 
     # --- implement functions
     @abstractmethod
-    def reset(self) -> Tuple[np.ndarray, List[int]]:
+    def reset(self) -> Tuple[EnvObservation, List[int]]:
         """
         return (
             init_state,
@@ -132,7 +144,7 @@ class EnvBase(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def step(self, actions: List) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
+    def step(self, actions: List[EnvAction]) -> Tuple[EnvObservation, List[float], bool, List[int], Info]:
         """
         return (
             next_state,
@@ -156,10 +168,10 @@ class EnvBase(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def get_invalid_actions(self, player_index: int) -> List[InvalidAction]:
+    def get_invalid_actions(self, player_index: int) -> List[EnvInvalidAction]:
         raise NotImplementedError()
 
-    def sample(self, next_player_indices) -> List[Action]:
+    def sample(self, next_player_indices) -> List[EnvAction]:
         return [self.action_space.sample(self.get_invalid_actions(i)) for i in next_player_indices]
 
     def render(self, mode: RenderType = RenderType.Terminal, **kwargs) -> Any:
@@ -196,7 +208,7 @@ class EnvBase(ABC):
         env.restore(self.backup())
         return env
 
-    def action_to_str(self, action: Any) -> str:
+    def action_to_str(self, action: EnvAction) -> str:
         return str(action)
 
     def make_worker(self, name: str) -> Optional["srl.base.rl.base.RLWorker"]:

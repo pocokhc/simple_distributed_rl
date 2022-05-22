@@ -5,8 +5,17 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-from srl.base.define import (Action, EnvObservationType, Info, RLActionType,
-                             RLObservationType)
+from srl.base.define import (
+    EnvAction,
+    EnvObservation,
+    EnvObservationType,
+    Info,
+    RLAction,
+    RLActionType,
+    RLInvalidAction,
+    RLObservation,
+    RLObservationType,
+)
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.processor import Processor
 from srl.base.env.spaces.box import BoxSpace
@@ -19,6 +28,7 @@ class RLConfig(ABC):
         self.processors: List[Processor] = []
         self.override_env_observation_type: EnvObservationType = EnvObservationType.UNKNOWN
         self.action_division_num: int = 5
+        # self.observation_division_num: int = 10
 
     @staticmethod
     @abstractmethod
@@ -47,29 +57,38 @@ class RLConfig(ABC):
 
     def set_config_by_env(self, env: EnvBase) -> None:
         self._env_action_space = env.action_space
-        observation_space = env.observation_space
-        observation_type = env.observation_type
+        env_observation_space = env.observation_space
+        env_observation_type = env.observation_type
 
         # observation_typeの上書き
         if self.override_env_observation_type != EnvObservationType.UNKNOWN:
-            observation_type = self.override_env_observation_type
+            env_observation_type = self.override_env_observation_type
 
         # processor
         for processor in self.processors:
-            observation_space, observation_type = processor.change_observation_info(
-                observation_space,
-                observation_type,
+            env_observation_space, env_observation_type = processor.change_observation_info(
+                env_observation_space,
+                env_observation_type,
                 self.observation_type,
                 env.get_original_env(),
             )
-        self._env_observation_space = observation_space
-        self._env_observation_type = observation_type
+        self._env_observation_space = env_observation_space
+        self._env_observation_type = env_observation_type
 
         # action division
         if isinstance(self._env_action_space, BoxSpace) and self.action_type == RLActionType.DISCRETE:
-            self._env_action_space.set_division(self.action_division_num)
+            self._env_action_space.set_action_division(self.action_division_num)
 
-        self._set_config_by_env(env, self._env_action_space, observation_space, observation_type)
+        # observation division
+        # 状態は分割せずに四捨五入
+        # if (
+        #    isinstance(self._env_observation_space, BoxSpace)
+        #    and self.observation_type == RLActionType.DISCRETE
+        #    and self.env_observation_type == EnvObservationType.CONTINUOUS
+        # ):
+        #    self._env_observation_space.set_division(self.observation_division_num)
+
+        self._set_config_by_env(env, self._env_action_space, env_observation_space, env_observation_type)
         self._is_set_config_by_env = True
 
     @property
@@ -188,8 +207,9 @@ class RLWorker(ABC):
         self._training = False
         self._distributed = False
 
-    def observation_encode(self, state, env):
-        state = np.asarray(state)
+    # --- util functions
+
+    def observation_encode(self, state: EnvObservation, env: EnvBase) -> RLObservation:
         for processor in self.config.processors:
             state = processor.process_observation(state, env.get_original_env())
 
@@ -197,18 +217,39 @@ class RLWorker(ABC):
             state = self.config.env_observation_space.observation_discrete_encode(state)
         elif self.config.observation_type == RLObservationType.CONTINUOUS:
             state = self.config.env_observation_space.observation_continuous_encode(state)
+        else:
+            state = np.asarray(state)
         return state
 
-    def action_decode(self, action):
+    def action_encode(self, action: EnvAction) -> RLInvalidAction:
+        # discrete only
         if self.config.action_type == RLActionType.DISCRETE:
-            action = self.config.env_action_space.action_discrete_decode(action)
+            action = self.config.env_action_space.action_discrete_encode(action)
+        return action  # type: ignore
+
+    def action_decode(self, action: RLAction) -> EnvAction:
+        if self.config.action_type == RLActionType.DISCRETE:
+            assert not isinstance(action, list)
+            action = int(action)
+            env_action = self.config.env_action_space.action_discrete_decode(action)
         elif self.config.action_type == RLActionType.CONTINUOUS:
-            action = self.config.env_action_space.action_continuous_decode(action)
-        return action
+            if isinstance(action, list):
+                action = [float(a) for a in action]
+            else:
+                action = [float(action)]
+            env_action = self.config.env_action_space.action_continuous_decode(action)
+        else:
+            env_action = action
+        return env_action
 
     def set_training(self, training: bool, distributed: bool) -> None:
         self._training = training
         self._distributed = distributed
+
+    def get_invalid_actions(self, env: EnvBase, player_index: int) -> List[RLInvalidAction]:
+        return [self.action_encode(a) for a in env.get_invalid_actions(player_index)]
+
+    # --- abc
 
     @property
     def training(self) -> bool:
@@ -221,7 +262,7 @@ class RLWorker(ABC):
     @abstractmethod
     def _on_reset(
         self,
-        state: np.ndarray,
+        state: RLObservation,
         player_index: int,
         env: EnvBase,
     ) -> None:
@@ -229,7 +270,7 @@ class RLWorker(ABC):
 
     def on_reset(
         self,
-        state: np.ndarray,
+        state: EnvObservation,
         player_index: int,
         env: EnvBase,
     ) -> None:
@@ -239,18 +280,18 @@ class RLWorker(ABC):
     @abstractmethod
     def _policy(
         self,
-        state: np.ndarray,
+        state: RLObservation,
         player_index: int,
         env: EnvBase,
-    ) -> Action:
+    ) -> RLAction:
         raise NotImplementedError()
 
     def policy(
         self,
-        state: np.ndarray,
+        state: EnvObservation,
         player_index: int,
         env: EnvBase,
-    ) -> Action:
+    ) -> EnvAction:
         state = self.observation_encode(state, env)
         action = self._policy(state, player_index, env)
         return self.action_decode(action)
@@ -258,7 +299,7 @@ class RLWorker(ABC):
     @abstractmethod
     def _on_step(
         self,
-        next_state: np.ndarray,
+        next_state: RLObservation,
         reward: float,
         done: bool,
         player_index: int,
@@ -268,7 +309,7 @@ class RLWorker(ABC):
 
     def on_step(
         self,
-        next_state: np.ndarray,
+        next_state: EnvObservation,
         reward: float,
         done: bool,
         player_index: int,
@@ -278,5 +319,5 @@ class RLWorker(ABC):
         return self._on_step(next_state, reward, done, player_index, env)
 
     @abstractmethod
-    def render(self, env: EnvBase) -> None:
+    def render(self, env: EnvBase, player_index: int) -> None:
         raise NotImplementedError()

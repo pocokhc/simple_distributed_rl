@@ -69,7 +69,7 @@ def register(
 
     name = config_cls.getName()
     if name in _registry:
-        logger.warn(f"{name} was already registered. It will be overwritten.")
+        logger.warning(f"{name} was already registered. It will be overwritten.")
     _registry[name] = [
         memory_entry_point,
         parameter_entry_point,

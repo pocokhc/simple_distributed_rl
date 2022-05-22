@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import Any, List, Tuple
 
 import numpy as np
-from srl.base.define import Action, DiscreteAction, EnvObservationType, Info
+from srl.base.define import DiscreteAction, EnvAction, EnvObservationType, Info
 from srl.base.env import EnvBase
 from srl.base.env.base import SpaceBase
 
@@ -41,7 +41,7 @@ class TurnBase2Player(EnvBase):
         raise NotImplementedError()
 
     @abstractmethod  # new method
-    def step_turn(self, action: DiscreteAction) -> Tuple[np.ndarray, float, float, bool, Info]:
+    def step_turn(self, action: EnvAction) -> Tuple[np.ndarray, float, float, bool, Info]:
         # state, reward1, reward2, done, info
         raise NotImplementedError()
 
@@ -58,7 +58,7 @@ class TurnBase2Player(EnvBase):
         raise NotImplementedError()
 
     # same parent(option)
-    def action_to_str(self, action: Any) -> str:
+    def action_to_str(self, action: EnvAction) -> str:
         return str(action)
 
     # --- inherit implementation(継承元の実装)
@@ -71,7 +71,7 @@ class TurnBase2Player(EnvBase):
         state = self.reset_turn()
         return state, [self.player_index]
 
-    def step(self, actions: List[Action]) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
+    def step(self, actions: List[EnvAction]) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
         n_s, reward1, reward2, done, info = self.step_turn(actions[0])
         return n_s, [reward1, reward2], done, [self.player_index], info
 

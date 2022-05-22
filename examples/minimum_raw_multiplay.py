@@ -36,13 +36,14 @@ def _run_episode(
                 workers[idx].on_reset(state, idx, env)
                 players_status[idx] = "RUNNING"
 
-            if rendering:
-                print(f"player {idx}")
-                workers[idx].render(env)
-
             # --- rl action
             action = workers[idx].policy(state, idx, env)
             actions.append(action)
+
+            # render
+            if rendering:
+                print(f"player {idx}")
+                workers[idx].render(env, idx)
 
         # --- env step
         state, rewards, done, next_player_indices, env_info = env.step(actions)

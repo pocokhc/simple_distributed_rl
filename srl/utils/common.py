@@ -101,7 +101,15 @@ def load_module(entry_point: str):
     return cls
 
 
+_package_cache = {}
+
+
 def is_package_installed(name: str) -> bool:
+    global _package_cache
+
+    if name in _package_cache:
+        return _package_cache[name]
+
     try:
         importlib.import_module(name)
     except ImportError:
@@ -109,5 +117,8 @@ def is_package_installed(name: str) -> bool:
 
     for m in pkgutil.iter_modules():
         if m.name == name:
+            _package_cache[name] = True
             return True
+
+    _package_cache[name] = False
     return False

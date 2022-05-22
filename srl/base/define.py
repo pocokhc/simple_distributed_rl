@@ -1,18 +1,25 @@
 import enum
 from typing import Dict, List, Union
 
-# Obsearvation = np.ndarray
+import numpy as np
+
+# space type
+DiscreteSpaceType = Union[int, List[int]]
+ContinuousSpaceType = Union[float, List[float], np.ndarray]
+SpaceType = Union[int, List[int], float, List[float], np.ndarray]
+
+# action type
 DiscreteAction = int
 ContinuousAction = List[float]
-Action = Union[DiscreteAction, ContinuousAction]
-InvalidAction = DiscreteAction
-Info = Dict[str, Union[float, int]]
+EnvAction = SpaceType
+RLAction = Union[int, List[float], float]
+EnvInvalidAction = Union[int, List[int]]
+RLInvalidAction = int
 
-# not use(本当に要らないか様子見)
-# class EnvActionType(enum.Enum):
-#    UNKNOWN = 0
-#    DISCRETE = enum.auto()  # 離散
-#    CONTINUOUS = enum.auto()  # 連続
+# other type
+EnvObservation = SpaceType
+RLObservation = np.ndarray
+Info = Dict[str, Union[float, int]]
 
 
 class EnvObservationType(enum.Enum):
@@ -29,13 +36,13 @@ class EnvObservationType(enum.Enum):
     SHAPE3 = enum.auto()  # (n, width, height)
 
 
-class RLActionType(enum.Enum):
+class RLObservationType(enum.Enum):
     ANY = enum.auto()
     DISCRETE = enum.auto()  # 離散
     CONTINUOUS = enum.auto()  # 連続
 
 
-class RLObservationType(enum.Enum):
+class RLActionType(enum.Enum):
     ANY = enum.auto()
     DISCRETE = enum.auto()  # 離散
     CONTINUOUS = enum.auto()  # 連続

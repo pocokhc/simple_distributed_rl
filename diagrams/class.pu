@@ -32,8 +32,8 @@ enum EnvObservationType {
 }
 
 abstract EnvBase {
-    action_space : gym.spaces.Space
-    observation_space : gym.spaces.Space
+    action_space : SpaceBase
+    observation_space : SpaceBase
     reset()
     step(action)
     render()
@@ -47,13 +47,16 @@ abstract EnvBase {
     - restore()
 } 
 
+abstract SpaceBase {
+
+}
 
 abstract RLConfig {
     {static} getName() : str
     action_type : RLActionType
     observation_type : RLObservationType
     assert_params()
-    set_config_by_env(EnvForRL)
+    set_config_by_env(EnvBase)
 }
 
 abstract RLRemoteMemory {
@@ -95,6 +98,7 @@ RLConfig .. RLObservationType
 
 EnvBase <|-- gym.Env
 EnvBase .. EnvObservationType
+EnvBase -- SpaceBase
 
 RLWorker -- EnvBase
 

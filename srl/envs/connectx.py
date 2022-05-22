@@ -64,6 +64,7 @@ class ConnectX(TurnBase2Player):
         return np.array(self.board)
 
     def step_turn(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
+        assert isinstance(action, int)
         states = self.env.step([action, action])
         self.board = states[0].observation["board"]
         reward1 = states[0].reward

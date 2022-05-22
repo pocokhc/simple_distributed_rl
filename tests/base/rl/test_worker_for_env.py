@@ -2,7 +2,7 @@ import unittest
 from typing import Any, List, Tuple
 
 import numpy as np
-from srl.base.define import Action, EnvObservationType, Info, RLActionType, RLObservationType
+from srl.base.define import EnvObservationType, Info, RLAction, RLActionType, RLObservationType
 from srl.base.env import registration
 from srl.base.env.base import EnvBase, EnvConfig, SpaceBase
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
@@ -44,10 +44,10 @@ class StubEnv(EnvBase):
     def player_num(self) -> int:
         return 1
 
-    def reset(self) -> Tuple[np.ndarray, List[int]]:
+    def reset(self):
         return self.state, [0]
 
-    def step(self, actions: List):
+    def step(self, actions):
         self.actions = actions
         return self.state, [self.reward], self.done, [0], self.info
 
@@ -117,7 +117,7 @@ class StubRLWorker(RLWorker):
         state: np.ndarray,
         player_index: int,
         env: EnvBase,
-    ) -> Action:
+    ) -> RLAction:
         self.state = state
         return self.action
 
@@ -132,7 +132,7 @@ class StubRLWorker(RLWorker):
         self.state = next_state
         return {}
 
-    def render(self, env: EnvBase) -> None:
+    def render(self, env: EnvBase, player_index: int) -> None:
         raise NotImplementedError()
 
 
@@ -235,7 +235,7 @@ class Test(unittest.TestCase):
                 elif pat[0] == "Box":
                     self.env._observation_space = BoxSpace(low=-1, high=3, shape=(2, 3))
                     self.env._observation_type = EnvObservationType.UNKNOWN
-                    env_state = [[0.1, 0.2, 0.3], [0.7, 0.8, 0.9]]
+                    env_state = np.array([[0.1, 0.2, 0.3], [0.7, 0.8, 0.9]])
 
                 if pat[1] == "Dis":
                     self.rl_config._observation_type = RLObservationType.DISCRETE

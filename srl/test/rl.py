@@ -5,6 +5,7 @@ from typing import cast
 import numpy as np
 import srl
 from srl.base.define import EnvObservationType
+from srl.base.env.processors import ImageProcessor
 from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
 from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
 from srl.envs.grid import Grid
@@ -24,7 +25,6 @@ class TestRL:
 
         self.env_list = [
             srl.envs.Config("FrozenLake-v1"),
-            srl.envs.Config("OneRoad"),
             srl.envs.Config("OX"),
         ]
 
@@ -59,10 +59,10 @@ class TestRL:
             config = sequence.Config(env_config, rl_config)
 
             # --- train
-            mp_config = mp.Config(worker_num=1)
+            mp_config = mp.Config(worker_num=2)
             config.set_train_config()
             mp_config.set_train_config(
-                max_train_count=10, callbacks=[TrainFileLogger(enable_checkpoint=False, enable_log=False)]
+                max_train_count=5, callbacks=[TrainFileLogger(enable_checkpoint=False, enable_log=False)]
             )
             parameter, memory = mp.train(config, mp_config)
 
@@ -84,8 +84,8 @@ class TestRL:
         config = sequence.Config(env_config, rl_config)
 
         if is_atari:
-            env_config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
-            env_config.override_env_observation_type = EnvObservationType.COLOR
+            rl_config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
+            rl_config.override_env_observation_type = EnvObservationType.COLOR
             config.max_episode_steps = 50
             config.skip_frames = 4
 

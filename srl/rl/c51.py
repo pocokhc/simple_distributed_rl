@@ -4,14 +4,18 @@ from typing import Any, Dict, List, Tuple, Union, cast
 
 import numpy as np
 import tensorflow as tf
-from srl.base.env.base import EnvBase
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
-from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.define import RLObservationType
+from srl.base.env.base import EnvBase
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
-from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
+from srl.rl.functions.common import render_discrete_action
+from srl.rl.functions.model import (ImageLayerType,
+                                    create_input_layers_one_sequence)
 
 """
 Categorical DQN（C51）
@@ -21,6 +25,7 @@ Other
     invalid_actions : TODO
 
 """
+
 
 # ------------------------------------------------------
 # config
@@ -47,6 +52,10 @@ class Config(DiscreteActionConfig):
 
     def __post_init__(self):
         super().__init__()
+
+    @property
+    def observation_type(self) -> RLObservationType:
+        return RLObservationType.CONTINUOUS
 
     @staticmethod
     def getName() -> str:
@@ -87,7 +96,7 @@ class Parameter(RLParameter):
         self.config = cast(Config, self.config)
 
         in_state, c = create_input_layers_one_sequence(
-            self.config.env_observation_shape,
+            self.config.observation_shape,
             self.config.env_observation_type,
             self.config.image_layer_type,
         )
@@ -175,10 +184,10 @@ class Trainer(RLTrainer):
         # 再割り当て
         target_dists = np.zeros((self.config.batch_size, self.config.categorical_num_atoms))
         bj = (TZ - self.v_min) / self.delta_z
-        ratios, indexies = np.modf(bj)
+        ratios, indexes = np.modf(bj)
         for i in range(self.config.batch_size):
             for j in range(self.n_atoms):
-                idx = int(indexies[i][j])
+                idx = int(indexes[i][j])
                 ratio = ratios[i][j]
                 target_dists[i][idx] += next_dists[i][j] * (1 - ratio)
                 if ratio != 0:
@@ -215,12 +224,13 @@ class Worker(DiscreteActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-        self.Vmin = -10
-        self.Vmax = 10
-        self.Z = np.linspace(self.Vmin, self.Vmax, self.config.categorical_num_atoms)
+        self.v_min = -10
+        self.v_max = 10
+        self.Z = np.linspace(self.v_min, self.v_max, self.config.categorical_num_atoms)
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
         self.state = state
+        self.invalid_actions = invalid_actions
 
         if self.training:
             self.epsilon = self.config.epsilon
@@ -229,6 +239,7 @@ class Worker(DiscreteActionWorker):
 
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
         self.state = state
+        self.invalid_actions = invalid_actions
 
         if random.random() < self.epsilon:
             # epsilonより低いならランダム
@@ -254,7 +265,7 @@ class Worker(DiscreteActionWorker):
         reward: float,
         done: bool,
         next_invalid_actions: List[int],
-    ) -> Dict[str, Union[float, int]]:
+    ) -> Dict:
 
         if not self.training:
             return {}
@@ -269,18 +280,14 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.add(batch)
         return {}
 
-    def render(self, env: EnvBase):
+    def render(self, env: EnvBase, player_index: int):
         logits = self.parameter.Q(self.state[np.newaxis, ...])
         probs = tf.nn.softmax(logits, axis=2)
         q_means = tf.reduce_sum(probs * self.Z, axis=2, keepdims=True)
         q = q_means[0].numpy().reshape(-1)
-
         maxa = np.argmax(q)
 
-        for a in range(self.config.nb_actions):
-            if a == maxa:
-                s = "*"
-            else:
-                s = " "
-            s += f"{env.action_to_str(a)}: {q[a]:5.3f}"
-            print(s)
+        def _render_sub(a: int) -> str:
+            return f"{q[a]:7.5f}"
+
+        render_discrete_action(self.invalid_actions, maxa, env, _render_sub)

@@ -31,31 +31,24 @@ def create_input_layers_one_sequence(
     # --- image head
     if observation_type == EnvObservationType.GRAY_2ch:
         assert len(input_shape) == 2
-
         # (w, h) -> (w, h, 1)
         c = kl.Reshape(input_shape + (1,))(c)
 
     elif observation_type == EnvObservationType.GRAY_3ch:
         assert len(input_shape) == 3
-
         # (width, height, 1)
-        pass
 
     elif observation_type == EnvObservationType.COLOR:
         assert len(input_shape) == 3
-
         # (width, height, ch)
-        pass
 
     elif observation_type == EnvObservationType.SHAPE2:
         assert len(input_shape) == 2
-
         # (width, height) -> (width, height, 1)
         c = kl.Reshape(input_shape + (1,))(c)
 
     elif observation_type == EnvObservationType.SHAPE3:
         assert len(input_shape) == 3
-
         # (n, width, height) -> (width, height, n)
         c = kl.Permute((2, 3, 1))(c)
 
@@ -87,31 +80,26 @@ def create_input_layers(
 
         if observation_type == EnvObservationType.GRAY_2ch:
             assert len(input_shape) == 3
-
             # (1, w, h) -> (w, h, 1)
             c = kl.Permute((2, 3, 1))(c)
 
         elif observation_type == EnvObservationType.GRAY_3ch:
             assert len(input_shape) == 4
-
             # (1, width, height, 1) -> ( width, height, 1)
             c = kl.Reshape(input_shape[1:])(c)
 
         elif observation_type == EnvObservationType.COLOR:
             assert len(input_shape) == 4
-
             # (1, width, height, ch) -> (width, height, ch)
             c = kl.Reshape(input_shape[1:])(c)
 
         elif observation_type == EnvObservationType.SHAPE2:
             assert len(input_shape) == 3
-
             # (1, width, height) -> (width, height, 1)
             c = kl.Permute((2, 3, 1))(c)
 
         elif observation_type == EnvObservationType.SHAPE3:
             assert len(input_shape) == 4
-
             # (1, n, width, height) -> (n, width, height)
             # (n, width, height) -> (width, height, n)
             c = kl.Reshape(input_shape[1:])(c)
@@ -125,15 +113,15 @@ def create_input_layers(
         if observation_type == EnvObservationType.GRAY_2ch:
             assert len(input_shape) == 3
 
-            # (in_stateseq, w, h) -> (w, h, in_stateseq)
+            # (in_state_seq, w, h) -> (w, h, in_state_seq)
             c = kl.Permute((2, 3, 1))(c)
 
         elif observation_type == EnvObservationType.GRAY_3ch:
             assert len(input_shape) == 4
             assert input_shape[-1] == 1
 
-            # (in_stateseq, width, height, 1) -> (in_stateseq, width, height)
-            # (in_stateseq, width, height) -> (width, height, in_stateseq)
+            # (in_state_seq, width, height, 1) -> (in_state_seq, width, height)
+            # (in_state_seq, width, height) -> (width, height, in_state_seq)
             c = kl.Reshape(input_shape[:3])(c)
             c = kl.Permute((2, 3, 1))(c)
 
@@ -143,7 +131,7 @@ def create_input_layers(
         elif observation_type == EnvObservationType.SHAPE2:
             assert len(input_shape) == 3
 
-            # (in_stateseq, width, height) -> (w, h, in_stateseq)
+            # (in_state_seq, width, height) -> (w, h, in_state_seq)
             c = kl.Permute((2, 3, 1))(c)
 
         elif observation_type == EnvObservationType.SHAPE3:

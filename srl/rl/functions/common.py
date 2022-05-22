@@ -1,6 +1,7 @@
 import random
 
 import numpy as np
+from srl.base.env.base import EnvBase
 
 
 def rescaling(x, eps=0.001):
@@ -65,7 +66,7 @@ def random_choice_by_probs(probs):
         num += weight
         if r <= num:
             return i
-    # not comming
+    # not coming
     raise ValueError
 
 
@@ -74,8 +75,8 @@ def calc_epsilon_greedy_probs(q, invalid_actions, epsilon, action_num):
     # filter
     q = np.array([(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)])
 
-    qmax = np.amax(q, axis=0)
-    qmax_num = np.count_nonzero(q == qmax)
+    q_max = np.amax(q, axis=0)
+    q_max_num = np.count_nonzero(q == q_max)
 
     valid_action_num = action_num - len(invalid_actions)
     probs = []
@@ -84,11 +85,33 @@ def calc_epsilon_greedy_probs(q, invalid_actions, epsilon, action_num):
             probs.append(0.0)
         else:
             prob = epsilon / valid_action_num
-            if q[a] == qmax:
-                prob += (1 - epsilon) / qmax_num
+            if q[a] == q_max:
+                prob += (1 - epsilon) / q_max_num
             probs.append(prob)
     return probs
 
 
 def to_str_observation(state: np.ndarray) -> str:
     return str(state.flatten().tolist()).replace(" ", "")[1:-1]
+
+
+def render_discrete_action(invalid_actions, maxa, env: EnvBase, func) -> None:
+    action_num = env.action_space.get_action_discrete_info()
+    for action in range(action_num):
+        if len(invalid_actions) > 10:
+            if action in invalid_actions:
+                continue
+            s = ""
+        else:
+            if action in invalid_actions:
+                s = "x"
+            else:
+                s = " "
+        if maxa is not None:
+            if action == maxa:
+                s += "*"
+            else:
+                s += " "
+        rl_s = func(action)
+        s += f"{env.action_to_str(action)}: {rl_s}"
+        print(s)

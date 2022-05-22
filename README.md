@@ -11,6 +11,7 @@
 + 環境とアルゴリズム間のインタフェースの自動調整
 + 分散強化学習のサポート
 
+また本フレームワークの解説は[Qiita記事](https://qiita.com/pocokhc/items/a2f1ba993c79fdbd4b4d)にて増やしていく予定なのでそちらも参照してください。
 
 
 # Install
@@ -212,4 +213,26 @@ examples/custom_rl.ipynb
 ## Class diagram
 
 ![](diagrams/class.png)
+
+
+# Interface
+
+|   |           |          |Type|
+|---|-----------|----------|------|
+|env|action     |          |Space|
+|env|observation|          |Space|
+|rl |action     |Discrete  |int|
+|rl |action     |Continuous|list[float]|
+|rl |observation|Discrete  |np.ndarray(dtype=int)|
+|rl |observation|Continuous|np.ndarray(dtype=float)|
+
+* Space(srl.base.env.spaces)
+
+|class               |Type       |
+|--------------------|-----------|
+|DiscreteSpace       |int        |
+|ArrayDiscreteSpace  |list[int]  |
+|ContinuousSpace     |float      |
+|ArrayContinuousSpace|list[float]|
+|BoxSpace            |np.ndarray |
 

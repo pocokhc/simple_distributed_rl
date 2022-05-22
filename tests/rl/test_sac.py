@@ -16,7 +16,7 @@ class Test(unittest.TestCase):
         self.tester.play_mp(self.rl_config)
 
     def test_verify_Pendulum(self):
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 20, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 25, 10)
 
 
 if __name__ == "__main__":

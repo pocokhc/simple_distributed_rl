@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, Tuple, Type
 
-from srl.base.env.base import EnvBase
+from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer, RLWorker
 from srl.utils.common import load_module
 
@@ -12,7 +12,7 @@ _registry = {}
 _ASSERT_MSG = "Run 'rl_config.set_config_by_env(env)' first"
 
 
-def make(config: RLConfig, env: EnvBase) -> Tuple[RLRemoteMemory, RLParameter, RLTrainer, RLWorker]:
+def make(config: RLConfig, env: EnvRun) -> Tuple[RLRemoteMemory, RLParameter, RLTrainer, RLWorker]:
     if not config.is_set_config_by_env:
         config.set_config_by_env(env)
 
@@ -47,7 +47,7 @@ def make_trainer(config: RLConfig, parameter: RLParameter, remote_memory: RLRemo
 
 def make_worker(
     config: RLConfig,
-    env: EnvBase,
+    env: EnvRun,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
     worker_id: int = 0,

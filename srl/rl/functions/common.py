@@ -1,7 +1,7 @@
 import random
 
 import numpy as np
-from srl.base.env.base import EnvBase
+from srl.base.env.base import EnvRun
 
 
 def rescaling(x, eps=0.001):
@@ -95,7 +95,7 @@ def to_str_observation(state: np.ndarray) -> str:
     return str(state.flatten().tolist()).replace(" ", "")[1:-1]
 
 
-def render_discrete_action(invalid_actions, maxa, env: EnvBase, func) -> None:
+def render_discrete_action(invalid_actions, maxa, env: EnvRun, func) -> None:
     action_num = env.action_space.get_action_discrete_info()
     for action in range(action_num):
         if len(invalid_actions) > 10:

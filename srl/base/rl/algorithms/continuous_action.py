@@ -2,8 +2,16 @@ import logging
 from abc import abstractmethod
 
 import numpy as np
-from srl.base.define import ContinuousAction, EnvObservationType, Info, RLAction, RLActionType, RLObservationType
-from srl.base.env.base import EnvBase, SpaceBase
+from srl.base.define import (
+    ContinuousAction,
+    EnvObservationType,
+    Info,
+    RLAction,
+    RLActionType,
+    RLObservation,
+    RLObservationType,
+)
+from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.rl.base import RLConfig, RLWorker
 
 logger = logging.getLogger(__name__)
@@ -16,7 +24,7 @@ class ContinuousActionConfig(RLConfig):
 
     def _set_config_by_env(
         self,
-        env: EnvBase,
+        env: EnvRun,
         env_action_space: SpaceBase,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationType,
@@ -68,24 +76,14 @@ class ContinuousActionWorker(RLWorker):
     def call_on_reset(self, state: np.ndarray) -> None:
         raise NotImplementedError()
 
-    def _on_reset(
-        self,
-        state: np.ndarray,
-        player_index: int,
-        env: EnvBase,
-    ) -> None:
+    def _call_on_reset(self, state: RLObservation, env: EnvRun) -> None:
         self.call_on_reset(state)
 
     @abstractmethod
     def call_policy(self, state: np.ndarray) -> ContinuousAction:
         raise NotImplementedError()
 
-    def _policy(
-        self,
-        state: np.ndarray,
-        player_index: int,
-        env: EnvBase,
-    ) -> RLAction:
+    def _call_policy(self, state: RLObservation, env: EnvRun) -> RLAction:
         return self.call_policy(state)
 
     @abstractmethod
@@ -97,12 +95,18 @@ class ContinuousActionWorker(RLWorker):
     ) -> Info:
         raise NotImplementedError()
 
-    def _on_step(
+    def _call_on_step(
         self,
-        next_state: np.ndarray,
+        next_state: RLObservation,
         reward: float,
         done: bool,
-        player_index: int,
-        env: EnvBase,
+        env: EnvRun,
     ) -> Info:
         return self.call_on_step(next_state, reward, done)
+
+    @abstractmethod
+    def call_render(self, env: EnvRun) -> Info:
+        raise NotImplementedError()
+
+    def _call_render(self, env: EnvRun) -> Info:
+        return self.call_render(env)

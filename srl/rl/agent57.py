@@ -7,23 +7,21 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvBase
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.env.base import EnvRun
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (
-    calc_epsilon_greedy_probs,
-    create_beta_list,
-    create_epsilon_list,
-    create_gamma_list,
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
+from srl.rl.functions.common import (calc_epsilon_greedy_probs,
+                                     create_beta_list, create_epsilon_list,
+                                     create_gamma_list, inverse_rescaling,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling)
 from srl.rl.functions.dueling_network import create_dueling_network_layers
-from srl.rl.functions.model import ImageLayerType, create_input_layers_lstm_stateful, create_input_layers_one_sequence
+from srl.rl.functions.model import (ImageLayerType,
+                                    create_input_layers_lstm_stateful,
+                                    create_input_layers_one_sequence)
 from tensorflow.keras import layers as kl
 
 """
@@ -899,7 +897,7 @@ class Worker(DiscreteActionWorker):
 
         return reward
 
-    def render(self, env: EnvBase, player_index: int) -> None:
+    def call_render(self, env: EnvRun) -> None:
         state = self.recent_states[-1]
         invalid_actions = self.recent_invalid_actions[-1]
         states = np.asarray([[state]] * self.config.batch_size)

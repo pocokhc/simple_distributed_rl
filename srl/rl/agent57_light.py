@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvBase
+from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -759,12 +759,12 @@ class Worker(DiscreteActionWorker):
 
         return reward
 
-    def render(self, env: EnvBase, player_index: int) -> None:
+    def call_render(self, env: EnvRun) -> None:
         state = np.asarray([self.recent_states[1:]])
         q_ext = self.parameter.q_ext_online(state)[0].numpy()
         q_int = self.parameter.q_int_online(state)[0].numpy()
         q = q_ext + self.beta * q_int
-        invalid_actions = self.get_invalid_actions(env, player_index)
+        invalid_actions = self.get_invalid_actions(env)
 
         maxa = np.argmax(q)
 

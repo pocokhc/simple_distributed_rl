@@ -72,7 +72,7 @@ class IGrid(SinglePlayEnv):
     def max_episode_steps(self) -> int:
         return (self.length + 2) * 2 * 2
 
-    def reset_single(self) -> Any:
+    def call_reset(self) -> np.ndarray:
         self.player_pos = (1, int((self.length + 2 - 1) / 2))
 
         self.field = [[1, 1, 1]]
@@ -95,7 +95,7 @@ class IGrid(SinglePlayEnv):
         self.player_pos = d[0]
         self.field = d[1]
 
-    def step_single(self, action_: int) -> Tuple[Any, float, bool, dict]:
+    def call_step(self, action_: int) -> Tuple[np.ndarray, float, bool, dict]:
         action = Action(action_)
 
         x = self.player_pos[0]

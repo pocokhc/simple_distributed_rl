@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvBase
+from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.registration import register
@@ -91,8 +91,8 @@ class _Network(keras.Model):
             c = kl.Dense(h, activation=config.activation, kernel_initializer="he_normal")(c)
 
         # --- out layer
-        policy = kl.Dense(config.nb_actions, activation="softmax", bias_initializer="truncated_normal")(c)
-        value = kl.Dense(1, bias_initializer="truncated_normal")(c)
+        policy = kl.Dense(config.nb_actions, activation="softmax", bias_initializer="he_normal")(c)
+        value = kl.Dense(1)(c)
         self.model = keras.Model(in_state, [policy, value])
 
         # 重みを初期化
@@ -116,37 +116,20 @@ class Parameter(RLParameter):
 
         self.network = _Network(self.config)
 
-        self.N = {}  # 訪問回数
-        self.W = {}  # 累計報酬
-
         # cache (simulationで繰り返すので)
         self.reset_cache()
 
     def restore(self, data: Any) -> None:
-        d = pickle.loads(data)
-        self.N = d[0]
-        self.W = d[1]
-        self.network.set_weights(d[2])
+        self.network.set_weights(pickle.loads(data))
         self.reset_cache()
 
     def backup(self):
-        return pickle.dumps(
-            [
-                self.N,
-                self.W,
-                self.network.get_weights(),
-            ]
-        )
+        return pickle.dumps(self.network.get_weights())
 
     def summary(self):
         self.network.model.summary()
 
     # ------------------------
-
-    def init_state(self, state_str):
-        if state_str not in self.N:
-            self.W[state_str] = [0 for _ in range(self.config.nb_actions)]
-            self.N[state_str] = [0 for _ in range(self.config.nb_actions)]
 
     def pred_PV(self, state, state_str):
         if state_str not in self.P:
@@ -236,28 +219,36 @@ class Worker(RLWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def _on_reset(self, state: np.ndarray, player_index: int, env: EnvBase) -> None:
+    def _call_on_reset(self, state: np.ndarray, env: EnvRun) -> None:
         self.step = 0
         self.state = state
         self.state_str = to_str_observation(state)
-        self.invalid_actions = env.get_invalid_actions(player_index)
+        self.invalid_actions = self.get_invalid_actions(env)
 
         self.history = []
 
-    def _policy(self, state: np.ndarray, player_index: int, env: EnvBase) -> int:
+        self.N = {}  # 訪問回数
+        self.W = {}  # 累計報酬
 
-        state_str = to_str_observation(state)
-        self.parameter.N = {}
-        self.parameter.W = {}
-        self.parameter.init_state(state_str)
+    def init_state(self, state_str):
+        if state_str not in self.N:
+            self.N[state_str] = [0 for _ in range(self.config.nb_actions)]
+            self.W[state_str] = [0 for _ in range(self.config.nb_actions)]
+
+    def _call_policy(self, state: np.ndarray, env: EnvRun) -> int:
+        self.state = state
+        self.state_str = to_str_observation(state)
+        self.invalid_actions = env.get_invalid_actions(self.player_index)
+
+        self.init_state(self.state_str)
 
         # シミュレーションしてpolicyを作成
         dat = env.backup()
         for _ in range(self.config.simulation_times):
-            self._simulation(state, state_str, env, player_index)
+            self._simulation(state, self.state_str, env, self.player_index)
             env.restore(dat)
-        N = sum(self.parameter.N[state_str])
-        n = self.parameter.N[state_str]
+        N = sum(self.N[self.state_str])
+        n = self.N[self.state_str]
         policy = [n[a] / N for a in range(self.config.nb_actions)]
 
         if self.step < self.config.early_steps:
@@ -265,78 +256,53 @@ class Worker(RLWorker):
             probs = np.array([0 if a in self.invalid_actions else v for a, v in enumerate(policy)])  # mask
             action = random_choice_by_probs(probs)
         else:
-            # 確率が一番高いアクションを採用
             action = random.choice(np.where(policy == np.max(policy))[0])
 
-        # self.policy_ = [1 if action == a else 0 for a in range(self.config.nb_actions)]
         self.policy_ = policy
-
-        self.remote_memory.add(
-            {
-                "state": state,
-                "policy": self.policy_,
-                "reward": self.parameter.W[state_str][action] / self.parameter.N[state_str][action],
-            }
-        )
-
         return int(action)
 
-    def _simulation(self, state: np.ndarray, state_str: str, env: EnvBase, player_index, depth: int = 0):
+    def _simulation(self, state: np.ndarray, state_str: str, env: EnvRun, player_index, depth: int = 0):
         if depth >= env.max_episode_steps:  # for safety
             return 0
 
         action = self._select_action(env, state, state_str, player_index)
 
         # ロールアウト
-        if False:
-            # if self.parameter.N[state_str][action] < self.config.action_select_threshold:
+        if self.N[state_str][action] < self.config.action_select_threshold:
             reward = self.parameter.V[state_str]
         else:
-            next_player_indices = env.get_next_player_indices()
-            assert player_index in next_player_indices
-
-            # --- steps
-            reward = 0
-            n_state = state
-            n_state_str = state_str
-            while True:
-                actions = [self._select_action(env, n_state, n_state_str, idx) for idx in next_player_indices]
-                n_state, rewards, done, next_player_indices, _ = env.step(actions)
-                n_state = self.observation_encode(n_state, env)
-                n_state_str = to_str_observation(n_state)
-                reward += rewards[player_index]
-
-                if player_index in next_player_indices:
-                    break
-                if done:
-                    break
-
-            if done:
+            # step
+            n_state, reward = self.env_step(env)
+            if env.done:
                 pass  # 終了
             else:
                 # 展開
+                n_state_str = to_str_observation(n_state)
                 reward += self._simulation(n_state, n_state_str, env, player_index, depth + 1)
 
         # 結果を記録
-        self.parameter.N[state_str][action] += 1
-        self.parameter.W[state_str][action] += reward
-        # self.remote_memory.add_simulation  TODO remote
+        self.N[state_str][action] += 1
+        self.W[state_str][action] += reward
 
         return reward * self.config.gamma  # 割り引いて前に伝搬
 
+    def _env_step_policy(self, state: np.ndarray, env: EnvRun) -> int:
+        return self._select_action(env, state, to_str_observation(state), self.player_index)
+
     def _select_action(self, env, state, state_str, idx):
-        self.parameter.init_state(state_str)
+        self.init_state(state_str)
         self.parameter.pred_PV(state, state_str)
 
         invalid_actions = env.get_invalid_actions(idx)
         scores = self._calc_puct(state_str, invalid_actions)
 
         action = random.choice(np.where(scores == np.max(scores))[0])
+
         return int(action)
 
     def _calc_puct(self, state_str, invalid_actions):
         # --- PUCTに従ってアクションを選択
-        N = np.sum(self.parameter.N[state_str])
+        N = np.sum(self.N[state_str])
         scores = []
         for a in range(self.config.nb_actions):
             if a in invalid_actions:
@@ -346,32 +312,28 @@ class Worker(RLWorker):
                 # U(s,a) = C_puct * P(s,a) * sqrt(ΣN(s)) / (1+N(s,a))
                 # score = Q(s,a) + U(s,a)
                 P = self.parameter.P[state_str][a]
-                n = self.parameter.N[state_str][a]
+                n = self.N[state_str][a]
                 u = self.config.puct_c * P * (np.sqrt(N) / (1 + n))
-                if self.parameter.N[state_str][a] == 0:
+                if self.N[state_str][a] == 0:
                     q = 0
                 else:
-                    q = self.parameter.W[state_str][a] / n
+                    q = self.W[state_str][a] / n
                 score = q + u
             scores.append(score)
         return scores
 
-    def _on_step(
+    def _call_on_step(
         self,
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        player_index: int,
-        env: EnvBase,
+        env: EnvRun,
     ):
         self.history.append([self.state, self.policy_, reward])
 
         self.step += 1
-        self.state = next_state
-        self.state_str = to_str_observation(next_state)
-        self.invalid_actions = env.get_invalid_actions(player_index)
 
-        if False and done and self.training:
+        if done and self.training:
             # 報酬を逆伝搬
             reward = 0
             for h in reversed(self.history):
@@ -386,17 +348,17 @@ class Worker(RLWorker):
 
         return {}
 
-    def render(self, env: EnvBase, player_index: int) -> None:
-        self.parameter.init_state(self.state_str)
+    def _call_render(self, env: EnvRun) -> None:
+        self.init_state(self.state_str)
         self.parameter.pred_PV(self.state, self.state_str)
         print(f"value: {self.parameter.V[self.state_str]:7.3f}")
         puct = self._calc_puct(self.state_str, self.invalid_actions)
-        invalid_actions = self.get_invalid_actions(env, player_index)
+        invalid_actions = self.get_invalid_actions(env)
 
         def _render_sub(a: int) -> str:
-            if self.state_str in self.parameter.W:
-                q = self.parameter.W[self.state_str][a]
-                c = self.parameter.N[self.state_str][a]
+            if self.state_str in self.W:
+                q = self.W[self.state_str][a]
+                c = self.N[self.state_str][a]
                 if c != 0:
                     q /= c
             else:

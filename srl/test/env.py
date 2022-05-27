@@ -1,7 +1,7 @@
 import numpy as np
 import srl
 from srl.base.define import RenderType
-from srl.base.env.base import EnvBase
+from srl.base.env.base import EnvRun
 from srl.runner import sequence
 from srl.runner.callbacks import PrintProgress
 
@@ -13,15 +13,20 @@ class TestEnv:
         check_render: bool = True,
         check_restore: bool = True,
         max_step: int = 0,
-        print_disable: bool = False,
-    ) -> EnvBase:
+        print_enable: bool = False,
+    ) -> EnvRun:
 
         # renderとrestoreの同時は想定しないとする
-        env = self._play_test(env_name, False, check_restore, max_step, print_disable)
+        env = self._play_test(env_name, False, check_restore, max_step, print_enable)
         if check_render:
-            env = self._play_test(env_name, check_render, False, max_step, print_disable)
+            env = self._play_test(env_name, check_render, False, max_step, print_enable)
 
         return env
+
+    def _is_space_base_instance(self, val):
+        if type(val) in [int, float, list, np.ndarray]:
+            return True
+        return False
 
     def _play_test(
         self,
@@ -29,18 +34,18 @@ class TestEnv:
         check_render,
         check_restore,
         max_step,
-        print_disable,
+        print_enable,
     ):
         env = srl.envs.make(env_name)
-        assert issubclass(env.__class__, EnvBase)
+        assert issubclass(env.__class__, EnvRun)
 
         player_num = env.player_num
         assert player_num > 0
 
         # --- reset
-        state, next_player_indices = env.reset()
-        assert isinstance(state, np.ndarray)
-        for i in next_player_indices:
+        env.reset()
+        assert self._is_space_base_instance(env.state)
+        for i in env.next_player_indices:
             assert 0 <= i < player_num
 
         # --- restore/backup
@@ -48,9 +53,8 @@ class TestEnv:
             dat = env.backup()
             env.restore(dat)
 
-        # --- episode
-        done = False
-        step = 0
+        assert not env.done
+        assert env.step_num == 0
 
         # render
         if check_render:
@@ -60,11 +64,11 @@ class TestEnv:
                 except NotImplementedError:
                     pass
 
-        while not done:
+        while not env.done:
 
             # --- sample
-            actions = env.sample(next_player_indices)
-            assert len(actions) == len(next_player_indices)
+            actions = env.samples()
+            assert len(actions) == env.player_num
 
             # get_invalid_actions
             for idx in range(env.player_num):
@@ -74,24 +78,19 @@ class TestEnv:
                     assert isinstance(a, int)
 
             # --- step
-            state, rewards, done, next_player_indices, info = env.step(actions)
-            assert len(rewards) == player_num
-            assert isinstance(state, np.ndarray)
-            assert isinstance(done, bool)
-            assert isinstance(info, dict)
-            for i in next_player_indices:
+            env.step(actions)
+            assert self._is_space_base_instance(env.state)
+            assert isinstance(env.done, bool)
+            assert isinstance(env.info, dict)
+            for i in env.next_player_indices:
                 assert 0 <= i < player_num
             # uniq check
-            assert len(next_player_indices) == len(list(set(next_player_indices)))
-            for reward in rewards:
-                assert type(reward) in [int, float]
-            step += 1
+            assert len(env.next_player_indices) == len(list(set(env.next_player_indices)))
+            assert len(env.step_rewards) == player_num
+            assert env.step_num > 0
 
-            if step > env.max_episode_steps:
-                done = True
-
-            if not print_disable:
-                print(f"step {step}, actions {actions}, rewards {rewards}")
+            if print_enable:
+                print(f"step {env.step_num}, actions {actions}, rewards {env.step_rewards}")
 
             # --- restore/backup
             if check_restore:
@@ -106,13 +105,13 @@ class TestEnv:
                     except NotImplementedError:
                         pass
 
-            if max_step > 0 and step > max_step:
+            if max_step > 0 and env.step_num > max_step:
                 break
 
         env.close()
         return env
 
-    def player_test(self, env_name: str, player: str) -> EnvBase:
+    def player_test(self, env_name: str, player: str) -> EnvRun:
         env_config = srl.envs.Config(env_name)
         rl_config = srl.rl.random_play.Config()
 

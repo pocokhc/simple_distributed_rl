@@ -5,7 +5,7 @@ from typing import Any, cast
 
 import numpy as np
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvBase
+from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.registration import register
@@ -122,11 +122,11 @@ class Worker(RLWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def _on_reset(self, state: np.ndarray, player_index: int, env: EnvBase) -> None:
+    def _on_reset(self, state: np.ndarray, player_index: int, env: EnvRun) -> None:
         self.state = to_str_observation(state)
         self.invalid_actions = self.get_invalid_actions(env, player_index)
 
-    def _policy(self, _state: np.ndarray, player_index: int, env: EnvBase) -> int:
+    def _policy(self, _state: np.ndarray, player_index: int, env: EnvRun) -> int:
         state = to_str_observation(_state)
 
         if self.training:
@@ -145,7 +145,7 @@ class Worker(RLWorker):
 
         return action
 
-    def _simulation(self, env: EnvBase, state: str, player_index, depth: int = 0):
+    def _simulation(self, env: EnvRun, state: str, player_index, depth: int = 0):
         if depth >= env.max_episode_steps:  # for safety
             return 0
 
@@ -219,7 +219,7 @@ class Worker(RLWorker):
         return ucb_list
 
     # ロールアウト
-    def _rollout(self, env: EnvBase, player_index, next_player_indices):
+    def _rollout(self, env: EnvRun, player_index, next_player_indices):
         step = 0
         done = False
         reward = 0
@@ -238,13 +238,13 @@ class Worker(RLWorker):
         reward: float,
         done: bool,
         player_index: int,
-        env: EnvBase,
+        env: EnvRun,
     ):
         self.state = to_str_observation(next_state)
         self.invalid_actions = self.get_invalid_actions(env, player_index)
         return {}
 
-    def render(self, env: EnvBase, player_index: int) -> None:
+    def call_render(self, env: EnvRun) -> None:
         self.parameter.init_state(self.state)
         maxa = np.argmax(self.parameter.N[self.state])
         ucb_list = self._calc_ucb(self.state, self.invalid_actions)

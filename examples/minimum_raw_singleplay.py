@@ -10,43 +10,31 @@ def _run_episode(
     training,
     rendering=False,
 ):
-    worker.set_training(training, False)
 
     # change single play interface
     env = SinglePlayEnvWrapper(env)
     worker = SinglePlayWorkerWrapper(worker)
 
+    # reset
     state = env.reset()
-
-    done = False
-    step = 0
-    total_reward = 0
-
-    worker.on_reset(state, env)
+    worker.on_reset(env)
 
     if rendering:
         print("step 0")
         env.render()
 
-    while True:
+    while not env.done:
+
+        # action
+        action = worker.policy(env)
 
         # render
         if rendering:
             worker.render(env)
 
-        # action
-        action = worker.policy(state, env)
-
-        # env step
+        # step
         state, reward, done, env_info = env.step(action)
-        step += 1
-        total_reward += reward
-
-        if step > env.max_episode_steps:
-            done = True
-
-        # rl step
-        work_info = worker.on_step(state, reward, done, env)
+        work_info = worker.on_step(env)
 
         # train
         if training and trainer is not None:
@@ -58,25 +46,18 @@ def _run_episode(
         if rendering:
             print(
                 "step {}, action {}, reward: {}, done: {}, info: {} {} {}".format(
-                    step, action, reward, done, env_info, work_info, train_info
+                    env.step_num, action, env.step_rewards[0], env.done, env_info, work_info, train_info
                 )
             )
             env.render()
 
-        # step after
-        if done:
-            break
-
-    return step, total_reward
+    return env.step_num, env.episode_rewards[0]
 
 
 def main():
 
     env_config = srl.envs.Config("Grid")
     rl_config = srl.rl.ql.Config()
-
-    # check rl_config
-    rl_config.assert_params()
 
     # env init
     env = srl.envs.make(env_config)
@@ -85,12 +66,14 @@ def main():
     remote_memory, parameter, trainer, worker = srl.rl.make(rl_config, env)
 
     # --- train loop
+    worker.set_training(True, False)
     for episode in range(10000):
         step, reward = _run_episode(env, worker, trainer, training=True)
         if episode % 1000 == 0:
             print(f"{episode} / 10000 episode, {step} step, {reward} reward")
 
     # --- render
+    worker.set_training(False, False)
     step, reward = _run_episode(env, worker, None, training=False, rendering=True)
     print(f"step: {step}, reward: {reward}")
 

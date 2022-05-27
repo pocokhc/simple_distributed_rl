@@ -1,21 +1,19 @@
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, Union, cast
+from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvBase
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.env.base import EnvRun
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common import render_discrete_action
-from srl.rl.functions.model import (ImageLayerType,
-                                    create_input_layers_one_sequence)
+from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
 
 """
 Categorical DQN（C51）
@@ -280,7 +278,7 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.add(batch)
         return {}
 
-    def render(self, env: EnvBase, player_index: int):
+    def call_render(self, env: EnvRun) -> None:
         logits = self.parameter.Q(self.state[np.newaxis, ...])
         probs = tf.nn.softmax(logits, axis=2)
         q_means = tf.reduce_sum(probs * self.Z, axis=2, keepdims=True)

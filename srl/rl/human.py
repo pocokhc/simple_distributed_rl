@@ -1,7 +1,7 @@
 import logging
 from typing import Any, cast
 
-from srl.base.env.base import EnvBase
+from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.rulebase import (
     GeneralWorker,
     RuleBaseConfig,
@@ -52,7 +52,7 @@ class Worker(GeneralWorker):
         # Con TODO
         self.action_num = self.config.env_action_space.n
 
-    def call_policy(self, env: EnvBase, player_index: int) -> Any:
+    def call_policy(self, env: EnvRun, player_index: int) -> Any:
         invalid_actions = env.get_invalid_actions(player_index)
         actions = [a for a in range(self.action_num) if a not in invalid_actions]
         print(f"select action: {actions}")

@@ -1,7 +1,6 @@
 import logging
-from typing import cast
 
-from srl.base.env.base import EnvBase
+from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.rulebase import (
     GeneralWorker,
     RuleBaseConfig,
@@ -45,10 +44,6 @@ class Trainer(RuleBaseTrainer):
 
 
 class Worker(GeneralWorker):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config = cast(Config, self.config)
-
-    def call_policy(self, env: EnvBase, player_index: int):
-        invalid_actions = env.get_invalid_actions(player_index)
+    def call_policy(self, env: EnvRun, player_index: int):
+        invalid_actions = self.get_invalid_actions(env)
         return self.config.env_action_space.sample(invalid_actions)

@@ -54,7 +54,7 @@ class StoneTaking(TurnBase2Player):
     def player_index(self) -> int:
         return self._player_index
 
-    def reset_turn(self) -> np.ndarray:
+    def call_reset(self) -> np.ndarray:
         self.field = self.stones
         self._player_index = 0
         return np.array([self.field])
@@ -66,7 +66,7 @@ class StoneTaking(TurnBase2Player):
         self.field = data[0]
         self._player_index = data[1]
 
-    def step_turn(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
+    def call_step(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
         action += 1
 
         reward1, reward2, done = self._step(action)
@@ -104,7 +104,7 @@ class StoneTaking(TurnBase2Player):
         print(f"{self.field:3d}: {s}")
         print(f"next player: {self.player_index}")
 
-    def action_to_str(self, action) -> str:
+    def action_to_str(self, action: int) -> str:
         return str(action + 1)
 
     def make_worker(self, name: str) -> Optional[RLWorker]:

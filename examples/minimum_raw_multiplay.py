@@ -1,4 +1,3 @@
-import numpy as np
 import srl
 from srl.base.rl.registration import make_worker
 
@@ -9,70 +8,28 @@ def _run_episode(
     trainer,
     rendering=False,
 ):
-    # --- env
-    state, next_player_indices = env.reset()
 
-    done = False
-    step = 0
-    total_rewards = np.zeros(env.player_num)
+    # --- reset
+    env.reset()
+    [w.on_reset(env, i) for i, w in enumerate(workers)]
 
     if rendering:
         print("step 0")
         env.render()
 
-    # --- players
-    players_status = ["INIT" for _ in range(env.player_num)]
-    players_step_reward = np.zeros(env.player_num)
-    worker_info_list = [None for _ in range(env.player_num)]
+    while not env.done:
 
-    while True:
+        # action
+        actions = [w.policy(env) for w in workers]
 
-        # --- rl before step
-        actions = []
-        for idx in next_player_indices:
-
-            # --- rl init
-            if players_status[idx] == "INIT":
-                workers[idx].on_reset(state, idx, env)
-                players_status[idx] = "RUNNING"
-
-            # --- rl action
-            action = workers[idx].policy(state, idx, env)
-            actions.append(action)
-
-            # render
-            if rendering:
+        if rendering:
+            for idx in env.next_player_indices:
                 print(f"player {idx}")
-                workers[idx].render(env, idx)
+                workers[idx].render(env)
 
-        # --- env step
-        state, rewards, done, next_player_indices, env_info = env.step(actions)
-        step += 1
-
-        # update reward
-        rewards = np.asarray(rewards)
-        total_rewards += rewards
-        players_step_reward += rewards
-
-        # done
-        if step > env.max_episode_steps:
-            done = True
-
-        # --- rl after step
-        if done:
-            # 終了の場合は全playerを実行
-            next_player_indices = [i for i in range(env.player_num)]
-        for idx in next_player_indices:
-            if players_status[idx] != "RUNNING":
-                continue
-            worker_info_list[idx] = workers[idx].on_step(
-                state,
-                players_step_reward[idx],
-                done,
-                idx,
-                env,
-            )
-            players_step_reward[idx] = 0
+        # step
+        env_info = env.step(actions)
+        worker_infos = [w.on_step(env) for w in workers]
 
         # --- trainer
         if trainer is not None:
@@ -84,28 +41,21 @@ def _run_episode(
         if rendering:
             print(
                 "turn {}, actions {}, rewards: {}, done: {}, next player {}, info: {}, ".format(
-                    step, actions, rewards, done, next_player_indices, env_info
+                    env.step_num, actions, env.step_rewards, env.done, env.next_player_indices, env_info
                 )
             )
-            for i in next_player_indices:
-                print("player {} info: {}".format(i, worker_info_list[i]))
+            for i in env.next_player_indices:
+                print("player {} info: {}".format(i, worker_infos[i]))
             print("train info: {}".format(train_info))
             env.render()
 
-        # step after
-        if done:
-            break
-
-    return step, total_rewards
+    return env.step_num, env.episode_rewards
 
 
 def main():
 
     env_config = srl.envs.Config("OX")
     rl_config = srl.rl.ql.Config()
-
-    # check rl_config
-    rl_config.assert_params()
 
     # env init
     env = srl.envs.make(env_config)

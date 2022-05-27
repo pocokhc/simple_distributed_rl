@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
-from srl.base.env.base import EnvBase
+from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.neuralnet_continuous import ContinuousActionConfig, ContinuousActionWorker
 from srl.base.rl.algorithms.neuralnet_discrete import DiscreteActionConfig
 from srl.base.rl.base import RLParameter, RLTrainer
@@ -246,7 +246,7 @@ class Worker(ContinuousActionWorker):
 
         return {}
 
-    def render(self, env: EnvBase, player_index: int) -> None:
+    def render(self, env: EnvRun, player_index: int) -> None:
         # q = self.parameter.q_online(np.asarray([self.state]))[0].numpy()
         # TODO
         pass

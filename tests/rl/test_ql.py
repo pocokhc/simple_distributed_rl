@@ -28,4 +28,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_sequence", verbosity=2)

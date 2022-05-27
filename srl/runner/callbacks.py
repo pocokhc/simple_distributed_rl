@@ -5,17 +5,23 @@ import sys
 import time
 from abc import ABC
 from dataclasses import dataclass
+from typing import Union
 
 import numpy as np
 from srl.base.define import RenderType
+from srl.base.env.base import EnvRun
 
 try:
     import matplotlib.pyplot as plt
-    import pandas as pd
     import PIL.Image
     import PIL.ImageDraw
     import PIL.ImageFont
     from matplotlib.animation import ArtistAnimation
+except ImportError:
+    pass
+
+try:
+    import pandas as pd
 except ImportError:
     pass
 
@@ -60,18 +66,22 @@ class Callback(ABC):
 @dataclass
 class Rendering(Callback):
 
-    mode: RenderType = RenderType.Terminal
+    mode: Union[str, RenderType] = RenderType.Terminal
     step_stop: bool = False
     enable_animation: bool = False
 
     def __post_init__(self):
         self.frames = []
 
-    def on_episode_begin(
-        self,
-        env,
-        **kwargs,
-    ):
+        if isinstance(self.mode, str):
+            for t in RenderType:
+                if t.value == self.mode:
+                    self.mode = t
+                    break
+            else:
+                self.mode = RenderType.NONE
+
+    def on_episode_begin(self, env: EnvRun, **kwargs):
         if self.mode != RenderType.NONE:
             print("### 0")
             env.render(self.mode)
@@ -81,50 +91,44 @@ class Rendering(Callback):
 
     def on_step_begin(
         self,
-        env,
+        env: EnvRun,
         workers,
         worker_indices,
-        next_player_indices,
         **kwargs,
     ) -> None:
         if self.mode != RenderType.NONE:
-            for i in next_player_indices:
+            for i in env.next_player_indices:
                 worker_idx = worker_indices[i]
-                workers[worker_idx].render(env, i)
+                workers[worker_idx].render(env)
 
         if self.step_stop:
             input("Enter to continue:")
 
     def on_step_end(
         self,
-        env,
-        step,
+        env: EnvRun,
         actions,
-        rewards,
-        done,
         worker_indices,
-        next_player_indices,
-        env_info,
-        worker_info_list,
+        workers,
         train_info,
         **kwargs,
     ):
 
         if self.mode != RenderType.NONE:
-            print("### {}, done: {}".format(step, done))
-            for i, idx in enumerate(next_player_indices):
-                print(f"player {idx}, action {actions[i]}, reward: {rewards[idx]}")
+            print("### {}, done: {} ({})".format(env.step_num, env.done, env.done_reason))
+            for i, idx in enumerate(env.next_player_indices):
+                print(f"player {idx}, action {actions[i]}, reward: {env.step_rewards[idx]}")
             env.render(self.mode)
-            print(f"env_info  : {env_info}")
-            for i in next_player_indices:
+            print(f"env_info  : {env.info}")
+            for i in env.next_player_indices:
                 worker_idx = worker_indices[i]
-                print(f"work_info {worker_idx}: {worker_info_list[worker_idx]}")
+                print(f"work_info {worker_idx}: {workers[worker_idx].info}")
             print(f"train_info: {train_info}")
 
         if self.enable_animation:
             self._add_image(env)
 
-    def on_skip_step(self, env, **kwargs):
+    def on_skip_step(self, env: EnvRun, **kwargs):
         if self.mode != RenderType.NONE:
             env.render(self.mode)
 
@@ -132,44 +136,51 @@ class Rendering(Callback):
             self._add_image(env)
 
     # -----------------------------
-    def _add_image(self, env):
+    def _add_image(self, env: EnvRun):
         try:
-            self.frames.append(env.render_rgb_array())
+            self.frames.append(env.render(RenderType.RGB_Array, is_except=True))
         except NotImplementedError:
             # --- printを画像に
             text = ""
+            _stdout = sys.stdout
             try:
                 sys.stdout = io.StringIO()
-                env.render_terminal()
+                env.render(RenderType.Terminal)
                 text = sys.stdout.getvalue()
             finally:
-                sys.stdout.close()
-                sys.stdout = sys.__stdout__
+                try:
+                    sys.stdout.close()
+                except Exception:
+                    pass
+                sys.stdout = _stdout
 
-            canvasSize = (300, 300)
-            img = PIL.Image.new("RGB", canvasSize)
+            canvas_size = (300, 300)
+            img = PIL.Image.new("RGB", canvas_size)
             draw = PIL.ImageDraw.Draw(img)
-            textWidth, textHeight = draw.multiline_textsize(text)
+            text_width, text_height = draw.multiline_textsize(text)
 
-            canvasSize = (textWidth, textHeight)
-            backgroundRGB = (255, 255, 255)
-            textRGB = (0, 0, 0)
-            img = PIL.Image.new("RGB", canvasSize, backgroundRGB)
+            canvas_size = (text_width, text_height)
+            background_rgb = (255, 255, 255)
+            text_rgb = (0, 0, 0)
+            img = PIL.Image.new("RGB", canvas_size, background_rgb)
             draw = PIL.ImageDraw.Draw(img)
-            draw.text((0, 0), text, fill=textRGB)
+            draw.text((0, 0), text, fill=text_rgb)
             self.frames.append(np.asarray(img))
 
     def create_anime(self, scale: float = 1.0, fps: float = 60):
         if len(self.frames) == 0:
             return None
+        t0 = time.time()
         interval = 1000 / fps
         fig = plt.figure(figsize=(6.4 * scale, 4.8 * scale))
-        plt.axis("off")
+        ax = fig.add_subplot(1, 1, 1)
+        ax.axis("off")
         images = []
         for f in self.frames:
-            images.append([plt.imshow(f, animated=True)])
+            images.append([ax.imshow(f, animated=True)])
         anime = ArtistAnimation(fig, images, interval=interval, repeat=False)
-        plt.close()
+        # plt.close(fig)  # notebook で画像が残るので出来ればcloseしたいけど、closeするとgym側でバグる
+        logger.info("create animation({:.1f}s)".format(time.time() - t0))
         return anime
 
     def display(self, scale: float = 1.0, fps: float = 60) -> None:
@@ -178,7 +189,7 @@ class Rendering(Callback):
         t0 = time.time()
         anime = self.create_anime(scale, fps)
         display.display(display.HTML(data=anime.to_jshtml()))
-        logger.debug("create movie({:.1f}s)".format(time.time() - t0))
+        logger.info("create display({:.1f}s)".format(time.time() - t0))
 
 
 # 進捗初期化、進捗に対して表示、少しずつ間隔を長くする(上限あり)
@@ -204,7 +215,7 @@ class PrintProgress(Callback):
         self.history_episode_start_idx = 0
         self.elapsed_time = 0
 
-    def on_episodes_begin(self, config, env, **kwargs):
+    def on_episodes_begin(self, config, **kwargs):
         self.config = config
         print(
             "### env: {}, max episodes: {}, max steps: {}, timeout: {}".format(
@@ -228,7 +239,7 @@ class PrintProgress(Callback):
 
     def on_episode_end(
         self,
-        step,
+        episode_step,
         episode_rewards,
         episode_time,
         valid_reward,
@@ -251,7 +262,7 @@ class PrintProgress(Callback):
 
         worker_idx = worker_indices[self.print_worker]
         d = {
-            "step": step,
+            "episode_step": episode_step,
             "episode_reward": episode_rewards[worker_idx],
             "episode_time": episode_time,
             "valid_reward": valid_reward,
@@ -273,10 +284,10 @@ class PrintProgress(Callback):
 
     def on_step_end(
         self,
+        env: EnvRun,
         episode_count,
         trainer,
-        env_info,
-        worker_info_list,
+        workers,
         train_info,
         step_time,
         train_time,
@@ -284,8 +295,8 @@ class PrintProgress(Callback):
     ):
         self.step_count += 1
         d = {
-            "env_info": env_info,
-            "work_info": worker_info_list[self.print_worker],
+            "env_info": env.info,
+            "work_info": workers[self.print_worker].info,
             "train_info": train_info,
             "step_time": step_time,
             "train_time": train_time,
@@ -336,11 +347,12 @@ class PrintProgress(Callback):
                     s += f", {train_time:.5f}s/tr"
         else:
             episode_time = np.mean([h["episode_time"] for h in self.progress_history])
-            step_time = np.mean([h["step_time"] for h in self.progress_history])
 
             # 残り時間
             if self.config.max_steps > 0:
-                remain_step = (self.config.max_steps - self.step_count) * step_time
+                step_time = np.mean([h["step_time"] for h in self.progress_history])
+                train_time = np.mean([h["train_time"] for h in self.progress_history])
+                remain_step = (self.config.max_steps - self.step_count) * (step_time + train_time)
             else:
                 remain_step = np.inf
             if self.config.max_episodes > 0:
@@ -356,7 +368,7 @@ class PrintProgress(Callback):
 
             # 表示
             _r = [h["episode_reward"] for h in self.progress_history]
-            _s = [h["step"] for h in self.progress_history]
+            _s = [h["episode_step"] for h in self.progress_history]
             s += f", {min(_r):.1f} {np.mean(_r):.3f} {max(_r):.1f} rew"
             s += f", {np.mean(_s):.1f} step"
             s += f", {episode_time:.3f}s/ep"
@@ -401,11 +413,11 @@ class History(Callback):
     def on_episode_begin(self, **kwargs):
         self.history_step = []
 
-    def on_step_end(self, env_info, train_info, worker_info_list, **kwargs):
+    def on_step_end(self, env, workers, train_info, **kwargs):
         self.history_step.append(
             {
-                "env_info": env_info,
-                "work_info": worker_info_list[self.target_worker],
+                "env_info": env.info,
+                "work_info": workers[self.target_worker].info,
                 "train_info": train_info,
             }
         )
@@ -414,6 +426,7 @@ class History(Callback):
         self,
         episode_count,
         episode_rewards,
+        worker_indices,
         valid_reward,
         **kwargs,
     ):
@@ -433,10 +446,11 @@ class History(Callback):
         else:
             train_info = {}
 
+        worker_idx = worker_indices[self.target_worker]
         self.history.append(
             {
                 "episode": episode_count,
-                "reward": episode_rewards[self.target_worker],
+                "reward": episode_rewards[worker_idx],
                 "valid_reward": valid_reward,
                 "env_info": env_info,
                 "work_info": work_info,
@@ -454,17 +468,12 @@ class History(Callback):
 
         if len(self.history) > 100:
             alpha = 0.2
-            plt.plot(pd.Series(rewards).rolling(rolling_n).mean(), "C0", marker=".", label=f"reward(mean{rolling_n})")
-            plt.plot(
-                pd.Series(valid_rewards).rolling(rolling_n).mean(),
-                "C1",
-                marker=".",
-                label=f"valid reward(mean{rolling_n})",
-            )
+            plt.plot(pd.Series(rewards).rolling(rolling_n).mean(), "C0", label=f"reward(mean{rolling_n})")
+            plt.plot(pd.Series(valid_rewards).rolling(rolling_n).mean(), "C1", label=f"valid reward(mean{rolling_n})")
         else:
             alpha = 1
-        plt.plot(rewards, "C0", alpha=alpha, label="reward", marker=".")
-        plt.plot(valid_rewards, "C1", alpha=alpha, label="valid reward", marker=".")
+        plt.plot(rewards, "C0", alpha=alpha, label="reward")
+        plt.plot(valid_rewards, "C1", alpha=alpha, label="valid reward")
 
         plt.xlabel("episode")
         plt.ylabel("reward")

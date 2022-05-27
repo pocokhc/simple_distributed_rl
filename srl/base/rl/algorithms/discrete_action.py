@@ -10,9 +10,10 @@ from srl.base.define import (
     RLAction,
     RLActionType,
     RLInvalidAction,
+    RLObservation,
     RLObservationType,
 )
-from srl.base.env.base import EnvBase, SpaceBase
+from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.rl.base import RLConfig, RLWorker
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ class DiscreteActionConfig(RLConfig):
 
     def _set_config_by_env(
         self,
-        env: EnvBase,
+        env: EnvRun,
         env_action_space: SpaceBase,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationType,
@@ -63,28 +64,26 @@ class DiscreteActionConfig(RLConfig):
 
 class DiscreteActionWorker(RLWorker):
     @abstractmethod
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[RLInvalidAction]) -> None:
-        raise NotImplementedError()
-
-    def _on_reset(
+    def call_on_reset(
         self,
         state: np.ndarray,
-        player_index: int,
-        env: EnvBase,
+        invalid_actions: List[RLInvalidAction],
     ) -> None:
-        self.call_on_reset(state, self.get_invalid_actions(env, player_index))
+        raise NotImplementedError()
+
+    def _call_on_reset(self, state: RLObservation, env: EnvRun) -> None:
+        self.call_on_reset(state, self.get_invalid_actions(env))
 
     @abstractmethod
-    def call_policy(self, state: np.ndarray, invalid_actions: List[RLInvalidAction]) -> DiscreteAction:
-        raise NotImplementedError()
-
-    def _policy(
+    def call_policy(
         self,
         state: np.ndarray,
-        player_index: int,
-        env: EnvBase,
-    ) -> RLAction:
-        return self.call_policy(state, self.get_invalid_actions(env, player_index))
+        invalid_actions: List[RLInvalidAction],
+    ) -> DiscreteAction:
+        raise NotImplementedError()
+
+    def _call_policy(self, state: RLObservation, env: EnvRun) -> RLAction:
+        return self.call_policy(state, self.get_invalid_actions(env))
 
     @abstractmethod
     def call_on_step(
@@ -96,12 +95,18 @@ class DiscreteActionWorker(RLWorker):
     ) -> Info:
         raise NotImplementedError()
 
-    def _on_step(
+    def _call_on_step(
         self,
-        next_state: np.ndarray,
+        next_state: RLObservation,
         reward: float,
         done: bool,
-        player_index: int,
-        env: EnvBase,
+        env: EnvRun,
     ) -> Info:
-        return self.call_on_step(next_state, reward, done, self.get_invalid_actions(env, player_index))
+        return self.call_on_step(next_state, reward, done, self.get_invalid_actions(env))
+
+    @abstractmethod
+    def call_render(self, env: EnvRun) -> Info:
+        raise NotImplementedError()
+
+    def _call_render(self, env: EnvRun) -> Info:
+        return self.call_render(env)

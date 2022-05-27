@@ -136,7 +136,7 @@ class Grid(SinglePlayEnv):
     def max_episode_steps(self) -> int:
         return 50
 
-    def reset_single(self) -> np.ndarray:
+    def call_reset(self) -> np.ndarray:
         self.player_pos = (1, 3)
         self.return_state = self._create_field(self.player_pos, self.state_type)
         return np.asarray(self.return_state)
@@ -172,7 +172,7 @@ class Grid(SinglePlayEnv):
         self.player_pos = d[0]
         self.return_state = d[1]
 
-    def step_single(self, action_: int) -> Tuple[np.ndarray, float, bool, dict]:
+    def call_step(self, action_: int) -> Tuple[np.ndarray, float, bool, dict]:
         action = Action(action_)
 
         items = self.action_probs[action].items()

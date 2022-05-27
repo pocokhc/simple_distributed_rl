@@ -1,0 +1,83 @@
+@startuml playflow
+autoactivate on
+
+actor User
+participant EnvRun
+participant EnvBase
+participant Workers
+participant Trainer
+
+participant Parameter
+participant RemoteMemory
+
+
+activate User
+
+User -> EnvRun: reset()
+    EnvRun -> EnvBase: reset()
+    return state, next_player_indices
+return
+
+User -> Workers: on_reset(env, player_index)
+    note right: init episode parameter
+return
+
+User -> EnvRun: render()
+    EnvRun -> EnvBase: rendering
+    return
+return
+
+loop episode
+
+    User -> Workers: policy(env)
+        note right
+        if player_index in next_player_indices:
+            state = <color blue>encode(state)</color>
+            if not call_on_reset:
+                call_on_reset(state)
+            action = call_policy(state)
+            action = <color red>decode(action)</color>
+            return action
+        end note
+        Workers -> Workers: call_policy
+            Workers -> Parameter: get parameter
+            return parameter
+        return action
+    return actions
+
+    User -> Workers: render(env)
+    return
+    
+    User -> EnvRun: step(actions)
+        EnvRun -> EnvBase: step(actions)
+        return state, reward, done, next_player_indices
+    return
+
+    User -> Workers: on_step(env)
+        note right
+        if It's your turn to run on_step:
+            state = <color blue>encode(state)</color>
+            call_on_step(state, reward, done)
+        end note
+        Workers -> Workers: call_on_step
+            Workers -> RemoteMemory: add batchs
+            return
+        return
+    return
+
+    User -> Trainer: train
+        Trainer -> RemoteMemory: samples
+        return batchs
+        Trainer -> Parameter: update parameter
+        return
+    return info
+
+    User -> EnvRun: render()
+        EnvRun -> EnvBase: rendering
+        return
+    return
+
+end
+deactivate User
+
+@enduml

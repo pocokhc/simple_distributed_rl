@@ -19,43 +19,31 @@ def _run_episode(
     training,
     rendering=False,
 ):
-    worker.set_training(training, True)
 
     # change single play interface
     env = SinglePlayEnvWrapper(env)
     worker = SinglePlayWorkerWrapper(worker)
 
+    # reset
     state = env.reset()
-
-    done = False
-    step = 0
-    total_reward = 0
-
-    worker.on_reset(state, env)
+    worker.on_reset(env)
 
     if rendering:
         print("step 0")
         env.render()
 
-    while True:
+    while not env.done:
+
+        # action
+        action = worker.policy(env)
 
         # render
         if rendering:
             worker.render(env)
 
-        # action
-        action = worker.policy(state, env)
-
-        # env step
+        # step
         state, reward, done, env_info = env.step(action)
-        step += 1
-        total_reward += reward
-
-        if step > env.max_episode_steps:
-            done = True
-
-        # rl step
-        work_info = worker.on_step(state, reward, done, env)
+        work_info = worker.on_step(env)
 
         # train
         if training and trainer is not None:
@@ -67,16 +55,12 @@ def _run_episode(
         if rendering:
             print(
                 "step {}, action {}, reward: {}, done: {}, info: {} {} {}".format(
-                    step, action, reward, done, env_info, work_info, train_info
+                    env.step_num, action, env.step_rewards[0], env.done, env_info, work_info, train_info
                 )
             )
             env.render()
 
-        # step after
-        if done:
-            break
-
-    return step, total_reward
+    return env.step_num, env.episode_rewards[0]
 
 
 class Board:
@@ -109,6 +93,7 @@ def _run_worker(
 
     parameter = make_parameter(rl_config)
     worker = make_worker(rl_config, env, parameter, remote_memory, worker_id)
+    worker.set_training(True, True)
 
     prev_update_count = 0
     episode = 0
@@ -186,7 +171,6 @@ def main():
     }
 
     # init
-    rl_config.assert_params()
     env = srl.envs.make(env_config)
     rl_config.set_config_by_env(env)
 

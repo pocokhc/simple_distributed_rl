@@ -11,7 +11,7 @@ SpaceType = Union[int, List[int], float, List[float], np.ndarray]
 # action type
 DiscreteAction = int
 ContinuousAction = List[float]
-EnvAction = SpaceType
+EnvAction = Union[SpaceType, None]
 RLAction = Union[int, List[float], float]
 EnvInvalidAction = Union[int, List[int]]
 RLInvalidAction = int
@@ -49,8 +49,8 @@ class RLActionType(enum.Enum):
 
 
 class RenderType(enum.Enum):
-    NONE = 0
-    Terminal = enum.auto()
-    GUI = enum.auto()
-    Notebook = enum.auto()
-    RGB_Array = enum.auto()
+    NONE = ""
+    Terminal = "Terminal"
+    GUI = "GUI"
+    # Notebook = "Notebook"
+    RGB_Array = "RGB"

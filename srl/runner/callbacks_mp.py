@@ -10,7 +10,6 @@ from typing import Optional
 
 import numpy as np
 import tensorflow as tf
-from srl.runner import sequence
 from srl.runner.callbacks import Callback
 from srl.utils.common import JsonNumpyEncoder, is_package_installed, listdictdict_to_dictlist, to_str_time
 
@@ -390,41 +389,36 @@ class TrainFileLogger(MPCallback):
 
     def on_step_end(
         self,
+        env,
+        workers,
         episode_count,
-        env_info,
-        worker_indices,
-        worker_info_list,
         step_time,
         **kwargs,
     ):
         _time = time.time()
         self.elapsed_time = _time - self.t0  # 経過時間
 
-        worker_idx = worker_indices[self.print_worker]
         self.history_step.append(
             {
                 "episode_count": episode_count,
-                "env_info": env_info,
-                "work_info": worker_info_list[worker_idx],
+                "env_info": env.info,
+                "work_info": workers[self.print_worker].info,
                 "step_time": step_time,
             }
         )
 
-        if self.enable_print_progress:
-            if self._check_print_progress(_time):
-                self._worker_print_progress()
+        if self.enable_print_progress and self._check_print_progress(_time):
+            self._worker_print_progress()
 
-        if self.enable_log:
-            if self._check_log_progress(_time):
-                self._worker_log()
+        if self.enable_log and self._check_log_progress(_time):
+            self._worker_log()
 
     def on_episode_end(
         self,
-        step,
+        episode_step,
         episode_count,
         episode_rewards,
         episode_time,
-        remote_memory,
         worker_indices,
         **kwargs,
     ):
@@ -445,7 +439,7 @@ class TrainFileLogger(MPCallback):
 
             epi_data = {
                 "episode_count": episode_count,
-                "step": step,
+                "episode_step": episode_step,
                 "reward": episode_rewards[worker_idx],
                 "episode_time": episode_time,
                 "step_time": np.mean([h["step_time"] for h in self.history_step]),
@@ -453,9 +447,8 @@ class TrainFileLogger(MPCallback):
                 "work_info": work_info,
             }
 
-        if self.enable_print_progress:
-            if self.worker_id < 5:
-                self.progress_history.append(epi_data)
+        if self.enable_print_progress and self.worker_id < 5:
+            self.progress_history.append(epi_data)
 
         if self.enable_log:
             self.log_history.append(epi_data)
@@ -484,7 +477,7 @@ class TrainFileLogger(MPCallback):
             s += f", {episode_time:.3f}s/epi"
 
             _r = [h["reward"] for h in self.progress_history]
-            _s = [h["step"] for h in self.progress_history]
+            _s = [h["episode_step"] for h in self.progress_history]
             s += f", {min(_r):.3f} {np.mean(_r):.3f} {max(_r):.3f} reward"
             s += f", {np.mean(_s):.1f} step"
 

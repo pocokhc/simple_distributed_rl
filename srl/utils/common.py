@@ -76,7 +76,7 @@ def to_str_time(sec: float) -> str:
         return "inf"
     if sec < 60:
         return "{:6.2f}s".format(sec)
-    return "{:5.1f}m".format(sec / 60)
+    return "{:6.1f}m".format(sec / 60)
 
 
 class JsonNumpyEncoder(json.JSONEncoder):

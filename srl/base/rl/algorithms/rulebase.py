@@ -2,9 +2,8 @@ import logging
 from abc import abstractmethod
 from typing import Any, Dict
 
-import numpy as np
-from srl.base.define import EnvObservationType, Info, RLActionType, RLObservationType
-from srl.base.env.base import EnvBase, SpaceBase
+from srl.base.define import EnvObservationType, Info, RLAction, RLActionType, RLObservation, RLObservationType
+from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer, RLWorker
 
 logger = logging.getLogger(__name__)
@@ -19,9 +18,16 @@ class RuleBaseConfig(RLConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.ANY
 
+    def __post_init__(self):
+        super().__init__()
+
+    @staticmethod
+    def getName() -> str:
+        return "RuleBaseConfig"
+
     def _set_config_by_env(
         self,
-        env: EnvBase,
+        env: EnvRun,
         env_action_space: SpaceBase,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationType,
@@ -62,50 +68,29 @@ class RuleBaseTrainer(RLTrainer):
 
 
 class RuleBaseWorker(RLWorker):
-    def __init__(self):
-        pass  # do nothing
-
-    def _on_reset(self, *args) -> None:
-        raise NotImplementedError()
-
-    def _policy(self, *args) -> None:
-        raise NotImplementedError()
-
-    def _on_step(self, *args) -> None:
-        raise NotImplementedError()
-
-    # ----------------
-
     def call_on_reset(self, env: object) -> None:
         pass  # do nothing
 
-    def on_reset(
-        self,
-        state: np.ndarray,
-        player_index: int,
-        env: EnvBase,
-    ) -> None:
-        self.call_on_reset(env.get_original_env())
-
     @abstractmethod
-    def call_policy(self, env: object) -> Any:
+    def call_policy(self, env: object) -> RLAction:
         raise NotImplementedError()
 
-    def policy(
-        self,
-        state: np.ndarray,
-        player_index: int,
-        env: EnvBase,
-    ) -> Any:
-        return self.call_policy(env.get_original_env())
-
-    def on_step(self, *args) -> Info:
-        return {}
-
+    # option
     def call_render(self, env: object) -> None:
         pass  # do nothing
 
-    def render(self, env: EnvBase, player_index: int) -> None:
+    # ----------------
+
+    def _call_on_reset(self, state: RLObservation, env: EnvRun) -> None:
+        return self.call_on_reset(env.get_original_env())
+
+    def _call_policy(self, status: RLObservation, env: EnvRun) -> RLAction:
+        return self.call_policy(env.get_original_env())
+
+    def _call_on_step(self, *args) -> None:
+        pass  # do nothing
+
+    def _call_render(self, env: EnvRun) -> None:
         self.call_render(env.get_original_env())
 
 
@@ -113,31 +98,18 @@ class GeneralWorker(RLWorker):
     def call_on_reset(self, env: object) -> None:
         pass  # do nothing
 
-    def _on_reset(
-        self,
-        state: np.ndarray,
-        player_index: int,
-        env: EnvBase,
-    ) -> None:
+    def _call_on_reset(self, status: RLObservation, env: EnvRun) -> None:
         self.call_on_reset(env.get_original_env())
 
     @abstractmethod
-    def call_policy(self, env: EnvBase, player_index: int) -> Any:
+    def call_policy(self, env: EnvRun, player_index: int) -> Any:
         raise NotImplementedError()
 
-    def _policy(
-        self,
-        state: np.ndarray,
-        player_index: int,
-        env: EnvBase,
-    ) -> Any:
-        return self.call_policy(env, player_index)
+    def _call_policy(self, status: RLObservation, env: EnvRun) -> RLAction:
+        return self.call_policy(env, self.player_index)
 
-    def _on_step(self, *args, **kwargs) -> Info:
+    def _call_on_step(self, *args, **kwargs) -> Info:
         return {}
 
-    def call_render(self, env: object) -> None:
+    def _call_render(self, env: EnvRun) -> None:
         pass  # do nothing
-
-    def render(self, env: EnvBase, player_index: int) -> None:
-        self.call_render(env.get_original_env())

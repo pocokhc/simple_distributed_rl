@@ -4,7 +4,7 @@ from typing import Any, Dict, List, cast
 
 import numpy as np
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvBase
+from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -112,17 +112,19 @@ class Trainer(RLTrainer):
             # 平均
             mean_diff_logpi = (action - mean) / (stddev**2)
             mean_diff_j = mean_diff_logpi * reward
-            if abs(mean_diff_j) < 1:
-                # 更新幅が大きすぎる場合は更新しない
-                self.parameter.policy[state]["mean"] += self.config.lr * mean_diff_j
-            loss_mean.append(mean_diff_j)
+            new_mean = self.parameter.policy[state]["mean"] + self.config.lr * mean_diff_j
 
             # 分散
             stddev_diff_logpi = (((action - mean) ** 2) - (stddev**2)) / (stddev**3)
             stddev_diff_j = stddev_diff_logpi * reward
-            if abs(stddev_diff_j) < 10:
-                # 更新幅が大きすぎる場合は更新しない
-                self.parameter.policy[state]["stddev_logits"] += self.config.lr * stddev_diff_j
+            new_stddev = self.parameter.policy[state]["stddev_logits"] + self.config.lr * stddev_diff_j
+
+            # 更新幅が大きすぎる場合は更新しない
+            if abs(mean_diff_j) < 1 and abs(stddev_diff_j) < 5:
+                self.parameter.policy[state]["mean"] = new_mean
+                self.parameter.policy[state]["stddev_logits"] = new_stddev
+
+            loss_mean.append(mean_diff_j)
             loss_stddev.append(stddev_diff_j)
 
             self.train_count += 1
@@ -185,6 +187,6 @@ class Worker(ContinuousActionWorker):
 
         return {}
 
-    def render(self, env: EnvBase, player_index: int) -> None:
+    def call_render(self, env: EnvRun) -> None:
         mean, stddev = self.parameter.get_param(self.state)
         print(f"mean {mean:.5f}, stddev {stddev:.5f}")

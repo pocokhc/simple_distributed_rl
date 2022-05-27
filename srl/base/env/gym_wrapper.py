@@ -102,7 +102,9 @@ class GymWrapper(EnvBase):
                 return False
         return True
 
-    # -----------------------------
+    # --------------------------------
+    # implement
+    # --------------------------------
 
     @property
     def action_space(self) -> SpaceBase:
@@ -129,22 +131,29 @@ class GymWrapper(EnvBase):
     def player_num(self) -> int:
         return 1
 
-    def close(self) -> None:
-        self.env.close()
-
     def reset(self) -> Tuple[np.ndarray, List[int]]:
         state = self.env.reset()
         return np.asarray(state), [0]
 
-    def step(self, actions: List[EnvAction]) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
+    def step(
+        self,
+        actions: List[EnvAction],
+        player_indices: List[int],
+    ) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
         state, reward, done, info = self.env.step(actions[0])
         return np.asarray(state), [float(reward)], done, [0], info
 
-    def get_next_player_indices(self) -> List[int]:
-        return [0]
+    def backup(self) -> Any:
+        return pickle.dumps(self.env)
 
-    def get_invalid_actions(self, player_index: int) -> List[EnvInvalidAction]:
-        return []
+    def restore(self, data: Any) -> None:
+        self.env = pickle.loads(data)
+
+    def close(self) -> None:
+        # self.env.close()
+        # render 内で使われている pygame に対して close -> init をするとエラーになる
+        # Fatal Python error: (pygame parachute) Segmentation Fault
+        pass
 
     def render_terminal(self) -> None:
         if "ansi" in self.render_modes:
@@ -159,12 +168,6 @@ class GymWrapper(EnvBase):
             return np.asarray(self.env.render("rgb_array"))
         else:
             raise NotImplementedError
-
-    def backup(self) -> Any:
-        return pickle.dumps(self.env)
-
-    def restore(self, data: Any) -> None:
-        self.env = pickle.loads(data)
 
     def get_original_env(self) -> object:
         return self.env

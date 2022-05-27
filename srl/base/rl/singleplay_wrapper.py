@@ -1,5 +1,7 @@
-from srl.base.define import EnvAction, EnvObservation, Info
-from srl.base.env.base import EnvBase
+from typing import Optional
+
+from srl.base.define import EnvAction, Info
+from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLWorker
 
 
@@ -7,20 +9,30 @@ class SinglePlayWorkerWrapper:
     def __init__(self, worker: RLWorker):
         self.worker = worker
 
-    def on_reset(self, state: EnvObservation, env: EnvBase) -> None:
-        self.worker.on_reset(state, 0, env)
+    # ------------------------------------
+    # episode properties
+    # ------------------------------------
+    @property
+    def player_index(self) -> int:
+        return self.worker.player_index
 
-    def policy(self, state: EnvObservation, env: EnvBase) -> EnvAction:
-        return self.worker.policy(state, 0, env)
+    @property
+    def info(self) -> Optional[Info]:
+        return self.worker.info
 
-    def on_step(
-        self,
-        next_state: EnvObservation,
-        reward: float,
-        done: bool,
-        env: EnvBase,
-    ) -> Info:
-        return self.worker.on_step(next_state, reward, done, 0, env)
+    # ------------------------------------
+    # episode functions
+    # ------------------------------------
+    def on_reset(self, env: EnvRun) -> None:
+        self.worker.on_reset(env, 0)
 
-    def render(self, env: EnvBase) -> None:
-        self.worker.render(env, 0)
+    def policy(self, env: EnvRun) -> EnvAction:
+        return self.worker.policy(env)
+
+    def on_step(self, env: EnvRun) -> Info:
+        info = self.worker.on_step(env)
+        assert info is not None
+        return info
+
+    def render(self, env: EnvRun) -> None:
+        self.worker.render(env)

@@ -24,7 +24,7 @@ extras["all"] = list(set(itertools.chain.from_iterable([arr for arr in extras.va
 setup(
     name=package_name,
     packages=[package for package in find_packages() if package.startswith(package_name)],
-    version=VERSION,  # noqa F821
+    version=VERSION,
     license="MIT",
     author="poco",
     author_email="pocopococpp198@gmail.com",

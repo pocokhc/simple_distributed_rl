@@ -1,17 +1,16 @@
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Tuple
 
 import numpy as np
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.base import SpaceBase
 from srl.base.env.genre import TurnBase2Player
-from srl.base.env.processor import Processor
 from srl.base.env.registration import register
 from srl.base.env.spaces import BoxSpace, DiscreteSpace
 from srl.base.rl.algorithms.rulebase import RuleBaseWorker
-from srl.base.rl.base import RLWorker
+from srl.base.rl.processor import Processor
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +54,7 @@ class OX(TurnBase2Player):
     def player_index(self) -> int:
         return self._player_index
 
-    def reset_turn(self) -> np.ndarray:
+    def call_reset(self) -> np.ndarray:
         self.field = [0 for _ in range(self.W * self.H)]
         self._player_index = 0
         return self._encode_state()
@@ -72,7 +71,7 @@ class OX(TurnBase2Player):
         self.field = data[0][:]
         self._player_index = data[1]
 
-    def step_turn(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
+    def call_step(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
 
         reward1, reward2, done = self._step(action)
 
@@ -162,20 +161,20 @@ class OX(TurnBase2Player):
             print("-" * 10)
         print(f"next player: {self.player_index}")
 
-    def make_worker(self, name: str) -> Optional[RLWorker]:
+    def make_worker(self, name: str):
         if name == "cpu":
-            return NegaMax(0.0)
+            return NegaMax
         return None
 
 
 class NegaMax(RuleBaseWorker):
     cache = {}
 
-    def __init__(self, epsilon: float):
-        self.epsilon = epsilon
+    def __init__(self, *args):
+        super().__init__(*args)
 
-    def call_on_reset(self, env) -> None:
-        pass  # do nothing
+    def call_on_reset(self, env: OX) -> None:
+        self.epsilon = 0.0
 
     def call_policy(self, env_org: OX) -> int:
         env = env_org.copy()
@@ -201,7 +200,7 @@ class NegaMax(RuleBaseWorker):
                 continue
 
             n_env = env.copy()
-            _, r1, r2, done, _ = n_env.step_turn(a)
+            _, r1, r2, done, _ = n_env.call_step(a)
             if done:
                 if env.player_index == 0:
                     scores[a] = r1

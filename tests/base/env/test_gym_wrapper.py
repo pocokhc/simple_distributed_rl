@@ -13,7 +13,7 @@ class Test(unittest.TestCase):
         self.tester = TestEnv()
         warnings.simplefilter("ignore")
 
-    def test_play(self):
+    def test_play_FrozenLake(self):
         # observation_space: Discrete
         # action_space     : Discrete
         env = self.tester.play_test("FrozenLake-v1")
@@ -70,7 +70,7 @@ class Test(unittest.TestCase):
         for spec in tqdm(list(reversed(list(specs)))):
             try:
                 gym.make(spec.id)
-                self.tester.play_test(spec.id, check_render=False, max_step=5, print_disable=True)
+                self.tester.play_test(spec.id, check_render=False, max_step=5)
             except AttributeError:
                 pass
             except gym.error.DependencyNotInstalled:
@@ -81,4 +81,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_play_all", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_play", verbosity=2)

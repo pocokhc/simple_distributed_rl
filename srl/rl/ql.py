@@ -6,7 +6,7 @@ from typing import Any, Dict, List, cast
 
 import numpy as np
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvBase
+from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -101,7 +101,7 @@ class Trainer(RLTrainer):
     def train(self):
 
         batchs = self.remote_memory.sample()
-        td_error = 0
+        td_error_mean = 0
         for batch in batchs:
 
             s = batch["state"]
@@ -121,17 +121,17 @@ class Trainer(RLTrainer):
                 target_q = reward + self.config.gamma * max(n_q)
 
             td_error = target_q - q[action]
-            q[action] += self.config.lr * td_error
+            self.parameter.Q[s][action] += self.config.lr * td_error
 
-            td_error += td_error
+            td_error_mean += td_error
             self.train_count += 1
 
         if len(batchs) > 0:
-            td_error /= len(batchs)
+            td_error_mean /= len(batchs)
 
         return {
             "Q": len(self.parameter.Q),
-            "td_error": td_error,
+            "td_error": td_error_mean,
         }
 
 
@@ -149,16 +149,16 @@ class Worker(DiscreteActionWorker):
         self.state = to_str_observation(state)
         self.invalid_actions = invalid_actions
 
-        if self.training:
-            self.epsilon = self.config.epsilon
-        else:
-            self.epsilon = self.config.test_epsilon
-
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
         self.state = to_str_observation(state)
         self.invalid_actions = invalid_actions
 
-        if random.random() < self.epsilon:
+        if self.training:
+            epsilon = self.config.epsilon
+        else:
+            epsilon = self.config.test_epsilon
+
+        if random.random() < epsilon:
             # epsilonより低いならランダムに移動
             action = random.choice([a for a in range(self.config.nb_actions) if a not in invalid_actions])
         else:
@@ -193,7 +193,7 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.add(batch)
         return {}
 
-    def render(self, env: EnvBase, player_index: int) -> None:
+    def call_render(self, env: EnvRun) -> None:
         q = self.parameter.get_action_values(self.state, self.invalid_actions)
         maxa = np.argmax(q)
 

@@ -7,7 +7,8 @@ from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, Con
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvBase
+from srl.base.env.base import EnvRun
+from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
@@ -195,42 +196,20 @@ class Parameter(RLParameter):
         self.q_online = _DualQNetwork(self.config)
         self.q_target = _DualQNetwork(self.config)
 
-    def restore(self, data: Optional[Any]) -> None:
-        if data is None:
-            return
-        self.q_online.set_weights(data)
-        self.q_target.set_weights(data)
+    def restore(self, data: Any) -> None:
+        self.policy.set_weights(data[0])
+        self.q_online.set_weights(data[1])
+        self.q_target.set_weights(data[1])
 
     def backup(self) -> Any:
-        return self.q_online.get_weights()
+        return [
+            self.policy.get_weights(),
+            self.q_online.get_weights(),
+        ]
 
     def summary(self):
         self.policy.model.summary()
         self.q_online.model.summary()
-
-    # ---------------------------------
-
-    def _calc_target_q(self, n_states, rewards, dones):
-
-        # Q値をだす
-        n_q = self.q_online(n_states).numpy()
-        n_q_target = self.q_target(n_states).numpy()
-
-        # 各バッチのQ値を計算
-        target_q = []
-        for i in range(len(rewards)):
-            reward = rewards[i]
-            if dones[i]:
-                gain = reward
-            else:
-                # DoubleDQN: indexはQが最大を選び、値はそのtargetQを選ぶ
-                n_act_idx = np.argmax(n_q[i])
-                maxq = n_q_target[i][n_act_idx]
-                gain = reward + self.config.gamma * maxq
-            target_q.append(gain)
-        target_q = np.asarray(target_q)
-
-        return target_q
 
 
 # ------------------------------------------------------
@@ -402,7 +381,15 @@ class Worker(ContinuousActionWorker):
 
         return {}
 
-    def render(self, env: EnvBase, player_index: int) -> None:
-        # q = self.parameter.q_online(np.asarray([self.state]))[0].numpy()
-        # TODO
-        pass
+    def call_render(self, env: EnvRun) -> None:
+        state = self.state.reshape(1, -1)
+        action = np.asarray([self.action])
+        _, mean, stddev, _ = self.parameter.policy(state)
+        mean = mean.numpy()[0][0]
+        stddev = stddev.numpy()[0][0]
+        q1, q2 = self.parameter.q_online(state, action)
+        q1 = q1.numpy()[0][0]
+        q2 = q2.numpy()[0][0]
+
+        print(f"mean {mean:.5f}, stddev {stddev:.5f}")
+        print(f"q1   {q1:.5f}, q2    {q2:.5f}")

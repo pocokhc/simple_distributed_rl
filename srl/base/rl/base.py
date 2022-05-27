@@ -2,7 +2,7 @@ import logging
 import os
 import pickle
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from srl.base.define import (
@@ -16,9 +16,9 @@ from srl.base.define import (
     RLObservation,
     RLObservationType,
 )
-from srl.base.env.base import EnvBase, SpaceBase
-from srl.base.env.processor import Processor
+from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
+from srl.base.rl.processor import Processor, RuleBaseProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ class RLConfig(ABC):
         self.override_env_observation_type: EnvObservationType = EnvObservationType.UNKNOWN
         self.action_division_num: int = 5
         # self.observation_division_num: int = 10
+        self.rulebase: Optional[RuleBaseProcessor] = None
 
     @staticmethod
     @abstractmethod
@@ -48,14 +49,14 @@ class RLConfig(ABC):
     @abstractmethod
     def _set_config_by_env(
         self,
-        env: EnvBase,
+        env: EnvRun,
         env_action_space: SpaceBase,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationType,
     ) -> None:
         raise NotImplementedError()
 
-    def set_config_by_env(self, env: EnvBase) -> None:
+    def set_config_by_env(self, env: EnvRun) -> None:
         self._env_action_space = env.action_space
         env_observation_space = env.observation_space
         env_observation_type = env.observation_type
@@ -207,9 +208,18 @@ class RLWorker(ABC):
         self._training = False
         self._distributed = False
 
-    # --- util functions
+    @property
+    def training(self) -> bool:
+        return self._training
 
-    def observation_encode(self, state: EnvObservation, env: EnvBase) -> RLObservation:
+    @property
+    def distributed(self) -> bool:
+        return self._distributed
+
+    # ------------------------------
+    # util functions
+    # ------------------------------
+    def observation_encode(self, state: EnvObservation, env: EnvRun) -> RLObservation:
         for processor in self.config.processors:
             state = processor.process_observation(state, env.get_original_env())
 
@@ -246,78 +256,132 @@ class RLWorker(ABC):
         self._training = training
         self._distributed = distributed
 
-    def get_invalid_actions(self, env: EnvBase, player_index: int) -> List[RLInvalidAction]:
-        return [self.action_encode(a) for a in env.get_invalid_actions(player_index)]
+    def get_invalid_actions(self, env: EnvRun) -> List[RLInvalidAction]:
+        return [self.action_encode(a) for a in env.get_invalid_actions(self.player_index)]
 
-    # --- abc
-
-    @property
-    def training(self) -> bool:
-        return self._training
-
-    @property
-    def distributed(self) -> bool:
-        return self._distributed
-
+    # ------------------------------
+    # implement
+    # ------------------------------
     @abstractmethod
-    def _on_reset(
-        self,
-        state: RLObservation,
-        player_index: int,
-        env: EnvBase,
-    ) -> None:
+    def _call_on_reset(self, status: RLObservation, env: EnvRun) -> None:
         raise NotImplementedError()
 
-    def on_reset(
-        self,
-        state: EnvObservation,
-        player_index: int,
-        env: EnvBase,
-    ) -> None:
-        state = self.observation_encode(state, env)
-        self._on_reset(state, player_index, env)
-
     @abstractmethod
-    def _policy(
-        self,
-        state: RLObservation,
-        player_index: int,
-        env: EnvBase,
-    ) -> RLAction:
+    def _call_policy(self, status: RLObservation, env: EnvRun) -> RLAction:
         raise NotImplementedError()
 
-    def policy(
-        self,
-        state: EnvObservation,
-        player_index: int,
-        env: EnvBase,
-    ) -> EnvAction:
-        state = self.observation_encode(state, env)
-        action = self._policy(state, player_index, env)
-        return self.action_decode(action)
-
     @abstractmethod
-    def _on_step(
+    def _call_on_step(
         self,
         next_state: RLObservation,
         reward: float,
         done: bool,
-        player_index: int,
-        env: EnvBase,
+        env: EnvRun,
     ) -> Info:
         raise NotImplementedError()
 
-    def on_step(
-        self,
-        next_state: EnvObservation,
-        reward: float,
-        done: bool,
-        player_index: int,
-        env: EnvBase,
-    ) -> Info:
-        next_state = self.observation_encode(next_state, env)
-        return self._on_step(next_state, reward, done, player_index, env)
-
     @abstractmethod
-    def render(self, env: EnvBase, player_index: int) -> None:
+    def _call_render(self, env: EnvRun) -> None:
+        raise NotImplementedError()
+
+    # ------------------------------------
+    # episode functions
+    # ------------------------------------
+    def on_reset(self, env: EnvRun, player_index: int) -> None:
+        self.player_index = player_index
+        self.info = None
+        self._is_reset = False
+        self._step_reward = 0
+        self._is_rl_policy = False
+
+    def policy(self, env: EnvRun) -> EnvAction:
+        # 次のプレイヤーじゃないならNoneを返す
+        if self.player_index not in env.next_player_indices:
+            return None
+
+        # state
+        state = self.observation_encode(env.state, env)
+
+        # ルールベースの割り込み
+        action = None
+        if self.config.rulebase is not None:
+            action = self.config.rulebase.process_policy_before(
+                env,
+                self.player_index,
+            )
+
+        self._is_rl_policy = False
+        if action is None:
+
+            # 初期化していないなら初期化する
+            if not self._is_reset:
+                self._call_on_reset(state, env)
+                self._is_reset = True
+
+            # rl policy
+            action = self._call_policy(state, env)
+            action = self.action_decode(action)
+            self._is_rl_policy = True
+
+            # ルールベース割り込み
+            if self.config.rulebase is not None:
+                action = self.config.rulebase.process_policy_after(
+                    action,
+                    env,
+                    self.player_index,
+                )
+
+        return action
+
+    def on_step(self, env: EnvRun) -> Optional[Info]:
+
+        # 初期化前はskip
+        if not self._is_reset:
+            return None
+
+        # 相手の番のrewardも加算
+        self._step_reward += env.step_rewards[self.player_index]
+
+        # 次の自分の番の前の状態がon_step、だたしdoneは実行する
+        if not env.done and self.player_index not in env.next_player_indices:
+            return None
+
+        # 自分の番、rlの場合on_stepを実行
+        if self._is_rl_policy:
+            next_state = self.observation_encode(env.state, env)
+            self._info = self._call_on_step(next_state, self._step_reward, env.done, env)
+            self._step_reward = 0
+
+        return self._info
+
+    def render(self, env: EnvRun) -> None:
+        if self._is_rl_policy and self._is_reset:
+            self._call_render(env)
+        elif self.config.rulebase is not None:
+            self.config.rulebase.policy_render(env, self.player_index)
+
+    # ------------------------------------
+    # utils
+    # ------------------------------------
+    def env_step(self, env: EnvRun) -> Tuple[np.ndarray, float]:
+        # 次の自分の番になるまで進める(相手のpolicyは自分)
+
+        reward = 0
+        while True:
+            state = self.observation_encode(env.state, env)
+            actions = [
+                self.action_decode(self._env_step_policy(state, env)) if i in env.next_player_indices else None
+                for i in range(env.player_num)
+            ]
+            env.step(actions)
+            reward += env.step_rewards[self.player_index]
+
+            if self.player_index in env.next_player_indices:
+                break
+            if env.done:
+                break
+
+        return self.observation_encode(env.state, env), reward
+
+    def _env_step_policy(self, state: np.ndarray, env: EnvRun) -> RLAction:
         raise NotImplementedError()

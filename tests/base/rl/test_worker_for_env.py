@@ -1,10 +1,12 @@
 import unittest
-from typing import Any, List, Tuple
+from typing import Any, cast
 
 import numpy as np
+import srl
 from srl.base.define import EnvObservationType, Info, RLAction, RLActionType, RLObservationType
 from srl.base.env import registration
-from srl.base.env.base import EnvBase, EnvConfig, SpaceBase
+from srl.base.env.base import EnvBase, EnvRun, SpaceBase
+from srl.base.env.genre.singleplay import SinglePlayEnv
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.env.spaces.discrete import DiscreteSpace
@@ -12,17 +14,17 @@ from srl.base.rl.base import RLConfig, RLWorker
 from srl.test.env import TestEnv
 
 
-class StubEnv(EnvBase):
+class StubEnv(SinglePlayEnv):
     def __init__(self):
         self._action_space: SpaceBase = DiscreteSpace(5)
         self._observation_space: SpaceBase = DiscreteSpace(5)
         self._observation_type = EnvObservationType.UNKNOWN
 
-        self.state = np.array(0)
-        self.reward = 0
-        self.done = True
-        self.info = {}
-        self.actions = [0]
+        self.s_state = np.array(0)
+        self.s_reward = 0
+        self.s_done = True
+        self.s_info = {}
+        self.s_actions = [0]
 
     @property
     def action_space(self) -> SpaceBase:
@@ -44,18 +46,12 @@ class StubEnv(EnvBase):
     def player_num(self) -> int:
         return 1
 
-    def reset(self):
-        return self.state, [0]
+    def call_reset(self) -> np.ndarray:
+        return self.s_state
 
-    def step(self, actions):
-        self.actions = actions
-        return self.state, [self.reward], self.done, [0], self.info
-
-    def get_next_player_indices(self) -> List[int]:
-        return [0]
-
-    def get_invalid_actions(self, player_index: int):
-        return []
+    def call_step(self, actions):
+        self.s_actions = actions
+        return self.s_state, self.s_reward, self.s_done, self.s_info
 
     def backup(self) -> Any:
         pass  # do nothing
@@ -101,46 +97,44 @@ class StubRLConfig(RLConfig):
 class StubRLWorker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
+        self.on_reset_state = np.array(0)
         self.state = np.array(0)
         self.action = 0
 
-    def _on_reset(
+    def _call_on_reset(
         self,
         state: np.ndarray,
-        player_index: int,
         env: EnvBase,
     ) -> None:
-        self.state = state
+        self.on_reset_state = state
 
-    def _policy(
+    def _call_policy(
         self,
         state: np.ndarray,
-        player_index: int,
         env: EnvBase,
     ) -> RLAction:
         self.state = state
         return self.action
 
-    def _on_step(
+    def _call_on_step(
         self,
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        player_index: int,
         env: EnvBase,
     ) -> Info:
         self.state = next_state
         return {}
 
-    def render(self, env: EnvBase, player_index: int) -> None:
+    def _call_render(self, env: EnvBase, player_index: int) -> None:
         raise NotImplementedError()
 
 
 class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.rl_config = StubRLConfig()
-        self.env = StubEnv()
-        self.env_config = EnvConfig("Stub")
+        self.env_run = srl.envs.make("Stub")
+        self.env = cast(StubEnv, self.env_run.get_original_env())
         self.rl_config = StubRLConfig()
 
     def test_env_play(self):
@@ -162,7 +156,6 @@ class Test(unittest.TestCase):
         self.env._observation_space = DiscreteSpace(5)
         self.env._observation_type = EnvObservationType.DISCRETE
         self.rl_config._observation_type = RLObservationType.DISCRETE
-        state = np.array(0)
 
         for pat in action_patterns:
             with self.subTest(pat):
@@ -182,8 +175,10 @@ class Test(unittest.TestCase):
                 elif pat[1] == "Any":
                     self.rl_config._action_type = RLActionType.ANY
 
-                self.rl_config.set_config_by_env(self.env)
+                self.rl_config.set_config_by_env(self.env_run)
                 worker = StubRLWorker(self.rl_config)
+                self.env_run.reset()
+                worker.on_reset(self.env_run, 0)
 
                 action_space = worker.config.env_action_space
                 if pat[0] == "Dis":
@@ -200,7 +195,7 @@ class Test(unittest.TestCase):
                 self.assertTrue(worker.config.env_observation_type == EnvObservationType.DISCRETE)
 
                 worker.action = rl_action
-                action = worker.policy(state, 0, self.env)
+                action = worker.policy(self.env_run)
                 np.testing.assert_array_equal([action], [env_action])
 
     def test_observation(self):
@@ -244,8 +239,10 @@ class Test(unittest.TestCase):
                 if pat[1] == "Any":
                     self.rl_config._observation_type = RLObservationType.ANY
 
-                self.rl_config.set_config_by_env(self.env)
+                self.rl_config.set_config_by_env(self.env_run)
                 worker = StubRLWorker(self.rl_config)
+                self.env_run.reset()
+                worker.on_reset(self.env_run, 0)
 
                 self.assertTrue(isinstance(worker.config.env_action_space, DiscreteSpace))
                 self.assertTrue(worker.action_decode(rl_action) == env_action)
@@ -265,17 +262,20 @@ class Test(unittest.TestCase):
                 self.assertTrue(np.allclose(worker.observation_encode(env_state, self.env), rl_state))
 
                 # on_reset
-                worker.on_reset(env_state, 0, None)
-                self.assertTrue(isinstance(worker.state, np.ndarray))
-                self.assertTrue(np.allclose(worker.state, rl_state))
+                self.env.s_state = env_state
+                self.env_run.reset()
+                worker.on_reset(self.env_run, 0)
                 # policy
                 worker.action = rl_action
-                action = worker.policy(env_state, 0, None)
+                action = worker.policy(self.env_run)
+                self.assertTrue(isinstance(worker.on_reset_state, np.ndarray))
+                self.assertTrue(np.allclose(worker.on_reset_state, rl_state))
                 np.testing.assert_array_equal([action], [env_action])
                 self.assertTrue(isinstance(worker.state, np.ndarray))
                 self.assertTrue(np.allclose(worker.state, rl_state))
                 # on_step
-                worker.on_step(env_state, 0, True, 0, None)
+                self.env_run.step([action])
+                worker.on_step(self.env_run)
                 self.assertTrue(isinstance(worker.state, np.ndarray))
                 self.assertTrue(np.allclose(worker.state, rl_state))
 

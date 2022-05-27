@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Union, cast
 
 import numpy as np
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvBase
+from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -177,7 +177,7 @@ class Worker(DiscreteActionWorker):
 
         return {}
 
-    def render(self, env: EnvBase, player_index: int) -> None:
+    def call_render(self, env: EnvRun) -> None:
         probs = self.parameter.get_probs(self.state, self.invalid_actions)
         vals = [0 if v is None else v for v in self.parameter.policy[self.state]]
         maxa = np.argmax(vals)

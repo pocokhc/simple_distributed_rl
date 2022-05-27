@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import srl.envs
 import srl.rl
-from srl.base.env.base import EnvBase, EnvConfig
+from srl.base.env.base import EnvConfig, EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLWorker
 from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer, make_worker
 from srl.runner.callbacks import Callback
@@ -24,24 +24,19 @@ class Config:
 
     # multi player option
     players: List[Optional[RLConfig]] = field(default_factory=list)
-    shuffle_player: bool = False
 
     # episode option
     max_episode_steps: int = 10_000
     episode_timeout: int = -1  # s
 
     # play option
-    max_steps: int = -1
-    max_episodes: int = -1
-    timeout: int = -1
-    training: bool = False
     skip_frames: int = 0
 
     # validation option
-    enable_validation: bool = False
-    validation_interval: int = 1  # episode
+    validation_interval: int = 0  # episode
     validation_episode: int = 1
     validation_players: List[Optional[RLConfig]] = field(default_factory=list)
+    validation_player: int = 0
 
     # callbacks
     callbacks: List[Callback] = field(default_factory=list)
@@ -53,6 +48,16 @@ class Config:
     is_make_env: bool = True
 
     def __post_init__(self):
+        # play config
+        self.max_steps: int = -1
+        self.max_episodes: int = -1
+        self.timeout: int = -1
+        self.training: bool = False
+        # multi player option
+        self.shuffle_player: bool = False
+        # validation option
+        self.enable_validation: bool = False
+
         if self.rl_config is not None:
             self.rl_name = self.rl_config.getName()
         self.parameter_path = ""
@@ -114,10 +119,11 @@ class Config:
     def assert_params(self):
         self.rl_config.assert_params()
 
-    def make_env(self) -> EnvBase:
+    def make_env(self) -> EnvRun:
         if self.env is None:
             self.env = srl.envs.make(self.env_config)
             self.rl_config.set_config_by_env(self.env)
+        self.env.init()
         return self.env
 
     def make_parameter(self) -> RLParameter:
@@ -248,6 +254,19 @@ def play(
     Tuple[List[float], RLParameter, RLRemoteMemory],  # single play
     Tuple[List[List[float]], RLParameter, RLRemoteMemory],  # multi play
 ]:
+    return _play(config, parameter, remote_memory, worker_id)
+
+
+def _play(
+    config: Config,
+    parameter: Optional[RLParameter] = None,
+    remote_memory: Optional[RLRemoteMemory] = None,
+    worker_id: int = 0,
+) -> Union[
+    Tuple[List[float], RLParameter, RLRemoteMemory],  # single play
+    Tuple[List[List[float]], RLParameter, RLRemoteMemory],  # multi play
+]:
+
     env = config.make_env()
     config = config.copy(env_copy=True)
     config.assert_params()
@@ -279,8 +298,8 @@ def play(
         "parameter": parameter,
         "remote_memory": remote_memory,
         "trainer": trainer,
-        "worker_id": worker_id,
         "workers": workers,
+        "worker_id": worker_id,
     }
     [c.on_episodes_begin(**_params) for c in callbacks]
 
@@ -290,15 +309,16 @@ def play(
     # --- init
     episode_count = -1
     total_step = 0
-    t0 = time.time()
-    done = True
+    elapsed_t0 = time.time()
+    worker_indices = [i for i in range(env.player_num)]
+    episode_t0 = 0
 
     # --- loop
     while True:
         _time = time.time()
 
         # timeout
-        elapsed_time = _time - t0
+        elapsed_time = _time - elapsed_t0
         if config.timeout > 0 and elapsed_time > config.timeout:
             break
 
@@ -309,7 +329,7 @@ def play(
         # ------------------------
         # episode end / init
         # ------------------------
-        if done:
+        if env.done:
             episode_count += 1
 
             if config.max_episodes > 0 and episode_count >= config.max_episodes:
@@ -317,101 +337,46 @@ def play(
 
             # env reset
             episode_t0 = _time
-            state, next_player_indices = env.reset()
-            done = False
-            step = 0
-            episode_rewards = np.zeros(env.player_num)
+            env.reset(config.max_episode_steps, config.episode_timeout)
 
-            # players reset
-            players_status = ["INIT" for _ in range(env.player_num)]
-            players_step_reward = np.zeros(env.player_num)
-            worker_info_list = [None for _ in range(env.player_num)]
-            worker_indices = [i for i in range(env.player_num)]
-
+            # shuffle
             if config.shuffle_player:
                 random.shuffle(worker_indices)
 
+            # worker reset
+            [w.on_reset(env, worker_indices[i]) for i, w in enumerate(workers)]
+
             # callback
             _params["episode_count"] = episode_count
-            _params["state"] = state
-            _params["next_player_indices"] = next_player_indices
             _params["worker_indices"] = worker_indices
             [c.on_episode_begin(**_params) for c in callbacks]
 
         # ------------------------
         # step
         # ------------------------
-        # --- rl before step
-        actions = []
-        for i, idx in enumerate(next_player_indices):
-
-            # rl init
-            if players_status[idx] == "INIT":
-                worker_idx = worker_indices[idx]
-                workers[worker_idx].on_reset(state, idx, env)
-                players_status[idx] = "RUNNING"
-
-            # rl action
-            worker_idx = worker_indices[idx]
-            action = workers[worker_idx].policy(state, idx, env)
-            actions.append(action)
+        # action
+        actions = [w.policy(env) for w in workers]
 
         # callback
-        _params["step"] = step
         _params["actions"] = actions
         [c.on_step_begin(**_params) for c in callbacks]
 
-        # --- env step
-        # skip frame の間は同じアクションを繰り返す
-        rewards = np.zeros(env.player_num)
-        for j in range(config.skip_frames + 1):
-            state, step_rewards, done, next_player_indices, env_info = env.step(actions)
-            rewards += np.asarray(step_rewards)
-            if done:
-                break
+        # env step
+        # worker -> player に並べ替え
+        actions = [actions[i] for i in worker_indices]
+        if config.skip_frames == 0:
+            env.step(actions)
+        else:
+            env.step(actions, config.skip_frames, lambda: [c.on_skip_step(**_params) for c in callbacks])
 
-            # callback
-            if j < config.skip_frames:
-                _params["state"] = state
-                _params["step_rewards"] = step_rewards
-                _params["done"] = done
-                _params["env_info"] = env_info
-                [c.on_skip_step(**_params) for c in callbacks]
+        # rl step
+        [w.on_step(env) for w in workers]
 
-        step += 1
+        # step update
+        step_time = time.time() - _time
         total_step += 1
 
-        # update reward
-        episode_rewards += rewards
-        players_step_reward += rewards
-
-        # --- episode end
-        if step >= env.max_episode_steps:
-            done = True
-        if step >= config.max_episode_steps:
-            done = True
-        if config.episode_timeout > 0 and _time - episode_t0 > config.episode_timeout:
-            done = True
-
-        # --- rl after step
-        _params["next_player_indices"] = next_player_indices
-        if done:
-            # 終了の場合は全playerを実行
-            next_player_indices = [i for i in range(env.player_num)]
-        for idx in next_player_indices:
-            if players_status[idx] != "RUNNING":
-                continue
-            worker_idx = worker_indices[idx]
-            worker_info_list[worker_idx] = workers[worker_idx].on_step(
-                state,
-                players_step_reward[idx],
-                done,
-                idx,
-                env,
-            )
-            players_step_reward[idx] = 0
-
-        # --- trainer
+        # trainer
         if config.training and trainer is not None:
             _t0 = time.time()
             train_info = trainer.train()
@@ -421,20 +386,13 @@ def play(
             train_time = 0
 
         # callback
-        _params["step"] = step
-        _params["step_time"] = time.time() - _time
-        _params["state"] = state
-        _params["actions"] = actions
-        _params["rewards"] = rewards
-        _params["done"] = done
-        _params["env_info"] = env_info
-        _params["worker_info_list"] = worker_info_list
+        _params["step_time"] = step_time
         _params["train_info"] = train_info
         _params["train_time"] = train_time
         [c.on_step_end(**_params) for c in callbacks]
 
-        if done:
-            episode_rewards_list.append(episode_rewards)
+        if env.done:
+            episode_rewards_list.append(env.episode_rewards)
 
             # validation
             valid_reward = None
@@ -443,16 +401,16 @@ def play(
                 if valid_episode > config.validation_interval:
                     rewards, _, _ = play(valid_config, parameter=parameter)
                     if env.player_num > 1:
-                        rewards = [r[0] for r in rewards]
+                        rewards = [r[config.validation_player] for r in rewards]
                     valid_reward = np.mean(rewards)
                     valid_episode = 0
 
             # callback
-            _params["step"] = step
+            _params["episode_step"] = env.step_num
+            _params["episode_rewards"] = env.episode_rewards
             _params["episode_time"] = time.time() - episode_t0
-            _params["valid_reward"] = valid_reward
             _params["episode_count"] = episode_count
-            _params["episode_rewards"] = episode_rewards
+            _params["valid_reward"] = valid_reward
             [c.on_episode_end(**_params) for c in callbacks]
 
         # callback end

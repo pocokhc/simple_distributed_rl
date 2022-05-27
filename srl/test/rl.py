@@ -5,8 +5,9 @@ from typing import cast
 import numpy as np
 import srl
 from srl.base.define import EnvObservationType
-from srl.base.env.processors import ImageProcessor
 from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
+from srl.base.rl.processors.image_processor import ImageProcessor
+from srl.base.rl.registration import make_worker
 from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
 from srl.envs.grid import Grid
 from srl.rl.functions.common import to_str_observation
@@ -42,6 +43,8 @@ class TestRL:
         }
 
     def play_sequence(self, rl_config):
+        self._check_play_raw(rl_config)
+
         for env_config in self.env_list:
             config = sequence.Config(env_config, rl_config)
 
@@ -52,6 +55,67 @@ class TestRL:
             # --- test
             config.set_play_config(max_episodes=1, callbacks=[Rendering()])
             episode_rewards, _, _ = sequence.play(config, parameter)
+
+    def _is_space_base_instance(self, val):
+        if type(val) in [int, float, list, np.ndarray]:
+            return True
+        return False
+
+    def _check_play_raw(self, rl_config):
+        env_config = srl.envs.Config("OX")
+
+        # --- init
+        rl_config.assert_params()
+        env = srl.envs.make(env_config)
+        remote_memory, parameter, trainer, worker = srl.rl.make(rl_config, env)
+        workers = [
+            make_worker(srl.rl.random_play.Config(), env),
+            worker,
+        ]
+
+        # --- episode
+        worker.set_training(True, False)
+        for _ in range(2):
+            env.reset()
+            [w.on_reset(env, i) for i, w in enumerate(workers)]
+            assert worker.player_index == 1
+
+            # --- step
+            for step in range(10):
+                # policy
+                actions = [w.policy(env) for w in workers]
+                if step % 2 == 0:
+                    assert self._is_space_base_instance(actions[0])
+                    assert actions[1] is None
+                else:
+                    assert actions[0] is None
+                    assert self._is_space_base_instance(actions[1])
+
+                # render
+                [w.render(env) for w in workers]
+
+                # step
+                env.step(actions)
+                worker_infos = [w.on_step(env) for w in workers]
+                if env.done:
+                    assert isinstance(worker_infos[1], dict)
+                    assert isinstance(worker_infos[1], dict)
+                elif step == 0:
+                    assert worker_infos[0] is None
+                    assert worker_infos[1] is None
+                elif step % 2 == 0:
+                    assert worker_infos[0] is None
+                    assert isinstance(worker_infos[1], dict)
+                else:
+                    assert isinstance(worker_infos[0], dict)
+                    assert worker_infos[1] is None
+
+                # train
+                train_info = trainer.train()
+                assert isinstance(train_info, dict)
+
+                if env.done:
+                    break
 
     def play_mp(self, rl_config_org):
         for env_config in self.env_list:
@@ -166,10 +230,10 @@ class TestRL:
             if done:
                 state = env.reset()
                 done = False
-                worker.on_reset(state, env)
+                worker.on_reset(env)
 
             # action
-            action = worker.policy(state, env)
+            action = worker.policy(env)
 
             # -----------
             # policyのアクションと最適アクションが等しいか確認
@@ -184,4 +248,4 @@ class TestRL:
             state, reward, done, env_info = env.step(action)
 
             # rl step
-            worker.on_step(state, reward, done, env)
+            worker.on_step(env)

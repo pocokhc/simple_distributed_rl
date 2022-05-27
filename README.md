@@ -5,7 +5,6 @@
 どちらかというと学習用フレームワークに近いかもしれません。  
 以下の特徴があります。  
 
-+ （出来る限り）透明性のあるフロー
 + カスタマイズ可能な環境クラスの提供
 + カスタマイズ可能な強化学習アルゴリズムクラスの提供
 + 環境とアルゴリズム間のインタフェースの自動調整
@@ -19,7 +18,7 @@
 github からの pip install を想定しています。
 
 ``` bash
-pip install git+https://github.com/pocokhc/simple_distributed_rl
+pip install -U git+https://github.com/pocokhc/simple_distributed_rl
 ```
 
 or
@@ -27,7 +26,7 @@ or
 ``` bash
 git clone https://github.com/pocokhc/simple_distributed_rl.git
 cd simple_distributed_rl
-pip install .
+pip install -U .
 
 # run sample
 python examples/minimum_runner.py
@@ -42,7 +41,6 @@ python examples/minimum_runner.py
 import numpy as np
 
 import srl
-from srl.base.define import RenderType
 from srl.runner import mp, sequence
 from srl.runner.callbacks import PrintProgress, Rendering
 from srl.runner.callbacks_mp import TrainFileLogger
@@ -96,13 +94,15 @@ def main():
     sequence.play(config, parameter)
 
     # --- animation
-    render = Rendering(mode=RenderType.NONE, enable_animation=True)
+    render = Rendering(mode="", enable_animation=True)
     config.set_play_config(max_episodes=1, callbacks=[render])
     sequence.play(config, parameter)
     render.create_anime(fps=3).save("FrozenLake.gif")
 
+
 if __name__ == '__main__':
     main()
+
 ```
 
 ![](FrozenLake.gif)
@@ -187,9 +187,9 @@ examples/custom_rl.ipynb
 
 
 
-## SinglePlay flow
+## PlayFlow
 
-![](diagrams/singleplay_flow.png)
+![](diagrams/playflow.png)
 
 ## Distribute flow
 
@@ -204,10 +204,6 @@ examples/custom_rl.ipynb
 * Workers
 
 ![](diagrams/runner_mp_flow_worker.png)
-
-## MultiPlay flow
-
-![](diagrams/multiplay_flow.png)
 
 
 ## Class diagram

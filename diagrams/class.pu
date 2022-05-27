@@ -1,14 +1,5 @@
 @startuml class
 
-abstract gym.Env {
-    action_space : gym.spaces.Space
-    observation_space : gym.spaces.Space
-    reset()
-    step(action)
-    render()
-}
-
-
 enum RLActionType {
     ANY
     DISCRETE
@@ -31,32 +22,104 @@ enum EnvObservationType {
     SHAPE3
 }
 
+
+abstract SpaceBase {
+    sample()
+    action_discrete()
+    action_continuous()
+    observation_discrete()
+    observation_continuous()
+}
+
+note as SpaceMemo
+DiscreteSpace
+ArrayDiscreteSpace
+ContinuousSpace
+ArrayContinuousSpace
+BoxSpace
+end note
+
+SpaceBase <|-- SpaceMemo
+
+
 abstract EnvBase {
     action_space : SpaceBase
     observation_space : SpaceBase
+    observation_type : EnvObservationType
+    max_episode_steps : int
+    player_num : int
+    reset()
+    step(actions, player_indices)
+    backup()
+    restore()
+    render_terminal()
+    render_gui()
+    render_rgb_array()
+    get_invalid_actions(player_index)
+} 
+
+EnvBase .. EnvObservationType
+EnvBase -- SpaceBase
+
+
+abstract gym.Env {
+    action_space : gym.spaces.Space
+    observation_space : gym.spaces.Space
     reset()
     step(action)
     render()
-    - action_type : EnvActionType
-    - observation_type : EnvObservationType
-    - max_episode_steps : int
-    - player_num : int
-    - get_invalid_actions()
-    - sample()
-    - backup()
-    - restore()
-} 
+}
+class GymWrapper {}
+
+GymWrapper o-- gym.Env
+EnvBase -- GymWrapper
 
 abstract SpaceBase {
 
 }
 
-abstract RLConfig {
-    {static} getName() : str
-    action_type : RLActionType
-    observation_type : RLObservationType
-    assert_params()
-    set_config_by_env(EnvBase)
+class EnvRun {
+    state
+    rewards
+    done
+    reset()
+    step(actions)
+    backup()
+    restore()
+    render()
+    samples()
+}
+EnvRun o-- EnvBase
+
+note "It retains the state \nat the time of episode execution." as EnvRunMemo
+EnvRun .. EnvRunMemo
+
+
+abstract RLWorker {
+    config : RLConfig
+    parameter : RLParameter
+    remote_memory : RLRemoteMemory
+    worker_id : int
+    player_index: int
+    on_reset()
+    policy()
+    on_step()
+    render()
+}
+
+
+RLWorker - EnvRun
+
+note "Absorbs the difference with \nthe environment.\n(action, observation)" as RLWorkerMemo
+RLWorker .. RLWorkerMemo
+
+
+abstract RLTrainer {
+    config : RLConfig
+    parameter : RLParameter
+    remote_memory : RLRemoteMemory
+    train()
+    get_train_count()
 }
 
 abstract RLRemoteMemory {
@@ -71,44 +134,20 @@ abstract RLParameter {
     backup()
 }
 
-abstract RLTrainer {
-    config : RLConfig
-    parameter : RLParameter
-    remote_memory : RLRemoteMemory
-    train()
-    get_train_count()
+
+abstract RLConfig {
+    {static} getName() : str
+    action_type : RLActionType
+    observation_type : RLObservationType
 }
+RLActionType .. RLConfig
+RLObservationType .. RLConfig
 
-abstract RLWorker {
-    config : RLConfig
-    parameter : RLParameter
-    remote_memory : RLRemoteMemory
-    worker_id : int
-    on_reset()
-    policy()
-    on_step()
-    render()
-    observation_encode()
-    action_decode()
-}
-
-RLConfig .. RLActionType
-RLConfig .. RLObservationType
-
-
-EnvBase <|-- gym.Env
-EnvBase .. EnvObservationType
-EnvBase -- SpaceBase
-
-RLWorker -- EnvBase
-
-note "Absorbs the difference with the environment." as RLWorkerMemo
-RLWorker .. RLWorkerMemo
-
-RLConfig -- RLWorker
-RLConfig -- RLTrainer
+RLConfig --- RLWorker
+RLConfig --- RLTrainer
 RLConfig -- RLParameter
 RLConfig -- RLRemoteMemory
+
 RLParameter -- RLWorker
 RLParameter -- RLTrainer
 RLRemoteMemory -- RLWorker

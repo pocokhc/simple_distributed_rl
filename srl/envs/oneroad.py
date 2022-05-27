@@ -46,7 +46,7 @@ class OneRoad(SinglePlayEnv):
     def max_episode_steps(self) -> int:
         return int(self.N * 1.1)
 
-    def reset_single(self) -> np.ndarray:
+    def call_reset(self) -> np.ndarray:
         self.player_pos = 0
         return np.asarray(self.player_pos)
 
@@ -61,7 +61,7 @@ class OneRoad(SinglePlayEnv):
         d = json.loads(data)
         self.player_pos = d[0]
 
-    def step_single(self, action: int) -> Tuple[Any, float, bool, dict]:
+    def call_step(self, action: int) -> Tuple[np.ndarray, float, bool, dict]:
         if action == 0:
             self.player_pos += 1
         else:

@@ -17,8 +17,6 @@ class Test(unittest.TestCase):
             with self.subTest((player,)):
                 self.tester.player_test("OX", player)
 
-    # processor TODO
-
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_player", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_play", verbosity=2)

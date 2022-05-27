@@ -11,7 +11,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 def main(is_mp):
 
-    env_config = srl.envs.Config("FrozenLake-v1")
+    env_config = srl.envs.Config("Grid")
     rl_config = srl.rl.ql.Config()
     config = sequence.Config(env_config, rl_config)
 
@@ -21,14 +21,14 @@ def main(is_mp):
     # --- training
     if not is_mp:
         # sequence training
-        config.set_train_config(timeout=30 * 1, callbacks=[PrintProgress()])
+        config.set_train_config(timeout=10, callbacks=[PrintProgress()])
         parameter, memory = sequence.train(config)
     else:
         # distributed training
         mp_config = mp.Config(worker_num=2)
         config.set_train_config()
         mp_config.set_train_config(
-            timeout=30 * 1, callbacks=[TrainFileLogger(enable_log=False, enable_checkpoint=False)]
+            timeout=10 * 1, callbacks=[TrainFileLogger(enable_log=False, enable_checkpoint=False)]
         )
         parameter, memory = mp.train(config, mp_config)
 

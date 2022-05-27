@@ -1,16 +1,16 @@
 import logging
 import pickle
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Type
 
 import numpy as np
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env import registration
 from srl.base.env.base import SpaceBase
 from srl.base.env.genre import TurnBase2Player
-from srl.base.env.processor import Processor
 from srl.base.env.spaces import BoxSpace, DiscreteSpace
 from srl.base.rl.algorithms.rulebase import RuleBaseWorker
 from srl.base.rl.base import RLWorker
+from srl.base.rl.processor import Processor
 
 logger = logging.getLogger(__name__)
 
@@ -57,13 +57,13 @@ class ConnectX(TurnBase2Player):
     def player_index(self) -> int:
         return self._player_index
 
-    def reset_turn(self) -> np.ndarray:
+    def call_reset(self) -> np.ndarray:
         states = self.env.reset()
         self.board = states[0].observation["board"]
         self._player_index = 0
         return np.array(self.board)
 
-    def step_turn(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
+    def call_step(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
         assert isinstance(action, int)
         states = self.env.step([action, action])
         self.board = states[0].observation["board"]
@@ -103,20 +103,17 @@ class ConnectX(TurnBase2Player):
         self.board = data[1][:]
         self._player_index = data[2]
 
-    def make_worker(self, name: str) -> Optional[RLWorker]:
+    def make_worker(self, name: str) -> Optional[Type[RLWorker]]:
         if name == "negamax":
-            return NegaMax()
+            return NegaMax
         return None
 
 
 class NegaMax(RuleBaseWorker):
-    def __init__(self):
-        pass  #
-
     def call_on_reset(self, env) -> None:
         pass  #
 
-    def call_policy(self, env: ConnectX) -> Any:
+    def call_policy(self, env: ConnectX) -> int:
         observation = env.env.state[0]["observation"]
         configuration = env.env.configuration
         action = negamax_agent(observation, configuration)

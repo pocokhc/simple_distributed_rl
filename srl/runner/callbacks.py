@@ -99,7 +99,7 @@ class Rendering(Callback):
         if self.mode != RenderType.NONE:
             for i in env.next_player_indices:
                 worker_idx = worker_indices[i]
-                workers[worker_idx].render(env, i)
+                workers[worker_idx].render(env)
 
         if self.step_stop:
             input("Enter to continue:")

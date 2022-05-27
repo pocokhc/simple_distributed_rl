@@ -41,7 +41,6 @@ python examples/minimum_runner.py
 import numpy as np
 
 import srl
-from srl.base.define import RenderType
 from srl.runner import mp, sequence
 from srl.runner.callbacks import PrintProgress, Rendering
 from srl.runner.callbacks_mp import TrainFileLogger
@@ -95,7 +94,7 @@ def main():
     sequence.play(config, parameter)
 
     # --- animation
-    render = Rendering(mode=RenderType.NONE, enable_animation=True)
+    render = Rendering(mode="", enable_animation=True)
     config.set_play_config(max_episodes=1, callbacks=[render])
     sequence.play(config, parameter)
     render.create_anime(fps=3).save("FrozenLake.gif")

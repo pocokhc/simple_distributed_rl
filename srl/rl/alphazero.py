@@ -297,7 +297,6 @@ class Worker(RLWorker):
         scores = self._calc_puct(state_str, invalid_actions)
 
         action = random.choice(np.where(scores == np.max(scores))[0])
-
         return int(action)
 
     def _calc_puct(self, state_str, invalid_actions):

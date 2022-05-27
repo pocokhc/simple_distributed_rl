@@ -5,6 +5,7 @@ from typing import cast
 import numpy as np
 import srl
 from srl.base.define import EnvObservationType
+from srl.base.env.processors import ImageProcessor
 from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import make_worker

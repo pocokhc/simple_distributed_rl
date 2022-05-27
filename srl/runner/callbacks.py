@@ -99,7 +99,7 @@ class Rendering(Callback):
         if self.mode != RenderType.NONE:
             for i in env.next_player_indices:
                 worker_idx = worker_indices[i]
-                workers[worker_idx].render(env)
+                workers[worker_idx].render(env, i)
 
         if self.step_stop:
             input("Enter to continue:")
@@ -468,12 +468,17 @@ class History(Callback):
 
         if len(self.history) > 100:
             alpha = 0.2
-            plt.plot(pd.Series(rewards).rolling(rolling_n).mean(), "C0", label=f"reward(mean{rolling_n})")
-            plt.plot(pd.Series(valid_rewards).rolling(rolling_n).mean(), "C1", label=f"valid reward(mean{rolling_n})")
+            plt.plot(pd.Series(rewards).rolling(rolling_n).mean(), "C0", marker=".", label=f"reward(mean{rolling_n})")
+            plt.plot(
+                pd.Series(valid_rewards).rolling(rolling_n).mean(),
+                "C1",
+                marker=".",
+                label=f"valid reward(mean{rolling_n})",
+            )
         else:
             alpha = 1
-        plt.plot(rewards, "C0", alpha=alpha, label="reward")
-        plt.plot(valid_rewards, "C1", alpha=alpha, label="valid reward")
+        plt.plot(rewards, "C0", alpha=alpha, label="reward", marker=".")
+        plt.plot(valid_rewards, "C1", alpha=alpha, label="valid reward", marker=".")
 
         plt.xlabel("episode")
         plt.ylabel("reward")

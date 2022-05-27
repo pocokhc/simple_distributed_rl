@@ -3,18 +3,17 @@ from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import tensorflow as tf
+from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.continuous_action import (ContinuousActionConfig,
-                                                      ContinuousActionWorker)
+from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common_tf import compute_logprob_sgp
-from srl.rl.functions.model import (ImageLayerType,
-                                    create_input_layers_one_sequence)
+from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
 
 """
 DDPG

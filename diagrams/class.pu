@@ -74,6 +74,9 @@ class GymWrapper {}
 GymWrapper o-- gym.Env
 EnvBase -- GymWrapper
 
+abstract SpaceBase {
+
+}
 
 class EnvRun {
     state

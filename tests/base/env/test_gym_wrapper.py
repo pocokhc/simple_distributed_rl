@@ -75,10 +75,12 @@ class Test(unittest.TestCase):
                 pass
             except gym.error.DependencyNotInstalled:
                 pass  # No module named 'mujoco_py'
+            except ModuleNotFoundError:
+                pass  # unsupported env
             except Exception:
                 print(spec.id)
                 raise
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_play", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_play_all", verbosity=2)

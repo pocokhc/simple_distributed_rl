@@ -157,15 +157,15 @@ class GymWrapper(EnvBase):
 
     def render_terminal(self) -> None:
         if "ansi" in self.render_modes:
-            print(self.env.render("ansi"))
+            print(self.env.render(mode="ansi"))
 
     def render_gui(self) -> None:
         if "human" in self.render_modes:
-            self.env.render("human")
+            self.env.render(mode="human")
 
     def render_rgb_array(self) -> np.ndarray:
         if "rgb_array" in self.render_modes:
-            return np.asarray(self.env.render("rgb_array"))
+            return np.asarray(self.env.render(mode="rgb_array"))
         else:
             raise NotImplementedError
 

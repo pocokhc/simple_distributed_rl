@@ -160,7 +160,7 @@ class MPManager(BaseManager):
 def main():
 
     # --- config
-    env_config = srl.envs.Config("FrozenLake-v1")
+    env_config = srl.envs.Config("Grid")
     rl_config = srl.rl.ql.Config()
     worker_num = 2
     config = {

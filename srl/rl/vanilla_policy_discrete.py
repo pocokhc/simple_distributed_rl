@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Union, cast
+from typing import Any, Dict, List, cast
 
 import numpy as np
 from srl.base.define import RLObservationType

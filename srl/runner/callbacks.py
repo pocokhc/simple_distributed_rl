@@ -117,7 +117,7 @@ class Rendering(Callback):
         if self.mode != RenderType.NONE:
             print("### {}, done: {} ({})".format(env.step_num, env.done, env.done_reason))
             for i, idx in enumerate(env.next_player_indices):
-                print(f"player {idx}, action {actions[i]}, reward: {env.step_rewards[idx]}")
+                print(f"player {idx}, action {actions[i]}, reward: {env.step_rewards}")
             env.render(self.mode)
             print(f"env_info  : {env.info}")
             for i in env.next_player_indices:

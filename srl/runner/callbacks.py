@@ -213,7 +213,6 @@ class PrintProgress(Callback):
         self.history_step = []
         self.history_episode = []
         self.history_episode_start_idx = 0
-        self.elapsed_time = 0
 
     def on_episodes_begin(self, config, **kwargs):
         self.config = config
@@ -324,14 +323,14 @@ class PrintProgress(Callback):
         if self.progress_timeout > self.max_progress_time:
             self.progress_timeout = self.max_progress_time
 
-        self.elapsed_time = _time - self.t0
         return True
 
     def _print(self, episode_count, train_count):
+        elapsed_time = time.time() - self.t0
 
         # --- print
         s = dt.datetime.now().strftime("%H:%M:%S")
-        s += f" {to_str_time(self.elapsed_time)}"
+        s += f" {to_str_time(elapsed_time)}"
         s += " {:6d}ep".format(episode_count)
         if self.config.training:
             s += " {:6d}tr".format(train_count)
@@ -360,7 +359,7 @@ class PrintProgress(Callback):
             else:
                 remain_episode = np.inf
             if self.config.timeout > 0:
-                remain_time = self.config.timeout - self.elapsed_time
+                remain_time = self.config.timeout - elapsed_time
             else:
                 remain_time = np.inf
             remain = min(min(remain_step, remain_episode), remain_time)

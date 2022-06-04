@@ -75,6 +75,7 @@ class OX(TurnBase2Player):
 
         reward1, reward2, done = self._step(action)
 
+        if not done:
         if self._player_index == 0:
             self._player_index = 1
         else:

@@ -1,20 +1,46 @@
 import random
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any, List, Optional
 
 import numpy as np
 from srl.base.rl.memory import Memory
 
 
 class SumTree:
-    """
-    copy from https://github.com/jaromiru/AI-blog/blob/5aa9f0b/SumTree.py
+    """Segment Tree, full binary tree
+    all nodes: 2N-1
+    left     : 2i+1
+    right    : 2i+2
+    parent   : (i-1)/2
+    data -> tree index : j + N - 1
+    tree index -> data : i - N + 1
+
+    --- N=5
+    data_index, tree_index: priority
+    0, 4: 10
+    1, 5: 2
+    2, 6: 5
+    3, 7: 8
+    4, 8: 4
+
+    index tree
+         0
+       1─┴─2
+      3┴4 5┴6
+     7┴8
+
+    priority tree
+          29
+       22──┴──7
+      12┴10  2┴5
+     8┴4
+
     """
 
     def __init__(self, capacity):
         self.capacity = capacity
         self.write = 0
-        self.tree = [0 for _ in range(2 * capacity - 1)]
+        self.tree = [0 for _ in range(2 * self.capacity - 1)]
         self.data = [None for _ in range(capacity)]
 
     def _propagate(self, idx, change):
@@ -25,42 +51,47 @@ class SumTree:
         if parent != 0:
             self._propagate(parent, change)
 
-    def _retrieve(self, idx, s):
+    def _retrieve(self, idx, val):
         left = 2 * idx + 1
-        right = left + 1
 
+        # 子がなければ該当
         if left >= len(self.tree):
             return idx
 
-        if s <= self.tree[left]:
-            return self._retrieve(left, s)
+        # left が val 以上なら左に移動
+        if val <= self.tree[left]:
+            return self._retrieve(left, val)
         else:
-            return self._retrieve(right, s - self.tree[left])
+            # でなければ左の重さを引いて、右に移動
+            right = left + 1
+            return self._retrieve(right, val - self.tree[left])
 
     def total(self):
         return self.tree[0]
 
-    def add(self, p, data):
-        idx = self.write + self.capacity - 1
+    def add(self, priority, data):
+        tree_idx = self.write + self.capacity - 1
 
         self.data[self.write] = data
-        self.update(idx, p)
+        self.update(tree_idx, priority)
 
         self.write += 1
         if self.write >= self.capacity:
             self.write = 0
 
-    def update(self, idx, p):
-        change = p - self.tree[idx]
+    def update(self, tree_idx, priority):
+        # numpyよりプリミティブ型の方が早い、再帰されるので無視できないレベルで違いが出る
+        priority = float(priority)
+        change = priority - self.tree[tree_idx]
 
-        self.tree[idx] = p
-        self._propagate(idx, change)
+        self.tree[tree_idx] = priority
+        self._propagate(tree_idx, change)
 
-    def get(self, s):
-        idx = self._retrieve(0, s)
-        dataIdx = idx - self.capacity + 1
+    def get(self, val):
+        idx = self._retrieve(0, float(val))
+        data_idx = idx - self.capacity + 1
 
-        return (idx, self.tree[idx], self.data[dataIdx])
+        return (idx, self.tree[idx], self.data[data_idx])
 
 
 @dataclass
@@ -70,6 +101,8 @@ class ProportionalMemory(Memory):
     alpha: float = 0.6
     beta_initial: float = 0.4
     beta_steps: int = 1_000_000
+    has_duplicate: bool = True
+    epsilon: float = 0.0001
 
     @staticmethod
     def getName() -> str:
@@ -80,61 +113,62 @@ class ProportionalMemory(Memory):
 
     def init(self):
         self.tree = SumTree(self.capacity)
-        self.max_priority = 1
+        self.max_priority = 1.0
         self.size = 0
 
-    def add(self, batch, priority=0, _alpha_skip=False):
-        if priority == 0:
+    def add(self, batch: Any, td_error: Optional[float] = None, _restore_skip: bool = False):
+        if _restore_skip:
+            priority = td_error
+        elif td_error is None:
             priority = self.max_priority
-        if not _alpha_skip:
-            priority = priority**self.alpha
+        else:
+            priority = (abs(td_error) + self.epsilon) ** self.alpha
+
         self.tree.add(priority, batch)
         self.size += 1
         if self.size > self.capacity:
             self.size = self.capacity
 
-    def update(self, indices: List[int], batchs: List[Any], priorities: List[float]) -> None:
+    def update(self, indices: List[int], batchs: List[Any], td_errors: np.ndarray) -> None:
+        priorities = (np.abs(td_errors) + self.epsilon) ** self.alpha
         for i in range(len(batchs)):
-            priority = priorities[i] ** self.alpha
-            self.tree.update(indices[i], priority)
-
-            if self.max_priority < priority:
-                self.max_priority = priority
+            self.tree.update(indices[i], priorities[i])
+            if self.max_priority < priorities[i]:
+                self.max_priority = priorities[i]
 
     def sample(self, batch_size, step):
         indices = []
         batchs = []
-        weights = np.empty(batch_size, dtype="float32")
+        weights = np.empty(batch_size, dtype=float)
+        total = self.tree.total()
 
         # βは最初は低く、学習終わりに1にする
         beta = self.beta_initial + (1 - self.beta_initial) * step / self.beta_steps
         if beta > 1:
             beta = 1
 
-        total = self.tree.total()
         for i in range(batch_size):
-            idx = None
-            experience = None
-            priority = 0
 
-            # indicesにないものを追加
             for _ in range(9999):  # for safety
                 r = random.random() * total
-                (idx, priority, experience) = self.tree.get(r)
-                if idx not in indices:
-                    break
+                idx, priority, batch = self.tree.get(r)
+
+                # 重複を許可しない場合はやり直す
+                if idx in indices and not self.has_duplicate:
+                    continue
+                break
 
             indices.append(idx)
-            batchs.append(experience)
+            batchs.append(batch)
 
             # 重要度サンプリングを計算 w = (N * pi)
             prob = priority / total
             weights[i] = (self.size * prob) ** (-beta)
 
-        # 安定性の理由から最大値で正規化
+        # 最大値で正規化
         weights = weights / weights.max()
 
-        return (indices, batchs, weights)
+        return indices, batchs, weights
 
     def __len__(self):
         return self.size
@@ -143,14 +177,11 @@ class ProportionalMemory(Memory):
         data = []
         for i in range(self.size):
             d = self.tree.data[i]
-            p = self.tree.tree[i + self.capacity - 1]
-            data.append([d, p])
-
+            priority = self.tree.tree[i + self.capacity - 1]
+            data.append([d, priority])
         return data
 
     def restore(self, data):
-        self.tree = SumTree(self.capacity)
-        self.size = 0
-
+        self.init()
         for d in data:
-            self.add(d[0], d[1], _alpha_skip=True)
+            self.add(d[0], d[1], _restore_skip=True)

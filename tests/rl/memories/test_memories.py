@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 from srl.rl.memories.proportional_memory import ProportionalMemory
-from srl.rl.memories.rankbase_memory import RankBaseMemory
+from srl.rl.memories.rankbase_memory_naive import RankBaseMemoryNaive
 from srl.rl.memories.replay_memory import ReplayMemory
 
 
@@ -14,8 +14,8 @@ class TestMemory(unittest.TestCase):
 
         memories = [
             (ReplayMemory(capacity), False),
-            (ProportionalMemory(capacity, 0.8, 1, 10), False),
-            (RankBaseMemory(capacity, 0.8, 1, 10), False),
+            (ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=False), True),
+            (RankBaseMemoryNaive(capacity, 0.8, 1, 10), True),
         ]
         for memory, use_priority in memories:
             with self.subTest(memory.__class__.__name__):
@@ -40,7 +40,6 @@ class TestMemory(unittest.TestCase):
         counter = []
         for i in range(10000):
             (indices, batchs, weights) = memory.sample(5, 1)
-            assert len(indices) == 5
             assert len(batchs) == 5
             assert len(weights) == 5
 
@@ -77,68 +76,68 @@ class TestMemory(unittest.TestCase):
     # test IS
     # -------------------------------
     def test_IS_Proportional(self):
-        capacity = 10
-        for alpha in [0, 0.5, 0.8, 1.0]:
+        for alpha in [0, 0.2, 0.5, 0.8, 1.0]:
             with self.subTest(alpha=alpha):
-                config = {
-                    "capacity": capacity,
-                    "alpha": alpha,
-                    "beta_initial": 1,
-                }
-                memory = ProportionalMemory(**config)
-                priorities = [
-                    1**alpha,
-                    2**alpha,
-                    3**alpha,
-                ]
-                sum_priority = sum(priorities)
-                probs = [
-                    priorities[0] / sum_priority,
-                    priorities[1] / sum_priority,
-                    priorities[2] / sum_priority,
-                ]
-                self._test_IS(memory, priorities, probs)
+                epsilon = 0.0001
+                memory = ProportionalMemory(
+                    capacity=10, alpha=alpha, beta_initial=1, epsilon=epsilon, has_duplicate=False
+                )
 
-    def test_IS_RankBase(self):
-        capacity = 10
-        for alpha in [0, 0.5, 0.8, 1.0]:
+                # --- true data
+                td_errors = [1, 2, 3]
+                N = len(td_errors)
+
+                # (|delta| + e)^a
+                true_priorities = [(t + epsilon) ** alpha for t in td_errors]
+
+                # p / sum(p)
+                sum_priority = sum(true_priorities)
+                true_probs = [p / sum_priority for p in true_priorities]
+
+                # (1/N)*(1/p)
+                true_weights = np.array([(N * p) ** -1 for p in true_probs])
+
+                # 最大値で正規化
+                maxw = np.max(true_weights)
+                true_weights /= maxw
+
+                # --- check
+                self._check_weights(memory, true_weights)
+
+    def test_IS_RankBaseNaive(self):
+        for alpha in [0, 0.2, 0.5, 0.8, 1.0]:
             with self.subTest(alpha=alpha):
-                config = {
-                    "capacity": capacity,
-                    "alpha": alpha,
-                    "beta_initial": 1,
-                }
-                memory = RankBaseMemory(**config)
-                priorities = [
-                    1 + 0 * alpha,  # 3位
-                    1 + 1 * alpha,  # 2位
-                    1 + 2 * alpha,  # 1位
-                ]
-                sum_priority = sum(priorities)
-                probs = [
-                    priorities[0] / sum_priority,
-                    priorities[1] / sum_priority,
-                    priorities[2] / sum_priority,
-                ]
-                self._test_IS(memory, priorities, probs)
+                memory = RankBaseMemoryNaive(capacity=10, alpha=alpha, beta_initial=1)
 
-    def _test_IS(self, memory, priorities, probs):
-        for i in range(len(priorities)):
-            memory.add((i, i, i, i + 1), i + 1)  # 最後がpriority
+                # --- true data
+                td_errors = [1, 2, 3]
+                rank = [3, 2, 1]
+                N = len(td_errors)
 
-        N = len(priorities)
-        true_weights = np.array(
-            [
-                (N * probs[0]) ** (-1),
-                (N * probs[1]) ** (-1),
-                (N * probs[2]) ** (-1),
-            ]
-        )
-        maxw = np.max(true_weights)
-        true_weights /= maxw
+                # 1 / rank(|delta|)^a
+                true_priorities = [(1 / r) ** alpha for r in rank]
 
-        (indices, batchs, weights) = memory.sample(3, 1)
+                # p^a / sum(p^a)
+                sum_probs = sum(true_priorities)
+                true_probs = [p / sum_probs for p in true_priorities]
 
+                # (1/N)*(1/p)
+                true_weights = np.array([(N * p) ** -1 for p in true_probs])
+
+                # 最大値で正規化
+                maxw = np.max(true_weights)
+                true_weights /= maxw
+
+                # --- check
+                self._check_weights(memory, true_weights)
+
+    def _check_weights(self, memory, true_weights):
+        N = len(true_weights)
+        for i in range(N):
+            memory.add((i, i, i, i), td_error=i + 1)
+        indices, batchs, weights = memory.sample(N, 1)
+
+        # 順番が変わっているので batch より元のindexを取得し比較
         for i, b in enumerate(batchs):
             idx = b[0]
             self.assertTrue(

@@ -1,8 +1,7 @@
-import logging
 from abc import ABC, abstractmethod
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
-logger = logging.getLogger(__name__)
+import numpy as np
 
 
 class Memory(ABC):
@@ -16,11 +15,11 @@ class Memory(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def add(self, batch: Any, priority: float = 0) -> None:
+    def add(self, batch: Any, td_error: Optional[float] = None) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def update(self, indices: List[int], batchs: List[Any], priorities: List[float]) -> None:
+    def update(self, indices: List[int], batchs: List[Any], td_errors: np.ndarray) -> None:
         raise NotImplementedError()
 
     @abstractmethod

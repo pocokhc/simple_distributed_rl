@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -12,12 +12,28 @@ from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, Discret
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import calc_epsilon_greedy_probs, random_choice_by_probs, render_discrete_action
+from srl.rl.functions.common import (
+    calc_epsilon_greedy_probs,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
 from srl.rl.functions.dueling_network import create_dueling_network_layers
 from srl.rl.functions.model import ImageLayerType, create_input_layers
 from tensorflow.keras import layers as kl
 
 """
+・Paper
+Rainbow: https://arxiv.org/abs/1710.02298
+Double DQN: https://arxiv.org/abs/1509.06461
+Priority Experience Replay: https://arxiv.org/abs/1511.05952
+Dueling Network: https://arxiv.org/abs/1511.06581
+Multi-Step learning: https://arxiv.org/abs/1703.01327
+Retrace: https://arxiv.org/abs/1606.02647
+Noisy Network: https://arxiv.org/abs/1706.10295
+Categorical DQN: https://arxiv.org/abs/1707.06887
+
 DQN
     window_length          : o (config selection)
     Fixed Target Q-Network : o
@@ -34,7 +50,9 @@ Rainbow
     Multi-Step learning(retrace): o (config selection)
     Noisy Network               : o (config selection)
     Categorical DQN             : x
+
 Other
+    Value function rescaling : o (config selection)
     invalid_actions : o
 
 """
@@ -52,37 +70,69 @@ class Config(DiscreteActionConfig):
     # Annealing e-greedy
     initial_epsilon: float = 1.0
     final_epsilon: float = 0.01
-    exploration_steps: int = -1
+    exploration_steps: int = 0  # 0 : no Annealing
 
     # model
     window_length: int = 1
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
     image_layer_type: ImageLayerType = ImageLayerType.DQN
-    enable_noisy_dense: bool = False
 
     gamma: float = 0.99  # 割引率
     lr: float = 0.001  # 学習率
     batch_size: int = 32
-    target_model_update_interval: int = 100
-    reward_clip: Optional[Tuple[float, float]] = None
+    target_model_update_interval: int = 1000
+    enable_reward_clip: bool = False
+
+    # double dqn
     enable_double_dqn: bool = True
-    multisteps: int = 3
-    retrace_h: float = 1.0
+
+    # Priority Experience Replay
+    capacity: int = 100_000
+    memory_name: str = "ProportionalMemory"
+    memory_warmup_size: int = 1000
+    memory_alpha: float = 1.0
+    memory_beta_initial: float = 1.0
+    memory_beta_steps: int = 1_000_000
 
     # DuelingNetwork
     enable_dueling_network: bool = True
     dueling_network_type: str = "average"
 
-    # Priority Experience Replay
-    capacity: int = 100_000
-    memory_name: str = "RankBaseMemory"
-    memory_warmup_size: int = 1000
-    memory_alpha: float = 0.8
-    memory_beta_initial: float = 0.4
-    memory_beta_steps: int = 1_000_000
+    # Multi-step learning
+    multisteps: int = 3
+    retrace_h: float = 1.0
+
+    # noisy dense
+    enable_noisy_dense: bool = False
+
+    # other
+    enable_rescale: bool = True
 
     dummy_state_val: float = 0.0
+
+    # 論文のハイパーパラメーター
+    def set_atari_config(self):
+        self.batch_size = 32
+        self.capacity = 1_000_000
+        self.window_length = 4
+        self.hidden_layer_sizes = (512,)
+        self.image_layer_type = ImageLayerType.DQN
+        self.target_model_update_interval = 32000
+        self.gamma = 0.99
+        self.lr = 0.0000625
+        self.initial_epsilon = 1.0
+        self.final_epsilon = 0.1
+        self.exploration_steps = 1_000_000
+        self.enable_reward_clip = True
+        self.enable_rescale = False
+
+        self.enable_double_dqn = True
+        self.memory_name: str = "ProportionalMemory"
+        self.memory_warmup_size: int = 80_000
+        self.memory_alpha: float = 0.5
+        self.memory_beta_initial: float = 0.4
+        self.memory_beta_steps: int = 1_000_000
 
     def __post_init__(self):
         super().__init__()
@@ -100,6 +150,7 @@ class Config(DiscreteActionConfig):
         assert self.window_length > 0
         assert self.memory_warmup_size < self.capacity
         assert self.batch_size < self.memory_warmup_size
+        assert self.memory_beta_initial <= 1.0
         assert len(self.hidden_layer_sizes) > 0
 
 
@@ -263,7 +314,11 @@ class Parameter(RLParameter):
                     P = 0
                     for j in range(self.config.nb_actions):
                         P += n_pi_probs[j] * n_q_list_target[n_states_idx][j]
+                    if self.config.enable_rescale:
+                        P = inverse_rescaling(P)
                     gain = reward + self.config.gamma * P
+                if self.config.enable_rescale:
+                    gain = rescaling(gain)
 
                 if n == 0:
                     target_q += gain
@@ -301,19 +356,15 @@ class Trainer(RLTrainer):
             return {}
 
         indices, batchs, weights = self.remote_memory.sample(self.train_count, self.config.batch_size)
-        td_error, loss = self._train_on_batchs(batchs, weights)
-        priorities = abs(td_error) + 0.0001
-        self.remote_memory.update(indices, batchs, priorities)
+        td_errors, loss = self._train_on_batchs(batchs, weights)
+        self.remote_memory.update(indices, batchs, td_errors)
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
             self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
 
         self.train_count += 1
-        return {
-            "loss": loss,
-            "priority": np.mean(priorities),
-        }
+        return {"loss": loss}
 
     def _train_on_batchs(self, batchs, weights):
 
@@ -426,11 +477,13 @@ class Worker(DiscreteActionWorker):
         self.epsilon_step += 1
 
         # reward clip
-        if self.config.reward_clip is not None:
-            if reward < self.config.reward_clip[0]:
-                reward = self.config.reward_clip[0]
-            elif reward > self.config.reward_clip[1]:
-                reward = self.config.reward_clip[1]
+        if self.config.enable_reward_clip:
+            if reward < 0:
+                reward = -1
+            elif reward > 0:
+                reward = 1
+            else:
+                reward = 0
 
         self.recent_actions.pop(0)
         self.recent_actions.append(self.action)
@@ -441,7 +494,7 @@ class Worker(DiscreteActionWorker):
         self.recent_done.pop(0)
         self.recent_done.append(done)
 
-        priority = self._add_memory(self.q, None)
+        td_error = self._add_memory(self.q, None)
 
         if done:
             # 残りstepも追加
@@ -453,11 +506,11 @@ class Worker(DiscreteActionWorker):
                 self.recent_done.pop(0)
                 self.recent_invalid_actions.pop(0)
 
-                self._add_memory(self.q, priority)
+                self._add_memory(self.q, td_error)
 
-        return {"priority": priority}
+        return {}
 
-    def _add_memory(self, q, priority):
+    def _add_memory(self, q, td_error):
 
         batch = {
             "states": self.recent_bundle_states[:],
@@ -469,23 +522,25 @@ class Worker(DiscreteActionWorker):
         }
 
         # priority
-        if priority is None:
+        if td_error is None:
             if self.config.memory_name == "ReplayMemory":
-                priority = 0
+                td_error = None
             elif not self.distributed:
-                priority = 0
+                td_error = None
             else:
                 target_q = self.parameter.calc_target_q([batch])[0]
-                priority = abs(target_q - q) + 0.0001
+                td_error = target_q - q
 
-        self.remote_memory.add(batch, priority)
-        return priority
+        self.remote_memory.add(batch, td_error)
+        return td_error
 
     def call_render(self, env: EnvRun) -> None:
         state = self.recent_bundle_states[-1]
         invalid_actions = self.recent_invalid_actions[-1]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
         maxa = np.argmax(q)
+        if self.config.enable_rescale:
+            q = inverse_rescaling(q)
 
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"

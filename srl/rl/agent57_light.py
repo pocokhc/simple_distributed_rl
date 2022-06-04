@@ -29,10 +29,9 @@ logger = logging.getLogger(__name__)
 
 """
 DQN
-    window_length       : o (config selection)
-    Target Network      : o
-    Huber loss function : o
-    Delay update Target Network: o
+    window_length          : o (config selection)
+    Fixed Target Q-Network : o
+    Error clipping      : o
     Experience Replay   : o
     Frame skip          : -
     Annealing e-greedy  : x

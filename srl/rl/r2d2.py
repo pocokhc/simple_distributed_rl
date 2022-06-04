@@ -24,10 +24,9 @@ from tensorflow.keras import layers as kl
 
 """
 DQN
-    window_length               : -
-    Target Network              : o
-    Huber loss function         : o
-    Delay update Target Network : o
+    window_length          : -
+    Fixed Target Q-Network : o
+    Error clipping     : o
     Experience Replay  : o
     Frame skip         : -
     Annealing e-greedy : x

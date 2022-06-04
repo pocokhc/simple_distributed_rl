@@ -11,24 +11,32 @@ from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, Discret
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
-from srl.rl.functions.common import render_discrete_action
+from srl.rl.functions.common import inverse_rescaling, render_discrete_action, rescaling
 from srl.rl.functions.model import ImageLayerType, create_input_layers
 from tensorflow.keras import layers as kl
 
 """
-window_length               : o (config selection)
-Target Network              : o
-Huber loss function         : o
-Delay update Target Network : o
+Paper
+・Playing Atari with Deep Reinforcement Learning
+https://arxiv.org/pdf/1312.5602.pdf
+
+・Human-level control through deep reinforcement learning
+https://www.nature.com/articles/nature14236
+
+
+window_length          : o (config selection)
+Fixed Target Q-Network : o
+Error clipping     : o
 Experience Replay  : o
 Frame skip         : -
 Annealing e-greedy : o (config selection)
 Reward clip        : o (config selection)
 Image preprocessor : -
-(+Double DQN)      : o (config selection)
 
 Other
-    invalid_actions : o
+    Double DQN               : o (config selection)
+    Value function rescaling : o (config selection)
+    invalid_actions          : o
 """
 
 
@@ -44,7 +52,7 @@ class Config(DiscreteActionConfig):
     # Annealing e-greedy
     initial_epsilon: float = 1.0
     final_epsilon: float = 0.01
-    exploration_steps: int = -1
+    exploration_steps: int = 0  # 0 : no Annealing
 
     # model
     window_length: int = 1
@@ -57,11 +65,34 @@ class Config(DiscreteActionConfig):
     batch_size: int = 32
     capacity: int = 100_000
     memory_warmup_size: int = 1000
-    target_model_update_interval: int = 100
-    reward_clip: Optional[Tuple[float, float]] = None
+    target_model_update_interval: int = 1000
+    enable_reward_clip: bool = False
+
+    # other
     enable_double_dqn: bool = True
+    enable_rescale: bool = True
 
     dummy_state_val: float = 0.0
+
+    # 論文のハイパーパラメーター
+    def set_atari_config(self):
+        self.batch_size = 32
+        self.capacity = 1_000_000
+        self.window_length = 4
+        self.hidden_layer_sizes = (512,)
+        self.image_layer_type = ImageLayerType.DQN
+        self.target_model_update_interval = 10000
+        self.gamma = 0.99
+        self.lr = 0.00025
+        self.initial_epsilon = 1.0
+        self.final_epsilon = 0.1
+        self.exploration_steps = 1_000_000
+        self.memory_warmup_size = 50_000
+        self.enable_reward_clip = True
+        self.enable_double_dqn = False
+        self.enable_rescale = False
+
+    # -------------------------------
 
     def __post_init__(self):
         super().__init__()
@@ -200,7 +231,6 @@ class Trainer(RLTrainer):
         states = []
         actions = []
         n_states = []
-        next_invalid_actions = []
         for b in batchs:
             states.append(b["states"][:-1])
             actions.append(b["action"])
@@ -231,7 +261,11 @@ class Trainer(RLTrainer):
                     ]
                     n_act_idx = np.argmax(n_q_target[i])
                 maxq = n_q_target[i][n_act_idx]
+                if self.config.enable_rescale:
+                    maxq = inverse_rescaling(maxq)
                 gain = reward + self.config.gamma * maxq
+            if self.config.enable_rescale:
+                gain = rescaling(gain)
             target_q[i] = gain
 
         with tf.GradientTape() as tape:
@@ -321,11 +355,13 @@ class Worker(DiscreteActionWorker):
         self.step += 1
 
         # reward clip
-        if self.config.reward_clip is not None:
-            if reward < self.config.reward_clip[0]:
-                reward = self.config.reward_clip[0]
-            elif reward > self.config.reward_clip[1]:
-                reward = self.config.reward_clip[1]
+        if self.config.enable_reward_clip:
+            if reward < 0:
+                reward = -1
+            elif reward > 0:
+                reward = 1
+            else:
+                reward = 0
 
         batch = {
             "states": self.recent_states[:],
@@ -342,6 +378,8 @@ class Worker(DiscreteActionWorker):
         state = self.recent_states[1:]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
         maxa = np.argmax(q)
+        if self.config.enable_rescale:
+            q = inverse_rescaling(q)
 
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"

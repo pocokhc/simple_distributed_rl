@@ -2,7 +2,7 @@ import random
 import time
 
 from srl.rl.memories.proportional_memory import ProportionalMemory
-from srl.rl.memories.rankbase_memory_naive import RankBaseMemoryNaive
+from srl.rl.memories.rankbase_memory import RankBaseMemory
 from srl.rl.memories.replay_memory import ReplayMemory
 from tqdm import tqdm
 
@@ -13,7 +13,7 @@ def speed_test():
     memories = [
         ReplayMemory(capacity),
         ProportionalMemory(capacity, 0.8, 0.4, 1000, has_duplicate=True),
-        RankBaseMemoryNaive(capacity, 0.8, 0.4, 1000),
+        RankBaseMemory(capacity, 0.8, 0.4, 1000),
     ]
 
     for memory in memories:

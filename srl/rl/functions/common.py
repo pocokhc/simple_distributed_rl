@@ -58,16 +58,18 @@ def create_epsilon_list(policy_num: int, epsilon=0.4, alpha=8.0):
     return epsilon_list
 
 
-def random_choice_by_probs(probs):
-    r = random.random() * sum(probs)
+def random_choice_by_probs(probs, total=None):
+    if total is None:
+        total = sum(probs)
+    r = random.random() * total
 
     num = 0
     for i, weight in enumerate(probs):
         num += weight
         if r <= num:
             return i
-    # not coming
-    raise ValueError
+
+    raise ValueError(f"not coming. total: {total}, r: {r}, num: {num}, probs: {probs}")
 
 
 def calc_epsilon_greedy_probs(q, invalid_actions, epsilon, action_num):

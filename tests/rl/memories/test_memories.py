@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 from srl.rl.memories.proportional_memory import ProportionalMemory
-from srl.rl.memories.rankbase_memory_naive import RankBaseMemoryNaive
+from srl.rl.memories.rankbase_memory import RankBaseMemory
 from srl.rl.memories.replay_memory import ReplayMemory
 
 
@@ -15,7 +15,7 @@ class TestMemory(unittest.TestCase):
         memories = [
             (ReplayMemory(capacity), False),
             (ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=False), True),
-            (RankBaseMemoryNaive(capacity, 0.8, 1, 10), True),
+            (RankBaseMemory(capacity, 0.8, 1, 10), True),
         ]
         for memory, use_priority in memories:
             with self.subTest(memory.__class__.__name__):
@@ -34,7 +34,7 @@ class TestMemory(unittest.TestCase):
         for i in range(10):
             i += 1
             memory.add((i, i, i, i), i)
-        assert len(memory) == capacity
+            assert len(memory) == capacity
 
         # --- 複数回やって比率をだす
         counter = []
@@ -104,10 +104,10 @@ class TestMemory(unittest.TestCase):
                 # --- check
                 self._check_weights(memory, true_weights)
 
-    def test_IS_RankBaseNaive(self):
+    def test_IS_RankBase(self):
         for alpha in [0, 0.2, 0.5, 0.8, 1.0]:
             with self.subTest(alpha=alpha):
-                memory = RankBaseMemoryNaive(capacity=10, alpha=alpha, beta_initial=1)
+                memory = RankBaseMemory(capacity=10, alpha=alpha, beta_initial=1)
 
                 # --- true data
                 td_errors = [1, 2, 3]

@@ -6,7 +6,7 @@ from srl.utils.common import is_package_installed
 
 logger = logging.getLogger(__name__)
 
-if is_package_installed("gym"):
+if is_package_installed("gym") and is_package_installed("pygame"):
     import gym
     import gym.envs.registration
     import gym.spaces

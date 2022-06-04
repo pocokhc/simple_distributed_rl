@@ -6,7 +6,7 @@ from srl.utils.common import is_package_installed
 logger = logging.getLogger(__name__)
 
 
-if is_package_installed("gym"):
+if is_package_installed("gym") and is_package_installed("pygame"):
 
     import gym
     import gym.envs.registration
@@ -67,6 +67,7 @@ if is_package_installed("gym"):
 
             # 画像の一次元化（GrayScale化）とarrayへの変換
             pilImg = img.convert("L")
-            img_arr = np.asarray(pilImg)
+            img_arr = np.asarray(pilImg, dtype=float)
+            img_arr /= 255.0
 
             return img_arr

@@ -5,7 +5,7 @@ import sys
 import time
 from abc import ABC
 from dataclasses import dataclass
-from typing import Union
+from typing import List, Union
 
 import numpy as np
 from srl.base.define import RenderType
@@ -405,6 +405,7 @@ class PrintProgress(Callback):
 class History(Callback):
 
     target_worker: int = 0
+    first_time_clip_num: int = 1
 
     def on_episodes_begin(self, config, **kwargs):
         self.history = []
@@ -458,8 +459,13 @@ class History(Callback):
         )
 
     # ----------------
+    def get_rewards(self) -> List[float]:
+        return [h["reward"] for h in self.history]
 
-    def plot(self):
+    def get_valid_rewards(self) -> List[float]:
+        return [h["valid_reward"] for h in self.history]
+
+    def plot(self) -> None:
         rewards = [h["reward"] for h in self.history]
         valid_rewards = [h["valid_reward"] for h in self.history]
 
@@ -467,7 +473,7 @@ class History(Callback):
 
         if len(self.history) > 100:
             alpha = 0.2
-            plt.plot(pd.Series(rewards).rolling(rolling_n).mean(), "C0", marker=".", label=f"reward(mean{rolling_n})")
+            plt.plot(pd.Series(rewards).rolling(rolling_n).mean(), "C0", label=f"reward(mean{rolling_n})")
             plt.plot(
                 pd.Series(valid_rewards).rolling(rolling_n).mean(),
                 "C1",
@@ -476,7 +482,7 @@ class History(Callback):
             )
         else:
             alpha = 1
-        plt.plot(rewards, "C0", alpha=alpha, label="reward", marker=".")
+        plt.plot(rewards, "C0", alpha=alpha, label="reward")
         plt.plot(valid_rewards, "C1", alpha=alpha, label="valid reward", marker=".")
 
         plt.xlabel("episode")
@@ -486,12 +492,14 @@ class History(Callback):
         plt.tight_layout()
         plt.show()
 
-    def plot_info(self, key1, key2):
-        d = listdictdict_to_dictlist(self.history, key1)
+    def plot_info(self, info_name, key) -> None:
+        d = listdictdict_to_dictlist(self.history, info_name + "_info")
         rolling_n = int(len(self.history) / 100)
 
-        for key, arr in d.items():
-            if key2 != key:
+        for target_key, arr in d.items():
+            if len(arr) > self.first_time_clip_num:
+                arr = arr[self.first_time_clip_num :]
+            if key != target_key:
                 continue
             if len(self.history) > 100:
                 alpha = 0.2

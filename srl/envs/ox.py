@@ -76,10 +76,10 @@ class OX(TurnBase2Player):
         reward1, reward2, done = self._step(action)
 
         if not done:
-        if self._player_index == 0:
-            self._player_index = 1
-        else:
-            self._player_index = 0
+            if self._player_index == 0:
+                self._player_index = 1
+            else:
+                self._player_index = 0
 
         return (
             self._encode_state(),
@@ -184,35 +184,165 @@ class NegaMax(RuleBaseWorker):
             actions = [a for a in range(env.action_space.n) if env.field[a] == 0]
             return random.choice(actions)
         else:
-            scores = self._negamax(env)
+            self.n = 0
+            scores = self._negamax(env_org.copy())
+            print(scores, self.n)
+            # 294778
+            self.n = 0
+            scores2 = self._negamax2(env_org.copy())
+            print(scores2[1] if env.player_index == 0 else -np.array(scores2[1]), self.n)
+
+            self.n = 0
+            scores3 = self._negaalpha(env_org.copy())
+            print(self.n)
             return int(random.choice(np.where(scores == scores.max())[0]))
 
     def _negamax(self, env: OX, depth: int = 10):
-        if depth <= 0:
-            return 0, 0
+        if depth == 0:
+            return np.array([0])
 
-        key = str(env.field + [env.player_index])
+        key = str(env.field)
         if key in NegaMax.cache:
             return NegaMax.cache[key]
 
+        self.n += 1
+        env_dat = env.backup()
+
         scores = np.array([-9 for _ in range(env.action_space.n)])
         for a in range(env.action_space.n):
+            env.restore(env_dat)
             if env.field[a] != 0:
                 continue
 
-            n_env = env.copy()
-            _, r1, r2, done, _ = n_env.call_step(a)
+            _, r1, r2, done, _ = env.call_step(a)
             if done:
                 if env.player_index == 0:
                     scores[a] = r1
                 else:
                     scores[a] = r2
             else:
-                n_scores = self._negamax(n_env, depth - 1)
+                # 次の状態へ
+                n_scores = self._negamax(env, depth - 1)
                 scores[a] = -np.max(n_scores)
 
         NegaMax.cache[key] = scores
+        return scores
 
+    def _negamax2(self, env: OX, alpha=-np.inf, beta=np.inf, depth: int = 10):
+        if depth == 0:
+            return 0, np.array([0])
+
+        self.n += 1
+        env_dat = env.backup()
+
+        if env.player_index == 0:
+            scores = np.array([-9 for _ in range(env.action_space.n)])
+            for a in range(env.action_space.n):
+                env.restore(env_dat)
+                if env.field[a] != 0:
+                    continue
+
+                _, r1, r2, done, _ = env.call_step(a)
+                if done:
+                    scores[a] = r1
+                else:
+                    _score, _ = self._negamax2(env, alpha, beta, depth - 1)
+                    scores[a] = _score
+                alpha = np.maximum(alpha, scores[a])
+                if scores[a] >= beta:
+                    break
+            score = np.max(scores)
+        else:
+            scores = np.array([9 for _ in range(env.action_space.n)])
+            for a in range(env.action_space.n):
+                env.restore(env_dat)
+                if env.field[a] != 0:
+                    continue
+
+                _, r1, r2, done, _ = env.call_step(a)
+                if done:
+                    scores[a] = r1
+                else:
+                    _score, _ = self._negamax2(env, alpha, beta, depth - 1)
+                    scores[a] = _score
+                beta = np.minimum(beta, scores[a])
+                if scores[a] <= alpha:
+                    break
+            score = np.min(scores)
+
+        return score, scores
+
+    def _negamax3(self, env: OX, depth: int = 10):
+        if depth == 0:
+            return 0, np.array([0])
+
+        self.n += 1
+        env_dat = env.backup()
+
+        if env.player_index == 0:
+            scores = np.array([-9 for _ in range(env.action_space.n)])
+            for a in range(env.action_space.n):
+                env.restore(env_dat)
+                if env.field[a] != 0:
+                    continue
+
+                _, r1, r2, done, _ = env.call_step(a)
+                if done:
+                    scores[a] = r1
+                else:
+                    _score, _ = self._negamax2(env, depth - 1)
+                    scores[a] = _score
+            score = np.max(scores)
+        else:
+            scores = np.array([9 for _ in range(env.action_space.n)])
+            for a in range(env.action_space.n):
+                env.restore(env_dat)
+                if env.field[a] != 0:
+                    continue
+
+                _, r1, r2, done, _ = env.call_step(a)
+                if done:
+                    scores[a] = r1
+                else:
+                    _score, _ = self._negamax2(env, depth - 1)
+                    scores[a] = _score
+            score = np.min(scores)
+
+        return score, scores
+
+    def _negaalpha(self, env: OX, alpha=-np.inf, beta=np.inf, depth: int = 10):
+        if depth <= 0:
+            return [0]
+
+        key = str(env.field)
+        # if key in NegaMax.cache:
+        #    return NegaMax.cache[key]
+
+        self.n += 1
+        env_dat = env.backup()
+
+        scores = np.array([-9 for _ in range(env.action_space.n)])
+        for a in range(env.action_space.n):
+            env.restore(env_dat)
+            if env.field[a] != 0:
+                continue
+
+            _, r1, r2, done, _ = env.call_step(a)
+            if done:
+                if env.player_index == 0:
+                    scores[a] = r1
+                else:
+                    scores[a] = r2
+            else:
+                # 次の状態へ
+                n_scores = self._negaalpha(env, -alpha, -beta, depth - 1)
+                score = -np.max(n_scores)
+                if score <= alpha:
+                    break
+                alpha = np.maximum(alpha, score)
+                scores[a] = score
+
+        # NegaMax.cache[key] = scores
         return scores
 
     def call_render(self, env: OX) -> None:

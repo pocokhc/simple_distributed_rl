@@ -91,7 +91,7 @@ class Config(DiscreteActionConfig):
     capacity: int = 100_000
     memory_name: str = "ProportionalMemory"
     memory_warmup_size: int = 1000
-    memory_alpha: float = 1.0
+    memory_alpha: float = 0.6
     memory_beta_initial: float = 1.0
     memory_beta_steps: int = 1_000_000
 
@@ -521,7 +521,7 @@ class Worker(DiscreteActionWorker):
             "invalid_actions": self.recent_invalid_actions[:],
         }
 
-        # priority
+        # td_error
         if td_error is None:
             if self.config.memory_name == "ReplayMemory":
                 td_error = None

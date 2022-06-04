@@ -3,6 +3,7 @@ from typing import Any, List, Tuple
 from srl.base.rl.base import RLRemoteMemory
 from srl.rl.memories.proportional_memory import ProportionalMemory
 from srl.rl.memories.rankbase_memory import RankBaseMemory
+from srl.rl.memories.rankbase_memory_linear import RankBaseMemoryLinear
 from srl.rl.memories.replay_memory import ReplayMemory
 
 
@@ -16,6 +17,7 @@ class PriorityExperienceReplay(RLRemoteMemory):
             ReplayMemory,
             ProportionalMemory,
             RankBaseMemory,
+            RankBaseMemoryLinear,
         ]
         names = [m.getName() for m in memories]
         if name not in names:

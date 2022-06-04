@@ -88,10 +88,10 @@ class Config(DiscreteActionConfig):
 
     # Priority Experience Replay
     capacity: int = 100_000
-    memory_name: str = "RankBaseMemory"
+    memory_name: str = "ProportionalMemory"
     memory_warmup_size: int = 1000
     memory_alpha: float = 0.6
-    memory_beta_initial: float = 0.4
+    memory_beta_initial: float = 1.0
     memory_beta_steps: int = 1_000_000
 
     # ucb(160,0.5 or 3600,0.01)

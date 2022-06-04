@@ -37,7 +37,7 @@ DQN
     Reward clip         : x
     Image preprocessor  : -
 Rainbow
-    Double DQN               : o (config selection)
+    Double Q-learning        : o (config selection)
     Priority Experience Reply: o (config selection)
     Dueling Network          : -
     Multi-Step learning      : (retrace)
@@ -75,10 +75,10 @@ class Config(DiscreteActionConfig):
 
     # Priority Experience Replay
     capacity: int = 100_000
-    memory_name: str = "RankBaseMemory"
+    memory_name: str = "ProportionalMemory"
     memory_warmup_size: int = 100
-    memory_alpha: float = 0.8
-    memory_beta_initial: float = 0.4
+    memory_alpha: float = 0.6
+    memory_beta_initial: float = 1.0
     memory_beta_steps: int = 1_000_000
 
     # retrace

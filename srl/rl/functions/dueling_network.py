@@ -26,20 +26,12 @@ def create_dueling_network_layers(
         adv
     )
 
-    # 連結で結合
-    c = kl.Concatenate()([v, adv])
     if dueling_type == "average":
-        c = kl.Lambda(
-            lambda a: tf.expand_dims(a[:, 0], -1) + a[:, 1:] - tf.math.reduce_mean(a[:, 1:], axis=1, keepdims=True),
-            output_shape=(nb_actions,),
-        )(c)
+        c = v + adv - tf.reduce_mean(adv, axis=1, keepdims=True)
     elif dueling_type == "max":
-        c = kl.Lambda(
-            lambda a: tf.expand_dims(a[:, 0], -1) + a[:, 1:] - tf.math.reduce_max(a[:, 1:], axis=1, keepdims=True),
-            output_shape=(nb_actions,),
-        )(c)
+        c = v + adv - tf.reduce_max(adv, axis=1, keepdims=True)
     elif dueling_type == "":  # naive
-        c = kl.Lambda(lambda a: tf.expand_dims(a[:, 0], -1) + a[:, 1:], output_shape=(nb_actions,))(c)
+        c = v + adv
     else:
         raise ValueError("dueling_network_type is undefined")
 

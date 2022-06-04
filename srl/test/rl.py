@@ -34,6 +34,7 @@ class TestRL:
             "Grid": 0.65,  # 0.7318 ぐらい
             "2DGrid": 0.65,
             "Pendulum-v1": -500,  # -179.51776165585284ぐらい
+            "PendulumImage-v0": -500,
             "IGrid": 1,  # 乱数要素なし
             "OneRoad": 1,  # 乱数要素なし
             "ALE/Pong-v5": 0.0,
@@ -143,13 +144,18 @@ class TestRL:
         is_atari=False,
     ):
         assert env_name in self.baseline
-
         env_config = srl.envs.Config(env_name)
-        config = sequence.Config(env_config, rl_config)
+
+        if env_name == "PendulumImage-v0":
+            rl_config.override_env_observation_type = EnvObservationType.GRAY_2ch
 
         if is_atari:
-            rl_config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
             rl_config.override_env_observation_type = EnvObservationType.COLOR
+            rl_config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
+
+        # create config
+        config = sequence.Config(env_config, rl_config)
+        if is_atari:
             config.max_episode_steps = 50
             config.skip_frames = 4
 

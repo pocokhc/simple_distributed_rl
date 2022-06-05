@@ -16,9 +16,9 @@ class Test(unittest.TestCase):
         self.tester.play_mp(self.rl_config)
 
     def test_verify_grid(self):
-        self.tester.play_verify_singleplay("Grid", self.rl_config, 50_000, 1000)
+        self.tester.play_verify_singleplay("Grid", self.rl_config, 100_000, 1000)
         # self.tester.verify_grid_policy()
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_sequence", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)

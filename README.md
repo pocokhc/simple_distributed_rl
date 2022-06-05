@@ -117,53 +117,45 @@ examples/custom_rl.ipynb
 
 # Algorithms
 
-## Model Free
-### Value Base
+## ModelFree
+### ValueBase
 
-|Algorithm|AlgorithmType|ObservationType|ActionType|ProgressRate||Paper|
-|---------|-----|--------------|----------------|----------|-------------|---|
-|QL       |Table    |Discrete  |Discrete  |100%|Basic Q Learning||
-|QL_agent57|Table   |Discrete  |Discrete  | 99%|QL + Agent57|
-|DQN      |NeuralNet|Continuous|Discrete  |100%||[Paper](https://arxiv.org/pdf/1312.5602.pdf)|
-|C51      |NeuralNet|Continuous|Discrete  | 99%|Categorical DQN|[Paper](https://arxiv.org/abs/1707.06887)|
-|Rainbow  |NeuralNet|Continuous|Discrete  |100%||[Paper](https://arxiv.org/pdf/1710.02298.pdf)|
-|R2D2  |NeuralNet|Continuous|Discrete  | 99%||[Paper](https://openreview.net/forum?id=r1lyTjAqYX)|
-|Agent57  |NeuralNet|Continuous|Discrete  | 70%||[Paper](https://arxiv.org/abs/2003.13350)|
-|Agent57_light  |NeuralNet|Continuous|Discrete  | 70%|Agent57 - (LSTM,MultiStep)||
+|Algorithm |Observation|Action|ProgressRate||
+|----------|-----------|----------|------------|---|
+|QL        |Discrete   |Discrete  |100%|Basic Q Learning|
+|QL_agent57|Discrete   |Discrete  | 99%|QL + Agent57|
+|DQN       |Continuous |Discrete  |100%||
+|C51       |Continuous |Discrete  | 99%|Categorical DQN|[Paper](https://arxiv.org/abs/1707.06887)|
+|Rainbow   |Continuous |Discrete  |100%||
+|R2D2      |Continuous |Discrete  | 99%||[Paper](https://openreview.net/forum?id=r1lyTjAqYX)|
+|Agent57   |Continuous |Discrete  | 70%||[Paper](https://arxiv.org/abs/2003.13350)|
+|Agent57_light|Continuous|Discrete  | 70%|Agent57 - (LSTM,MultiStep)|
 
 
-### Policy Base/ActorCritic
+### PolicyBase/ActorCritic
 
-|Algorithm|AlgorithmType|ObservationType|ActionType|ProgressRate||Paper|
-|---------|-----|--------------|----------------|----------|-------------|---|
-|REINFORCE |||| 0%|||
-|A3C/A2C|||| 0%|||
-|TRPO |NeuralNet|Continuous|Continuous| 0%|||
-|PPO |NeuralNet|Continuous|Continuous| 0%|||
-|DDPG/TD3 |NeuralNet|Continuous|Continuous| 0%|||
-|SAC      |NeuralNet|Continuous|Continuous| 10%||[Paper](https://arxiv.org/abs/1812.05905)|
+|Algorithm              |Observation|Action    |ProgressRate||
+|-----------------------|-----------|----------|------------|---|
+|VanillaPolicyDiscrete  |Discrete   |Discrete  |100%||
+|VanillaPolicyContinuous|Discrete   |Continuous|100%||
+|REINFORCE              |           |          | 0%||
+|A3C/A2C                |           |          | 0%||
+|TRPO                   |Continuous |Continuous| 0%||
+|PPO                    |Continuous |Continuous| 0%||
+|DDPG/TD3               |Continuous |Continuous| 0%||
+|SAC                    |Continuous |Continuous| 50%||[Paper](https://arxiv.org/abs/1812.05905)|
 
 
 ## Model Base
 
-|Algorithm|Algorithm Type|ObservationType|ActionType|ProgressRate||Paper|
-|---------|-----|--------------|----------------|----------|-------------|---|
-|MCTS      |Table|Discrete|Discrete| 100%|||
-|AlphaZero |Table+NeuralNet|Continuous|Discrete| 0%||[Paper](https://arxiv.org/abs/1712.01815)|
-|MuZero |Table+NeuralNet|Continuous|Discrete| 0%||[Paper](https://www.nature.com/articles/s41586-020-03051-4)|
-|DynaQ |Table|Discrete|Discrete| 10%|||
-|WorldModels||| 0%|||
-|DreamerV2||| 0%|||
-
-
-# Envs
-
-|Name|Player|ObservationType|ActionType|   |
-|----|------|----------------|-----------|---|
-|(gym)|     1|             Any|        Any|Open AI Gym に登録されている環境全般|
-|Grid|     1|        Discrete|   Discrete|baseline|
-|IGrid|    1|        Discrete|   Discrete||
-|OX|    2|        Discrete|   Discrete||
+|Algorithm|Observation|Action     |ProgressRate||
+|---------|-----------|-----------|------------|---|
+|MCTS     |Discrete   |Discrete   | 0%||
+|AlphaZero|Continuous |Discrete   | 0%||[Paper](https://arxiv.org/abs/1712.01815)|
+|MuZero   |Continuous |Discrete   | 0%||[Paper](https://www.nature.com/articles/s41586-020-03051-4)|
+|DynaQ    |Discrete   |Discrete   | 10%||
+|WorldModels|         |           | 0%||
+|DreamerV2  |         |           | 0%||
 
 
 

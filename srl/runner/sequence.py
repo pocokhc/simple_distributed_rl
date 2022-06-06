@@ -23,7 +23,7 @@ class Config:
     rl_config: RLConfig
 
     # multi player option
-    players: List[Optional[RLConfig]] = field(default_factory=list)
+    players: List[Union[None, str, RLConfig]] = field(default_factory=list)
 
     # episode option
     max_episode_steps: int = 10_000
@@ -35,7 +35,7 @@ class Config:
     # validation option
     validation_interval: int = 0  # episode
     validation_episode: int = 1
-    validation_players: List[Optional[RLConfig]] = field(default_factory=list)
+    validation_players: List[Union[None, str, RLConfig]] = field(default_factory=list)
     validation_player: int = 0
 
     # callbacks

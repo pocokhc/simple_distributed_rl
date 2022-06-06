@@ -49,6 +49,9 @@ class BoxSpace(SpaceBase):
         r = np.random.random_sample(self.shape)
         return self.low + r * (self.high - self.low)
 
+    def __eq__(self, o: object) -> bool:
+        return self.shape == o.shape and (self.low == o.low).all() and (self.high == o.high).all()
+
     # --- discrete
     def set_action_division(self, division_num: int) -> None:
         if self._is_inf:

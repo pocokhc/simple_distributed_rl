@@ -6,11 +6,13 @@ from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType,
 
 
 class SpaceBase(ABC):
-
-    # TODO sample
     @abstractmethod
     def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> SpaceType:
         raise NotImplementedError()
+
+    @abstractmethod
+    def __eq__(self, __o: object) -> bool:
+        return NotImplemented
 
     # --- action discrete
     @abstractmethod

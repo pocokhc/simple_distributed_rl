@@ -17,6 +17,9 @@ class DiscreteSpace(SpaceBase):
     def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> int:
         return random.choice([a for a in range(self.n) if a not in invalid_actions])
 
+    def __eq__(self, o: object) -> bool:
+        return self.n == o.n
+
     # --- action discrete
     def get_action_discrete_info(self) -> int:
         return self.n

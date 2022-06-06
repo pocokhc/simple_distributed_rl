@@ -15,7 +15,7 @@ warnings.simplefilter("ignore")
 
 def main(is_mp):
     env_config = srl.envs.Config("ALE/Galaxian-v5")
-    rl_config = srl.rl.rainbow.Config(window_length=4, multisteps=10, memory_beta_initial=1.0)
+    rl_config = srl.rl.rainbow.Config(window_length=4, multisteps=10)
 
     # atari config
     rl_config.override_env_observation_type = EnvObservationType.COLOR

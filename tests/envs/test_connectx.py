@@ -1,6 +1,11 @@
 import unittest
 
+import numpy as np
+from srl.base.define import EnvObservationType
+from srl.base.env.spaces.box import BoxSpace
+from srl.envs import connectx
 from srl.test import TestEnv
+from srl.test.processor import TestProcessor
 
 
 class Test(unittest.TestCase):
@@ -8,9 +13,59 @@ class Test(unittest.TestCase):
         self.tester = TestEnv()
 
     def test_play(self):
-        self.tester.play_test("ConnectX")
+        env = self.tester.play_test("ConnectX")
+
+        for x in [0, 2, 3, 4, 5, 6]:
+            env.reset()
+            board = [0] * 42
+            self.assertTrue(not env.done)
+            self.assertTrue((env.state == board).all())
+
+            env.step([x, None])
+            board[x + (5 * 7)] = 1
+            self.assertTrue(not env.done)
+            self.assertTrue((env.step_rewards == [0, 0]).all())
+            self.assertTrue((env.state == board).all())
+
+            env.step([None, 1])
+            board[1 + (5 * 7)] = 2
+            self.assertTrue(not env.done)
+            self.assertTrue((env.step_rewards == [0, 0]).all())
+            self.assertTrue((env.state == board).all())
+
+            env.step([x, None])
+            board[x + (4 * 7)] = 1
+            self.assertTrue(not env.done)
+            self.assertTrue((env.step_rewards == [0, 0]).all())
+            self.assertTrue((env.state == board).all())
+
+            env.step([None, 1])
+            board[1 + (4 * 7)] = 2
+            self.assertTrue(not env.done)
+            self.assertTrue((env.step_rewards == [0, 0]).all())
+            self.assertTrue((env.state == board).all())
+
+            env.step([x, None])
+            board[x + (3 * 7)] = 1
+            self.assertTrue(not env.done)
+            self.assertTrue((env.step_rewards == [0, 0]).all())
+            self.assertTrue((env.state == board).all())
+
+            env.step([None, 1])
+            board[1 + (3 * 7)] = 2
+            self.assertTrue(not env.done)
+            self.assertTrue((env.step_rewards == [0, 0]).all())
+            self.assertTrue((env.state == board).all())
+
+            env.step([x, None])
+            board[x + (2 * 7)] = 1
+            self.assertTrue(env.done)
+            self.assertTrue((env.step_rewards == [1, -1]).all())
+            self.assertTrue((env.state == board).all())
 
     def test_player(self):
+        self.tester.player_test("ConnectX", "alphabeta")
+
     def test_processor(self):
         tester = TestProcessor()
         processor = connectx.LayerProcessor()
@@ -37,4 +92,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_player", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_play", verbosity=2)

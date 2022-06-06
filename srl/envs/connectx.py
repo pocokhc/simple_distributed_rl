@@ -1,4 +1,6 @@
 import logging
+import random
+import time
 from typing import Any, List, Optional, Tuple, Type
 
 import numpy as np
@@ -28,6 +30,7 @@ class ConnectX(TurnBase2Player):
 
         self.columns = 7
         self.rows = 6
+        self._player_index = 0
 
     @property
     def action_space(self) -> DiscreteSpace:
@@ -103,7 +106,7 @@ class ConnectX(TurnBase2Player):
             or (count(-1, 1) + count(1, -1)) >= inarow  # top right diagonal.
         )
 
-    def get_invalid_actions(self, player_index: int) -> List[int]:
+    def get_invalid_actions(self, player_index: int = 0) -> List[int]:
         invalid_actions = [a for a in range(self.action_space.n) if self.board[a] != 0]
         return invalid_actions
 
@@ -135,8 +138,8 @@ class ConnectX(TurnBase2Player):
         self._player_index = data[1]
 
     def make_worker(self, name: str) -> Optional[Type[RLWorker]]:
-        if name == "negamax":
-            return NegaMax
+        if name == "alphabeta":
+            return AlphaBeta
         return None
 
     # ---------------------
@@ -163,18 +166,109 @@ class ConnectX(TurnBase2Player):
         self.board = observation.board[:]
 
 
-class NegaMax(RuleBaseWorker):
+class AlphaBeta(RuleBaseWorker):
+    def __init__(self, *args):
+        super().__init__(*args)
+
+        self.max_depth = 8
+        self.timeout = 6  # s
+
     def call_on_reset(self, env) -> None:
         pass  #
 
     def call_policy(self, env: ConnectX) -> int:
-        observation = env.env.state[0]["observation"]
-        configuration = env.env.configuration
-        action = negamax_agent(observation, configuration)
+        self._count = 0
+        self.t0 = time.time()
+        scores, action = self._alphabeta(env.copy())
+
+        scores = np.array(scores)
+        if env.player_index == 1:
+            scores = -scores
+
+        self._action = action
+        self._scores = scores
+        self._count = self._count
+        self._time = time.time() - self.t0
+
+        # action = int(random.choice(np.where(scores == scores.max())[0]))
         return action
 
+    def _alphabeta(self, env: ConnectX, alpha=-np.inf, beta=np.inf, depth: int = 0):
+        if depth == self.max_depth:
+            return [0] * env.action_space.n, 0
+        if self.t0 - time.time() > self.timeout:
+            return [0] * env.action_space.n
+
+        self._count += 1
+        env_dat = env.backup()
+        invalid_actions = env.get_invalid_actions()
+
+        actions = [a for a in range(env.action_space.n)]
+        random.shuffle(actions)
+        select_action = 0
+
+        if env.player_index == 0:
+
+            # 自分の番
+            scores = [-9.0 for _ in range(env.action_space.n)]
+            for a in actions:
+                if a in invalid_actions:
+                    continue
+                env.restore(env_dat)
+
+                _, r1, r2, done, _ = env.call_step(a)
+                # print(np.array(env.board).reshape((6, 7)))
+                if done:
+                    scores[a] = r1
+                else:
+                    n_scores, _ = self._alphabeta(env, alpha, beta, depth + 1)
+                    scores[a] = np.min(n_scores)
+
+                # maximum
+                if alpha < scores[a]:
+                    select_action = a
+                    alpha = scores[a]
+
+                # beta cut
+                if scores[a] >= beta:
+                    break
+
+        else:
+
+            # 相手の番
+            scores = [9.0 for _ in range(env.action_space.n)]
+            for a in actions:
+                if a in invalid_actions:
+                    continue
+                env.restore(env_dat)
+
+                _, r1, r2, done, _ = env.call_step(a)
+                # print(np.array(env.board).reshape((6, 7)))
+                if done:
+                    scores[a] = r1
+                else:
+                    n_scores, _ = self._alphabeta(env, alpha, beta, depth + 1)
+                    scores[a] = np.max(n_scores)
+
+                # minimum
+                if beta > scores[a]:
+                    select_action = a
+                    beta = scores[a]
+
+                # alpha cut
+                if scores[a] <= alpha:
+                    break
+
+        return scores, select_action
+
     def call_render(self, env: ConnectX) -> None:
-        pass  #
+        print(f"- alphabeta act: {self._action}, count: {self._count}, {self._time:.3f}s) -")
+        print("+---+---+---+---+---+---+---+")
+        s = "|"
+        for a in range(env.action_space.n):
+            s += "{:2d} |".format(int(self._scores[a]))
+        print(s)
+        print("+---+---+---+---+---+---+---+")
 
 
 class LayerProcessor(Processor):
@@ -193,6 +287,7 @@ class LayerProcessor(Processor):
         return observation_space, EnvObservationType.SHAPE3
 
     def process_observation(self, observation: np.ndarray, env: ConnectX) -> np.ndarray:
+        board = observation
         # Layer0: player1 field (0 or 1)
         # Layer1: player2 field (0 or 1)
         # Layer2: player_index (all0 or all1)
@@ -200,9 +295,9 @@ class LayerProcessor(Processor):
         for y in range(env.columns):
             for x in range(env.rows):
                 idx = x + y * env.rows
-                if env.board[idx] == 1:
+                if board[idx] == 1:
                     _field[0][y][x] = 1
-                elif env.board[idx] == 2:
+                elif board[idx] == 2:
                     _field[1][y][x] = 1
         _field[2] = env.player_index
         return _field

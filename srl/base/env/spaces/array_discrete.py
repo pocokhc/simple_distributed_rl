@@ -29,8 +29,11 @@ class ArrayDiscreteSpace(SpaceBase):
         return self._nvec
 
     def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> List[int]:
-        # TODO: invalid_actions
-        return [random.randint(0, n - 1) for n in self.nvec]
+        for _ in range(999):  # for safety
+            r = [random.randint(0, n - 1) for n in self.nvec]
+            if r not in invalid_actions:
+                break
+        return r
 
     # --- action discrete
     def get_action_discrete_info(self) -> int:

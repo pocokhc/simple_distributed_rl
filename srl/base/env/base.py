@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
+import srl
 from srl.base.define import EnvAction, EnvInvalidAction, EnvObservation, EnvObservationType, Info, RenderType
 from srl.base.env.space import SpaceBase
 
@@ -19,6 +20,9 @@ class EnvConfig:
 
     # gym
     gym_prediction_by_simulation: bool = True
+
+    def make_env(self) -> "srl.base.env.base.EnvRun":
+        return srl.envs.make(self)
 
 
 class EnvBase(ABC):

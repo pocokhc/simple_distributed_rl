@@ -11,7 +11,29 @@ class Test(unittest.TestCase):
         self.tester.play_test("ConnectX")
 
     def test_player(self):
-        self.tester.player_test("ConnectX", "negamax")
+    def test_processor(self):
+        tester = TestProcessor()
+        processor = connectx.LayerProcessor()
+        env_name = "ConnectX"
+        columns = 7
+        rows = 6
+
+        in_state = [0] * 42
+        out_state = np.zeros((3, columns, rows))
+
+        tester.run(processor, env_name)
+        tester.change_observation_info(
+            processor,
+            env_name,
+            EnvObservationType.SHAPE3,
+            BoxSpace((3, columns, rows), 0, 1),
+        )
+        tester.observation_decode(
+            processor,
+            env_name,
+            in_observation=in_state,
+            out_observation=out_state,
+        )
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ import numpy as np
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processors import ImageProcessor
+from srl.test.processor import TestProcessor
 
 
 class Test(unittest.TestCase):
@@ -41,6 +42,31 @@ class Test(unittest.TestCase):
                 new_obs = processor.process_observation(image, None)
                 np.testing.assert_array_equal(true_state, new_obs)
 
+    def test_image_atari(self):
+        tester = TestProcessor()
+        processor = ImageProcessor(
+            gray=True,
+            resize=(84, 84),
+            enable_norm=True,
+        )
+        env_name = "ALE/Tetris-v5"
+        in_image = np.ones((210, 160, 3)).astype(np.float32)
+        out_image = np.ones((84, 84)).astype(np.float32) / 255
+
+        tester.run(processor, env_name)
+        tester.change_observation_info(
+            processor,
+            env_name,
+            EnvObservationType.GRAY_2ch,
+            BoxSpace((84, 84), 0, 1),
+        )
+        tester.observation_decode(
+            processor,
+            env_name,
+            in_observation=in_image,
+            out_observation=out_image,
+        )
+
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_image", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_image_atari", verbosity=2)

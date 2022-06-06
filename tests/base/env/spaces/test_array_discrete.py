@@ -64,6 +64,10 @@ class Test(unittest.TestCase):
             encode_state=[0, 0, 1],
         )
 
+        # eq
+        self.assertTrue(self.space == ArrayDiscreteSpace([2, 5, 3]))
+        self.assertTrue(self.space != ArrayDiscreteSpace([3, 5, 3]))
+
 
 if __name__ == "__main__":
     unittest.main(module=__name__, defaultTest="Test.test_space", verbosity=2)

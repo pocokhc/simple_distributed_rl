@@ -68,6 +68,10 @@ class Test(unittest.TestCase):
             encode_state=[1.1],
         )
 
+        # eq
+        self.assertTrue(self.space == BoxSpace((1,), -1, 3))
+        self.assertTrue(self.space != BoxSpace((1,), -1, 2))
+
     def test_space2(self):
         self.space = BoxSpace((3, 2), -1, 3)
         self.tester = SpaceTest(self, self.space)
@@ -117,6 +121,10 @@ class Test(unittest.TestCase):
             state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]]),
             encode_state=[[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]],
         )
+
+        # eq
+        self.assertTrue(self.space == BoxSpace((3, 2), -1, 3))
+        self.assertTrue(self.space != BoxSpace((3, 3), -1, 3))
 
     def test_inf(self):
         self.space = BoxSpace((3, 2))

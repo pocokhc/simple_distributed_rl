@@ -66,6 +66,10 @@ class Test(unittest.TestCase):
             encode_state=[1.1],
         )
 
+        # eq
+        self.assertTrue(self.space == ContinuousSpace(-1, 3))
+        self.assertTrue(self.space != ContinuousSpace(-1, 2))
+
     def test_inf(self):
         self.space = ContinuousSpace()
         self.tester = SpaceTest(self, self.space)

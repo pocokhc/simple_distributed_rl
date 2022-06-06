@@ -54,6 +54,10 @@ class Test(unittest.TestCase):
             encode_state=[2.0],
         )
 
+        # eq
+        self.assertTrue(self.space == DiscreteSpace(5))
+        self.assertTrue(self.space != DiscreteSpace(4))
+
 
 if __name__ == "__main__":
     unittest.main(module=__name__, defaultTest="Test.test_space", verbosity=2)

@@ -42,9 +42,23 @@ class ImageProcessor(Processor):
     ) -> Tuple[SpaceBase, EnvObservationType]:
         self.before_observation_type = env_observation_type
 
-        # 画像で BoxSpace のみ対象
-        assert self.before_observation_type in self.image_types
+        # BoxSpace のみ対象
         assert isinstance(env_observation_space, BoxSpace)
+
+        # 予測する
+        if self.before_observation_type == EnvObservationType.UNKNOWN:
+            if len(env_observation_space.shape) == 2:
+                self.before_observation_type = EnvObservationType.GRAY_2ch
+            elif len(env_observation_space.shape) == 3:
+                # w,h,ch 想定
+                ch = env_observation_space.shape[-1]
+                if ch == 1:
+                    self.before_observation_type = EnvObservationType.GRAY_3ch
+                elif ch == 3:
+                    self.before_observation_type = EnvObservationType.COLOR
+
+        # 画像のみ対象
+        assert self.before_observation_type in self.image_types
 
         shape = env_observation_space.shape
         low = env_observation_space.low

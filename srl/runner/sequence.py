@@ -355,7 +355,7 @@ def _play(
         # step
         # ------------------------
         # action
-        actions = [w.policy(env) for w in workers]
+        actions = [w.policy(env) if w.player_index in env.next_player_indices else None for w in workers]
 
         # callback
         _params["actions"] = actions

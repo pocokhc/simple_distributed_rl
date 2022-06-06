@@ -20,7 +20,7 @@ def _run_episode(
     while not env.done:
 
         # action
-        actions = [w.policy(env) for w in workers]
+        actions = [w.policy(env) if w.player_index in env.next_player_indices else None for w in workers]
 
         if rendering:
             for idx in env.next_player_indices:

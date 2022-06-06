@@ -295,10 +295,6 @@ class RLWorker(ABC):
         self._is_rl_policy = False
 
     def policy(self, env: EnvRun) -> EnvAction:
-        # 次のプレイヤーじゃないならNoneを返す
-        if self.player_index not in env.next_player_indices:
-            return None
-
         # state
         state = self.observation_encode(env.state, env)
 

@@ -29,23 +29,3 @@ class Processor(ABC):
         original_env: object,
     ) -> List[float]:
         return rewards
-
-
-class RuleBaseProcessor(ABC):
-    def process_policy_before(
-        self,
-        env: EnvRun,
-        player_index: int,
-    ) -> Optional[EnvAction]:  # Noneの場合は rl で予測する
-        return None
-
-    def process_policy_after(
-        self,
-        action: EnvAction,
-        env: EnvRun,
-        player_index: int,
-    ) -> EnvAction:
-        return action
-
-    def policy_render(self, env: EnvRun, player_index: int) -> None:
-        pass

@@ -1,0 +1,90 @@
+@startuml class_env
+
+enum EnvObservationType {
+    DISCRETE
+    CONTINUOUS
+    GRAY_2ch
+    GRAY_3ch
+    COLOR
+    SHAPE2
+    SHAPE3
+}
+
+
+abstract SpaceBase {
+    sample()
+    action_discrete()
+    action_continuous()
+    observation_discrete()
+    observation_continuous()
+}
+
+note as SpaceMemo
+- DiscreteSpace
+- ArrayDiscreteSpace
+- ContinuousSpace
+- ArrayContinuousSpace
+- BoxSpace
+end note
+
+SpaceBase <|-- SpaceMemo
+
+
+abstract EnvBase {
+    action_space : SpaceBase
+    observation_space : SpaceBase
+    observation_type : EnvObservationType
+    max_episode_steps : int
+    player_num : int
+    reset()
+    step(actions, player_indices)
+    backup()
+    restore()
+    render_terminal()
+    render_gui()
+    render_rgb_array()
+    get_invalid_actions(player_index)
+} 
+
+EnvBase .. EnvObservationType
+EnvBase -- SpaceBase
+
+
+abstract gym.Env {
+    action_space : gym.spaces.Space
+    observation_space : gym.spaces.Space
+    reset()
+    step(action)
+    render()
+}
+class GymWrapper {}
+
+GymWrapper o-- gym.Env
+EnvBase -- GymWrapper
+
+abstract SpaceBase {
+
+}
+
+class EnvRun {
+    state
+    rewards
+    done
+    reset()
+    step(actions)
+    backup()
+    restore()
+    render()
+    samples()
+}
+EnvRun o-- EnvBase
+
+note "It retains the state \nat the time of episode execution." as EnvRunMemo
+EnvRun . EnvRunMemo
+
+
+class WorkerRun {}
+WorkerRun - EnvRun
+
+
+@enduml

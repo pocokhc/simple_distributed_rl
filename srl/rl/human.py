@@ -1,67 +1,36 @@
 import logging
-from typing import Any, cast
 
+from srl.base.define import EnvAction
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.rulebase import (
-    GeneralWorker,
-    RuleBaseConfig,
-    RuleBaseParameter,
-    RuleBaseRemoteMemory,
-    RuleBaseTrainer,
-)
-from srl.base.rl.registration import register
+from srl.base.rl.base import RuleBaseWorker, WorkerRun
+from srl.base.rl.registration import register_worker
 
 logger = logging.getLogger(__name__)
 
 
-class Config(RuleBaseConfig):
-    def __init__(self):
-        super().__init__()
-
-    @staticmethod
-    def getName() -> str:
-        return "Human"
+register_worker("human", __name__ + ":Worker")
 
 
-register(
-    Config,
-    __name__ + ":RemoteMemory",
-    __name__ + ":Parameter",
-    __name__ + ":Trainer",
-    __name__ + ":Worker",
-)
+class Worker(RuleBaseWorker):
+    def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> None:
+        pass  # do nothing
 
+    def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> EnvAction:
+        invalid_actions = env.get_invalid_actions(self.player_index)
+        action_num = env.action_space.get_action_discrete_info()
 
-class Parameter(RuleBaseParameter):
-    pass
-
-
-class RemoteMemory(RuleBaseRemoteMemory):
-    pass
-
-
-class Trainer(RuleBaseTrainer):
-    pass
-
-
-class Worker(GeneralWorker):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config = cast(Config, self.config)
-
-        # Con TODO
-        self.action_num = self.config.env_action_space.n
-
-    def call_policy(self, env: EnvRun, player_index: int) -> Any:
-        invalid_actions = env.get_invalid_actions(player_index)
-        actions = [a for a in range(self.action_num) if a not in invalid_actions]
+        actions = [a for a in range(action_num) if a not in invalid_actions]
         print(f"select action: {actions}")
-        for _ in range(10):
+        for i in range(10):
             try:
                 action = int(input("> "))
                 if action in actions:
                     break
             except Exception:
-                print("invalid action")
+                print(f"invalid action({10-i} times left)")
 
+        action = env.action_space.action_discrete_decode(action)
         return action
+
+    def call_render(self, env: EnvRun, worker_run: WorkerRun) -> None:
+        pass  # do nothing

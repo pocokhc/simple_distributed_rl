@@ -2,59 +2,72 @@ import logging
 from typing import Optional, Tuple, Type
 
 from srl.base.env.base import EnvRun
-from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer, RLWorker
+from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer, WorkerRun
 from srl.utils.common import load_module
 
 logger = logging.getLogger(__name__)
 
 _registry = {}
+_registry_worker = {}
 
 _ASSERT_MSG = "Run 'rl_config.set_config_by_env(env)' first"
 
 
-def make(config: RLConfig, env: EnvRun) -> Tuple[RLRemoteMemory, RLParameter, RLTrainer, RLWorker]:
-    if not config.is_set_config_by_env:
-        config.set_config_by_env(env)
+def make(rl_config: RLConfig, env: EnvRun) -> Tuple[RLRemoteMemory, RLParameter, RLTrainer, WorkerRun]:
+    if not rl_config.is_set_config_by_env:
+        rl_config.set_config_by_env(env)
 
-    remote_memory = make_remote_memory(config)
-    parameter = make_parameter(config)
-    trainer = make_trainer(config, parameter, remote_memory)
-    worker = make_worker(config, env, parameter, remote_memory)
+    remote_memory = make_remote_memory(rl_config)
+    parameter = make_parameter(rl_config)
+    trainer = make_trainer(rl_config, parameter, remote_memory)
+    worker = make_worker(rl_config, env, parameter, remote_memory)
     return remote_memory, parameter, trainer, worker
 
 
-def make_remote_memory(config: RLConfig, get_class: bool = False) -> RLRemoteMemory:
-    assert config.is_set_config_by_env, _ASSERT_MSG
-    name = config.getName()
+def make_remote_memory(rl_config: RLConfig, get_class: bool = False) -> RLRemoteMemory:
+    assert rl_config.is_set_config_by_env, _ASSERT_MSG
+    name = rl_config.getName()
     _class = load_module(_registry[name][0])
     if get_class:
         return _class
     else:
-        return _class(config)
+        return _class(rl_config)
 
 
-def make_parameter(config: RLConfig) -> RLParameter:
-    assert config.is_set_config_by_env, _ASSERT_MSG
-    name = config.getName()
-    return load_module(_registry[name][1])(config)
+def make_parameter(rl_config: RLConfig) -> RLParameter:
+    assert rl_config.is_set_config_by_env, _ASSERT_MSG
+    name = rl_config.getName()
+    return load_module(_registry[name][1])(rl_config)
 
 
-def make_trainer(config: RLConfig, parameter: RLParameter, remote_memory: RLRemoteMemory) -> RLTrainer:
-    assert config.is_set_config_by_env, _ASSERT_MSG
-    name = config.getName()
-    return load_module(_registry[name][2])(config, parameter, remote_memory)
+def make_trainer(rl_config: RLConfig, parameter: RLParameter, remote_memory: RLRemoteMemory) -> RLTrainer:
+    assert rl_config.is_set_config_by_env, _ASSERT_MSG
+    name = rl_config.getName()
+    return load_module(_registry[name][2])(rl_config, parameter, remote_memory)
 
 
 def make_worker(
-    config: RLConfig,
+    rl_config: RLConfig,
     env: EnvRun,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
     worker_id: int = 0,
-) -> RLWorker:
-    config.set_config_by_env(env)
-    name = config.getName()
-    worker = load_module(_registry[name][3])(config, parameter, remote_memory, worker_id)
+) -> WorkerRun:
+    if not rl_config.is_set_config_by_env:
+        rl_config.set_config_by_env(env)
+    name = rl_config.getName()
+    worker = load_module(_registry[name][3])(rl_config, parameter, remote_memory, worker_id)
+    worker = WorkerRun(worker)
+    worker.set_play_info(False, False)
+    return worker
+
+
+def make_worker_rulebase(name: str, **kwargs) -> Optional[WorkerRun]:
+    if name not in _registry_worker:
+        return None
+    worker = load_module(_registry_worker[name])(**kwargs)
+    worker = WorkerRun(worker)
+    worker.set_play_info(False, False)
     return worker
 
 
@@ -76,3 +89,14 @@ def register(
         trainer_entry_point,
         worker_entry_point,
     ]
+
+
+def register_worker(
+    name: str,
+    worker_entry_point: str,
+):
+    global _registry_worker
+
+    if name in _registry_worker:
+        logger.warning(f"{name} was already registered. It will be overwritten.")
+    _registry_worker[name] = worker_entry_point

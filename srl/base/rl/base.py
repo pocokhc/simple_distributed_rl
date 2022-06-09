@@ -18,7 +18,7 @@ from srl.base.define import (
 )
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
-from srl.base.rl.processor import Processor, RuleBaseProcessor
+from srl.base.rl.processor import Processor
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,6 @@ class RLConfig(ABC):
         self.override_env_observation_type: EnvObservationType = EnvObservationType.UNKNOWN
         self.action_division_num: int = 5
         # self.observation_division_num: int = 10
-        self.rulebase: Optional[RuleBaseProcessor] = None
 
     @staticmethod
     @abstractmethod
@@ -193,7 +192,44 @@ class RLTrainer(ABC):
         raise NotImplementedError()
 
 
-class RLWorker(ABC):
+class WorkerBase(ABC):
+
+    # ------------------------------
+    # implement
+    # ------------------------------
+    @abstractmethod
+    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def policy(self, env: EnvRun, worker: "WorkerRun") -> EnvAction:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def render(self, env: EnvRun, worker: "WorkerRun") -> None:
+        raise NotImplementedError()
+
+    # ------------------------------------
+    # episode
+    # ------------------------------------
+    @property
+    def training(self) -> bool:
+        return self._training
+
+    @property
+    def distributed(self) -> bool:
+        return self._distributed
+
+    def set_play_info(self, training: bool, distributed: bool) -> None:
+        self._training = training
+        self._distributed = distributed
+
+
+class RLWorker(WorkerBase):
     def __init__(
         self,
         config: RLConfig,
@@ -205,16 +241,6 @@ class RLWorker(ABC):
         self.parameter = parameter
         self.remote_memory = remote_memory
         self.worker_id = worker_id
-        self._training = False
-        self._distributed = False
-
-    @property
-    def training(self) -> bool:
-        return self._training
-
-    @property
-    def distributed(self) -> bool:
-        return self._distributed
 
     # ------------------------------
     # util functions
@@ -252,10 +278,6 @@ class RLWorker(ABC):
             env_action = action
         return env_action
 
-    def set_training(self, training: bool, distributed: bool) -> None:
-        self._training = training
-        self._distributed = distributed
-
     def get_invalid_actions(self, env: EnvRun) -> List[RLInvalidAction]:
         return [self.action_encode(a) for a in env.get_invalid_actions(self.player_index)]
 
@@ -285,76 +307,35 @@ class RLWorker(ABC):
         raise NotImplementedError()
 
     # ------------------------------------
-    # episode functions
+    # episode
     # ------------------------------------
-    def on_reset(self, env: EnvRun, player_index: int) -> None:
-        self.player_index = player_index
-        self.info = None
-        self._is_reset = False
-        self._step_reward = 0
-        self._is_rl_policy = False
+    @property
+    def player_index(self) -> int:
+        return self._player_index
 
-    def policy(self, env: EnvRun) -> EnvAction:
-        # state
+    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
+        self._player_index = worker.player_index
         state = self.observation_encode(env.state, env)
+        self._call_on_reset(state, env)
 
-        # ルールベースの割り込み
-        action = None
-        if self.config.rulebase is not None:
-            action = self.config.rulebase.process_policy_before(
-                env,
-                self.player_index,
-            )
-
-        self._is_rl_policy = False
-        if action is None:
-
-            # 初期化していないなら初期化する
-            if not self._is_reset:
-                self._call_on_reset(state, env)
-                self._is_reset = True
-
-            # rl policy
-            action = self._call_policy(state, env)
-            action = self.action_decode(action)
-            self._is_rl_policy = True
-
-            # ルールベース割り込み
-            if self.config.rulebase is not None:
-                action = self.config.rulebase.process_policy_after(
-                    action,
-                    env,
-                    self.player_index,
-                )
-
+    def policy(self, env: EnvRun, worker: "WorkerRun") -> EnvAction:
+        state = self.observation_encode(env.state, env)
+        action = self._call_policy(state, env)
+        action = self.action_decode(action)
         return action
 
-    def on_step(self, env: EnvRun) -> Optional[Info]:
+    def on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
+        state = self.observation_encode(env.state, env)
+        info = self._call_on_step(
+            state,
+            env.step_rewards[worker.player_index],
+            env.done,
+            env,
+        )
+        return info
 
-        # 初期化前はskip
-        if not self._is_reset:
-            return None
-
-        # 相手の番のrewardも加算
-        self._step_reward += env.step_rewards[self.player_index]
-
-        # 次の自分の番の前の状態がon_step、だたしdoneは実行する
-        if not env.done and self.player_index not in env.next_player_indices:
-            return None
-
-        # 自分の番、rlの場合on_stepを実行
-        if self._is_rl_policy:
-            next_state = self.observation_encode(env.state, env)
-            self._info = self._call_on_step(next_state, self._step_reward, env.done, env)
-            self._step_reward = 0
-
-        return self._info
-
-    def render(self, env: EnvRun) -> None:
-        if self._is_rl_policy and self._is_reset:
-            self._call_render(env)
-        elif self.config.rulebase is not None:
-            self.config.rulebase.policy_render(env, self.player_index)
+    def render(self, env: EnvRun, worker: "WorkerRun") -> None:
+        self._call_render(env)
 
     # ------------------------------------
     # utils
@@ -381,3 +362,150 @@ class RLWorker(ABC):
 
     def _env_step_policy(self, state: np.ndarray, env: EnvRun) -> RLAction:
         raise NotImplementedError()
+
+
+class RuleBaseWorker(WorkerBase):
+    @abstractmethod
+    def call_on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def call_policy(self, env: EnvRun, worker: "WorkerRun") -> EnvAction:
+        raise NotImplementedError()
+
+    def call_on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
+        return {}  # do nothing
+
+    @abstractmethod
+    def call_render(self, env: EnvRun, worker: "WorkerRun") -> None:
+        raise NotImplementedError()
+
+    @property
+    def player_index(self) -> int:
+        return self._player_index
+
+    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
+        self._player_index = worker.player_index
+        self.call_on_reset(env, worker)
+
+    def policy(self, env: EnvRun, worker: "WorkerRun") -> EnvAction:
+        return self.call_policy(env, worker)
+
+    def on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
+        return self.call_on_step(env, worker)
+
+    def render(self, env: EnvRun, worker: "WorkerRun") -> None:
+        self.call_render(env, worker)
+
+
+class ExtendWorker(WorkerBase):
+    def __init__(self, rl_worker: "WorkerRun", env: EnvRun):
+        self.rl_worker = rl_worker
+        self.env = env
+
+    def set_play_info(self, training: bool, distributed: bool) -> None:
+        super().set_play_info(training, distributed)
+        self.rl_worker.set_play_info(training, distributed)
+
+    @abstractmethod
+    def call_on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def call_policy(self, env: EnvRun, worker: "WorkerRun") -> EnvAction:
+        raise NotImplementedError()
+
+    def call_on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
+        return {}  # do nothing
+
+    @abstractmethod
+    def call_render(self, env: EnvRun, worker: "WorkerRun") -> None:
+        raise NotImplementedError()
+
+    @property
+    def player_index(self) -> int:
+        return self._player_index
+
+    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
+        self._player_index = worker.player_index
+        self.rl_worker.on_reset(env, self.player_index)
+        self.call_on_reset(env, worker)
+
+    def policy(self, env: EnvRun, worker: "WorkerRun") -> EnvAction:
+        return self.call_policy(env, worker)
+
+    def on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
+        self.rl_worker.on_step(env)
+        return self.call_on_step(env, worker)
+
+    def render(self, env: EnvRun, worker: "WorkerRun") -> None:
+        self.call_render(env, worker)
+
+
+class WorkerRun:
+    def __init__(self, worker: WorkerBase):
+        self.worker = worker
+
+    # ------------------------------------
+    # episode functions
+    # ------------------------------------
+    @property
+    def training(self) -> bool:
+        return self.worker.training
+
+    @property
+    def distributed(self) -> bool:
+        return self.worker.distributed
+
+    def set_play_info(self, training: bool, distributed: bool) -> None:
+        self.worker.set_play_info(training, distributed)
+
+    @property
+    def player_index(self) -> int:
+        return self._player_index
+
+    @property
+    def info(self) -> Optional[Info]:
+        return self._info
+
+    def on_reset(self, env: EnvRun, player_index: int) -> None:
+        self._player_index = player_index
+        self._info = None
+        self.is_reset = False
+        self.step_reward = 0
+
+    def policy(self, env: EnvRun) -> Optional[EnvAction]:
+        if self.player_index not in env.next_player_indices:
+            return None
+
+        # 初期化していないなら初期化する
+        if not self.is_reset:
+            self.worker.on_reset(env, self)
+            self.is_reset = True
+        else:
+            # 2週目以降はpolicyの実行前にstepを実行
+            self._info = self.worker.on_step(env, self)
+            self.step_reward = 0
+
+        # rl policy
+        action = self.worker.policy(env, self)
+        return action
+
+    def on_step(self, env: EnvRun):
+        # 初期化前はskip
+        if not self.is_reset:
+            return
+
+        # 相手の番のrewardも加算
+        self.step_reward += env.step_rewards[self.player_index]
+
+        # 終了なら実行
+        if env.done:
+            self._info = self.worker.on_step(env, self)
+            self.step_reward = 0
+
+    def render(self, env: EnvRun) -> None:
+        # 初期化前はskip
+        if not self.is_reset:
+            return None
+        self.worker.render(env, self)

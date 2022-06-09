@@ -70,12 +70,12 @@ class TestRL:
         env = srl.envs.make(env_config)
         remote_memory, parameter, trainer, worker = srl.rl.make(rl_config, env)
         workers = [
-            make_worker(srl.rl.random_play.Config(), env),
+            make_worker_rulebase("random"),
             worker,
         ]
 
         # --- episode
-        worker.set_training(True, False)
+        worker.set_play_info(True, False)
         for _ in range(2):
             env.reset()
             [w.on_reset(env, i) for i, w in enumerate(workers)]
@@ -92,24 +92,24 @@ class TestRL:
                     assert actions[0] is None
                     assert self._is_space_base_instance(actions[1])
 
+                if step == 0 or step == 1:
+                    assert workers[0].info is None
+                    assert workers[1].info is None
+                elif step % 2 == 0:
+                    assert isinstance(workers[0].info, dict)
+                else:
+                    assert isinstance(workers[1].info, dict)
+
                 # render
                 [w.render(env) for w in workers]
 
                 # step
                 env.step(actions)
-                worker_infos = [w.on_step(env) for w in workers]
+                [w.on_step(env) for w in workers]
+
                 if env.done:
-                    assert isinstance(worker_infos[1], dict)
-                    assert isinstance(worker_infos[1], dict)
-                elif step == 0:
-                    assert worker_infos[0] is None
-                    assert worker_infos[1] is None
-                elif step % 2 == 0:
-                    assert worker_infos[0] is None
-                    assert isinstance(worker_infos[1], dict)
-                else:
-                    assert isinstance(worker_infos[0], dict)
-                    assert worker_infos[1] is None
+                    assert isinstance(workers[0].info, dict)
+                    assert isinstance(workers[1].info, dict)
 
                 # train
                 train_info = trainer.train()
@@ -220,13 +220,13 @@ class TestRL:
         env_org = cast(Grid, env.get_original_env())
 
         worker = self.config.make_worker(self.parameter)
-        worker.set_training(False, False)
+        worker.set_play_info(False, False)
         worker = SinglePlayWorkerWrapper(worker)
 
         V, _Q = env_org.calc_action_values()
         Q = {}
         for k, v in _Q.items():
-            new_k = worker.worker.observation_encode(k, env)
+            new_k = worker.worker.worker.observation_encode(k, env)
             new_k = to_str_observation(new_k)
             Q[new_k] = v
 
@@ -245,7 +245,7 @@ class TestRL:
             # policyのアクションと最適アクションが等しいか確認
             key = to_str_observation(state)
             true_a = np.argmax(list(Q[key].values()))
-            pred_a = worker.worker.action_decode(action)
+            pred_a = worker.worker.worker.action_decode(action)
             print(f"{state}: {true_a} == {pred_a}")
             assert true_a == pred_a
             # -----------

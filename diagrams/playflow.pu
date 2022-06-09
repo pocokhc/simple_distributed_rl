@@ -2,11 +2,14 @@
 autoactivate on
 
 actor User
+
 participant EnvRun
 participant EnvBase
-participant Workers
-participant Trainer
 
+participant WorkerRun
+participant Worker
+
+participant Trainer
 participant Parameter
 participant RemoteMemory
 
@@ -18,7 +21,7 @@ User -> EnvRun: reset()
     return state, next_player_indices
 return
 
-User -> Workers: on_reset(env, player_index)
+User -> WorkerRun: on_reset(env, player_index)
     note right: init episode parameter
 return
 
@@ -29,23 +32,47 @@ return
 
 loop episode
 
-    User -> Workers: policy(env)
+    User -> WorkerRun: policy(env)
         note right
-        if player_index in next_player_indices:
-            state = <color blue>encode(state)</color>
-            if not call_on_reset:
-                call_on_reset(state)
-            action = call_policy(state)
-            action = <color red>decode(action)</color>
-            return action
+        if player_index not in next_player_indices:
+            return None
         end note
-        Workers -> Workers: call_policy
-            Workers -> Parameter: get parameter
-            return parameter
+
+        alt 1st week
+            WorkerRun -> Worker: on_reset(env)
+                note right
+                state = <color blue>encode(env.state)</color>
+                end note
+                Worker -> Worker: call_on_reset(state)
+                return
+            return
+        else After the 2nd week
+            WorkerRun -> Worker: on_step(env)
+                note right
+                next_state = <color blue>encode(env.state)</color>
+                end note
+                Worker -> Worker: call_on_step(next_state, reward, done)
+                    Worker -> RemoteMemory: add batchs
+                    return
+                return
+            return info
+        end
+
+        WorkerRun -> Worker: policy(env)
+            note right
+            state = <color blue>encode(env.state)</color>
+            end note
+            Worker -> Worker: call_policy(state)
+            return action
+            note right
+            action = <color red>decode(action)</color>
+            end note
         return action
     return actions
 
-    User -> Workers: render(env)
+    User -> WorkerRun: render(env)
+        WorkerRun -> Worker: render(env)
+        return
     return
     
     User -> EnvRun: step(actions)
@@ -53,16 +80,14 @@ loop episode
         return state, reward, done, next_player_indices
     return
 
-    User -> Workers: on_step(env)
+    User -> WorkerRun: on_step(env)
         note right
-        if It's your turn to run on_step:
-            state = <color blue>encode(state)</color>
-            call_on_step(state, reward, done)
+        save step reward
         end note
-        Workers -> Workers: call_on_step
-            Workers -> RemoteMemory: add batchs
+        alt done
+            WorkerRun -> Worker: on_reset(env)
             return
-        return
+        end
     return
 
     User -> Trainer: train

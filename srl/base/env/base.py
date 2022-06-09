@@ -138,7 +138,7 @@ class EnvBase(ABC):
         return str(action)
 
     # option
-    def make_worker(self, name: str) -> Optional[Type["srl.base.rl.base.RLWorker"]]:
+    def make_worker(self, name: str) -> Optional["srl.base.rl.base.WorkerBase"]:
         return None
 
     # option
@@ -150,22 +150,44 @@ class EnvBase(ABC):
         env.restore(self.backup())
         return env
 
+    # --------------------------------
+    # other
+    # --------------------------------
+    def _set_env_run(self, env_run: "EnvRun"):
+        self._env_run = env_run
+
+    def set_run_step(
+        self,
+        state: EnvObservation,
+        rewards: List[float],
+        done: bool,
+        next_player_indices: List[int],
+        info: Info,
+    ):
+        self._env_run._state = state
+        self._env_run._step_rewards = np.asarray(rewards)
+        self._env_run._done = done
+        self._env_run._next_player_indices = next_player_indices
+        self._env_run._info = info
+
 
 # 実装と実行で名前空間を分けるために別クラスに
 class EnvRun:
     def __init__(self, env: EnvBase) -> None:
         self.env = env
+        self.env._set_env_run(self)
         self.init()
 
     def init(self):
-        self.step_num = 0
-        self.episode_rewards = None
-        self.state = None
-        self.step_rewards = None
-        self.done = True
-        self.done_reason = ""
-        self.next_player_indices = []
-        self.info = None
+        self._step_num = 0
+        self._state = None
+        self._episode_rewards = np.array(0)
+        self._step_rewards = np.array(0)
+        self._done = True
+        self._done_reason = ""
+        self._next_player_indices = []
+        self._invalid_actions_list = [[] for _ in range(self.env.player_num)]
+        self._info = None
 
     # --- with
     def __del__(self):
@@ -178,7 +200,7 @@ class EnvRun:
         self.close()
 
     def close(self) -> None:
-        logger.debug(f"env.close")
+        logger.debug("env.close")
         self.env.close()
 
     # --------------------------------
@@ -207,13 +229,47 @@ class EnvRun:
     # ------------------------------------
     # episode functions
     # ------------------------------------
+    @property
+    def state(self) -> EnvObservation:
+        return self._state
+
+    @property
+    def next_player_indices(self) -> List[int]:
+        return self._next_player_indices
+
+    @property
+    def step_num(self) -> int:
+        return self._step_num
+
+    @property
+    def done(self) -> bool:
+        return self._done
+
+    @property
+    def done_reason(self) -> str:
+        return self._done_reason
+
+    @property
+    def episode_rewards(self) -> np.ndarray:
+        return self._episode_rewards
+
+    @property
+    def step_rewards(self) -> np.ndarray:
+        return self._step_rewards
+
+    @property
+    def info(self) -> Info:
+        return self._info
+
     def reset(self, max_steps: int = -1, timeout: int = -1) -> None:
         logger.debug("env.reset")
-        self.state, self.next_player_indices = self.env.reset()
-        self.step_num = 0
-        self.done = False
-        self.done_reason = ""
-        self.episode_rewards = np.zeros(self.player_num)
+        self._state, self._next_player_indices = self.env.reset()
+        self._step_num = 0
+        self._done = False
+        self._done_reason = ""
+        self._episode_rewards = np.zeros(self.player_num)
+        self._step_rewards = np.zeros(self.player_num)
+        self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
 
         self.t0 = time.time()
         self.max_steps = max_steps
@@ -227,39 +283,40 @@ class EnvRun:
         for idx in self.next_player_indices:
             assert actions[idx] is not None
 
-        self.state, rewards, self.done, self.next_player_indices, self.info = self.env.step(
+        self._state, rewards, self._done, self._next_player_indices, self._info = self.env.step(
             actions, self.next_player_indices
         )
-        self.step_rewards = np.asarray(rewards)
+        self._step_rewards = np.asarray(rewards)
 
         # skip frame の間は同じアクションを繰り返す
         for _ in range(skip_frames):
             assert self.player_num == 1
-            self.state, rewards, self.done, self.next_player_indices, self.info = self.env.step(
+            self._state, rewards, self._done, self._next_player_indices, self._info = self.env.step(
                 actions, self.next_player_indices
             )
-            self.step_rewards += np.asarray(rewards)
+            self._step_rewards += np.asarray(rewards)
             if self.done:
                 break
 
             if skip_function is not None:
                 skip_function()
 
-        self.step_num += 1
-        self.episode_rewards += self.step_rewards
+        self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
+        self._step_num += 1
+        self._episode_rewards += self.step_rewards
 
         # done step
         if self.done:
-            self.done_reason = "env"
+            self._done_reason = "env"
         elif self.step_num > self.max_episode_steps:
-            self.done = True
-            self.done_reason = "env max steps"
+            self._done = True
+            self._done_reason = "env max steps"
         elif self.max_steps > 0 and self.step_num > self.max_steps:
-            self.done = True
-            self.done_reason = "episode max steps"
+            self._done = True
+            self._done_reason = "episode max steps"
         elif self.timeout > 0 and time.time() - self.t0 > self.timeout:
-            self.done = True
-            self.done_reason = "timeout"
+            self._done = True
+            self._done_reason = "timeout"
 
         return self.info
 
@@ -274,6 +331,7 @@ class EnvRun:
             self.done,
             self.done_reason,
             self.next_player_indices,
+            self._invalid_actions_list,
             self.info,
         ]
         return pickle.dumps(d)
@@ -282,14 +340,15 @@ class EnvRun:
         logger.debug("env.restore")
         d = pickle.loads(data)
         self.env.restore(d[0])
-        self.step_num = d[1]
-        self.episode_rewards = d[2]
-        self.state = d[3]
-        self.step_rewards = d[4]
-        self.done = d[5]
-        self.done_reason = d[6]
-        self.next_player_indices = d[7]
-        self.info = d[8]
+        self._step_num = d[1]
+        self._episode_rewards = d[2]
+        self._state = d[3]
+        self._step_rewards = d[4]
+        self._done = d[5]
+        self._done_reason = d[6]
+        self._next_player_indices = d[7]
+        self._invalid_actions_list = d[8]
+        self._info = d[9]
 
     def render(
         self,
@@ -320,19 +379,19 @@ class EnvRun:
                 raise
 
     def get_invalid_actions(self, player_index: int) -> List[EnvInvalidAction]:
-        return self.env.get_invalid_actions(player_index)
+        return self._invalid_actions_list[player_index]
 
     def action_to_str(self, action: EnvAction) -> str:
         return self.env.action_to_str(action)
 
-    def make_worker(self, name: str) -> Optional["srl.base.rl.base.RLWorker"]:
-        cls = self.env.make_worker(name)
-        if cls is None:
+    def make_worker(self, name: str) -> Optional["srl.base.rl.base.WorkerRun"]:
+        worker = self.env.make_worker(name)
+        if worker is None:
             return None
 
-        from srl.base.rl.algorithms.rulebase import RuleBaseConfig
+        from srl.base.rl.base import WorkerRun
 
-        return cls(RuleBaseConfig())
+        return WorkerRun(worker)
 
     def get_original_env(self) -> object:
         return self.env.get_original_env()

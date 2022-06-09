@@ -71,9 +71,6 @@ class DiscreteActionWorker(RLWorker):
     ) -> None:
         raise NotImplementedError()
 
-    def _call_on_reset(self, state: RLObservation, env: EnvRun) -> None:
-        self.call_on_reset(state, self.get_invalid_actions(env))
-
     @abstractmethod
     def call_policy(
         self,
@@ -81,9 +78,6 @@ class DiscreteActionWorker(RLWorker):
         invalid_actions: List[RLInvalidAction],
     ) -> DiscreteAction:
         raise NotImplementedError()
-
-    def _call_policy(self, state: RLObservation, env: EnvRun) -> RLAction:
-        return self.call_policy(state, self.get_invalid_actions(env))
 
     @abstractmethod
     def call_on_step(
@@ -95,6 +89,16 @@ class DiscreteActionWorker(RLWorker):
     ) -> Info:
         raise NotImplementedError()
 
+    @abstractmethod
+    def call_render(self, env: EnvRun) -> Info:
+        raise NotImplementedError()
+
+    def _call_on_reset(self, state: RLObservation, env: EnvRun) -> None:
+        self.call_on_reset(state, self.get_invalid_actions(env))
+
+    def _call_policy(self, state: RLObservation, env: EnvRun) -> RLAction:
+        return self.call_policy(state, self.get_invalid_actions(env))
+
     def _call_on_step(
         self,
         next_state: RLObservation,
@@ -103,10 +107,6 @@ class DiscreteActionWorker(RLWorker):
         env: EnvRun,
     ) -> Info:
         return self.call_on_step(next_state, reward, done, self.get_invalid_actions(env))
-
-    @abstractmethod
-    def call_render(self, env: EnvRun) -> Info:
-        raise NotImplementedError()
 
     def _call_render(self, env: EnvRun) -> Info:
         return self.call_render(env)

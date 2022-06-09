@@ -4,13 +4,14 @@ from typing import Any, cast
 import numpy as np
 import srl
 from srl.base.define import EnvObservationType, Info, RLAction, RLActionType, RLObservationType
-from srl.base.env import registration
-from srl.base.env.base import EnvBase, EnvRun, SpaceBase
+from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.genre.singleplay import SinglePlayEnv
+from srl.base.env.registration import register as register_env
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.env.spaces.discrete import DiscreteSpace
 from srl.base.rl.base import RLConfig, RLWorker
+from srl.base.rl.registration import register as register_rl
 from srl.test.env import TestEnv
 
 
@@ -60,7 +61,7 @@ class StubEnv(SinglePlayEnv):
         pass  # do nothing
 
 
-registration.register(
+register_env(
     id="Stub",
     entry_point=__name__ + ":StubEnv",
 )
@@ -130,12 +131,16 @@ class StubRLWorker(RLWorker):
         raise NotImplementedError()
 
 
+register_rl(StubRLConfig, "", "", "", __name__ + ":StubRLWorker")
+
+
 class Test(unittest.TestCase):
     def setUp(self) -> None:
-        self.rl_config = StubRLConfig()
         self.env_run = srl.envs.make("Stub")
         self.env = cast(StubEnv, self.env_run.get_original_env())
+
         self.rl_config = StubRLConfig()
+        self.worker_run = srl.rl.make_worker(self.rl_config, self.env_run)
 
     def test_env_play(self):
         tester = TestEnv()
@@ -176,11 +181,11 @@ class Test(unittest.TestCase):
                     self.rl_config._action_type = RLActionType.ANY
 
                 self.rl_config.set_config_by_env(self.env_run)
-                worker = StubRLWorker(self.rl_config)
                 self.env_run.reset()
-                worker.on_reset(self.env_run, 0)
+                self.worker_run.on_reset(self.env_run, 0)
+                worker = self.worker_run.worker
 
-                action_space = worker.config.env_action_space
+                action_space = self.rl_config.env_action_space
                 if pat[0] == "Dis":
                     self.assertTrue(isinstance(action_space, DiscreteSpace))
                     self.assertTrue(worker.action_decode(rl_action) == env_action)
@@ -191,11 +196,11 @@ class Test(unittest.TestCase):
                     self.assertTrue(isinstance(action_space, BoxSpace))
                     np.testing.assert_array_equal(worker.action_decode(rl_action), env_action)
 
-                self.assertTrue(isinstance(worker.config.env_observation_space, DiscreteSpace))
-                self.assertTrue(worker.config.env_observation_type == EnvObservationType.DISCRETE)
+                self.assertTrue(isinstance(self.rl_config.env_observation_space, DiscreteSpace))
+                self.assertTrue(self.rl_config.env_observation_type == EnvObservationType.DISCRETE)
 
                 worker.action = rl_action
-                action = worker.policy(self.env_run)
+                action = self.worker_run.policy(self.env_run)
                 np.testing.assert_array_equal([action], [env_action])
 
     def test_observation(self):
@@ -240,15 +245,15 @@ class Test(unittest.TestCase):
                     self.rl_config._observation_type = RLObservationType.ANY
 
                 self.rl_config.set_config_by_env(self.env_run)
-                worker = StubRLWorker(self.rl_config)
                 self.env_run.reset()
-                worker.on_reset(self.env_run, 0)
+                self.worker_run.on_reset(self.env_run, 0)
+                worker = self.worker_run.worker
 
-                self.assertTrue(isinstance(worker.config.env_action_space, DiscreteSpace))
+                self.assertTrue(isinstance(self.rl_config.env_action_space, DiscreteSpace))
                 self.assertTrue(worker.action_decode(rl_action) == env_action)
 
-                observation_space = worker.config.env_observation_space
-                observation_type = worker.config.env_observation_type
+                observation_space = self.rl_config.env_observation_space
+                observation_type = self.rl_config.env_observation_type
                 if pat[0] == "Dis":
                     self.assertTrue(isinstance(observation_space, DiscreteSpace))
                     self.assertTrue(observation_type == EnvObservationType.DISCRETE)
@@ -264,10 +269,10 @@ class Test(unittest.TestCase):
                 # on_reset
                 self.env.s_state = env_state
                 self.env_run.reset()
-                worker.on_reset(self.env_run, 0)
+                self.worker_run.on_reset(self.env_run, 0)
                 # policy
                 worker.action = rl_action
-                action = worker.policy(self.env_run)
+                action = self.worker_run.policy(self.env_run)
                 self.assertTrue(isinstance(worker.on_reset_state, np.ndarray))
                 self.assertTrue(np.allclose(worker.on_reset_state, rl_state))
                 np.testing.assert_array_equal([action], [env_action])
@@ -275,7 +280,7 @@ class Test(unittest.TestCase):
                 self.assertTrue(np.allclose(worker.state, rl_state))
                 # on_step
                 self.env_run.step([action])
-                worker.on_step(self.env_run)
+                self.worker_run.on_step(self.env_run)
                 self.assertTrue(isinstance(worker.state, np.ndarray))
                 self.assertTrue(np.allclose(worker.state, rl_state))
 

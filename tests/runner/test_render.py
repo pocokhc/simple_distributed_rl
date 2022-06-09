@@ -9,21 +9,14 @@ from srl.utils import common as C
 class Test(unittest.TestCase):
     def test_play(self):
 
-        config = sequence.Config(
-            env_config=srl.envs.Config("Grid"),
-            rl_config=srl.rl.random_play.Config(),
-        )
-
+        config = sequence.Config(srl.envs.Config("Grid"), None)
         render = Rendering(mode="", enable_animation=True)
         config.set_play_config(max_episodes=1, callbacks=[render])
         sequence.play(config)
         render.create_anime().save("tmp/a.gif")
         render.display()
 
-        config = sequence.Config(
-            env_config=srl.envs.Config("Grid"),
-            rl_config=srl.rl.random_play.Config(),
-        )
+        config = sequence.Config(srl.envs.Config("Grid"), None)
         render = Rendering(mode="", enable_animation=True)
         config.set_play_config(max_episodes=1, callbacks=[render])
         sequence.play(config)
@@ -32,21 +25,14 @@ class Test(unittest.TestCase):
 
     def test_gym(self):
 
-        config = sequence.Config(
-            env_config=srl.envs.Config("MountainCar-v0"),
-            rl_config=srl.rl.random_play.Config(),
-        )
-
+        config = sequence.Config(srl.envs.Config("MountainCar-v0"), None)
         render = Rendering(mode="", enable_animation=True)
         config.set_play_config(max_episodes=1, callbacks=[render])
         sequence.play(config)
         render.create_anime().save("tmp/a.gif")
         render.display()
 
-        config = sequence.Config(
-            env_config=srl.envs.Config("MountainCar-v0"),
-            rl_config=srl.rl.random_play.Config(),
-        )
+        config = sequence.Config(srl.envs.Config("MountainCar-v0"), None)
         render = Rendering(mode="", enable_animation=True)
         config.set_play_config(max_episodes=1, callbacks=[render])
         sequence.play(config)

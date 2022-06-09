@@ -211,8 +211,6 @@ class PrintProgress(Callback):
 
     def __post_init__(self):
         self.progress_timeout = 5
-
-        self.progress_t0 = self.t0 = time.time()
         self.progress_step_count = 0
         self.progress_episode_count = 0
         self.step_count = 0
@@ -231,6 +229,7 @@ class PrintProgress(Callback):
                 to_str_time(self.config.timeout),
             )
         )
+        self.progress_t0 = self.t0 = time.time()
         self.progress_history = []
 
     def on_episodes_end(self, episode_count, trainer, **kwargs):

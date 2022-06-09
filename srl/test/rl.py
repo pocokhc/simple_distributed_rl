@@ -7,13 +7,11 @@ import srl
 from srl.base.define import EnvObservationType
 from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
 from srl.base.rl.processors.image_processor import ImageProcessor
-from srl.base.rl.registration import make_worker
+from srl.base.rl.registration import make_worker_rulebase
 from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
 from srl.envs.grid import Grid
 from srl.rl.functions.common import to_str_observation
 from srl.runner import mp, sequence
-from srl.runner.callbacks import PrintProgress, Rendering
-from srl.runner.callbacks_mp import TrainFileLogger
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 warnings.simplefilter("ignore")
@@ -50,12 +48,13 @@ class TestRL:
             config = sequence.Config(env_config, rl_config)
 
             # --- train
-            config.set_train_config(max_steps=10, enable_validation=False, callbacks=[PrintProgress()])
-            parameter, memory = sequence.train(config)
+            parameter, memory, _ = sequence.train(config, max_steps=10, enable_validation=False, enable_history=False)
 
             # --- test
-            config.set_play_config(max_episodes=1, callbacks=[Rendering()])
-            episode_rewards, _, _ = sequence.play(config, parameter)
+            sequence.evaluate(config, parameter, max_episodes=2, max_steps=10)
+
+            # --- render
+            sequence.render(config, parameter, max_steps=10)
 
     def _is_space_base_instance(self, val):
         if type(val) in [int, float, list, np.ndarray]:
@@ -125,15 +124,13 @@ class TestRL:
 
             # --- train
             mp_config = mp.Config(worker_num=2)
-            config.set_train_config()
-            mp_config.set_train_config(
-                max_train_count=5, callbacks=[TrainFileLogger(enable_checkpoint=False, enable_log=False)]
-            )
-            parameter, memory = mp.train(config, mp_config)
+            parameter, memory = mp.train(config, mp_config, max_train_count=5)
 
             # --- test
-            config.set_play_config(max_episodes=1, callbacks=[Rendering()])
-            episode_rewards, _, _ = sequence.play(config, parameter)
+            sequence.evaluate(config, parameter, max_episodes=10, max_steps=10)
+
+            # --- render
+            sequence.render(config, parameter, max_steps=10)
 
     def play_verify_singleplay(
         self,
@@ -159,13 +156,10 @@ class TestRL:
             config.max_episode_steps = 50
             config.skip_frames = 4
 
-        config.set_train_config(
-            max_steps=train_count, enable_validation=False, callbacks=[PrintProgress(max_progress_time=10)]
+        parameter, memory, _ = sequence.train(
+            config, max_steps=train_count, enable_validation=False, enable_history=False, max_progress_time=10
         )
-        parameter, memory = sequence.train(config)
-
-        config.set_play_config(max_episodes=test_episodes)
-        episode_rewards, _, _ = sequence.play(config, parameter)
+        episode_rewards = sequence.evaluate(config, parameter, max_episodes=test_episodes)
         s = f"{np.mean(episode_rewards)} >= {self.baseline[env_name]}"
         print(s)
         assert np.mean(episode_rewards) >= self.baseline[env_name], s
@@ -184,26 +178,24 @@ class TestRL:
 
         env_config = srl.envs.Config(env_name)
         config = sequence.Config(env_config, rl_config)
+
+        # self play training
         config.players = [None, None]
-
-        config.set_train_config(
-            max_steps=train_count, enable_validation=False, callbacks=[PrintProgress(max_progress_time=10)]
+        parameter, memory, _ = sequence.train(
+            config, max_steps=train_count, enable_validation=False, enable_history=False, max_progress_time=10
         )
-        parameter, memory = sequence.train(config)
 
-        # 2p random
-        config.players = [None, srl.rl.random_play.Config()]
-        config.set_play_config(max_episodes=test_episodes)
-        episode_rewards, _, _ = sequence.play(config, parameter)
+        # 1p play
+        config.players = [None, "random"]
+        episode_rewards = sequence.evaluate(config, parameter, max_episodes=test_episodes)
         reward = np.mean([r[0] for r in episode_rewards])
         s = f"{reward} >= {self.baseline[env_name][0]}"
         print(s)
         assert reward >= self.baseline[env_name][0], s
 
-        # 1p random
-        config.players = [srl.rl.random_play.Config(), None]
-        config.set_play_config(max_episodes=test_episodes)
-        episode_rewards, _, _ = sequence.play(config, parameter)
+        # 2p play
+        config.players = ["random", None]
+        episode_rewards = sequence.evaluate(config, parameter, max_episodes=test_episodes)
         reward = np.mean([r[1] for r in episode_rewards])
         s = f"{reward} >= {self.baseline[env_name][1]}"
         print(s)

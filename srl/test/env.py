@@ -113,12 +113,10 @@ class TestEnv:
 
     def player_test(self, env_name: str, player: str) -> EnvRun:
         env_config = srl.envs.Config(env_name)
-        rl_config = srl.rl.random_play.Config()
+        config = sequence.Config(env_config, None)
 
-        config = sequence.Config(env_config, rl_config)
         env = config.make_env()
         config.players = [player] * env.player_num
 
-        config.set_play_config(max_episodes=10, callbacks=[PrintProgress()])
-        sequence.play(config)
+        sequence.evaluate(config, None, max_episodes=10)
         return env

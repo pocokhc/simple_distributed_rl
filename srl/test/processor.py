@@ -1,26 +1,24 @@
 import numpy as np
 import srl
-from srl.base.define import EnvObservation, EnvObservationType, RLObservationType
+from srl.base.define import (EnvObservation, EnvObservationType,
+                             RLObservationType)
 from srl.base.env.base import EnvRun
 from srl.base.env.space import SpaceBase
 from srl.base.rl.processor import Processor
 from srl.runner import sequence
-from srl.runner.callbacks import PrintProgress
 
 
 class TestProcessor:
     def run(self, processor: Processor, env_name: str) -> EnvRun:
 
         env_config = srl.envs.Config(env_name)
-        rl_config = srl.rl.random_play.Config()
+        rl_config = srl.rl.ql.Config()
         rl_config.processors = [processor]
 
         config = sequence.Config(env_config, rl_config)
         env = config.make_env()
 
-        config.set_play_config(max_episodes=10, callbacks=[PrintProgress()])
-        sequence.play(config)
-
+        sequence.train(config, max_episodes=10)
         return env
 
     def change_observation_info(

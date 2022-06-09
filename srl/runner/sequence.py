@@ -3,15 +3,22 @@ import pickle
 import random
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import srl.envs
 import srl.rl
+from srl.base.define import RenderType
 from srl.base.env.base import EnvConfig, EnvRun
-from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLWorker
-from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer, make_worker
-from srl.runner.callbacks import Callback
+from srl.base.rl.base import ExtendWorker, RLConfig, RLParameter, RLRemoteMemory, WorkerRun
+from srl.base.rl.registration import (
+    make_parameter,
+    make_remote_memory,
+    make_trainer,
+    make_worker,
+    make_worker_rulebase,
+)
+from srl.runner.callbacks import Callback, History, PrintProgress, Rendering
 
 logger = logging.getLogger(__name__)
 
@@ -20,14 +27,15 @@ logger = logging.getLogger(__name__)
 class Config:
 
     env_config: EnvConfig
-    rl_config: RLConfig
+    rl_config: Optional[RLConfig]
+    extend_worker: Optional[Type[ExtendWorker]] = None
 
     # multi player option
     players: List[Union[None, str, RLConfig]] = field(default_factory=list)
 
     # episode option
-    max_episode_steps: int = 10_000
-    episode_timeout: int = -1  # s
+    max_episode_steps: int = 1_000_000
+    episode_timeout: int = 60 * 60  # s
 
     # play option
     skip_frames: int = 0
@@ -38,12 +46,6 @@ class Config:
     validation_players: List[Union[None, str, RLConfig]] = field(default_factory=list)
     validation_player: int = 0
 
-    # callbacks
-    callbacks: List[Callback] = field(default_factory=list)
-
-    # distributed
-    distributed: bool = False
-
     # other
     is_make_env: bool = True
 
@@ -53,13 +55,19 @@ class Config:
         self.max_episodes: int = -1
         self.timeout: int = -1
         self.training: bool = False
+        self.distributed: bool = False
         # multi player option
         self.shuffle_player: bool = False
         # validation option
         self.enable_validation: bool = False
+        # callbacks
+        self.callbacks: List[Callback] = []
 
-        if self.rl_config is not None:
-            self.rl_name = self.rl_config.getName()
+        # none の場合はQLを代わりに入れる
+        if self.rl_config is None:
+            self.rl_config = srl.rl.ql.Config()
+
+        self.rl_name = self.rl_config.getName()
         self.parameter_path = ""
         self.remote_memory_path = ""
         self.trainer_disable = False
@@ -74,39 +82,6 @@ class Config:
     def set_parameter_path(self, parameter_path: str = "", remote_memory_path: str = ""):
         self.parameter_path = parameter_path
         self.remote_memory_path = remote_memory_path
-
-    def set_train_config(
-        self,
-        max_steps: int = -1,
-        max_episodes: int = -1,
-        timeout: int = -1,
-        shuffle_player: bool = True,
-        enable_validation: bool = True,
-        callbacks: List[Callback] = None,
-    ):
-        self.set_play_config(max_steps, max_episodes, timeout, True, shuffle_player, enable_validation, callbacks)
-        self.episode_timeout = 60 * 10  # s
-
-    def set_play_config(
-        self,
-        max_steps: int = -1,
-        max_episodes: int = -1,
-        timeout: int = -1,
-        training: bool = False,
-        shuffle_player: bool = False,
-        enable_validation: bool = False,
-        callbacks: List[Callback] = None,
-    ):
-        if callbacks is None:
-            callbacks = []
-        self.max_steps = max_steps
-        self.max_episodes = max_episodes
-        self.timeout = timeout
-        self.training = training
-        self.shuffle_player = shuffle_player
-        self.callbacks = callbacks
-        self.enable_validation = enable_validation
-        self.episode_timeout = -1
 
     def model_summary(self) -> RLParameter:
         parameter = self.make_parameter()
@@ -146,10 +121,16 @@ class Config:
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
         worker_id: int = 0,
-    ) -> RLWorker:
+    ) -> WorkerRun:
         env = self.make_env()
         worker = make_worker(self.rl_config, env, parameter, remote_memory, worker_id)
-        worker.set_training(self.training, self.distributed)
+
+        # ExtendWorker
+        if self.extend_worker is not None:
+            worker = self.extend_worker(worker, env)
+            worker = WorkerRun(worker)
+
+        worker.set_play_info(self.training, self.distributed)
         return worker
 
     def make_player(
@@ -161,12 +142,11 @@ class Config:
     ):
         env = self.make_env()
 
+        # 設定されていない場合は 0 をrl、1以降をrandom
         if len(self.players) == 0:
-            for i in range(env.player_num):
-                if i == 0:
-                    self.players.append(None)
-                else:
-                    self.players.append(srl.rl.random_play.Config())
+            self.players = [None]
+            for _ in range(env.player_num - 1):
+                self.players.append("random")
 
         player_obj = self.players[player_index]
 
@@ -174,24 +154,25 @@ class Config:
         if player_obj is None:
             return self.make_worker(parameter, remote_memory, worker_id)
 
-        # 文字列はenvに登録されているアルゴリズム
+        # 文字列はenv側またはルールベースのアルゴリズム
         if isinstance(player_obj, str):
-            if player_obj == "random":
-                return make_worker(srl.rl.random_play.Config(), env)
-            elif player_obj == "human":
-                return make_worker(srl.rl.human.Config(), env)
-            else:
-                worker = env.make_worker(player_obj)
-                assert worker is not None, f"not registered: {player_obj}"
+            worker = env.make_worker(player_obj)
+            if worker is not None:
                 return worker
 
-        # それ以外は専用のWorkerを作成
+            worker = make_worker_rulebase(player_obj)
+            if worker is not None:
+                return worker
+
+            assert True, f"not registered: {player_obj}"
+
+        # RLConfigは専用のWorkerを作成
         if isinstance(player_obj, object) and issubclass(player_obj.__class__, RLConfig):
             worker = make_worker(player_obj, env, worker_id=worker_id)
-            worker.set_training(False, False)
+            worker.set_play_info(False, False)
             return worker
 
-        raise ValueError()
+        raise ValueError(f"unknown player: {player_obj}")
 
     # ------------------------------
     # other functions
@@ -230,6 +211,7 @@ class Config:
             else:
                 config.validation_players.append(pickle.loads(pickle.dumps(player)))
         config.callbacks = self.callbacks  # sync
+        config.extend_worker = self.extend_worker
         if env_copy:
             config.env = self.env
         return config
@@ -237,39 +219,135 @@ class Config:
 
 def train(
     config: Config,
+    max_steps: int = -1,
+    max_episodes: int = -1,
+    timeout: int = -1,
+    shuffle_player: bool = True,
+    enable_validation: bool = True,
+    print_progress: bool = True,
+    max_progress_time: int = 60 * 10,  # s
+    print_progress_kwargs: Optional[Dict] = None,
+    enable_history: bool = True,
+    history_kwargs: Optional[Dict] = None,
+    callbacks: List[Callback] = None,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
     worker_id: int = 0,
-) -> Tuple[RLParameter, RLRemoteMemory]:
-    episode_rewards, parameter, memory = play(config, parameter, remote_memory, worker_id)
-    return parameter, memory
+) -> Tuple[RLParameter, RLRemoteMemory, Optional[History]]:
+    if callbacks is None:
+        callbacks = []
+
+    config = config.copy(env_copy=True)
+    config.max_steps = max_steps
+    config.max_episodes = max_episodes
+    config.timeout = timeout
+    config.shuffle_player = shuffle_player
+    config.enable_validation = enable_validation
+    config.callbacks = callbacks
+
+    config.training = True
+
+    if print_progress:
+        if print_progress_kwargs is None:
+            config.callbacks.append(PrintProgress(max_progress_time=max_progress_time))
+        else:
+            config.callbacks.append(PrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
+
+    if enable_history:
+        if history_kwargs is None:
+            history = History()
+        else:
+            history = History(**history_kwargs)
+        config.callbacks.append(history)
+    else:
+        history = None
+
+    _, parameter, memory, _ = play(config, parameter, remote_memory, worker_id)
+
+    return parameter, memory, history
 
 
+def evaluate(
+    config: Config,
+    parameter: Optional[RLParameter],
+    max_episodes: int,
+    max_steps: int = -1,
+    timeout: int = -1,
+    shuffle_player: bool = False,
+    callbacks: List[Callback] = None,
+    remote_memory: Optional[RLRemoteMemory] = None,
+    worker_id: int = 0,
+) -> Union[List[float], List[List[float]]]:  # single play , multi play
+    if callbacks is None:
+        callbacks = []
+
+    config = config.copy(env_copy=True)
+    config.max_steps = max_steps
+    config.max_episodes = max_episodes
+    config.timeout = timeout
+    config.shuffle_player = shuffle_player
+    config.callbacks = callbacks
+
+    config.enable_validation = False
+    config.training = False
+
+    episode_rewards, parameter, memory, env = play(config, parameter, remote_memory, worker_id)
+
+    if env.player_num == 1:
+        return [r[0] for r in episode_rewards]
+    else:
+        return episode_rewards
+
+
+def render(
+    config: Config,
+    parameter: Optional[RLParameter] = None,
+    mode: Union[str, RenderType] = RenderType.Terminal,
+    step_stop: bool = False,
+    enable_animation: bool = False,
+    max_steps: int = -1,
+    timeout: int = -1,
+    shuffle_player: bool = False,
+    callbacks: List[Callback] = None,
+    remote_memory: Optional[RLRemoteMemory] = None,
+    worker_id: int = 0,
+) -> Tuple[List[List[float]], Rendering]:
+    if callbacks is None:
+        callbacks = []
+
+    config = config.copy(env_copy=True)
+    config.max_steps = max_steps
+    config.timeout = timeout
+    config.shuffle_player = shuffle_player
+    config.callbacks = callbacks
+
+    config.enable_validation = False
+    config.max_episodes = 1
+    config.training = False
+    config.episode_timeout = -1
+
+    _render = Rendering(mode=mode, step_stop=step_stop, enable_animation=enable_animation)
+    config.callbacks.append(_render)
+
+    episode_rewards, parameter, memory, env = play(config, parameter, remote_memory, worker_id)
+
+    return episode_rewards, _render
+
+
+# ---------------------------------
+# play main
+# ---------------------------------
 def play(
     config: Config,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
     worker_id: int = 0,
-) -> Union[
-    Tuple[List[float], RLParameter, RLRemoteMemory],  # single play
-    Tuple[List[List[float]], RLParameter, RLRemoteMemory],  # multi play
-]:
-    return _play(config, parameter, remote_memory, worker_id)
-
-
-def _play(
-    config: Config,
-    parameter: Optional[RLParameter] = None,
-    remote_memory: Optional[RLRemoteMemory] = None,
-    worker_id: int = 0,
-) -> Union[
-    Tuple[List[float], RLParameter, RLRemoteMemory],  # single play
-    Tuple[List[List[float]], RLParameter, RLRemoteMemory],  # multi play
-]:
+) -> Tuple[List[List[float]], RLParameter, RLRemoteMemory, EnvRun]:
 
     env = config.make_env()
     config = config.copy(env_copy=True)
     config.assert_params()
+
     if parameter is None:
         parameter = config.make_parameter()
     if remote_memory is None:
@@ -283,7 +361,6 @@ def _play(
     # valid
     if config.enable_validation:
         valid_config = config.copy(env_copy=False)
-        valid_config.set_play_config(max_episodes=config.validation_episode)
         valid_config.enable_validation = False
         valid_config.players = config.validation_players
         valid_episode = 0
@@ -355,7 +432,7 @@ def _play(
         # step
         # ------------------------
         # action
-        actions = [w.policy(env) if w.player_index in env.next_player_indices else None for w in workers]
+        actions = [w.policy(env) for w in workers]
 
         # callback
         _params["actions"] = actions
@@ -399,7 +476,7 @@ def _play(
             if config.enable_validation:
                 valid_episode += 1
                 if valid_episode > config.validation_interval:
-                    rewards, _, _ = play(valid_config, parameter=parameter)
+                    rewards = evaluate(valid_config, parameter=parameter, max_episodes=config.validation_episode)
                     if env.player_num > 1:
                         rewards = [r[config.validation_player] for r in rewards]
                     valid_reward = np.mean(rewards)
@@ -421,7 +498,4 @@ def _play(
     _params["episode_count"] = episode_count
     [c.on_episodes_end(**_params) for c in callbacks]
 
-    if env.player_num == 1:
-        return [r[0] for r in episode_rewards_list], parameter, remote_memory
-    else:
-        return episode_rewards_list, parameter, remote_memory
+    return episode_rewards_list, parameter, remote_memory, env

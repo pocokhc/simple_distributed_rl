@@ -3,11 +3,8 @@ import warnings
 
 import numpy as np
 import srl
-from srl.base.define import EnvObservationType, RenderType
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.runner import mp, sequence
-from srl.runner.callbacks import PrintProgress, Rendering
-from srl.runner.callbacks_mp import TrainFileLogger
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 warnings.simplefilter("ignore")
@@ -17,8 +14,7 @@ def main(is_mp):
     env_config = srl.envs.Config("ALE/Galaxian-v5")
     rl_config = srl.rl.rainbow.Config(window_length=4, multisteps=10)
 
-    # atari config
-    rl_config.override_env_observation_type = EnvObservationType.COLOR
+    # atari processor
     rl_config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
 
     config = sequence.Config(env_config, rl_config)
@@ -36,29 +32,21 @@ def main(is_mp):
     # --- train
     if not is_mp:
         # sequence training
-        config.set_train_config(timeout=60 * 30, callbacks=[PrintProgress()])
-        parameter, remote_memory = sequence.train(config)
+        parameter, remote_memory, history = sequence.train(config, timeout=60 * 30)
     else:
         # distribute training
         mp_config = mp.Config(worker_num=1)
-        config.set_train_config()
-        mp_config.set_train_config(
-            timeout=60 * 30, callbacks=[TrainFileLogger(enable_log=True, enable_checkpoint=False)]
-        )
-        parameter, remote_memory = mp.train(config, mp_config)
+        parameter, remote_memory = mp.train(config, mp_config, timeout=60 * 30)
 
     # save parameter
     # parameter.save("tmp/Rainbow_params.dat")
 
     # --- test
-    config.set_play_config(max_episodes=5)
-    rewards, _, _ = sequence.play(config, parameter)
+    rewards = sequence.evaluate(config, parameter, max_episodes=5)
     print(f"reward: {np.mean(rewards)}")
 
     # --- rendering
-    render = Rendering(mode=RenderType.NONE, enable_animation=True)
-    config.set_play_config(max_episodes=1, callbacks=[render])
-    sequence.play(config, parameter)
+    _, render = sequence.render(config, parameter, mode="", enable_animation=True)
 
     # save animation
     render.create_anime().save("tmp/Galaxian.gif")

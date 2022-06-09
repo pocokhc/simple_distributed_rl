@@ -2,17 +2,16 @@ import ctypes
 import logging
 import multiprocessing as mp
 import time
-import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from multiprocessing.managers import BaseManager
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import tensorflow as tf
 from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_remote_memory
 from srl.runner import sequence
-from srl.runner.callbacks_mp import MPCallback
+from srl.runner.callbacks_mp import MPCallback, MPPrintProgress
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +41,6 @@ RuntimeError:
 class Config:
 
     worker_num: int
-    max_train_count: int = -1
-    timeout: int = -1
 
     trainer_parameter_send_interval_by_train_count: int = 100
     worker_parameter_sync_interval_by_step: int = 10
@@ -54,26 +51,12 @@ class Config:
     allocate_trainer: str = "/GPU:0"
     allocate_worker: Union[List[str], str] = "/CPU:0"
 
-    callbacks: List[MPCallback] = field(default_factory=list)
-
-    # validation
-    enable_validation = False
-    validation_interval = 10  # train count
-    validation_episode = 1
-
-    def set_train_config(
-        self,
-        max_train_count: int = -1,
-        timeout: int = -1,
-        enable_validation: bool = True,
-        callbacks: List[MPCallback] = None,
-    ):
-        if callbacks is None:
-            callbacks = []
-        self.max_train_count = max_train_count
-        self.timeout = timeout
-        self.enable_validation = enable_validation
-        self.callbacks = callbacks
+    def __post_init__(self):
+        # train config
+        self.max_train_count: int = -1
+        self.timeout: int = -1
+        # callbacks
+        self.callbacks: List[MPCallback] = []
 
     # -------------------------------------
 
@@ -170,6 +153,7 @@ def _run_worker(
             config.callbacks.extend(mp_config.callbacks)
             config.callbacks.append(_InterruptEnd(train_end_signal))
             config.trainer_disable = True
+            config.enable_validation = False
 
             parameter = config.make_parameter()
             params = remote_board.read()
@@ -179,8 +163,6 @@ def _run_worker(
 
             sequence.play(config, parameter, remote_memory, worker_id)
 
-        except Exception:
-            logger.warn(traceback.format_exc())
         finally:
             train_end_signal.value = True
             logger.debug(f"worker{worker_id} end")
@@ -214,8 +196,8 @@ def _run_trainer(
         # valid
         valid_train = 0
         valid_config = config.copy(env_copy=False)
-        valid_config.set_play_config(max_episodes=mp_config.validation_episode)
         valid_config.enable_validation = False
+        valid_config.players = config.validation_players
 
         # callbacks
         _info = {
@@ -257,12 +239,14 @@ def _run_trainer(
 
                 # validation
                 valid_reward = None
-                if mp_config.enable_validation:
+                if config.enable_validation:
                     valid_train += 1
-                    if valid_train > mp_config.validation_interval:
-                        rewards, _, _ = sequence.play(valid_config, parameter=parameter)
+                    if valid_train > config.validation_interval:
+                        rewards = sequence.evaluate(
+                            valid_config, parameter=parameter, max_episodes=config.validation_episode
+                        )
                         if valid_config.make_env().player_num > 1:
-                            rewards = [r[0] for r in rewards]
+                            rewards = [r[config.validation_player] for r in rewards]
                         valid_reward = np.mean(rewards)
                         valid_train = 0
 
@@ -275,11 +259,8 @@ def _run_trainer(
                 _info["valid_reward"] = valid_reward
                 [c.on_trainer_train_end(**_info) for c in callbacks]
 
-        except Exception:
-            logger.warn(traceback.format_exc())
         finally:
             train_end_signal.value = True
-
             remote_board.write(parameter.backup())
             logger.debug("trainer end")
 
@@ -297,17 +278,41 @@ class MPManager(BaseManager):
 def train(
     config: sequence.Config,
     mp_config: Config,
+    max_train_count: int = -1,
+    timeout: int = -1,
+    shuffle_player: bool = True,
+    enable_validation: bool = True,
+    print_progress: bool = True,
+    max_progress_time: int = 60 * 10,  # s
+    print_progress_kwargs: Optional[Dict] = None,
+    callbacks: List[MPCallback] = None,
     init_parameter: Optional[RLParameter] = None,
     init_remote_memory: Optional[RLRemoteMemory] = None,
     return_memory: bool = False,
 ) -> Tuple[RLParameter, RLRemoteMemory]:
+    if callbacks is None:
+        callbacks = []
+    if config.rl_config is not None:
+        assert config.rl_config.is_set_config_by_env
 
     config = config.copy(env_copy=False)
     mp_config = mp_config.copy()
-    config.enable_validation = False
+
+    config.shuffle_player = shuffle_player
+    config.enable_validation = enable_validation
     config.training = True
     config.distributed = True
-    config.rl_config.assert_params()
+
+    mp_config.max_train_count = max_train_count
+    mp_config.timeout = timeout
+
+    if print_progress:
+        if print_progress_kwargs is None:
+            mp_config.callbacks.append(MPPrintProgress(max_progress_time=max_progress_time))
+        else:
+            mp_config.callbacks.append(MPPrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
+
+    config.assert_params()
 
     with tf.device(mp_config.allocate_main):
 
@@ -392,41 +397,38 @@ def _train(
     [c.on_start(**_info) for c in mp_config.callbacks]
 
     # 終了を待つ
-    try:
-        t0 = time.time()
-        while True:
-            time.sleep(1)  # polling time
+    t0 = time.time()
+    while True:
+        time.sleep(1)  # polling time
 
-            # timeout
-            _time = time.time()
-            elapsed_time = _time - t0
-            if mp_config.timeout > 0 and elapsed_time > mp_config.timeout:
+        # timeout
+        _time = time.time()
+        elapsed_time = _time - t0
+        if mp_config.timeout > 0 and elapsed_time > mp_config.timeout:
+            train_end_signal.value = True
+            logger.info("train end(normal timeout)")
+            break
+
+        # プロセスが落ちたら終了
+        if not trainer_ps.is_alive():
+            train_end_signal.value = True
+            logger.info("train end(trainer process dead)")
+            break
+        for i, w in enumerate(workers_ps_list):
+            if not w.is_alive():
                 train_end_signal.value = True
-                logger.info("train end(reason: timeout)")
-
-            # プロセスが落ちたら終了
-            if not trainer_ps.is_alive():
-                train_end_signal.value = True
-                logger.info("train end(reason: trainer_ps dead or max_train_count)")
-            if False in [w.is_alive() for w in workers_ps_list]:
-                train_end_signal.value = True
-                logger.info("train end(reason: worker_ps dead)")
-
-            # callbacks
-            _info["time_"] = _time
-            _info["elapsed_time"] = elapsed_time
-            [c.on_polling(**_info) for c in mp_config.callbacks]
-
-            if train_end_signal.value:
+                logger.info(f"train end(worker {i} process dead)")
                 break
-    except Exception:
-        logger.debug(traceback.format_exc())
-        logger.info("train end(reason: error)")
-    finally:
-        train_end_signal.value = True
 
-    # --- end, 終了前に少し待つ
-    time.sleep(1)
+        # callbacks
+        _info["time_"] = _time
+        _info["elapsed_time"] = elapsed_time
+        [c.on_polling(**_info) for c in mp_config.callbacks]
+
+        if train_end_signal.value:
+            break
+
+    # --- プロセスの終了を待つ
     for w in workers_ps_list:
         for _ in range(10):
             if w.is_alive():
@@ -435,13 +437,21 @@ def _train(
                 break
         else:
             w.terminate()
-    for _ in range(10):
+    for _ in range(100):
         if trainer_ps.is_alive():
             time.sleep(1)
         else:
             break
     else:
         trainer_ps.terminate()
+
+    # 子プロセスが正常終了していなければ例外を出す
+    # exitcode: 0 正常, 1 例外, 負 シグナル
+    if trainer_ps.exitcode != 0:
+        raise RuntimeError(f"An exception has occurred in trainer process.(exitcode: {trainer_ps.exitcode})")
+    for i, w in enumerate(workers_ps_list):
+        if w.exitcode != 0:
+            raise RuntimeError(f"An exception has occurred in worker {i} process.(exitcode: {w.exitcode})")
 
     # --- last parameter
     return_parameter = config.make_parameter()

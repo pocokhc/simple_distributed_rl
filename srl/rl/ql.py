@@ -33,6 +33,8 @@ class Config(DiscreteActionConfig):
     gamma: float = 0.9
     lr: float = 0.1
 
+    q_init: str = ""
+
     def __post_init__(self):
         super().__init__()
 
@@ -79,7 +81,12 @@ class Parameter(RLParameter):
 
     def get_action_values(self, state: str, invalid_actions: List[int]) -> List[float]:
         if state not in self.Q:
-            self.Q[state] = [-np.inf if a in invalid_actions else 0.0 for a in range(self.config.nb_actions)]
+            if self.config.q_init == "random":
+                self.Q[state] = [
+                    -np.inf if a in invalid_actions else np.random.normal() for a in range(self.config.nb_actions)
+                ]
+            else:
+                self.Q[state] = [-np.inf if a in invalid_actions else 0.0 for a in range(self.config.nb_actions)]
         return self.Q[state]
 
 

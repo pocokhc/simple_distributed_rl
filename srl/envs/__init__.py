@@ -8,3 +8,4 @@ from . import oneroad  # noqa F402
 from . import ox  # noqa F402
 from . import pendulum_image  # noqa F402
 from . import stone_taking  # noqa F402
+from . import tiger  # noqa F402

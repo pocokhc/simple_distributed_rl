@@ -66,14 +66,14 @@ def main():
     remote_memory, parameter, trainer, worker = srl.rl.make(rl_config, env)
 
     # --- train loop
-    worker.set_training(True, False)
+    worker.set_play_info(True, False)
     for episode in range(10000):
         step, reward = _run_episode(env, worker, trainer, training=True)
         if episode % 1000 == 0:
             print(f"{episode} / 10000 episode, {step} step, {reward} reward")
 
     # --- render
-    worker.set_training(False, False)
+    worker.set_play_info(False, False)
     step, reward = _run_episode(env, worker, None, training=False, rendering=True)
     print(f"step: {step}, reward: {reward}")
 

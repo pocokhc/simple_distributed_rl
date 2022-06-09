@@ -1,5 +1,5 @@
 import srl
-from srl.base.rl.registration import make_worker
+from srl.base.rl.registration import make_worker_rulebase
 
 
 def _run_episode(
@@ -20,7 +20,7 @@ def _run_episode(
     while not env.done:
 
         # action
-        actions = [w.policy(env) if w.player_index in env.next_player_indices else None for w in workers]
+        actions = [w.policy(env) for w in workers]
 
         if rendering:
             for idx in env.next_player_indices:
@@ -64,20 +64,20 @@ def main():
     remote_memory, parameter, trainer, worker = srl.rl.make(rl_config, env)
     workers = [
         worker,
-        make_worker(srl.rl.random_play.Config(), env),
+        make_worker_rulebase("random"),
     ]
 
     # --- train loop
-    workers[0].set_training(True, False)
-    workers[1].set_training(False, False)
+    workers[0].set_play_info(True, False)
+    workers[1].set_play_info(False, False)
     for episode in range(10000):
         step, reward = _run_episode(env, workers, trainer)
         if episode % 1000 == 0:
             print(f"{episode} / 10000 episode, {step} step, {reward} reward")
 
     # --- render
-    workers[0].set_training(False, False)
-    workers[1].set_training(False, False)
+    workers[0].set_play_info(False, False)
+    workers[1].set_play_info(False, False)
     step, reward = _run_episode(env, workers, None, rendering=True)
     print(f"step: {step}, reward: {reward}")
 

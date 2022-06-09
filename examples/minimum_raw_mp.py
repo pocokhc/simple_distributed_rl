@@ -93,7 +93,7 @@ def _run_worker(
 
     parameter = make_parameter(rl_config)
     worker = make_worker(rl_config, env, parameter, remote_memory, worker_id)
-    worker.set_training(True, True)
+    worker.set_play_info(True, True)
 
     prev_update_count = 0
     episode = 0

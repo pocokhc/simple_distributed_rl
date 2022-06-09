@@ -311,7 +311,7 @@ def render(
     callbacks: List[Callback] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
     worker_id: int = 0,
-) -> Tuple[List[List[float]], Rendering]:
+) -> Tuple[List[float], Rendering]:
     if callbacks is None:
         callbacks = []
 
@@ -331,7 +331,7 @@ def render(
 
     episode_rewards, parameter, memory, env = play(config, parameter, remote_memory, worker_id)
 
-    return episode_rewards, _render
+    return episode_rewards[0], _render
 
 
 # ---------------------------------

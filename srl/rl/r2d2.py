@@ -70,7 +70,7 @@ class Config(DiscreteActionConfig):
     gamma: float = 0.99  # 割引率
     lr: float = 0.001  # 学習率
     batch_size: int = 32
-    target_model_update_interval: int = 100
+    target_model_update_interval: int = 1000
 
     # double dqn
     enable_double_dqn: bool = True
@@ -238,6 +238,7 @@ class Trainer(RLTrainer):
         self.loss = keras.losses.Huber()
 
         self.train_count = 0
+        self.sync_count = 0
 
     def get_train_count(self):
         return self.train_count
@@ -255,11 +256,13 @@ class Trainer(RLTrainer):
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
             self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
+            self.sync_count += 1
 
         self.train_count += 1
         return {
             "loss": loss,
             "priority": np.mean(priorities),
+            "sync": self.sync_count,
         }
 
     def _train_on_batchs(self, batchs, weights):

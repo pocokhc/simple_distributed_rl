@@ -8,20 +8,22 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (calc_epsilon_greedy_probs,
-                                     create_beta_list, create_epsilon_list,
-                                     create_gamma_list, inverse_rescaling,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
+from srl.rl.functions.common import (
+    calc_epsilon_greedy_probs,
+    create_beta_list,
+    create_epsilon_list,
+    create_gamma_list,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
 from srl.rl.functions.dueling_network import create_dueling_network_layers
-from srl.rl.functions.model import (ImageLayerType,
-                                    create_input_layers_lstm_stateful,
-                                    create_input_layers_one_sequence)
+from srl.rl.functions.model import ImageLayerType, create_input_layers_lstm_stateful, create_input_layers_one_sequence
 from tensorflow.keras import layers as kl
 
 """
@@ -79,7 +81,7 @@ class Config(DiscreteActionConfig):
     q_ext_lr: float = 0.001
     q_int_lr: float = 0.001
     batch_size: int = 32
-    target_model_update_interval: int = 100
+    target_model_update_interval: int = 1000
 
     # retrace
     multisteps: int = 1
@@ -370,6 +372,7 @@ class Trainer(RLTrainer):
         self.epsilon_list = create_epsilon_list(self.config.actor_num)
 
         self.train_count = 0
+        self.sync_count = 0
 
     def get_train_count(self):
         return self.train_count
@@ -388,8 +391,10 @@ class Trainer(RLTrainer):
         if self.train_count % self.config.target_model_update_interval == 0:
             self.parameter.q_ext_target.set_weights(self.parameter.q_ext_online.get_weights())
             self.parameter.q_int_target.set_weights(self.parameter.q_int_online.get_weights())
+            self.sync_count += 1
 
         self.train_count += 1
+        info["sync"] = self.sync_count
         return info
 
     def _train_on_batchs(self, batchs, weights):

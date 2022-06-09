@@ -346,6 +346,7 @@ class Trainer(RLTrainer):
         self.loss = keras.losses.Huber()
 
         self.train_count = 0
+        self.sync_count = 0
 
     def get_train_count(self):
         return self.train_count
@@ -362,9 +363,10 @@ class Trainer(RLTrainer):
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
             self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
+            self.sync_count += 1
 
         self.train_count += 1
-        return {"loss": loss}
+        return {"loss": loss, "sync": self.sync_count}
 
     def _train_on_batchs(self, batchs, weights):
 

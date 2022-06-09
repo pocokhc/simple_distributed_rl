@@ -286,6 +286,7 @@ class Trainer(RLTrainer):
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.train_count = 0
+        self.sync_count = 0
 
     def get_train_count(self):
         return self.train_count
@@ -330,6 +331,7 @@ class Trainer(RLTrainer):
                 self.parameter.Q_ext_target[k] = v
             for k, v in self.parameter.Q_int.items():
                 self.parameter.Q_int_target[k] = v
+            self.sync_count += 1
 
         self.train_count += 1
 
@@ -337,6 +339,7 @@ class Trainer(RLTrainer):
             "Q": len(self.parameter.Q_ext),
             "ext_td_error": ext_td_error,
             "int_td_error": int_td_error,
+            "sync": self.sync_count,
         }
 
 

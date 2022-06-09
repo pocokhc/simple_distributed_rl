@@ -77,7 +77,7 @@ class Config(DiscreteActionConfig):
     batch_size: int = 32
     q_ext_lr: float = 0.001
     q_int_lr: float = 0.001
-    target_model_update_interval: int = 100
+    target_model_update_interval: int = 1000
 
     # double dqn
     enable_double_dqn: bool = True
@@ -378,6 +378,7 @@ class Trainer(RLTrainer):
         self.epsilon_list = create_epsilon_list(self.config.actor_num)
 
         self.train_count = 0
+        self.sync_count = 0
 
     def get_train_count(self):
         return self.train_count
@@ -396,9 +397,11 @@ class Trainer(RLTrainer):
         if self.train_count % self.config.target_model_update_interval == 0:
             self.parameter.q_ext_target.set_weights(self.parameter.q_ext_online.get_weights())
             self.parameter.q_int_target.set_weights(self.parameter.q_int_online.get_weights())
+            self.sync_count += 1
 
         self.train_count += 1
         info["priority"] = np.mean(priorities)
+        info["sync"] = self.sync_count
         return info
 
     def _train_on_batchs(self, batchs, weights):

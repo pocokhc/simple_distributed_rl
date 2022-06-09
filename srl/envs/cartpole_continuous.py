@@ -85,4 +85,4 @@ if is_package_installed("gym") and is_package_installed("pygame"):
                 self.steps_beyond_done += 1
                 reward = 0.0
 
-            return np.array(self.state), reward, done, {}
+            return np.array(self.state, dtype=np.float32), reward, done, {}

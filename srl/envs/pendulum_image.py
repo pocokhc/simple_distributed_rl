@@ -37,7 +37,7 @@ if is_package_installed("gym") and is_package_installed("pygame"):
                 low=0,
                 high=1,
                 shape=(self.image_size, self.image_size),
-                dtype=np.float32,
+                dtype=float,
             )
 
         def _get_obs(self):

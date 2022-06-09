@@ -1,16 +1,16 @@
 import logging
 import random
 import time
-from typing import Any, List, Optional, Tuple, Type
+from dataclasses import dataclass
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvAction, EnvObservationType, RLObservationType
 from srl.base.env import registration
-from srl.base.env.base import SpaceBase
+from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.spaces import BoxSpace, DiscreteSpace
-from srl.base.rl.algorithms.rulebase import RuleBaseWorker
-from srl.base.rl.base import RLWorker
+from srl.base.rl.base import RuleBaseWorker, WorkerRun
 from srl.base.rl.processor import Processor
 
 logger = logging.getLogger(__name__)
@@ -137,9 +137,18 @@ class ConnectX(TurnBase2Player):
         self.board = data[0][:]
         self._player_index = data[1]
 
-    def make_worker(self, name: str) -> Optional[Type[RLWorker]]:
-        if name == "alphabeta":
-            return AlphaBeta
+    def make_worker(self, name: str) -> Optional[RuleBaseWorker]:
+        if name == "alphabeta6":
+            return AlphaBeta(max_depth=6)
+        elif name == "alphabeta7":
+            return AlphaBeta(max_depth=7)
+        elif name == "alphabeta8":
+            return AlphaBeta(max_depth=8)
+        elif name == "alphabeta9":
+            return AlphaBeta(max_depth=9)
+        elif name == "alphabeta10":
+            return AlphaBeta(max_depth=10)
+
         return None
 
     # ---------------------
@@ -164,25 +173,26 @@ class ConnectX(TurnBase2Player):
         """
         self._player_index = observation.mark - 1
         self.board = observation.board[:]
+        self.set_run_step(np.array(self.board), (0, 0), False, [self.player_index], {})
 
 
+@dataclass
 class AlphaBeta(RuleBaseWorker):
-    def __init__(self, *args):
-        super().__init__(*args)
 
-        self.max_depth = 8
-        self.timeout = 6  # s
+    max_depth: int = 4
+    timeout: int = 6  # s
+    equal_cut: bool = True
 
-    def call_on_reset(self, env) -> None:
+    def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> None:
         pass  #
 
-    def call_policy(self, env: ConnectX) -> int:
+    def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> EnvAction:
         self._count = 0
         self.t0 = time.time()
-        scores, action = self._alphabeta(env.copy())
+        scores, action = self._alphabeta(env.get_original_env().copy())
 
         scores = np.array(scores)
-        if env.player_index == 1:
+        if self.player_index == 1:
             scores = -scores
 
         self._action = action
@@ -230,8 +240,9 @@ class AlphaBeta(RuleBaseWorker):
                     alpha = scores[a]
 
                 # beta cut
-                if scores[a] >= beta:
-                    break
+                if self.equal_cut:
+                    if scores[a] >= beta:
+                        break
 
         else:
 
@@ -256,12 +267,13 @@ class AlphaBeta(RuleBaseWorker):
                     beta = scores[a]
 
                 # alpha cut
-                if scores[a] <= alpha:
-                    break
+                if self.equal_cut:
+                    if scores[a] <= alpha:
+                        break
 
         return scores, select_action
 
-    def call_render(self, env: ConnectX) -> None:
+    def call_render(self, env: EnvRun, worker_run: WorkerRun) -> None:
         print(f"- alphabeta act: {self._action}, count: {self._count}, {self._time:.3f}s) -")
         print("+---+---+---+---+---+---+---+")
         s = "|"

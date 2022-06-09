@@ -1,16 +1,16 @@
 import logging
 import random
-from dataclasses import dataclass
 import time
-from typing import Any, List, Tuple
+from dataclasses import dataclass
+from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
-from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.env.base import SpaceBase
+from srl.base.define import EnvAction, EnvObservationType, RLObservationType
+from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
 from srl.base.env.spaces import BoxSpace, DiscreteSpace
-from srl.base.rl.algorithms.rulebase import RuleBaseWorker
+from srl.base.rl.base import RuleBaseWorker, WorkerRun
 from srl.base.rl.processor import Processor
 
 logger = logging.getLogger(__name__)
@@ -163,30 +163,27 @@ class OX(TurnBase2Player):
             print("-" * 10)
         print(f"next player: {self.player_index}")
 
-    def make_worker(self, name: str):
+    def make_worker(self, name: str) -> Optional[RuleBaseWorker]:
         if name == "cpu":
-            return Cpu
+            return Cpu()
         return None
 
 
 class Cpu(RuleBaseWorker):
     cache = {}
 
-    def __init__(self, *args):
-        super().__init__(*args)
-
-    def call_on_reset(self, env: OX) -> None:
+    def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> None:
         pass  #
 
-    def call_policy(self, env: OX) -> int:
+    def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> EnvAction:
         self._count = 0
         self.t0 = time.time()
 
         # scores = self._negamax(env_org.copy())
 
-        scores = self._alphabeta(env.copy())
+        scores = self._alphabeta(env.get_original_env().copy())
         scores = np.array(scores)
-        if env.player_index == 1:
+        if self.player_index == 1:
             scores = -scores
 
         self._render_scores = scores
@@ -282,7 +279,9 @@ class Cpu(RuleBaseWorker):
 
         return scores
 
-    def call_render(self, env: OX) -> None:
+    def call_render(self, _env: EnvRun, worker_run: WorkerRun) -> None:
+        env = cast(OX, _env.get_original_env())
+
         print(f"- alphabeta({self._render_count}, {self._render_time:.3f}s) -")
         print("-" * 10)
         for y in range(env.H):

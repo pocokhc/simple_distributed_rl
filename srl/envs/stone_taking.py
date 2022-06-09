@@ -1,16 +1,16 @@
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, cast
 
 import numpy as np
-from srl.base.define import EnvObservationType
-from srl.base.env.base import SpaceBase
+from srl.base.define import EnvAction, EnvObservationType
+from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
 from srl.base.env.spaces import BoxSpace, DiscreteSpace
-from srl.base.rl.algorithms.rulebase import RuleBaseWorker
-from srl.base.rl.base import RLWorker
+from srl.base.rl.algorithms._rulebase import RuleBaseWorker
+from srl.base.rl.base import RLWorker, WorkerRun
 
 logger = logging.getLogger(__name__)
 
@@ -107,20 +107,19 @@ class StoneTaking(TurnBase2Player):
     def action_to_str(self, action: int) -> str:
         return str(action + 1)
 
-    def make_worker(self, name: str) -> Optional[RLWorker]:
+    def make_worker(self, name: str) -> Optional[RuleBaseWorker]:
         if name == "cpu":
             return CPU()
         return None
 
 
 class CPU(RuleBaseWorker):
-    def __init__(self):
+    def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> None:
         pass  #
 
-    def call_on_reset(self, env) -> None:
-        pass  #
+    def call_policy(self, _env: EnvRun, worker_run: WorkerRun) -> EnvAction:
+        env = cast(StoneTaking, _env.get_original_env())
 
-    def call_policy(self, env: StoneTaking) -> int:
         if env.field in [1, 2, 6, 10, 14, 18]:
             return 1 - 1
         if env.field in [3, 7, 11, 15, 19]:
@@ -128,3 +127,6 @@ class CPU(RuleBaseWorker):
         if env.field in [4, 8, 12, 16, 20]:
             return 3 - 1
         return random.randint(0, 2)
+
+    def call_render(self, _env: EnvRun, worker_run: WorkerRun) -> None:
+        pass  #

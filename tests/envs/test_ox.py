@@ -16,11 +16,7 @@ class Test(unittest.TestCase):
         self.tester.play_test("OX")
 
     def test_player(self):
-        for player in [
-            "cpu",
-        ]:
-            with self.subTest((player,)):
-                self.tester.player_test("OX", player)
+        self.tester.player_test("OX", "cpu")
 
     def test_processor(self):
         tester = TestProcessor()

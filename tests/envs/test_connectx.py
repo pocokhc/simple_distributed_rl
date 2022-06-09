@@ -64,7 +64,15 @@ class Test(unittest.TestCase):
             self.assertTrue((env.state == board).all())
 
     def test_player(self):
-        self.tester.player_test("ConnectX", "alphabeta")
+        for player in [
+            "alphabeta6",
+            "alphabeta7",
+            # "alphabeta8",
+            # "alphabeta9",
+            # "alphabeta10",
+        ]:
+            with self.subTest((player,)):
+                self.tester.player_test("ConnectX", player)
 
     def test_processor(self):
         tester = TestProcessor()

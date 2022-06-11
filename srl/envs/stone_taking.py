@@ -9,8 +9,7 @@ from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
 from srl.base.env.spaces import BoxSpace, DiscreteSpace
-from srl.base.rl.algorithms._rulebase import RuleBaseWorker
-from srl.base.rl.base import RLWorker, WorkerRun
+from srl.base.rl.base import RuleBaseWorker, WorkerRun
 
 logger = logging.getLogger(__name__)
 

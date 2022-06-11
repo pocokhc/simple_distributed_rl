@@ -3,7 +3,7 @@ import pickle
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import srl
@@ -155,31 +155,19 @@ class EnvBase(ABC):
         return env
 
     # --------------------------------
-    # other
+    # direct
     # --------------------------------
-    def _set_env_run(self, env_run: "EnvRun"):
-        self._env_run = env_run
+    def direct_reset(self, *args, **kwargs) -> Tuple[EnvObservation, List[int]]:
+        raise NotImplementedError()
 
-    def set_run_step(
-        self,
-        state: EnvObservation,
-        rewards: List[float],
-        done: bool,
-        next_player_indices: List[int],
-        info: Info,
-    ):
-        self._env_run._state = state
-        self._env_run._step_rewards = np.asarray(rewards)
-        self._env_run._done = done
-        self._env_run._next_player_indices = next_player_indices
-        self._env_run._info = info
+    def direct_step(self, *args, **kwargs) -> Tuple[EnvObservation, List[float], bool, List[int], Info]:
+        raise NotImplementedError()
 
 
 # 実装と実行で名前空間を分けるために別クラスに
 class EnvRun:
     def __init__(self, env: EnvBase) -> None:
         self.env = env
-        self.env._set_env_run(self)
         self.init()
 
     def init(self):
@@ -401,6 +389,32 @@ class EnvRun:
         return self.env.get_original_env()
 
     # ------------------------------------
+    # direct
+    # ------------------------------------
+    def direct_reset(self, *args, **kwargs):
+        logger.debug("env.direct_reset")
+
+        self._state, self._next_player_indices = self.env.direct_reset(*args, **kwargs)
+        self._step_num = 0
+        self._done = False
+        self._done_reason = ""
+        self._episode_rewards = np.zeros(self.player_num)
+        self._step_rewards = np.zeros(self.player_num)
+        self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
+
+    def direct_step(self, *args, **kwargs):
+        logger.debug("env.direct_step")
+
+        self._state, rewards, self._done, self._next_player_indices, self._info = self.env.direct_step(*args, **kwargs)
+        self._step_rewards = np.asarray(rewards)
+
+        self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
+        self._step_num += 1
+        self._episode_rewards += self.step_rewards
+
+        return self.info
+
+    # ------------------------------------
     # util functions
     # ------------------------------------
     def samples(self) -> List[EnvAction]:
@@ -414,3 +428,9 @@ class EnvRun:
         env = self.__class__(org_env)
         env.restore(self.backup())
         return env
+
+    def to_dict(self) -> dict:
+        conf = {}
+        for k, v in self.__dict__.items():
+            if type(v) in [int, float, bool, str]:
+                conf[k] = v

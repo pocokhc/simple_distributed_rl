@@ -151,29 +151,35 @@ class ConnectX(TurnBase2Player):
 
         return None
 
-    # ---------------------
-    def set_kaggle_agent_step(self, observation, configuration):
-        """
-        observation = {
-            "remainingOverageTime": 60,
-            "step": 0,
-            "board": [0, 0, 1, 2, ...] (6*7)
-            "mark": 1,
-        }
-        configuration = {
-            "episodeSteps": 1000,
-            "actTimeout": 2,
-            "runTimeout": 1200,
-            "columns": 7,
-            "rows": 6,
-            "inarow": 4,
-            "agentTimeout": 60,
-            "timeout": 2,
-        }
-        """
+    """
+    observation = {
+        "remainingOverageTime": 60,
+        "step": 0,
+        "board": [0, 0, 1, 2, ...] (6*7)
+        "mark": 1,
+    }
+    configuration = {
+        "episodeSteps": 1000,
+        "actTimeout": 2,
+        "runTimeout": 1200,
+        "columns": 7,
+        "rows": 6,
+        "inarow": 4,
+        "agentTimeout": 60,
+        "timeout": 2,
+    }
+    """
+
+    def direct_reset(self, observation, configuration) -> Tuple[np.ndarray, List[int]]:
         self._player_index = observation.mark - 1
         self.board = observation.board[:]
-        self.set_run_step(np.array(self.board), (0, 0), False, [self.player_index], {})
+        return np.array(self.board), [self.player_index]
+
+    def direct_step(self, observation, configuration) -> Tuple[np.ndarray, List[float], bool, List[int], dict]:
+        self._player_index = observation.mark - 1
+        self.board = observation.board[:]
+
+        return np.array(self.board), [0, 0], False, [self.player_index], {}
 
 
 @dataclass

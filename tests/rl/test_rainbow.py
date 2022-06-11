@@ -27,7 +27,7 @@ class Test(unittest.TestCase):
     def test_verify_Pendulum(self):
         self.rl_config.hidden_layer_sizes = (64, 64)
         self.rl_config.memory_beta_initial = 1.0
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 50, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70, 10)
 
     # def test_verify_Pong(self):
     #    rl_config = rl.rainbow.Config(
@@ -67,7 +67,7 @@ class TestPendulum(unittest.TestCase):
 
     def test_verify_ddqn(self):
         self.rl_config.enable_double_dqn = True
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 80, 10)
 
     def test_verify_dueling(self):
         self.rl_config.enable_dueling_network = True
@@ -79,7 +79,7 @@ class TestPendulum(unittest.TestCase):
 
     def test_verify_multistep(self):
         self.rl_config.multisteps = 10
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 60, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70, 10)
 
     def test_verify_proportional(self):
         self.rl_config.memory_name = "ProportionalMemory"
@@ -113,5 +113,5 @@ class TestPendulum(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    # unittest.main(module=__name__, defaultTest="Test.test_verify_OX", verbosity=2)
-    unittest.main(module=__name__, defaultTest="TestPendulum.test_verify_dueling", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum", verbosity=2)
+    # unittest.main(module=__name__, defaultTest="TestPendulum.test_verify_dueling", verbosity=2)

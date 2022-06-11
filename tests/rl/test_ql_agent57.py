@@ -19,7 +19,7 @@ class Test(unittest.TestCase):
     def test_verify_grid(self):
         self.rl_config.enable_actor = False
         self.rl_config.epsilon = 0.5
-        self.tester.play_verify_singleplay("Grid", self.rl_config, 50_000, 1000)
+        self.tester.play_verify_singleplay("Grid", self.rl_config, 80_000, 1000)
         self.tester.verify_grid_policy()
 
     def test_verify_oneroad(self):
@@ -27,4 +27,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_oneroad", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)

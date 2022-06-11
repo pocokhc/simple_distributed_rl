@@ -18,7 +18,7 @@
 github からの pip install を想定しています。
 
 ``` bash
-pip install -U git+https://github.com/pocokhc/simple_distributed_rl
+pip install git+https://github.com/pocokhc/simple_distributed_rl
 ```
 
 or
@@ -26,7 +26,7 @@ or
 ``` bash
 git clone https://github.com/pocokhc/simple_distributed_rl.git
 cd simple_distributed_rl
-pip install -U .
+pip install .
 
 # run sample
 python examples/minimum_runner.py

@@ -11,9 +11,6 @@ exec(open(version_path).read())
 
 extras = {
     "gym": ["gym", "pygame"],
-    "image": ["matplotlib", "opencv-python", "pillow", "pandas"],
-    "notebook": ["matplotlib", "opencv-python", "pillow", "pandas", "ipython"],
-    "kaggle": ["kaggle_environments"],
     "spec": [
         "psutil",  # CPU info
         "pynvml",  # GPU info
@@ -35,6 +32,11 @@ setup(
         "numpy",
         "tensorflow",
         "tensorflow-addons",
+        # image,history,render
+        "matplotlib",
+        "pillow",
+        "pandas",
+        "opencv-python",
     ],
     extras_require=extras,
     python_requires=">=3.7",

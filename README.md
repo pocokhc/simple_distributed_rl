@@ -32,8 +32,25 @@ pip install -U .
 python examples/minimum_runner.py
 ```
 
+## Using library
+
++ numpy
++ tensorflow
++ tensorflow-addons
++ matplotlib
++ pillow
++ opencv-python
++ pandas
 
 
+### Option library
+
++ gym の環境を使う場合に必要
+  + gym
+  + pygame
++ cpu/gpu 情報を記録したい場合に必要
+  + psutil
+  + pynvml
 
 # Usage
 

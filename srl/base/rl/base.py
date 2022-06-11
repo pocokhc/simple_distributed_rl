@@ -235,12 +235,12 @@ class RLWorker(WorkerBase):
         config: RLConfig,
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
-        worker_id: int = 0,
+        actor_id: int = 0,
     ):
         self.config = config
         self.parameter = parameter
         self.remote_memory = remote_memory
-        self.worker_id = worker_id
+        self.actor_id = actor_id
 
     # ------------------------------
     # util functions

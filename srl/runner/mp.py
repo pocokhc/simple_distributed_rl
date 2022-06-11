@@ -43,16 +43,14 @@ RuntimeError:
 @dataclass
 class Config:
 
-    worker_num: int
+    actor_num: int
 
     trainer_parameter_send_interval_by_train_count: int = 100
-    worker_parameter_sync_interval_by_step: int = 10
-
-    parameter_send_timeout: int = 60 * 10  # s
+    actor_parameter_sync_interval_by_step: int = 10
 
     allocate_main: str = "/CPU:0"
     allocate_trainer: str = "/GPU:0"
-    allocate_worker: Union[List[str], str] = "/CPU:0"
+    allocate_actor: Union[List[str], str] = "/CPU:0"
 
     def __post_init__(self):
         # train config
@@ -100,7 +98,7 @@ class Board:
 
 
 # --------------------
-# worker
+# actor
 # --------------------
 class _SyncParameter(sequence.Callback):
     def __init__(
@@ -111,14 +109,14 @@ class _SyncParameter(sequence.Callback):
     ) -> None:
         self.remote_board = remote_board
         self.parameter = parameter
-        self.worker_parameter_sync_interval_by_step = mp_config.worker_parameter_sync_interval_by_step
+        self.actor_parameter_sync_interval_by_step = mp_config.actor_parameter_sync_interval_by_step
 
         self.step = 0
         self.prev_update_count = 0
 
     def on_step_end(self, **kwargs):
         self.step += 1
-        if self.step % self.worker_parameter_sync_interval_by_step != 0:
+        if self.step % self.actor_parameter_sync_interval_by_step != 0:
             return
         update_count = self.remote_board.get_update_count()
         if update_count == self.prev_update_count:
@@ -140,17 +138,17 @@ class _InterruptEnd(sequence.Callback):
         return False
 
 
-def _run_worker(
+def _run_actor(
     config: sequence.Config,
     mp_config: Config,
     remote_memory: RLRemoteMemory,
     remote_board: Board,
-    worker_id: int,
+    actor_id: int,
     train_end_signal: ctypes.c_bool,
     allocate: str,
 ):
     with tf.device(allocate):
-        logger.debug(f"worker{worker_id} start")
+        logger.debug(f"actor{actor_id} start")
 
         try:
             config.callbacks.extend(mp_config.callbacks)
@@ -164,11 +162,11 @@ def _run_worker(
                 parameter.restore(params)
             config.callbacks.append(_SyncParameter(remote_board, parameter, mp_config))
 
-            sequence.play(config, parameter, remote_memory, worker_id)
+            sequence.play(config, parameter, remote_memory, actor_id)
 
         finally:
             train_end_signal.value = True
-            logger.debug(f"worker{worker_id} end")
+            logger.debug(f"actor{actor_id} end")
 
 
 # --------------------
@@ -353,7 +351,7 @@ def train(
 
     history = FileLogPlot()
     if enable_file_logger:
-    history.set_path(logger.base_dir)
+        history.set_path(logger.base_dir)
     return return_parameter, return_remote_memory, history
 
 
@@ -384,24 +382,24 @@ def _train(
     if init_parameter is not None:
         remote_board.write(init_parameter.backup())
 
-    # --- worker
-    workers_ps_list = []
-    for worker_id in range(mp_config.worker_num):
-        if isinstance(mp_config.allocate_worker, str):
-            allocate = mp_config.allocate_worker
+    # --- actor
+    actors_ps_list = []
+    for actor_id in range(mp_config.actor_num):
+        if isinstance(mp_config.allocate_actor, str):
+            allocate = mp_config.allocate_actor
         else:
-            allocate = mp_config.allocate_worker[worker_id]
+            allocate = mp_config.allocate_actor[actor_id]
         params = (
             config,
             mp_config,
             remote_memory,
             remote_board,
-            worker_id,
+            actor_id,
             train_end_signal,
             allocate,
         )
-        ps = mp.Process(target=_run_worker, args=params)
-        workers_ps_list.append(ps)
+        ps = mp.Process(target=_run_actor, args=params)
+        actors_ps_list.append(ps)
 
     # --- trainer
     params = (
@@ -414,7 +412,7 @@ def _train(
     trainer_ps = mp.Process(target=_run_trainer, args=params)
 
     # --- start
-    [p.start() for p in workers_ps_list]
+    [p.start() for p in actors_ps_list]
     trainer_ps.start()
 
     # callbacks
@@ -429,10 +427,10 @@ def _train(
             train_end_signal.value = True
             logger.info("train end(trainer process dead)")
             break
-        for i, w in enumerate(workers_ps_list):
+        for i, w in enumerate(actors_ps_list):
             if not w.is_alive():
                 train_end_signal.value = True
-                logger.info(f"train end(worker {i} process dead)")
+                logger.info(f"train end(actor {i} process dead)")
                 break
 
         # callbacks
@@ -442,7 +440,7 @@ def _train(
             break
 
     # --- プロセスの終了を待つ
-    for w in workers_ps_list:
+    for w in actors_ps_list:
         for _ in range(10):
             if w.is_alive():
                 time.sleep(1)
@@ -462,9 +460,9 @@ def _train(
     # exitcode: 0 正常, 1 例外, 負 シグナル
     if trainer_ps.exitcode != 0:
         raise RuntimeError(f"An exception has occurred in trainer process.(exitcode: {trainer_ps.exitcode})")
-    for i, w in enumerate(workers_ps_list):
+    for i, w in enumerate(actors_ps_list):
         if w.exitcode != 0:
-            raise RuntimeError(f"An exception has occurred in worker {i} process.(exitcode: {w.exitcode})")
+            raise RuntimeError(f"An exception has occurred in actor {i} process.(exitcode: {w.exitcode})")
 
     # --- last parameter
     return_parameter = config.make_parameter()

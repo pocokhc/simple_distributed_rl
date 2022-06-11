@@ -35,8 +35,8 @@ def main(is_mp):
         parameter, remote_memory, history = sequence.train(config, timeout=60 * 30)
     else:
         # distribute training
-        mp_config = mp.Config(worker_num=1)
-        parameter, remote_memory = mp.train(config, mp_config, timeout=60 * 30)
+        mp_config = mp.Config(actor_num=1)
+        parameter, remote_memory, history = mp.train(config, mp_config, timeout=60 * 30)
 
     # save parameter
     # parameter.save("tmp/Rainbow_params.dat")

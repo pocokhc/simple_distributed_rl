@@ -51,12 +51,12 @@ def make_worker(
     env: EnvRun,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
-    worker_id: int = 0,
+    actor_id: int = 0,
 ) -> WorkerRun:
     if not rl_config.is_set_config_by_env:
         rl_config.set_config_by_env(env)
     name = rl_config.getName()
-    worker = load_module(_registry[name][3])(rl_config, parameter, remote_memory, worker_id)
+    worker = load_module(_registry[name][3])(rl_config, parameter, remote_memory, actor_id)
     worker = WorkerRun(worker)
     worker.set_play_info(False, False)
     return worker

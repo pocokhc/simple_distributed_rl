@@ -22,8 +22,8 @@ def main(is_mp):
         parameter, memory, history = sequence.train(config, timeout=10)
     else:
         # distributed training
-        mp_config = mp.Config(worker_num=2)
-        parameter, memory = mp.train(config, mp_config, timeout=10)
+        mp_config = mp.Config(actor_num=2)
+        parameter, memory, history = mp.train(config, mp_config, timeout=10)
 
     # save parameter
     # parameter.save("tmp/QL_params.dat")

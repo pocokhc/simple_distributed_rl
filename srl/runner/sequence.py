@@ -124,10 +124,10 @@ class Config:
         self,
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
-        worker_id: int = 0,
+        actor_id: int = 0,
     ) -> WorkerRun:
         env = self.make_env()
-        worker = make_worker(self.rl_config, env, parameter, remote_memory, worker_id)
+        worker = make_worker(self.rl_config, env, parameter, remote_memory, actor_id)
 
         # ExtendWorker
         if self.extend_worker is not None:
@@ -142,7 +142,7 @@ class Config:
         player_index: int,
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
-        worker_id: int = 0,
+        actor_id: int = 0,
     ):
         env = self.make_env()
 
@@ -156,7 +156,7 @@ class Config:
 
         # none はベース
         if player_obj is None:
-            return self.make_worker(parameter, remote_memory, worker_id)
+            return self.make_worker(parameter, remote_memory, actor_id)
 
         # 文字列はenv側またはルールベースのアルゴリズム
         if isinstance(player_obj, str):
@@ -172,7 +172,7 @@ class Config:
 
         # RLConfigは専用のWorkerを作成
         if isinstance(player_obj, object) and issubclass(player_obj.__class__, RLConfig):
-            worker = make_worker(player_obj, env, worker_id=worker_id)
+            worker = make_worker(player_obj, env, actor_id=actor_id)
             worker.set_play_info(False, False)
             return worker
 
@@ -270,6 +270,7 @@ def train(
     _, parameter, memory, _ = play(config, parameter, remote_memory)
 
     history = FileLogPlot()
+    if enable_file_logger:
     history.set_path(logger.base_dir)
     return parameter, memory, history
 
@@ -346,7 +347,7 @@ def play(
     config: Config,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
-    worker_id: int = 0,
+    actor_id: int = 0,
 ) -> Tuple[List[List[float]], RLParameter, RLRemoteMemory, EnvRun]:
 
     env = config.make_env()
@@ -371,7 +372,7 @@ def play(
         valid_episode = 0
 
     # workers
-    workers = [config.make_player(i, parameter, remote_memory, worker_id) for i in range(env.player_num)]
+    workers = [config.make_player(i, parameter, remote_memory, actor_id) for i in range(env.player_num)]
 
     # callback
     _params = {
@@ -381,7 +382,7 @@ def play(
         "remote_memory": remote_memory,
         "trainer": trainer,
         "workers": workers,
-        "worker_id": worker_id,
+        "actor_id": actor_id,
     }
     [c.on_episodes_begin(**_params) for c in callbacks]
 

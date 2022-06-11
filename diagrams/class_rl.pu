@@ -64,7 +64,7 @@ abstract RLWorker {
     config : RLConfig
     parameter : RLParameter
     remote_memory : RLRemoteMemory
-    worker_id : int
+    actor_id : int
     call_on_reset()
     call_policy()
     call_on_step()

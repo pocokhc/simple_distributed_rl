@@ -79,11 +79,11 @@ class Board:
         return self.params
 
 
-def _run_worker(
+def _run_actor(
     config,
     remote_memory: RLRemoteMemory,
     remote_board: Board,
-    worker_id: int,
+    actor_id: int,
     train_end_signal: ctypes.c_bool,
 ):
     env_config = config["env_config"]
@@ -92,7 +92,7 @@ def _run_worker(
     env = srl.envs.make(env_config)
 
     parameter = make_parameter(rl_config)
-    worker = make_worker(rl_config, env, parameter, remote_memory, worker_id)
+    worker = make_worker(rl_config, env, parameter, remote_memory, actor_id)
     worker.set_play_info(True, True)
 
     prev_update_count = 0
@@ -115,7 +115,7 @@ def _run_worker(
                 parameter.restore(params)
 
         if episode % 1000 == 0:
-            print(f"{worker_id}: {episode} episode, {step} step, {reward} reward")
+            print(f"{actor_id}: {episode} episode, {step} step, {reward} reward")
 
 
 def _run_trainer(
@@ -162,7 +162,7 @@ def main():
     # --- config
     env_config = srl.envs.Config("Grid")
     rl_config = srl.rl.ql.Config()
-    worker_num = 2
+    actor_num = 2
     config = {
         "env_config": env_config,
         "rl_config": rl_config,
@@ -184,18 +184,18 @@ def main():
         remote_memory = manager.RemoteMemory(rl_config)
         remote_board = manager.Board()
 
-        # --- worker
-        workers_ps_list = []
-        for worker_id in range(worker_num):
+        # --- actor
+        actors_ps_list = []
+        for actor_id in range(actor_num):
             params = (
                 config,
                 remote_memory,
                 remote_board,
-                worker_id,
+                actor_id,
                 train_end_signal,
             )
-            ps = mp.Process(target=_run_worker, args=params)
-            workers_ps_list.append(ps)
+            ps = mp.Process(target=_run_actor, args=params)
+            actors_ps_list.append(ps)
 
         # --- trainer
         params = (
@@ -207,7 +207,7 @@ def main():
         trainer_ps = mp.Process(target=_run_trainer, args=params)
 
         # --- start
-        [p.start() for p in workers_ps_list]
+        [p.start() for p in actors_ps_list]
         trainer_ps.start()
         trainer_ps.join()
 
@@ -218,7 +218,7 @@ def main():
             parameter.restore(params)
 
         # 強制終了
-        [p.terminate() for p in workers_ps_list]
+        [p.terminate() for p in actors_ps_list]
         trainer_ps.terminate()
 
     # --- rendering

@@ -136,7 +136,7 @@ class FileLogPlot:
             self.df = self._read_log("train.txt")
 
         self.df["date"] = pd.to_datetime(self.df["date"])
-        self.df.sort_values("date", inplace=True)
+        self.df.sort_values(["date", "episode_count"], inplace=True)
         self.df["time"] = (self.df["date"] - self.df["date"][0]).dt.total_seconds()
         self.df.set_index("date", inplace=True)
 
@@ -164,7 +164,7 @@ class FileLogPlot:
         assert self.df is not None
 
         # nanを補完
-        df = self.df.interpolate("time")
+        df = self.df.interpolate(method="time")
 
         if plot_type == "timeline":
             df = df.drop_duplicates(subset="time")
@@ -177,7 +177,7 @@ class FileLogPlot:
         if len(df) > aggregation_num * 2:
             rolling_n = int(len(df) / aggregation_num)
 
-            plt.plot(x, df["valid_reward"].rolling(rolling_n).mean(), "C0", label=f"valid_reward")
+            plt.plot(x, df["valid_reward"].rolling(rolling_n).mean(), "C0", label="valid_reward")
             for i in print_workers:
                 plt.plot(x, df[f"episode_reward_{i}"].rolling(rolling_n).mean(), f"C{i+1}", label=f"reward {i}")
 
@@ -209,11 +209,9 @@ class FileLogPlot:
     ) -> None:
         self._read_df()
         assert self.df is not None
-        print(self.df)
-        print(self.df.info())
 
         # nanを補完
-        df = self.df.interpolate("time")
+        df = self.df.interpolate(method="time")
 
         if plot_type == "":
             if self.is_mp:

@@ -59,10 +59,8 @@ import numpy as np
 
 import srl
 from srl.runner import mp, sequence
-from srl.runner.callbacks import PrintProgress, Rendering
-from srl.runner.callbacks_mp import TrainFileLogger
 
-#---------------------
+# ---------------------
 # Configのパラメータは、引数補完または元コードを参照してください。
 # For the parameters of Config, refer to the argument completion or the original code.
 #
@@ -70,7 +68,8 @@ from srl.runner.callbacks_mp import TrainFileLogger
 # srl.rl.xxx.Config : Algorithm hyperparameter
 # sequence.Config   : Basic Running Config
 # mp.Config         : Distributed training Config
-#---------------------
+# ---------------------
+
 
 def main():
     # env config
@@ -89,35 +88,28 @@ def main():
     # --- train
     if True:
         # sequence training
-        config.set_train_config(timeout=60, callbacks=[PrintProgress()])
-        parameter, remote_memory = sequence.train(config)
+        parameter, remote_memory, history = sequence.train(config, timeout=60)
     else:
         # distributed training
-        mp_config = mp.Config(worker_num=2)  # distributed config
-        config.set_train_config()
-        mp_config.set_train_config(timeout=60, callbacks=[TrainFileLogger(enable_log=False, enable_checkpoint=False)])
-        parameter, remote_memory = mp.train(config, mp_config)
+        mp_config = mp.Config(actor_num=2)  # distributed config
+        parameter, remote_memory, history = mp.train(config, mp_config, timeout=60)
 
     # (option) save parameter
     # parameter.save("params.dat")
 
-    # --- test
-    config.set_play_config(max_episodes=100)
-    rewards, _, _ = sequence.play(config, parameter)
+    # --- evaluate
+    rewards = sequence.evaluate(config, parameter, max_episodes=100)
     print(f"Average reward for 100 episodes: {np.mean(rewards)}")
 
-    # --- test(rendering)
-    config.set_play_config(max_episodes=1, callbacks=[Rendering(step_stop=True)])
-    sequence.play(config, parameter)
+    # --- rendering
+    sequence.render(config, parameter)
 
     # --- animation
-    render = Rendering(mode="", enable_animation=True)
-    config.set_play_config(max_episodes=1, callbacks=[render])
-    sequence.play(config, parameter)
+    reward, render = sequence.render(config, parameter, mode="", enable_animation=True)
     render.create_anime(fps=3).save("FrozenLake.gif")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
 
 ```
@@ -217,7 +209,10 @@ examples/custom_rl.ipynb
 
 ## Class diagram
 
-![](diagrams/class.png)
+![](diagrams/class_rl.png)
+
+![](diagrams/class_env.png)
+
 
 
 # Interface

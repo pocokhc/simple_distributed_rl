@@ -18,7 +18,11 @@ from srl.base.rl.registration import (
     make_worker,
     make_worker_rulebase,
 )
-from srl.runner.callbacks import Callback, History, PrintProgress, Rendering
+from srl.runner.callback import Callback
+from srl.runner.callbacks.file_logger import FileLogger
+from srl.runner.callbacks.print_progress import PrintProgress
+from srl.runner.callbacks.rendering import Rendering
+from srl.runner.file_log_plot import FileLogPlot
 
 logger = logging.getLogger(__name__)
 
@@ -219,21 +223,24 @@ class Config:
 
 def train(
     config: Config,
+    # train config
     max_steps: int = -1,
     max_episodes: int = -1,
     timeout: int = -1,
     shuffle_player: bool = True,
     enable_validation: bool = True,
+    # print
     print_progress: bool = True,
     max_progress_time: int = 60 * 10,  # s
     print_progress_kwargs: Optional[Dict] = None,
-    enable_history: bool = True,
-    history_kwargs: Optional[Dict] = None,
+    # log
+    enable_file_logger: bool = True,
+    file_logger_kwargs: Optional[Dict] = None,
+    # other
     callbacks: List[Callback] = None,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
-    worker_id: int = 0,
-) -> Tuple[RLParameter, RLRemoteMemory, Optional[History]]:
+) -> Tuple[RLParameter, RLRemoteMemory, FileLogPlot]:
     if callbacks is None:
         callbacks = []
 
@@ -253,17 +260,17 @@ def train(
         else:
             config.callbacks.append(PrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
 
-    if enable_history:
-        if history_kwargs is None:
-            history = History()
+    if file_logger_kwargs is None:
+        logger = FileLogger()
         else:
-            history = History(**history_kwargs)
-        config.callbacks.append(history)
-    else:
-        history = None
+        logger = FileLogger(**file_logger_kwargs)
+    if enable_file_logger:
+        config.callbacks.append(logger)
 
-    _, parameter, memory, _ = play(config, parameter, remote_memory, worker_id)
+    _, parameter, memory, _ = play(config, parameter, remote_memory)
 
+    history = FileLogPlot()
+    history.set_path(logger.base_dir)
     return parameter, memory, history
 
 
@@ -276,7 +283,6 @@ def evaluate(
     shuffle_player: bool = False,
     callbacks: List[Callback] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
-    worker_id: int = 0,
 ) -> Union[List[float], List[List[float]]]:  # single play , multi play
     if callbacks is None:
         callbacks = []
@@ -291,7 +297,7 @@ def evaluate(
     config.enable_validation = False
     config.training = False
 
-    episode_rewards, parameter, memory, env = play(config, parameter, remote_memory, worker_id)
+    episode_rewards, parameter, memory, env = play(config, parameter, remote_memory)
 
     if env.player_num == 1:
         return [r[0] for r in episode_rewards]
@@ -310,7 +316,6 @@ def render(
     shuffle_player: bool = False,
     callbacks: List[Callback] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
-    worker_id: int = 0,
 ) -> Tuple[List[float], Rendering]:
     if callbacks is None:
         callbacks = []
@@ -329,7 +334,7 @@ def render(
     _render = Rendering(mode=mode, step_stop=step_stop, enable_animation=enable_animation)
     config.callbacks.append(_render)
 
-    episode_rewards, parameter, memory, env = play(config, parameter, remote_memory, worker_id)
+    episode_rewards, parameter, memory, env = play(config, parameter, remote_memory)
 
     return episode_rewards[0], _render
 
@@ -493,6 +498,10 @@ def play(
         # callback end
         if True in [c.intermediate_stop(**_params) for c in callbacks]:
             break
+
+    # 一度もepisodeを終了していない場合は例外で途中経過を保存
+    if len(episode_rewards_list) == 0:
+        episode_rewards_list.append(env.episode_rewards)
 
     # callback
     _params["episode_count"] = episode_count

@@ -11,7 +11,10 @@ import tensorflow as tf
 from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_remote_memory
 from srl.runner import sequence
-from srl.runner.callbacks_mp import MPCallback, MPPrintProgress
+from srl.runner.callback_mp import MPCallback
+from srl.runner.callbacks_mp.mp_file_logger import MPFileLogger
+from srl.runner.callbacks_mp.mp_print_progress import MPPrintProgress
+from srl.runner.file_log_plot import FileLogPlot
 
 logger = logging.getLogger(__name__)
 
@@ -214,21 +217,27 @@ def _run_trainer(
                 if train_end_signal.value:
                     break
 
+                elapsed_time = time.time() - t0
                 if mp_config.max_train_count > 0:
                     # train countが終了条件でしばらくカウントが増えない場合は警告
                     if _print_warning:
-                        if trainer.get_train_count() == 0 and time.time() - t0 > 60:
+                        if trainer.get_train_count() == 0 and elapsed_time > 60:
                             print("The 'train_count' did not increase for 1 minute. It may not end.")
                             _print_warning = False
 
                     if trainer.get_train_count() >= mp_config.max_train_count:
                         break
 
+                # timeout は時差を少なくするために trainer でチェック
+                if mp_config.timeout > 0 and elapsed_time > mp_config.timeout:
+                    break
+
                 train_t0 = time.time()
                 train_info = trainer.train()
                 train_time = time.time() - train_t0
 
                 if trainer.get_train_count() == 0:
+                    [c.on_trainer_train_skip(**_info) for c in callbacks]
                     time.sleep(1)
                     continue
 
@@ -251,7 +260,6 @@ def _run_trainer(
                         valid_train = 0
 
                 # callbacks
-                _info["time_"] = time.time()
                 _info["train_info"] = train_info
                 _info["train_count"] = trainer.get_train_count()
                 _info["train_time"] = train_time
@@ -278,18 +286,24 @@ class MPManager(BaseManager):
 def train(
     config: sequence.Config,
     mp_config: Config,
+    # train config
     max_train_count: int = -1,
     timeout: int = -1,
     shuffle_player: bool = True,
     enable_validation: bool = True,
+    # print
     print_progress: bool = True,
     max_progress_time: int = 60 * 10,  # s
     print_progress_kwargs: Optional[Dict] = None,
+    # log
+    enable_file_logger: bool = True,
+    file_logger_kwargs: Optional[Dict] = None,
+    # other
     callbacks: List[MPCallback] = None,
     init_parameter: Optional[RLParameter] = None,
     init_remote_memory: Optional[RLRemoteMemory] = None,
     return_memory: bool = False,
-) -> Tuple[RLParameter, RLRemoteMemory]:
+) -> Tuple[RLParameter, RLRemoteMemory, FileLogPlot]:
     if callbacks is None:
         callbacks = []
     if config.rl_config is not None:
@@ -312,6 +326,13 @@ def train(
         else:
             mp_config.callbacks.append(MPPrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
 
+    if file_logger_kwargs is None:
+        logger = MPFileLogger()
+    else:
+        logger = MPFileLogger(**file_logger_kwargs)
+    if enable_file_logger:
+        mp_config.callbacks.append(logger)
+
     config.assert_params()
 
     with tf.device(mp_config.allocate_main):
@@ -330,7 +351,10 @@ def train(
                 return_memory,
             )
 
-    return return_parameter, return_remote_memory
+    history = FileLogPlot()
+    if enable_file_logger:
+    history.set_path(logger.base_dir)
+    return return_parameter, return_remote_memory, history
 
 
 def _train(
@@ -397,17 +421,8 @@ def _train(
     [c.on_start(**_info) for c in mp_config.callbacks]
 
     # 終了を待つ
-    t0 = time.time()
     while True:
         time.sleep(1)  # polling time
-
-        # timeout
-        _time = time.time()
-        elapsed_time = _time - t0
-        if mp_config.timeout > 0 and elapsed_time > mp_config.timeout:
-            train_end_signal.value = True
-            logger.info("train end(normal timeout)")
-            break
 
         # プロセスが落ちたら終了
         if not trainer_ps.is_alive():
@@ -421,8 +436,6 @@ def _train(
                 break
 
         # callbacks
-        _info["time_"] = _time
-        _info["elapsed_time"] = elapsed_time
         [c.on_polling(**_info) for c in mp_config.callbacks]
 
         if train_end_signal.value:

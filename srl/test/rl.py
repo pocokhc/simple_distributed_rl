@@ -48,7 +48,9 @@ class TestRL:
             config = sequence.Config(env_config, rl_config)
 
             # --- train
-            parameter, memory, _ = sequence.train(config, max_steps=10, enable_validation=False, enable_history=False)
+            parameter, memory, _ = sequence.train(
+                config, max_steps=10, enable_validation=False, enable_file_logger=False
+            )
 
             # --- test
             sequence.evaluate(config, parameter, max_episodes=2, max_steps=10)
@@ -123,8 +125,8 @@ class TestRL:
             config = sequence.Config(env_config, rl_config)
 
             # --- train
-            mp_config = mp.Config(worker_num=2)
-            parameter, memory = mp.train(config, mp_config, max_train_count=5)
+            mp_config = mp.Config(actor_num=2)
+            parameter, memory, _ = mp.train(config, mp_config, max_train_count=5, enable_file_logger=False)
 
             # --- test
             sequence.evaluate(config, parameter, max_episodes=10, max_steps=10)
@@ -157,7 +159,7 @@ class TestRL:
             config.skip_frames = 4
 
         parameter, memory, _ = sequence.train(
-            config, max_steps=train_count, enable_validation=False, enable_history=False, max_progress_time=10
+            config, max_steps=train_count, enable_validation=False, enable_file_logger=False, max_progress_time=10
         )
         episode_rewards = sequence.evaluate(config, parameter, max_episodes=test_episodes)
         s = f"{np.mean(episode_rewards)} >= {self.baseline[env_name]}"
@@ -182,7 +184,7 @@ class TestRL:
         # self play training
         config.players = [None, None]
         parameter, memory, _ = sequence.train(
-            config, max_steps=train_count, enable_validation=False, enable_history=False, max_progress_time=10
+            config, max_steps=train_count, enable_validation=False, enable_file_logger=False, max_progress_time=10
         )
 
         # 1p play

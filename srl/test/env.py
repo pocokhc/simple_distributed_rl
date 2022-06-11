@@ -3,7 +3,6 @@ import srl
 from srl.base.define import RenderType
 from srl.base.env.base import EnvRun
 from srl.runner import sequence
-from srl.runner.callbacks import PrintProgress
 
 
 class TestEnv:

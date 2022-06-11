@@ -193,6 +193,11 @@ class Config:
             if type(v) in [int, float, bool, str]:
                 conf["rl_config"][k] = v
 
+        conf["env_config"] = {}
+        for k, v in self.env_config.__dict__.items():
+            if type(v) in [int, float, bool, str]:
+                conf["env_config"][k] = v
+
         return conf
 
     def copy(self, env_copy: bool = False):
@@ -262,7 +267,7 @@ def train(
 
     if file_logger_kwargs is None:
         logger = FileLogger()
-        else:
+    else:
         logger = FileLogger(**file_logger_kwargs)
     if enable_file_logger:
         config.callbacks.append(logger)
@@ -271,7 +276,7 @@ def train(
 
     history = FileLogPlot()
     if enable_file_logger:
-    history.set_path(logger.base_dir)
+        history.set_path(logger.base_dir)
     return parameter, memory, history
 
 

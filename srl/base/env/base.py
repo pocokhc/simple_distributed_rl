@@ -24,6 +24,10 @@ class EnvConfig:
     def make_env(self) -> "srl.base.env.base.EnvRun":
         return srl.envs.make(self)
 
+    def _update_env_info(self, env: "EnvBase"):
+        self.max_episode_steps = env.max_episode_steps
+        self.player_num = env.player_num
+
 
 class EnvBase(ABC):
     # --------------------------------

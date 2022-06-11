@@ -27,6 +27,9 @@ def make(config: Union[str, EnvConfig]) -> EnvRun:
     else:
         raise ValueError(f"'{env_name}' is not found.")
 
+    # config update
+    config._update_env_info(env)
+
     return EnvRun(env)
 
 

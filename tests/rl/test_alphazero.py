@@ -24,10 +24,10 @@ class Test(unittest.TestCase):
     #    self.rl_config.gamma = 0.9
     #    self.rl_config.action_select_threshold = 5
     #    self.rl_config.epochs = 20
-    #    self.tester.play_verify_singleplay("Grid", self.rl_config, 100, 20)
+    #    self.tester.play_verify_singleplay("Grid", self.rl_config, 100)
 
     # def test_verify_StoneTaking(self):
-    #    self.tester.play_verify_2play("StoneTaking", self.rl_config, 2000, 100)
+    #    self.tester.play_verify_2play("StoneTaking", self.rl_config, 2000)
 
     def test_verify_ox(self):
         self.rl_config.hidden_layer_sizes = (64, 64, 64)
@@ -37,7 +37,7 @@ class Test(unittest.TestCase):
         self.rl_config.gamma = 1.0
         self.rl_config.action_select_threshold = 5
         self.rl_config.epochs = 10
-        self.tester.play_verify_2play("OX", self.rl_config, 5000, 20)
+        self.tester.play_verify_2play("OX", self.rl_config, 5000)
 
 
 if __name__ == "__main__":

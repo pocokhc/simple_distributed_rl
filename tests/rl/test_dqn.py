@@ -22,27 +22,31 @@ class Test(unittest.TestCase):
         self.rl_config.batch_size = 32
         self.rl_config.hidden_layer_sizes = (32, 32, 32)
         self.rl_config.enable_rescale = False
-        self.tester.play_verify_singleplay("Grid", self.rl_config, 10000, 100)
+        self.tester.play_verify_singleplay("Grid", self.rl_config, 10000)
 
     def test_verify_Pendulum(self):
         self.rl_config.hidden_layer_sizes = (64, 64)
         self.rl_config.enable_double_dqn = False
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 100, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 100)
+
+    def test_verify_Pendulum_mp(self):
+        self.rl_config.hidden_layer_sizes = (64, 64)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 100, is_mp=True)
 
     def test_verify_Pendulum_DDQN(self):
         self.rl_config.hidden_layer_sizes = (64, 64)
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70)
 
     def test_verify_Pendulum_window(self):
         self.rl_config.window_length = 4
         self.rl_config.hidden_layer_sizes = (64, 64)
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70)
 
     def test_verify_OX(self):
         self.rl_config.hidden_layer_sizes = (128,)
         self.rl_config.epsilon = 0.5
-        self.tester.play_verify_2play("OX", self.rl_config, 10000, 1000)
+        self.tester.play_verify_2play("OX", self.rl_config, 10000)
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum_window", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_Grid", verbosity=2)

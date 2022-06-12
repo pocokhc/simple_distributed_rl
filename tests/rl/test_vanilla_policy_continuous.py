@@ -16,7 +16,7 @@ class Test(unittest.TestCase):
         self.tester.play_mp(self.rl_config)
 
     def test_verify_grid(self):
-        self.tester.play_verify_singleplay("Grid", self.rl_config, 100_000, 1000)
+        self.tester.play_verify_singleplay("Grid", self.rl_config, 150_000)
         # self.tester.verify_grid_policy()
 
 

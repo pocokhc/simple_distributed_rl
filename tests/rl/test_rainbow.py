@@ -22,12 +22,12 @@ class Test(unittest.TestCase):
         self.rl_config.memory_warmup_size = 100
         self.rl_config.hidden_layer_sizes = (32, 32, 32)
         self.rl_config.enable_rescale = False
-        self.tester.play_verify_singleplay("Grid", self.rl_config, 5000, 100)
+        self.tester.play_verify_singleplay("Grid", self.rl_config, 5000)
 
     def test_verify_Pendulum(self):
         self.rl_config.hidden_layer_sizes = (64, 64)
         self.rl_config.memory_beta_initial = 1.0
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70)
 
     # def test_verify_Pong(self):
     #    rl_config = rl.rainbow.Config(
@@ -41,7 +41,7 @@ class Test(unittest.TestCase):
         self.rl_config.hidden_layer_sizes = (128,)
         self.rl_config.epsilon = 0.5
         self.rl_config.memory_name = "ReplayMemory"
-        self.tester.play_verify_2play("OX", self.rl_config, 15000, 100)
+        self.tester.play_verify_2play("OX", self.rl_config, 15000)
 
 
 class TestPendulum(unittest.TestCase):
@@ -63,41 +63,41 @@ class TestPendulum(unittest.TestCase):
         )
 
     def test_verify_naive(self):
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 100, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 100)
 
     def test_verify_ddqn(self):
         self.rl_config.enable_double_dqn = True
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 80, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 80)
 
     def test_verify_dueling(self):
         self.rl_config.enable_dueling_network = True
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70)
 
     def test_verify_noisy(self):
         self.rl_config.enable_noisy_dense = True
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 80, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 80)
 
     def test_verify_multistep(self):
         self.rl_config.multisteps = 10
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70)
 
     def test_verify_proportional(self):
         self.rl_config.memory_name = "ProportionalMemory"
         self.rl_config.memory_alpha = 1.0
         self.rl_config.memory_beta_initial = 1.0
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 120, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 120)
 
     def test_verify_rankbase(self):
         self.rl_config.memory_name = "RankBaseMemory"
         self.rl_config.memory_alpha = 1.0
         self.rl_config.memory_beta_initial = 1.0
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 120, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 120)
 
     def test_verify_rankbaseLinear(self):
         self.rl_config.memory_name = "RankBaseMemoryLinear"
         self.rl_config.memory_alpha = 1.0
         self.rl_config.memory_beta_initial = 1.0
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 120, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 120)
 
     def test_verify_all(self):
         self.rl_config.enable_double_dqn = True
@@ -109,7 +109,7 @@ class TestPendulum(unittest.TestCase):
         self.rl_config.memory_name = "ProportionalMemory"
         self.rl_config.memory_alpha = 1.0
         self.rl_config.memory_beta_initial = 1.0
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 100, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 100)
 
 
 if __name__ == "__main__":

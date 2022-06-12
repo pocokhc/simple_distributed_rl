@@ -17,13 +17,13 @@ class Test(unittest.TestCase):
         self.tester.play_mp(self.rl_config)
 
     def test_verify_grid(self):  # 50%
-        self.tester.play_verify_singleplay("Grid", self.rl_config, 5000, 1000)
+        self.tester.play_verify_singleplay("Grid", self.rl_config, 5000)
 
     def test_verify_StoneTaking(self):
-        self.tester.play_verify_2play("StoneTaking", self.rl_config, 2000, 100)
+        self.tester.play_verify_2play("StoneTaking", self.rl_config, 2000)
 
     def test_verify_ox(self):  # 成功なし
-        self.tester.play_verify_2play("OX", self.rl_config, 50000, 100)
+        self.tester.play_verify_2play("OX", self.rl_config, 50000)
 
 
 if __name__ == "__main__":

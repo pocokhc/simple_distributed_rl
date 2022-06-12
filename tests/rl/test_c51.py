@@ -22,11 +22,11 @@ class Test(unittest.TestCase):
         self.rl_config.categorical_num_atoms = 11
         self.rl_config.categorical_v_min = -2
         self.rl_config.categorical_v_max = 2
-        self.tester.play_verify_singleplay("Grid", self.rl_config, 6000, 100)
+        self.tester.play_verify_singleplay("Grid", self.rl_config, 6000)
 
     def test_verify_Pendulum(self):
         self.rl_config.hidden_layer_sizes = (64, 64)
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 60, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 60)
 
 
 if __name__ == "__main__":

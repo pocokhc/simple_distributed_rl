@@ -26,7 +26,7 @@ class Test(unittest.TestCase):
         self.rl_config.memory_name = "RankBaseMemory"
         self.rl_config.memory_alpha = 0.8
         self.rl_config.memory_beta_initial = 1.0
-        self.tester.play_verify_singleplay("Grid", self.rl_config, 2000, 100)
+        self.tester.play_verify_singleplay("Grid", self.rl_config, 2000)
 
     def test_verify_Pendulum(self):
         self.rl_config.burnin = 10
@@ -37,7 +37,11 @@ class Test(unittest.TestCase):
         self.rl_config.memory_name = "RankBaseMemory"
         self.rl_config.memory_alpha = 0.8
         self.rl_config.memory_beta_initial = 1.0
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 50, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 50)
+
+    def test_verify_Pendulum_mp(self):
+        self.rl_config.hidden_layer_sizes = (64, 64)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 50, is_mp=True)
 
     # def test_verify_IGrid(self):
     #    # LSTMテスト, burninが最低4以上で学習できる
@@ -50,7 +54,7 @@ class Test(unittest.TestCase):
     #    self.rl_config.lr = 0.005
     #    self.rl_config.enable_dueling_network = False
     #    self.rl_config.memory_name = "ReplayMemory"
-    #    self.tester.play_verify_singleplay("IGrid", self.rl_config, 2000, 100)
+    #    self.tester.play_verify_singleplay("IGrid", self.rl_config, 2000)
 
     # def test_verify_OX(self):
     #     # invalid action test
@@ -61,8 +65,8 @@ class Test(unittest.TestCase):
     #     self.rl_config.lstm_units = 32
     #     self.rl_config.enable_dueling_network = False
     #     self.rl_config.memory_name = "ReplayMemory"
-    #     self.tester.play_verify_2play("OX", self.rl_config, 10000, 100)
+    #     self.tester.play_verify_2play("OX", self.rl_config, 10000)
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum_mp", verbosity=2)

@@ -21,7 +21,7 @@ class Test(unittest.TestCase):
         self.rl_config.memory_name = "RankBaseMemory"
         self.rl_config.memory_alpha = 0.8
         self.rl_config.memory_beta_initial = 1.0
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 50, 10)
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 50)
 
 
 if __name__ == "__main__":

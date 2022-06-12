@@ -18,20 +18,26 @@ class Test(unittest.TestCase):
     def test_verify_grid(self):
         self.rl_config.epsilon = 0.5
         self.rl_config.lr = 0.01
-        self.tester.play_verify_singleplay("Grid", self.rl_config, 50_000, 1000)
+        self.tester.play_verify_singleplay("Grid", self.rl_config, 50_000)
+        self.tester.verify_grid_policy()
+
+    def test_verify_grid_mp(self):
+        self.rl_config.epsilon = 0.5
+        self.rl_config.lr = 0.01
+        self.tester.play_verify_singleplay("Grid", self.rl_config, 50_000, is_mp=True)
         self.tester.verify_grid_policy()
 
     def test_verify_grid_random(self):
         self.rl_config.epsilon = 0.5
         self.rl_config.q_init = "random"
-        self.tester.play_verify_singleplay("Grid", self.rl_config, 80_000, 1000)
+        self.tester.play_verify_singleplay("Grid", self.rl_config, 90_000)
         self.tester.verify_grid_policy()
 
     def test_verify_ox(self):
         self.rl_config.epsilon = 0.5
         self.rl_config.lr = 0.1
-        self.tester.play_verify_2play("OX", self.rl_config, 100_000, 1000)
+        self.tester.play_verify_2play("OX", self.rl_config, 100_000)
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_mp", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_grid_random", verbosity=2)

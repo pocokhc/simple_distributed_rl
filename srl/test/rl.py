@@ -29,16 +29,16 @@ class TestRL:
 
         self.baseline = {
             # 1p
-            "Grid": 0.65,  # 0.7318 ぐらい
-            "2DGrid": 0.65,
-            "Pendulum-v1": -500,  # -179.51776165585284ぐらい
-            "PendulumImage-v0": -500,
-            "IGrid": 1,  # 乱数要素なし
-            "OneRoad": 1,  # 乱数要素なし
-            "ALE/Pong-v5": 0.0,
+            "Grid": (0.65, 1000),  # 0.7318 ぐらい
+            "2DGrid": (0.65, 100),
+            "Pendulum-v1": (-500, 20),  # -179.51776165585284ぐらい
+            "PendulumImage-v0": (-500, 10),
+            "IGrid": (1, 1000),  # 乱数要素なし
+            "OneRoad": (1, 100),  # 乱数要素なし
+            "ALE/Pong-v5": (0.0, 10),
             # 2p
-            "StoneTaking": [1, 1],
-            "OX": [0.8, 0.65],  # [0.987, 0.813] ぐらい
+            "StoneTaking": ([1, 1], 100),
+            "OX": ([0.8, 0.65], 1000),  # [0.987, 0.813] ぐらい
         }
 
     def play_sequence(self, rl_config):
@@ -125,7 +125,7 @@ class TestRL:
             config = sequence.Config(env_config, rl_config)
 
             # --- train
-            mp_config = mp.Config(actor_num=2)
+            mp_config = mp.Config(actor_num=2, allocate_trainer="/CPU:0")
             parameter, memory, _ = mp.train(config, mp_config, max_train_count=5, enable_file_logger=False)
 
             # --- test
@@ -139,8 +139,8 @@ class TestRL:
         env_name,
         rl_config,
         train_count,
-        test_episodes,
         is_atari=False,
+        is_mp=False,
     ):
         assert env_name in self.baseline
         env_config = srl.envs.Config(env_name)
@@ -158,13 +158,30 @@ class TestRL:
             config.max_episode_steps = 50
             config.skip_frames = 4
 
-        parameter, memory, _ = sequence.train(
-            config, max_steps=train_count, enable_validation=False, enable_file_logger=False, max_progress_time=10
-        )
-        episode_rewards = sequence.evaluate(config, parameter, max_episodes=test_episodes)
-        s = f"{np.mean(episode_rewards)} >= {self.baseline[env_name]}"
+        if is_mp:
+            mp_config = mp.Config(1, allocate_trainer="/CPU:0")
+            parameter, memory, _ = mp.train(
+                config,
+                mp_config,
+                max_train_count=train_count,
+                enable_validation=False,
+                enable_file_logger=False,
+                max_progress_time=10,
+            )
+        else:
+            parameter, memory, _ = sequence.train(
+                config,
+                max_steps=train_count,
+                enable_validation=False,
+                enable_file_logger=False,
+                max_progress_time=10,
+            )
+
+        true_env = self.baseline[env_name]
+        episode_rewards = sequence.evaluate(config, parameter, max_episodes=true_env[1])
+        s = f"{np.mean(episode_rewards)} >= {true_env[0]}"
         print(s)
-        assert np.mean(episode_rewards) >= self.baseline[env_name], s
+        assert np.mean(episode_rewards) >= true_env[0], s
 
         self.parameter = parameter
         self.config = config
@@ -174,7 +191,6 @@ class TestRL:
         env_name,
         rl_config,
         train_count,
-        test_episodes,
     ):
         assert env_name in self.baseline
 
@@ -187,21 +203,23 @@ class TestRL:
             config, max_steps=train_count, enable_validation=False, enable_file_logger=False, max_progress_time=10
         )
 
+        true_env = self.baseline[env_name]
+
         # 1p play
         config.players = [None, "random"]
-        episode_rewards = sequence.evaluate(config, parameter, max_episodes=test_episodes)
+        episode_rewards = sequence.evaluate(config, parameter, max_episodes=true_env[1])
         reward = np.mean([r[0] for r in episode_rewards])
-        s = f"{reward} >= {self.baseline[env_name][0]}"
+        s = f"{reward} >= {true_env[0][0]}"
         print(s)
-        assert reward >= self.baseline[env_name][0], s
+        assert reward >= true_env[0][0], s
 
         # 2p play
         config.players = ["random", None]
-        episode_rewards = sequence.evaluate(config, parameter, max_episodes=test_episodes)
+        episode_rewards = sequence.evaluate(config, parameter, max_episodes=true_env[1])
         reward = np.mean([r[1] for r in episode_rewards])
-        s = f"{reward} >= {self.baseline[env_name][1]}"
+        s = f"{reward} >= {true_env[0][1]}"
         print(s)
-        assert reward >= self.baseline[env_name][1], s
+        assert reward >= true_env[0][1], s
 
         self.parameter = parameter
         self.config = config

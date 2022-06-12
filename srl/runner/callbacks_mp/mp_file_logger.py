@@ -37,8 +37,6 @@ class MPFileLogger(MPCallback):
     enable_checkpoint: bool = True
     checkpoint_interval: int = 60 * 20  # s
 
-    uid: int = 0
-
     def __post_init__(self):
         self.fp_dict: dict[str, Optional[TextIOWrapper]] = {}
 
@@ -81,11 +79,11 @@ class MPFileLogger(MPCallback):
         if self.enable_nvidia:
             pynvml.nvmlInit()
 
-    def on_trainer_end(self, **kwargs):
+    def on_trainer_end(self, parameter, train_count, **kwargs):
         if self.enable_log:
             self._write_trainer_log()
         if self.enable_checkpoint:
-            self._save_parameter(**kwargs)
+            self._save_parameter(parameter, train_count)
 
         if self.enable_nvidia:
             pynvml.nvmlShutdown()
@@ -99,6 +97,7 @@ class MPFileLogger(MPCallback):
         train_info,
         sync_count,
         valid_reward,
+        parameter,
         **kwargs,
     ):
         _time = time.time()
@@ -121,7 +120,7 @@ class MPFileLogger(MPCallback):
         if self.enable_checkpoint:
             if _time - self.checkpoint_t0 > self.checkpoint_interval:
                 self.checkpoint_t0 = _time
-                self._save_parameter(**kwargs)
+                self._save_parameter(parameter, train_count)
 
     def _write_trainer_log(self):
         if self.fp_dict["trainer"] is None:
@@ -174,9 +173,8 @@ class MPFileLogger(MPCallback):
 
     def _save_parameter(
         self,
-        train_count,
         parameter,
-        **kwargs,
+        train_count,
     ):
         parameter.save(os.path.join(self.param_dir, f"{train_count}.pickle"))
 

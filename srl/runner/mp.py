@@ -46,7 +46,7 @@ class Config:
     actor_num: int
 
     trainer_parameter_send_interval_by_train_count: int = 100
-    actor_parameter_sync_interval_by_step: int = 10
+    actor_parameter_sync_interval_by_step: int = 100
 
     allocate_main: str = "/CPU:0"
     allocate_trainer: str = "/GPU:0"
@@ -207,9 +207,11 @@ def _run_trainer(
             "trainer": trainer,
             "parameter": parameter,
             "remote_memory": remote_memory,
+            "train_count": 0,
         }
         [c.on_trainer_start(**_info) for c in callbacks]
 
+        # TODO: trainerを早くする
         try:
             while True:
                 if train_end_signal.value:

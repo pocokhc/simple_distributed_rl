@@ -236,3 +236,12 @@ examples/custom_rl.ipynb
 |ArrayContinuousSpace|list[float]|
 |BoxSpace            |np.ndarray |
 
+
+# 開発環境/動作確認環境
+
++ windows10
++ Python(3.9.13, 3.7.9)
++ CPUx1: Core i7-8700 3.2GHz
++ GPUx1: NVIDIA GeForce GTX 1060 3GB
++ memory 48GB
+

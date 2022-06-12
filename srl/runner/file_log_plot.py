@@ -140,6 +140,9 @@ class FileLogPlot:
         self.df["time"] = (self.df["date"] - self.df["date"][0]).dt.total_seconds()
         self.df.set_index("date", inplace=True)
 
+        # nanを補完
+        self.df = self.df.interpolate(method="time")
+
     # ----------------------------------------
     def get_df(self) -> pd.DataFrame:
         self._read_df()
@@ -160,11 +163,7 @@ class FileLogPlot:
             else:
                 plot_type = "episode"
 
-        self._read_df(actor_id)
-        assert self.df is not None
-
-        # nanを補完
-        df = self.df.interpolate(method="time")
+        df = self.get_df()
 
         if plot_type == "timeline":
             df = df.drop_duplicates(subset="time")
@@ -207,11 +206,7 @@ class FileLogPlot:
         plot_type: str = "",
         aggregation_num: int = 50,
     ) -> None:
-        self._read_df()
-        assert self.df is not None
-
-        # nanを補完
-        df = self.df.interpolate(method="time")
+        df = self.get_df()
 
         if plot_type == "":
             if self.is_mp:
@@ -251,8 +246,7 @@ def multi_plot(historys: List[Tuple[str, FileLogPlot]]):
     plt.xlabel("episode")
     plt.ylabel("valid reward")
     for name, h in historys:
-        # nanを補完
-        df = h.get_df().interpolate("time")
+        df = h.get_df()
 
         # timeを揃える
         # df = df.drop_duplicates(subset="time")

@@ -2,7 +2,7 @@ import pickle
 from typing import Any, List, Tuple
 
 import numpy as np
-from srl.base.define import EnvAction, EnvInvalidAction, EnvObservationType, Info
+from srl.base.define import EnvAction, EnvObservationType, Info
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.env.spaces.discrete import DiscreteSpace

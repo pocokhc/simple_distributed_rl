@@ -89,9 +89,13 @@ def init_file_logger(config: "srl.runner.callback.Config", mp_config: Optional["
 
 @dataclass
 class FileLogPlot:
+    def __init__(self) -> None:
+        self._is_load = False
+
     def load(self, path: str):
         self.set_path(path)
         self._read_df()
+        self._is_load = True
 
     def set_path(self, path: str):
         assert os.path.isdir(path)
@@ -115,6 +119,8 @@ class FileLogPlot:
             with open(os.path.join(self.base_dir, "mp_config.json")) as f:
                 d = json.load(f)
                 self.actor_num = d["actor_num"]
+
+        self._is_load = True
 
     def _read_log(self, filename):
         data = []
@@ -154,16 +160,18 @@ class FileLogPlot:
         plot_type: str = "",
         aggregation_num: int = 50,
         print_workers: List[int] = [0],
-        actor_id: int = 0,
+        actor_id: int = 0,  # TODO
     ):
+        if not self._is_load:
+            return
+
+        df = self.get_df()
 
         if plot_type == "":
             if self.is_mp:
                 plot_type = "timeline"
             else:
                 plot_type = "episode"
-
-        df = self.get_df()
 
         if plot_type == "timeline":
             df = df.drop_duplicates(subset="time")
@@ -205,7 +213,11 @@ class FileLogPlot:
         key,
         plot_type: str = "",
         aggregation_num: int = 50,
+        actor_id: int = 0,  # TODO
     ) -> None:
+        if not self._is_load:
+            return
+
         df = self.get_df()
 
         if plot_type == "":

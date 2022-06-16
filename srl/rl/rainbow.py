@@ -14,6 +14,7 @@ from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions.common import (
     calc_epsilon_greedy_probs,
+    create_epsilon_list,
     inverse_rescaling,
     random_choice_by_probs,
     render_discrete_action,
@@ -67,6 +68,9 @@ class Config(DiscreteActionConfig):
     test_epsilon: float = 0
 
     epsilon: float = 0.1
+    actor_epsilon: float = 0.4
+    actor_alpha: float = 7.0
+
     # Annealing e-greedy
     initial_epsilon: float = 1.0
     final_epsilon: float = 0.01
@@ -110,6 +114,9 @@ class Config(DiscreteActionConfig):
     enable_rescale: bool = True
 
     dummy_state_val: float = 0.0
+
+    def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
+        self.epsilon = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
 
     # 論文のハイパーパラメーター
     def set_atari_config(self):

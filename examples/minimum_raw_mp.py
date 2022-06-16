@@ -6,7 +6,8 @@ from multiprocessing.managers import BaseManager
 import srl
 from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
 from srl.base.rl.base import RLRemoteMemory
-from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer, make_worker
+from srl.base.rl.registration import (make_parameter, make_remote_memory,
+                                      make_trainer, make_worker)
 from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -88,6 +89,7 @@ def _run_actor(
 ):
     env_config = config["env_config"]
     rl_config = config["rl_config"]
+    rl_config.set_config_by_actor(config["actor_num"], actor_id)
 
     env = srl.envs.make(env_config)
 
@@ -168,6 +170,7 @@ def main():
         "rl_config": rl_config,
         "max_train_count": 100000,
         "trainer_parameter_send_interval_by_train_count": 100,
+        "actor_num": actor_num,
     }
 
     # init

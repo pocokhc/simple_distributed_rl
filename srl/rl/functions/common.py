@@ -51,6 +51,10 @@ def create_gamma_list(policy_num: int, gamma0=0.9999, gamma1=0.997, gamma2=0.99)
 
 
 def create_epsilon_list(policy_num: int, epsilon=0.4, alpha=8.0):
+    assert policy_num > 0
+    if policy_num == 1:
+        return [epsilon / 4]
+
     epsilon_list = []
     for i in range(policy_num):
         e = epsilon ** (1 + (i / (policy_num - 1)) * alpha)

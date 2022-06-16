@@ -91,6 +91,9 @@ class RLConfig(ABC):
         self._set_config_by_env(env, self._env_action_space, env_observation_space, env_observation_type)
         self._is_set_config_by_env = True
 
+    def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
+        pass  # NotImplemented
+
     @property
     def is_set_config_by_env(self) -> bool:
         return hasattr(self, "_is_set_config_by_env")
@@ -108,7 +111,7 @@ class RLConfig(ABC):
         return self._env_observation_type
 
     def assert_params(self) -> None:
-        pass  # do nothing
+        pass  # NotImplemented
 
     def copy(self) -> "RLConfig":
         # TODO
@@ -143,7 +146,7 @@ class RLParameter(ABC):
             self.restore(pickle.load(f))
 
     def summary(self):
-        pass  # do nothing
+        pass  # NotImplemented
 
 
 class RLRemoteMemory(ABC):

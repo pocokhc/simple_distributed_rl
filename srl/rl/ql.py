@@ -2,12 +2,13 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Union, cast
 
 import numpy as np
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import SequenceRemoteMemory
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 """
 Other
+    window length   : o
     invalid_actions : o
 """
 
@@ -33,6 +35,7 @@ class Config(DiscreteActionConfig):
     gamma: float = 0.9
     lr: float = 0.1
 
+    window_length: int = 1
     q_init: str = ""
 
     def __post_init__(self):
@@ -45,6 +48,10 @@ class Config(DiscreteActionConfig):
     @staticmethod
     def getName() -> str:
         return "QL"
+
+    def assert_params(self) -> None:
+        super().assert_params()
+        assert self.window_length > 0
 
 
 register(
@@ -79,7 +86,11 @@ class Parameter(RLParameter):
     def backup(self):
         return json.dumps(self.Q)
 
-    def get_action_values(self, state: str, invalid_actions: List[int]) -> List[float]:
+    def get_action_values(
+        self, state: Union[str, List[str]], invalid_actions: List[int], to_str: bool = True
+    ) -> List[float]:
+        if to_str:
+            state = "_".join(state)
         if state not in self.Q:
             if self.config.q_init == "random":
                 self.Q[state] = [
@@ -111,16 +122,16 @@ class Trainer(RLTrainer):
         td_error_mean = 0
         for batch in batchs:
 
-            s = batch["state"]
-            n_s = batch["next_state"]
+            state = "_".join(batch["states"][:-1])
+            n_state = "_".join(batch["states"][1:])
             action = batch["action"]
             reward = batch["reward"]
             done = batch["done"]
             invalid_actions = batch["invalid_actions"]
             next_invalid_actions = batch["next_invalid_actions"]
 
-            q = self.parameter.get_action_values(s, invalid_actions)
-            n_q = self.parameter.get_action_values(n_s, next_invalid_actions)
+            q = self.parameter.get_action_values(state, invalid_actions, to_str=False)
+            n_q = self.parameter.get_action_values(n_state, next_invalid_actions, to_str=False)
 
             if done:
                 target_q = reward
@@ -128,7 +139,7 @@ class Trainer(RLTrainer):
                 target_q = reward + self.config.gamma * max(n_q)
 
             td_error = target_q - q[action]
-            self.parameter.Q[s][action] += self.config.lr * td_error
+            self.parameter.Q[state][action] += self.config.lr * td_error
 
             td_error_mean += td_error
             self.train_count += 1
@@ -153,11 +164,12 @@ class Worker(DiscreteActionWorker):
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
-        self.state = to_str_observation(state)
+        self.recent_states = [""] * self.config.window_length
         self.invalid_actions = invalid_actions
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
-        self.state = to_str_observation(state)
+        self.recent_states.append(to_str_observation(state))
+
+    def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> int:
         self.invalid_actions = invalid_actions
 
         if self.training:
@@ -169,7 +181,8 @@ class Worker(DiscreteActionWorker):
             # epsilonより低いならランダムに移動
             action = random.choice([a for a in range(self.config.nb_actions) if a not in invalid_actions])
         else:
-            q = self.parameter.get_action_values(self.state, self.invalid_actions)
+            state = self.recent_states[1:]
+            q = self.parameter.get_action_values(state, self.invalid_actions)
             q = np.asarray(q)
 
             # 最大値を選ぶ（複数あればランダム）
@@ -185,12 +198,15 @@ class Worker(DiscreteActionWorker):
         done: bool,
         next_invalid_actions: List[int],
     ) -> Dict:
+
+        self.recent_states.pop(0)
+        self.recent_states.append(to_str_observation(next_state))
+
         if not self.training:
             return {}
 
         batch = {
-            "state": self.state,
-            "next_state": to_str_observation(next_state),
+            "states": self.recent_states[:],
             "action": self.action,
             "reward": reward,
             "done": done,
@@ -201,7 +217,8 @@ class Worker(DiscreteActionWorker):
         return {}
 
     def call_render(self, env: EnvRun) -> None:
-        q = self.parameter.get_action_values(self.state, self.invalid_actions)
+        state = self.recent_states[1:]
+        q = self.parameter.get_action_values(state, self.invalid_actions)
         maxa = np.argmax(q)
 
         def _render_sub(a: int) -> str:

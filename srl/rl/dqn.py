@@ -73,7 +73,7 @@ class Config(DiscreteActionConfig):
 
     # other
     enable_double_dqn: bool = True
-    enable_rescale: bool = True
+    enable_rescale: bool = False
 
     dummy_state_val: float = 0.0
 

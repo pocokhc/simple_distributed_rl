@@ -70,7 +70,7 @@ class Config(DiscreteActionConfig):
 
     ext_lr: float = 0.01
     warmup_size: int = 10
-    enable_rescale: bool = True
+    enable_rescale: bool = False
     enable_q_int_norm: bool = False
 
     # Priority Experience Replay

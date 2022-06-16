@@ -111,7 +111,7 @@ class Config(DiscreteActionConfig):
     enable_noisy_dense: bool = False
 
     # other
-    enable_rescale: bool = True
+    enable_rescale: bool = False
 
     dummy_state_val: float = 0.0
 

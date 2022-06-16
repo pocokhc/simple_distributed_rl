@@ -134,9 +134,9 @@ examples/custom_rl.ipynb
 |QL        |Discrete   |Discrete  |100%|Basic Q Learning|
 |QL_agent57|Discrete   |Discrete  | 99%|QL + Agent57|
 |DQN       |Continuous |Discrete  |100%||
-|C51       |Continuous |Discrete  | 99%|Categorical DQN|[Paper](https://arxiv.org/abs/1707.06887)|
+|C51       |Continuous |Discrete  | 99%|Categorical DQN|
 |Rainbow   |Continuous |Discrete  |100%||
-|R2D2      |Continuous |Discrete  | 99%||[Paper](https://openreview.net/forum?id=r1lyTjAqYX)|
+|R2D2      |Continuous |Discrete  |100%||
 |Agent57   |Continuous |Discrete  | 70%||[Paper](https://arxiv.org/abs/2003.13350)|
 |Agent57_light|Continuous|Discrete  | 70%|Agent57 - (LSTM,MultiStep)|
 

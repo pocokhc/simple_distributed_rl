@@ -10,6 +10,9 @@ class Test(unittest.TestCase):
         self.assertTrue(not C.is_package_installed("aaaaaa"))
         self.assertTrue(not C.is_package_installed("aaaaaa"))
 
+    def test_is_env_notebook(self):
+        self.assertFalse(C.is_env_notebook())
+
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_is_package_installed", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_is_env_notebook", verbosity=2)

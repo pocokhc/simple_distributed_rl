@@ -122,3 +122,15 @@ def is_package_installed(name: str) -> bool:
 
     _package_cache[name] = False
     return False
+
+
+def is_env_notebook():
+    try:
+        if get_ipython().__class__.__name__ == "TerminalInteractiveShell":
+            # IPython shell
+            return False
+    except NameError:
+        # Python shell
+        return False
+    # Jupyter Notebook
+    return True

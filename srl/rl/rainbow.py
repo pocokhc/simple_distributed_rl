@@ -304,26 +304,18 @@ class Parameter(RLParameter):
                     gain = reward
                 else:
                     # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
+                    n_q_target = n_q_list_target[n_states_idx]
                     if self.config.enable_double_dqn:
-                        n_pi_probs = calc_epsilon_greedy_probs(
-                            n_q_list[n_states_idx],
-                            next_invalid_actions,
-                            0.0,
-                            self.config.nb_actions,
-                        )
+                        n_q = n_q_list[n_states_idx]
+                        n_q = [(-np.inf if a in next_invalid_actions else v) for a, v in enumerate(n_q)]
+                        n_act_idx = np.argmax(n_q)
                     else:
-                        n_pi_probs = calc_epsilon_greedy_probs(
-                            n_q_list_target[n_states_idx],
-                            next_invalid_actions,
-                            0.0,
-                            self.config.nb_actions,
-                        )
-                    P = 0
-                    for j in range(self.config.nb_actions):
-                        P += n_pi_probs[j] * n_q_list_target[n_states_idx][j]
+                        n_q_target = [(-np.inf if a in next_invalid_actions else v) for a, v in enumerate(n_q_target)]
+                        n_act_idx = np.argmax(n_q_target)
+                    maxq = n_q_target[n_act_idx]
                     if self.config.enable_rescale:
-                        P = inverse_rescaling(P)
-                    gain = reward + self.config.gamma * P
+                        maxq = inverse_rescaling(maxq)
+                    gain = reward + self.config.gamma * maxq
                 if self.config.enable_rescale:
                     gain = rescaling(gain)
 

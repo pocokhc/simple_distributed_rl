@@ -29,9 +29,8 @@ class Action(enum.Enum):
 
 
 class State(enum.Enum):
-    WAIT = 0
-    LEFT = 1
-    RIGHT = 2
+    LEFT = 0
+    RIGHT = 1
 
 
 @dataclass
@@ -56,9 +55,9 @@ class Tiger(SinglePlayEnv):
         return 10
 
     def call_reset(self) -> np.ndarray:
-        self.tiger = random.randint(0, 1)
-        self.state = 0
-        return np.array(self.state)
+        self.tiger = State(random.randint(0, 1))
+        self.state = State(random.randint(0, 1))
+        return np.array(self.state.value)
 
     def backup(self) -> Any:
         return json.dumps(
@@ -78,33 +77,33 @@ class Tiger(SinglePlayEnv):
             done = False
             reward = -1
             if random.random() < self.prob:
-                if self.tiger == 0:
-                    self.state = 2
+                if self.tiger == State.LEFT:
+                    self.state = State.LEFT
                 else:
-                    self.state = 1
+                    self.state = State.RIGHT
             else:
-                if self.tiger == 0:
-                    self.state = 1
+                if self.tiger == State.RIGHT:
+                    self.state = State.LEFT
                 else:
-                    self.state = 2
+                    self.state = State.RIGHT
         elif action == Action.LEFT:
-            self.state = 0
             done = True
-            if self.tiger == 0:
+            self.state = self.tiger
+            if self.tiger == State.LEFT:
                 reward = -100
             else:
                 reward = 10
         elif action == Action.RIGHT:
-            self.state = 0
             done = True
-            if self.tiger == 0:
+            self.state = self.tiger
+            if self.tiger == State.LEFT:
                 reward = 10
-            elif self.tiger == 1:
+            else:
                 reward = -100
         else:
             raise ValueError()
 
-        return np.array(self.state), reward, done, {}
+        return np.array(self.state.value), reward, done, {}
 
     def render_terminal(self):
         print(f"state: {self.state}, tiger: {self.tiger}")

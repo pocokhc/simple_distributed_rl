@@ -29,12 +29,10 @@ class Test(unittest.TestCase):
         self.rl_config.memory_beta_initial = 1.0
         self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70)
 
-    # def test_verify_Pong(self):
-    #    rl_config = rl.rainbow.Config(
-    #        window_length=4,
-    #        multisteps=10,
-    #    )
-    #    self.tester.play_verify_singleplay(self, "ALE/Pong-v5", rl_config, 15000, 10, is_atari=True)
+    def test_verify_Pendulum_mp(self):
+        self.rl_config.hidden_layer_sizes = (64, 64)
+        self.rl_config.memory_beta_initial = 1.0
+        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70, is_mp=True)
 
     def test_verify_OX(self):
         # invalid action test
@@ -113,5 +111,5 @@ class TestPendulum(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum_mp", verbosity=2)
     # unittest.main(module=__name__, defaultTest="TestPendulum.test_verify_dueling", verbosity=2)

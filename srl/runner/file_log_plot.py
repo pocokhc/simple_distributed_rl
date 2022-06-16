@@ -126,7 +126,10 @@ class FileLogPlot:
         data = []
         with open(os.path.join(self.log_dir, filename)) as f:
             for line in f:
-                data.append(json.loads(line))
+                try:
+                    data.append(json.loads(line))
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSONDecodeError {e.args[0]}, '{line.strip()}'")
         return pd.DataFrame(data)
 
     def _read_df(self, actor_id: int = 0):

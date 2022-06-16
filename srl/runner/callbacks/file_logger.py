@@ -86,6 +86,7 @@ class FileLogger(Callback):
         episode_time,
         worker_indices,
         valid_reward,
+        trainer,
         **kwargs,
     ):
         if len(self.history_step) == 0:
@@ -114,6 +115,11 @@ class FileLogger(Callback):
             "train_info": train_info,
         }
 
+        if trainer is None:
+            d["train_count"] = 0
+        else:
+            d["train_count"] = trainer.get_train_count()
+
         for i in range(self.player_num):
             work_info = listdictdict_to_dictlist(self.history_step, f"work_{i}_info")
             for k, v in work_info.items():
@@ -135,6 +141,7 @@ class FileLogger(Callback):
             "episode_step": np.mean([h["episode_step"] for h in self.log_history]),
             "episode_time": np.mean([h["episode_time"] for h in self.log_history]),
             "step_time": np.mean([h["step_time"] for h in self.log_history]),
+            "train_count": self.log_history[-1]["train_count"],
         }
 
         env_info = listdictdict_to_dictlist(self.log_history, "env_info")

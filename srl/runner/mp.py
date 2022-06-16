@@ -100,17 +100,22 @@ class Board:
 # --------------------
 # actor
 # --------------------
-class _SyncParameter(sequence.Callback):
+class _ActorInterrupt(sequence.Callback):
     def __init__(
         self,
         remote_board: Board,
         parameter: RLParameter,
+        train_end_signal: ctypes.c_bool,
         mp_config: Config,
     ) -> None:
         self.remote_board = remote_board
         self.parameter = parameter
+        self.train_end_signal = train_end_signal
         self.actor_parameter_sync_interval_by_step = mp_config.actor_parameter_sync_interval_by_step
 
+        self.timeout = mp_config.timeout
+
+        self.t0 = time.time()
         self.step = 0
         self.prev_update_count = 0
 
@@ -127,13 +132,13 @@ class _SyncParameter(sequence.Callback):
             return
         self.parameter.restore(params)
 
-
-class _InterruptEnd(sequence.Callback):
-    def __init__(self, train_end_signal: ctypes.c_bool) -> None:
-        self.train_end_signal = train_end_signal
-
     def intermediate_stop(self, **kwargs) -> bool:
         if self.train_end_signal.value:
+            return True
+
+        # timeout は時差を少なくするために main ではなく actor でチェック
+        elapsed_time = time.time() - self.t0
+        if self.timeout > 0 and elapsed_time > self.timeout:
             return True
         return False
 
@@ -148,20 +153,32 @@ def _run_actor(
     allocate: str,
 ):
     with tf.device(allocate):
-        logger.debug(f"actor{actor_id} start")
-
         try:
-            config.callbacks.extend(mp_config.callbacks)
-            config.callbacks.append(_InterruptEnd(train_end_signal))
-            config.trainer_disable = True
-            config.enable_validation = False
+            logger.debug(f"actor{actor_id} start")
 
+            config.callbacks.extend(mp_config.callbacks)
+            config.trainer_disable = True
+            config.rl_config.set_config_by_actor(mp_config.actor_num, actor_id)
+
+            # valid
+            if actor_id != 0:
+                config.enable_validation = False
+
+            # parameter
             parameter = config.make_parameter()
             params = remote_board.read()
             if params is not None:
                 parameter.restore(params)
-            config.callbacks.append(_SyncParameter(remote_board, parameter, mp_config))
+            config.callbacks.append(
+                _ActorInterrupt(
+                    remote_board,
+                    parameter,
+                    train_end_signal,
+                    mp_config,
+                )
+            )
 
+            # train
             sequence.play(config, parameter, remote_memory, actor_id)
 
         finally:
@@ -191,14 +208,6 @@ def _run_trainer(
         # loop var
         callbacks = [c for c in mp_config.callbacks if issubclass(c.__class__, MPCallback)]
         sync_count = 0
-        t0 = time.time()
-        _print_warning = True
-
-        # valid
-        valid_train = 0
-        valid_config = config.copy(env_copy=False)
-        valid_config.enable_validation = False
-        valid_config.players = config.validation_players
 
         # callbacks
         _info = {
@@ -211,25 +220,12 @@ def _run_trainer(
         }
         [c.on_trainer_start(**_info) for c in callbacks]
 
-        # TODO: trainerを早くする
         try:
             while True:
                 if train_end_signal.value:
                     break
 
-                elapsed_time = time.time() - t0
-                if mp_config.max_train_count > 0:
-                    # train countが終了条件でしばらくカウントが増えない場合は警告
-                    if _print_warning:
-                        if trainer.get_train_count() == 0 and elapsed_time > 60:
-                            print("The 'train_count' did not increase for 1 minute. It may not end.")
-                            _print_warning = False
-
-                    if trainer.get_train_count() >= mp_config.max_train_count:
-                        break
-
-                # timeout は時差を少なくするために trainer でチェック
-                if mp_config.timeout > 0 and elapsed_time > mp_config.timeout:
+                if mp_config.max_train_count > 0 and trainer.get_train_count() > mp_config.max_train_count:
                     break
 
                 train_t0 = time.time()
@@ -246,25 +242,11 @@ def _run_trainer(
                     remote_board.write(parameter.backup())
                     sync_count += 1
 
-                # validation
-                valid_reward = None
-                if config.enable_validation:
-                    valid_train += 1
-                    if valid_train > config.validation_interval:
-                        rewards = sequence.evaluate(
-                            valid_config, parameter=parameter, max_episodes=config.validation_episode
-                        )
-                        if valid_config.make_env().player_num > 1:
-                            rewards = [r[config.validation_player] for r in rewards]
-                        valid_reward = np.mean(rewards)
-                        valid_train = 0
-
                 # callbacks
                 _info["train_info"] = train_info
                 _info["train_count"] = trainer.get_train_count()
                 _info["train_time"] = train_time
                 _info["sync_count"] = sync_count
-                _info["valid_reward"] = valid_reward
                 [c.on_trainer_train_end(**_info) for c in callbacks]
 
         finally:

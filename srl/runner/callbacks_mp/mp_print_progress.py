@@ -77,7 +77,6 @@ class MPPrintProgress(MPCallback):
         train_time,
         train_info,
         sync_count,
-        valid_reward,
         **kwargs,
     ):
         self.train_time = train_time
@@ -89,7 +88,6 @@ class MPPrintProgress(MPCallback):
                 "train_info": train_info,
                 "sync_count": sync_count,
                 "memory_len": remote_memory.length(),
-                "valid_reward": valid_reward,
             }
         )
         if self._check_print_progress():
@@ -121,15 +119,12 @@ class MPPrintProgress(MPCallback):
         sync_count = info["sync_count"]
         memory_len = info["memory_len"]
         train_time = np.mean([t["train_time"] for t in self.progress_history])
-        valid_rewards = [t["valid_reward"] for t in self.progress_history if t["valid_reward"] is not None]
 
         s = dt.datetime.now().strftime("%H:%M:%S")
         s += " trainer:{:8d} tra".format(train_count)
         s += ",{:6.3f}s/tra".format(train_time)
         s += ",{:7d} memory ".format(memory_len)
         s += ",{:6d} sync ".format(sync_count)
-        if len(valid_rewards) > 0:
-            s += ", {:.4f} val_reward ".format(np.mean(valid_rewards))
 
         d = listdictdict_to_dictlist(self.progress_history, "train_info")
         for k, arr in d.items():
@@ -185,6 +180,7 @@ class MPPrintProgress(MPCallback):
         episode_count,
         episode_rewards,
         episode_time,
+        valid_reward,
         worker_indices,
         **kwargs,
     ):
@@ -209,6 +205,7 @@ class MPPrintProgress(MPCallback):
             "episode_step": episode_step,
             "episode_reward": episode_rewards[worker_idx],
             "episode_time": episode_time,
+            "valid_reward": valid_reward,
             "step_time": np.mean([h["step_time"] for h in self.history_step]),
             "env_info": env_info,
             "work_info": work_info,
@@ -239,6 +236,10 @@ class MPPrintProgress(MPCallback):
             _s = [h["episode_step"] for h in self.progress_history]
             s += f", {min(_r):.3f} {np.mean(_r):.3f} {max(_r):.3f} reward"
             s += f", {np.mean(_s):.1f} step"
+
+            valid_rewards = [t["valid_reward"] for t in self.progress_history if t["valid_reward"] is not None]
+            if len(valid_rewards) > 0:
+                s += ", {:.4f} val_reward ".format(np.mean(valid_rewards))
 
             d = listdictdict_to_dictlist(self.progress_history, "env_info")
             for k, arr in d.items():

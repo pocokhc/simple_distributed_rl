@@ -96,7 +96,6 @@ class MPFileLogger(MPCallback):
         train_time,
         train_info,
         sync_count,
-        valid_reward,
         parameter,
         **kwargs,
     ):
@@ -110,7 +109,6 @@ class MPFileLogger(MPCallback):
                     "train_info": train_info,
                     "sync_count": sync_count,
                     "memory": remote_memory.length(),
-                    "valid_reward": valid_reward,
                 }
             )
             if _time - self.log_t0 > self.log_interval:
@@ -134,19 +132,12 @@ class MPFileLogger(MPCallback):
         sync_count = info["sync_count"]
         memory_len = info["memory"]
 
-        vr_list = [h["valid_reward"] for h in self.log_history if h["valid_reward"] is not None]
-        if len(vr_list) == 0:
-            valid_reward = None
-        else:
-            valid_reward = np.mean(vr_list)
-
         d = {
             "date": dt.datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
             "rl_memory": memory_len,
             "parameter_sync_count": sync_count,
             "train_count": train_count,
             "train_time": train_time,
-            "valid_reward": valid_reward,
         }
         info = listdictdict_to_dictlist(self.log_history, "train_info")
         for k, arr in info.items():
@@ -226,6 +217,7 @@ class MPFileLogger(MPCallback):
         episode_step,
         episode_rewards,
         episode_time,
+        valid_reward,
         worker_indices,
         **kwargs,
     ):
@@ -247,6 +239,7 @@ class MPFileLogger(MPCallback):
             "episode_step": episode_step,
             "episode_rewards": rewards,
             "episode_time": episode_time,
+            "valid_reward": valid_reward,
             "step_time": np.mean([h["step_time"] for h in self.history_step]),
             "env_info": env_info,
         }
@@ -272,6 +265,12 @@ class MPFileLogger(MPCallback):
             "episode_time": np.mean([h["episode_time"] for h in self.log_history]),
             "step_time": np.mean([h["step_time"] for h in self.log_history]),
         }
+
+        vr_list = [h["valid_reward"] for h in self.log_history if h["valid_reward"] is not None]
+        if len(vr_list) == 0:
+            d["valid_reward"] = None
+        else:
+            d["valid_reward"] = np.mean(vr_list)
 
         env_info = listdictdict_to_dictlist(self.log_history, "env_info")
         for k, arr in env_info.items():

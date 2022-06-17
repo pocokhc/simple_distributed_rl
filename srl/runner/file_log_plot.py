@@ -238,6 +238,8 @@ class FileLogPlot:
             xlabel = "episode"
 
         key = f"{info_name}_{key}"
+        if key not in df:
+            return
 
         if len(df) > aggregation_num * 2:
             rolling_n = int(len(df) / aggregation_num)

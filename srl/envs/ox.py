@@ -179,12 +179,7 @@ class Cpu(RuleBaseWorker):
         self._count = 0
         self.t0 = time.time()
 
-        # scores = self._negamax(env_org.copy())
-
-        scores = self._alphabeta(env.get_original_env().copy())
-        scores = np.array(scores)
-        if self.player_index == 1:
-            scores = -scores
+        scores = self._negamax(env.get_original_env().copy())
 
         self._render_scores = scores
         self._render_count = self._count
@@ -222,61 +217,6 @@ class Cpu(RuleBaseWorker):
                 scores[a] = -np.max(n_scores)
 
         Cpu.cache[key] = scores
-        return scores
-
-    def _alphabeta(self, env: OX, alpha=-np.inf, beta=np.inf, depth: int = 0):
-        if depth == 10:
-            return [0]
-
-        self._count += 1
-        env_dat = env.backup()
-        invalid_actions = env.get_invalid_actions()
-
-        actions = [a for a in range(env.action_space.n)]
-        random.shuffle(actions)
-
-        if env.player_index == 0:
-            # 自分の番
-            scores = np.array([-9 for _ in range(env.action_space.n)])
-            for a in actions:
-                if a in invalid_actions:
-                    continue
-                env.restore(env_dat)
-
-                _, r1, r2, done, _ = env.call_step(a)
-                if done:
-                    scores[a] = r1
-                else:
-                    n_scores = self._alphabeta(env, alpha, beta, depth + 1)
-                    # 相手は低いスコアを採用
-                    scores[a] = np.min(n_scores)
-
-                alpha = np.maximum(alpha, scores[a])
-
-                # beta cut
-                if scores[a] >= beta:
-                    break
-        else:
-            # 相手の番
-            scores = np.array([9 for _ in range(env.action_space.n)])
-            for a in actions:
-                if a in invalid_actions:
-                    continue
-                env.restore(env_dat)
-
-                _, r1, r2, done, _ = env.call_step(a)
-                if done:
-                    scores[a] = r1
-                else:
-                    n_scores = self._alphabeta(env, alpha, beta, depth + 1)
-                    # 自分は高いスコアを採用
-                    scores[a] = np.max(n_scores)
-                beta = np.minimum(beta, scores[a])
-
-                # alpha cut
-                if scores[a] <= alpha:
-                    break
-
         return scores
 
     def call_render(self, _env: EnvRun, worker_run: WorkerRun) -> None:

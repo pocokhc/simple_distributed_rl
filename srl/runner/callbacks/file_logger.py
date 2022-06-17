@@ -86,6 +86,7 @@ class FileLogger(Callback):
         episode_time,
         worker_indices,
         valid_reward,
+        remote_memory,
         trainer,
         **kwargs,
     ):
@@ -110,6 +111,7 @@ class FileLogger(Callback):
             "episode_rewards": rewards,
             "episode_time": episode_time,
             "step_time": np.mean([h["step_time"] for h in self.history_step]),
+            "remote_memory": remote_memory.length() if remote_memory is not None else 0,
             "valid_reward": valid_reward,
             "env_info": env_info,
             "train_info": train_info,
@@ -141,6 +143,7 @@ class FileLogger(Callback):
             "episode_step": np.mean([h["episode_step"] for h in self.log_history]),
             "episode_time": np.mean([h["episode_time"] for h in self.log_history]),
             "step_time": np.mean([h["step_time"] for h in self.log_history]),
+            "remote_memory": self.log_history[-1]["remote_memory"],
             "train_count": self.log_history[-1]["train_count"],
         }
 

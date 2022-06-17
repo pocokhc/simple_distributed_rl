@@ -87,7 +87,7 @@ class MPPrintProgress(MPCallback):
                 "train_time": train_time,
                 "train_info": train_info,
                 "sync_count": sync_count,
-                "memory_len": remote_memory.length(),
+                "remote_memory": remote_memory.length(),
             }
         )
         if self._check_print_progress():
@@ -117,13 +117,13 @@ class MPPrintProgress(MPCallback):
         info = self.progress_history[-1]
         train_count = info["train_count"]
         sync_count = info["sync_count"]
-        memory_len = info["memory_len"]
+        remote_memory = info["remote_memory"]
         train_time = np.mean([t["train_time"] for t in self.progress_history])
 
         s = dt.datetime.now().strftime("%H:%M:%S")
         s += " trainer:{:8d} tra".format(train_count)
         s += ",{:6.3f}s/tra".format(train_time)
-        s += ",{:7d} memory ".format(memory_len)
+        s += ",{:7d} memory ".format(remote_memory)
         s += ",{:6d} sync ".format(sync_count)
 
         d = listdictdict_to_dictlist(self.progress_history, "train_info")

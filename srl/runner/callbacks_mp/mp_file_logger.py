@@ -108,7 +108,7 @@ class MPFileLogger(MPCallback):
                     "train_time": train_time,
                     "train_info": train_info,
                     "sync_count": sync_count,
-                    "memory": remote_memory.length(),
+                    "remote_memory": remote_memory.length(),
                 }
             )
             if _time - self.log_t0 > self.log_interval:
@@ -130,11 +130,11 @@ class MPFileLogger(MPCallback):
         train_count = info["train_count"]
         train_time = np.mean([t["train_time"] for t in self.log_history])
         sync_count = info["sync_count"]
-        memory_len = info["memory"]
+        remote_memory = info["remote_memory"]
 
         d = {
             "date": dt.datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
-            "rl_memory": memory_len,
+            "remote_memory": remote_memory,
             "parameter_sync_count": sync_count,
             "train_count": train_count,
             "train_time": train_time,

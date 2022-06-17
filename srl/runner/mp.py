@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from multiprocessing.managers import BaseManager
 from typing import Dict, List, Optional, Tuple, Union
 
-import numpy as np
 import tensorflow as tf
 from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_remote_memory
@@ -50,7 +49,7 @@ class Config:
     actor_parameter_sync_interval_by_step: int = 100
 
     allocate_main: str = "/CPU:0"
-    allocate_trainer: str = "/GPU:0"
+    allocate_trainer: str = "/CPU:0"
     allocate_actor: Union[List[str], str] = "/CPU:0"
 
     def __post_init__(self):

@@ -22,7 +22,7 @@ class Test(unittest.TestCase):
         self.rl_config.batch_size = 32
         self.rl_config.hidden_layer_sizes = (32, 32, 32)
         self.rl_config.enable_rescale = False
-        self.tester.play_verify_singleplay("Grid", self.rl_config, 10000)
+        self.tester.play_verify_singleplay("Grid", self.rl_config, 15000)
 
     def test_verify_Pendulum(self):
         self.rl_config.hidden_layer_sizes = (64, 64)

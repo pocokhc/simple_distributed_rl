@@ -100,8 +100,8 @@ class Parameter(RLParameter):
         )
         for h in self.config.hidden_layer_sizes:
             c = kl.Dense(h, activation=self.config.activation, kernel_initializer="he_normal")(c)
-        c = kl.Dense(self.config.nb_actions * self.config.categorical_num_atoms, activation="linear")(c)
-        c = kl.Reshape((self.config.nb_actions, self.config.categorical_num_atoms))(c)
+        c = kl.Dense(self.config.action_num * self.config.categorical_num_atoms, activation="linear")(c)
+        c = kl.Reshape((self.config.action_num, self.config.categorical_num_atoms))(c)
         self.Q = keras.Model(in_state, c)
 
     def restore(self, data: Any) -> None:
@@ -165,8 +165,8 @@ class Trainer(RLTrainer):
         next_actions = tf.argmax(q_means, axis=1)
 
         #: 選択されたaction軸だけ抽出する
-        mask = np.ones((self.config.batch_size, self.config.nb_actions, self.n_atoms))
-        onehot_mask = tf.one_hot(next_actions, self.config.nb_actions, axis=1)
+        mask = np.ones((self.config.batch_size, self.config.action_num, self.n_atoms))
+        onehot_mask = tf.one_hot(next_actions, self.config.action_num, axis=1)
         onehot_mask = onehot_mask * mask
         next_dists = tf.reduce_sum(next_probs * onehot_mask, axis=1).numpy()
 
@@ -191,7 +191,7 @@ class Trainer(RLTrainer):
                 if ratio != 0:
                     target_dists[i][idx + 1] += next_dists[i][j] * ratio
 
-        onehot_mask = tf.one_hot(actions, self.config.nb_actions, axis=1)
+        onehot_mask = tf.one_hot(actions, self.config.action_num, axis=1)
         onehot_mask = onehot_mask * mask
 
         with tf.GradientTape() as tape:
@@ -241,7 +241,7 @@ class Worker(DiscreteActionWorker):
 
         if random.random() < self.epsilon:
             # epsilonより低いならランダム
-            action = random.choice([a for a in range(self.config.nb_actions) if a not in invalid_actions])
+            action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
             logits = self.parameter.Q(np.asarray([state]))
             probs = tf.nn.softmax(logits, axis=2)

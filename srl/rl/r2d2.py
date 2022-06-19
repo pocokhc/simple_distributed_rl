@@ -212,7 +212,7 @@ class _QNetwork(keras.Model):
         if config.enable_dueling_network:
             c = create_dueling_network_layers(
                 c,
-                config.nb_actions,
+                config.action_num,
                 config.hidden_layer_sizes[-1],
                 config.dueling_network_type,
                 activation=config.activation,
@@ -222,7 +222,7 @@ class _QNetwork(keras.Model):
                 c
             )
             c = kl.Dense(
-                config.nb_actions, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
+                config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
             )(c)
 
         self.model = keras.Model(in_state, c)
@@ -232,7 +232,7 @@ class _QNetwork(keras.Model):
         in_shape = (1,) + config.observation_shape
         dummy_state = np.zeros(shape=(config.batch_size,) + in_shape, dtype=np.float32)
         val, _ = self(dummy_state, None)
-        assert val.shape == (config.batch_size, config.nb_actions)
+        assert val.shape == (config.batch_size, config.action_num)
 
     def call(self, state, hidden_states):
         self.lstm_layer.reset_states(hidden_states)
@@ -438,7 +438,7 @@ class Trainer(RLTrainer):
                         n_q[i],
                         next_invalid_actions_batchs[i],
                         0.0,
-                        self.config.nb_actions,
+                        self.config.action_num,
                     )
                     pi_prob = pi_probs[action]
                     _retrace[i] = self.config.retrace_h * np.minimum(1, pi_prob / mu_prob)
@@ -447,7 +447,7 @@ class Trainer(RLTrainer):
                 target_q += self.config.gamma * retrace * n_td_error
 
             # 現在選んだアクションのQ値
-            action_onehot = tf.one_hot(actions, self.config.nb_actions)
+            action_onehot = tf.one_hot(actions, self.config.action_num)
             q_onehot = tf.reduce_sum(q * action_onehot, axis=1)
 
             loss = self.loss(target_q * weights, q_onehot * weights)
@@ -487,9 +487,9 @@ class Worker(DiscreteActionWorker):
 
         self.recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.sequence_length + 1)]
         self.recent_actions = [
-            random.randint(0, self.config.nb_actions - 1) for _ in range(self.config.sequence_length)
+            random.randint(0, self.config.action_num - 1) for _ in range(self.config.sequence_length)
         ]
-        self.recent_probs = [1.0 / self.config.nb_actions for _ in range(self.config.sequence_length)]
+        self.recent_probs = [1.0 / self.config.action_num for _ in range(self.config.sequence_length)]
         self.recent_rewards = [0.0 for _ in range(self.config.sequence_length)]
         self.recent_done = [False for _ in range(self.config.sequence_length)]
         self.recent_invalid_actions = [[] for _ in range(self.config.sequence_length)]
@@ -524,7 +524,7 @@ class Worker(DiscreteActionWorker):
         else:
             epsilon = self.config.test_epsilon
 
-        probs = calc_epsilon_greedy_probs(q, invalid_actions, epsilon, self.config.nb_actions)
+        probs = calc_epsilon_greedy_probs(q, invalid_actions, epsilon, self.config.action_num)
         self.action = random_choice_by_probs(probs)
 
         self.prob = probs[self.action]
@@ -577,9 +577,9 @@ class Worker(DiscreteActionWorker):
                 self.recent_states.pop(0)
                 self.recent_states.append(self.dummy_state)
                 self.recent_actions.pop(0)
-                self.recent_actions.append(random.randint(0, self.config.nb_actions - 1))
+                self.recent_actions.append(random.randint(0, self.config.action_num - 1))
                 self.recent_probs.pop(0)
-                self.recent_probs.append(1.0 / self.config.nb_actions)
+                self.recent_probs.append(1.0 / self.config.action_num)
                 self.recent_rewards.pop(0)
                 self.recent_rewards.append(0.0)
                 self.recent_done.pop(0)

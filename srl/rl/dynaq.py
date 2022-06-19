@@ -162,8 +162,8 @@ class Parameter(RLParameter):
         if to_str:
             state = str(state.tolist())
         if state not in self.Q:
-            self.Q[state] = [0 for a in range(self.config.nb_actions)]
-            # self.Q[state] = [0 if a in invalid_actions else -np.inf for a in range(self.config.nb_actions)]
+            self.Q[state] = [0 for a in range(self.config.action_num)]
+            # self.Q[state] = [0 if a in invalid_actions else -np.inf for a in range(self.config.action_num)]
         return self.Q[state]
 
 

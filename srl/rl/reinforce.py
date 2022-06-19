@@ -90,7 +90,7 @@ class _PolicyModel(keras.Model):
 
         # --- out layer
         c = kl.Dense(
-            config.nb_actions,
+            config.action_num,
             activation="softmax",
             bias_initializer="truncated_normal",
         )(c)
@@ -176,7 +176,7 @@ class Trainer(RLTrainer):
             with tf.GradientTape() as tape:
                 probs = self.parameter.get_probs(states)
 
-                actions_onehot = tf.one_hot(actions, self.config.nb_actions)
+                actions_onehot = tf.one_hot(actions, self.config.action_num)
                 probs = tf.reduce_sum(probs * actions_onehot, axis=1)
 
                 # logπ(a|s)
@@ -216,7 +216,7 @@ class Worker(ContinuousActionWorker):
         probs = self.parameter.get_probs(state.reshape(1, -1))
         probs = probs.numpy()[0]
 
-        action = np.random.choice([a for a in range(self.config.nb_actions)], p=probs)
+        action = np.random.choice([a for a in range(self.config.action_num)], p=probs)
         self.action = int(action)
         self.prob = probs[self.action]
         return action

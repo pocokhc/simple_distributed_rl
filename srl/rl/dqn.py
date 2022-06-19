@@ -159,7 +159,7 @@ class _QNetwork(keras.Model):
 
         # --- out layer
         c = kl.Dense(
-            config.nb_actions,
+            config.action_num,
             activation="linear",
             kernel_initializer="truncated_normal",
             bias_initializer="truncated_normal",
@@ -169,7 +169,7 @@ class _QNetwork(keras.Model):
         # 重みを初期化
         dummy_state = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=np.float32)
         val = self(dummy_state)
-        assert val.shape == (1, config.nb_actions)
+        assert val.shape == (1, config.action_num)
 
     def call(self, state):
         return self.model(state)
@@ -278,7 +278,7 @@ class Trainer(RLTrainer):
             q = self.parameter.q_online(states)
 
             # 現在選んだアクションのQ値
-            actions_onehot = tf.one_hot(actions, self.config.nb_actions)
+            actions_onehot = tf.one_hot(actions, self.config.action_num)
             q = tf.reduce_sum(q * actions_onehot, axis=1)
 
             loss = self.loss(target_q, q)
@@ -331,7 +331,7 @@ class Worker(DiscreteActionWorker):
 
         if random.random() < epsilon:
             # epsilonより低いならランダム
-            action = random.choice([a for a in range(self.config.nb_actions) if a not in invalid_actions])
+            action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
             state = self.recent_states[1:]
             q = self.parameter.q_online(np.asarray([state]))[0].numpy()

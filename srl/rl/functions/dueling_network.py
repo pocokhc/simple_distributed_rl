@@ -5,7 +5,7 @@ from tensorflow.keras import layers as kl
 
 def create_dueling_network_layers(
     c,
-    nb_actions: int,
+    action_num: int,
     dense_units: int,
     dueling_type: str,
     activation: str = "relu",
@@ -22,7 +22,7 @@ def create_dueling_network_layers(
 
     # advance
     adv = _Dense(dense_units, activation=activation, kernel_initializer="he_normal")(c)
-    adv = _Dense(nb_actions, kernel_initializer="truncated_normal", bias_initializer="truncated_normal", name="adv")(
+    adv = _Dense(action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal", name="adv")(
         adv
     )
 

@@ -91,7 +91,7 @@ class _Network(keras.Model):
             c = kl.Dense(h, activation=config.activation, kernel_initializer="he_normal")(c)
 
         # --- out layer
-        policy = kl.Dense(config.nb_actions, activation="softmax", bias_initializer="he_normal")(c)
+        policy = kl.Dense(config.action_num, activation="softmax", bias_initializer="he_normal")(c)
         value = kl.Dense(1)(c)
         self.model = keras.Model(in_state, [policy, value])
 
@@ -99,7 +99,7 @@ class _Network(keras.Model):
         dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         # dummy_state = np.zeros(shape=(1, config.window_length) + config.env_observation_shape, dtype=np.float32)
         policy, value = self(dummy_state)
-        assert policy.shape == (1, config.nb_actions)
+        assert policy.shape == (1, config.action_num)
         assert value.shape == (1, 1)
 
     def call(self, state):
@@ -232,8 +232,8 @@ class Worker(RLWorker):
 
     def init_state(self, state_str):
         if state_str not in self.N:
-            self.N[state_str] = [0 for _ in range(self.config.nb_actions)]
-            self.W[state_str] = [0 for _ in range(self.config.nb_actions)]
+            self.N[state_str] = [0 for _ in range(self.config.action_num)]
+            self.W[state_str] = [0 for _ in range(self.config.action_num)]
 
     def _call_policy(self, state: np.ndarray, env: EnvRun) -> int:
         self.state = state
@@ -249,7 +249,7 @@ class Worker(RLWorker):
             env.restore(dat)
         N = sum(self.N[self.state_str])
         n = self.N[self.state_str]
-        policy = [n[a] / N for a in range(self.config.nb_actions)]
+        policy = [n[a] / N for a in range(self.config.action_num)]
 
         if self.step < self.config.early_steps:
             # episodeの序盤は試行回数に比例した確率でアクションを選択
@@ -303,7 +303,7 @@ class Worker(RLWorker):
         # --- PUCTに従ってアクションを選択
         N = np.sum(self.N[state_str])
         scores = []
-        for a in range(self.config.nb_actions):
+        for a in range(self.config.action_num):
             if a in invalid_actions:
                 score = -np.inf
             else:

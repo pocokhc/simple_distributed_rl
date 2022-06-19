@@ -216,7 +216,7 @@ class _QNetwork(keras.Model):
         if config.enable_dueling_network:
             c = create_dueling_network_layers(
                 c,
-                config.nb_actions,
+                config.action_num,
                 config.hidden_layer_sizes[-1],
                 config.dueling_network_type,
                 activation=config.activation,
@@ -224,7 +224,7 @@ class _QNetwork(keras.Model):
             )
         else:
             c = _Dense(config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal")(c)
-            c = _Dense(config.nb_actions, kernel_initializer="truncated_normal", bias_initializer="truncated_normal")(
+            c = _Dense(config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal")(
                 c
             )
 
@@ -234,7 +234,7 @@ class _QNetwork(keras.Model):
         in_shape = (config.window_length,) + config.observation_shape
         dummy_state = np.zeros(shape=(1,) + in_shape, dtype=np.float32)
         val = self(dummy_state)
-        assert val.shape == (1, config.nb_actions)
+        assert val.shape == (1, config.action_num)
 
     def call(self, state):
         return self.model(state)
@@ -294,7 +294,7 @@ class Parameter(RLParameter):
                         n_q_list[n_states_idx - 1],
                         invalid_actions,
                         0.0,
-                        self.config.nb_actions,
+                        self.config.action_num,
                     )
                     retrace *= self.config.retrace_h * np.minimum(1, pi_probs[action] / mu_prob)
                     if retrace == 0:
@@ -381,7 +381,7 @@ class Trainer(RLTrainer):
         with tf.GradientTape() as tape:
             q = self.parameter.q_online(states)
 
-            actions_onehot = tf.one_hot(actions, self.config.nb_actions)
+            actions_onehot = tf.one_hot(actions, self.config.action_num)
             q = tf.reduce_sum(q * actions_onehot, axis=1)
 
             loss = self.loss(target_q_list * weights, q * weights)
@@ -417,8 +417,8 @@ class Worker(DiscreteActionWorker):
         self.recent_states = [self.dummy_state for _ in range(self.config.window_length)]
         self.recent_bundle_states = [self.recent_states[:] for _ in range(self.config.multisteps + 1)]
 
-        self.recent_actions = [random.randint(0, self.config.nb_actions - 1) for _ in range(self.config.multisteps)]
-        self.recent_probs = [1.0 / self.config.nb_actions for _ in range(self.config.multisteps)]
+        self.recent_actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.multisteps)]
+        self.recent_probs = [1.0 / self.config.action_num for _ in range(self.config.multisteps)]
         self.recent_rewards = [0.0 for _ in range(self.config.multisteps)]
         self.recent_done = [False for _ in range(self.config.multisteps)]
         self.recent_invalid_actions = [[] for _ in range(self.config.multisteps + 1)]
@@ -452,7 +452,7 @@ class Worker(DiscreteActionWorker):
         else:
             epsilon = self.config.test_epsilon
 
-        probs = calc_epsilon_greedy_probs(q, invalid_actions, epsilon, self.config.nb_actions)
+        probs = calc_epsilon_greedy_probs(q, invalid_actions, epsilon, self.config.action_num)
         self.action = random_choice_by_probs(probs)
 
         self.prob = probs[self.action]

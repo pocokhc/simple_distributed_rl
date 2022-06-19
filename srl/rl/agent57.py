@@ -197,7 +197,7 @@ class _QNetwork(keras.Model):
         if config.enable_dueling_network:
             c = create_dueling_network_layers(
                 c,
-                config.nb_actions,
+                config.action_num,
                 config.hidden_layer_sizes[-1],
                 config.dueling_network_type,
                 activation=config.activation,
@@ -207,7 +207,7 @@ class _QNetwork(keras.Model):
                 c
             )
             c = kl.Dense(
-                config.nb_actions, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
+                config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
             )(c)
 
         self.model = keras.Model(in_state, c)
@@ -217,7 +217,7 @@ class _QNetwork(keras.Model):
         in_shape = (1,) + config.observation_shape
         dummy_state = np.zeros(shape=(config.batch_size,) + in_shape, dtype=np.float32)
         val, states = self(dummy_state, None)
-        assert val.shape == (config.batch_size, config.nb_actions)
+        assert val.shape == (config.batch_size, config.action_num)
 
     def call(self, state, hidden_states):
         self.lstm_layer.reset_states(hidden_states)
@@ -256,12 +256,12 @@ class _EmbeddingNetwork(keras.Model):
         self.concatenate = kl.Concatenate()
         self.d1 = kl.Dense(128, activation="relu", kernel_initializer="he_normal")
         c = kl.LayerNormalization()(c)
-        self.out = kl.Dense(config.nb_actions, activation="softmax")
+        self.out = kl.Dense(config.action_num, activation="softmax")
 
         # 重みを初期化
         dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         val = self(dummy_state, dummy_state)
-        assert val.shape == (1, config.nb_actions)
+        assert val.shape == (1, config.action_num)
 
     def call(self, state1, state2):
         c1 = self.model(state1)
@@ -437,7 +437,7 @@ class Trainer(RLTrainer):
             beta_list.append(self.beta_list[b["actor"]])
         one_states = np.asarray(one_states)
         one_n_states = np.asarray(one_n_states)
-        one_actions_onehot = tf.one_hot(one_actions, self.config.nb_actions)
+        one_actions_onehot = tf.one_hot(one_actions, self.config.action_num)
 
         # hidden_states
         states_h_ext = []
@@ -589,9 +589,9 @@ class Trainer(RLTrainer):
             for i in range(self.config.batch_size):
                 pi_probs = calc_epsilon_greedy_probs(
                     n_q[i],
-                    [a for a in range(self.config.nb_actions)],
+                    [a for a in range(self.config.action_num)],
                     0.0,
-                    self.config.nb_actions,
+                    self.config.action_num,
                 )
                 r = self.config.retrace_h * np.minimum(1, pi_probs[actions[i]] / mu_probs[i])
                 _retrace.append(r)
@@ -599,7 +599,7 @@ class Trainer(RLTrainer):
 
             target_q += gamma_list * retrace * n_td_error
 
-            action_onehot = tf.one_hot(actions, self.config.nb_actions)
+            action_onehot = tf.one_hot(actions, self.config.action_num)
             q_onehot = tf.reduce_sum(q * action_onehot, axis=1)
 
             loss = self.q_loss(target_q * weights, q_onehot * weights)
@@ -637,8 +637,8 @@ class Worker(DiscreteActionWorker):
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
         self.recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.multisteps + 1)]
-        self.recent_actions = [random.randint(0, self.config.nb_actions - 1) for _ in range(self.config.multisteps)]
-        self.recent_probs = [1.0 / self.config.nb_actions for _ in range(self.config.multisteps)]
+        self.recent_actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.multisteps)]
+        self.recent_probs = [1.0 / self.config.action_num for _ in range(self.config.multisteps)]
         self.recent_rewards_ext = [0.0 for _ in range(self.config.multisteps)]
         self.recent_rewards_int = [0.0 for _ in range(self.config.multisteps)]
         self.recent_done = [False for _ in range(self.config.multisteps)]
@@ -727,7 +727,7 @@ class Worker(DiscreteActionWorker):
         q = q_ext[0] + self.beta * q_int[0]
         q = q.numpy()
 
-        probs = calc_epsilon_greedy_probs(q, invalid_actions, self.epsilon, self.config.nb_actions)
+        probs = calc_epsilon_greedy_probs(q, invalid_actions, self.epsilon, self.config.action_num)
         self.action = random_choice_by_probs(probs)
 
         self.prob = probs[self.action]
@@ -794,9 +794,9 @@ class Worker(DiscreteActionWorker):
                 self.recent_states.pop(0)
                 self.recent_states.append(self.dummy_state)
                 self.recent_actions.pop(0)
-                self.recent_actions.append(random.randint(0, self.config.nb_actions - 1))
+                self.recent_actions.append(random.randint(0, self.config.action_num - 1))
                 self.recent_probs.pop(0)
-                self.recent_probs.append(1.0 / self.config.nb_actions)
+                self.recent_probs.append(1.0 / self.config.action_num)
                 self.recent_rewards_ext.pop(0)
                 self.recent_rewards_ext.append(0.0)
                 self.recent_rewards_int.pop(0)

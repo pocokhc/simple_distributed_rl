@@ -80,8 +80,8 @@ class Parameter(RLParameter):
 
     def init_state(self, state):
         if state not in self.N:
-            self.W[state] = [0 for _ in range(self.config.nb_actions)]
-            self.N[state] = [0 for _ in range(self.config.nb_actions)]
+            self.W[state] = [0 for _ in range(self.config.action_num)]
+            self.N[state] = [0 for _ in range(self.config.action_num)]
 
 
 # ------------------------------------------------------
@@ -138,10 +138,10 @@ class Worker(RLWorker):
         # 試行回数のもっとも多いアクションを採用
         if state in self.parameter.N:
             c = self.parameter.N[state]
-            c = [-np.inf if a in self.invalid_actions else c[a] for a in range(self.config.nb_actions)]  # mask
+            c = [-np.inf if a in self.invalid_actions else c[a] for a in range(self.config.action_num)]  # mask
             action = random.choice(np.where(c == np.max(c))[0])
         else:
-            action = random.choice([a for a in range(self.config.nb_actions) if a not in self.invalid_actions])
+            action = random.choice([a for a in range(self.config.action_num) if a not in self.invalid_actions])
 
         return action
 
@@ -204,7 +204,7 @@ class Worker(RLWorker):
         # --- UCBに従ってアクションを選択
         N = np.sum(self.parameter.N[state])
         ucb_list = []
-        for a in range(self.config.nb_actions):
+        for a in range(self.config.action_num):
             if a in invalid_actions:
                 ucb = -np.inf
             else:

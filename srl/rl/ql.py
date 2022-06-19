@@ -7,8 +7,7 @@ from typing import Any, Dict, List, Union, cast
 import numpy as np
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import SequenceRemoteMemory
@@ -94,10 +93,10 @@ class Parameter(RLParameter):
         if state not in self.Q:
             if self.config.q_init == "random":
                 self.Q[state] = [
-                    -np.inf if a in invalid_actions else np.random.normal() for a in range(self.config.nb_actions)
+                    -np.inf if a in invalid_actions else np.random.normal() for a in range(self.config.action_num)
                 ]
             else:
-                self.Q[state] = [-np.inf if a in invalid_actions else 0.0 for a in range(self.config.nb_actions)]
+                self.Q[state] = [-np.inf if a in invalid_actions else 0.0 for a in range(self.config.action_num)]
         return self.Q[state]
 
 
@@ -179,7 +178,7 @@ class Worker(DiscreteActionWorker):
 
         if random.random() < epsilon:
             # epsilonより低いならランダムに移動
-            action = random.choice([a for a in range(self.config.nb_actions) if a not in invalid_actions])
+            action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
             state = self.recent_states[1:]
             q = self.parameter.get_action_values(state, self.invalid_actions)

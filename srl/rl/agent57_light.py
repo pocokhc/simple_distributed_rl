@@ -183,7 +183,7 @@ class _QNetwork(keras.Model):
         if config.enable_dueling_network:
             c = create_dueling_network_layers(
                 c,
-                config.nb_actions,
+                config.action_num,
                 config.hidden_layer_sizes[-1],
                 config.dueling_network_type,
                 activation=config.activation,
@@ -193,7 +193,7 @@ class _QNetwork(keras.Model):
                 c
             )
             c = kl.Dense(
-                config.nb_actions, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
+                config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
             )(c)
 
         self.model = keras.Model(in_state, c)
@@ -230,12 +230,12 @@ class _EmbeddingNetwork(keras.Model):
         self.concatenate = kl.Concatenate()
         self.d1 = kl.Dense(128, activation="relu", kernel_initializer="he_normal")
         c = kl.LayerNormalization()(c)
-        self.out = kl.Dense(config.nb_actions, activation="softmax")
+        self.out = kl.Dense(config.action_num, activation="softmax")
 
         # 重みを初期化
         dummy_state = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=np.float32)
         val = self(dummy_state, dummy_state)
-        assert val.shape == (1, config.nb_actions)
+        assert val.shape == (1, config.action_num)
 
     def call(self, state1, state2):
         c1 = self.model(state1)

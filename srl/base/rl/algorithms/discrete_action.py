@@ -31,7 +31,7 @@ class DiscreteActionConfig(RLConfig):
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationType,
     ) -> None:
-        self._nb_actions = env_action_space.get_action_discrete_info()
+        self._action_num = env_action_space.get_action_discrete_info()
 
         if self.observation_type == RLObservationType.DISCRETE:
             shape, low, high = env_observation_space.get_observation_discrete_info()
@@ -46,8 +46,8 @@ class DiscreteActionConfig(RLConfig):
         self._observation_high = high
 
     @property
-    def nb_actions(self) -> int:
-        return self._nb_actions
+    def action_num(self) -> int:
+        return self._action_num
 
     @property
     def observation_shape(self) -> tuple:

@@ -70,7 +70,7 @@ class Parameter(RLParameter):
 
     def get_probs(self, state_str: str, invalid_actions):
         if state_str not in self.policy:
-            self.policy[state_str] = [None if a in invalid_actions else 0.0 for a in range(self.config.nb_actions)]
+            self.policy[state_str] = [None if a in invalid_actions else 0.0 for a in range(self.config.action_num)]
 
         probs = []
         for val in self.policy[state_str]:
@@ -147,7 +147,7 @@ class Worker(DiscreteActionWorker):
         self.invalid_actions = invalid_actions
 
         probs = self.parameter.get_probs(self.state, invalid_actions)
-        action = np.random.choice([a for a in range(self.config.nb_actions)], p=probs)
+        action = np.random.choice([a for a in range(self.config.action_num)], p=probs)
         self.action = int(action)
         self.prob = probs[self.action]
         return action

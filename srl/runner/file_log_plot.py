@@ -241,7 +241,7 @@ class FileLogPlot:
         if key not in df:
             return
 
-        if len(df) > aggregation_num * 2:
+        if len(df) > aggregation_num * 1.5:
             rolling_n = int(len(df) / aggregation_num)
 
             plt.plot(x, df[key].rolling(rolling_n).mean(), "C0")

@@ -2,7 +2,7 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, Union, cast
+from typing import Any, Dict, List, cast
 
 import numpy as np
 from srl.base.define import RLObservationType
@@ -28,8 +28,8 @@ logger = logging.getLogger(__name__)
 
 """
 DQN
-    window_length          : x
-    Fixed Target Q-Network : o
+    window_length          : o
+    Fixed Target Q-Network : x
     Error clipping      : -
     Experience Replay   : o
     Frame skip          : -
@@ -37,21 +37,21 @@ DQN
     Reward clip         : x
     Image preprocessor  : -
 Rainbow
-    Double Q-learning        : o (config selection)
-    Priority Experience Reply: o (config selection)
-    Dueling Network          : -
-    Multi-Step learning      : (retrace)
+    Double Q-learning        : TODO
+    Priority Experience Reply: o
+    Dueling Network(Advantage updating) : TODO
+    Multi-Step learning      : o
     Noisy Network            : -
     Categorical DQN          : -
 Recurrent Replay Distributed DQN(R2D2)
     LSTM                     : -
-    Value function rescaling : o (config selection)
+    Value function rescaling : o
 Never Give Up(NGU)
-    Intrinsic Reward : o (config selection)
+    Intrinsic Reward : o
     UVFA             : -
-    Retrace          : o (config selection)
+    Retrace          : o
 Agent57
-    Meta controller(sliding-window UCB) : o (config selection)
+    Meta controller(sliding-window UCB) : o
     Intrinsic Reward split              : o
 Other
     invalid_actions : TODO
@@ -69,14 +69,12 @@ class Config(DiscreteActionConfig):
     test_beta: float = 0.0
 
     ext_lr: float = 0.01
-    warmup_size: int = 10
     enable_rescale: bool = False
-    enable_q_int_norm: bool = False
 
     # Priority Experience Replay
     capacity: int = 100_000
     memory_name: str = "ProportionalMemory"
-    memory_warmup_size: int = 100
+    memory_warmup_size: int = 10
     memory_alpha: float = 0.6
     memory_beta_initial: float = 1.0
     memory_beta_steps: int = 1_000_000
@@ -84,10 +82,6 @@ class Config(DiscreteActionConfig):
     # retrace
     multisteps: int = 1
     retrace_h: float = 1
-
-    # target model
-    target_model_update_interval: int = 100
-    enable_double_dqn: bool = True
 
     # ucb(160,0.5 or 3600,0.01)
     enable_actor: bool = True
@@ -110,6 +104,11 @@ class Config(DiscreteActionConfig):
     # lifelong
     lifelong_decrement_rate: float = 0.999  # 減少割合
     lifelong_reward_L: float = 5.0
+
+    # other
+    batch_size: int = 4
+    window_length: int = 1
+    q_init: str = ""
 
     def __post_init__(self):
         super().__init__()
@@ -154,13 +153,6 @@ class RemoteMemory(PriorityExperienceReplay):
             self.config.memory_beta_steps,
         )
 
-    def sample(self, step: int) -> Tuple[int, Any, float]:
-        indices, batchs, weights = self.memory.sample(1, step)
-        return indices[0], batchs[0], weights[0]
-
-    def update(self, index: int, batch: Any, priority: float) -> None:
-        self.memory.update([index], [batch], [priority])
-
 
 # ------------------------------------------------------
 # Parameter
@@ -171,9 +163,7 @@ class Parameter(RLParameter):
         self.config = cast(Config, self.config)
 
         self.Q_ext = {}
-        self.Q_ext_target = {}
         self.Q_int = {}
-        self.Q_int_target = {}
         self.lifelong_C = {}
         self.Q_C = {}
 
@@ -182,9 +172,7 @@ class Parameter(RLParameter):
     def restore(self, data: Any) -> None:
         d = json.loads(data)
         self.Q_ext = d[0]
-        self.Q_ext_target = d[0]
         self.Q_int = d[1]
-        self.Q_int_target = d[1]
         self.lifelong_C = d[2]
         self.Q_C = d[3]
 
@@ -202,18 +190,19 @@ class Parameter(RLParameter):
 
     def init_state(self, state, invalid_actions):
         if state not in self.Q_ext:
-            self.Q_ext[state] = [-np.inf if a in invalid_actions else 0.0 for a in range(self.config.nb_actions)]
-            self.Q_ext_target[state] = [
-                -np.inf if a in invalid_actions else 0.0 for a in range(self.config.nb_actions)
-            ]
+            if self.config.q_init == "random":
+                self.Q_ext[state] = [
+                    -np.inf if a in invalid_actions else np.random.normal() for a in range(self.config.action_num)
+                ]
+            else:
+                self.Q_ext[state] = [-np.inf if a in invalid_actions else 0.0 for a in range(self.config.action_num)]
             L = self.config.lifelong_reward_L
             if self.config.enable_rescale:
                 L = rescaling(L)
-            self.Q_int[state] = [0.0 if a in invalid_actions else L for a in range(self.config.nb_actions)]
-            self.Q_int_target[state] = [0.0 if a in invalid_actions else L for a in range(self.config.nb_actions)]
+            self.Q_int[state] = [0.0 if a in invalid_actions else L for a in range(self.config.action_num)]
             self.Q_C[state] = 0
 
-    def calc_td_error(self, batch, Q, Q_target, rewards, enable_norm=False):
+    def calc_td_error(self, batch, q_tbl, rewards, enable_norm=False):
 
         dones = [False for _ in range(len(rewards))]
         dones[-1] = batch["done"]
@@ -234,9 +223,8 @@ class Parameter(RLParameter):
             self.init_state(state, invalid_actions)
             self.init_state(n_state, n_invalid_actions)
 
-            q = Q[state]
-            n_q = Q[n_state]
-            n_q_target = Q_target[n_state]
+            q = q_tbl[state]
+            n_q = q_tbl[n_state]
 
             # retrace
             if n >= 1:
@@ -251,25 +239,20 @@ class Parameter(RLParameter):
             if done:
                 target_q = reward
             else:
-                # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
-                if self.config.enable_double_dqn:
-                    n_act_idx = np.argmax(n_q)
-                else:
-                    n_act_idx = np.argmax(n_q_target)
-                P = n_q_target[n_act_idx]
+                maxq = np.max(n_q)
 
                 # --- original code
                 if enable_norm and self.Q_C[n_state] > 0:
-                    P = P / self.Q_C[n_state]
+                    maxq = maxq / self.Q_C[n_state]
                 # ---
 
                 if self.config.enable_rescale:
-                    P = inverse_rescaling(P)
-                target_q = reward + gamma * P
+                    maxq = inverse_rescaling(maxq)
+                target_q = reward + gamma * maxq
             if self.config.enable_rescale:
                 target_q = rescaling(target_q)
 
-            td_error = target_q - Q[state][action]
+            td_error = target_q - q_tbl[state][action]
             TQ += (gamma**n) * _retrace * td_error
 
         return TQ
@@ -286,7 +269,6 @@ class Trainer(RLTrainer):
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.train_count = 0
-        self.sync_count = 0
 
     def get_train_count(self):
         return self.train_count
@@ -296,50 +278,43 @@ class Trainer(RLTrainer):
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
-        index, batch, weight = self.remote_memory.sample(self.train_count)
-        state = batch["states"][0]
-        action = batch["actions"][0]
-        ext_td_error = self.parameter.calc_td_error(
-            batch,
-            self.parameter.Q_ext,
-            self.parameter.Q_ext_target,
-            batch["ext_rewards"],
-        )
-        self.parameter.Q_ext[state][action] += self.config.ext_lr * ext_td_error * weight
-
-        if self.config.enable_intrinsic_reward:
-            int_td_error = self.parameter.calc_td_error(
-                batch,
-                self.parameter.Q_int,
-                self.parameter.Q_int_target,
-                batch["int_rewards"],
-                enable_norm=True,
+        indices, batchs, weights = self.remote_memory.sample(self.train_count, self.config.batch_size)
+        ext_td_errors = []
+        int_td_errors = []
+        for i in range(self.config.batch_size):
+            state = batchs[i]["states"][0]
+            action = batchs[i]["actions"][0]
+            ext_td_error = self.parameter.calc_td_error(
+                batchs[i],
+                self.parameter.Q_ext,
+                batchs[i]["ext_rewards"],
             )
-            self.parameter.Q_int[state][action] += self.config.int_lr * int_td_error * weight
-            self.parameter.Q_C[state] += 1
-        else:
-            int_td_error = 0
+            self.parameter.Q_ext[state][action] += self.config.ext_lr * ext_td_error * weights[i]
+            ext_td_errors.append(ext_td_error)
+
+            if self.config.enable_intrinsic_reward:
+                int_td_error = self.parameter.calc_td_error(
+                    batchs[i],
+                    self.parameter.Q_int,
+                    batchs[i]["int_rewards"],
+                    enable_norm=True,
+                )
+                self.parameter.Q_int[state][action] += self.config.int_lr * int_td_error * weights[i]
+                self.parameter.Q_C[state] += 1
+            else:
+                int_td_error = 0
+            int_td_errors.append(int_td_error)
+
+            self.train_count += 1
 
         # 外部Qを優先
-        priority = abs(ext_td_error) + 0.0001
-        # priority = abs(ext_td_error) + batch["beta"] * abs(int_td_error) + 0.0001
-        self.remote_memory.update(index, batch, priority)
-
-        # targetと同期
-        if self.train_count % self.config.target_model_update_interval == 0:
-            for k, v in self.parameter.Q_ext.items():
-                self.parameter.Q_ext_target[k] = v
-            for k, v in self.parameter.Q_int.items():
-                self.parameter.Q_int_target[k] = v
-            self.sync_count += 1
-
-        self.train_count += 1
+        # priority = abs(ext_td_error) + batch["beta"] * abs(int_td_error)
+        self.remote_memory.update(indices, batchs, ext_td_errors)
 
         return {
             "Q": len(self.parameter.Q_ext),
-            "ext_td_error": ext_td_error,
-            "int_td_error": int_td_error,
-            "sync": self.sync_count,
+            "ext_td_error": np.mean(ext_td_errors),
+            "int_td_error": np.mean(int_td_errors),
         }
 
 
@@ -384,15 +359,18 @@ class Worker(DiscreteActionWorker):
         if self.config.enable_intrinsic_reward:
             self.beta = 0
 
+        self.recent_states = ["" for _ in range(self.config.window_length)]
+        self.recent_bundle_states = ["" for _ in range(self.config.multisteps + 1)]
         self.recent_ext_rewards = [0.0 for _ in range(self.config.multisteps)]
         self.recent_int_rewards = [0.0 for _ in range(self.config.multisteps)]
-        self.recent_actions = [random.randint(0, self.config.nb_actions - 1) for _ in range(self.config.multisteps)]
+        self.recent_actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.multisteps)]
         self.recent_probs = [1.0 for _ in range(self.config.multisteps)]
-        self.recent_states = ["" for _ in range(self.config.multisteps + 1)]
         self.recent_invalid_actions = [[] for _ in range(self.config.multisteps + 1)]
 
         self.recent_states.pop(0)
         self.recent_states.append(state)
+        self.recent_bundle_states.pop(0)
+        self.recent_bundle_states.append("_".join(self.recent_states))
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
@@ -449,7 +427,7 @@ class Worker(DiscreteActionWorker):
         q_int = np.asarray(self.parameter.Q_int[state])
         q = q_ext + self.beta * q_int
 
-        probs = calc_epsilon_greedy_probs(q, invalid_actions, self.epsilon, self.config.nb_actions)
+        probs = calc_epsilon_greedy_probs(q, invalid_actions, self.epsilon, self.config.action_num)
         self.action = random_choice_by_probs(probs)
         self.prob = probs[self.action]
         return self.action
@@ -465,6 +443,8 @@ class Worker(DiscreteActionWorker):
         n_state = to_str_observation(next_state)
         self.recent_states.pop(0)
         self.recent_states.append(n_state)
+        self.recent_bundle_states.pop(0)
+        self.recent_bundle_states.append("_".join(self.recent_states))
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(next_invalid_actions)
 
@@ -495,7 +475,7 @@ class Worker(DiscreteActionWorker):
         if done:
             # 残りstepも追加
             for _ in range(len(self.recent_ext_rewards) - 1):
-                self.recent_states.pop(0)
+                self.recent_bundle_states.pop(0)
                 self.recent_invalid_actions.pop(0)
                 self.recent_actions.pop(0)
                 self.recent_probs.pop(0)
@@ -516,7 +496,7 @@ class Worker(DiscreteActionWorker):
             return
 
         batch = {
-            "states": self.recent_states[:],
+            "states": self.recent_bundle_states[:],
             "actions": self.recent_actions[:],
             "probs": self.recent_probs[:],
             "ext_rewards": self.recent_ext_rewards[:],
@@ -535,7 +515,6 @@ class Worker(DiscreteActionWorker):
             td_error = self.parameter.calc_td_error(
                 batch,
                 self.parameter.Q_ext,
-                self.parameter.Q_ext_target,
                 self.recent_ext_rewards,
             )
             priority = abs(td_error) + 0.0001

@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 """
 DQN
-    window_length          : o (config selection)
+    window_length          : o
     Fixed Target Q-Network : o
     Error clipping      : o
     Experience Replay   : o
@@ -38,9 +38,9 @@ DQN
     Reward clip         : x
     Image preprocessor  : -
 Rainbow
-    Double DQN               : o (config selection)
-    Priority Experience Reply: o (config selection)
-    Dueling Network          : o (config selection)
+    Double DQN               : o
+    Priority Experience Reply: o
+    Dueling Network          : o
     Multi-Step learning      : x
     Noisy Network            : x
     Categorical DQN          : x
@@ -49,13 +49,13 @@ Recurrent Replay Distributed DQN(R2D2)
     Value function rescaling : o
 Never Give Up(NGU)
     Intrinsic Reward : o
-    UVFA             : TODO
+    UVFA             : o
     Retrace          : x
 Agent57
     Meta controller(sliding-window UCB) : o
     Intrinsic Reward split              : o
 Other
-    invalid_actions : TODO
+    invalid_actions : o
 """
 
 
@@ -79,6 +79,9 @@ class Config(DiscreteActionConfig):
     q_int_lr: float = 0.001
     target_model_update_interval: int = 1000
 
+    # rescale
+    enable_rescale: bool = False
+
     # double dqn
     enable_double_dqn: bool = True
 
@@ -96,9 +99,12 @@ class Config(DiscreteActionConfig):
 
     # ucb(160,0.5 or 3600,0.01)
     actor_num: int = 32
-    ucb_window_size: int = 160  # UCB上限
-    ucb_epsilon: float = 0.5  # UCBを使う確率
+    ucb_window_size: int = 3600  # UCB上限
+    ucb_epsilon: float = 0.01  # UCBを使う確率
     ucb_beta: float = 1  # UCBのβ
+
+    # intrinsic reward
+    enable_intrinsic_reward: bool = True
 
     # episodic
     episodic_lr: float = 0.0005
@@ -107,10 +113,21 @@ class Config(DiscreteActionConfig):
     episodic_cluster_distance: float = 0.008
     episodic_memory_capacity: int = 30000
     episodic_pseudo_counts: float = 0.1  # 疑似カウント定数
+    episodic_hidden_layer_sizes1: Tuple[int, ...] = (32,)
+    episodic_hidden_layer_sizes2: Tuple[int, ...] = (128,)
 
     # lifelong
     lifelong_lr: float = 0.00001
     lifelong_max: float = 5.0  # L
+    lifelong_hidden_layer_sizes: Tuple[int, ...] = (128,)
+
+    # UVFA
+    input_ext_reward: bool = True
+    input_int_reward: bool = False
+    input_action: bool = False
+
+    # other
+    disable_int_priority: bool = False  # Not use internal rewards to calculate priority
 
     dummy_state_val: float = 0.0
 
@@ -165,6 +182,11 @@ class RemoteMemory(PriorityExperienceReplay):
 class _QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
+        self.input_ext_reward = config.input_ext_reward
+        self.input_int_reward = config.input_int_reward
+        self.input_action = config.input_action
+        if not config.enable_intrinsic_reward:
+            self.input_int_reward = False
 
         in_state, c = create_input_layers(
             config.window_length,
@@ -172,6 +194,17 @@ class _QNetwork(keras.Model):
             config.env_observation_type,
             config.image_layer_type,
         )
+
+        # UVFA
+        input_list = []
+        if self.input_ext_reward:
+            input_list.append(kl.Input(shape=(1,)))
+        if self.input_int_reward:
+            input_list.append(kl.Input(shape=(1,)))
+        if self.input_action:
+            input_list.append(kl.Input(shape=(config.action_num,)))
+        input_list.append(kl.Input(shape=(config.actor_num,)))
+        c = kl.Concatenate()([c] + input_list)
 
         for i in range(len(config.hidden_layer_sizes) - 1):
             c = kl.Dense(
@@ -196,15 +229,27 @@ class _QNetwork(keras.Model):
                 config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
             )(c)
 
-        self.model = keras.Model(in_state, c)
+        self.model = keras.Model([in_state] + input_list, c)
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=np.float32)
-        val = self(dummy_state)
-        assert val.shape == (1, config.nb_actions)
+        dummy1 = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=float)
+        dummy2 = np.zeros(shape=(1, 1), dtype=float)
+        dummy3 = np.zeros(shape=(1, 1), dtype=float)
+        dummy4 = np.zeros(shape=(1, config.action_num), dtype=float)
+        dummy5 = np.zeros(shape=(1, config.actor_num), dtype=float)
+        val = self(dummy1, dummy2, dummy3, dummy4, dummy5)
+        assert val.shape == (1, config.action_num)
 
-    def call(self, state):
-        return self.model(state)
+    def call(self, state, reward_ext, reward_int, onehot_action, onehot_actor):
+        input_list = [state]
+        if self.input_ext_reward:
+            input_list.append(reward_ext)
+        if self.input_int_reward:
+            input_list.append(reward_int)
+        if self.input_action:
+            input_list.append(onehot_action)
+        input_list.append(onehot_actor)
+        return self.model(input_list)
 
 
 # ------------------------------------------------------
@@ -214,23 +259,36 @@ class _EmbeddingNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
+        # in model
         in_state, c = create_input_layers(
             config.window_length,
             config.observation_shape,
             config.env_observation_type,
             config.image_layer_type,
         )
+        for h in config.episodic_hidden_layer_sizes1:
+            c = kl.Dense(
+                h,
+                activation="relu",
+                kernel_initializer="he_normal",
+                bias_initializer=keras.initializers.constant(0.001),
+            )(c)
+        self.model1 = keras.Model(in_state, c)
 
-        c = kl.Dense(
-            32, activation="relu", kernel_initializer="he_normal", bias_initializer=keras.initializers.constant(0.001)
-        )(c)
-        self.model = keras.Model(in_state, c)
-
-        # out layer
-        self.concatenate = kl.Concatenate()
-        self.d1 = kl.Dense(128, activation="relu", kernel_initializer="he_normal")
+        # out model
+        out_h = config.episodic_hidden_layer_sizes1[-1]
+        in1 = kl.Input(shape=(out_h,))
+        in2 = kl.Input(shape=(out_h,))
+        c = kl.Concatenate()([in1, in2])
+        for h in config.episodic_hidden_layer_sizes2:
+            c = kl.Dense(
+                h,
+                activation="relu",
+                kernel_initializer="he_normal",
+            )(c)
         c = kl.LayerNormalization()(c)
-        self.out = kl.Dense(config.action_num, activation="softmax")
+        c = kl.Dense(config.action_num, activation="softmax")(c)
+        self.model2 = keras.Model([in1, in2], c)
 
         # 重みを初期化
         dummy_state = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=np.float32)
@@ -238,15 +296,12 @@ class _EmbeddingNetwork(keras.Model):
         assert val.shape == (1, config.action_num)
 
     def call(self, state1, state2):
-        c1 = self.model(state1)
-        c2 = self.model(state2)
-        c = self.concatenate([c1, c2])
-        c = self.d1(c)
-        c = self.out(c)
-        return c
+        c1 = self.model1(state1)
+        c2 = self.model1(state2)
+        return self.model2([c1, c2])
 
     def predict(self, state):
-        return self.model(state)
+        return self.model1(state)
 
 
 # ------------------------------------------------------
@@ -263,19 +318,20 @@ class _LifelongNetwork(keras.Model):
             config.image_layer_type,
         )
 
-        c = kl.Dense(
-            128,
-            activation="relu",
-            kernel_initializer="he_normal",
-            bias_initializer="he_normal",
-        )(c)
+        for h in config.lifelong_hidden_layer_sizes:
+            c = kl.Dense(
+                h,
+                activation="relu",
+                kernel_initializer="he_normal",
+                bias_initializer="he_normal",
+            )(c)
         c = kl.LayerNormalization()(c)
         self.model = keras.Model(in_state, c)
 
         # 重みを初期化
         dummy_state = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=np.float32)
         val = self(dummy_state)
-        assert val.shape == (1, 128)
+        assert val.shape == (1, config.lifelong_hidden_layer_sizes[-1])
 
     def call(self, state):
         return self.model(state)
@@ -318,7 +374,8 @@ class Parameter(RLParameter):
 
     def summary(self):
         self.q_ext_online.model.summary()
-        self.emb_network.summary()
+        self.emb_network.model1.summary()
+        self.emb_network.model2.summary()
         self.lifelong_target.model.summary()
 
     # ---------------------------------
@@ -328,12 +385,18 @@ class Parameter(RLParameter):
         q_online,
         q_target,
         rewards,
+        #
         n_states,
+        actions_onehot,
+        next_invalid_actions_list,
+        rewards_ext,
+        rewards_int,
         done_list,
+        actor_idx_onehot,
         gamma_list,
     ):
-        n_q = q_online(n_states).numpy()
-        n_q_target = q_target(n_states).numpy()
+        n_q = q_online(n_states, rewards_ext, rewards_int, actions_onehot, actor_idx_onehot).numpy()
+        n_q_target = q_target(n_states, rewards_ext, rewards_int, actions_onehot, actor_idx_onehot).numpy()
 
         target_q = np.zeros(len(rewards))
         for i in range(len(rewards)):
@@ -341,13 +404,21 @@ class Parameter(RLParameter):
                 gain = rewards[i]
             else:
                 # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
+                next_invalid_actions = next_invalid_actions_list[i]
                 if self.config.enable_double_dqn:
+                    n_q[i] = [(-np.inf if a in next_invalid_actions else v) for a, v in enumerate(n_q[i])]
                     n_act_idx = np.argmax(n_q[i])
                 else:
+                    n_q_target[i] = [
+                        (-np.inf if a in next_invalid_actions else v) for a, v in enumerate(n_q_target[i])
+                    ]
                     n_act_idx = np.argmax(n_q_target[i])
                 maxq = n_q_target[i][n_act_idx]
-                gain = rewards[i] + gamma_list[i] * inverse_rescaling(maxq)
-            gain = rescaling(gain)
+                if self.config.enable_rescale:
+                    maxq = inverse_rescaling(maxq)
+                gain = rewards[i] + gamma_list[i] * maxq
+            if self.config.enable_rescale:
+                gain = rescaling(gain)
             target_q[i] = gain
 
         return target_q
@@ -389,9 +460,8 @@ class Trainer(RLTrainer):
             return {}
 
         indices, batchs, weights = self.remote_memory.sample(self.train_count, self.config.batch_size)
-        td_error, info = self._train_on_batchs(batchs, weights)
-        priorities = abs(td_error) + 0.0001
-        self.remote_memory.update(indices, batchs, priorities)
+        td_errors, info = self._train_on_batchs(batchs, weights)
+        self.remote_memory.update(indices, batchs, td_errors)
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
@@ -400,7 +470,6 @@ class Trainer(RLTrainer):
             self.sync_count += 1
 
         self.train_count += 1
-        info["priority"] = np.mean(priorities)
         info["sync"] = self.sync_count
         return info
 
@@ -408,29 +477,43 @@ class Trainer(RLTrainer):
 
         # データ形式を変形
         states = []
-        actions = []
         n_states = []
+        actions = []
+        next_invalid_actions_list = []
         rewards_ext = []
         rewards_int = []
         done_list = []
+        prev_actions = []
+        prev_rewards_ext = []
+        prev_rewards_int = []
+        actor_idx_list = []
         gamma_list = []
         beta_list = []
         for b in batchs:
             states.append(b["states"][:-1])
-            actions.append(b["action"])
             n_states.append(b["states"][1:])
+            actions.append(b["action"])
+            next_invalid_actions_list.append(b["next_invalid_actions"])
             rewards_ext.append(b["reward_ext"])
             rewards_int.append(b["reward_int"])
             done_list.append(b["done"])
+            prev_actions.append(b["prev_action"])
+            prev_rewards_ext.append(b["prev_reward_ext"])
+            prev_rewards_int.append(b["prev_reward_int"])
+            actor_idx_list.append(b["actor"])
             gamma_list.append(self.gamma_list[b["actor"]])
             beta_list.append(self.beta_list[b["actor"]])
-
         states = np.asarray(states)
         n_states = np.asarray(n_states)
         rewards_ext = np.asarray(rewards_ext)
         rewards_int = np.asarray(rewards_int)
+        prev_rewards_ext = np.asarray(prev_rewards_ext)
+        prev_rewards_int = np.asarray(prev_rewards_int)
+        beta_list = np.asarray(beta_list)
 
-        actions_onehot = tf.one_hot(actions, self.config.nb_actions)
+        actions_onehot = tf.one_hot(actions, self.config.action_num)
+        prev_actions_onehot = tf.one_hot(prev_actions, self.config.action_num)
+        actor_idx_onehot = tf.one_hot(actor_idx_list, self.config.actor_num)
 
         # ----------------------------------------
         # Q network
@@ -439,9 +522,16 @@ class Trainer(RLTrainer):
             states,
             n_states,
             actions_onehot,
+            next_invalid_actions_list,
+            rewards_ext.reshape((-1, 1)),
+            rewards_int.reshape((-1, 1)),
             done_list,
-            weights,
+            prev_actions_onehot,
+            prev_rewards_ext.reshape((-1, 1)),
+            prev_rewards_int.reshape((-1, 1)),
+            actor_idx_onehot,
             gamma_list,
+            weights,
         ]
         td_error_ext, loss_ext = self._update_q(
             self.parameter.q_ext_online,
@@ -450,74 +540,94 @@ class Trainer(RLTrainer):
             rewards_ext,
             *_params,
         )
-        td_error_int, loss_int = self._update_q(
-            self.parameter.q_int_online,
-            self.parameter.q_int_target,
-            self.q_int_optimizer,
-            rewards_int,
-            *_params,
-        )
-        td_errors = td_error_ext
-        # td_errors = td_error_ext + beta_list * td_error_int
+        _info = {"loss_ext": loss_ext}
 
-        # ----------------------------------------
-        # embedding network
-        # ----------------------------------------
-        with tf.GradientTape() as tape:
-            actions_probs = self.parameter.emb_network(states, n_states)
-            emb_loss = self.emb_loss(actions_probs, actions_onehot)
+        if self.config.enable_intrinsic_reward:
+            td_error_int, loss_int = self._update_q(
+                self.parameter.q_int_online,
+                self.parameter.q_int_target,
+                self.q_int_optimizer,
+                rewards_int,
+                *_params,
+            )
 
-        grads = tape.gradient(emb_loss, self.parameter.emb_network.trainable_variables)
-        self.emb_optimizer.apply_gradients(zip(grads, self.parameter.emb_network.trainable_variables))
+            # ----------------------------------------
+            # embedding network
+            # ----------------------------------------
+            with tf.GradientTape() as tape:
+                actions_probs = self.parameter.emb_network(states, n_states)
+                emb_loss = self.emb_loss(actions_probs, actions_onehot)
 
-        # ----------------------------------------
-        # lifelong network
-        # ----------------------------------------
-        lifelong_target_val = self.parameter.lifelong_target(states)
-        with tf.GradientTape() as tape:
-            lifelong_train_val = self.parameter.lifelong_train(states)
-            lifelong_loss = self.lifelong_loss(lifelong_target_val, lifelong_train_val)
+            grads = tape.gradient(emb_loss, self.parameter.emb_network.trainable_variables)
+            self.emb_optimizer.apply_gradients(zip(grads, self.parameter.emb_network.trainable_variables))
 
-        grads = tape.gradient(lifelong_loss, self.parameter.lifelong_train.trainable_variables)
-        self.lifelong_optimizer.apply_gradients(zip(grads, self.parameter.lifelong_train.trainable_variables))
+            # ----------------------------------------
+            # lifelong network
+            # ----------------------------------------
+            lifelong_target_val = self.parameter.lifelong_target(states)
+            with tf.GradientTape() as tape:
+                lifelong_train_val = self.parameter.lifelong_train(states)
+                lifelong_loss = self.lifelong_loss(lifelong_target_val, lifelong_train_val)
 
-        return td_errors, {
-            "loss_ext": loss_ext,
-            "loss_int": loss_int,
-            "emb_loss": emb_loss.numpy(),
-            "lifelong_loss": lifelong_loss.numpy(),
-        }
+            grads = tape.gradient(lifelong_loss, self.parameter.lifelong_train.trainable_variables)
+            self.lifelong_optimizer.apply_gradients(zip(grads, self.parameter.lifelong_train.trainable_variables))
+
+            _info["loss_int"] = loss_int
+            _info["emb_loss"] = emb_loss.numpy()
+            _info["lifelong_loss"] = lifelong_loss.numpy()
+        else:
+            td_error_int = 0.0
+
+        if self.config.disable_int_priority:
+            td_errors = td_error_ext
+        else:
+            td_errors = td_error_ext + beta_list * td_error_int
+
+        return td_errors, _info
 
     def _update_q(
         self,
-        q_online,
-        q_target,
+        model_q_online,
+        model_q_target,
         optimizer,
         rewards,
         #
         states,
         n_states,
         actions_onehot,
+        next_invalid_actions_list,
+        rewards_ext,
+        rewards_int,
         done_list,
-        weights,
+        prev_actions_onehot,
+        prev_rewards_ext,
+        prev_rewards_int,
+        actor_idx_onehot,
         gamma_list,
+        weights,
     ):
         target_q = self.parameter.calc_target_q(
-            q_online,
-            q_target,
+            model_q_online,
+            model_q_target,
             rewards,
+            #
             n_states,
+            actions_onehot,
+            next_invalid_actions_list,
+            rewards_ext,
+            rewards_int,
             done_list,
+            actor_idx_onehot,
             gamma_list,
         )
 
         with tf.GradientTape() as tape:
-            q = q_online(states)
+            q = model_q_online(states, prev_rewards_ext, prev_rewards_int, prev_actions_onehot, actor_idx_onehot)
             q = tf.reduce_sum(q * actions_onehot, axis=1)
             loss = self.q_loss(target_q * weights, q * weights)
 
-        grads = tape.gradient(loss, q_online.trainable_variables)
-        optimizer.apply_gradients(zip(grads, q_online.trainable_variables))
+        grads = tape.gradient(loss, model_q_online.trainable_variables)
+        optimizer.apply_gradients(zip(grads, model_q_online.trainable_variables))
 
         td_error = (target_q - q).numpy()
         loss = loss.numpy()
@@ -549,6 +659,11 @@ class Worker(DiscreteActionWorker):
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
+        self.recent_states = [self.dummy_state for _ in range(self.config.window_length + 1)]
+        self.recent_states.pop(0)
+        self.recent_states.append(state)
+        self.invalid_actions = invalid_actions
+
         if self.training:
             # エピソード毎に actor を決める
             self.actor_index = self._calc_actor_index()
@@ -557,13 +672,13 @@ class Worker(DiscreteActionWorker):
             self.gamma = self.gamma_list[self.actor_index]
 
         else:
+            self.actor_index = 0
             self.epsilon = self.config.test_epsilon
             self.beta = self.config.test_beta
 
-        self.recent_states = [self.dummy_state for _ in range(self.config.window_length + 1)]
-        self.recent_states.pop(0)
-        self.recent_states.append(state)
-        self.invalid_actions = invalid_actions
+        self.prev_action = random.randint(0, self.config.action_num - 1)
+        self.prev_reward_ext = 0
+        self.prev_reward_int = 0
 
         # Q値取得用
         self.onehot_actor_idx = tf.one_hot(np.array(self.actor_index), self.config.actor_num)[np.newaxis, ...]
@@ -614,14 +729,10 @@ class Worker(DiscreteActionWorker):
         return random.choice(np.where(ucbs == np.max(ucbs))[0])
 
     def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> int:
-        state = np.asarray([self.recent_states[1:]])
-
-        q_ext = self.parameter.q_ext_online(state)[0].numpy()
-        q_int = self.parameter.q_int_online(state)[0].numpy()
-        q = q_ext + self.beta * q_int
+        q, q_ext, _ = self._get_qval()
 
         if random.random() < self.epsilon:
-            self.action = random.choice([a for a in range(self.config.nb_actions) if a not in invalid_actions])
+            self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
             # valid actions以外は -inf にする
             q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)]
@@ -633,6 +744,21 @@ class Worker(DiscreteActionWorker):
         self.q = q[self.action]
         return self.action
 
+    def _get_qval(self):
+        prev_onehot_action = tf.one_hot(np.array(self.prev_action), self.config.action_num)[np.newaxis, ...]
+        in_ = [
+            np.asarray([self.recent_states[1:]]),
+            np.array([[self.prev_reward_ext]]),
+            np.array([[self.prev_reward_int]]),
+            prev_onehot_action,
+            self.onehot_actor_idx,
+        ]
+        q_ext = self.parameter.q_ext_online(*in_)[0].numpy()
+        q_int = self.parameter.q_int_online(*in_)[0].numpy()
+        q = q_ext + self.beta * q_int
+
+        return q, q_ext, q_int
+
     def call_on_step(
         self,
         next_state: np.ndarray,
@@ -640,6 +766,10 @@ class Worker(DiscreteActionWorker):
         done: bool,
         next_invalid_actions: List[int],
     ):
+        prev_action = self.prev_action
+        prev_reward_ext = self.prev_reward_ext
+        prev_reward_int = self.prev_reward_int
+
         self.episode_reward += reward_ext
 
         self.recent_states.pop(0)
@@ -647,38 +777,54 @@ class Worker(DiscreteActionWorker):
         self.invalid_actions = next_invalid_actions
 
         # 内部報酬
-        n_s = np.asarray([self.recent_states[1:]])
-        episodic_reward = self._calc_episodic_reward(n_s)
-        lifelong_reward = self._calc_lifelong_reward(n_s)
-        reward_int = episodic_reward * lifelong_reward
+        if self.config.enable_intrinsic_reward:
+            n_s = np.asarray([self.recent_states[1:]])
+            episodic_reward = self._calc_episodic_reward(n_s)
+            lifelong_reward = self._calc_lifelong_reward(n_s)
+            reward_int = episodic_reward * lifelong_reward
 
-        _info = {
-            "episodic": episodic_reward,
-            "lifelong": lifelong_reward,
-            "reward_int": reward_int,
-        }
+            _info = {
+                "episodic": episodic_reward,
+                "lifelong": lifelong_reward,
+                "reward_int": reward_int,
+            }
+        else:
+            reward_int = 0.0
+            _info = {}
+
+        self.prev_action = self.action
+        self.prev_reward_ext = reward_ext
+        self.prev_reward_int = reward_int
+
         if not self.training:
             return _info
 
         batch = {
             "states": self.recent_states[:],
             "action": self.action,
+            "next_invalid_actions": next_invalid_actions,
             "reward_ext": reward_ext,
             "reward_int": reward_int,
             "done": done,
+            "prev_action": prev_action,
+            "prev_reward_ext": prev_reward_ext,
+            "prev_reward_int": prev_reward_int,
             "actor": self.actor_index,
-            "next_invalid_actions": next_invalid_actions,
         }
 
-        # priority
         if self.config.memory_name == "ReplayMemory":
-            priority = 0
+            td_error = None
         elif not self.distributed:
-            priority = 0
+            td_error = None
         else:
             _params = [
                 n_s,
+                tf.one_hot([self.action], self.config.action_num),
+                [next_invalid_actions],
+                np.array([prev_reward_ext]),
+                np.array([prev_reward_int]),
                 [done],
+                self.onehot_actor_idx,
                 [self.gamma],
             ]
             target_q_ext = self.parameter.calc_target_q(
@@ -687,8 +833,9 @@ class Worker(DiscreteActionWorker):
                 [reward_ext],
                 *_params,
             )
-            if True:
-                priority = abs(target_q_ext - self.q_ext) + 0.0001
+
+            if self.config.disable_int_priority or not self.config.enable_intrinsic_reward:
+                td_error = target_q_ext - self.q_ext
             else:
                 target_q_int = self.parameter.calc_target_q(
                     self.parameter.q_int_online,
@@ -696,11 +843,11 @@ class Worker(DiscreteActionWorker):
                     [reward_int],
                     *_params,
                 )
-                priority = abs((target_q_ext + self.beta * target_q_int) - self.q) + 0.0001
+                td_error = (target_q_ext + self.beta * target_q_int) - self.q
+            td_error = td_error[0]
 
-        self.remote_memory.add(batch, priority)
+        self.remote_memory.add(batch, td_error)
 
-        _info["priority"] = priority
         return _info
 
     def _calc_episodic_reward(self, state):
@@ -762,10 +909,11 @@ class Worker(DiscreteActionWorker):
         return reward
 
     def call_render(self, env: EnvRun) -> None:
-        state = np.asarray([self.recent_states[1:]])
-        q_ext = self.parameter.q_ext_online(state)[0].numpy()
-        q_int = self.parameter.q_int_online(state)[0].numpy()
-        q = q_ext + self.beta * q_int
+        q, q_ext, q_int = self._get_qval()
+        if self.config.enable_rescale:
+            q = inverse_rescaling(q)
+            q_ext = inverse_rescaling(q_ext)
+            q_int = inverse_rescaling(q_int)
         invalid_actions = self.get_invalid_actions(env)
 
         maxa = np.argmax(q)

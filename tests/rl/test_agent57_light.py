@@ -8,6 +8,17 @@ class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()
         self.rl_config = srl.rl.agent57_light.Config()
+        self.pendulum_config = {
+            "hidden_layer_sizes": (128, 128),
+            "enable_dueling_network": False,
+            "memory_name": "ReplayMemory",
+            "target_model_update_interval": 100,
+            "actor_num": 8,
+            "input_ext_reward": False,
+            "input_int_reward": False,
+            "input_action": False,
+            "enable_intrinsic_reward": True,
+        }
 
     def test_sequence(self):
         self.tester.play_sequence(self.rl_config)
@@ -16,13 +27,31 @@ class Test(unittest.TestCase):
         self.tester.play_mp(self.rl_config)
 
     def test_verify_Pendulum(self):
-        self.rl_config.hidden_layer_sizes = (32, 32, 32)
-        self.rl_config.enable_dueling_network = False
-        self.rl_config.memory_name = "RankBaseMemory"
-        self.rl_config.memory_alpha = 0.8
-        self.rl_config.memory_beta_initial = 1.0
-        self.tester.play_verify_singleplay("Pendulum-v1", self.rl_config, 200 * 50)
+        rl_config = srl.rl.agent57_light.Config(**self.pendulum_config)
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 30)
+
+    def test_verify_Pendulum_mp(self):
+        rl_config = srl.rl.agent57_light.Config(**self.pendulum_config)
+        rl_config.memory_name = "ProportionalMemory"
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 30, is_mp=True)
+
+    def test_verify_Pendulum_uvfa(self):
+        rl_config = srl.rl.agent57_light.Config(**self.pendulum_config)
+        rl_config.input_ext_reward = True
+        rl_config.input_int_reward = True
+        rl_config.input_action = True
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 100)
+
+    def test_verify_Pendulum_memory(self):
+        rl_config = srl.rl.agent57_light.Config(**self.pendulum_config)
+        rl_config.memory_name = "ProportionalMemory"
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 30)
+
+    def test_verify_Pendulum_dis_int(self):
+        rl_config = srl.rl.agent57_light.Config(**self.pendulum_config)
+        rl_config.enable_intrinsic_reward = False
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 30)
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_sequence", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum_dis_int", verbosity=2)

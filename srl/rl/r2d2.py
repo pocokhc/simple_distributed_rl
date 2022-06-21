@@ -28,7 +28,7 @@ from tensorflow.keras import layers as kl
 https://openreview.net/forum?id=r1lyTjAqYX
 
 DQN
-    window_length          : -
+    window_length          : x
     Fixed Target Q-Network : o
     Error clipping     : o
     Experience Replay  : o
@@ -271,6 +271,24 @@ class Parameter(RLParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
+
+
+def _batch_dict_step_to_step_batch(batchs, key, in_step, is_list, to_np):
+    _list = []
+    for i in range(len(batchs[0][key])):
+        if in_step and is_list:
+            _list.append([[b[key][i]] for b in batchs])
+        elif in_step and not is_list:
+            _list.append([[[b[key][i]]] for b in batchs])
+        elif not in_step and is_list:
+            _list.append([[b[key][i]] for b in batchs])
+        elif not in_step and not is_list:
+            _list.append([b[key][i] for b in batchs])
+    if to_np:
+        _list = np.asarray(_list)
+    return _list
+
+
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
@@ -306,21 +324,26 @@ class Trainer(RLTrainer):
 
     def _train_on_batchs(self, batchs, weights):
 
-        # (batch, dict[x], multisteps) -> (multisteps, batch, x)
-        states_list = []
-        for i in range(self.config.sequence_length + 1):
-            states_list.append(np.asarray([[b["states"][i]] for b in batchs]))
-        actions_list = []
-        mu_probs_list = []
-        rewards_list = []
-        dones_list = []
-        next_invalid_actions_batchs_list = []
-        for i in range(self.config.sequence_length):
-            actions_list.append([b["actions"][i] for b in batchs])
-            rewards_list.append([b["rewards"][i] for b in batchs])
-            mu_probs_list.append([b["probs"][i] for b in batchs])
-            dones_list.append([b["dones"][i] for b in batchs])
-            next_invalid_actions_batchs_list.append([b["invalid_actions"][i] for b in batchs])
+        # (batch, dict[x], step) -> (step, batch, 1, x)
+        states_list = _batch_dict_step_to_step_batch(batchs, "states", in_step=True, is_list=True, to_np=True)
+        burnin_states = states_list[: self.config.burnin]
+        step_states_list = states_list[self.config.burnin :]
+
+        # (batch, dict[x], step) -> (step, batch)
+        step_actions_list = _batch_dict_step_to_step_batch(
+            batchs, "actions", in_step=False, is_list=False, to_np=False
+        )
+        step_mu_probs_list = _batch_dict_step_to_step_batch(batchs, "probs", in_step=False, is_list=False, to_np=False)
+        step_rewards_list = _batch_dict_step_to_step_batch(
+            batchs, "rewards", in_step=False, is_list=False, to_np=False
+        )
+        step_dones_list = _batch_dict_step_to_step_batch(batchs, "dones", in_step=False, is_list=False, to_np=False)
+        step_next_invalid_actions_list = _batch_dict_step_to_step_batch(
+            batchs, "invalid_actions", in_step=False, is_list=False, to_np=False
+        )
+
+        # (step, batch, x)
+        step_actions_onehot_list = tf.one_hot(step_actions_list, self.config.action_num)
 
         # hidden_states
         states_h = []
@@ -333,17 +356,18 @@ class Trainer(RLTrainer):
 
         # burn-in
         for i in range(self.config.burnin):
-            burnin_state = np.asarray([[b["burnin_states"][i]] for b in batchs])
+            burnin_state = burnin_states[i]
             _, hidden_states = self.parameter.q_online(burnin_state, hidden_states)
             _, hidden_states_t = self.parameter.q_target(burnin_state, hidden_states_t)
 
         _, _, td_error, _, loss = self._train_steps(
-            states_list,
-            actions_list,
-            mu_probs_list,
-            rewards_list,
-            dones_list,
-            next_invalid_actions_batchs_list,
+            step_states_list,
+            step_actions_list,
+            step_actions_onehot_list,
+            step_mu_probs_list,
+            step_rewards_list,
+            step_dones_list,
+            step_next_invalid_actions_list,
             weights,
             hidden_states,
             hidden_states_t,
@@ -354,12 +378,13 @@ class Trainer(RLTrainer):
     # Q値(LSTM hidden states)の予測はforward、td_error,retraceはbackwardで予測する必要あり
     def _train_steps(
         self,
-        states_list,
-        actions_list,
-        mu_probs_list,
-        rewards_list,
-        dones_list,
-        next_invalid_actions_batchs_list,
+        step_states_list,
+        step_actions_list,
+        step_actions_onehot_list,
+        step_mu_probs_list,
+        step_rewards_list,
+        step_dones_list,
+        step_next_invalid_actions_list,
         weights,
         hidden_states,
         hidden_states_t,
@@ -368,7 +393,7 @@ class Trainer(RLTrainer):
 
         # 最後
         if idx == self.config.sequence_length:
-            n_states = states_list[idx]
+            n_states = step_states_list[idx]
             n_q, _ = self.parameter.q_online(n_states, hidden_states)
             n_q_target, _ = self.parameter.q_target(n_states, hidden_states_t)
             n_q = tf.stop_gradient(n_q).numpy()
@@ -376,9 +401,7 @@ class Trainer(RLTrainer):
             # q, target_q, td_error, retrace, loss
             return n_q, n_q_target, 0.0, 1.0, 0.0
 
-        states = states_list[idx]
-        actions = actions_list[idx]
-        next_invalid_actions_batchs = next_invalid_actions_batchs_list[idx]
+        states = step_states_list[idx]
 
         # return用にq_targetを計算
         q_target, n_hidden_states_t = self.parameter.q_target(states, hidden_states_t)
@@ -390,12 +413,13 @@ class Trainer(RLTrainer):
 
             # 次のQ値を取得
             n_q, n_q_target, n_td_error, retrace, n_loss = self._train_steps(
-                states_list,
-                actions_list,
-                mu_probs_list,
-                rewards_list,
-                dones_list,
-                next_invalid_actions_batchs_list,
+                step_states_list,
+                step_actions_list,
+                step_actions_onehot_list,
+                step_mu_probs_list,
+                step_rewards_list,
+                step_dones_list,
+                step_next_invalid_actions_list,
                 weights,
                 n_hidden_states,
                 n_hidden_states_t,
@@ -405,9 +429,9 @@ class Trainer(RLTrainer):
             # targetQを計算
             target_q = np.zeros(self.config.batch_size)
             for i in range(self.config.batch_size):
-                reward = rewards_list[idx][i]
-                done = dones_list[idx][i]
-                next_invalid_actions = next_invalid_actions_batchs[i]
+                reward = step_rewards_list[idx][i]
+                done = step_dones_list[idx][i]
+                next_invalid_actions = step_next_invalid_actions_list[idx][i]
 
                 if done:
                     gain = reward
@@ -432,11 +456,11 @@ class Trainer(RLTrainer):
             if self.config.enable_retrace:
                 _retrace = np.zeros(self.config.batch_size)
                 for i in range(self.config.batch_size):
-                    action = actions_list[idx][i]
-                    mu_prob = mu_probs_list[idx][i]
+                    action = step_actions_list[idx][i]
+                    mu_prob = step_mu_probs_list[idx][i]
                     pi_probs = calc_epsilon_greedy_probs(
                         n_q[i],
-                        next_invalid_actions_batchs[i],
+                        step_next_invalid_actions_list[idx][i],
                         0.0,
                         self.config.action_num,
                     )
@@ -446,8 +470,7 @@ class Trainer(RLTrainer):
                 retrace *= _retrace
                 target_q += self.config.gamma * retrace * n_td_error
 
-            # 現在選んだアクションのQ値
-            action_onehot = tf.one_hot(actions, self.config.action_num)
+            action_onehot = step_actions_onehot_list[idx]
             q_onehot = tf.reduce_sum(q * action_onehot, axis=1)
 
             loss = self.loss(target_q * weights, q_onehot * weights)
@@ -458,7 +481,7 @@ class Trainer(RLTrainer):
         q = tf.stop_gradient(q).numpy()
 
         if idx == 0 or self.config.enable_retrace:
-            td_error = (target_q - q_onehot).numpy() + self.config.gamma * retrace * n_td_error
+            td_error = target_q - q_onehot.numpy() + self.config.gamma * retrace * n_td_error
         else:
             td_error = 0
         return q, q_target, td_error, retrace, (loss.numpy() + n_loss) / 2
@@ -501,7 +524,7 @@ class Worker(DiscreteActionWorker):
         ]
 
         self.recent_states.pop(0)
-        self.recent_states.append(state.astype(np.float32))
+        self.recent_states.append(state.astype(float))
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
@@ -542,7 +565,7 @@ class Worker(DiscreteActionWorker):
             return {}
 
         self.recent_states.pop(0)
-        self.recent_states.append(next_state.astype(np.float32))
+        self.recent_states.append(next_state.astype(float))
         self.recent_actions.pop(0)
         self.recent_actions.append(self.action)
         self.recent_probs.pop(0)
@@ -615,13 +638,12 @@ class Worker(DiscreteActionWorker):
 
     def _add_memory(self, calc_info):
         batch = {
-            "states": self.recent_states[self.config.burnin :],
+            "states": self.recent_states[:],
             "actions": self.recent_actions[:],
             "probs": self.recent_probs[:],
             "rewards": self.recent_rewards[:],
             "dones": self.recent_done[:],
             "invalid_actions": self.recent_invalid_actions[:],
-            "burnin_states": self.recent_states[: self.config.burnin],
             "hidden_states": self.recent_hidden_states[0],
         }
 

@@ -14,12 +14,6 @@ from srl.base.define import RenderType
 from srl.base.env.base import EnvRun
 from srl.runner.callback import Callback
 
-try:
-    from IPython import display
-except ImportError:
-    pass
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -153,6 +147,9 @@ class Rendering(Callback):
     def display(self, scale: float = 1.0, fps: float = 60) -> None:
         if len(self.frames) == 0:
             return
+
+        from IPython import display
+
         t0 = time.time()
         anime = self.create_anime(scale, fps)
         display.display(display.HTML(data=anime.to_jshtml()))

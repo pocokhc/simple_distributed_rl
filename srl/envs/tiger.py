@@ -62,13 +62,15 @@ class Tiger(SinglePlayEnv):
     def backup(self) -> Any:
         return json.dumps(
             [
-                self.tiger,
+                self.tiger.value,
+                self.state.value,
             ]
         )
 
     def restore(self, data: Any) -> None:
         d = json.loads(data)
-        self.tiger = d[0]
+        self.tiger = State(d[0])
+        self.state = State(d[1])
 
     def call_step(self, action_: int) -> Tuple[np.ndarray, float, bool, dict]:
         action = Action(action_)

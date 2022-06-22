@@ -2,7 +2,7 @@ import logging
 import os
 import pickle
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 import numpy as np
 from srl.base.define import (
@@ -29,6 +29,7 @@ class RLConfig(ABC):
         self.override_env_observation_type: EnvObservationType = EnvObservationType.UNKNOWN
         self.action_division_num: int = 5
         # self.observation_division_num: int = 10
+        self.extend_worker: Optional[Type[ExtendWorker]] = None
 
     @staticmethod
     @abstractmethod

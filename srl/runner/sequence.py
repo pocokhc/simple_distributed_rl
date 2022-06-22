@@ -3,14 +3,14 @@ import pickle
 import random
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import srl.envs
 import srl.rl
 from srl.base.define import RenderType
 from srl.base.env.base import EnvConfig, EnvRun
-from srl.base.rl.base import ExtendWorker, RLConfig, RLParameter, RLRemoteMemory, WorkerRun
+from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, WorkerRun
 from srl.base.rl.registration import (
     make_parameter,
     make_remote_memory,
@@ -32,7 +32,6 @@ class Config:
 
     env_config: EnvConfig
     rl_config: Optional[RLConfig]
-    extend_worker: Optional[Type[ExtendWorker]] = None
 
     # multi player option
     players: List[Union[None, str, RLConfig]] = field(default_factory=list)
@@ -128,12 +127,6 @@ class Config:
     ) -> WorkerRun:
         env = self.make_env()
         worker = make_worker(self.rl_config, env, parameter, remote_memory, actor_id)
-
-        # ExtendWorker
-        if self.extend_worker is not None:
-            worker = self.extend_worker(worker, env)
-            worker = WorkerRun(worker)
-
         worker.set_play_info(self.training, self.distributed)
         return worker
 
@@ -220,7 +213,6 @@ class Config:
             else:
                 config.validation_players.append(pickle.loads(pickle.dumps(player)))
         config.callbacks = self.callbacks  # sync
-        config.extend_worker = self.extend_worker
         if env_copy:
             config.env = self.env
         return config

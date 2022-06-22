@@ -58,6 +58,12 @@ def make_worker(
     name = rl_config.getName()
     worker = load_module(_registry[name][3])(rl_config, parameter, remote_memory, actor_id)
     worker = WorkerRun(worker)
+
+    # ExtendWorker
+    if rl_config.extend_worker is not None:
+        worker = rl_config.extend_worker(worker, env)
+        worker = WorkerRun(worker)
+
     worker.set_play_info(False, False)
     return worker
 

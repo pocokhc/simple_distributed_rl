@@ -373,6 +373,10 @@ class EnvRun:
     def get_invalid_actions(self, player_index: int) -> List[EnvInvalidAction]:
         return self._invalid_actions_list[player_index]
 
+    def add_invalid_actions(self, invalid_actions: List[EnvInvalidAction], player_index: int) -> None:
+        self._invalid_actions_list[player_index] += invalid_actions
+        self._invalid_actions_list[player_index] = list(set(self._invalid_actions_list[player_index]))
+
     def action_to_str(self, action: EnvAction) -> str:
         return self.env.action_to_str(action)
 

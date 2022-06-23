@@ -268,6 +268,8 @@ class EnvRun:
         self.timeout = timeout
 
     def step(self, actions: List[EnvAction], skip_frames: int = 0, skip_function=None) -> Info:
+        assert not self.done, "It is in the done state. Please execute reset ()."
+
         logger.debug("env.step")
         assert (
             len(actions) == self.player_num

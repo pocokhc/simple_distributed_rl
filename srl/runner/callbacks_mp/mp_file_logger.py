@@ -149,14 +149,21 @@ class MPFileLogger(MPCallback):
             cpus = psutil.cpu_percent(percpu=True)
             for i, cpu in enumerate(cpus):
                 d[f"cpu_{i}"] = cpu
+            d[f"cpu"] = np.mean(cpus)
             d["cpu_num"] = len(cpus)
         if self.enable_nvidia:
             gpu_num = pynvml.nvmlDeviceGetCount()
+            gpu = 0
+            gpu_memory = 0
             for i in range(gpu_num):
                 handle = pynvml.nvmlDeviceGetHandleByIndex(i)
                 rate = pynvml.nvmlDeviceGetUtilizationRates(handle)
                 d[f"gpu_{i}"] = rate.gpu
                 d[f"gpu_{i}_memory"] = rate.memory
+                gpu += rate.gpu
+                gpu_memory += rate.memory
+            d["gpu"] = gpu / gpu_num
+            d["gpu_memory"] = gpu_memory / gpu_num
             d["gpu_num"] = gpu_num
 
         self._write_log(self.fp_dict["trainer"], d)

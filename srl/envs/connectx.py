@@ -170,16 +170,15 @@ class ConnectX(TurnBase2Player):
     }
     """
 
-    def direct_reset(self, observation, configuration) -> Tuple[np.ndarray, List[int]]:
+    def call_direct_reset(self, observation, configuration) -> np.ndarray:
         self._player_index = observation.mark - 1
         self.board = observation.board[:]
-        return np.array(self.board), [self.player_index]
+        return np.array(self.board)
 
-    def direct_step(self, observation, configuration) -> Tuple[np.ndarray, List[float], bool, List[int], dict]:
+    def call_direct_step(self, observation, configuration) -> Tuple[np.ndarray, float, float, bool, dict]:
         self._player_index = observation.mark - 1
         self.board = observation.board[:]
-
-        return np.array(self.board), [0, 0], False, [self.player_index], {}
+        return np.array(self.board), 0, 0, False, {}
 
 
 @dataclass

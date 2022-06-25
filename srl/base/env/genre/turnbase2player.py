@@ -45,6 +45,14 @@ class TurnBase2Player(EnvBase):
         # state, reward1, reward2, done, info
         raise NotImplementedError()
 
+    def call_direct_reset(self, *args, **kwargs) -> np.ndarray:
+        # state
+        raise NotImplementedError()
+
+    def call_direct_step(self, *args, **kwargs) -> Tuple[np.ndarray, float, float, bool, Info]:
+        # state, reward1, reward2, done, info
+        raise NotImplementedError()
+
     # -----------------------------------------------------
     #  inherit implementation(継承元の実装)
     # -----------------------------------------------------
@@ -62,4 +70,11 @@ class TurnBase2Player(EnvBase):
     ) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
         action = actions[player_indices[0]]
         n_s, reward1, reward2, done, info = self.call_step(action)
+        return n_s, [reward1, reward2], done, [self.player_index], info
+
+    def direct_reset(self, *args, **kwargs) -> Tuple[np.ndarray, List[int]]:
+        return self.call_direct_reset(*args, **kwargs), [self.player_index]
+
+    def direct_step(self, *args, **kwargs) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
+        n_s, reward1, reward2, done, info = self.call_direct_step(*args, **kwargs)
         return n_s, [reward1, reward2], done, [self.player_index], info

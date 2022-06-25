@@ -21,7 +21,7 @@ class Config(DiscreteActionConfig):
 
     simulation_times: int = 10
     action_select_threshold: int = 5
-    gamma: float = 1.0  # 割引率
+    gamma: float = 1.0
     uct_c: float = np.sqrt(2.0)
 
     def __post_init__(self):

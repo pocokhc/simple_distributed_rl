@@ -53,13 +53,14 @@ class Test(unittest.TestCase):
     def test_Pendulum_memory(self):
         rl_config = srl.rl.agent57.Config(**self.base_config)
         rl_config.memory_name = "ProportionalMemory"
-        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 30)
+        rl_config.memory_beta_steps = 200 * 30
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 40)
 
     def test_Pendulum_dis_int(self):
         rl_config = srl.rl.agent57.Config(**self.base_config)
         rl_config.enable_intrinsic_reward = False
-        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 40)
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 50)
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum_memory", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_Pendulum_memory", verbosity=2)

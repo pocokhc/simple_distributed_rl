@@ -13,7 +13,7 @@ class Test(unittest.TestCase):
             "enable_dueling_network": False,
             "memory_name": "ReplayMemory",
             "target_model_update_interval": 100,
-            "actor_num": 8,
+            "actor_num": 4,
             "input_ext_reward": False,
             "input_int_reward": False,
             "input_action": False,
@@ -28,12 +28,12 @@ class Test(unittest.TestCase):
 
     def test_Pendulum(self):
         rl_config = srl.rl.agent57_light.Config(**self.pendulum_config)
-        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 30)
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 40)
 
     def test_Pendulum_mp(self):
         rl_config = srl.rl.agent57_light.Config(**self.pendulum_config)
         rl_config.memory_name = "ProportionalMemory"
-        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 40, is_mp=True)
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 60, is_mp=True)
 
     def test_Pendulum_uvfa(self):
         rl_config = srl.rl.agent57_light.Config(**self.pendulum_config)
@@ -45,13 +45,14 @@ class Test(unittest.TestCase):
     def test_Pendulum_memory(self):
         rl_config = srl.rl.agent57_light.Config(**self.pendulum_config)
         rl_config.memory_name = "ProportionalMemory"
-        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 50)
+        rl_config.memory_beta_steps = 200 * 30
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 40)
 
     def test_Pendulum_dis_int(self):
         rl_config = srl.rl.agent57_light.Config(**self.pendulum_config)
         rl_config.enable_intrinsic_reward = False
-        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 70)
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 40)
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_Pendulum", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_Pendulum_dis_int", verbosity=2)

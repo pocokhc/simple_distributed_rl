@@ -1,5 +1,5 @@
 import pickle
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 from srl.base.define import EnvAction, EnvObservationType, Info
@@ -19,8 +19,10 @@ except ImportError:
 
 class GymWrapper(EnvBase):
     def __init__(self, env_name: str, prediction_by_simulation: bool):
+        self.seed = None
 
         self.env: gym.Env = gym.make(env_name)
+
         self.prediction_by_simulation = prediction_by_simulation
 
         self._observation_type = EnvObservationType.UNKNOWN
@@ -100,6 +102,7 @@ class GymWrapper(EnvBase):
                 state, _, done, _ = self.env.step(action)
             if "int" not in str(np.asarray(state).dtype):
                 return False
+
         return True
 
     # --------------------------------
@@ -132,7 +135,15 @@ class GymWrapper(EnvBase):
         return 1
 
     def reset(self) -> Tuple[np.ndarray, List[int]]:
-        state = self.env.reset()
+        if self.seed is None:
+            state = self.env.reset()
+        else:
+            # seed を最初のみ設定
+            state = self.env.reset(seed=self.seed)
+            self.env.action_space.seed(self.seed)
+            self.env.observation_space.seed(self.seed)
+            self.seed = None
+
         return np.asarray(state), [0]
 
     def step(
@@ -171,3 +182,6 @@ class GymWrapper(EnvBase):
 
     def get_original_env(self) -> object:
         return self.env
+
+    def set_seed(self, seed: Optional[int] = None) -> None:
+        self.seed = seed

@@ -3,6 +3,7 @@ import pickle
 import random
 import time
 from dataclasses import dataclass, field
+from optparse import Option
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -65,6 +66,8 @@ class Config:
         self.enable_validation: bool = False
         # callbacks
         self.callbacks: List[Callback] = []
+        # random seed
+        self.seed: Optional[int] = None
 
         # none の場合はQLを代わりに入れる
         if self.rl_config is None:
@@ -174,21 +177,21 @@ class Config:
     # ------------------------------
     # other functions
     # ------------------------------
-
     def to_dict(self) -> dict:
+        # TODO: list
         conf = {}
         for k, v in self.__dict__.items():
-            if type(v) in [int, float, bool, str]:
+            if v is None or type(v) in [int, float, bool, str]:
                 conf[k] = v
 
         conf["rl_config"] = {}
         for k, v in self.rl_config.__dict__.items():
-            if type(v) in [int, float, bool, str]:
+            if v is None or type(v) in [int, float, bool, str]:
                 conf["rl_config"][k] = v
 
         conf["env_config"] = {}
         for k, v in self.env_config.__dict__.items():
-            if type(v) in [int, float, bool, str]:
+            if v is None or type(v) in [int, float, bool, str]:
                 conf["env_config"][k] = v
 
         return conf
@@ -198,8 +201,9 @@ class Config:
         rl_config = pickle.loads(pickle.dumps(self.rl_config))
         config = Config(env_config, rl_config, is_make_env=False)
         for k, v in self.__dict__.items():
-            if type(v) in [int, float, bool, str]:
+            if v is None or type(v) in [int, float, bool, str]:
                 setattr(config, k, v)
+
         config.players = []
         for player in self.players:
             if player is None:
@@ -226,6 +230,7 @@ def train(
     timeout: int = -1,
     shuffle_player: bool = True,
     enable_validation: bool = True,
+    seed: Optional[int] = None,
     # print
     print_progress: bool = True,
     max_progress_time: int = 60 * 10,  # s
@@ -247,6 +252,7 @@ def train(
     config.timeout = timeout
     config.shuffle_player = shuffle_player
     config.enable_validation = enable_validation
+    config.seed = seed
     config.callbacks = callbacks
 
     config.training = True
@@ -279,6 +285,7 @@ def evaluate(
     max_steps: int = -1,
     timeout: int = -1,
     shuffle_player: bool = False,
+    seed: Optional[int] = None,
     callbacks: List[Callback] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
 ) -> Union[List[float], List[List[float]]]:  # single play , multi play
@@ -290,6 +297,7 @@ def evaluate(
     config.max_episodes = max_episodes
     config.timeout = timeout
     config.shuffle_player = shuffle_player
+    config.seed = seed
     config.callbacks = callbacks
 
     config.enable_validation = False
@@ -312,6 +320,7 @@ def render(
     max_steps: int = -1,
     timeout: int = -1,
     shuffle_player: bool = False,
+    seed: Optional[int] = None,
     callbacks: List[Callback] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
 ) -> Tuple[List[float], Rendering]:
@@ -322,6 +331,7 @@ def render(
     config.max_steps = max_steps
     config.timeout = timeout
     config.shuffle_player = shuffle_player
+    config.seed = seed
     config.callbacks = callbacks
 
     config.enable_validation = False
@@ -348,6 +358,17 @@ def play(
 ) -> Tuple[List[List[float]], RLParameter, RLRemoteMemory, EnvRun]:
 
     env = config.make_env()
+
+    # random seed
+    if config.seed is not None:
+        random.seed(config.seed)
+        np.random.seed(config.seed)
+
+        import tensorflow as tf
+
+        tf.random.set_seed(config.seed)
+        env.set_seed(config.seed)
+
     config = config.copy(env_copy=True)
     config.assert_params()
 

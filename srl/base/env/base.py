@@ -149,6 +149,10 @@ class EnvBase(ABC):
     def get_original_env(self) -> object:
         return self
 
+    # option
+    def set_seed(self, seed: Optional[int] = None) -> None:
+        return
+
     def copy(self):
         env = self.__class__()
         env.restore(self.backup())
@@ -394,6 +398,9 @@ class EnvRun:
     def get_original_env(self) -> object:
         return self.env.get_original_env()
 
+    def set_seed(self, seed: Optional[int] = None) -> None:
+        self.env.set_seed(seed)
+
     # ------------------------------------
     # direct
     # ------------------------------------
@@ -424,10 +431,10 @@ class EnvRun:
     # util functions
     # ------------------------------------
     def samples(self) -> List[EnvAction]:
-        return [self.action_space.sample(self.get_invalid_actions(i)) for i in range(self.player_num)]
+        return [self.action_space.sample(self._invalid_actions_list[i]) for i in range(self.player_num)]
 
     def sample(self, player_index: int) -> EnvAction:
-        return self.action_space.sample(self.get_invalid_actions(player_index))
+        return self.action_space.sample(self._invalid_actions_list[player_index])
 
     def copy(self):
         org_env = self.env.__class__()
@@ -440,3 +447,4 @@ class EnvRun:
         for k, v in self.__dict__.items():
             if type(v) in [int, float, bool, str]:
                 conf[k] = v
+        return conf

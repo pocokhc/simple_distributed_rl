@@ -62,16 +62,17 @@ class Config:
     # -------------------------------------
 
     def to_dict(self) -> dict:
+        # TODO: list
         conf = {}
         for k, v in self.__dict__.items():
-            if type(v) in [int, float, bool, str]:
+            if v is None or type(v) in [int, float, bool, str]:
                 conf[k] = v
         return conf
 
     def copy(self):
         config = Config(0)
         for k, v in self.__dict__.items():
-            if type(v) in [int, float, bool, str]:
+            if v is None or type(v) in [int, float, bool, str]:
                 setattr(config, k, v)
 
         config.callbacks = self.callbacks  # sync

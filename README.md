@@ -237,7 +237,7 @@ examples/custom_rl.ipynb
 |BoxSpace            |np.ndarray |
 
 
-# 開発環境/動作確認環境
+# Development environment / Operation check environment
 
 + windows10
 + Python(3.9.13, 3.7.9)

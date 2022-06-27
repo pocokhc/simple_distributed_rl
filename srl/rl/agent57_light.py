@@ -9,18 +9,14 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (
-    create_beta_list,
-    create_epsilon_list,
-    create_gamma_list,
-    inverse_rescaling,
-    render_discrete_action,
-    rescaling,
-)
+from srl.rl.functions.common import (create_beta_list, create_epsilon_list,
+                                     create_gamma_list, inverse_rescaling,
+                                     render_discrete_action, rescaling)
 from srl.rl.functions.dueling_network import create_dueling_network_layers
 from srl.rl.functions.model import ImageLayerType, create_input_layers
 from tensorflow.keras import layers as kl
@@ -919,6 +915,6 @@ class Worker(DiscreteActionWorker):
         maxa = np.argmax(q)
 
         def _render_sub(a: int) -> str:
-            return f"{q[a]:5.3f} = {q_ext[a]:5.3f} + {self.beta} * {q_int[a]:5.3f}"
+            return f"{q[a]:6.3f} = {q_ext[a]:6.3f} + {self.beta:.3f} * {q_int[a]:6.3f}"
 
         render_discrete_action(invalid_actions, maxa, env, _render_sub)

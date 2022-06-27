@@ -119,5 +119,5 @@ def render_discrete_action(invalid_actions, maxa, env: EnvRun, func) -> None:
             else:
                 s += " "
         rl_s = func(action)
-        s += f"{env.action_to_str(action)}: {rl_s}"
+        s += f"{env.action_to_str(action):3s}: {rl_s}"
         print(s)

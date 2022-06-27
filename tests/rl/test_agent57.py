@@ -48,7 +48,7 @@ class Test(unittest.TestCase):
         rl_config.input_ext_reward = True
         rl_config.input_int_reward = True
         rl_config.input_action = True
-        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 100)
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 150)
 
     def test_Pendulum_memory(self):
         rl_config = srl.rl.agent57.Config(**self.base_config)

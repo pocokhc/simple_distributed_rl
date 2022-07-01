@@ -1,3 +1,4 @@
+import copy
 import logging
 import pickle
 import time
@@ -27,6 +28,14 @@ class EnvConfig:
     def _update_env_info(self, env: "EnvBase"):
         self.max_episode_steps = env.max_episode_steps
         self.player_num = env.player_num
+
+    def copy(self) -> "EnvConfig":
+        config = EnvConfig(self.name)
+        config.kwargs = copy.deepcopy(self.kwargs)
+        for k, v in self.__dict__.items():
+            if v is None or type(v) in [int, float, bool, str]:
+                setattr(config, k, v)
+        return config
 
 
 class EnvBase(ABC):

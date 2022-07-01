@@ -115,7 +115,6 @@ class RLConfig(ABC):
         pass  # NotImplemented
 
     def copy(self) -> "RLConfig":
-        # TODO
         return pickle.loads(pickle.dumps(self))
 
 

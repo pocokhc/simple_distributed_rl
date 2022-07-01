@@ -178,32 +178,43 @@ class Config:
     # other functions
     # ------------------------------
     def to_dict(self) -> dict:
-        # TODO: list
+        # listは1階層のみ
         conf = {}
         for k, v in self.__dict__.items():
             if v is None or type(v) in [int, float, bool, str]:
                 conf[k] = v
+            elif type(v) is list:
+                conf[k] = [str(n) for n in v]
 
         conf["rl_config"] = {}
         for k, v in self.rl_config.__dict__.items():
             if v is None or type(v) in [int, float, bool, str]:
                 conf["rl_config"][k] = v
+            elif type(v) is list:
+                conf["rl_config"][k] = [str(n) for n in v]
 
         conf["env_config"] = {}
         for k, v in self.env_config.__dict__.items():
             if v is None or type(v) in [int, float, bool, str]:
                 conf["env_config"][k] = v
+            elif type(v) is list:
+                conf["env_config"][k] = [str(n) for n in v]
 
         return conf
 
-    def copy(self, env_copy: bool = False):
-        env_config = pickle.loads(pickle.dumps(self.env_config))
-        rl_config = pickle.loads(pickle.dumps(self.rl_config))
+    def copy(self, env_copy: bool = False, sync_callbacks: bool = True):
+        env_config = self.env_config.copy()
+        rl_config = self.rl_config.copy()
         config = Config(env_config, rl_config, is_make_env=False)
+
+        # parameter
         for k, v in self.__dict__.items():
             if v is None or type(v) in [int, float, bool, str]:
                 setattr(config, k, v)
+            if type(v) is list:
+                setattr(config, k, v)
 
+        # list parameter
         config.players = []
         for player in self.players:
             if player is None:
@@ -216,9 +227,17 @@ class Config:
                 config.validation_players.append(None)
             else:
                 config.validation_players.append(pickle.loads(pickle.dumps(player)))
-        config.callbacks = self.callbacks  # sync
+
+        # callback
+        if sync_callbacks:
+            config.callbacks = self.callbacks
+        else:
+            config.callbacks = pickle.loads(pickle.dumps(self.callbacks))
+
+        # env
         if env_copy:
             config.env = self.env
+
         return config
 
 

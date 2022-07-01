@@ -130,7 +130,7 @@ examples/custom_rl.ipynb
 ### ValueBase
 
 |Algorithm |Observation|Action|ProgressRate||
-|----------|-----------|----------|------------|---|
+|----------|-----------|----------|----|---|
 |QL        |Discrete   |Discrete  |100%|Basic Q Learning|
 |QL_agent57|Discrete   |Discrete  | 80%|QL + Agent57|
 |DQN       |Continuous |Discrete  |100%||
@@ -138,34 +138,37 @@ examples/custom_rl.ipynb
 |Rainbow   |Continuous |Discrete  |100%||
 |R2D2      |Continuous |Discrete  |100%||
 |Agent57   |Continuous |Discrete  |100%||
-|Agent57_light|Continuous|Discrete  |100%|Agent57 - (LSTM,MultiStep)|
+|Agent57_light|Continuous|Discrete|100%|Agent57 - (LSTM,MultiStep)|
 
 
 ### PolicyBase/ActorCritic
 
 |Algorithm              |Observation|Action    |ProgressRate||
-|-----------------------|-----------|----------|------------|---|
-|VanillaPolicyDiscrete  |Discrete   |Discrete  |100%||
-|VanillaPolicyContinuous|Discrete   |Continuous|100%||
-|REINFORCE              |           |          | 0%||
-|A3C/A2C                |           |          | 0%||
-|TRPO                   |Continuous |Continuous| 0%||
-|PPO                    |Continuous |Continuous| 0%||
-|DDPG/TD3               |Continuous |Continuous| 0%||
-|SAC                    |Continuous |Continuous| 50%||[Paper](https://arxiv.org/abs/1812.05905)|
+|-----------------------|-----------|----------|----|---|
+|VanillaPolicy          |Discrete   |Both      |100%||
+|A3C/A2C                |           |          |  0%||
+|TRPO                   |Continuous |          |   -||
+|PPO                    |Continuous |          |  0%||
+|DDPG/TD3               |Continuous |Continuous|100%||
+|SAC                    |Continuous |Continuous|100%||
+
+
+## Alpha series
+
+|Algorithm  |Observation|Action     |ProgressRate||
+|-----------|-----------|-----------|----|---|
+|MCTS       |Discrete   |Discrete   |  0%||
+|AlphaZero  |Continuous |Discrete   |  0%||
+|MuZero     |Continuous |Discrete   |  0%||
 
 
 ## Model Base
 
-|Algorithm|Observation|Action     |ProgressRate||
-|---------|-----------|-----------|------------|---|
-|MCTS     |Discrete   |Discrete   | 0%||
-|AlphaZero|Continuous |Discrete   | 0%||[Paper](https://arxiv.org/abs/1712.01815)|
-|MuZero   |Continuous |Discrete   | 0%||[Paper](https://www.nature.com/articles/s41586-020-03051-4)|
-|DynaQ    |Discrete   |Discrete   | 10%||
-|WorldModels|         |           | 0%||
-|DreamerV2  |         |           | 0%||
-
+|Algorithm  |Observation|Action     |ProgressRate||
+|-----------|-----------|-----------|----|---|
+|DynaQ      |Discrete   |Discrete   | 10%||
+|WorldModels|           |           |  0%||
+|DreamerV2  |           |           |  0%||
 
 
 

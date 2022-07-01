@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Tuple, Union, cast
 
 import numpy as np
 import tensorflow as tf
-from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import RLObservationType
@@ -16,6 +15,9 @@ from srl.rl.functions.common_tf import compute_logprob_sgp
 from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
 
 """
+Paper
+https://arxiv.org/abs/1812.05905
+
 DDPG
     Replay buffer       : o
     Target Network(soft): o
@@ -48,8 +50,8 @@ class Config(ContinuousActionConfig):
     hard_target_update_interval: int = 100
 
     batch_size: int = 32
-    capacity: int = 10_000
-    memory_warmup_size: int = 500
+    capacity: int = 100_000
+    memory_warmup_size: int = 1000
 
     def __post_init__(self):
         super().__init__()
@@ -127,7 +129,6 @@ class _PolicyModel(keras.Model):
         assert mean.shape == (1, config.action_num)
         assert stddev.shape == (1, config.action_num)
 
-    @tf.function
     def call(self, state):
         mean, stddev = self.model(state)
 
@@ -385,11 +386,12 @@ class Worker(ContinuousActionWorker):
         state = self.state.reshape(1, -1)
         action = np.asarray([self.action])
         _, mean, stddev, _ = self.parameter.policy(state)
-        mean = mean.numpy()[0][0]
-        stddev = stddev.numpy()[0][0]
+        mean = mean.numpy()[0]
+        stddev = stddev.numpy()[0]
         q1, q2 = self.parameter.q_online(state, action)
         q1 = q1.numpy()[0][0]
         q2 = q2.numpy()[0][0]
 
-        print(f"mean {mean:.5f}, stddev {stddev:.5f}")
+        print(f"mean {mean}")
+        print(f"stddev {stddev}")
         print(f"q1   {q1:.5f}, q2    {q2:.5f}")

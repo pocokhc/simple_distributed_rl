@@ -16,6 +16,12 @@ from srl.rl.functions.common import random_choice_by_probs, render_discrete_acti
 from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
 from tensorflow.keras import layers as kl
 
+"""
+Paper
+https://arxiv.org/abs/1712.01815
+
+"""
+
 
 # ------------------------------------------------------
 # config

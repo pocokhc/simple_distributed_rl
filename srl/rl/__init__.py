@@ -10,6 +10,7 @@ from . import agent57  # noqa F402
 from . import agent57_light  # noqa F402
 from . import alphazero  # noqa F402
 from . import c51  # noqa F402
+from . import ddpg  # noqa F402
 from . import dqn  # noqa F402
 from . import human  # noqa F402
 from . import mcts  # noqa F402

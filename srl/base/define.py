@@ -52,5 +52,5 @@ class RenderType(enum.Enum):
     NONE = ""
     Terminal = "Terminal"
     GUI = "GUI"
-    # Notebook = "Notebook"
+    # Notebook = "Notebook"  TODO
     RGB_Array = "RGB"

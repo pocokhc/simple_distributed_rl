@@ -47,10 +47,13 @@ class GymWrapper(EnvBase):
                 self._action_space = ArrayDiscreteSpace(nvec)
                 return
             else:
-                raise ValueError  # TODO
+                pass  # TODO
 
         if isinstance(space, spaces.Box):
             self._action_space = BoxSpace(space.shape, space.low, space.high)
+            return
+
+        raise ValueError(f"not supported({space})")
 
     def _pred_observation_space(self, space):
         if isinstance(space, spaces.Discrete):
@@ -66,7 +69,7 @@ class GymWrapper(EnvBase):
                 self._observation_type = EnvObservationType.DISCRETE
                 return
             else:
-                raise ValueError  # TODO
+                pass  # TODO
 
         if isinstance(space, spaces.Box):
             # 離散の可能性を確認
@@ -82,6 +85,9 @@ class GymWrapper(EnvBase):
                     self._observation_type = EnvObservationType.CONTINUOUS
             else:
                 self._observation_space = BoxSpace(space.shape, space.low, space.high)
+            return
+
+        raise ValueError(f"not supported({space})")
 
     def _is_tuple_all_discrete(self, space) -> bool:
         for s in space.spaces:

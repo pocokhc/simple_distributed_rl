@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Union, cast
 import numpy as np
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory.sequence_memory import SequenceRemoteMemory

@@ -145,7 +145,7 @@ class RLParameter(ABC):
         with open(path, "rb") as f:
             self.restore(pickle.load(f))
 
-    def summary(self):
+    def summary(self, **kwargs):
         pass  # NotImplemented
 
 

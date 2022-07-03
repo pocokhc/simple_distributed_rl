@@ -1,18 +1,22 @@
 import random
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, cast
+from typing import Any, List, cast
 
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
-from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
-from srl.rl.functions.model import ImageLayerType, create_input_layers
+from srl.rl.functions.common import (create_epsilon_list, inverse_rescaling,
+                                     render_discrete_action, rescaling)
+from srl.rl.models.dqn_image_block import DQNImageBlock
+from srl.rl.models.input_layer import create_input_layer
+from srl.rl.models.mlp_block import MLPBlock
 from tensorflow.keras import layers as kl
 
 """
@@ -59,9 +63,10 @@ class Config(DiscreteActionConfig):
 
     # model
     window_length: int = 1
-    hidden_layer_sizes: Tuple[int, ...] = (512,)
-    activation: str = "relu"
-    image_layer_type: ImageLayerType = ImageLayerType.DQN
+    cnn_block: kl.Layer = DQNImageBlock
+    cnn_block_kwargs: dict = None
+    hidden_block: kl.Layer = MLPBlock
+    hidden_block_kwargs: dict = None
 
     gamma: float = 0.99  # 割引率
     lr: float = 0.001  # 学習率
@@ -85,8 +90,8 @@ class Config(DiscreteActionConfig):
         self.batch_size = 32
         self.capacity = 1_000_000
         self.window_length = 4
-        self.hidden_layer_sizes = (512,)
-        self.image_layer_type = ImageLayerType.DQN
+        self.cnn_block = DQNImageBlock
+        self.hidden_block = MLPBlock((512,))
         self.target_model_update_interval = 10000
         self.gamma = 0.99
         self.lr = 0.00025
@@ -102,6 +107,10 @@ class Config(DiscreteActionConfig):
 
     def __post_init__(self):
         super().__init__()
+        if self.cnn_block_kwargs is None:
+            self.cnn_block_kwargs = {}
+        if self.hidden_block_kwargs is None:
+            self.hidden_block_kwargs = {}
 
     @property
     def observation_type(self) -> RLObservationType:
@@ -116,7 +125,6 @@ class Config(DiscreteActionConfig):
         assert self.window_length > 0
         assert self.memory_warmup_size < self.capacity
         assert self.batch_size < self.memory_warmup_size
-        assert len(self.hidden_layer_sizes) > 0
 
 
 register(
@@ -146,16 +154,17 @@ class _QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        in_state, c = create_input_layers(
-            config.window_length,
+        in_state, c, use_image_head = create_input_layer(
             config.observation_shape,
             config.env_observation_type,
-            config.image_layer_type,
+            config.window_length,
         )
+        if use_image_head:
+            c = config.cnn_block(**config.cnn_block_kwargs)(c)
+            c = kl.Flatten()(c)
 
-        # --- hidden layer
-        for h in config.hidden_layer_sizes:
-            c = kl.Dense(h, activation=config.activation, kernel_initializer="he_normal")(c)
+        # --- hidden block
+        c = config.hidden_block(**config.hidden_block_kwargs)(c)
 
         # --- out layer
         c = kl.Dense(
@@ -164,10 +173,10 @@ class _QNetwork(keras.Model):
             kernel_initializer="truncated_normal",
             bias_initializer="truncated_normal",
         )(c)
-        self.model = keras.Model(in_state, c)
+        self.model = keras.Model(in_state, c, name="DQN")
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=np.float32)
+        dummy_state = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=float)
         val = self(dummy_state)
         assert val.shape == (1, config.action_num)
 
@@ -193,8 +202,8 @@ class Parameter(RLParameter):
     def backup(self) -> Any:
         return self.q_online.get_weights()
 
-    def summary(self):
-        self.q_online.model.summary()
+    def summary(self, **kwargs):
+        self.q_online.model.summary(**kwargs)
 
 
 # ------------------------------------------------------

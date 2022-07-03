@@ -20,8 +20,9 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
-from srl.rl.functions.dueling_network import create_dueling_network_layers
-from srl.rl.functions.model import ImageLayerType, create_input_layers
+from srl.rl.models.dqn_image_block import DQNImageBlock
+from srl.rl.models.dueling_network import create_dueling_network_layers
+from srl.rl.models.input_layer import create_input_layer
 from tensorflow.keras import layers as kl
 
 """
@@ -78,9 +79,10 @@ class Config(DiscreteActionConfig):
 
     # model
     window_length: int = 1
+    cnn_block: kl.Layer = DQNImageBlock
+    cnn_block_kwargs: dict = None
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
-    image_layer_type: ImageLayerType = ImageLayerType.DQN
 
     gamma: float = 0.99  # 割引率
     lr: float = 0.001  # 学習率
@@ -124,7 +126,6 @@ class Config(DiscreteActionConfig):
         self.capacity = 1_000_000
         self.window_length = 4
         self.hidden_layer_sizes = (512,)
-        self.image_layer_type = ImageLayerType.DQN
         self.target_model_update_interval = 32000
         self.gamma = 0.99
         self.lr = 0.0000625
@@ -143,6 +144,8 @@ class Config(DiscreteActionConfig):
 
     def __post_init__(self):
         super().__init__()
+        if self.cnn_block_kwargs is None:
+            self.cnn_block_kwargs = {}
 
     @property
     def observation_type(self) -> RLObservationType:
@@ -194,12 +197,14 @@ class _QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        in_state, c = create_input_layers(
-            config.window_length,
+        in_state, c, use_image_head = create_input_layer(
             config.observation_shape,
             config.env_observation_type,
-            config.image_layer_type,
+            config.window_length,
         )
+        if use_image_head:
+            c = config.cnn_block(**config.cnn_block_kwargs)(c)
+            c = kl.Flatten()(c)
 
         if config.enable_noisy_dense:
             _Dense = tfa.layers.NoisyDense
@@ -258,7 +263,7 @@ class Parameter(RLParameter):
     def backup(self) -> Any:
         return self.q_online.get_weights()
 
-    def summary(self):
+    def summary(self, **kwargs):
         self.q_online.model.summary()
 
     # ----------------------------------------------

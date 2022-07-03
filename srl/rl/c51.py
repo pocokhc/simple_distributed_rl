@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, Dict, List, cast
 
 import numpy as np
 import tensorflow as tf
@@ -13,7 +13,9 @@ from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common import render_discrete_action
-from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
+from srl.rl.models.dqn_image_block import DQNImageBlock
+from srl.rl.models.input_layer import create_input_layer
+from srl.rl.models.mlp_block import MLPBlock
 
 """
 Categorical DQN（C51）
@@ -40,9 +42,10 @@ class Config(DiscreteActionConfig):
     capacity: int = 100_000
 
     # model
-    hidden_layer_sizes: Tuple[int, ...] = (512,)
-    activation: str = "relu"
-    image_layer_type: ImageLayerType = ImageLayerType.DQN
+    cnn_block: kl.Layer = DQNImageBlock
+    cnn_block_kwargs: dict = None
+    hidden_block: kl.Layer = MLPBlock
+    hidden_block_kwargs: dict = None
 
     categorical_num_atoms: int = 51
     categorical_v_min: float = -10
@@ -50,6 +53,10 @@ class Config(DiscreteActionConfig):
 
     def __post_init__(self):
         super().__init__()
+        if self.cnn_block_kwargs is None:
+            self.cnn_block_kwargs = {}
+        if self.hidden_block_kwargs is None:
+            self.hidden_block_kwargs = {}
 
     @property
     def observation_type(self) -> RLObservationType:
@@ -93,13 +100,18 @@ class Parameter(RLParameter):
         super().__init__(*args)
         self.config = cast(Config, self.config)
 
-        in_state, c = create_input_layers_one_sequence(
+        in_state, c, use_image_head = create_input_layer(
             self.config.observation_shape,
             self.config.env_observation_type,
-            self.config.image_layer_type,
         )
-        for h in self.config.hidden_layer_sizes:
-            c = kl.Dense(h, activation=self.config.activation, kernel_initializer="he_normal")(c)
+        if use_image_head:
+            c = self.config.cnn_block(**self.config.cnn_block_kwargs)(c)
+            c = kl.Flatten()(c)
+
+        # --- hidden block
+        c = self.config.hidden_block(**self.config.hidden_block_kwargs)(c)
+
+        # --- out layer
         c = kl.Dense(self.config.action_num * self.config.categorical_num_atoms, activation="linear")(c)
         c = kl.Reshape((self.config.action_num, self.config.categorical_num_atoms))(c)
         self.Q = keras.Model(in_state, c)
@@ -110,7 +122,7 @@ class Parameter(RLParameter):
     def backup(self):
         return self.Q.get_weights()
 
-    def summary(self):
+    def summary(self, **kwargs):
         self.Q.summary()
 
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, Union, cast
+from typing import Any, Dict, List, Union, cast
 
 import numpy as np
 import tensorflow as tf
@@ -12,7 +12,9 @@ from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common_tf import compute_logprob_sgp
-from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
+from srl.rl.models.dqn_image_block import DQNImageBlock
+from srl.rl.models.input_layer import create_input_layer
+from srl.rl.models.mlp_block import MLPBlock
 
 """
 Paper
@@ -39,10 +41,12 @@ SAC
 class Config(ContinuousActionConfig):
 
     # model
-    policy_hidden_layer_sizes: Tuple[int, ...] = (64, 64, 64)
-    q_hidden_layer_sizes: Tuple[int, ...] = (64, 64, 64)
-    activation: str = "relu"
-    image_layer_type: ImageLayerType = ImageLayerType.DQN
+    cnn_block: kl.Layer = DQNImageBlock
+    cnn_block_kwargs: dict = None
+    policy_hidden_block: kl.Layer = MLPBlock
+    policy_hidden_block_kwargs: dict = None
+    q_hidden_block: kl.Layer = MLPBlock
+    q_hidden_block_kwargs: dict = None
 
     gamma: float = 0.9  # 割引率
     lr: float = 0.005  # 学習率
@@ -55,6 +59,12 @@ class Config(ContinuousActionConfig):
 
     def __post_init__(self):
         super().__init__()
+        if self.cnn_block_kwargs is None:
+            self.cnn_block_kwargs = {}
+        if self.policy_hidden_block_kwargs is None:
+            self.policy_hidden_block_kwargs = {}
+        if self.q_hidden_block_kwargs is None:
+            self.q_hidden_block_kwargs = {}
 
     @property
     def observation_type(self) -> RLObservationType:
@@ -97,15 +107,16 @@ class _PolicyModel(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        in_state, c = create_input_layers_one_sequence(
+        in_state, c, use_image_head = create_input_layer(
             config.observation_shape,
             config.env_observation_type,
-            config.image_layer_type,
         )
+        if use_image_head:
+            c = config.cnn_block(**config.cnn_block_kwargs)(c)
+            c = kl.Flatten()(c)
 
-        # --- hidden layer
-        for h in config.policy_hidden_layer_sizes:
-            c = kl.Dense(h, activation=config.activation, kernel_initializer="he_normal")(c)
+        # --- hidden block
+        c = config.policy_hidden_block(**config.policy_hidden_block_kwargs)(c)
         c = kl.LayerNormalization()(c)  # 勾配爆発抑制用?
 
         # --- out layer
@@ -149,27 +160,32 @@ class _DualQNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        in_state, c = create_input_layers_one_sequence(
+        # in state
+        in_state, c, use_image_head = create_input_layer(
             config.observation_shape,
             config.env_observation_type,
-            config.image_layer_type,
         )
+        if use_image_head:
+            c = config.cnn_block(**config.cnn_block_kwargs)(c)
+            c = kl.Flatten()(c)
+
+        # in action
         in_action = kl.Input(shape=(config.action_num,))
         c = kl.Concatenate()([c, in_action])
 
-        for h in config.q_hidden_layer_sizes:
-            c = kl.Dense(h, activation=config.activation, kernel_initializer="he_normal")(c)
-        c = kl.LayerNormalization()(c)  # 勾配爆発抑制用?
-
         # q1
+        c1 = config.q_hidden_block(**config.q_hidden_block_kwargs)(c)
+        c1 = kl.LayerNormalization()(c1)
         q1 = kl.Dense(
             1, activation="linear", kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
-        )(c)
+        )(c1)
 
         # q2
+        c2 = config.q_hidden_block(**config.q_hidden_block_kwargs)(c)
+        c2 = kl.LayerNormalization()(c2)
         q2 = kl.Dense(
             1, activation="linear", kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
-        )(c)
+        )(c2)
 
         # out layer
         self.model = keras.Model([in_state, in_action], [q1, q2])
@@ -208,7 +224,7 @@ class Parameter(RLParameter):
             self.q_online.get_weights(),
         ]
 
-    def summary(self):
+    def summary(self, **kwargs):
         self.policy.model.summary()
         self.q_online.model.summary()
 

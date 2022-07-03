@@ -7,19 +7,24 @@ from typing import Any, List, Tuple, cast
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
+import tensorflow.keras.layers as kl
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (create_beta_list, create_epsilon_list,
-                                     create_gamma_list, inverse_rescaling,
-                                     render_discrete_action, rescaling)
-from srl.rl.functions.dueling_network import create_dueling_network_layers
-from srl.rl.functions.model import ImageLayerType, create_input_layers
-from tensorflow.keras import layers as kl
+from srl.rl.functions.common import (
+    create_beta_list,
+    create_epsilon_list,
+    create_gamma_list,
+    inverse_rescaling,
+    render_discrete_action,
+    rescaling,
+)
+from srl.rl.models.dqn_image_block import DQNImageBlock
+from srl.rl.models.dueling_network import DuelingNetworkBlock
+from srl.rl.models.input_layer import create_input_layer
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +72,10 @@ class Config(DiscreteActionConfig):
 
     # model
     window_length: int = 1
+    cnn_block: kl.Layer = DQNImageBlock
+    cnn_block_kwargs: dict = None
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
-    image_layer_type: ImageLayerType = ImageLayerType.DQN
     batch_size: int = 32
     q_ext_lr: float = 0.001
     q_int_lr: float = 0.001
@@ -129,6 +135,8 @@ class Config(DiscreteActionConfig):
 
     def __post_init__(self):
         super().__init__()
+        if self.cnn_block_kwargs is None:
+            self.cnn_block_kwargs = {}
 
     @property
     def observation_type(self) -> RLObservationType:
@@ -144,6 +152,9 @@ class Config(DiscreteActionConfig):
         assert self.memory_warmup_size < self.capacity
         assert self.batch_size < self.memory_warmup_size
         assert len(self.hidden_layer_sizes) > 0
+        assert len(self.episodic_hidden_layer_sizes1) > 0
+        assert len(self.episodic_hidden_layer_sizes2) > 0
+        assert len(self.lifelong_hidden_layer_sizes) > 0
 
 
 register(
@@ -184,12 +195,14 @@ class _QNetwork(keras.Model):
         if not config.enable_intrinsic_reward:
             self.input_int_reward = False
 
-        in_state, c = create_input_layers(
-            config.window_length,
+        in_state, c, use_image_head = create_input_layer(
             config.observation_shape,
             config.env_observation_type,
-            config.image_layer_type,
+            config.window_length,
         )
+        if use_image_head:
+            c = config.cnn_block(**config.cnn_block_kwargs)(c)
+            c = kl.Flatten()(c)
 
         # UVFA
         input_list = []
@@ -202,6 +215,7 @@ class _QNetwork(keras.Model):
         input_list.append(kl.Input(shape=(config.actor_num,)))
         c = kl.Concatenate()([c] + input_list)
 
+        # --- hidden layers
         for i in range(len(config.hidden_layer_sizes) - 1):
             c = kl.Dense(
                 config.hidden_layer_sizes[i],
@@ -210,13 +224,12 @@ class _QNetwork(keras.Model):
             )(c)
 
         if config.enable_dueling_network:
-            c = create_dueling_network_layers(
-                c,
+            c = DuelingNetworkBlock(
                 config.action_num,
                 config.hidden_layer_sizes[-1],
                 config.dueling_network_type,
                 activation=config.activation,
-            )
+            )(c)
         else:
             c = kl.Dense(config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal")(
                 c
@@ -255,13 +268,16 @@ class _EmbeddingNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        # in model
-        in_state, c = create_input_layers(
-            config.window_length,
+        in_state, c, use_image_head = create_input_layer(
             config.observation_shape,
             config.env_observation_type,
-            config.image_layer_type,
+            config.window_length,
         )
+        if use_image_head:
+            c = config.cnn_block(**config.cnn_block_kwargs)(c)
+            c = kl.Flatten()(c)
+
+        # hidden
         for h in config.episodic_hidden_layer_sizes1:
             c = kl.Dense(
                 h,
@@ -307,13 +323,16 @@ class _LifelongNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        in_state, c = create_input_layers(
-            config.window_length,
+        in_state, c, use_image_head = create_input_layer(
             config.observation_shape,
             config.env_observation_type,
-            config.image_layer_type,
+            config.window_length,
         )
+        if use_image_head:
+            c = config.cnn_block(**config.cnn_block_kwargs)(c)
+            c = kl.Flatten()(c)
 
+        # hidden
         for h in config.lifelong_hidden_layer_sizes:
             c = kl.Dense(
                 h,
@@ -368,7 +387,7 @@ class Parameter(RLParameter):
         ]
         return d
 
-    def summary(self):
+    def summary(self, **kwargs):
         self.q_ext_online.model.summary()
         self.emb_network.model1.summary()
         self.emb_network.model2.summary()

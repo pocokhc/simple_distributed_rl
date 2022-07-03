@@ -1,7 +1,7 @@
 import pickle
 import random
 from dataclasses import dataclass
-from typing import Any, Tuple, cast
+from typing import Any, cast
 
 import numpy as np
 import tensorflow as tf
@@ -12,8 +12,12 @@ from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory.sequence_memory import SequenceRemoteMemory
-from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
-from srl.rl.functions.model import ImageLayerType, create_input_layers_one_sequence
+from srl.rl.functions.common import (random_choice_by_probs,
+                                     render_discrete_action,
+                                     to_str_observation)
+from srl.rl.models.dqn_image_block import DQNImageBlock
+from srl.rl.models.input_layer import create_input_layer
+from srl.rl.models.mlp_block import MLPBlock
 from tensorflow.keras import layers as kl
 
 """
@@ -31,7 +35,7 @@ class Config(DiscreteActionConfig):
 
     simulation_times: int = 100
     action_select_threshold: int = 10
-    gamma: float = 1.0  # 割引率
+    gamma: float = 1.0
 
     puct_c: float = 1.0
     early_steps: int = 0
@@ -41,13 +45,17 @@ class Config(DiscreteActionConfig):
     epochs: int = 5
 
     # model
-    window_length: int = 1
-    hidden_layer_sizes: Tuple[int, ...] = (512,)
-    activation: str = "relu"
-    image_layer_type: ImageLayerType = ImageLayerType.AlphaZero
+    cnn_block: kl.Layer = DQNImageBlock
+    cnn_block_kwargs: dict = None
+    hidden_block: kl.Layer = MLPBlock
+    hidden_block_kwargs: dict = None
 
     def __post_init__(self):
         super().__init__()
+        if self.cnn_block_kwargs is None:
+            self.cnn_block_kwargs = {}
+        if self.hidden_block_kwargs is None:
+            self.hidden_block_kwargs = {}
 
     @property
     def observation_type(self) -> RLObservationType:
@@ -85,16 +93,16 @@ class _Network(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        in_state, c = create_input_layers_one_sequence(
-            # config.window_length,
+        in_state, c, use_image_head = create_input_layer(
             config.observation_shape,
             config.env_observation_type,
-            config.image_layer_type,
         )
+        if use_image_head:
+            c = config.cnn_block(**config.cnn_block_kwargs)(c)
+            c = kl.Flatten()(c)
 
-        # --- hidden layer
-        for h in config.hidden_layer_sizes:
-            c = kl.Dense(h, activation=config.activation, kernel_initializer="he_normal")(c)
+        # --- hidden block
+        c = config.hidden_block(**config.hidden_block_kwargs)(c)
 
         # --- out layer
         policy = kl.Dense(config.action_num, activation="softmax", bias_initializer="he_normal")(c)
@@ -102,8 +110,7 @@ class _Network(keras.Model):
         self.model = keras.Model(in_state, [policy, value])
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
-        # dummy_state = np.zeros(shape=(1, config.window_length) + config.env_observation_shape, dtype=np.float32)
+        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=float)
         policy, value = self(dummy_state)
         assert policy.shape == (1, config.action_num)
         assert value.shape == (1, 1)
@@ -132,7 +139,7 @@ class Parameter(RLParameter):
     def backup(self):
         return pickle.dumps(self.network.get_weights())
 
-    def summary(self):
+    def summary(self, **kwargs):
         self.network.model.summary()
 
     # ------------------------

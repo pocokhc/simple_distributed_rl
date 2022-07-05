@@ -33,7 +33,7 @@ class Test(unittest.TestCase):
     def test_Pendulum_mp(self):
         rl_config = srl.rl.agent57_light.Config(**self.pendulum_config)
         rl_config.memory_name = "ProportionalMemory"
-        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 60, is_mp=True)
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 70, is_mp=True)
 
     def test_Pendulum_uvfa(self):
         rl_config = srl.rl.agent57_light.Config(**self.pendulum_config)

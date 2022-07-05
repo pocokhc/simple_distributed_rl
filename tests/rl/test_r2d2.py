@@ -41,7 +41,7 @@ class Test(unittest.TestCase):
     def test_verify_Pendulum_memory(self):
         rl_config = srl.rl.r2d2.Config(**self.base_config)
         rl_config.memory_name = "ProportionalMemory"
-        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 40)
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 50)
 
 
 if __name__ == "__main__":

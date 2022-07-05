@@ -15,7 +15,7 @@ class Test(unittest.TestCase):
             target_model_update_interval=100,
             enable_rescale=True,
             burnin=5,
-            sequence_length=5,
+            sequence_length=10,
             enable_retrace=False,
             actor_num=8,
             input_ext_reward=False,
@@ -32,16 +32,16 @@ class Test(unittest.TestCase):
 
     def test_Pendulum(self):
         rl_config = srl.rl.agent57.Config(**self.base_config)
-        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 30)
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 50)
 
     def test_Pendulum_mp(self):
         rl_config = srl.rl.agent57.Config(**self.base_config)
-        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 30, is_mp=True)
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 40, is_mp=True)
 
     def test_Pendulum_retrace(self):
         rl_config = srl.rl.agent57.Config(**self.base_config)
         rl_config.enable_retrace = True
-        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 30)
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 50)
 
     def test_Pendulum_uvfa(self):
         rl_config = srl.rl.agent57.Config(**self.base_config)
@@ -54,7 +54,7 @@ class Test(unittest.TestCase):
         rl_config = srl.rl.agent57.Config(**self.base_config)
         rl_config.memory_name = "ProportionalMemory"
         rl_config.memory_beta_steps = 200 * 30
-        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 40)
+        self.tester.play_verify_singleplay("Pendulum-v1", rl_config, 200 * 60)
 
     def test_Pendulum_dis_int(self):
         rl_config = srl.rl.agent57.Config(**self.base_config)
@@ -63,4 +63,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_Pendulum_memory", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_Pendulum", verbosity=2)

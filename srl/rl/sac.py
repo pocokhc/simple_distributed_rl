@@ -363,20 +363,23 @@ class Worker(ContinuousActionWorker):
 
     def call_policy(self, state: np.ndarray) -> List[float]:
         self.state = state
-        action, mean, _, _ = self.parameter.policy(state.reshape(1, -1))
+        action, mean, stddev, _ = self.parameter.policy(state.reshape(1, -1))
 
         if self.training:
             action = action.numpy()[0]
         else:
             # テスト時は平均を使う
+            mean = tf.tanh(mean)
             action = mean.numpy()[0]
 
         # Squashed Gaussian Policy (-1, 1) -> (action range)
-        action = (action + 1) / 2
-        action = self.config.action_low + action * (self.config.action_high - self.config.action_low)
+        env_action = (action + 1) / 2
+        env_action = self.config.action_low + env_action * (self.config.action_high - self.config.action_low)
 
+        self.mean = mean.numpy()[0]
+        self.stddev = stddev.numpy()[0]
         self.action = action
-        return self.action
+        return env_action
 
     def call_on_step(
         self,
@@ -399,15 +402,10 @@ class Worker(ContinuousActionWorker):
         return {}
 
     def call_render(self, env: EnvRun) -> None:
-        state = self.state.reshape(1, -1)
-        action = np.asarray([self.action])
-        _, mean, stddev, _ = self.parameter.policy(state)
-        mean = mean.numpy()[0]
-        stddev = stddev.numpy()[0]
-        q1, q2 = self.parameter.q_online(state, action)
+        q1, q2 = self.parameter.q_online(self.state.reshape(1, -1), np.asarray([self.action]))
         q1 = q1.numpy()[0][0]
         q2 = q2.numpy()[0][0]
 
-        print(f"mean {mean}")
-        print(f"stddev {stddev}")
+        print(f"mean   {self.mean}")
+        print(f"stddev {self.stddev}")
         print(f"q1   {q1:.5f}, q2    {q2:.5f}")

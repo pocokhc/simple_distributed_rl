@@ -7,7 +7,8 @@ import numpy as np
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
+from srl.base.rl.algorithms.modelbase import ModelBaseWorker
+from srl.base.rl.base import RLParameter, RLTrainer, WorkerRun
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import SequenceRemoteMemory
 from srl.rl.functions.common import render_discrete_action, to_str_observation
@@ -20,7 +21,7 @@ from srl.rl.functions.common import render_discrete_action, to_str_observation
 class Config(DiscreteActionConfig):
 
     simulation_times: int = 10
-    action_select_threshold: int = 5
+    expansion_threshold: int = 5
     gamma: float = 1.0
     uct_c: float = np.sqrt(2.0)
 
@@ -105,6 +106,7 @@ class Trainer(RLTrainer):
             state = batch["state"]
             action = batch["action"]
             reward = batch["reward"]
+            self.parameter.init_state(state)
 
             self.parameter.N[state][action] += 1
             self.parameter.W[state][action] += reward
@@ -115,72 +117,72 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(ModelBaseWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def _on_reset(self, state: np.ndarray, player_index: int, env: EnvRun) -> None:
-        self.state = to_str_observation(state)
-        self.invalid_actions = self.get_invalid_actions(env, player_index)
+    def call_on_reset(self, state: np.ndarray, env: EnvRun, worker: WorkerRun) -> None:
+        pass
 
-    def _policy(self, _state: np.ndarray, player_index: int, env: EnvRun) -> int:
-        state = to_str_observation(_state)
+    def call_policy(self, _state: np.ndarray, env: EnvRun, worker: WorkerRun) -> int:
+        self.state = to_str_observation(_state)
+        self.invalid_actions = self.get_invalid_actions(env)
+        self.parameter.init_state(self.state)
 
         if self.training:
             dat = env.backup()
             for _ in range(self.config.simulation_times):
-                self._simulation(env, state, player_index)
+                self._simulation(env, self.state, self.invalid_actions)
                 env.restore(dat)
 
         # 試行回数のもっとも多いアクションを採用
-        if state in self.parameter.N:
-            c = self.parameter.N[state]
-            c = [-np.inf if a in self.invalid_actions else c[a] for a in range(self.config.action_num)]  # mask
-            action = random.choice(np.where(c == np.max(c))[0])
-        else:
-            action = random.choice([a for a in range(self.config.action_num) if a not in self.invalid_actions])
+        c = self.parameter.N[self.state]
+        c = [-np.inf if a in self.invalid_actions else c[a] for a in range(self.config.action_num)]  # mask
+        action = int(random.choice(np.where(c == np.max(c))[0]))
 
         return action
 
-    def _simulation(self, env: EnvRun, state: str, player_index, depth: int = 0):
+    def _simulation(self, env: EnvRun, state: str, invalid_actions, depth: int = 0):
         if depth >= env.max_episode_steps:  # for safety
             return 0
 
-        next_player_indices = env.get_next_player_indices()
-        assert player_index in next_player_indices
-        action = self._select_action(env, state, player_index)
+        player_index = env.next_player_index
 
-        # --- steps  TODO simulation stepが複雑すぎるので何か簡単にできる方法
-        reward = 0
-        n_state = state
-        while True:
-            actions = [self._select_action(env, n_state, idx) for idx in next_player_indices]
-            n_state, rewards, done, next_player_indices, _ = env.step(actions)
-            n_state = self.config.env_observation_space.observation_discrete_encode(n_state)
-            n_state = to_str_observation(n_state)
-            reward += rewards[player_index]
+        # actionを選択
+        uct_list = self._calc_uct(state, invalid_actions)
+        action = random.choice(np.where(uct_list == np.max(uct_list))[0])
 
-            if player_index in next_player_indices:
-                break
-            if done:
-                break
-
-        if done:
-            pass  # 終了
-        elif self.parameter.N[state][action] < self.config.action_select_threshold:
-            # 閾値以下はロールアウト
-            reward += self._rollout(env, player_index, next_player_indices)
+        if self.parameter.N[state][action] < self.config.expansion_threshold:
+            # アクション回数がすくないのでロールアウト
+            reward = self._rollout(env, player_index)
         else:
-            # 展開
-            reward += self._simulation(env, n_state, player_index, depth + 1)
+            # 1step実行
+            env.step(action)
+            reward = env.step_rewards[player_index]
 
-        # 結果を記録
+            if env.done:
+                pass  # 終了
+            else:
+                n_state = to_str_observation(env.state)
+                n_invalid_actions = env.get_invalid_actions()
+
+                enemy_turn = player_index != env.next_player_index
+
+                # expansion
+                n_reward = self._simulation(env, n_state, n_invalid_actions)
+
+                # 次が相手のターンの報酬は最小になってほしいので-をかける
+                if enemy_turn:
+                    n_reward = -n_reward
+
+                # 割引報酬
+                reward = reward + self.config.gamma * n_reward
+
         self.parameter.N[state][action] += 1
         self.parameter.W[state][action] += reward
-
         if self.distributed:
             self.remote_memory.add(
                 {
@@ -190,70 +192,64 @@ class Worker(RLWorker):
                 }
             )
 
-        return reward * self.config.gamma  # 割り引いて前に伝搬
+        return reward
 
-    def _select_action(self, env, state, idx):
-        invalid_actions = env.get_invalid_actions(idx)
-        ucb_list = self._calc_ucb(state, invalid_actions)
-        action = random.choice(np.where(ucb_list == np.max(ucb_list))[0])
-        return action
-
-    def _calc_ucb(self, state, invalid_actions):
+    def _calc_uct(self, state, invalid_actions):
         self.parameter.init_state(state)
 
-        # --- UCBに従ってアクションを選択
+        # --- UCTに従ってアクションを選択
         N = np.sum(self.parameter.N[state])
-        ucb_list = []
+        uct_list = []
         for a in range(self.config.action_num):
             if a in invalid_actions:
-                ucb = -np.inf
+                uct = -np.inf
             else:
                 n = self.parameter.N[state][a]
                 if n == 0:  # 1度は選んでほしい
-                    ucb = np.inf
+                    uct = np.inf
                 else:
-                    # UCB値を計算
+                    # UCT値を計算
+                    q = self.parameter.W[state][a] / n
                     cost = self.config.uct_c * np.sqrt(np.log(N) / n)
-                    ucb = self.parameter.W[state][a] / n + cost
-            ucb_list.append(ucb)
-        return ucb_list
+                    uct = q + cost
+            uct_list.append(uct)
+        return uct_list
 
     # ロールアウト
-    def _rollout(self, env: EnvRun, player_index, next_player_indices):
-        step = 0
+    def _rollout(self, env: EnvRun, player_index):
         done = False
+        rewards = []
+        while not done:
+            env.step(env.sample())
+            rewards.append(env.step_rewards[player_index])
+            done = env.done
+
+        # 割引報酬
         reward = 0
-        while not done and step < env.max_episode_steps:
-            step += 1
-
-            # step, random
-            state, rewards, done, next_player_indices, _ = env.step(env.sample(next_player_indices))
-            reward = rewards[player_index] + self.config.gamma * reward
-
+        for r in reversed(rewards):
+            reward = r + self.config.gamma * reward
         return reward
 
-    def _on_step(
+    def call_on_step(
         self,
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        player_index: int,
         env: EnvRun,
-    ):
-        self.state = to_str_observation(next_state)
-        self.invalid_actions = self.get_invalid_actions(env, player_index)
+        worker: WorkerRun,
+    ) -> dict:
         return {}
 
-    def call_render(self, env: EnvRun) -> None:
+    def call_render(self, env: EnvRun, worker: WorkerRun) -> None:
         self.parameter.init_state(self.state)
         maxa = np.argmax(self.parameter.N[self.state])
-        ucb_list = self._calc_ucb(self.state, self.invalid_actions)
+        uct_list = self._calc_uct(self.state, self.invalid_actions)
 
         def _render_sub(a: int) -> str:
             q = self.parameter.W[self.state][a]
             c = self.parameter.N[self.state][a]
             if c != 0:
                 q /= c
-            return f"{q:9.5f}({c:7d}), ucb {ucb_list[a]:.5f}"
+            return f"{q:9.4f}({c:7d}), uct {uct_list[a]:.5f}"
 
         render_discrete_action(self.invalid_actions, maxa, env, _render_sub)

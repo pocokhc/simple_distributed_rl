@@ -60,21 +60,20 @@ class TurnBase2Player(EnvBase):
     def player_num(self) -> int:
         return 2
 
-    def reset(self) -> Tuple[np.ndarray, List[int]]:
-        return self.call_reset(), [self.player_index]
+    def reset(self) -> Tuple[np.ndarray, int]:
+        return self.call_reset(), self.player_index
 
     def step(
         self,
-        actions: List[EnvAction],
-        player_indices: List[int],
-    ) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
-        action = actions[player_indices[0]]
+        action: EnvAction,
+        player_index: int,
+    ) -> Tuple[np.ndarray, List[float], bool, int, Info]:
         n_s, reward1, reward2, done, info = self.call_step(action)
-        return n_s, [reward1, reward2], done, [self.player_index], info
+        return n_s, [reward1, reward2], done, self.player_index, info
 
-    def direct_reset(self, *args, **kwargs) -> Tuple[np.ndarray, List[int]]:
-        return self.call_direct_reset(*args, **kwargs), [self.player_index]
+    def direct_reset(self, *args, **kwargs) -> Tuple[np.ndarray, int]:
+        return self.call_direct_reset(*args, **kwargs), self.player_index
 
-    def direct_step(self, *args, **kwargs) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
+    def direct_step(self, *args, **kwargs) -> Tuple[np.ndarray, List[float], bool, int, Info]:
         n_s, reward1, reward2, done, info = self.call_direct_step(*args, **kwargs)
-        return n_s, [reward1, reward2], done, [self.player_index], info
+        return n_s, [reward1, reward2], done, self.player_index, info

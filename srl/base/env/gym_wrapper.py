@@ -140,7 +140,7 @@ class GymWrapper(EnvBase):
     def player_num(self) -> int:
         return 1
 
-    def reset(self) -> Tuple[np.ndarray, List[int]]:
+    def reset(self) -> Tuple[np.ndarray, int]:
         if self.seed is None:
             state = self.env.reset()
         else:
@@ -150,15 +150,15 @@ class GymWrapper(EnvBase):
             self.env.observation_space.seed(self.seed)
             self.seed = None
 
-        return np.asarray(state), [0]
+        return np.asarray(state), 0
 
     def step(
         self,
-        actions: List[EnvAction],
-        player_indices: List[int],
-    ) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
-        state, reward, done, info = self.env.step(actions[0])
-        return np.asarray(state), [float(reward)], done, [0], info
+        action: EnvAction,
+        player_index: int,
+    ) -> Tuple[np.ndarray, List[float], bool, int, Info]:
+        state, reward, done, info = self.env.step(action)
+        return np.asarray(state), [float(reward)], done, 0, info
 
     def backup(self) -> Any:
         return pickle.dumps(self.env)
@@ -172,17 +172,17 @@ class GymWrapper(EnvBase):
         # Fatal Python error: (pygame parachute) Segmentation Fault
         pass
 
-    def render_terminal(self) -> None:
+    def render_terminal(self, **kwargs) -> None:
         if "ansi" in self.render_modes:
-            print(self.env.render(mode="ansi"))
+            print(self.env.render(mode="ansi", **kwargs))
 
-    def render_gui(self) -> None:
+    def render_gui(self, **kwargs) -> None:
         if "human" in self.render_modes:
-            self.env.render(mode="human")
+            self.env.render(mode="human", **kwargs)
 
-    def render_rgb_array(self) -> np.ndarray:
+    def render_rgb_array(self, **kwargs) -> np.ndarray:
         if "rgb_array" in self.render_modes:
-            return np.asarray(self.env.render(mode="rgb_array"))
+            return np.asarray(self.env.render(mode="rgb_array", **kwargs))
         else:
             raise NotImplementedError
 

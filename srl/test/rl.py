@@ -86,13 +86,8 @@ class TestRL:
             # --- step
             for step in range(10):
                 # policy
-                actions = [w.policy(env) for w in workers]
-                if step % 2 == 0:
-                    assert self._is_space_base_instance(actions[0])
-                    assert actions[1] is None
-                else:
-                    assert actions[0] is None
-                    assert self._is_space_base_instance(actions[1])
+                action = workers[env.next_player_index].policy(env)
+                assert self._is_space_base_instance(action)
 
                 if step == 0 or step == 1:
                     assert workers[0].info is None
@@ -106,7 +101,7 @@ class TestRL:
                 [w.render(env) for w in workers]
 
                 # step
-                env.step(actions)
+                env.step(action)
                 [w.on_step(env) for w in workers]
 
                 if env.done:

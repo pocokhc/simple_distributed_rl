@@ -17,7 +17,7 @@ class SinglePlayEnvWrapper(EnvRun):
         return self.state
 
     def step(self, action: EnvAction) -> Tuple[EnvObservation, float, bool, Info]:
-        super().step([action])
+        super().step(action)
         return self.state, self.step_rewards[0], self.done, self.info
 
     def get_invalid_actions(self, player_index: int = 0) -> List[EnvInvalidAction]:

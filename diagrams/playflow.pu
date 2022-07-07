@@ -18,7 +18,7 @@ activate User
 
 User -> EnvRun: reset()
     EnvRun -> EnvBase: reset()
-    return state, next_player_indices
+    return state, next_player_index
 return
 
 User -> WorkerRun: on_reset(env, player_index)
@@ -34,7 +34,7 @@ loop episode
 
     User -> WorkerRun: policy(env)
         note right
-        if player_index not in next_player_indices:
+        if self.player_index != env.next_player_index:
             return None
         end note
 
@@ -68,16 +68,16 @@ loop episode
             action = <color red>decode(action)</color>
             end note
         return action
-    return actions
+    return action
 
     User -> WorkerRun: render(env)
         WorkerRun -> Worker: render(env)
         return
     return
     
-    User -> EnvRun: step(actions)
-        EnvRun -> EnvBase: step(actions)
-        return state, reward, done, next_player_indices
+    User -> EnvRun: step(action)
+        EnvRun -> EnvBase: step(action)
+        return state, reward, done, next_player_index
     return
 
     User -> WorkerRun: on_step(env)

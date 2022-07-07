@@ -56,11 +56,11 @@ class History(Callback):
         else:
             train_info = {}
 
-        worker_idx = worker_indices[self.target_worker]
+        player_idx = worker_indices[self.target_worker]
         self.history.append(
             {
                 "episode": episode_count,
-                "reward": episode_rewards[worker_idx],
+                "reward": episode_rewards[player_idx],
                 "valid_reward": valid_reward,
                 "env_info": env_info,
                 "work_info": work_info,

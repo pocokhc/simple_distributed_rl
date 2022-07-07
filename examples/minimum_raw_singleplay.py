@@ -1,13 +1,16 @@
+from typing import Optional
+
 import srl
+from srl.base.env.base import EnvRun
 from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
+from srl.base.rl.base import RLTrainer
 from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
 
 
 def _run_episode(
-    env,
+    env: EnvRun,
     worker,
-    trainer,
-    training,
+    trainer: Optional[RLTrainer],
     rendering=False,
 ):
 
@@ -37,10 +40,10 @@ def _run_episode(
         work_info = worker.on_step(env)
 
         # train
-        if training and trainer is not None:
-            train_info = trainer.train()
-        else:
+        if trainer is None:
             train_info = {}
+        else:
+            train_info = trainer.train()
 
         # render
         if rendering:
@@ -66,15 +69,15 @@ def main():
     remote_memory, parameter, trainer, worker = srl.rl.make(rl_config, env)
 
     # --- train loop
-    worker.set_play_info(True, False)
+    worker.set_play_info(training=True, distributed=False)
     for episode in range(10000):
-        step, reward = _run_episode(env, worker, trainer, training=True)
+        step, reward = _run_episode(env, worker, trainer)
         if episode % 1000 == 0:
             print(f"{episode} / 10000 episode, {step} step, {reward} reward")
 
     # --- render
-    worker.set_play_info(False, False)
-    step, reward = _run_episode(env, worker, None, training=False, rendering=True)
+    worker.set_play_info(training=False, distributed=False)
+    step, reward = _run_episode(env, worker, trainer=None, rendering=True)
     print(f"step: {step}, reward: {reward}")
 
 

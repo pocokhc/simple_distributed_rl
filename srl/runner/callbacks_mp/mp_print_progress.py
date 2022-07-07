@@ -188,7 +188,7 @@ class MPPrintProgress(MPCallback):
             return
         if len(self.history_step) == 0:
             return
-        worker_idx = worker_indices[self.print_worker]
+        player_idx = worker_indices[self.print_worker]
 
         # 1エピソードの結果を平均でまとめる
         env_info = listdictdict_to_dictlist(self.history_step, "env_info")
@@ -203,7 +203,7 @@ class MPPrintProgress(MPCallback):
         epi_data = {
             "episode_count": episode_count,
             "episode_step": episode_step,
-            "episode_reward": episode_rewards[worker_idx],
+            "episode_reward": episode_rewards[player_idx],
             "episode_time": episode_time,
             "valid_reward": valid_reward,
             "step_time": np.mean([h["step_time"] for h in self.history_step]),

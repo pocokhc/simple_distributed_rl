@@ -44,8 +44,7 @@ class TestEnv:
         # --- reset
         env.reset()
         assert self._is_space_base_instance(env.state)
-        for i in env.next_player_indices:
-            assert 0 <= i < player_num
+        assert 0 <= env.next_player_index < player_num
 
         # --- restore/backup
         if check_restore:
@@ -66,8 +65,7 @@ class TestEnv:
         while not env.done:
 
             # --- sample
-            actions = env.samples()
-            assert len(actions) == env.player_num
+            action = env.sample()
 
             # get_invalid_actions
             for idx in range(env.player_num):
@@ -77,19 +75,16 @@ class TestEnv:
                     assert isinstance(a, int)
 
             # --- step
-            env.step(actions)
+            env.step(action)
             assert self._is_space_base_instance(env.state)
             assert isinstance(env.done, bool)
             assert isinstance(env.info, dict)
-            for i in env.next_player_indices:
-                assert 0 <= i < player_num
-            # uniq check
-            assert len(env.next_player_indices) == len(list(set(env.next_player_indices)))
+            assert 0 <= env.next_player_index < player_num
             assert len(env.step_rewards) == player_num
             assert env.step_num > 0
 
             if print_enable:
-                print(f"step {env.step_num}, actions {actions}, rewards {env.step_rewards}")
+                print(f"step {env.step_num}, actions {action}, rewards {env.step_rewards}")
 
             # --- restore/backup
             if check_restore:

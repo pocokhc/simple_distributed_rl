@@ -14,7 +14,7 @@ from srl.base.define import (
     RLObservationType,
 )
 from srl.base.env.base import EnvRun, SpaceBase
-from srl.base.rl.base import RLConfig, RLWorker
+from srl.base.rl.base import RLConfig, RLWorker, WorkerRun
 
 logger = logging.getLogger(__name__)
 
@@ -93,10 +93,12 @@ class DiscreteActionWorker(RLWorker):
     def call_render(self, env: EnvRun) -> Info:
         raise NotImplementedError()
 
-    def _call_on_reset(self, state: RLObservation, env: EnvRun) -> None:
+    # --------------------------------------
+
+    def _call_on_reset(self, state: RLObservation, env: EnvRun, worker: WorkerRun) -> None:
         self.call_on_reset(state, self.get_invalid_actions(env))
 
-    def _call_policy(self, state: RLObservation, env: EnvRun) -> RLAction:
+    def _call_policy(self, state: RLObservation, env: EnvRun, worker: WorkerRun) -> RLAction:
         return self.call_policy(state, self.get_invalid_actions(env))
 
     def _call_on_step(
@@ -105,8 +107,9 @@ class DiscreteActionWorker(RLWorker):
         reward: float,
         done: bool,
         env: EnvRun,
+        worker: WorkerRun,
     ) -> Info:
         return self.call_on_step(next_state, reward, done, self.get_invalid_actions(env))
 
-    def _call_render(self, env: EnvRun) -> Info:
+    def _call_render(self, env: EnvRun, worker: WorkerRun) -> Info:
         return self.call_render(env)

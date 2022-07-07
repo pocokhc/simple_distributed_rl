@@ -46,14 +46,12 @@ class Rendering(Callback):
     def on_step_begin(
         self,
         env: EnvRun,
+        worker_idx,
         workers,
-        worker_indices,
         **kwargs,
     ) -> None:
         if self.mode != RenderType.NONE:
-            for i in env.next_player_indices:
-                worker_idx = worker_indices[i]
-                workers[worker_idx].render(env)
+            workers[worker_idx].render(env)
 
         if self.step_stop:
             input("Enter to continue:")
@@ -61,8 +59,8 @@ class Rendering(Callback):
     def on_step_end(
         self,
         env: EnvRun,
-        actions,
-        worker_indices,
+        action,
+        worker_idx,
         workers,
         train_info,
         **kwargs,
@@ -70,20 +68,18 @@ class Rendering(Callback):
 
         if self.mode != RenderType.NONE:
             print(
-                "### {}, actions {}, rewards {}, done {}({}), next {}".format(
+                "### {}, action {}, rewards {}, done {}({}), next {}".format(
                     env.step_num,
-                    actions,
+                    action,
                     env.step_rewards,
                     env.done,
                     env.done_reason,
-                    env.next_player_indices,
+                    env.next_player_index,
                 )
             )
             env.render(self.mode)
             print(f"env_info  : {env.info}")
-            for i in env.next_player_indices:
-                worker_idx = worker_indices[i]
-                print(f"work_info {worker_idx}: {workers[worker_idx].info}")
+            print(f"work_info {worker_idx}: {workers[worker_idx].info}")
             print(f"train_info: {train_info}")
 
         if self.enable_animation:

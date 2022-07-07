@@ -1,23 +1,20 @@
 import ctypes
 import multiprocessing as mp
-import os
 from multiprocessing.managers import BaseManager
+from typing import Optional
 
 import srl
+from srl.base.env.base import EnvRun
 from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
-from srl.base.rl.base import RLRemoteMemory
-from srl.base.rl.registration import (make_parameter, make_remote_memory,
-                                      make_trainer, make_worker)
+from srl.base.rl.base import RLRemoteMemory, RLTrainer
+from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer, make_worker
 from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
-
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
 def _run_episode(
-    env,
+    env: EnvRun,
     worker,
-    trainer,
-    training,
+    trainer: Optional[RLTrainer],
     rendering=False,
 ):
 
@@ -47,10 +44,10 @@ def _run_episode(
         work_info = worker.on_step(env)
 
         # train
-        if training and trainer is not None:
-            train_info = trainer.train()
-        else:
+        if trainer is None:
             train_info = {}
+        else:
+            train_info = trainer.train()
 
         # render
         if rendering:
@@ -95,7 +92,7 @@ def _run_actor(
 
     parameter = make_parameter(rl_config)
     worker = make_worker(rl_config, env, parameter, remote_memory, actor_id)
-    worker.set_play_info(True, True)
+    worker.set_play_info(training=True, distributed=True)
 
     prev_update_count = 0
     episode = 0
@@ -105,7 +102,7 @@ def _run_actor(
         if train_end_signal.value:
             break
 
-        step, reward = _run_episode(env, worker, trainer=None, training=True)
+        step, reward = _run_episode(env, worker, trainer=None)
         episode += 1
 
         # sync parameter
@@ -226,7 +223,7 @@ def main():
 
     # --- rendering
     worker = make_worker(rl_config, env, parameter)
-    step, reward = _run_episode(env, worker, trainer=None, training=False, rendering=True)
+    step, reward = _run_episode(env, worker, trainer=None, rendering=True)
     print(f"step: {step}, reward: {reward}")
 
 

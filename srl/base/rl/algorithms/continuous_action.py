@@ -12,7 +12,7 @@ from srl.base.define import (
     RLObservationType,
 )
 from srl.base.env.base import EnvRun, SpaceBase
-from srl.base.rl.base import RLConfig, RLWorker
+from srl.base.rl.base import RLConfig, RLWorker, WorkerRun
 
 logger = logging.getLogger(__name__)
 
@@ -76,15 +76,9 @@ class ContinuousActionWorker(RLWorker):
     def call_on_reset(self, state: np.ndarray) -> None:
         raise NotImplementedError()
 
-    def _call_on_reset(self, state: RLObservation, env: EnvRun) -> None:
-        self.call_on_reset(state)
-
     @abstractmethod
     def call_policy(self, state: np.ndarray) -> ContinuousAction:
         raise NotImplementedError()
-
-    def _call_policy(self, state: RLObservation, env: EnvRun) -> RLAction:
-        return self.call_policy(state)
 
     @abstractmethod
     def call_on_step(
@@ -95,18 +89,27 @@ class ContinuousActionWorker(RLWorker):
     ) -> Info:
         raise NotImplementedError()
 
+    # ----------------------------------
+
+    def _call_on_reset(self, state: RLObservation, env: EnvRun, worker: WorkerRun) -> None:
+        self.call_on_reset(state)
+
+    def _call_policy(self, state: RLObservation, env: EnvRun, worker: WorkerRun) -> RLAction:
+        return self.call_policy(state)
+
     def _call_on_step(
         self,
         next_state: RLObservation,
         reward: float,
         done: bool,
         env: EnvRun,
+        worker: WorkerRun,
     ) -> Info:
         return self.call_on_step(next_state, reward, done)
 
     @abstractmethod
-    def call_render(self, env: EnvRun) -> Info:
+    def call_render(self, env: EnvRun, worker: WorkerRun) -> Info:
         raise NotImplementedError()
 
-    def _call_render(self, env: EnvRun) -> Info:
+    def _call_render(self, env: EnvRun, worker: WorkerRun) -> Info:
         return self.call_render(env)

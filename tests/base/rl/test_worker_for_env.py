@@ -10,7 +10,7 @@ from srl.base.env.registration import register as register_env
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.env.spaces.discrete import DiscreteSpace
-from srl.base.rl.base import RLConfig, RLWorker
+from srl.base.rl.base import RLConfig, RLWorker, WorkerRun
 from srl.base.rl.registration import register as register_rl
 from srl.test.env import TestEnv
 
@@ -25,7 +25,7 @@ class StubEnv(SinglePlayEnv):
         self.s_reward = 0
         self.s_done = True
         self.s_info = {}
-        self.s_actions = [0]
+        self.s_action = 0
 
     @property
     def action_space(self) -> SpaceBase:
@@ -50,8 +50,8 @@ class StubEnv(SinglePlayEnv):
     def call_reset(self) -> np.ndarray:
         return self.s_state
 
-    def call_step(self, actions):
-        self.s_actions = actions
+    def call_step(self, action):
+        self.s_action = action
         return self.s_state, self.s_reward, self.s_done, self.s_info
 
     def backup(self) -> Any:
@@ -102,18 +102,10 @@ class StubRLWorker(RLWorker):
         self.state = np.array(0)
         self.action = 0
 
-    def _call_on_reset(
-        self,
-        state: np.ndarray,
-        env: EnvBase,
-    ) -> None:
+    def _call_on_reset(self, state: np.ndarray, env: EnvBase, worker: WorkerRun) -> None:
         self.on_reset_state = state
 
-    def _call_policy(
-        self,
-        state: np.ndarray,
-        env: EnvBase,
-    ) -> RLAction:
+    def _call_policy(self, state: np.ndarray, env: EnvBase, worker: WorkerRun) -> RLAction:
         self.state = state
         return self.action
 
@@ -123,11 +115,12 @@ class StubRLWorker(RLWorker):
         reward: float,
         done: bool,
         env: EnvBase,
+        worker: WorkerRun,
     ) -> Info:
         self.state = next_state
         return {}
 
-    def _call_render(self, env: EnvBase, player_index: int) -> None:
+    def _call_render(self, env: EnvBase, worker: WorkerRun) -> None:
         raise NotImplementedError()
 
 

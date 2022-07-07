@@ -260,7 +260,7 @@ class RLWorker(WorkerBase):
             state = np.asarray(state)
         return state
 
-    def action_encode(self, action: EnvAction) -> RLInvalidAction:
+    def action_encode(self, action: EnvAction) -> RLAction:
         # discrete only
         if self.config.action_type == RLActionType.DISCRETE:
             action = self.config.env_action_space.action_discrete_encode(action)
@@ -284,15 +284,18 @@ class RLWorker(WorkerBase):
     def get_invalid_actions(self, env: EnvRun) -> List[RLInvalidAction]:
         return [self.action_encode(a) for a in env.get_invalid_actions(self.player_index)]
 
+    def sample_action(self, env: EnvRun) -> RLAction:
+        return self.action_encode(env.sample(self.player_index))
+
     # ------------------------------
     # implement
     # ------------------------------
     @abstractmethod
-    def _call_on_reset(self, status: RLObservation, env: EnvRun) -> None:
+    def _call_on_reset(self, status: RLObservation, env: EnvRun, worker: "WorkerRun") -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def _call_policy(self, status: RLObservation, env: EnvRun) -> RLAction:
+    def _call_policy(self, status: RLObservation, env: EnvRun, worker: "WorkerRun") -> RLAction:
         raise NotImplementedError()
 
     @abstractmethod
@@ -302,11 +305,12 @@ class RLWorker(WorkerBase):
         reward: float,
         done: bool,
         env: EnvRun,
+        worker: "WorkerRun",
     ) -> Info:
         raise NotImplementedError()
 
     @abstractmethod
-    def _call_render(self, env: EnvRun) -> None:
+    def _call_render(self, env: EnvRun, worker: "WorkerRun") -> None:
         raise NotImplementedError()
 
     # ------------------------------------
@@ -319,11 +323,11 @@ class RLWorker(WorkerBase):
     def on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
         self._player_index = worker.player_index
         state = self.observation_encode(env.state, env)
-        self._call_on_reset(state, env)
+        self._call_on_reset(state, env, worker)
 
     def policy(self, env: EnvRun, worker: "WorkerRun") -> EnvAction:
         state = self.observation_encode(env.state, env)
-        action = self._call_policy(state, env)
+        action = self._call_policy(state, env, worker)
         action = self.action_decode(action)
         return action
 
@@ -334,36 +338,36 @@ class RLWorker(WorkerBase):
             env.step_rewards[worker.player_index],
             env.done,
             env,
+            worker,
         )
         return info
 
     def render(self, env: EnvRun, worker: "WorkerRun") -> None:
-        self._call_render(env)
+        self._call_render(env, worker)
 
     # ------------------------------------
     # utils
     # ------------------------------------
-    def env_step(self, env: EnvRun) -> Tuple[np.ndarray, float]:
-        # 次の自分の番になるまで進める(相手のpolicyは自分)
+    def env_step_from_worker(self, env: EnvRun) -> Tuple[np.ndarray, float, bool]:
+        # 次の自分の番になるまで進める
+        # (相手のpolicyは call_env_step_from_worker_policy で定義)
 
         reward = 0
         while True:
             state = self.observation_encode(env.state, env)
-            actions = [
-                self.action_decode(self._env_step_policy(state, env)) if i in env.next_player_indices else None
-                for i in range(env.player_num)
-            ]
-            env.step(actions)
+            action = self.call_env_step_from_worker_policy(state, env, env.next_player_index)
+            action = self.action_decode(action)
+            env.step(action)
             reward += env.step_rewards[self.player_index]
 
-            if self.player_index in env.next_player_indices:
+            if self.player_index == env.next_player_index:
                 break
             if env.done:
                 break
 
-        return self.observation_encode(env.state, env), reward
+        return self.observation_encode(env.state, env), reward, env.done
 
-    def _env_step_policy(self, state: np.ndarray, env: EnvRun) -> RLAction:
+    def call_env_step_from_worker_policy(self, state: np.ndarray, env: EnvRun, player_idx: int) -> RLAction:
         raise NotImplementedError()
 
 
@@ -478,7 +482,7 @@ class WorkerRun:
         self.step_reward = 0
 
     def policy(self, env: EnvRun) -> Optional[EnvAction]:
-        if self.player_index not in env.next_player_indices:
+        if self.player_index != env.next_player_index:
             return None
 
         # 初期化していないなら初期化する

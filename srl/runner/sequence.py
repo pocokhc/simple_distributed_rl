@@ -3,7 +3,6 @@ import pickle
 import random
 import time
 from dataclasses import dataclass, field
-from optparse import Option
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -271,8 +270,9 @@ def train(
     config.timeout = timeout
     config.shuffle_player = shuffle_player
     config.enable_validation = enable_validation
-    config.seed = seed
     config.callbacks = callbacks
+    if config.seed is None:
+        config.seed = seed
 
     config.training = True
 
@@ -316,8 +316,9 @@ def evaluate(
     config.max_episodes = max_episodes
     config.timeout = timeout
     config.shuffle_player = shuffle_player
-    config.seed = seed
     config.callbacks = callbacks
+    if config.seed is None:
+        config.seed = seed
 
     config.enable_validation = False
     config.training = False
@@ -350,8 +351,9 @@ def render(
     config.max_steps = max_steps
     config.timeout = timeout
     config.shuffle_player = shuffle_player
-    config.seed = seed
     config.callbacks = callbacks
+    if config.seed is None:
+        config.seed = seed
 
     config.enable_validation = False
     config.max_episodes = 1
@@ -462,6 +464,7 @@ def play(
             # shuffle
             if config.shuffle_player:
                 random.shuffle(worker_indices)
+            worker_idx = worker_indices[env.next_player_index]
 
             # worker reset
             [w.on_reset(env, worker_indices[i]) for i, w in enumerate(workers)]
@@ -469,25 +472,26 @@ def play(
             # callback
             _params["episode_count"] = episode_count
             _params["worker_indices"] = worker_indices
+            _params["worker_idx"] = worker_idx
+            _params["player_index"] = env.next_player_index
             [c.on_episode_begin(**_params) for c in callbacks]
 
         # ------------------------
         # step
         # ------------------------
         # action
-        actions = [w.policy(env) for w in workers]
+        action = workers[worker_idx].policy(env)
 
         # callback
-        _params["actions"] = actions
+        _params["action"] = action
         [c.on_step_begin(**_params) for c in callbacks]
 
         # env step
-        # worker -> player に並べ替え
-        actions = [actions[i] for i in worker_indices]
         if config.skip_frames == 0:
-            env.step(actions)
+            env.step(action)
         else:
-            env.step(actions, config.skip_frames, lambda: [c.on_skip_step(**_params) for c in callbacks])
+            env.step(action, config.skip_frames, lambda: [c.on_skip_step(**_params) for c in callbacks])
+        worker_idx = worker_indices[env.next_player_index]
 
         # rl step
         [w.on_step(env) for w in workers]
@@ -510,6 +514,8 @@ def play(
         _params["train_info"] = train_info
         _params["train_time"] = train_time
         [c.on_step_end(**_params) for c in callbacks]
+        _params["worker_idx"] = worker_idx
+        _params["player_index"] = env.next_player_index
 
         if env.done:
             episode_rewards_list.append(env.episode_rewards)

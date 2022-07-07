@@ -1,10 +1,6 @@
-import os
-
 import numpy as np
 import srl
 from srl.runner import mp, sequence
-
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
 def main(is_mp):

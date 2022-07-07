@@ -75,12 +75,12 @@ class EnvBase(ABC):
     # implement functions
     # --------------------------------
     @abstractmethod
-    def reset(self) -> Tuple[EnvObservation, List[int]]:
+    def reset(self) -> Tuple[EnvObservation, int]:
         """reset
 
         Returns: (
             init_state,
-            next_player_indices,
+            next_player_index,
         )
         """
         raise NotImplementedError()
@@ -88,20 +88,14 @@ class EnvBase(ABC):
     @abstractmethod
     def step(
         self,
-        actions: List[EnvAction],
-        player_indices: List[int],
-    ) -> Tuple[EnvObservation, List[float], bool, List[int], Info]:
-        """one step
+        action: EnvAction,
+        player_index: int,
+    ) -> Tuple[EnvObservation, List[float], bool, int, Info]:
+        """step
 
         Args:
-            actions (List[Optional[EnvAction]): [
-                    player1 action,
-                    player2 action,
-                    ...
-                ]
-            player_indices (List[int]): stepで行動するプレイヤーのindex
-            # player_indices と actions にあるindexは連動しており、
-            # player_indices にないindexのactionは None である事
+            action (EnvAction): player_index action
+            player_index (int): stepで行動するプレイヤーのindex
 
         Returns:
             (
@@ -112,10 +106,11 @@ class EnvBase(ABC):
                 ...
             ],
             done,
-            next_player_indices,
+            next_player_index,
             info,
         )
         """
+
         raise NotImplementedError()
 
     @abstractmethod
@@ -170,10 +165,10 @@ class EnvBase(ABC):
     # --------------------------------
     # direct
     # --------------------------------
-    def direct_reset(self, *args, **kwargs) -> Tuple[EnvObservation, List[int]]:
+    def direct_reset(self, *args, **kwargs) -> Tuple[EnvObservation, int]:
         raise NotImplementedError()
 
-    def direct_step(self, *args, **kwargs) -> Tuple[EnvObservation, List[float], bool, List[int], Info]:
+    def direct_step(self, *args, **kwargs) -> Tuple[EnvObservation, List[float], bool, int, Info]:
         raise NotImplementedError()
 
 
@@ -190,7 +185,7 @@ class EnvRun:
         self._step_rewards = np.array(0)
         self._done = True
         self._done_reason = ""
-        self._next_player_indices = []
+        self._next_player_index = 0
         self._invalid_actions_list = [[] for _ in range(self.env.player_num)]
         self._info = None
 
@@ -239,8 +234,8 @@ class EnvRun:
         return self._state
 
     @property
-    def next_player_indices(self) -> List[int]:
-        return self._next_player_indices
+    def next_player_index(self) -> int:
+        return self._next_player_index
 
     @property
     def step_num(self) -> int:
@@ -268,7 +263,7 @@ class EnvRun:
 
     def reset(self, max_steps: int = -1, timeout: int = -1) -> None:
         logger.debug("env.reset")
-        self._state, self._next_player_indices = self.env.reset()
+        self._state, self._next_player_index = self.env.reset()
         self._step_num = 0
         self._done = False
         self._done_reason = ""
@@ -280,26 +275,20 @@ class EnvRun:
         self.max_steps = max_steps
         self.timeout = timeout
 
-    def step(self, actions: List[EnvAction], skip_frames: int = 0, skip_function=None) -> Info:
+    def step(self, action: EnvAction, skip_frames: int = 0, skip_function=None) -> Info:
         assert not self.done, "It is in the done state. Please execute reset ()."
-
         logger.debug("env.step")
-        assert (
-            len(actions) == self.player_num
-        ), "The number of actions does not match. (player: {self.player_num}, actions: {actions})"
-        for idx in self.next_player_indices:
-            assert actions[idx] is not None
 
-        self._state, rewards, self._done, self._next_player_indices, self._info = self.env.step(
-            actions, self.next_player_indices
+        self._state, rewards, self._done, self._next_player_index, self._info = self.env.step(
+            action, self.next_player_index
         )
         self._step_rewards = np.asarray(rewards)
 
         # skip frame の間は同じアクションを繰り返す
         for _ in range(skip_frames):
             assert self.player_num == 1
-            self._state, rewards, self._done, self._next_player_indices, self._info = self.env.step(
-                actions, self.next_player_indices
+            self._state, rewards, self._done, self._next_player_index, self._info = self.env.step(
+                action, self.next_player_index
             )
             self._step_rewards += np.asarray(rewards)
             if self.done:
@@ -337,7 +326,7 @@ class EnvRun:
             self.step_rewards,
             self.done,
             self.done_reason,
-            self.next_player_indices,
+            self.next_player_index,
             self._invalid_actions_list,
             self.info,
         ]
@@ -353,7 +342,7 @@ class EnvRun:
         self._step_rewards = d[4]
         self._done = d[5]
         self._done_reason = d[6]
-        self._next_player_indices = d[7]
+        self._next_player_index = d[7]
         self._invalid_actions_list = d[8]
         self._info = d[9]
 
@@ -385,7 +374,9 @@ class EnvRun:
             if is_except:
                 raise
 
-    def get_invalid_actions(self, player_index: int) -> List[EnvInvalidAction]:
+    def get_invalid_actions(self, player_index: int = -1) -> List[EnvInvalidAction]:
+        if player_index == -1:
+            player_index = self.next_player_index
         return self._invalid_actions_list[player_index]
 
     def add_invalid_actions(self, invalid_actions: List[EnvInvalidAction], player_index: int) -> None:
@@ -416,7 +407,7 @@ class EnvRun:
     def direct_reset(self, *args, **kwargs):
         logger.debug("env.direct_reset")
 
-        self._state, self._next_player_indices = self.env.direct_reset(*args, **kwargs)
+        self._state, self._next_player_index = self.env.direct_reset(*args, **kwargs)
         self._step_num = 0
         self._done = False
         self._done_reason = ""
@@ -427,7 +418,7 @@ class EnvRun:
     def direct_step(self, *args, **kwargs):
         logger.debug("env.direct_step")
 
-        self._state, rewards, self._done, self._next_player_indices, self._info = self.env.direct_step(*args, **kwargs)
+        self._state, rewards, self._done, self._next_player_index, self._info = self.env.direct_step(*args, **kwargs)
         self._step_rewards = np.asarray(rewards)
 
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
@@ -439,10 +430,9 @@ class EnvRun:
     # ------------------------------------
     # util functions
     # ------------------------------------
-    def samples(self) -> List[EnvAction]:
-        return [self.action_space.sample(self._invalid_actions_list[i]) for i in range(self.player_num)]
-
-    def sample(self, player_index: int) -> EnvAction:
+    def sample(self, player_index: int = -1) -> EnvAction:
+        if player_index == -1:
+            player_index = self.next_player_index
         return self.action_space.sample(self._invalid_actions_list[player_index])
 
     def copy(self):

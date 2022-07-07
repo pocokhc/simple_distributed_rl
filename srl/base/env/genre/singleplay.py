@@ -54,23 +54,23 @@ class SinglePlayEnv(EnvBase):
     def player_num(self) -> int:
         return 1
 
-    def reset(self) -> Tuple[np.ndarray, List[int]]:
-        return self.call_reset(), [0]
+    def reset(self) -> Tuple[np.ndarray, int]:
+        return self.call_reset(), 0
 
     def step(
         self,
-        actions: List[EnvAction],
-        player_indices: List[int],
-    ) -> Tuple[EnvObservation, List[float], bool, List[int], Info]:
-        n_state, reward, done, info = self.call_step(actions[0])
-        return n_state, [reward], done, [0], info
+        action: EnvAction,
+        player_index: int,
+    ) -> Tuple[EnvObservation, List[float], bool, int, Info]:
+        n_state, reward, done, info = self.call_step(action)
+        return n_state, [reward], done, 0, info
 
     def get_invalid_actions(self, player_index: int) -> List[EnvInvalidAction]:
         return self.call_get_invalid_actions()
 
-    def direct_reset(self, *args, **kwargs) -> Tuple[np.ndarray, List[int]]:
-        return self.call_direct_reset(*args, **kwargs), [0]
+    def direct_reset(self, *args, **kwargs) -> Tuple[np.ndarray, int]:
+        return self.call_direct_reset(*args, **kwargs), 0
 
-    def direct_step(self, *args, **kwargs) -> Tuple[np.ndarray, List[float], bool, List[int], Info]:
+    def direct_step(self, *args, **kwargs) -> Tuple[np.ndarray, List[float], bool, int, Info]:
         n_state, reward, done, info = self.call_direct_step(*args, **kwargs)
-        return n_state, [reward], done, [0], info
+        return n_state, [reward], done, 0, info

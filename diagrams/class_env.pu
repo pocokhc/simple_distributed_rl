@@ -37,7 +37,7 @@ abstract EnvBase {
     max_episode_steps : int
     player_num : int
     reset()
-    step(actions, player_indices)
+    step(action, player_index)
     backup()
     restore()
     render_terminal()
@@ -71,7 +71,7 @@ class EnvRun {
     rewards
     done
     reset()
-    step(actions)
+    step(action)
     backup()
     restore()
     render()

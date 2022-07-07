@@ -21,43 +21,43 @@ class Test(unittest.TestCase):
             self.assertTrue(not env.done)
             self.assertTrue((env.state == board).all())
 
-            env.step([x, None])
+            env.step(x)
             board[x + (5 * 7)] = 1
             self.assertTrue(not env.done)
             self.assertTrue((env.step_rewards == [0, 0]).all())
             self.assertTrue((env.state == board).all())
 
-            env.step([None, 1])
+            env.step(1)
             board[1 + (5 * 7)] = 2
             self.assertTrue(not env.done)
             self.assertTrue((env.step_rewards == [0, 0]).all())
             self.assertTrue((env.state == board).all())
 
-            env.step([x, None])
+            env.step(x)
             board[x + (4 * 7)] = 1
             self.assertTrue(not env.done)
             self.assertTrue((env.step_rewards == [0, 0]).all())
             self.assertTrue((env.state == board).all())
 
-            env.step([None, 1])
+            env.step(1)
             board[1 + (4 * 7)] = 2
             self.assertTrue(not env.done)
             self.assertTrue((env.step_rewards == [0, 0]).all())
             self.assertTrue((env.state == board).all())
 
-            env.step([x, None])
+            env.step(x)
             board[x + (3 * 7)] = 1
             self.assertTrue(not env.done)
             self.assertTrue((env.step_rewards == [0, 0]).all())
             self.assertTrue((env.state == board).all())
 
-            env.step([None, 1])
+            env.step(1)
             board[1 + (3 * 7)] = 2
             self.assertTrue(not env.done)
             self.assertTrue((env.step_rewards == [0, 0]).all())
             self.assertTrue((env.state == board).all())
 
-            env.step([x, None])
+            env.step(x)
             board[x + (2 * 7)] = 1
             self.assertTrue(env.done)
             self.assertTrue((env.step_rewards == [1, -1]).all())

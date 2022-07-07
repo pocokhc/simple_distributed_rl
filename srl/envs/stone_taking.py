@@ -118,13 +118,16 @@ class CPU(RuleBaseWorker):
 
     def call_policy(self, _env: EnvRun, worker_run: WorkerRun) -> EnvAction:
         env = cast(StoneTaking, _env.get_original_env())
+        if env.field == 1:
+            return 0
 
-        if env.field in [1, 2, 6, 10, 14, 18]:
+        if env.field % 4 == 2:
             return 1 - 1
-        if env.field in [3, 7, 11, 15, 19]:
+        if env.field % 4 == 3:
             return 2 - 1
-        if env.field in [4, 8, 12, 16, 20]:
+        if env.field % 4 == 0:
             return 3 - 1
+
         return random.randint(0, 2)
 
     def call_render(self, _env: EnvRun, worker_run: WorkerRun) -> None:

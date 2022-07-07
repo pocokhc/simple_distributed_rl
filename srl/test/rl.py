@@ -1,6 +1,6 @@
 import os
 import warnings
-from typing import cast
+from typing import Optional, cast
 
 import numpy as np
 import srl
@@ -50,14 +50,26 @@ class TestRL:
 
             # --- train
             parameter, memory, _ = sequence.train(
-                config, max_steps=10, enable_validation=False, enable_file_logger=False
+                config,
+                max_steps=10,
+                enable_validation=False,
+                enable_file_logger=False,
             )
 
             # --- test
-            sequence.evaluate(config, parameter, max_episodes=2, max_steps=10)
+            sequence.evaluate(
+                config,
+                parameter,
+                max_episodes=2,
+                max_steps=10,
+            )
 
             # --- render
-            sequence.render(config, parameter, max_steps=10)
+            sequence.render(
+                config,
+                parameter,
+                max_steps=10,
+            )
 
     def _is_space_base_instance(self, val):
         if type(val) in [int, float, list, np.ndarray]:
@@ -115,20 +127,33 @@ class TestRL:
                 if env.done:
                     break
 
-    def play_mp(self, rl_config_org):
+    def play_mp(self, rl_config):
         for env_config in self.env_list:
-            rl_config = rl_config_org.copy()
             config = sequence.Config(env_config, rl_config)
 
             # --- train
             mp_config = mp.Config(actor_num=2, allocate_trainer="/CPU:0")
-            parameter, memory, _ = mp.train(config, mp_config, max_train_count=5, enable_file_logger=False)
+            parameter, memory, _ = mp.train(
+                config,
+                mp_config,
+                max_train_count=5,
+                enable_file_logger=False,
+            )
 
             # --- test
-            sequence.evaluate(config, parameter, max_episodes=10, max_steps=10)
+            sequence.evaluate(
+                config,
+                parameter,
+                max_episodes=10,
+                max_steps=10,
+            )
 
             # --- render
-            sequence.render(config, parameter, max_steps=10)
+            sequence.render(
+                config,
+                parameter,
+                max_steps=10,
+            )
 
     def play_verify_singleplay(
         self,
@@ -187,14 +212,17 @@ class TestRL:
         env_name,
         rl_config,
         train_count,
+        is_self_play: bool = True,
     ):
         assert env_name in self.baseline
 
         env_config = srl.envs.Config(env_name)
         config = sequence.Config(env_config, rl_config)
 
-        # self play training
-        config.players = [None, None]
+        if is_self_play:
+            config.players = [None, None]
+        else:
+            config.players = [None, "random"]
         parameter, memory, _ = sequence.train(
             config, max_steps=train_count, enable_validation=False, enable_file_logger=False, max_progress_time=10
         )

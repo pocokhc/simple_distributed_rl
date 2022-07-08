@@ -5,17 +5,9 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 import numpy as np
-from srl.base.define import (
-    EnvAction,
-    EnvObservation,
-    EnvObservationType,
-    Info,
-    RLAction,
-    RLActionType,
-    RLInvalidAction,
-    RLObservation,
-    RLObservationType,
-)
+from srl.base.define import (EnvAction, EnvObservation, EnvObservationType,
+                             Info, RLAction, RLActionType, RLInvalidAction,
+                             RLObservation, RLObservationType)
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
@@ -348,9 +340,31 @@ class RLWorker(WorkerBase):
     # ------------------------------------
     # utils
     # ------------------------------------
+    def env_step(self, env: EnvRun, _action: RLAction, **kwargs) -> Tuple[np.ndarray, List[float], bool]:
+        """envを1step進める
+
+        Args:
+            env (EnvRun): env
+            action (RLAction): action
+
+        Returns:
+            Tuple[np.ndarray, List[float], bool]: 次の状態, 報酬, 終了したかどうか
+        """
+        action = self.action_decode(_action)
+        env.step(action, **kwargs)
+        n_state = self.observation_encode(env.state, env)
+        return n_state, env.step_rewards.tolist(), env.done
+
     def env_step_from_worker(self, env: EnvRun) -> Tuple[np.ndarray, float, bool]:
-        # 次の自分の番になるまで進める
-        # (相手のpolicyは call_env_step_from_worker_policy で定義)
+        """次の自分の番になるまでenvを進める
+        (相手のpolicyは call_env_step_from_worker_policy で定義)
+
+        Args:
+            env (EnvRun): env
+
+        Returns:
+            Tuple[np.ndarray, float, bool]: 次の状態, 報酬, 終了したかどうか
+        """
 
         reward = 0
         while True:

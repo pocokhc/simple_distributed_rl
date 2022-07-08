@@ -111,7 +111,7 @@ class Trainer(RLTrainer):
             self.parameter.N[state][action] += 1
             self.parameter.W[state][action] += reward
             self.train_count += 1
-        return {}
+        return {"size": len(self.parameter.N)}
 
 
 # ------------------------------------------------------
@@ -160,14 +160,14 @@ class Worker(ModelBaseWorker):
             reward = self._rollout(env, player_index)
         else:
             # 1step実行
-            env.step(action)
-            reward = env.step_rewards[player_index]
+            n_state, rewards, done = self.env_step(env, action)
+            reward = rewards[player_index]
 
-            if env.done:
+            if done:
                 pass  # 終了
             else:
-                n_state = to_str_observation(env.state)
-                n_invalid_actions = env.get_invalid_actions()
+                n_state = to_str_observation(n_state)
+                n_invalid_actions = self.get_invalid_actions(env)
 
                 enemy_turn = player_index != env.next_player_index
 
@@ -197,7 +197,6 @@ class Worker(ModelBaseWorker):
     def _calc_uct(self, state, invalid_actions):
         self.parameter.init_state(state)
 
-        # --- UCTに従ってアクションを選択
         N = np.sum(self.parameter.N[state])
         uct_list = []
         for a in range(self.config.action_num):

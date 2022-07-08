@@ -12,4 +12,4 @@
 + runner.renderの引数を一部変更
   + terminal,GUI,animationの描画をそれぞれ設定できるように変更
 + OXにGUIを実装
-
++ modelbaseのシミュレーションstep方法を修正(RL側メインに変更)

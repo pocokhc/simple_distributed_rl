@@ -12,6 +12,7 @@ from srl.base.env.registration import register
 from srl.base.env.spaces import BoxSpace, DiscreteSpace
 from srl.base.rl.base import RuleBaseWorker, WorkerRun
 from srl.base.rl.processor import Processor
+from srl.utils.viewer import Viewer
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,7 @@ class OX(TurnBase2Player):
         self.H = 3
 
         self._player_index = 0
+        self.viewer = None
 
     @property
     def action_space(self) -> SpaceBase:
@@ -147,7 +149,7 @@ class OX(TurnBase2Player):
                 actions.append(a)
         return actions
 
-    def render_terminal(self):
+    def render_terminal(self, **kwargs) -> None:
         print("-" * 10)
         for y in range(self.H):
             s = "|"
@@ -161,7 +163,61 @@ class OX(TurnBase2Player):
                     s += "{:2d}|".format(a)
             print(s)
             print("-" * 10)
-        print(f"next player: {self.player_index}")
+        if self.player_index == 0:
+            print("next player: O")
+        else:
+            print("next player: X")
+
+    def render_gui(self, **kwargs) -> None:
+        self._render_pygame(**kwargs)
+
+    def render_rgb_array(self, **kwargs) -> np.ndarray:
+        return self._render_pygame(**kwargs)
+
+    def _render_pygame(self, **kwargs) -> np.ndarray:
+        WIDTH = 200
+        HEIGHT = 200
+        if self.viewer is None:
+            self.viewer = Viewer(WIDTH, HEIGHT, fps=1)
+
+        w_margin = 10
+        h_margin = 10
+        cell_w = int((WIDTH - w_margin * 2) / self.W)
+        cell_h = int((HEIGHT - h_margin * 2) / self.H)
+
+        self.viewer.draw_start()
+
+        # --- line
+        width = 5
+        for i in range(4):
+            x = w_margin + i * cell_w
+            self.viewer.draw_line(x, h_margin, x, HEIGHT - h_margin, width=width)
+        for i in range(4):
+            y = h_margin + i * cell_h
+            self.viewer.draw_line(w_margin, y, WIDTH - w_margin, y, width=width)
+
+        # --- field
+        for y in range(self.H):
+            for x in range(self.W):
+                center_x = int(w_margin + x * cell_w + cell_w / 2)
+                center_y = int(h_margin + y * cell_h + cell_h / 2)
+
+                a = x + y * self.W
+                if self.field[a] == 1:  # o
+                    self.viewer.draw_circle(center_x, center_y, int(cell_w * 0.3), (200, 0, 0), width=5)
+                elif self.field[a] == -1:  # x
+                    color = (0, 0, 200)
+                    width = 5
+                    diff = int(cell_w * 0.3)
+                    self.viewer.draw_line(
+                        center_x - diff, center_y - diff, center_x + diff, center_y + diff, color=color, width=width
+                    )
+                    self.viewer.draw_line(
+                        center_x - diff, center_y + diff, center_x + diff, center_y - diff, color=color, width=width
+                    )
+
+        self.viewer.draw_end()
+        return self.viewer.get_rgb_array()
 
     def make_worker(self, name: str) -> Optional[RuleBaseWorker]:
         if name == "cpu":

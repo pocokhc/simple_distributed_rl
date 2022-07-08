@@ -9,6 +9,6 @@
   + これに伴い EnvBase のIFを一部変更
 + MCTSを実装
   + 実装に伴い rl.algorithms.modelbase を追加
-
-
++ runner.renderの引数を一部変更
+  + terminal,GUI,animationの描画をそれぞれ設定できるように変更
 

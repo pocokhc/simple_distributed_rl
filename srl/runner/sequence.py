@@ -334,7 +334,8 @@ def evaluate(
 def render(
     config: Config,
     parameter: Optional[RLParameter] = None,
-    mode: Union[str, RenderType] = RenderType.Terminal,
+    render_terminal: bool = True,
+    render_gui: bool = False,
     step_stop: bool = False,
     enable_animation: bool = False,
     max_steps: int = -1,
@@ -343,7 +344,7 @@ def render(
     seed: Optional[int] = None,
     callbacks: List[Callback] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
-) -> Tuple[List[float], Rendering]:
+) -> Tuple[List[float], Optional[Rendering]]:
     if callbacks is None:
         callbacks = []
 
@@ -360,12 +361,21 @@ def render(
     config.training = False
     config.episode_timeout = -1
 
-    _render = Rendering(mode=mode, step_stop=step_stop, enable_animation=enable_animation)
-    config.callbacks.append(_render)
+    if render_terminal:
+        _render = Rendering(mode=RenderType.Terminal, step_stop=step_stop)
+        config.callbacks.append(_render)
+    if render_gui:
+        _render = Rendering(mode=RenderType.GUI, step_stop=step_stop)
+        config.callbacks.append(_render)
+    if enable_animation:
+        anime_render = Rendering(mode=RenderType.NONE, enable_animation=True)
+        config.callbacks.append(anime_render)
+    else:
+        anime_render = None
 
     episode_rewards, parameter, memory, env = play(config, parameter, remote_memory)
 
-    return episode_rewards[0], _render
+    return episode_rewards[0], anime_render
 
 
 # ---------------------------------

@@ -36,9 +36,9 @@ class Rendering(Callback):
                 self.mode = RenderType.NONE
 
     def on_episode_begin(self, env: EnvRun, **kwargs):
-        if self.mode != RenderType.NONE:
+        if self.mode == RenderType.Terminal:
             print("### 0")
-            env.render(self.mode)
+        env.render(self.mode)
 
         if self.enable_animation:
             self._add_image(env)
@@ -50,7 +50,7 @@ class Rendering(Callback):
         workers,
         **kwargs,
     ) -> None:
-        if self.mode != RenderType.NONE:
+        if self.mode == RenderType.Terminal:
             workers[worker_idx].render(env)
 
         if self.step_stop:
@@ -66,7 +66,7 @@ class Rendering(Callback):
         **kwargs,
     ):
 
-        if self.mode != RenderType.NONE:
+        if self.mode == RenderType.Terminal:
             print(
                 "### {}, action {}, rewards {}, done {}({}), next {}".format(
                     env.step_num,
@@ -81,13 +81,14 @@ class Rendering(Callback):
             print(f"env_info  : {env.info}")
             print(f"work_info {worker_idx}: {workers[worker_idx].info}")
             print(f"train_info: {train_info}")
+        else:
+            env.render(self.mode)
 
         if self.enable_animation:
             self._add_image(env)
 
     def on_skip_step(self, env: EnvRun, **kwargs):
-        if self.mode != RenderType.NONE:
-            env.render(self.mode)
+        env.render(self.mode)
 
         if self.enable_animation:
             self._add_image(env)

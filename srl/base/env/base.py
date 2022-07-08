@@ -155,7 +155,7 @@ class EnvBase(ABC):
 
     # option
     def set_seed(self, seed: Optional[int] = None) -> None:
-        return
+        pass
 
     def copy(self):
         env = self.__class__()

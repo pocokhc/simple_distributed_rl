@@ -7,7 +7,7 @@ https://arxiv.org/abs/1909.01387
 """
 
 
-class R2D3ImageBlock(kl.Layer):
+class R2D3ImageBlock(keras.Model):
     def __init__(self):
         super().__init__()
 
@@ -28,7 +28,7 @@ class R2D3ImageBlock(kl.Layer):
         return x
 
 
-class _ResBlock(kl.Layer):
+class _ResBlock(keras.Model):
     def __init__(self, n_filter):
         super().__init__()
 
@@ -45,7 +45,7 @@ class _ResBlock(kl.Layer):
         return x
 
 
-class _ResidualBlock(kl.Layer):
+class _ResidualBlock(keras.Model):
     def __init__(self, n_filter):
         super().__init__()
 

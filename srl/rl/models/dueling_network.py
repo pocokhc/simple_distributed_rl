@@ -1,9 +1,10 @@
 import tensorflow as tf
+import tensorflow.keras as keras
 import tensorflow_addons as tfa
 from tensorflow.keras import layers as kl
 
 
-class DuelingNetworkBlock(kl.Layer):
+class DuelingNetworkBlock(keras.Model):
     def __init__(
         self,
         action_num: int,

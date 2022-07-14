@@ -1,7 +1,8 @@
+import tensorflow.keras as keras
 from tensorflow.keras import layers as kl
 
 
-class DQNImageBlock(kl.Layer):
+class DQNImageBlock(keras.Model):
     def __init__(self):
         super().__init__()
 

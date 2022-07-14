@@ -46,7 +46,7 @@ def main(is_mp):
     print(f"reward: {np.mean(rewards)}")
 
     # --- rendering
-    _, render = sequence.render(config, parameter, mode="", enable_animation=True)
+    _, render = sequence.render(config, parameter, render_terminal=False, enable_animation=True)
 
     # save animation
     render.create_anime().save("tmp/Galaxian.gif")

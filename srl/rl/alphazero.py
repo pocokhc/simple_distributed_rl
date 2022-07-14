@@ -39,7 +39,7 @@ class Config(DiscreteActionConfig):
 
     sampling_steps: int = 10
     batch_size: int = 64
-    warmup_size: int = 100
+    warmup_size: int = 1000
 
     # 学習率
     lr_schedule: List[dict] = None

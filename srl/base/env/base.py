@@ -171,6 +171,13 @@ class EnvBase(ABC):
     def direct_step(self, *args, **kwargs) -> Tuple[EnvObservation, List[float], bool, int, Info]:
         raise NotImplementedError()
 
+    # --------------------------------
+    # utils
+    # --------------------------------
+    def get_valid_actions(self, player_index: int) -> List[EnvInvalidAction]:
+        invalid_actions = self.get_invalid_actions(player_index)
+        return [a for a in range(self.action_space.get_action_discrete_info()) if a not in invalid_actions]
+
 
 # 実装と実行で名前空間を分けるために別クラスに
 class EnvRun:
@@ -378,6 +385,15 @@ class EnvRun:
         if player_index == -1:
             player_index = self.next_player_index
         return self._invalid_actions_list[player_index]
+
+    def get_valid_actions(self, player_index: int = -1) -> List[EnvInvalidAction]:
+        if player_index == -1:
+            player_index = self.next_player_index
+        return [
+            a
+            for a in range(self.action_space.get_action_discrete_info())
+            if a not in self._invalid_actions_list[player_index]
+        ]
 
     def add_invalid_actions(self, invalid_actions: List[EnvInvalidAction], player_index: int) -> None:
         self._invalid_actions_list[player_index] += invalid_actions

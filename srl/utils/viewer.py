@@ -40,9 +40,7 @@ class Viewer:
         self.clock.tick(self.fps)
 
     def get_rgb_array(self) -> np.ndarray:
-        return np.transpose(
-            np.array(pygame.surfarray.pixels3d(self.screen)), axes=(1, 0, 2)
-        )
+        return np.transpose(np.array(pygame.surfarray.pixels3d(self.screen)), axes=(1, 0, 2))
 
     # --------------------
     def draw_line(
@@ -62,13 +60,15 @@ class Viewer:
         y: int,
         w: int,
         h: int,
-        color: Tuple[int, int, int],
         filled: bool = True,
+        fill_color: Tuple[int, int, int] = (255, 255, 255),
         width: int = 1,
+        line_color: Tuple[int, int, int] = (0, 0, 0),
     ):
         if filled:
-            self.screen.fill(color, (x, y, w, h))
-        else:
+            self.screen.fill(fill_color, (x, y, w, h))
+
+        if width > 0:
             lines = [
                 (x, y),
                 (x, y + h),
@@ -76,7 +76,7 @@ class Viewer:
                 (x + w, y),
                 (x, y),
             ]
-            pygame.draw.lines(self.screen, color, False, lines, width=width)
+            pygame.draw.lines(self.screen, line_color, False, lines, width=width)
 
     def draw_circle(
         self,

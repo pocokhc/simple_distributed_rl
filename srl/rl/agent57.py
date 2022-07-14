@@ -9,23 +9,21 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (
-    calc_epsilon_greedy_probs,
-    create_beta_list,
-    create_epsilon_list,
-    create_gamma_list,
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
+from srl.rl.functions.common import (calc_epsilon_greedy_probs,
+                                     create_beta_list, create_epsilon_list,
+                                     create_gamma_list, inverse_rescaling,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling)
 from srl.rl.models.dqn_image_block import DQNImageBlock
-from srl.rl.models.dueling_network import DuelingNetworkBlock, create_dueling_network_layers
-from srl.rl.models.input_layer import create_input_layer, create_input_layer_stateful_lstm
+from srl.rl.models.dueling_network import (DuelingNetworkBlock,
+                                           create_dueling_network_layers)
+from srl.rl.models.input_layer import (create_input_layer,
+                                       create_input_layer_stateful_lstm)
 
 """
 Paper: https://arxiv.org/abs/2003.13350
@@ -412,10 +410,10 @@ class Parameter(RLParameter):
         return d
 
     def summary(self, **kwargs):
-        self.q_ext_online.model.summary()
-        self.emb_network.model1.summary()
-        self.emb_network.model2.summary()
-        self.lifelong_target.model.summary()
+        self.q_ext_online.model.summary(**kwargs)
+        self.emb_network.model1.summary(**kwargs)
+        self.emb_network.model2.summary(**kwargs)
+        self.lifelong_target.model.summary(**kwargs)
 
 
 # ------------------------------------------------------

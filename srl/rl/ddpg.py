@@ -202,8 +202,8 @@ class Parameter(RLParameter):
         ]
 
     def summary(self, **kwargs):
-        self.actor_online.model.summary()
-        self.critic_online.model.summary()
+        self.actor_online.model.summary(**kwargs)
+        self.critic_online.model.summary(**kwargs)
 
 
 # ------------------------------------------------------

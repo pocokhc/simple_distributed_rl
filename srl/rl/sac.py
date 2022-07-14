@@ -7,7 +7,8 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
+from srl.base.rl.algorithms.continuous_action import (ContinuousActionConfig,
+                                                      ContinuousActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
@@ -225,8 +226,8 @@ class Parameter(RLParameter):
         ]
 
     def summary(self, **kwargs):
-        self.policy.model.summary()
-        self.q_online.model.summary()
+        self.policy.model.summary(**kwargs)
+        self.q_online.model.summary(**kwargs)
 
 
 # ------------------------------------------------------

@@ -388,10 +388,10 @@ class Parameter(RLParameter):
         return d
 
     def summary(self, **kwargs):
-        self.q_ext_online.model.summary()
-        self.emb_network.model1.summary()
-        self.emb_network.model2.summary()
-        self.lifelong_target.model.summary()
+        self.q_ext_online.model.summary(**kwargs)
+        self.emb_network.model1.summary(**kwargs)
+        self.emb_network.model2.summary(**kwargs)
+        self.lifelong_target.model.summary(**kwargs)
 
     # ---------------------------------
 

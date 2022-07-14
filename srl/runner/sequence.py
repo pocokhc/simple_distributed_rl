@@ -11,13 +11,9 @@ import srl.rl
 from srl.base.define import RenderType
 from srl.base.env.base import EnvConfig, EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, WorkerRun
-from srl.base.rl.registration import (
-    make_parameter,
-    make_remote_memory,
-    make_trainer,
-    make_worker,
-    make_worker_rulebase,
-)
+from srl.base.rl.registration import (make_parameter, make_remote_memory,
+                                      make_trainer, make_worker,
+                                      make_worker_rulebase)
 from srl.runner.callback import Callback
 from srl.runner.callbacks.file_logger import FileLogger
 from srl.runner.callbacks.print_progress import PrintProgress
@@ -88,10 +84,11 @@ class Config:
         self.parameter_path = parameter_path
         self.remote_memory_path = remote_memory_path
 
-    def model_summary(self) -> RLParameter:
+    def model_summary(self, **kwargs) -> RLParameter:
         parameter = self.make_parameter()
-        parameter.summary()
+        parameter.summary(**kwargs)
         return parameter
+        # TODO: plot model
 
     # ------------------------------
     # runner functions

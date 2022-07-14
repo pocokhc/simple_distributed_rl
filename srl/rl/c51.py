@@ -8,7 +8,8 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
@@ -123,7 +124,7 @@ class Parameter(RLParameter):
         return self.Q.get_weights()
 
     def summary(self, **kwargs):
-        self.Q.summary()
+        self.Q.summary(**kwargs)
 
 
 # ------------------------------------------------------

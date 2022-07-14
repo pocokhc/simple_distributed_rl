@@ -7,38 +7,61 @@ from srl.test import TestRL
 class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()
-        self.rl_config = srl.rl.alphazero.Config()
-        self.rl_config.simulation_times = 10
 
     def test_sequence(self):
-        self.tester.play_sequence(self.rl_config)
+        self.tester.play_sequence(srl.rl.alphazero.Config())
 
     def test_mp(self):
-        self.tester.play_mp(self.rl_config)
+        self.tester.play_mp(srl.rl.alphazero.Config())
 
-    # def test_verify_grid(self):
-    #    self.rl_config.hidden_layer_sizes = (64, 64, 64)
-    #    self.rl_config.simulation_times = 100
-    #    self.rl_config.train_size = 50
-    #    self.rl_config.early_steps = 1
-    #    self.rl_config.gamma = 0.9
-    #    self.rl_config.action_select_threshold = 5
-    #    self.rl_config.epochs = 20
-    #    self.tester.play_verify_singleplay("Grid", self.rl_config, 100)
+    def test_verify_grid(self):
+        rl_config = srl.rl.alphazero.Config()
+        rl_config.simulation_times = 100
+        rl_config.sampling_steps = 1
+        rl_config.batch_size = 32
+        rl_config.gamma = 1.0
+        rl_config.lr_schedule = [
+            {"train": 0, "lr": 0.02},
+            {"train": 100, "lr": 0.002},
+            {"train": 500, "lr": 0.0002},
+        ]
+        rl_config.cnn_block_kwargs = dict(n_blocks=1, filters=32)
+        rl_config.value_block_kwargs = dict(hidden_layer_sizes=(32,))
+        self.tester.play_verify_singleplay("Grid", rl_config, 3000)
 
-    # def test_verify_StoneTaking(self):
-    #    self.tester.play_verify_2play("StoneTaking", self.rl_config, 2000)
+    def test_verify_StoneTaking(self):
+        rl_config = srl.rl.alphazero.Config()
+        rl_config.simulation_times = 100
+        rl_config.sampling_steps = 1
+        rl_config.batch_size = 32
+        rl_config.gamma = 1.0
+        rl_config.lr_schedule = [{"train": 0, "lr": 0.02}, {"train": 100, "lr": 0.002}]
+        rl_config.cnn_block_kwargs = dict(n_blocks=1, filters=32)
+        rl_config.value_block_kwargs = dict(hidden_layer_sizes=(32,))
+        self.tester.play_verify_2play("StoneTaking", rl_config, 300)
 
     def test_verify_ox(self):
-        self.rl_config.hidden_layer_sizes = (64, 64, 64)
-        self.rl_config.simulation_times = 100
-        self.rl_config.train_size = 100
-        self.rl_config.early_steps = 1
-        self.rl_config.gamma = 1.0
-        self.rl_config.action_select_threshold = 5
-        self.rl_config.epochs = 10
-        self.tester.play_verify_2play("OX", self.rl_config, 5000)
+        rl_config = srl.rl.alphazero.Config()
+        rl_config.simulation_times = 100
+        rl_config.sampling_steps = 1
+        rl_config.batch_size = 32
+        rl_config.gamma = 1.0
+        rl_config.lr_schedule = [{"train": 0, "lr": 0.02}, {"train": 100, "lr": 0.002}]
+        rl_config.cnn_block_kwargs = dict(n_blocks=1, filters=32)
+        rl_config.value_block_kwargs = dict(hidden_layer_sizes=(32,))
+        self.tester.play_verify_2play("OX", rl_config, 200)
+
+    def test_verify_ox_mp(self):
+        rl_config = srl.rl.alphazero.Config()
+        rl_config.simulation_times = 100
+        rl_config.sampling_steps = 1
+        rl_config.batch_size = 32
+        rl_config.gamma = 1.0
+        rl_config.lr_schedule = [{"train": 0, "lr": 0.02}, {"train": 100, "lr": 0.002}]
+        rl_config.cnn_block_kwargs = dict(n_blocks=1, filters=32)
+        rl_config.value_block_kwargs = dict(hidden_layer_sizes=(32,))
+        self.tester.play_verify_2play("OX", rl_config, 200, is_mp=True)
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_ox", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_ox_mp", verbosity=2)

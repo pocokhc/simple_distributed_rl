@@ -38,8 +38,9 @@ class TestRL:
             "ALE/Pong-v5": (0.0, 10),
             "Tiger": (0.5, 1000),
             # 2p
-            "StoneTaking": ([1, 0.7], 1000),  # 先行必勝(石10個)
-            "OX": ([0.8, 0.65], 1000),  # [0.987, 0.813] ぐらい
+            "StoneTaking": ([0.9, 0.7], 200),  # 先行必勝(石10個)
+            "OX": ([0.8, 0.65], 200),  # [0.987, 0.813] ぐらい
+            "Othello6x6": ([0.1, 0.1], 50),  #
         }
 
     def play_sequence(self, rl_config):
@@ -162,6 +163,7 @@ class TestRL:
         train_count,
         is_atari=False,
         is_mp=False,
+        is_valid: bool = False,
     ):
         assert env_name in self.baseline
         env_config = srl.envs.Config(env_name)
@@ -185,7 +187,7 @@ class TestRL:
                 config,
                 mp_config,
                 max_train_count=train_count,
-                enable_validation=False,
+                enable_validation=is_valid,
                 enable_file_logger=False,
                 max_progress_time=10,
             )
@@ -193,7 +195,7 @@ class TestRL:
             parameter, memory, _ = sequence.train(
                 config,
                 max_steps=train_count,
-                enable_validation=False,
+                enable_validation=is_valid,
                 enable_file_logger=False,
                 max_progress_time=10,
             )
@@ -213,6 +215,8 @@ class TestRL:
         rl_config,
         train_count,
         is_self_play: bool = True,
+        is_valid: bool = False,
+        is_mp=False,
     ):
         assert env_name in self.baseline
 
@@ -223,9 +227,25 @@ class TestRL:
             config.players = [None, None]
         else:
             config.players = [None, "random"]
-        parameter, memory, _ = sequence.train(
-            config, max_steps=train_count, enable_validation=False, enable_file_logger=False, max_progress_time=10
-        )
+
+        if is_mp:
+            mp_config = mp.Config(1, allocate_trainer="/CPU:0")
+            parameter, memory, _ = mp.train(
+                config,
+                mp_config,
+                max_train_count=train_count,
+                enable_validation=is_valid,
+                enable_file_logger=False,
+                max_progress_time=10,
+            )
+        else:
+            parameter, memory, _ = sequence.train(
+                config,
+                max_steps=train_count,
+                enable_validation=is_valid,
+                enable_file_logger=False,
+                max_progress_time=10,
+            )
 
         true_env = self.baseline[env_name]
 

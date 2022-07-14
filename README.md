@@ -158,7 +158,7 @@ examples/custom_rl.ipynb
 |Algorithm  |Observation|Action     |ProgressRate||
 |-----------|-----------|-----------|----|---|
 |MCTS       |Discrete   |Discrete   |100%|MDP base|
-|AlphaZero  |Continuous |Discrete   |  0%||
+|AlphaZero  |Continuous |Discrete   |100%|MDP base|
 |MuZero     |Continuous |Discrete   |  0%||
 
 

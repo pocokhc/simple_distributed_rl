@@ -89,7 +89,8 @@ class Config(DiscreteActionConfig):
         self.capacity = 1_000_000
         self.window_length = 4
         self.cnn_block = DQNImageBlock
-        self.hidden_block = MLPBlock((512,))
+        self.hidden_block = MLPBlock
+        self.hidden_block_kwargs = dict(hidden_layer_sizes=(256,))
         self.target_model_update_interval = 10000
         self.gamma = 0.99
         self.lr = 0.00025

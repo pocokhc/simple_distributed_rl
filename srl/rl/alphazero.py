@@ -204,7 +204,7 @@ class _Network(keras.Model):
         c2 = config.value_block(**config.value_block_kwargs)(c2)
         value = kl.Dense(1, activation="tanh")(c2)
 
-        self.model = keras.Model(in_state, [policy, value])
+        self.model = keras.Model(in_state, [policy, value], name="PVNetwork")
 
         # 重みを初期化
         dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=float)

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, Union, cast
+from typing import Any, Dict, List, Union, cast
 
 import numpy as np
 import tensorflow as tf
@@ -7,7 +7,8 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
+from srl.base.rl.algorithms.continuous_action import (ContinuousActionConfig,
+                                                      ContinuousActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
@@ -105,7 +106,7 @@ class RemoteMemory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _ActorModel(keras.Model):
+class _ActorNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -122,7 +123,7 @@ class _ActorModel(keras.Model):
 
         # --- out layer
         c = kl.Dense(config.action_num, activation="tanh")(c)
-        self.model = keras.Model(in_state, c)
+        self.model = keras.Model(in_state, c, name="ActorNetwork")
 
         # 重みを初期化
         dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
@@ -163,7 +164,7 @@ class _CriticNetwork(keras.Model):
         )(c2)
 
         # out layer
-        self.model = keras.Model([in_state, in_action], [q1, q2])
+        self.model = keras.Model([in_state, in_action], [q1, q2], name="CriticNetwork")
 
         # 重みを初期化
         dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
@@ -184,8 +185,8 @@ class Parameter(RLParameter):
         super().__init__(*args)
         self.config = cast(Config, self.config)
 
-        self.actor_online = _ActorModel(self.config)
-        self.actor_target = _ActorModel(self.config)
+        self.actor_online = _ActorNetwork(self.config)
+        self.actor_target = _ActorNetwork(self.config)
         self.critic_online = _CriticNetwork(self.config)
         self.critic_target = _CriticNetwork(self.config)
 

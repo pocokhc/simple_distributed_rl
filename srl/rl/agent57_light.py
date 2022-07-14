@@ -238,7 +238,7 @@ class _QNetwork(keras.Model):
                 config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
             )(c)
 
-        self.model = keras.Model([in_state] + input_list, c)
+        self.model = keras.Model([in_state] + input_list, c, name="QNetwork")
 
         # 重みを初期化
         dummy1 = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=float)
@@ -285,7 +285,7 @@ class _EmbeddingNetwork(keras.Model):
                 kernel_initializer="he_normal",
                 bias_initializer=keras.initializers.constant(0.001),
             )(c)
-        self.model1 = keras.Model(in_state, c)
+        self.model1 = keras.Model(in_state, c, name="EmbeddingNetwork_predict")
 
         # out model
         out_h = config.episodic_hidden_layer_sizes1[-1]
@@ -300,7 +300,7 @@ class _EmbeddingNetwork(keras.Model):
             )(c)
         c = kl.LayerNormalization()(c)
         c = kl.Dense(config.action_num, activation="softmax")(c)
-        self.model2 = keras.Model([in1, in2], c)
+        self.model2 = keras.Model([in1, in2], c, name="EmbeddingNetwork")
 
         # 重みを初期化
         dummy_state = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=np.float32)
@@ -341,7 +341,7 @@ class _LifelongNetwork(keras.Model):
                 bias_initializer="he_normal",
             )(c)
         c = kl.LayerNormalization()(c)
-        self.model = keras.Model(in_state, c)
+        self.model = keras.Model(in_state, c, name="LifelongNetwork")
 
         # 重みを初期化
         dummy_state = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=np.float32)

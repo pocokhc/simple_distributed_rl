@@ -9,21 +9,23 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (calc_epsilon_greedy_probs,
-                                     create_beta_list, create_epsilon_list,
-                                     create_gamma_list, inverse_rescaling,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
+from srl.rl.functions.common import (
+    calc_epsilon_greedy_probs,
+    create_beta_list,
+    create_epsilon_list,
+    create_gamma_list,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
 from srl.rl.models.dqn_image_block import DQNImageBlock
-from srl.rl.models.dueling_network import (DuelingNetworkBlock,
-                                           create_dueling_network_layers)
-from srl.rl.models.input_layer import (create_input_layer,
-                                       create_input_layer_stateful_lstm)
+from srl.rl.models.dueling_network import DuelingNetworkBlock, create_dueling_network_layers
+from srl.rl.models.input_layer import create_input_layer, create_input_layer_stateful_lstm
 
 """
 Paper: https://arxiv.org/abs/2003.13350
@@ -252,7 +254,7 @@ class _QNetwork(keras.Model):
                 config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
             )(c)
 
-        self.model = keras.Model([in_state] + input_list, c)
+        self.model = keras.Model([in_state] + input_list, c, name="QNetwork")
         self.lstm_layer = self.model.get_layer("lstm")
 
         # 重みを初期化
@@ -308,7 +310,7 @@ class _EmbeddingNetwork(keras.Model):
                 kernel_initializer="he_normal",
                 bias_initializer=keras.initializers.constant(0.001),
             )(c)
-        self.model1 = keras.Model(in_state, c)
+        self.model1 = keras.Model(in_state, c, name="EmbeddingNetwork_predict")
 
         # out model
         out_h = config.episodic_hidden_layer_sizes1[-1]
@@ -323,7 +325,7 @@ class _EmbeddingNetwork(keras.Model):
             )(c)
         c = kl.LayerNormalization()(c)
         c = kl.Dense(config.action_num, activation="softmax")(c)
-        self.model2 = keras.Model([in1, in2], c)
+        self.model2 = keras.Model([in1, in2], c, name="EmbeddingNetwork")
 
         # 重みを初期化
         dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
@@ -363,7 +365,7 @@ class _LifelongNetwork(keras.Model):
                 bias_initializer="he_normal",
             )(c)
         c = kl.LayerNormalization()(c)
-        self.model = keras.Model(in_state, c)
+        self.model = keras.Model(in_state, c, name="LifelongNetwork")
 
         # 重みを初期化
         dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)

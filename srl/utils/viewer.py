@@ -83,13 +83,15 @@ class Viewer:
         x: int,
         y: int,
         radius: int,
-        color: Tuple[int, int, int],
         filled: bool = False,
+        fill_color: Tuple[int, int, int] = (255, 255, 255),
         width: int = 1,
+        line_color: Tuple[int, int, int] = (0, 0, 0),
     ):
         if filled:
-            width = 0
-        pygame.draw.circle(self.screen, color, (x, y), radius, width=width)
+            pygame.draw.circle(self.screen, fill_color, (x, y), radius, width=0)
+        if width > 0:
+            pygame.draw.circle(self.screen, line_color, (x, y), radius, width=width)
 
     def draw_text(self, x, y, text, fontname: str = "", color=(0, 0, 0)):
         if fontname not in self.fonts:

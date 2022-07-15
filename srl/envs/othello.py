@@ -308,16 +308,20 @@ class Othello(TurnBase2Player):
                         center_x,
                         center_y,
                         int(cell_w * 0.3),
-                        color=(0, 0, 0),
                         filled=True,
+                        fill_color=(0, 0, 0),
+                        width=width,
+                        line_color=line_color,
                     )
                 elif self.field[a] == -1:  # x
                     self.viewer.draw_circle(
                         center_x,
                         center_y,
                         int(cell_w * 0.3),
-                        color=(255, 255, 255),
                         filled=True,
+                        fill_color=(255, 255, 255),
+                        width=width,
+                        line_color=line_color,
                     )
                 elif a not in invalid_actions:
                     if self.player_index == 0:
@@ -328,8 +332,8 @@ class Othello(TurnBase2Player):
                         center_x,
                         center_y,
                         int(cell_w * 0.1),
-                        color=color,
                         filled=True,
+                        fill_color=color,
                     )
 
         self.viewer.draw_end()

@@ -86,6 +86,8 @@ class Othello(TurnBase2Player):
         return self._player_index
 
     def call_reset(self) -> np.ndarray:
+        self.action = 0
+
         self._player_index = 0
         self.field = np.zeros(self.W * self.H, dtype=int)
         center_x = int(self.W / 2) - 1
@@ -163,6 +165,7 @@ class Othello(TurnBase2Player):
         return dirs_list
 
     def call_step(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
+        self.action = action
 
         # --- error action
         if len(self.movable_dirs[self.player_index][action]) == 0:
@@ -249,9 +252,15 @@ class Othello(TurnBase2Player):
             for x in range(self.W):
                 a = self.pos(x, y)
                 if self.field[a] == 1:
-                    s += " o|"
+                    if self.action == a:
+                        s += "*o|"
+                    else:
+                        s += " o|"
                 elif self.field[a] == -1:
-                    s += " x|"
+                    if self.action == a:
+                        s += "*x|"
+                    else:
+                        s += " x|"
                 elif a not in invalid_actions:
                     s += "{:2d}|".format(a)
                 else:
@@ -304,6 +313,12 @@ class Othello(TurnBase2Player):
 
                 a = x + y * self.W
                 if self.field[a] == 1:  # o
+                    if self.action == a:
+                        width = 4
+                        line_color = (200, 0, 0)
+                    else:
+                        width = 0
+                        line_color = (0, 0, 0)
                     self.viewer.draw_circle(
                         center_x,
                         center_y,
@@ -314,6 +329,12 @@ class Othello(TurnBase2Player):
                         line_color=line_color,
                     )
                 elif self.field[a] == -1:  # x
+                    if self.action == a:
+                        width = 4
+                        line_color = (200, 0, 0)
+                    else:
+                        width = 0
+                        line_color = (0, 0, 0)
                     self.viewer.draw_circle(
                         center_x,
                         center_y,

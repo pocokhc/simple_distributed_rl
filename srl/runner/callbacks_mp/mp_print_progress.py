@@ -66,10 +66,6 @@ class MPPrintProgress(MPCallback):
     def on_trainer_end(self, **kwargs):
         self._trainer_print_progress()
 
-    def on_trainer_train_skip(self, **kwargs):
-        if self._check_print_progress():
-            self._trainer_print_progress()
-
     def on_trainer_train_end(
         self,
         remote_memory,

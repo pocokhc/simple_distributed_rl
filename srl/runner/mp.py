@@ -234,14 +234,12 @@ def _run_trainer(
                 train_time = time.time() - train_t0
 
                 if trainer.get_train_count() == 0:
-                    [c.on_trainer_train_skip(**_info) for c in callbacks]
                     time.sleep(1)
-                    continue
-
-                # send parameter
-                if trainer.get_train_count() % mp_config.trainer_parameter_send_interval_by_train_count == 0:
-                    remote_board.write(parameter.backup())
-                    sync_count += 1
+                else:
+                    # send parameter
+                    if trainer.get_train_count() % mp_config.trainer_parameter_send_interval_by_train_count == 0:
+                        remote_board.write(parameter.backup())
+                        sync_count += 1
 
                 # callbacks
                 _info["train_info"] = train_info

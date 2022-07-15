@@ -1,9 +1,14 @@
 import tensorflow.keras as keras
 from tensorflow.keras import layers as kl
+from tensorflow.keras import regularizers
 
 """
+Paper:
 https://www.deepmind.com/blog/alphazero-shedding-new-light-on-chess-shogi-and-go
 https://discovery.ucl.ac.uk/id/eprint/10045895/1/agz_unformatted_nature.pdf
+
+Code ref:
+https://github.com/AppliedDataSciencePartners/DeepReinforcementLearning
 """
 
 
@@ -12,13 +17,24 @@ class AlphaZeroImageBlock(keras.Model):
         self,
         n_blocks: int = 19,
         filters: int = 256,
+        kernel_size=(3, 3),
+        l2: float = 0.0001,
     ):
         super().__init__()
 
-        self.conv1 = kl.Conv2D(filters, kernel_size=3, padding="same")
-        self.bn1 = kl.BatchNormalization()
-        self.act1 = kl.Activation("relu")
-        self.resblocks = [_ResidualBlock(filters) for _ in range(n_blocks)]
+        conv2d_params = dict(
+            filters=filters,
+            kernel_size=kernel_size,
+            padding="same",
+            use_bias=False,
+            activation="linear",
+            kernel_regularizer=regularizers.l2(l2),
+        )
+
+        self.conv1 = kl.Conv2D(**conv2d_params)
+        self.bn1 = kl.BatchNormalization(axis=1)
+        self.act1 = kl.LeakyReLU()
+        self.resblocks = [_ResidualBlock(conv2d_params) for _ in range(n_blocks)]
 
     def call(self, x):
         x = self.conv1(x)
@@ -30,15 +46,15 @@ class AlphaZeroImageBlock(keras.Model):
 
 
 class _ResidualBlock(keras.Model):
-    def __init__(self, filters):
+    def __init__(self, conv2d_params):
         super().__init__()
 
-        self.conv1 = kl.Conv2D(filters, kernel_size=3, padding="same")
-        self.bn1 = kl.BatchNormalization()
-        self.relu1 = kl.Activation("relu")
-        self.conv2 = kl.Conv2D(filters, kernel_size=3, padding="same")
-        self.bn2 = kl.BatchNormalization()
-        self.relu2 = kl.Activation("relu")
+        self.conv1 = kl.Conv2D(**conv2d_params)
+        self.bn1 = kl.BatchNormalization(axis=1)
+        self.relu1 = kl.LeakyReLU()
+        self.conv2 = kl.Conv2D(**conv2d_params)
+        self.bn2 = kl.BatchNormalization(axis=1)
+        self.relu2 = kl.LeakyReLU()
 
     def call(self, x):
         x1 = self.conv1(x)

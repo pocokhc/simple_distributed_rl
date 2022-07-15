@@ -11,19 +11,24 @@ from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
-from srl.base.rl.base import RLParameter, RLRemoteMemory, RLTrainer, WorkerRun
+from srl.base.rl.base import RLParameter, RLTrainer, WorkerRun
 from srl.base.rl.registration import register
+from srl.base.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
 from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
 from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.input_layer import create_input_layer
 from srl.rl.models.mlp_block import MLPBlock
 from tensorflow.keras import layers as kl
+from tensorflow.keras import regularizers
 
 """
 Paper
 AlphaGoZero: https://discovery.ucl.ac.uk/id/eprint/10045895/1/agz_unformatted_nature.pdf
 AlphaZero: https://arxiv.org/abs/1712.01815
            https://www.science.org/doi/10.1126/science.aar6404
+
+Code ref:
+https://github.com/AppliedDataSciencePartners/DeepReinforcementLearning
 """
 
 
@@ -124,47 +129,12 @@ register(
 # ------------------------------------------------------
 # RemoteMemory
 # ------------------------------------------------------
-class RemoteMemory(RLRemoteMemory):
+class RemoteMemory(ExperienceReplayBuffer):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
 
-        self.buffer_nw = deque(maxlen=self.config.capacity)
-        self.buffer_count = []
-
-    def length(self) -> int:
-        return len(self.buffer_nw) + len(self.buffer_count)
-
-    def restore(self, data: Any) -> None:
-        self.buffer_nw = data[0]
-        self.buffer_count = data[1]
-
-    def backup(self):
-        return [
-            self.buffer_nw,
-            self.buffer_count,
-        ]
-
-    # ---------------------------
-    def add_nw(self, batch: Any):
-        self.buffer_nw.append(batch)
-
-    def sample_nw(self, batch_size: int):
-        return random.sample(self.buffer_nw, batch_size)
-
-    def length_nw(self):
-        return len(self.buffer_nw)
-
-    def add_count(self, batch: Any):
-        self.buffer_count.append(batch)
-
-    def sample_count(self):
-        batchs = self.buffer_count
-        self.buffer_count = []
-        return batchs
-
-    def length_count(self):
-        return len(self.buffer_count)
+        self.init(self.config.capacity)
 
 
 # ------------------------------------------------------
@@ -174,6 +144,11 @@ class _Network(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
+        if "l2" in config.cnn_block_kwargs:
+            _l2 = config.cnn_block_kwargs["l2"]
+        else:
+            _l2 = 0.0001
+
         in_state, c, use_image_head = create_input_layer(
             config.observation_shape,
             config.env_observation_type,
@@ -181,16 +156,23 @@ class _Network(keras.Model):
         if use_image_head:
             c = config.cnn_block(**config.cnn_block_kwargs)(c)
 
+            _conv2d_params = dict(
+                padding="same",
+                use_bias=False,
+                activation="linear",
+                kernel_regularizer=regularizers.l2(_l2),
+            )
+
             # --- policy image
-            c1 = kl.Conv2D(2, kernel_size=1, padding="same")(c)
-            c1 = kl.BatchNormalization()(c1)
-            c1 = kl.Activation("relu")(c1)
+            c1 = kl.Conv2D(2, kernel_size=(1, 1), **_conv2d_params)(c)
+            c1 = kl.BatchNormalization(axis=1)(c1)
+            c1 = kl.LeakyReLU()(c1)
             c1 = kl.Flatten()(c1)
 
             # --- value image
-            c2 = kl.Conv2D(1, kernel_size=1, padding="same")(c)
-            c2 = kl.BatchNormalization()(c2)
-            c2 = kl.Activation("relu")(c2)
+            c2 = kl.Conv2D(1, kernel_size=(1, 1), **_conv2d_params)(c)
+            c2 = kl.BatchNormalization(axis=1)(c2)
+            c2 = kl.LeakyReLU()(c2)
             c2 = kl.Flatten()(c2)
         else:
             c1 = c
@@ -198,11 +180,21 @@ class _Network(keras.Model):
 
         # --- policy output
         c1 = config.policy_block(**config.policy_block_kwargs)(c1)
-        policy = kl.Dense(config.action_num, activation="softmax", bias_initializer="he_normal")(c1)
+        policy = kl.Dense(
+            config.action_num,
+            activation="softmax",
+            use_bias=False,
+            kernel_regularizer=regularizers.l2(_l2),
+        )(c1)
 
         # --- value output
         c2 = config.value_block(**config.value_block_kwargs)(c2)
-        value = kl.Dense(1, activation="tanh")(c2)
+        value = kl.Dense(
+            1,
+            activation="tanh",
+            use_bias=False,
+            kernel_regularizer=regularizers.l2(_l2),
+        )(c2)
 
         self.model = keras.Model(in_state, [policy, value], name="PVNetwork")
 
@@ -225,9 +217,6 @@ class Parameter(RLParameter):
         self.config = cast(Config, self.config)
 
         self.network = _Network(self.config)
-
-        self.N = {}  # 訪問回数
-        self.W = {}  # 累計報酬
 
         # cache用 (simulationで何回も使うので)
         self.P = {}
@@ -255,11 +244,6 @@ class Parameter(RLParameter):
         self.P = {}
         self.V = {}
 
-    def init_state(self, state_str):
-        if state_str not in self.N:
-            self.N[state_str] = [0 for _ in range(self.config.action_num)]
-            self.W[state_str] = [0 for _ in range(self.config.action_num)]
-
 
 # ------------------------------------------------------
 # Trainer
@@ -286,16 +270,9 @@ class Trainer(RLTrainer):
         return self.train_count
 
     def train(self) -> dict:
-        info_nw = self._train_nw()
-        info_count = self._train_count()
-
-        info_nw.update(info_count)
-        return info_nw
-
-    def _train_nw(self) -> dict:
-        if self.remote_memory.length_nw() < self.config.warmup_size:
+        if self.remote_memory.length() < self.config.warmup_size:
             return {}
-        batchs = self.remote_memory.sample_nw(self.config.batch_size)
+        batchs = self.remote_memory.sample(self.config.batch_size)
 
         states = []
         policies = []
@@ -337,18 +314,6 @@ class Trainer(RLTrainer):
             "rl": self.optimizer.learning_rate.numpy(),
         }
 
-    def _train_count(self) -> dict:
-        if self.remote_memory.length_count() < 1:
-            return {}
-        for b in self.remote_memory.sample_count():
-            state_str = b["state_str"]
-            action = b["action"]
-            reward = b["reward"]
-            self.parameter.init_state(state_str)
-            self.parameter.N[state_str][action] += 1
-            self.parameter.W[state_str][action] += reward
-        return {"N_size": len(self.parameter.N)}
-
 
 # ------------------------------------------------------
 # Worker
@@ -364,29 +329,40 @@ class Worker(ModelBaseWorker):
         self.step = 0
         self.history = []
 
+        self.N = {}  # 訪問回数(s,a)
+        self.W = {}  # 累計報酬(s,a)
+        self.SUM_N = {}  # 合計訪問回数(s,a)
+
+    def _init_state(self, state_str):
+        if state_str not in self.N:
+            self.N[state_str] = [0 for _ in range(self.config.action_num)]
+            self.W[state_str] = [0 for _ in range(self.config.action_num)]
+            self.SUM_N[state_str] = 0
+
     def call_policy(self, state: np.ndarray, env: EnvRun, worker: WorkerRun) -> int:
         self.state = state
         self.state_str = to_str_observation(state)
         self.invalid_actions = env.get_invalid_actions(self.player_index)
-        self.parameter.init_state(self.state_str)
+        self._init_state(self.state_str)
 
-        # シミュレーションしてpolicyを作成
+        # --- シミュレーションしてpolicyを作成
         dat = env.backup()
         for _ in range(self.config.simulation_times):
             self._simulation(env, state, self.state_str, self.invalid_actions)
             env.restore(dat)
-        N = sum(self.parameter.N[self.state_str])
-        n = self.parameter.N[self.state_str]
-        policy = [n[a] / N for a in range(self.config.action_num)]
 
+        # --- (教師データ) 試行回数を元に確率を計算
+        self.step_policy = [
+            self.N[self.state_str][a] / self.SUM_N[self.state_str] for a in range(self.config.action_num)
+        ]
+
+        # --- episodeの序盤は試行回数に比例した確率でアクションを選択、それ以外は最大試行回数
         if self.step < self.config.sampling_steps:
-            # episodeの序盤は試行回数に比例した確率でアクションを選択
-            probs = np.array([0 if a in self.invalid_actions else v for a, v in enumerate(policy)])  # mask
-            action = random_choice_by_probs(probs)
+            action = random_choice_by_probs(self.N[self.state_str])
         else:
-            action = random.choice(np.where(policy == np.max(policy))[0])
+            counts = np.asarray(self.N[self.state_str])
+            action = random.choice(np.where(counts == counts.max())[0])
 
-        self.step_policy = policy
         return int(action)
 
     def _simulation(
@@ -403,7 +379,7 @@ class Worker(ModelBaseWorker):
         player_index = env.next_player_index
 
         # PVを予測
-        self.parameter.init_state(state_str)
+        self._init_state(state_str)
         self.parameter.pred_PV(state, state_str)
 
         # actionを選択
@@ -417,14 +393,13 @@ class Worker(ModelBaseWorker):
 
         if done:
             pass  # 終了
-        elif self.parameter.N[state_str][action] == 0:
+        elif self.N[state_str][action] == 0:
             # leaf node ならロールアウト
             self.parameter.pred_PV(n_state, n_state_str)
             # 一応割り引く
             reward = reward + self.config.gamma * self.parameter.V[n_state_str]
         else:
             n_invalid_actions = self.get_invalid_actions(env)
-
             enemy_turn = player_index != env.next_player_index
 
             # 子ノードに降りる(展開)
@@ -438,16 +413,9 @@ class Worker(ModelBaseWorker):
             reward = reward + self.config.gamma * n_reward
 
         # 結果を記録
-        self.parameter.N[state_str][action] += 1
-        self.parameter.W[state_str][action] += reward
-        if self.distributed:
-            self.remote_memory.add_count(
-                {
-                    "state_str": state_str,
-                    "action": action,
-                    "reward": reward,
-                }
-            )
+        self.N[state_str][action] += 1
+        self.W[state_str][action] += reward
+        self.SUM_N[state_str] += 1
 
         return reward
 
@@ -457,7 +425,7 @@ class Worker(ModelBaseWorker):
         if is_root:
             noises = np.random.dirichlet([self.config.root_dirichlet_alpha] * self.config.action_num)
 
-        N = np.sum(self.parameter.N[state_str])
+        N = self.SUM_N[state_str]
         scores = np.zeros(self.config.action_num)
         for a in range(self.config.action_num):
             if a in invalid_actions:
@@ -474,10 +442,10 @@ class Worker(ModelBaseWorker):
                     e = self.config.root_exploration_fraction
                     P = (1 - e) * P + e * noises[a]
 
-                n = self.parameter.N[state_str][a]
+                n = self.N[state_str][a]
                 c = np.log((1 + N + self.config.c_base) / self.config.c_base) + self.config.c_init
                 u = c * P * (np.sqrt(N) / (1 + n))
-                q = 0 if self.parameter.N[state_str][a] == 0 else self.parameter.W[state_str][a] / n
+                q = 0 if n == 0 else self.W[state_str][a] / n
                 score = q + u
             scores[a] = score
         return scores
@@ -491,6 +459,7 @@ class Worker(ModelBaseWorker):
         worker: WorkerRun,
     ):
         self.step += 1
+
         if not self.training:
             return {}
 
@@ -505,12 +474,12 @@ class Worker(ModelBaseWorker):
         if done:
             # 報酬を逆伝搬
             reward = 0
-            for h in reversed(self.history):
-                reward = h[2] + self.config.gamma * reward
-                self.remote_memory.add_nw(
+            for state, step_policy, step_reward in reversed(self.history):
+                reward = step_reward + self.config.gamma * reward
+                self.remote_memory.add(
                     {
-                        "state": h[0],
-                        "policy": h[1],
+                        "state": state,
+                        "policy": step_policy,
                         "reward": reward,
                     }
                 )
@@ -518,15 +487,15 @@ class Worker(ModelBaseWorker):
         return {}
 
     def call_render(self, env: EnvRun, worker: WorkerRun) -> None:
-        self.parameter.init_state(self.state_str)
+        self._init_state(self.state_str)
         self.parameter.pred_PV(self.state, self.state_str)
         print(f"value: {self.parameter.V[self.state_str]:7.3f}")
         puct = self._calc_puct(self.state_str, self.invalid_actions, False)
 
         def _render_sub(a: int) -> str:
-            if self.state_str in self.parameter.W:
-                q = self.parameter.W[self.state_str][a]
-                c = self.parameter.N[self.state_str][a]
+            if self.state_str in self.W:
+                q = self.W[self.state_str][a]
+                c = self.N[self.state_str][a]
                 if c != 0:
                     q = q / c
             else:

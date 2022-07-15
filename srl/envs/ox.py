@@ -204,7 +204,7 @@ class OX(TurnBase2Player):
 
                 a = x + y * self.W
                 if self.field[a] == 1:  # o
-                    self.viewer.draw_circle(center_x, center_y, int(cell_w * 0.3), (200, 0, 0), width=5)
+                    self.viewer.draw_circle(center_x, center_y, int(cell_w * 0.3), line_color=(200, 0, 0), width=5)
                 elif self.field[a] == -1:  # x
                     color = (0, 0, 200)
                     width = 5

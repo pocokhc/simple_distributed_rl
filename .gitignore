@@ -5,6 +5,7 @@ tmp*/
 *.log
 *.dat
 *.prof
+*.dll
 _*.*
 !__init__.py
 _*/

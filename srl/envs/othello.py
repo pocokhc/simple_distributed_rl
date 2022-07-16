@@ -483,21 +483,25 @@ class LayerProcessor(Processor):
         observation_space = BoxSpace(
             low=0,
             high=1,
-            shape=(3, env.H, env.W),
+            shape=(2, env.H, env.W),
         )
         return observation_space, EnvObservationType.SHAPE3
 
     def process_observation(self, observation: np.ndarray, env: Othello) -> np.ndarray:
-        # Layer0: player1 field (0 or 1)
-        # Layer1: player2 field (0 or 1)
-        # Layer2: player_index (all0 or all1)
-        _field = np.zeros((3, env.H, env.W))
+        # Layer0: my_player field (0 or 1)
+        # Layer1: enemy_player field (0 or 1)
+        if env.player_index == 0:
+            my_field = 1
+            enemy_field = -1
+        else:
+            my_field = -1
+            enemy_field = 1
+        _field = np.zeros((2, env.H, env.W))
         for y in range(env.H):
             for x in range(env.W):
                 idx = x + y * env.W
-                if observation[idx] == 1:
+                if observation[idx] == my_field:
                     _field[0][y][x] = 1
-                elif observation[idx] == -1:
+                elif observation[idx] == enemy_field:
                     _field[1][y][x] = 1
-        _field[2] = env.player_index
         return _field

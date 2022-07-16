@@ -261,8 +261,6 @@ class Trainer(RLTrainer):
             self.lr_schedule[lr_list["train"]] = lr_list["lr"]
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_schedule[0])
-        self.value_loss = keras.losses.MeanSquaredError()
-        self.policy_loss = keras.losses.CategoricalCrossentropy()
 
         self.train_count = 0
 
@@ -288,11 +286,12 @@ class Trainer(RLTrainer):
         with tf.GradientTape() as tape:
             p_pred, v_pred = self.parameter.network(states)
 
-            # value: 状態に対する勝率(reward)を教師に学習
-            value_loss = self.value_loss(rewards, v_pred)
+            # value: 状態に対する勝率(reward)を教師に学習(MSE)
+            value_loss = tf.square(rewards - v_pred)
 
-            # policy: 選んだアクション(MCTSの結果)を教師に学習
-            policy_loss = self.policy_loss(policies, p_pred)
+            # policy: 選んだアクション(MCTSの結果)を教師に学習(categorical cross entropy)
+            p_pred = tf.clip_by_value(p_pred, 1e-6, p_pred)  # log(0)回避用
+            policy_loss = -tf.reduce_sum(policies * tf.math.log(p_pred), axis=1, keepdims=True)
 
             loss = tf.reduce_mean(value_loss + policy_loss)
 
@@ -309,8 +308,8 @@ class Trainer(RLTrainer):
         self.parameter.reset_cache()
 
         return {
-            "value_loss": value_loss.numpy(),
-            "policy_loss": policy_loss.numpy(),
+            "value_loss": np.mean(value_loss.numpy()),
+            "policy_loss": np.mean(policy_loss.numpy()),
             "rl": self.optimizer.learning_rate.numpy(),
         }
 

@@ -11,9 +11,13 @@ import srl.rl
 from srl.base.define import RenderType
 from srl.base.env.base import EnvConfig, EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, WorkerRun
-from srl.base.rl.registration import (make_parameter, make_remote_memory,
-                                      make_trainer, make_worker,
-                                      make_worker_rulebase)
+from srl.base.rl.registration import (
+    make_parameter,
+    make_remote_memory,
+    make_trainer,
+    make_worker,
+    make_worker_rulebase,
+)
 from srl.runner.callback import Callback
 from srl.runner.callbacks.file_logger import FileLogger
 from srl.runner.callbacks.print_progress import PrintProgress
@@ -245,6 +249,7 @@ def train(
     timeout: int = -1,
     shuffle_player: bool = True,
     enable_validation: bool = True,
+    disable_trainer: bool = False,
     seed: Optional[int] = None,
     # print
     print_progress: bool = True,
@@ -260,6 +265,8 @@ def train(
 ) -> Tuple[RLParameter, RLRemoteMemory, FileLogPlot]:
     if callbacks is None:
         callbacks = []
+    if disable_trainer:
+        enable_validation = False  # 学習しないので
 
     config = config.copy(env_copy=True)
     config.max_steps = max_steps
@@ -267,6 +274,7 @@ def train(
     config.timeout = timeout
     config.shuffle_player = shuffle_player
     config.enable_validation = enable_validation
+    config.trainer_disable = disable_trainer
     config.callbacks = callbacks
     if config.seed is None:
         config.seed = seed
@@ -559,3 +567,36 @@ def play(
     [c.on_episodes_end(**_params) for c in callbacks]
 
     return episode_rewards_list, parameter, remote_memory, env
+
+
+# ---------------------------------
+# play train only TODO
+# ---------------------------------
+def train_only(
+    config: Config,
+    parameter: RLParameter,
+    remote_memory: RLRemoteMemory,
+    # config
+    max_train_count: int = -1,
+    timeout: int = -1,
+) -> Tuple[RLParameter, RLRemoteMemory]:
+
+    assert max_train_count > 0 or timeout > 0
+
+    trainer = config.make_trainer(parameter, remote_memory)
+    t0 = time.time()
+    train_count = 0
+
+    while True:
+        train_t0 = time.time()
+        train_info = trainer.train()
+        train_time = time.time() - train_t0
+        train_count += 1
+
+        if max_train_count > 0 and train_count > max_train_count:
+            break
+        if timeout > 0 and time.time() - t0 > timeout:
+            break
+    print(train_info, trainer.get_train_count())
+
+    return parameter, remote_memory

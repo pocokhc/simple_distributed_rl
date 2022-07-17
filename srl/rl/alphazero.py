@@ -179,11 +179,21 @@ class _Network(keras.Model):
 
         # --- policy output
         c1 = config.policy_block(**config.policy_block_kwargs)(c1)
-        policy = kl.Dense(config.action_num, activation="softmax")(c1)
+        policy = kl.Dense(
+            config.action_num,
+            activation="softmax",
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+        )(c1)
 
         # --- value output
         c2 = config.value_block(**config.value_block_kwargs)(c2)
-        value = kl.Dense(1, activation="tanh")(c2)
+        value = kl.Dense(
+            1,
+            activation="tanh",
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+        )(c2)
 
         self.model = keras.Model(in_state, [policy, value], name="PVNetwork")
 

@@ -20,6 +20,9 @@ class DiscreteSpace(SpaceBase):
     def __eq__(self, o: object) -> bool:
         return self.n == o.n
 
+    def __str__(self) -> str:
+        return f"Discrete({self.n})"
+
     # --- action discrete
     def get_action_discrete_info(self) -> int:
         return self.n

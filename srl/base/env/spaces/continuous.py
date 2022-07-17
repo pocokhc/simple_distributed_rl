@@ -13,6 +13,9 @@ class ContinuousSpace(BoxSpace):
     def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> float:
         return float(super().sample(invalid_actions)[0])
 
+    def __str__(self) -> str:
+        return f"Continuous({self.low}, {self.high})"
+
     # --- action discrete
     def get_action_discrete_info(self) -> int:
         return self._n

@@ -23,6 +23,9 @@ class ArrayContinuousSpace(BoxSpace):
     def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> List[float]:
         return super().sample(invalid_actions).tolist()
 
+    def __str__(self) -> str:
+        return f"ArrayContinuous({self.size}, {self.low}, {self.high})"
+
     # --- action discrete
     def get_action_discrete_info(self) -> int:
         return self._n

@@ -4,8 +4,7 @@ import random
 from typing import List, Tuple
 
 import numpy as np
-from srl.base.define import (ContinuousAction, DiscreteAction,
-                             DiscreteSpaceType, RLObservation)
+from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
 from srl.base.env.base import SpaceBase
 
 logger = logging.getLogger(__name__)
@@ -38,6 +37,9 @@ class ArrayDiscreteSpace(SpaceBase):
 
     def __eq__(self, o: object) -> bool:
         return self.nvec == o.nvec
+
+    def __str__(self) -> str:
+        return f"ArrayDiscrete({self.nvec})"
 
     # --- action discrete
     def get_action_discrete_info(self) -> int:

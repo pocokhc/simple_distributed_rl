@@ -52,6 +52,9 @@ class BoxSpace(SpaceBase):
     def __eq__(self, o: object) -> bool:
         return self.shape == o.shape and (self.low == o.low).all() and (self.high == o.high).all()
 
+    def __str__(self) -> str:
+        return f"Box({self.shape}, {self.low}, {self.high})"
+
     # --- discrete
     def set_action_division(self, division_num: int) -> None:
         if self._is_inf:

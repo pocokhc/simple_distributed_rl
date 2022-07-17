@@ -10,7 +10,7 @@ def main(is_mp):
     config = sequence.Config(env_config, rl_config)
 
     # load parameter
-    # config.set_parameter_path(parameter_path="tmp/QL_params.dat")
+    # rl_config.parameter_path = "tmp/QL_params.dat"
 
     # --- training
     if not is_mp:

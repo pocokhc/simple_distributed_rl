@@ -83,7 +83,7 @@ def main():
     config = sequence.Config(env_config, rl_config)
 
     # (option) load parameter
-    # config.set_parameter_path(parameter_path="params.dat")
+    # rl_config.parameter_path = "params.dat"
 
     # --- train
     if True:

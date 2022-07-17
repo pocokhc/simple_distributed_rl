@@ -73,8 +73,6 @@ class Config:
             self.rl_config = srl.rl.ql.Config()
 
         self.rl_name = self.rl_config.getName()
-        self.parameter_path = ""
-        self.remote_memory_path = ""
         self.trainer_disable = False
         self.env = None
 
@@ -84,10 +82,6 @@ class Config:
     # ------------------------------
     # user functions
     # ------------------------------
-    def set_parameter_path(self, parameter_path: str = "", remote_memory_path: str = ""):
-        self.parameter_path = parameter_path
-        self.remote_memory_path = remote_memory_path
-
     def model_summary(self, **kwargs) -> RLParameter:
         parameter = self.make_parameter()
         parameter.summary(**kwargs)
@@ -108,16 +102,10 @@ class Config:
         return self.env
 
     def make_parameter(self) -> RLParameter:
-        parameter = make_parameter(self.rl_config)
-        if self.parameter_path != "":
-            parameter.load(self.parameter_path)
-        return parameter
+        return make_parameter(self.rl_config)
 
     def make_remote_memory(self) -> RLRemoteMemory:
-        memory = make_remote_memory(self.rl_config)
-        if self.remote_memory_path != "":
-            memory.load(self.remote_memory_path)
-        return memory
+        return make_remote_memory(self.rl_config)
 
     def make_trainer(self, parameter: RLParameter, remote_memory: RLRemoteMemory):
         return make_trainer(self.rl_config, parameter, remote_memory)
@@ -286,7 +274,7 @@ def train(
     if print_progress:
         if print_progress_kwargs is None:
             print_progress_kwargs = {}
-            config.callbacks.append(PrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
+        config.callbacks.append(PrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
 
     if file_logger_kwargs is None:
         logger = FileLogger()

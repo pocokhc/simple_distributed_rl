@@ -27,7 +27,7 @@ def main(is_mp):
     config.model_summary()
 
     # load parameter
-    # config.set_parameter_path(parameter_path="tmp/Rainbow_params.dat")
+    # rl_config.parameter_path = "tmp/Rainbow_params.dat"
 
     # --- train
     if not is_mp:

@@ -5,9 +5,17 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 import numpy as np
-from srl.base.define import (EnvAction, EnvObservation, EnvObservationType,
-                             Info, RLAction, RLActionType, RLInvalidAction,
-                             RLObservation, RLObservationType)
+from srl.base.define import (
+    EnvAction,
+    EnvObservation,
+    EnvObservationType,
+    Info,
+    RLAction,
+    RLActionType,
+    RLInvalidAction,
+    RLObservation,
+    RLObservationType,
+)
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
@@ -22,6 +30,9 @@ class RLConfig(ABC):
         self.action_division_num: int = 5
         # self.observation_division_num: int = 10
         self.extend_worker: Optional[Type[ExtendWorker]] = None
+
+        self.parameter_path: str = ""
+        self.remote_memory_path: str = ""
 
     @staticmethod
     @abstractmethod

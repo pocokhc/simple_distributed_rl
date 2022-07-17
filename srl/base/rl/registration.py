@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Optional, Tuple, Type
 
 from srl.base.env.base import EnvRun
@@ -31,13 +32,25 @@ def make_remote_memory(rl_config: RLConfig, get_class: bool = False) -> RLRemote
     if get_class:
         return _class
     else:
-        return _class(rl_config)
+        remote_memory = _class(rl_config)
+        if rl_config.remote_memory_path != "":
+            if not os.path.isfile(rl_config.remote_memory_path):
+                logger.info(f"The file was not found and was not loaded.({rl_config.remote_memory_path})")
+            else:
+                remote_memory.load(rl_config.remote_memory_path)
+        return remote_memory
 
 
 def make_parameter(rl_config: RLConfig) -> RLParameter:
     assert rl_config.is_set_config_by_env, _ASSERT_MSG
     name = rl_config.getName()
-    return load_module(_registry[name][1])(rl_config)
+    parameter = load_module(_registry[name][1])(rl_config)
+    if rl_config.parameter_path != "":
+        if not os.path.isfile(rl_config.parameter_path):
+            logger.info(f"The file was not found and was not loaded.({rl_config.parameter_path})")
+        else:
+            parameter.load(rl_config.parameter_path)
+    return parameter
 
 
 def make_trainer(rl_config: RLConfig, parameter: RLParameter, remote_memory: RLRemoteMemory) -> RLTrainer:
@@ -55,6 +68,7 @@ def make_worker(
 ) -> WorkerRun:
     if not rl_config.is_set_config_by_env:
         rl_config.set_config_by_env(env)
+
     name = rl_config.getName()
     worker = load_module(_registry[name][3])(rl_config, parameter, remote_memory, actor_id)
     worker = WorkerRun(worker)

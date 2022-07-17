@@ -27,6 +27,11 @@ register(
     entry_point=__name__ + ":Othello",
     kwargs={"W": 6, "H": 6},
 )
+register(
+    id="Othello4x4",
+    entry_point=__name__ + ":Othello",
+    kwargs={"W": 4, "H": 4},
+)
 
 
 @dataclass
@@ -384,6 +389,7 @@ class Cpu(RuleBaseWorker):
         ]
         self.evals8x8 = np.array(self.evals8x8).flatten()
         assert self.evals8x8.shape == (64,)
+
         self.evals6x6 = [
             [30, -12, 0, 0, -12, 30],
             [-12, -15, -3, -3, -15, -12],

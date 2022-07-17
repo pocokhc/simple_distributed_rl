@@ -168,8 +168,10 @@ class Config:
 
         # RLConfigは専用のWorkerを作成
         if isinstance(player_obj, object) and issubclass(player_obj.__class__, RLConfig):
-            worker = make_worker(player_obj, env, actor_id=actor_id)
-            worker.set_play_info(False, False)
+            parameter = make_parameter(self.rl_config)
+            remote_memory = make_remote_memory(self.rl_config)
+            worker = make_worker(player_obj, env, parameter, remote_memory, actor_id=actor_id)
+            worker.set_play_info(training=False, distributed=False)
             return worker
 
         raise ValueError(f"unknown player: {player_obj}")

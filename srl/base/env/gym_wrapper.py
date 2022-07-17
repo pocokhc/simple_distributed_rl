@@ -1,3 +1,4 @@
+import logging
 import pickle
 from typing import Any, List, Optional, Tuple
 
@@ -8,6 +9,8 @@ from srl.base.env.spaces.box import BoxSpace
 from srl.base.env.spaces.discrete import DiscreteSpace
 
 from .base import EnvBase, SpaceBase
+
+logger = logging.getLogger(__name__)
 
 try:
     import gym
@@ -38,6 +41,7 @@ class GymWrapper(EnvBase):
     def _pred_action_space(self, space):
         if isinstance(space, spaces.Discrete):
             self._action_space = DiscreteSpace(space.n)
+            logger.debug(f"action_space: {self.action_space}")
             return
 
         if isinstance(space, spaces.Tuple):
@@ -45,12 +49,14 @@ class GymWrapper(EnvBase):
             if self._is_tuple_all_discrete(space):
                 nvec = [s.n for s in space.spaces]
                 self._action_space = ArrayDiscreteSpace(nvec)
+                logger.debug(f"action_space: {self.action_space}")
                 return
             else:
                 pass  # TODO
 
         if isinstance(space, spaces.Box):
             self._action_space = BoxSpace(space.shape, space.low, space.high)
+            logger.debug(f"action_space: {self.action_space}")
             return
 
         raise ValueError(f"not supported({space})")
@@ -59,6 +65,7 @@ class GymWrapper(EnvBase):
         if isinstance(space, spaces.Discrete):
             self._observation_space = DiscreteSpace(space.n)
             self._observation_type = EnvObservationType.DISCRETE
+            logger.debug(f"observation_space: {self.observation_type} {self.observation_space}")
             return
 
         if isinstance(space, spaces.Tuple):
@@ -67,6 +74,7 @@ class GymWrapper(EnvBase):
                 nvec = [s.n for s in space.spaces]
                 self._observation_space = ArrayDiscreteSpace(nvec)
                 self._observation_type = EnvObservationType.DISCRETE
+                logger.debug(f"observation_space: {self.observation_type} {self.observation_space}")
                 return
             else:
                 pass  # TODO
@@ -85,6 +93,7 @@ class GymWrapper(EnvBase):
                     self._observation_type = EnvObservationType.CONTINUOUS
             else:
                 self._observation_space = BoxSpace(space.shape, space.low, space.high)
+            logger.debug(f"observation_space: {self.observation_type} {self.observation_space}")
             return
 
         raise ValueError(f"not supported({space})")

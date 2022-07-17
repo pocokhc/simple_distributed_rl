@@ -535,7 +535,8 @@ def play(
         _params["player_index"] = env.next_player_index
 
         if env.done:
-            episode_rewards_list.append(env.episode_rewards)
+            worker_rewards = [env.episode_rewards[worker_indices[i]] for i in range(env.player_num)]
+            episode_rewards_list.append(worker_rewards)
 
             # validation
             valid_reward = None
@@ -562,7 +563,8 @@ def play(
 
     # 一度もepisodeを終了していない場合は例外で途中経過を保存
     if len(episode_rewards_list) == 0:
-        episode_rewards_list.append(env.episode_rewards)
+        worker_rewards = [env.episode_rewards[worker_indices[i]] for i in range(env.player_num)]
+        episode_rewards_list.append(worker_rewards)
 
     # callback
     _params["episode_count"] = episode_count

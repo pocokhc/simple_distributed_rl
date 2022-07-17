@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 class Config:
 
     env_config: EnvConfig
-    rl_config: Optional[RLConfig]
+    rl_config: RLConfig
 
     # multi player option
     players: List[Union[None, str, RLConfig]] = field(default_factory=list)

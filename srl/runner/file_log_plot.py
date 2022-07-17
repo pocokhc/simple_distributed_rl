@@ -1,4 +1,5 @@
 import datetime as dt
+import glob
 import json
 import logging
 import os
@@ -92,35 +93,75 @@ class FileLogPlot:
     def __init__(self) -> None:
         self._is_load = False
 
-    def load(self, path: str):
-        self.set_path(path)
-        self._read_df()
-        self._is_load = True
-
-    def set_path(self, path: str):
+    def load(self, path: str, remove_dir: bool = False):
         assert os.path.isdir(path)
         self.base_dir = path
-        self.param_dir = os.path.join(path, "params")
         self.log_dir = os.path.join(path, "logs")
+        self.param_dir = os.path.join(path, "params")
+        self.path_mp_config = os.path.join(self.base_dir, "mp_config.json")
+        self.path_config = os.path.join(self.base_dir, "config.json")
+        self.path_system = os.path.join(self.base_dir, "system.json")
+        self.path_version = os.path.join(self.base_dir, "version.txt")
         self.df = None
 
-        self.is_mp = os.path.isfile(os.path.join(self.base_dir, "mp_config.json"))
+        # -----------------------------
+        # read config
+        # ------------------------------
+        self.is_mp = os.path.isfile(self.path_mp_config)
 
-        with open(os.path.join(self.base_dir, "version.txt")) as f:
+        with open(self.path_version) as f:
             v = f.read()
             if v != srl.__version__:
                 logger.warning(f"log version is different({v} != {srl.__version__})")
 
-        with open(os.path.join(self.base_dir, "config.json")) as f:
+        with open(self.path_config) as f:
             d = json.load(f)
             self.player_num = d["env_config"]["player_num"]
 
         if self.is_mp:
-            with open(os.path.join(self.base_dir, "mp_config.json")) as f:
+            with open(self.path_mp_config) as f:
                 d = json.load(f)
                 self.actor_num = d["actor_num"]
 
+        # -----------------------------
+        # read df
+        # ------------------------------
+        self._read_df()
         self._is_load = True
+
+        # -----------------------------
+        # remove dir
+        # ------------------------------
+        if remove_dir:
+            # --- logs
+            for fn in glob.glob(os.path.join(self.log_dir, "*.txt")):
+                if os.path.isfile(fn):
+                    logger.debug(f"remove file: {fn}")
+                    os.remove(fn)
+            logger.debug(f"remove dir: {self.log_dir}")
+            os.rmdir(self.log_dir)  # 空のみ対象
+
+            # --- params
+            for fn in glob.glob(os.path.join(self.param_dir, "*.*")):
+                if os.path.isfile(fn):
+                    logger.debug(f"remove file: {fn}")
+                    os.remove(fn)
+            logger.debug(f"remove dir: {self.param_dir}")
+            os.rmdir(self.param_dir)  # 空のみ対象
+
+            # --- config
+            for fn in [
+                self.path_config,
+                self.path_mp_config,
+                self.path_system,
+                self.path_version,
+            ]:
+                if os.path.isfile(fn):
+                    logger.debug(f"remove file: {fn}")
+                    os.remove(fn)
+
+            # dir
+            os.rmdir(self.base_dir)  # 空のみ対象
 
     def _read_log(self, filename):
         data = []
@@ -153,9 +194,8 @@ class FileLogPlot:
         self.df = self.df.interpolate(method="time")
 
     # ----------------------------------------
+
     def get_df(self) -> pd.DataFrame:
-        self._read_df()
-        assert self.df is not None
         return self.df
 
     def plot(
@@ -167,7 +207,6 @@ class FileLogPlot:
     ):
         if not self._is_load:
             return
-
         df = self.get_df()
 
         if plot_type == "":
@@ -220,7 +259,6 @@ class FileLogPlot:
     ) -> None:
         if not self._is_load:
             return
-
         df = self.get_df()
 
         if plot_type == "":

@@ -245,9 +245,10 @@ def train(
     print_progress: bool = True,
     max_progress_time: int = 60 * 10,  # s
     print_progress_kwargs: Optional[Dict] = None,
-    # log
+    # log,history
     enable_file_logger: bool = True,
     file_logger_kwargs: Optional[Dict] = None,
+    remove_file_logger: bool = True,
     # other
     callbacks: List[Callback] = None,
     parameter: Optional[RLParameter] = None,
@@ -287,7 +288,8 @@ def train(
 
     history = FileLogPlot()
     if enable_file_logger:
-        history.set_path(logger.base_dir)
+        history.load(logger.base_dir, remove_file_logger)
+
     return parameter, memory, history
 
 

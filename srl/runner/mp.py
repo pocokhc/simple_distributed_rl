@@ -279,6 +279,7 @@ def train(
     # log
     enable_file_logger: bool = True,
     file_logger_kwargs: Optional[Dict] = None,
+    remove_file_logger: bool = True,
     # other
     callbacks: List[MPCallback] = None,
     init_parameter: Optional[RLParameter] = None,
@@ -339,7 +340,8 @@ def train(
 
     history = FileLogPlot()
     if enable_file_logger:
-        history.set_path(logger.base_dir)
+        history.load(logger.base_dir, remove_file_logger)
+
     return return_parameter, return_remote_memory, history
 
 

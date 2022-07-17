@@ -285,8 +285,7 @@ def train(
 
     if print_progress:
         if print_progress_kwargs is None:
-            config.callbacks.append(PrintProgress(max_progress_time=max_progress_time))
-        else:
+            print_progress_kwargs = {}
             config.callbacks.append(PrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
 
     if file_logger_kwargs is None:
@@ -306,12 +305,17 @@ def train(
 
 def evaluate(
     config: Config,
-    parameter: Optional[RLParameter],
-    max_episodes: int,
+    parameter: Optional[RLParameter] = None,
+    max_episodes: int = 10,
     max_steps: int = -1,
     timeout: int = -1,
     shuffle_player: bool = False,
     seed: Optional[int] = None,
+    # print
+    print_progress: bool = False,
+    max_progress_time: int = 60 * 10,  # s
+    print_progress_kwargs: Optional[Dict] = None,
+    # other
     callbacks: List[Callback] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
 ) -> Union[List[float], List[List[float]]]:  # single play , multi play
@@ -329,6 +333,11 @@ def evaluate(
 
     config.enable_validation = False
     config.training = False
+
+    if print_progress:
+        if print_progress_kwargs is None:
+            print_progress_kwargs = {}
+        config.callbacks.append(PrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
 
     episode_rewards, parameter, memory, env = play(config, parameter, remote_memory)
 

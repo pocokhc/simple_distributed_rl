@@ -542,7 +542,11 @@ def play(
             if config.enable_validation:
                 valid_episode += 1
                 if valid_episode > config.validation_interval:
-                    rewards = evaluate(valid_config, parameter=parameter, max_episodes=config.validation_episode)
+                    rewards = evaluate(
+                        valid_config,
+                        parameter=parameter,
+                        max_episodes=config.validation_episode,
+                    )
                     if env.player_num > 1:
                         rewards = [r[config.validation_player] for r in rewards]
                     valid_reward = np.mean(rewards)
@@ -570,36 +574,3 @@ def play(
     [c.on_episodes_end(**_params) for c in callbacks]
 
     return episode_rewards_list, parameter, remote_memory, env
-
-
-# ---------------------------------
-# play train only TODO
-# ---------------------------------
-def train_only(
-    config: Config,
-    parameter: RLParameter,
-    remote_memory: RLRemoteMemory,
-    # config
-    max_train_count: int = -1,
-    timeout: int = -1,
-) -> Tuple[RLParameter, RLRemoteMemory]:
-
-    assert max_train_count > 0 or timeout > 0
-
-    trainer = config.make_trainer(parameter, remote_memory)
-    t0 = time.time()
-    train_count = 0
-
-    while True:
-        train_t0 = time.time()
-        train_info = trainer.train()
-        train_time = time.time() - train_t0
-        train_count += 1
-
-        if max_train_count > 0 and train_count > max_train_count:
-            break
-        if timeout > 0 and time.time() - t0 > timeout:
-            break
-    print(train_info, trainer.get_train_count())
-
-    return parameter, remote_memory

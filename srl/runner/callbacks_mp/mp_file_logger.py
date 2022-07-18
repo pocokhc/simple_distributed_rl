@@ -89,7 +89,7 @@ class MPFileLogger(MPCallback):
             pynvml.nvmlShutdown()
         self.close()
 
-    def on_trainer_train_end(
+    def on_trainer_train(
         self,
         remote_memory,
         train_count,

@@ -25,7 +25,7 @@ class MPCallback(Callback, ABC):
     def on_trainer_start(self, **kwargs) -> None:
         pass  # do nothing
 
-    def on_trainer_train_end(self, **kwargs) -> None:
+    def on_trainer_train(self, **kwargs) -> None:
         pass  # do nothing
 
     def on_trainer_end(self, **kwargs) -> None:

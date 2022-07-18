@@ -246,7 +246,7 @@ def _run_trainer(
                 _info["train_count"] = trainer.get_train_count()
                 _info["train_time"] = train_time
                 _info["sync_count"] = sync_count
-                [c.on_trainer_train_end(**_info) for c in callbacks]
+                [c.on_trainer_train(**_info) for c in callbacks]
 
         finally:
             train_end_signal.value = True

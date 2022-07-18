@@ -161,6 +161,7 @@ class FileLogPlot:
                     os.remove(fn)
 
             # dir
+            logger.debug(f"remove dir: {self.base_dir}")
             os.rmdir(self.base_dir)  # 空のみ対象
 
     def _read_log(self, filename):

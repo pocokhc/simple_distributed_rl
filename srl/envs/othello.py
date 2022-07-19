@@ -374,35 +374,41 @@ class Othello(TurnBase2Player):
 class Cpu(RuleBaseWorker):
     cache = {}
 
-    def __init__(self) -> None:
+    def call_on_reset(self, _env: EnvRun, worker_run: WorkerRun) -> None:
+        env = cast(Othello, _env.get_original_env())
         self.max_depth = 2
+        self.eval_field = None
 
-        self.evals8x8 = [
-            [30, -12, 0, -1, -1, 0, -12, 30],
-            [-12, -15, -3, -3, -3, -3, -15, -12],
-            [0, -3, 0, -1, -1, 0, -3, 0],
-            [-1, -3, -1, -1, -1, -1, -3, -1],
-            [-1, -3, -1, -1, -1, -1, -3, -1],
-            [0, -3, 0, -1, -1, 0, -3, 0],
-            [-12, -15, -3, -3, -3, -3, -15, -12],
-            [30, -12, 0, -1, -1, 0, -12, 30],
-        ]
-        self.evals8x8 = np.array(self.evals8x8).flatten()
-        assert self.evals8x8.shape == (64,)
+        if env.W == 8:
+            self.max_depth = 2
+            self.eval_field = [
+                [30, -12, 0, -1, -1, 0, -12, 30],
+                [-12, -15, -3, -3, -3, -3, -15, -12],
+                [0, -3, 0, -1, -1, 0, -3, 0],
+                [-1, -3, -1, -1, -1, -1, -3, -1],
+                [-1, -3, -1, -1, -1, -1, -3, -1],
+                [0, -3, 0, -1, -1, 0, -3, 0],
+                [-12, -15, -3, -3, -3, -3, -15, -12],
+                [30, -12, 0, -1, -1, 0, -12, 30],
+            ]
+            self.eval_field = np.array(self.eval_field).flatten()
+            assert self.eval_field.shape == (64,)
 
-        self.evals6x6 = [
-            [30, -12, 0, 0, -12, 30],
-            [-12, -15, -3, -3, -15, -12],
-            [0, -3, 0, 0, -3, 0],
-            [0, -3, 0, 0, -3, 0],
-            [-12, -15, -3, -3, -15, -12],
-            [30, -12, 0, 0, -12, 30],
-        ]
-        self.evals6x6 = np.array(self.evals6x6).flatten()
-        assert self.evals6x6.shape == (36,)
+        elif env.W == 6:
+            self.max_depth = 3
+            self.eval_field = [
+                [30, -12, 0, 0, -12, 30],
+                [-12, -15, -3, -3, -15, -12],
+                [0, -3, 0, 0, -3, 0],
+                [0, -3, 0, 0, -3, 0],
+                [-12, -15, -3, -3, -15, -12],
+                [30, -12, 0, 0, -12, 30],
+            ]
+            self.eval_field = np.array(self.eval_field).flatten()
+            assert self.eval_field.shape == (36,)
 
-    def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> None:
-        pass  #
+        elif env.W == 4:
+            self.max_depth = 6
 
     def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> EnvAction:
         self._count = 0
@@ -442,12 +448,10 @@ class Cpu(RuleBaseWorker):
                     scores[a] = r2 * 500
             elif depth > self.max_depth:
                 # 評価値を返す
-                if env.W == 8:
-                    scores[a] = np.sum(self.evals8x8 * env.field)
-                elif env.W == 6:
-                    scores[a] = np.sum(self.evals6x6 * env.field)
-                else:
+                if self.eval_field is None:
                     scores[a] = 0
+                else:
+                    scores[a] = np.sum(self.eval_field * env.field)
                 if player_index != 0:
                     scores[a] = -scores[a]
             else:

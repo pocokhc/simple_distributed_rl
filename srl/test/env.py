@@ -74,6 +74,11 @@ class TestEnv:
                 for a in invalid_actions:
                     assert isinstance(a, int)
 
+            # actionが選べるか
+            invalid_actions = env.get_invalid_actions(env.next_player_index)
+            if len(invalid_actions) > 0:
+                assert len(invalid_actions) < env.action_space.get_action_discrete_info()
+
             # --- step
             env.step(action)
             assert self._is_space_base_instance(env.state)

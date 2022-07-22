@@ -304,9 +304,14 @@ class EnvRun:
             if skip_function is not None:
                 skip_function()
 
-        self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
+        invalid_actions = self.env.get_invalid_actions(self.next_player_index)
+        self._invalid_actions_list[self.next_player_index] = invalid_actions
         self._step_num += 1
         self._episode_rewards += self.step_rewards
+
+        # action check
+        if not self.done and len(invalid_actions) > 0:
+            assert len(invalid_actions) < self.action_space.get_action_discrete_info()
 
         # done step
         if self.done:

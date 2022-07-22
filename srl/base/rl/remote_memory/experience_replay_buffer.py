@@ -1,8 +1,11 @@
+import logging
 import random
 from collections import deque
 from typing import Any
 
 from srl.base.rl.base import RLRemoteMemory
+
+logger = logging.getLogger(__name__)
 
 
 class ExperienceReplayBuffer(RLRemoteMemory):
@@ -26,6 +29,9 @@ class ExperienceReplayBuffer(RLRemoteMemory):
         self.memory.append(batch)
 
     def sample(self, batch_size: int):
+        if len(self.memory) < batch_size:
+            logger.warning(f"memory size: {len(self.memory)} < batch size: {batch_size}")
+            batch_size = len(self.memory)
         return random.sample(self.memory, batch_size)
 
     def clear(self):

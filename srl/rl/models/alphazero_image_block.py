@@ -32,7 +32,7 @@ class AlphaZeroImageBlock(keras.Model):
         )
 
         self.conv1 = kl.Conv2D(**conv2d_params)
-        self.bn1 = kl.BatchNormalization(axis=1)
+        self.bn1 = kl.BatchNormalization()
         self.act1 = kl.LeakyReLU()
         self.resblocks = [_ResidualBlock(conv2d_params) for _ in range(n_blocks)]
 
@@ -50,10 +50,10 @@ class _ResidualBlock(keras.Model):
         super().__init__()
 
         self.conv1 = kl.Conv2D(**conv2d_params)
-        self.bn1 = kl.BatchNormalization(axis=1)
+        self.bn1 = kl.BatchNormalization()
         self.relu1 = kl.LeakyReLU()
         self.conv2 = kl.Conv2D(**conv2d_params)
-        self.bn2 = kl.BatchNormalization(axis=1)
+        self.bn2 = kl.BatchNormalization()
         self.relu2 = kl.LeakyReLU()
 
     def call(self, x):

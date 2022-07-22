@@ -249,6 +249,6 @@ class Worker(ModelBaseWorker):
             c = self.parameter.N[self.state][a]
             if c != 0:
                 q /= c
-            return f"{q:9.4f}({c:7d}), uct {uct_list[a]:.5f}"
+            return f"{c:7d}(N), {q:9.4f}(Q), {uct_list[a]:.5f}(UCT)"
 
         render_discrete_action(self.invalid_actions, maxa, env, _render_sub)

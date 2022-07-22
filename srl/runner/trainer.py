@@ -33,9 +33,12 @@ class TrainerCallback(ABC):
 @dataclass
 class TrainerPrintProgress(TrainerCallback):
     max_progress_time: int = 60 * 10  # s
+    start_progress_timeout: int = 5  # s
 
     def __post_init__(self):
-        self.progress_timeout = 5
+        assert self.start_progress_timeout > 0
+        assert self.start_progress_timeout < self.max_progress_time
+        self.progress_timeout = self.start_progress_timeout
 
     def on_trainer_start(
         self,

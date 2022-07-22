@@ -16,13 +16,16 @@ logger = logging.getLogger(__name__)
 class PrintProgress(Callback):
 
     max_progress_time: int = 60 * 10  # s
+    start_progress_timeout: int = 5  # s
     print_env_info: bool = False
     print_worker_info: bool = True
     print_train_info: bool = True
     print_worker: int = 0
 
     def __post_init__(self):
-        self.progress_timeout = 5
+        assert self.start_progress_timeout > 0
+        assert self.start_progress_timeout < self.max_progress_time
+        self.progress_timeout = self.start_progress_timeout
         self.progress_step_count = 0
         self.progress_episode_count = 0
         self.step_count = 0

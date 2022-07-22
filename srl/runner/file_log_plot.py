@@ -138,7 +138,7 @@ class FileLogPlot:
                 if os.path.isfile(fn):
                     logger.debug(f"remove file: {fn}")
                     os.remove(fn)
-            logger.debug(f"remove dir: {self.log_dir}")
+            logger.debug(f"remove dir : {self.log_dir}")
             os.rmdir(self.log_dir)  # 空のみ対象
 
             # --- params
@@ -146,7 +146,7 @@ class FileLogPlot:
                 if os.path.isfile(fn):
                     logger.debug(f"remove file: {fn}")
                     os.remove(fn)
-            logger.debug(f"remove dir: {self.param_dir}")
+            logger.debug(f"remove dir : {self.param_dir}")
             os.rmdir(self.param_dir)  # 空のみ対象
 
             # --- config
@@ -161,7 +161,7 @@ class FileLogPlot:
                     os.remove(fn)
 
             # dir
-            logger.debug(f"remove dir: {self.base_dir}")
+            logger.debug(f"remove dir : {self.base_dir}")
             os.rmdir(self.base_dir)  # 空のみ対象
 
     def _read_log(self, filename):

@@ -1,7 +1,6 @@
 import logging
 import random
 import time
-from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
@@ -23,9 +22,10 @@ register(
 )
 
 
-@dataclass
 class OX(TurnBase2Player):
-    def __post_init__(self):
+    _scores_cache = {}
+
+    def __init__(self):
 
         self.W = 3
         self.H = 3
@@ -224,42 +224,27 @@ class OX(TurnBase2Player):
             return Cpu()
         return None
 
+    # --------------------------------------------
 
-class Cpu(RuleBaseWorker):
-    cache = {}
+    def calc_scores(self) -> List[float]:
+        self._scores_count = 0
+        t0 = time.time()
+        scores = self._negamax(self.copy())
+        self._scores_time = time.time() - t0
+        return scores
 
-    def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> None:
-        pass  #
-
-    def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> EnvAction:
-        self._count = 0
-        self.t0 = time.time()
-
-        scores = self._negamax(env.get_original_env().copy())
-
-        self._render_scores = scores
-        self._render_count = self._count
-        self._render_time = time.time() - self.t0
-
-        action = int(random.choice(np.where(scores == scores.max())[0]))
-        return action
-
-    def _negamax(self, env: OX, depth: int = 10):
-        if depth == 0:
-            return np.array([0])
-
+    def _negamax(self, env: "OX") -> List[float]:
         key = str(env.field)
-        if key in Cpu.cache:
-            return Cpu.cache[key]
+        if key in OX._scores_cache:
+            return OX._scores_cache[key]
 
-        self._count += 1
+        self._scores_count += 1
         env_dat = env.backup()
 
-        scores = np.array([-9 for _ in range(env.action_space.n)])
-        for a in range(env.action_space.n):
+        scores = [-9.0 for _ in range(env.action_space.n)]
+        for a in self.get_valid_actions(self.player_index):
+            a = cast(int, a)
             env.restore(env_dat)
-            if env.field[a] != 0:
-                continue
 
             _, r1, r2, done, _ = env.call_step(a)
             if done:
@@ -269,11 +254,28 @@ class Cpu(RuleBaseWorker):
                     scores[a] = r2
             else:
                 # 次の状態へ
-                n_scores = self._negamax(env, depth - 1)
+                n_scores = self._negamax(env)
                 scores[a] = -np.max(n_scores)
 
-        Cpu.cache[key] = scores
+        OX._scores_cache[key] = scores
         return scores
+
+
+class Cpu(RuleBaseWorker):
+    cache = {}
+
+    def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> None:
+        pass  #
+
+    def call_policy(self, _env: EnvRun, worker_run: WorkerRun) -> EnvAction:
+        env = cast(OX, _env.get_original_env())
+        scores = env.calc_scores()
+        self._render_scores = scores
+        self._render_count = env._scores_count
+        self._render_time = env._scores_time
+
+        action = int(random.choice(np.where(scores == np.max(scores))[0]))
+        return action
 
     def call_render(self, _env: EnvRun, worker_run: WorkerRun) -> None:
         env = cast(OX, _env.get_original_env())
@@ -284,7 +286,7 @@ class Cpu(RuleBaseWorker):
             s = "|"
             for x in range(env.W):
                 a = x + y * env.W
-                s += "{:2d}|".format(self._render_scores[a])
+                s += "{:2.0f}|".format(self._render_scores[a])
             print(s)
             print("-" * 10)
 

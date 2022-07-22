@@ -1,4 +1,3 @@
-import pickle
 import random
 from dataclasses import dataclass
 from typing import Any, List, cast
@@ -41,8 +40,8 @@ class Config(DiscreteActionConfig):
     capacity: int = 10_000
     gamma: float = 1.0  # 割引率
 
-    sampling_steps: int = 10
-    batch_size: int = 64
+    sampling_steps: int = 1
+    batch_size: int = 128
     warmup_size: int = 1000
 
     # 学習率
@@ -164,15 +163,15 @@ class _Network(keras.Model):
 
             # --- policy image
             c1 = kl.Conv2D(2, kernel_size=(1, 1), **_conv2d_params)(c)
-            c1 = kl.BatchNormalization(axis=1)(c1)
+            c1 = kl.BatchNormalization()(c1)
             c1 = kl.LeakyReLU()(c1)
-            c1 = kl.Flatten()(c1)
+            c1 = kl.Flatten()(c)
 
             # --- value image
             c2 = kl.Conv2D(1, kernel_size=(1, 1), **_conv2d_params)(c)
-            c2 = kl.BatchNormalization(axis=1)(c2)
+            c2 = kl.BatchNormalization()(c2)
             c2 = kl.LeakyReLU()(c2)
-            c2 = kl.Flatten()(c2)
+            c2 = kl.Flatten()(c)
         else:
             c1 = c
             c2 = c
@@ -183,16 +182,14 @@ class _Network(keras.Model):
             config.action_num,
             activation="softmax",
             kernel_initializer="truncated_normal",
-            bias_initializer="truncated_normal",
         )(c1)
 
         # --- value output
         c2 = config.value_block(**config.value_block_kwargs)(c2)
         value = kl.Dense(
             1,
-            activation="tanh",
+            # activation="tanh",  # 論文はtanh(-1～1)
             kernel_initializer="truncated_normal",
-            bias_initializer="truncated_normal",
         )(c2)
 
         self.model = keras.Model(in_state, [policy, value], name="PVNetwork")
@@ -222,11 +219,11 @@ class Parameter(RLParameter):
         self.V = {}
 
     def restore(self, data: Any) -> None:
-        self.network.set_weights(pickle.loads(data))
+        self.network.set_weights(data)
         self.reset_cache()
 
     def backup(self):
-        return pickle.dumps(self.network.get_weights())
+        return self.network.get_weights()
 
     def summary(self, **kwargs):
         self.network.model.summary(**kwargs)
@@ -277,10 +274,10 @@ class Trainer(RLTrainer):
         for b in batchs:
             states.append(b["state"])
             policies.append(b["policy"])
-            rewards.append(b["reward"])
+            rewards.append([b["reward"]])
         states = np.asarray(states)
         policies = np.asarray(policies)
-        rewards = np.asarray(rewards).reshape((-1, 1))
+        rewards = np.asarray(rewards)
 
         with tf.GradientTape() as tape:
             p_pred, v_pred = self.parameter.network(states)
@@ -329,13 +326,11 @@ class Worker(ModelBaseWorker):
 
         self.N = {}  # 訪問回数(s,a)
         self.W = {}  # 累計報酬(s,a)
-        self.SUM_N = {}  # 合計訪問回数(s,a)
 
     def _init_state(self, state_str):
         if state_str not in self.N:
             self.N[state_str] = [0 for _ in range(self.config.action_num)]
             self.W[state_str] = [0 for _ in range(self.config.action_num)]
-            self.SUM_N[state_str] = 0
 
     def call_policy(self, state: np.ndarray, env: EnvRun, worker: WorkerRun) -> int:
         self.state = state
@@ -350,9 +345,8 @@ class Worker(ModelBaseWorker):
             env.restore(dat)
 
         # --- (教師データ) 試行回数を元に確率を計算
-        self.step_policy = [
-            self.N[self.state_str][a] / self.SUM_N[self.state_str] for a in range(self.config.action_num)
-        ]
+        N = np.sum(self.N[self.state_str])
+        self.step_policy = [self.N[self.state_str][a] / N for a in range(self.config.action_num)]
 
         # --- episodeの序盤は試行回数に比例した確率でアクションを選択、それ以外は最大試行回数
         if self.step < self.config.sampling_steps:
@@ -388,32 +382,30 @@ class Worker(ModelBaseWorker):
         n_state, rewards, done = self.env_step(env, action)
         reward = rewards[player_index]
         n_state_str = to_str_observation(n_state)
+        enemy_turn = player_index != env.next_player_index
 
         if done:
-            pass  # 終了
+            n_reward = 0
         elif self.N[state_str][action] == 0:
             # leaf node ならロールアウト
             self.parameter.pred_PV(n_state, n_state_str)
-            # 一応割り引く
-            reward = reward + self.config.gamma * self.parameter.V[n_state_str]
+            n_reward = self.parameter.V[n_state_str]
         else:
             n_invalid_actions = self.get_invalid_actions(env)
-            enemy_turn = player_index != env.next_player_index
 
             # 子ノードに降りる(展開)
             n_reward = self._simulation(env, n_state, n_state_str, n_invalid_actions, depth + 1)
 
-            # 次が相手のターンの報酬は最小になってほしいので-をかける
-            if enemy_turn:
-                n_reward = -n_reward
+        # 次が相手のターンなら、報酬は最小になってほしいので-をかける
+        if enemy_turn:
+            n_reward = -n_reward
 
-            # 割引報酬
-            reward = reward + self.config.gamma * n_reward
+        # 割引報酬
+        reward = reward + self.config.gamma * n_reward
 
         # 結果を記録
         self.N[state_str][action] += 1
         self.W[state_str][action] += reward
-        self.SUM_N[state_str] += 1
 
         return reward
 
@@ -423,7 +415,7 @@ class Worker(ModelBaseWorker):
         if is_root:
             noises = np.random.dirichlet([self.config.root_dirichlet_alpha] * self.config.action_num)
 
-        N = self.SUM_N[state_str]
+        N = np.sum(self.N[state_str])
         scores = np.zeros(self.config.action_num)
         for a in range(self.config.action_num):
             if a in invalid_actions:
@@ -461,12 +453,6 @@ class Worker(ModelBaseWorker):
         if not self.training:
             return {}
 
-        # value networkの想定が-1～1(tanh)なのでclip
-        if reward < -1:
-            reward = -1
-        elif reward > 1:
-            reward = 1
-
         self.history.append([self.state, self.step_policy, reward])
 
         if done:
@@ -487,8 +473,11 @@ class Worker(ModelBaseWorker):
     def call_render(self, env: EnvRun, worker: WorkerRun) -> None:
         self._init_state(self.state_str)
         self.parameter.pred_PV(self.state, self.state_str)
-        print(f"value: {self.parameter.V[self.state_str]:7.3f}")
         puct = self._calc_puct(self.state_str, self.invalid_actions, False)
+        maxa = np.argmax(self.N[self.state_str])
+        N = np.sum(self.N[self.state_str])
+
+        print(f"V_net: {self.parameter.V[self.state_str]:.5f}")
 
         def _render_sub(a: int) -> str:
             if self.state_str in self.W:
@@ -496,16 +485,22 @@ class Worker(ModelBaseWorker):
                 c = self.N[self.state_str][a]
                 if c != 0:
                     q = q / c
+                if N == 0:
+                    p = 0
+                else:
+                    p = (self.N[self.state_str][a] / N) * 100
             else:
+                p = 0
                 q = 0
                 c = 0
-            s = "{}: Q {:9.5f}({:7d}), policy {:9.5f}, puct {:.5f}".format(
-                env.action_to_str(a),
-                q,
+
+            s = "{:5.1f}% ({:7d})(N), {:9.5f}(Q), {:9.5f}(P_net), {:.5f}(PUCT)".format(
+                p,
                 c,
+                q,
                 self.parameter.P[self.state_str][a],
                 puct[a],
             )
             return s
 
-        render_discrete_action(self.invalid_actions, None, env, _render_sub)
+        render_discrete_action(self.invalid_actions, maxa, env, _render_sub)

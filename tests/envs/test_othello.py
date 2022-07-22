@@ -21,8 +21,17 @@ class Test(unittest.TestCase):
     def test_play6x6(self):
         self.tester.play_test("Othello6x6")
 
+    def test_play4x4(self):
+        self.tester.play_test("Othello4x4")
+
     def test_player(self):
         self.tester.player_test("Othello", "cpu")
+
+    def test_player6x6(self):
+        self.tester.player_test("Othello6x6", "cpu")
+
+    def test_player4x4(self):
+        self.tester.player_test("Othello4x4", "cpu")
 
     def test_processor(self):
         tester = TestProcessor()
@@ -30,14 +39,19 @@ class Test(unittest.TestCase):
         env_name = "Othello"
 
         in_state = [0] * (8 * 8)
-        out_state = np.zeros((3, 8, 8))
+        out_state = np.zeros((2, 8, 8))
+
+        in_state[0] = 1
+        in_state[1] = -1
+        out_state[0][0][0] = 1
+        out_state[1][0][0] = 1
 
         tester.run(processor, env_name)
         tester.change_observation_info(
             processor,
             env_name,
             EnvObservationType.SHAPE3,
-            BoxSpace((3, 8, 8), 0, 1),
+            BoxSpace((2, 8, 8), 0, 1),
         )
         tester.observation_decode(
             processor,

@@ -103,16 +103,11 @@ def to_str_observation(state: np.ndarray) -> str:
 
 def render_discrete_action(invalid_actions, maxa, env: EnvRun, func) -> None:
     action_num = env.action_space.get_action_discrete_info()
+
     for action in range(action_num):
-        if len(invalid_actions) > 10:
-            if action in invalid_actions:
-                continue
-            s = ""
-        else:
-            if action in invalid_actions:
-                s = "x"
-            else:
-                s = " "
+        if action in invalid_actions:
+            continue
+        s = ""
         if maxa is not None:
             if action == maxa:
                 s += "*"
@@ -121,3 +116,18 @@ def render_discrete_action(invalid_actions, maxa, env: EnvRun, func) -> None:
         rl_s = func(action)
         s += f"{env.action_to_str(action):3s}: {rl_s}"
         print(s)
+
+    # invalid actions
+    view_invalid_actions_num = 0
+    for action in range(action_num):
+        if action not in invalid_actions:
+            continue
+        if view_invalid_actions_num > 2:
+            continue
+        s = "x"
+        view_invalid_actions_num += 1
+        rl_s = func(action)
+        s += f"{env.action_to_str(action):3s}: {rl_s}"
+        print(s)
+    if view_invalid_actions_num > 2:
+        print(f"... Some invalid actions have been omitted. (invalid actions num: {len(invalid_actions)})")

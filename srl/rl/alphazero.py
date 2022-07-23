@@ -165,13 +165,13 @@ class _Network(keras.Model):
             c1 = kl.Conv2D(2, kernel_size=(1, 1), **_conv2d_params)(c)
             c1 = kl.BatchNormalization()(c1)
             c1 = kl.LeakyReLU()(c1)
-            c1 = kl.Flatten()(c)
+            c1 = kl.Flatten()(c1)
 
             # --- value image
             c2 = kl.Conv2D(1, kernel_size=(1, 1), **_conv2d_params)(c)
             c2 = kl.BatchNormalization()(c2)
             c2 = kl.LeakyReLU()(c2)
-            c2 = kl.Flatten()(c)
+            c2 = kl.Flatten()(c2)
         else:
             c1 = c
             c2 = c

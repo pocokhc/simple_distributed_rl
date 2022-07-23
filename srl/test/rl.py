@@ -40,7 +40,7 @@ class TestRL:
             # 2p
             "StoneTaking": ([0.9, 0.7], 200),  # 先行必勝(石10個)
             "OX": ([0.8, 0.65], 200),  # [0.987, 0.813] ぐらい
-            "Othello6x6": ([0.1, 0.1], 50),  #
+            "Othello4x4": ([0.1, 0.5], 200),  # [0.3, 0.9] ぐらい
         }
 
     def play_sequence(self, rl_config):

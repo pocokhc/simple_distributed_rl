@@ -18,8 +18,9 @@ class Test(unittest.TestCase):
         rl_config = srl.rl.alphazero.Config()
         rl_config.simulation_times = 100
         rl_config.sampling_steps = 1
-        rl_config.batch_size = 32
-        rl_config.gamma = 1.0
+        rl_config.batch_size = 64
+        rl_config.warmup_size = 100
+        rl_config.gamma = 0.9
         rl_config.lr_schedule = [
             {"train": 0, "lr": 0.02},
             {"train": 100, "lr": 0.002},
@@ -27,7 +28,7 @@ class Test(unittest.TestCase):
         ]
         rl_config.cnn_block_kwargs = dict(n_blocks=1, filters=32)
         rl_config.value_block_kwargs = dict(hidden_layer_sizes=(32,))
-        self.tester.play_verify_singleplay("Grid", rl_config, 3000)
+        self.tester.play_verify_singleplay("Grid", rl_config, 5000)
 
     def test_verify_StoneTaking(self):
         rl_config = srl.rl.alphazero.Config()
@@ -62,6 +63,23 @@ class Test(unittest.TestCase):
         rl_config.value_block_kwargs = dict(hidden_layer_sizes=(32,))
         self.tester.play_verify_2play("OX", rl_config, 200, is_mp=True)
 
+    def test_verify_Othello4x4(self):
+        rl_config = srl.rl.alphazero.Config()
+        rl_config.simulation_times = 100
+        rl_config.sampling_steps = 1
+        rl_config.batch_size = 128
+        rl_config.warmup_size = 500
+        rl_config.capacity = 100_000
+        rl_config.lr_schedule = [
+            {"train": 0, "lr": 0.001},
+            {"train": 1000, "lr": 0.0005},
+            {"train": 5000, "lr": 0.0002},
+        ]
+        rl_config.cnn_block_kwargs = dict(n_blocks=19, filters=128)
+        rl_config.value_block_kwargs = dict(hidden_layer_sizes=(128,))
+        rl_config.policy_block_kwargs = dict(hidden_layer_sizes=(128,))
+        self.tester.play_verify_2play("Othello4x4", rl_config, 400000, is_mp=True)
+
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_ox_mp", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_Othello4x4", verbosity=2)

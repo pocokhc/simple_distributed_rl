@@ -1,5 +1,21 @@
 
 
+# v0.5.4
++ AlphaZero追加
++ othello追加
++ get_valid_actions を追加
++ sequenceに経験収集だけ、学習だけをする仕組みを追加
++ パラメータの読み込みをRLConfig側に変更(それに伴って set_parameter_path を削除)
++ sequenceでWorker作成時にRLConfigが指定された場合のバグ修正
++ 細かい修正
+  + 自作層をkl.Layerからkeras.Modelに変更
+  + pygameのViewerを修正
+  + model_summaryの引数を修正
+  + mp train callback の on_trainer_train_skip を削除
+  + on_trainer_train_endをon_trainer_trainに変更
+  + experience_memoryにてbatchサイズ未満の処理を追加
+  + invalid actionsのチェック機構を追加
+
 # v0.5.3
 
 + history作成

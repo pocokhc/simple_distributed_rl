@@ -14,6 +14,7 @@ class Test(unittest.TestCase):
             if name.startswith("make"):
                 continue
             if name in [
+                "models",
                 "memories",
                 "functions",
                 "human",
@@ -36,4 +37,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_mp", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_sequence", verbosity=2)

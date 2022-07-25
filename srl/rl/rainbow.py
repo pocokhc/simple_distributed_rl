@@ -84,7 +84,7 @@ class Config(DiscreteActionConfig):
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
 
-    gamma: float = 0.99  # 割引率
+    discount: float = 0.99  # 割引率
     lr: float = 0.001  # 学習率
     batch_size: int = 32
     target_model_update_interval: int = 1000
@@ -127,7 +127,7 @@ class Config(DiscreteActionConfig):
         self.window_length = 4
         self.hidden_layer_sizes = (512,)
         self.target_model_update_interval = 32000
-        self.gamma = 0.99
+        self.discount = 0.99
         self.lr = 0.0000625
         self.initial_epsilon = 1.0
         self.final_epsilon = 0.1
@@ -320,7 +320,7 @@ class Parameter(RLParameter):
                     maxq = n_q_target[n_act_idx]
                     if self.config.enable_rescale:
                         maxq = inverse_rescaling(maxq)
-                    gain = reward + self.config.gamma * maxq
+                    gain = reward + self.config.discount * maxq
                 if self.config.enable_rescale:
                     gain = rescaling(gain)
 
@@ -328,7 +328,7 @@ class Parameter(RLParameter):
                     target_q += gain
                 else:
                     td_error = gain - n_q_list[n_states_idx - 1][action]
-                    target_q += (self.config.gamma**n) * retrace * td_error
+                    target_q += (self.config.discount**n) * retrace * td_error
                 n_states_idx += 1
             n_states_idx_start += len(b["rewards"])
             target_q_list.append(target_q)

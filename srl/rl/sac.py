@@ -48,7 +48,7 @@ class Config(ContinuousActionConfig):
     q_hidden_block: kl.Layer = MLPBlock
     q_hidden_block_kwargs: dict = None
 
-    gamma: float = 0.9  # 割引率
+    discount: float = 0.9  # 割引率
     lr: float = 0.005  # 学習率
     soft_target_update_tau: float = 0.02
     hard_target_update_interval: int = 100
@@ -285,9 +285,9 @@ class Trainer(RLTrainer):
         n_logpi = compute_logprob_sgp(n_means, n_stddevs, n_action_orgs)
 
         # 2つのQ値から小さいほうを採用(Clipped Double Q learning)して、
-        # Q値を計算 : reward if done else (reward + gamma * n_qval) - (alpha * H)
+        # Q値を計算 : reward if done else (reward + discount * n_qval) - (alpha * H)
         n_q1, n_q2 = self.parameter.q_target(n_states, n_actions)
-        q_vals = rewards + (1 - dones) * self.config.gamma * tf.minimum(n_q1, n_q2) - (alpha * n_logpi)
+        q_vals = rewards + (1 - dones) * self.config.discount * tf.minimum(n_q1, n_q2) - (alpha * n_logpi)
 
         # --- Qモデルの学習
         with tf.GradientTape() as tape:

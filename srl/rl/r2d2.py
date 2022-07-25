@@ -77,7 +77,7 @@ class Config(DiscreteActionConfig):
     burnin: int = 5
     sequence_length: int = 5
 
-    gamma: float = 0.997
+    discount: float = 0.997
     lr: float = 0.001
     batch_size: int = 32
     target_model_update_interval: int = 1000
@@ -121,7 +121,7 @@ class Config(DiscreteActionConfig):
         self.burnin = 40
         self.sequence_length = 80
 
-        self.gamma = 0.997
+        self.discount = 0.997
         self.lr = 0.0001
         self.batch_size = 64
         self.target_model_update_interval = 2500
@@ -453,7 +453,7 @@ class Trainer(RLTrainer):
                     maxq = n_q_target[i][n_act_idx]
                     if self.config.enable_rescale:
                         maxq = inverse_rescaling(maxq)
-                    gain = reward + self.config.gamma * maxq
+                    gain = reward + self.config.discount * maxq
                 if self.config.enable_rescale:
                     gain = rescaling(gain)
                 target_q[i] = gain
@@ -473,7 +473,7 @@ class Trainer(RLTrainer):
                     _retrace[i] = self.config.retrace_h * np.minimum(1, pi_prob / mu_prob)
 
                 retrace *= _retrace
-                target_q += self.config.gamma * retrace * n_td_error
+                target_q += self.config.discount * retrace * n_td_error
 
             action_onehot = step_actions_onehot_list[idx]
             q_onehot = tf.reduce_sum(q * action_onehot, axis=1)
@@ -486,7 +486,7 @@ class Trainer(RLTrainer):
         q = tf.stop_gradient(q).numpy()
 
         if idx == 0 or self.config.enable_retrace:
-            td_error = target_q - q_onehot.numpy() + self.config.gamma * retrace * n_td_error
+            td_error = target_q - q_onehot.numpy() + self.config.discount * retrace * n_td_error
         else:
             td_error = 0
         return q, q_target, td_error, retrace, (loss.numpy() + n_loss) / 2
@@ -632,7 +632,7 @@ class Worker(DiscreteActionWorker):
                             _r = inverse_rescaling(reward)
                         else:
                             _r = reward
-                        reward = info["reward"] + self.config.gamma * _r
+                        reward = info["reward"] + self.config.discount * _r
                         if self.config.enable_rescale:
                             reward = rescaling(reward)
 

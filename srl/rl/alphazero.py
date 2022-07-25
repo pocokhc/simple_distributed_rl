@@ -11,8 +11,11 @@ from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
 from srl.base.rl.base import RLParameter, RLTrainer, WorkerRun
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
-from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
+from srl.base.rl.remote_memory.experience_replay_buffer import \
+    ExperienceReplayBuffer
+from srl.rl.functions.common import (random_choice_by_probs,
+                                     render_discrete_action,
+                                     to_str_observation)
 from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.input_layer import create_input_layer
 from srl.rl.models.mlp_block import MLPBlock
@@ -38,7 +41,7 @@ class Config(DiscreteActionConfig):
 
     simulation_times: int = 100
     capacity: int = 10_000
-    gamma: float = 1.0  # 割引率
+    discount: float = 1.0  # 割引率
 
     sampling_steps: int = 1
     batch_size: int = 128
@@ -66,7 +69,7 @@ class Config(DiscreteActionConfig):
     def set_go_config(self):
         self.simulation_times = 800
         self.capacity = 500_000
-        self.gamma = 1.0
+        self.discount = 1.0
         self.sampling_steps = 30
         self.root_dirichlet_alpha = 0.03  # for Go, 0.3 for chess and 0.15 for shogi.
         self.root_exploration_fraction = 0.25
@@ -401,7 +404,7 @@ class Worker(ModelBaseWorker):
             n_reward = -n_reward
 
         # 割引報酬
-        reward = reward + self.config.gamma * n_reward
+        reward = reward + self.config.discount * n_reward
 
         # 結果を記録
         self.N[state_str][action] += 1
@@ -459,7 +462,7 @@ class Worker(ModelBaseWorker):
             # 報酬を逆伝搬
             reward = 0
             for state, step_policy, step_reward in reversed(self.history):
-                reward = step_reward + self.config.gamma * reward
+                reward = step_reward + self.config.discount * reward
                 self.remote_memory.add(
                     {
                         "state": state,

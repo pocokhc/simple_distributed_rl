@@ -22,7 +22,7 @@ class Config(DiscreteActionConfig):
 
     simulation_times: int = 10
     expansion_threshold: int = 5
-    gamma: float = 1.0
+    discount: float = 1.0
     uct_c: float = np.sqrt(2.0)
 
     def __post_init__(self):
@@ -179,7 +179,7 @@ class Worker(ModelBaseWorker):
                     n_reward = -n_reward
 
                 # 割引報酬
-                reward = reward + self.config.gamma * n_reward
+                reward = reward + self.config.discount * n_reward
 
         self.parameter.N[state][action] += 1
         self.parameter.W[state][action] += reward
@@ -226,7 +226,7 @@ class Worker(ModelBaseWorker):
         # 割引報酬
         reward = 0
         for r in reversed(rewards):
-            reward = r + self.config.gamma * reward
+            reward = r + self.config.discount * reward
         return reward
 
     def call_on_step(

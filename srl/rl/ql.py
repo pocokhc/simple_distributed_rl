@@ -31,7 +31,7 @@ class Config(DiscreteActionConfig):
 
     epsilon: float = 0.1
     test_epsilon: float = 0
-    gamma: float = 0.9
+    discount: float = 0.9
     lr: float = 0.1
 
     window_length: int = 1
@@ -135,7 +135,7 @@ class Trainer(RLTrainer):
             if done:
                 target_q = reward
             else:
-                target_q = reward + self.config.gamma * max(n_q)
+                target_q = reward + self.config.discount * max(n_q)
 
             td_error = target_q - q[action]
             self.parameter.Q[state][action] += self.config.lr * td_error

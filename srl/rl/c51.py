@@ -8,8 +8,7 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
@@ -36,7 +35,7 @@ class Config(DiscreteActionConfig):
 
     epsilon: float = 0.1
     test_epsilon: float = 0
-    gamma: float = 0.9
+    discount: float = 0.9
     lr: float = 0.001
     batch_size: int = 16
     memory_warmup_size: int = 1000
@@ -187,7 +186,7 @@ class Trainer(RLTrainer):
         rewards = np.tile(np.reshape(rewards, (-1, 1)), (1, self.n_atoms))
         dones = np.tile(np.reshape(dones, (-1, 1)), (1, self.n_atoms))
         Z = np.tile(self.Z, (self.config.batch_size, 1))
-        TZ = rewards + (1 - dones) * self.config.gamma * Z
+        TZ = rewards + (1 - dones) * self.config.discount * Z
 
         # 設定区間を超えないようにクリップ
         TZ = np.minimum(self.v_max, np.maximum(self.v_min, TZ))

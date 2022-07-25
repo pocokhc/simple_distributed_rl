@@ -7,8 +7,7 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.rl.algorithms.continuous_action import (ContinuousActionConfig,
-                                                      ContinuousActionWorker)
+from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
@@ -46,7 +45,7 @@ class Config(ContinuousActionConfig):
     q_hidden_block: kl.Layer = MLPBlock
     q_hidden_block_kwargs: dict = None
 
-    gamma: float = 0.9  # 割引率
+    discount: float = 0.9  # 割引率
     lr: float = 0.005  # 学習率
     soft_target_update_tau: float = 0.02
     hard_target_update_interval: int = 100
@@ -259,9 +258,9 @@ class Trainer(RLTrainer):
         n_actions = np.clip(n_actions + clipped_noise, -1, 1)
 
         # 2つのQ値から小さいほうを採用(Clipped Double Q learning)して、
-        # Q値を計算 : reward if done else (reward + gamma * n_qval) - (alpha * H)
+        # Q値を計算 : reward if done else (reward + discount * n_qval) - (alpha * H)
         n_q1, n_q2 = self.parameter.critic_target(n_states, n_actions)
-        q_vals = rewards + (1 - dones) * self.config.gamma * tf.minimum(n_q1, n_q2)
+        q_vals = rewards + (1 - dones) * self.config.discount * tf.minimum(n_q1, n_q2)
 
         # --- ポリシーの学習
         # Actorの学習は少し減らす

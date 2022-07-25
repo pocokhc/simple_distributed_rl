@@ -30,7 +30,7 @@ class Config(DiscreteActionConfig):
 
     epsilon: float = 0.1
     test_epsilon: float = 0
-    gamma: float = 0.9  # 割引率
+    discount: float = 0.9  # 割引率
     lr: float = 0.1  # 学習率
 
     def __post_init__(self):
@@ -221,7 +221,7 @@ class Trainer(RLTrainer):
             if done:
                 target_q = reward
             else:
-                target_q = reward + self.config.gamma * max(n_q)
+                target_q = reward + self.config.discount * max(n_q)
 
             td_error = target_q - q[action]
             q[action] += self.config.lr * td_error

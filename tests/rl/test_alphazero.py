@@ -20,7 +20,7 @@ class Test(unittest.TestCase):
         rl_config.sampling_steps = 1
         rl_config.batch_size = 64
         rl_config.warmup_size = 100
-        rl_config.gamma = 0.9
+        rl_config.discount = 0.9
         rl_config.lr_schedule = [
             {"train": 0, "lr": 0.02},
             {"train": 100, "lr": 0.002},
@@ -35,7 +35,7 @@ class Test(unittest.TestCase):
         rl_config.simulation_times = 100
         rl_config.sampling_steps = 1
         rl_config.batch_size = 32
-        rl_config.gamma = 1.0
+        rl_config.discount = 1.0
         rl_config.lr_schedule = [{"train": 0, "lr": 0.02}, {"train": 100, "lr": 0.002}]
         rl_config.cnn_block_kwargs = dict(n_blocks=1, filters=32)
         rl_config.value_block_kwargs = dict(hidden_layer_sizes=(32,))
@@ -46,7 +46,7 @@ class Test(unittest.TestCase):
         rl_config.simulation_times = 100
         rl_config.sampling_steps = 1
         rl_config.batch_size = 32
-        rl_config.gamma = 1.0
+        rl_config.discount = 1.0
         rl_config.lr_schedule = [{"train": 0, "lr": 0.02}, {"train": 100, "lr": 0.002}]
         rl_config.cnn_block_kwargs = dict(n_blocks=1, filters=32)
         rl_config.value_block_kwargs = dict(hidden_layer_sizes=(32,))
@@ -57,7 +57,7 @@ class Test(unittest.TestCase):
         rl_config.simulation_times = 100
         rl_config.sampling_steps = 1
         rl_config.batch_size = 32
-        rl_config.gamma = 1.0
+        rl_config.discount = 1.0
         rl_config.lr_schedule = [{"train": 0, "lr": 0.02}, {"train": 100, "lr": 0.002}]
         rl_config.cnn_block_kwargs = dict(n_blocks=1, filters=32)
         rl_config.value_block_kwargs = dict(hidden_layer_sizes=(32,))

@@ -15,7 +15,7 @@ class Test(unittest.TestCase):
         self.tester.play_mp(srl.rl.mcts.Config())
 
     def test_verify_grid(self):
-        rl_config = srl.rl.mcts.Config(simulation_times=10, gamma=0.9)
+        rl_config = srl.rl.mcts.Config(simulation_times=10, discount=0.9)
         self.tester.play_verify_singleplay("Grid", rl_config, 50000)
 
     def test_verify_StoneTaking(self):

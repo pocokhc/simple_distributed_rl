@@ -16,8 +16,8 @@ from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions.common import (
     create_beta_list,
+    create_discount_list,
     create_epsilon_list,
-    create_gamma_list,
     inverse_rescaling,
     render_discrete_action,
     rescaling,
@@ -408,7 +408,7 @@ class Parameter(RLParameter):
         rewards_int,
         done_list,
         actor_idx_onehot,
-        gamma_list,
+        discount_list,
     ):
         n_q = q_online(n_states, rewards_ext, rewards_int, actions_onehot, actor_idx_onehot).numpy()
         n_q_target = q_target(n_states, rewards_ext, rewards_int, actions_onehot, actor_idx_onehot).numpy()
@@ -431,7 +431,7 @@ class Parameter(RLParameter):
                 maxq = n_q_target[i][n_act_idx]
                 if self.config.enable_rescale:
                     maxq = inverse_rescaling(maxq)
-                gain = rewards[i] + gamma_list[i] * maxq
+                gain = rewards[i] + discount_list[i] * maxq
             if self.config.enable_rescale:
                 gain = rescaling(gain)
             target_q[i] = gain
@@ -460,7 +460,7 @@ class Trainer(RLTrainer):
         self.lifelong_loss = keras.losses.MeanSquaredError()
 
         self.beta_list = create_beta_list(self.config.actor_num)
-        self.gamma_list = create_gamma_list(self.config.actor_num)
+        self.discount_list = create_discount_list(self.config.actor_num)
         self.epsilon_list = create_epsilon_list(self.config.actor_num)
 
         self.train_count = 0
@@ -502,7 +502,7 @@ class Trainer(RLTrainer):
         prev_rewards_ext = []
         prev_rewards_int = []
         actor_idx_list = []
-        gamma_list = []
+        discount_list = []
         beta_list = []
         for b in batchs:
             states.append(b["states"][:-1])
@@ -516,7 +516,7 @@ class Trainer(RLTrainer):
             prev_rewards_ext.append(b["prev_reward_ext"])
             prev_rewards_int.append(b["prev_reward_int"])
             actor_idx_list.append(b["actor"])
-            gamma_list.append(self.gamma_list[b["actor"]])
+            discount_list.append(self.discount_list[b["actor"]])
             beta_list.append(self.beta_list[b["actor"]])
         states = np.asarray(states)
         n_states = np.asarray(n_states)
@@ -545,7 +545,7 @@ class Trainer(RLTrainer):
             prev_rewards_ext.reshape((-1, 1)),
             prev_rewards_int.reshape((-1, 1)),
             actor_idx_onehot,
-            gamma_list,
+            discount_list,
             weights,
         ]
         td_error_ext, loss_ext = self._update_q(
@@ -618,7 +618,7 @@ class Trainer(RLTrainer):
         prev_rewards_ext,
         prev_rewards_int,
         actor_idx_onehot,
-        gamma_list,
+        discount_list,
         weights,
     ):
         target_q = self.parameter.calc_target_q(
@@ -633,7 +633,7 @@ class Trainer(RLTrainer):
             rewards_int,
             done_list,
             actor_idx_onehot,
-            gamma_list,
+            discount_list,
         )
 
         with tf.GradientTape() as tape:
@@ -665,7 +665,7 @@ class Worker(DiscreteActionWorker):
         # actor
         self.beta_list = create_beta_list(self.config.actor_num)
         self.epsilon_list = create_epsilon_list(self.config.actor_num)
-        self.gamma_list = create_gamma_list(self.config.actor_num)
+        self.discount_list = create_discount_list(self.config.actor_num)
 
         # ucb
         self.actor_index = -1
@@ -684,7 +684,7 @@ class Worker(DiscreteActionWorker):
             self.actor_index = self._calc_actor_index()
             self.beta = self.beta_list[self.actor_index]
             self.epsilon = self.epsilon_list[self.actor_index]
-            self.gamma = self.gamma_list[self.actor_index]
+            self.discount = self.discount_list[self.actor_index]
 
         else:
             self.actor_index = 0
@@ -840,7 +840,7 @@ class Worker(DiscreteActionWorker):
                 np.array([prev_reward_int]),
                 [done],
                 self.onehot_actor_idx,
-                [self.gamma],
+                [self.discount],
             ]
             target_q_ext = self.parameter.calc_target_q(
                 self.parameter.q_ext_online,

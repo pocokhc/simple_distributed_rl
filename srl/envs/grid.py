@@ -302,7 +302,7 @@ class Grid(SinglePlayEnv):
 
     # ------------------------------------
 
-    def value_iteration(self, gamma: float = 0.9, threshold: float = 0.000001):
+    def value_iteration(self, discount: float = 0.9, threshold: float = 0.000001):
         V = {s: 0 for s in self.states}
 
         # 学習
@@ -327,7 +327,7 @@ class Grid(SinglePlayEnv):
                         if done:
                             gain = reward
                         else:
-                            gain = reward + gamma * V[next_state]
+                            gain = reward + discount * V[next_state]
                         r += state_prob * gain
                     expected_reward.append(r)
 
@@ -343,8 +343,8 @@ class Grid(SinglePlayEnv):
         print("training end. iterator count: {}".format(i))
         return V
 
-    def calc_action_values(self, gamma: float = 0.9, threshold: float = 0.000001):
-        V = self.value_iteration(gamma, threshold)
+    def calc_action_values(self, discount: float = 0.9, threshold: float = 0.000001):
+        V = self.value_iteration(discount, threshold)
         Q = {}
 
         # 全状態をループ
@@ -363,7 +363,7 @@ class Grid(SinglePlayEnv):
                     if done:
                         gain = reward
                     else:
-                        gain = reward + gamma * V[next_state]
+                        gain = reward + discount * V[next_state]
                     r += state_prob * gain
                 Q[s][a.value] = r
 

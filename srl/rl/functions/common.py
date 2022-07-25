@@ -33,9 +33,9 @@ def create_beta_list(policy_num: int, max_beta=0.3):
     return beta_list
 
 
-def create_gamma_list(policy_num: int, gamma0=0.9999, gamma1=0.997, gamma2=0.99):
+def create_discount_list(policy_num: int, gamma0=0.9999, gamma1=0.997, gamma2=0.99):
     assert policy_num > 0
-    gamma_list = []
+    discount_list = []
     for i in range(policy_num):
         if i == 0:
             g = gamma0
@@ -46,8 +46,8 @@ def create_gamma_list(policy_num: int, gamma0=0.9999, gamma1=0.997, gamma2=0.99)
         else:
             g = (policy_num - 9 - (i - 8)) * np.log(1 - gamma1) + (i - 8) * np.log(1 - gamma2)
             g = 1 - np.exp(g / (policy_num - 9))
-        gamma_list.append(g)
-    return gamma_list
+        discount_list.append(g)
+    return discount_list
 
 
 def create_epsilon_list(policy_num: int, epsilon=0.4, alpha=8.0):

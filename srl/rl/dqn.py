@@ -66,7 +66,7 @@ class Config(DiscreteActionConfig):
     hidden_block: kl.Layer = MLPBlock
     hidden_block_kwargs: dict = None
 
-    gamma: float = 0.99  # 割引率
+    discount: float = 0.99  # 割引率
     lr: float = 0.001  # 学習率
     batch_size: int = 32
     capacity: int = 100_000
@@ -92,7 +92,7 @@ class Config(DiscreteActionConfig):
         self.hidden_block = MLPBlock
         self.hidden_block_kwargs = dict(hidden_layer_sizes=(256,))
         self.target_model_update_interval = 10000
-        self.gamma = 0.99
+        self.discount = 0.99
         self.lr = 0.00025
         self.initial_epsilon = 1.0
         self.final_epsilon = 0.1
@@ -277,7 +277,7 @@ class Trainer(RLTrainer):
                 maxq = n_q_target[i][n_act_idx]
                 if self.config.enable_rescale:
                     maxq = inverse_rescaling(maxq)
-                gain = reward + self.config.gamma * maxq
+                gain = reward + self.config.discount * maxq
             if self.config.enable_rescale:
                 gain = rescaling(gain)
             target_q[i] = gain

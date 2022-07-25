@@ -18,7 +18,7 @@ from srl.rl.functions.common import render_discrete_action, to_str_observation
 @dataclass
 class Config(DiscreteActionConfig):
 
-    gamma: float = 0.9
+    discount: float = 0.9
     lr: float = 0.1
 
     def __post_init__(self):
@@ -166,7 +166,7 @@ class Worker(DiscreteActionWorker):
         if done:
             reward = 0
             for h in reversed(self.history):
-                reward = h[3] + self.config.gamma * reward
+                reward = h[3] + self.config.discount * reward
                 batch = {
                     "state": h[0],
                     "action": h[1],

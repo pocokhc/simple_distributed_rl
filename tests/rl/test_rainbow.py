@@ -47,7 +47,7 @@ class TestPendulum(unittest.TestCase):
         self.tester = TestRL()
         self.rl_config = srl.rl.rainbow.Config(
             epsilon=0.1,
-            gamma=0.9,
+            discount=0.9,
             lr=0.001,
             batch_size=32,
             hidden_layer_sizes=(64, 64),

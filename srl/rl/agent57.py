@@ -16,8 +16,8 @@ from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions.common import (
     calc_epsilon_greedy_probs,
     create_beta_list,
+    create_discount_list,
     create_epsilon_list,
-    create_gamma_list,
     inverse_rescaling,
     random_choice_by_probs,
     render_discrete_action,
@@ -455,7 +455,7 @@ class Trainer(RLTrainer):
         self.lifelong_loss = keras.losses.MeanSquaredError()
 
         self.beta_list = create_beta_list(self.config.actor_num)
-        self.gamma_list = create_gamma_list(self.config.actor_num)
+        self.discount_list = create_discount_list(self.config.actor_num)
         self.epsilon_list = create_epsilon_list(self.config.actor_num)
 
         self.train_count = 0
@@ -535,13 +535,13 @@ class Trainer(RLTrainer):
 
         # other
         actor_idx_list = []
-        gamma_list = []
+        discount_list = []
         beta_list = []
         for b in batchs:
             actor_idx_list.append([b["actor"]])
-            gamma_list.append(self.gamma_list[b["actor"]])
+            discount_list.append(self.discount_list[b["actor"]])
             beta_list.append(self.beta_list[b["actor"]])
-        gamma_list = np.asarray(gamma_list)
+        discount_list = np.asarray(discount_list)
         beta_list = np.asarray(beta_list)
 
         # (batch, 1, x)
@@ -587,7 +587,7 @@ class Trainer(RLTrainer):
             prev_rewards_ext_list,
             prev_rewards_int_list,
             actor_idx_onehot,
-            gamma_list,
+            discount_list,
             weights,
             0,
         ]
@@ -676,7 +676,7 @@ class Trainer(RLTrainer):
         prev_rewards_ext_list,
         prev_rewards_int_list,
         actor_idx_onehot,
-        gamma_list,
+        discount_list,
         weights,
         idx,
     ):
@@ -731,7 +731,7 @@ class Trainer(RLTrainer):
                 prev_rewards_ext_list,
                 prev_rewards_int_list,
                 actor_idx_onehot,
-                gamma_list,
+                discount_list,
                 weights,
                 idx + 1,
             )
@@ -758,7 +758,7 @@ class Trainer(RLTrainer):
                     maxq = n_q_target[i][n_act_idx]
                     if self.config.enable_rescale:
                         maxq = inverse_rescaling(maxq)
-                    gain = reward + gamma_list[i] * maxq
+                    gain = reward + discount_list[i] * maxq
                 if self.config.enable_rescale:
                     gain = rescaling(gain)
                 target_q[i] = gain
@@ -778,7 +778,7 @@ class Trainer(RLTrainer):
                     _retrace[i] = self.config.retrace_h * np.minimum(1, pi_prob / mu_prob)
 
                 retrace *= np.asarray(_retrace)
-                target_q += gamma_list * retrace * n_td_error
+                target_q += discount_list * retrace * n_td_error
 
             action_onehot = step_actions_onehot_list[idx]
             q_onehot = tf.reduce_sum(q * action_onehot, axis=1)
@@ -791,7 +791,7 @@ class Trainer(RLTrainer):
         q = tf.stop_gradient(q).numpy()
 
         if idx == 0 or self.config.enable_retrace:
-            td_error = target_q - q_onehot.numpy() + gamma_list * retrace * n_td_error
+            td_error = target_q - q_onehot.numpy() + discount_list * retrace * n_td_error
         else:
             td_error = 0
         return q, q_target, td_error, retrace, (loss.numpy() + n_loss) / 2
@@ -812,7 +812,7 @@ class Worker(DiscreteActionWorker):
         # actor
         self.beta_list = create_beta_list(self.config.actor_num)
         self.epsilon_list = create_epsilon_list(self.config.actor_num)
-        self.gamma_list = create_gamma_list(self.config.actor_num)
+        self.discount_list = create_discount_list(self.config.actor_num)
 
         # ucb
         self.actor_index = -1
@@ -877,7 +877,7 @@ class Worker(DiscreteActionWorker):
             self.actor_index = self._calc_actor_index()
             self.beta = self.beta_list[self.actor_index]
             self.epsilon = self.epsilon_list[self.actor_index]
-            self.gamma = self.gamma_list[self.actor_index]
+            self.discount = self.discount_list[self.actor_index]
         else:
             self.actor_index = 0
             self.epsilon = self.config.test_epsilon
@@ -1069,8 +1069,8 @@ class Worker(DiscreteActionWorker):
                         else:
                             _r_ext = reward_ext
                             _r_int = reward_int
-                        reward_ext = info["reward_ext"] + self.gamma * _r_ext
-                        reward_int = info["reward_int"] + self.gamma * _r_int
+                        reward_ext = info["reward_ext"] + self.discount * _r_ext
+                        reward_int = info["reward_int"] + self.discount * _r_int
                         if self.config.enable_rescale:
                             reward_ext = rescaling(reward_ext)
                             reward_int = rescaling(reward_int)

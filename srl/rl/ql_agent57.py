@@ -15,7 +15,7 @@ from srl.rl.functions.common import (
     calc_epsilon_greedy_probs,
     create_beta_list,
     create_epsilon_list,
-    create_gamma_list,
+    create_discount_list,
     inverse_rescaling,
     random_choice_by_probs,
     render_discrete_action,
@@ -91,7 +91,7 @@ class Config(DiscreteActionConfig):
     ucb_beta: float = 1  # UCBのβ
     # actorを使わない場合の設定
     epsilon: float = 0.1
-    gamma: float = 0.9
+    discount: float = 0.9
     beta: float = 0.1
 
     # intrinsic_reward
@@ -206,7 +206,7 @@ class Parameter(RLParameter):
 
         dones = [False for _ in range(len(rewards))]
         dones[-1] = batch["done"]
-        gamma = batch["gamma"]
+        discount = batch["discount"]
 
         TQ = 0
         _retrace = 1
@@ -248,12 +248,12 @@ class Parameter(RLParameter):
 
                 if self.config.enable_rescale:
                     maxq = inverse_rescaling(maxq)
-                target_q = reward + gamma * maxq
+                target_q = reward + discount * maxq
             if self.config.enable_rescale:
                 target_q = rescaling(target_q)
 
             td_error = target_q - q_tbl[state][action]
-            TQ += (gamma**n) * _retrace * td_error
+            TQ += (discount**n) * _retrace * td_error
 
         return TQ
 
@@ -329,7 +329,7 @@ class Worker(DiscreteActionWorker):
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.beta_list = create_beta_list(self.config.actor_num)
-        self.gamma_list = create_gamma_list(self.config.actor_num)
+        self.discount_list = create_discount_list(self.config.actor_num)
         self.epsilon_list = create_epsilon_list(self.config.actor_num)
 
         # ucb
@@ -346,11 +346,11 @@ class Worker(DiscreteActionWorker):
                 # エピソード毎に actor を決める
                 self.actor_index = self._calc_actor_index()
                 self.epsilon = self.epsilon_list[self.actor_index]
-                self.gamma = self.gamma_list[self.actor_index]
+                self.discount = self.discount_list[self.actor_index]
                 self.beta = self.beta_list[self.actor_index]
             else:
                 self.epsilon = self.config.epsilon
-                self.gamma = self.config.gamma
+                self.discount = self.config.discount
                 self.beta = self.config.beta
         else:
             self.epsilon = self.config.test_epsilon
@@ -503,7 +503,7 @@ class Worker(DiscreteActionWorker):
             "int_rewards": self.recent_int_rewards[:],
             "invalid_actions": self.recent_invalid_actions[:],
             "done": done,
-            "gamma": self.gamma,
+            "discount": self.discount,
         }
 
         # priority

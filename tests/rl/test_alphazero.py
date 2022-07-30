@@ -63,6 +63,11 @@ class Test(unittest.TestCase):
         rl_config.value_block_kwargs = dict(hidden_layer_sizes=(32,))
         self.tester.play_verify_2play("OX", rl_config, 200, is_mp=True)
 
+
+class TestLong(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tester = TestRL()
+
     def test_verify_Othello4x4(self):
         rl_config = srl.rl.alphazero.Config()
         rl_config.simulation_times = 100
@@ -82,4 +87,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_Othello4x4", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_sequence", verbosity=2)

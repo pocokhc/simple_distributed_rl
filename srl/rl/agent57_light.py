@@ -124,7 +124,7 @@ class Config(DiscreteActionConfig):
     lifelong_hidden_layer_sizes: Tuple[int, ...] = (128,)
 
     # UVFA
-    input_ext_reward: bool = True
+    input_ext_reward: bool = False
     input_int_reward: bool = False
     input_action: bool = False
 

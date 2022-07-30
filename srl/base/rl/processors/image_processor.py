@@ -2,16 +2,12 @@ import logging
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
+import cv2
 import numpy as np
 from srl.base.define import EnvObservation, EnvObservationType, RLObservationType
 from srl.base.env.base import SpaceBase
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
-
-try:
-    import cv2
-except ImportError:
-    pass
 
 logger = logging.getLogger(__name__)
 

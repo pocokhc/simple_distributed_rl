@@ -160,7 +160,7 @@ examples/custom_rl.ipynb
 |MCTS       |Discrete   |Discrete   |100%|MDP base|
 |AlphaZero  |Continuous |Discrete   |100%|MDP base|
 |MuZero     |Continuous |Discrete   |  0%||
-
+|StochasticMuZero|Continuous|Discrete|0%||
 
 ## Model Base
 

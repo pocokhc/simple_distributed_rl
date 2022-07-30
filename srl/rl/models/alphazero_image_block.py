@@ -22,19 +22,17 @@ class AlphaZeroImageBlock(keras.Model):
     ):
         super().__init__()
 
-        conv2d_params = dict(
+        self.conv1 = kl.Conv2D(
             filters=filters,
             kernel_size=kernel_size,
             padding="same",
             use_bias=False,
-            activation="linear",
+            kernel_initializer="he_normal",
             kernel_regularizer=regularizers.l2(l2),
         )
-
-        self.conv1 = kl.Conv2D(**conv2d_params)
         self.bn1 = kl.BatchNormalization()
         self.act1 = kl.LeakyReLU()
-        self.resblocks = [_ResidualBlock(conv2d_params) for _ in range(n_blocks)]
+        self.resblocks = [_ResidualBlock(filters, kernel_size, l2) for _ in range(n_blocks)]
 
     def call(self, x):
         x = self.conv1(x)
@@ -46,24 +44,38 @@ class AlphaZeroImageBlock(keras.Model):
 
 
 class _ResidualBlock(keras.Model):
-    def __init__(self, conv2d_params):
+    def __init__(self, filters, kernel_size, l2):
         super().__init__()
 
-        self.conv1 = kl.Conv2D(**conv2d_params)
+        self.conv1 = kl.Conv2D(
+            filters=filters,
+            kernel_size=kernel_size,
+            padding="same",
+            use_bias=False,
+            kernel_initializer="he_normal",
+            kernel_regularizer=regularizers.l2(l2),
+        )
         self.bn1 = kl.BatchNormalization()
-        self.relu1 = kl.LeakyReLU()
-        self.conv2 = kl.Conv2D(**conv2d_params)
+        self.act1 = kl.LeakyReLU()
+        self.conv2 = kl.Conv2D(
+            filters=filters,
+            kernel_size=kernel_size,
+            padding="same",
+            use_bias=False,
+            kernel_initializer="he_normal",
+            kernel_regularizer=regularizers.l2(l2),
+        )
         self.bn2 = kl.BatchNormalization()
-        self.relu2 = kl.LeakyReLU()
+        self.act2 = kl.LeakyReLU()
 
     def call(self, x):
         x1 = self.conv1(x)
         x1 = self.bn1(x1)
-        x1 = self.relu1(x1)
+        x1 = self.act1(x1)
         x1 = self.conv2(x1)
         x1 = self.bn2(x1)
         x = x + x1
-        x = self.relu2(x)
+        x = self.act2(x)
         return x
 
 

@@ -34,6 +34,8 @@ class PrintProgress(Callback):
         self.history_episode = []
         self.history_episode_start_idx = 0
 
+        self.last_episode_time = np.inf
+
     def on_episodes_begin(self, config, **kwargs):
         self.config = config
         print(
@@ -63,10 +65,10 @@ class PrintProgress(Callback):
         episode_rewards,
         episode_time,
         valid_reward,
-        remote_memory,
         worker_indices,
         **kwargs,
     ):
+        self.last_episode_time = episode_time
         if len(self.history_step) == 0:
             return
 
@@ -87,7 +89,7 @@ class PrintProgress(Callback):
             "episode_time": episode_time,
             "valid_reward": valid_reward,
             "step_time": np.mean([h["step_time"] for h in self.history_step]),
-            "remote_memory": remote_memory.length() if remote_memory is not None else 0,
+            "remote_memory": self.history_step[-1]["remote_memory"],
             "env_info": env_info,
             "work_info": work_info,
             "train_time": np.mean([h["train_time"] for h in self.history_step]),
@@ -108,6 +110,7 @@ class PrintProgress(Callback):
         episode_count,
         trainer,
         workers,
+        remote_memory,
         train_info,
         step_time,
         train_time,
@@ -120,6 +123,7 @@ class PrintProgress(Callback):
             "train_info": train_info,
             "step_time": step_time,
             "train_time": train_time,
+            "remote_memory": remote_memory.length() if remote_memory is not None else 0,
         }
         self.history_step.append(d)
 
@@ -160,15 +164,41 @@ class PrintProgress(Callback):
             if len(self.history_step) > 0:
                 step_num = len(self.history_step)
                 step_time = np.mean([h["step_time"] for h in self.history_step])
-                s += f", {step_num:5d} step"
-                s += f", {step_time:.5f}s/step"
                 if self.config.training:
                     train_time = np.mean([h["train_time"] for h in self.history_step])
+                else:
+                    train_time = 0
+
+                # remain
+                if self.config.max_steps > 0:
+                    remain_step = (self.config.max_steps - self.step_count) * (step_time + train_time)
+                else:
+                    remain_step = np.inf
+                if self.config.max_episodes > 0:
+                    remain_episode = (self.config.max_episodes - episode_count) * self.last_episode_time
+                else:
+                    remain_episode = np.inf
+                if self.config.timeout > 0:
+                    remain_time = self.config.timeout - elapsed_time
+                else:
+                    remain_time = np.inf
+                remain = min(min(remain_step, remain_episode), remain_time)
+                s += f" {to_str_time(remain)}(remain)"
+
+                # steps info
+                s += f", {step_num:5d} step"
+                s += f", {step_time:.5f}s/step"
+                if train_time > 0:
                     s += f", {train_time:.5f}s/tr"
+                memory_len = max([h["remote_memory"] for h in self.history_step])
+                s += f", {memory_len:7d} mem"
+            else:
+                s += "1 step is not over."
+
         else:
             episode_time = np.mean([h["episode_time"] for h in self.progress_history])
 
-            # 残り時間
+            # remain
             if self.config.max_steps > 0:
                 step_time = np.mean([h["step_time"] for h in self.progress_history])
                 train_time = np.mean([h["train_time"] for h in self.progress_history])
@@ -186,7 +216,7 @@ class PrintProgress(Callback):
             remain = min(min(remain_step, remain_episode), remain_time)
             s += f" {to_str_time(remain)}(remain)"
 
-            # 表示
+            # episodes info
             _r = [h["episode_reward"] for h in self.progress_history]
             _s = [h["episode_step"] for h in self.progress_history]
             s += f", {min(_r):.1f} {np.mean(_r):.3f} {max(_r):.1f} rew"

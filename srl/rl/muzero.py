@@ -15,6 +15,7 @@ from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperie
 from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, rescaling
 from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.input_layer import create_input_layer
+from srl.rl.models.muzero_atari_block import MuZeroAtariBlock
 from tensorflow.keras import layers as kl
 from tensorflow.keras import regularizers
 
@@ -39,21 +40,20 @@ class Config(DiscreteActionConfig):
     batch_size: int = 128
     discount: float = 0.99
 
-    # 報酬をカテゴリ化する範囲
+    # 学習率
+    lr_init: float = 0.001
+    lr_decay_rate: float = 0.1
+    lr_decay_steps: int = 100_000
+
+    # カテゴリ化する範囲
     v_min: int = -10
     v_max: int = 10
 
     # policyの温度パラメータのリスト
     policy_tau_schedule: List[dict] = None
 
-    # multisteps
-    td_steps: int = 5
-
-    # unroll_steps
-    unroll_steps: int = 3
-
-    # 学習率
-    lr_schedule: List[dict] = None
+    td_steps: int = 5  # multisteps
+    unroll_steps: int = 3  # unroll_steps
 
     # Root prior exploration noise.
     root_dirichlet_alpha: float = 0.3
@@ -69,38 +69,40 @@ class Config(DiscreteActionConfig):
     memory_warmup_size: int = 1000
     memory_alpha: float = 1.0
     memory_beta_initial: float = 1.0
-    memory_beta_steps: int = 1_000_000
+    memory_beta_steps: int = 100_000
 
     # model
     representation_block: kl.Layer = AlphaZeroImageBlock
     representation_block_kwargs: dict = None
     dynamics_blocks: int = 15
 
-    dummy_state_val: float = 0.0
-
     def set_atari_config(self):
-        self.discount = 0.997
-        self.root_dirichlet_alpha = 0.25
         self.simulation_times = 50
         self.batch_size = 1024
-        self.td_steps = 10
-        self.unroll_steps = 5
+        self.discount = 0.997
+        self.lr_init = 0.05
+        self.lr_decay_rate = 0.1
+        self.lr_decay_steps = 350_000
         self.v_min = -300
         self.v_max = 300
+        self.td_steps = 10
+        self.unroll_steps = 5
+        self.policy_tau_schedule = [
+            {"step": 0, "tau": 1.0},
+            {"step": 500_000, "tau": 0.5},
+            {"step": 750_000, "tau": 0.25},
+        ]
+        self.representation_block = MuZeroAtariBlock
+        self.representation_block_kwargs = {"base_filters": 128}
+        self.dynamics_blocks = 15
 
     def __post_init__(self):
         super().__init__()
         if self.policy_tau_schedule is None:
             self.policy_tau_schedule = [
                 {"step": 0, "tau": 1.0},
-                {"step": 1000, "tau": 0.5},
-                {"step": 10000, "tau": 0.25},
-            ]
-        if self.lr_schedule is None:
-            self.lr_schedule = [
-                {"train": 0, "lr": 0.0005},
-                {"train": 500, "lr": 0.0001},
-                {"train": 1000, "lr": 0.00002},
+                {"step": 50_000, "tau": 0.5},
+                {"step": 75_000, "tau": 0.25},
             ]
         if self.representation_block_kwargs is None:
             self.representation_block_kwargs = {}
@@ -116,7 +118,6 @@ class Config(DiscreteActionConfig):
     def assert_params(self) -> None:
         super().assert_params()
         assert self.batch_size < self.memory_warmup_size
-        assert self.lr_schedule[0]["train"] == 0
         assert self.policy_tau_schedule[0]["step"] == 0
         for tau in self.policy_tau_schedule:
             assert tau["tau"] >= 0
@@ -226,9 +227,9 @@ class _RepresentationNetwork(keras.Model):
         s_min = tf.reshape(s_min, (batch, h, w, d))
         s_max = tf.reshape(s_max, (batch, h, w, d))
         epsilon = 1e-4  # div0 回避
-        x2 = (x - s_min + epsilon) / tf.maximum((s_max - s_min), 2 * epsilon)
+        x = (x - s_min + epsilon) / tf.maximum((s_max - s_min), 2 * epsilon)
 
-        return x2
+        return x
 
 
 class _DynamicsNetwork(keras.Model):
@@ -257,12 +258,8 @@ class _DynamicsNetwork(keras.Model):
         )(c)
         c2 = kl.BatchNormalization()(c2)
         c2 = kl.LeakyReLU()(c2)
-        c2 = kl.Flatten()(c)
-        reward = kl.Dense(
-            v_num,
-            activation="softmax",
-            kernel_regularizer=regularizers.l2(0.0001),
-        )(c2)
+        c2 = kl.Flatten()(c2)
+        reward = kl.Dense(v_num, activation="softmax")(c2)
 
         self.model = keras.Model(in_state, [c1, reward], name="DynamicsNetwork")
 
@@ -419,12 +416,7 @@ class Trainer(RLTrainer):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-        # lr_schedule
-        self.lr_schedule = {}
-        for lr_list in self.config.lr_schedule:
-            self.lr_schedule[lr_list["train"]] = lr_list["lr"]
-
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_schedule[0])
+        self.optimizer = keras.optimizers.Adam()
         self.cross_entropy_loss = keras.losses.CategoricalCrossentropy()
         self.train_count = 0
 
@@ -498,6 +490,10 @@ class Trainer(RLTrainer):
             loss += tf.reduce_sum(self.parameter.prediction_network.losses)
             loss += tf.reduce_sum(self.parameter.dynamics_network.losses)
 
+        # lr
+        lr = self.config.lr_init * self.config.lr_decay_rate ** (self.train_count / self.config.lr_decay_steps)
+        self.optimizer.learning_rate = lr
+
         variables = [
             self.parameter.representation_network.trainable_variables,
             self.parameter.prediction_network.trainable_variables,
@@ -505,17 +501,12 @@ class Trainer(RLTrainer):
         ]
         grads = tape.gradient(loss, variables)
         for i in range(len(variables)):
-            # grads_i, _ = tf.clip_by_global_norm(grads[i], 1.0)
             self.optimizer.apply_gradients(zip(grads[i], variables[i]))
-
-        # memory update
-        self.remote_memory.update(indices, batchs, np.mean(priority, axis=1))
 
         self.train_count += 1
 
-        # lr_schedule
-        if self.train_count in self.lr_schedule:
-            self.optimizer.learning_rate = self.lr_schedule[self.train_count]
+        # memory update
+        self.remote_memory.update(indices, batchs, np.mean(priority, axis=1))
 
         # 学習したらキャッシュは削除
         self.parameter.reset_cache()
@@ -618,7 +609,7 @@ class Worker(DiscreteActionWorker):
         n_state, reward_category = self.parameter.dynamics_network(state, [action])
         n_state_str = n_state.ref()
         reward = _category_decode(reward_category.numpy()[0], self.config.v_min)
-        enemy_turn = self.config.env_player_num > 1  # 2player以上はターン制と決め打ち
+        enemy_turn = self.config.env_player_num > 1  # 2player以上は相手番と決め打ち
 
         if self.N[state_str][action] == 0:
             # leaf node ならロールアウト

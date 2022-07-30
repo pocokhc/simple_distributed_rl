@@ -209,8 +209,6 @@ class MPPrintProgress(MPCallback):
         self.progress_history.append(epi_data)
 
     def _actor_print_progress(self, episode_count):
-        if len(self.progress_history) == 0:
-            return
 
         s = dt.datetime.now().strftime("%H:%M:%S")
         s += f" actor{self.actor_id:2d}:"

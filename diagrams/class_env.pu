@@ -41,7 +41,6 @@ abstract EnvBase {
     backup()
     restore()
     render_terminal()
-    render_gui()
     render_rgb_array()
     get_invalid_actions(player_index)
 } 
@@ -75,7 +74,7 @@ class EnvRun {
     backup()
     restore()
     render()
-    samples()
+    sample()
 }
 EnvRun o-- EnvBase
 

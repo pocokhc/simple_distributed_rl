@@ -1,6 +1,6 @@
 import os
 import warnings
-from typing import Optional, cast
+from typing import cast
 
 import numpy as np
 import srl

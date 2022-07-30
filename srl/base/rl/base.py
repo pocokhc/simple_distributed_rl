@@ -215,9 +215,11 @@ class WorkerBase(ABC):
     def on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
         raise NotImplementedError()
 
-    @abstractmethod
-    def render(self, env: EnvRun, worker: "WorkerRun") -> None:
-        raise NotImplementedError()
+    # ------------------------------
+    # implement(option)
+    # ------------------------------
+    def render_terminal(self, env: EnvRun, worker: "WorkerRun", **kwargs) -> None:
+        pass
 
     # ------------------------------------
     # episode
@@ -312,10 +314,6 @@ class RLWorker(WorkerBase):
     ) -> Info:
         raise NotImplementedError()
 
-    @abstractmethod
-    def _call_render(self, env: EnvRun, worker: "WorkerRun") -> None:
-        raise NotImplementedError()
-
     # ------------------------------------
     # episode
     # ------------------------------------
@@ -344,9 +342,6 @@ class RLWorker(WorkerBase):
             worker,
         )
         return info
-
-    def render(self, env: EnvRun, worker: "WorkerRun") -> None:
-        self._call_render(env, worker)
 
     # ------------------------------------
     # utils
@@ -408,10 +403,6 @@ class RuleBaseWorker(WorkerBase):
     def call_on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
         return {}  # do nothing
 
-    @abstractmethod
-    def call_render(self, env: EnvRun, worker: "WorkerRun") -> None:
-        raise NotImplementedError()
-
     @property
     def player_index(self) -> int:
         return self._player_index
@@ -425,9 +416,6 @@ class RuleBaseWorker(WorkerBase):
 
     def on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
         return self.call_on_step(env, worker)
-
-    def render(self, env: EnvRun, worker: "WorkerRun") -> None:
-        self.call_render(env, worker)
 
 
 class ExtendWorker(WorkerBase):
@@ -450,10 +438,6 @@ class ExtendWorker(WorkerBase):
     def call_on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
         return {}  # do nothing
 
-    @abstractmethod
-    def call_render(self, env: EnvRun, worker: "WorkerRun") -> None:
-        raise NotImplementedError()
-
     @property
     def player_index(self) -> int:
         return self._player_index
@@ -469,9 +453,6 @@ class ExtendWorker(WorkerBase):
     def on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
         self.rl_worker.on_step(env)
         return self.call_on_step(env, worker)
-
-    def render(self, env: EnvRun, worker: "WorkerRun") -> None:
-        self.call_render(env, worker)
 
 
 class WorkerRun:
@@ -536,8 +517,35 @@ class WorkerRun:
             self._info = self.worker.on_step(env, self)
             self.step_reward = 0
 
-    def render(self, env: EnvRun) -> None:
+    def render(self, env: EnvRun, **kwargs):
+        self.render_terminal(env, False, **kwargs)
+
+    def render_terminal(self, env: EnvRun, return_text: bool = False, **kwargs):
         # 初期化前はskip
         if not self.is_reset:
-            return None
-        self.worker.render(env, self)
+            if return_text:
+                return ""
+            return
+
+        if return_text:
+            # 表示せずに文字列として返す
+            text = ""
+            _stdout = sys.stdout
+            try:
+                sys.stdout = io.StringIO()
+                self.worker.render_terminal(env, self, **kwargs)
+                text = sys.stdout.getvalue()
+            except NotImplementedError:
+                pass
+            finally:
+                try:
+                    sys.stdout.close()
+                except Exception:
+                    pass
+                sys.stdout = _stdout
+            return text
+        else:
+            try:
+            self.worker.render_terminal(env, self, **kwargs)
+            except NotImplementedError:
+                pass

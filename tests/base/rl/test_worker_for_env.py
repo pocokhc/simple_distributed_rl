@@ -120,9 +120,6 @@ class StubRLWorker(RLWorker):
         self.state = next_state
         return {}
 
-    def _call_render(self, env: EnvBase, worker: WorkerRun) -> None:
-        raise NotImplementedError()
-
 
 register_rl(StubRLConfig, "", "", "", __name__ + ":StubRLWorker")
 
@@ -279,4 +276,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_observation", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_env_play", verbosity=2)

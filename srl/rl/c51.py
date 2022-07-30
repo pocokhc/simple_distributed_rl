@@ -290,7 +290,7 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.add(batch)
         return {}
 
-    def call_render(self, env: EnvRun) -> None:
+    def render_terminal(self, env, worker, **kwargs) -> None:
         logits = self.parameter.Q(self.state[np.newaxis, ...])
         probs = tf.nn.softmax(logits, axis=2)
         q_means = tf.reduce_sum(probs * self.Z, axis=2, keepdims=True)

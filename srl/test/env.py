@@ -1,6 +1,5 @@
 import numpy as np
 import srl
-from srl.base.define import RenderType
 from srl.base.env.base import EnvRun
 from srl.runner import sequence
 
@@ -56,11 +55,19 @@ class TestEnv:
 
         # render
         if check_render:
-            for mode in RenderType:
-                try:
-                    env.render(mode)
-                except NotImplementedError:
-                    pass
+            env.render()
+            try:
+                env.render_rgb_array()
+            except NotImplementedError:
+                pass
+            try:
+                env.render_terminal()
+            except NotImplementedError:
+                pass
+            try:
+                env.render_window()
+            except NotImplementedError:
+                pass
 
         while not env.done:
 
@@ -98,11 +105,19 @@ class TestEnv:
 
             # render
             if check_render:
-                for mode in RenderType:
-                    try:
-                        env.render(mode)
-                    except NotImplementedError:
-                        pass
+                env.render()
+                try:
+                    env.render_rgb_array()
+                except NotImplementedError:
+                    pass
+                try:
+                    env.render_terminal()
+                except NotImplementedError:
+                    pass
+                try:
+                    env.render_window()
+                except NotImplementedError:
+                    pass
 
             if max_step > 0 and env.step_num > max_step:
                 break

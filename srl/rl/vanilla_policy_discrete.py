@@ -177,7 +177,7 @@ class Worker(DiscreteActionWorker):
 
         return {}
 
-    def call_render(self, env: EnvRun) -> None:
+    def render_terminal(self, env, worker, **kwargs) -> None:
         probs = self.parameter.get_probs(self.state, self.invalid_actions)
         vals = [0 if v is None else v for v in self.parameter.policy[self.state]]
         maxa = np.argmax(vals)

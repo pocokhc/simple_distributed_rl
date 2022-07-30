@@ -401,7 +401,7 @@ class Worker(ContinuousActionWorker):
 
         return {}
 
-    def call_render(self, env: EnvRun) -> None:
+    def render_terminal(self, env, worker, **kwargs) -> None:
         q1, q2 = self.parameter.q_online(self.state.reshape(1, -1), np.asarray([self.action]))
         q1 = q1.numpy()[0][0]
         q2 = q2.numpy()[0][0]

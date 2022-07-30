@@ -540,7 +540,7 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.add(batch, td_error)
         return td_error
 
-    def call_render(self, env: EnvRun) -> None:
+    def render_terminal(self, env, worker, **kwargs) -> None:
         state = self.recent_bundle_states[-1]
         invalid_actions = self.recent_invalid_actions[-1]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()

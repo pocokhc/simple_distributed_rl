@@ -1162,7 +1162,7 @@ class Worker(DiscreteActionWorker):
 
         return reward
 
-    def call_render(self, env: EnvRun) -> None:
+    def render_terminal(self, env, worker, **kwargs) -> None:
         invalid_actions = self.recent_invalid_actions[-1]
         # パラメータを予測するとhidden_stateが変わってしまうの予測はしない
         q_ext = self.q_ext

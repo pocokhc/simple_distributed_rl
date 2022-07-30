@@ -6,7 +6,6 @@ import srl
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.runner import mp, sequence
 
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 warnings.simplefilter("ignore")
 
 

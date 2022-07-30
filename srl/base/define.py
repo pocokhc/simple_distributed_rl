@@ -46,11 +46,3 @@ class RLActionType(enum.Enum):
     ANY = enum.auto()
     DISCRETE = enum.auto()  # 離散
     CONTINUOUS = enum.auto()  # 連続
-
-
-class RenderType(enum.Enum):
-    NONE = ""
-    Terminal = "Terminal"
-    GUI = "GUI"
-    # Notebook = "Notebook"  TODO
-    RGB_Array = "RGB"

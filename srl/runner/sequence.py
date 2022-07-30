@@ -8,7 +8,6 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import srl.envs
 import srl.rl
-from srl.base.define import RenderType
 from srl.base.env.base import EnvConfig, EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, WorkerRun
 from srl.base.rl.registration import (
@@ -341,12 +340,12 @@ def render(
     config: Config,
     parameter: Optional[RLParameter] = None,
     render_terminal: bool = True,
-    render_gui: bool = False,
+    render_window: bool = False,
     step_stop: bool = False,
     enable_animation: bool = False,
+    rendering_params: dict = None,
     max_steps: int = -1,
     timeout: int = -1,
-    shuffle_player: bool = False,
     seed: Optional[int] = None,
     callbacks: List[Callback] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
@@ -357,7 +356,7 @@ def render(
     config = config.copy(env_copy=True)
     config.max_steps = max_steps
     config.timeout = timeout
-    config.shuffle_player = shuffle_player
+    config.shuffle_player = False
     config.callbacks = callbacks
     if config.seed is None:
         config.seed = seed
@@ -367,21 +366,50 @@ def render(
     config.training = False
     config.episode_timeout = -1
 
-    if render_terminal:
-        _render = Rendering(mode=RenderType.Terminal, step_stop=step_stop)
-        config.callbacks.append(_render)
-    if render_gui:
-        _render = Rendering(mode=RenderType.GUI, step_stop=step_stop)
-        config.callbacks.append(_render)
-    if enable_animation:
-        anime_render = Rendering(mode=RenderType.NONE, enable_animation=True)
-        config.callbacks.append(anime_render)
-    else:
-        anime_render = None
+    if rendering_params is None:
+        rendering_params = {}
+    _render = Rendering(
+        render_terminal,
+        render_window=render_window,
+        enable_animation=enable_animation,
+        step_stop=step_stop,
+        **rendering_params,
+    )
+    config.callbacks.append(_render)
 
     episode_rewards, parameter, memory, env = play(config, parameter, remote_memory)
 
-    return episode_rewards[0], anime_render
+    return episode_rewards[0], _render
+
+
+def animation(
+    config: Config,
+    parameter: Optional[RLParameter] = None,
+    rendering_params: dict = None,
+    render_terminal: bool = False,
+    render_window: bool = False,
+    max_steps: int = -1,
+    timeout: int = -1,
+    seed: Optional[int] = None,
+    callbacks: List[Callback] = None,
+    remote_memory: Optional[RLRemoteMemory] = None,
+) -> Rendering:
+    rewards, anime = render(
+        config,
+        parameter,
+        render_terminal,
+        render_window,
+        step_stop=False,
+        enable_animation=True,
+        rendering_params=rendering_params,
+        max_steps=max_steps,
+        timeout=timeout,
+        seed=seed,
+        callbacks=callbacks,
+        remote_memory=remote_memory,
+    )
+    assert anime is not None
+    return anime
 
 
 # ---------------------------------
@@ -444,12 +472,18 @@ def play(
     # --- rewards
     episode_rewards_list = []
 
+    logger.debug(f"timeout          : {config.timeout}s")
+    logger.debug(f"max_steps        : {config.max_steps}")
+    logger.debug(f"max_episodes     : {config.max_episodes}")
+    logger.debug(f"enable_validation: {config.enable_validation}")
+
     # --- init
     episode_count = -1
     total_step = 0
     elapsed_t0 = time.time()
     worker_indices = [i for i in range(env.player_num)]
     episode_t0 = 0
+    end_reason = ""
 
     # --- loop
     while True:
@@ -458,10 +492,12 @@ def play(
         # timeout
         elapsed_time = _time - elapsed_t0
         if config.timeout > 0 and elapsed_time > config.timeout:
+            end_reason = "timeout."
             break
 
         # max steps
         if config.max_steps > 0 and total_step > config.max_steps:
+            end_reason = "max_steps over."
             break
 
         # ------------------------
@@ -471,6 +507,7 @@ def play(
             episode_count += 1
 
             if config.max_episodes > 0 and episode_count >= config.max_episodes:
+                end_reason = "episode_count over."
                 break  # end
 
             # env reset
@@ -562,7 +599,10 @@ def play(
 
         # callback end
         if True in [c.intermediate_stop(**_params) for c in callbacks]:
+            end_reason = "callback.intermediate_stop"
             break
+
+    logger.debug(f"end_reason : {end_reason}")
 
     # 一度もepisodeを終了していない場合は例外で途中経過を保存
     if len(episode_rewards_list) == 0:

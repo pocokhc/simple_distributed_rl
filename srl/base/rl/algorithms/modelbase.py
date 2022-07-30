@@ -25,10 +25,6 @@ class ModelBaseWorker(RLWorker):
     ) -> Info:
         raise NotImplementedError()
 
-    @abstractmethod
-    def call_render(self, env: EnvRun, worker: WorkerRun) -> Info:
-        raise NotImplementedError()
-
     # --------------------------
 
     def _call_on_reset(self, state: RLObservation, env: EnvRun, worker: WorkerRun) -> None:
@@ -46,6 +42,3 @@ class ModelBaseWorker(RLWorker):
         worker: WorkerRun,
     ) -> Info:
         return self.call_on_step(next_state, reward, done, env, worker)
-
-    def _call_render(self, env: EnvRun, worker: WorkerRun) -> Info:
-        return self.call_render(env, worker)

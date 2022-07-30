@@ -388,7 +388,7 @@ class Worker(DiscreteActionWorker):
 
         return {}
 
-    def call_render(self, env: EnvRun) -> None:
+    def render_terminal(self, env, worker, **kwargs) -> None:
         state = self.recent_states[1:]
         q = self.parameter.q_online(np.asarray([state]))[0].numpy()
         maxa = np.argmax(q)

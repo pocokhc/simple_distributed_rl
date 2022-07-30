@@ -1,14 +1,16 @@
 import copy
+import io
 import logging
 import pickle
+import sys
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import srl
-from srl.base.define import EnvAction, EnvInvalidAction, EnvObservation, EnvObservationType, Info, RenderType
+from srl.base.define import EnvAction, EnvInvalidAction, EnvObservation, EnvObservationType, Info
 from srl.base.env.space import SpaceBase
 
 logger = logging.getLogger(__name__)
@@ -130,10 +132,6 @@ class EnvBase(ABC):
         raise NotImplementedError()
 
     # option
-    def render_gui(self, **kwargs) -> None:
-        raise NotImplementedError()
-
-    # option
     def render_rgb_array(self, **kwargs) -> np.ndarray:
         raise NotImplementedError()
 
@@ -184,6 +182,9 @@ class EnvRun:
     def __init__(self, env: EnvBase) -> None:
         self.env = env
         self.init()
+
+        self.fig = None
+        self.ax = None
 
     def init(self):
         self._step_num = 0
@@ -358,33 +359,59 @@ class EnvRun:
         self._invalid_actions_list = d[8]
         self._info = d[9]
 
-    def render(
-        self,
-        mode: Union[str, RenderType] = RenderType.Terminal,
-        is_except: bool = False,
-        **kwargs,
-    ) -> Any:
+    def render(self, **kwargs) -> None:
+        logger.debug("env.render()")
 
-        logger.debug(f"env.render({mode})")
-        if isinstance(mode, str):
-            for t in RenderType:
-                if t.value == mode:
-                    mode = t
-                    break
-            else:
-                mode = RenderType.NONE
-
+        # --- windowで描画
         try:
-            if mode == RenderType.Terminal:
-                return self.env.render_terminal(**kwargs)
-            elif mode == RenderType.GUI:
-                return self.env.render_gui(**kwargs)
-            elif mode == RenderType.RGB_Array:
-                return self.env.render_rgb_array(**kwargs)
+            self.render_window()
         except NotImplementedError:
-            # logger.info(f"render NotImplementedError({mode})")
-            if is_except:
-                raise
+            pass
+
+        # --- windowで描画できなければterminalで描画
+        try:
+            self.render_terminal(**kwargs)
+        except NotImplementedError:
+            pass
+
+    def render_terminal(self, return_text: bool = False, **kwargs):
+        if return_text:
+            # 表示せずに文字列として返す
+            text = ""
+            _stdout = sys.stdout
+            try:
+                sys.stdout = io.StringIO()
+                self.env.render_terminal(**kwargs)
+                text = sys.stdout.getvalue()
+            except NotImplementedError:
+                pass
+            finally:
+                try:
+                    sys.stdout.close()
+                except Exception:
+                    pass
+                sys.stdout = _stdout
+            return text
+        else:
+            self.env.render_terminal(**kwargs)
+
+    def render_rgb_array(self, **kwargs) -> np.ndarray:
+        return self.env.render_rgb_array(**kwargs)
+
+    def render_window(self, **kwargs):
+        """matplotlibを採用"""
+        rgb_array = self.env.render_rgb_array(**kwargs)
+
+        # 初回
+        if self.fig is None:
+            import matplotlib.pyplot as plt
+
+            plt.ion()  # インタラクティブモードをオン
+            self.fig, self.ax = plt.subplots()
+
+        self.ax.imshow(rgb_array)
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
 
     def get_invalid_actions(self, player_index: int = -1) -> List[EnvInvalidAction]:
         if player_index == -1:

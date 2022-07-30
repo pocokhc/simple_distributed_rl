@@ -296,7 +296,7 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.add(batch)
         return {}
 
-    def call_render(self, env: EnvRun) -> None:
+    def render_terminal(self, env, worker, **kwargs) -> None:
         q = self.parameter.get_action_values(self.state, self.invalid_actions)
         model = self.parameter.model
         maxa = np.argmax(q)
@@ -312,4 +312,4 @@ class Worker(DiscreteActionWorker):
             s += f", done {model.sample_done(self.state, a)}"
             return s
 
-        render_discrete_action(env, player_index, _render_sub)
+        render_discrete_action(self.get_invalid_actions(env), maxa, env, _render_sub)

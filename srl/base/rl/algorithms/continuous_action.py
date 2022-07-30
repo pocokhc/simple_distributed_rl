@@ -106,10 +106,3 @@ class ContinuousActionWorker(RLWorker):
         worker: WorkerRun,
     ) -> Info:
         return self.call_on_step(next_state, reward, done)
-
-    @abstractmethod
-    def call_render(self, env: EnvRun, worker: WorkerRun) -> Info:
-        raise NotImplementedError()
-
-    def _call_render(self, env: EnvRun, worker: WorkerRun) -> Info:
-        return self.call_render(env)

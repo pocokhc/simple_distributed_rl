@@ -32,5 +32,5 @@ class Worker(RuleBaseWorker):
         action = env.action_space.action_discrete_decode(action)
         return action
 
-    def call_render(self, env: EnvRun, worker_run: WorkerRun) -> None:
+    def render_terminal(self, env, worker, **kwargs) -> None:
         pass  # do nothing

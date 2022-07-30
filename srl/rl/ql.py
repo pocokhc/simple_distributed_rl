@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Union, cast
 
 import numpy as np
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -215,7 +214,7 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.add(batch)
         return {}
 
-    def call_render(self, env: EnvRun) -> None:
+    def render_terminal(self, env, worker, **kwargs) -> None:
         state = self.recent_states[1:]
         q = self.parameter.get_action_values(state, self.invalid_actions)
         maxa = np.argmax(q)

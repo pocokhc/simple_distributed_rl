@@ -187,6 +187,6 @@ class Worker(ContinuousActionWorker):
 
         return {}
 
-    def call_render(self, env: EnvRun) -> None:
+    def render_terminal(self, env, worker, **kwargs) -> None:
         mean, stddev = self.parameter.get_param(self.state)
         print(f"mean {mean:.5f}, stddev {stddev:.5f}")

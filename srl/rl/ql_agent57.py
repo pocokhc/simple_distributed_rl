@@ -14,8 +14,8 @@ from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions.common import (
     calc_epsilon_greedy_probs,
     create_beta_list,
-    create_epsilon_list,
     create_discount_list,
+    create_epsilon_list,
     inverse_rescaling,
     random_choice_by_probs,
     render_discrete_action,
@@ -545,7 +545,7 @@ class Worker(DiscreteActionWorker):
         self.parameter.lifelong_C[state] *= self.config.lifelong_decrement_rate
         return reward + 1.0
 
-    def call_render(self, env: EnvRun) -> None:
+    def render_terminal(self, env, worker, **kwargs) -> None:
         state = self.recent_states[-1]
         invalid_actions = self.recent_invalid_actions[-1]
         self.parameter.init_state(state, invalid_actions)

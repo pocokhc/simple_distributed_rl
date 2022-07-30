@@ -239,7 +239,7 @@ class Worker(ModelBaseWorker):
     ) -> dict:
         return {}
 
-    def call_render(self, env: EnvRun, worker: WorkerRun) -> None:
+    def render_terminal(self, env, worker, **kwargs) -> None:
         self.parameter.init_state(self.state)
         maxa = np.argmax(self.parameter.N[self.state])
         uct_list = self._calc_uct(self.state, self.invalid_actions)

@@ -185,10 +185,6 @@ class GymWrapper(EnvBase):
         if "ansi" in self.render_modes:
             print(self.env.render(mode="ansi", **kwargs))
 
-    def render_gui(self, **kwargs) -> None:
-        if "human" in self.render_modes:
-            self.env.render(mode="human", **kwargs)
-
     def render_rgb_array(self, **kwargs) -> np.ndarray:
         if "rgb_array" in self.render_modes:
             return np.asarray(self.env.render(mode="rgb_array", **kwargs))

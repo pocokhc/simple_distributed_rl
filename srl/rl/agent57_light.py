@@ -923,7 +923,7 @@ class Worker(DiscreteActionWorker):
 
         return reward
 
-    def call_render(self, env: EnvRun) -> None:
+    def render_terminal(self, env, worker, **kwargs) -> None:
         q, q_ext, q_int = self._get_qval()
         if self.config.enable_rescale:
             q = inverse_rescaling(q)

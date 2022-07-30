@@ -473,7 +473,7 @@ class Worker(ModelBaseWorker):
 
         return {}
 
-    def call_render(self, env: EnvRun, worker: WorkerRun) -> None:
+    def render_terminal(self, env, worker, **kwargs) -> None:
         self._init_state(self.state_str)
         self.parameter.pred_PV(self.state, self.state_str)
         puct = self._calc_puct(self.state_str, self.invalid_actions, False)

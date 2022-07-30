@@ -33,7 +33,7 @@ abstract WorkerBase {
     on_reset()
     policy()
     on_step()
-    render()
+    render_terminal()
 }
 WorkerBase -- WorkerRun
 
@@ -43,7 +43,6 @@ abstract RuleBaseWorker {
     call_on_reset()
     call_policy()
     call_on_step()
-    call_render()
 }
 
 RuleBaseWorker -- WorkerBase
@@ -53,7 +52,6 @@ abstract ExtendWorker {
     call_on_reset()
     call_policy()
     call_on_step()
-    call_render()
 }
 
 ExtendWorker -- WorkerBase
@@ -68,7 +66,6 @@ abstract RLWorker {
     call_on_reset()
     call_policy()
     call_on_step()
-    call_render()
 }
 
 

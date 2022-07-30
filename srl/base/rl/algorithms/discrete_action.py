@@ -89,10 +89,6 @@ class DiscreteActionWorker(RLWorker):
     ) -> Info:
         raise NotImplementedError()
 
-    @abstractmethod
-    def call_render(self, env: EnvRun) -> Info:
-        raise NotImplementedError()
-
     # --------------------------------------
 
     def _call_on_reset(self, state: RLObservation, env: EnvRun, worker: WorkerRun) -> None:
@@ -110,6 +106,3 @@ class DiscreteActionWorker(RLWorker):
         worker: WorkerRun,
     ) -> Info:
         return self.call_on_step(next_state, reward, done, self.get_invalid_actions(env))
-
-    def _call_render(self, env: EnvRun, worker: WorkerRun) -> Info:
-        return self.call_render(env)

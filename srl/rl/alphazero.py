@@ -11,11 +11,8 @@ from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
 from srl.base.rl.base import RLParameter, RLTrainer, WorkerRun
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.experience_replay_buffer import \
-    ExperienceReplayBuffer
-from srl.rl.functions.common import (random_choice_by_probs,
-                                     render_discrete_action,
-                                     to_str_observation)
+from srl.base.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
+from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
 from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.input_layer import create_input_layer
 from srl.rl.models.mlp_block import MLPBlock
@@ -157,21 +154,26 @@ class _Network(keras.Model):
         if use_image_head:
             c = config.cnn_block(**config.cnn_block_kwargs)(c)
 
-            _conv2d_params = dict(
+            # --- policy image
+            c1 = kl.Conv2D(
+                2,
+                kernel_size=(1, 1),
                 padding="same",
                 use_bias=False,
-                activation="linear",
                 kernel_regularizer=regularizers.l2(_l2),
-            )
-
-            # --- policy image
-            c1 = kl.Conv2D(2, kernel_size=(1, 1), **_conv2d_params)(c)
+            )(c)
             c1 = kl.BatchNormalization()(c1)
             c1 = kl.LeakyReLU()(c1)
             c1 = kl.Flatten()(c1)
 
             # --- value image
-            c2 = kl.Conv2D(1, kernel_size=(1, 1), **_conv2d_params)(c)
+            c2 = kl.Conv2D(
+                1,
+                kernel_size=(1, 1),
+                padding="same",
+                use_bias=False,
+                kernel_regularizer=regularizers.l2(_l2),
+            )(c)
             c2 = kl.BatchNormalization()(c2)
             c2 = kl.LeakyReLU()(c2)
             c2 = kl.Flatten()(c2)
@@ -293,6 +295,7 @@ class Trainer(RLTrainer):
             policy_loss = -tf.reduce_sum(policies * tf.math.log(p_pred), axis=1, keepdims=True)
 
             loss = tf.reduce_mean(value_loss + policy_loss)
+            loss += tf.reduce_sum(self.parameter.network.losses)  # 正則化のLoss
 
         grads = tape.gradient(loss, self.parameter.network.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.network.trainable_variables))
@@ -309,6 +312,7 @@ class Trainer(RLTrainer):
         return {
             "value_loss": np.mean(value_loss.numpy()),
             "policy_loss": np.mean(policy_loss.numpy()),
+            "loss": loss.numpy(),
             "lr": self.optimizer.learning_rate.numpy(),
         }
 

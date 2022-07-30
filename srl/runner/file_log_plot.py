@@ -3,6 +3,7 @@ import glob
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
@@ -30,6 +31,7 @@ def init_file_logger(config: "srl.runner.callback.Config", mp_config: Optional["
 
     dir_name = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     dir_name += f"_{config.env_config.name}_{config.rl_config.getName()}"
+    dir_name = re.sub(r'[\\/:?."<>\|]', "_", dir_name)
     base_dir = os.path.join(os.path.abspath(path), dir_name)
     logger.debug(f"save path: {base_dir}")
 

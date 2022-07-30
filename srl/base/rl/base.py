@@ -1,6 +1,8 @@
+import io
 import logging
 import os
 import pickle
+import sys
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Type
 
@@ -60,6 +62,10 @@ class RLConfig(ABC):
         raise NotImplementedError()
 
     def set_config_by_env(self, env: EnvRun) -> None:
+        # env property
+        self.env_max_episode_steps = env.max_episode_steps
+        self.env_player_num = env.player_num
+
         self._env_action_space = env.action_space
         env_observation_space = env.observation_space
         env_observation_type = env.observation_type
@@ -94,6 +100,15 @@ class RLConfig(ABC):
 
         self._set_config_by_env(env, self._env_action_space, env_observation_space, env_observation_type)
         self._is_set_config_by_env = True
+
+        logger.debug(f"max_episode_steps     : {self.env_max_episode_steps}")
+        logger.debug(f"player_num            : {self.env_player_num}")
+        logger.debug(f"action_space(env)     : {env.action_space}")
+        logger.debug(f"action_space(rl)      : {self.env_action_space}")
+        logger.debug(f"observation_type(env) : {env.observation_type}")
+        logger.debug(f"observation_type(rl)  : {self.env_observation_type}")
+        logger.debug(f"observation_space(env): {env.observation_space}")
+        logger.debug(f"observation_space(rl) : {self.env_observation_space}")
 
     def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
         pass  # NotImplemented
@@ -546,6 +561,6 @@ class WorkerRun:
             return text
         else:
             try:
-            self.worker.render_terminal(env, self, **kwargs)
+                self.worker.render_terminal(env, self, **kwargs)
             except NotImplementedError:
                 pass

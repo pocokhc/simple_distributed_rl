@@ -10,25 +10,38 @@ from typing import Any, Dict, List
 import numpy as np
 
 
-def set_logger(name: str = "", level=logging.DEBUG) -> None:
+def set_logger(
+    name: str = "",
+    print_terminal: bool = True,
+    print_level=logging.INFO,
+    filename: str = "",
+    file_level=logging.DEBUG,
+) -> None:
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter("%(asctime)s %(name)s %(funcName)s %(lineno)d [%(levelname)s] %(message)s")
 
-    ch = logging.StreamHandler()
-    ch.setLevel(level)
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
+    if print_terminal:
+        h = logging.StreamHandler()
+        h.setLevel(print_level)
+        h.setFormatter(formatter)
+        logger.addHandler(h)
+
+    if filename != "":
+        h = logging.FileHandler(filename)
+        h.setLevel(file_level)
+        h.setFormatter(formatter)
+        logger.addHandler(h)
+
+    # 余分なwarningを非表示
+    warnings.simplefilter("ignore")
 
     # ライブラリ別にログレベルを調整
     logging.getLogger("matplotlib").setLevel(logging.INFO)
     logging.getLogger("PIL").setLevel(logging.INFO)
 
-    # 余分なwarningを非表示
-    warnings.simplefilter("ignore")
-
     # TF log
-    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+    # os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
     logging.getLogger("tensorflow").setLevel(logging.INFO)
     logging.getLogger("h5py").setLevel(logging.INFO)
 
@@ -73,7 +86,7 @@ def listdictdict_to_dictlist(data: List[Dict[str, Dict[str, Any]]], key: str) ->
 
 def to_str_time(sec: float) -> str:
     if sec == np.inf:
-        return "inf"
+        return "    inf"
     if sec < 60:
         return "{:6.2f}s".format(sec)
     return "{:6.1f}m".format(sec / 60)

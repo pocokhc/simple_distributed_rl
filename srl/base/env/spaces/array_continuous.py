@@ -24,7 +24,7 @@ class ArrayContinuousSpace(BoxSpace):
         return super().sample(invalid_actions).tolist()
 
     def __str__(self) -> str:
-        return f"ArrayContinuous({self.size}, {self.low}, {self.high})"
+        return f"ArrayContinuous({self.size}, {np.min(self.low)}, {np.max(self.high)})"
 
     # --- action discrete
     def get_action_discrete_info(self) -> int:

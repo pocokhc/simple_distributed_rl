@@ -9,6 +9,7 @@
     "python.linting.lintOnSave": true,  // ファイル保存時にリンター実行
     "python.linting.flake8Args": [
         "--max-line-length=119",  // defaultは79、119はgit向け
+        "--ignore=E203",  // E203 whitespace before ':'
     ],
 
     // --- フォーマッタ(Python)

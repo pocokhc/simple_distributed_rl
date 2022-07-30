@@ -1,5 +1,6 @@
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
+import numpy as np
 from srl.base.rl.base import RLRemoteMemory
 from srl.rl.memories.proportional_memory import ProportionalMemory
 from srl.rl.memories.rankbase_memory import RankBaseMemory
@@ -39,11 +40,11 @@ class PriorityExperienceReplay(RLRemoteMemory):
 
     # ---------------------------
 
-    def add(self, batch, priority):
-        self.memory.add(batch, priority)
+    def add(self, batch: Any, td_error: Optional[float] = None):
+        self.memory.add(batch, td_error)
 
     def sample(self, step: int, batch_size: int) -> Tuple[list, list, list]:
         return self.memory.sample(batch_size, step)
 
-    def update(self, indices: List[int], batchs: List[Any], priorities: List[float]) -> None:
-        self.memory.update(indices, batchs, priorities)
+    def update(self, indices: List[int], batchs: List[Any], td_errors: np.ndarray) -> None:
+        self.memory.update(indices, batchs, td_errors)

@@ -48,9 +48,6 @@ class Config:
     validation_players: List[Union[None, str, RLConfig]] = field(default_factory=list)
     validation_player: int = 0
 
-    # other
-    is_make_env: bool = True
-
     def __post_init__(self):
         # play config
         self.max_steps: int = -1
@@ -75,13 +72,11 @@ class Config:
         self.trainer_disable = False
         self.env = None
 
-        if self.is_make_env:
-            self.make_env()
-
     # ------------------------------
     # user functions
     # ------------------------------
     def model_summary(self, **kwargs) -> RLParameter:
+        self.make_env()
         parameter = self.make_parameter()
         parameter.summary(**kwargs)
         return parameter
@@ -91,6 +86,7 @@ class Config:
     # runner functions
     # ------------------------------
     def assert_params(self):
+        self.make_env()
         self.rl_config.assert_params()
 
     def make_env(self) -> EnvRun:
@@ -101,12 +97,15 @@ class Config:
         return self.env
 
     def make_parameter(self) -> RLParameter:
+        self.make_env()
         return make_parameter(self.rl_config)
 
     def make_remote_memory(self) -> RLRemoteMemory:
+        self.make_env()
         return make_remote_memory(self.rl_config)
 
     def make_trainer(self, parameter: RLParameter, remote_memory: RLRemoteMemory):
+        self.make_env()
         return make_trainer(self.rl_config, parameter, remote_memory)
 
     def make_worker(
@@ -192,9 +191,11 @@ class Config:
         return conf
 
     def copy(self, env_copy: bool = False, sync_callbacks: bool = True):
+        self.make_env()  # rl_config.set_config_by_env
+
         env_config = self.env_config.copy()
         rl_config = self.rl_config.copy()
-        config = Config(env_config, rl_config, is_make_env=False)
+        config = Config(env_config, rl_config)
 
         # parameter
         for k, v in self.__dict__.items():
@@ -347,6 +348,10 @@ def render(
     max_steps: int = -1,
     timeout: int = -1,
     seed: Optional[int] = None,
+    # print
+    print_progress: bool = False,
+    print_progress_kwargs: Optional[Dict] = None,
+    # other
     callbacks: List[Callback] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
 ) -> Tuple[List[float], Optional[Rendering]]:
@@ -365,6 +370,11 @@ def render(
     config.max_episodes = 1
     config.training = False
     config.episode_timeout = -1
+
+    if print_progress:
+        if print_progress_kwargs is None:
+            print_progress_kwargs = {}
+        config.callbacks.append(PrintProgress(**print_progress_kwargs))
 
     if rendering_params is None:
         rendering_params = {}
@@ -391,6 +401,10 @@ def animation(
     max_steps: int = -1,
     timeout: int = -1,
     seed: Optional[int] = None,
+    # print
+    print_progress: bool = False,
+    print_progress_kwargs: Optional[Dict] = None,
+    # other
     callbacks: List[Callback] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
 ) -> Rendering:
@@ -405,6 +419,8 @@ def animation(
         max_steps=max_steps,
         timeout=timeout,
         seed=seed,
+        print_progress=print_progress,
+        print_progress_kwargs=print_progress_kwargs,
         callbacks=callbacks,
         remote_memory=remote_memory,
     )

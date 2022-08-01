@@ -711,7 +711,7 @@ class Worker(DiscreteActionWorker):
 
     def _add_memory(self):
         history_steps = min(len(self.history), self.config.unroll_steps)
-        zero_category = [0 for _ in range(self.config.v_max - self.config.v_min + 1)]
+        zero_category = _encode_category(0, self.config.v_min, self.config.v_max)
 
         # --- actions
         actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.unroll_steps)]
@@ -749,8 +749,9 @@ class Worker(DiscreteActionWorker):
         priority = abs(self.history[0]["state_v"] - v0)
 
         # --- reward
+        history_steps_reward = min(len(self.history), self.config.unroll_steps - 1)
         rewards = [zero_category for _ in range(self.config.unroll_steps - 1)]
-        for i in range(history_steps - 1):
+        for i in range(history_steps_reward):
             r = self.history[i]["reward"]
             r = rescaling(r)
             self._v_min = min(self._v_min, r)

@@ -288,8 +288,6 @@ def train(
 ) -> Tuple[RLParameter, RLRemoteMemory, FileLogPlot]:
     if callbacks is None:
         callbacks = []
-    if config.rl_config is not None:
-        assert config.rl_config.is_set_config_by_env
 
     config = config.copy(env_copy=False)
     mp_config = mp_config.copy()

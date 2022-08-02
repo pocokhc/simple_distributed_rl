@@ -2,6 +2,7 @@ import logging
 import pickle
 import random
 import time
+import traceback
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -306,19 +307,23 @@ def train(
         config.callbacks.append(PrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
 
     if file_logger_kwargs is None:
-        logger = FileLogger()
+        file_logger = FileLogger()
     else:
-        logger = FileLogger(**file_logger_kwargs)
+        file_logger = FileLogger(**file_logger_kwargs)
     if enable_file_logger:
-        config.callbacks.append(logger)
+        config.callbacks.append(file_logger)
 
     _, parameter, memory, _ = play(config, parameter, remote_memory)
 
-    history = FileLogPlot()
-    if enable_file_logger:
-        history.load(logger.base_dir, remove_file_logger)
+    try:
+        history = FileLogPlot()
+        if enable_file_logger:
+            history.load(file_logger.base_dir, remove_file_logger)
+        return parameter, memory, history
+    except Exception:
+        logger.warning(traceback.format_exc())
 
-    return parameter, memory, history
+    return parameter, memory, None
 
 
 def evaluate(

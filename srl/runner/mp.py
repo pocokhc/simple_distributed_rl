@@ -2,6 +2,7 @@ import ctypes
 import logging
 import multiprocessing as mp
 import time
+import traceback
 from dataclasses import dataclass
 from multiprocessing.managers import BaseManager
 from typing import Dict, List, Optional, Tuple, Union
@@ -307,11 +308,11 @@ def train(
             mp_config.callbacks.append(MPPrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
 
     if file_logger_kwargs is None:
-        logger = MPFileLogger()
+        file_logger = MPFileLogger()
     else:
-        logger = MPFileLogger(**file_logger_kwargs)
+        file_logger = MPFileLogger(**file_logger_kwargs)
     if enable_file_logger:
-        mp_config.callbacks.append(logger)
+        mp_config.callbacks.append(file_logger)
 
     config.assert_params()
 
@@ -319,9 +320,9 @@ def train(
 
         remote_memory_class = make_remote_memory(config.rl_config, get_class=True)
 
-        # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり
-        if is_env_notebook() and "__main__" in str(remote_memory_class):
-            raise RuntimeError("The definition of rl must be in the py file")
+        # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような
+        # if is_env_notebook() and "__main__" in str(remote_memory_class):
+        #    raise RuntimeError("The definition of rl must be in the py file")
 
         MPManager.register("RemoteMemory", remote_memory_class)
         MPManager.register("Board", Board)
@@ -336,11 +337,14 @@ def train(
                 return_memory,
             )
 
-    history = FileLogPlot()
-    if enable_file_logger:
-        history.load(logger.base_dir, remove_file_logger)
-
-    return return_parameter, return_remote_memory, history
+    try:
+        history = FileLogPlot()
+        if enable_file_logger:
+            history.load(file_logger.base_dir, remove_file_logger)
+        return return_parameter, return_remote_memory, history
+    except Exception:
+        logger.warning(traceback.format_exc())
+    return return_parameter, return_remote_memory, None
 
 
 def _train(

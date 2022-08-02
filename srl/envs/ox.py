@@ -277,7 +277,7 @@ class Cpu(RuleBaseWorker):
         action = int(random.choice(np.where(scores == np.max(scores))[0]))
         return action
 
-    def call_render(self, _env: EnvRun, worker_run: WorkerRun) -> None:
+    def render_render(self, _env: EnvRun, worker_run: WorkerRun, **kwargs) -> None:
         env = cast(OX, _env.get_original_env())
 
         print(f"- alphabeta({self._render_count}, {self._render_time:.3f}s) -")

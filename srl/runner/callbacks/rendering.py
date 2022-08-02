@@ -28,6 +28,10 @@ class Rendering(Callback):
 
     def __post_init__(self):
         self.frames = []
+        self.info_maxw = 0
+        self.info_maxh = 0
+        self.rl_maxw = 0
+        self.rl_maxh = 0
 
         self.fig = None
         self.ax = None
@@ -98,6 +102,11 @@ class Rendering(Callback):
             except NotImplementedError:
                 env_image = self._text_to_image(env_text)
 
+            self.info_maxw = max(self.info_maxw, info_image.shape[1])
+            self.info_maxh = max(self.info_maxh, info_image.shape[0])
+            self.rl_maxw = max(self.rl_maxw, rl_image.shape[1])
+            self.rl_maxh = max(self.rl_maxh, rl_image.shape[0])
+
         if self.render_window:
             image = self._create_image(info_image, env_image, rl_image)
             self._draw_window_image(image)
@@ -138,8 +147,9 @@ class Rendering(Callback):
         return img
 
     def _create_image(self, info_image: np.ndarray, env_image: np.ndarray, rl_image: np.ndarray):
+
         # 大きいほうに合わせる(余白は埋める)
-        maxw = max(info_image.shape[1], rl_image.shape[1])
+        maxw = max(self.info_maxw, self.rl_maxw)
         info_image = cv2.copyMakeBorder(
             info_image, 0, 0, 0, maxw - info_image.shape[1], cv2.BORDER_CONSTANT, value=(0, 0, 0)
         )
@@ -172,7 +182,7 @@ class Rendering(Callback):
     def create_anime(
         self,
         scale: float = 1.0,
-        fps: float = 60,
+        interval: float = 200,
         gray: bool = False,
         resize: Optional[Tuple[int, int]] = None,
         draw_info: bool = False,
@@ -180,10 +190,9 @@ class Rendering(Callback):
         if len(self.frames) == 0:
             return None
         t0 = time.time()
-        interval = 1000 / fps
-        fig = plt.figure(figsize=(6.4 * scale, 4.8 * scale), tight_layout=dict(pad=0))
-        ax = fig.add_subplot(1, 1, 1)
-        ax.axis("off")
+
+        maxw = 0
+        maxh = 0
         images = []
         for f in self.frames:
             env_img = f["env_image"]
@@ -194,24 +203,43 @@ class Rendering(Callback):
                 env_img = cv2.resize(env_img, resize)
             if gray:
                 env_img = cv2.cvtColor(env_img, cv2.COLOR_RGB2GRAY)
+                env_img = np.stack((env_img,) * 3, -1)
 
             if draw_info:
                 img = self._create_image(info_img, env_img, rl_img)
             else:
                 img = env_img
-            images.append([ax.imshow(img, animated=True)])
+            images.append(img)
+            maxw = max(maxw, img.shape[1])
+            maxh = max(maxh, img.shape[0])
+
+        fig_dpi = 100
+        # inch = pixel / dpi
+        fig = plt.figure(
+            dpi=fig_dpi, figsize=(scale * maxw / fig_dpi, scale * maxh / fig_dpi), tight_layout=dict(pad=0)
+        )
+        ax = fig.add_subplot(1, 1, 1)
+        ax.axis("off")
+        images = [[ax.imshow(img, animated=True)] for img in images]
         anime = ArtistAnimation(fig, images, interval=interval, repeat=False)
         # plt.close(fig)  # notebook で画像が残るので出来ればcloseしたいけど、closeするとgym側でバグる
         logger.debug("create animation({:.1f}s)".format(time.time() - t0))
         return anime
 
-    def display(self, scale: float = 1.0, fps: float = 60) -> None:
+    def display(
+        self,
+        scale: float = 1.0,
+        interval: int = 200,
+        gray: bool = False,
+        resize: Optional[Tuple[int, int]] = None,
+        draw_info: bool = False,
+    ) -> None:
         if len(self.frames) == 0:
             return
 
         from IPython import display
 
         t0 = time.time()
-        anime = self.create_anime(scale, fps)
+        anime = self.create_anime(scale, interval, gray, resize, draw_info)
         display.display(display.HTML(data=anime.to_jshtml()))
         logger.info("create display({:.1f}s)".format(time.time() - t0))

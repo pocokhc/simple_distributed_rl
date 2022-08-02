@@ -97,14 +97,16 @@ class MPPrintProgress(MPCallback):
         s += f" --- {to_str_time(elapsed_time)}"
 
         if self.max_train_count > 0:
-            remain = self.train_time * (self.max_train_count - self.train_count)
+            remain_train = self.train_time * (self.max_train_count - self.train_count)
             s += f" {self.train_count} / {self.max_train_count}"
-            s += f" {to_str_time(remain)}(train remain time)"
-
+        else:
+            remain_train = np.inf
         if self.timeout > 0:
             remain_time = self.timeout - elapsed_time
-            s += f" {to_str_time(remain_time)}(timeout remain time)"
-
+        else:
+            remain_time = np.inf
+        remain = min(remain_train, remain_time)
+        s += f" {to_str_time(remain)}(remain time)"
         print(s)
 
         if len(self.progress_history) == 0:
@@ -122,9 +124,10 @@ class MPPrintProgress(MPCallback):
         s += ",{:7d} memory ".format(remote_memory)
         s += ",{:6d} sync ".format(sync_count)
 
-        d = listdictdict_to_dictlist(self.progress_history, "train_info")
-        for k, arr in d.items():
-            s += f"|{k} {np.mean(arr):.3f}"
+        if self.print_train_info:
+            d = listdictdict_to_dictlist(self.progress_history, "train_info")
+            for k, arr in d.items():
+                s += f"|{k} {np.mean(arr):.3f}"
 
         print(s)
         self.progress_history = []
@@ -235,12 +238,14 @@ class MPPrintProgress(MPCallback):
             if len(valid_rewards) > 0:
                 s += ", {:.4f} val_reward ".format(np.mean(valid_rewards))
 
-            d = listdictdict_to_dictlist(self.progress_history, "env_info")
-            for k, arr in d.items():
-                s += f"|{k} {np.mean(arr):.3f}"
-            d = listdictdict_to_dictlist(self.progress_history, "work_info")
-            for k, arr in d.items():
-                s += f"|{k} {np.mean(arr):.3f}"
+            if self.print_env_info:
+                d = listdictdict_to_dictlist(self.progress_history, "env_info")
+                for k, arr in d.items():
+                    s += f"|{k} {np.mean(arr):.3f}"
+            if self.print_worker_info:
+                d = listdictdict_to_dictlist(self.progress_history, "work_info")
+                for k, arr in d.items():
+                    s += f"|{k} {np.mean(arr):.3f}"
 
         print(s)
         self.progress_history = []

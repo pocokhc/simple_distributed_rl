@@ -8,22 +8,22 @@ class Test(unittest.TestCase):
     def test_play(self):
 
         config = sequence.Config(srl.envs.Config("Grid"), None)
-        _, render = sequence.render(config, max_steps=10, enable_animation=True)
-        render.create_anime().save("tmp/a.gif")
+        render = sequence.animation(config, max_steps=10)
+        render.create_anime(draw_info=True).save("tmp/a.gif")
 
         config = sequence.Config(srl.envs.Config("Grid"), None)
-        _, render = sequence.render(config, max_steps=10, enable_animation=True)
-        render.create_anime().save("tmp/b.gif")
+        render = sequence.animation(config, max_steps=10)
+        render.create_anime(draw_info=True).save("tmp/b.gif")
 
     def test_gym(self):
 
         config = sequence.Config(srl.envs.Config("MountainCar-v0"), None)
-        _, render = sequence.render(config, max_steps=10, enable_animation=True)
-        render.create_anime().save("tmp/c.gif")
+        render = sequence.animation(config, max_steps=10)
+        render.create_anime(draw_info=True).save("tmp/c.gif")
 
         config = sequence.Config(srl.envs.Config("MountainCar-v0"), None)
-        _, render = sequence.render(config, max_steps=10, enable_animation=True)
-        render.create_anime().save("tmp/d.gif")
+        render = sequence.animation(config, max_steps=10)
+        render.create_anime(draw_info=True).save("tmp/d.gif")
 
 
 if __name__ == "__main__":

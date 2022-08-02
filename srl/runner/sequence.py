@@ -231,6 +231,34 @@ class Config:
         return config
 
 
+def save(
+    path: str, config: Config, parameter: Optional[RLParameter] = None, remote_memory: Optional[RLRemoteMemory] = None
+) -> None:
+    dat = [
+        config,
+        parameter.backup() if parameter is not None else None,
+        remote_memory.backup() if remote_memory is not None else None,
+    ]
+    with open(path, "wb") as f:
+        pickle.dump(dat, f)
+
+
+def load(path: str) -> Tuple[Config, RLParameter, RLRemoteMemory]:
+    with open(path, "rb") as f:
+        dat = pickle.load(f)
+    config = dat[0]
+    parameter = config.make_parameter()
+    if dat[1] is not None:
+        parameter.restore(dat[1])
+    remote_memory = config.make_remote_memory()
+    if dat[2] is not None:
+        remote_memory.restore(dat[2])
+    return config, parameter, remote_memory
+
+
+# -------------------------------------------------
+
+
 def train(
     config: Config,
     # train config

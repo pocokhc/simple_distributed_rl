@@ -792,13 +792,16 @@ class Worker(DiscreteActionWorker):
 
             n_s, reward_category = self.parameter.dynamics_network(self.s0, [a])
             reward = _category_decode(reward_category.numpy()[0], self.config.v_min)
+            n_s_str = n_s.ref()
+            self.parameter.pred_PV(n_s, n_s_str)
 
-            s = "{:5.1f}% ({:7d})(N), {:9.5f}(Q), {:9.5f}(P_net), {:9.5f}(PUCT), {:9.5f}(reward)".format(
+            s = "{:5.1f}% ({:7d})(N), {:9.5f}(Q), {:9.5f}(P_net), {:9.5f}(PUCT), {:9.5f}(V), {:9.5f}(reward)".format(
                 p * 100,
                 c,
                 q,
                 self.parameter.P[self.s0_str][a],
                 puct[a],
+                self.parameter.V[n_s_str],
                 reward,
             )
             return s

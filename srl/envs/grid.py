@@ -6,11 +6,12 @@ from dataclasses import dataclass
 from typing import Any, Tuple
 
 import numpy as np
-from srl.base.define import EnvObservationType
+from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env import registration
 from srl.base.env.base import SpaceBase
 from srl.base.env.genre import SinglePlayEnv
 from srl.base.env.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
+from srl.base.rl.processor import Processor
 
 logger = logging.getLogger(__name__)
 
@@ -428,3 +429,30 @@ class Grid(SinglePlayEnv):
 
             rewards.append(total_reward)
         return np.mean(rewards)
+
+
+class LayerProcessor(Processor):
+    def change_observation_info(
+        self,
+        env_observation_space: SpaceBase,
+        env_observation_type: EnvObservationType,
+        rl_observation_type: RLObservationType,
+        env: Grid,
+    ) -> Tuple[SpaceBase, EnvObservationType]:
+        observation_space = BoxSpace(
+            low=0,
+            high=1,
+            shape=(1, env.H, env.W),
+        )
+        return observation_space, EnvObservationType.SHAPE3
+
+    def process_observation(self, observation: np.ndarray, env: Grid) -> np.ndarray:
+        px = env.player_pos[0]
+        py = env.player_pos[1]
+
+        _field = np.zeros((1, env.H, env.W))
+        for y in range(env.H):
+            for x in range(env.W):
+                if y == py and x == px:
+                    _field[0][y][x] = 1
+        return _field

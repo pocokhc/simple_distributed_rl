@@ -16,18 +16,18 @@ class Worker(RuleBaseWorker):
         pass  # do nothing
 
     def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> EnvAction:
-        invalid_actions = env.get_invalid_actions(self.player_index)
-        action_num = env.action_space.get_action_discrete_info()
+        valid_actions = env.get_valid_actions()
 
-        actions = [a for a in range(action_num) if a not in invalid_actions]
-        print(f"select action: {actions}")
+        print(f"select action: {valid_actions}")
         for i in range(10):
             try:
                 action = int(input("> "))
-                if action in actions:
+                if action in valid_actions:
                     break
             except Exception:
                 print(f"invalid action({10-i} times left)")
+        else:
+            raise ValueError()
 
         action = env.action_space.action_discrete_decode(action)
         return action

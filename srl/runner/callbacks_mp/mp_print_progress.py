@@ -96,9 +96,9 @@ class MPPrintProgress(MPCallback):
         elapsed_time = time.time() - self.t0
         s += f" --- {to_str_time(elapsed_time)}"
 
-        if self.max_train_count > 0:
+        if self.max_train_count > 0 and self.train_count > 0:
             remain_train = self.train_time * (self.max_train_count - self.train_count)
-            s += f" {self.train_count} / {self.max_train_count}"
+            s += f" {self.train_count:8d}/{self.max_train_count}"
         else:
             remain_train = np.inf
         if self.timeout > 0:

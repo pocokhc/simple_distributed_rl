@@ -16,7 +16,7 @@ class Worker(RuleBaseWorker):
         pass  # do nothing
 
     def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> EnvAction:
-        return env.sample(self.player_index)
+        return env.sample()
 
     def render_terminal(self, env, worker, **kwargs) -> None:
         pass  # do nothing

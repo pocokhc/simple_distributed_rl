@@ -433,14 +433,14 @@ def _train(
 
     # --- プロセスの終了を待つ
     for w in actors_ps_list:
-        for _ in range(10):
+        for _ in range(5):
             if w.is_alive():
                 time.sleep(1)
             else:
                 break
         else:
             w.terminate()
-    for _ in range(100):
+    for _ in range(60 * 10):
         if trainer_ps.is_alive():
             time.sleep(1)
         else:
@@ -453,7 +453,7 @@ def _train(
     if trainer_ps.exitcode != 0:
         raise RuntimeError(f"An exception has occurred in trainer process.(exitcode: {trainer_ps.exitcode})")
     for i, w in enumerate(actors_ps_list):
-        if w.exitcode != 0:
+        if w.exitcode != 0 and w.exitcode is not None:
             raise RuntimeError(f"An exception has occurred in actor {i} process.(exitcode: {w.exitcode})")
 
     # --- last parameter

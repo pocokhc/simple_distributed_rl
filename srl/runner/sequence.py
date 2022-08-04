@@ -132,8 +132,8 @@ class Config:
         # 設定されていない場合は 0 をrl、1以降をrandom
         if len(self.players) == 0:
             self.players = [None]
-            for _ in range(env.player_num - 1):
-                self.players.append("random")
+        if len(self.players) < env.player_num:
+            self.players += ["random"] * (env.player_num - len(self.players))
 
         player_obj = self.players[player_index]
 
@@ -146,11 +146,9 @@ class Config:
             worker = env.make_worker(player_obj)
             if worker is not None:
                 return worker
-
             worker = make_worker_rulebase(player_obj)
             if worker is not None:
                 return worker
-
             assert True, f"not registered: {player_obj}"
 
         # RLConfigは専用のWorkerを作成
@@ -336,7 +334,6 @@ def evaluate(
     seed: Optional[int] = None,
     # print
     print_progress: bool = False,
-    max_progress_time: int = 60 * 10,  # s
     print_progress_kwargs: Optional[Dict] = None,
     # other
     callbacks: List[Callback] = None,
@@ -360,7 +357,7 @@ def evaluate(
     if print_progress:
         if print_progress_kwargs is None:
             print_progress_kwargs = {}
-        config.callbacks.append(PrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
+        config.callbacks.append(PrintProgress(**print_progress_kwargs))
 
     episode_rewards, parameter, memory, env = play(config, parameter, remote_memory)
 
@@ -473,19 +470,24 @@ def play(
 
     env = config.make_env()
 
-    # random seed
+    # --- random seed
     if config.seed is not None:
         random.seed(config.seed)
         np.random.seed(config.seed)
-
-        import tensorflow as tf
-
-        tf.random.set_seed(config.seed)
         env.set_seed(config.seed)
 
+        try:
+            import tensorflow as tf
+
+            tf.random.set_seed(config.seed)
+        except ImportError:
+            pass
+
+    # --- config
     config = config.copy(env_copy=True)
     config.assert_params()
 
+    # --- parameter/remote_memory/trainer
     if parameter is None:
         parameter = config.make_parameter()
     if remote_memory is None:
@@ -496,14 +498,14 @@ def play(
         trainer = None
     callbacks = config.callbacks
 
-    # valid
+    # --- valid
     if config.enable_validation:
         valid_config = config.copy(env_copy=False)
         valid_config.enable_validation = False
         valid_config.players = config.validation_players
         valid_episode = 0
 
-    # workers
+    # --- workers
     workers = [config.make_player(i, parameter, remote_memory, actor_id) for i in range(env.player_num)]
 
     # callback
@@ -525,6 +527,7 @@ def play(
     logger.debug(f"max_steps        : {config.max_steps}")
     logger.debug(f"max_episodes     : {config.max_episodes}")
     logger.debug(f"enable_validation: {config.enable_validation}")
+    logger.debug(f"players          : {config.players}")
 
     # --- init
     episode_count = -1
@@ -571,7 +574,6 @@ def play(
             # worker reset
             [w.on_reset(env, worker_indices[i]) for i, w in enumerate(workers)]
 
-            # callback
             _params["episode_count"] = episode_count
             _params["worker_indices"] = worker_indices
             _params["worker_idx"] = worker_idx
@@ -584,7 +586,6 @@ def play(
         # action
         action = workers[worker_idx].policy(env)
 
-        # callback
         _params["action"] = action
         [c.on_step_begin(**_params) for c in callbacks]
 
@@ -611,7 +612,6 @@ def play(
             train_info = None
             train_time = 0
 
-        # callback
         _params["step_time"] = step_time
         _params["train_info"] = train_info
         _params["train_time"] = train_time
@@ -638,7 +638,6 @@ def play(
                     valid_reward = np.mean(rewards)
                     valid_episode = 0
 
-            # callback
             _params["episode_step"] = env.step_num
             _params["episode_rewards"] = env.episode_rewards
             _params["episode_time"] = time.time() - episode_t0
@@ -658,7 +657,6 @@ def play(
         worker_rewards = [env.episode_rewards[worker_indices[i]] for i in range(env.player_num)]
         episode_rewards_list.append(worker_rewards)
 
-    # callback
     _params["episode_count"] = episode_count
     [c.on_episodes_end(**_params) for c in callbacks]
 

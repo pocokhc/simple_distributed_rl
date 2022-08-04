@@ -24,11 +24,6 @@
         "--line-length=119",  // defaultは79、119はgit向け
     ],
 
-    // --- フォーマッタ
-    "[lua]": {
-        "editor.formatOnSave": true,  // ファイル保存時にフォーマッタ実行
-    },
-
     // --- 型アノテーション(Pylance)
     "python.analysis.typeCheckingMode": "basic",
     

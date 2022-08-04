@@ -342,7 +342,7 @@ class Worker(ModelBaseWorker):
     def call_policy(self, state: np.ndarray, env: EnvRun, worker: WorkerRun) -> int:
         self.state = state
         self.state_str = to_str_observation(state)
-        self.invalid_actions = env.get_invalid_actions(self.player_index)
+        self.invalid_actions = env.get_invalid_actions()
         self._init_state(self.state_str)
 
         # --- シミュレーションしてpolicyを作成
@@ -383,7 +383,7 @@ class Worker(ModelBaseWorker):
 
         # actionを選択
         puct_list = self._calc_puct(state_str, invalid_actions, depth == 0)
-        action = random.choice(np.where(puct_list == np.max(puct_list))[0])
+        action = int(random.choice(np.where(puct_list == np.max(puct_list))[0]))
 
         # 1step
         n_state, rewards, done = self.env_step(env, action)

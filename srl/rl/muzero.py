@@ -52,7 +52,7 @@ class Config(DiscreteActionConfig):
     # policyの温度パラメータのリスト
     policy_tau_schedule: List[dict] = None
 
-    td_steps: int = 5  # multisteps
+    # td_steps: int = 5  # multisteps
     unroll_steps: int = 3  # unroll_steps
 
     # Root prior exploration noise.
@@ -75,6 +75,10 @@ class Config(DiscreteActionConfig):
     representation_block: kl.Layer = AlphaZeroImageBlock
     representation_block_kwargs: dict = None
     dynamics_blocks: int = 15
+    weight_decay: float = 0.0001
+
+    # rescale
+    enable_rescale: bool = True
 
     def set_atari_config(self):
         self.simulation_times = 50
@@ -85,7 +89,7 @@ class Config(DiscreteActionConfig):
         self.lr_decay_steps = 350_000
         self.v_min = -300
         self.v_max = 300
-        self.td_steps = 10
+        # self.td_steps = 10
         self.unroll_steps = 5
         self.policy_tau_schedule = [
             {"step": 0, "tau": 1.0},
@@ -95,6 +99,8 @@ class Config(DiscreteActionConfig):
         self.representation_block = MuZeroAtariBlock
         self.representation_block_kwargs = {"base_filters": 128}
         self.dynamics_blocks = 15
+        self.weight_decay = 0.0001
+        self.enable_rescale = True
 
     def __post_init__(self):
         super().__init__()
@@ -134,7 +140,7 @@ register(
 )
 
 
-def _encode_category(val: float, v_min: int, v_max: int) -> List[float]:
+def _category_encode(val: float, v_min: int, v_max: int) -> List[float]:
     category = [0.0 for _ in range(v_max - v_min + 1)]
     low_int = math.floor(val)
     high_int = low_int + 1
@@ -239,13 +245,14 @@ class _DynamicsNetwork(keras.Model):
         v_num = config.v_max - config.v_min + 1
         h, w, ch = input_shape
 
+        # hidden_state + action_space
         in_state = c = kl.Input(shape=(h, w, ch + self.action_num))
 
         # hidden_state
         c1 = AlphaZeroImageBlock(
             n_blocks=config.dynamics_blocks,
             filters=ch,
-            l2=0.0001,
+            l2=config.weight_decay,
         )(c)
 
         # reward
@@ -254,7 +261,7 @@ class _DynamicsNetwork(keras.Model):
             kernel_size=(1, 1),
             padding="same",
             use_bias=False,
-            kernel_regularizer=regularizers.l2(0.0001),
+            kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
         c2 = kl.BatchNormalization()(c2)
         c2 = kl.LeakyReLU()(c2)
@@ -309,7 +316,7 @@ class _PredictionNetwork(keras.Model):
             kernel_size=(1, 1),
             padding="same",
             use_bias=False,
-            kernel_regularizer=regularizers.l2(0.0001),
+            kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
         c1 = kl.BatchNormalization()(c1)
         c1 = kl.LeakyReLU()(c1)
@@ -322,7 +329,7 @@ class _PredictionNetwork(keras.Model):
             kernel_size=(1, 1),
             padding="same",
             use_bias=False,
-            kernel_regularizer=regularizers.l2(0.0001),
+            kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
         c2 = kl.BatchNormalization()(c2)
         c2 = kl.LeakyReLU()(c2)
@@ -389,9 +396,9 @@ class Parameter(RLParameter):
 
     def pred_PV(self, state, state_str):
         if state_str not in self.P:
-            p, v = self.prediction_network(state)
+            p, v_category = self.prediction_network(state)
             self.P[state_str] = p[0].numpy()
-            self.V[state_str] = v[0][0].numpy()
+            self.V[state_str] = _category_decode(v_category.numpy()[0], self.config.v_min)
 
     def reset_cache(self):
         self.P = {}
@@ -404,7 +411,7 @@ class Parameter(RLParameter):
 def _scale_gradient(tensor, scale):
     """
     Scales the gradient for the backward pass.
-    論文の議事コードより
+    論文の疑似コードより
     """
     return tensor * scale + tf.stop_gradient(tensor) * (1 - scale)
 
@@ -445,10 +452,10 @@ class Trainer(RLTrainer):
             values = []
             rewards = []
             for b in batchs:
-                actions.append(b["actions"][i])
                 policies.append(b["policies"][i])
                 values.append(b["values"][i])
                 if i < self.config.unroll_steps - 1:
+                    actions.append(b["actions"][i])
                     rewards.append(b["rewards"][i])
             actions_list.append(actions)
             policies_list.append(np.asarray(policies))
@@ -458,10 +465,7 @@ class Trainer(RLTrainer):
         with tf.GradientTape() as tape:
             # --- 1st step
             hidden_states = self.parameter.representation_network(states)
-
-            # pred
             p_pred, v_pred = self.parameter.prediction_network(hidden_states)
-            n_hidden_states, p_rewards = self.parameter.dynamics_network(hidden_states, actions_list[0])
 
             # loss
             policy_loss = _scale_gradient(self.cross_entropy_loss(policies_list[0], p_pred), 1.0)
@@ -474,8 +478,8 @@ class Trainer(RLTrainer):
             gradient_scale = 1 / (self.config.unroll_steps - 1)
             for t in range(self.config.unroll_steps - 1):
                 # pred
-                n_hidden_states, p_rewards = self.parameter.dynamics_network(hidden_states, actions_list[t + 1])
-                hidden_states = _scale_gradient(n_hidden_states, 0.5)
+                hidden_states, p_rewards = self.parameter.dynamics_network(hidden_states, actions_list[t])
+                hidden_states = _scale_gradient(hidden_states, 0.5)
                 p_pred, v_pred = self.parameter.prediction_network(hidden_states)
 
                 # loss
@@ -575,20 +579,25 @@ class Worker(DiscreteActionWorker):
         self.state_v = self.parameter.V[self.s0_str]
 
         # --- 確率に比例したアクションを選択
+        if not self.training:
+            self.policy_tau = 0  # 評価時は決定的に
         if self.policy_tau == 0:
             counts = np.asarray(self.N[self.s0_str])
             action = random.choice(np.where(counts == counts.max())[0])
-            self.step_policy = np.array([1.0 if a == action else 0.0 for a in range(self.config.action_num)])
         else:
-            self.step_policy = np.array(
+            step_policy = np.array(
                 [self.N[self.s0_str][a] ** (1 / self.policy_tau) for a in range(self.config.action_num)]
             )
-            self.step_policy /= self.step_policy.sum()
-            action = random_choice_by_probs(self.step_policy)
+            step_policy /= step_policy.sum()
+            action = random_choice_by_probs(step_policy)
 
         # schedule check
         if self.total_step in self.policy_tau_schedule:
             self.policy_tau = self.policy_tau_schedule[self.total_step]
+
+        # 学習用のpolicyはtau=1
+        N = sum(self.N[self.s0_str])
+        self.step_policy = [self.N[self.s0_str][a] / N for a in range(self.config.action_num)]
 
         self.action = int(action)
         return self.action
@@ -691,83 +700,82 @@ class Worker(DiscreteActionWorker):
                 "policy": self.step_policy,
                 "reward": reward,
                 "state_v": self.state_v,
-                "done": done,
             }
         )
 
         if done:
-            self._add_memory()
-            for _ in range(len(self.history) - 1):
-                self.history.pop(0)
-                self._add_memory()
-        elif len(self.history) > self.config.unroll_steps + self.config.td_steps + 1:
-            self._add_memory()
-            self.history.pop(0)
+            zero_category = _category_encode(0, self.config.v_min, self.config.v_max)
+
+            # calc MC reward
+            reward = 0
+            for h in reversed(self.history):
+                reward = h["reward"] + self.config.discount * reward
+                h["discount_reward"] = reward
+
+            # batch create
+            for idx in range(len(self.history)):
+
+                # --- policies
+                policies = [
+                    [1 / self.config.action_num] * self.config.action_num for _ in range(self.config.unroll_steps)
+                ]
+                for i in range(self.config.unroll_steps):
+                    if idx + i >= len(self.history):
+                        break
+                    policies[i] = self.history[idx + i]["policy"]
+
+                # --- values
+                values = [zero_category for _ in range(self.config.unroll_steps)]
+                v0 = 0
+                for i in range(self.config.unroll_steps):
+                    if idx + i >= len(self.history):
+                        break
+                    v = self.history[idx + i]["discount_reward"]
+                    if self.config.enable_rescale:
+                        v = rescaling(v)
+                    if i == 0:
+                        v0 = v
+                    self._v_min = min(self._v_min, v)
+                    self._v_max = max(self._v_max, v)
+                    values[i] = _category_encode(v, self.config.v_min, self.config.v_max)
+
+                # priority
+                priority = abs(self.history[idx]["state_v"] - v0)
+
+                # --- actions
+                actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.unroll_steps - 1)]
+                for i in range(self.config.unroll_steps - 1):
+                    if idx + i >= len(self.history):
+                        break
+                    actions[i] = self.history[idx + i]["action"]
+
+                # --- reward
+                rewards = [zero_category for _ in range(self.config.unroll_steps - 1)]
+                for i in range(self.config.unroll_steps - 1):
+                    if idx + i >= len(self.history):
+                        break
+                    r = self.history[idx + i]["reward"]
+                    if self.config.enable_rescale:
+                        r = rescaling(r)
+                    self._v_min = min(self._v_min, r)
+                    self._v_max = max(self._v_max, r)
+                    rewards[i] = _category_encode(r, self.config.v_min, self.config.v_max)
+
+                self.remote_memory.add(
+                    {
+                        "state": self.history[idx]["state"],
+                        "actions": actions,
+                        "policies": policies,
+                        "values": values,
+                        "rewards": rewards,
+                    },
+                    priority,
+                )
 
         return {
             "v_min": self._v_min,
             "v_max": self._v_max,
         }
-
-    def _add_memory(self):
-        history_steps = min(len(self.history), self.config.unroll_steps)
-        zero_category = _encode_category(0, self.config.v_min, self.config.v_max)
-
-        # --- actions
-        actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.unroll_steps)]
-        for i in range(history_steps):
-            actions[i] = self.history[i]["action"]
-
-        # --- policies
-        policies = [[1 / self.config.action_num] * self.config.action_num for _ in range(self.config.unroll_steps)]
-        for i in range(history_steps):
-            policies[i] = self.history[i]["policy"]
-
-        # --- values
-        values = [zero_category for _ in range(self.config.unroll_steps)]
-        v0 = 0
-        for i in range(history_steps):
-            # multisteps
-            v = 0
-            j = 0
-            for j in range(self.config.td_steps - 1):
-                if i + j >= len(self.history) - 1:
-                    break
-                v += (self.config.discount**j) * self.history[i + j]["reward"]
-            if self.history[i + j]["done"]:
-                v += self.history[i + j]["reward"]
-            else:
-                v += self.history[i + j]["state_v"]
-            v = rescaling(v)
-            if i == 0:
-                v0 = v
-            self._v_min = min(self._v_min, v)
-            self._v_max = max(self._v_max, v)
-            values[i] = _encode_category(v, self.config.v_min, self.config.v_max)
-
-        # priority
-        priority = abs(self.history[0]["state_v"] - v0)
-
-        # --- reward
-        history_steps_reward = min(len(self.history), self.config.unroll_steps - 1)
-        rewards = [zero_category for _ in range(self.config.unroll_steps - 1)]
-        for i in range(history_steps_reward):
-            r = self.history[i]["reward"]
-            r = rescaling(r)
-            self._v_min = min(self._v_min, r)
-            self._v_max = max(self._v_max, r)
-            rewards[i] = _encode_category(r, self.config.v_min, self.config.v_max)
-
-        self.remote_memory.add(
-            {
-                "state": self.history[0]["state"],
-                "actions": actions,
-                "policies": policies,
-                "values": values,
-                "rewards": rewards,
-            },
-            priority,
-        )
 
     def render_terminal(self, env, worker, **kwargs) -> None:
         self._init_state(self.s0_str)
@@ -786,7 +794,7 @@ class Worker(DiscreteActionWorker):
             reward = _category_decode(reward_category.numpy()[0], self.config.v_min)
 
             s = "{:5.1f}% ({:7d})(N), {:9.5f}(Q), {:9.5f}(P_net), {:9.5f}(PUCT), {:9.5f}(reward)".format(
-                p,
+                p * 100,
                 c,
                 q,
                 self.parameter.P[self.s0_str][a],

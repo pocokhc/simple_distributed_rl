@@ -30,7 +30,7 @@ class TestRL:
         self.baseline = {
             # 1p
             "Grid": (0.65, 200),  # 0.7318 ぐらい
-            "EasyGrid": (0.95, 100),  # 1
+            "EasyGrid": (0.9, 100),  # 1
             "Pendulum-v1": (-500, 20),  # -179.51776165585284ぐらい
             "PendulumImage-v0": (-500, 10),
             "IGrid": (1, 200),  # 乱数要素なし
@@ -189,7 +189,7 @@ class TestRL:
                 max_train_count=train_count,
                 enable_validation=is_valid,
                 enable_file_logger=False,
-                max_progress_time=10,
+                max_progress_time=60,
             )
         else:
             parameter, memory, _ = sequence.train(
@@ -197,7 +197,7 @@ class TestRL:
                 max_steps=train_count,
                 enable_validation=is_valid,
                 enable_file_logger=False,
-                max_progress_time=10,
+                max_progress_time=60,
             )
 
         true_env = self.baseline[env_name]
@@ -205,7 +205,12 @@ class TestRL:
             max_episodes = true_env[1]
         else:
             max_episodes = test_num
-        episode_rewards = sequence.evaluate(config, parameter, max_episodes=max_episodes)
+        episode_rewards = sequence.evaluate(
+            config,
+            parameter,
+            max_episodes=max_episodes,
+            print_progress=True,
+        )
         s = f"{np.mean(episode_rewards)} >= {true_env[0]}"
         print(s)
         assert np.mean(episode_rewards) >= true_env[0], s
@@ -255,7 +260,12 @@ class TestRL:
 
         # 1p play
         config.players = [None, "random"]
-        episode_rewards = sequence.evaluate(config, parameter, max_episodes=true_env[1])
+        episode_rewards = sequence.evaluate(
+            config,
+            parameter,
+            max_episodes=true_env[1],
+            print_progress=True,
+        )
         reward = np.mean([r[0] for r in episode_rewards])
         s = f"{reward} >= {true_env[0][0]}"
         print(s)
@@ -263,7 +273,12 @@ class TestRL:
 
         # 2p play
         config.players = ["random", None]
-        episode_rewards = sequence.evaluate(config, parameter, max_episodes=true_env[1])
+        episode_rewards = sequence.evaluate(
+            config,
+            parameter,
+            max_episodes=true_env[1],
+            print_progress=True,
+        )
         reward = np.mean([r[1] for r in episode_rewards])
         s = f"{reward} >= {true_env[0][1]}"
         print(s)

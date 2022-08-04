@@ -214,7 +214,6 @@ class RLTrainer(ABC):
 
 
 class WorkerBase(ABC):
-
     # ------------------------------
     # implement
     # ------------------------------
@@ -304,6 +303,9 @@ class RLWorker(WorkerBase):
     def get_invalid_actions(self, env: EnvRun) -> List[RLInvalidAction]:
         return [self.action_encode(a) for a in env.get_invalid_actions(self.player_index)]
 
+    def get_valid_actions(self, env: EnvRun) -> List[RLInvalidAction]:
+        return [self.action_encode(a) for a in env.get_valid_actions(self.player_index)]
+
     def sample_action(self, env: EnvRun) -> RLAction:
         return self.action_encode(env.sample(self.player_index))
 
@@ -376,34 +378,35 @@ class RLWorker(WorkerBase):
         n_state = self.observation_encode(env.state, env)
         return n_state, env.step_rewards.tolist(), env.done
 
-    def env_step_from_worker(self, env: EnvRun) -> Tuple[np.ndarray, float, bool]:
-        """次の自分の番になるまでenvを進める
-        (相手のpolicyは call_env_step_from_worker_policy で定義)
+    # TODO: 現状使っていない、不要なら削除予定
+    # def env_step_from_worker(self, env: EnvRun) -> Tuple[np.ndarray, float, bool]:
+    #     """次の自分の番になるまでenvを進める
+    #     (相手のpolicyは call_env_step_from_worker_policy で定義)
 
-        Args:
-            env (EnvRun): env
+    #     Args:
+    #         env (EnvRun): env
 
-        Returns:
-            Tuple[np.ndarray, float, bool]: 次の状態, 報酬, 終了したかどうか
-        """
+    #     Returns:
+    #         Tuple[np.ndarray, float, bool]: 次の状態, 報酬, 終了したかどうか
+    #     """
 
-        reward = 0
-        while True:
-            state = self.observation_encode(env.state, env)
-            action = self.call_env_step_from_worker_policy(state, env, env.next_player_index)
-            action = self.action_decode(action)
-            env.step(action)
-            reward += env.step_rewards[self.player_index]
+    #     reward = 0
+    #     while True:
+    #         state = self.observation_encode(env.state, env)
+    #         action = self.call_env_step_from_worker_policy(state, env, env.next_player_index)
+    #         action = self.action_decode(action)
+    #         env.step(action)
+    #         reward += env.step_rewards[self.player_index]
 
-            if self.player_index == env.next_player_index:
-                break
-            if env.done:
-                break
+    #         if self.player_index == env.next_player_index:
+    #             break
+    #         if env.done:
+    #             break
 
-        return self.observation_encode(env.state, env), reward, env.done
+    #     return self.observation_encode(env.state, env), reward, env.done
 
-    def call_env_step_from_worker_policy(self, state: np.ndarray, env: EnvRun, player_idx: int) -> RLAction:
-        raise NotImplementedError()
+    # def call_env_step_from_worker_policy(self, state: np.ndarray, env: EnvRun, player_idx: int) -> RLAction:
+    #    raise NotImplementedError()
 
 
 class RuleBaseWorker(WorkerBase):
@@ -459,7 +462,7 @@ class ExtendWorker(WorkerBase):
 
     def on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
         self._player_index = worker.player_index
-        self.rl_worker.on_reset(env, self.player_index)
+        self.rl_worker.on_reset(env, worker.player_index)
         self.call_on_reset(env, worker)
 
     def policy(self, env: EnvRun, worker: "WorkerRun") -> EnvAction:
@@ -499,21 +502,21 @@ class WorkerRun:
     def on_reset(self, env: EnvRun, player_index: int) -> None:
         self._player_index = player_index
         self._info = None
-        self.is_reset = False
-        self.step_reward = 0
+        self._is_reset = False
+        self._step_reward = 0
 
     def policy(self, env: EnvRun) -> Optional[EnvAction]:
         if self.player_index != env.next_player_index:
             return None
 
         # 初期化していないなら初期化する
-        if not self.is_reset:
+        if not self._is_reset:
             self.worker.on_reset(env, self)
-            self.is_reset = True
+            self._is_reset = True
         else:
             # 2週目以降はpolicyの実行前にstepを実行
             self._info = self.worker.on_step(env, self)
-            self.step_reward = 0
+            self._step_reward = 0
 
         # rl policy
         action = self.worker.policy(env, self)
@@ -521,23 +524,23 @@ class WorkerRun:
 
     def on_step(self, env: EnvRun):
         # 初期化前はskip
-        if not self.is_reset:
+        if not self._is_reset:
             return
 
         # 相手の番のrewardも加算
-        self.step_reward += env.step_rewards[self.player_index]
+        self._step_reward += env.step_rewards[self.player_index]
 
         # 終了なら実行
         if env.done:
             self._info = self.worker.on_step(env, self)
-            self.step_reward = 0
+            self._step_reward = 0
 
     def render(self, env: EnvRun, **kwargs):
         self.render_terminal(env, False, **kwargs)
 
     def render_terminal(self, env: EnvRun, return_text: bool = False, **kwargs):
         # 初期化前はskip
-        if not self.is_reset:
+        if not self._is_reset:
             if return_text:
                 return ""
             return

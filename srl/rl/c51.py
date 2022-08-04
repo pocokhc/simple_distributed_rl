@@ -194,10 +194,10 @@ class Trainer(RLTrainer):
         # 再割り当て
         target_dists = np.zeros((self.config.batch_size, self.config.categorical_num_atoms))
         bj = (TZ - self.v_min) / self.delta_z
-        ratios, indexes = np.modf(bj)
+        ratios, indices = np.modf(bj)
         for i in range(self.config.batch_size):
             for j in range(self.n_atoms):
-                idx = int(indexes[i][j])
+                idx = int(indices[i][j])
                 ratio = ratios[i][j]
                 target_dists[i][idx] += next_dists[i][j] * (1 - ratio)
                 if ratio != 0:

@@ -30,7 +30,7 @@ class TestRL:
         self.baseline = {
             # 1p
             "Grid": (0.65, 200),  # 0.7318 ぐらい
-            "2DGrid": (0.65, 100),
+            "EasyGrid": (0.95, 100),  # 1
             "Pendulum-v1": (-500, 20),  # -179.51776165585284ぐらい
             "PendulumImage-v0": (-500, 10),
             "IGrid": (1, 200),  # 乱数要素なし
@@ -94,7 +94,6 @@ class TestRL:
         for _ in range(2):
             env.reset()
             [w.on_reset(env, i) for i, w in enumerate(workers)]
-            assert worker.player_index == 1
 
             # --- step
             for step in range(10):
@@ -161,6 +160,7 @@ class TestRL:
         env_name,
         rl_config,
         train_count,
+        test_num=0,
         is_atari=False,
         is_mp=False,
         is_valid: bool = False,
@@ -201,7 +201,11 @@ class TestRL:
             )
 
         true_env = self.baseline[env_name]
-        episode_rewards = sequence.evaluate(config, parameter, max_episodes=true_env[1])
+        if test_num == 0:
+            max_episodes = true_env[1]
+        else:
+            max_episodes = test_num
+        episode_rewards = sequence.evaluate(config, parameter, max_episodes=max_episodes)
         s = f"{np.mean(episode_rewards)} >= {true_env[0]}"
         print(s)
         assert np.mean(episode_rewards) >= true_env[0], s

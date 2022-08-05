@@ -24,14 +24,14 @@ class Test(unittest.TestCase):
         env_name = "OX"
 
         in_state = [0] * 9
-        out_state = np.zeros((3, 3, 3))
+        out_state = np.zeros((2, 3, 3))
 
         tester.run(processor, env_name)
         tester.change_observation_info(
             processor,
             env_name,
             EnvObservationType.SHAPE3,
-            BoxSpace((3, 3, 3), 0, 1),
+            BoxSpace((2, 3, 3), 0, 1),
         )
         tester.observation_decode(
             processor,

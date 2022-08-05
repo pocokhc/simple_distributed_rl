@@ -19,6 +19,8 @@ class Test(unittest.TestCase):
                 "functions",
                 "human",
                 "random_play",
+                "muzero",  # image only
+                "stochastic_muzero",  # image only
             ]:
                 continue
             self.rl_list.append(srl.rl.__dict__[name].Config())

@@ -26,7 +26,7 @@ class Test(unittest.TestCase):
             {"train": 100, "lr": 0.002},
             {"train": 500, "lr": 0.0002},
         ]
-        rl_config.cnn_block_kwargs = dict(n_blocks=1, filters=32)
+        rl_config.input_image_block_kwargs = dict(n_blocks=1, filters=32)
         rl_config.value_block_kwargs = dict(hidden_layer_sizes=(32,))
         self.tester.play_verify_singleplay("Grid", rl_config, 5000)
 
@@ -37,7 +37,7 @@ class Test(unittest.TestCase):
         rl_config.batch_size = 32
         rl_config.discount = 1.0
         rl_config.lr_schedule = [{"train": 0, "lr": 0.02}, {"train": 100, "lr": 0.002}]
-        rl_config.cnn_block_kwargs = dict(n_blocks=1, filters=32)
+        rl_config.input_image_block_kwargs = dict(n_blocks=1, filters=32)
         rl_config.value_block_kwargs = dict(hidden_layer_sizes=(32,))
         self.tester.play_verify_2play("StoneTaking", rl_config, 300)
 
@@ -48,7 +48,7 @@ class Test(unittest.TestCase):
         rl_config.batch_size = 32
         rl_config.discount = 1.0
         rl_config.lr_schedule = [{"train": 0, "lr": 0.02}, {"train": 100, "lr": 0.002}]
-        rl_config.cnn_block_kwargs = dict(n_blocks=1, filters=32)
+        rl_config.input_image_block_kwargs = dict(n_blocks=1, filters=32)
         rl_config.value_block_kwargs = dict(hidden_layer_sizes=(32,))
         self.tester.play_verify_2play("OX", rl_config, 200)
 
@@ -59,7 +59,7 @@ class Test(unittest.TestCase):
         rl_config.batch_size = 32
         rl_config.discount = 1.0
         rl_config.lr_schedule = [{"train": 0, "lr": 0.02}, {"train": 100, "lr": 0.002}]
-        rl_config.cnn_block_kwargs = dict(n_blocks=1, filters=32)
+        rl_config.input_image_block_kwargs = dict(n_blocks=1, filters=32)
         rl_config.value_block_kwargs = dict(hidden_layer_sizes=(32,))
         self.tester.play_verify_2play("OX", rl_config, 200, is_mp=True)
 
@@ -80,7 +80,7 @@ class TestLong(unittest.TestCase):
             {"train": 1000, "lr": 0.0005},
             {"train": 5000, "lr": 0.0002},
         ]
-        rl_config.cnn_block_kwargs = dict(n_blocks=19, filters=128)
+        rl_config.input_image_block_kwargs = dict(n_blocks=19, filters=128)
         rl_config.value_block_kwargs = dict(hidden_layer_sizes=(128,))
         rl_config.policy_block_kwargs = dict(hidden_layer_sizes=(128,))
         self.tester.play_verify_2play("Othello4x4", rl_config, 400000, is_mp=True)

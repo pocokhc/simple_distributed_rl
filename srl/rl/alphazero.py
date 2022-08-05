@@ -56,8 +56,8 @@ class Config(DiscreteActionConfig):
     c_init: float = 1.25
 
     # model
-    cnn_block: kl.Layer = AlphaZeroImageBlock
-    cnn_block_kwargs: dict = None
+    input_image_block: kl.Layer = AlphaZeroImageBlock
+    input_image_block_kwargs: dict = None
     value_block: kl.Layer = MLPBlock
     value_block_kwargs: dict = None
     policy_block: kl.Layer = MLPBlock
@@ -78,8 +78,8 @@ class Config(DiscreteActionConfig):
             {"train": 500_000, "lr": 0.0002},
         ]
 
-        self.cnn_block = AlphaZeroImageBlock
-        self.cnn_block_kwargs = dict(n_blocks=19, filters=256)
+        self.input_image_block = AlphaZeroImageBlock
+        self.input_image_block_kwargs = dict(n_blocks=19, filters=256)
         self.value_block = MLPBlock
         self.value_block_kwargs = dict(hidden_layer_sizes=(256,))
         self.policy_block = MLPBlock
@@ -94,8 +94,8 @@ class Config(DiscreteActionConfig):
                 {"train": 500, "lr": 0.002},
                 {"train": 1000, "lr": 0.0002},
             ]
-        if self.cnn_block_kwargs is None:
-            self.cnn_block_kwargs = dict(n_blocks=3, filters=64)
+        if self.input_image_block_kwargs is None:
+            self.input_image_block_kwargs = dict(n_blocks=3, filters=64)
         if self.value_block_kwargs is None:
             self.value_block_kwargs = dict(hidden_layer_sizes=(64,))
         if self.policy_block_kwargs is None:
@@ -142,8 +142,8 @@ class _Network(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        if "l2" in config.cnn_block_kwargs:
-            _l2 = config.cnn_block_kwargs["l2"]
+        if "l2" in config.input_image_block_kwargs:
+            _l2 = config.input_image_block_kwargs["l2"]
         else:
             _l2 = 0.0001
 
@@ -152,7 +152,7 @@ class _Network(keras.Model):
             config.env_observation_type,
         )
         if use_image_head:
-            c = config.cnn_block(**config.cnn_block_kwargs)(c)
+            c = config.input_image_block(**config.input_image_block_kwargs)(c)
 
             # --- policy image
             c1 = kl.Conv2D(

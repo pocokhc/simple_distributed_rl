@@ -72,8 +72,8 @@ class Config(DiscreteActionConfig):
     memory_beta_steps: int = 100_000
 
     # model
-    representation_block: kl.Layer = AlphaZeroImageBlock
-    representation_block_kwargs: dict = None
+    input_image_block: kl.Layer = AlphaZeroImageBlock
+    input_image_block_kwargs: dict = None
     dynamics_blocks: int = 15
     weight_decay: float = 0.0001
 
@@ -110,8 +110,8 @@ class Config(DiscreteActionConfig):
                 {"step": 50_000, "tau": 0.5},
                 {"step": 75_000, "tau": 0.25},
             ]
-        if self.representation_block_kwargs is None:
-            self.representation_block_kwargs = {}
+        if self.input_image_block_kwargs is None:
+            self.input_image_block_kwargs = {}
 
     @property
     def observation_type(self) -> RLObservationType:
@@ -211,7 +211,7 @@ class _RepresentationNetwork(keras.Model):
         )
         assert use_image_head, "Input supports only image format."
 
-        c = config.representation_block(**config.representation_block_kwargs)(c)
+        c = config.input_image_block(**config.input_image_block_kwargs)(c)
         self.model = keras.Model(in_state, c, name="RepresentationNetwork")
 
         # 重みを初期化

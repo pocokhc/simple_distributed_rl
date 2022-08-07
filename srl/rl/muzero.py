@@ -75,6 +75,7 @@ class Config(DiscreteActionConfig):
     input_image_block: kl.Layer = AlphaZeroImageBlock
     input_image_block_kwargs: dict = None
     dynamics_blocks: int = 15
+    reward_dense_units: int = 0
     weight_decay: float = 0.0001
 
     # rescale
@@ -266,6 +267,8 @@ class _DynamicsNetwork(keras.Model):
         c2 = kl.BatchNormalization()(c2)
         c2 = kl.LeakyReLU()(c2)
         c2 = kl.Flatten()(c2)
+        if config.reward_dense_units > 0:
+            c2 = kl.Dense(config.reward_dense_units, activation="swish")(c2)
         reward = kl.Dense(v_num, activation="softmax")(c2)
 
         self.model = keras.Model(in_state, [c1, reward], name="DynamicsNetwork")
@@ -424,7 +427,9 @@ class Trainer(RLTrainer):
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.optimizer = keras.optimizers.Adam()
-        self.cross_entropy_loss = keras.losses.CategoricalCrossentropy()
+        # バッチ毎に出力
+        self.cross_entropy_loss = keras.losses.CategoricalCrossentropy(axis=1, reduction=keras.losses.Reduction.NONE)
+
         self.train_count = 0
 
     def get_train_count(self):
@@ -470,9 +475,9 @@ class Trainer(RLTrainer):
             # loss
             policy_loss = _scale_gradient(self.cross_entropy_loss(policies_list[0], p_pred), 1.0)
             value_loss = _scale_gradient(self.cross_entropy_loss(values_list[0], v_pred), 1.0)
-            reward_loss = tf.constant(0, dtype=tf.float32)
+            reward_loss = tf.constant([0] * self.config.batch_size, dtype=tf.float32)
 
-            priority = np.abs(values_list[0] - v_pred)
+            priorities = value_loss.numpy()
 
             # --- unroll steps
             gradient_scale = 1 / (self.config.unroll_steps - 1)
@@ -487,7 +492,7 @@ class Trainer(RLTrainer):
                 policy_loss += _scale_gradient(self.cross_entropy_loss(policies_list[t + 1], p_pred), gradient_scale)
                 reward_loss += _scale_gradient(self.cross_entropy_loss(rewards_list[t], p_rewards), gradient_scale)
 
-            loss = value_loss + policy_loss + reward_loss
+            loss = tf.reduce_mean((value_loss + policy_loss + reward_loss) * weights)
 
             # 各ネットワークの正則化項を加える
             loss += tf.reduce_sum(self.parameter.representation_network.losses)
@@ -510,7 +515,7 @@ class Trainer(RLTrainer):
         self.train_count += 1
 
         # memory update
-        self.remote_memory.update(indices, batchs, np.mean(priority, axis=1))
+        self.remote_memory.update(indices, batchs, priorities)
 
         # 学習したらキャッシュは削除
         self.parameter.reset_cache()
@@ -521,9 +526,9 @@ class Trainer(RLTrainer):
         self.parameter.q_max = q_max
 
         return {
-            "value_loss": value_loss.numpy(),
-            "policy_loss": policy_loss.numpy(),
-            "reward_loss": reward_loss.numpy(),
+            "value_loss": np.mean(value_loss),
+            "policy_loss": np.mean(policy_loss),
+            "reward_loss": np.mean(reward_loss),
             "loss": loss.numpy(),
             "lr": self.optimizer.learning_rate.numpy(),
         }
@@ -727,6 +732,7 @@ class Worker(DiscreteActionWorker):
                 # --- values
                 values = [zero_category for _ in range(self.config.unroll_steps)]
                 v0 = 0
+                sv0 = 0
                 for i in range(self.config.unroll_steps):
                     if idx + i >= len(self.history):
                         break
@@ -735,12 +741,13 @@ class Worker(DiscreteActionWorker):
                         v = rescaling(v)
                     if i == 0:
                         v0 = v
+                        sv0 = self.history[idx + i]["state_v"]
                     self._v_min = min(self._v_min, v)
                     self._v_max = max(self._v_max, v)
                     values[i] = _category_encode(v, self.config.v_min, self.config.v_max)
 
                 # priority
-                priority = abs(self.history[idx]["state_v"] - v0)
+                priority = v0 - sv0
 
                 # --- actions
                 actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.unroll_steps - 1)]
@@ -749,7 +756,7 @@ class Worker(DiscreteActionWorker):
                         break
                     actions[i] = self.history[idx + i]["action"]
 
-                # --- reward
+                # --- rewards
                 rewards = [zero_category for _ in range(self.config.unroll_steps - 1)]
                 for i in range(self.config.unroll_steps - 1):
                     if idx + i >= len(self.history):

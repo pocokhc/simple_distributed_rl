@@ -1,30 +1,32 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import Generic, List, Tuple, TypeVar
 
 import numpy as np
 from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation, SpaceType
 
+T = TypeVar("T", int, List[int], float, List[float], np.ndarray, covariant=True)
 
-class SpaceBase(ABC):
+
+class SpaceBase(ABC, Generic[T]):
     @abstractmethod
-    def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> SpaceType:
+    def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> T:
         raise NotImplementedError()
 
     @abstractmethod
     def __eq__(self, __o: object) -> bool:
         return NotImplemented
 
-    # --- action discrete
+    # --- action
     @abstractmethod
     def get_action_discrete_info(self) -> int:
         raise NotImplementedError()
 
     @abstractmethod
-    def action_discrete_encode(self, val: SpaceType) -> DiscreteAction:
+    def action_discrete_encode(self, val: T) -> DiscreteAction:
         raise NotImplementedError()
 
     @abstractmethod
-    def action_discrete_decode(self, val: DiscreteAction) -> SpaceType:
+    def action_discrete_decode(self, val: DiscreteAction) -> T:
         raise NotImplementedError()
 
     # --- action continuous
@@ -34,37 +36,23 @@ class SpaceBase(ABC):
 
     # not use
     # @abstractmethod
-    # def action_continuous_encode(self, val: SpaceType) -> ContinuousAction:
+    # def action_continuous_encode(self, val: T) -> ContinuousAction:
     #    raise NotImplementedError()
 
     @abstractmethod
-    def action_continuous_decode(self, val: ContinuousAction) -> SpaceType:
+    def action_continuous_decode(self, val: ContinuousAction) -> T:
         raise NotImplementedError()
 
-    # --- observation discrete
+    # --- observation
+    @property
     @abstractmethod
-    def get_observation_discrete_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
-        raise NotImplementedError()  # shape, low, high
+    def observation_shape(self) -> Tuple[int, ...]:
+        raise NotImplementedError()  # shape
 
     @abstractmethod
-    def observation_discrete_encode(self, val: SpaceType) -> RLObservation:
+    def observation_discrete_encode(self, val: T) -> RLObservation:
         raise NotImplementedError()
 
-    # not use
-    # @abstractmethod
-    # def observation_discrete_decode(self, val: RLObservation) -> SpaceType:
-    #    raise NotImplementedError()
-
-    # --- observation continuous
     @abstractmethod
-    def get_observation_continuous_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
-        raise NotImplementedError()  # shape, low, high
-
-    @abstractmethod
-    def observation_continuous_encode(self, val: SpaceType) -> RLObservation:
+    def observation_continuous_encode(self, val: T) -> RLObservation:
         raise NotImplementedError()
-
-    # not use
-    # @abstractmethod
-    # def observation_continuous_decode(self, val: RLObservation) -> SpaceType:
-    #    raise NotImplementedError()

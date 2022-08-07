@@ -49,8 +49,6 @@ class Test(unittest.TestCase):
         # observation discrete
         self.tester.check_observation_discrete(
             true_shape=(3,),
-            true_low=[0, 0, 0],
-            true_high=[1, 4, 2],
             state=[0, 0, 1],
             encode_state=[0, 0, 1],
         )
@@ -58,8 +56,6 @@ class Test(unittest.TestCase):
         # observation continuous
         self.tester.check_observation_continuous(
             true_shape=(3,),
-            true_low=[0, 0, 0],
-            true_high=[1, 4, 2],
             state=[0, 0, 1],
             encode_state=[0, 0, 1],
         )

@@ -1,4 +1,3 @@
-import random
 from typing import List, Tuple, Union
 
 import numpy as np
@@ -40,22 +39,16 @@ class ArrayContinuousSpace(BoxSpace):
     def get_action_continuous_info(self) -> Tuple[int, np.ndarray, np.ndarray]:
         return super().get_action_continuous_info()
 
-    # def action_continuous_encode(self, val: float) -> ContinuousAction:
-    #    raise NotImplementedError
-
     def action_continuous_decode(self, val: ContinuousAction) -> List[float]:
         return val
 
-    # --- observation discrete
-    def get_observation_discrete_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
-        return super().get_observation_discrete_info()
+    # --- observation
+    @property
+    def observation_shape(self) -> Tuple[int, ...]:
+        return super().observation_shape
 
     def observation_discrete_encode(self, val: List[float]) -> RLObservation:
         return super().observation_discrete_encode(np.asarray(val))
-
-    # --- observation continuous
-    def get_observation_continuous_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
-        return super().get_observation_continuous_info()
 
     def observation_continuous_encode(self, val: List[float]) -> RLObservation:
         return super().observation_continuous_encode(np.asarray(val))

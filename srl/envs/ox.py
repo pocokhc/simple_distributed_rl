@@ -264,10 +264,10 @@ class OX(TurnBase2Player):
 class Cpu(RuleBaseWorker):
     cache = {}
 
-    def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> None:
+    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> None:
         pass  #
 
-    def call_policy(self, _env: EnvRun, worker_run: WorkerRun) -> EnvAction:
+    def call_policy(self, _env: EnvRun, worker: WorkerRun) -> EnvAction:
         env = cast(OX, _env.get_original_env())
         scores = env.calc_scores()
         self._render_scores = scores
@@ -277,7 +277,7 @@ class Cpu(RuleBaseWorker):
         action = int(random.choice(np.where(scores == np.max(scores))[0]))
         return action
 
-    def render_render(self, _env: EnvRun, worker_run: WorkerRun, **kwargs) -> None:
+    def render_render(self, _env: EnvRun, worker: WorkerRun, **kwargs) -> None:
         env = cast(OX, _env.get_original_env())
 
         print(f"- alphabeta({self._render_count}, {self._render_time:.3f}s) -")

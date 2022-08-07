@@ -12,10 +12,10 @@ register_worker("human", __name__ + ":Worker")
 
 
 class Worker(RuleBaseWorker):
-    def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> None:
+    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> None:
         pass  # do nothing
 
-    def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> EnvAction:
+    def call_policy(self, env: EnvRun, worker: WorkerRun) -> EnvAction:
         valid_actions = env.get_valid_actions()
 
         print(f"select action: {valid_actions}")

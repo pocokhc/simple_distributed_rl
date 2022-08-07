@@ -53,8 +53,6 @@ class Test(unittest.TestCase):
         # observation discrete
         self.tester.check_observation_discrete(
             true_shape=(1,),
-            true_low=[-1],
-            true_high=[3],
             state=np.array([1.1]),
             encode_state=[1],
         )
@@ -62,8 +60,6 @@ class Test(unittest.TestCase):
         # observation continuous
         self.tester.check_observation_continuous(
             true_shape=(1,),
-            true_low=[-1],
-            true_high=[3],
             state=np.array([1.1]),
             encode_state=[1.1],
         )
@@ -107,8 +103,6 @@ class Test(unittest.TestCase):
         # observation discrete
         self.tester.check_observation_discrete(
             true_shape=(3, 2),
-            true_low=np.full((3, 2), -1).tolist(),
-            true_high=np.full((3, 2), 3).tolist(),
             state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]]),
             encode_state=[[1, 2], [3, -1], [1, 2]],
         )
@@ -116,8 +110,6 @@ class Test(unittest.TestCase):
         # observation continuous
         self.tester.check_observation_continuous(
             true_shape=(3, 2),
-            true_low=np.full((3, 2), -1).tolist(),
-            true_high=np.full((3, 2), 3).tolist(),
             state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]]),
             encode_state=[[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]],
         )
@@ -155,8 +147,6 @@ class Test(unittest.TestCase):
         # observation discrete
         self.tester.check_observation_discrete(
             true_shape=(3, 2),
-            true_low=np.full((3, 2), -np.inf).tolist(),
-            true_high=np.full((3, 2), np.inf).tolist(),
             state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]]),
             encode_state=[[1, 2], [3, -1], [1, 2]],
         )
@@ -164,12 +154,10 @@ class Test(unittest.TestCase):
         # observation continuous
         self.tester.check_observation_continuous(
             true_shape=(3, 2),
-            true_low=np.full((3, 2), -np.inf).tolist(),
-            true_high=np.full((3, 2), np.inf).tolist(),
             state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]]),
             encode_state=[[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]],
         )
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_inf", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_space1", verbosity=2)

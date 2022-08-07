@@ -113,10 +113,10 @@ class StoneTaking(TurnBase2Player):
 
 
 class CPU(RuleBaseWorker):
-    def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> None:
+    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> None:
         pass  #
 
-    def call_policy(self, _env: EnvRun, worker_run: WorkerRun) -> EnvAction:
+    def call_policy(self, _env: EnvRun, worker: WorkerRun) -> EnvAction:
         env = cast(StoneTaking, _env.get_original_env())
         if env.field == 1:
             return 0

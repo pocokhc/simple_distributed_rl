@@ -14,7 +14,6 @@ ContinuousAction = List[float]
 EnvAction = Union[SpaceType, None]
 RLAction = Union[int, List[float], float]
 EnvInvalidAction = Union[int, List[int]]
-RLInvalidAction = int
 
 # other type
 EnvObservation = SpaceType

@@ -9,7 +9,7 @@ from srl.base.env.base import SpaceBase
 logger = logging.getLogger(__name__)
 
 
-class BoxSpace(SpaceBase):
+class BoxSpace(SpaceBase[np.ndarray]):
     def __init__(
         self,
         shape: Tuple[int, ...],
@@ -107,16 +107,13 @@ class BoxSpace(SpaceBase):
     def action_continuous_decode(self, val: ContinuousAction) -> np.ndarray:
         return np.asarray(val).reshape(self.shape)
 
-    # --- observation discrete
-    def get_observation_discrete_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
-        return self.shape, self.low, self.high
+    # --- observation
+    @property
+    def observation_shape(self) -> Tuple[int, ...]:
+        return self.shape
 
     def observation_discrete_encode(self, val: np.ndarray) -> RLObservation:
         return np.round(val).astype(int)
-
-    # --- observation continuous
-    def get_observation_continuous_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
-        return self.shape, self.low, self.high
 
     def observation_continuous_encode(self, val: np.ndarray) -> RLObservation:
         return val.astype(float)

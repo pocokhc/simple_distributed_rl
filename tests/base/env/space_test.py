@@ -36,18 +36,12 @@ class SpaceTest:
     def check_observation_discrete(
         self,
         true_shape: Tuple[int, ...],
-        true_low: List[float],
-        true_high: List[float],
         state,
         encode_state: List,
     ):
-        shape, low, high = self.space.get_observation_discrete_info()
+        shape = self.space.observation_shape
         self.tester.assertTrue(isinstance(shape, tuple))
         self.tester.assertTrue(shape == true_shape)
-        self.tester.assertTrue(isinstance(low, np.ndarray))
-        np.testing.assert_array_equal(low, true_low)
-        self.tester.assertTrue(isinstance(high, np.ndarray))
-        np.testing.assert_array_equal(high, true_high)
 
         state = self.space.observation_discrete_encode(state)
         self.tester.assertTrue(isinstance(state, np.ndarray))
@@ -57,18 +51,12 @@ class SpaceTest:
     def check_observation_continuous(
         self,
         true_shape: Tuple[int, ...],
-        true_low: List[float],
-        true_high: List[float],
         state,
         encode_state: List,
     ):
-        shape, low, high = self.space.get_observation_continuous_info()
+        shape = self.space.observation_shape
         self.tester.assertTrue(isinstance(shape, tuple))
         self.tester.assertTrue(shape == true_shape)
-        self.tester.assertTrue(isinstance(low, np.ndarray))
-        np.testing.assert_array_equal(low, true_low)
-        self.tester.assertTrue(isinstance(high, np.ndarray))
-        np.testing.assert_array_equal(high, true_high)
 
         state = self.space.observation_continuous_encode(state)
         self.tester.assertTrue(isinstance(state, np.ndarray))

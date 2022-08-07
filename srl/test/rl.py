@@ -301,7 +301,7 @@ class TestRL:
         V, _Q = env_org.calc_action_values()
         Q = {}
         for k, v in _Q.items():
-            new_k = worker.worker.worker.observation_encode(k, env)
+            new_k = worker.worker.worker.state_encode(k, env)
             new_k = to_str_observation(new_k)
             Q[new_k] = v
 

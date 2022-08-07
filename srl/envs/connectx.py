@@ -2,7 +2,7 @@ import logging
 import random
 import time
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 from srl.base.define import EnvAction, EnvObservationType, RLObservationType
@@ -188,16 +188,16 @@ class AlphaBeta(RuleBaseWorker):
     timeout: int = 6  # s
     equal_cut: bool = True
 
-    def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> None:
+    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> None:
         pass  #
 
-    def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> EnvAction:
+    def call_policy(self, env: EnvRun, worker: WorkerRun) -> EnvAction:
         self._count = 0
         self.t0 = time.time()
         scores, action = self._alphabeta(env.get_original_env().copy())
 
         scores = np.array(scores)
-        if self.player_index == 1:
+        if worker.player_index == 1:
             scores = -scores
 
         self._action = action
@@ -294,8 +294,10 @@ class LayerProcessor(Processor):
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationType,
         rl_observation_type: RLObservationType,
-        env: ConnectX,
+        _env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationType]:
+        env = cast(ConnectX, _env.get_original_env())
+
         observation_space = BoxSpace(
             low=0,
             high=1,
@@ -303,7 +305,9 @@ class LayerProcessor(Processor):
         )
         return observation_space, EnvObservationType.SHAPE3
 
-    def process_observation(self, observation: np.ndarray, env: ConnectX) -> np.ndarray:
+    def process_observation(self, observation: np.ndarray, _env: EnvRun, worker) -> np.ndarray:
+        env = cast(ConnectX, _env.get_original_env())
+
         board = observation
         # Layer0: player1 field (0 or 1)
         # Layer1: player2 field (0 or 1)

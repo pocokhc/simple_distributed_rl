@@ -10,7 +10,7 @@ from srl.base.env.base import SpaceBase
 logger = logging.getLogger(__name__)
 
 
-class ArrayDiscreteSpace(SpaceBase):
+class ArrayDiscreteSpace(SpaceBase[List[int]]):
     def __init__(self, nvec: List[int]) -> None:
         self._nvec = nvec
 
@@ -61,16 +61,13 @@ class ArrayDiscreteSpace(SpaceBase):
     def action_continuous_decode(self, val: ContinuousAction) -> List[int]:
         return [int(np.round(v)) for v in val]
 
-    # --- observation discrete
-    def get_observation_discrete_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
-        return (len(self.nvec),), np.array([0] * len(self.nvec)), np.array(self.nvec) - 1
+    # --- observation
+    @property
+    def observation_shape(self) -> Tuple[int, ...]:
+        return (len(self.nvec),)
 
     def observation_discrete_encode(self, val: List[int]) -> RLObservation:
-        return np.array(val, dtype=np.int32)
-
-    # --- observation continuous
-    def get_observation_continuous_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
-        return (len(self.nvec),), np.array([0] * len(self.nvec)), np.array(self.nvec) - 1
+        return np.array(val, dtype=int)
 
     def observation_continuous_encode(self, val: List[int]) -> RLObservation:
-        return np.array(val, dtype=np.float32)
+        return np.array(val, dtype=float)

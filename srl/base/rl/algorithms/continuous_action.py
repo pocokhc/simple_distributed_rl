@@ -34,18 +34,6 @@ class ContinuousActionConfig(RLConfig):
         self._action_low = low
         self._action_high = high
 
-        if self.observation_type == RLObservationType.DISCRETE:
-            shape, low, high = env_observation_space.get_observation_discrete_info()
-        elif self.observation_type == RLObservationType.CONTINUOUS:
-            shape, low, high = env_observation_space.get_observation_continuous_info()
-        else:
-            shape = (0,)
-            low = np.array([0])
-            high = np.array([0])
-        self._observation_shape = shape
-        self._observation_low = low
-        self._observation_high = high
-
     @property
     def action_num(self) -> int:
         return self._action_num
@@ -57,18 +45,6 @@ class ContinuousActionConfig(RLConfig):
     @property
     def action_high(self) -> np.ndarray:
         return self._action_high
-
-    @property
-    def observation_shape(self) -> tuple:
-        return self._observation_shape
-
-    @property
-    def observation_low(self) -> np.ndarray:
-        return self._observation_low
-
-    @property
-    def observation_high(self) -> np.ndarray:
-        return self._observation_high
 
 
 class ContinuousActionWorker(RLWorker):

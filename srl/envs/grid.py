@@ -3,12 +3,12 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Tuple
+from typing import Any, Tuple, cast
 
 import numpy as np
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env import registration
-from srl.base.env.base import SpaceBase
+from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import SinglePlayEnv
 from srl.base.env.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 from srl.base.rl.processor import Processor
@@ -437,8 +437,9 @@ class LayerProcessor(Processor):
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationType,
         rl_observation_type: RLObservationType,
-        env: Grid,
+        _env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationType]:
+        env = cast(Grid, _env.get_original_env())
         observation_space = BoxSpace(
             low=0,
             high=1,
@@ -446,7 +447,9 @@ class LayerProcessor(Processor):
         )
         return observation_space, EnvObservationType.SHAPE3
 
-    def process_observation(self, observation: np.ndarray, env: Grid) -> np.ndarray:
+    def process_observation(self, observation: np.ndarray, _env: EnvRun, worker) -> np.ndarray:
+        env = cast(Grid, _env.get_original_env())
+
         px = env.player_pos[0]
         py = env.player_pos[1]
 

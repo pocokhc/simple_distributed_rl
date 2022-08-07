@@ -3,7 +3,8 @@ from typing import Any, cast
 
 import numpy as np
 import srl
-from srl.base.define import EnvObservationType, Info, RLAction, RLActionType, RLObservationType
+from srl.base.define import (EnvObservationType, Info, RLAction, RLActionType,
+                             RLObservationType)
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.genre.singleplay import SinglePlayEnv
 from srl.base.env.registration import register as register_env
@@ -173,9 +174,9 @@ class Test(unittest.TestCase):
                 self.rl_config.set_config_by_env(self.env_run)
                 self.env_run.reset()
                 self.worker_run.on_reset(self.env_run, 0)
-                worker = self.worker_run.worker
+                worker = cast(RLWorker, self.worker_run.worker)
 
-                action_space = self.rl_config.env_action_space
+                action_space = self.rl_config.action_space
                 if pat[0] == "Dis":
                     self.assertTrue(isinstance(action_space, DiscreteSpace))
                     self.assertTrue(worker.action_decode(rl_action) == env_action)
@@ -186,7 +187,7 @@ class Test(unittest.TestCase):
                     self.assertTrue(isinstance(action_space, BoxSpace))
                     np.testing.assert_array_equal(worker.action_decode(rl_action), env_action)
 
-                self.assertTrue(isinstance(self.rl_config.env_observation_space, DiscreteSpace))
+                self.assertTrue(isinstance(self.rl_config.observation_space, DiscreteSpace))
                 self.assertTrue(self.rl_config.env_observation_type == EnvObservationType.DISCRETE)
 
                 worker.action = rl_action
@@ -237,12 +238,12 @@ class Test(unittest.TestCase):
                 self.rl_config.set_config_by_env(self.env_run)
                 self.env_run.reset()
                 self.worker_run.on_reset(self.env_run, 0)
-                worker = self.worker_run.worker
+                worker = cast(RLWorker, self.worker_run.worker)
 
-                self.assertTrue(isinstance(self.rl_config.env_action_space, DiscreteSpace))
+                self.assertTrue(isinstance(self.rl_config.action_space, DiscreteSpace))
                 self.assertTrue(worker.action_decode(rl_action) == env_action)
 
-                observation_space = self.rl_config.env_observation_space
+                observation_space = self.rl_config.observation_space
                 observation_type = self.rl_config.env_observation_type
                 if pat[0] == "Dis":
                     self.assertTrue(isinstance(observation_space, DiscreteSpace))
@@ -254,7 +255,7 @@ class Test(unittest.TestCase):
                     self.assertTrue(isinstance(observation_space, BoxSpace))
                     self.assertTrue(observation_type == EnvObservationType.UNKNOWN)
 
-                self.assertTrue(np.allclose(worker.observation_encode(env_state, self.env), rl_state))
+                self.assertTrue(np.allclose(worker.state_encode(env_state, self.env), rl_state))
 
                 # on_reset
                 self.env.s_state = env_state
@@ -276,4 +277,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_env_play", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_action", verbosity=2)

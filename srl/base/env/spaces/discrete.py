@@ -6,7 +6,7 @@ from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType,
 from srl.base.env.base import SpaceBase
 
 
-class DiscreteSpace(SpaceBase):
+class DiscreteSpace(SpaceBase[int]):
     def __init__(self, n: int) -> None:
         self._n = n
 
@@ -43,16 +43,13 @@ class DiscreteSpace(SpaceBase):
     def action_continuous_decode(self, val: ContinuousAction) -> int:
         return int(np.round(val[0]))
 
-    # --- observation discrete
-    def get_observation_discrete_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
-        return (1,), np.array([0]), np.array([self.n - 1])
+    # --- observation
+    @property
+    def observation_shape(self) -> Tuple[int, ...]:
+        return (1,)
 
     def observation_discrete_encode(self, val: int) -> RLObservation:
         return np.array([val], dtype=int)
-
-    # --- observation continuous
-    def get_observation_continuous_info(self) -> Tuple[Tuple[int, ...], np.ndarray, np.ndarray]:
-        return (1,), np.array([0]), np.array([self.n - 1])
 
     def observation_continuous_encode(self, val: int) -> RLObservation:
         return np.array([val], dtype=float)

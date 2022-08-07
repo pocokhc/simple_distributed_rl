@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 import cv2
 import numpy as np
 from srl.base.define import EnvObservation, EnvObservationType, RLObservationType
-from srl.base.env.base import SpaceBase
+from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
 
@@ -34,7 +34,7 @@ class ImageProcessor(Processor):
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationType,
         rl_observation_type: RLObservationType,
-        original_env: object,
+        env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationType]:
         self.before_observation_type = env_observation_type
 
@@ -85,7 +85,7 @@ class ImageProcessor(Processor):
     def process_observation(
         self,
         observation: EnvObservation,
-        original_env: object,
+        env: EnvRun,
     ) -> EnvObservation:
         observation = np.asarray(observation)
         if self.before_observation_type == EnvObservationType.GRAY_3ch:

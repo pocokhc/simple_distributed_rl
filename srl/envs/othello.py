@@ -374,7 +374,7 @@ class Othello(TurnBase2Player):
 class Cpu(RuleBaseWorker):
     cache = {}
 
-    def call_on_reset(self, _env: EnvRun, worker_run: WorkerRun) -> None:
+    def call_on_reset(self, _env: EnvRun, worker: WorkerRun) -> None:
         env = cast(Othello, _env.get_original_env())
         self.max_depth = 2
         self.eval_field = None
@@ -410,7 +410,7 @@ class Cpu(RuleBaseWorker):
         elif env.W == 4:
             self.max_depth = 6
 
-    def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> EnvAction:
+    def call_policy(self, env: EnvRun, worker: WorkerRun) -> EnvAction:
         self._count = 0
         self.t0 = time.time()
         scores = self._negamax(env.get_original_env().copy())

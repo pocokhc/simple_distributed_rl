@@ -6,7 +6,6 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -29,7 +28,7 @@ from tensorflow.keras import layers as kl
 https://openreview.net/forum?id=r1lyTjAqYX
 
 DQN
-    window_length          : x
+    window_length          : -
     Fixed Target Q-Network : o
     Error clipping     : o
     Experience Replay  : o

@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 """
 DQN
-    window_length          : o
+    window_length          : -
     Fixed Target Q-Network : o
     Error clipping      : o
     Experience Replay   : o
@@ -71,7 +71,6 @@ class Config(DiscreteActionConfig):
     test_beta: float = 0
 
     # model
-    window_length: int = 1
     cnn_block: kl.Layer = DQNImageBlock
     cnn_block_kwargs: dict = None
     hidden_layer_sizes: Tuple[int, ...] = (512,)
@@ -148,7 +147,6 @@ class Config(DiscreteActionConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.window_length > 0
         assert self.memory_warmup_size < self.capacity
         assert self.batch_size < self.memory_warmup_size
         assert len(self.hidden_layer_sizes) > 0
@@ -198,7 +196,6 @@ class _QNetwork(keras.Model):
         in_state, c, use_image_head = create_input_layer(
             config.observation_shape,
             config.env_observation_type,
-            config.window_length,
         )
         if use_image_head:
             c = config.cnn_block(**config.cnn_block_kwargs)(c)
@@ -241,7 +238,7 @@ class _QNetwork(keras.Model):
         self.model = keras.Model([in_state] + input_list, c, name="QNetwork")
 
         # 重みを初期化
-        dummy1 = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=float)
+        dummy1 = np.zeros(shape=(1,) + config.observation_shape, dtype=float)
         dummy2 = np.zeros(shape=(1, 1), dtype=float)
         dummy3 = np.zeros(shape=(1, 1), dtype=float)
         dummy4 = np.zeros(shape=(1, config.action_num), dtype=float)
@@ -271,7 +268,6 @@ class _EmbeddingNetwork(keras.Model):
         in_state, c, use_image_head = create_input_layer(
             config.observation_shape,
             config.env_observation_type,
-            config.window_length,
         )
         if use_image_head:
             c = config.cnn_block(**config.cnn_block_kwargs)(c)
@@ -303,7 +299,7 @@ class _EmbeddingNetwork(keras.Model):
         self.model2 = keras.Model([in1, in2], c, name="EmbeddingNetwork")
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=np.float32)
+        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         val = self(dummy_state, dummy_state)
         assert val.shape == (1, config.action_num)
 
@@ -326,7 +322,6 @@ class _LifelongNetwork(keras.Model):
         in_state, c, use_image_head = create_input_layer(
             config.observation_shape,
             config.env_observation_type,
-            config.window_length,
         )
         if use_image_head:
             c = config.cnn_block(**config.cnn_block_kwargs)(c)
@@ -344,7 +339,7 @@ class _LifelongNetwork(keras.Model):
         self.model = keras.Model(in_state, c, name="LifelongNetwork")
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=np.float32)
+        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         val = self(dummy_state)
         assert val.shape == (1, config.lifelong_hidden_layer_sizes[-1])
 
@@ -505,8 +500,8 @@ class Trainer(RLTrainer):
         discount_list = []
         beta_list = []
         for b in batchs:
-            states.append(b["states"][:-1])
-            n_states.append(b["states"][1:])
+            states.append(b["state"])
+            n_states.append(b["next_state"])
             actions.append(b["action"])
             next_invalid_actions_list.append(b["next_invalid_actions"])
             rewards_ext.append(b["reward_ext"])
@@ -674,10 +669,6 @@ class Worker(DiscreteActionWorker):
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
-        self.recent_states = [self.dummy_state for _ in range(self.config.window_length + 1)]
-        self.recent_states.pop(0)
-        self.recent_states.append(state)
-        self.invalid_actions = invalid_actions
 
         if self.training:
             # エピソード毎に actor を決める
@@ -743,8 +734,10 @@ class Worker(DiscreteActionWorker):
         # UCB値最大のポリシー（複数あればランダム）
         return random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> int:
-        q, q_ext, _ = self._get_qval()
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+        self.state = state
+        self.invalid_actions = invalid_actions
+        q, q_ext, _ = self._get_qval(state)
 
         if random.random() < self.epsilon:
             self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
@@ -759,10 +752,10 @@ class Worker(DiscreteActionWorker):
         self.q = q[self.action]
         return self.action
 
-    def _get_qval(self):
+    def _get_qval(self, state):
         prev_onehot_action = tf.one_hot(np.array(self.prev_action), self.config.action_num)[np.newaxis, ...]
         in_ = [
-            np.asarray([self.recent_states[1:]]),
+            state[np.newaxis, ...],
             np.array([[self.prev_reward_ext]]),
             np.array([[self.prev_reward_int]]),
             prev_onehot_action,
@@ -787,13 +780,9 @@ class Worker(DiscreteActionWorker):
 
         self.episode_reward += reward_ext
 
-        self.recent_states.pop(0)
-        self.recent_states.append(next_state)
-        self.invalid_actions = next_invalid_actions
-
         # 内部報酬
         if self.config.enable_intrinsic_reward:
-            n_s = np.asarray([self.recent_states[1:]])
+            n_s = next_state[np.newaxis, ...]
             episodic_reward = self._calc_episodic_reward(n_s)
             lifelong_reward = self._calc_lifelong_reward(n_s)
             reward_int = episodic_reward * lifelong_reward
@@ -815,7 +804,8 @@ class Worker(DiscreteActionWorker):
             return _info
 
         batch = {
-            "states": self.recent_states[:],
+            "state": self.state,
+            "next_state": next_state,
             "action": self.action,
             "next_invalid_actions": next_invalid_actions,
             "reward_ext": reward_ext,
@@ -833,7 +823,7 @@ class Worker(DiscreteActionWorker):
             td_error = None
         else:
             _params = [
-                n_s,
+                next_state[np.newaxis, ...],
                 tf.one_hot([self.action], self.config.action_num),
                 [next_invalid_actions],
                 np.array([prev_reward_ext]),
@@ -924,16 +914,14 @@ class Worker(DiscreteActionWorker):
         return reward
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        q, q_ext, q_int = self._get_qval()
+        q, q_ext, q_int = self._get_qval(self.state)
         if self.config.enable_rescale:
             q = inverse_rescaling(q)
             q_ext = inverse_rescaling(q_ext)
             q_int = inverse_rescaling(q_int)
-        invalid_actions = self.get_invalid_actions(env)
-
         maxa = np.argmax(q)
 
         def _render_sub(a: int) -> str:
             return f"{q[a]:6.3f} = {q_ext[a]:6.3f} + {self.beta:.3f} * {q_int[a]:6.3f}"
 
-        render_discrete_action(invalid_actions, maxa, env, _render_sub)
+        render_discrete_action(self.invalid_actions, maxa, env, _render_sub)

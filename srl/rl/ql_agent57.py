@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 """
 DQN
-    window_length          : o
+    window_length          : -
     Fixed Target Q-Network : x
     Error clipping      : -
     Experience Replay   : o
@@ -107,7 +107,6 @@ class Config(DiscreteActionConfig):
 
     # other
     batch_size: int = 4
-    window_length: int = 1
     q_init: str = ""
 
     def __post_init__(self):
@@ -359,8 +358,7 @@ class Worker(DiscreteActionWorker):
         if self.config.enable_intrinsic_reward:
             self.beta = 0
 
-        self.recent_states = ["" for _ in range(self.config.window_length)]
-        self.recent_bundle_states = ["" for _ in range(self.config.multisteps + 1)]
+        self.recent_states = ["" for _ in range(self.config.multisteps + 1)]
         self.recent_ext_rewards = [0.0 for _ in range(self.config.multisteps)]
         self.recent_int_rewards = [0.0 for _ in range(self.config.multisteps)]
         self.recent_actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.multisteps)]
@@ -369,8 +367,6 @@ class Worker(DiscreteActionWorker):
 
         self.recent_states.pop(0)
         self.recent_states.append(state)
-        self.recent_bundle_states.pop(0)
-        self.recent_bundle_states.append("_".join(self.recent_states))
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
@@ -439,12 +435,9 @@ class Worker(DiscreteActionWorker):
         done: bool,
         next_invalid_actions: List[int],
     ) -> Dict:
-
         n_state = to_str_observation(next_state)
         self.recent_states.pop(0)
         self.recent_states.append(n_state)
-        self.recent_bundle_states.pop(0)
-        self.recent_bundle_states.append("_".join(self.recent_states))
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(next_invalid_actions)
 
@@ -475,7 +468,7 @@ class Worker(DiscreteActionWorker):
         if done:
             # 残りstepも追加
             for _ in range(len(self.recent_ext_rewards) - 1):
-                self.recent_bundle_states.pop(0)
+                self.recent_states.pop(0)
                 self.recent_invalid_actions.pop(0)
                 self.recent_actions.pop(0)
                 self.recent_probs.pop(0)
@@ -496,7 +489,7 @@ class Worker(DiscreteActionWorker):
             return
 
         batch = {
-            "states": self.recent_bundle_states[:],
+            "states": self.recent_states[:],
             "actions": self.recent_actions[:],
             "probs": self.recent_probs[:],
             "ext_rewards": self.recent_ext_rewards[:],

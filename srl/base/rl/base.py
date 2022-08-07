@@ -288,8 +288,7 @@ class RLWorker(WorkerBase):
         self.parameter = parameter
         self.remote_memory = remote_memory
         self.actor_id = actor_id
-
-        self.dummy_state = np.full(self.config._one_observation_shape, self.config.dummy_state_val)
+        self.__dummy_state = np.full(self.config._one_observation_shape, self.config.dummy_state_val)
 
     # ------------------------------
     # encode/decode
@@ -360,24 +359,24 @@ class RLWorker(WorkerBase):
     # episode
     # ------------------------------------
     def on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
-        self.recent_states = [self.dummy_state for _ in range(self.config.window_length)]
+        self.__recent_states = [self.__dummy_state for _ in range(self.config.window_length)]
 
         state = self.state_encode(env.state, env)
-        self.recent_states.pop(0)
-        self.recent_states.append(state)
+        self.__recent_states.pop(0)
+        self.__recent_states.append(state)
 
         # stacked state
         if self.config.window_length > 1:
-            state = np.asarray(self.recent_states)
+            state = np.asarray(self.__recent_states)
 
         self._call_on_reset(state, env, worker)
 
     def policy(self, env: EnvRun, worker: "WorkerRun") -> EnvAction:
         # stacked state
         if self.config.window_length > 1:
-            state = np.asarray(self.recent_states)
+            state = np.asarray(self.__recent_states)
         else:
-            state = self.recent_states[-1]
+            state = self.__recent_states[-1]
 
         action = self._call_policy(state, env, worker)
         action = self.action_decode(action)
@@ -387,12 +386,12 @@ class RLWorker(WorkerBase):
         next_state = self.state_encode(env.state, env)
         reward = self.reward_encode(worker.reward, env)
 
-        self.recent_states.pop(0)
-        self.recent_states.append(next_state)
+        self.__recent_states.pop(0)
+        self.__recent_states.append(next_state)
 
         # stacked state
         if self.config.window_length > 1:
-            next_state = np.asarray(self.recent_states)
+            next_state = np.asarray(self.__recent_states)
 
         info = self._call_on_step(
             next_state,
@@ -430,7 +429,7 @@ class RLWorker(WorkerBase):
         next_state = self.state_encode(env.state, env)
         # reward = env.step_rewards[player_index]  TODO:報酬の扱いが決まらないため保留
         rewards = env.step_rewards.tolist()
-        self.recent_states.append(next_state)
+        self.__recent_states.append(next_state)
         return next_state, rewards, env.done
 
     # TODO: 現状使っていない、不要なら削除予定

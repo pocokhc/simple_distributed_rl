@@ -21,6 +21,12 @@ class Test(unittest.TestCase):
         self.tester.play_verify_singleplay("Grid", self.rl_config, 50_000)
         self.tester.verify_grid_policy()
 
+    def test_verify_grid_window_length(self):
+        self.rl_config.enable_actor = False
+        self.rl_config.epsilon = 0.5
+        self.rl_config.window_length = 2
+        self.tester.play_verify_singleplay("Grid", self.rl_config, 30_000)
+
     def test_verify_grid_mp(self):
         self.rl_config.enable_actor = False
         self.rl_config.epsilon = 0.5
@@ -32,4 +38,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_grid_window_length", verbosity=2)

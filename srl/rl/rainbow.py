@@ -7,7 +7,6 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow_addons as tfa
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -37,7 +36,7 @@ Noisy Network: https://arxiv.org/abs/1706.10295
 Categorical DQN: https://arxiv.org/abs/1707.06887
 
 DQN
-    window_length          : o (config selection)
+    window_length          : -
     Fixed Target Q-Network : o
     Error clipping     : o
     Experience Replay  : o
@@ -78,7 +77,6 @@ class Config(DiscreteActionConfig):
     exploration_steps: int = 0  # 0 : no Annealing
 
     # model
-    window_length: int = 1
     cnn_block: kl.Layer = DQNImageBlock
     cnn_block_kwargs: dict = None
     hidden_layer_sizes: Tuple[int, ...] = (512,)
@@ -114,8 +112,6 @@ class Config(DiscreteActionConfig):
 
     # other
     enable_rescale: bool = False
-
-    dummy_state_val: float = 0.0
 
     def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
         self.epsilon = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
@@ -157,7 +153,6 @@ class Config(DiscreteActionConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.window_length > 0
         assert self.memory_warmup_size < self.capacity
         assert self.batch_size < self.memory_warmup_size
         assert self.memory_beta_initial <= 1.0
@@ -200,7 +195,6 @@ class _QNetwork(keras.Model):
         in_state, c, use_image_head = create_input_layer(
             config.observation_shape,
             config.env_observation_type,
-            config.window_length,
         )
         if use_image_head:
             c = config.cnn_block(**config.cnn_block_kwargs)(c)
@@ -236,8 +230,7 @@ class _QNetwork(keras.Model):
         self.model = keras.Model(in_state, c, name="QNetwork")
 
         # 重みを初期化
-        in_shape = (config.window_length,) + config.observation_shape
-        dummy_state = np.zeros(shape=(1,) + in_shape, dtype=np.float32)
+        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         val = self(dummy_state)
         assert val.shape == (1, config.action_num)
 
@@ -270,6 +263,7 @@ class Parameter(RLParameter):
 
     def calc_target_q(self, batchs):
 
+        # (batch, dict, multistep, state)->(batch + multistep, state)
         n_states_list = []
         for b in batchs:
             n_states_list.extend(b["states"][1:])
@@ -285,7 +279,6 @@ class Parameter(RLParameter):
             retrace = 1.0
             n_states_idx = n_states_idx_start
             for n in range(len(b["rewards"])):
-
                 action = b["actions"][n]
                 mu_prob = b["probs"][n]
                 reward = b["rewards"][n]
@@ -419,9 +412,7 @@ class Worker(DiscreteActionWorker):
             self.final_epsilon = self.config.final_epsilon
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
-        self.recent_states = [self.dummy_state for _ in range(self.config.window_length)]
-        self.recent_bundle_states = [self.recent_states[:] for _ in range(self.config.multisteps + 1)]
-
+        self.recent_states = [self.dummy_state for _ in range(self.config.multisteps + 1)]
         self.recent_actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.multisteps)]
         self.recent_probs = [1.0 / self.config.action_num for _ in range(self.config.multisteps)]
         self.recent_rewards = [0.0 for _ in range(self.config.multisteps)]
@@ -430,14 +421,12 @@ class Worker(DiscreteActionWorker):
 
         self.recent_states.pop(0)
         self.recent_states.append(state)
-        self.recent_bundle_states.pop(0)
-        self.recent_bundle_states.append(self.recent_states[:])
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
     def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> int:
-        state = self.recent_bundle_states[-1]
-        q = self.parameter.q_online(np.asarray([state]))[0].numpy()
+        state = self.recent_states[-1]
+        q = self.parameter.q_online(state[np.newaxis, ...])[0].numpy()
 
         if self.config.enable_noisy_dense:
             action = int(np.argmax(q))
@@ -473,8 +462,6 @@ class Worker(DiscreteActionWorker):
     ) -> Dict:
         self.recent_states.pop(0)
         self.recent_states.append(next_state)
-        self.recent_bundle_states.pop(0)
-        self.recent_bundle_states.append(self.recent_states[:])
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(next_invalid_actions)
 
@@ -505,7 +492,7 @@ class Worker(DiscreteActionWorker):
         if done:
             # 残りstepも追加
             for _ in range(len(self.recent_rewards) - 1):
-                self.recent_bundle_states.pop(0)
+                self.recent_states.pop(0)
                 self.recent_actions.pop(0)
                 self.recent_probs.pop(0)
                 self.recent_rewards.pop(0)
@@ -519,7 +506,7 @@ class Worker(DiscreteActionWorker):
     def _add_memory(self, q, td_error):
 
         batch = {
-            "states": self.recent_bundle_states[:],
+            "states": self.recent_states[:],
             "actions": self.recent_actions[:],
             "probs": self.recent_probs[:],
             "rewards": self.recent_rewards[:],
@@ -541,9 +528,9 @@ class Worker(DiscreteActionWorker):
         return td_error
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        state = self.recent_bundle_states[-1]
+        state = self.recent_states[-1]
         invalid_actions = self.recent_invalid_actions[-1]
-        q = self.parameter.q_online(np.asarray([state]))[0].numpy()
+        q = self.parameter.q_online(state[np.newaxis, ...])[0].numpy()
         maxa = np.argmax(q)
         if self.config.enable_rescale:
             q = inverse_rescaling(q)

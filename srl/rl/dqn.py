@@ -6,7 +6,6 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -26,7 +25,7 @@ https://arxiv.org/pdf/1312.5602.pdf
 https://www.nature.com/articles/nature14236
 
 
-window_length          : o (config selection)
+window_length          : -
 Fixed Target Q-Network : o
 Error clipping     : o
 Experience Replay  : o
@@ -60,7 +59,6 @@ class Config(DiscreteActionConfig):
     exploration_steps: int = 0  # 0 : no Annealing
 
     # model
-    window_length: int = 1
     cnn_block: kl.Layer = DQNImageBlock
     cnn_block_kwargs: dict = None
     hidden_block: kl.Layer = MLPBlock
@@ -77,8 +75,6 @@ class Config(DiscreteActionConfig):
     # other
     enable_double_dqn: bool = True
     enable_rescale: bool = False
-
-    dummy_state_val: float = 0.0
 
     def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
         self.epsilon = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
@@ -121,7 +117,6 @@ class Config(DiscreteActionConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.window_length > 0
         assert self.memory_warmup_size < self.capacity
         assert self.batch_size < self.memory_warmup_size
 
@@ -153,11 +148,7 @@ class _QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        in_state, c, use_image_head = create_input_layer(
-            config.observation_shape,
-            config.env_observation_type,
-            config.window_length,
-        )
+        in_state, c, use_image_head = create_input_layer(config.observation_shape, config.env_observation_type)
         if use_image_head:
             c = config.cnn_block(**config.cnn_block_kwargs)(c)
             c = kl.Flatten()(c)
@@ -175,7 +166,7 @@ class _QNetwork(keras.Model):
         self.model = keras.Model(in_state, c, name="QNetwork")
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1, config.window_length) + config.observation_shape, dtype=float)
+        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=float)
         val = self(dummy_state)
         assert val.shape == (1, config.action_num)
 
@@ -243,12 +234,12 @@ class Trainer(RLTrainer):
     def _train_on_batchs(self, batchs):
 
         states = []
-        actions = []
         n_states = []
+        actions = []
         for b in batchs:
-            states.append(b["states"][:-1])
+            states.append(b["state"])
+            n_states.append(b["next_state"])
             actions.append(b["action"])
-            n_states.append(b["states"][1:])
         states = np.asarray(states)
         n_states = np.asarray(n_states)
 
@@ -307,7 +298,6 @@ class Worker(DiscreteActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-        self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val)
         self.step = 0
 
         if self.config.exploration_steps > 0:
@@ -318,13 +308,11 @@ class Worker(DiscreteActionWorker):
             self.final_epsilon = self.config.final_epsilon
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
-        self.recent_states = [self.dummy_state for _ in range(self.config.window_length + 1)]
+        pass
 
-        self.recent_states.pop(0)
-        self.recent_states.append(state)
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
         self.invalid_actions = invalid_actions
-
-    def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> int:
+        self.state = state
 
         if self.training:
             if self.config.exploration_steps > 0:
@@ -341,8 +329,7 @@ class Worker(DiscreteActionWorker):
             # epsilonより低いならランダム
             action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
-            state = self.recent_states[1:]
-            q = self.parameter.q_online(np.asarray([state]))[0].numpy()
+            q = self.parameter.q_online(self.state[np.newaxis, ...])[0].numpy()
 
             # invalid actionsは -inf にする
             q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)]
@@ -360,10 +347,6 @@ class Worker(DiscreteActionWorker):
         done: bool,
         next_invalid_actions: List[int],
     ):
-        self.recent_states.pop(0)
-        self.recent_states.append(next_state)
-        self.invalid_actions = next_invalid_actions
-
         if not self.training:
             return {}
         self.step += 1
@@ -378,7 +361,8 @@ class Worker(DiscreteActionWorker):
                 reward = 0
 
         batch = {
-            "states": self.recent_states[:],
+            "state": self.state,
+            "next_state": next_state,
             "action": self.action,
             "reward": reward,
             "done": done,
@@ -389,8 +373,7 @@ class Worker(DiscreteActionWorker):
         return {}
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        state = self.recent_states[1:]
-        q = self.parameter.q_online(np.asarray([state]))[0].numpy()
+        q = self.parameter.q_online(self.state[np.newaxis, ...])[0].numpy()
         maxa = np.argmax(q)
         if self.config.enable_rescale:
             q = inverse_rescaling(q)

@@ -1,7 +1,12 @@
+import logging
+import math
 import random
+from typing import List
 
 import numpy as np
 from srl.base.env.base import EnvRun
+
+logger = logging.getLogger(__name__)
 
 
 def rescaling(x, eps=0.001):
@@ -131,3 +136,34 @@ def render_discrete_action(invalid_actions, maxa, env: EnvRun, func) -> None:
         print(s)
     if view_invalid_actions_num > 2:
         print(f"... Some invalid actions have been omitted. (invalid actions num: {len(invalid_actions)})")
+
+
+def float_category_encode(val: float, v_min: int, v_max: int) -> List[float]:
+    category = [0.0 for _ in range(v_max - v_min + 1)]
+    low_int = math.floor(val)
+    high_int = low_int + 1
+    weight = val - low_int
+    low_idx = int(low_int - v_min)
+    high_idx = int(high_int - v_min)
+    if low_idx < 0:
+        low_idx = 0
+        logger.debug(f"category index out of range(val: {val:.3f}, min: {v_min}, max {v_max})")
+    if low_idx >= len(category) - 1:
+        low_idx = len(category) - 1
+        logger.debug(f"category index out of range(val: {val:.3f}, min: {v_min}, max {v_max})")
+    if high_idx < 1:
+        high_idx = 1
+        logger.debug(f"category index out of range(val: {val:.3f}, min: {v_min}, max {v_max})")
+    if high_idx >= len(category):
+        high_idx = len(category)
+        logger.debug(f"category index out of range(val: {val:.3f}, min: {v_min}, max {v_max})")
+    category[low_idx] = 1 - weight
+    category[high_idx] = weight
+    return category
+
+
+def float_category_decode(category: List[float], v_min: int) -> float:
+    n = 0
+    for i, w in enumerate(category):
+        n += (i + v_min) * w
+    return n

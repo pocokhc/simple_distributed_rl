@@ -1,5 +1,4 @@
 import logging
-import math
 import random
 from dataclasses import dataclass
 from typing import Any, List, cast
@@ -12,7 +11,13 @@ from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, Discret
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
-from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, rescaling
+from srl.rl.functions.common import (
+    float_category_decode,
+    float_category_encode,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
 from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.input_layer import create_input_layer
 from srl.rl.models.muzero_atari_block import MuZeroAtariBlock
@@ -139,37 +144,6 @@ register(
     __name__ + ":Trainer",
     __name__ + ":Worker",
 )
-
-
-def _category_encode(val: float, v_min: int, v_max: int) -> List[float]:
-    category = [0.0 for _ in range(v_max - v_min + 1)]
-    low_int = math.floor(val)
-    high_int = low_int + 1
-    weight = val - low_int
-    low_idx = int(low_int - v_min)
-    high_idx = int(high_int - v_min)
-    if low_idx < 0:
-        low_idx = 0
-        logger.debug(f"category index out of range(val: {val:.3f}, min: {v_min}, max {v_max})")
-    if low_idx >= len(category) - 1:
-        low_idx = len(category) - 1
-        logger.debug(f"category index out of range(val: {val:.3f}, min: {v_min}, max {v_max})")
-    if high_idx < 1:
-        high_idx = 1
-        logger.debug(f"category index out of range(val: {val:.3f}, min: {v_min}, max {v_max})")
-    if high_idx >= len(category):
-        high_idx = len(category)
-        logger.debug(f"category index out of range(val: {val:.3f}, min: {v_min}, max {v_max})")
-    category[low_idx] = 1 - weight
-    category[high_idx] = weight
-    return category
-
-
-def _category_decode(category: List[float], v_min: int) -> float:
-    n = 0
-    for i, w in enumerate(category):
-        n += (i + v_min) * w
-    return n
 
 
 # ------------------------------------------------------
@@ -401,7 +375,7 @@ class Parameter(RLParameter):
         if state_str not in self.P:
             p, v_category = self.prediction_network(state)
             self.P[state_str] = p[0].numpy()
-            self.V[state_str] = _category_decode(v_category.numpy()[0], self.config.v_min)
+            self.V[state_str] = float_category_decode(v_category.numpy()[0], self.config.v_min)
 
     def reset_cache(self):
         self.P = {}
@@ -623,7 +597,7 @@ class Worker(DiscreteActionWorker):
         # 次の状態を取得
         n_state, reward_category = self.parameter.dynamics_network(state, [action])
         n_state_str = n_state.ref()
-        reward = _category_decode(reward_category.numpy()[0], self.config.v_min)
+        reward = float_category_decode(reward_category.numpy()[0], self.config.v_min)
         enemy_turn = self.config.env_player_num > 1  # 2player以上は相手番と決め打ち
 
         if self.N[state_str][action] == 0:
@@ -710,7 +684,7 @@ class Worker(DiscreteActionWorker):
         )
 
         if done:
-            zero_category = _category_encode(0, self.config.v_min, self.config.v_max)
+            zero_category = float_category_encode(0, self.config.v_min, self.config.v_max)
 
             # calc MC reward
             reward = 0
@@ -742,7 +716,7 @@ class Worker(DiscreteActionWorker):
                     priority += v - self.history[idx + i]["state_v"]
                     self._v_min = min(self._v_min, v)
                     self._v_max = max(self._v_max, v)
-                    values[i] = _category_encode(v, self.config.v_min, self.config.v_max)
+                    values[i] = float_category_encode(v, self.config.v_min, self.config.v_max)
                 priority /= self.config.unroll_steps + 1
 
                 # --- actions
@@ -762,7 +736,7 @@ class Worker(DiscreteActionWorker):
                         r = rescaling(r)
                     self._v_min = min(self._v_min, r)
                     self._v_max = max(self._v_max, r)
-                    rewards[i] = _category_encode(r, self.config.v_min, self.config.v_max)
+                    rewards[i] = float_category_encode(r, self.config.v_min, self.config.v_max)
 
                 self.remote_memory.add(
                     {
@@ -794,7 +768,7 @@ class Worker(DiscreteActionWorker):
             p = self.step_policy[a]
 
             n_s, reward_category = self.parameter.dynamics_network(self.s0, [a])
-            reward = _category_decode(reward_category.numpy()[0], self.config.v_min)
+            reward = float_category_decode(reward_category.numpy()[0], self.config.v_min)
             n_s_str = n_s.ref()
             self.parameter.pred_PV(n_s, n_s_str)
 

@@ -3,30 +3,12 @@ import unittest
 import srl
 from srl.envs import grid
 from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
-from srl.rl.muzero import _category_decode, _category_encode
 from srl.test import TestRL
 
 
 class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()
-
-    def test_category(self):
-        # マイナス
-        cat = _category_encode(-2.6, -5, 5)
-        self.assertAlmostEqual(cat[2], 0.6)
-        self.assertAlmostEqual(cat[3], 0.4)
-
-        val = _category_decode(cat, -5)
-        self.assertAlmostEqual(val, -2.6)
-
-        # plus
-        cat = _category_encode(2.4, -5, 5)
-        self.assertAlmostEqual(cat[7], 0.6)
-        self.assertAlmostEqual(cat[8], 0.4)
-
-        val = _category_decode(cat, -5)
-        self.assertAlmostEqual(val, 2.4)
 
     def test_sequence(self):
         self.tester.play_sequence(srl.rl.muzero.Config(), enable_image=True)

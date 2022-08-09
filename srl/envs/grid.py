@@ -447,7 +447,7 @@ class LayerProcessor(Processor):
         )
         return observation_space, EnvObservationType.SHAPE3
 
-    def process_observation(self, observation: np.ndarray, _env: EnvRun, worker) -> np.ndarray:
+    def process_observation(self, observation: np.ndarray, _env: EnvRun) -> np.ndarray:
         env = cast(Grid, _env.get_original_env())
 
         px = env.player_pos[0]

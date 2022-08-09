@@ -305,7 +305,7 @@ class LayerProcessor(Processor):
         )
         return observation_space, EnvObservationType.SHAPE3
 
-    def process_observation(self, observation: np.ndarray, _env: EnvRun, worker) -> np.ndarray:
+    def process_observation(self, observation: np.ndarray, _env: EnvRun) -> np.ndarray:
         env = cast(ConnectX, _env.get_original_env())
 
         board = observation

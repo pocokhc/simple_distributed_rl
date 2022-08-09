@@ -306,7 +306,9 @@ class LayerProcessor(Processor):
         )
         return observation_space, EnvObservationType.SHAPE3
 
-    def process_observation(self, observation: np.ndarray, env: OX) -> np.ndarray:
+    def process_observation(self, observation: np.ndarray, _env: EnvRun) -> np.ndarray:
+        env = cast(OX, _env.get_original_env())
+
         # Layer0: player1 field (0 or 1)
         # Layer1: player2 field (0 or 1)
         if env.player_index == 0:

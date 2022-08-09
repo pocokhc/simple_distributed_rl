@@ -1,4 +1,3 @@
-import os
 import warnings
 
 import numpy as np
@@ -10,32 +9,34 @@ warnings.simplefilter("ignore")
 
 
 def main(is_mp):
-    env_config = srl.envs.Config("ALE/Galaxian-v5")
-    rl_config = srl.rl.rainbow.Config(window_length=4, multisteps=10)
+    env_config = srl.envs.Config("ALE/Breakout-v5")
+
+    rl_config = srl.rl.rainbow.Config(multisteps=5, memory_beta_initial=0.8, lr=0.0001)
 
     # atari processor
+    rl_config.window_length = 4
     rl_config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
 
     config = sequence.Config(env_config, rl_config)
 
     # atari play config
-    config.skip_frames = 4
+    config.skip_frames = 8
     config.max_episode_steps = 500
-
-    # (option) print tensorflow model
-    config.model_summary()
 
     # load parameter
     # rl_config.parameter_path = "tmp/Rainbow_params.dat"
 
+    # (option) print tensorflow model
+    config.model_summary()
+
     # --- train
     if not is_mp:
         # sequence training
-        parameter, remote_memory, history = sequence.train(config, timeout=60 * 30)
+        parameter, remote_memory, history = sequence.train(config, timeout=60 * 60 * 4)
     else:
         # distribute training
         mp_config = mp.Config(actor_num=1)
-        parameter, remote_memory, history = mp.train(config, mp_config, timeout=60 * 30)
+        parameter, remote_memory, history = mp.train(config, mp_config, timeout=60 * 60 * 4)
 
     # save parameter
     # parameter.save("tmp/Rainbow_params.dat")
@@ -48,7 +49,7 @@ def main(is_mp):
     _, render = sequence.render(config, parameter, render_terminal=False, enable_animation=True)
 
     # save animation
-    render.create_anime().save("tmp/Galaxian.gif")
+    render.create_anime(interval=1000 / 60).save("_Breakout.gif")
 
 
 if __name__ == "__main__":

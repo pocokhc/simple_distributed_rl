@@ -18,5 +18,6 @@ from . import r2d2  # noqa F402
 from . import rainbow  # noqa F402
 from . import random_play  # noqa F402
 from . import sac  # noqa F402
+from . import stochastic_muzero  # noqa F402
 from . import vanilla_policy_continuous  # noqa F402
 from . import vanilla_policy_discrete  # noqa F402

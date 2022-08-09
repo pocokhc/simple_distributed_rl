@@ -139,7 +139,7 @@ class ProportionalMemory(Memory):
     def sample(self, batch_size, step):
         indices = []
         batchs = []
-        weights = np.empty(batch_size, dtype=float)
+        weights = np.empty(batch_size, dtype=np.float32)
         total = self.tree.total()
 
         # βは最初は低く、学習終わりに1にする

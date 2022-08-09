@@ -37,7 +37,7 @@ if is_package_installed("gym") and is_package_installed("pygame"):
                 low=0,
                 high=1,
                 shape=(self.image_size, self.image_size),
-                dtype=float,
+                dtype=np.float32,
             )
 
         def _get_obs(self):
@@ -67,7 +67,7 @@ if is_package_installed("gym") and is_package_installed("pygame"):
 
             # 画像の一次元化（GrayScale化）とarrayへの変換
             pilImg = img.convert("L")
-            img_arr = np.asarray(pilImg, dtype=float)
+            img_arr = np.asarray(pilImg, dtype=np.float32)
             img_arr /= 255.0
 
             return img_arr

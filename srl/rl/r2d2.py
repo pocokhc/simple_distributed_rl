@@ -501,7 +501,7 @@ class Worker(DiscreteActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-        self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=float)
+        self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
         # states : burnin + sequence_length + next_state

@@ -87,7 +87,7 @@ class RankBaseMemory(Memory):
         index_list.sort()
 
         batchs = []
-        weights = np.ones(batch_size, dtype=float)
+        weights = np.ones(batch_size, dtype=np.float32)
 
         for i, index in enumerate(index_list):
             memory_idx = N - 1 - index

@@ -200,7 +200,7 @@ class _Network(keras.Model):
         self.model = keras.Model(in_state, [policy, value], name="PVNetwork")
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=float)
+        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         policy, value = self(dummy_state)
         assert policy.shape == (1, config.action_num)
         assert value.shape == (1, 1)

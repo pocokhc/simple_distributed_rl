@@ -4,7 +4,8 @@ import random
 from typing import List, Tuple
 
 import numpy as np
-from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
+from srl.base.define import (ContinuousAction, DiscreteAction,
+                             DiscreteSpaceType, RLObservation)
 from srl.base.env.base import SpaceBase
 
 logger = logging.getLogger(__name__)
@@ -70,4 +71,4 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         return np.array(val, dtype=int)
 
     def observation_continuous_encode(self, val: List[int]) -> RLObservation:
-        return np.array(val, dtype=float)
+        return np.array(val, dtype=np.float32)

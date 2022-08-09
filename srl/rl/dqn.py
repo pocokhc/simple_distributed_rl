@@ -166,7 +166,7 @@ class _QNetwork(keras.Model):
         self.model = keras.Model(in_state, c, name="QNetwork")
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=float)
+        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         val = self(dummy_state)
         assert val.shape == (1, config.action_num)
 

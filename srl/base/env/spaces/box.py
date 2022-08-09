@@ -16,8 +16,8 @@ class BoxSpace(SpaceBase[np.ndarray]):
         low: Union[float, np.ndarray] = -np.inf,
         high: Union[float, np.ndarray] = np.inf,
     ) -> None:
-        self._low: np.ndarray = np.full(shape, low, dtype=float) if np.isscalar(low) else low
-        self._high: np.ndarray = np.full(shape, high, dtype=float) if np.isscalar(high) else high
+        self._low: np.ndarray = np.full(shape, low, dtype=np.float32) if np.isscalar(low) else low
+        self._high: np.ndarray = np.full(shape, high, dtype=np.float32) if np.isscalar(high) else high
         self._shape = shape
 
         assert self.shape == self.high.shape
@@ -92,7 +92,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def action_discrete_decode(self, val: DiscreteAction) -> np.ndarray:
         if self._is_inf:
             # infの場合は定義できない
-            return np.full(self.shape, val, dtype=float)
+            return np.full(self.shape, val, dtype=np.float32)
         return self.action_tbl[val]
 
     # --- action continuous

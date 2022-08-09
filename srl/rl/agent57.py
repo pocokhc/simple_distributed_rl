@@ -257,11 +257,11 @@ class _QNetwork(keras.Model):
         self.lstm_layer = self.model.get_layer("lstm")
 
         # 重みを初期化
-        dummy1 = np.zeros(shape=(config.batch_size, 1) + config.observation_shape, dtype=float)
-        dummy2 = np.zeros(shape=(config.batch_size, 1, 1), dtype=float)
-        dummy3 = np.zeros(shape=(config.batch_size, 1, 1), dtype=float)
-        dummy4 = np.zeros(shape=(config.batch_size, 1, config.action_num), dtype=float)
-        dummy5 = np.zeros(shape=(config.batch_size, 1, config.actor_num), dtype=float)
+        dummy1 = np.zeros(shape=(config.batch_size, 1) + config.observation_shape, dtype=np.float32)
+        dummy2 = np.zeros(shape=(config.batch_size, 1, 1), dtype=np.float32)
+        dummy3 = np.zeros(shape=(config.batch_size, 1, 1), dtype=np.float32)
+        dummy4 = np.zeros(shape=(config.batch_size, 1, config.action_num), dtype=np.float32)
+        dummy5 = np.zeros(shape=(config.batch_size, 1, config.actor_num), dtype=np.float32)
         val, _ = self(dummy1, dummy2, dummy3, dummy4, dummy5, None)
         assert val.shape == (config.batch_size, config.action_num)
 

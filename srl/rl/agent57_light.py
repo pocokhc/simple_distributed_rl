@@ -238,11 +238,11 @@ class _QNetwork(keras.Model):
         self.model = keras.Model([in_state] + input_list, c, name="QNetwork")
 
         # 重みを初期化
-        dummy1 = np.zeros(shape=(1,) + config.observation_shape, dtype=float)
-        dummy2 = np.zeros(shape=(1, 1), dtype=float)
-        dummy3 = np.zeros(shape=(1, 1), dtype=float)
-        dummy4 = np.zeros(shape=(1, config.action_num), dtype=float)
-        dummy5 = np.zeros(shape=(1, config.actor_num), dtype=float)
+        dummy1 = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
+        dummy2 = np.zeros(shape=(1, 1), dtype=np.float32)
+        dummy3 = np.zeros(shape=(1, 1), dtype=np.float32)
+        dummy4 = np.zeros(shape=(1, config.action_num), dtype=np.float32)
+        dummy5 = np.zeros(shape=(1, config.actor_num), dtype=np.float32)
         val = self(dummy1, dummy2, dummy3, dummy4, dummy5)
         assert val.shape == (1, config.action_num)
 

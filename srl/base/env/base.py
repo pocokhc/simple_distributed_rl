@@ -290,7 +290,7 @@ class EnvRun:
         self._state, rewards, self._done, self._next_player_index, self._info = self.env.step(
             action, self.next_player_index
         )
-        self._step_rewards = np.asarray(rewards)
+        self._step_rewards = np.asarray(rewards, dtype=np.float32)
 
         # skip frame の間は同じアクションを繰り返す
         for _ in range(skip_frames):
@@ -298,7 +298,7 @@ class EnvRun:
             self._state, rewards, self._done, self._next_player_index, self._info = self.env.step(
                 action, self.next_player_index
             )
-            self._step_rewards += np.asarray(rewards)
+            self._step_rewards += np.asarray(rewards, dtype=np.float32)
             if self.done:
                 break
 

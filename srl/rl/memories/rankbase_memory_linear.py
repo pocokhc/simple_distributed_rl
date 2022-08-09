@@ -72,7 +72,7 @@ class RankBaseMemoryLinear(Memory):
 
     def sample(self, batch_size, step):
         batchs = []
-        weights = np.ones(batch_size, dtype=float)
+        weights = np.ones(batch_size, dtype=np.float32)
 
         # βは最初は低く、学習終わりに1にする。
         beta = self.beta_initial + (1 - self.beta_initial) * step / self.beta_steps

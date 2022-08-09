@@ -52,4 +52,4 @@ class DiscreteSpace(SpaceBase[int]):
         return np.array([val], dtype=int)
 
     def observation_continuous_encode(self, val: int) -> RLObservation:
-        return np.array([val], dtype=float)
+        return np.array([val], dtype=np.float32)

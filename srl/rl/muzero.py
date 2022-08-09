@@ -129,7 +129,7 @@ class Config(DiscreteActionConfig):
         for tau in self.policy_tau_schedule:
             assert tau["tau"] >= 0
         assert self.v_min < self.v_max
-        assert self.unroll_steps > 1
+        assert self.unroll_steps > 0
 
 
 register(
@@ -216,7 +216,7 @@ class _RepresentationNetwork(keras.Model):
         self.model = keras.Model(in_state, c, name="RepresentationNetwork")
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=float)
+        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         hidden_state = self(dummy_state)
 
         # 出力shape
@@ -274,7 +274,7 @@ class _DynamicsNetwork(keras.Model):
         self.model = keras.Model(in_state, [c1, reward], name="DynamicsNetwork")
 
         # 重みを初期化
-        dummy1 = np.zeros(shape=(1,) + input_shape, dtype=float)
+        dummy1 = np.zeros(shape=(1,) + input_shape, dtype=np.float32)
         dummy2 = [1]
         v1, v2 = self(dummy1, dummy2)
         assert v1.shape == (1, h, w, ch)
@@ -342,7 +342,7 @@ class _PredictionNetwork(keras.Model):
         self.model = keras.Model(in_layer, [policy, value], name="PredictionNetwork")
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + input_shape, dtype=float)
+        dummy_state = np.zeros(shape=(1,) + input_shape, dtype=np.float32)
         policy, value = self(dummy_state)
         assert policy.shape == (1, config.action_num)
         assert value.shape == (1, v_num)
@@ -451,7 +451,7 @@ class Trainer(RLTrainer):
         policies_list = []
         values_list = []
         rewards_list = []
-        for i in range(self.config.unroll_steps):
+        for i in range(self.config.unroll_steps + 1):
             actions = []
             policies = []
             values = []
@@ -459,7 +459,7 @@ class Trainer(RLTrainer):
             for b in batchs:
                 policies.append(b["policies"][i])
                 values.append(b["values"][i])
-                if i < self.config.unroll_steps - 1:
+                if i < self.config.unroll_steps:
                     actions.append(b["actions"][i])
                     rewards.append(b["rewards"][i])
             actions_list.append(actions)
@@ -477,20 +477,19 @@ class Trainer(RLTrainer):
             value_loss = _scale_gradient(self.cross_entropy_loss(values_list[0], v_pred), 1.0)
             reward_loss = tf.constant([0] * self.config.batch_size, dtype=tf.float32)
 
-            priorities = value_loss.numpy()
-
             # --- unroll steps
-            gradient_scale = 1 / (self.config.unroll_steps - 1)
-            for t in range(self.config.unroll_steps - 1):
+            gradient_scale = 1 / self.config.unroll_steps
+            for t in range(self.config.unroll_steps):
                 # pred
                 hidden_states, p_rewards = self.parameter.dynamics_network(hidden_states, actions_list[t])
-                hidden_states = _scale_gradient(hidden_states, 0.5)
                 p_pred, v_pred = self.parameter.prediction_network(hidden_states)
 
                 # loss
-                value_loss += _scale_gradient(self.cross_entropy_loss(values_list[t + 1], v_pred), gradient_scale)
                 policy_loss += _scale_gradient(self.cross_entropy_loss(policies_list[t + 1], p_pred), gradient_scale)
+                value_loss += _scale_gradient(self.cross_entropy_loss(values_list[t + 1], v_pred), gradient_scale)
                 reward_loss += _scale_gradient(self.cross_entropy_loss(rewards_list[t], p_rewards), gradient_scale)
+
+                hidden_states = _scale_gradient(hidden_states, 0.5)
 
             loss = tf.reduce_mean((value_loss + policy_loss + reward_loss) * weights)
 
@@ -498,6 +497,8 @@ class Trainer(RLTrainer):
             loss += tf.reduce_sum(self.parameter.representation_network.losses)
             loss += tf.reduce_sum(self.parameter.prediction_network.losses)
             loss += tf.reduce_sum(self.parameter.dynamics_network.losses)
+
+        priorities = value_loss.numpy()
 
         # lr
         lr = self.config.lr_init * self.config.lr_decay_rate ** (self.train_count / self.config.lr_decay_steps)
@@ -722,43 +723,38 @@ class Worker(DiscreteActionWorker):
 
                 # --- policies
                 policies = [
-                    [1 / self.config.action_num] * self.config.action_num for _ in range(self.config.unroll_steps)
+                    [1 / self.config.action_num] * self.config.action_num for _ in range(self.config.unroll_steps + 1)
                 ]
-                for i in range(self.config.unroll_steps):
+                for i in range(self.config.unroll_steps + 1):
                     if idx + i >= len(self.history):
                         break
                     policies[i] = self.history[idx + i]["policy"]
 
                 # --- values
-                values = [zero_category for _ in range(self.config.unroll_steps)]
-                v0 = 0
-                sv0 = 0
-                for i in range(self.config.unroll_steps):
+                values = [zero_category for _ in range(self.config.unroll_steps + 1)]
+                priority = 0
+                for i in range(self.config.unroll_steps + 1):
                     if idx + i >= len(self.history):
                         break
                     v = self.history[idx + i]["discount_reward"]
                     if self.config.enable_rescale:
                         v = rescaling(v)
-                    if i == 0:
-                        v0 = v
-                        sv0 = self.history[idx + i]["state_v"]
+                    priority += v - self.history[idx + i]["state_v"]
                     self._v_min = min(self._v_min, v)
                     self._v_max = max(self._v_max, v)
                     values[i] = _category_encode(v, self.config.v_min, self.config.v_max)
-
-                # priority
-                priority = v0 - sv0
+                priority /= self.config.unroll_steps + 1
 
                 # --- actions
-                actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.unroll_steps - 1)]
-                for i in range(self.config.unroll_steps - 1):
+                actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.unroll_steps)]
+                for i in range(self.config.unroll_steps):
                     if idx + i >= len(self.history):
                         break
                     actions[i] = self.history[idx + i]["action"]
 
                 # --- rewards
-                rewards = [zero_category for _ in range(self.config.unroll_steps - 1)]
-                for i in range(self.config.unroll_steps - 1):
+                rewards = [zero_category for _ in range(self.config.unroll_steps)]
+                for i in range(self.config.unroll_steps):
                     if idx + i >= len(self.history):
                         break
                     r = self.history[idx + i]["reward"]
@@ -802,12 +798,12 @@ class Worker(DiscreteActionWorker):
             n_s_str = n_s.ref()
             self.parameter.pred_PV(n_s, n_s_str)
 
-            s = "{:5.1f}% ({:7d})(N), {:9.5f}(Q), {:9.5f}(P_net), {:9.5f}(PUCT), {:9.5f}(V), {:9.5f}(reward)".format(
+            s = "{:5.1f}% ({:7d})(N), {:9.5f}(Q), {:9.5f}(PUCT), {:9.5f}(P), {:9.5f}(V), {:9.5f}(reward)".format(
                 p * 100,
                 c,
                 q,
-                self.parameter.P[self.s0_str][a],
                 puct[a],
+                self.parameter.P[self.s0_str][a],
                 self.parameter.V[n_s_str],
                 reward,
             )

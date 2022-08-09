@@ -29,10 +29,10 @@ class Test(unittest.TestCase):
         self.assertAlmostEqual(val, 2.4)
 
     def test_sequence(self):
-        self.tester.play_sequence(srl.rl.alphazero.Config())
+        self.tester.play_sequence(srl.rl.muzero.Config(), enable_image=True)
 
     def test_mp(self):
-        self.tester.play_mp(srl.rl.alphazero.Config())
+        self.tester.play_mp(srl.rl.muzero.Config(), enable_image=True)
 
     def test_verify_grid(self):
         rl_config = srl.rl.muzero.Config(
@@ -45,7 +45,7 @@ class Test(unittest.TestCase):
             lr_decay_steps=10_000,
             v_min=-2,
             v_max=2,
-            unroll_steps=2,
+            unroll_steps=1,
             input_image_block=AlphaZeroImageBlock,
             input_image_block_kwargs={"n_blocks": 1, "filters": 16},
             dynamics_blocks=1,
@@ -71,7 +71,7 @@ class Test(unittest.TestCase):
             lr_decay_steps=10_000,
             v_min=-2,
             v_max=2,
-            unroll_steps=2,
+            unroll_steps=1,
             input_image_block=AlphaZeroImageBlock,
             input_image_block_kwargs={"n_blocks": 1, "filters": 16},
             dynamics_blocks=1,
@@ -88,4 +88,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_sequence", verbosity=2)

@@ -9,6 +9,7 @@ from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import make_worker_rulebase
 from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
+from srl.envs import grid, ox
 from srl.envs.grid import Grid
 from srl.rl.functions.common import to_str_observation
 from srl.runner import mp, sequence
@@ -23,8 +24,9 @@ class TestRL:
         self.config: sequence.Config = None
 
         self.env_list = [
-            srl.envs.Config("FrozenLake-v1"),
-            srl.envs.Config("OX"),
+            (srl.envs.Config("Grid"), grid.LayerProcessor()),
+            (srl.envs.Config("FrozenLake-v1"), None),
+            (srl.envs.Config("OX"), ox.LayerProcessor()),
         ]
 
         self.baseline = {
@@ -43,11 +45,18 @@ class TestRL:
             "Othello4x4": ([0.1, 0.5], 200),  # [0.3, 0.9] ぐらい
         }
 
-    def play_sequence(self, rl_config):
-        self._check_play_raw(rl_config)
+    def play_sequence(self, rl_config, enable_image: bool = False):
+        self._check_play_raw(rl_config, enable_image)
 
-        for env_config in self.env_list:
+        for env_config, img_processor in self.env_list:
             config = sequence.Config(env_config, rl_config)
+
+            if enable_image:
+                if img_processor is None:
+                    continue
+                config.rl_config.processors = [img_processor]
+            else:
+                config.rl_config.processors = []
 
             # --- train
             parameter, memory, _ = sequence.train(
@@ -77,9 +86,12 @@ class TestRL:
             return True
         return False
 
-    def _check_play_raw(self, rl_config):
+    def _check_play_raw(self, rl_config, enable_image):
         env_config = srl.envs.Config("OX")
-
+        if enable_image:
+            rl_config.processors = [ox.LayerProcessor()]
+        else:
+            rl_config.processors = []
         # --- init
         rl_config.assert_params()
         env = srl.envs.make(env_config)
@@ -127,9 +139,16 @@ class TestRL:
                 if env.done:
                     break
 
-    def play_mp(self, rl_config):
-        for env_config in self.env_list:
+    def play_mp(self, rl_config, enable_image: bool = False):
+        for env_config, img_processor in self.env_list:
             config = sequence.Config(env_config, rl_config)
+
+            if enable_image:
+                if img_processor is None:
+                    continue
+                config.rl_config.processors = [img_processor]
+            else:
+                config.rl_config.processors = []
 
             # --- train
             mp_config = mp.Config(actor_num=2, allocate_trainer="/CPU:0")

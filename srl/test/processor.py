@@ -32,7 +32,7 @@ class TestProcessor:
         env = srl.envs.make(env_name)
 
         new_space, new_type = processor.change_observation_info(
-            env.observation_space, env.observation_type, rl_observation_type, env.get_original_env()
+            env.observation_space, env.observation_type, rl_observation_type, env
         )
         assert new_type == after_type
         assert new_space.__class__.__name__ == after_space.__class__.__name__
@@ -43,5 +43,5 @@ class TestProcessor:
     ):
         env = srl.envs.make(env_name)
 
-        new_observation = processor.process_observation(in_observation, env.get_original_env())
+        new_observation = processor.process_observation(in_observation, env)
         np.testing.assert_array_equal(out_observation, new_observation)

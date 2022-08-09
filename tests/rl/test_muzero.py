@@ -36,7 +36,7 @@ class Test(unittest.TestCase):
 
     def test_verify_grid(self):
         rl_config = srl.rl.muzero.Config(
-            simulation_times=20,
+            num_simulations=20,
             discount=0.9,
             batch_size=16,
             memory_warmup_size=200,
@@ -63,7 +63,7 @@ class Test(unittest.TestCase):
 
     def test_verify_grid_PER(self):
         rl_config = srl.rl.muzero.Config(
-            simulation_times=20,
+            num_simulations=20,
             discount=0.9,
             batch_size=16,
             memory_warmup_size=200,

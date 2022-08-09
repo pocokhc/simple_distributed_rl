@@ -36,7 +36,7 @@ https://github.com/AppliedDataSciencePartners/DeepReinforcementLearning
 @dataclass
 class Config(DiscreteActionConfig):
 
-    simulation_times: int = 100
+    num_simulations: int = 100
     capacity: int = 10_000
     discount: float = 1.0  # 割引率
 
@@ -64,7 +64,7 @@ class Config(DiscreteActionConfig):
     policy_block_kwargs: dict = None
 
     def set_go_config(self):
-        self.simulation_times = 800
+        self.num_simulations = 800
         self.capacity = 500_000
         self.discount = 1.0
         self.sampling_steps = 30
@@ -347,7 +347,7 @@ class Worker(ModelBaseWorker):
 
         # --- シミュレーションしてpolicyを作成
         dat = env.backup()
-        for _ in range(self.config.simulation_times):
+        for _ in range(self.config.num_simulations):
             self._simulation(env, state, self.state_str, self.invalid_actions)
             env.restore(dat)
 

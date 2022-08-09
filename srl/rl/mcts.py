@@ -20,7 +20,7 @@ from srl.rl.functions.common import render_discrete_action, to_str_observation
 @dataclass
 class Config(DiscreteActionConfig):
 
-    simulation_times: int = 10
+    num_simulations: int = 10
     expansion_threshold: int = 5
     discount: float = 1.0
     uct_c: float = np.sqrt(2.0)
@@ -134,7 +134,7 @@ class Worker(ModelBaseWorker):
 
         if self.training:
             dat = env.backup()
-            for _ in range(self.config.simulation_times):
+            for _ in range(self.config.num_simulations):
                 self._simulation(env, self.state, self.invalid_actions)
                 env.restore(dat)
 

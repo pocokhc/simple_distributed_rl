@@ -16,7 +16,7 @@ class Test(unittest.TestCase):
 
     def test_verify_grid(self):
         rl_config = srl.rl.alphazero.Config()
-        rl_config.simulation_times = 100
+        rl_config.num_simulations = 100
         rl_config.sampling_steps = 1
         rl_config.batch_size = 64
         rl_config.warmup_size = 100
@@ -32,7 +32,7 @@ class Test(unittest.TestCase):
 
     def test_verify_StoneTaking(self):
         rl_config = srl.rl.alphazero.Config()
-        rl_config.simulation_times = 100
+        rl_config.num_simulations = 100
         rl_config.sampling_steps = 1
         rl_config.batch_size = 32
         rl_config.discount = 1.0
@@ -43,7 +43,7 @@ class Test(unittest.TestCase):
 
     def test_verify_ox(self):
         rl_config = srl.rl.alphazero.Config()
-        rl_config.simulation_times = 100
+        rl_config.num_simulations = 100
         rl_config.sampling_steps = 1
         rl_config.batch_size = 32
         rl_config.discount = 1.0
@@ -54,7 +54,7 @@ class Test(unittest.TestCase):
 
     def test_verify_ox_mp(self):
         rl_config = srl.rl.alphazero.Config()
-        rl_config.simulation_times = 100
+        rl_config.num_simulations = 100
         rl_config.sampling_steps = 1
         rl_config.batch_size = 32
         rl_config.discount = 1.0
@@ -70,7 +70,7 @@ class TestLong(unittest.TestCase):
 
     def test_verify_Othello4x4(self):
         rl_config = srl.rl.alphazero.Config()
-        rl_config.simulation_times = 100
+        rl_config.num_simulations = 100
         rl_config.sampling_steps = 1
         rl_config.batch_size = 128
         rl_config.warmup_size = 500

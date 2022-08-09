@@ -36,7 +36,7 @@ https://arxiv.org/src/1911.08265v2/anc/pseudocode.py
 @dataclass
 class Config(DiscreteActionConfig):
 
-    simulation_times: int = 20
+    num_simulations: int = 20
     batch_size: int = 128
     discount: float = 0.99
 
@@ -82,7 +82,7 @@ class Config(DiscreteActionConfig):
     enable_rescale: bool = True
 
     def set_atari_config(self):
-        self.simulation_times = 50
+        self.num_simulations = 50
         self.batch_size = 1024
         self.discount = 0.997
         self.lr_init = 0.05
@@ -575,7 +575,7 @@ class Worker(DiscreteActionWorker):
         # --- シミュレーションしてpolicyを作成
         self.s0 = self.parameter.representation_network(state[np.newaxis, ...])
         self.s0_str = self.s0.ref()
-        for _ in range(self.config.simulation_times):
+        for _ in range(self.config.num_simulations):
             self._simulation(self.s0, self.s0_str, invalid_actions)
 
         # 正規化用Qを保存できるように送信(remote_memory -> trainer -> parameter)

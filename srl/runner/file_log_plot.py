@@ -295,7 +295,6 @@ class FileLogPlot:
 
         plt.ylabel(key)
         plt.grid()
-        plt.legend()
         plt.tight_layout()
         plt.show()
 

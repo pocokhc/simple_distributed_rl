@@ -516,7 +516,7 @@ class Worker(DiscreteActionWorker):
 
         return priority
 
-    def _calc_episodic_reward(self, state):
+    def _calc_episodic_reward(self, state, update: bool = True):
         if state not in self.episodic_C:
             self.episodic_C[state] = 0
 
@@ -524,18 +524,20 @@ class Worker(DiscreteActionWorker):
         reward = 1 / np.sqrt(self.episodic_C[state] + 1)
 
         # 数える
-        self.episodic_C[state] += 1
+        if update:
+            self.episodic_C[state] += 1
 
         return reward
 
-    def _calc_lifelong_reward(self, state):
+    def _calc_lifelong_reward(self, state, update: bool = True):
         # RNDと同じ発想で、回数を重ねると0に近づくようにする
         if state not in self.parameter.lifelong_C:
             self.parameter.lifelong_C[state] = self.config.lifelong_reward_L - 1.0  # 初期値
         reward = self.parameter.lifelong_C[state]
 
         # 0に近づける
-        self.parameter.lifelong_C[state] *= self.config.lifelong_decrement_rate
+        if update:
+            self.parameter.lifelong_C[state] *= self.config.lifelong_decrement_rate
         return reward + 1.0
 
     def render_terminal(self, env, worker, **kwargs) -> None:
@@ -543,8 +545,8 @@ class Worker(DiscreteActionWorker):
         invalid_actions = self.recent_invalid_actions[-1]
         self.parameter.init_state(state, invalid_actions)
 
-        episodic_reward = self._calc_episodic_reward(state)
-        lifelong_reward = self._calc_lifelong_reward(state)
+        episodic_reward = self._calc_episodic_reward(state, update=False)
+        lifelong_reward = self._calc_lifelong_reward(state, update=False)
         int_reward = episodic_reward * lifelong_reward
         print(f"int_reward {int_reward:.4f} = episodic {episodic_reward:.3f} * lifelong {lifelong_reward:.3f}")
         q_ext = np.asarray(self.parameter.Q_ext[state])

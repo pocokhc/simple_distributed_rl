@@ -7,16 +7,9 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 import numpy as np
-from srl.base.define import (
-    EnvAction,
-    EnvObservation,
-    EnvObservationType,
-    Info,
-    RLAction,
-    RLActionType,
-    RLObservation,
-    RLObservationType,
-)
+from srl.base.define import (EnvAction, EnvObservation, EnvObservationType,
+                             Info, RLAction, RLActionType, RLObservation,
+                             RLObservationType)
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
@@ -240,6 +233,11 @@ class WorkerBase(ABC):
     # ------------------------------
     # implement
     # ------------------------------
+    @property
+    @abstractmethod
+    def player_index(self) -> int:
+        raise NotImplementedError()
+
     @abstractmethod
     def on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
         raise NotImplementedError()
@@ -358,8 +356,13 @@ class RLWorker(WorkerBase):
     # ------------------------------------
     # episode
     # ------------------------------------
+    @property
+    def player_index(self) -> int:
+        return self._player_index
+
     def on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
         self.__recent_states = [self.__dummy_state for _ in range(self.config.window_length)]
+        self._player_index = worker.player_index
 
         state = self.state_encode(env.state, env)
         self.__recent_states.pop(0)
@@ -402,14 +405,14 @@ class RLWorker(WorkerBase):
         )
         return info
 
-    def get_invalid_actions(self, env: EnvRun, worker: "WorkerRun") -> List[RLAction]:
-        return [self.action_encode(a) for a in env.get_invalid_actions(worker.player_index)]
+    def get_invalid_actions(self, env: EnvRun) -> List[RLAction]:
+        return [self.action_encode(a) for a in env.get_invalid_actions(self.player_index)]
 
-    def get_valid_actions(self, env: EnvRun, worker: "WorkerRun") -> List[RLAction]:
-        return [self.action_encode(a) for a in env.get_valid_actions(worker.player_index)]
+    def get_valid_actions(self, env: EnvRun) -> List[RLAction]:
+        return [self.action_encode(a) for a in env.get_valid_actions(self.player_index)]
 
-    def sample_action(self, env: EnvRun, worker: "WorkerRun") -> RLAction:
-        return self.action_encode(env.sample(worker.player_index))
+    def sample_action(self, env: EnvRun) -> RLAction:
+        return self.action_encode(env.sample(self.player_index))
 
     # ------------------------------------
     # utils
@@ -475,7 +478,12 @@ class RuleBaseWorker(WorkerBase):
     def call_on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
         return {}  # do nothing
 
+    @property
+    def player_index(self) -> int:
+        return self._player_index
+
     def on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
+        self._player_index = worker.player_index
         self.call_on_reset(env, worker)
 
     def policy(self, env: EnvRun, worker: "WorkerRun") -> EnvAction:
@@ -505,7 +513,12 @@ class ExtendWorker(WorkerBase):
     def call_on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
         return {}  # do nothing
 
+    @property
+    def player_index(self) -> int:
+        return self._player_index
+
     def on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
+        self._player_index = worker.player_index
         self.rl_worker.on_reset(env, worker.player_index)
         self.call_on_reset(env, worker)
 

@@ -59,10 +59,10 @@ class DiscreteActionWorker(RLWorker):
     # --------------------------------------
 
     def _call_on_reset(self, state: RLObservation, env: EnvRun, worker: WorkerRun) -> None:
-        self.call_on_reset(state, self.get_invalid_actions(env, worker))
+        self.call_on_reset(state, self.get_invalid_actions(env))
 
     def _call_policy(self, state: RLObservation, env: EnvRun, worker: WorkerRun) -> RLAction:
-        return self.call_policy(state, self.get_invalid_actions(env, worker))
+        return self.call_policy(state, self.get_invalid_actions(env))
 
     def _call_on_step(
         self,
@@ -72,4 +72,4 @@ class DiscreteActionWorker(RLWorker):
         env: EnvRun,
         worker: WorkerRun,
     ) -> Info:
-        return self.call_on_step(next_state, reward, done, self.get_invalid_actions(env, worker))
+        return self.call_on_step(next_state, reward, done, self.get_invalid_actions(env))

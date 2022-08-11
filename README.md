@@ -106,8 +106,8 @@ def main():
     sequence.render(config, parameter)
 
     # --- animation
-    reward, render = sequence.render(config, parameter, render_terminal=False, enable_animation=True)
-    render.create_anime(fps=3).save("FrozenLake.gif")
+    render = sequence.animation(config, parameter)
+    render.create_anime(interval=1000 / 3).save("FrozenLake.gif")
 
 
 if __name__ == "__main__":

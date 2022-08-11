@@ -156,9 +156,9 @@ class PrintProgress(Callback):
         # --- print
         s = dt.datetime.now().strftime("%H:%M:%S")
         s += f" {to_str_time(elapsed_time)}"
-        s += " {:6d}ep".format(episode_count)
+        s += f" {self.step_count:6d}st({episode_count:4d}ep)"
         if self.config.training:
-            s += " {:6d}tr".format(train_count)
+            s += " {:5d}tr".format(train_count)
 
         if len(self.progress_history) == 0:
             if len(self.history_step) > 0:
@@ -221,7 +221,7 @@ class PrintProgress(Callback):
             _s = [h["episode_step"] for h in self.progress_history]
             s += f", {min(_r):.1f} {np.mean(_r):.3f} {max(_r):.1f} rew"
             s += f", {np.mean(_s):.1f} step"
-            s += f", {episode_time:.3f}s/ep"
+            s += f", {episode_time:.2f}s/ep"
 
             if self.config.enable_validation:
                 valid_rewards = [h["valid_reward"] for h in self.progress_history if h["valid_reward"] is not None]
@@ -230,7 +230,7 @@ class PrintProgress(Callback):
 
             if self.config.training:
                 train_time = np.mean([h["train_time"] for h in self.progress_history])
-                s += f", {train_time:.4f}s/tr"
+                s += f", {train_time:.3f}s/tr"
 
                 memory_len = max([h["remote_memory"] for h in self.progress_history])
                 s += f", {memory_len:7d} mem"

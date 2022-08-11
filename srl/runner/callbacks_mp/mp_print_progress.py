@@ -139,7 +139,7 @@ class MPPrintProgress(MPCallback):
         self.actor_id = actor_id
         if self.actor_id >= self.max_print_actor:
             return
-
+        self.step_count = 0
         self.progress_t0 = time.time()
         self.progress_history = []
 
@@ -163,6 +163,7 @@ class MPPrintProgress(MPCallback):
     ):
         if self.actor_id >= self.max_print_actor:
             return
+        self.step_count += 1
         self.history_step.append(
             {
                 "env_info": env.info,
@@ -220,13 +221,13 @@ class MPPrintProgress(MPCallback):
             if len(self.history_step) > 0:
                 step_num = len(self.history_step)
                 step_time = np.mean([h["step_time"] for h in self.history_step])
-                s += f" {episode_count:8d} episode"
+                s += f" {self.step_count:7d}step({episode_count:6d}epi)"
                 s += f", {step_num:5d} step"
                 s += f", {step_time:.5f}s/step"
         else:
             episode_time = np.mean([h["episode_time"] for h in self.progress_history])
 
-            s += " {:7d} epi".format(episode_count)
+            s += f" {self.step_count:7d}step({episode_count:6d}epi)"
             s += f", {episode_time:.3f}s/epi"
 
             _r = [h["episode_reward"] for h in self.progress_history]

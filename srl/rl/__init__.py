@@ -15,6 +15,7 @@ from . import muzero  # noqa F402
 from . import ql  # noqa F402
 from . import ql_agent57  # noqa F402
 from . import r2d2  # noqa F402
+from . import r2d2_stateful  # noqa F402
 from . import rainbow  # noqa F402
 from . import random_play  # noqa F402
 from . import sac  # noqa F402

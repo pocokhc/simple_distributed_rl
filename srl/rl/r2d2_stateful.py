@@ -6,20 +6,18 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.define import RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (
-    calc_epsilon_greedy_probs,
-    create_epsilon_list,
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
+from srl.rl.functions.common import (calc_epsilon_greedy_probs,
+                                     create_epsilon_list, inverse_rescaling,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling)
 from srl.rl.models.dqn_image_block import DQNImageBlock
 from srl.rl.models.dueling_network import DuelingNetworkBlock
+from srl.rl.models.input_layer import create_input_layer_stateful_lstm
 from tensorflow.keras import layers as kl
 
 """
@@ -193,25 +191,19 @@ class _QNetwork(keras.Model):
 
         # input_shape: (batch_size, input_sequence(timestamps), observation_shape)
         # timestamps=1(stateful)
-        # in_state, c, use_image_head = create_input_layer_stateful_lstm(
-        #    config.batch_size,
-        #    config.observation_shape,
-        #    config.env_observation_type,
-        # )
-        # if use_image_head:
-        #    c = kl.TimeDistributed(config.cnn_block(**config.cnn_block_kwargs))(c)
-        #    c = kl.TimeDistributed(kl.Flatten())(c)
-
-        in_state = c = kl.Input((None,) + config.observation_shape)
-        c = kl.TimeDistributed(kl.Flatten())(c)
-        self.in_block = keras.Model(in_state, c)
+        in_state, c, use_image_head = create_input_layer_stateful_lstm(
+            config.batch_size,
+            config.observation_shape,
+            config.env_observation_type,
+        )
+        if use_image_head:
+            c = kl.TimeDistributed(config.cnn_block(**config.cnn_block_kwargs))(c)
+            c = kl.TimeDistributed(kl.Flatten())(c)
 
         # lstm
-        self.lstm_layer = kl.LSTM(config.lstm_units, return_sequences=True, return_state=True)
+        c = kl.LSTM(config.lstm_units, stateful=True, name="lstm")(c)
 
         # hidden layers
-        in_state = c = kl.Input((None, config.lstm_units))
-
         for i in range(len(config.hidden_layer_sizes) - 1):
             c = kl.Dense(
                 config.hidden_layer_sizes[i],
@@ -234,21 +226,25 @@ class _QNetwork(keras.Model):
                 config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
             )(c)
 
-        self.out_block = kl.TimeDistributed(keras.Model(in_state, c))
+        self.model = keras.Model(in_state, c, name="QNetwork")
+        self.lstm_layer = self.model.get_layer("lstm")
 
         # 重みを初期化
-        dummy_state = np.zeros(shape=(1, 1) + config.observation_shape, dtype=np.float32)
-        hidden_state = self.init_hidden_state()
-        self(dummy_state, hidden_state)
+        in_shape = (1,) + config.observation_shape
+        dummy_state = np.zeros(shape=(config.batch_size,) + in_shape, dtype=np.float32)
+        val, _ = self(dummy_state, None)
+        assert val.shape == (config.batch_size, config.action_num)
 
-    def call(self, state, hidden_state, training=False):
-        x = self.in_block(state, training=training)
-        x, h, c = self.lstm_layer(x, initial_state=hidden_state, training=training)
-        x = self.out_block(x, training=training)
-        return x, [h, c]
+    def call(self, state, hidden_states):
+        self.lstm_layer.reset_states(hidden_states)
+        return self.model(state), self.get_hidden_state()
+
+    def get_hidden_state(self):
+        return [self.lstm_layer.states[0].numpy(), self.lstm_layer.states[1].numpy()]
 
     def init_hidden_state(self):
-        return self.lstm_layer.cell.get_initial_state(batch_size=1, dtype=tf.float32)
+        self.lstm_layer.reset_states()
+        return self.get_hidden_state()
 
 
 # ------------------------------------------------------
@@ -270,12 +266,30 @@ class Parameter(RLParameter):
         return self.q_online.get_weights()
 
     def summary(self, **kwargs):
-        self.q_online.summary(**kwargs)
+        self.q_online.model.summary(**kwargs)
 
 
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
+
+
+def _batch_dict_step_to_step_batch(batchs, key, in_step, is_list, to_np):
+    _list = []
+    for i in range(len(batchs[0][key])):
+        if in_step and is_list:
+            _list.append([[b[key][i]] for b in batchs])
+        elif in_step and not is_list:
+            _list.append([[[b[key][i]]] for b in batchs])
+        elif not in_step and is_list:
+            _list.append([[b[key][i]] for b in batchs])
+        elif not in_step and not is_list:
+            _list.append([b[key][i] for b in batchs])
+    if to_np:
+        _list = np.asarray(_list)
+    return _list
+
+
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
@@ -298,7 +312,7 @@ class Trainer(RLTrainer):
             return {}
 
         indices, batchs, weights = self.remote_memory.sample(self.train_count, self.config.batch_size)
-        td_errors, loss = self._train_on_batchs(batchs, np.array(weights).reshape(-1, 1))
+        td_errors, loss = self._train_on_batchs(batchs, weights)
         self.remote_memory.update(indices, batchs, td_errors)
 
         # targetと同期
@@ -311,110 +325,167 @@ class Trainer(RLTrainer):
 
     def _train_on_batchs(self, batchs, weights):
 
-        # (batch, dict[x], step) -> (batch, step, x)
-        burnin_states = []
-        step_states = []
-        step_actions = []
-        for b in batchs:
-            burnin_states.append([s for s in b["states"][: self.config.burnin]])
-            step_states.append([s for s in b["states"][self.config.burnin :]])
-            step_actions.append([s for s in b["actions"]])
-        burnin_states = np.asarray(burnin_states)
-        step_states = np.asarray(step_states)
+        # (batch, dict[x], step) -> (step, batch, 1, x)
+        states_list = _batch_dict_step_to_step_batch(batchs, "states", in_step=True, is_list=True, to_np=True)
+        burnin_states = states_list[: self.config.burnin]
+        step_states_list = states_list[self.config.burnin :]
 
-        # (batch, step, x)
-        step_actions_onehot = tf.one_hot(step_actions, self.config.action_num, axis=2)
+        # (batch, dict[x], step) -> (step, batch)
+        step_actions_list = _batch_dict_step_to_step_batch(
+            batchs, "actions", in_step=False, is_list=False, to_np=False
+        )
+        step_mu_probs_list = _batch_dict_step_to_step_batch(batchs, "probs", in_step=False, is_list=False, to_np=False)
+        step_rewards_list = _batch_dict_step_to_step_batch(
+            batchs, "rewards", in_step=False, is_list=False, to_np=False
+        )
+        step_dones_list = _batch_dict_step_to_step_batch(batchs, "dones", in_step=False, is_list=False, to_np=False)
+        step_next_invalid_actions_list = _batch_dict_step_to_step_batch(
+            batchs, "invalid_actions", in_step=False, is_list=False, to_np=False
+        )
 
-        # (batch, list, hidden) -> (list, batch, hidden)
+        # (step, batch, x)
+        step_actions_onehot_list = tf.one_hot(step_actions_list, self.config.action_num)
+
+        # hidden_states
         states_h = []
         states_c = []
         for b in batchs:
             states_h.append(b["hidden_states"][0])
             states_c.append(b["hidden_states"][1])
-        hidden_states = [tf.stack(states_h), tf.stack(states_c)]
-        hidden_states_t = [tf.stack(states_h), tf.stack(states_c)]
+        hidden_states = [np.asarray(states_h), np.asarray(states_c)]
+        hidden_states_t = [np.asarray(states_h), np.asarray(states_c)]
 
         # burn-in
-        _, hidden_states = self.parameter.q_online(burnin_states, hidden_states)
-        _, hidden_states_t = self.parameter.q_target(burnin_states, hidden_states_t)
+        for i in range(self.config.burnin):
+            burnin_state = burnin_states[i]
+            _, hidden_states = self.parameter.q_online(burnin_state, hidden_states)
+            _, hidden_states_t = self.parameter.q_target(burnin_state, hidden_states_t)
 
-        # targetQ
-        q_target, _ = self.parameter.q_target(step_states, hidden_states_t)
-        q_target = q_target.numpy()
+        _, _, td_error, _, loss = self._train_steps(
+            step_states_list,
+            step_actions_list,
+            step_actions_onehot_list,
+            step_mu_probs_list,
+            step_rewards_list,
+            step_dones_list,
+            step_next_invalid_actions_list,
+            weights,
+            hidden_states,
+            hidden_states_t,
+            0,
+        )
+        return td_error, loss
+
+    # Q値(LSTM hidden states)の予測はforward、td_error,retraceはbackwardで予測する必要あり
+    def _train_steps(
+        self,
+        step_states_list,
+        step_actions_list,
+        step_actions_onehot_list,
+        step_mu_probs_list,
+        step_rewards_list,
+        step_dones_list,
+        step_next_invalid_actions_list,
+        weights,
+        hidden_states,
+        hidden_states_t,
+        idx,
+    ):
+
+        # 最後
+        if idx == self.config.sequence_length:
+            n_states = step_states_list[idx]
+            n_q, _ = self.parameter.q_online(n_states, hidden_states)
+            n_q_target, _ = self.parameter.q_target(n_states, hidden_states_t)
+            n_q = tf.stop_gradient(n_q).numpy()
+            n_q_target = tf.stop_gradient(n_q_target).numpy()
+            # q, target_q, td_error, retrace, loss
+            return n_q, n_q_target, 0.0, 1.0, 0.0
+
+        states = step_states_list[idx]
+
+        # return用にq_targetを計算
+        q_target, n_hidden_states_t = self.parameter.q_target(states, hidden_states_t)
+        q_target = tf.stop_gradient(q_target).numpy()
 
         # --- 勾配 + targetQを計算
-        td_errors_list = []
         with tf.GradientTape() as tape:
-            q, _ = self.parameter.q_online(step_states, hidden_states, training=True)
-            frozen_q = tf.stop_gradient(q).numpy()
+            q, n_hidden_states = self.parameter.q_online(states, hidden_states)
 
-            # 最後は学習しないので除く
-            tf.stop_gradient(q[:, -1, ...])
-            q = q[:, :-1, ...]
+            # 次のQ値を取得
+            n_q, n_q_target, n_td_error, retrace, n_loss = self._train_steps(
+                step_states_list,
+                step_actions_list,
+                step_actions_onehot_list,
+                step_mu_probs_list,
+                step_rewards_list,
+                step_dones_list,
+                step_next_invalid_actions_list,
+                weights,
+                n_hidden_states,
+                n_hidden_states_t,
+                idx + 1,
+            )
 
-            # --- TargetQを計算
-            target_q_list = []
-            for idx, b in enumerate(batchs):
-                retrace = 1
-                next_td_error = 0
-                td_errors = []
-                target_q = []
+            # targetQを計算
+            target_q = np.zeros(self.config.batch_size)
+            for i in range(self.config.batch_size):
+                reward = step_rewards_list[idx][i]
+                done = step_dones_list[idx][i]
+                next_invalid_actions = step_next_invalid_actions_list[idx][i]
 
-                # 後ろから計算
-                for t in reversed(range(self.config.sequence_length)):
-                    action = b["actions"][t]
-                    mu_prob = b["probs"][t]
-                    reward = b["rewards"][t]
-                    done = b["dones"][t]
-                    invalid_actions = b["invalid_actions"][t]
-                    next_invalid_actions = b["invalid_actions"][t + 1]
-
-                    if done:
-                        gain = reward
+                if done:
+                    gain = reward
+                else:
+                    # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
+                    if self.config.enable_double_dqn:
+                        n_q[i] = [(-np.inf if a in next_invalid_actions else v) for a, v in enumerate(n_q[i])]
+                        n_act_idx = np.argmax(n_q[i])
                     else:
-                        # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
-                        if self.config.enable_double_dqn:
-                            n_q = frozen_q[idx][t + 1]
-                        else:
-                            n_q = q_target[idx][t + 1]
-                        n_q = [(-np.inf if a in next_invalid_actions else v) for a, v in enumerate(n_q)]
-                        n_act_idx = np.argmax(n_q)
-                        maxq = q_target[idx][t + 1][n_act_idx]
-                        if self.config.enable_rescale:
-                            maxq = inverse_rescaling(maxq)
-                        gain = reward + self.config.discount * maxq
+                        n_q_target[i] = [
+                            (-np.inf if a in next_invalid_actions else v) for a, v in enumerate(n_q_target[i])
+                        ]
+                        n_act_idx = np.argmax(n_q_target[i])
+                    maxq = n_q_target[i][n_act_idx]
                     if self.config.enable_rescale:
-                        gain = rescaling(gain)
-                    target_q.insert(0, gain + retrace * next_td_error)
+                        maxq = inverse_rescaling(maxq)
+                    gain = reward + self.config.discount * maxq
+                if self.config.enable_rescale:
+                    gain = rescaling(gain)
+                target_q[i] = gain
 
-                    td_error = gain - frozen_q[idx][t][action]
-                    td_errors.append(td_error)
-                    if self.config.enable_retrace:
-                        # TDerror
-                        next_td_error = td_error
+            if self.config.enable_retrace:
+                _retrace = np.zeros(self.config.batch_size)
+                for i in range(self.config.batch_size):
+                    action = step_actions_list[idx][i]
+                    mu_prob = step_mu_probs_list[idx][i]
+                    pi_probs = calc_epsilon_greedy_probs(
+                        n_q[i],
+                        step_next_invalid_actions_list[idx][i],
+                        0.0,
+                        self.config.action_num,
+                    )
+                    pi_prob = pi_probs[action]
+                    _retrace[i] = self.config.retrace_h * np.minimum(1, pi_prob / mu_prob)
 
-                        # retrace
-                        pi_probs = calc_epsilon_greedy_probs(
-                            frozen_q[idx][t],
-                            invalid_actions,
-                            0.0,
-                            self.config.action_num,
-                        )
-                        pi_prob = pi_probs[action]
-                        _r = self.config.retrace_h * np.minimum(1, pi_prob / mu_prob)
-                        retrace *= self.config.discount * _r
-                target_q_list.append(target_q)
-                td_errors_list.append(np.mean(td_errors))
-            target_q_list = np.asarray(target_q_list)
+                retrace *= _retrace
+                target_q += self.config.discount * retrace * n_td_error
 
-            # --- update Q
-            q_onehot = tf.reduce_sum(q * step_actions_onehot, axis=2)
-            loss = self.loss(target_q_list * weights, q_onehot * weights)
+            action_onehot = step_actions_onehot_list[idx]
+            q_onehot = tf.reduce_sum(q * action_onehot, axis=1)
+
+            loss = self.loss(target_q * weights, q_onehot * weights)
 
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
+        # --- 勾配計算ここまで
+        q = tf.stop_gradient(q).numpy()
 
-        return td_errors_list, loss
+        if idx == 0 or self.config.enable_retrace:
+            td_error = target_q - q_onehot.numpy() + self.config.discount * retrace * n_td_error
+        else:
+            td_error = 0
+        return q, q_target, td_error, retrace, (loss.numpy() + n_loss) / 2
 
 
 # ------------------------------------------------------
@@ -435,7 +506,7 @@ class Worker(DiscreteActionWorker):
         # probs  : sequence_length
         # rewards: sequence_length
         # done   : sequence_length
-        # invalid_actions: sequence_length + next_invalid_actions
+        # invalid_actions: sequence_length + next_invalid_actions - now_invalid_actions
         # hidden_state   : burnin + sequence_length + next_state
 
         self.recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.sequence_length + 1)]
@@ -445,7 +516,7 @@ class Worker(DiscreteActionWorker):
         self.recent_probs = [1.0 / self.config.action_num for _ in range(self.config.sequence_length)]
         self.recent_rewards = [0.0 for _ in range(self.config.sequence_length)]
         self.recent_done = [False for _ in range(self.config.sequence_length)]
-        self.recent_invalid_actions = [[] for _ in range(self.config.sequence_length + 1)]
+        self.recent_invalid_actions = [[] for _ in range(self.config.sequence_length)]
 
         self.hidden_state = self.parameter.q_online.init_hidden_state()
         self.recent_hidden_states = [
@@ -468,9 +539,9 @@ class Worker(DiscreteActionWorker):
             self._history_batch = []
 
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
-        state = state[np.newaxis, np.newaxis, ...]  # (batch, time step, ...)
+        state = np.asarray([[state]] * self.config.batch_size)
         q, self.hidden_state = self.parameter.q_online(state, self.hidden_state)
-        q = q[0][0].numpy()  # (batch, time step, action_num)
+        q = q[0].numpy()
 
         if self.training:
             epsilon = self.config.epsilon

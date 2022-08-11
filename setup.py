@@ -32,6 +32,7 @@ setup(
         "numpy",
         "tensorflow",
         "tensorflow-addons",
+        "tensorflow_probability",
         # image,history,render
         "matplotlib",
         "pillow",

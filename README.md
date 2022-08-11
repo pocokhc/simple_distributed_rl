@@ -37,6 +37,7 @@ python examples/minimum_runner.py
 + numpy
 + tensorflow
 + tensorflow-addons
++ tensorflow_probability
 + matplotlib
 + pillow
 + opencv-python

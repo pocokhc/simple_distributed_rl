@@ -40,7 +40,7 @@ class Test(unittest.TestCase):
             rl_config,
             1500,
             test_num=10,
-            is_valid=True,
+            # is_valid=True,
         )
 
     def test_verify_grid_PER(self):

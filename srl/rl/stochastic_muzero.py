@@ -7,18 +7,18 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.define import RLObservationType
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.priority_experience_replay import \
-    PriorityExperienceReplay
-from srl.rl.functions.common import (float_category_decode,
-                                     float_category_encode,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
-from srl.rl.models.alphazero_image_block import (AlphaZeroImageBlock,
-                                                 ResidualBlock)
+from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
+from srl.rl.functions.common import (
+    float_category_decode,
+    float_category_encode,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
+from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock, ResidualBlock
 from srl.rl.models.input_layer import create_input_layer
 from srl.rl.models.muzero_atari_block import MuZeroAtariBlock
 from tensorflow.keras import layers as kl
@@ -196,7 +196,7 @@ class _DynamicsNetwork(keras.Model):
         v_num = config.v_max - config.v_min + 1
         h, w, ch = as_shape
 
-        # hidden_state + chance_shape
+        # hidden_state + code_shape
         in_state = c = kl.Input(shape=(h, w, ch + self.c_size))
 
         # hidden_state
@@ -227,14 +227,14 @@ class _DynamicsNetwork(keras.Model):
         dummy2[0][0] = 1.0
         self(dummy1, dummy2)
 
-    def call(self, as_state, chance_state):
+    def call(self, as_state, code_state):
         batch, h, w, _ = as_state.shape
 
-        chance_image = tf.repeat(chance_state, h * w, axis=1)  # (b, c_size)->(b, c_size * h * w)
-        chance_image = tf.reshape(chance_image, (batch, self.c_size, h, w))  # (b, c_size * h * w)->(b, c_size, h, w)
-        chance_image = tf.transpose(chance_image, perm=[0, 2, 3, 1])  # (b, c_size, h, w)->(b, h, w, c_size)
+        code_image = tf.repeat(code_state, h * w, axis=1)  # (b, c_size)->(b, c_size * h * w)
+        code_image = tf.reshape(code_image, (batch, self.c_size, h, w))  # (b, c_size * h * w)->(b, c_size, h, w)
+        code_image = tf.transpose(code_image, perm=[0, 2, 3, 1])  # (b, c_size, h, w)->(b, h, w, c_size)
 
-        in_state = tf.concat([as_state, chance_image], axis=3)
+        in_state = tf.concat([as_state, code_image], axis=3)
         x, reward_category = self.model(in_state)
 
         # 隠れ状態はアクションとスケールを合わせるため0-1で正規化(一応batch毎)
@@ -342,7 +342,7 @@ class _AfterstatePredictionNetwork(keras.Model):
 
         # --- chance
         c1 = kl.Conv2D(
-            config.codebook_size,
+            2,
             kernel_size=(1, 1),
             padding="same",
             use_bias=False,
@@ -394,7 +394,7 @@ class _VQ_VAE(keras.Model):
         c = config.input_image_block(**config.input_image_block_kwargs)(c)
 
         c = kl.Conv2D(
-            filters=config.codebook_size,
+            filters=2,
             kernel_size=(1, 1),
             padding="same",
             use_bias=False,
@@ -784,7 +784,7 @@ class Worker(DiscreteActionWorker):
         if is_root:
             dir_alpha = self.config.root_dirichlet_alpha
             if self.config.root_dirichlet_adaptive:
-                dir_alpha = 1.0 / np.sqrt(self.config.action_num)
+                dir_alpha = 1.0 / np.sqrt(self.config.action_num - len(invalid_actions))
             noises = np.random.dirichlet([dir_alpha] * self.config.action_num)
 
         N = np.sum(self.N[state_str])

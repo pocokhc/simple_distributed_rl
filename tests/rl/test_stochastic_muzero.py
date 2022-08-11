@@ -23,7 +23,7 @@ class Test(unittest.TestCase):
             batch_size=16,
             memory_warmup_size=200,
             memory_name="ReplayMemory",
-            lr_init=0.002,
+            lr_init=0.005,
             lr_decay_steps=10_000,
             v_min=-2,
             v_max=2,
@@ -33,16 +33,17 @@ class Test(unittest.TestCase):
             dynamics_blocks=1,
             enable_rescale=False,
             weight_decay=0,
+            codebook_size=4,
         )
         rl_config.processors = [grid.LayerProcessor()]
         self.tester.play_verify_singleplay(
             "EasyGrid",
             rl_config,
-            1500,
+            5000,
             test_num=10,
             is_valid=True,
         )
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_sequence", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)

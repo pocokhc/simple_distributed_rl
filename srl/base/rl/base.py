@@ -363,6 +363,7 @@ class RLWorker(WorkerBase):
     def on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
         self.__recent_states = [self.__dummy_state for _ in range(self.config.window_length)]
         self._player_index = worker.player_index
+        self.__env = env
 
         state = self.state_encode(env.state, env)
         self.__recent_states.pop(0)
@@ -405,18 +406,18 @@ class RLWorker(WorkerBase):
         )
         return info
 
-    def get_invalid_actions(self, env: EnvRun) -> List[RLAction]:
-        return [self.action_encode(a) for a in env.get_invalid_actions(self.player_index)]
-
-    def get_valid_actions(self, env: EnvRun) -> List[RLAction]:
-        return [self.action_encode(a) for a in env.get_valid_actions(self.player_index)]
-
-    def sample_action(self, env: EnvRun) -> RLAction:
-        return self.action_encode(env.sample(self.player_index))
-
     # ------------------------------------
     # utils
     # ------------------------------------
+    def get_invalid_actions(self) -> List[RLAction]:
+        return [self.action_encode(a) for a in self.__env.get_invalid_actions(self.player_index)]
+
+    def get_valid_actions(self) -> List[RLAction]:
+        return [self.action_encode(a) for a in self.__env.get_valid_actions(self.player_index)]
+
+    def sample_action(self) -> RLAction:
+        return self.action_encode(self.__env.sample(self.player_index))
+
     def env_step(self, env: EnvRun, action: RLAction, **kwargs) -> Tuple[np.ndarray, List[float], bool]:
         """Advance env one step
 

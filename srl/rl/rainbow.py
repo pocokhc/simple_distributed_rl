@@ -7,18 +7,15 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow_addons as tfa
 from srl.base.define import RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (
-    calc_epsilon_greedy_probs,
-    create_epsilon_list,
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
+from srl.rl.functions.common import (calc_epsilon_greedy_probs,
+                                     create_epsilon_list, inverse_rescaling,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling)
 from srl.rl.models.dqn_image_block import DQNImageBlock
 from srl.rl.models.dueling_network import create_dueling_network_layers
 from srl.rl.models.input_layer import create_input_layer
@@ -294,7 +291,8 @@ class Parameter(RLParameter):
                         0.0,
                         self.config.action_num,
                     )
-                    retrace *= self.config.retrace_h * np.minimum(1, pi_probs[action] / mu_prob)
+                    pi_prob = pi_probs[action]
+                    retrace *= self.config.retrace_h * np.minimum(1, pi_prob / mu_prob)
                     if retrace == 0:
                         break  # 0以降は伝搬しないので切りあげる
 

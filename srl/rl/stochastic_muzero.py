@@ -614,7 +614,7 @@ class Trainer(RLTrainer):
                 q_loss += self.cross_entropy_loss(values_list[t], q_pred)
                 vae_loss += tf.reduce_mean(tf.square(chance_code - chance_vae_pred))  # MSE
 
-                hidden_states, rewards_pred = self.parameter.dynamics_network(hidden_states, chance_code)
+                hidden_states, rewards_pred = self.parameter.dynamics_network(after_states, chance_code)
                 p_pred, v_pred = self.parameter.prediction_network(hidden_states)
 
                 policy_loss += self.cross_entropy_loss(policies_list[t + 1], p_pred)

@@ -154,7 +154,7 @@ examples/custom_rl.ipynb
 |SAC                    |Continuous |Continuous|100%||
 
 
-## Alpha series
+## AlphaSeries
 
 |Algorithm  |Observation|Action     |ProgressRate||
 |-----------|-----------|-----------|----|---|
@@ -163,13 +163,27 @@ examples/custom_rl.ipynb
 |MuZero     |Continuous |Discrete   |100%|MDP base|
 |StochasticMuZero|Continuous|Discrete|100%|MDP base|
 
-## Model Base
+## ModelBase
 
 |Algorithm  |Observation|Action     |ProgressRate||
 |-----------|-----------|-----------|----|---|
 |DynaQ      |Discrete   |Discrete   | 10%||
+
+### WorldModels
+
+|Algorithm  |Observation|Action     |ProgressRate||
+|-----------|-----------|-----------|----|---|
 |WorldModels|           |           |  0%||
+|PlaNet     |           |           |  0%||
+|Dreamer    |           |           |  0%||
 |DreamerV2  |           |           |  0%||
+
+
+## Offline
+
+|Algorithm  |Observation|Action     |ProgressRate||
+|-----------|-----------|-----------|----|---|
+|CQL        |Discrete   |Discrete   | 0%||
 
 
 

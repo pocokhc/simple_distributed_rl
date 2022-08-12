@@ -214,10 +214,15 @@ class _DynamicsNetwork(keras.Model):
             use_bias=False,
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
-        c2 = kl.LayerNormalization()(c2)
-        c2 = kl.ReLU()(c2)
+        c2 = kl.BatchNormalization()(c2)
+        c2 = kl.LeakyReLU()(c2)
         c2 = kl.Flatten()(c2)
-        c2 = kl.Dense(v_num, activation="softmax")(c2)
+        c2 = kl.Dense(
+            v_num,
+            activation="softmax",
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+        )(c2)
 
         self.model = keras.Model(in_state, [c1, c2], name="DynamicsNetwork")
 
@@ -267,10 +272,15 @@ class _PredictionNetwork(keras.Model):
             use_bias=False,
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
-        c1 = kl.LayerNormalization()(c1)
-        c1 = kl.ReLU()(c1)
+        c1 = kl.BatchNormalization()(c1)
+        c1 = kl.LeakyReLU()(c1)
         c1 = kl.Flatten()(c1)
-        policy = kl.Dense(config.action_num, activation="softmax")(c1)
+        policy = kl.Dense(
+            config.action_num,
+            activation="softmax",
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+        )(c1)
 
         # --- value
         c2 = kl.Conv2D(
@@ -280,10 +290,15 @@ class _PredictionNetwork(keras.Model):
             use_bias=False,
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
-        c2 = kl.LayerNormalization()(c2)
-        c2 = kl.ReLU()(c2)
+        c2 = kl.BatchNormalization()(c2)
+        c2 = kl.LeakyReLU()(c2)
         c2 = kl.Flatten()(c2)
-        value = kl.Dense(v_num, activation="softmax")(c2)
+        value = kl.Dense(
+            v_num,
+            activation="softmax",
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+        )(c2)
 
         self.model = keras.Model(in_layer, [policy, value], name="PredictionNetwork")
 
@@ -348,10 +363,15 @@ class _AfterstatePredictionNetwork(keras.Model):
             use_bias=False,
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
-        c1 = kl.LayerNormalization()(c1)
-        c1 = kl.ReLU()(c1)
+        c1 = kl.BatchNormalization()(c1)
+        c1 = kl.LeakyReLU()(c1)
         c1 = kl.Flatten()(c1)
-        c1 = kl.Dense(config.codebook_size, activation="softmax")(c1)
+        c1 = kl.Dense(
+            config.codebook_size,
+            activation="softmax",
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+        )(c1)
 
         # --- Q
         c2 = kl.Conv2D(
@@ -361,10 +381,15 @@ class _AfterstatePredictionNetwork(keras.Model):
             use_bias=False,
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
-        c2 = kl.LayerNormalization()(c2)
-        c2 = kl.ReLU()(c2)
+        c2 = kl.BatchNormalization()(c2)
+        c2 = kl.LeakyReLU()(c2)
         c2 = kl.Flatten()(c2)
-        c2 = kl.Dense(v_num, activation="softmax")(c2)
+        c2 = kl.Dense(
+            v_num,
+            activation="softmax",
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+        )(c2)
 
         self.model = keras.Model(in_layer, [c1, c2], name="AfterstatePredictionNetwork")
 
@@ -401,10 +426,15 @@ class _VQ_VAE(keras.Model):
             kernel_initializer="he_normal",
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
-        c = kl.LayerNormalization()(c)
-        c = kl.ReLU()(c)
+        c = kl.BatchNormalization()(c)
+        c = kl.LeakyReLU()(c)
         c = kl.Flatten()(c)
-        c = kl.Dense(config.codebook_size, activation="softmax")(c)
+        c = kl.Dense(
+            config.codebook_size,
+            activation="softmax",
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+        )(c)
 
         self.model = keras.Model(in_state, c, name="VQ_VAE")
 
@@ -581,7 +611,7 @@ class Trainer(RLTrainer):
                 chance_code, chance_vae_pred = self.parameter.vq_vae(states_list[t + 1])
 
                 chance_loss += self.cross_entropy_loss(chance_code, chance_pred)
-                q_loss += self.cross_entropy_loss(values_list[0], q_pred)
+                q_loss += self.cross_entropy_loss(values_list[t], q_pred)
                 vae_loss += tf.reduce_mean(tf.square(chance_code - chance_vae_pred))  # MSE
 
                 hidden_states, rewards_pred = self.parameter.dynamics_network(hidden_states, chance_code)

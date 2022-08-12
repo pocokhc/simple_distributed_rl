@@ -144,14 +144,14 @@ examples/custom_rl.ipynb
 
 ### PolicyBase/ActorCritic
 
-|Algorithm              |Observation|Action    |ProgressRate||
-|-----------------------|-----------|----------|----|---|
-|VanillaPolicy          |Discrete   |Both      |100%||
-|A3C/A2C                |           |          |  0%||
-|TRPO                   |Continuous |          |   -||
-|PPO                    |Continuous |          |  0%||
-|DDPG/TD3               |Continuous |Continuous|100%||
-|SAC                    |Continuous |Continuous|100%||
+|Algorithm              |Observation|Action    |ProgressRate|
+|-----------------------|-----------|----------|----|
+|VanillaPolicy          |Discrete   |Both      |100%|
+|A3C/A2C                |           |          |  0%|
+|TRPO                   |Continuous |          |   -|
+|PPO                    |Continuous |          |  0%|
+|DDPG/TD3               |Continuous |Continuous|100%|
+|SAC                    |Continuous |Continuous|100%|
 
 
 ## AlphaSeries
@@ -165,25 +165,25 @@ examples/custom_rl.ipynb
 
 ## ModelBase
 
-|Algorithm  |Observation|Action     |ProgressRate||
-|-----------|-----------|-----------|----|---|
-|DynaQ      |Discrete   |Discrete   | 10%||
+|Algorithm  |Observation|Action     |ProgressRate|
+|-----------|-----------|-----------|----|
+|DynaQ      |Discrete   |Discrete   | 10%|
 
 ### WorldModels
 
-|Algorithm  |Observation|Action     |ProgressRate||
-|-----------|-----------|-----------|----|---|
-|WorldModels|           |           |  0%||
-|PlaNet     |           |           |  0%||
-|Dreamer    |           |           |  0%||
-|DreamerV2  |           |           |  0%||
+|Algorithm  |Observation|Action     |ProgressRate|
+|-----------|-----------|-----------|----|
+|WorldModels|           |           |  0%|
+|PlaNet     |           |           |  0%|
+|Dreamer    |           |           |  0%|
+|DreamerV2  |           |           |  0%|
 
 
 ## Offline
 
-|Algorithm  |Observation|Action     |ProgressRate||
-|-----------|-----------|-----------|----|---|
-|CQL        |Discrete   |Discrete   | 0%||
+|Algorithm  |Observation|Action     |ProgressRate|
+|-----------|-----------|-----------|----|
+|CQL        |Discrete   |Discrete   |  0%|
 
 
 

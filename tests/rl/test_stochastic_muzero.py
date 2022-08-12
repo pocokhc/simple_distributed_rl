@@ -18,12 +18,12 @@ class Test(unittest.TestCase):
 
     def test_verify_grid(self):
         rl_config = srl.rl.stochastic_muzero.Config(
-            num_simulations=20,
+            num_simulations=10,
             discount=0.9,
             batch_size=16,
             memory_warmup_size=200,
             memory_name="ReplayMemory",
-            lr_init=0.005,
+            lr_init=0.01,
             lr_decay_steps=10_000,
             v_min=-2,
             v_max=2,
@@ -37,11 +37,11 @@ class Test(unittest.TestCase):
         )
         rl_config.processors = [grid.LayerProcessor()]
         self.tester.play_verify_singleplay(
-            "EasyGrid",
+            "Grid",
             rl_config,
-            5000,
+            10000,
             test_num=10,
-            is_valid=True,
+            # is_valid=True,
         )
 
 

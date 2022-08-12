@@ -454,7 +454,7 @@ class Worker(DiscreteActionWorker):
         ]
 
         self.recent_states.pop(0)
-        self.recent_states.append(state.astype(float))
+        self.recent_states.append(state.astype(np.float32))
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
@@ -495,7 +495,7 @@ class Worker(DiscreteActionWorker):
             return {}
 
         self.recent_states.pop(0)
-        self.recent_states.append(next_state.astype(float))
+        self.recent_states.append(next_state.astype(np.float32))
         self.recent_actions.pop(0)
         self.recent_actions.append(self.action)
         self.recent_probs.pop(0)

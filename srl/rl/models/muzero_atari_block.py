@@ -80,7 +80,7 @@ class _ResidualBlock(keras.Model):
             kernel_regularizer=regularizers.l2(l2),
         )
         self.bn1 = kl.BatchNormalization()
-        self.relu1 = kl.LeakyReLU()
+        self.relu1 = kl.ReLU()
         self.conv2 = kl.Conv2D(
             filters=filters,
             kernel_size=kernel_size,
@@ -90,7 +90,7 @@ class _ResidualBlock(keras.Model):
             kernel_regularizer=regularizers.l2(l2),
         )
         self.bn2 = kl.BatchNormalization()
-        self.relu2 = kl.LeakyReLU()
+        self.relu2 = kl.ReLU()
 
     def call(self, x):
         x1 = self.conv1(x)

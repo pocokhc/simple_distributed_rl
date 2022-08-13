@@ -239,7 +239,7 @@ class _DynamicsNetwork(keras.Model):
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
         c2 = kl.BatchNormalization()(c2)
-        c2 = kl.LeakyReLU()(c2)
+        c2 = kl.ReLU()(c2)
         c2 = kl.Flatten()(c2)
         if config.reward_dense_units > 0:
             c2 = kl.Dense(config.reward_dense_units, activation="swish")(c2)
@@ -296,7 +296,7 @@ class _PredictionNetwork(keras.Model):
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
         c1 = kl.BatchNormalization()(c1)
-        c1 = kl.LeakyReLU()(c1)
+        c1 = kl.ReLU()(c1)
         c1 = kl.Flatten()(c1)
         policy = kl.Dense(config.action_num, activation="softmax")(c1)
 
@@ -309,7 +309,7 @@ class _PredictionNetwork(keras.Model):
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
         c2 = kl.BatchNormalization()(c2)
-        c2 = kl.LeakyReLU()(c2)
+        c2 = kl.ReLU()(c2)
         c2 = kl.Flatten()(c2)
         value = kl.Dense(v_num, activation="softmax")(c2)
 

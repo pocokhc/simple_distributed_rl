@@ -358,7 +358,7 @@ class _AfterstatePredictionNetwork(keras.Model):
 
         in_layer = c = kl.Input(shape=as_shape)
 
-        # --- chance
+        # --- code
         c1 = kl.Conv2D(
             2,
             kernel_size=(1, 1),

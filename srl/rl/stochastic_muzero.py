@@ -7,17 +7,16 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.define import RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
-from srl.rl.functions.common import (
-    float_category_decode,
-    float_category_encode,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
+from srl.base.rl.remote_memory.priority_experience_replay import \
+    PriorityExperienceReplay
+from srl.rl.functions.common import (float_category_decode,
+                                     float_category_encode,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling)
 from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.input_layer import create_input_layer
 from tensorflow.keras import layers as kl
@@ -78,6 +77,7 @@ class Config(DiscreteActionConfig):
     input_image_block: kl.Layer = AlphaZeroImageBlock
     input_image_block_kwargs: dict = None
     dynamics_blocks: int = 15
+    commitment_cost: float = 0.25  # VQ_VAEのβ
     weight_decay: float = 0.0001
     weight_decay_afterstate: float = 0.001  # 強めに掛けたほうが安定する気がする
 
@@ -618,7 +618,7 @@ class Trainer(RLTrainer):
 
                 chance_loss += self.cross_entropy_loss(chance_code, chance_pred)
                 q_loss += self.cross_entropy_loss(values_list[t], q_pred)
-                vae_loss += tf.reduce_mean(tf.square(chance_code - chance_vae_pred))  # MSE
+                vae_loss += tf.reduce_mean(tf.square(chance_code - chance_vae_pred), axis=1)  # MSE
 
                 hidden_states, rewards_pred = self.parameter.dynamics_network(after_states, chance_code)
                 p_pred, v_pred = self.parameter.prediction_network(hidden_states)
@@ -627,7 +627,7 @@ class Trainer(RLTrainer):
                 v_loss += self.cross_entropy_loss(values_list[t + 1], v_pred)
                 reward_loss += self.cross_entropy_loss(rewards_list[t], rewards_pred)
 
-            loss = v_loss + policy_loss + reward_loss + chance_loss + q_loss + vae_loss
+            loss = v_loss + policy_loss + reward_loss + chance_loss + q_loss + self.config.commitment_cost * vae_loss
             loss = tf.reduce_mean(loss * weights)
 
             # 各ネットワークの正則化項を加える
@@ -966,6 +966,9 @@ class Worker(DiscreteActionWorker):
         def _render_sub(a: int) -> str:
             after_state = self.parameter.afterstate_dynamics_network(self.s0, [a])
             c, q_category = self.parameter.afterstate_prediction_network(after_state)
+            print(np.mean(after_state))
+            print(c)
+            print(q_category.numpy()[0])
             q = float_category_decode(q_category.numpy()[0], self.config.v_min)
             c = self.parameter.vq_vae.encode(c)
             _, reward_category = self.parameter.dynamics_network(after_state, c)

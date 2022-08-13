@@ -27,12 +27,11 @@ class Test(unittest.TestCase):
             lr_decay_steps=10_000,
             v_min=-2,
             v_max=2,
-            unroll_steps=1,
+            unroll_steps=2,
             input_image_block=AlphaZeroImageBlock,
             input_image_block_kwargs={"n_blocks": 1, "filters": 16},
             dynamics_blocks=1,
             enable_rescale=False,
-            weight_decay=0,
             codebook_size=4,
         )
         rl_config.processors = [grid.LayerProcessor()]

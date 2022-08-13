@@ -91,7 +91,7 @@ class Rendering(Callback):
             print(info_text)
             if env_text != "":
                 print(env_text)
-            if rl_text != "" and not is_skip:
+            if rl_text != "" and not is_skip and not env.done:
                 print(rl_text)
 
         if self.render_window or self.enable_animation:

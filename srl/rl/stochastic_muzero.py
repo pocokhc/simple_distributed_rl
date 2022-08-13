@@ -18,9 +18,8 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
-from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock, ResidualBlock
+from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.input_layer import create_input_layer
-from srl.rl.models.muzero_atari_block import MuZeroAtariBlock
 from tensorflow.keras import layers as kl
 from tensorflow.keras import regularizers
 
@@ -80,6 +79,7 @@ class Config(DiscreteActionConfig):
     input_image_block_kwargs: dict = None
     dynamics_blocks: int = 15
     weight_decay: float = 0.0001
+    weight_decay_afterstate: float = 0.001  # 強めに掛けたほうが安定する気がする
 
     # rescale
     enable_rescale: bool = True
@@ -215,13 +215,14 @@ class _DynamicsNetwork(keras.Model):
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
         c2 = kl.BatchNormalization()(c2)
-        c2 = kl.LeakyReLU()(c2)
+        c2 = kl.ReLU()(c2)
         c2 = kl.Flatten()(c2)
         c2 = kl.Dense(
             v_num,
             activation="softmax",
             kernel_initializer="truncated_normal",
             bias_initializer="truncated_normal",
+            kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c2)
 
         self.model = keras.Model(in_state, [c1, c2], name="DynamicsNetwork")
@@ -273,13 +274,14 @@ class _PredictionNetwork(keras.Model):
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
         c1 = kl.BatchNormalization()(c1)
-        c1 = kl.LeakyReLU()(c1)
+        c1 = kl.ReLU()(c1)
         c1 = kl.Flatten()(c1)
         policy = kl.Dense(
             config.action_num,
             activation="softmax",
             kernel_initializer="truncated_normal",
             bias_initializer="truncated_normal",
+            kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c1)
 
         # --- value
@@ -291,13 +293,14 @@ class _PredictionNetwork(keras.Model):
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
         c2 = kl.BatchNormalization()(c2)
-        c2 = kl.LeakyReLU()(c2)
+        c2 = kl.ReLU()(c2)
         c2 = kl.Flatten()(c2)
         value = kl.Dense(
             v_num,
             activation="softmax",
             kernel_initializer="truncated_normal",
             bias_initializer="truncated_normal",
+            kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c2)
 
         self.model = keras.Model(in_layer, [policy, value], name="PredictionNetwork")
@@ -324,7 +327,7 @@ class _AfterstateDynamicsNetwork(keras.Model):
         c = AlphaZeroImageBlock(
             n_blocks=config.dynamics_blocks,
             filters=ch,
-            l2=config.weight_decay,
+            l2=config.weight_decay_afterstate,
         )(c)
 
         self.model = keras.Model(in_state, c, name="AfterstateDynamicsNetwork")
@@ -364,13 +367,14 @@ class _AfterstatePredictionNetwork(keras.Model):
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
         c1 = kl.BatchNormalization()(c1)
-        c1 = kl.LeakyReLU()(c1)
+        c1 = kl.ReLU()(c1)
         c1 = kl.Flatten()(c1)
         c1 = kl.Dense(
             config.codebook_size,
             activation="softmax",
             kernel_initializer="truncated_normal",
             bias_initializer="truncated_normal",
+            kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c1)
 
         # --- Q
@@ -382,13 +386,14 @@ class _AfterstatePredictionNetwork(keras.Model):
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
         c2 = kl.BatchNormalization()(c2)
-        c2 = kl.LeakyReLU()(c2)
+        c2 = kl.ReLU()(c2)
         c2 = kl.Flatten()(c2)
         c2 = kl.Dense(
             v_num,
             activation="softmax",
             kernel_initializer="truncated_normal",
             bias_initializer="truncated_normal",
+            kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c2)
 
         self.model = keras.Model(in_layer, [c1, c2], name="AfterstatePredictionNetwork")
@@ -427,13 +432,14 @@ class _VQ_VAE(keras.Model):
             kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
         c = kl.BatchNormalization()(c)
-        c = kl.LeakyReLU()(c)
+        c = kl.ReLU()(c)
         c = kl.Flatten()(c)
         c = kl.Dense(
             config.codebook_size,
             activation="softmax",
             kernel_initializer="truncated_normal",
             bias_initializer="truncated_normal",
+            kernel_regularizer=regularizers.l2(config.weight_decay),
         )(c)
 
         self.model = keras.Model(in_state, c, name="VQ_VAE")
@@ -665,12 +671,12 @@ class Trainer(RLTrainer):
 
         return {
             "loss": loss.numpy(),
-            "v_loss": v_loss.numpy(),
-            "policy_loss": policy_loss.numpy(),
-            "reward_loss": reward_loss.numpy(),
-            "chance_loss": chance_loss.numpy(),
-            "q_loss": q_loss.numpy(),
-            "vae_loss": vae_loss.numpy(),
+            "v_loss": np.mean(v_loss.numpy()),
+            "policy_loss": np.mean(policy_loss.numpy()),
+            "reward_loss": np.mean(reward_loss.numpy()),
+            "chance_loss": np.mean(chance_loss.numpy()),
+            "q_loss": np.mean(q_loss.numpy()),
+            "vae_loss": np.mean(vae_loss.numpy()),
             "lr": self.optimizer.learning_rate.numpy(),
         }
 

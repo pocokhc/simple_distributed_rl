@@ -242,8 +242,10 @@ class _DynamicsNetwork(keras.Model):
         c2 = kl.ReLU()(c2)
         c2 = kl.Flatten()(c2)
         if config.reward_dense_units > 0:
-            c2 = kl.Dense(config.reward_dense_units, activation="swish")(c2)
-        reward = kl.Dense(v_num, activation="softmax")(c2)
+            c2 = kl.Dense(
+                config.reward_dense_units, activation="swish", kernel_regularizer=regularizers.l2(config.weight_decay)
+            )(c2)
+        reward = kl.Dense(v_num, activation="softmax", kernel_regularizer=regularizers.l2(config.weight_decay))(c2)
 
         self.model = keras.Model(in_state, [c1, reward], name="DynamicsNetwork")
 
@@ -298,7 +300,9 @@ class _PredictionNetwork(keras.Model):
         c1 = kl.BatchNormalization()(c1)
         c1 = kl.ReLU()(c1)
         c1 = kl.Flatten()(c1)
-        policy = kl.Dense(config.action_num, activation="softmax")(c1)
+        policy = kl.Dense(
+            config.action_num, activation="softmax", kernel_regularizer=regularizers.l2(config.weight_decay)
+        )(c1)
 
         # --- value
         c2 = kl.Conv2D(
@@ -311,7 +315,7 @@ class _PredictionNetwork(keras.Model):
         c2 = kl.BatchNormalization()(c2)
         c2 = kl.ReLU()(c2)
         c2 = kl.Flatten()(c2)
-        value = kl.Dense(v_num, activation="softmax")(c2)
+        value = kl.Dense(v_num, activation="softmax", kernel_regularizer=regularizers.l2(config.weight_decay))(c2)
 
         self.model = keras.Model(in_layer, [policy, value], name="PredictionNetwork")
 

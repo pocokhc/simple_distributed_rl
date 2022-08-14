@@ -102,7 +102,7 @@ def register(
 
     name = config_cls.getName()
     if name in _registry:
-        logger.warning(f"{name} was already registered. It will be overwritten.")
+        raise ValueError(f"{name} was already registered.")
     _registry[name] = [
         memory_entry_point,
         parameter_entry_point,
@@ -118,5 +118,5 @@ def register_worker(
     global _registry_worker
 
     if name in _registry_worker:
-        logger.warning(f"{name} was already registered. It will be overwritten.")
+        raise ValueError(f"{name} was already registered.")
     _registry_worker[name] = worker_entry_point

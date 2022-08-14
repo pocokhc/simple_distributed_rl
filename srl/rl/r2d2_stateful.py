@@ -145,7 +145,7 @@ class Config(DiscreteActionConfig):
 
     @staticmethod
     def getName() -> str:
-        return "R2D2"
+        return "R2D2_stateful"
 
     def assert_params(self) -> None:
         super().assert_params()

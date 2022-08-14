@@ -2,15 +2,7 @@ import logging
 from abc import abstractmethod
 
 import numpy as np
-from srl.base.define import (
-    ContinuousAction,
-    EnvObservationType,
-    Info,
-    RLAction,
-    RLActionType,
-    RLObservation,
-    RLObservationType,
-)
+from srl.base.define import ContinuousAction, EnvObservationType, Info, RLAction, RLActionType, RLObservation
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.rl.base import RLConfig, RLWorker, WorkerRun
 
@@ -22,7 +14,7 @@ class ContinuousActionConfig(RLConfig):
     def action_type(self) -> RLActionType:
         return RLActionType.CONTINUOUS
 
-    def _set_config_by_env(
+    def set_config_by_env(
         self,
         env: EnvRun,
         env_action_space: SpaceBase,

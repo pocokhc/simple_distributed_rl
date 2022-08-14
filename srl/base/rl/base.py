@@ -7,9 +7,16 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 import numpy as np
-from srl.base.define import (EnvAction, EnvObservation, EnvObservationType,
-                             Info, RLAction, RLActionType, RLObservation,
-                             RLObservationType)
+from srl.base.define import (
+    EnvAction,
+    EnvObservation,
+    EnvObservationType,
+    Info,
+    RLAction,
+    RLActionType,
+    RLObservation,
+    RLObservationType,
+)
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
@@ -28,6 +35,7 @@ class RLConfig(ABC):
         dummy_state_val: float = 0.0,
         parameter_path: str = "",
         remote_memory_path: str = "",
+        use_rl_processor: bool = True,
     ) -> None:
         if processors is None:
             self.processors = []
@@ -41,10 +49,14 @@ class RLConfig(ABC):
         self.dummy_state_val = dummy_state_val
         self.parameter_path = parameter_path
         self.remote_memory_path = remote_memory_path
+        self.use_rl_processor = use_rl_processor
 
     def assert_params(self) -> None:
         assert self.window_length > 0
 
+    # ----------------------------
+    # RL config
+    # ----------------------------
     @staticmethod
     @abstractmethod
     def getName() -> str:
@@ -60,36 +72,51 @@ class RLConfig(ABC):
     def observation_type(self) -> RLObservationType:
         raise NotImplementedError()
 
-    @abstractmethod
-    def _set_config_by_env(
+    def set_config_by_env(
         self,
         env: EnvRun,
         env_action_space: SpaceBase,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationType,
     ) -> None:
-        raise NotImplementedError()
+        pass  # NotImplemented
 
-    def set_config_by_env(self, env: EnvRun) -> None:
+    def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
+        pass  # NotImplemented
+
+    def set_processor(self) -> List[Processor]:
+        return []  # NotImplemented
+
+    # ----------------------------
+    # reset config
+    # ----------------------------
+    def set_env(self, env: EnvRun) -> None:
+        self.__env = env
+        self._is_set_env = True
+
+    def reset_config(self) -> None:
         # env property
-        self.env_max_episode_steps = env.max_episode_steps
-        self.env_player_num = env.player_num
+        self.env_max_episode_steps = self.__env.max_episode_steps
+        self.env_player_num = self.__env.player_num
 
-        self._env_action_space = env.action_space
-        env_observation_space = env.observation_space
-        env_observation_type = env.observation_type
+        self._env_action_space = self.__env.action_space
+        env_observation_space = self.__env.observation_space
+        env_observation_type = self.__env.observation_type
 
         # observation_typeの上書き
         if self.override_env_observation_type != EnvObservationType.UNKNOWN:
             env_observation_type = self.override_env_observation_type
 
         # processor
-        for processor in self.processors:
+        self._run_processors = self.processors[:]
+        if self.use_rl_processor:
+            self._run_processors.extend(self.set_processor())
+        for processor in self._run_processors:
             env_observation_space, env_observation_type = processor.change_observation_info(
                 env_observation_space,
                 env_observation_type,
                 self.observation_type,
-                env,
+                self.__env,
             )
 
         # window_length
@@ -113,24 +140,23 @@ class RLConfig(ABC):
         # ):
         #    self._env_observation_space.set_division(self.observation_division_num)
 
-        self._set_config_by_env(env, self._env_action_space, env_observation_space, env_observation_type)
-        self._is_set_config_by_env = True
+        self.set_config_by_env(self.__env, self._env_action_space, env_observation_space, env_observation_type)
 
         logger.debug(f"max_episode_steps     : {self.env_max_episode_steps}")
         logger.debug(f"player_num            : {self.env_player_num}")
-        logger.debug(f"action_space(env)     : {env.action_space}")
+        logger.debug(f"action_space(env)     : {self.__env.action_space}")
         logger.debug(f"action_space(rl)      : {self._env_action_space}")
-        logger.debug(f"observation_type(env) : {env.observation_type}")
+        logger.debug(f"observation_type(env) : {self.__env.observation_type}")
         logger.debug(f"observation_type(rl)  : {self.env_observation_type}")
-        logger.debug(f"observation_space(env): {env.observation_space}")
+        logger.debug(f"observation_space(env): {self.__env.observation_space}")
         logger.debug(f"observation_space(rl) : {self._env_observation_space}")
 
-    def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
-        pass  # NotImplemented
-
+    # ----------------------------
+    # utils
+    # ----------------------------
     @property
-    def is_set_config_by_env(self) -> bool:
-        return hasattr(self, "_is_set_config_by_env")
+    def is_set_env(self) -> bool:
+        return hasattr(self, "_is_set_env")
 
     @property
     def action_space(self) -> SpaceBase:
@@ -292,7 +318,7 @@ class RLWorker(WorkerBase):
     # encode/decode
     # ------------------------------
     def state_encode(self, state: EnvObservation, env: EnvRun) -> RLObservation:
-        for processor in self.config.processors:
+        for processor in self.config._run_processors:
             state = processor.process_observation(state, env)
 
         if self.config.observation_type == RLObservationType.DISCRETE:
@@ -327,7 +353,7 @@ class RLWorker(WorkerBase):
         return env_action
 
     def reward_encode(self, reward: float, env: EnvRun) -> float:
-        for processor in self.config.processors:
+        for processor in self.config._run_processors:
             reward = processor.process_reward(reward, env)
         return reward
 
@@ -409,13 +435,19 @@ class RLWorker(WorkerBase):
     # ------------------------------------
     # utils
     # ------------------------------------
-    def get_invalid_actions(self) -> List[RLAction]:
+    def get_invalid_actions(self, env=None) -> List[RLAction]:
+        if env is None:
+            env = self.__env
         return [self.action_encode(a) for a in self.__env.get_invalid_actions(self.player_index)]
 
-    def get_valid_actions(self) -> List[RLAction]:
+    def get_valid_actions(self, env=None) -> List[RLAction]:
+        if env is None:
+            env = self.__env
         return [self.action_encode(a) for a in self.__env.get_valid_actions(self.player_index)]
 
-    def sample_action(self) -> RLAction:
+    def sample_action(self, env=None) -> RLAction:
+        if env is None:
+            env = self.__env
         return self.action_encode(self.__env.sample(self.player_index))
 
     def env_step(self, env: EnvRun, action: RLAction, **kwargs) -> Tuple[np.ndarray, List[float], bool]:

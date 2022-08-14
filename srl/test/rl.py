@@ -190,10 +190,6 @@ class TestRL:
         if env_name == "PendulumImage-v0":
             rl_config.override_env_observation_type = EnvObservationType.GRAY_2ch
 
-        if is_atari:
-            rl_config.override_env_observation_type = EnvObservationType.COLOR
-            rl_config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
-
         # create config
         config = sequence.Config(env_config, rl_config)
         if is_atari:

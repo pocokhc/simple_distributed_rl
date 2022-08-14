@@ -172,10 +172,10 @@ def main():
 
     # init
     env = srl.envs.make(env_config)
-    rl_config.set_config_by_env(env)
+    rl_config.set_env(env)
 
     # --- async
-    MPManager.register("RemoteMemory", make_remote_memory(rl_config, get_class=True))
+    MPManager.register("RemoteMemory", make_remote_memory(rl_config, return_class=True))
     MPManager.register("Board", Board)
 
     with MPManager() as manager:

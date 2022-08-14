@@ -15,7 +15,7 @@ class DiscreteActionConfig(RLConfig):
     def action_type(self) -> RLActionType:
         return RLActionType.DISCRETE
 
-    def _set_config_by_env(
+    def set_config_by_env(
         self,
         env: EnvRun,
         env_action_space: SpaceBase,

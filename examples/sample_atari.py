@@ -2,7 +2,6 @@ import warnings
 
 import numpy as np
 import srl
-from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.runner import mp, sequence
 
 warnings.simplefilter("ignore")
@@ -12,10 +11,7 @@ def main(is_mp):
     env_config = srl.envs.Config("ALE/Breakout-v5")
 
     rl_config = srl.rl.rainbow.Config(multisteps=5, memory_beta_initial=0.8, lr=0.0001)
-
-    # atari processor
     rl_config.window_length = 4
-    rl_config.processors = [ImageProcessor(gray=True, resize=(84, 84), enable_norm=True)]
 
     config = sequence.Config(env_config, rl_config)
 

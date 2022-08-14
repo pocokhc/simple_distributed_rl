@@ -90,33 +90,37 @@ class Config:
         self.make_env()
         self.rl_config.assert_params()
 
-    def make_env(self) -> EnvRun:
+    def _set_env(self):
         if self.env is None:
             self.env = srl.envs.make(self.env_config)
-            self.rl_config.set_config_by_env(self.env)
+            self.rl_config.set_env(self.env)
+
+    def make_env(self) -> EnvRun:
+        self._set_env()
         self.env.init()
         return self.env
 
-    def make_parameter(self) -> RLParameter:
-        self.make_env()
-        return make_parameter(self.rl_config)
+    def make_parameter(self, reset_config: bool = True) -> RLParameter:
+        self._set_env()
+        return make_parameter(self.rl_config, reset_config=reset_config)
 
-    def make_remote_memory(self) -> RLRemoteMemory:
-        self.make_env()
-        return make_remote_memory(self.rl_config)
+    def make_remote_memory(self, reset_config: bool = True) -> RLRemoteMemory:
+        self._set_env()
+        return make_remote_memory(self.rl_config, reset_config=reset_config)
 
-    def make_trainer(self, parameter: RLParameter, remote_memory: RLRemoteMemory):
-        self.make_env()
-        return make_trainer(self.rl_config, parameter, remote_memory)
+    def make_trainer(self, parameter: RLParameter, remote_memory: RLRemoteMemory, reset_config: bool = True):
+        self._set_env()
+        return make_trainer(self.rl_config, parameter, remote_memory, reset_config)
 
     def make_worker(
         self,
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
         actor_id: int = 0,
+        reset_config: bool = True,
     ) -> WorkerRun:
         env = self.make_env()
-        worker = make_worker(self.rl_config, env, parameter, remote_memory, actor_id)
+        worker = make_worker(self.rl_config, env, parameter, remote_memory, actor_id, reset_config)
         worker.set_play_info(self.training, self.distributed)
         return worker
 
@@ -126,6 +130,7 @@ class Config:
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
         actor_id: int = 0,
+        reset_config: bool = True,
     ):
         env = self.make_env()
 
@@ -139,7 +144,7 @@ class Config:
 
         # none はベース
         if player_obj is None:
-            return self.make_worker(parameter, remote_memory, actor_id)
+            return self.make_worker(parameter, remote_memory, actor_id, reset_config)
 
         # 文字列はenv側またはルールベースのアルゴリズム
         if isinstance(player_obj, str):
@@ -155,7 +160,7 @@ class Config:
         if isinstance(player_obj, object) and issubclass(player_obj.__class__, RLConfig):
             parameter = make_parameter(self.rl_config)
             remote_memory = make_remote_memory(self.rl_config)
-            worker = make_worker(player_obj, env, parameter, remote_memory, actor_id=actor_id)
+            worker = make_worker(player_obj, env, parameter, remote_memory, actor_id=actor_id, reset_config=True)
             worker.set_play_info(training=False, distributed=False)
             return worker
 
@@ -486,14 +491,15 @@ def play(
     # --- config
     config = config.copy(env_copy=True)
     config.assert_params()
+    config.rl_config.reset_config()
 
     # --- parameter/remote_memory/trainer
     if parameter is None:
-        parameter = config.make_parameter()
+        parameter = config.make_parameter(reset_config=False)
     if remote_memory is None:
-        remote_memory = config.make_remote_memory()
+        remote_memory = config.make_remote_memory(reset_config=False)
     if config.training and not config.trainer_disable:
-        trainer = config.make_trainer(parameter, remote_memory)
+        trainer = config.make_trainer(parameter, remote_memory, reset_config=False)
     else:
         trainer = None
     callbacks = config.callbacks
@@ -506,7 +512,9 @@ def play(
         valid_episode = 0
 
     # --- workers
-    workers = [config.make_player(i, parameter, remote_memory, actor_id) for i in range(env.player_num)]
+    workers = [
+        config.make_player(i, parameter, remote_memory, actor_id, reset_config=False) for i in range(env.player_num)
+    ]
 
     # callback
     _params = {

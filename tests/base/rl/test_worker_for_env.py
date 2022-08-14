@@ -3,8 +3,7 @@ from typing import Any, cast
 
 import numpy as np
 import srl
-from srl.base.define import (EnvObservationType, Info, RLAction, RLActionType,
-                             RLObservationType)
+from srl.base.define import EnvObservationType, Info, RLAction, RLActionType, RLObservationType
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.genre.singleplay import SinglePlayEnv
 from srl.base.env.registration import register as register_env
@@ -86,7 +85,7 @@ class StubRLConfig(RLConfig):
     def observation_type(self) -> RLObservationType:
         return self._observation_type
 
-    def _set_config_by_env(
+    def set_config_by_env(
         self,
         env: EnvBase,
         env_action_space: SpaceBase,
@@ -171,8 +170,8 @@ class Test(unittest.TestCase):
                 elif pat[1] == "Any":
                     self.rl_config._action_type = RLActionType.ANY
 
-                self.rl_config.set_config_by_env(self.env_run)
                 self.env_run.reset()
+                self.rl_config.reset_config()
                 self.worker_run.on_reset(self.env_run, 0)
                 worker = cast(RLWorker, self.worker_run.worker)
 
@@ -235,8 +234,8 @@ class Test(unittest.TestCase):
                 if pat[1] == "Any":
                     self.rl_config._observation_type = RLObservationType.ANY
 
-                self.rl_config.set_config_by_env(self.env_run)
                 self.env_run.reset()
+                self.rl_config.reset_config()
                 self.worker_run.on_reset(self.env_run, 0)
                 worker = cast(RLWorker, self.worker_run.worker)
 

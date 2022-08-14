@@ -15,7 +15,6 @@ from srl.runner.callback_mp import MPCallback
 from srl.runner.callbacks_mp.mp_file_logger import MPFileLogger
 from srl.runner.callbacks_mp.mp_print_progress import MPPrintProgress
 from srl.runner.file_log_plot import FileLogPlot
-from srl.utils.common import is_env_notebook
 
 logger = logging.getLogger(__name__)
 
@@ -318,7 +317,7 @@ def train(
 
     with tf.device(mp_config.allocate_main):
 
-        remote_memory_class = make_remote_memory(config.rl_config, get_class=True)
+        remote_memory_class = make_remote_memory(config.rl_config, return_class=True)
 
         # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような
         # if is_env_notebook() and "__main__" in str(remote_memory_class):

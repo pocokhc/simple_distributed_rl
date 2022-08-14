@@ -5,10 +5,12 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
-from srl.base.define import RLObservationType
+from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.processor import Processor
+from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common_tf import compute_logprob_sgp
@@ -69,6 +71,15 @@ class Config(ContinuousActionConfig):
     @property
     def observation_type(self) -> RLObservationType:
         return RLObservationType.CONTINUOUS
+
+    def set_processor(self) -> List[Processor]:
+        return [
+            ImageProcessor(
+                image_type=EnvObservationType.GRAY_2ch,
+                resize=(84, 84),
+                enable_norm=True,
+            )
+        ]
 
     @staticmethod
     def getName() -> str:

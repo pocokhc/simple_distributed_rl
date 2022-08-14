@@ -12,40 +12,52 @@ class Test(unittest.TestCase):
     def test_image(self):
         image_w = 32
         image_h = 64
+        image_resize = (84, 84)
+        enable_norm = True
 
         test_pattens = (
-            (EnvObservationType.COLOR, (image_w, image_h, 3), (84, 84)),
-            (EnvObservationType.GRAY_3ch, (image_w, image_h, 1), (84, 84)),
-            (EnvObservationType.GRAY_2ch, (image_w, image_h), (84, 84)),
+            (EnvObservationType.GRAY_2ch, (image_w, image_h), EnvObservationType.GRAY_2ch, (84, 84), True),
+            (EnvObservationType.GRAY_2ch, (image_w, image_h), EnvObservationType.GRAY_3ch, (84, 84, 1), True),
+            (EnvObservationType.GRAY_2ch, (image_w, image_h), EnvObservationType.COLOR, (84, 84, 3), False),
+            (EnvObservationType.GRAY_3ch, (image_w, image_h, 1), EnvObservationType.GRAY_2ch, (84, 84), True),
+            (EnvObservationType.GRAY_3ch, (image_w, image_h, 1), EnvObservationType.GRAY_3ch, (84, 84, 1), True),
+            (EnvObservationType.GRAY_3ch, (image_w, image_h, 1), EnvObservationType.COLOR, (84, 84, 3), False),
+            (EnvObservationType.COLOR, (image_w, image_h, 3), EnvObservationType.GRAY_2ch, (84, 84), True),
+            (EnvObservationType.COLOR, (image_w, image_h, 3), EnvObservationType.GRAY_3ch, (84, 84, 1), True),
+            (EnvObservationType.COLOR, (image_w, image_h, 3), EnvObservationType.COLOR, (84, 84, 3), True),
         )
-        for env_type, img_shape, image_resize in test_pattens:
-            with self.subTest(f"COLOR {env_type} {img_shape} {image_resize}"):
+        for env_img_type, env_img_shape, img_type, true_shape, check_val in test_pattens:
+            with self.subTest(f"{env_img_type} {env_img_shape} {img_type} {image_resize}"):
                 processor = ImageProcessor(
-                    gray=True,
+                    image_type=img_type,
                     resize=image_resize,
-                    enable_norm=True,
+                    enable_norm=enable_norm,
                 )
-                space = BoxSpace(low=0, high=255, shape=img_shape)
+                space = BoxSpace(low=0, high=255, shape=env_img_shape)
 
                 # change info
-                new_space, new_type = processor.change_observation_info(space, env_type, RLObservationType.ANY, None)
-                self.assertTrue(new_type == EnvObservationType.GRAY_2ch)
+                new_space, new_type = processor.change_observation_info(
+                    space, env_img_type, RLObservationType.ANY, None
+                )
+                self.assertTrue(new_type == img_type)
                 self.assertTrue(isinstance(new_space, BoxSpace))
                 new_space = cast(BoxSpace, new_space)
-                self.assertTrue(new_space.shape == image_resize)
-                np.testing.assert_array_equal(new_space.low, np.full(image_resize, 0))
-                np.testing.assert_array_equal(new_space.high, np.full(image_resize, 1))
+                self.assertTrue(new_space.shape == true_shape)
+                np.testing.assert_array_equal(new_space.low, np.full(true_shape, 0))
+                np.testing.assert_array_equal(new_space.high, np.full(true_shape, 1))
 
                 # decode
-                image = np.ones(img_shape).astype(np.float32)  # image
-                true_state = np.ones(image_resize).astype(np.float32) / 255
+                image = np.ones(env_img_shape).astype(np.float32)  # image
+                true_state = np.ones(true_shape).astype(np.float32) / 255
                 new_obs = processor.process_observation(image, None)
-                np.testing.assert_array_equal(true_state, new_obs)
+                self.assertTrue(true_state.shape == new_obs.shape)
+                if check_val:
+                    np.testing.assert_array_equal(true_state, new_obs)
 
     def test_image_atari(self):
         tester = TestProcessor()
         processor = ImageProcessor(
-            gray=True,
+            image_type=EnvObservationType.GRAY_2ch,
             resize=(84, 84),
             enable_norm=True,
         )

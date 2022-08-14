@@ -5,9 +5,11 @@ from typing import Any, List, cast
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
-from srl.base.define import RLObservationType
+from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.processor import Processor
+from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
@@ -106,6 +108,15 @@ class Config(DiscreteActionConfig):
             self.cnn_block_kwargs = {}
         if self.hidden_block_kwargs is None:
             self.hidden_block_kwargs = {}
+
+    def set_processor(self) -> List[Processor]:
+        return [
+            ImageProcessor(
+                image_type=EnvObservationType.GRAY_2ch,
+                resize=(84, 84),
+                enable_norm=True,
+            )
+        ]
 
     @property
     def observation_type(self) -> RLObservationType:

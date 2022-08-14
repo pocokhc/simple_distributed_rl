@@ -5,16 +5,21 @@ from typing import Any, Dict, List, Tuple, cast
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
-from srl.base.define import RLObservationType
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.processor import Processor
+from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (calc_epsilon_greedy_probs,
-                                     create_epsilon_list, inverse_rescaling,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
+from srl.rl.functions.common import (
+    calc_epsilon_greedy_probs,
+    create_epsilon_list,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
 from srl.rl.models.dqn_image_block import DQNImageBlock
 from srl.rl.models.dueling_network import DuelingNetworkBlock
 from srl.rl.models.input_layer import create_input_layer_stateful_lstm
@@ -138,6 +143,15 @@ class Config(DiscreteActionConfig):
         super().__init__()
         if self.cnn_block_kwargs is None:
             self.cnn_block_kwargs = {}
+
+    def set_processor(self) -> List[Processor]:
+        return [
+            ImageProcessor(
+                image_type=EnvObservationType.GRAY_2ch,
+                resize=(84, 84),
+                enable_norm=True,
+            )
+        ]
 
     @property
     def observation_type(self) -> RLObservationType:

@@ -5,9 +5,12 @@ from typing import Any, Dict, List, Tuple, cast
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
-from srl.base.define import RLObservationType
+import tensorflow.keras.layers as kl
+from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.processor import Processor
+from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions.common import (
@@ -20,7 +23,7 @@ from srl.rl.functions.common import (
 )
 from srl.rl.models.dqn_image_block import DQNImageBlock
 from srl.rl.models.dueling_network import DuelingNetworkBlock
-from tensorflow.keras import layers as kl
+from srl.rl.models.input_layer import create_input_layer
 
 """
 ・Paper

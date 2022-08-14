@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ImageProcessor(Processor):
 
-    gray: bool = True
+    image_type: EnvObservationType = EnvObservationType.GRAY_2ch
     resize: Optional[Tuple[int, int]] = None
     enable_norm: bool = False
 
@@ -23,7 +23,7 @@ class ImageProcessor(Processor):
         self.before_observation_type = EnvObservationType.UNKNOWN
         self.max_val = 0
 
-        self.image_types = [
+        assert self.image_type in [
             EnvObservationType.GRAY_2ch,
             EnvObservationType.GRAY_3ch,
             EnvObservationType.COLOR,
@@ -37,9 +37,11 @@ class ImageProcessor(Processor):
         env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationType]:
         self.before_observation_type = env_observation_type
+        self.is_valid = False
 
         # BoxSpace のみ対象
-        assert isinstance(env_observation_space, BoxSpace)
+        if not isinstance(env_observation_space, BoxSpace):
+            return env_observation_space, env_observation_type
 
         # 予測する
         if self.before_observation_type == EnvObservationType.UNKNOWN:
@@ -54,7 +56,12 @@ class ImageProcessor(Processor):
                     self.before_observation_type = EnvObservationType.COLOR
 
         # 画像のみ対象
-        assert self.before_observation_type in self.image_types
+        if self.before_observation_type not in [
+            EnvObservationType.GRAY_2ch,
+            EnvObservationType.GRAY_3ch,
+            EnvObservationType.COLOR,
+        ]:
+            return env_observation_space, env_observation_type
 
         shape = env_observation_space.shape
         low = env_observation_space.low
@@ -74,11 +81,16 @@ class ImageProcessor(Processor):
             high = self.max_val
         low = np.min(low)
 
-        # gray
-        new_type = EnvObservationType.GRAY_2ch
-        if not self.gray and env_observation_type == EnvObservationType.COLOR:
-            new_type = EnvObservationType.COLOR
+        # type
+        new_type = self.image_type
 
+        # shape
+        if self.image_type == EnvObservationType.GRAY_3ch:
+            new_shape = new_shape + (1,)
+        elif self.image_type == EnvObservationType.COLOR:
+            new_shape = new_shape + (3,)
+
+        self.is_valid = True
         new_space = BoxSpace(new_shape, low, high)
         return new_space, new_type
 
@@ -87,14 +99,21 @@ class ImageProcessor(Processor):
         observation: EnvObservation,
         env: EnvRun,
     ) -> EnvObservation:
-        observation = np.asarray(observation)
-        if self.before_observation_type == EnvObservationType.GRAY_3ch:
-            # (w,h,1) -> (w,h)
-            observation = np.squeeze(observation, -1)
-        elif self.before_observation_type == EnvObservationType.COLOR:
-            if self.gray:
-                # (w,h,ch) -> (w,h)
-                observation = cv2.cvtColor(observation, cv2.COLOR_RGB2GRAY)
+        if not self.is_valid:
+            return observation
+        observation = np.asarray(observation).astype(np.uint8)
+
+        if self.image_type == EnvObservationType.COLOR and (
+            self.before_observation_type == EnvObservationType.GRAY_2ch
+            or self.before_observation_type == EnvObservationType.GRAY_3ch
+        ):
+            # gray -> color
+            observation = cv2.applyColorMap(observation, cv2.COLORMAP_HOT)
+        elif self.before_observation_type == EnvObservationType.COLOR and (
+            self.image_type == EnvObservationType.GRAY_2ch or self.image_type == EnvObservationType.GRAY_3ch
+        ):
+            # color -> gray
+            observation = cv2.cvtColor(observation, cv2.COLOR_RGB2GRAY)
 
         if self.resize is not None:
             observation = cv2.resize(observation, self.resize)
@@ -102,5 +121,8 @@ class ImageProcessor(Processor):
         if self.enable_norm:
             observation = observation.astype(np.float32)
             observation /= self.max_val
+
+        if len(observation.shape) == 2 and self.image_type == EnvObservationType.GRAY_3ch:
+            observation = observation[..., np.newaxis]
 
         return observation

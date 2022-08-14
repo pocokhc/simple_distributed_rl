@@ -129,7 +129,7 @@ class Worker(ModelBaseWorker):
 
     def call_policy(self, _state: np.ndarray, env: EnvRun, worker: WorkerRun) -> int:
         self.state = to_str_observation(_state)
-        self.invalid_actions = self.get_invalid_actions(env)
+        self.invalid_actions = self.get_invalid_actions()
         self.parameter.init_state(self.state)
 
         if self.training:

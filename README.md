@@ -258,8 +258,20 @@ examples/custom_rl.ipynb
 # Development environment / Operation check environment
 
 + windows10
-+ Python(3.9.13, 3.7.9)
-+ CPUx1: Core i7-8700 3.2GHz
-+ GPUx1: NVIDIA GeForce GTX 1060 3GB
-+ memory 48GB
+  + CPUx1: Core i7-8700 3.2GHz
+  + GPUx1: NVIDIA GeForce GTX 1060 3GB
+  + memory 48GB
++ Python(3.7.9, 3.9.13)
+  + numpy: 1.22.4
+  + tensorflow: 2.9.1
+  + tensorflow-addons: 0.17.1
+  + tensorflow_probability: 0.17.0
+  + matplotlib: 3.5.2
+  + pillow: 9.1.1
+  + pandas: 1.4.2
+  + opencv-python: 4.6.0.66
+  + gym: 0.24.1
+  + pygame: 2.1.2
+  + psutil: 5.9.1
+  + pynvml: 11.4.1
 

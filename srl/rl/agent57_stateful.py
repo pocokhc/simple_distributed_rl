@@ -26,7 +26,7 @@ from srl.rl.functions.common import (
 )
 from srl.rl.models.dqn_image_block import DQNImageBlock
 from srl.rl.models.dueling_network import DuelingNetworkBlock
-from srl.rl.models.input_layer import create_input_layer
+from srl.rl.models.input_layer import create_input_layer, create_input_layer_stateful_lstm
 
 """
 Paper: https://arxiv.org/abs/2003.13350
@@ -164,7 +164,7 @@ class Config(DiscreteActionConfig):
 
     @staticmethod
     def getName() -> str:
-        return "Agent57"
+        return "Agent57_stateful"
 
     def assert_params(self) -> None:
         super().assert_params()
@@ -216,31 +216,32 @@ class _QNetwork(keras.Model):
         if not config.enable_intrinsic_reward:
             self.input_int_reward = False
 
-        # --- in block
-        in_state, c, use_image_head = create_input_layer(config.observation_shape, config.env_observation_type)
+        # input_shape: (batch_size, input_sequence(timestamps), observation_shape)
+        # timestamps=1(stateful)
+        in_state, c, use_image_head = create_input_layer_stateful_lstm(
+            config.batch_size,
+            config.observation_shape,
+            config.env_observation_type,
+        )
         if use_image_head:
-            c = config.cnn_block(**config.cnn_block_kwargs)(c)
-            c = kl.Flatten()(c)
+            c = kl.TimeDistributed(config.cnn_block(**config.cnn_block_kwargs))(c)
+            c = kl.TimeDistributed(kl.Flatten())(c)
 
         # UVFA
         input_list = []
         if self.input_ext_reward:
-            input_list.append(kl.Input(shape=(1,)))
+            input_list.append(kl.Input(batch_input_shape=(config.batch_size, 1, 1)))
         if self.input_int_reward:
-            input_list.append(kl.Input(shape=(1,)))
+            input_list.append(kl.Input(batch_input_shape=(config.batch_size, 1, 1)))
         if self.input_action:
-            input_list.append(kl.Input(shape=(config.action_num,)))
-        input_list.append(kl.Input(shape=(config.actor_num,)))
+            input_list.append(kl.Input(batch_input_shape=(config.batch_size, 1, config.action_num)))
+        input_list.append(kl.Input(batch_input_shape=(config.batch_size, 1, config.actor_num)))
         c = kl.Concatenate()([c] + input_list)
 
-        self.in_block = kl.TimeDistributed(keras.Model([in_state] + input_list, c))
+        # lstm
+        c = kl.LSTM(config.lstm_units, stateful=True, name="lstm")(c)
 
-        # --- lstm
-        self.lstm_layer = kl.LSTM(config.lstm_units, return_sequences=True, return_state=True)
-
-        # --- out block
-        in_state = c = kl.Input((None, config.lstm_units))
-
+        # hidden layers
         for i in range(len(config.hidden_layer_sizes) - 1):
             c = kl.Dense(
                 config.hidden_layer_sizes[i],
@@ -263,20 +264,19 @@ class _QNetwork(keras.Model):
                 config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
             )(c)
 
-        self.out_block = kl.TimeDistributed(keras.Model(in_state, c))
+        self.model = keras.Model([in_state] + input_list, c, name="QNetwork")
+        self.lstm_layer = self.model.get_layer("lstm")
 
         # 重みを初期化
-        dummy1 = np.zeros(
-            shape=(config.batch_size, config.sequence_length) + config.observation_shape, dtype=np.float32
-        )
-        dummy2 = np.zeros(shape=(config.batch_size, config.sequence_length, 1), dtype=np.float32)
-        dummy3 = np.zeros(shape=(config.batch_size, config.sequence_length, 1), dtype=np.float32)
-        dummy4 = np.zeros(shape=(config.batch_size, config.sequence_length, config.action_num), dtype=np.float32)
-        dummy5 = np.zeros(shape=(config.batch_size, config.sequence_length, config.actor_num), dtype=np.float32)
+        dummy1 = np.zeros(shape=(config.batch_size, 1) + config.observation_shape, dtype=np.float32)
+        dummy2 = np.zeros(shape=(config.batch_size, 1, 1), dtype=np.float32)
+        dummy3 = np.zeros(shape=(config.batch_size, 1, 1), dtype=np.float32)
+        dummy4 = np.zeros(shape=(config.batch_size, 1, config.action_num), dtype=np.float32)
+        dummy5 = np.zeros(shape=(config.batch_size, 1, config.actor_num), dtype=np.float32)
         val, _ = self(dummy1, dummy2, dummy3, dummy4, dummy5, None)
-        assert val.shape == (config.batch_size, config.sequence_length, config.action_num)
+        assert val.shape == (config.batch_size, config.action_num)
 
-    def call(self, state, reward_ext, reward_int, onehot_action, onehot_actor, hidden_states, training=False):
+    def call(self, state, reward_ext, reward_int, onehot_action, onehot_actor, hidden_states):
         input_list = [state]
         if self.input_ext_reward:
             input_list.append(reward_ext)
@@ -285,14 +285,15 @@ class _QNetwork(keras.Model):
         if self.input_action:
             input_list.append(onehot_action)
         input_list.append(onehot_actor)
+        self.lstm_layer.reset_states(hidden_states)
+        return self.model(input_list), self.get_hidden_state()
 
-        x = self.in_block(input_list, training=training)
-        x, h, c = self.lstm_layer(x, initial_state=hidden_states, training=training)
-        x = self.out_block(x, training=training)
-        return x, [h, c]
+    def get_hidden_state(self):
+        return [self.lstm_layer.states[0].numpy(), self.lstm_layer.states[1].numpy()]
 
     def init_hidden_state(self):
-        return self.lstm_layer.cell.get_initial_state(batch_size=1, dtype=tf.float32)
+        self.lstm_layer.reset_states()
+        return self.get_hidden_state()
 
 
 # ------------------------------------------------------
@@ -421,7 +422,7 @@ class Parameter(RLParameter):
         return d
 
     def summary(self, **kwargs):
-        self.q_ext_online.summary(**kwargs)
+        self.q_ext_online.model.summary(**kwargs)
         self.emb_network.model1.summary(**kwargs)
         self.emb_network.model2.summary(**kwargs)
         self.lifelong_target.model.summary(**kwargs)
@@ -430,6 +431,22 @@ class Parameter(RLParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
+def _batch_dict_step_to_step_batch(batchs, key, in_step, is_list, to_np):
+    _list = []
+    for i in range(len(batchs[0][key])):
+        if in_step and is_list:
+            _list.append([[b[key][i]] for b in batchs])
+        elif in_step and not is_list:
+            _list.append([[[b[key][i]]] for b in batchs])
+        elif not in_step and is_list:
+            _list.append([[b[key][i]] for b in batchs])
+        elif not in_step and not is_list:
+            _list.append([b[key][i] for b in batchs])
+    if to_np:
+        _list = np.asarray(_list)
+    return _list
+
+
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
@@ -478,59 +495,67 @@ class Trainer(RLTrainer):
 
     def _train_on_batchs(self, batchs, weights):
 
-        # (batch, dict[x], step) -> (batch, step, x)
-        burnin_states = []
-        burnin_rewards_ext = []
-        burnin_rewards_int = []
-        instep_states = []
-        instep_rewards_ext = []
-        instep_rewards_int = []
-        actions = []
-        step_probs = []
-        step_dones = []
-        step_invalid_actions_list = []
-        for b in batchs:
-            burnin_states.append([s for s in b["states"][: self.config.burnin]])
-            burnin_rewards_ext.append([s for s in b["rewards_ext"][: self.config.burnin]])
-            burnin_rewards_int.append([s for s in b["rewards_int"][: self.config.burnin]])
-            instep_states.append([s for s in b["states"][self.config.burnin :]])
-            instep_rewards_ext.append([s for s in b["rewards_ext"][self.config.burnin :]])
-            instep_rewards_int.append([s for s in b["rewards_int"][self.config.burnin :]])
-            actions.append([s for s in b["actions"]])
-            step_probs.append([s for s in b["probs"]])
-            step_dones.append([s for s in b["dones"]])
-            step_invalid_actions_list.append([s for s in b["invalid_actions"]])
-        burnin_states = np.asarray(burnin_states)
-        burnin_rewards_ext = np.asarray(burnin_rewards_ext)
-        burnin_rewards_int = np.asarray(burnin_rewards_int)
-        instep_states = np.asarray(instep_states)
-        instep_rewards_ext = np.asarray(instep_rewards_ext)
-        instep_rewards_int = np.asarray(instep_rewards_int)
+        # (batch, dict[x], step) -> (step, batch, 1, x)
+        states_list = _batch_dict_step_to_step_batch(batchs, "states", in_step=True, is_list=True, to_np=True)
+        rewards_ext_list = _batch_dict_step_to_step_batch(
+            batchs, "rewards_ext", in_step=True, is_list=False, to_np=True
+        )
+        rewards_int_list = _batch_dict_step_to_step_batch(
+            batchs, "rewards_int", in_step=True, is_list=False, to_np=True
+        )
+        # (batch, dict[x], step) -> (step, batch, 1)
+        actions_list = _batch_dict_step_to_step_batch(batchs, "actions", in_step=True, is_list=True, to_np=True)
+        # (step, batch, 1, x)
+        actions_onehot_list = tf.one_hot(actions_list, self.config.action_num)
 
-        actions_onehot = tf.one_hot(actions, self.config.action_num)
-        burnin_actions_onehot = actions_onehot[:, : self.config.burnin, ...]
-        instep_actions_onehot = actions_onehot[:, self.config.burnin :, ...]
-        step_actions_onehot = instep_actions_onehot[:, 1:, ...]
+        # burnin (step, batch, 1, x)
+        burnin_states = states_list[: self.config.burnin]
+        burnin_actions_onehot = actions_onehot_list[: self.config.burnin]
+        burnin_rewards_ext = rewards_ext_list[: self.config.burnin]
+        burnin_rewards_int = rewards_int_list[: self.config.burnin]
 
-        step_actions = np.array(actions)[:, self.config.burnin + 1 :]
-        step_rewards_ext = instep_rewards_ext[:, 1:]
-        step_rewards_int = instep_rewards_int[:, 1:]
+        # step state (step, batch, 1, x)
+        step_states_list = states_list[self.config.burnin :]
+
+        # step action (step, batch, 1) -> (step, batch)
+        step_actions_list = actions_list[self.config.burnin :]
+        step_actions_list = np.squeeze(step_actions_list, axis=2)
+
+        # step action onehot (step, batch, 1, x) -> (step, batch, x)
+        step_actions_onehot_list = actions_onehot_list[self.config.burnin :]
+        step_actions_onehot_list = np.squeeze(step_actions_onehot_list, axis=2)
+
+        # UVFA (step, batch, 1, x)
+        prev_actions_onehot_list = actions_onehot_list[self.config.burnin - 1 :]
+        prev_rewards_ext_list = rewards_ext_list[self.config.burnin - 1 :]
+        prev_rewards_int_list = rewards_int_list[self.config.burnin - 1 :]
+
+        # (batch, dict[x], step) -> (step, batch)
+        step_mu_probs_list = _batch_dict_step_to_step_batch(batchs, "probs", in_step=False, is_list=False, to_np=False)
+        step_dones_list = _batch_dict_step_to_step_batch(batchs, "dones", in_step=False, is_list=False, to_np=False)
+        step_next_invalid_actions_list = _batch_dict_step_to_step_batch(
+            batchs, "invalid_actions", in_step=False, is_list=False, to_np=False
+        )
+
+        # sequence (step, batch, 1, 1) -> (step, batch, 1)
+        step_rewards_ext_list = rewards_ext_list[self.config.burnin :]
+        step_rewards_int_list = rewards_int_list[self.config.burnin :]
+        step_rewards_ext_list = np.squeeze(step_rewards_ext_list, axis=2)
+        step_rewards_int_list = np.squeeze(step_rewards_int_list, axis=2)
 
         # other
-        actor_list = []
+        actor_idx_list = []
         discount_list = []
         beta_list = []
         for b in batchs:
-            actor_list.append([b["actor"]])
+            actor_idx_list.append([b["actor"]])
             discount_list.append(self.discount_list[b["actor"]])
             beta_list.append(self.beta_list[b["actor"]])
         discount_list = np.asarray(discount_list)
         beta_list = np.asarray(beta_list)
 
-        # actor_onehot
-        actor_onehot = tf.one_hot(actor_list, self.config.actor_num)
-        burnin_actor_onehot = tf.tile(actor_onehot, [1, self.config.burnin, 1])
-        instep_actor_onehot = tf.tile(actor_onehot, [1, self.config.sequence_length + 1, 1])
+        # (batch, 1, x)
+        actor_idx_onehot = tf.one_hot(actor_idx_list, self.config.actor_num)
 
         # hidden_states
         states_h_ext = []
@@ -542,41 +567,45 @@ class Trainer(RLTrainer):
             states_c_ext.append(b["hidden_states_ext"][1])
             states_h_int.append(b["hidden_states_int"][0])
             states_c_int.append(b["hidden_states_int"][1])
-        hidden_states_ext = [tf.stack(states_h_ext), tf.stack(states_c_ext)]
-        hidden_states_int = [tf.stack(states_h_int), tf.stack(states_c_int)]
-        hidden_states_ext_t = hidden_states_ext
-        hidden_states_int_t = hidden_states_int
+        hidden_states_ext = [np.asarray(states_h_ext), np.asarray(states_c_ext)]
+        hidden_states_int = [np.asarray(states_h_int), np.asarray(states_c_int)]
+        hidden_states_ext_t = [np.asarray(states_h_ext), np.asarray(states_c_ext)]
+        hidden_states_int_t = [np.asarray(states_h_int), np.asarray(states_c_int)]
 
-        in_burnin = [
-            burnin_states,
-            burnin_rewards_ext[..., np.newaxis],
-            burnin_rewards_int[..., np.newaxis],
-            burnin_actions_onehot,
-            burnin_actor_onehot,
-        ]
-        in_steps = [
-            instep_states,
-            instep_rewards_ext[..., np.newaxis],
-            instep_rewards_int[..., np.newaxis],
-            instep_actions_onehot,
-            instep_actor_onehot,
-        ]
+        # burnin
+        for i in range(self.config.burnin):
+            _burnin = [
+                burnin_states[i],
+                burnin_rewards_ext[i],
+                burnin_rewards_int[i],
+                burnin_actions_onehot[i],
+                actor_idx_onehot,
+            ]
+            _, hidden_states_ext = self.parameter.q_ext_online(*_burnin, hidden_states_ext)
+            _, hidden_states_int = self.parameter.q_int_online(*_burnin, hidden_states_int)
+            _, hidden_states_ext_t = self.parameter.q_ext_target(*_burnin, hidden_states_ext_t)
+            _, hidden_states_int_t = self.parameter.q_int_target(*_burnin, hidden_states_int_t)
+
         _params = [
-            in_burnin,
-            in_steps,
-            step_actions,
-            step_probs,
-            step_dones,
-            step_invalid_actions_list,
-            step_actions_onehot,
+            step_states_list,
+            step_actions_list,
+            step_actions_onehot_list,
+            step_mu_probs_list,
+            step_dones_list,
+            step_next_invalid_actions_list,
+            prev_actions_onehot_list,
+            prev_rewards_ext_list,
+            prev_rewards_int_list,
+            actor_idx_onehot,
             discount_list,
-            np.asarray(weights).reshape(-1, 1),
+            weights,
+            0,
         ]
-        td_error_ext, loss_ext = self._train_q(
+        _, _, td_error_ext, _, loss_ext = self._train_steps(
             self.parameter.q_ext_online,
             self.parameter.q_ext_target,
             self.q_ext_optimizer,
-            step_rewards_ext,
+            step_rewards_ext_list,
             hidden_states_ext,
             hidden_states_ext_t,
             *_params,
@@ -584,21 +613,25 @@ class Trainer(RLTrainer):
         _info = {"loss_ext": loss_ext}
 
         if self.config.enable_intrinsic_reward:
-            td_error_int, loss_int = self._train_q(
+            _, _, td_error_int, _, loss_int = self._train_steps(
                 self.parameter.q_int_online,
                 self.parameter.q_int_target,
                 self.q_int_optimizer,
-                step_rewards_int,
+                step_rewards_int_list,
                 hidden_states_int,
                 hidden_states_int_t,
                 *_params,
             )
             _info["loss_int"] = loss_int
 
-            # embedding lifelong (batch, seq_len, x) -> (batch, x)
-            one_states = instep_states[:, 1, ...]
-            one_n_states = instep_states[:, 2, ...]
-            one_actions_onehot = instep_actions_onehot[:, 1, :]
+            # embedding lifelong (batch, 1, x) -> (batch, x)
+            one_states = step_states_list[0]
+            one_n_states = step_states_list[1]
+            one_states = np.squeeze(one_states, axis=1)
+            one_n_states = np.squeeze(one_n_states, axis=1)
+
+            # embedding lifelong (batch, x)
+            one_actions_onehot = step_actions_onehot_list[0]
 
             # ----------------------------------------
             # embedding network
@@ -634,107 +667,144 @@ class Trainer(RLTrainer):
 
         return td_errors, _info
 
-    def _train_q(
+    def _train_steps(
         self,
         model_q_online,
         model_q_target,
         optimizer,
-        step_rewards,
+        step_rewards_list,
         hidden_states,
         hidden_states_t,
         #
-        in_burnin,
-        in_steps,
-        step_actions,
-        step_probs,
-        step_dones,
-        step_invalid_actions_list,
-        step_actions_onehot,
+        step_states_list,
+        step_actions_list,
+        step_actions_onehot_list,
+        step_mu_probs_list,
+        step_dones_list,
+        step_next_invalid_actions_list,
+        prev_actions_onehot_list,
+        prev_rewards_ext_list,
+        prev_rewards_int_list,
+        actor_idx_onehot,
         discount_list,
         weights,
+        idx,
     ):
 
-        # burnin
-        _, hidden_states = model_q_online(*in_burnin, hidden_states)
-        _, hidden_states_t = model_q_target(*in_burnin, hidden_states_t)
+        # 最後
+        if idx == self.config.sequence_length:
+            _in = [
+                step_states_list[idx],
+                prev_rewards_ext_list[idx],
+                prev_rewards_int_list[idx],
+                prev_actions_onehot_list[idx],
+                actor_idx_onehot,
+            ]
+            n_q, _ = model_q_online(*_in, hidden_states)
+            n_q_target, _ = model_q_target(*_in, hidden_states_t)
+            n_q = tf.stop_gradient(n_q).numpy()
+            n_q_target = tf.stop_gradient(n_q_target).numpy()
+            # q, target_q, td_error, retrace, loss
+            return n_q, n_q_target, 0.0, 1.0, 0.0
 
-        # targetQ
-        q_target, _ = model_q_target(*in_steps, hidden_states_t)
-        q_target = q_target.numpy()
+        _in = [
+            step_states_list[idx],
+            prev_rewards_ext_list[idx],
+            prev_rewards_int_list[idx],
+            prev_actions_onehot_list[idx],
+            actor_idx_onehot,
+        ]
+
+        # return用にq_targetを計算
+        q_target, n_hidden_states_t = model_q_target(*_in, hidden_states_t)
+        q_target = tf.stop_gradient(q_target).numpy()
 
         # --- 勾配 + targetQを計算
-        td_errors_list = []
         with tf.GradientTape() as tape:
-            q, _ = model_q_online(*in_steps, hidden_states, training=True)
-            frozen_q = tf.stop_gradient(q).numpy()
+            q, n_hidden_states = model_q_online(*_in, hidden_states)
 
-            # 最後は学習しないので除く
-            tf.stop_gradient(q[:, -1, :])
-            q = q[:, :-1, :]
+            # 次のQ値を取得
+            n_q, n_q_target, n_td_error, retrace, n_loss = self._train_steps(
+                model_q_online,
+                model_q_target,
+                optimizer,
+                step_rewards_list,
+                n_hidden_states,
+                n_hidden_states_t,
+                step_states_list,
+                step_actions_list,
+                step_actions_onehot_list,
+                step_mu_probs_list,
+                step_dones_list,
+                step_next_invalid_actions_list,
+                prev_actions_onehot_list,
+                prev_rewards_ext_list,
+                prev_rewards_int_list,
+                actor_idx_onehot,
+                discount_list,
+                weights,
+                idx + 1,
+            )
 
-            # --- TargetQを計算
-            target_q_list = []
-            for idx in range(self.config.batch_size):
-                retrace = 1
-                next_td_error = 0
-                td_errors = []
-                target_q = []
+            # targetQを計算
+            target_q = np.zeros(self.config.batch_size)
+            for i in range(self.config.batch_size):
+                reward = step_rewards_list[idx][i]
+                done = step_dones_list[idx][i]
+                next_invalid_actions = step_next_invalid_actions_list[idx][i]
 
-                # 後ろから計算
-                for t in reversed(range(self.config.sequence_length)):
-                    action = step_actions[idx][t]
-                    mu_prob = step_probs[idx][t]
-                    reward = step_rewards[idx][t]
-                    done = step_dones[idx][t]
-                    invalid_actions = step_invalid_actions_list[idx][t]
-                    next_invalid_actions = step_invalid_actions_list[idx][t + 1]
-
-                    if done:
-                        gain = reward
+                if done:
+                    gain = reward
+                else:
+                    # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
+                    if self.config.enable_double_dqn:
+                        n_q[i] = [(-np.inf if a in next_invalid_actions else v) for a, v in enumerate(n_q[i])]
+                        n_act_idx = np.argmax(n_q[i])
                     else:
-                        # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
-                        if self.config.enable_double_dqn:
-                            n_q = frozen_q[idx][t + 1]
-                        else:
-                            n_q = q_target[idx][t + 1]
-                        n_q = [(-np.inf if a in next_invalid_actions else v) for a, v in enumerate(n_q)]
-                        n_act_idx = np.argmax(n_q)
-                        maxq = q_target[idx][t + 1][n_act_idx]
-                        if self.config.enable_rescale:
-                            maxq = inverse_rescaling(maxq)
-                        gain = reward + discount_list[idx] * maxq
+                        n_q_target[i] = [
+                            (-np.inf if a in next_invalid_actions else v) for a, v in enumerate(n_q_target[i])
+                        ]
+                        n_act_idx = np.argmax(n_q_target[i])
+                    maxq = n_q_target[i][n_act_idx]
                     if self.config.enable_rescale:
-                        gain = rescaling(gain)
-                    target_q.insert(0, gain + retrace * next_td_error)
+                        maxq = inverse_rescaling(maxq)
+                    gain = reward + discount_list[i] * maxq
+                if self.config.enable_rescale:
+                    gain = rescaling(gain)
+                target_q[i] = gain
 
-                    td_error = gain - frozen_q[idx][t][action]
-                    td_errors.append(td_error)
-                    if self.config.enable_retrace:
-                        # TDerror
-                        next_td_error = td_error
+            if self.config.enable_retrace:
+                _retrace = np.zeros(self.config.batch_size)
+                for i in range(self.config.batch_size):
+                    action = step_actions_list[idx][i]
+                    mu_prob = step_mu_probs_list[idx][i]
+                    pi_probs = calc_epsilon_greedy_probs(
+                        n_q[i],
+                        step_next_invalid_actions_list[idx][i],
+                        0.0,
+                        self.config.action_num,
+                    )
+                    pi_prob = pi_probs[action]
+                    _retrace[i] = self.config.retrace_h * np.minimum(1, pi_prob / mu_prob)
 
-                        # retrace
-                        pi_probs = calc_epsilon_greedy_probs(
-                            frozen_q[idx][t],
-                            invalid_actions,
-                            0.0,
-                            self.config.action_num,
-                        )
-                        pi_prob = pi_probs[action]
-                        _r = self.config.retrace_h * np.minimum(1, pi_prob / mu_prob)
-                        retrace *= discount_list[idx] * _r
-                target_q_list.append(target_q)
-                td_errors_list.append(np.mean(td_errors))
-            target_q_list = np.asarray(target_q_list)
+                retrace *= np.asarray(_retrace)
+                target_q += discount_list * retrace * n_td_error
 
-            # --- update Q
-            q_onehot = tf.reduce_sum(q * step_actions_onehot, axis=2)
-            loss = self.q_loss(target_q_list * weights, q_onehot * weights)
+            action_onehot = step_actions_onehot_list[idx]
+            q_onehot = tf.reduce_sum(q * action_onehot, axis=1)
+
+            loss = self.q_loss(target_q * weights, q_onehot * weights)
 
         grads = tape.gradient(loss, model_q_online.trainable_variables)
         optimizer.apply_gradients(zip(grads, model_q_online.trainable_variables))
+        # --- 勾配計算ここまで
+        q = tf.stop_gradient(q).numpy()
 
-        return td_errors_list, loss.numpy()
+        if idx == 0 or self.config.enable_retrace:
+            td_error = target_q - q_onehot.numpy() + discount_list * retrace * n_td_error
+        else:
+            td_error = 0
+        return q, q_target, td_error, retrace, (loss.numpy() + n_loss) / 2
 
 
 # ------------------------------------------------------
@@ -769,23 +839,23 @@ class Worker(DiscreteActionWorker):
         self.reward_int = 0
 
         # states : burnin + sequence_length + next_state
-        # actions: burnin + sequence_length + prev_action
+        # actions: burnin + sequence_length (+ prev_action)
         # probs  : sequence_length
-        # rewards: burnin + sequence_length + prev_reward
+        # rewards: burnin + sequence_length (+ prev_reward)
         # done   : sequence_length
-        # invalid_actions: sequence_length + next_invalid_actions
+        # invalid_actions: sequence_length + next_invalid_actions - now_invalid_actions
         # hidden_state   : burnin + sequence_length + next_state
 
         self.recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.sequence_length + 1)]
         self.recent_actions = [
             random.randint(0, self.config.action_num - 1)
-            for _ in range(self.config.burnin + self.config.sequence_length + 1)
+            for _ in range(self.config.burnin + self.config.sequence_length)
         ]
         self.recent_probs = [1.0 / self.config.action_num for _ in range(self.config.sequence_length)]
-        self.recent_rewards_ext = [0.0 for _ in range(self.config.burnin + self.config.sequence_length + 1)]
-        self.recent_rewards_int = [0.0 for _ in range(self.config.burnin + self.config.sequence_length + 1)]
+        self.recent_rewards_ext = [0.0 for _ in range(self.config.burnin + self.config.sequence_length)]
+        self.recent_rewards_int = [0.0 for _ in range(self.config.burnin + self.config.sequence_length)]
         self.recent_done = [False for _ in range(self.config.sequence_length)]
-        self.recent_invalid_actions = [[] for _ in range(self.config.sequence_length + 1)]
+        self.recent_invalid_actions = [[] for _ in range(self.config.sequence_length)]
 
         self.hidden_state_ext = self.parameter.q_ext_online.init_hidden_state()
         self.hidden_state_int = self.parameter.q_int_online.init_hidden_state()
@@ -830,6 +900,7 @@ class Worker(DiscreteActionWorker):
         # Q値取得用
         self.onehot_actor_idx = tf.one_hot(np.array(self.actor_index), self.config.actor_num)
         self.onehot_actor_idx = tf.expand_dims(tf.expand_dims(self.onehot_actor_idx, 0), 0)
+        self.onehot_actor_idx = tf.tile(self.onehot_actor_idx, [self.config.batch_size, 1, 1])
 
         # sliding-window UCB 用に報酬を保存
         self.episode_reward = 0.0
@@ -879,22 +950,24 @@ class Worker(DiscreteActionWorker):
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
         prev_onehot_action = tf.one_hot(np.array(self.action), self.config.action_num)
         prev_onehot_action = tf.expand_dims(tf.expand_dims(prev_onehot_action, 0), 0)
+        prev_onehot_action = tf.tile(prev_onehot_action, [self.config.batch_size, 1, 1])
 
         in_ = [
-            self.recent_states[-1][np.newaxis, np.newaxis, ...],
-            np.array([[[self.reward_ext]]]),
-            np.array([[[self.reward_int]]]),
+            np.asarray([[self.recent_states[-1]]] * self.config.batch_size),
+            np.array([[[self.reward_ext]]] * self.config.batch_size),
+            np.array([[[self.reward_int]]] * self.config.batch_size),
             prev_onehot_action,
             self.onehot_actor_idx,
         ]
         self.q_ext, self.hidden_state_ext = self.parameter.q_ext_online(*in_, self.hidden_state_ext)
         self.q_int, self.hidden_state_int = self.parameter.q_int_online(*in_, self.hidden_state_int)
-        self.q_ext = self.q_ext[0][0].numpy()
-        self.q_int = self.q_int[0][0].numpy()
+        self.q_ext = self.q_ext[0].numpy()
+        self.q_int = self.q_int[0].numpy()
         self.q = self.q_ext + self.beta * self.q_int
 
         probs = calc_epsilon_greedy_probs(self.q, invalid_actions, self.epsilon, self.config.action_num)
         self.action = random_choice_by_probs(probs)
+
         self.prob = probs[self.action]
         return self.action
 
@@ -910,7 +983,7 @@ class Worker(DiscreteActionWorker):
 
         # 内部報酬
         if self.config.enable_intrinsic_reward:
-            n_s = next_state.astype(np.float32)[np.newaxis, ...]
+            n_s = np.asarray([next_state]).astype(float)
             self.episodic_reward = self._calc_episodic_reward(n_s)
             self.lifelong_reward = self._calc_lifelong_reward(n_s)
             self.reward_int = self.episodic_reward * self.lifelong_reward
@@ -925,7 +998,7 @@ class Worker(DiscreteActionWorker):
             _info = {}
 
         self.recent_states.pop(0)
-        self.recent_states.append(next_state.astype(np.float32))
+        self.recent_states.append(next_state.astype(float))
         self.recent_actions.pop(0)
         self.recent_actions.append(self.action)
         self.recent_probs.pop(0)
@@ -1102,6 +1175,7 @@ class Worker(DiscreteActionWorker):
 
     def render_terminal(self, env, worker, **kwargs) -> None:
         invalid_actions = self.recent_invalid_actions[-1]
+        # パラメータを予測するとhidden_stateが変わってしまうの予測はしない
         q_ext = self.q_ext
         q_int = self.q_int
         q = self.q

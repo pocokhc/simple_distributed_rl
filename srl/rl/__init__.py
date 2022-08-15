@@ -5,6 +5,7 @@ from ..base.rl.registration import make_trainer  # noqa F402
 from ..base.rl.registration import make_worker  # noqa F402
 from . import agent57  # noqa F402
 from . import agent57_light  # noqa F402
+from . import agent57_stateful  # noqa F402
 from . import alphazero  # noqa F402
 from . import c51  # noqa F402
 from . import ddpg  # noqa F402

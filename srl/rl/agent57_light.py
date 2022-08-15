@@ -747,22 +747,7 @@ class Worker(DiscreteActionWorker):
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
         self.state = state
         self.invalid_actions = invalid_actions
-        q, q_ext, _ = self._get_qval(state)
 
-        if random.random() < self.epsilon:
-            self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
-        else:
-            # valid actions以外は -inf にする
-            q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)]
-
-            # 最大値を選ぶ（複数はほぼないので無視）
-            self.action = int(np.argmax(q))
-
-        self.q_ext = q_ext[self.action]
-        self.q = q[self.action]
-        return self.action
-
-    def _get_qval(self, state):
         prev_onehot_action = tf.one_hot(np.array(self.prev_action), self.config.action_num)[np.newaxis, ...]
         in_ = [
             state[np.newaxis, ...],
@@ -771,11 +756,20 @@ class Worker(DiscreteActionWorker):
             prev_onehot_action,
             self.onehot_actor_idx,
         ]
-        q_ext = self.parameter.q_ext_online(*in_)[0].numpy()
-        q_int = self.parameter.q_int_online(*in_)[0].numpy()
-        q = q_ext + self.beta * q_int
+        self.q_ext = self.parameter.q_ext_online(*in_)[0].numpy()
+        self.q_int = self.parameter.q_int_online(*in_)[0].numpy()
+        self.q = self.q_ext + self.beta * self.q_int
 
-        return q, q_ext, q_int
+        if random.random() < self.epsilon:
+            self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+        else:
+            # valid actions以外は -inf にする
+            q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(self.q)]
+
+            # 最大値を選ぶ（複数はほぼないので無視）
+            self.action = int(np.argmax(q))
+
+        return self.action
 
     def call_on_step(
         self,
@@ -784,10 +778,6 @@ class Worker(DiscreteActionWorker):
         done: bool,
         next_invalid_actions: List[int],
     ):
-        prev_action = self.prev_action
-        prev_reward_ext = self.prev_reward_ext
-        prev_reward_int = self.prev_reward_int
-
         self.episode_reward += reward_ext
 
         # 内部報酬
@@ -806,6 +796,9 @@ class Worker(DiscreteActionWorker):
             reward_int = 0.0
             _info = {}
 
+        prev_action = self.prev_action
+        prev_reward_ext = self.prev_reward_ext
+        prev_reward_int = self.prev_reward_int
         self.prev_action = self.action
         self.prev_reward_ext = reward_ext
         self.prev_reward_int = reward_int
@@ -924,11 +917,14 @@ class Worker(DiscreteActionWorker):
         return reward
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        q, q_ext, q_int = self._get_qval(self.state)
         if self.config.enable_rescale:
-            q = inverse_rescaling(q)
-            q_ext = inverse_rescaling(q_ext)
-            q_int = inverse_rescaling(q_int)
+            q = inverse_rescaling(self.q)
+            q_ext = inverse_rescaling(self.q_ext)
+            q_int = inverse_rescaling(self.q_int)
+        else:
+            q = self.q
+            q_ext = self.q_ext
+            q_int = self.q_int
         maxa = np.argmax(q)
 
         def _render_sub(a: int) -> str:

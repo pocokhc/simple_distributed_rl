@@ -144,6 +144,15 @@ class Config(DiscreteActionConfig):
         if self.cnn_block_kwargs is None:
             self.cnn_block_kwargs = {}
 
+    def set_processor(self) -> List[Processor]:
+        return [
+            ImageProcessor(
+                image_type=EnvObservationType.GRAY_2ch,
+                resize=(84, 84),
+                enable_norm=True,
+            )
+        ]
+
     @property
     def observation_type(self) -> RLObservationType:
         return RLObservationType.CONTINUOUS
@@ -194,25 +203,17 @@ class _QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        # input_shape: (batch_size, input_sequence(timestamps), observation_shape)
-        # timestamps=1(stateful)
-        # in_state, c, use_image_head = create_input_layer_stateful_lstm(
-        #    config.batch_size,
-        #    config.observation_shape,
-        #    config.env_observation_type,
-        # )
-        # if use_image_head:
-        #    c = kl.TimeDistributed(config.cnn_block(**config.cnn_block_kwargs))(c)
-        #    c = kl.TimeDistributed(kl.Flatten())(c)
+        # --- in block
+        in_state, c, use_image_head = create_input_layer(config.observation_shape, config.env_observation_type)
+        if use_image_head:
+            c = config.cnn_block(**config.cnn_block_kwargs)(c)
+            c = kl.Flatten()(c)
+        self.in_block = kl.TimeDistributed(keras.Model(in_state, c))
 
-        in_state = c = kl.Input((None,) + config.observation_shape)
-        c = kl.TimeDistributed(kl.Flatten())(c)
-        self.in_block = keras.Model(in_state, c)
-
-        # lstm
+        # --- lstm
         self.lstm_layer = kl.LSTM(config.lstm_units, return_sequences=True, return_state=True)
 
-        # hidden layers
+        # --- out block
         in_state = c = kl.Input((None, config.lstm_units))
 
         for i in range(len(config.hidden_layer_sizes) - 1):
@@ -335,7 +336,7 @@ class Trainer(RLTrainer):
             states_h.append(b["hidden_states"][0])
             states_c.append(b["hidden_states"][1])
         hidden_states = [tf.stack(states_h), tf.stack(states_c)]
-        hidden_states_t = [tf.stack(states_h), tf.stack(states_c)]
+        hidden_states_t = hidden_states
 
         # burn-in
         _, hidden_states = self.parameter.q_online(burnin_states, hidden_states)

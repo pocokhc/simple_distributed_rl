@@ -38,6 +38,9 @@ class MPPrintProgress(MPCallback):
 
         return True
 
+    def on_init(self, mp_config, **kwargs):
+        self.timeout = mp_config.timeout
+
     # ---------------------------
     # main
     # ---------------------------
@@ -53,11 +56,10 @@ class MPPrintProgress(MPCallback):
     # ---------------------------
     # trainer
     # ---------------------------
-    def on_trainer_start(self, config, mp_config, **kwargs):
+    def on_trainer_start(self, mp_config, **kwargs):
         self.max_train_count = mp_config.max_train_count
-        self.timeout = mp_config.timeout
 
-        self.progress_t0 = self.t0 = time.time()
+        self.progress_t0 = time.time()
         self.progress_history = []
 
         self.train_time = 0
@@ -92,22 +94,12 @@ class MPPrintProgress(MPCallback):
     def _trainer_print_progress(self):
 
         # --- 残り時間
-        s = dt.datetime.now().strftime("%H:%M:%S")
-        elapsed_time = time.time() - self.t0
-        s += f" --- {to_str_time(elapsed_time)}"
-
         if self.max_train_count > 0 and self.train_count > 0:
+            s = dt.datetime.now().strftime("%H:%M:%S")
             remain_train = self.train_time * (self.max_train_count - self.train_count)
-            s += f" {self.train_count:8d}/{self.max_train_count}"
-        else:
-            remain_train = np.inf
-        if self.timeout > 0:
-            remain_time = self.timeout - elapsed_time
-        else:
-            remain_time = np.inf
-        remain = min(remain_train, remain_time)
-        s += f" {to_str_time(remain)}(remain time)"
-        print(s)
+            s += f" --- {self.train_count:8d}/{self.max_train_count}"
+            s += f" {to_str_time(remain_train)}(remain time)"
+            print(s)
 
         if len(self.progress_history) == 0:
             return
@@ -140,7 +132,7 @@ class MPPrintProgress(MPCallback):
         if self.actor_id >= self.max_print_actor:
             return
         self.step_count = 0
-        self.progress_t0 = time.time()
+        self.progress_t0 = self.t0 = time.time()
         self.progress_history = []
 
     def on_episodes_end(self, episode_count, **kwargs):
@@ -182,6 +174,7 @@ class MPPrintProgress(MPCallback):
         episode_time,
         valid_reward,
         worker_indices,
+        remote_memory,
         **kwargs,
     ):
         if self.actor_id >= self.max_print_actor:
@@ -207,12 +200,22 @@ class MPPrintProgress(MPCallback):
             "episode_time": episode_time,
             "valid_reward": valid_reward,
             "step_time": np.mean([h["step_time"] for h in self.history_step]),
+            "remote_memory": remote_memory.length() if remote_memory is not None else 0,
             "env_info": env_info,
             "work_info": work_info,
         }
         self.progress_history.append(epi_data)
 
     def _actor_print_progress(self, episode_count):
+
+        # --- 残り時間
+        if self.actor_id == 0 and self.timeout > 0:
+            s = dt.datetime.now().strftime("%H:%M:%S")
+            elapsed_time = time.time() - self.t0
+            s += f" --- {to_str_time(elapsed_time)}"
+            remain_time = self.timeout - elapsed_time
+            s += f" {to_str_time(remain_time)}(remain time)"
+            print(s)
 
         s = dt.datetime.now().strftime("%H:%M:%S")
         s += f" actor{self.actor_id:2d}:"
@@ -238,6 +241,9 @@ class MPPrintProgress(MPCallback):
             valid_rewards = [t["valid_reward"] for t in self.progress_history if t["valid_reward"] is not None]
             if len(valid_rewards) > 0:
                 s += ", {:.4f} val_reward ".format(np.mean(valid_rewards))
+
+            memory_len = max([h["remote_memory"] for h in self.progress_history])
+            s += f", {memory_len:7d} mem"
 
             if self.print_env_info:
                 d = listdictdict_to_dictlist(self.progress_history, "env_info")

@@ -133,13 +133,11 @@ examples/custom_rl.ipynb
 |Algorithm |Observation|Action|ProgressRate||
 |----------|-----------|----------|----|---|
 |QL        |Discrete   |Discrete  |100%|Basic Q Learning|
-|QL_agent57|Discrete   |Discrete  | 80%|QL + Agent57|
 |DQN       |Continuous |Discrete  |100%||
 |C51       |Continuous |Discrete  | 99%|Categorical DQN|
 |Rainbow   |Continuous |Discrete  |100%||
 |R2D2      |Continuous |Discrete  |100%||
 |Agent57   |Continuous |Discrete  |100%||
-|Agent57_light|Continuous|Discrete|100%|Agent57 - (LSTM,MultiStep)|
 
 
 ### PolicyBase/ActorCritic
@@ -185,6 +183,13 @@ examples/custom_rl.ipynb
 |-----------|-----------|-----------|----|
 |CQL        |Discrete   |Discrete   |  0%|
 
+## その他(Original)
+
+|Algorithm    |Observation|Action  |Type     |ProgressRate|
+|-------------|-----------|--------|---------|----|
+|QL_agent57   |Discrete   |Discrete|ValueBase| 80%|QL + Agent57|
+|Agent57_light|Continuous |Discrete|ValueBase|100%|Agent57 - (LSTM,MultiStep)|
+|SearchDynaQ  |Discrete   |Discrete|ModelBase/ValueBase| 80%||
 
 
 # Diagrams

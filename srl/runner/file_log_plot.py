@@ -167,8 +167,11 @@ class FileLogPlot:
             os.rmdir(self.base_dir)  # 空のみ対象
 
     def _read_log(self, filename):
+        path = os.path.join(self.log_dir, filename)
+        if not os.path.isfile(path):
+            return None
         data = []
-        with open(os.path.join(self.log_dir, filename)) as f:
+        with open(path, "r") as f:
             for line in f:
                 try:
                     data.append(json.loads(line))
@@ -183,7 +186,10 @@ class FileLogPlot:
         if self.is_mp:
             df_trainer = self._read_log("trainer.txt")
             df_actor = self._read_log(f"actor_{actor_id}.txt")
-            self.df = pd.merge(df_trainer, df_actor, on="date", how="outer")
+            if df_trainer is None:
+                self.df = df_actor
+            else:
+                self.df = pd.merge(df_trainer, df_actor, on="date", how="outer")
 
         else:
             self.df = self._read_log("train.txt")

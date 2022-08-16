@@ -1,3 +1,32 @@
+
+# v0.6.1
++ 自作アルゴリズム作成手順を大幅に更新
++ RLParameterとRLRemoteMemoryのrestore/backupをcall_restore/call_backupに変更
+  + 圧縮関係など、任意の前後処理をフレームワークが追加できるように変更
+  + restore/backupをrlテストに追加
++ r2d2をstatelessでも実装できたので修正
++ agent57もstatelessで実装
++ stochastic_muzeroのバグ修正
++ stochastic_muzeroとmuzeroのLayerを見直して修正
++ RLConfig側でprocessorsを追加できるように変更
+  + RLConfigにset_processorを追加
+  + imageが決まっているアルゴリズムに対して追加
+  [agent57,agent57_light,alphazero,C51,ddpg,dqn,muzero,r2d2,rainbow,sac,stochastic_muzero]
++ ImageProcessorを変更
+  + どの環境にも適用できるように変更（assertからif文に変更）
+  + 引数grayからimage_typeにして指定できるように変更
++ RLConfigの初期化でEnvとRLを分割(Envは1回、RLは毎回初期化)
+  + RLConfigにset_envとreset_configを追加し、registrationで実行(RLConfigがprivateでenv変数を持つ)
+  + _set_config_by_envをset_config_by_envに変更しoption化(set_config_by_actorと同じ立ち位置に)
++ disable_trainerをmpにも追加（学習せずmemoryのみ収集する）
++ 細かい修正
+  + RLのregisterで名前がかぶっていた場合の処理を例外に変更
+  + READMEにバージョンも追記
+  + オリジナルアルゴリズムSearchDynaQを追加
+  + train(学習時)にassert文を追加
+  + mp_print_progressの進捗表示を一部変更
+
+
 # v0.6.0
 + MuZero追加
 + StochasticMuZero追加

@@ -200,13 +200,13 @@ class Parameter(RLParameter):
         self.critic_online = _CriticNetwork(self.config)
         self.critic_target = _CriticNetwork(self.config)
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         self.actor_online.set_weights(data[0])
         self.actor_target.set_weights(data[0])
         self.critic_online.set_weights(data[1])
         self.critic_target.set_weights(data[1])
 
-    def backup(self) -> Any:
+    def call_backup(self, **kwargs) -> Any:
         return [
             self.actor_online.get_weights(),
             self.critic_online.get_weights(),

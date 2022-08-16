@@ -168,14 +168,14 @@ class Parameter(RLParameter):
 
         self.init_state("", [])
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         d = json.loads(data)
         self.Q_ext = d[0]
         self.Q_int = d[1]
         self.lifelong_C = d[2]
         self.Q_C = d[3]
 
-    def backup(self):
+    def call_backup(self, **kwargs):
         return json.dumps(
             [
                 self.Q_ext,

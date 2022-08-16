@@ -60,10 +60,10 @@ class Parameter(RLParameter):
         # パラメータ
         self.policy = {}
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         self.policy = json.loads(data)
 
-    def backup(self) -> Any:
+    def call_backup(self, **kwargs) -> Any:
         return json.dumps(self.policy)
 
     # ---------------------------------

@@ -153,10 +153,10 @@ class Parameter(RLParameter):
         self.Q = {}
         self.model = _A_MDP()
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         self.Q = json.loads(data)
 
-    def backup(self):
+    def call_backup(self, **kwargs):
         return json.dumps(self.Q)
 
     def get_action_values(self, state, invalid_actions, to_str: bool = True):

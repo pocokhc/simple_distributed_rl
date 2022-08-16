@@ -224,12 +224,12 @@ class Parameter(RLParameter):
         self.q_online = _DualQNetwork(self.config)
         self.q_target = _DualQNetwork(self.config)
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         self.policy.set_weights(data[0])
         self.q_online.set_weights(data[1])
         self.q_target.set_weights(data[1])
 
-    def backup(self) -> Any:
+    def call_backup(self, **kwargs) -> Any:
         return [
             self.policy.get_weights(),
             self.q_online.get_weights(),

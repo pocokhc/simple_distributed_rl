@@ -75,10 +75,10 @@ class Parameter(RLParameter):
 
         self.Q = {}
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         self.Q = json.loads(data)
 
-    def backup(self):
+    def call_backup(self, **kwargs):
         return json.dumps(self.Q)
 
     def get_action_values(self, state: str, invalid_actions: List[int]) -> List[float]:

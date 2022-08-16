@@ -508,7 +508,7 @@ class Parameter(RLParameter):
         self.C = {}
         self.Q = {}
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         self.prediction_network.set_weights(data[0])
         self.dynamics_network.set_weights(data[1])
         self.representation_network.set_weights(data[2])
@@ -519,7 +519,7 @@ class Parameter(RLParameter):
         self.q_max = data[7]
         self.reset_cache()
 
-    def backup(self):
+    def call_backup(self, **kwargs):
         return [
             self.prediction_network.get_weights(),
             self.dynamics_network.get_weights(),

@@ -272,11 +272,11 @@ class Parameter(RLParameter):
         self.q_online = _QNetwork(self.config)
         self.q_target = _QNetwork(self.config)
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         self.q_online.set_weights(data)
         self.q_target.set_weights(data)
 
-    def backup(self) -> Any:
+    def call_backup(self, **kwargs) -> Any:
         return self.q_online.get_weights()
 
     def summary(self, **kwargs):

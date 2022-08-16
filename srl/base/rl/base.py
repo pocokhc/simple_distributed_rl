@@ -1,8 +1,11 @@
+import binascii
 import io
 import logging
+import lzma
 import os
 import pickle
 import sys
+import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Type
 
@@ -183,27 +186,37 @@ class RLParameter(ABC):
         self.config = config
 
     @abstractmethod
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def backup(self) -> Any:
+    def call_backup(self, **kwargs) -> Any:
         raise NotImplementedError()
 
+    def restore(self, data: Any, **kwargs) -> None:
+        self.call_restore(data, **kwargs)
+
+    def backup(self, **kwargs) -> Any:
+        return self.call_backup(**kwargs)
+
     def save(self, path: str) -> None:
-        logger.debug(f"save: {path}")
+        logger.debug(f"parameter save: {path}")
         try:
+            t0 = time.time()
             with open(path, "wb") as f:
                 pickle.dump(self.backup(), f)
+            logger.debug(f"parameter saved({time.time() - t0:.1f}s)")
         except Exception:
             if os.path.isfile(path):
                 os.remove(path)
             raise
 
     def load(self, path: str) -> None:
-        logger.debug(f"load: {path}")
+        logger.info(f"parameter load: {path}")
+        t0 = time.time()
         with open(path, "rb") as f:
             self.restore(pickle.load(f))
+        logger.debug(f"parameter loaded({time.time() - t0:.1f}s)")
 
     def summary(self, **kwargs):
         pass  # NotImplemented
@@ -218,26 +231,60 @@ class RLRemoteMemory(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def backup(self) -> Any:
+    def call_backup(self, **kwargs) -> Any:
         raise NotImplementedError()
 
-    def save(self, path: str) -> None:
-        logger.debug(f"save: {path}")
+    def restore(self, dat: Any, **kwargs) -> None:
+        if isinstance(dat, tuple):
+            dat = lzma.decompress(dat[0])
+            dat = pickle.loads(dat)
+        self.call_restore(dat, **kwargs)
+
+    def backup(self, compress: bool = False, **kwargs) -> Any:
+        dat = self.call_backup(**kwargs)
+        if compress:
+            dat = pickle.dumps(dat)
+            dat = lzma.compress(dat)
+            dat = (dat, True)
+        return dat
+
+    def save(self, path: str, compress: bool = True, **kwargs) -> None:
+        logger.debug(f"memory save (size: {self.length()}): {path}")
         try:
-            with open(path, "wb") as f:
-                pickle.dump(self.backup(), f)
+            t0 = time.time()
+            dat = self.call_backup(**kwargs)
+            if compress:
+                dat = pickle.dumps(dat)
+                with lzma.open(path, "w") as f:
+                    f.write(dat)
+            else:
+                with open(path, "wb") as f:
+                    pickle.dump(dat, f)
+            logger.info(f"memory saved (size: {self.length()}, time: {time.time() - t0:.1f}s): {path}")
         except Exception:
             if os.path.isfile(path):
                 os.remove(path)
+            raise
 
-    def load(self, path: str) -> None:
-        logger.debug(f"load: {path}")
+    def load(self, path: str, **kwargs) -> None:
+        logger.debug(f"memory load: {path}")
+        t0 = time.time()
+        # LZMA
         with open(path, "rb") as f:
-            self.restore(pickle.load(f))
+            compress = binascii.hexlify(f.read(6)) == b"fd377a585a00"
+        if compress:
+            with lzma.open(path) as f:
+                dat = f.read()
+            dat = pickle.loads(dat)
+        else:
+            with open(path, "rb") as f:
+                dat = pickle.load(f)
+        self.call_restore(dat, **kwargs)
+        logger.info(f"memory loaded (size: {self.length()}, time: {time.time() - t0:.1f}s): {path}")
 
 
 class RLTrainer(ABC):

@@ -223,11 +223,11 @@ class Parameter(RLParameter):
         self.P = {}
         self.V = {}
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         self.network.set_weights(data)
         self.reset_cache()
 
-    def backup(self):
+    def call_backup(self, **kwargs):
         return self.network.get_weights()
 
     def summary(self, **kwargs):

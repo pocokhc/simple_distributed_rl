@@ -191,7 +191,7 @@ class Parameter(RLParameter):
 
         self.model = _A_MDP(self.config)
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         d = json.loads(data)
         self.Q_ext = d[0]
         self.Q_int = d[1]
@@ -199,7 +199,7 @@ class Parameter(RLParameter):
         self.Q_C = d[3]
         # self.model = d[4] TODO
 
-    def backup(self):
+    def call_backup(self, **kwargs):
         return json.dumps(
             [
                 self.Q_ext,

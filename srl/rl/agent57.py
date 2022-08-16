@@ -401,7 +401,7 @@ class Parameter(RLParameter):
         self.lifelong_target = _LifelongNetwork(self.config)
         self.lifelong_train = _LifelongNetwork(self.config)
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         self.q_ext_online.set_weights(data[0])
         self.q_ext_target.set_weights(data[0])
         self.q_int_online.set_weights(data[1])
@@ -410,7 +410,7 @@ class Parameter(RLParameter):
         self.lifelong_target.set_weights(data[3])
         self.lifelong_train.set_weights(data[4])
 
-    def backup(self):
+    def call_backup(self, **kwargs):
         d = [
             self.q_ext_online.get_weights(),
             self.q_int_online.get_weights(),

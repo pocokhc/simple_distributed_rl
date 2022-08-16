@@ -64,12 +64,12 @@ class Parameter(RLParameter):
         self.N = {}  # 訪問回数
         self.W = {}  # 累計報酬
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         d = json.loads(data)
         self.N = d[0]
         self.W = d[1]
 
-    def backup(self):
+    def call_backup(self, **kwargs):
         return json.dumps(
             [
                 self.N,

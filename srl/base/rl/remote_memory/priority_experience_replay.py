@@ -32,10 +32,10 @@ class PriorityExperienceReplay(RLRemoteMemory):
     def length(self) -> int:
         return len(self.memory)
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         self.memory.restore(data)
 
-    def backup(self):
+    def call_backup(self, **kwargs):
         return self.memory.backup()
 
     # ---------------------------

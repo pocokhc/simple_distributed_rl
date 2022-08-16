@@ -11,10 +11,10 @@ class SequenceRemoteMemory(RLRemoteMemory):
     def length(self) -> int:
         return len(self.buffer)
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         self.buffer = data
 
-    def backup(self):
+    def call_backup(self, **kwargs):
         return self.buffer
 
     # --------------------

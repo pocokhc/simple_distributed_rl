@@ -126,10 +126,10 @@ class Parameter(RLParameter):
         c = kl.Reshape((self.config.action_num, self.config.categorical_num_atoms))(c)
         self.Q = keras.Model(in_state, c)
 
-    def restore(self, data: Any) -> None:
+    def call_restore(self, data: Any, **kwargs) -> None:
         self.Q.set_weights(data)
 
-    def backup(self):
+    def call_backup(self, **kwargs):
         return self.Q.get_weights()
 
     def summary(self, **kwargs):

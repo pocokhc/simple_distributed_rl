@@ -230,6 +230,19 @@ class TestRL:
         print(s)
         assert np.mean(episode_rewards) >= true_env[0], s
 
+        # parameter backup/restore
+        param2 = config.make_parameter()
+        param2.restore(parameter.backup())
+        episode_rewards = sequence.evaluate(
+            config,
+            param2,
+            max_episodes=max_episodes,
+            print_progress=True,
+        )
+        s = f"backup/restore: {np.mean(episode_rewards)} >= {true_env[0]}"
+        print(s)
+        assert np.mean(episode_rewards) >= true_env[0], s
+
         self.parameter = parameter
         self.config = config
 
@@ -296,6 +309,20 @@ class TestRL:
         )
         reward = np.mean([r[1] for r in episode_rewards])
         s = f"{reward} >= {true_env[0][1]}"
+        print(s)
+        assert reward >= true_env[0][1], s
+
+        # parameter backup/restore
+        param2 = config.make_parameter(reset_config=False)
+        param2.restore(parameter.backup())
+        episode_rewards = sequence.evaluate(
+            config,
+            param2,
+            max_episodes=true_env[1],
+            print_progress=True,
+        )
+        reward = np.mean([r[1] for r in episode_rewards])
+        s = f"backup/restore: {reward} >= {true_env[0][1]}"
         print(s)
         assert reward >= true_env[0][1], s
 

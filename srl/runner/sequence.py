@@ -70,7 +70,7 @@ class Config:
             self.rl_config = srl.rl.ql.Config()
 
         self.rl_name = self.rl_config.getName()
-        self.trainer_disable = False
+        self.disable_trainer = False
         self.env = None
 
     # ------------------------------
@@ -241,7 +241,7 @@ def save(
     dat = [
         config,
         parameter.backup() if parameter is not None else None,
-        remote_memory.backup() if remote_memory is not None else None,
+        remote_memory.backup(compress=True) if remote_memory is not None else None,
     ]
     with open(path, "wb") as f:
         pickle.dump(dat, f)
@@ -291,13 +291,17 @@ def train(
     if disable_trainer:
         enable_validation = False  # 学習しないので
 
+    assert (
+        max_steps != -1 or max_episodes != -1 or timeout != -1
+    ), "Please specify 'max_steps', 'max_episodes' or 'timeout'."
+
     config = config.copy(env_copy=True)
     config.max_steps = max_steps
     config.max_episodes = max_episodes
     config.timeout = timeout
     config.shuffle_player = shuffle_player
     config.enable_validation = enable_validation
-    config.trainer_disable = disable_trainer
+    config.disable_trainer = disable_trainer
     config.callbacks = callbacks
     if config.seed is None:
         config.seed = seed
@@ -498,7 +502,7 @@ def play(
         parameter = config.make_parameter(reset_config=False)
     if remote_memory is None:
         remote_memory = config.make_remote_memory(reset_config=False)
-    if config.training and not config.trainer_disable:
+    if config.training and not config.disable_trainer:
         trainer = config.make_trainer(parameter, remote_memory, reset_config=False)
     else:
         trainer = None

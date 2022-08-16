@@ -20,18 +20,18 @@ logger = logging.getLogger(__name__)
 
 """
 RuntimeError:
-        An attempt has been made to start a new process before the
-        current process has finished its bootstrapping phase.
-        This probably means that you are not using fork to start your
-        child processes and you have forgotten to use the proper idiom
-        in the main module:
+    An attempt has been made to start a new process before the
+    current process has finished its bootstrapping phase.
+    This probably means that you are not using fork to start your
+    child processes and you have forgotten to use the proper idiom
+    in the main module:
 
-            if __name__ == '__main__':
-                freeze_support()
-                ...
+        if __name__ == '__main__':
+            freeze_support()
+            ...
 
-        The "freeze_support()" line can be omitted if the program
-        is not going to be frozen to produce an executable.
+    The "freeze_support()" line can be omitted if the program
+    is not going to be frozen to produce an executable.
 
 → メイン関数に "if __name__ == '__main__':" を明示していないと表示されます。
 """
@@ -58,6 +58,9 @@ class Config:
         self.timeout: int = -1
         # callbacks
         self.callbacks: List[MPCallback] = []
+
+    def assert_params(self):
+        assert self.actor_num > 0
 
     # -------------------------------------
 
@@ -158,10 +161,10 @@ def _run_actor(
             logger.debug(f"actor{actor_id} start")
 
             config.callbacks.extend(mp_config.callbacks)
-            config.trainer_disable = True
+            config.disable_trainer = True
             config.rl_config.set_config_by_actor(mp_config.actor_num, actor_id)
 
-            # valid
+            # validationするのはactor0のみ
             if actor_id != 0:
                 config.enable_validation = False
 
@@ -184,7 +187,7 @@ def _run_actor(
 
         finally:
             train_end_signal.value = True
-            logger.debug(f"actor{actor_id} end")
+            logger.info(f"actor{actor_id} end")
 
 
 # --------------------
@@ -250,8 +253,9 @@ def _run_trainer(
 
         finally:
             train_end_signal.value = True
+            t0 = time.time()
             remote_board.write(parameter.backup())
-            logger.debug("trainer end")
+            logger.info(f"trainer end.(send parameter time: {time.time() - t0:.1f}s)")
 
             # callbacks
             [c.on_trainer_end(**_info) for c in callbacks]
@@ -272,6 +276,7 @@ def train(
     timeout: int = -1,
     shuffle_player: bool = True,
     enable_validation: bool = True,
+    disable_trainer: bool = False,
     # print
     print_progress: bool = True,
     max_progress_time: int = 60 * 10,  # s
@@ -285,9 +290,15 @@ def train(
     init_parameter: Optional[RLParameter] = None,
     init_remote_memory: Optional[RLRemoteMemory] = None,
     return_memory: bool = False,
+    save_memory: str = "",
 ) -> Tuple[RLParameter, RLRemoteMemory, FileLogPlot]:
     if callbacks is None:
         callbacks = []
+    if disable_trainer:
+        enable_validation = False  # 学習しないので
+        assert timeout != -1, "Please specify 'timeout'."
+
+    assert max_train_count != -1 or timeout != -1, "Please specify 'max_train_count' or 'timeout'."
 
     config = config.copy(env_copy=False)
     mp_config = mp_config.copy()
@@ -314,6 +325,7 @@ def train(
         mp_config.callbacks.append(file_logger)
 
     config.assert_params()
+    mp_config.assert_params()
 
     with tf.device(mp_config.allocate_main):
 
@@ -333,7 +345,9 @@ def train(
                 init_parameter,
                 init_remote_memory,
                 manager,
+                disable_trainer,
                 return_memory,
+                save_memory,
             )
 
     try:
@@ -352,8 +366,11 @@ def _train(
     init_parameter: Optional[RLParameter],
     init_remote_memory: Optional[RLRemoteMemory],
     manager: MPManager,
+    disable_trainer: bool,
     return_memory: bool,
+    save_memory: str,
 ):
+    enable_trainer = not disable_trainer
 
     # callbacks
     _info = {
@@ -393,18 +410,20 @@ def _train(
         actors_ps_list.append(ps)
 
     # --- trainer
-    params = (
-        config,
-        mp_config,
-        remote_memory,
-        remote_board,
-        train_end_signal,
-    )
-    trainer_ps = mp.Process(target=_run_trainer, args=params)
+    if enable_trainer:
+        params = (
+            config,
+            mp_config,
+            remote_memory,
+            remote_board,
+            train_end_signal,
+        )
+        trainer_ps = mp.Process(target=_run_trainer, args=params)
 
     # --- start
     [p.start() for p in actors_ps_list]
-    trainer_ps.start()
+    if enable_trainer:
+        trainer_ps.start()
 
     # callbacks
     [c.on_start(**_info) for c in mp_config.callbacks]
@@ -414,10 +433,11 @@ def _train(
         time.sleep(1)  # polling time
 
         # プロセスが落ちたら終了
-        if not trainer_ps.is_alive():
-            train_end_signal.value = True
-            logger.info("train end(trainer process dead)")
-            break
+        if enable_trainer:
+            if not trainer_ps.is_alive():
+                train_end_signal.value = True
+                logger.info("train end(trainer process dead)")
+                break
         for i, w in enumerate(actors_ps_list):
             if not w.is_alive():
                 train_end_signal.value = True
@@ -439,36 +459,46 @@ def _train(
                 break
         else:
             w.terminate()
-    for _ in range(60 * 10):
-        if trainer_ps.is_alive():
-            time.sleep(1)
+    if enable_trainer:
+        for _ in range(60 * 10):
+            if trainer_ps.is_alive():
+                time.sleep(1)
+            else:
+                break
         else:
-            break
-    else:
-        trainer_ps.terminate()
+            trainer_ps.terminate()
 
     # 子プロセスが正常終了していなければ例外を出す
     # exitcode: 0 正常, 1 例外, 負 シグナル
-    if trainer_ps.exitcode != 0:
+    if enable_trainer and trainer_ps.exitcode != 0:
         raise RuntimeError(f"An exception has occurred in trainer process.(exitcode: {trainer_ps.exitcode})")
     for i, w in enumerate(actors_ps_list):
         if w.exitcode != 0 and w.exitcode is not None:
             raise RuntimeError(f"An exception has occurred in actor {i} process.(exitcode: {w.exitcode})")
 
-    # --- last parameter
-    return_parameter = config.make_parameter()
-    params = remote_board.read()
-    if params is not None:
-        return_parameter.restore(params)
+    return_parameter = None
+    return_remote_memory = None
+    try:
+        # --- last parameter
+        t0 = time.time()
+        return_parameter = config.make_parameter()
+        params = remote_board.read()
+        if params is not None:
+            return_parameter.restore(params)
+        logger.info(f"recv parameter time: {time.time() - t0:.1f}s")
 
-    # --- last memory
-    if return_memory:
-        return_remote_memory = config.make_remote_memory()
-        return_remote_memory.restore(remote_memory.backup())
-    else:
-        return_remote_memory = None
+        # --- last memory
+        if save_memory != "":
+            remote_memory.save(save_memory, compress=True)
+        if return_memory:
+            t0 = time.time()
+            return_remote_memory = config.make_remote_memory()
+            return_remote_memory.restore(remote_memory.backup())
+            logger.info(f"recv remote_memory time: {time.time() - t0:.1f}s")
 
-    # callbacks
-    [c.on_end(**_info) for c in mp_config.callbacks]
+        # callbacks
+        [c.on_end(**_info) for c in mp_config.callbacks]
+    except Exception:
+        logger.warning(traceback.format_exc())
 
     return return_parameter, return_remote_memory

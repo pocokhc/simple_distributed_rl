@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, List
 
 from srl.base.rl.base import RLRemoteMemory
 
@@ -22,7 +22,7 @@ class SequenceRemoteMemory(RLRemoteMemory):
     def add(self, batch: Any) -> None:
         self.buffer.append(batch)
 
-    def sample(self):
+    def sample(self) -> List[Any]:
         buffer = self.buffer
         self.buffer = []
         return buffer

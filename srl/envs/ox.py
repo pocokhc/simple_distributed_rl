@@ -168,9 +168,6 @@ class OX(TurnBase2Player):
         else:
             print("next player: X")
 
-    def render_gui(self, **kwargs) -> None:
-        self._render_pygame(**kwargs)
-
     def render_rgb_array(self, **kwargs) -> np.ndarray:
         return self._render_pygame(**kwargs)
 
@@ -185,7 +182,7 @@ class OX(TurnBase2Player):
         cell_w = int((WIDTH - w_margin * 2) / self.W)
         cell_h = int((HEIGHT - h_margin * 2) / self.H)
 
-        self.viewer.draw_start()
+        self.viewer.draw_fill()
 
         # --- line
         width = 5
@@ -216,7 +213,6 @@ class OX(TurnBase2Player):
                         center_x - diff, center_y + diff, center_x + diff, center_y - diff, color=color, width=width
                     )
 
-        self.viewer.draw_end()
         return self.viewer.get_rgb_array()
 
     def make_worker(self, name: str) -> Optional[RuleBaseWorker]:

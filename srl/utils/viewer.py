@@ -15,14 +15,17 @@ class Viewer:
         self.fps = fps
 
         pygame.init()
+        pygame.display.init()
         self.clock = pygame.time.Clock()
-        self.screen = pygame.display.set_mode((self.width, self.height))
+        # self.screen = pygame.display.set_mode((self.width, self.height))
+        self.screen = pygame.Surface((self.width, self.height))
         self.fonts = {}
 
     def __del__(self):
         self.close()
 
     def close(self):
+        pygame.display.quit()
         pygame.quit()
 
     def registration_font(self, name: str, font: str = "arial", fontsize: int = 22):
@@ -36,6 +39,7 @@ class Viewer:
         #    pass
 
     def draw_end(self):
+        pygame.event.pump()
         pygame.display.flip()
         self.clock.tick(self.fps)
 
@@ -43,6 +47,9 @@ class Viewer:
         return np.transpose(np.array(pygame.surfarray.pixels3d(self.screen)), axes=(1, 0, 2))
 
     # --------------------
+    def draw_fill(self, color: Tuple[int, int, int] = (255, 255, 255)):
+        self.screen.fill(color)
+
     def draw_line(
         self,
         x1: int,

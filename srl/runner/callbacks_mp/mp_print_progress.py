@@ -46,8 +46,9 @@ class MPPrintProgress(MPCallback):
     # ---------------------------
     def on_start(self, config, mp_config, **kwargs):
         print(
-            "### env: {}, max train: {}, timeout: {}".format(
+            "### env: {}, rl: {}, max train: {}, timeout: {}".format(
                 config.env_config.name,
+                self.config.rl_config.getName(),
                 mp_config.max_train_count,
                 to_str_time(mp_config.timeout),
             )

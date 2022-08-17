@@ -39,8 +39,9 @@ class PrintProgress(Callback):
     def on_episodes_begin(self, config, **kwargs):
         self.config = config
         print(
-            "### env: {}, max episodes: {}, max steps: {}, timeout: {}".format(
+            "### env: {}, rl: {}, max episodes: {}, max steps: {}, timeout: {}".format(
                 self.config.env_config.name,
+                self.config.rl_config.getName(),
                 self.config.max_episodes,
                 self.config.max_steps,
                 to_str_time(self.config.timeout),

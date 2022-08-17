@@ -175,7 +175,7 @@ class OX(TurnBase2Player):
         WIDTH = 200
         HEIGHT = 200
         if self.viewer is None:
-            self.viewer = Viewer(WIDTH, HEIGHT, fps=1)
+            self.viewer = Viewer(WIDTH, HEIGHT)
 
         w_margin = 10
         h_margin = 10

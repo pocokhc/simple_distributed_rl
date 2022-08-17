@@ -151,7 +151,7 @@ class TrainerPrintProgress(TrainerCallback):
 # ---------------------------------
 def train_only(
     config: Config,
-    parameter: RLParameter,
+    parameter: Optional[RLParameter],
     remote_memory: RLRemoteMemory,
     # train config
     max_train_count: int = -1,
@@ -187,12 +187,18 @@ def train_only(
         callbacks.append(TrainerPrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
 
     # -----------------------------
+    config.assert_params()
+    config.rl_config.reset_config()
+
+    if parameter is None:
+        parameter = config.make_parameter(reset_config=False)
 
     # valid
     if config.enable_validation:
         valid_config = config.copy(env_copy=False)
         valid_config.enable_validation = False
         valid_config.players = config.validation_players
+        valid_config.rl_config.remote_memory_path = ""
         env = valid_config.make_env()
     else:
         env = None
@@ -209,7 +215,7 @@ def train_only(
             env.set_seed(config.seed)
 
     # --- trainer
-    trainer = config.make_trainer(parameter, remote_memory)
+    trainer = config.make_trainer(parameter, remote_memory, reset_config=False)
 
     # callback
     _params = {

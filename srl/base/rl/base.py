@@ -205,7 +205,7 @@ class RLParameter(ABC):
             t0 = time.time()
             with open(path, "wb") as f:
                 pickle.dump(self.backup(), f)
-            logger.debug(f"parameter saved({time.time() - t0:.1f}s)")
+            logger.info(f"parameter saved({time.time() - t0:.1f}s): {path}")
         except Exception:
             if os.path.isfile(path):
                 os.remove(path)

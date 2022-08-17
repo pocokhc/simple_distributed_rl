@@ -11,13 +11,9 @@ import srl.envs
 import srl.rl
 from srl.base.env.base import EnvConfig, EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, WorkerRun
-from srl.base.rl.registration import (
-    make_parameter,
-    make_remote_memory,
-    make_trainer,
-    make_worker,
-    make_worker_rulebase,
-)
+from srl.base.rl.registration import (make_parameter, make_remote_memory,
+                                      make_trainer, make_worker,
+                                      make_worker_rulebase)
 from srl.runner.callback import Callback
 from srl.runner.callbacks.file_logger import FileLogger
 from srl.runner.callbacks.print_progress import PrintProgress
@@ -513,6 +509,7 @@ def play(
         valid_config = config.copy(env_copy=False)
         valid_config.enable_validation = False
         valid_config.players = config.validation_players
+        valid_config.rl_config.remote_memory_path = ""
         valid_episode = 0
 
     # --- workers

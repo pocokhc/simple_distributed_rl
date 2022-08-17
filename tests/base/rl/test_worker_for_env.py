@@ -54,10 +54,10 @@ class StubEnv(SinglePlayEnv):
         self.s_action = action
         return self.s_state, self.s_reward, self.s_done, self.s_info
 
-    def call_backup(self, **kwargs) -> Any:
+    def backup(self, **kwargs) -> Any:
         return None
 
-    def call_restore(self, state: Any, **kwargs) -> None:
+    def restore(self, state: Any, **kwargs) -> None:
         pass  # do nothing
 
 

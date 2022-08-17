@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -100,7 +100,14 @@ class Viewer:
         if width > 0:
             pygame.draw.circle(self.screen, line_color, (x, y), radius, width=width)
 
-    def draw_text(self, x, y, text, fontname: str = "", color=(0, 0, 0)):
+    def draw_text(
+        self,
+        x: int,
+        y: int,
+        text: str,
+        fontname: str = "",
+        color: Tuple[int, int, int] = (0, 0, 0),
+    ):
         if fontname not in self.fonts:
             if fontname == "":
                 self.fonts[""] = pygame.font.SysFont("arial", 22)
@@ -108,3 +115,16 @@ class Viewer:
                 raise ValueError()
         font = self.fonts[fontname]
         self.screen.blit(font.render(text, False, color), (x, y))
+
+    def draw_image(
+        self,
+        x: int,
+        y: int,
+        rgb_array: np.ndarray,
+        resize: Optional[Tuple[int, int]] = None,
+    ):
+        rgb_array = rgb_array.swapaxes(0, 1)
+        img = pygame.surfarray.make_surface(rgb_array)
+        if resize is not None:
+            img = pygame.transform.scale(img, resize)
+        self.screen.blit(img, (x, y))

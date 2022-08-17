@@ -12,8 +12,8 @@
       1. ImageProcessorを変更
           1. どの環境にも適用できるように変更（assertからif文に変更）
           1. 引数grayからimage_typeにして指定できるように変更
-   1. RLConfigの初期化でEnvとRLを分割(Envは1回、RLは毎回初期化)
-      1. RLConfigにset_envとreset_configを追加し、registrationで実行(RLConfigがprivateでenv変数を持つ)
+   1. RLConfigの初期化を見直し
+      1. RLConfigが書き変わった場合にreset_configが再度必要になるように変更
       1. _set_config_by_envをset_config_by_envに変更しoption化(set_config_by_actorと同じ立ち位置に)
    1. mpでも経験収集のみできるように変更(disable_trainerを追加）
    1. Renderを見直し

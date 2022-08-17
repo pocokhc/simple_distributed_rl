@@ -38,7 +38,7 @@ class RLConfig(ABC):
         dummy_state_val: float = 0.0,
         parameter_path: str = "",
         remote_memory_path: str = "",
-        use_rl_processor: bool = True,
+        use_rl_processor: bool = True,  # RL側のprocessorを使用するか
     ) -> None:
         if processors is None:
             self.processors = []

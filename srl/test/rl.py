@@ -45,7 +45,8 @@ class TestRL:
             "Othello4x4": ([0.1, 0.5], 200),  # [0.3, 0.9] ぐらい
         }
 
-    def play_sequence(self, rl_config, enable_image: bool = False):
+    def play_sequence(self, _rl_config, enable_image: bool = False):
+        rl_config = _rl_config.copy()
         self._check_play_raw(rl_config, enable_image)
 
         for env_config, img_processor in self.env_list:
@@ -139,7 +140,9 @@ class TestRL:
                 if env.done:
                     break
 
-    def play_mp(self, rl_config, enable_image: bool = False):
+    def play_mp(self, _rl_config, enable_image: bool = False):
+        rl_config = _rl_config.copy()
+
         for env_config, img_processor in self.env_list:
             config = sequence.Config(env_config, rl_config)
 
@@ -177,7 +180,7 @@ class TestRL:
     def play_verify_singleplay(
         self,
         env_name,
-        rl_config,
+        _rl_config,
         train_count,
         test_num=0,
         is_atari=False,
@@ -186,6 +189,7 @@ class TestRL:
     ):
         assert env_name in self.baseline
         env_config = srl.envs.Config(env_name)
+        rl_config = _rl_config.copy()
 
         if env_name == "PendulumImage-v0":
             rl_config.override_env_observation_type = EnvObservationType.GRAY_2ch
@@ -249,13 +253,14 @@ class TestRL:
     def play_verify_2play(
         self,
         env_name,
-        rl_config,
+        _rl_config,
         train_count,
         is_self_play: bool = True,
         is_valid: bool = False,
         is_mp=False,
     ):
         assert env_name in self.baseline
+        rl_config = _rl_config.copy()
 
         env_config = srl.envs.Config(env_name)
         config = sequence.Config(env_config, rl_config)
@@ -313,7 +318,7 @@ class TestRL:
         assert reward >= true_env[0][1], s
 
         # parameter backup/restore
-        param2 = config.make_parameter(reset_config=False)
+        param2 = config.make_parameter()
         param2.restore(parameter.backup())
         episode_rewards = sequence.evaluate(
             config,

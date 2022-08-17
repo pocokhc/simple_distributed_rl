@@ -10,10 +10,14 @@ import numpy as np
 import srl.envs
 import srl.rl
 from srl.base.env.base import EnvConfig, EnvRun
-from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, WorkerRun
-from srl.base.rl.registration import (make_parameter, make_remote_memory,
-                                      make_trainer, make_worker,
-                                      make_worker_rulebase)
+from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer, WorkerRun
+from srl.base.rl.registration import (
+    make_parameter,
+    make_remote_memory,
+    make_trainer,
+    make_worker,
+    make_worker_rulebase,
+)
 from srl.runner.callback import Callback
 from srl.runner.callbacks.file_logger import FileLogger
 from srl.runner.callbacks.print_progress import PrintProgress
@@ -89,34 +93,33 @@ class Config:
     def _set_env(self):
         if self.env is None:
             self.env = srl.envs.make(self.env_config)
-            self.rl_config.set_env(self.env)
+            self.rl_config.reset_config(self.env)
 
     def make_env(self) -> EnvRun:
         self._set_env()
         self.env.init()
         return self.env
 
-    def make_parameter(self, reset_config: bool = True) -> RLParameter:
+    def make_parameter(self) -> RLParameter:
         self._set_env()
-        return make_parameter(self.rl_config, reset_config=reset_config)
+        return make_parameter(self.rl_config, env=self.env)
 
-    def make_remote_memory(self, reset_config: bool = True) -> RLRemoteMemory:
+    def make_remote_memory(self) -> RLRemoteMemory:
         self._set_env()
-        return make_remote_memory(self.rl_config, reset_config=reset_config)
+        return make_remote_memory(self.rl_config, env=self.env)
 
-    def make_trainer(self, parameter: RLParameter, remote_memory: RLRemoteMemory, reset_config: bool = True):
+    def make_trainer(self, parameter: RLParameter, remote_memory: RLRemoteMemory) -> RLTrainer:
         self._set_env()
-        return make_trainer(self.rl_config, parameter, remote_memory, reset_config)
+        return make_trainer(self.rl_config, parameter, remote_memory, env=self.env)
 
     def make_worker(
         self,
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
         actor_id: int = 0,
-        reset_config: bool = True,
     ) -> WorkerRun:
         env = self.make_env()
-        worker = make_worker(self.rl_config, env, parameter, remote_memory, actor_id, reset_config)
+        worker = make_worker(self.rl_config, env, parameter, remote_memory, actor_id)
         worker.set_play_info(self.training, self.distributed)
         return worker
 
@@ -126,7 +129,6 @@ class Config:
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
         actor_id: int = 0,
-        reset_config: bool = True,
     ):
         env = self.make_env()
 
@@ -140,7 +142,7 @@ class Config:
 
         # none はベース
         if player_obj is None:
-            return self.make_worker(parameter, remote_memory, actor_id, reset_config)
+            return self.make_worker(parameter, remote_memory, actor_id)
 
         # 文字列はenv側またはルールベースのアルゴリズム
         if isinstance(player_obj, str):
@@ -156,7 +158,7 @@ class Config:
         if isinstance(player_obj, object) and issubclass(player_obj.__class__, RLConfig):
             parameter = make_parameter(self.rl_config)
             remote_memory = make_remote_memory(self.rl_config)
-            worker = make_worker(player_obj, env, parameter, remote_memory, actor_id=actor_id, reset_config=True)
+            worker = make_worker(player_obj, env, parameter, remote_memory, actor_id=actor_id)
             worker.set_play_info(training=False, distributed=False)
             return worker
 
@@ -190,7 +192,7 @@ class Config:
 
         return conf
 
-    def copy(self, env_copy: bool = False, sync_callbacks: bool = True):
+    def copy(self, env_share: bool = False, callbacks_share: bool = True):
         self.make_env()  # rl_config.set_config_by_env
 
         env_config = self.env_config.copy()
@@ -219,13 +221,13 @@ class Config:
                 config.validation_players.append(pickle.loads(pickle.dumps(player)))
 
         # callback
-        if sync_callbacks:
+        if callbacks_share:
             config.callbacks = self.callbacks
         else:
             config.callbacks = pickle.loads(pickle.dumps(self.callbacks))
 
         # env
-        if env_copy:
+        if env_share:
             config.env = self.env
 
         return config
@@ -291,7 +293,7 @@ def train(
         max_steps != -1 or max_episodes != -1 or timeout != -1
     ), "Please specify 'max_steps', 'max_episodes' or 'timeout'."
 
-    config = config.copy(env_copy=True)
+    config = config.copy(env_share=True)
     config.max_steps = max_steps
     config.max_episodes = max_episodes
     config.timeout = timeout
@@ -347,7 +349,7 @@ def evaluate(
     if callbacks is None:
         callbacks = []
 
-    config = config.copy(env_copy=True)
+    config = config.copy(env_share=True)
     config.max_steps = max_steps
     config.max_episodes = max_episodes
     config.timeout = timeout
@@ -393,7 +395,7 @@ def render(
     if callbacks is None:
         callbacks = []
 
-    config = config.copy(env_copy=True)
+    config = config.copy(env_share=True)
     config.max_steps = max_steps
     config.timeout = timeout
     config.shuffle_player = False
@@ -489,33 +491,30 @@ def play(
             pass
 
     # --- config
-    config = config.copy(env_copy=True)
+    config = config.copy(env_share=True)
     config.assert_params()
-    config.rl_config.reset_config()
 
     # --- parameter/remote_memory/trainer
     if parameter is None:
-        parameter = config.make_parameter(reset_config=False)
+        parameter = config.make_parameter()
     if remote_memory is None:
-        remote_memory = config.make_remote_memory(reset_config=False)
+        remote_memory = config.make_remote_memory()
     if config.training and not config.disable_trainer:
-        trainer = config.make_trainer(parameter, remote_memory, reset_config=False)
+        trainer = config.make_trainer(parameter, remote_memory)
     else:
         trainer = None
     callbacks = config.callbacks
 
     # --- valid
     if config.enable_validation:
-        valid_config = config.copy(env_copy=False)
+        valid_config = config.copy(env_share=False)
         valid_config.enable_validation = False
         valid_config.players = config.validation_players
         valid_config.rl_config.remote_memory_path = ""
         valid_episode = 0
 
     # --- workers
-    workers = [
-        config.make_player(i, parameter, remote_memory, actor_id, reset_config=False) for i in range(env.player_num)
-    ]
+    workers = [config.make_player(i, parameter, remote_memory, actor_id) for i in range(env.player_num)]
 
     # callback
     _params = {

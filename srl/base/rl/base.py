@@ -57,6 +57,8 @@ class RLConfig(ABC):
         self.use_rl_processor = use_rl_processor
         self.change_observation_render_image = change_observation_render_image
 
+        self._is_set_env_config = False
+
     def assert_params(self) -> None:
         assert self.window_length > 0
 
@@ -96,18 +98,17 @@ class RLConfig(ABC):
     # ----------------------------
     # reset config
     # ----------------------------
-    def set_env(self, env: EnvRun) -> None:
-        self.__env = env
-        self._is_set_env = True
+    def reset_config(self, env: EnvRun) -> None:
+        if self._is_set_env_config:
+            return
 
-    def reset_config(self) -> None:
         # env property
-        self.env_max_episode_steps = self.__env.max_episode_steps
-        self.env_player_num = self.__env.player_num
+        self.env_max_episode_steps = env.max_episode_steps
+        self.env_player_num = env.player_num
 
-        self._env_action_space = self.__env.action_space
-        env_observation_space = self.__env.observation_space
-        env_observation_type = self.__env.observation_type
+        self._env_action_space = env.action_space
+        env_observation_space = env.observation_space
+        env_observation_type = env.observation_type
 
         # observation_typeの上書き
         if self.override_env_observation_type != EnvObservationType.UNKNOWN:
@@ -125,7 +126,7 @@ class RLConfig(ABC):
                 env_observation_space,
                 env_observation_type,
                 self.observation_type,
-                self.__env,
+                env,
             )
 
         # window_length
@@ -149,23 +150,41 @@ class RLConfig(ABC):
         # ):
         #    self._env_observation_space.set_division(self.observation_division_num)
 
-        self.set_config_by_env(self.__env, self._env_action_space, env_observation_space, env_observation_type)
+        self.set_config_by_env(env, self._env_action_space, env_observation_space, env_observation_type)
+        self._is_set_env_config = True
 
-        logger.debug(f"max_episode_steps     : {self.env_max_episode_steps}")
-        logger.debug(f"player_num            : {self.env_player_num}")
-        logger.debug(f"action_space(env)     : {self.__env.action_space}")
-        logger.debug(f"action_space(rl)      : {self._env_action_space}")
-        logger.debug(f"observation_type(env) : {self.__env.observation_type}")
-        logger.debug(f"observation_type(rl)  : {self.env_observation_type}")
-        logger.debug(f"observation_space(env): {self.__env.observation_space}")
-        logger.debug(f"observation_space(rl) : {self._env_observation_space}")
+        logger.info(f"max_episode_steps     : {self.env_max_episode_steps}")
+        logger.info(f"player_num            : {self.env_player_num}")
+        logger.info(f"action_space(env)     : {env.action_space}")
+        logger.info(f"action_space(rl)      : {self._env_action_space}")
+        logger.info(f"observation_type(env) : {env.observation_type}")
+        logger.info(f"observation_type(rl)  : {self.env_observation_type}")
+        logger.info(f"observation_space(env): {env.observation_space}")
+        logger.info(f"observation_space(rl) : {self._env_observation_space}")
+
+    def __setattr__(self, name, value):
+        if name == "_is_set_env_config":
+            object.__setattr__(self, name, value)
+            return
+
+        # configが書き変わったら reset_config が必要
+        if name in [
+            "processors",
+            "override_env_observation_type",
+            "action_division_num",
+            "window_length",
+            "change_observation_render_image",
+            "use_rl_processor",
+        ]:
+            self._is_set_env_config = False
+        object.__setattr__(self, name, value)
 
     # ----------------------------
     # utils
     # ----------------------------
     @property
-    def is_set_env(self) -> bool:
-        return hasattr(self, "_is_set_env")
+    def is_set_env_config(self) -> bool:
+        return self._is_set_env_config
 
     @property
     def action_space(self) -> SpaceBase:
@@ -190,8 +209,8 @@ class RLConfig(ABC):
             if isinstance(v, EnvRun):
                 continue
             setattr(config, k, pickle.loads(pickle.dumps(v)))
-        config.__env = self.__env
 
+        config._is_set_env_config = self._is_set_env_config
         return config
 
 

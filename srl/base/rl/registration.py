@@ -11,31 +11,32 @@ logger = logging.getLogger(__name__)
 _registry = {}
 _registry_worker = {}
 
-_ASSERT_MSG = "Run 'rl_config.set_env(env)' first"
+_ASSERT_MSG = "Run 'rl_config.reset_config(env)' first"
 
 
 def make(rl_config: RLConfig, env: EnvRun) -> Tuple[RLRemoteMemory, RLParameter, RLTrainer, WorkerRun]:
-    if not rl_config.is_set_env:
-        rl_config.set_env(env)
 
-    rl_config.reset_config()
+    rl_config.reset_config(env)
 
-    remote_memory = make_remote_memory(rl_config, reset_config=False)
-    parameter = make_parameter(rl_config, reset_config=False)
-    trainer = make_trainer(rl_config, parameter, remote_memory, reset_config=False)
-    worker = make_worker(rl_config, env, parameter, remote_memory, reset_config=False)
+    remote_memory = make_remote_memory(rl_config)
+    parameter = make_parameter(rl_config)
+    trainer = make_trainer(rl_config, parameter, remote_memory)
+    worker = make_worker(rl_config, env, parameter, remote_memory)
     return remote_memory, parameter, trainer, worker
 
 
-def make_remote_memory(rl_config: RLConfig, return_class: bool = False, reset_config: bool = True) -> RLRemoteMemory:
-    assert rl_config.is_set_env, _ASSERT_MSG
+def make_remote_memory(
+    rl_config: RLConfig, return_class: bool = False, env: Optional[EnvRun] = None
+) -> RLRemoteMemory:
+    if env is None:
+        assert rl_config.is_set_env_config, _ASSERT_MSG
+    else:
+        rl_config.reset_config(env)
     name = rl_config.getName()
     _class = load_module(_registry[name][0])
     if return_class:
         return _class
 
-    if reset_config:
-        rl_config.reset_config()
     remote_memory = _class(rl_config)
     if rl_config.remote_memory_path != "":
         if not os.path.isfile(rl_config.remote_memory_path):
@@ -45,11 +46,12 @@ def make_remote_memory(rl_config: RLConfig, return_class: bool = False, reset_co
     return remote_memory
 
 
-def make_parameter(rl_config: RLConfig, reset_config: bool = True) -> RLParameter:
-    assert rl_config.is_set_env, _ASSERT_MSG
+def make_parameter(rl_config: RLConfig, env: Optional[EnvRun] = None) -> RLParameter:
+    if env is None:
+        assert rl_config.is_set_env_config, _ASSERT_MSG
+    else:
+        rl_config.reset_config(env)
     name = rl_config.getName()
-    if reset_config:
-        rl_config.reset_config()
     parameter = load_module(_registry[name][1])(rl_config)
     if rl_config.parameter_path != "":
         if not os.path.isfile(rl_config.parameter_path):
@@ -60,12 +62,13 @@ def make_parameter(rl_config: RLConfig, reset_config: bool = True) -> RLParamete
 
 
 def make_trainer(
-    rl_config: RLConfig, parameter: RLParameter, remote_memory: RLRemoteMemory, reset_config: bool = True
+    rl_config: RLConfig, parameter: RLParameter, remote_memory: RLRemoteMemory, env: Optional[EnvRun] = None
 ) -> RLTrainer:
-    assert rl_config.is_set_env, _ASSERT_MSG
+    if env is None:
+        assert rl_config.is_set_env_config, _ASSERT_MSG
+    else:
+        rl_config.reset_config(env)
     name = rl_config.getName()
-    if reset_config:
-        rl_config.reset_config()
     return load_module(_registry[name][2])(rl_config, parameter, remote_memory)
 
 
@@ -75,12 +78,8 @@ def make_worker(
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
     actor_id: int = 0,
-    reset_config: bool = True,
 ) -> WorkerRun:
-    if not rl_config.is_set_env:
-        rl_config.set_env(env)
-    if reset_config:
-        rl_config.reset_config()
+    rl_config.reset_config(env)
     name = rl_config.getName()
     worker = load_module(_registry[name][3])(rl_config, parameter, remote_memory, actor_id)
     worker = WorkerRun(worker)

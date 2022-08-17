@@ -33,10 +33,13 @@ class EnvConfig:
 
     def copy(self) -> "EnvConfig":
         config = EnvConfig(self.name)
-        config.kwargs = copy.deepcopy(self.kwargs)
         for k, v in self.__dict__.items():
-            if v is None or type(v) in [int, float, bool, str]:
+            if v is None:
+                continue
+            if type(v) in [int, float, bool, str]:
                 setattr(config, k, v)
+            elif type(v) in [list, dict]:
+                setattr(config, k, copy.deepcopy(v))
         return config
 
 

@@ -300,7 +300,7 @@ def train(
 
     assert max_train_count != -1 or timeout != -1, "Please specify 'max_train_count' or 'timeout'."
 
-    config = config.copy(env_copy=False)
+    config = config.copy(env_share=False)
     mp_config = mp_config.copy()
 
     config.shuffle_player = shuffle_player

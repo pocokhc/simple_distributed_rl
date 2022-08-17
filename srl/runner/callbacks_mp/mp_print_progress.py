@@ -48,7 +48,7 @@ class MPPrintProgress(MPCallback):
         print(
             "### env: {}, rl: {}, max train: {}, timeout: {}".format(
                 config.env_config.name,
-                self.config.rl_config.getName(),
+                config.rl_config.getName(),
                 mp_config.max_train_count,
                 to_str_time(mp_config.timeout),
             )

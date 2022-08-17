@@ -23,6 +23,7 @@ from srl.base.define import (
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
+from srl.base.rl.processors.render_image_processor import RenderImageProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class RLConfig(ABC):
         parameter_path: str = "",
         remote_memory_path: str = "",
         use_rl_processor: bool = True,  # RL側のprocessorを使用するか
+        change_observation_render_image: bool = False,  # 状態の入力をrender_imageに変更
     ) -> None:
         if processors is None:
             self.processors = []
@@ -53,6 +55,7 @@ class RLConfig(ABC):
         self.parameter_path = parameter_path
         self.remote_memory_path = remote_memory_path
         self.use_rl_processor = use_rl_processor
+        self.change_observation_render_image = change_observation_render_image
 
     def assert_params(self) -> None:
         assert self.window_length > 0
@@ -111,7 +114,10 @@ class RLConfig(ABC):
             env_observation_type = self.override_env_observation_type
 
         # processor
-        self._run_processors = self.processors[:]
+        self._run_processors = []
+        if self.change_observation_render_image:
+            self._run_processors.append(RenderImageProcessor())
+        self._run_processors.extend(self.processors)
         if self.use_rl_processor:
             self._run_processors.extend(self.set_processor())
         for processor in self._run_processors:
@@ -178,7 +184,15 @@ class RLConfig(ABC):
         return self._env_observation_type
 
     def copy(self) -> "RLConfig":
-        return pickle.loads(pickle.dumps(self))
+        config = self.__class__()
+
+        for k, v in self.__dict__.items():
+            if isinstance(v, EnvRun):
+                continue
+            setattr(config, k, pickle.loads(pickle.dumps(v)))
+        config.__env = self.__env
+
+        return config
 
 
 class RLParameter(ABC):

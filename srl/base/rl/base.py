@@ -343,6 +343,9 @@ class WorkerBase(ABC):
     def render_terminal(self, env: EnvRun, worker: "WorkerRun", **kwargs) -> None:
         pass
 
+    def render_rgb_array(self, env: EnvRun, worker: "WorkerRun", **kwargs) -> Optional[np.ndarray]:
+        raise NotImplementedError()
+
     # ------------------------------------
     # episode
     # ------------------------------------
@@ -655,6 +658,7 @@ class WorkerRun:
         return self._step_reward
 
     def on_reset(self, env: EnvRun, player_index: int) -> None:
+        logger.debug("worker.on_reset()")
         self._player_index = player_index
         self._info = None
         self._is_reset = False
@@ -663,6 +667,7 @@ class WorkerRun:
     def policy(self, env: EnvRun) -> Optional[EnvAction]:
         if self.player_index != env.next_player_index:
             return None
+        logger.debug("worker.policy()")
 
         # 初期化していないなら初期化する
         if not self._is_reset:
@@ -678,6 +683,8 @@ class WorkerRun:
         return env_action
 
     def on_step(self, env: EnvRun):
+        logger.debug("worker.on_step()")
+
         # 初期化前はskip
         if not self._is_reset:
             return
@@ -691,7 +698,23 @@ class WorkerRun:
             self._step_reward = 0
 
     def render(self, env: EnvRun, **kwargs):
-        self.render_terminal(env, False, **kwargs)
+        logger.debug("worker.render()")
+
+        # --- windowで描画
+        try:
+            self.render_window(env, **kwargs)
+        except NotImplementedError:
+            pass
+        except Exception:
+            import traceback
+
+            logger.warning(traceback.format_exc())
+
+        # --- windowで描画できなければterminalで描画
+        try:
+            self.render_terminal(env, **kwargs)
+        except NotImplementedError:
+            pass
 
     def render_terminal(self, env: EnvRun, return_text: bool = False, **kwargs):
         # 初期化前はskip
@@ -722,3 +745,24 @@ class WorkerRun:
                 self.worker.render_terminal(env, self, **kwargs)
             except NotImplementedError:
                 pass
+
+    def render_rgb_array(self, env: EnvRun, **kwargs) -> np.ndarray:
+        rgb_array = self.worker.render_rgb_array(env, self, **kwargs)
+        if rgb_array is None:
+            raise NotImplementedError()
+        return rgb_array
+
+    def render_window(self, env: EnvRun, **kwargs):
+        """matplotlibを採用"""
+        rgb_array = self.worker.render_rgb_array(env, self, **kwargs)
+
+        if self.fig is None:
+            import matplotlib.pyplot as plt
+
+            plt.ion()  # インタラクティブモードをオン
+            self.fig, self.ax = plt.subplots()
+            self.ax.axis("off")
+
+        self.ax.imshow(rgb_array)
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()

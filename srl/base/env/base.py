@@ -132,7 +132,7 @@ class EnvBase(ABC):
         raise NotImplementedError()
 
     # option
-    def render_rgb_array(self, **kwargs) -> np.ndarray:
+    def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
         raise NotImplementedError()
 
     # option
@@ -364,9 +364,13 @@ class EnvRun:
 
         # --- windowで描画
         try:
-            self.render_window()
+            self.render_window(**kwargs)
         except NotImplementedError:
             pass
+        except Exception:
+            import traceback
+
+            logger.warning(traceback.format_exc())
 
         # --- windowで描画できなければterminalで描画
         try:
@@ -396,18 +400,21 @@ class EnvRun:
             self.env.render_terminal(**kwargs)
 
     def render_rgb_array(self, **kwargs) -> np.ndarray:
-        return self.env.render_rgb_array(**kwargs)
+        rgb_array = self.env.render_rgb_array(**kwargs)
+        if rgb_array is None:
+            raise NotImplementedError()
+        return rgb_array
 
     def render_window(self, **kwargs):
         """matplotlibを採用"""
         rgb_array = self.env.render_rgb_array(**kwargs)
 
-        # 初回
         if self.fig is None:
             import matplotlib.pyplot as plt
 
             plt.ion()  # インタラクティブモードをオン
             self.fig, self.ax = plt.subplots()
+            self.ax.axis("off")
 
         self.ax.imshow(rgb_array)
         self.fig.canvas.draw()

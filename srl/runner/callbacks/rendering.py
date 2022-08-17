@@ -26,15 +26,24 @@ class Rendering(Callback):
     use_skip_step: bool = True
     enable_animation: bool = False
 
+    # windows: C:\Windows\Fonts
+    # max    : /System/Library/Fonts
+    # linux  : /usr/local/share/fonts/
+    font_name: str = "meiryo.ttc"
+    font_size: int = 12
+
     def __post_init__(self):
         self.frames = []
         self.info_maxw = 0
         self.info_maxh = 0
-        self.rl_maxw = 0
-        self.rl_maxh = 0
+        self.env_maxw = 0
+        self.env_maxh = 0
 
         self.fig = None
         self.ax = None
+
+        self.rl_text = ""
+        self.rl_img = None
 
     def on_step_begin(
         self,
@@ -76,8 +85,17 @@ class Rendering(Callback):
         action,
         is_skip=False,
     ):
+        # env text
         env_text = env.render_terminal(return_text=True)
-        rl_text = worker.render_terminal(env, return_text=True)
+
+        # rl text
+        if is_skip:
+            rl_text = ""
+        else:
+            self.rl_text = worker.render_terminal(env, return_text=True)
+            rl_text = self.rl_text
+
+        # info text
         info_text = f"### {env.step_num}, action {action}, rewards {env.step_rewards}"
         if env.done:
             info_text += f", done({env.done_reason})"
@@ -87,36 +105,45 @@ class Rendering(Callback):
         info_text += f"\nenv   {env.info}"
         info_text += f"\nwork{worker_idx: <2d}{worker.info}"
 
+        # --- render_terminal
         if self.render_terminal:
             print(info_text)
             if env_text != "":
                 print(env_text)
-            if rl_text != "" and not is_skip and not env.done:
+            if rl_text != "" and not env.done:
                 print(rl_text)
 
+        # --- image
         if self.render_window or self.enable_animation:
-            info_image = self._text_to_image(info_text)
-            rl_image = self._text_to_image(rl_text)
+            info_img = self._text_to_image(info_text)
             try:
-                env_image = env.render_rgb_array()
+                env_img = env.render_rgb_array()
             except NotImplementedError:
-                env_image = self._text_to_image(env_text)
+                env_img = self._text_to_image(env_text)
+            if not is_skip:
+                try:
+                    self.rl_img = worker.render_rgb_array(env)
+                except NotImplementedError:
+                    self.rl_img = self._text_to_image(self.rl_text)
 
-            self.info_maxw = max(self.info_maxw, info_image.shape[1])
-            self.info_maxh = max(self.info_maxh, info_image.shape[0])
-            self.rl_maxw = max(self.rl_maxw, rl_image.shape[1])
-            self.rl_maxh = max(self.rl_maxh, rl_image.shape[0])
+            self.info_maxw = max(max(self.info_maxw, info_img.shape[1]), self.rl_img.shape[1])
+            self.info_maxh = max(self.info_maxh, info_img.shape[0] + self.rl_img.shape[0])
+            self.env_maxw = max(self.env_maxw, env_img.shape[1])
+            self.env_maxh = max(self.env_maxh, env_img.shape[0])
 
         if self.render_window:
-            image = self._create_image(info_image, env_image, rl_image)
-            self._draw_window_image(image)
+            if self.step_stop:
+                img = self._create_image(info_img, env_img, self.rl_img)
+                self._draw_window_image(img)
+            else:
+                self._draw_window_image(env_img)
 
         if self.enable_animation:
             self.frames.append(
                 {
-                    "info_image": info_image,
-                    "env_image": env_image,
-                    "rl_image": rl_image,
+                    "info_image": info_img,
+                    "env_image": env_img,
+                    "rl_image": self.rl_img,
                 }
             )
 
@@ -126,52 +153,61 @@ class Rendering(Callback):
     # -----------------------------------------------
     def _text_to_image(self, text: str) -> np.ndarray:
         text = text.encode("utf-8").decode("latin-1")
-        # TODO: 文字の大きさ
-        # font = PIL.ImageFont.truetype("meiryo.ttc", size=12)
-
+        font = PIL.ImageFont.truetype(self.font_name, size=self.font_size)
         canvas_size = (640, 480)
         img = PIL.Image.new("RGB", canvas_size)
         draw = PIL.ImageDraw.Draw(img)
-        text_width, text_height = draw.multiline_textsize(text)
-        # text_width, text_height = draw.multiline_textsize(text, font=font)
+        text_width, text_height = draw.multiline_textsize(text, font=font)
 
         canvas_size = (text_width, text_height)
         background_rgb = (0, 0, 0)
         text_rgb = (255, 255, 255)
         img = PIL.Image.new("RGB", canvas_size, background_rgb)
         draw = PIL.ImageDraw.Draw(img)
-        # draw.text((0, 0), text, fill=text_rgb, font=font)
-        draw.text((0, 0), text, fill=text_rgb)
+        draw.text((0, 0), text, fill=text_rgb, font=font)
         img = np.array(img, dtype=np.uint8)
 
         return img
 
     def _create_image(self, info_image: np.ndarray, env_image: np.ndarray, rl_image: np.ndarray):
 
-        # 大きいほうに合わせる(余白は埋める)
-        maxw = max(self.info_maxw, self.rl_maxw)
+        # --- 余白を追加
+        padding = 2
         info_image = cv2.copyMakeBorder(
-            info_image, 0, 0, 0, maxw - info_image.shape[1], cv2.BORDER_CONSTANT, value=(0, 0, 0)
+            info_image, padding, padding, padding, padding, cv2.BORDER_CONSTANT, value=(0, 0, 0)
         )
         rl_image = cv2.copyMakeBorder(
-            rl_image, 0, 0, 0, maxw - rl_image.shape[1], cv2.BORDER_CONSTANT, value=(0, 0, 0)
+            rl_image, padding, padding, padding, padding, cv2.BORDER_CONSTANT, value=(0, 0, 0)
         )
+        env_image = cv2.copyMakeBorder(
+            env_image, padding, padding, padding, padding, cv2.BORDER_CONSTANT, value=(255, 255, 255)
+        )
+
+        # --- info + rl_image、大きいほうに合わせる、余白は右に埋める
+        maxw = max(self.info_maxw + padding * 2, self.info_maxh + padding * 4)
+        info_w = maxw - info_image.shape[1]
+        rl_w = maxw - rl_image.shape[1]
+        info_image = cv2.copyMakeBorder(info_image, 0, 0, 0, info_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+        rl_image = cv2.copyMakeBorder(rl_image, 0, 0, 0, rl_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
         img1 = cv2.vconcat([info_image, rl_image])  # 縦連結
 
-        maxh = max(env_image.shape[0], img1.shape[0])
-        env_image = cv2.copyMakeBorder(
-            env_image, 0, maxh - env_image.shape[0], 0, 0, cv2.BORDER_CONSTANT, value=(0, 0, 0)
-        )
-        img1 = cv2.copyMakeBorder(img1, 0, maxh - img1.shape[0], 0, 0, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+        # --- env + info、下を埋める
+        maxw = max(self.env_maxh + padding * 2, self.info_maxh + padding * 4)
+        env_h = maxw - env_image.shape[0]
+        img1_h = maxw - img1.shape[0]
+        env_image = cv2.copyMakeBorder(env_image, 0, env_h, 0, 0, cv2.BORDER_CONSTANT, value=(255, 255, 255))
+        img1 = cv2.copyMakeBorder(img1, 0, img1_h, 0, 0, cv2.BORDER_CONSTANT, value=(0, 0, 0))
         img2 = cv2.hconcat([env_image, img1])  # 横連結
 
         return img2
 
     def _draw_window_image(self, image):
-        # 初回
+        """matplotlibを採用"""
+
         if self.fig is None:
             plt.ion()  # インタラクティブモードをオン
             self.fig, self.ax = plt.subplots()
+            self.ax.axis("off")
 
         self.ax.imshow(image)
         self.fig.canvas.draw()

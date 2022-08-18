@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import numpy as np
 from srl.base.env.base import EnvRun
 from srl.runner.callback import Callback
-from srl.utils.common import listdictdict_to_dictlist, to_str_time
+from srl.utils.common import is_package_installed, listdictdict_to_dictlist, to_str_time
 
 logger = logging.getLogger(__name__)
 
@@ -235,6 +235,11 @@ class PrintProgress(Callback):
 
                 memory_len = max([h["remote_memory"] for h in self.progress_history])
                 s += f", {memory_len:7d} mem"
+
+            if is_package_installed("psutil"):
+                import psutil
+
+                s += f", mem {psutil.virtual_memory().percent:.1f}%"
 
             if self.print_env_info:
                 d = listdictdict_to_dictlist(self.progress_history, "env_info")

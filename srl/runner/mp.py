@@ -476,12 +476,11 @@ def _train(
         if w.exitcode != 0 and w.exitcode is not None:
             raise RuntimeError(f"An exception has occurred in actor {i} process.(exitcode: {w.exitcode})")
 
-    return_parameter = None
-    return_remote_memory = None
+    return_parameter = config.make_parameter()
+    return_remote_memory = config.make_remote_memory()
     try:
         # --- last parameter
         t0 = time.time()
-        return_parameter = config.make_parameter()
         params = remote_board.read()
         if params is not None:
             return_parameter.restore(params)
@@ -492,7 +491,6 @@ def _train(
             remote_memory.save(save_memory, compress=True)
         if return_memory:
             t0 = time.time()
-            return_remote_memory = config.make_remote_memory()
             return_remote_memory.restore(remote_memory.backup())
             logger.info(f"recv remote_memory time: {time.time() - t0:.1f}s")
 

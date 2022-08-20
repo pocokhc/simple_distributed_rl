@@ -171,7 +171,8 @@ class Test(unittest.TestCase):
                     self.rl_config._action_type = RLActionType.ANY
 
                 self.env_run.reset()
-                self.rl_config.reset_config()
+                self.rl_config._is_set_env_config = False
+                self.rl_config.reset_config(self.env_run)
                 self.worker_run.on_reset(self.env_run, 0)
                 worker = cast(RLWorker, self.worker_run.worker)
 
@@ -235,7 +236,8 @@ class Test(unittest.TestCase):
                     self.rl_config._observation_type = RLObservationType.ANY
 
                 self.env_run.reset()
-                self.rl_config.reset_config()
+                self.rl_config._is_set_env_config = False
+                self.rl_config.reset_config(self.env_run)
                 self.worker_run.on_reset(self.env_run, 0)
                 worker = cast(RLWorker, self.worker_run.worker)
 

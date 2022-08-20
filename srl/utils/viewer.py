@@ -21,14 +21,17 @@ class Viewer:
         self.screen = pygame.Surface((self.width, self.height))
         self.fonts = {}
 
+        self.images = {}
+
     def __del__(self):
         self.close()
 
     def close(self):
-        pygame.display.quit()
-        pygame.quit()
+        # pygame.display.quit()
+        # pygame.quit()
+        pass
 
-    def registration_font(self, name: str, font: str = "arial", fontsize: int = 22):
+    def registration_font(self, name: str, font: str = "arial", fontsize: int = 12):
         self.fonts[name] = pygame.font.SysFont(font, fontsize)
 
     def draw_start(self, color: Tuple[int, int, int] = (255, 255, 255)):
@@ -110,13 +113,13 @@ class Viewer:
     ):
         if fontname not in self.fonts:
             if fontname == "":
-                self.fonts[""] = pygame.font.SysFont("arial", 22)
+                self.fonts[""] = pygame.font.SysFont("arial", 12)
             else:
                 raise ValueError()
         font = self.fonts[fontname]
         self.screen.blit(font.render(text, False, color), (x, y))
 
-    def draw_image(
+    def draw_image_rgb_array(
         self,
         x: int,
         y: int,
@@ -127,4 +130,17 @@ class Viewer:
         img = pygame.surfarray.make_surface(rgb_array)
         if resize is not None:
             img = pygame.transform.scale(img, resize)
+        self.screen.blit(img, (x, y))
+
+    def load_image(self, name: str, path: str):
+        self.images[name] = pygame.image.load(path)
+
+    def draw_image(
+        self,
+        name: str,
+        x: int,
+        y: int,
+        resize: Optional[Tuple[int, int]] = None,
+    ):
+        img = self.images[name]
         self.screen.blit(img, (x, y))

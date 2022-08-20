@@ -28,6 +28,7 @@
       1. RLのregisterで名前がかぶっていた場合の処理を例外に変更
       1. train(学習時)にassert文を追加
       1. mp_print_progressの進捗表示を一部変更
+      1. 暫定で使用メモリ率を表示
 1. アルゴリズム関係
    1. r2d2をstatelessでも実装できたので修正
    1. agent57もstatelessで実装
@@ -36,10 +37,12 @@
    1. オリジナルアルゴリズムSearchDynaQを追加(テスト導入)
 1. Env関係
    1. pendulum_image削除(Env の render_rgb_array から学習できる仕組みを追加したので)
+   1. Gridにrender_rgb_arrayを追加
 1. その他
    1. 自作アルゴリズム作成手順(notebook)を大幅に更新
    1. READMEにバージョンも追記
    1. このhistoryをリファクタリング
+   1. diagramsを更新
 
 
 # v0.6.0

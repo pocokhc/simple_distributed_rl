@@ -29,9 +29,9 @@ class Rendering(Callback):
     # windows     : C:\Windows\Fonts
     # max         : /System/Library/Fonts
     # linux       : /usr/local/share/fonts/
-    # googla colab: /usr/share/fonts/
+    # google colab: /usr/share/fonts/
 
-    font_name: str = "meiryo.ttc"
+    font_name: str = ""
     font_size: int = 12
 
     def __post_init__(self):
@@ -155,7 +155,10 @@ class Rendering(Callback):
     # -----------------------------------------------
     def _text_to_image(self, text: str) -> np.ndarray:
         text = text.encode("utf-8").decode("latin-1")
-        font = PIL.ImageFont.truetype(self.font_name, size=self.font_size)
+        if self.font_name == "":
+            font = None
+        else:
+            font = PIL.ImageFont.truetype(self.font_name, size=self.font_size)
         canvas_size = (640, 480)
         img = PIL.Image.new("RGB", canvas_size)
         draw = PIL.ImageDraw.Draw(img)

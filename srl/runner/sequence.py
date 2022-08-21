@@ -10,11 +10,14 @@ import numpy as np
 import srl.envs
 import srl.rl
 from srl.base.env.base import EnvConfig, EnvRun
-from srl.base.rl.base import (RLConfig, RLParameter, RLRemoteMemory, RLTrainer,
-                              WorkerRun)
-from srl.base.rl.registration import (make_parameter, make_remote_memory,
-                                      make_trainer, make_worker,
-                                      make_worker_rulebase)
+from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer, WorkerRun
+from srl.base.rl.registration import (
+    make_parameter,
+    make_remote_memory,
+    make_trainer,
+    make_worker,
+    make_worker_rulebase,
+)
 from srl.runner.callback import Callback
 from srl.runner.callbacks.file_logger import FileLogger
 from srl.runner.callbacks.print_progress import PrintProgress
@@ -378,7 +381,8 @@ def render(
     render_window: bool = False,
     step_stop: bool = False,
     enable_animation: bool = False,
-    font: str = "meiryo.ttc",
+    font_name: str = "",
+    font_size: int = 12,
     rendering_params: dict = None,
     max_steps: int = -1,
     timeout: int = -1,
@@ -418,7 +422,8 @@ def render(
         render_window=render_window,
         enable_animation=enable_animation,
         step_stop=step_stop,
-        font_name=font,
+        font_name=font_name,
+        font_size=font_size,
         **rendering_params,
     )
     config.callbacks.append(_render)
@@ -431,7 +436,8 @@ def render(
 def animation(
     config: Config,
     parameter: Optional[RLParameter] = None,
-    font: str = "meiryo.ttc",
+    font_name: str = "",
+    font_size: int = 12,
     rendering_params: dict = None,
     render_terminal: bool = False,
     render_window: bool = False,
@@ -452,7 +458,8 @@ def animation(
         render_window,
         step_stop=False,
         enable_animation=True,
-        font=font,
+        font_name=font_name,
+        font_size=font_size,
         rendering_params=rendering_params,
         max_steps=max_steps,
         timeout=timeout,

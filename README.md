@@ -59,7 +59,7 @@ python examples/minimum_runner.py
 import numpy as np
 
 import srl
-from srl.runner import mp, sequence
+from srl import runner
 
 # ---------------------
 # Configのパラメータは、引数補完または元コードを参照してください。
@@ -67,8 +67,8 @@ from srl.runner import mp, sequence
 #
 # srl.envs.Config   : Env Config
 # srl.rl.xxx.Config : Algorithm hyperparameter
-# sequence.Config   : Basic Running Config
-# mp.Config         : Distributed training Config
+# runner.Config   : Basic Running Config
+# runner.MpConfig         : Distributed training Config
 # ---------------------
 
 
@@ -81,7 +81,7 @@ def main():
     rl_config = srl.rl.ql.Config()
 
     # running config
-    config = sequence.Config(env_config, rl_config)
+    config = runner.Config(env_config, rl_config)
 
     # (option) load parameter
     # rl_config.parameter_path = "params.dat"
@@ -89,24 +89,24 @@ def main():
     # --- train
     if True:
         # sequence training
-        parameter, remote_memory, history = sequence.train(config, timeout=60)
+        parameter, remote_memory, history = runner.train(config, timeout=60)
     else:
         # distributed training
-        mp_config = mp.Config(actor_num=2)  # distributed config
-        parameter, remote_memory, history = mp.train(config, mp_config, timeout=60)
+        mp_config = runner.MpConfig(actor_num=2)  # distributed config
+        parameter, remote_memory, history = runner.mp_train(config, mp_config, timeout=60)
 
     # (option) save parameter
     # parameter.save("params.dat")
 
     # --- evaluate
-    rewards = sequence.evaluate(config, parameter, max_episodes=100)
+    rewards = runner.evaluate(config, parameter, max_episodes=100)
     print(f"Average reward for 100 episodes: {np.mean(rewards)}")
 
     # --- rendering
-    sequence.render(config, parameter)
+    runner.render(config, parameter)
 
     # --- animation
-    render = sequence.animation(config, parameter)
+    render = runner.animation(config, parameter)
     render.create_anime(interval=1000 / 3).save("FrozenLake.gif")
 
 

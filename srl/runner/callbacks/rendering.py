@@ -26,9 +26,11 @@ class Rendering(Callback):
     use_skip_step: bool = True
     enable_animation: bool = False
 
-    # windows: C:\Windows\Fonts
-    # max    : /System/Library/Fonts
-    # linux  : /usr/local/share/fonts/
+    # windows     : C:\Windows\Fonts
+    # max         : /System/Library/Fonts
+    # linux       : /usr/local/share/fonts/
+    # googla colab: /usr/share/fonts/
+
     font_name: str = "meiryo.ttc"
     font_size: int = 12
 

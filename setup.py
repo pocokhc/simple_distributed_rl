@@ -21,6 +21,9 @@ extras["all"] = list(set(itertools.chain.from_iterable([arr for arr in extras.va
 setup(
     name=package_name,
     packages=[package for package in find_packages() if package.startswith(package_name)],
+    package_data={
+        "srl": ["envs/img/*.png"],
+    },
     version=VERSION,
     license="MIT",
     author="poco",
@@ -33,7 +36,6 @@ setup(
         "tensorflow",
         "tensorflow-addons",
         "tensorflow_probability",
-        # image,history,render
         "matplotlib",
         "pillow",
         "pandas",

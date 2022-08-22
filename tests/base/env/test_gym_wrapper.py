@@ -59,28 +59,29 @@ class Test(unittest.TestCase):
         self.assertTrue(env.observation_type == EnvObservationType.UNKNOWN)
         self.assertTrue(isinstance(env.action_space, DiscreteSpace))
 
-    def test_play_all(self):
-        import gym
-        import gym.error
-        from gym import envs
-        from tqdm import tqdm
-
-        specs = envs.registry.all()
-
-        for spec in tqdm(list(reversed(list(specs)))):
-            try:
-                gym.make(spec.id)
-                self.tester.play_test(spec.id, check_render=False, max_step=5)
-            except AttributeError:
-                pass
-            except gym.error.DependencyNotInstalled:
-                pass  # No module named 'mujoco_py'
-            except ModuleNotFoundError:
-                pass  # unsupported env
-            except Exception:
-                print(spec.id)
-                raise
+    # 時間がかかる割に有益じゃないのでコメントアウト
+    # def test_play_all(self):
+    #     import gym
+    #     import gym.error
+    #     from gym import envs
+    #     from tqdm import tqdm
+    #
+    #     specs = envs.registry.all()
+    #
+    #     for spec in tqdm(list(reversed(list(specs)))):
+    #         try:
+    #             gym.make(spec.id)
+    #             self.tester.play_test(spec.id, check_render=False, max_step=5)
+    #         except AttributeError:
+    #             pass
+    #         except gym.error.DependencyNotInstalled:
+    #             pass  # No module named 'mujoco_py'
+    #         except ModuleNotFoundError:
+    #             pass  # unsupported env
+    #         except Exception:
+    #             print(spec.id)
+    #             raise
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_play_all", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_play_Tetris", verbosity=2)

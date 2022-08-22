@@ -169,9 +169,7 @@ class OX(TurnBase2Player):
             print("next player: X")
 
     def render_rgb_array(self, **kwargs) -> np.ndarray:
-        return self._render_pygame(**kwargs)
 
-    def _render_pygame(self, **kwargs) -> np.ndarray:
         WIDTH = 200
         HEIGHT = 200
         if self.viewer is None:

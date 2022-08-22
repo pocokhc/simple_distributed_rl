@@ -130,6 +130,7 @@ class Test(unittest.TestCase):
         self.env = cast(StubEnv, self.env_run.get_original_env())
 
         self.rl_config = StubRLConfig()
+        self.rl_config.reset_config(self.env)
         self.worker_run = srl.rl.make_worker(self.rl_config, self.env_run)
 
     def test_env_play(self):
@@ -278,4 +279,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_action", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_env_play", verbosity=2)

@@ -278,13 +278,8 @@ class Othello(TurnBase2Player):
         else:
             print("next player: X")
 
-    def render_gui(self, **kwargs) -> None:
-        self._render_pygame(**kwargs)
-
     def render_rgb_array(self, **kwargs) -> np.ndarray:
-        return self._render_pygame(**kwargs)
 
-    def _render_pygame(self, **kwargs) -> np.ndarray:
         WIDTH = 400
         HEIGHT = 400
         if self.viewer is None:
@@ -296,7 +291,7 @@ class Othello(TurnBase2Player):
         cell_h = int((HEIGHT - h_margin * 2) / self.H)
         invalid_actions = self.get_invalid_actions(self.player_index)
 
-        self.viewer.draw_start((255, 255, 255))
+        self.viewer.draw_fill(color=(255, 255, 255))
 
         # --- cell
         for y in range(self.H):
@@ -362,7 +357,6 @@ class Othello(TurnBase2Player):
                         fill_color=color,
                     )
 
-        self.viewer.draw_end()
         return self.viewer.get_rgb_array()
 
     def make_worker(self, name: str) -> Optional[RuleBaseWorker]:
@@ -488,8 +482,9 @@ class LayerProcessor(Processor):
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationType,
         rl_observation_type: RLObservationType,
-        env: Othello,
+        _env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationType]:
+        env = cast(Othello, _env.get_original_env())
         observation_space = BoxSpace(
             low=0,
             high=1,
@@ -497,7 +492,9 @@ class LayerProcessor(Processor):
         )
         return observation_space, EnvObservationType.SHAPE3
 
-    def process_observation(self, observation: np.ndarray, env: Othello) -> np.ndarray:
+    def process_observation(self, observation: np.ndarray, _env: Othello) -> np.ndarray:
+        env = cast(Othello, _env.get_original_env())
+
         # Layer0: my_player field (0 or 1)
         # Layer1: enemy_player field (0 or 1)
         if env.player_index == 0:

@@ -44,7 +44,7 @@ class Test(unittest.TestCase):
         in_state[0] = 1
         in_state[1] = -1
         out_state[0][0][0] = 1
-        out_state[1][0][0] = 1
+        out_state[1][0][1] = 1
 
         tester.run(processor, env_name)
         tester.change_observation_info(
@@ -189,4 +189,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_player", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_processor", verbosity=2)

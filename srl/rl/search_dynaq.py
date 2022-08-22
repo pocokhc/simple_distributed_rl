@@ -379,7 +379,8 @@ class Worker(DiscreteActionWorker):
             q_ext = np.asarray(self.parameter.Q_ext[self.state])
             q_int = np.asarray(self.parameter.Q_int[self.state])
             q = (1 - search_rate) * q_ext + search_rate * q_int
-            action = random.choice(np.where(q == q.max())[0])
+            q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)]
+            action = random.choice(np.where(q == np.max(q))[0])
 
         self.action = int(action)
         return self.action

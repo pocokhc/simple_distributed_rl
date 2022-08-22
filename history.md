@@ -4,7 +4,13 @@
       1. __init__を記載し、アクセスを簡略化
       1. 以前のアクセスも可能
       1. それに伴ってサンプルを修正
+   1. Workerのtrainingとdistributedの変数をコンストラクタで指定するように変更
+      1. srl.rl.makeを廃止、workerとtrainerは毎回作るように変更(example/minimumを参照)
    1. font関係を見直し
+   1. RLWorkerにenvプロパティを追加
+1. その他
+   1. max_stepsとtimeoutが反映されない不具合修正
+   1. intervalの初期値を60fpsに変更
 
 
 # v0.6.1

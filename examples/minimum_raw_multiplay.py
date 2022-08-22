@@ -1,17 +1,28 @@
-from typing import List, Optional
+from typing import Optional
 
 import srl
 from srl.base.env.base import EnvRun
-from srl.base.rl.base import RLTrainer, WorkerRun
+from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_worker_rulebase
 
 
 def _run_episode(
     env: EnvRun,
-    workers: List[WorkerRun],
-    trainer: Optional[RLTrainer],
+    rl_config: RLConfig,
+    parameter: RLParameter,
+    remote_memory: Optional[RLRemoteMemory],
+    training: bool,
     rendering: bool = False,
 ):
+
+    workers = [
+        srl.rl.make_worker(rl_config, parameter, remote_memory, training=training, distributed=False),
+        make_worker_rulebase("random"),
+    ]
+    if training:
+        trainer = srl.rl.make_trainer(rl_config, parameter, remote_memory)
+    else:
+        trainer = None
 
     # --- reset
     env.reset()
@@ -63,24 +74,18 @@ def main():
     env = srl.envs.make(env_config)
 
     # rl init
-    remote_memory, parameter, trainer, worker = srl.rl.make(rl_config, env)
-    workers = [
-        worker,
-        make_worker_rulebase("random"),
-    ]
+    rl_config.reset_config(env)
+    parameter = srl.rl.make_parameter(rl_config)
+    remote_memory = srl.rl.make_remote_memory(rl_config)
 
     # --- train loop
-    workers[0].set_play_info(training=True, distributed=False)
-    workers[1].set_play_info(training=False, distributed=False)
     for episode in range(10000):
-        step, reward = _run_episode(env, workers, trainer)
+        step, reward = _run_episode(env, rl_config, parameter, remote_memory, training=True)
         if episode % 1000 == 0:
             print(f"{episode} / 10000 episode, {step} step, {reward} reward")
 
     # --- render
-    workers[0].set_play_info(training=False, distributed=False)
-    workers[1].set_play_info(training=False, distributed=False)
-    step, reward = _run_episode(env, workers, None, rendering=True)
+    step, reward = _run_episode(env, rl_config, parameter, None, training=False, rendering=True)
     print(f"step: {step}, reward: {reward}")
 
 

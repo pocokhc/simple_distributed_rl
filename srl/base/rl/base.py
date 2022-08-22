@@ -336,6 +336,10 @@ class RLTrainer(ABC):
 
 
 class WorkerBase(ABC):
+    def __init__(self, training: bool, distributed: bool):
+        self._training = training
+        self._distributed = distributed
+
     # ------------------------------
     # implement
     # ------------------------------
@@ -376,10 +380,6 @@ class WorkerBase(ABC):
     def distributed(self) -> bool:
         return self._distributed
 
-    def set_play_info(self, training: bool, distributed: bool) -> None:
-        self._training = training
-        self._distributed = distributed
-
 
 class RLWorker(WorkerBase):
     """Define Worker for RL."""
@@ -389,8 +389,11 @@ class RLWorker(WorkerBase):
         config: RLConfig,
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
+        training: bool = False,
+        distributed: bool = False,
         actor_id: int = 0,
     ):
+        super().__init__(training, distributed)
         self.config = config
         self.parameter = parameter
         self.remote_memory = remote_memory
@@ -583,6 +586,9 @@ class RLWorker(WorkerBase):
 
 
 class RuleBaseWorker(WorkerBase):
+    def __init__(self):
+        super().__init__(training=False, distributed=False)
+
     @abstractmethod
     def call_on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
         raise NotImplementedError()
@@ -610,13 +616,9 @@ class RuleBaseWorker(WorkerBase):
 
 
 class ExtendWorker(WorkerBase):
-    def __init__(self, rl_worker: "WorkerRun", env: EnvRun):
+    def __init__(self, rl_worker: "WorkerRun"):
+        super().__init__(rl_worker.training, rl_worker.distributed)
         self.rl_worker = rl_worker
-        self.env = env
-
-    def set_play_info(self, training: bool, distributed: bool) -> None:
-        super().set_play_info(training, distributed)
-        self.rl_worker.set_play_info(training, distributed)
 
     @abstractmethod
     def call_on_reset(self, env: EnvRun, worker: "WorkerRun") -> None:
@@ -660,9 +662,6 @@ class WorkerRun:
     @property
     def distributed(self) -> bool:
         return self.worker.distributed
-
-    def set_play_info(self, training: bool, distributed: bool) -> None:
-        self.worker.set_play_info(training, distributed)
 
     @property
     def player_index(self) -> int:

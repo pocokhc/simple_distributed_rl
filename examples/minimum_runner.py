@@ -3,7 +3,7 @@ import srl
 from srl import runner
 
 
-def main(is_mp):
+def main():
 
     env_config = srl.envs.Config("Grid")
     rl_config = srl.rl.ql.Config()
@@ -13,7 +13,7 @@ def main(is_mp):
     # rl_config.parameter_path = "tmp/QL_params.dat"
 
     # --- training
-    if not is_mp:
+    if True:
         # sequence training
         parameter, memory, history = runner.train(config, timeout=10)
     else:
@@ -33,5 +33,4 @@ def main(is_mp):
 
 
 if __name__ == "__main__":
-    main(is_mp=False)
-    # main(is_mp=True)
+    main()

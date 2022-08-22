@@ -5,26 +5,25 @@ from typing import Optional
 
 import srl
 from srl.base.env.base import EnvRun
-from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
-from srl.base.rl.base import RLRemoteMemory, RLTrainer
-from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer, make_worker
-from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
+from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
+from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer
 
 
 def _run_episode(
     env: EnvRun,
-    worker,
-    trainer: Optional[RLTrainer],
-    rendering=False,
+    rl_config: RLConfig,
+    parameter: RLParameter,
+    remote_memory: Optional[RLRemoteMemory],
+    training: bool,
+    distributed: bool,
+    rendering: bool = False,
 ):
 
-    # change single play interface
-    env = SinglePlayEnvWrapper(env)
-    worker = SinglePlayWorkerWrapper(worker)
+    workers = [srl.rl.make_worker(rl_config, parameter, remote_memory, training=training, distributed=distributed)]
 
-    # reset
-    state = env.reset()
-    worker.on_reset(env)
+    # --- reset
+    env.reset()
+    [w.on_reset(env, i) for i, w in enumerate(workers)]
 
     if rendering:
         print("step 0")
@@ -33,32 +32,27 @@ def _run_episode(
     while not env.done:
 
         # action
-        action = worker.policy(env)
+        action = workers[env.next_player_index].policy(env)
 
-        # render
         if rendering:
-            worker.render(env)
+            print(f"player {env.next_player_index}")
+            workers[env.next_player_index].render(env)
 
         # step
-        state, reward, done, env_info = env.step(action)
-        work_info = worker.on_step(env)
+        env_info = env.step(action)
+        worker_infos = [w.on_step(env) for w in workers]
 
-        # train
-        if trainer is None:
-            train_info = {}
-        else:
-            train_info = trainer.train()
-
-        # render
+        # --- render
         if rendering:
             print(
-                "step {}, action {}, reward: {}, done: {}, info: {} {} {}".format(
-                    env.step_num, action, env.step_rewards[0], env.done, env_info, work_info, train_info
+                "turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(
+                    env.step_num, action, env.step_rewards, env.done, env.next_player_index, env_info
                 )
             )
+            print("player {} info: {}".format(env.next_player_index, worker_infos[env.next_player_index]))
             env.render()
 
-    return env.step_num, env.episode_rewards[0]
+    return env.step_num, env.episode_rewards
 
 
 class Board:
@@ -89,10 +83,7 @@ def _run_actor(
     rl_config.set_config_by_actor(config["actor_num"], actor_id)
 
     env = srl.envs.make(env_config)
-
     parameter = make_parameter(rl_config)
-    worker = make_worker(rl_config, env, parameter, remote_memory, actor_id)
-    worker.set_play_info(training=True, distributed=True)
 
     prev_update_count = 0
     episode = 0
@@ -102,7 +93,14 @@ def _run_actor(
         if train_end_signal.value:
             break
 
-        step, reward = _run_episode(env, worker, trainer=None)
+        step, reward = _run_episode(
+            env,
+            rl_config,
+            parameter,
+            remote_memory,
+            training=True,
+            distributed=True,
+        )
         episode += 1
 
         # sync parameter
@@ -222,8 +220,15 @@ def main():
         trainer_ps.terminate()
 
     # --- rendering
-    worker = make_worker(rl_config, env, parameter)
-    step, reward = _run_episode(env, worker, trainer=None, rendering=True)
+    step, reward = _run_episode(
+        env,
+        rl_config,
+        parameter,
+        None,
+        training=False,
+        distributed=False,
+        rendering=True,
+    )
     print(f"step: {step}, reward: {reward}")
 
 

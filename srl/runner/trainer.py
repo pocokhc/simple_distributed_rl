@@ -175,6 +175,7 @@ def train_only(
 
     config = config.copy(env_share=False)
     config.training = True
+    config.distributed = False
     config.enable_validation = enable_validation
 
     if config.seed is None:

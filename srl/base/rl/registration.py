@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Optional, Tuple, Type
+from typing import Optional, Type
 
 from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer, WorkerRun
@@ -14,19 +14,10 @@ _registry_worker = {}
 _ASSERT_MSG = "Run 'rl_config.reset_config(env)' first"
 
 
-def make(rl_config: RLConfig, env: EnvRun) -> Tuple[RLRemoteMemory, RLParameter, RLTrainer, WorkerRun]:
-
-    rl_config.reset_config(env)
-
-    remote_memory = make_remote_memory(rl_config)
-    parameter = make_parameter(rl_config)
-    trainer = make_trainer(rl_config, parameter, remote_memory)
-    worker = make_worker(rl_config, env, parameter, remote_memory)
-    return remote_memory, parameter, trainer, worker
-
-
 def make_remote_memory(
-    rl_config: RLConfig, return_class: bool = False, env: Optional[EnvRun] = None
+    rl_config: RLConfig,
+    env: Optional[EnvRun] = None,
+    return_class: bool = False,
 ) -> RLRemoteMemory:
     if env is None:
         assert rl_config.is_set_env_config, _ASSERT_MSG
@@ -62,7 +53,10 @@ def make_parameter(rl_config: RLConfig, env: Optional[EnvRun] = None) -> RLParam
 
 
 def make_trainer(
-    rl_config: RLConfig, parameter: RLParameter, remote_memory: RLRemoteMemory, env: Optional[EnvRun] = None
+    rl_config: RLConfig,
+    parameter: RLParameter,
+    remote_memory: RLRemoteMemory,
+    env: Optional[EnvRun] = None,
 ) -> RLTrainer:
     if env is None:
         assert rl_config.is_set_env_config, _ASSERT_MSG
@@ -74,22 +68,33 @@ def make_trainer(
 
 def make_worker(
     rl_config: RLConfig,
-    env: EnvRun,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
+    env: Optional[EnvRun] = None,
+    training: bool = False,
+    distributed: bool = False,
     actor_id: int = 0,
 ) -> WorkerRun:
-    rl_config.reset_config(env)
+    if env is None:
+        assert rl_config.is_set_env_config, _ASSERT_MSG
+    else:
+        rl_config.reset_config(env)
     name = rl_config.getName()
-    worker = load_module(_registry[name][3])(rl_config, parameter, remote_memory, actor_id)
+    worker = load_module(_registry[name][3])(
+        rl_config,
+        parameter,
+        remote_memory,
+        training,
+        distributed,
+        actor_id,
+    )
     worker = WorkerRun(worker)
 
     # ExtendWorker
     if rl_config.extend_worker is not None:
-        worker = rl_config.extend_worker(worker, env)
+        worker = rl_config.extend_worker(worker)
         worker = WorkerRun(worker)
 
-    worker.set_play_info(False, False)
     return worker
 
 
@@ -98,7 +103,6 @@ def make_worker_rulebase(name: str, **kwargs) -> Optional[WorkerRun]:
         return None
     worker = load_module(_registry_worker[name])(**kwargs)
     worker = WorkerRun(worker)
-    worker.set_play_info(False, False)
     return worker
 
 

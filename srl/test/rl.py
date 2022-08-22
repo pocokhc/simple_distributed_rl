@@ -1,27 +1,24 @@
-import os
 import warnings
 from typing import cast
 
 import numpy as np
 import srl
+from srl import runner
 from srl.base.define import EnvObservationType
 from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
-from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import make_worker_rulebase
 from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
 from srl.envs import grid, ox
 from srl.envs.grid import Grid
 from srl.rl.functions.common import to_str_observation
-from srl.runner import mp, sequence
 
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 warnings.simplefilter("ignore")
 
 
 class TestRL:
     def __init__(self):
         self.parameter = None
-        self.config: sequence.Config = None
+        self.config: runner.Config = None
 
         self.env_list = [
             (srl.envs.Config("Grid"), grid.LayerProcessor()),
@@ -50,7 +47,7 @@ class TestRL:
         self._check_play_raw(rl_config, enable_image)
 
         for env_config, img_processor in self.env_list:
-            config = sequence.Config(env_config, rl_config)
+            config = runner.Config(env_config, rl_config)
 
             if enable_image:
                 if img_processor is None:
@@ -60,7 +57,7 @@ class TestRL:
                 config.rl_config.processors = []
 
             # --- train
-            parameter, memory, _ = sequence.train(
+            parameter, memory, _ = runner.train(
                 config,
                 max_steps=10,
                 enable_validation=False,
@@ -68,7 +65,7 @@ class TestRL:
             )
 
             # --- test
-            sequence.evaluate(
+            runner.evaluate(
                 config,
                 parameter,
                 max_episodes=2,
@@ -76,7 +73,7 @@ class TestRL:
             )
 
             # --- render
-            sequence.render(
+            runner.render(
                 config,
                 parameter,
                 max_steps=10,
@@ -93,17 +90,20 @@ class TestRL:
             rl_config.processors = [ox.LayerProcessor()]
         else:
             rl_config.processors = []
+
         # --- init
-        rl_config.assert_params()
         env = srl.envs.make(env_config)
-        remote_memory, parameter, trainer, worker = srl.rl.make(rl_config, env)
+        rl_config.reset_config(env)
+        rl_config.assert_params()
+        parameter = srl.rl.make_parameter(rl_config)
+        remote_memory = srl.rl.make_remote_memory(rl_config)
+        trainer = srl.rl.make_trainer(rl_config, parameter, remote_memory)
         workers = [
             make_worker_rulebase("random"),
-            worker,
+            srl.rl.make_worker(rl_config, parameter, remote_memory, training=True),
         ]
 
         # --- episode
-        worker.set_play_info(True, False)
         for _ in range(2):
             env.reset()
             [w.on_reset(env, i) for i, w in enumerate(workers)]
@@ -144,7 +144,7 @@ class TestRL:
         rl_config = _rl_config.copy()
 
         for env_config, img_processor in self.env_list:
-            config = sequence.Config(env_config, rl_config)
+            config = runner.Config(env_config, rl_config)
 
             if enable_image:
                 if img_processor is None:
@@ -154,8 +154,8 @@ class TestRL:
                 config.rl_config.processors = []
 
             # --- train
-            mp_config = mp.Config(actor_num=2, allocate_trainer="/CPU:0")
-            parameter, memory, _ = mp.train(
+            mp_config = runner.MpConfig(actor_num=2, allocate_trainer="/CPU:0")
+            parameter, memory, _ = runner.mp_train(
                 config,
                 mp_config,
                 max_train_count=5,
@@ -163,7 +163,7 @@ class TestRL:
             )
 
             # --- test
-            sequence.evaluate(
+            runner.evaluate(
                 config,
                 parameter,
                 max_episodes=10,
@@ -171,7 +171,7 @@ class TestRL:
             )
 
             # --- render
-            sequence.render(
+            runner.render(
                 config,
                 parameter,
                 max_steps=10,
@@ -195,14 +195,14 @@ class TestRL:
             rl_config.override_env_observation_type = EnvObservationType.GRAY_2ch
 
         # create config
-        config = sequence.Config(env_config, rl_config)
+        config = runner.Config(env_config, rl_config)
         if is_atari:
             config.max_episode_steps = 50
             config.skip_frames = 4
 
         if is_mp:
-            mp_config = mp.Config(1, allocate_trainer="/CPU:0")
-            parameter, memory, _ = mp.train(
+            mp_config = runner.MpConfig(1, allocate_trainer="/CPU:0")
+            parameter, memory, _ = runner.mp_train(
                 config,
                 mp_config,
                 max_train_count=train_count,
@@ -211,7 +211,7 @@ class TestRL:
                 max_progress_time=60,
             )
         else:
-            parameter, memory, _ = sequence.train(
+            parameter, memory, _ = runner.train(
                 config,
                 max_steps=train_count,
                 enable_validation=is_valid,
@@ -224,7 +224,7 @@ class TestRL:
             max_episodes = true_env[1]
         else:
             max_episodes = test_num
-        episode_rewards = sequence.evaluate(
+        episode_rewards = runner.evaluate(
             config,
             parameter,
             max_episodes=max_episodes,
@@ -237,7 +237,7 @@ class TestRL:
         # parameter backup/restore
         param2 = config.make_parameter()
         param2.restore(parameter.backup())
-        episode_rewards = sequence.evaluate(
+        episode_rewards = runner.evaluate(
             config,
             param2,
             max_episodes=max_episodes,
@@ -263,7 +263,7 @@ class TestRL:
         rl_config = _rl_config.copy()
 
         env_config = srl.envs.Config(env_name)
-        config = sequence.Config(env_config, rl_config)
+        config = runner.Config(env_config, rl_config)
 
         if is_self_play:
             config.players = [None, None]
@@ -271,8 +271,8 @@ class TestRL:
             config.players = [None, "random"]
 
         if is_mp:
-            mp_config = mp.Config(1, allocate_trainer="/CPU:0")
-            parameter, memory, _ = mp.train(
+            mp_config = runner.MpConfig(1, allocate_trainer="/CPU:0")
+            parameter, memory, _ = runner.mp_train(
                 config,
                 mp_config,
                 max_train_count=train_count,
@@ -281,7 +281,7 @@ class TestRL:
                 max_progress_time=10,
             )
         else:
-            parameter, memory, _ = sequence.train(
+            parameter, memory, _ = runner.train(
                 config,
                 max_steps=train_count,
                 enable_validation=is_valid,
@@ -293,7 +293,7 @@ class TestRL:
 
         # 1p play
         config.players = [None, "random"]
-        episode_rewards = sequence.evaluate(
+        episode_rewards = runner.evaluate(
             config,
             parameter,
             max_episodes=true_env[1],
@@ -306,7 +306,7 @@ class TestRL:
 
         # 2p play
         config.players = ["random", None]
-        episode_rewards = sequence.evaluate(
+        episode_rewards = runner.evaluate(
             config,
             parameter,
             max_episodes=true_env[1],
@@ -320,7 +320,7 @@ class TestRL:
         # parameter backup/restore
         param2 = config.make_parameter()
         param2.restore(parameter.backup())
-        episode_rewards = sequence.evaluate(
+        episode_rewards = runner.evaluate(
             config,
             param2,
             max_episodes=true_env[1],
@@ -342,7 +342,6 @@ class TestRL:
         env_org = cast(Grid, env.get_original_env())
 
         worker = self.config.make_worker(self.parameter)
-        worker.set_play_info(False, False)
         worker = SinglePlayWorkerWrapper(worker)
 
         V, _Q = env_org.calc_action_values()

@@ -10,14 +10,11 @@ import numpy as np
 import srl.envs
 import srl.rl
 from srl.base.env.base import EnvConfig, EnvRun
-from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer, WorkerRun
-from srl.base.rl.registration import (
-    make_parameter,
-    make_remote_memory,
-    make_trainer,
-    make_worker,
-    make_worker_rulebase,
-)
+from srl.base.rl.base import (RLConfig, RLParameter, RLRemoteMemory, RLTrainer,
+                              WorkerRun)
+from srl.base.rl.registration import (make_parameter, make_remote_memory,
+                                      make_trainer, make_worker,
+                                      make_worker_rulebase)
 from srl.runner.callback import Callback
 from srl.runner.callbacks.file_logger import FileLogger
 from srl.runner.callbacks.print_progress import PrintProgress
@@ -118,9 +115,16 @@ class Config:
         remote_memory: Optional[RLRemoteMemory] = None,
         actor_id: int = 0,
     ) -> WorkerRun:
-        env = self.make_env()
-        worker = make_worker(self.rl_config, env, parameter, remote_memory, actor_id)
-        worker.set_play_info(self.training, self.distributed)
+        self._set_env()
+        worker = make_worker(
+            self.rl_config,
+            parameter,
+            remote_memory,
+            env=self.env,
+            training=self.training,
+            distributed=self.distributed,
+            actor_id=actor_id,
+        )
         return worker
 
     def make_player(
@@ -158,8 +162,15 @@ class Config:
         if isinstance(player_obj, object) and issubclass(player_obj.__class__, RLConfig):
             parameter = make_parameter(self.rl_config)
             remote_memory = make_remote_memory(self.rl_config)
-            worker = make_worker(player_obj, env, parameter, remote_memory, actor_id=actor_id)
-            worker.set_play_info(training=False, distributed=False)
+            worker = make_worker(
+                player_obj,
+                parameter,
+                remote_memory,
+                env=env,
+                training=False,
+                distributed=False,
+                actor_id=actor_id,
+            )
             return worker
 
         raise ValueError(f"unknown player: {player_obj}")
@@ -305,6 +316,7 @@ def train(
         config.seed = seed
 
     config.training = True
+    config.distributed = False
 
     if print_progress:
         if print_progress_kwargs is None:
@@ -360,6 +372,7 @@ def evaluate(
 
     config.enable_validation = False
     config.training = False
+    config.distributed = False
 
     if print_progress:
         if print_progress_kwargs is None:
@@ -408,6 +421,7 @@ def render(
     config.enable_validation = False
     config.max_episodes = 1
     config.training = False
+    config.distributed = False
     config.episode_timeout = -1
 
     if print_progress:

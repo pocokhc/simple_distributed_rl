@@ -328,7 +328,7 @@ class Worker(ModelBaseWorker):
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
     def call_on_reset(self, state: np.ndarray, env: EnvRun, worker: WorkerRun) -> None:
-        self.step = 0
+        self.sampling_step = 0
         self.history = []
 
         self.N = {}  # 訪問回数(s,a)
@@ -356,7 +356,7 @@ class Worker(ModelBaseWorker):
         self.step_policy = [self.N[self.state_str][a] / N for a in range(self.config.action_num)]
 
         # --- episodeの序盤は試行回数に比例した確率でアクションを選択、それ以外は最大試行回数
-        if self.step < self.config.sampling_steps:
+        if self.sampling_step < self.config.sampling_steps:
             action = random_choice_by_probs(self.N[self.state_str])
         else:
             counts = np.asarray(self.N[self.state_str])
@@ -455,7 +455,7 @@ class Worker(ModelBaseWorker):
         env: EnvRun,
         worker: WorkerRun,
     ):
-        self.step += 1
+        self.sampling_step += 1
 
         if not self.training:
             return {}

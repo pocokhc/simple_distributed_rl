@@ -309,7 +309,7 @@ class Worker(DiscreteActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-        self.step = 0
+        self.step_epsilon = 0
 
         if self.config.exploration_steps > 0:
             self.initial_epsilon = self.config.initial_epsilon
@@ -328,7 +328,7 @@ class Worker(DiscreteActionWorker):
         if self.training:
             if self.config.exploration_steps > 0:
                 # Annealing ε-greedy
-                epsilon = self.initial_epsilon - self.step * self.epsilon_step
+                epsilon = self.initial_epsilon - self.step_epsilon * self.epsilon_step
                 if epsilon < self.final_epsilon:
                     epsilon = self.final_epsilon
             else:
@@ -360,7 +360,7 @@ class Worker(DiscreteActionWorker):
     ):
         if not self.training:
             return {}
-        self.step += 1
+        self.step_epsilon += 1
 
         # reward clip
         if self.config.enable_reward_clip:

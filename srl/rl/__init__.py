@@ -1,4 +1,3 @@
-from ..base.rl.registration import make  # noqa F402
 from ..base.rl.registration import make_parameter  # noqa F402
 from ..base.rl.registration import make_remote_memory  # noqa F402
 from ..base.rl.registration import make_trainer  # noqa F402

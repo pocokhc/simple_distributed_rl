@@ -223,7 +223,7 @@ class Rendering(Callback):
     def create_anime(
         self,
         scale: float = 1.0,
-        interval: float = 200,
+        interval: float = 1000 / 60,
         gray: bool = False,
         resize: Optional[Tuple[int, int]] = None,
         draw_info: bool = False,
@@ -270,7 +270,7 @@ class Rendering(Callback):
     def display(
         self,
         scale: float = 1.0,
-        interval: int = 200,
+        interval: int = 1000 / 60,
         gray: bool = False,
         resize: Optional[Tuple[int, int]] = None,
         draw_info: bool = False,

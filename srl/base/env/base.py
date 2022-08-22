@@ -189,6 +189,10 @@ class EnvRun:
         self.fig = None
         self.ax = None
 
+        self.t0 = 0
+        self.max_steps = -1
+        self.timeout = -1
+
     def init(self):
         self._step_num = 0
         self._state = None
@@ -273,7 +277,7 @@ class EnvRun:
         return self._info
 
     def reset(self, max_steps: int = -1, timeout: int = -1) -> None:
-        logger.debug("env.reset")
+        logger.debug(f"env.reset(max_steps={max_steps}, timeout={timeout})")
         self._state, self._next_player_index = self.env.reset()
         self._step_num = 0
         self._done = False
@@ -283,8 +287,10 @@ class EnvRun:
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
 
         self.t0 = time.time()
-        self.max_steps = max_steps
-        self.timeout = timeout
+        if max_steps != -1:
+            self.max_steps = max_steps
+        if timeout != -1:
+            self.timeout = timeout
 
     def step(self, action: EnvAction, skip_frames: int = 0, skip_function=None) -> Info:
         assert not self.done, "It is in the done state. Please execute reset ()."
@@ -345,6 +351,9 @@ class EnvRun:
             self.next_player_index,
             self._invalid_actions_list,
             self.info,
+            self.t0,
+            self.max_steps,
+            self.timeout,
         ]
         return pickle.dumps(d)
 
@@ -361,6 +370,9 @@ class EnvRun:
         self._next_player_index = d[7]
         self._invalid_actions_list = d[8]
         self._info = d[9]
+        self.t0 = d[10]
+        self.max_steps = d[11]
+        self.timeout = d[12]
 
     def render(self, **kwargs) -> None:
         logger.debug("env.render()")

@@ -399,6 +399,7 @@ class RLWorker(WorkerBase):
         self.remote_memory = remote_memory
         self.actor_id = actor_id
         self.__dummy_state = np.full(self.config._one_observation_shape, self.config.dummy_state_val)
+        self.__env = None
 
     # ------------------------------
     # encode/decode
@@ -517,6 +518,21 @@ class RLWorker(WorkerBase):
             worker,
         )
         return info
+
+    # ------------------------------------
+    # episode info
+    # ------------------------------------
+    @property
+    def max_episode_steps(self) -> int:
+        return 0 if self.__env is None else self.__env.max_episode_steps
+
+    @property
+    def player_num(self) -> int:
+        return 0 if self.__env is None else self.__env.player_num
+
+    @property
+    def step(self) -> int:
+        return 0 if self.__env is None else self.__env.step_num
 
     # ------------------------------------
     # utils

@@ -4,9 +4,10 @@ import os
 from setuptools import find_packages, setup
 
 package_name = "srl"
+here = os.path.abspath(os.path.dirname(__file__))
 
 # read version
-version_path = os.path.join(os.path.dirname(__file__), package_name, "version.py")
+version_path = os.path.join(here, package_name, "version.py")
 exec(open(version_path).read())
 
 extras = {
@@ -30,7 +31,8 @@ setup(
     author_email="pocopococpp198@gmail.com",
     url="https://github.com/pocokhc/simple_distributed_rl",
     description="simple distributed reinforcement learning framework",
-    long_description="simple distributed reinforcement learning framework",
+    long_description=open(os.path.join(here, "README.md"), encoding="utf-8").read().replace("\r", ""),
+    long_description_content_type="text/markdown",
     install_requires=[
         "numpy",
         "tensorflow",

@@ -1,7 +1,7 @@
 import numpy as np
 import srl
+from srl import runner
 from srl.base.env.base import EnvRun
-from srl.runner import sequence
 
 
 class TestEnv:
@@ -127,10 +127,10 @@ class TestEnv:
 
     def player_test(self, env_name: str, player: str) -> EnvRun:
         env_config = srl.envs.Config(env_name)
-        config = sequence.Config(env_config, None)
+        config = runner.Config(env_config, None)
 
         env = config.make_env()
         config.players = [player] * env.player_num
 
-        sequence.evaluate(config, None, max_episodes=10)
+        runner.evaluate(config, None, max_episodes=10)
         return env

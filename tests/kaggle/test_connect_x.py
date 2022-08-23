@@ -149,7 +149,7 @@ class Test(unittest.TestCase):
         self.config.players = [None, None]
         parameter, _, _ = runner.train(
             self.config,
-            max_steps=10_000,
+            max_steps=100_000,
             enable_file_logger=False,
             enable_validation=False,
         )
@@ -173,10 +173,10 @@ class Test(unittest.TestCase):
         kaggle_env = kaggle_environments.make("connectx", debug=True)
         players = []
         for players, p1_assert in [
-            ([my_agent, "random"], 0.8),
-            (["random", my_agent], -0.8),
-            ([my_agent, "negamax"], 0.5),
-            (["negamax", my_agent], -0.3),
+            ([my_agent, "random"], 0.7),  # [ 1. -1.]
+            (["random", my_agent], -0.7),  # [-1.  1.]
+            ([my_agent, "negamax"], 0.3),  # [ 0.6 -0.6]
+            (["negamax", my_agent], -0.3),  # [-0.6  0.6]
         ]:
             rewards = []
             for _ in range(100):

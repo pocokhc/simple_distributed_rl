@@ -8,6 +8,12 @@
       1. srl.rl.makeを廃止、workerとtrainerは毎回作るように変更(example/minimumを参照)
    1. font関係を見直し
    1. RLWorkerにenvプロパティを追加
+   1. invalid_actions を見直し
+      1. spaceのboxのaction_discrete_encodeを実装
+      1. Env側で使えるのはaction_spaceにdiscreteを使った場合のみに変更
+      1. RL側はRLActionTypeがdiscreteの場合のみに変更
+      1. DiscreteSpaceTypeを削除しintに変更
+      1. RLWorkerのsample_actionを離散値の場合直接出すように変更
 1. その他
    1. max_stepsとtimeoutが反映されない不具合修正
    1. intervalの初期値を60fpsに変更

@@ -2,7 +2,7 @@ import random
 from typing import List, Tuple
 
 import numpy as np
-from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
+from srl.base.define import ContinuousAction, DiscreteAction, RLObservation
 from srl.base.env.base import SpaceBase
 
 
@@ -14,7 +14,7 @@ class DiscreteSpace(SpaceBase[int]):
     def n(self) -> int:
         return self._n
 
-    def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> int:
+    def sample(self, invalid_actions: List[int] = []) -> int:
         return random.choice([a for a in range(self.n) if a not in invalid_actions])
 
     def __eq__(self, o: object) -> bool:

@@ -20,7 +20,7 @@ class ContinuousSpace(BoxSpace):
         return self._n
 
     def action_discrete_encode(self, val: float) -> int:
-        raise NotImplementedError
+        return super().action_discrete_encode(val)
 
     def action_discrete_decode(self, val: int) -> float:
         return float(super().action_discrete_decode(val)[0])

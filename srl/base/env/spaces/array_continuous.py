@@ -30,7 +30,7 @@ class ArrayContinuousSpace(BoxSpace):
         return self._n
 
     def action_discrete_encode(self, val: List[float]) -> DiscreteAction:
-        raise NotImplementedError
+        return super().action_discrete_encode(val)
 
     def action_discrete_decode(self, val: DiscreteAction) -> List[float]:
         return super().action_discrete_decode(val).tolist()

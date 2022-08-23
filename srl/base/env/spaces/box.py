@@ -3,7 +3,8 @@ import logging
 from typing import List, Tuple, Union
 
 import numpy as np
-from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
+from srl.base.define import (ContinuousAction, DiscreteAction,
+                             DiscreteSpaceType, RLObservation)
 from srl.base.env.base import SpaceBase
 
 logger = logging.getLogger(__name__)
@@ -87,11 +88,15 @@ class BoxSpace(SpaceBase[np.ndarray]):
         return self._n
 
     def action_discrete_encode(self, val: np.ndarray) -> DiscreteAction:
-        raise NotImplementedError
+        if self._is_inf:  # infは定義できない
+            raise NotImplementedError
+        # ユークリッド距離で一番近いアクションを選択
+        d = (self.action_tbl - val).reshape((self.action_tbl.shape[0], -1))
+        d = np.linalg.norm(d, axis=1)
+        return np.argmin(d)
 
     def action_discrete_decode(self, val: DiscreteAction) -> np.ndarray:
-        if self._is_inf:
-            # infの場合は定義できない
+        if self._is_inf:  # infは定義できない
             return np.full(self.shape, val, dtype=np.float32)
         return self.action_tbl[val]
 

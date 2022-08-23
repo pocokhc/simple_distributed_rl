@@ -40,6 +40,7 @@ class Test(unittest.TestCase):
             action=3,
         )
         self._check_action(decode_action, (1,), [2])
+        self.tester.check_action_encode(decode_action, 3)
 
         # action_continuous
         decode_action = self.tester.check_action_continuous(
@@ -90,6 +91,7 @@ class Test(unittest.TestCase):
             action=3,
         )
         self._check_action(decode_action, (3, 2), true_tbl[3])
+        self.tester.check_action_encode(decode_action, 3)
 
         # action_continuous
         decode_action = self.tester.check_action_continuous(
@@ -134,6 +136,8 @@ class Test(unittest.TestCase):
             action=3,
         )
         self._check_action(decode_action, (3, 2), np.full((3, 2), 3))
+        with self.assertRaises(NotImplementedError):
+            self.space.action_discrete_encode(decode_action)
 
         # action_continuous
         decode_action = self.tester.check_action_continuous(
@@ -160,4 +164,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_space1", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_inf", verbosity=2)

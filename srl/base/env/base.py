@@ -10,8 +10,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import srl
-from srl.base.define import EnvAction, EnvInvalidAction, EnvObservation, EnvObservationType, Info
+from srl.base.define import EnvAction, EnvObservation, EnvObservationType, Info
 from srl.base.env.space import SpaceBase
+from srl.base.env.spaces.discrete import DiscreteSpace
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +140,7 @@ class EnvBase(ABC):
         raise NotImplementedError()
 
     # option
-    def get_invalid_actions(self, player_index: int) -> List[EnvInvalidAction]:
+    def get_invalid_actions(self, player_index: int) -> List[int]:
         return []
 
     # option
@@ -175,9 +176,12 @@ class EnvBase(ABC):
     # --------------------------------
     # utils
     # --------------------------------
-    def get_valid_actions(self, player_index: int) -> List[EnvInvalidAction]:
-        invalid_actions = self.get_invalid_actions(player_index)
-        return [a for a in range(self.action_space.get_action_discrete_info()) if a not in invalid_actions]
+    def get_valid_actions(self, player_index: int) -> List[int]:
+        if isinstance(self.action_space, DiscreteSpace):
+            invalid_actions = self.get_invalid_actions(player_index)
+            return [a for a in range(self.action_space.n) if a not in invalid_actions]
+        else:
+            return []
 
 
 # 実装と実行で名前空間を分けるために別クラスに
@@ -435,21 +439,22 @@ class EnvRun:
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
-    def get_invalid_actions(self, player_index: int = -1) -> List[EnvInvalidAction]:
-        if player_index == -1:
-            player_index = self.next_player_index
-        return self._invalid_actions_list[player_index]
+    def get_invalid_actions(self, player_index: int = -1) -> List[int]:
+        if isinstance(self.action_space, DiscreteSpace):
+            if player_index == -1:
+                player_index = self.next_player_index
+            return self._invalid_actions_list[player_index]
+        else:
+            return []
 
-    def get_valid_actions(self, player_index: int = -1) -> List[EnvInvalidAction]:
-        if player_index == -1:
-            player_index = self.next_player_index
-        return [
-            a
-            for a in range(self.action_space.get_action_discrete_info())
-            if a not in self._invalid_actions_list[player_index]
-        ]
+    def get_valid_actions(self, player_index: int = -1) -> List[int]:
+        if isinstance(self.action_space, DiscreteSpace):
+            invalid_actions = self.get_invalid_actions(player_index)
+            return [a for a in range(self.action_space.n) if a not in invalid_actions]
+        else:
+            return []
 
-    def add_invalid_actions(self, invalid_actions: List[EnvInvalidAction], player_index: int) -> None:
+    def add_invalid_actions(self, invalid_actions: List[int], player_index: int) -> None:
         self._invalid_actions_list[player_index] += invalid_actions
         self._invalid_actions_list[player_index] = list(set(self._invalid_actions_list[player_index]))
 
@@ -501,9 +506,7 @@ class EnvRun:
     # util functions
     # ------------------------------------
     def sample(self, player_index: int = -1) -> EnvAction:
-        if player_index == -1:
-            player_index = self.next_player_index
-        return self.action_space.sample(self._invalid_actions_list[player_index])
+        return self.action_space.sample(self.get_invalid_actions(player_index))
 
     def copy(self):
         org_env = self.env.__class__()

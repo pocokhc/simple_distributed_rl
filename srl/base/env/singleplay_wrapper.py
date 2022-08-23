@@ -1,6 +1,6 @@
 from typing import List, Tuple
 
-from srl.base.define import EnvAction, EnvInvalidAction, EnvObservation, Info
+from srl.base.define import EnvAction, EnvObservation, Info
 from srl.base.env.base import EnvRun
 
 
@@ -20,7 +20,7 @@ class SinglePlayEnvWrapper(EnvRun):
         super().step(action)
         return self.state, self.step_rewards[0], self.done, self.info
 
-    def get_invalid_actions(self, player_index: int = 0) -> List[EnvInvalidAction]:
+    def get_invalid_actions(self, player_index: int = 0) -> List[int]:
         return super().get_invalid_actions(player_index)
 
     # ------------------------------------

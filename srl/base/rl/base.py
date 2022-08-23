@@ -4,6 +4,7 @@ import logging
 import lzma
 import os
 import pickle
+import random
 import sys
 import time
 from abc import ABC, abstractmethod
@@ -537,20 +538,32 @@ class RLWorker(WorkerBase):
     # ------------------------------------
     # utils
     # ------------------------------------
-    def get_invalid_actions(self, env=None) -> List[RLAction]:
-        if env is None:
-            env = self.__env
-        return [self.action_encode(a) for a in self.__env.get_invalid_actions(self.player_index)]
+    def get_invalid_actions(self, env=None) -> List[int]:
+        if self.config.action_type == RLActionType.DISCRETE:
+            if env is None:
+                env = self.__env
+            return [self.action_encode(a) for a in env.get_invalid_actions(self.player_index)]
+        else:
+            return []
 
     def get_valid_actions(self, env=None) -> List[RLAction]:
-        if env is None:
-            env = self.__env
-        return [self.action_encode(a) for a in self.__env.get_valid_actions(self.player_index)]
+        if self.config.action_type == RLActionType.DISCRETE:
+            if env is None:
+                env = self.__env
+            invalid_actions = self.get_invalid_actions(env)
+            return [a for a in range(env.action_space.get_action_discrete_info()) if a not in invalid_actions]
+        else:
+            return []
 
     def sample_action(self, env=None) -> RLAction:
-        if env is None:
-            env = self.__env
-        return self.action_encode(self.__env.sample(self.player_index))
+        if self.config.action_type == RLActionType.DISCRETE:
+            action = random.choice(self.get_valid_actions(env))
+        else:
+            if env is None:
+                env = self.__env
+            action = env.sample(self.player_index)
+            action = self.action_encode(action)
+        return action
 
     def env_step(self, env: EnvRun, action: RLAction, **kwargs) -> Tuple[np.ndarray, List[float], bool]:
         """Advance env one step

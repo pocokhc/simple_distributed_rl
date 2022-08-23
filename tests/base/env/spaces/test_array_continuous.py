@@ -34,6 +34,7 @@ class Test(unittest.TestCase):
             action=3,
         )
         self._check_action(decode_action, 3, [-1, -1, 2])
+        self.tester.check_action_encode(decode_action, 3)
 
         # action_continuous
         decode_action = self.tester.check_action_continuous(
@@ -74,6 +75,8 @@ class Test(unittest.TestCase):
             action=3,
         )
         self._check_action(decode_action, 3, [3, 3, 3])
+        with self.assertRaises(NotImplementedError):
+            self.space.action_discrete_encode(decode_action)
 
         # action_continuous
         decode_action = self.tester.check_action_continuous(

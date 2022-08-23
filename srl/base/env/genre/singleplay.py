@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import List, Tuple
 
 import numpy as np
-from srl.base.define import EnvAction, EnvInvalidAction, EnvObservation, Info
+from srl.base.define import EnvAction, EnvObservation, Info
 from srl.base.env import EnvBase
 
 
@@ -38,7 +38,7 @@ class SinglePlayEnv(EnvBase):
     def call_step(self, action: EnvAction) -> Tuple[np.ndarray, float, bool, Info]:
         raise NotImplementedError()
 
-    def call_get_invalid_actions(self) -> List[EnvInvalidAction]:
+    def call_get_invalid_actions(self) -> List[int]:
         return []
 
     def call_direct_reset(self, *args, **kwargs) -> np.ndarray:
@@ -65,7 +65,7 @@ class SinglePlayEnv(EnvBase):
         n_state, reward, done, info = self.call_step(action)
         return n_state, [reward], done, 0, info
 
-    def get_invalid_actions(self, player_index: int) -> List[EnvInvalidAction]:
+    def get_invalid_actions(self, player_index: int) -> List[int]:
         return self.call_get_invalid_actions()
 
     def direct_reset(self, *args, **kwargs) -> Tuple[np.ndarray, int]:

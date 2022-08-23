@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Generic, List, Tuple, TypeVar
 
 import numpy as np
-from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation, SpaceType
+from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
 
 T = TypeVar("T", int, List[int], float, List[float], np.ndarray, covariant=True)
 

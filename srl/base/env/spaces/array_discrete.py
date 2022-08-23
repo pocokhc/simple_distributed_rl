@@ -4,8 +4,7 @@ import random
 from typing import List, Tuple
 
 import numpy as np
-from srl.base.define import (ContinuousAction, DiscreteAction,
-                             DiscreteSpaceType, RLObservation)
+from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
 from srl.base.env.base import SpaceBase
 
 logger = logging.getLogger(__name__)

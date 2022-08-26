@@ -24,6 +24,11 @@
         "--line-length=119",  // defaultは79、119はgit向け
     ],
 
+    // --- フォーマッタ(md)
+    "[markdown]": {
+        "editor.formatOnSave": true
+    },
+
     // --- 型アノテーション(Pylance)
     "python.analysis.typeCheckingMode": "basic",
     

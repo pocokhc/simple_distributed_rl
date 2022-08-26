@@ -14,7 +14,6 @@
 
 また本フレームワークの解説は[Qiita記事](https://qiita.com/pocokhc/items/a2f1ba993c79fdbd4b4d)に記載しております。
 
-
 # Install
 
 github からの pip install を想定しています。
@@ -44,7 +43,6 @@ python examples/minimum_runner.py
 + pillow
 + opencv-python
 + pandas
-
 
 ### Option library
 
@@ -126,10 +124,10 @@ if __name__ == "__main__":
 examples/custom_env.ipynb  
 examples/custom_rl.ipynb  
 
-
 # Algorithms
 
 ## ModelFree
+
 ### ValueBase
 
 |Algorithm |Observation|Action|ProgressRate||
@@ -141,7 +139,6 @@ examples/custom_rl.ipynb
 |R2D2      |Continuous |Discrete  |100%||
 |Agent57   |Continuous |Discrete  |100%||
 
-
 ### PolicyBase/ActorCritic
 
 |Algorithm              |Observation|Action    |ProgressRate|
@@ -152,7 +149,6 @@ examples/custom_rl.ipynb
 |PPO                    |Continuous |          |  0%|
 |DDPG/TD3               |Continuous |Continuous|100%|
 |SAC                    |Continuous |Continuous|100%|
-
 
 ## AlphaSeries
 
@@ -178,7 +174,6 @@ examples/custom_rl.ipynb
 |Dreamer    |           |           |  0%|
 |DreamerV2  |           |           |  0%|
 
-
 ## Offline
 
 |Algorithm  |Observation|Action     |ProgressRate|
@@ -193,25 +188,21 @@ examples/custom_rl.ipynb
 |Agent57_light|Continuous |Discrete|ValueBase|100%|Agent57 - (LSTM,MultiStep)|
 |SearchDynaQ  |Discrete   |Discrete|ModelBase/ValueBase| 80%||
 
-
 # Diagrams
 
 ## Overview
 
-* sequence flow
++ sequence flow
 
 ![](diagrams/overview-sequence.drawio.png)
 
-* distributed flow
++ distributed flow
 
 ![](diagrams/overview-distributed.drawio.png)
 
-* multiplay flow
++ multiplay flow
 
 ![](diagrams/overview-multiplay.drawio.png)
-
-
-
 
 ## PlayFlow
 
@@ -219,26 +210,23 @@ examples/custom_rl.ipynb
 
 ## Distribute flow
 
-* main
++ main
 
 ![](diagrams/runner_mp_flow.png)
 
-* Trainer
++ Trainer
 
 ![](diagrams/runner_mp_flow_trainer.png)
 
-* Workers
++ Workers
 
 ![](diagrams/runner_mp_flow_worker.png)
-
 
 ## Class diagram
 
 ![](diagrams/class_rl.png)
 
 ![](diagrams/class_env.png)
-
-
 
 # Interface
 
@@ -251,7 +239,7 @@ examples/custom_rl.ipynb
 |rl |observation|Discrete  |np.ndarray(dtype=int)|
 |rl |observation|Continuous|np.ndarray(dtype=float)|
 
-* Space(srl.base.env.spaces)
++ Space(srl.base.env.spaces)
 
 |class               |Type       |
 |--------------------|-----------|
@@ -260,7 +248,6 @@ examples/custom_rl.ipynb
 |ContinuousSpace     |float      |
 |ArrayContinuousSpace|list[float]|
 |BoxSpace            |np.ndarray |
-
 
 # Development environment / Operation check environment
 
@@ -281,4 +268,3 @@ examples/custom_rl.ipynb
   + pygame: 2.1.2
   + psutil: 5.9.1
   + pynvml: 11.4.1
-

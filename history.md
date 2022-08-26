@@ -1,4 +1,5 @@
 # v0.6.2
+
 1. フレームワーク関係
    1. 学習などの実行の窓口をrunnerに統一
       1. __init__を記載し、アクセスを簡略化
@@ -18,8 +19,8 @@
    1. max_stepsとtimeoutが反映されない不具合修正
    1. intervalの初期値を60fpsに変更
 
-
 # v0.6.1
+
 1. フレームワーク関係
    1. Processorを見直し
       1. RLParameterとRLRemoteMemoryのrestore/backupをcall_restore/call_backupに変更
@@ -64,8 +65,8 @@
    1. このhistoryをリファクタリング
    1. diagramsを更新
 
-
 # v0.6.0
+
 1. フレームワーク関係
    1. 必須パッケージに tensorflow_probability を追加
    1. render方法を全体的に見直し
@@ -78,7 +79,7 @@
       1. WorkerBaseのrender_terminalはオプション化
       1. animationのfpsの引数を削除し、intervalを追加
       1. animation周りを見直して修正、情報も描画できるように追加（テスト導入）
-    1. stateの数フレームスタック化を個別実装からフレームワーク側に実装
+   1. stateの数フレームスタック化を個別実装からフレームワーク側に実装
        1. WorkerBaseを見直し、引数のEnvRun/WorkerRunは補助とし、プリミティブな引数も追加
        1. player_indexを必須に
        1. Spaceのobservation情報はdiscreteとcontinuousで統一
@@ -97,6 +98,7 @@
    1. その他いろいろ
 
 # v0.5.4
+
 1. フレームワーク関係
    1. get_valid_actions を追加
    1. sequenceに経験収集だけ、学習だけをする仕組みを追加
@@ -114,8 +116,8 @@
    1. othello追加
    1. pygameのViewerを修正
 
-
 # v0.5.3
+
 1. フレームワーク関係
    1. 複数プレイ時の1ターンで実行できるプレイヤー数を、複数人から一人固定に変更。
       ・実装を複雑にしているだけでメリットがほぼなさそうだったので

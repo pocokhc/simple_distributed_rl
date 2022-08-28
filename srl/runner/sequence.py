@@ -10,11 +10,14 @@ import numpy as np
 import srl.envs
 import srl.rl
 from srl.base.env.base import EnvConfig, EnvRun
-from srl.base.rl.base import (RLConfig, RLParameter, RLRemoteMemory, RLTrainer,
-                              WorkerRun)
-from srl.base.rl.registration import (make_parameter, make_remote_memory,
-                                      make_trainer, make_worker,
-                                      make_worker_rulebase)
+from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer, WorkerRun
+from srl.base.rl.registration import (
+    make_parameter,
+    make_remote_memory,
+    make_trainer,
+    make_worker,
+    make_worker_rulebase,
+)
 from srl.runner.callback import Callback
 from srl.runner.callbacks.file_logger import FileLogger
 from srl.runner.callbacks.print_progress import PrintProgress
@@ -242,6 +245,18 @@ class Config:
             config.env = self.env
 
         return config
+
+    # ------------------------------
+    # utility
+    # ------------------------------
+    def get_env_init_state(self, encode: bool = True) -> np.ndarray:
+        env = self.make_env()
+        env.reset()
+        state = env.state
+        if encode:
+            worker = self.make_worker()
+            state = worker.worker.state_encode(state, env)
+        return state
 
 
 def save(

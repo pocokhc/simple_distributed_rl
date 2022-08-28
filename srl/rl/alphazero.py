@@ -392,23 +392,23 @@ class Worker(ModelBaseWorker):
         enemy_turn = player_index != env.next_player_index
 
         if done:
-            n_reward = 0
+            n_value = 0
         elif self.N[state_str][action] == 0:
             # leaf node ならロールアウト
             self.parameter.pred_PV(n_state, n_state_str)
-            n_reward = self.parameter.V[n_state_str]
+            n_value = self.parameter.V[n_state_str]
         else:
             n_invalid_actions = self.get_invalid_actions(env)
 
             # 子ノードに降りる(展開)
-            n_reward = self._simulation(env, n_state, n_state_str, n_invalid_actions, depth + 1)
+            n_value = self._simulation(env, n_state, n_state_str, n_invalid_actions, depth + 1)
 
         # 次が相手のターンなら、報酬は最小になってほしいので-をかける
         if enemy_turn:
-            n_reward = -n_reward
+            n_value = -n_value
 
         # 割引報酬
-        reward = reward + self.config.discount * n_reward
+        reward = reward + self.config.discount * n_value
 
         # 結果を記録
         self.N[state_str][action] += 1

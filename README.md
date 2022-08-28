@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
 ```
 
-![](FrozenLake.gif)
+![FrozenLake.gif](FrozenLake.gif)
 
 # Customize
 
@@ -194,39 +194,39 @@ examples/custom_rl.ipynb
 
 + sequence flow
 
-![](diagrams/overview-sequence.drawio.png)
+![overview-sequence.drawio.png](diagrams/overview-sequence.drawio.png)
 
 + distributed flow
 
-![](diagrams/overview-distributed.drawio.png)
+![overview-distributed.drawio.png](diagrams/overview-distributed.drawio.png)
 
 + multiplay flow
 
-![](diagrams/overview-multiplay.drawio.png)
+![overview-multiplay.drawio.png](diagrams/overview-multiplay.drawio.png)
 
 ## PlayFlow
 
-![](diagrams/playflow.png)
+![playflow.png](diagrams/playflow.png)
 
 ## Distribute flow
 
 + main
 
-![](diagrams/runner_mp_flow.png)
+![runner_mp_flow.png](diagrams/runner_mp_flow.png)
 
 + Trainer
 
-![](diagrams/runner_mp_flow_trainer.png)
+![runner_mp_flow_trainer.png](diagrams/runner_mp_flow_trainer.png)
 
 + Workers
 
-![](diagrams/runner_mp_flow_worker.png)
+![runner_mp_flow_worker.png](diagrams/runner_mp_flow_worker.png)
 
 ## Class diagram
 
-![](diagrams/class_rl.png)
+![class_rl.png](diagrams/class_rl.png)
 
-![](diagrams/class_env.png)
+![class_env.png)
 
 # Interface
 

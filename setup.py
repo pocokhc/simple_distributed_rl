@@ -11,20 +11,25 @@ version_path = os.path.join(here, package_name, "version.py")
 exec(open(version_path).read())
 
 extras = {
-    "gym": ["gym", "pygame"],
-    "spec": [
+    "dev": [
+        "tensorflow-addons",
+        "tensorflow_probability",
+        "matplotlib",
+        "pillow",
+        "pandas",
+        "opencv-python",
+        "gym",
+        "pygame",
+        "kaggle_environments",
         "psutil",  # CPU info
         "pynvml",  # GPU info
     ],
 }
-extras["all"] = list(set(itertools.chain.from_iterable([arr for arr in extras.values()])))
+# extras["all"] = list(set(itertools.chain.from_iterable([arr for arr in extras.values()])))
 
 setup(
     name=package_name,
     packages=[package for package in find_packages() if package.startswith(package_name)],
-    package_data={
-        "srl": ["envs/img/*.png"],
-    },
     version=VERSION,
     license="MIT",
     author="poco",
@@ -33,16 +38,7 @@ setup(
     description="simple distributed reinforcement learning framework",
     long_description=open(os.path.join(here, "README.md"), encoding="utf-8").read().replace("\r", ""),
     long_description_content_type="text/markdown",
-    install_requires=[
-        "numpy",
-        "tensorflow",
-        "tensorflow-addons",
-        "tensorflow_probability",
-        "matplotlib",
-        "pillow",
-        "pandas",
-        "opencv-python",
-    ],
+    install_requires=["numpy"],
     extras_require=extras,
     python_requires=">=3.7",
     classifiers=[

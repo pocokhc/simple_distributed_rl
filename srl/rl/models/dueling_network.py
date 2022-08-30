@@ -1,6 +1,5 @@
 import tensorflow as tf
 import tensorflow.keras as keras
-import tensorflow_addons as tfa
 from tensorflow.keras import layers as kl
 
 
@@ -52,6 +51,8 @@ def create_dueling_network_layers(
     enable_noisy_dense: bool = False,
 ):
     if enable_noisy_dense:
+        import tensorflow_addons as tfa
+
         _Dense = tfa.layers.NoisyDense
     else:
         _Dense = kl.Dense

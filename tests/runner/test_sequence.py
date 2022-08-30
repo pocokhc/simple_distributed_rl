@@ -8,7 +8,7 @@ from srl.runner import sequence
 class Test(unittest.TestCase):
     def test_shuffle_player(self):
 
-        env_config = srl.envs.Config("OX")
+        env_config = srl.EnvConfig("OX")
         rl_config = None
         config = sequence.Config(env_config, rl_config)
         config.players = ["cpu", "random"]

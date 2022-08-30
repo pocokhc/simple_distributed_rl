@@ -2,12 +2,17 @@ import logging
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-import cv2
 import numpy as np
 from srl.base.define import EnvObservation, EnvObservationType, RLObservationType
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
+from srl.utils.common import is_package_installed
+
+try:
+    import cv2
+except ImportError:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +27,10 @@ class ImageProcessor(Processor):
     def __post_init__(self):
         self.before_observation_type = EnvObservationType.UNKNOWN
         self.max_val = 0
+
+        assert is_package_installed(
+            "cv2"
+        ), "To use ImageProcessor you need to install the 'cv2'. (pip install opencv-python)"
 
         assert self.image_type in [
             EnvObservationType.GRAY_2ch,

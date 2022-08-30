@@ -8,6 +8,10 @@ from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer
 
+# --- use env & algorithm
+import envs.grid  # isort: skip # noqa F401
+from algorithms import ql  # isort: skip
+
 
 def _run_episode(
     env: EnvRun,
@@ -19,7 +23,7 @@ def _run_episode(
     rendering: bool = False,
 ):
 
-    workers = [srl.rl.make_worker(rl_config, parameter, remote_memory, training=training, distributed=distributed)]
+    workers = [srl.make_worker(rl_config, parameter, remote_memory, training=training, distributed=distributed)]
 
     # --- reset
     env.reset()
@@ -82,7 +86,7 @@ def _run_actor(
     rl_config = config["rl_config"]
     rl_config.set_config_by_actor(config["actor_num"], actor_id)
 
-    env = srl.envs.make(env_config)
+    env = srl.make_env(env_config)
     parameter = make_parameter(rl_config)
 
     prev_update_count = 0
@@ -157,8 +161,8 @@ class MPManager(BaseManager):
 def main():
 
     # --- config
-    env_config = srl.envs.Config("Grid")
-    rl_config = srl.rl.ql.Config()
+    env_config = srl.EnvConfig("Grid")
+    rl_config = ql.Config()
     actor_num = 2
     config = {
         "env_config": env_config,
@@ -169,7 +173,7 @@ def main():
     }
 
     # init
-    env = srl.envs.make(env_config)
+    env = srl.make_env(env_config)
     rl_config.reset_config(env)
 
     # --- async

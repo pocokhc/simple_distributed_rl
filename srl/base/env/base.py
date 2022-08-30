@@ -1,12 +1,10 @@
-import copy
 import io
 import logging
 import pickle
 import sys
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import srl
@@ -15,33 +13,6 @@ from srl.base.env.space import SpaceBase
 from srl.base.env.spaces.discrete import DiscreteSpace
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class EnvConfig:
-    name: str
-    kwargs: Dict = field(default_factory=dict)
-
-    # gym
-    gym_prediction_by_simulation: bool = True
-
-    def make_env(self) -> "srl.base.env.base.EnvRun":
-        return srl.envs.make(self)
-
-    def _update_env_info(self, env: "EnvBase"):
-        self.max_episode_steps = env.max_episode_steps
-        self.player_num = env.player_num
-
-    def copy(self) -> "EnvConfig":
-        config = EnvConfig(self.name)
-        for k, v in self.__dict__.items():
-            if v is None:
-                continue
-            if type(v) in [int, float, bool, str]:
-                setattr(config, k, v)
-            elif type(v) in [list, dict]:
-                setattr(config, k, copy.deepcopy(v))
-        return config
 
 
 class EnvBase(ABC):
@@ -389,7 +360,7 @@ class EnvRun:
         except Exception:
             import traceback
 
-            logger.warning(traceback.format_exc())
+            logger.debug(traceback.format_exc())
 
         # --- windowで描画できなければterminalで描画
         try:

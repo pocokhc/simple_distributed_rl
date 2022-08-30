@@ -1,8 +1,8 @@
 import logging
 from typing import Dict, Union
 
-from srl.base.env.base import EnvConfig, EnvRun
-from srl.base.env.gym_wrapper import GymWrapper
+from srl.base.env.base import EnvRun
+from srl.base.env.config import EnvConfig
 from srl.utils.common import is_package_installed, load_module
 
 logger = logging.getLogger(__name__)
@@ -23,6 +23,8 @@ def make(config: Union[str, EnvConfig]) -> EnvRun:
         env = env_cls(**_kwargs)
 
     elif is_package_installed("gym"):
+        from srl.base.env.gym_wrapper import GymWrapper
+
         env = GymWrapper(env_name, config.gym_prediction_by_simulation)
     else:
         raise ValueError(f"'{env_name}' is not found.")

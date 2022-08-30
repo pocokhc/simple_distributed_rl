@@ -2,16 +2,14 @@ import time
 import unittest
 from typing import cast
 
-import kaggle_environments  # pip install kaggle_environments
 import numpy as np
 import srl
-import srl.envs
-import srl.rl
+from algorithms import dqn
+from envs import connectx
 from srl import runner
 from srl.base.define import EnvAction
 from srl.base.env.base import EnvRun
 from srl.base.rl.base import ExtendWorker, WorkerRun
-from srl.envs import connectx
 
 
 class MyConnectXWorker(ExtendWorker):
@@ -19,7 +17,7 @@ class MyConnectXWorker(ExtendWorker):
         super().__init__(*args)
 
         # rlのconfig
-        self.rl_config = cast(srl.rl.dqn.Config, self.rl_worker.worker.config)
+        self.rl_config = cast(dqn.Config, self.rl_worker.worker.config)
 
         # MinMaxの探索数
         self.max_depth = 4
@@ -73,7 +71,7 @@ class MyConnectXWorker(ExtendWorker):
         return action
 
     # MinMax
-    def _minmax(self, env: connectx.ConnectX, depth: int = 0):
+    def _minmax(self, env: "connectx.ConnectX", depth: int = 0):
         if depth == self.max_depth:
             return [0] * env.action_space.n
 
@@ -138,8 +136,8 @@ class MyConnectXWorker(ExtendWorker):
 
 class Test(unittest.TestCase):
     def setUp(self) -> None:
-        env_config = srl.envs.Config("ConnectX")
-        rl_config = srl.rl.dqn.Config()
+        env_config = srl.EnvConfig("ConnectX")
+        rl_config = dqn.Config()
         rl_config.processors = [connectx.LayerProcessor()]
         rl_config.extend_worker = MyConnectXWorker
         self.config = runner.Config(env_config, rl_config)
@@ -169,6 +167,8 @@ class Test(unittest.TestCase):
                 worker.on_reset(env, org_env.player_index)
             env.direct_step(observation, configuration)
             return worker.policy(env)
+
+        import kaggle_environments  # pip install kaggle_environments
 
         kaggle_env = kaggle_environments.make("connectx", debug=True)
         players = []

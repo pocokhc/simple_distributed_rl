@@ -203,7 +203,7 @@ class RLConfig(ABC):
     def env_observation_type(self) -> EnvObservationType:
         return self._env_observation_type
 
-    def copy(self) -> "RLConfig":
+    def copy(self, reset_env_config: bool = False) -> "RLConfig":
         config = self.__class__()
 
         for k, v in self.__dict__.items():
@@ -211,7 +211,10 @@ class RLConfig(ABC):
                 continue
             setattr(config, k, pickle.loads(pickle.dumps(v)))
 
-        config._is_set_env_config = self._is_set_env_config
+        if reset_env_config:
+            config._is_set_env_config = False
+        else:
+            config._is_set_env_config = self._is_set_env_config
         return config
 
 

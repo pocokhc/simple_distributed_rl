@@ -1,13 +1,13 @@
 import unittest
 
 import srl
-from srl.base.env.base import EnvConfig
+from srl.base.env.config import EnvConfig
 
 
 class Test(unittest.TestCase):
     def test_config_copy(self):
         config = EnvConfig("Grid", {"move_prob": 1.0}, False)
-        env = srl.envs.make(config)
+        env = srl.make_env(config)
 
         config2 = config.copy()
         self.assertTrue(config2.name == "Grid")

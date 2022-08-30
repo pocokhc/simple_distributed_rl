@@ -7,9 +7,12 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import srl.envs
-import srl.rl
-from srl.base.env.base import EnvConfig, EnvRun
+import srl
+import srl.rl.dummy
+import srl.rl.human  # reservation
+import srl.rl.random_play  # reservation
+from srl.base.env.base import EnvRun
+from srl.base.env.config import EnvConfig
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer, WorkerRun
 from srl.base.rl.registration import (
     make_parameter,
@@ -19,10 +22,10 @@ from srl.base.rl.registration import (
     make_worker_rulebase,
 )
 from srl.runner.callback import Callback
-from srl.runner.callbacks.file_logger import FileLogger
 from srl.runner.callbacks.print_progress import PrintProgress
 from srl.runner.callbacks.rendering import Rendering
-from srl.runner.file_log_plot import FileLogPlot
+from srl.runner.file_logger import FileLogPlot, MPFileLogger
+from srl.utils.common import is_package_installed
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +68,8 @@ class Config:
         # random seed
         self.seed: Optional[int] = None
 
-        # none の場合はQLを代わりに入れる
         if self.rl_config is None:
-            self.rl_config = srl.rl.ql.Config()
+            self.rl_config = srl.rl.dummy.Config()
 
         self.rl_name = self.rl_config.getName()
         self.disable_trainer = False
@@ -92,7 +94,7 @@ class Config:
 
     def _set_env(self):
         if self.env is None:
-            self.env = srl.envs.make(self.env_config)
+            self.env = srl.make_env(self.env_config)
             self.rl_config.reset_config(self.env)
 
     def make_env(self) -> EnvRun:
@@ -304,7 +306,6 @@ def train(
     # log,history
     enable_file_logger: bool = True,
     file_logger_kwargs: Optional[Dict] = None,
-    remove_file_logger: bool = True,
     # other
     callbacks: List[Callback] = None,
     parameter: Optional[RLParameter] = None,
@@ -339,23 +340,22 @@ def train(
         config.callbacks.append(PrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
 
     if file_logger_kwargs is None:
-        file_logger = FileLogger()
+        file_logger = MPFileLogger()
     else:
-        file_logger = FileLogger(**file_logger_kwargs)
+        file_logger = MPFileLogger(**file_logger_kwargs)
     if enable_file_logger:
         config.callbacks.append(file_logger)
 
     _, parameter, memory, _ = play(config, parameter, remote_memory)
 
+    history = FileLogPlot()
     try:
-        history = FileLogPlot()
         if enable_file_logger:
-            history.load(file_logger.base_dir, remove_file_logger)
-        return parameter, memory, history
+            history.load(file_logger.base_dir)
     except Exception:
         logger.warning(traceback.format_exc())
 
-    return parameter, memory, None
+    return parameter, memory, history
 
 
 def evaluate(
@@ -520,12 +520,10 @@ def play(
         np.random.seed(config.seed)
         env.set_seed(config.seed)
 
-        try:
+        if is_package_installed("tensorflow"):
             import tensorflow as tf
 
             tf.random.set_seed(config.seed)
-        except ImportError:
-            pass
 
     # --- config
     config = config.copy(env_share=True)

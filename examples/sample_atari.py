@@ -6,11 +6,15 @@ from srl import runner
 
 warnings.simplefilter("ignore")
 
+# --- use env & algorithm
+from algorithms import rainbow  # isort: skip
+import gym  # isort: skip # noqa F401
 
-def main(is_mp):
-    env_config = srl.envs.Config("ALE/Breakout-v5")
 
-    rl_config = srl.rl.rainbow.Config(multisteps=5, memory_beta_initial=0.8, lr=0.0001)
+def main():
+    env_config = srl.EnvConfig("ALE/Breakout-v5")
+
+    rl_config = rainbow.Config(multisteps=5, memory_beta_initial=0.8, lr=0.0001)
     rl_config.window_length = 4
 
     config = runner.Config(env_config, rl_config)
@@ -26,7 +30,7 @@ def main(is_mp):
     config.model_summary()
 
     # --- train
-    if not is_mp:
+    if True:
         # sequence training
         parameter, remote_memory, history = runner.train(config, timeout=60 * 60 * 4)
     else:
@@ -49,5 +53,4 @@ def main(is_mp):
 
 
 if __name__ == "__main__":
-    main(is_mp=False)
-    # main(is_mp=True)
+    main()

@@ -2,22 +2,16 @@ import logging
 import pickle
 from typing import Any, List, Optional, Tuple
 
+import gym
 import numpy as np
+from gym import spaces
 from srl.base.define import EnvAction, EnvObservationType, Info
+from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.env.spaces.discrete import DiscreteSpace
 
-from .base import EnvBase, SpaceBase
-
 logger = logging.getLogger(__name__)
-
-try:
-    import gym
-    from gym import spaces
-
-except ImportError:
-    pass
 
 
 class GymWrapper(EnvBase):

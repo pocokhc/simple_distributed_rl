@@ -1,9 +1,14 @@
 from typing import Optional
 
 import srl
+import srl.rl.random_play
 from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_worker_rulebase
+
+# --- use env & algorithm
+import envs.ox  # isort: skip # noqa F401
+from algorithms import ql  # isort: skip
 
 
 def _run_episode(
@@ -16,11 +21,11 @@ def _run_episode(
 ):
 
     workers = [
-        srl.rl.make_worker(rl_config, parameter, remote_memory, training=training, distributed=False),
+        srl.make_worker(rl_config, parameter, remote_memory, training=training, distributed=False),
         make_worker_rulebase("random"),
     ]
     if training:
-        trainer = srl.rl.make_trainer(rl_config, parameter, remote_memory)
+        trainer = srl.make_trainer(rl_config, parameter, remote_memory)
     else:
         trainer = None
 
@@ -67,16 +72,16 @@ def _run_episode(
 
 def main():
 
-    env_config = srl.envs.Config("OX")
-    rl_config = srl.rl.ql.Config()
+    env_config = srl.EnvConfig("OX")
+    rl_config = ql.Config()
 
     # env init
-    env = srl.envs.make(env_config)
+    env = srl.make_env(env_config)
 
     # rl init
     rl_config.reset_config(env)
-    parameter = srl.rl.make_parameter(rl_config)
-    remote_memory = srl.rl.make_remote_memory(rl_config)
+    parameter = srl.make_parameter(rl_config)
+    remote_memory = srl.make_remote_memory(rl_config)
 
     # --- train loop
     for episode in range(10000):

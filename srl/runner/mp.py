@@ -7,14 +7,13 @@ from dataclasses import dataclass
 from multiprocessing.managers import BaseManager
 from typing import Dict, List, Optional, Tuple, Union
 
-import tensorflow as tf
 from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_remote_memory
 from srl.runner import sequence
 from srl.runner.callback_mp import MPCallback
-from srl.runner.callbacks_mp.mp_file_logger import MPFileLogger
 from srl.runner.callbacks_mp.mp_print_progress import MPPrintProgress
-from srl.runner.file_log_plot import FileLogPlot
+from srl.runner.file_logger import FileLogPlot, MPFileLogger
+from srl.utils.common import is_package_installed
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +47,7 @@ class Config:
     trainer_parameter_send_interval_by_train_count: int = 100
     actor_parameter_sync_interval_by_step: int = 100
 
-    allocate_main: str = "/CPU:0"
+    use_tensorflow: bool = None
     allocate_trainer: str = "/CPU:0"
     allocate_actor: Union[List[str], str] = "/CPU:0"
 
@@ -58,6 +57,12 @@ class Config:
         self.timeout: int = -1
         # callbacks
         self.callbacks: List[MPCallback] = []
+
+        if self.use_tensorflow is None:
+            if is_package_installed("tensorflow"):
+                self.use_tensorflow = True
+            else:
+                self.use_tensorflow = False
 
     def assert_params(self):
         assert self.actor_num > 0
@@ -156,38 +161,54 @@ def _run_actor(
     train_end_signal: ctypes.c_bool,
     allocate: str,
 ):
-    with tf.device(allocate):
-        try:
-            logger.debug(f"actor{actor_id} start")
+    if mp_config.use_tensorflow:
+        import tensorflow as tf
 
-            config.callbacks.extend(mp_config.callbacks)
-            config.disable_trainer = True
-            config.rl_config.set_config_by_actor(mp_config.actor_num, actor_id)
+        with tf.device(allocate):
+            __run_actor(config, mp_config, remote_memory, remote_board, actor_id, train_end_signal)
+    else:
+        __run_actor(config, mp_config, remote_memory, remote_board, actor_id, train_end_signal)
 
-            # validationするのはactor0のみ
-            if actor_id != 0:
-                config.enable_validation = False
 
-            # parameter
-            parameter = config.make_parameter()
-            params = remote_board.read()
-            if params is not None:
-                parameter.restore(params)
-            config.callbacks.append(
-                _ActorInterrupt(
-                    remote_board,
-                    parameter,
-                    train_end_signal,
-                    mp_config,
-                )
+def __run_actor(
+    config: sequence.Config,
+    mp_config: Config,
+    remote_memory: RLRemoteMemory,
+    remote_board: Board,
+    actor_id: int,
+    train_end_signal: ctypes.c_bool,
+):
+    try:
+        logger.debug(f"actor{actor_id} start")
+
+        config.callbacks.extend(mp_config.callbacks)
+        config.disable_trainer = True
+        config.rl_config.set_config_by_actor(mp_config.actor_num, actor_id)
+
+        # validationするのはactor0のみ
+        if actor_id != 0:
+            config.enable_validation = False
+
+        # parameter
+        parameter = config.make_parameter()
+        params = remote_board.read()
+        if params is not None:
+            parameter.restore(params)
+        config.callbacks.append(
+            _ActorInterrupt(
+                remote_board,
+                parameter,
+                train_end_signal,
+                mp_config,
             )
+        )
 
-            # train
-            sequence.play(config, parameter, remote_memory, actor_id)
+        # train
+        sequence.play(config, parameter, remote_memory, actor_id)
 
-        finally:
-            train_end_signal.value = True
-            logger.info(f"actor{actor_id} end")
+    finally:
+        train_end_signal.value = True
+        logger.info(f"actor{actor_id} end")
 
 
 # --------------------
@@ -200,65 +221,81 @@ def _run_trainer(
     remote_board: Board,
     train_end_signal: ctypes.c_bool,
 ):
-    with tf.device(mp_config.allocate_trainer):
-        logger.debug("trainer start")
 
-        parameter = config.make_parameter()
-        params = remote_board.read()
-        if params is not None:
-            parameter.restore(params)
-        trainer = config.make_trainer(parameter, remote_memory)
+    if mp_config.use_tensorflow:
+        import tensorflow as tf
 
-        # loop var
-        callbacks = [c for c in mp_config.callbacks if issubclass(c.__class__, MPCallback)]
-        sync_count = 0
+        with tf.device(mp_config.allocate_trainer):
+            __run_trainer(config, mp_config, remote_memory, remote_board, train_end_signal)
+    else:
+        __run_trainer(config, mp_config, remote_memory, remote_board, train_end_signal)
 
-        # callbacks
-        _info = {
-            "config": config,
-            "mp_config": mp_config,
-            "trainer": trainer,
-            "parameter": parameter,
-            "remote_memory": remote_memory,
-            "train_count": 0,
-        }
-        [c.on_trainer_start(**_info) for c in callbacks]
 
-        try:
-            while True:
-                if train_end_signal.value:
-                    break
+def __run_trainer(
+    config: sequence.Config,
+    mp_config: Config,
+    remote_memory: RLRemoteMemory,
+    remote_board: Board,
+    train_end_signal: ctypes.c_bool,
+):
+    logger.debug("trainer start")
 
-                if mp_config.max_train_count > 0 and trainer.get_train_count() > mp_config.max_train_count:
-                    break
+    parameter = config.make_parameter()
+    params = remote_board.read()
+    if params is not None:
+        parameter.restore(params)
+    trainer = config.make_trainer(parameter, remote_memory)
 
-                train_t0 = time.time()
-                train_info = trainer.train()
-                train_time = time.time() - train_t0
+    # loop var
+    callbacks = [c for c in mp_config.callbacks if issubclass(c.__class__, MPCallback)]
+    sync_count = 0
 
-                if trainer.get_train_count() == 0:
-                    time.sleep(1)
-                else:
-                    # send parameter
-                    if trainer.get_train_count() % mp_config.trainer_parameter_send_interval_by_train_count == 0:
-                        remote_board.write(parameter.backup())
-                        sync_count += 1
+    # callbacks
+    _info = {
+        "config": config,
+        "mp_config": mp_config,
+        "trainer": trainer,
+        "parameter": parameter,
+        "remote_memory": remote_memory,
+        "train_count": 0,
+    }
+    [c.on_trainer_start(**_info) for c in callbacks]
 
-                # callbacks
-                _info["train_info"] = train_info
-                _info["train_count"] = trainer.get_train_count()
-                _info["train_time"] = train_time
-                _info["sync_count"] = sync_count
-                [c.on_trainer_train(**_info) for c in callbacks]
+    try:
+        while True:
+            if train_end_signal.value:
+                break
 
-        finally:
-            train_end_signal.value = True
-            t0 = time.time()
-            remote_board.write(parameter.backup())
-            logger.info(f"trainer end.(send parameter time: {time.time() - t0:.1f}s)")
+            if mp_config.max_train_count > 0 and trainer.get_train_count() > mp_config.max_train_count:
+                break
+
+            train_t0 = time.time()
+            train_info = trainer.train()
+            train_time = time.time() - train_t0
+
+            if trainer.get_train_count() == 0:
+                time.sleep(1)
+            else:
+                # send parameter
+                if trainer.get_train_count() % mp_config.trainer_parameter_send_interval_by_train_count == 0:
+                    remote_board.write(parameter.backup())
+                    sync_count += 1
 
             # callbacks
-            [c.on_trainer_end(**_info) for c in callbacks]
+            _info["train_info"] = train_info
+            _info["train_count"] = trainer.get_train_count()
+            _info["train_time"] = train_time
+            _info["sync_count"] = sync_count
+            [c.on_trainer_train(**_info) for c in callbacks]
+
+    finally:
+        train_end_signal.value = True
+        t0 = time.time()
+        remote_board.write(parameter.backup())
+        logger.info(f"trainer end.(send parameter time: {time.time() - t0:.1f}s)")
+
+        # callbacks
+        [c.on_trainer_end(**_info) for c in callbacks]
 
 
 # ----------------------------
@@ -284,7 +321,6 @@ def train(
     # log
     enable_file_logger: bool = True,
     file_logger_kwargs: Optional[Dict] = None,
-    remove_file_logger: bool = True,
     # other
     callbacks: List[MPCallback] = None,
     init_parameter: Optional[RLParameter] = None,
@@ -327,37 +363,34 @@ def train(
     config.assert_params()
     mp_config.assert_params()
 
-    with tf.device(mp_config.allocate_main):
+    remote_memory_class = make_remote_memory(config.rl_config, return_class=True)
 
-        remote_memory_class = make_remote_memory(config.rl_config, return_class=True)
+    # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような
+    # if is_env_notebook() and "__main__" in str(remote_memory_class):
+    #    raise RuntimeError("The definition of rl must be in the py file")
 
-        # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような
-        # if is_env_notebook() and "__main__" in str(remote_memory_class):
-        #    raise RuntimeError("The definition of rl must be in the py file")
+    MPManager.register("RemoteMemory", remote_memory_class)
+    MPManager.register("Board", Board)
 
-        MPManager.register("RemoteMemory", remote_memory_class)
-        MPManager.register("Board", Board)
+    with MPManager() as manager:
+        return_parameter, return_remote_memory = _train(
+            config,
+            mp_config,
+            init_parameter,
+            init_remote_memory,
+            manager,
+            disable_trainer,
+            return_memory,
+            save_memory,
+        )
 
-        with MPManager() as manager:
-            return_parameter, return_remote_memory = _train(
-                config,
-                mp_config,
-                init_parameter,
-                init_remote_memory,
-                manager,
-                disable_trainer,
-                return_memory,
-                save_memory,
-            )
-
+    history = FileLogPlot()
     try:
-        history = FileLogPlot()
         if enable_file_logger:
-            history.load(file_logger.base_dir, remove_file_logger)
-        return return_parameter, return_remote_memory, history
+            history.load(file_logger.base_dir)
     except Exception:
         logger.warning(traceback.format_exc())
-    return return_parameter, return_remote_memory, None
+    return return_parameter, return_remote_memory, history
 
 
 def _train(

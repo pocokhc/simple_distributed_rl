@@ -126,12 +126,12 @@ register_rl(StubRLConfig, "", "", "", __name__ + ":StubRLWorker")
 
 class Test(unittest.TestCase):
     def setUp(self) -> None:
-        self.env_run = srl.envs.make("Stub")
+        self.env_run = srl.make_env("Stub")
         self.env = cast(StubEnv, self.env_run.get_original_env())
 
         self.rl_config = StubRLConfig()
         self.rl_config.reset_config(self.env)
-        self.worker_run = srl.rl.make_worker(self.rl_config, self.env_run)
+        self.worker_run = srl.make_worker(self.rl_config, self.env_run)
 
     def test_env_play(self):
         tester = TestEnv()

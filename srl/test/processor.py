@@ -1,7 +1,7 @@
 import numpy as np
 import srl
-from srl.base.define import (EnvObservation, EnvObservationType,
-                             RLObservationType)
+import srl.rl.dummy
+from srl.base.define import EnvObservation, EnvObservationType, RLObservationType
 from srl.base.env.base import EnvRun
 from srl.base.env.space import SpaceBase
 from srl.base.rl.processor import Processor
@@ -11,8 +11,8 @@ from srl.runner import sequence
 class TestProcessor:
     def run(self, processor: Processor, env_name: str) -> EnvRun:
 
-        env_config = srl.envs.Config(env_name)
-        rl_config = srl.rl.ql.Config()
+        env_config = srl.EnvConfig(env_name)
+        rl_config = srl.rl.dummy.Config()
         rl_config.processors = [processor]
 
         config = sequence.Config(env_config, rl_config)
@@ -29,7 +29,7 @@ class TestProcessor:
         after_space: SpaceBase,
         rl_observation_type: RLObservationType = RLObservationType.ANY,
     ):
-        env = srl.envs.make(env_name)
+        env = srl.make_env(env_name)
 
         new_space, new_type = processor.change_observation_info(
             env.observation_space, env.observation_type, rl_observation_type, env
@@ -41,7 +41,7 @@ class TestProcessor:
     def observation_decode(
         self, processor: Processor, env_name: str, in_observation: EnvObservation, out_observation: EnvObservation
     ):
-        env = srl.envs.make(env_name)
+        env = srl.make_env(env_name)
 
         new_observation = processor.process_observation(in_observation, env)
         np.testing.assert_array_equal(out_observation, new_observation)

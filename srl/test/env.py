@@ -34,7 +34,7 @@ class TestEnv:
         max_step,
         print_enable,
     ):
-        env = srl.envs.make(env_name)
+        env = srl.make_env(env_name)
         assert issubclass(env.__class__, EnvRun)
 
         player_num = env.player_num
@@ -126,7 +126,7 @@ class TestEnv:
         return env
 
     def player_test(self, env_name: str, player: str) -> EnvRun:
-        env_config = srl.envs.Config(env_name)
+        env_config = srl.EnvConfig(env_name)
         config = runner.Config(env_config, None)
 
         env = config.make_env()

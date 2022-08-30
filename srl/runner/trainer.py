@@ -10,7 +10,7 @@ import numpy as np
 from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.runner import sequence
 from srl.runner.sequence import Config
-from srl.utils.common import listdictdict_to_dictlist, to_str_time
+from srl.utils.common import is_package_installed, listdictdict_to_dictlist, to_str_time
 
 logger = logging.getLogger(__name__)
 
@@ -151,8 +151,8 @@ class TrainerPrintProgress(TrainerCallback):
 # ---------------------------------
 def train_only(
     config: Config,
-    parameter: Optional[RLParameter],
-    remote_memory: RLRemoteMemory,
+    parameter: Optional[RLParameter] = None,
+    remote_memory: Optional[RLRemoteMemory] = None,
     # train config
     max_train_count: int = -1,
     timeout: int = -1,
@@ -169,6 +169,11 @@ def train_only(
     # other
     # callbacks: List[Callback] = None,
 ) -> Tuple[RLParameter, RLRemoteMemory, object]:
+
+    if parameter is None:
+        parameter = config.make_parameter()
+    if remote_memory is None:
+        remote_memory = config.make_remote_memory()
 
     assert max_train_count > 0 or timeout > 0
     assert remote_memory.length() > 0
@@ -190,9 +195,6 @@ def train_only(
     # -----------------------------
     config.assert_params()
 
-    if parameter is None:
-        parameter = config.make_parameter()
-
     # valid
     if config.enable_validation:
         valid_config = config.copy(env_share=False)
@@ -208,9 +210,11 @@ def train_only(
         random.seed(config.seed)
         np.random.seed(config.seed)
 
-        import tensorflow as tf
+        if is_package_installed("tensorflow"):
+            import tensorflow as tf
 
-        tf.random.set_seed(config.seed)
+            tf.random.set_seed(config.seed)
+
         if env is not None:
             env.set_seed(config.seed)
 

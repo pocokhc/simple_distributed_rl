@@ -16,18 +16,18 @@
 
 # Install
 
-github からの pip install を想定しています。
-
-``` bash
-pip install git+https://github.com/pocokhc/simple_distributed_rl
-```
-
-or
+github からクローンで動かす場合を想定しています。
 
 ``` bash
 git clone https://github.com/pocokhc/simple_distributed_rl.git
 cd simple_distributed_rl
 pip install .
+
+# (option) packages to use in plot/animation
+pip install opencv-python pillow matplotlib pandas pygame
+
+# (option) use gym environment
+pip install gym pygame
 
 # run sample
 python examples/minimum_runner.py
@@ -36,16 +36,18 @@ python examples/minimum_runner.py
 ## Using library
 
 + numpy
-+ tensorflow
-+ tensorflow-addons
-+ tensorflow_probability
-+ matplotlib
-+ pillow
-+ opencv-python
-+ pandas
 
 ### Option library
 
++ アルゴリズムによっては使用
+  + tensorflow
+  + tensorflow-addons
++ 描画関係で使用
+  + matplotlib
+  + pillow
+  + opencv-python
+  + pandas
+  + pygame
 + gym の環境を使う場合に必要
   + gym
   + pygame
@@ -55,59 +57,96 @@ python examples/minimum_runner.py
 
 # Usage
 
++ Basic run of study
+
 ``` python
 import numpy as np
-
 import srl
 from srl import runner
 
-# ---------------------
-# Configのパラメータは、引数補完または元コードを参照してください。
-# For the parameters of Config, refer to the argument completion or the original code.
-#
-# srl.envs.Config   : Env Config
-# srl.rl.xxx.Config : Algorithm hyperparameter
-# runner.Config   : Basic Running Config
-# runner.MpConfig         : Distributed training Config
-# ---------------------
+# --- use env & algorithm load
+from envs import grid  # isort: skip # noqa F401
+from algorithms import ql  # isort: skip
 
 
 def main():
-    # env config
-    # (Run "pip install gym pygame" to use the gym environment)
-    env_config = srl.envs.Config("FrozenLake-v1")
-
-    # rl algorithm config
-    rl_config = srl.rl.ql.Config()
-
-    # running config
+    # config
+    env_config = srl.EnvConfig("Grid")
+    rl_config = ql.Config()
     config = runner.Config(env_config, rl_config)
 
-    # (option) load parameter
-    # rl_config.parameter_path = "params.dat"
+    # train
+    parameter, remote_memory, history = runner.train(config, timeout=20)
+    
+    # evaluate
+    rewards = runner.evaluate(config, parameter, max_episodes=100)
+    print(f"Average reward for 100 episodes: {np.mean(rewards)}")
+
+
+if __name__ == "__main__":
+    main()
+
+```
+
++ Commonly run Example
+
+``` python
+import numpy as np
+import srl
+from srl import runner
+
+# --- use env & algorithm load
+# (Run "pip install gym pygame" to use the gym environment)
+import gym  # isort: skip # noqa F401
+from algorithms import ql  # isort: skip
+
+
+def main():
+
+    # --- set config
+    #   Configのパラメータは、引数補完または元コードを参照してください。
+    #   For the parameters of Config, refer to the argument completion or the original code.
+    env_config = srl.EnvConfig("FrozenLake-v1")
+    rl_config = ql.Config()
+    config = runner.Config(env_config, rl_config)
+
+    # load parameter (Loads the file if it exists)
+    parameter_path = "_params.dat"
+    rl_config.parameter_path = parameter_path
 
     # --- train
-    if True:
+    if False:
         # sequence training
         parameter, remote_memory, history = runner.train(config, timeout=60)
     else:
         # distributed training
         mp_config = runner.MpConfig(actor_num=2)  # distributed config
         parameter, remote_memory, history = runner.mp_train(config, mp_config, timeout=60)
+    
+    # save parameter
+    parameter.save(parameter_path)
 
-    # (option) save parameter
-    # parameter.save("params.dat")
+    # --- training progress data
+    logs = history.get_logs()  # get raw data
+
+    # plot
+    # (Run "pip install matplotlib pandas" to use the history.plot())
+    history.plot()
+
+    # (Run "pip install pandas" to use the history.get_df())
+    df_logs = history.get_df()
 
     # --- evaluate
     rewards = runner.evaluate(config, parameter, max_episodes=100)
     print(f"Average reward for 100 episodes: {np.mean(rewards)}")
 
-    # --- rendering
+    # rendering (You can watch the progress of 1 episode)
     runner.render(config, parameter)
 
-    # --- animation
+    # animation
+    # (Run "pip install opencv-python pillow matplotlib pygame" to use the animation)
     render = runner.animation(config, parameter)
-    render.create_anime(interval=1000 / 3).save("FrozenLake.gif")
+    render.create_anime(interval=1000 / 3).save("_FrozenLake.gif")
 
 
 if __name__ == "__main__":
@@ -116,6 +155,11 @@ if __name__ == "__main__":
 ```
 
 ![FrozenLake.gif](FrozenLake.gif)
+
+※実行するとログ保存のために `./tmp/DATE_EnvName_AlgorithmName/` ディレクトリが作成ます。  
+　削除して問題ありません。  
+　作成をやめたい場合は `train` の引数に `enable_file_logger=False` を追加してください。  
+　ただ、その場合 `history` は使えなくなります。  
 
 # Customize
 
@@ -130,63 +174,63 @@ examples/custom_rl.ipynb
 
 ### ValueBase
 
-|Algorithm |Observation|Action|ProgressRate||
-|----------|-----------|----------|----|---|
-|QL        |Discrete   |Discrete  |100%|Basic Q Learning|
-|DQN       |Continuous |Discrete  |100%||
-|C51       |Continuous |Discrete  | 99%|Categorical DQN|
-|Rainbow   |Continuous |Discrete  |100%||
-|R2D2      |Continuous |Discrete  |100%||
-|Agent57   |Continuous |Discrete  |100%||
+|Algorithm |Observation|Action  |Frameworks|ProgressRate||
+|----------|-----------|--------|----------|----|---|
+|QL        |Discrete   |Discrete|          |100%|Basic Q Learning|
+|DQN       |Continuous |Discrete|Tensorflow|100%||
+|C51       |Continuous |Discrete|Tensorflow| 99%|CategoricalDQN|
+|Rainbow   |Continuous |Discrete|Tensorflow,tensorflow_addons|100%||
+|R2D2      |Continuous |Discrete|Tensorflow|100%||
+|Agent57   |Continuous |Discrete|Tensorflow|100%||
 
 ### PolicyBase/ActorCritic
 
-|Algorithm              |Observation|Action    |ProgressRate|
-|-----------------------|-----------|----------|----|
-|VanillaPolicy          |Discrete   |Both      |100%|
-|A3C/A2C                |           |          |  0%|
-|TRPO                   |Continuous |          |   -|
-|PPO                    |Continuous |          |  0%|
-|DDPG/TD3               |Continuous |Continuous|100%|
-|SAC                    |Continuous |Continuous|100%|
+|Algorithm              |Observation|Action    |Frameworks|ProgressRate|
+|-----------------------|-----------|----------|----------|----|
+|VanillaPolicy          |Discrete   |Both      ||100%|
+|A3C/A2C                |           |          ||  0%|
+|TRPO                   |Continuous |          ||   -|
+|PPO                    |Continuous |          ||  0%|
+|DDPG/TD3               |Continuous |Continuous|Tensorflow|100%|
+|SAC                    |Continuous |Continuous|Tensorflow|100%|
 
 ## AlphaSeries
 
-|Algorithm  |Observation|Action     |ProgressRate||
-|-----------|-----------|-----------|----|---|
-|MCTS       |Discrete   |Discrete   |100%|MDP base|
-|AlphaZero  |Continuous |Discrete   |100%|MDP base|
-|MuZero     |Continuous |Discrete   |100%|MDP base|
-|StochasticMuZero|Continuous|Discrete|100%|MDP base|
+|Algorithm  |Observation|Action  |Frameworks|ProgressRate||
+|-----------|-----------|--------|----------|----|---|
+|MCTS       |Discrete   |Discrete|          |100%|MDP base|
+|AlphaZero  |Image      |Discrete|Tensorflow|100%|MDP base|
+|MuZero     |Image      |Discrete|Tensorflow|100%|MDP base|
+|StochasticMuZero|Image |Discrete|Tensorflow|100%|MDP base|
 
 ## ModelBase
 
-|Algorithm  |Observation|Action     |ProgressRate|
-|-----------|-----------|-----------|----|
+|Algorithm  |Observation|Action     |Frameworks|ProgressRate|
+|-----------|-----------|-----------|----------|----|
 |DynaQ      |Discrete   |Discrete   | 10%|
 
 ### WorldModels
 
-|Algorithm  |Observation|Action     |ProgressRate|
-|-----------|-----------|-----------|----|
-|WorldModels|           |           |  0%|
-|PlaNet     |           |           |  0%|
-|Dreamer    |           |           |  0%|
-|DreamerV2  |           |           |  0%|
+|Algorithm  |Observation|Action     |Frameworks|ProgressRate|
+|-----------|-----------|-----------|----------|----|
+|WorldModels|Continuous |Discrete   |Tensorflow|100%|
+|PlaNet     |           |           ||  0%|
+|Dreamer    |           |           ||  0%|
+|DreamerV2  |           |           ||  0%|
 
 ## Offline
 
-|Algorithm  |Observation|Action     |ProgressRate|
-|-----------|-----------|-----------|----|
-|CQL        |Discrete   |Discrete   |  0%|
+|Algorithm  |Observation|Action     |Frameworks|ProgressRate|
+|-----------|-----------|-----------|----------|----|
+|CQL        |Discrete   |Discrete   ||  0%|
 
 ## その他(Original)
 
-|Algorithm    |Observation|Action  |Type     |ProgressRate|
-|-------------|-----------|--------|---------|----|
-|QL_agent57   |Discrete   |Discrete|ValueBase| 80%|QL + Agent57|
-|Agent57_light|Continuous |Discrete|ValueBase|100%|Agent57 - (LSTM,MultiStep)|
-|SearchDynaQ  |Discrete   |Discrete|ModelBase/ValueBase| 80%||
+|Algorithm    |Observation|Action  |Type     |Frameworks|ProgressRate|
+|-------------|-----------|--------|---------|----------|----|
+|QL_agent57   |Discrete   |Discrete|ValueBase|          | 80%|QL + Agent57|
+|Agent57_light|Continuous |Discrete|ValueBase|Tensorflow|100%|Agent57 - (LSTM,MultiStep)|
+|SearchDynaQ  |Discrete   |Discrete|ModelBase/ValueBase|| 80%||
 
 # Diagrams
 

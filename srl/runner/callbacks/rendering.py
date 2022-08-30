@@ -3,16 +3,21 @@ import time
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-import cv2
-import matplotlib.pyplot as plt
 import numpy as np
-import PIL.Image
-import PIL.ImageDraw
-import PIL.ImageFont
-from matplotlib.animation import ArtistAnimation
 from srl.base.env.base import EnvRun
 from srl.base.rl.base import WorkerRun
 from srl.runner.callback import Callback
+from srl.utils.common import is_package_installed
+
+try:
+    import cv2
+    import matplotlib.pyplot as plt
+    import PIL.Image
+    import PIL.ImageDraw
+    import PIL.ImageFont
+    from matplotlib.animation import ArtistAnimation
+except ImportError:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +51,14 @@ class Rendering(Callback):
 
         self.rl_text = ""
         self.rl_img = None
+
+        if self.enable_animation:
+            if not (
+                is_package_installed("cv2") and is_package_installed("matplotlib") and is_package_installed("PIL")
+            ):
+                assert (
+                    False
+                ), "To use animation you need to install 'cv2', 'matplotlib', 'PIL'. (pip install opencv-python matplotlib pillow)"
 
     def on_step_begin(
         self,

@@ -1,9 +1,7 @@
 import importlib
 import json
 import logging
-import os
 import pkgutil
-import random
 import warnings
 from typing import Any, Dict, List
 
@@ -44,16 +42,6 @@ def set_logger(
     # os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
     logging.getLogger("tensorflow").setLevel(logging.INFO)
     logging.getLogger("h5py").setLevel(logging.INFO)
-
-
-def set_seed(seed: int):
-    import tensorflow as tf
-
-    random.seed(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    os.environ["TF_DETERMINISTIC_OPS"] = "1"
-    np.random.seed(seed)
-    tf.random.set_seed(seed)
 
 
 def listdict_to_dictlist(data: List[Dict[str, Any]]) -> Dict[str, List[Any]]:

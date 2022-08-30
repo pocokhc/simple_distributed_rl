@@ -1,30 +1,27 @@
-import warnings
-from typing import cast
+import os
+import sys
+from typing import List, Optional, cast
 
 import numpy as np
 import srl
 from srl import runner
 from srl.base.define import EnvObservationType
 from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
-from srl.base.rl.registration import make_worker_rulebase
 from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
-from srl.envs import grid, ox
-from srl.envs.grid import Grid
 from srl.rl.functions.common import to_str_observation
 
-warnings.simplefilter("ignore")
+from .envs import grid, ox  # noqa F401
+
+try:
+    import gym  # noqa F401
+except ImportError:
+    pass
 
 
 class TestRL:
-    def __init__(self):
+    def __init__(self, env_dir: str = ""):
         self.parameter = None
-        self.config: runner.Config = None
-
-        self.env_list = [
-            (srl.envs.Config("Grid"), grid.LayerProcessor()),
-            (srl.envs.Config("FrozenLake-v1"), None),
-            (srl.envs.Config("OX"), ox.LayerProcessor()),
-        ]
+        self.config: Optional[runner.Config] = None
 
         self.baseline = {
             # 1p
@@ -42,29 +39,61 @@ class TestRL:
             "Othello4x4": ([0.1, 0.5], 200),  # [0.3, 0.9] ぐらい
         }
 
-    def play_sequence(self, _rl_config, enable_image: bool = False):
-        rl_config = _rl_config.copy()
-        self._check_play_raw(rl_config, enable_image)
+    def simple_check(
+        self,
+        rl_config,
+        env_name: str = "",
+        enable_image: bool = False,
+        is_mp: bool = False,
+    ):
+        if env_name == "":
+            env_list = ["TestGrid", "TestOX"]
+        else:
+            env_list = [env_name]
 
-        for env_config, img_processor in self.env_list:
-            config = runner.Config(env_config, rl_config)
+        for env_name in env_list:
+
+            env_config = srl.EnvConfig(env_name)
+            rl_config = rl_config.copy(reset_env_config=True)
 
             if enable_image:
-                if img_processor is None:
-                    continue
-                config.rl_config.processors = [img_processor]
+                if env_name == "TestGrid":
+                    rl_config.processors = [grid.LayerProcessor()]
+                elif env_name == "TestOX":
+                    rl_config.processors = [ox.LayerProcessor()]
+
+            config = runner.Config(env_config, rl_config)
+
+            if not is_mp:
+                # --- check raw
+                print(f"--- {env_name} raw check start ---")
+                self._check_play_raw(env_config, rl_config)
+
+                # --- check sequence
+                print(f"--- {env_name} sequence check start ---")
+                parameter, _, _ = runner.train(
+                    config,
+                    max_steps=10,
+                    enable_validation=False,
+                    enable_file_logger=False,
+                )
+                runner.render(
+                    config,
+                    parameter,
+                    max_steps=10,
+                )
+
             else:
-                config.rl_config.processors = []
+                print(f"--- {env_name} mp check start ---")
+                mp_config = runner.MpConfig(actor_num=2)
+                parameter, _, _ = runner.mp_train(
+                    config,
+                    mp_config,
+                    max_train_count=10,
+                    enable_validation=False,
+                    enable_file_logger=False,
+                )
 
-            # --- train
-            parameter, memory, _ = runner.train(
-                config,
-                max_steps=10,
-                enable_validation=False,
-                enable_file_logger=False,
-            )
-
-            # --- test
             runner.evaluate(
                 config,
                 parameter,
@@ -72,55 +101,37 @@ class TestRL:
                 max_steps=10,
             )
 
-            # --- render
-            runner.render(
-                config,
-                parameter,
-                max_steps=10,
-            )
+    def simple_check_mp(self, rl_config, enable_image: bool = False):
+        self.simple_check(rl_config, enable_image=enable_image, is_mp=True)
 
     def _is_space_base_instance(self, val):
         if type(val) in [int, float, list, np.ndarray]:
             return True
         return False
 
-    def _check_play_raw(self, rl_config, enable_image):
-        env_config = srl.envs.Config("OX")
-        if enable_image:
-            rl_config.processors = [ox.LayerProcessor()]
-        else:
-            rl_config.processors = []
-
-        # --- init
-        env = srl.envs.make(env_config)
+    def _check_play_raw(self, env_config, rl_config):
+        env = srl.make_env(env_config)
         rl_config.reset_config(env)
         rl_config.assert_params()
-        parameter = srl.rl.make_parameter(rl_config)
-        remote_memory = srl.rl.make_remote_memory(rl_config)
-        trainer = srl.rl.make_trainer(rl_config, parameter, remote_memory)
-        workers = [
-            make_worker_rulebase("random"),
-            srl.rl.make_worker(rl_config, parameter, remote_memory, training=True),
-        ]
+
+        parameter = srl.make_parameter(rl_config)
+        remote_memory = srl.make_remote_memory(rl_config)
+        trainer = srl.make_trainer(rl_config, parameter, remote_memory)
+        workers = [srl.make_worker(rl_config, parameter, remote_memory, training=True) for _ in range(env.player_num)]
 
         # --- episode
-        for _ in range(2):
+        for _ in range(3):
             env.reset()
             [w.on_reset(env, i) for i, w in enumerate(workers)]
 
             # --- step
-            for step in range(10):
+            for step in range(5):
                 # policy
                 action = workers[env.next_player_index].policy(env)
                 assert self._is_space_base_instance(action)
 
-                if step == 0 or step == 1:
-                    assert workers[0].info is None
-                    assert workers[1].info is None
-                elif step % 2 == 0:
-                    assert isinstance(workers[0].info, dict)
-                else:
-                    assert isinstance(workers[1].info, dict)
+                for idx in range(env.player_num):
+                    assert (workers[idx].info is None) or isinstance(workers[idx].info, dict)
 
                 # render
                 [w.render(env) for w in workers]
@@ -130,8 +141,8 @@ class TestRL:
                 [w.on_step(env) for w in workers]
 
                 if env.done:
-                    assert isinstance(workers[0].info, dict)
-                    assert isinstance(workers[1].info, dict)
+                    for idx in range(env.player_num):
+                        assert isinstance(workers[idx].info, dict)
 
                 # train
                 train_info = trainer.train()
@@ -140,44 +151,7 @@ class TestRL:
                 if env.done:
                     break
 
-    def play_mp(self, _rl_config, enable_image: bool = False):
-        rl_config = _rl_config.copy()
-
-        for env_config, img_processor in self.env_list:
-            config = runner.Config(env_config, rl_config)
-
-            if enable_image:
-                if img_processor is None:
-                    continue
-                config.rl_config.processors = [img_processor]
-            else:
-                config.rl_config.processors = []
-
-            # --- train
-            mp_config = runner.MpConfig(actor_num=2, allocate_trainer="/CPU:0")
-            parameter, memory, _ = runner.mp_train(
-                config,
-                mp_config,
-                max_train_count=5,
-                enable_file_logger=False,
-            )
-
-            # --- test
-            runner.evaluate(
-                config,
-                parameter,
-                max_episodes=10,
-                max_steps=10,
-            )
-
-            # --- render
-            runner.render(
-                config,
-                parameter,
-                max_steps=10,
-            )
-
-    def play_verify_singleplay(
+    def verify_singleplay(
         self,
         env_name,
         _rl_config,
@@ -188,7 +162,7 @@ class TestRL:
         is_valid: bool = False,
     ):
         assert env_name in self.baseline
-        env_config = srl.envs.Config(env_name)
+        env_config = srl.EnvConfig(env_name)
         rl_config = _rl_config.copy()
 
         if env_name == "PendulumImage-v0":
@@ -250,7 +224,7 @@ class TestRL:
         self.parameter = parameter
         self.config = config
 
-    def play_verify_2play(
+    def verify_2play(
         self,
         env_name,
         _rl_config,
@@ -262,7 +236,7 @@ class TestRL:
         assert env_name in self.baseline
         rl_config = _rl_config.copy()
 
-        env_config = srl.envs.Config(env_name)
+        env_config = srl.EnvConfig(env_name)
         config = runner.Config(env_config, rl_config)
 
         if is_self_play:
@@ -336,6 +310,7 @@ class TestRL:
 
     def verify_grid_policy(self):
         assert self.config.env_config.name == "Grid"
+        from envs.grid import Grid
 
         env_for_rl = self.config.make_env()
         env = SinglePlayEnvWrapper(env_for_rl)

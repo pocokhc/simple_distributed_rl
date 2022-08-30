@@ -2,11 +2,15 @@ import numpy as np
 import srl
 from srl import runner
 
+# --- use env & algorithm
+import envs.grid  # isort: skip # noqa F401
+from algorithms import ql  # isort: skip
+
 
 def main():
 
-    env_config = srl.envs.Config("Grid")
-    rl_config = srl.rl.ql.Config()
+    env_config = srl.EnvConfig("Grid")
+    rl_config = ql.Config()
     config = runner.Config(env_config, rl_config)
 
     # load parameter

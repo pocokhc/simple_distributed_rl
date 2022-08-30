@@ -55,26 +55,36 @@ class Viewer:
 
     def draw_line(
         self,
-        x1: int,
-        y1: int,
-        x2: int,
-        y2: int,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
         color: Tuple[int, int, int] = (0, 0, 0),
         width: int = 1,
     ):
-        pygame.draw.line(self.screen, color, (x1, y1), (x2, y2), width=width)
+        pygame.draw.line(
+            self.screen,
+            color,
+            (int(x1), int(y1)),
+            (int(x2), int(y2)),
+            width=width,
+        )
 
     def draw_box(
         self,
-        x: int,
-        y: int,
-        w: int,
-        h: int,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
         filled: bool = True,
         fill_color: Tuple[int, int, int] = (255, 255, 255),
         width: int = 1,
         line_color: Tuple[int, int, int] = (0, 0, 0),
     ):
+        x = int(x)
+        y = int(y)
+        w = int(w)
+        h = int(h)
         if filled:
             self.screen.fill(fill_color, (x, y, w, h))
 
@@ -90,14 +100,18 @@ class Viewer:
 
     def draw_circle(
         self,
-        x: int,
-        y: int,
-        radius: int,
+        x: float,
+        y: float,
+        radius: float,
         filled: bool = False,
         fill_color: Tuple[int, int, int] = (255, 255, 255),
-        width: int = 1,
+        width: float = 1,
         line_color: Tuple[int, int, int] = (0, 0, 0),
     ):
+        x = int(x)
+        y = int(y)
+        radius = int(radius)
+        width = int(width)
         if filled:
             pygame.draw.circle(self.screen, fill_color, (x, y), radius, width=0)
         if width > 0:
@@ -105,12 +119,14 @@ class Viewer:
 
     def draw_text(
         self,
-        x: int,
-        y: int,
+        x: float,
+        y: float,
         text: str,
         fontname: str = "",
         color: Tuple[int, int, int] = (0, 0, 0),
     ):
+        x = int(x)
+        y = int(y)
         if fontname not in self.fonts:
             if fontname == "":
                 self.fonts[""] = pygame.font.SysFont("arial", 12)
@@ -121,11 +137,13 @@ class Viewer:
 
     def draw_image_rgb_array(
         self,
-        x: int,
-        y: int,
+        x: float,
+        y: float,
         rgb_array: np.ndarray,
         resize: Optional[Tuple[int, int]] = None,
     ):
+        x = int(x)
+        y = int(y)
         rgb_array = rgb_array.swapaxes(0, 1)
         img = pygame.surfarray.make_surface(rgb_array)
         if resize is not None:
@@ -138,9 +156,11 @@ class Viewer:
     def draw_image(
         self,
         name: str,
-        x: int,
-        y: int,
-        resize: Optional[Tuple[int, int]] = None,
+        x: float,
+        y: float,
+        # resize: Optional[Tuple[int, int]] = None,
     ):
+        x = int(x)
+        y = int(y)
         img = self.images[name]
         self.screen.blit(img, (x, y))

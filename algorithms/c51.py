@@ -7,7 +7,8 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
@@ -244,9 +245,7 @@ class Worker(DiscreteActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-        self.v_min = -10
-        self.v_max = 10
-        self.Z = np.linspace(self.v_min, self.v_max, self.config.categorical_num_atoms)
+        self.Z = np.linspace(self.config.categorical_v_min, self.config.categorical_v_max, self.config.categorical_num_atoms)
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
         self.state = state

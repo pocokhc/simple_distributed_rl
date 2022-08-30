@@ -25,8 +25,12 @@ class Test(unittest.TestCase):
         self.tester.verify_singleplay("Grid", self.rl_config, 6000)
 
     def test_verify_Pendulum(self):
-        self.rl_config.hidden_block_kwargs = dict(hidden_layer_sizes=(64, 64))
-        self.tester.verify_singleplay("Pendulum-v1", self.rl_config, 200 * 60)
+        self.rl_config.categorical_v_min = -100
+        self.rl_config.categorical_v_max = 100
+        self.rl_config.batch_size = 64
+        self.rl_config.lr = 0.001
+        self.rl_config.hidden_block_kwargs = dict(hidden_layer_sizes=(32, 32, 32))
+        self.tester.verify_singleplay("Pendulum-v1", self.rl_config, 200 * 600)
 
 
 if __name__ == "__main__":

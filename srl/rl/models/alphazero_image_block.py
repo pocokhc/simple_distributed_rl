@@ -19,6 +19,7 @@ class AlphaZeroImageBlock(keras.Model):
         filters: int = 256,
         kernel_size=(3, 3),
         l2: float = 0.0001,
+        use_layer_normalization: bool = False,
     ):
         super().__init__()
 
@@ -30,9 +31,13 @@ class AlphaZeroImageBlock(keras.Model):
             kernel_initializer="he_normal",
             kernel_regularizer=regularizers.l2(l2),
         )
-        self.bn1 = kl.BatchNormalization()
+        if use_layer_normalization:
+            self.bn1 = kl.LayerNormalization()
+        else:
+            self.bn1 = kl.BatchNormalization()
         self.act1 = kl.ReLU()
-        self.resblocks = [ResidualBlock(filters, kernel_size, l2) for _ in range(n_blocks)]
+
+        self.resblocks = [ResidualBlock(filters, kernel_size, l2, use_layer_normalization) for _ in range(n_blocks)]
 
     def call(self, x):
         x = self.conv1(x)
@@ -46,9 +51,10 @@ class AlphaZeroImageBlock(keras.Model):
 class ResidualBlock(keras.Model):
     def __init__(
         self,
-        filters,
+        filters: int,
         kernel_size=(3, 3),
         l2: float = 0.0001,
+        use_layer_normalization: bool = False,
     ):
         super().__init__()
 
@@ -60,7 +66,10 @@ class ResidualBlock(keras.Model):
             kernel_initializer="he_normal",
             kernel_regularizer=regularizers.l2(l2),
         )
-        self.bn1 = kl.BatchNormalization()
+        if use_layer_normalization:
+            self.bn1 = kl.LayerNormalization()
+        else:
+            self.bn1 = kl.BatchNormalization()
         self.act1 = kl.ReLU()
         self.conv2 = kl.Conv2D(
             filters=filters,
@@ -70,7 +79,10 @@ class ResidualBlock(keras.Model):
             kernel_initializer="he_normal",
             kernel_regularizer=regularizers.l2(l2),
         )
-        self.bn2 = kl.BatchNormalization()
+        if use_layer_normalization:
+            self.bn2 = kl.LayerNormalization()
+        else:
+            self.bn2 = kl.BatchNormalization()
         self.act2 = kl.ReLU()
 
     def call(self, x):

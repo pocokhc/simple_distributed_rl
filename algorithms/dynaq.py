@@ -2,11 +2,10 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Union, cast
+from typing import Any, Dict, List, cast
 
 import numpy as np
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 """
 Other
-    invalid_actions : TODO
+    invalid_actions : o
 """
 
 
@@ -30,8 +29,8 @@ class Config(DiscreteActionConfig):
 
     epsilon: float = 0.1
     test_epsilon: float = 0
-    discount: float = 0.9  # 割引率
-    lr: float = 0.1  # 学習率
+    discount: float = 0.9
+    lr: float = 0.1
 
     def __post_init__(self):
         super().__init__()
@@ -155,16 +154,14 @@ class Parameter(RLParameter):
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.Q = json.loads(data)
+        # model TODO
 
     def call_backup(self, **kwargs):
         return json.dumps(self.Q)
 
-    def get_action_values(self, state, invalid_actions, to_str: bool = True):
-        if to_str:
-            state = str(state.tolist())
+    def get_action_values(self, state, invalid_actions):
         if state not in self.Q:
-            self.Q[state] = [0 for a in range(self.config.action_num)]
-            # self.Q[state] = [0 if a in invalid_actions else -np.inf for a in range(self.config.action_num)]
+            self.Q[state] = [-np.inf if a in invalid_actions else 0 for a in range(self.config.action_num)]
         return self.Q[state]
 
 
@@ -215,8 +212,8 @@ class Trainer(RLTrainer):
             invalid_actions = batch["invalid_actions"]
             next_invalid_actions = batch["next_invalid_actions"]
 
-            q = self.parameter.get_action_values(s, invalid_actions, False)
-            n_q = self.parameter.get_action_values(n_s, next_invalid_actions, False)
+            q = self.parameter.get_action_values(s, invalid_actions)
+            n_q = self.parameter.get_action_values(n_s, next_invalid_actions)
 
             if done:
                 target_q = reward
@@ -262,14 +259,12 @@ class Worker(DiscreteActionWorker):
         self.invalid_actions = invalid_actions
 
         if random.random() < self.epsilon:
-            # epsilonより低いならランダムに移動
-            action = random.choice(invalid_actions)
+            action = self.sample_action()
         else:
-            q = self.parameter.get_action_values(state, invalid_actions)
+            q = self.parameter.get_action_values(self.state, invalid_actions)
             q = np.asarray(q)
-
-            # 最大値を選ぶ（複数あればランダム）
-            action = random.choice(np.where(q == q.max())[0])
+            q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)]
+            action = random.choice(np.where(q == np.max(q))[0])
 
         self.action = int(action)
         return self.action
@@ -312,4 +307,4 @@ class Worker(DiscreteActionWorker):
             s += f", done {model.sample_done(self.state, a)}"
             return s
 
-        render_discrete_action(self.get_invalid_actions(env), maxa, env, _render_sub)
+        render_discrete_action(self.invalid_actions, maxa, env, _render_sub)

@@ -801,20 +801,20 @@ class Worker(DiscreteActionWorker):
             # leaf node ならロールアウト
             if is_afterstate:
                 self.parameter.afterstate_prediction(n_state, n_state_str)
-                n_reward = self.parameter.Q[n_state_str]
+                n_value = self.parameter.Q[n_state_str]
             else:
                 self.parameter.prediction(n_state, n_state_str)
-                n_reward = self.parameter.V[n_state_str]
+                n_value = self.parameter.V[n_state_str]
         else:
             # 子ノードに降りる(展開)
-            n_reward = self._simulation(n_state, n_state_str, [], is_afterstate, depth + 1)
+            n_value = self._simulation(n_state, n_state_str, [], is_afterstate, depth + 1)
 
         # 次が相手のターンなら、報酬は最小になってほしいので-をかける
         if enemy_turn:
-            n_reward = -n_reward
+            n_value = -n_value
 
         # 割引報酬
-        reward = reward + self.config.discount * n_reward
+        reward = reward + self.config.discount * n_value
 
         self.N[state_str][action] += 1
         self.W[state_str][action] += reward

@@ -1,6 +1,7 @@
 import ctypes
 import logging
 import multiprocessing as mp
+import os
 import time
 import traceback
 from dataclasses import dataclass
@@ -190,7 +191,7 @@ def __run_actor(
             config.enable_validation = False
 
         # parameter
-        parameter = config.make_parameter()
+        parameter = config.make_parameter(is_load=False)
         params = remote_board.read()
         if params is not None:
             parameter.restore(params)
@@ -240,7 +241,7 @@ def __run_trainer(
 ):
     logger.debug("trainer start")
 
-    parameter = config.make_parameter()
+    parameter = config.make_parameter(is_load=False)
     params = remote_board.read()
     if params is not None:
         parameter.restore(params)
@@ -418,9 +419,15 @@ def _train(
     remote_board = manager.Board()
 
     # init
-    if init_remote_memory is not None:
+    if init_remote_memory is None:
+        if os.path.isfile(config.rl_config.remote_memory_path):
+            remote_memory.load(config.rl_config.remote_memory_path)
+    else:
         remote_memory.restore(init_remote_memory.backup())
-    if init_parameter is not None:
+    if init_parameter is None:
+        _parameter = config.make_parameter()
+        remote_board.write(_parameter.backup())
+    else:
         remote_board.write(init_parameter.backup())
 
     # --- actor

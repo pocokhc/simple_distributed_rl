@@ -13,14 +13,11 @@ import srl.rl.human  # reservation
 import srl.rl.random_play  # reservation
 from srl.base.env.base import EnvRun
 from srl.base.env.config import EnvConfig
-from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer, WorkerRun
-from srl.base.rl.registration import (
-    make_parameter,
-    make_remote_memory,
-    make_trainer,
-    make_worker,
-    make_worker_rulebase,
-)
+from srl.base.rl.base import (RLConfig, RLParameter, RLRemoteMemory, RLTrainer,
+                              WorkerRun)
+from srl.base.rl.registration import (make_parameter, make_remote_memory,
+                                      make_trainer, make_worker,
+                                      make_worker_rulebase)
 from srl.runner.callback import Callback
 from srl.runner.callbacks.print_progress import PrintProgress
 from srl.runner.callbacks.rendering import Rendering
@@ -102,13 +99,13 @@ class Config:
         self.env.init()
         return self.env
 
-    def make_parameter(self) -> RLParameter:
+    def make_parameter(self, is_load: bool = True) -> RLParameter:
         self._set_env()
-        return make_parameter(self.rl_config, env=self.env)
+        return make_parameter(self.rl_config, env=self.env, is_load=is_load)
 
-    def make_remote_memory(self) -> RLRemoteMemory:
+    def make_remote_memory(self, is_load: bool = True) -> RLRemoteMemory:
         self._set_env()
-        return make_remote_memory(self.rl_config, env=self.env)
+        return make_remote_memory(self.rl_config, env=self.env, is_load=is_load)
 
     def make_trainer(self, parameter: RLParameter, remote_memory: RLRemoteMemory) -> RLTrainer:
         self._set_env()

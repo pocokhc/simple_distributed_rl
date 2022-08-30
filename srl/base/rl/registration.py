@@ -18,6 +18,7 @@ def make_remote_memory(
     rl_config: RLConfig,
     env: Optional[EnvRun] = None,
     return_class: bool = False,
+    is_load: bool = True,
 ) -> RLRemoteMemory:
     if env is None:
         assert rl_config.is_set_env_config, _ASSERT_MSG
@@ -29,7 +30,7 @@ def make_remote_memory(
         return _class
 
     remote_memory = _class(rl_config)
-    if rl_config.remote_memory_path != "":
+    if is_load and rl_config.remote_memory_path != "":
         if not os.path.isfile(rl_config.remote_memory_path):
             logger.info(f"The file was not found and was not loaded.({rl_config.remote_memory_path})")
         else:
@@ -37,14 +38,18 @@ def make_remote_memory(
     return remote_memory
 
 
-def make_parameter(rl_config: RLConfig, env: Optional[EnvRun] = None) -> RLParameter:
+def make_parameter(
+    rl_config: RLConfig,
+    env: Optional[EnvRun] = None,
+    is_load: bool = True,
+) -> RLParameter:
     if env is None:
         assert rl_config.is_set_env_config, _ASSERT_MSG
     else:
         rl_config.reset_config(env)
     name = rl_config.getName()
     parameter = load_module(_registry[name][1])(rl_config)
-    if rl_config.parameter_path != "":
+    if is_load and rl_config.parameter_path != "":
         if not os.path.isfile(rl_config.parameter_path):
             logger.info(f"The file was not found and was not loaded.({rl_config.parameter_path})")
         else:

@@ -175,7 +175,7 @@ class Rendering(Callback):
         canvas_size = (640, 480)
         img = PIL.Image.new("RGB", canvas_size)
         draw = PIL.ImageDraw.Draw(img)
-        text_width, text_height = draw.multiline_textsize(text, font=font)
+        _, _, text_width, text_height = draw.multiline_textbbox((0, 0), text, font=font)
 
         canvas_size = (text_width, text_height)
         background_rgb = (0, 0, 0)

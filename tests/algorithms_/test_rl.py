@@ -1,5 +1,4 @@
 import glob
-import importlib
 import importlib.machinery as imm
 import os
 import unittest
@@ -34,6 +33,14 @@ class Test(unittest.TestCase):
             with self.subTest(rl_config.getName()):
                 tester.simple_check(rl_config, enable_image=enable_image)
 
+    # py ファイルからloadしたモジュールはpickle化できないのでテスト不可
+    # def test_simple_check_mp(self):
+    #    tester = TestRL()
+    #    for rl_config, enable_image in self.rl_list:
+    #        with self.subTest(rl_config.getName()):
+    #            tester.simple_check(rl_config, enable_image=enable_image, is_mp=True)
+    #        break
+
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_simple_check", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_simple_check_mp", verbosity=2)

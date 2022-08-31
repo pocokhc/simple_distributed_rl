@@ -1,5 +1,4 @@
 def load_all():
-    from . import cartpole_continuous  # noqa F401
     from . import connectx  # noqa F401
     from . import grid  # noqa F401
     from . import igrid  # noqa F401

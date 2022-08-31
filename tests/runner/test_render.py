@@ -1,6 +1,7 @@
 import unittest
 
 import srl
+from envs import grid  # noqa E401
 from srl.runner import sequence
 
 

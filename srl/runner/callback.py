@@ -1,31 +1,59 @@
-import logging
 from abc import ABC
-
-logger = logging.getLogger(__name__)
 
 
 class Callback(ABC):
-    def on_episodes_begin(self, **kwargs) -> None:
+    def on_episodes_begin(self, info) -> None:
         pass  # do nothing
 
-    def on_episodes_end(self, **kwargs) -> None:
+    def on_episodes_end(self, info) -> None:
         pass  # do nothing
 
-    def on_episode_begin(self, **kwargs) -> None:
+    def on_episode_begin(self, info) -> None:
         pass  # do nothing
 
-    def on_episode_end(self, **kwargs) -> None:
+    def on_episode_end(self, info) -> None:
         pass  # do nothing
 
-    def on_step_begin(self, **kwargs) -> None:
+    def on_step_begin(self, info) -> None:
         pass  # do nothing
 
-    def on_step_end(self, **kwargs) -> None:
+    def on_step_end(self, info) -> None:
         pass  # do nothing
 
-    def on_skip_step(self, **kwargs) -> None:
+    def on_skip_step(self, info) -> None:
         pass  # do nothing
 
     # 外部から途中停止用
-    def intermediate_stop(self, **kwargs) -> bool:
+    def intermediate_stop(self, info) -> bool:
         return False
+
+
+class TrainerCallback(ABC):
+    def on_trainer_start(self, info) -> None:
+        pass  # do nothing
+
+    def on_trainer_train(self, info) -> None:
+        pass  # do nothing
+
+    def on_trainer_end(self, info) -> None:
+        pass  # do nothing
+
+    # 外部から途中停止用
+    def intermediate_stop(self, info) -> bool:
+        return False
+
+
+class MPCallback(ABC):
+    # all
+    def on_init(self, info) -> None:
+        pass  # do nothing
+
+    # main
+    def on_start(self, info) -> None:
+        pass  # do nothing
+
+    def on_polling(self, info) -> None:
+        pass  # do nothing
+
+    def on_end(self, info) -> None:
+        pass  # do nothing

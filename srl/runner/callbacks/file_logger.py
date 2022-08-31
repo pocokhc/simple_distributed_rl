@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 import srl
-from srl.runner.callback_mp import MPCallback
+from srl.runner.callback import Callback, MPCallback, TrainerCallback
 from srl.utils.common import JsonNumpyEncoder, is_package_installed
 
 logger = logging.getLogger(__name__)
@@ -32,8 +32,8 @@ except ImportError:
 
 
 @dataclass
-class MPFileLogger(MPCallback):
-    dir_path: str = "tmp"
+class FileLogger(Callback, MPCallback, TrainerCallback):
+    tmp_dir: str = "tmp"
 
     # file logger
     enable_log: bool = True
@@ -60,8 +60,8 @@ class MPFileLogger(MPCallback):
         fp.write(json.dumps(d, cls=JsonNumpyEncoder) + "\n")
         fp.flush()
 
-    def on_init(self, config, mp_config, **kwargs):
-        self._init_file_logger(config, mp_config)
+    def on_init(self, info) -> None:
+        self._init_file_logger(info["config"], info["mp_config"])
 
     def _init_file_logger(self, config, mp_config):
         if self.is_init:
@@ -70,7 +70,7 @@ class MPFileLogger(MPCallback):
         dir_name = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
         dir_name += f"_{config.env_config.name}_{config.rl_config.getName()}"
         dir_name = re.sub(r'[\\/:?."<>\|]', "_", dir_name)
-        self.base_dir = os.path.join(os.path.abspath(self.dir_path), dir_name)
+        self.base_dir = os.path.join(os.path.abspath(self.tmp_dir), dir_name)
         logger.debug(f"save path: {self.base_dir}")
 
         self.param_dir = os.path.join(self.base_dir, "params")
@@ -132,7 +132,9 @@ class MPFileLogger(MPCallback):
     # ---------------------------
     # trainer
     # ---------------------------
-    def on_trainer_start(self, config, mp_config, **kwargs):
+    def on_trainer_start(self, info):
+        config = info["config"]
+        self._init_file_logger(config, None)
         self.fp_dict["trainer"] = open(os.path.join(self.log_dir, "trainer.txt"), "w", encoding="utf-8")
 
         _time = time.time()
@@ -147,35 +149,30 @@ class MPFileLogger(MPCallback):
             self.checkpoint_t0 = _time
             self.env = config.make_env()
 
-    def on_trainer_end(self, parameter, train_count, **kwargs):
+    def on_trainer_end(self, info):
         if self.enable_log:
             self._write_trainer_log()
         if self.enable_checkpoint:
-            self._save_parameter(parameter, train_count)
+            self._save_parameter(info["parameter"], info["train_count"])
 
         self.close()
 
-    def on_trainer_train(
-        self,
-        remote_memory,
-        train_count,
-        train_time,
-        train_info,
-        sync_count,
-        parameter,
-        **kwargs,
-    ):
+    def on_trainer_train(self, info):
         _time = time.time()
 
         if self.enable_log:
+            remote_memory = info["remote_memory"]
+
             d = {
-                "train_count": train_count,
-                "train_time": train_time,
-                "sync_count": sync_count,
-                "remote_memory": remote_memory.length(),
+                "train_count": info["train_count"],
+                "train_time": info["train_time"],
+                "remote_memory": 0 if remote_memory is None else remote_memory.length(),
             }
+            if "sync" in info:
+                d["sync"] = info["sync"]
+
             # --- info は展開して格納
-            for k, v in train_info.items():
+            for k, v in info["train_info"].items():
                 if f"train_{k}" in d:
                     k = f"info_{k}"
                 d[f"train_{k}"] = v
@@ -188,7 +185,7 @@ class MPFileLogger(MPCallback):
         if self.enable_checkpoint:
             if _time - self.checkpoint_t0 > self.checkpoint_interval:
                 self.checkpoint_t0 = _time
-                self._save_parameter(parameter, train_count)
+                self._save_parameter(info["parameter"], info["train_count"])
 
     def _write_trainer_log(self):
         if self.fp_dict["trainer"] is None:
@@ -198,19 +195,20 @@ class MPFileLogger(MPCallback):
 
         info = self.log_history[-1]
         train_count = info["train_count"]
-        sync_count = info["sync_count"]
         remote_memory = info["remote_memory"]
 
         d = {
             "date": dt.datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
             "remote_memory": remote_memory,
-            "parameter_sync_count": sync_count,
             "train_count": train_count,
         }
+        if "sync" in info:
+            d["trainer_parameter_sync_count"] = info["sync"]
+
         for k in self.log_history[-1].keys():
             if k in [
                 "remote_memory",
-                "sync_count",
+                "sync",
                 "train_count",
             ]:
                 continue
@@ -233,14 +231,14 @@ class MPFileLogger(MPCallback):
     # ---------------------------
     # actor
     # ---------------------------
-    def on_episodes_begin(self, config, actor_id, env, **kwargs):
-        self._init_file_logger(config, None)
+    def on_episodes_begin(self, info):
+        self._init_file_logger(info["config"], None)
 
-        self.actor_id = actor_id
-        self.fp_dict["actor"] = open(os.path.join(self.log_dir, f"actor{actor_id}.txt"), "w", encoding="utf-8")
+        self.actor_id = info["actor_id"]
+        self.fp_dict["actor"] = open(os.path.join(self.log_dir, f"actor{self.actor_id}.txt"), "w", encoding="utf-8")
 
-        if actor_id == 0:
-            self.fp_dict["system"] = open(os.path.join(self.log_dir, f"system.txt"), "w", encoding="utf-8")
+        if self.actor_id == 0:
+            self.fp_dict["system"] = open(os.path.join(self.log_dir, "system.txt"), "w", encoding="utf-8")
             if self.enable_nvidia:
                 pynvml.nvmlInit()
         else:
@@ -249,41 +247,34 @@ class MPFileLogger(MPCallback):
         self.log_history = []
         self.log_t0 = time.time()
 
-        self.player_num = env.player_num
+        self.player_num = info["env"].player_num
 
-    def on_episodes_end(self, **kwargs):
+    def on_episodes_end(self, info):
         if self.enable_log:
             self._write_actor_log()
         if self.actor_id == 0 and self.enable_nvidia:
             pynvml.nvmlShutdown()
         self.close()
 
-    def on_episode_begin(self, **kwargs):
+    def on_episode_begin(self, info):
         self.history_step = []
 
-    def on_step_end(
-        self,
-        env,
-        workers,
-        train_info,
-        step_time,
-        train_time,
-        **kwargs,
-    ):
+    def on_step_end(self, info):
         if not self.enable_log:
             return
 
         # --- info は展開して格納
-        d = {"step_time": step_time}
-        for k, v in env.info.items():
+        d = {"step_time": info["step_time"]}
+        for k, v in info["env"].info.items():
             d[f"env_{k}"] = v
+        train_info = info["train_info"]
         if train_info is not None:
             for k, v in train_info.items():
                 if k == "time":
                     k = "info_time"
                 d[f"train_{k}"] = v
-            d["train_time"] = train_time
-        for i, w in enumerate(workers):
+            d["train_time"] = info["train_time"]
+        for i, w in enumerate(info["workers"]):
             if w.info is not None:
                 for k, v in w.info.items():
                     d[f"work{i}_{k}"] = v
@@ -295,32 +286,28 @@ class MPFileLogger(MPCallback):
             self._write_actor_log()
             self._write_system_log()
 
-    def on_episode_end(
-        self,
-        episode_count,
-        episode_step,
-        episode_rewards,
-        episode_time,
-        valid_reward,
-        remote_memory,
-        trainer,
-        worker_indices,
-        **kwargs,
-    ):
+    def on_episode_end(self, info):
         if len(self.history_step) == 0:
             return
-
         if not self.enable_log:
             return
 
+        remote_memory = info["remote_memory"]
+        trainer = info["trainer"]
+        episode_rewards = info["episode_rewards"]
+        worker_indices = info["worker_indices"]
+
         d = {
-            "episode_count": episode_count,
-            "episode_step": episode_step,
-            "episode_time": episode_time,
-            "valid_reward": valid_reward,
+            "episode_count": info["episode_count"],
+            "episode_step": info["episode_step"],
+            "episode_time": info["episode_time"],
+            "eval_reward": info["eval_reward"],
             "remote_memory": 0 if remote_memory is None else remote_memory.length(),
             "train_count": 0 if trainer is None else trainer.get_train_count(),
         }
+        if "sync" in info:
+            d["worker_parameter_sync_count"] = info["sync"]
+
         rewards = [episode_rewards[worker_indices[i]] for i in range(self.player_num)]
         for i, r in enumerate(rewards):
             d[f"episode_reward{i}"] = r
@@ -523,15 +510,13 @@ class FileLogPlot:
 
     def plot(
         self,
-        plot_left: List[str] = None,
-        plot_right: List[str] = None,
+        plot_left: List[str] = ["episode_reward0", "eval_reward"],
+        plot_right: List[str] = [],
         plot_type: str = "",
         aggregation_num: int = 50,
     ):
-        if plot_left is None:
-            plot_left = ["episode_reward0", "valid_reward"]
-        if plot_right is None:
-            plot_right = []
+        plot_left = plot_left[:]
+        plot_right = plot_right[:]
 
         if not (is_package_installed("matplotlib") and is_package_installed("pandas")):
             assert (

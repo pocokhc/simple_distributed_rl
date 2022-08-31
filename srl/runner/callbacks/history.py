@@ -17,29 +17,22 @@ class History(Callback):
     target_worker: int = 0
     first_time_clip_num: int = 1
 
-    def on_episodes_begin(self, config, **kwargs):
+    def on_episodes_begin(self, info):
         self.history = []
 
-    def on_episode_begin(self, **kwargs):
+    def on_episode_begin(self, info):
         self.history_step = []
 
-    def on_step_end(self, env, workers, train_info, **kwargs):
+    def on_step_end(self, info):
         self.history_step.append(
             {
-                "env_info": env.info,
-                "work_info": workers[self.target_worker].info,
-                "train_info": train_info,
+                "env_info": info["env"].info,
+                "work_info": info["workers"][self.target_worker].info,
+                "train_info": info["train_info"],
             }
         )
 
-    def on_episode_end(
-        self,
-        episode_count,
-        episode_rewards,
-        worker_indices,
-        valid_reward,
-        **kwargs,
-    ):
+    def on_episode_end(self, info):
         if len(self.history_step) == 0:
             return
 
@@ -56,12 +49,12 @@ class History(Callback):
         else:
             train_info = {}
 
-        player_idx = worker_indices[self.target_worker]
+        player_idx = info["worker_indices"][self.target_worker]
         self.history.append(
             {
-                "episode": episode_count,
-                "reward": episode_rewards[player_idx],
-                "valid_reward": valid_reward,
+                "episode": info["episode_count"],
+                "reward": info["episode_rewards"][player_idx],
+                "valid_reward": info["valid_reward"],
                 "env_info": env_info,
                 "work_info": work_info,
                 "train_info": train_info,

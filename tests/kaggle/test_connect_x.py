@@ -149,7 +149,7 @@ class Test(unittest.TestCase):
             self.config,
             max_steps=100_000,
             enable_file_logger=False,
-            enable_validation=False,
+            enable_evaluation=False,
         )
 
         # --- eval

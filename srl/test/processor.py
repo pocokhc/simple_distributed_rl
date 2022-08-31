@@ -18,7 +18,7 @@ class TestProcessor:
         config = sequence.Config(env_config, rl_config)
         env = config.make_env()
 
-        sequence.train(config, max_episodes=10)
+        sequence.train(config, max_episodes=10, enable_file_logger=False)
         return env
 
     def change_observation_info(

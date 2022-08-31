@@ -28,8 +28,8 @@ class Rendering(Callback):
     render_terminal: bool = True
     render_window: bool = False
     step_stop: bool = False
-    use_skip_step: bool = True
     enable_animation: bool = False
+    use_skip_step: bool = True
 
     # windows     : C:\Windows\Fonts
     # max         : /System/Library/Fonts
@@ -60,46 +60,23 @@ class Rendering(Callback):
                     False
                 ), "To use animation you need to install 'cv2', 'matplotlib', 'PIL'. (pip install opencv-python matplotlib pillow)"
 
-    def on_step_begin(
-        self,
-        env: EnvRun,
-        action,
-        worker_idx,
-        workers,
-        **kwargs,
-    ) -> None:
-        self._render_step(env, workers[worker_idx], worker_idx, action)
+    def on_step_begin(self, info) -> None:
+        self._render_step(info)
 
-    def on_episode_end(
-        self,
-        env: EnvRun,
-        action,
-        worker_idx,
-        workers,
-        **kwargs,
-    ) -> None:
-        self._render_step(env, workers[worker_idx], worker_idx, action)
+    def on_episode_end(self, info) -> None:
+        self._render_step(info)
 
-    def on_skip_step(
-        self,
-        env: EnvRun,
-        action,
-        worker_idx,
-        workers,
-        **kwargs,
-    ):
+    def on_skip_step(self, info):
         if not self.use_skip_step:
             return
-        self._render_step(env, workers[worker_idx], worker_idx, action, True)
+        self._render_step(info, True)
 
-    def _render_step(
-        self,
-        env: EnvRun,
-        worker: WorkerRun,
-        worker_idx: int,
-        action,
-        is_skip=False,
-    ):
+    def _render_step(self, info, is_skip=False):
+        env: EnvRun = info["env"]
+        worker_idx: int = info["worker_idx"]
+        worker: WorkerRun = info["workers"][worker_idx]
+        action = info["action"]
+
         # env text
         env_text = env.render_terminal(return_text=True)
 

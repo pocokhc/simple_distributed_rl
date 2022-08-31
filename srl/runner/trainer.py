@@ -1,211 +1,124 @@
-import datetime as dt
 import logging
 import random
 import time
-from abc import ABC
-from dataclasses import dataclass
-from typing import Optional, Tuple
+import traceback
+from typing import List, Optional, Tuple, Union, cast
 
 import numpy as np
-from srl.base.rl.base import RLParameter, RLRemoteMemory
+from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.runner import sequence
+from srl.runner.callback import TrainerCallback
+from srl.runner.callbacks.file_logger import FileLogger, FileLogPlot
+from srl.runner.callbacks.print_progress import TrainerPrintProgress
 from srl.runner.sequence import Config
-from srl.utils.common import is_package_installed, listdictdict_to_dictlist, to_str_time
+from srl.utils.common import is_package_installed
 
 logger = logging.getLogger(__name__)
 
 
-class TrainerCallback(ABC):
-    def on_trainer_start(self, **kwargs) -> None:
-        pass  # do nothing
-
-    def on_trainer_train(self, **kwargs) -> None:
-        pass  # do nothing
-
-    def on_trainer_end(self, **kwargs) -> None:
-        pass  # do nothing
-
-    # 外部から途中停止用
-    def intermediate_stop(self, **kwargs) -> bool:
-        return False
-
-
-@dataclass
-class TrainerPrintProgress(TrainerCallback):
-    max_progress_time: int = 60 * 10  # s
-    start_progress_timeout: int = 5  # s
-
-    def __post_init__(self):
-        assert self.start_progress_timeout > 0
-        assert self.start_progress_timeout < self.max_progress_time
-        self.progress_timeout = self.start_progress_timeout
-
-    def on_trainer_start(
-        self,
-        max_train_count,
-        timeout,
-        remote_memory,
-        **kwargs,
-    ) -> None:
-        self.max_train_count = max_train_count
-        self.timeout = timeout
-
-        self.progress_t0 = self.t0 = time.time()
-        self.progress_history = []
-
-        self.train_time = 0
-        self.train_count = 0
-
-        print(
-            "### max train: {}, timeout: {}, memory len: {}".format(
-                max_train_count,
-                to_str_time(timeout),
-                remote_memory.length(),
-            )
-        )
-
-    def on_trainer_end(self, **kwargs) -> None:
-        self._trainer_print_progress()
-
-    def on_trainer_train(
-        self,
-        trainer,
-        train_info,
-        train_count,
-        train_time,
-        valid_reward,
-        **kwargs,
-    ) -> None:
-        self.train_time = train_time
-        self.train_count = train_count
-
-        self.progress_history.append(
-            {
-                "train_count": train_count,
-                "train_time": train_time,
-                "train_info": train_info,
-                "trainer_train_count": trainer.get_train_count(),
-                "valid_reward": valid_reward,
-            }
-        )
-        if self._check_print_progress():
-            self._trainer_print_progress()
-
-    def _check_print_progress(self):
-        _time = time.time()
-        taken_time = _time - self.progress_t0
-        if taken_time < self.progress_timeout:
-            return False
-        self.progress_t0 = _time
-
-        # 表示間隔を増やす
-        self.progress_timeout *= 2
-        if self.progress_timeout > self.max_progress_time:
-            self.progress_timeout = self.max_progress_time
-
-        return True
-
-    def _trainer_print_progress(self):
-        elapsed_time = time.time() - self.t0
-
-        s = dt.datetime.now().strftime("%H:%M:%S")
-        s += f" {to_str_time(elapsed_time)}"
-        s += " {:6d}tr".format(self.train_count)
-
-        if len(self.progress_history) == 0:
-            pass  # 多分来ない
-        else:
-            train_time = np.mean([h["train_time"] for h in self.progress_history])
-
-            # 残り時間
-            if self.max_train_count > 0:
-                remain_train = (self.max_train_count - self.train_count) * train_time
-            else:
-                remain_train = np.inf
-            if self.timeout > 0:
-                remain_time = self.timeout - elapsed_time
-            else:
-                remain_time = np.inf
-            remain = min(remain_train, remain_time)
-            s += f" {to_str_time(remain)}(remain)"
-
-            # train time
-            s += f", {train_time:.4f}s/tr"
-
-            # valid
-            valid_rewards = [h["valid_reward"] for h in self.progress_history if h["valid_reward"] is not None]
-            if len(valid_rewards) > 0:
-                s += f", {np.mean(valid_rewards):.3f} val_rew"
-
-            # train info
-            d = listdictdict_to_dictlist(self.progress_history, "train_info")
-            for k, arr in d.items():
-                s += f"|{k} {np.mean(arr):.4f}"
-
-        print(s)
-        self.progress_history = []
-
-
 # ---------------------------------
-# train only
+# train
 # ---------------------------------
-def train_only(
+def train(
     config: Config,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
-    # train config
+    # stop config
     max_train_count: int = -1,
     timeout: int = -1,
-    enable_validation: bool = True,
+    # play config
     seed: Optional[int] = None,
-    # print
+    # evaluate
+    enable_evaluation: bool = False,
+    eval_interval: int = 0,  # episode
+    eval_num_episode: int = 1,
+    eval_players: List[Union[None, str, RLConfig]] = [],
+    eval_player: int = 0,
+    # PrintProgress
     print_progress: bool = True,
-    max_progress_time: int = 60 * 10,  # s
-    print_progress_kwargs: Optional[dict] = None,
-    # log TODO
-    # enable_file_logger: bool = True,
-    # file_logger_kwargs: Optional[dict] = None,
-    # remove_file_logger: bool = True,
+    progress_max_time: int = 60 * 10,  # s
+    progress_start_time: int = 5,
+    progress_print_train_info: bool = True,
+    # history
+    enable_file_logger: bool = True,
+    file_logger_tmp_dir: str = "tmp",
+    file_logger_interval: int = 1,  # s
+    enable_checkpoint: bool = True,
+    checkpoint_interval: int = 60 * 20,  # s
     # other
-    # callbacks: List[Callback] = None,
+    callbacks: List[TrainerCallback] = [],
 ) -> Tuple[RLParameter, RLRemoteMemory, object]:
+    eval_players = eval_players[:]
+    callbacks = callbacks[:]
 
-    if parameter is None:
-        parameter = config.make_parameter()
-    if remote_memory is None:
-        remote_memory = config.make_remote_memory()
-
-    assert max_train_count > 0 or timeout > 0
-    assert remote_memory.length() > 0
+    assert max_train_count > 0 or timeout > 0, "Please specify 'max_train_count' or 'timeout'."
 
     config = config.copy(env_share=False)
-    config.training = True
-    config.distributed = False
-    config.enable_validation = enable_validation
-
+    # stop config
+    config.max_train_count = max_train_count
+    config.timeout = timeout
+    # play config
     if config.seed is None:
         config.seed = seed
+    # evaluate
+    config.enable_evaluation = enable_evaluation
+    config.eval_interval = eval_interval
+    config.eval_num_episode = eval_num_episode
+    config.eval_players = eval_players
+    config.eval_player = eval_player
+    # callbacks
+    config.callbacks.extend(callbacks)
+    # play info
+    config.training = True
+    config.distributed = False
 
-    callbacks = []
+    # PrintProgress
     if print_progress:
-        if print_progress_kwargs is None:
-            print_progress_kwargs = {}
-        callbacks.append(TrainerPrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
+        config.callbacks.append(
+            TrainerPrintProgress(
+                max_time=progress_max_time,
+                start_time=progress_start_time,
+                print_train_info=progress_print_train_info,
+            )
+        )
 
-    # -----------------------------
-    config.assert_params()
-
-    # valid
-    if config.enable_validation:
-        valid_config = config.copy(env_share=False)
-        valid_config.enable_validation = False
-        valid_config.players = config.validation_players
-        valid_config.rl_config.remote_memory_path = ""
-        env = valid_config.make_env()
+    # FileLogger
+    if enable_file_logger:
+        file_logger = FileLogger(
+            tmp_dir=file_logger_tmp_dir,
+            enable_log=True,
+            log_interval=file_logger_interval,
+            enable_checkpoint=enable_checkpoint,
+            checkpoint_interval=checkpoint_interval,
+        )
+        config.callbacks.append(file_logger)
     else:
-        env = None
+        file_logger = None
 
-    # random seed
+    # play
+    parameter, remote_memory = play(config, parameter, remote_memory)
+
+    # history
+    history = FileLogPlot()
+    try:
+        if file_logger is not None:
+            history.load(file_logger.base_dir)
+    except Exception:
+        logger.warning(traceback.format_exc())
+
+    return parameter, remote_memory, history
+
+
+# ---------------------------------
+# play main
+# ---------------------------------
+def play(
+    config: Config,
+    parameter: Optional[RLParameter] = None,
+    remote_memory: Optional[RLRemoteMemory] = None,
+) -> Tuple[RLParameter, RLRemoteMemory]:
+
+    # --- random seed
     if config.seed is not None:
         random.seed(config.seed)
         np.random.seed(config.seed)
@@ -215,66 +128,92 @@ def train_only(
 
             tf.random.set_seed(config.seed)
 
-        if env is not None:
-            env.set_seed(config.seed)
+    # --- config
+    config = config.copy(env_share=True)
+    config.assert_params()
 
     # --- trainer
+    if parameter is None:
+        parameter = config.make_parameter()
+    if remote_memory is None:
+        remote_memory = config.make_remote_memory()
     trainer = config.make_trainer(parameter, remote_memory)
+    callbacks = [c for c in config.callbacks if issubclass(c.__class__, TrainerCallback)]
+    callbacks = cast(List[TrainerCallback], callbacks)
+
+    # --- eval
+    if config.enable_evaluation:
+        eval_config = config.copy(env_share=False)
+        eval_config.enable_evaluation = False
+        eval_config.players = config.eval_players
+        eval_config.rl_config.remote_memory_path = ""
+        env = eval_config.make_env()
+    else:
+        env = None
 
     # callback
-    _params = {
+    _info = {
         "config": config,
-        "max_train_count": max_train_count,
-        "timeout": timeout,
-        "env": env,
         "parameter": parameter,
         "remote_memory": remote_memory,
         "trainer": trainer,
+        "env": env,
         "train_count": 0,
     }
-    [c.on_trainer_start(**_params) for c in callbacks]
+    [c.on_trainer_start(_info) for c in callbacks]
 
+    # --- init
     t0 = time.time()
+    end_reason = ""
     train_count = 0
+
+    # --- loop
     while True:
-        train_t0 = time.time()
+        _time = time.time()
+
+        # stop check
+        if config.timeout > 0 and _time - t0 > config.timeout:
+            end_reason = "timeout."
+            break
+
+        if config.max_train_count > 0 and train_count > config.max_train_count:
+            end_reason = "max_train_count over."
+            break
+
+        # train
+        train_t0 = _time
         train_info = trainer.train()
         train_time = time.time() - train_t0
-        train_count += 1
+        train_count = trainer.get_train_count()
 
-        # validation
-        valid_reward = None
-        if config.enable_validation:
-            if train_count % (config.validation_interval + 1) == 0:
+        # eval
+        eval_reward = None
+        if config.enable_evaluation:
+            if train_count % (config.eval_interval + 1) == 0:
                 rewards = sequence.evaluate(
-                    valid_config,
+                    eval_config,
                     parameter=parameter,
-                    max_episodes=config.validation_episode,
+                    max_episodes=config.eval_num_episode,
                 )
                 if env.player_num > 1:
-                    rewards = [r[config.validation_player] for r in rewards]
-                valid_reward = np.mean(rewards)
+                    rewards = [r[config.eval_player] for r in rewards]
+                eval_reward = np.mean(rewards)
 
         # callbacks
-        _params["train_info"] = train_info
-        _params["train_count"] = train_count
-        _params["train_time"] = train_time
-        _params["valid_reward"] = valid_reward
-        [c.on_trainer_train(**_params) for c in callbacks]
-
-        if max_train_count > 0 and train_count > max_train_count:
-            break
-        if timeout > 0 and time.time() - t0 > timeout:
-            break
+        _info["train_info"] = train_info
+        _info["train_time"] = train_time
+        _info["train_count"] = train_count
+        _info["eval_reward"] = eval_reward
+        [c.on_trainer_train(_info) for c in callbacks]
 
         # callback end
-        if True in [c.intermediate_stop(**_params) for c in callbacks]:
+        if True in [c.intermediate_stop(_info) for c in callbacks]:
+            end_reason = "callback.intermediate_stop"
             break
 
     # callbacks
-    [c.on_trainer_end(**_params) for c in callbacks]
+    _info["train_count"] = train_count
+    _info["end_reason"] = end_reason
+    [c.on_trainer_end(_info) for c in callbacks]
 
-    # -----------------------------
-
-    history = None  # TODO
-    return parameter, remote_memory, history
+    return parameter, remote_memory

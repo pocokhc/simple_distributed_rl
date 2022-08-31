@@ -4,7 +4,7 @@ import random
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, cast
 
 import numpy as np
 import srl
@@ -13,15 +13,18 @@ import srl.rl.human  # reservation
 import srl.rl.random_play  # reservation
 from srl.base.env.base import EnvRun
 from srl.base.env.config import EnvConfig
-from srl.base.rl.base import (RLConfig, RLParameter, RLRemoteMemory, RLTrainer,
-                              WorkerRun)
-from srl.base.rl.registration import (make_parameter, make_remote_memory,
-                                      make_trainer, make_worker,
-                                      make_worker_rulebase)
-from srl.runner.callback import Callback
+from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer, WorkerRun
+from srl.base.rl.registration import (
+    make_parameter,
+    make_remote_memory,
+    make_trainer,
+    make_worker,
+    make_worker_rulebase,
+)
+from srl.runner.callback import Callback, TrainerCallback
+from srl.runner.callbacks.file_logger import FileLogger, FileLogPlot
 from srl.runner.callbacks.print_progress import PrintProgress
 from srl.runner.callbacks.rendering import Rendering
-from srl.runner.file_logger import FileLogPlot, MPFileLogger
 from srl.utils.common import is_package_installed
 
 logger = logging.getLogger(__name__)
@@ -33,43 +36,43 @@ class Config:
     env_config: EnvConfig
     rl_config: RLConfig
 
-    # multi player option
-    players: List[Union[None, str, RLConfig]] = field(default_factory=list)
-
     # episode option
     max_episode_steps: int = 1_000_000
     episode_timeout: int = 60 * 60  # s
 
+    # multi player option
+    players: List[Union[None, str, RLConfig]] = field(default_factory=list)
+
     # play option
     skip_frames: int = 0
 
-    # validation option
-    validation_interval: int = 0  # episode
-    validation_episode: int = 1
-    validation_players: List[Union[None, str, RLConfig]] = field(default_factory=list)
-    validation_player: int = 0
-
     def __post_init__(self):
-        # play config
-        self.max_steps: int = -1
+        # stop config
         self.max_episodes: int = -1
         self.timeout: int = -1
+        self.max_steps: int = -1
+        self.max_train_count: int = -1
+        # play config
+        self.shuffle_player: bool = False
+        self.disable_trainer = False
+        self.seed: Optional[int] = None
+        # evaluate option
+        self.enable_evaluation: bool = False
+        self.eval_interval: int = 0  # episode
+        self.eval_num_episode: int = 1
+        self.eval_players: List[Union[None, str, RLConfig]] = []
+        self.eval_player: int = 0
+        # callbacks
+        self.callbacks: List[Union[Callback, TrainerCallback]] = []
+
+        # play info
         self.training: bool = False
         self.distributed: bool = False
-        # multi player option
-        self.shuffle_player: bool = False
-        # validation option
-        self.enable_validation: bool = False
-        # callbacks
-        self.callbacks: List[Callback] = []
-        # random seed
-        self.seed: Optional[int] = None
 
         if self.rl_config is None:
             self.rl_config = srl.rl.dummy.Config()
 
         self.rl_name = self.rl_config.getName()
-        self.disable_trainer = False
         self.env = None
 
     # ------------------------------
@@ -226,12 +229,12 @@ class Config:
                 config.players.append(None)
             else:
                 config.players.append(pickle.loads(pickle.dumps(player)))
-        config.validation_players = []
-        for player in self.validation_players:
+        config.eval_players = []
+        for player in self.eval_players:
             if player is None:
-                config.validation_players.append(None)
+                config.eval_players.append(None)
             else:
-                config.validation_players.append(pickle.loads(pickle.dumps(player)))
+                config.eval_players.append(pickle.loads(pickle.dumps(player)))
 
         # callback
         if callbacks_share:
@@ -288,66 +291,109 @@ def load(path: str) -> Tuple[Config, RLParameter, RLRemoteMemory]:
 
 def train(
     config: Config,
-    # train config
-    max_steps: int = -1,
+    # stop config
     max_episodes: int = -1,
     timeout: int = -1,
+    max_steps: int = -1,
+    max_train_count: int = -1,
+    # play config
     shuffle_player: bool = True,
-    enable_validation: bool = True,
     disable_trainer: bool = False,
     seed: Optional[int] = None,
-    # print
+    # evaluate
+    enable_evaluation: bool = True,
+    eval_interval: int = 0,  # episode
+    eval_num_episode: int = 1,
+    eval_players: List[Union[None, str, RLConfig]] = [],
+    eval_player: int = 0,
+    # PrintProgress
     print_progress: bool = True,
-    max_progress_time: int = 60 * 10,  # s
-    print_progress_kwargs: Optional[Dict] = None,
-    # log,history
+    progress_max_time: int = 60 * 10,  # s
+    progress_start_time: int = 5,
+    progress_print_env_info: bool = False,
+    progress_print_worker_info: bool = True,
+    progress_print_train_info: bool = True,
+    progress_print_worker: int = 0,
+    # history
     enable_file_logger: bool = True,
-    file_logger_kwargs: Optional[Dict] = None,
+    file_logger_tmp_dir: str = "tmp",
+    file_logger_interval: int = 1,  # s
+    enable_checkpoint: bool = True,
+    checkpoint_interval: int = 60 * 20,  # s
     # other
-    callbacks: List[Callback] = None,
+    callbacks: List[Callback] = [],
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
 ) -> Tuple[RLParameter, RLRemoteMemory, FileLogPlot]:
-    if callbacks is None:
-        callbacks = []
-    if disable_trainer:
-        enable_validation = False  # 学習しないので
+    eval_players = eval_players[:]
+    callbacks = callbacks[:]
 
-    assert (
-        max_steps != -1 or max_episodes != -1 or timeout != -1
-    ), "Please specify 'max_steps', 'max_episodes' or 'timeout'."
+    if disable_trainer:
+        enable_evaluation = False  # 学習しないので
+        assert (
+            max_steps != -1 or max_episodes != -1 or timeout != -1
+        ), "Please specify 'max_episodes', 'timeout' or 'max_steps'."
+    else:
+        assert (
+            max_steps != -1 or max_episodes != -1 or timeout != -1 or max_train_count != -1
+        ), "Please specify 'max_episodes', 'timeout' , 'max_steps' or 'max_train_count'."
 
     config = config.copy(env_share=True)
-    config.max_steps = max_steps
+    # stop config
     config.max_episodes = max_episodes
     config.timeout = timeout
+    config.max_steps = max_steps
+    config.max_train_count = max_train_count
+    # play config
     config.shuffle_player = shuffle_player
-    config.enable_validation = enable_validation
     config.disable_trainer = disable_trainer
-    config.callbacks = callbacks
     if config.seed is None:
         config.seed = seed
-
+    # evaluate
+    config.enable_evaluation = enable_evaluation
+    config.eval_interval = eval_interval
+    config.eval_num_episode = eval_num_episode
+    config.eval_players = eval_players
+    config.eval_player = eval_player
+    # callbacks
+    config.callbacks = callbacks
+    # play info
     config.training = True
     config.distributed = False
 
+    # PrintProgress
     if print_progress:
-        if print_progress_kwargs is None:
-            print_progress_kwargs = {}
-        config.callbacks.append(PrintProgress(max_progress_time=max_progress_time, **print_progress_kwargs))
+        config.callbacks.append(
+            PrintProgress(
+                max_time=progress_max_time,
+                start_time=progress_start_time,
+                print_env_info=progress_print_env_info,
+                print_worker_info=progress_print_worker_info,
+                print_train_info=progress_print_train_info,
+                print_worker=progress_print_worker,
+            )
+        )
 
-    if file_logger_kwargs is None:
-        file_logger = MPFileLogger()
-    else:
-        file_logger = MPFileLogger(**file_logger_kwargs)
+    # FileLogger
     if enable_file_logger:
+        file_logger = FileLogger(
+            tmp_dir=file_logger_tmp_dir,
+            enable_log=True,
+            log_interval=file_logger_interval,
+            enable_checkpoint=enable_checkpoint,
+            checkpoint_interval=checkpoint_interval,
+        )
         config.callbacks.append(file_logger)
+    else:
+        file_logger = None
 
+    # play
     _, parameter, memory, _ = play(config, parameter, remote_memory)
 
+    # history
     history = FileLogPlot()
     try:
-        if enable_file_logger:
+        if file_logger is not None:
             history.load(file_logger.base_dir)
     except Exception:
         logger.warning(traceback.format_exc())
@@ -358,39 +404,62 @@ def train(
 def evaluate(
     config: Config,
     parameter: Optional[RLParameter] = None,
+    # stop reason
     max_episodes: int = 10,
-    max_steps: int = -1,
     timeout: int = -1,
+    max_steps: int = -1,
+    # play config
     shuffle_player: bool = False,
     seed: Optional[int] = None,
-    # print
+    # PrintProgress
     print_progress: bool = False,
-    print_progress_kwargs: Optional[Dict] = None,
+    progress_max_time: int = 60 * 5,  # s
+    progress_start_time: int = 5,
+    progress_print_env_info: bool = False,
+    progress_print_worker_info: bool = True,
+    progress_print_worker: int = 0,
     # other
-    callbacks: List[Callback] = None,
+    callbacks: List[Callback] = [],
     remote_memory: Optional[RLRemoteMemory] = None,
 ) -> Union[List[float], List[List[float]]]:  # single play , multi play
-    if callbacks is None:
-        callbacks = []
+    callbacks = callbacks[:]
+
+    assert (
+        max_steps != -1 or max_episodes != -1 or timeout != -1
+    ), "Please specify 'max_episodes', 'timeout' or 'max_steps'."
 
     config = config.copy(env_share=True)
+    # stop config
     config.max_steps = max_steps
     config.max_episodes = max_episodes
     config.timeout = timeout
+    # play config
     config.shuffle_player = shuffle_player
-    config.callbacks = callbacks
+    config.disable_trainer = True
     if config.seed is None:
         config.seed = seed
-
-    config.enable_validation = False
+    # evaluate
+    config.enable_evaluation = False
+    # callbacks
+    config.callbacks = callbacks
+    # play info
     config.training = False
     config.distributed = False
 
+    # PrintProgress
     if print_progress:
-        if print_progress_kwargs is None:
-            print_progress_kwargs = {}
-        config.callbacks.append(PrintProgress(**print_progress_kwargs))
+        config.callbacks.append(
+            PrintProgress(
+                max_time=progress_max_time,
+                start_time=progress_start_time,
+                print_env_info=progress_print_env_info,
+                print_worker_info=progress_print_worker_info,
+                print_train_info=False,
+                print_worker=progress_print_worker,
+            )
+        )
 
+    # play
     episode_rewards, parameter, memory, env = play(config, parameter, remote_memory)
 
     if env.player_num == 1:
@@ -402,100 +471,131 @@ def evaluate(
 def render(
     config: Config,
     parameter: Optional[RLParameter] = None,
+    # Rendering
     render_terminal: bool = True,
     render_window: bool = False,
     step_stop: bool = False,
     enable_animation: bool = False,
+    use_skip_step: bool = True,
     font_name: str = "",
     font_size: int = 12,
-    rendering_params: dict = None,
+    # stop config
+    episode_timeout: int = -1,
     max_steps: int = -1,
     timeout: int = -1,
     seed: Optional[int] = None,
-    # print
+    # PrintProgress
     print_progress: bool = False,
-    print_progress_kwargs: Optional[Dict] = None,
+    progress_max_time: int = 60 * 5,  # s
+    progress_start_time: int = 5,
+    progress_print_env_info: bool = False,
+    progress_print_worker_info: bool = True,
+    progress_print_worker: int = 0,
     # other
-    callbacks: List[Callback] = None,
+    callbacks: List[Callback] = [],
     remote_memory: Optional[RLRemoteMemory] = None,
-) -> Tuple[List[float], Optional[Rendering]]:
-    if callbacks is None:
-        callbacks = []
+) -> Tuple[List[float], Rendering]:
+    callbacks = callbacks[:]
 
     config = config.copy(env_share=True)
-    config.max_steps = max_steps
+    # stop config
+    config.max_episodes = 1
     config.timeout = timeout
+    config.max_steps = max_steps
+    config.max_train_count = -1
+    config.episode_timeout = episode_timeout
+    # play config
     config.shuffle_player = False
-    config.callbacks = callbacks
+    config.disable_trainer = True
     if config.seed is None:
         config.seed = seed
-
-    config.enable_validation = False
-    config.max_episodes = 1
+    # evaluate
+    config.enable_evaluation = False
+    # callbacks
+    config.callbacks = callbacks
+    # play info
     config.training = False
     config.distributed = False
-    config.episode_timeout = -1
 
+    # PrintProgress
     if print_progress:
-        if print_progress_kwargs is None:
-            print_progress_kwargs = {}
-        config.callbacks.append(PrintProgress(**print_progress_kwargs))
+        config.callbacks.append(
+            PrintProgress(
+                max_time=progress_max_time,
+                start_time=progress_start_time,
+                print_env_info=progress_print_env_info,
+                print_worker_info=progress_print_worker_info,
+                print_train_info=False,
+                print_worker=progress_print_worker,
+            )
+        )
 
-    if rendering_params is None:
-        rendering_params = {}
-    _render = Rendering(
-        render_terminal,
+    # Rendering
+    render = Rendering(
+        render_terminal=render_terminal,
         render_window=render_window,
-        enable_animation=enable_animation,
         step_stop=step_stop,
+        enable_animation=enable_animation,
+        use_skip_step=use_skip_step,
         font_name=font_name,
         font_size=font_size,
-        **rendering_params,
     )
-    config.callbacks.append(_render)
+    config.callbacks.append(render)
 
+    # play
     episode_rewards, parameter, memory, env = play(config, parameter, remote_memory)
 
-    return episode_rewards[0], _render
+    return episode_rewards[0], render
 
 
 def animation(
     config: Config,
     parameter: Optional[RLParameter] = None,
-    font_name: str = "",
-    font_size: int = 12,
-    rendering_params: dict = None,
+    # Rendering
     render_terminal: bool = False,
     render_window: bool = False,
+    use_skip_step: bool = True,
+    font_name: str = "",
+    font_size: int = 12,
+    # stop config
+    episode_timeout: int = -1,
     max_steps: int = -1,
     timeout: int = -1,
     seed: Optional[int] = None,
-    # print
+    # PrintProgress
     print_progress: bool = False,
-    print_progress_kwargs: Optional[Dict] = None,
+    progress_max_time: int = 60 * 5,  # s
+    progress_start_time: int = 5,
+    progress_print_env_info: bool = False,
+    progress_print_worker_info: bool = True,
+    progress_print_worker: int = 0,
     # other
-    callbacks: List[Callback] = None,
+    callbacks: List[Callback] = [],
     remote_memory: Optional[RLRemoteMemory] = None,
 ) -> Rendering:
     rewards, anime = render(
-        config,
-        parameter,
-        render_terminal,
-        render_window,
+        config=config,
+        parameter=parameter,
+        render_terminal=render_terminal,
+        render_window=render_window,
         step_stop=False,
         enable_animation=True,
+        use_skip_step=use_skip_step,
         font_name=font_name,
         font_size=font_size,
-        rendering_params=rendering_params,
+        episode_timeout=episode_timeout,
         max_steps=max_steps,
         timeout=timeout,
         seed=seed,
         print_progress=print_progress,
-        print_progress_kwargs=print_progress_kwargs,
+        progress_max_time=progress_max_time,
+        progress_start_time=progress_start_time,
+        progress_print_env_info=progress_print_env_info,
+        progress_print_worker_info=progress_print_worker_info,
+        progress_print_worker=progress_print_worker,
         callbacks=callbacks,
         remote_memory=remote_memory,
     )
-    assert anime is not None
     return anime
 
 
@@ -509,18 +609,20 @@ def play(
     actor_id: int = 0,
 ) -> Tuple[List[List[float]], RLParameter, RLRemoteMemory, EnvRun]:
 
-    env = config.make_env()
-
     # --- random seed
     if config.seed is not None:
         random.seed(config.seed)
         np.random.seed(config.seed)
-        env.set_seed(config.seed)
 
         if is_package_installed("tensorflow"):
             import tensorflow as tf
 
             tf.random.set_seed(config.seed)
+
+    # --- create env
+    env = config.make_env()
+    if config.seed is not None:
+        env.set_seed(config.seed)
 
     # --- config
     config = config.copy(env_share=True)
@@ -535,21 +637,22 @@ def play(
         trainer = config.make_trainer(parameter, remote_memory)
     else:
         trainer = None
-    callbacks = config.callbacks
+    callbacks = [c for c in config.callbacks if issubclass(c.__class__, Callback)]
+    callbacks = cast(List[Callback], callbacks)
 
-    # --- valid
-    if config.enable_validation:
-        valid_config = config.copy(env_share=False)
-        valid_config.enable_validation = False
-        valid_config.players = config.validation_players
-        valid_config.rl_config.remote_memory_path = ""
-        valid_episode = 0
+    # --- eval
+    if config.enable_evaluation:
+        eval_config = config.copy(env_share=False)
+        eval_config.enable_evaluation = False
+        eval_config.players = config.eval_players
+        eval_config.rl_config.remote_memory_path = ""
+        eval_episode = 0
 
     # --- workers
     workers = [config.make_player(i, parameter, remote_memory, actor_id) for i in range(env.player_num)]
 
     # callback
-    _params = {
+    _info = {
         "config": config,
         "env": env,
         "parameter": parameter,
@@ -558,7 +661,7 @@ def play(
         "workers": workers,
         "actor_id": actor_id,
     }
-    [c.on_episodes_begin(**_params) for c in callbacks]
+    [c.on_episodes_begin(_info) for c in callbacks]
 
     # --- rewards
     episode_rewards_list = []
@@ -566,7 +669,8 @@ def play(
     logger.debug(f"timeout          : {config.timeout}s")
     logger.debug(f"max_steps        : {config.max_steps}")
     logger.debug(f"max_episodes     : {config.max_episodes}")
-    logger.debug(f"enable_validation: {config.enable_validation}")
+    logger.debug(f"max_train_count  : {config.max_train_count}")
+    logger.debug(f"enable_evaluation: {config.enable_evaluation}")
     logger.debug(f"players          : {config.players}")
 
     # --- init
@@ -581,16 +685,19 @@ def play(
     while True:
         _time = time.time()
 
-        # timeout
-        elapsed_time = _time - elapsed_t0
-        if config.timeout > 0 and elapsed_time > config.timeout:
+        # --- stop check
+        if config.timeout > 0 and (_time - elapsed_t0) > config.timeout:
             end_reason = "timeout."
             break
 
-        # max steps
         if config.max_steps > 0 and total_step > config.max_steps:
             end_reason = "max_steps over."
             break
+
+        if trainer is not None:
+            if config.max_train_count > 0 and trainer.get_train_count() > config.max_train_count:
+                end_reason = "max_train_count over."
+                break
 
         # ------------------------
         # episode end / init
@@ -614,11 +721,11 @@ def play(
             # worker reset
             [w.on_reset(env, worker_indices[i]) for i, w in enumerate(workers)]
 
-            _params["episode_count"] = episode_count
-            _params["worker_indices"] = worker_indices
-            _params["worker_idx"] = worker_idx
-            _params["player_index"] = env.next_player_index
-            [c.on_episode_begin(**_params) for c in callbacks]
+            _info["episode_count"] = episode_count
+            _info["worker_indices"] = worker_indices
+            _info["worker_idx"] = worker_idx
+            _info["player_index"] = env.next_player_index
+            [c.on_episode_begin(_info) for c in callbacks]
 
         # ------------------------
         # step
@@ -626,14 +733,14 @@ def play(
         # action
         action = workers[worker_idx].policy(env)
 
-        _params["action"] = action
-        [c.on_step_begin(**_params) for c in callbacks]
+        _info["action"] = action
+        [c.on_step_begin(_info) for c in callbacks]
 
         # env step
         if config.skip_frames == 0:
             env.step(action)
         else:
-            env.step(action, config.skip_frames, lambda: [c.on_skip_step(**_params) for c in callbacks])
+            env.step(action, config.skip_frames, lambda: [c.on_skip_step(_info) for c in callbacks])
         worker_idx = worker_indices[env.next_player_index]
 
         # rl step
@@ -652,41 +759,41 @@ def play(
             train_info = None
             train_time = 0
 
-        _params["step_time"] = step_time
-        _params["train_info"] = train_info
-        _params["train_time"] = train_time
-        [c.on_step_end(**_params) for c in callbacks]
-        _params["worker_idx"] = worker_idx
-        _params["player_index"] = env.next_player_index
+        _info["step_time"] = step_time
+        _info["train_info"] = train_info
+        _info["train_time"] = train_time
+        [c.on_step_end(_info) for c in callbacks]
+        _info["worker_idx"] = worker_idx
+        _info["player_index"] = env.next_player_index
 
         if env.done:
             worker_rewards = [env.episode_rewards[worker_indices[i]] for i in range(env.player_num)]
             episode_rewards_list.append(worker_rewards)
 
-            # validation
-            valid_reward = None
-            if config.enable_validation:
-                valid_episode += 1
-                if valid_episode > config.validation_interval:
+            # eval
+            eval_reward = None
+            if config.enable_evaluation:
+                eval_episode += 1
+                if eval_episode > config.eval_interval:
                     rewards = evaluate(
-                        valid_config,
+                        eval_config,
                         parameter=parameter,
-                        max_episodes=config.validation_episode,
+                        max_episodes=config.eval_num_episode,
                     )
                     if env.player_num > 1:
-                        rewards = [r[config.validation_player] for r in rewards]
-                    valid_reward = np.mean(rewards)
-                    valid_episode = 0
+                        rewards = [r[config.eval_player] for r in rewards]
+                    eval_reward = np.mean(rewards)
+                    eval_episode = 0
 
-            _params["episode_step"] = env.step_num
-            _params["episode_rewards"] = env.episode_rewards
-            _params["episode_time"] = time.time() - episode_t0
-            _params["episode_count"] = episode_count
-            _params["valid_reward"] = valid_reward
-            [c.on_episode_end(**_params) for c in callbacks]
+            _info["episode_step"] = env.step_num
+            _info["episode_rewards"] = env.episode_rewards
+            _info["episode_time"] = time.time() - episode_t0
+            _info["episode_count"] = episode_count
+            _info["eval_reward"] = eval_reward
+            [c.on_episode_end(_info) for c in callbacks]
 
         # callback end
-        if True in [c.intermediate_stop(**_params) for c in callbacks]:
+        if True in [c.intermediate_stop(_info) for c in callbacks]:
             end_reason = "callback.intermediate_stop"
             break
 
@@ -697,7 +804,8 @@ def play(
         worker_rewards = [env.episode_rewards[worker_indices[i]] for i in range(env.player_num)]
         episode_rewards_list.append(worker_rewards)
 
-    _params["episode_count"] = episode_count
-    [c.on_episodes_end(**_params) for c in callbacks]
+    _info["episode_count"] = episode_count
+    _info["end_reason"] = end_reason
+    [c.on_episodes_end(_info) for c in callbacks]
 
     return episode_rewards_list, parameter, remote_memory, env

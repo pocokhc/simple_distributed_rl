@@ -74,7 +74,7 @@ class TestRL:
                 parameter, _, _ = runner.train(
                     config,
                     max_steps=10,
-                    enable_validation=False,
+                    enable_evaluation=False,
                     enable_file_logger=False,
                 )
                 runner.render(
@@ -90,7 +90,7 @@ class TestRL:
                     config,
                     mp_config,
                     max_train_count=10,
-                    enable_validation=False,
+                    enable_evaluation=False,
                     enable_file_logger=False,
                 )
 
@@ -159,7 +159,7 @@ class TestRL:
         test_num=0,
         is_atari=False,
         is_mp=False,
-        is_valid: bool = False,
+        is_eval: bool = False,
     ):
         assert env_name in self.baseline
         env_config = srl.EnvConfig(env_name)
@@ -180,17 +180,17 @@ class TestRL:
                 config,
                 mp_config,
                 max_train_count=train_count,
-                enable_validation=is_valid,
+                enable_evaluation=is_eval,
                 enable_file_logger=False,
-                max_progress_time=60,
+                progress_max_time=60,
             )
         else:
             parameter, memory, _ = runner.train(
                 config,
                 max_steps=train_count,
-                enable_validation=is_valid,
+                enable_evaluation=is_eval,
                 enable_file_logger=False,
-                max_progress_time=60,
+                progress_max_time=60,
             )
 
         true_env = self.baseline[env_name]
@@ -230,7 +230,7 @@ class TestRL:
         _rl_config,
         train_count,
         is_self_play: bool = True,
-        is_valid: bool = False,
+        is_eval: bool = False,
         is_mp=False,
     ):
         assert env_name in self.baseline
@@ -250,17 +250,17 @@ class TestRL:
                 config,
                 mp_config,
                 max_train_count=train_count,
-                enable_validation=is_valid,
+                enable_evaluation=is_eval,
                 enable_file_logger=False,
-                max_progress_time=10,
+                progress_max_time=10,
             )
         else:
             parameter, memory, _ = runner.train(
                 config,
                 max_steps=train_count,
-                enable_validation=is_valid,
+                enable_evaluation=is_eval,
                 enable_file_logger=False,
-                max_progress_time=10,
+                progress_max_time=10,
             )
 
         true_env = self.baseline[env_name]

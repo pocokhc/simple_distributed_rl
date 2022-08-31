@@ -13,7 +13,7 @@ class Test(unittest.TestCase):
         rl_config = srl.rl.dummy.Config()
 
         config = sequence.Config(env_config, rl_config)
-        parameter, _, _ = sequence.train(config, max_episodes=10, seed=1)
+        parameter, _, _ = sequence.train(config, max_episodes=10, seed=1, enable_file_logger=False)
 
         # reward1 == reward3
         # reward2 == reward4

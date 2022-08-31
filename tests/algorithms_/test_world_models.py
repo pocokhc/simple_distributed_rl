@@ -1,0 +1,78 @@
+import unittest
+
+import numpy as np
+import srl
+from algorithms import world_models
+from envs import grid  # noqa F401
+from srl import runner
+from srl.test import TestRL
+
+
+class Test(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tester = TestRL()
+
+    def test_simple_check(self):
+        self.tester.simple_check(world_models.Config())
+
+    def test_simple_check_mp(self):
+        self.tester.simple_check_mp(world_models.Config())
+
+    def test_verify_grid(self):
+        rl_config = world_models.Config(
+            z_size=1,
+            sequence_length=10,
+            rnn_units=8,
+            num_mixture=3,
+            batch_size=64,
+        )
+        rl_config.change_observation_render_image = True
+        env_config = srl.EnvConfig("Grid")
+        config = runner.Config(env_config, rl_config)
+        config.rl_config.train_mode = 1
+        _, memory, _ = runner.train(config, max_episodes=100, disable_trainer=True)
+
+        # vae
+        rl_config.train_mode = 1
+        rl_config.lr = 0.001
+        rl_config.kl_tolerance = 4.0
+        parameter, memory, history = runner.train_only(
+            config,
+            remote_memory=memory,
+            max_train_count=10_000,
+        )
+
+        # rnn
+        rl_config.train_mode = 2
+        rl_config.lr = 0.001
+        rl_config.memory_warmup_size = 100
+        parameter, memory, history = runner.train_only(
+            config,
+            parameter=parameter,
+            remote_memory=memory,
+            max_train_count=5_000,
+        )
+
+        # controller
+        rl_config.train_mode = 3
+        rl_config.num_simulations = 20
+        rl_config.num_individual = 4
+        rl_config.blx_a = 0.3
+        max_episodes = rl_config.num_simulations * rl_config.num_individual * 300
+        parameter, memory, history = runner.train(
+            config,
+            parameter=parameter,
+            max_episodes=max_episodes,
+        )
+
+        rewards = runner.evaluate(config, max_episodes=200, print_progress=True)
+        true_reward = 0.4
+        s = f"{np.mean(rewards)} >= {true_reward}"
+        print(s)
+        assert np.mean(rewards) >= true_reward, s
+
+
+if __name__ == "__main__":
+    import __init__  # noqa F401
+
+    unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)

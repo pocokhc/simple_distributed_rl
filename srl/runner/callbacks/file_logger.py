@@ -514,6 +514,10 @@ class FileLogPlot:
         plot_right: List[str] = [],
         plot_type: str = "",
         aggregation_num: int = 50,
+        left_ymin: Optional[float] = None,
+        left_ymax: Optional[float] = None,
+        right_ymin: Optional[float] = None,
+        right_ymax: Optional[float] = None,
     ):
         plot_left = plot_left[:]
         plot_right = plot_right[:]
@@ -522,6 +526,8 @@ class FileLogPlot:
             assert (
                 False
             ), "To use FileLogPlot you need to install the 'matplotlib', 'pandas'. (pip install matplotlib pandas)"
+
+        assert len(plot_left) > 0
 
         import matplotlib.pyplot as plt
 
@@ -561,6 +567,10 @@ class FileLogPlot:
             else:
                 ax1.plot(x, df[column], label=column)
         ax1.legend(loc="upper left")
+        if left_ymin is not None:
+            ax1.set_ylim(bottom=left_ymin)
+        if left_ymax is not None:
+            ax1.set_ylim(top=left_ymax)
 
         if len(plot_right) > 0:
             ax2 = ax1.twinx()
@@ -575,6 +585,10 @@ class FileLogPlot:
                     ax2.plot(x, df[column], label=column)
 
             ax2.legend(loc="upper right")
+            if right_ymin is not None:
+                ax1.set_ylim(bottom=right_ymin)
+            if right_ymax is not None:
+                ax1.set_ylim(top=right_ymax)
 
         ax1.set_xlabel(xlabel)
         plt.grid()

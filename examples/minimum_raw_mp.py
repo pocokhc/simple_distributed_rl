@@ -1,5 +1,7 @@
 import ctypes
 import multiprocessing as mp
+import os
+import sys
 from multiprocessing.managers import BaseManager
 from typing import Optional
 
@@ -8,8 +10,10 @@ from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer
 
-# --- use env & algorithm
-import envs.grid  # isort: skip # noqa F401
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../"))
+
+# --- env & algorithm
+from envs import grid  # isort: skip # noqa F401
 from algorithms import ql  # isort: skip
 
 

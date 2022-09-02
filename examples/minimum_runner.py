@@ -1,9 +1,14 @@
+import os
+import sys
+
 import numpy as np
 import srl
 from srl import runner
 
-# --- use env & algorithm
-import envs.grid  # isort: skip # noqa F401
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../"))
+
+# --- env & algorithm
+from envs import grid  # isort: skip # noqa F401
 from algorithms import ql  # isort: skip
 
 

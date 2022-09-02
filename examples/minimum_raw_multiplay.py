@@ -1,3 +1,5 @@
+import os
+import sys
 from typing import Optional
 
 import srl
@@ -6,8 +8,10 @@ from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_worker_rulebase
 
-# --- use env & algorithm
-import envs.ox  # isort: skip # noqa F401
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../"))
+
+# --- env & algorithm
+from envs import ox  # isort: skip # noqa F401
 from algorithms import ql  # isort: skip
 
 

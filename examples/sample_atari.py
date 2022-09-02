@@ -1,12 +1,16 @@
+import os
+import sys
 import warnings
 
 import numpy as np
 import srl
 from srl import runner
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../"))
 warnings.simplefilter("ignore")
 
-# --- use env & algorithm
+
+# --- env & algorithm
 from algorithms import rainbow  # isort: skip
 import gym  # isort: skip # noqa F401
 

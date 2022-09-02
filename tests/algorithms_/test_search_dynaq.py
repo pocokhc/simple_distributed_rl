@@ -15,15 +15,17 @@ class Test(unittest.TestCase):
         self.tester.simple_check_mp(search_dynaq.Config())
 
     def test_verify_grid(self):
-        # TODO
         rl_config = search_dynaq.Config()
-        rl_config.epsilon = 0.5
-        rl_config.lr = 0.01
-        self.tester.verify_singleplay("Grid", rl_config, 50_000)
+        rl_config.ext_lr = 0.01
+        self.tester.verify_singleplay("Grid", rl_config, 10_000)
         self.tester.verify_grid_policy()
+
+    def test_verify_oneroad(self):
+        rl_config = search_dynaq.Config()
+        self.tester.verify_singleplay("OneRoad", rl_config, 1_000)
 
 
 if __name__ == "__main__":
     import __init__  # noqa F401
 
-    unittest.main(module=__name__, defaultTest="Test.test_sequence", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)

@@ -24,23 +24,16 @@ class Config(DiscreteActionConfig):
     test_search_rate: float = 0.0
     test_epsilon: float = 0.0
 
-    search_rate: float = 1.0
+    search_rate: float = 0.9
     epsilon: float = 0.01
+
+    num_q_train: int = 10
 
     # model params
     ext_lr: float = 0.1
     ext_discount: float = 0.9
     int_lr: float = 0.1
     int_discount: float = 0.9
-
-    # ucb(160,0.5 or 3600,0.01)
-    # enable_actor: bool = True
-    # actor_num: int = 32
-    # ucb_window_size: int = 160  # UCB上限
-    # ucb_epsilon: float = 0.5  # UCBを使う確率
-    # ucb_beta: float = 1  # UCBのβ
-    # actorを使わない場合の設定
-    # epsilon: float = 0.1
 
     # episodic
     episodic_memory_capacity: int = 30000
@@ -302,7 +295,7 @@ class Trainer(RLTrainer):
         # q ext
         # ---------------------
         td_error_mean = 0
-        for _ in range(100):
+        for _ in range(self.config.num_q_train):
             batch = model.sample()
             if batch is None:
                 continue
@@ -347,19 +340,12 @@ class Worker(DiscreteActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-        # actor
-        # self.beta_list = create_beta_list(self.config.actor_num)
-        # self.epsilon_list = create_epsilon_list(self.config.actor_num)
-        # self.discount_list = create_discount_list(self.config.actor_num)
-
-        # ucb
-        self.actor_index = -1
-        self.ucb_recent = []
-        # self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
-        # self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
-
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
         self.episodic_C = {}
+
+        self.episodic_reward = 0
+        self.lifelong_reward = 0
+        self.reward_int = 0
 
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
         self.invalid_actions = invalid_actions
@@ -396,16 +382,16 @@ class Worker(DiscreteActionWorker):
             return {}
         next_state = to_str_observation(_next_state)
 
-        episodic_reward = self._calc_episodic_reward(next_state)
-        lifelong_reward = self._calc_lifelong_reward(next_state)
-        reward_int = episodic_reward * lifelong_reward
+        self.episodic_reward = self._calc_episodic_reward(next_state)
+        self.lifelong_reward = self._calc_lifelong_reward(next_state)
+        self.reward_int = self.episodic_reward * self.lifelong_reward
 
         batch = {
             "state": self.state,
             "next_state": next_state,
             "action": self.action,
             "reward_ext": reward_ext,
-            "reward_int": reward_int,
+            "reward_int": self.reward_int,
             "done": done,
             "invalid_actions": self.invalid_actions,
             "next_invalid_actions": next_invalid_actions,
@@ -439,10 +425,9 @@ class Worker(DiscreteActionWorker):
     def render_terminal(self, env, worker, **kwargs) -> None:
         self.parameter.init_state(self.state, self.invalid_actions)
 
-        episodic_reward = self._calc_episodic_reward(self.state, update=False)
-        lifelong_reward = self._calc_lifelong_reward(self.state, update=False)
-        int_reward = episodic_reward * lifelong_reward
-        print(f"int_reward {int_reward:.4f} = episodic {episodic_reward:.3f} * lifelong {lifelong_reward:.3f}")
+        print(
+            f"int_reward {self.reward_int:.4f} = episodic {self.episodic_reward:.3f} * lifelong {self.lifelong_reward:.3f}"
+        )
         q_ext = np.asarray(self.parameter.Q_ext[self.state])
         q_int = np.asarray(self.parameter.Q_int[self.state])
 

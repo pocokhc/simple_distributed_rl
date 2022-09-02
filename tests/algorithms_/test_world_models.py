@@ -30,7 +30,12 @@ class Test(unittest.TestCase):
         env_config = srl.EnvConfig("Grid")
         config = runner.Config(env_config, rl_config)
         config.rl_config.train_mode = 1
-        _, memory, _ = runner.train(config, max_episodes=100, disable_trainer=True)
+        _, memory, _ = runner.train(
+            config,
+            max_episodes=100,
+            disable_trainer=True,
+            enable_file_logger=False,
+        )
 
         # vae
         rl_config.train_mode = 1
@@ -39,7 +44,8 @@ class Test(unittest.TestCase):
         parameter, memory, history = runner.train_only(
             config,
             remote_memory=memory,
-            max_train_count=10_000,
+            max_train_count=20_000,
+            enable_file_logger=False,
         )
 
         # rnn
@@ -50,12 +56,13 @@ class Test(unittest.TestCase):
             config,
             parameter=parameter,
             remote_memory=memory,
-            max_train_count=5_000,
+            max_train_count=40_000,
+            enable_file_logger=False,
         )
 
         # controller
         rl_config.train_mode = 3
-        rl_config.num_simulations = 20
+        rl_config.num_simulations = 10
         rl_config.num_individual = 4
         rl_config.blx_a = 0.3
         max_episodes = rl_config.num_simulations * rl_config.num_individual * 300
@@ -63,10 +70,11 @@ class Test(unittest.TestCase):
             config,
             parameter=parameter,
             max_episodes=max_episodes,
+            enable_file_logger=False,
         )
 
-        rewards = runner.evaluate(config, max_episodes=200, print_progress=True)
-        true_reward = 0.4
+        rewards = runner.evaluate(config, parameter, max_episodes=200, print_progress=True)
+        true_reward = 0.3
         s = f"{np.mean(rewards)} >= {true_reward}"
         print(s)
         assert np.mean(rewards) >= true_reward, s

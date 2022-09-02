@@ -240,15 +240,17 @@ class _MDNRNN(keras.Model):
         # 重みを初期化
         dummy_z = np.zeros(shape=(1, 1, config.z_size), dtype=np.float32)
         dummy_onehot_action = np.zeros(shape=(1, 1, config.action_num), dtype=np.float32)
-        self(dummy_z, dummy_onehot_action, None)
+        self(dummy_z, dummy_onehot_action, None, return_rnn_only=False, training=False)
 
-    def call(self, z, onehot_actions, hidden_state, training=False):
+    def call(self, z, onehot_actions, hidden_state, return_rnn_only, training):
         batch_size = z.shape[0]
         timesteps = z.shape[1]
 
         # (batch, timesteps, z + action) -> (batch, timesteps, lstm_dim)
         x = tf.concat([z, onehot_actions], axis=2)
         x, h, c = self.lstm_layer(x, initial_state=hidden_state, training=training)
+        if return_rnn_only:
+            return [h, c]
 
         # -> (batch * timesteps, lstm_dim)
         x = tf.reshape(x, (batch_size * timesteps, -1))
@@ -264,7 +266,7 @@ class _MDNRNN(keras.Model):
 
         return pi, mu, log_sigma, [h, c]
 
-    def forward(self, z, action, hidden_state, return_rnn_only: bool = True):
+    def forward(self, z, action, hidden_state, return_rnn_only):
         assert z.shape[0] == 1
         onehot_actions = tf.one_hot(np.array([action]), self.action_num, axis=1)
 
@@ -272,10 +274,7 @@ class _MDNRNN(keras.Model):
         z = z[:, np.newaxis, ...]
         onehot_actions = onehot_actions[:, np.newaxis, ...]
 
-        pi, mu, log_sigma, hidden_state = self(z, onehot_actions, hidden_state)
-        if return_rnn_only:
-            return hidden_state
-        return pi, mu, log_sigma, hidden_state
+        return self(z, onehot_actions, hidden_state, return_rnn_only=return_rnn_only, training=False)
 
     def sample(self, pi, mu, log_sigma):
 
@@ -479,7 +478,7 @@ class Trainer(RLTrainer):
         z2 = z[:, 1:, ...]
         z2 = z2.reshape((self.config.batch_size * self.config.sequence_length, -1, 1))
         with tf.GradientTape() as tape:
-            pi, mu, log_sigma, _ = self.parameter.rnn(z1, onehot_actions, None, training=True)
+            pi, mu, log_sigma, _ = self.parameter.rnn(z1, onehot_actions, None, return_rnn_only=False, training=True)
 
             # log softmax
             pi = pi - tf.reduce_max(pi, axis=2, keepdims=True)  # overflow_protection
@@ -555,7 +554,7 @@ class Worker(DiscreteActionWorker):
             q = np.array([(-np.inf if i in invalid_actions else v) for i, v in enumerate(q)])
             action = int(np.argmax(q))  # 複数はほぼないので無視
 
-            self.hidden_state = self.parameter.rnn.forward(self.z, action, self.hidden_state)
+            self.hidden_state = self.parameter.rnn.forward(self.z, action, self.hidden_state, return_rnn_only=True)
 
         self.action = action
         return action
@@ -706,6 +705,8 @@ class Worker(DiscreteActionWorker):
                 y = 20 + IMG_H + 15 + (IMG_H + PADDING) * j
                 self.viewer.draw_image_rgb_array(x, y, n_img)
 
-        self.render_hidden_state = self.parameter.rnn.forward(self.z, self.action, self.render_hidden_state)
+        self.render_hidden_state = self.parameter.rnn.forward(
+            self.z, self.action, self.render_hidden_state, return_rnn_only=True
+        )
 
         return self.viewer.get_rgb_array()

@@ -142,12 +142,12 @@ class Config:
         env = self.make_env()
 
         # 設定されていない場合は 0 をrl、1以降をrandom
-        if len(self.players) == 0:
-            self.players = [None]
-        if len(self.players) < env.player_num:
-            self.players += ["random"] * (env.player_num - len(self.players))
-
-        player_obj = self.players[player_index]
+        if player_index < len(self.players):
+            player_obj = self.players[player_index]
+        elif player_index == 0:
+            player_obj = None
+        else:
+            player_obj = "random"
 
         # none はベース
         if player_obj is None:

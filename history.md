@@ -1,10 +1,33 @@
-# v0.6.2
+# TODO list
 
+1. actionの手動の介入
+   1. renderの改善
+   1. R2D3
+   1. GUIとの連携
+1. Fontを組み込みたい
+1. docker環境を整備して複数バージョンのテスト環境を実現したい
+1. TensorflowのGradientTapeでは正則化項が計算されていない？追加が必要か調査してアルゴリズムを見直す
+
+# v0.7.0
+
+1. 大きな変更
+   1. フレームワークと実際の実装を分離
+      1. envsとalgorithmsのフォルダを作成し、実装はそちらで管理
+      1. 実行方法が変更され、env,algorithmをimportする必要あり
+      1. setupを見直し、フレームワークに必要なパッケージだけに変更（各envs/algorithmsで必要なパッケージはそちらで管理）
+      1. フレームワークを tensorflow に依存しないように変更
 1. フレームワーク関係
-   1. 学習などの実行の窓口をrunnerに統一
-      1. __init__を記載し、アクセスを簡略化
-      1. 以前のアクセスも可能
-      1. それに伴ってサンプルを修正
+   1. runnerを大幅修正
+      1. 学習などの実行の窓口をrunnerに統一
+         1. __init__を記載し、アクセスを簡略化
+         1. 以前のアクセスも可能
+         1. それに伴ってサンプルを修正
+      1. logの管理方法を見直して大幅に修正
+      1. parameter/remote_memoryのload方法を見直して修正
+      1. runnerにて、trainerを整備し、mpと統合
+      1. callbacksの引数を展開する形から辞書に変更
+      1. logとprintの紐づけを強くしてconfigに追加(テスト導入)
+      1. validationをevaluateに変更
    1. Workerのtrainingとdistributedの変数をコンストラクタで指定するように変更
       1. srl.rl.makeを廃止、workerとtrainerは毎回作るように変更(example/minimumを参照)
    1. font関係を見直し
@@ -15,9 +38,16 @@
       1. RL側はRLActionTypeがdiscreteの場合のみに変更
       1. DiscreteSpaceTypeを削除しintに変更
       1. RLWorkerのsample_actionを離散値の場合直接出すように変更
+   1. sequenceに初期状態を取得できる get_env_init_state を追加
+1. アルゴリズム関係
+   1. WorldModels 追加
+1. Env関係
+   1. cartpole_continuous を削除(gym updateに伴うメンテが厳しいため)
 1. その他
    1. max_stepsとtimeoutが反映されない不具合修正
    1. intervalの初期値を60fpsに変更
+   1. README修正
+   1. TODO listを追加(将来的にはRoadMapへ？)
 
 # v0.6.1
 

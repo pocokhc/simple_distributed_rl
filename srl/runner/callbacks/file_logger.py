@@ -556,16 +556,16 @@ class FileLogPlot:
             rolling_n = 0
 
         fig, ax1 = plt.subplots()
-        i = 0
+        color_idx = 0
         for column in plot_left:
             if column not in df:
                 continue
             if rolling_n > 0:
-                ax1.plot(x, df[column].rolling(rolling_n).mean(), f"C{i}", label=column)
-                ax1.plot(x, df[column], f"C{i}", alpha=0.1)
-                i += 1
+                ax1.plot(x, df[column].rolling(rolling_n).mean(), f"C{color_idx}", label=column)
+                ax1.plot(x, df[column], f"C{color_idx}", alpha=0.1)
             else:
-                ax1.plot(x, df[column], label=column)
+                ax1.plot(x, df[column], f"C{color_idx}", label=column)
+            color_idx += 1
         ax1.legend(loc="upper left")
         if left_ymin is not None:
             ax1.set_ylim(bottom=left_ymin)
@@ -578,12 +578,10 @@ class FileLogPlot:
                 if column not in df:
                     continue
                 if rolling_n > 0:
-                    ax2.plot(x, df[column].rolling(rolling_n).mean(), f"C{i}", label=column)
-                    ax2.plot(x, df[column], f"C{i}", alpha=0.1)
-                    i += 1
+                    ax2.plot(x, df[column].rolling(rolling_n).mean(), f"C{color_idx}", label=column)
+                    ax2.plot(x, df[column], f"C{color_idx}", alpha=0.1)
                 else:
-                    ax2.plot(x, df[column], label=column)
-
+                    ax2.plot(x, df[column], f"C{color_idx}", label=column)
             ax2.legend(loc="upper right")
             if right_ymin is not None:
                 ax1.set_ylim(bottom=right_ymin)

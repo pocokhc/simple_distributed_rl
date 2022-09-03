@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import numpy as np
+from packaging import version
 from srl.base.env.base import EnvRun
 from srl.base.rl.base import WorkerRun
 from srl.runner.callback import Callback
@@ -161,7 +162,10 @@ class Rendering(Callback):
         canvas_size = (640, 480)
         img = PIL.Image.new("RGB", canvas_size)
         draw = PIL.ImageDraw.Draw(img)
-        _, _, text_width, text_height = draw.multiline_textbbox((0, 0), text, font=font)
+        if version.parse(PIL.__version__) < version.Version("9.2.0"):
+            text_width, text_height = draw.multiline_textsize(text, font=font)
+        else:
+            _, _, text_width, text_height = draw.multiline_textbbox((0, 0), text, font=font)
 
         canvas_size = (text_width, text_height)
         background_rgb = (0, 0, 0)

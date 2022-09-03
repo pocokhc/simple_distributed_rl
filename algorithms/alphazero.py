@@ -89,9 +89,8 @@ class Config(DiscreteActionConfig):
         super().__init__()
         if self.lr_schedule is None:
             self.lr_schedule = [
-                {"train": 0, "lr": 0.2},
-                {"train": 100, "lr": 0.02},
-                {"train": 500, "lr": 0.002},
+                {"train": 0, "lr": 0.02},
+                {"train": 100, "lr": 0.002},
                 {"train": 1000, "lr": 0.0002},
             ]
         if self.input_image_block_kwargs is None:

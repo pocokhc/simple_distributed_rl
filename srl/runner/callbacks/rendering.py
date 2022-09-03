@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from dataclasses import dataclass
 from typing import Optional, Tuple
@@ -51,6 +52,10 @@ class Rendering(Callback):
 
         self.rl_text = ""
         self.rl_img = None
+
+        self.default_font_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "font", "PlemolJPConsoleHS-Regular.ttf")
+        )
 
         if self.enable_animation:
             if not (
@@ -146,9 +151,12 @@ class Rendering(Callback):
     def _text_to_image(self, text: str) -> np.ndarray:
         text = text.encode("utf-8").decode("latin-1")
         if self.font_name == "":
-            font = None
+            font_name = self.default_font_path
+            logger.debug("use font: {font_name}")
         else:
-            font = PIL.ImageFont.truetype(self.font_name, size=self.font_size)
+            font_name = self.font_name
+
+        font = PIL.ImageFont.truetype(font_name, size=self.font_size)
         canvas_size = (640, 480)
         img = PIL.Image.new("RGB", canvas_size)
         draw = PIL.ImageDraw.Draw(img)

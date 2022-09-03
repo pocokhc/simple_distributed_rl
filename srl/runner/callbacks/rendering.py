@@ -151,8 +151,9 @@ class Rendering(Callback):
     def _text_to_image(self, text: str) -> np.ndarray:
         text = text.encode("utf-8").decode("latin-1")
         if self.font_name == "":
+            assert os.path.isfile(self.default_font_path), f"font file is not found({self.default_font_path})"
             font_name = self.default_font_path
-            logger.debug("use font: {font_name}")
+            logger.debug(f"use font: {font_name}")
         else:
             font_name = self.font_name
 

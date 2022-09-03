@@ -339,8 +339,9 @@ class Trainer(RLTrainer):
         hidden_states_t = hidden_states
 
         # burn-in
-        _, hidden_states = self.parameter.q_online(burnin_states, hidden_states)
-        _, hidden_states_t = self.parameter.q_target(burnin_states, hidden_states_t)
+        if self.config.burnin > 0:
+            _, hidden_states = self.parameter.q_online(burnin_states, hidden_states)
+            _, hidden_states_t = self.parameter.q_target(burnin_states, hidden_states_t)
 
         # targetQ
         q_target, _ = self.parameter.q_target(step_states, hidden_states_t)

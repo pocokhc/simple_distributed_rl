@@ -286,9 +286,9 @@ class _MDNRNN(keras.Model):
         if self.temperature > 0:
             # softmax
             pi /= self.temperature  # adjust temperatures
-            pi = pi - tf.reduce_max(pi, axis=1, keepdims=True)  # overflow_protection
+            pi = pi - tf.reduce_max(pi, axis=2, keepdims=True)  # overflow_protection
             exp_pi = tf.exp(pi)
-            pi = exp_pi / tf.reduce_sum(exp_pi, axis=1, keepdims=True)
+            pi = exp_pi / tf.reduce_sum(exp_pi, axis=2, keepdims=True)
 
         samples = np.zeros((batch, z_size))
         for i in range(batch):

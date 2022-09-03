@@ -582,6 +582,7 @@ class FileLogPlot:
                     ax2.plot(x, df[column], f"C{color_idx}", alpha=0.1)
                 else:
                     ax2.plot(x, df[column], f"C{color_idx}", label=column)
+                color_idx += 1
             ax2.legend(loc="upper right")
             if right_ymin is not None:
                 ax1.set_ylim(bottom=right_ymin)

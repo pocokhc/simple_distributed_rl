@@ -64,7 +64,7 @@ import numpy as np
 import srl
 from srl import runner
 
-# --- use env & algorithm load
+# --- env & algorithm load
 from envs import grid  # isort: skip # noqa F401
 from algorithms import ql  # isort: skip
 

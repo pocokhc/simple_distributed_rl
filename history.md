@@ -4,7 +4,6 @@
    1. renderの改善
    1. R2D3
    1. GUIとの連携
-1. Fontを組み込みたい
 1. docker環境を整備して複数バージョンのテスト環境を実現したい
 1. TensorflowのGradientTapeでは正則化項が計算されていない？追加が必要か調査してアルゴリズムを見直す
 
@@ -30,7 +29,7 @@
       1. validationをevaluateに変更
    1. Workerのtrainingとdistributedの変数をコンストラクタで指定するように変更
       1. srl.rl.makeを廃止、workerとtrainerは毎回作るように変更(example/minimumを参照)
-   1. font関係を見直し
+   1. font関係を見直し(フリーフォントを組み込み)
    1. RLWorkerにenvプロパティを追加
    1. invalid_actions を見直し
       1. spaceのboxのaction_discrete_encodeを実装
@@ -39,6 +38,7 @@
       1. DiscreteSpaceTypeを削除しintに変更
       1. RLWorkerのsample_actionを離散値の場合直接出すように変更
    1. sequenceに初期状態を取得できる get_env_init_state を追加
+   1. plotの引数でylimを指定できるように変更
 1. アルゴリズム関係
    1. WorldModels 追加
 1. Env関係

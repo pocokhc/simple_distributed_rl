@@ -30,6 +30,9 @@ extras = {
 setup(
     name=package_name,
     packages=[package for package in find_packages() if package.startswith(package_name)],
+    package_data={
+        "srl": ["font/*.ttf", "font/README.md"],
+    },
     version=VERSION,
     license="MIT",
     author="poco",

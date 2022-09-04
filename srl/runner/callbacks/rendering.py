@@ -57,6 +57,7 @@ class Rendering(Callback):
         self.default_font_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", "..", "font", "PlemolJPConsoleHS-Regular.ttf")
         )
+        self.font = None
 
         if self.enable_animation:
             if not (
@@ -151,28 +152,29 @@ class Rendering(Callback):
     # -----------------------------------------------
     def _text_to_image(self, text: str) -> np.ndarray:
         text = text.encode("utf-8").decode("latin-1")
-        if self.font_name == "":
-            assert os.path.isfile(self.default_font_path), f"font file is not found({self.default_font_path})"
-            font_name = self.default_font_path
-            logger.debug(f"use font: {font_name}")
-        else:
-            font_name = self.font_name
+        if self.font is None:
+            if self.font_name == "":
+                assert os.path.isfile(self.default_font_path), f"font file is not found({self.default_font_path})"
+                font_name = self.default_font_path
+                logger.debug(f"use font: {font_name}")
+            else:
+                font_name = self.font_name
+            self.font = PIL.ImageFont.truetype(font_name, size=self.font_size)
 
-        font = PIL.ImageFont.truetype(font_name, size=self.font_size)
         canvas_size = (640, 480)
         img = PIL.Image.new("RGB", canvas_size)
         draw = PIL.ImageDraw.Draw(img)
         if version.parse(PIL.__version__) < version.Version("9.2.0"):
-            text_width, text_height = draw.multiline_textsize(text, font=font)
+            text_width, text_height = draw.multiline_textsize(text, font=self.font)
         else:
-            _, _, text_width, text_height = draw.multiline_textbbox((0, 0), text, font=font)
+            _, _, text_width, text_height = draw.multiline_textbbox((0, 0), text, font=self.font)
 
         canvas_size = (text_width, text_height)
         background_rgb = (0, 0, 0)
         text_rgb = (255, 255, 255)
         img = PIL.Image.new("RGB", canvas_size, background_rgb)
         draw = PIL.ImageDraw.Draw(img)
-        draw.text((0, 0), text, fill=text_rgb, font=font)
+        draw.text((0, 0), text, fill=text_rgb, font=self.font)
         img = np.array(img, dtype=np.uint8)
 
         return img

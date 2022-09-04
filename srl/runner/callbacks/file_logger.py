@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import srl
 from srl.runner.callback import Callback, MPCallback, TrainerCallback
-from srl.utils.common import JsonNumpyEncoder, is_package_installed
+from srl.utils.common import JsonNumpyEncoder, is_package_installed, summarize_info_from_list
 
 logger = logging.getLogger(__name__)
 
@@ -212,11 +212,11 @@ class FileLogger(Callback, MPCallback, TrainerCallback):
                 "train_count",
             ]:
                 continue
+
             arr = [h[k] for h in self.log_history if (k in h) and (h[k] is not None)]
-            n = None if len(arr) == 0 else np.mean(arr)
             if k in d:
                 k = f"info_{k}"
-            d[k] = n
+            d[k] = summarize_info_from_list(arr)
 
         self._write_log(self.fp_dict["trainer"], d)
         self.log_history = []
@@ -313,10 +313,9 @@ class FileLogger(Callback, MPCallback, TrainerCallback):
             d[f"episode_reward{i}"] = r
         for k in self.history_step[-1].keys():
             arr = [h[k] for h in self.history_step if (k in h) and (h[k] is not None)]
-            n = None if len(arr) == 0 else np.mean(arr)
             if k in d:
                 k = f"info_{k}"
-            d[k] = n
+            d[k] = summarize_info_from_list(arr)
 
         self.log_history.append(d)
 
@@ -340,10 +339,9 @@ class FileLogger(Callback, MPCallback, TrainerCallback):
             ]:
                 continue
             arr = [h[k] for h in self.log_history if (k in h) and (h[k] is not None)]
-            n = None if len(arr) == 0 else np.mean(arr)
             if k in d:
                 k = f"info_{k}"
-            d[k] = n
+            d[k] = summarize_info_from_list(arr)
 
         self._write_log(self.fp_dict["actor"], d)
         self.log_history = []

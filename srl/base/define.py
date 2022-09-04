@@ -17,7 +17,7 @@ RLAction = Union[int, List[float], float]
 # other type
 EnvObservation = SpaceType
 RLObservation = np.ndarray
-Info = Dict[str, Union[float, int]]
+Info = Dict[str, Union[float, int, str]]
 
 
 class EnvObservationType(enum.Enum):

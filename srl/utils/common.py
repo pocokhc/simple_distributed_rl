@@ -3,7 +3,7 @@ import json
 import logging
 import pkgutil
 import warnings
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import numpy as np
 
@@ -70,6 +70,42 @@ def listdictdict_to_dictlist(data: List[Dict[str, Dict[str, Any]]], key: str) ->
                 _info[k] = []
             _info[k].append(val)
     return _info
+
+
+def summarize_info_from_dictlist(info: Dict[str, List[Any]]) -> Dict[str, Union[float, str]]:
+    new_info = {}
+    for k, arr in info.items():
+        new_info[k] = summarize_info_from_list(arr)
+    return new_info
+
+
+def summarize_info_from_list(arr: List[Any]) -> Union[float, str, None]:
+    # 数字が入っていればそちらを優先、文字が入っていれば最後を反映
+    vals = []
+    last_str = ""
+    for v in arr:
+        if v is None:
+            continue
+        if isinstance(v, int):
+            vals.append(v)
+        elif isinstance(v, float):
+            vals.append(v)
+        elif isinstance(v, np.integer):
+            vals.append(v)
+        elif isinstance(v, np.floating):
+            vals.append(v)
+        elif isinstance(v, np.ndarray):
+            vals.append(np.mean(v))
+        else:
+            last_str = v
+    if len(vals) == 0:
+        last_str = str(last_str)
+        if last_str == "":
+            return None
+        else:
+            return last_str
+    else:
+        return float(np.mean(vals))
 
 
 def to_str_time(sec: float) -> str:

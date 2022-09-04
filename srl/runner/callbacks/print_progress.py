@@ -5,8 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from srl.runner.callback import Callback, MPCallback, TrainerCallback
-from srl.utils.common import (is_package_installed, listdictdict_to_dictlist,
-                              to_str_time)
+from srl.utils.common import is_package_installed, listdictdict_to_dictlist, summarize_info_from_dictlist, to_str_time
 
 logger = logging.getLogger(__name__)
 
@@ -115,11 +114,9 @@ class PrintProgress(Callback):
 
         # 1エピソードの結果を平均でまとめる
         env_info = listdictdict_to_dictlist(self.history_step, "env_info")
-        for k, v in env_info.items():
-            env_info[k] = np.mean(v)
+        env_info = summarize_info_from_dictlist(env_info)
         work_info = listdictdict_to_dictlist(self.history_step, "work_info")
-        for k, v in work_info.items():
-            work_info[k] = np.mean(v)
+        work_info = summarize_info_from_dictlist(work_info)
 
         d = {
             "episode_step": info["episode_step"],
@@ -138,9 +135,7 @@ class PrintProgress(Callback):
         # train info
         if self.history_step[0]["train_info"] is not None:
             train_info = listdictdict_to_dictlist(self.history_step, "train_info")
-            for k, v in train_info.items():
-                train_info[k] = np.mean(v)
-            d["train_info"] = train_info
+            d["train_info"] = summarize_info_from_dictlist(train_info)
 
         self.progress_history.append(d)
 
@@ -276,7 +271,12 @@ class PrintProgress(Callback):
                 s += self._memory_str(memory_len)
 
             # info
-            s += self._info_str(self.progress_history)
+            if self.print_env_info:
+                s += self._info_str(self.progress_history, "env_info")
+            if self.print_worker_info:
+                s += self._info_str(self.progress_history, "work_info")
+            if self.print_train_info:
+                s += self._info_str(self.progress_history, "train_info")
 
         print(s)
         self.progress_history = []
@@ -302,21 +302,17 @@ class PrintProgress(Callback):
 
         return s
 
-    def _info_str(self, arr_dict):
+    def _info_str(self, arr_dict, key):
         s = ""
-        if self.print_env_info:
-            d = listdictdict_to_dictlist(arr_dict, "env_info")
-            for k, arr in d.items():
-                s += f"|{k} {np.mean(arr):.3f}"
-        if self.print_worker_info:
-            d = listdictdict_to_dictlist(arr_dict, "work_info")
-            for k, arr in d.items():
-                s += f"|{k} {np.mean(arr):.3f}"
-        if self.print_train_info:
-            d = listdictdict_to_dictlist(arr_dict, "train_info")
-            for k, arr in d.items():
-                s += f"|{k} {np.mean(arr):.3f}"
-
+        d = listdictdict_to_dictlist(arr_dict, key)
+        d = summarize_info_from_dictlist(d)
+        for k, v in d.items():
+            if v is None:
+                s += f"|{k} None"
+            elif isinstance(v, float):
+                s += f"|{k} {v:.3f}"
+            else:
+                s += f"|{k} {v}"
         return s
 
 
@@ -431,8 +427,14 @@ class TrainerPrintProgress(TrainerCallback):
             # train info
             if self.print_train_info:
                 d = listdictdict_to_dictlist(self.progress_history, "train_info")
-                for k, arr in d.items():
-                    s += f"|{k} {np.mean(arr):.4f}"
+                d = summarize_info_from_dictlist(d)
+                for k, v in d.items():
+                    if v is None:
+                        s += f"|{k} None"
+                    elif isinstance(v, float):
+                        s += f"|{k} {v:.4f}"
+                    else:
+                        s += f"|{k} {v}"
 
         print(s)
         self.progress_history = []

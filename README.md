@@ -1,4 +1,6 @@
 
+[![(latest) release | GitHub](https://img.shields.io/github/release/pocokhc/simple_distributed_rl.svg?logo=github&style=popout)](https://github.com/pocokhc/simple_distributed_rl/releases/latest)
+
 # Simple Distributed Reinforcement Learning (シンプルな分散強化学習)
 
 シンプルな分散強化学習フレームワークを目指して作成しました。  
@@ -14,9 +16,11 @@
 
 また本フレームワークの解説は[Qiita記事](https://qiita.com/pocokhc/items/a2f1ba993c79fdbd4b4d)に記載しております。
 
-# Install
+# Download/Install
 
-github からクローンで動かす場合を想定しています。
+・git clone install
+
+git clone してインストールする方法です。
 
 ``` bash
 git clone https://github.com/pocokhc/simple_distributed_rl.git
@@ -29,8 +33,47 @@ pip install opencv-python pillow matplotlib pandas pygame
 # (option) use gym environment
 pip install gym pygame
 
-# run sample
+# --- run sample
 python examples/minimum_runner.py
+```
+
+・ Direct install
+
+直接インストールする方法です。
+フレームワーク側で作成した環境とアルゴリズムはついてこないので必要に応じてダウンロードしてください
+（"envs" 配下に環境、"algorithms" 配下にアルゴリズムがあります）
+
+``` bash
+pip install git+https://github.com/pocokhc/simple_distributed_rl
+
+# --- run sample
+# wget で grid(env) と ql(algorithm) と実行用ファイルを download
+!mkdir envs algorithms examples
+!wget https://raw.githubusercontent.com/pocokhc/simple_distributed_rl/main/envs/grid.py -O envs/grid.py
+!wget https://raw.githubusercontent.com/pocokhc/simple_distributed_rl/main/algorithms/ql.py -O algorithms/ql.py
+!wget https://raw.githubusercontent.com/pocokhc/simple_distributed_rl/main/examples/minimum_runner.py -O examples/minimum_runner.py
+# run
+python examples/minimum_runner.py
+```
+
+・No install(Download only)
+
+srlに実行パスが通っていれば install しなくても使えます。
+
+``` bash
+# Download srl files
+git clone https://github.com/pocokhc/simple_distributed_rl.git
+```
+
+``` python
+# srl までのパスを通してimportする例
+import os
+import sys
+
+assert os.path.isdir("./simple_distributed_rl/srl/")  # srlがここにある想定です
+sys.path.insert(0, "./simple_distributed_rl/")
+
+import srl
 ```
 
 ## Using library

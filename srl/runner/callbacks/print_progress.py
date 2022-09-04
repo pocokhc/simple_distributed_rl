@@ -211,7 +211,13 @@ class PrintProgress(Callback):
                     s += self._memory_str(memory_len)
 
                 # info
-                s += self._info_str(self.history_step)
+                if self.print_env_info:
+                    s += self._info_str(self.history_step, "env_info")
+                if self.print_worker_info:
+                    s += self._info_str(self.history_step, "work_info")
+                if self.print_train_info:
+                    s += self._info_str(self.history_step, "train_info")
+
         else:
             # --- episode info
             # [remain] [reward] [eval reward] [episode step] [episode time] [train time] [sync] [memory] [info]

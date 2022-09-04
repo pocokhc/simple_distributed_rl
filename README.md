@@ -18,7 +18,7 @@
 
 # Download/Install
 
-・git clone install
+・**git clone install**
 
 git clone してインストールする方法です。
 
@@ -37,7 +37,7 @@ pip install gym pygame
 python examples/minimum_runner.py
 ```
 
-・ Direct install
+・ **Direct install**
 
 直接インストールする方法です。
 フレームワーク側で作成した環境とアルゴリズムはついてこないので必要に応じてダウンロードしてください
@@ -48,15 +48,15 @@ pip install git+https://github.com/pocokhc/simple_distributed_rl
 
 # --- run sample
 # wget で grid(env) と ql(algorithm) と実行用ファイルを download
-!mkdir envs algorithms examples
-!wget https://raw.githubusercontent.com/pocokhc/simple_distributed_rl/main/envs/grid.py -O envs/grid.py
-!wget https://raw.githubusercontent.com/pocokhc/simple_distributed_rl/main/algorithms/ql.py -O algorithms/ql.py
-!wget https://raw.githubusercontent.com/pocokhc/simple_distributed_rl/main/examples/minimum_runner.py -O examples/minimum_runner.py
+mkdir envs algorithms examples
+wget https://raw.githubusercontent.com/pocokhc/simple_distributed_rl/main/envs/grid.py -O envs/grid.py
+wget https://raw.githubusercontent.com/pocokhc/simple_distributed_rl/main/algorithms/ql.py -O algorithms/ql.py
+wget https://raw.githubusercontent.com/pocokhc/simple_distributed_rl/main/examples/minimum_runner.py -O examples/minimum_runner.py
 # run
 python examples/minimum_runner.py
 ```
 
-・No install(Download only)
+・**No install(Download only)**
 
 srlに実行パスが通っていれば install しなくても使えます。
 
@@ -100,7 +100,7 @@ import srl
 
 # Usage
 
-+ Basic run of study
++ **Basic run of study**
 
 ``` python
 import numpy as np
@@ -131,7 +131,7 @@ if __name__ == "__main__":
 
 ```
 
-+ Commonly run Example
++ **Commonly run Example**
 
 ``` python
 import numpy as np

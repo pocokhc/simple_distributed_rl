@@ -248,7 +248,7 @@ class EnvRun:
         return self._step_rewards
 
     @property
-    def info(self) -> Info:
+    def info(self) -> Optional[Info]:
         return self._info
 
     def reset(self, max_steps: int = -1, timeout: int = -1) -> None:

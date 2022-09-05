@@ -1,5 +1,5 @@
 import random
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import numpy as np
 from srl.base.define import ContinuousAction, DiscreteAction, RLObservation
@@ -16,6 +16,15 @@ class DiscreteSpace(SpaceBase[int]):
 
     def sample(self, invalid_actions: List[int] = []) -> int:
         return random.choice([a for a in range(self.n) if a not in invalid_actions])
+
+    def check_val(self, val: Any) -> bool:
+        if not isinstance(val, int):
+            return False
+        if val < 0:
+            return False
+        if val >= self.n:
+            return False
+        return True
 
     def __eq__(self, o: object) -> bool:
         return self.n == o.n

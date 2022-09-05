@@ -2,14 +2,14 @@ import enum
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Tuple
+from typing import Any, List, Tuple
 
-import numpy as np
 from srl.base.define import EnvObservationType
 from srl.base.env import registration
 from srl.base.env.base import SpaceBase
 from srl.base.env.genre import SinglePlayEnv
-from srl.base.env.spaces import BoxSpace, DiscreteSpace
+from srl.base.env.spaces import DiscreteSpace
+from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +58,7 @@ class IGrid(SinglePlayEnv):
 
     @property
     def observation_space(self) -> SpaceBase:
-        return BoxSpace(
-            low=0,
-            high=np.maximum(self.H, self.W),
-            shape=(2,),
-        )
+        return ArrayDiscreteSpace(2, 0, [self.W, self.H])
 
     @property
     def observation_type(self) -> EnvObservationType:
@@ -72,7 +68,7 @@ class IGrid(SinglePlayEnv):
     def max_episode_steps(self) -> int:
         return (self.length + 2) * 2 * 2
 
-    def call_reset(self) -> np.ndarray:
+    def call_reset(self) -> List[int]:
         self.player_pos = (1, int((self.length + 2 - 1) / 2))
 
         self.field = [[1, 1, 1]]
@@ -80,7 +76,7 @@ class IGrid(SinglePlayEnv):
             self.field.append([0, 1, 0])
         self.field.append([2, 1, 3])
 
-        return np.array(self.player_pos)
+        return list(self.player_pos)
 
     def backup(self) -> Any:
         return json.dumps(
@@ -95,7 +91,7 @@ class IGrid(SinglePlayEnv):
         self.player_pos = d[0]
         self.field = d[1]
 
-    def call_step(self, action_: int) -> Tuple[np.ndarray, float, bool, dict]:
+    def call_step(self, action_: int) -> Tuple[List[int], float, bool, dict]:
         action = Action(action_)
 
         x = self.player_pos[0]
@@ -140,7 +136,7 @@ class IGrid(SinglePlayEnv):
             reward = -1
             done = True
 
-        return np.array(self.player_pos), reward, done, {}
+        return list(self.player_pos), reward, done, {}
 
     def render_terminal(self):
         for y in range(self.H):

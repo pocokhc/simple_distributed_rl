@@ -11,6 +11,7 @@ from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
 from srl.base.env.spaces import BoxSpace, DiscreteSpace
+from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.rl.base import RuleBaseWorker, WorkerRun
 from srl.base.rl.processor import Processor
 from srl.utils.viewer import Viewer
@@ -72,11 +73,7 @@ class Othello(TurnBase2Player):
 
     @property
     def observation_space(self) -> SpaceBase:
-        return BoxSpace(
-            low=-1,
-            high=1,
-            shape=(self.W * self.H,),
-        )
+        return ArrayDiscreteSpace(self.W * self.H, low=-1, high=1)
 
     @property
     def observation_type(self) -> EnvObservationType:
@@ -90,11 +87,11 @@ class Othello(TurnBase2Player):
     def player_index(self) -> int:
         return self._player_index
 
-    def call_reset(self) -> np.ndarray:
+    def call_reset(self) -> List[int]:
         self.action = 0
 
         self._player_index = 0
-        self.field = np.zeros(self.W * self.H, dtype=int)
+        self.field = [0] * (self.W * self.H)
         center_x = int(self.W / 2) - 1
         center_y = int(self.H / 2) - 1
         self.set_field(center_x, center_y, 1)
@@ -169,7 +166,7 @@ class Othello(TurnBase2Player):
 
         return dirs_list
 
-    def call_step(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
+    def call_step(self, action: int) -> Tuple[List[int], float, float, bool, dict]:
         self.action = action
 
         # --- error action

@@ -3,7 +3,7 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Tuple, cast
+from typing import Any, List, Tuple, cast
 
 import numpy as np
 from srl.base.define import EnvObservationType, RLObservationType
@@ -22,7 +22,6 @@ registration.register(
     kwargs={
         "move_reward": -0.04,
         "move_prob": 0.8,
-        "state_type": "pos",
     },
 )
 
@@ -39,7 +38,6 @@ class Grid(SinglePlayEnv):
 
     move_prob: float = 0.8
     move_reward: float = -0.04
-    state_type: str = "pos"
 
     def __post_init__(self):
         self.base_field = [
@@ -78,73 +76,34 @@ class Grid(SinglePlayEnv):
             },
         }
 
-        if self.state_type == "pos":
-            self._observation_space = ArrayDiscreteSpace([self.W, self.H])
-            self._observation_type = EnvObservationType.DISCRETE
-        elif self.state_type in ["2d", "neon"]:
-            self._observation_space = BoxSpace(
-                low=-1,
-                high=9,
-                shape=(self.H, self.W),
-            )
-            self._observation_type = EnvObservationType.SHAPE2
-        else:
-            raise ValueError()
-
     @property
     def action_space(self) -> SpaceBase:
         return DiscreteSpace(len(Action))
 
     @property
     def observation_space(self) -> SpaceBase:
-        return self._observation_space
+        return ArrayDiscreteSpace(2, low=0, high=[self.W, self.H])
 
     @property
     def observation_type(self) -> EnvObservationType:
-        return self._observation_type
+        return EnvObservationType.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:
         return 50
 
-    def call_reset(self) -> np.ndarray:
+    def call_reset(self) -> List[int]:
         self.player_pos = (1, 3)
-        self.return_state = self._create_field(self.player_pos, self.state_type)
         self.action = Action.DOWN
-        return np.asarray(self.return_state)
-
-    def _create_field(self, player_pos, state_type) -> Any:
-        if state_type == "pos":
-            return player_pos
-
-        field = json.loads(json.dumps(self.base_field))  # deepcopy
-
-        px = player_pos[0]
-        py = player_pos[1]
-        field[py][px] = 2
-
-        if state_type == "neon":
-            # 9は3～9にランダムに変わる
-            for y in range(self.H):
-                for x in range(self.W):
-                    if field[y][x] == 9:
-                        field[y][x] = random.randint(-1, 9)
-        return field
+        return list(self.player_pos)
 
     def backup(self) -> Any:
-        return json.dumps(
-            [
-                self.player_pos,
-                self.return_state,
-            ]
-        )
+        return self.player_pos
 
     def restore(self, data: Any) -> None:
-        d = json.loads(data)
-        self.player_pos = d[0]
-        self.return_state = d[1]
+        self.player_pos = data
 
-    def call_step(self, action_: int) -> Tuple[np.ndarray, float, bool, dict]:
+    def call_step(self, action_: int) -> Tuple[List[int], float, bool, dict]:
         action = Action(action_)
 
         items = self.action_probs[action].items()
@@ -155,19 +114,14 @@ class Grid(SinglePlayEnv):
         self.player_pos = self._move(self.player_pos, self.action)
         reward, done = self.reward_done_func(self.player_pos)
 
-        self.return_state = self._create_field(self.player_pos, self.state_type)
-        return np.asarray(self.return_state), reward, done, {}
+        return list(self.player_pos), reward, done, {}
 
     def render_terminal(self):
-        if self.state_type == "pos":
-            state = self._create_field(self.player_pos, "2d")
-        else:
-            state = self.return_state
         for y in range(self.H):
             s = ""
             for x in range(self.W):
-                n = state[y][x]
-                if n == 2:  # player
+                n = self.base_field[y][x]
+                if self.player_pos[0] == x and self.player_pos[1] == y:
                     s += "P"
                 elif n == 0:  # 道
                     s += " "
@@ -211,8 +165,7 @@ class Grid(SinglePlayEnv):
         states = []
         for y in range(self.H):
             for x in range(self.W):
-                s = self._create_field((x, y), self.state_type)
-                states.append(s)
+                states.append((x, y))
         return states
 
     def can_action_at(self, state):
@@ -271,33 +224,3 @@ class Grid(SinglePlayEnv):
             done = True
 
         return reward, done
-
-
-class LayerProcessor(Processor):
-    def change_observation_info(
-        self,
-        env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationType,
-        rl_observation_type: RLObservationType,
-        _env: EnvRun,
-    ) -> Tuple[SpaceBase, EnvObservationType]:
-        env = cast(Grid, _env.get_original_env())
-        observation_space = BoxSpace(
-            low=0,
-            high=1,
-            shape=(1, env.H, env.W),
-        )
-        return observation_space, EnvObservationType.SHAPE3
-
-    def process_observation(self, observation: np.ndarray, _env: EnvRun) -> np.ndarray:
-        env = cast(Grid, _env.get_original_env())
-
-        px = env.player_pos[0]
-        py = env.player_pos[1]
-
-        _field = np.zeros((1, env.H, env.W))
-        for y in range(env.H):
-            for x in range(env.W):
-                if y == py and x == px:
-                    _field[0][y][x] = 1
-        return _field

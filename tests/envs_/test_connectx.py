@@ -19,49 +19,49 @@ class Test(unittest.TestCase):
             env.reset()
             board = [0] * 42
             self.assertTrue(not env.done)
-            self.assertTrue((env.state == board).all())
+            self.assertTrue(env.state == board)
 
             env.step(x)
             board[x + (5 * 7)] = 1
             self.assertTrue(not env.done)
             self.assertTrue((env.step_rewards == [0, 0]).all())
-            self.assertTrue((env.state == board).all())
+            self.assertTrue(env.state == board)
 
             env.step(1)
             board[1 + (5 * 7)] = 2
             self.assertTrue(not env.done)
             self.assertTrue((env.step_rewards == [0, 0]).all())
-            self.assertTrue((env.state == board).all())
+            self.assertTrue(env.state == board)
 
             env.step(x)
             board[x + (4 * 7)] = 1
             self.assertTrue(not env.done)
             self.assertTrue((env.step_rewards == [0, 0]).all())
-            self.assertTrue((env.state == board).all())
+            self.assertTrue(env.state == board)
 
             env.step(1)
             board[1 + (4 * 7)] = 2
             self.assertTrue(not env.done)
             self.assertTrue((env.step_rewards == [0, 0]).all())
-            self.assertTrue((env.state == board).all())
+            self.assertTrue(env.state == board)
 
             env.step(x)
             board[x + (3 * 7)] = 1
             self.assertTrue(not env.done)
             self.assertTrue((env.step_rewards == [0, 0]).all())
-            self.assertTrue((env.state == board).all())
+            self.assertTrue(env.state == board)
 
             env.step(1)
             board[1 + (3 * 7)] = 2
             self.assertTrue(not env.done)
             self.assertTrue((env.step_rewards == [0, 0]).all())
-            self.assertTrue((env.state == board).all())
+            self.assertTrue(env.state == board)
 
             env.step(x)
             board[x + (2 * 7)] = 1
             self.assertTrue(env.done)
             self.assertTrue((env.step_rewards == [1, -1]).all())
-            self.assertTrue((env.state == board).all())
+            self.assertTrue(env.state == board)
 
     def test_player(self):
         for player in [

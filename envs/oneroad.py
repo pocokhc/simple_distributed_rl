@@ -3,12 +3,11 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Tuple
 
-import numpy as np
 from srl.base.define import EnvObservationType
 from srl.base.env import registration
 from srl.base.env.base import SpaceBase
 from srl.base.env.genre import SinglePlayEnv
-from srl.base.env.spaces import BoxSpace, DiscreteSpace
+from srl.base.env.spaces import DiscreteSpace
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ class OneRoad(SinglePlayEnv):
 
     @property
     def observation_space(self) -> SpaceBase:
-        return BoxSpace(low=0, high=self.N, shape=(1,))
+        return DiscreteSpace(self.N)
 
     @property
     def observation_type(self) -> EnvObservationType:
@@ -46,9 +45,9 @@ class OneRoad(SinglePlayEnv):
     def max_episode_steps(self) -> int:
         return int(self.N * 1.1)
 
-    def call_reset(self) -> np.ndarray:
+    def call_reset(self) -> int:
         self.player_pos = 0
-        return np.asarray(self.player_pos)
+        return self.player_pos
 
     def backup(self) -> Any:
         return json.dumps(
@@ -61,7 +60,7 @@ class OneRoad(SinglePlayEnv):
         d = json.loads(data)
         self.player_pos = d[0]
 
-    def call_step(self, action: int) -> Tuple[np.ndarray, float, bool, dict]:
+    def call_step(self, action: int) -> Tuple[int, float, bool, dict]:
         if action == 0:
             self.player_pos += 1
         else:
@@ -74,7 +73,7 @@ class OneRoad(SinglePlayEnv):
             reward = 0
             done = False
 
-        return np.asarray(self.player_pos), reward, done, {}
+        return self.player_pos, reward, done, {}
 
     def render_terminal(self):
         print(f"{self.player_pos} / {self.N}")

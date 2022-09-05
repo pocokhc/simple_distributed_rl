@@ -3,12 +3,11 @@ import random
 from dataclasses import dataclass
 from typing import Any, Optional, Tuple, cast
 
-import numpy as np
 from srl.base.define import EnvAction, EnvObservationType
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
-from srl.base.env.spaces import BoxSpace, DiscreteSpace
+from srl.base.env.spaces import DiscreteSpace
 from srl.base.rl.base import RuleBaseWorker, WorkerRun
 
 logger = logging.getLogger(__name__)
@@ -35,11 +34,7 @@ class StoneTaking(TurnBase2Player):
 
     @property
     def observation_space(self) -> SpaceBase:
-        return BoxSpace(
-            low=0,
-            high=self.stones,
-            shape=(1,),
-        )
+        return DiscreteSpace(self.stones + 1)
 
     @property
     def observation_type(self) -> EnvObservationType:
@@ -53,10 +48,10 @@ class StoneTaking(TurnBase2Player):
     def player_index(self) -> int:
         return self._player_index
 
-    def call_reset(self) -> np.ndarray:
+    def call_reset(self) -> int:
         self.field = self.stones
         self._player_index = 0
-        return np.array([self.field])
+        return self.field
 
     def backup(self) -> Any:
         return [self.field, self._player_index]
@@ -65,7 +60,7 @@ class StoneTaking(TurnBase2Player):
         self.field = data[0]
         self._player_index = data[1]
 
-    def call_step(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
+    def call_step(self, action: int) -> Tuple[int, float, float, bool, dict]:
         action += 1
 
         reward1, reward2, done = self._step(action)
@@ -75,13 +70,7 @@ class StoneTaking(TurnBase2Player):
         else:
             self._player_index = 0
 
-        return (
-            np.array([self.field]),
-            reward1,
-            reward2,
-            done,
-            {},
-        )
+        return self.field, reward1, reward2, done, {}
 
     def _step(self, action):
 

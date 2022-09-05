@@ -10,6 +10,7 @@ from srl.base.env import registration
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.spaces import BoxSpace, DiscreteSpace
+from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.rl.base import RuleBaseWorker, WorkerRun
 from srl.base.rl.processor import Processor
 
@@ -38,7 +39,7 @@ class ConnectX(TurnBase2Player):
 
     @property
     def observation_space(self) -> SpaceBase:
-        return BoxSpace(low=0, high=2, shape=(self.columns * self.rows,))
+        return ArrayDiscreteSpace(self.columns * self.rows, low=0, high=2)
 
     @property
     def observation_type(self) -> EnvObservationType:
@@ -52,12 +53,12 @@ class ConnectX(TurnBase2Player):
     def player_index(self) -> int:
         return self._player_index
 
-    def call_reset(self) -> np.ndarray:
+    def call_reset(self) -> List[int]:
         self.board = [0] * self.columns * self.rows
         self._player_index = 0
-        return np.array(self.board)
+        return self.board
 
-    def call_step(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
+    def call_step(self, action: int) -> Tuple[List[int], float, float, bool, dict]:
         column = action
 
         # Mark the position.
@@ -73,11 +74,11 @@ class ConnectX(TurnBase2Player):
                 reward1 = -1
                 reward2 = 1
 
-            return np.array(self.board), reward1, reward2, True, {}
+            return self.board, reward1, reward2, True, {}
 
         # Check for a tie.
         if all(mark != 0 for mark in self.board):
-            return np.array(self.board), 0, 0, True, {}
+            return self.board, 0, 0, True, {}
 
         # change player
         if self._player_index == 0:
@@ -85,7 +86,7 @@ class ConnectX(TurnBase2Player):
         else:
             self._player_index = 0
 
-        return np.array(self.board), 0, 0, False, {}
+        return self.board, 0, 0, False, {}
 
     def _is_win(self, column, row):
         inarow = 4 - 1
@@ -173,12 +174,12 @@ class ConnectX(TurnBase2Player):
     def call_direct_reset(self, observation, configuration) -> np.ndarray:
         self._player_index = observation.mark - 1
         self.board = observation.board[:]
-        return np.array(self.board)
+        return self.board
 
     def call_direct_step(self, observation, configuration) -> Tuple[np.ndarray, float, float, bool, dict]:
         self._player_index = observation.mark - 1
         self.board = observation.board[:]
-        return np.array(self.board), 0, 0, False, {}
+        return self.board, 0, 0, False, {}
 
 
 @dataclass

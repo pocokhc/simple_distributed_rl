@@ -6,7 +6,7 @@ from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
-from srl.base.env.spaces import BoxSpace, DiscreteSpace
+from srl.base.env.spaces import ArrayDiscreteSpace, DiscreteSpace
 from srl.base.rl.processor import Processor
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,6 @@ class OX(TurnBase2Player):
         self.H = 3
 
         self._player_index = 0
-        self.viewer = None
 
     @property
     def action_space(self) -> SpaceBase:
@@ -35,11 +34,7 @@ class OX(TurnBase2Player):
 
     @property
     def observation_space(self) -> SpaceBase:
-        return BoxSpace(
-            low=-1,
-            high=1,
-            shape=(self.H * self.W,),
-        )
+        return ArrayDiscreteSpace(self.H * self.W, low=-1, high=1)
 
     @property
     def observation_type(self) -> EnvObservationType:
@@ -53,15 +48,10 @@ class OX(TurnBase2Player):
     def player_index(self) -> int:
         return self._player_index
 
-    def call_reset(self) -> np.ndarray:
+    def call_reset(self) -> List[int]:
         self.field = [0 for _ in range(self.W * self.H)]
         self._player_index = 0
-        return self._encode_state()
-
-    # 観測用の状態を返す
-    def _encode_state(self):
-        # (turn,) + field
-        return np.array(self.field)
+        return self.field
 
     def backup(self) -> Any:
         return [self.field[:], self._player_index]
@@ -70,7 +60,7 @@ class OX(TurnBase2Player):
         self.field = data[0][:]
         self._player_index = data[1]
 
-    def call_step(self, action: int) -> Tuple[np.ndarray, float, float, bool, dict]:
+    def call_step(self, action: int) -> Tuple[List[int], float, float, bool, dict]:
 
         reward1, reward2, done = self._step(action)
 
@@ -80,13 +70,7 @@ class OX(TurnBase2Player):
             else:
                 self._player_index = 0
 
-        return (
-            self._encode_state(),
-            reward1,
-            reward2,
-            done,
-            {},
-        )
+        return self.field, reward1, reward2, done, {}
 
     def _step(self, action):
 
@@ -163,40 +147,3 @@ class OX(TurnBase2Player):
             print("next player: O")
         else:
             print("next player: X")
-
-
-class LayerProcessor(Processor):
-    def change_observation_info(
-        self,
-        env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationType,
-        rl_observation_type: RLObservationType,
-        env: OX,
-    ) -> Tuple[SpaceBase, EnvObservationType]:
-        observation_space = BoxSpace(
-            low=0,
-            high=1,
-            shape=(2, 3, 3),
-        )
-        return observation_space, EnvObservationType.SHAPE3
-
-    def process_observation(self, observation: np.ndarray, _env: EnvRun) -> np.ndarray:
-        env = cast(OX, _env.get_original_env())
-
-        # Layer0: player1 field (0 or 1)
-        # Layer1: player2 field (0 or 1)
-        if env.player_index == 0:
-            my_field = 1
-            enemy_field = -1
-        else:
-            my_field = -1
-            enemy_field = 1
-        _field = np.zeros((2, env.H, env.W))
-        for y in range(env.H):
-            for x in range(env.W):
-                idx = x + y * env.W
-                if observation[idx] == my_field:
-                    _field[0][y][x] = 1
-                elif observation[idx] == enemy_field:
-                    _field[1][y][x] = 1
-        return _field

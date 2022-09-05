@@ -1,10 +1,9 @@
 import itertools
 import logging
-from typing import List, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import numpy as np
-from srl.base.define import (ContinuousAction, DiscreteAction,
-                             DiscreteSpaceType, RLObservation)
+from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
 from srl.base.env.base import SpaceBase
 
 logger = logging.getLogger(__name__)
@@ -49,6 +48,17 @@ class BoxSpace(SpaceBase[np.ndarray]):
             return np.random.normal(size=self.shape)
         r = np.random.random_sample(self.shape)
         return self.low + r * (self.high - self.low)
+
+    def check_val(self, val: Any) -> bool:
+        if not isinstance(val, np.ndarray):
+            return False
+        if self.shape != val.shape:
+            return False
+        if (val < self.low).any():
+            return False
+        if (val > self.high).any():
+            return False
+        return True
 
     def __eq__(self, o: object) -> bool:
         return self.shape == o.shape and (self.low == o.low).all() and (self.high == o.high).all()

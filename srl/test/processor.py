@@ -42,6 +42,7 @@ class TestProcessor:
         self, processor: Processor, env_name: str, in_observation: EnvObservation, out_observation: EnvObservation
     ):
         env = srl.make_env(env_name)
+        env.reset()
 
         new_observation = processor.process_observation(in_observation, env)
         np.testing.assert_array_equal(out_observation, new_observation)

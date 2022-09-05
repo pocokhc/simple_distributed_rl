@@ -5,7 +5,6 @@ import random
 from dataclasses import dataclass
 from typing import Any, Tuple
 
-import numpy as np
 from srl.base.define import EnvObservationType
 from srl.base.env import registration
 from srl.base.env.base import SpaceBase
@@ -54,10 +53,10 @@ class Tiger(SinglePlayEnv):
     def max_episode_steps(self) -> int:
         return 10
 
-    def call_reset(self) -> np.ndarray:
+    def call_reset(self) -> int:
         self.tiger = State(random.randint(0, 1))
         self.state = State(random.randint(0, 1))
-        return np.array(self.state.value)
+        return self.state.value
 
     def backup(self) -> Any:
         return json.dumps(
@@ -72,7 +71,7 @@ class Tiger(SinglePlayEnv):
         self.tiger = State(d[0])
         self.state = State(d[1])
 
-    def call_step(self, action_: int) -> Tuple[np.ndarray, float, bool, dict]:
+    def call_step(self, action_: int) -> Tuple[int, float, bool, dict]:
         action = Action(action_)
 
         if action == Action.CHECK:
@@ -105,7 +104,7 @@ class Tiger(SinglePlayEnv):
         else:
             raise ValueError()
 
-        return np.array(self.state.value), reward, done, {}
+        return self.state.value, reward, done, {}
 
     def render_terminal(self):
         print(f"state: {self.state}, tiger: {self.tiger}")

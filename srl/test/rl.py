@@ -1,5 +1,3 @@
-import os
-import sys
 from typing import List, Optional, cast
 
 import numpy as np
@@ -19,7 +17,7 @@ except ImportError:
 
 
 class TestRL:
-    def __init__(self, env_dir: str = ""):
+    def __init__(self):
         self.parameter = None
         self.config: Optional[runner.Config] = None
 
@@ -104,11 +102,6 @@ class TestRL:
     def simple_check_mp(self, rl_config, enable_image: bool = False):
         self.simple_check(rl_config, enable_image=enable_image, is_mp=True)
 
-    def _is_space_base_instance(self, val):
-        if type(val) in [int, float, list, np.ndarray]:
-            return True
-        return False
-
     def _check_play_raw(self, env_config, rl_config):
         env = srl.make_env(env_config)
         rl_config.reset_config(env)
@@ -128,10 +121,12 @@ class TestRL:
             for step in range(5):
                 # policy
                 action = workers[env.next_player_index].policy(env)
-                assert self._is_space_base_instance(action)
+                assert env.action_space.check_val(action), f"Checking action_space failed. action={action}"
 
                 for idx in range(env.player_num):
-                    assert (workers[idx].info is None) or isinstance(workers[idx].info, dict)
+                    assert (workers[idx].info is None) or isinstance(
+                        workers[idx].info, dict
+                    ), f"unknown info type. worker{idx} info={workers[idx].info}"
 
                 # render
                 [w.render(env) for w in workers]
@@ -142,11 +137,13 @@ class TestRL:
 
                 if env.done:
                     for idx in range(env.player_num):
-                        assert isinstance(workers[idx].info, dict)
+                        assert isinstance(
+                            workers[idx].info, dict
+                        ), f"unknown info type. worker{idx} info={workers[idx].info}"
 
                 # train
                 train_info = trainer.train()
-                assert isinstance(train_info, dict)
+                assert isinstance(train_info, dict), f"unknown info type. train info={train_info}"
 
                 if env.done:
                     break
@@ -339,7 +336,7 @@ class TestRL:
 
             # -----------
             # policyのアクションと最適アクションが等しいか確認
-            key = to_str_observation(state)
+            key = to_str_observation(np.asarray(state))
             true_a = np.argmax(list(Q[key].values()))
             pred_a = worker.worker.worker.action_decode(action)
             print(f"{state}: {true_a} == {pred_a}")

@@ -1,4 +1,3 @@
-import numpy as np
 import srl
 from srl import runner
 from srl.base.env.base import EnvRun
@@ -21,11 +20,6 @@ class TestEnv:
 
         return env
 
-    def _is_space_base_instance(self, val):
-        if type(val) in [int, float, list, np.ndarray]:
-            return True
-        return False
-
     def _play_test(
         self,
         env_name,
@@ -35,23 +29,25 @@ class TestEnv:
         print_enable,
     ):
         env = srl.make_env(env_name)
-        assert issubclass(env.__class__, EnvRun)
+        assert issubclass(env.__class__, EnvRun), "The way env is created is wrong. (Mainly due to framework side)"
 
         player_num = env.player_num
-        assert player_num > 0
+        assert player_num > 0, "player_num is greater than or equal to 1."
 
         # --- reset
         env.reset()
-        assert self._is_space_base_instance(env.state)
-        assert 0 <= env.next_player_index < player_num
+        assert env.observation_space.check_val(env.state), f"Checking observation_space failed. state={env.state}"
+        assert (
+            0 <= env.next_player_index < player_num
+        ), f"next_player_index is out of range. (0 <= {env.next_player_index} < {player_num}) is false."
 
         # --- restore/backup
         if check_restore:
             dat = env.backup()
             env.restore(dat)
 
-        assert not env.done
-        assert env.step_num == 0
+        assert not env.done, "Done should be True after reset."
+        assert env.step_num == 0, "step_num should be 0 after reset."
 
         # render
         if check_render:
@@ -77,23 +73,21 @@ class TestEnv:
             # get_invalid_actions
             for idx in range(env.player_num):
                 invalid_actions = env.get_invalid_actions(idx)
-                assert isinstance(invalid_actions, list)
+                assert isinstance(invalid_actions, list), "get_invalid_actions should return a list[int] type."
                 for a in invalid_actions:
-                    assert isinstance(a, int)
-
-            # actionが選べるか
-            invalid_actions = env.get_invalid_actions(env.next_player_index)
-            if len(invalid_actions) > 0:
-                assert len(invalid_actions) < env.action_space.get_action_discrete_info()
+                    assert isinstance(a, int), "get_invalid_actions should return a list[int] type."
+                    assert env.action_space.check_val(a), f"Checking action_space failed. action={a}"
 
             # --- step
             env.step(action)
-            assert self._is_space_base_instance(env.state)
-            assert isinstance(env.done, bool)
-            assert isinstance(env.info, dict)
-            assert 0 <= env.next_player_index < player_num
-            assert len(env.step_rewards) == player_num
-            assert env.step_num > 0
+            assert env.observation_space.check_val(env.state), f"Checking observation_space failed. state={env.state}"
+            assert isinstance(env.done, bool), "The type of done is not bool."
+            assert isinstance(env.info, dict), "The type of info is not dict."
+            assert (
+                0 <= env.next_player_index < player_num
+            ), f"next_player_index is out of range. (0 <= {env.next_player_index} < {player_num}) is false."
+            assert len(env.step_rewards) == player_num, "The number of rewards and players do not match."
+            assert env.step_num > 0, "steps not counted.(Mainly due to framework side)"
 
             if print_enable:
                 print(f"step {env.step_num}, actions {action}, rewards {env.step_rewards}")

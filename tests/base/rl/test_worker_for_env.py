@@ -21,7 +21,7 @@ class StubEnv(SinglePlayEnv):
         self._observation_space: SpaceBase = DiscreteSpace(5)
         self._observation_type = EnvObservationType.UNKNOWN
 
-        self.s_state = np.array(0)
+        self.s_state = 0
         self.s_reward = 0
         self.s_done = True
         self.s_info = {}
@@ -160,7 +160,7 @@ class Test(unittest.TestCase):
                 if pat[0] == "Dis":
                     self.env._action_space = DiscreteSpace(5)
                 elif pat[0] == "Array":
-                    self.env._action_space = ArrayDiscreteSpace([2, 3, 5])
+                    self.env._action_space = ArrayDiscreteSpace(3, 0, [2, 3, 5])
                 elif pat[0] == "Box":
                     self.env._action_space = BoxSpace(low=-1, high=3, shape=(2, 3))
 
@@ -221,7 +221,7 @@ class Test(unittest.TestCase):
                     self.env._observation_type = EnvObservationType.DISCRETE
                     env_state = 5
                 elif pat[0] == "Array":
-                    self.env._observation_space = ArrayDiscreteSpace([2, 3])
+                    self.env._observation_space = ArrayDiscreteSpace(2, 0, [2, 3])
                     self.env._observation_type = EnvObservationType.DISCRETE
                     env_state = [1, 2]
                 elif pat[0] == "Box":
@@ -279,4 +279,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_env_play", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_action", verbosity=2)

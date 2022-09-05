@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Generic, List, Tuple, TypeVar
+from typing import Any, Generic, List, Tuple, TypeVar
 
 import numpy as np
 from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
@@ -13,10 +13,14 @@ class SpaceBase(ABC, Generic[T]):
         raise NotImplementedError()
 
     @abstractmethod
+    def check_val(self, val: Any) -> bool:
+        raise NotImplementedError()
+
+    @abstractmethod
     def __eq__(self, __o: object) -> bool:
         return NotImplemented
 
-    # --- action
+    # --- action discrete
     @abstractmethod
     def get_action_discrete_info(self) -> int:
         raise NotImplementedError()

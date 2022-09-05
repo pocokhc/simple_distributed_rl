@@ -16,6 +16,11 @@
    1. Infoに文字列も許可し、数値以外は文字列にする処理を追加
 1. アルゴリズム関係
    1. WorldModelsで温度パラメータのサンプル計算がおかしいbug fix
+1. Env関係
+   1. Envのチェック機構を強化とArrayDiscreteSpaceを見直して改修
+      1. spaceにcheck_valを追加
+      1. 合わせて全環境を見直し
+      1. test.envをupdate
 1. その他
    1. READMEのインストール方法を更新
 

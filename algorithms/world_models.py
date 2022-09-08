@@ -175,8 +175,8 @@ class _VAE(keras.Model):
             c = kl.Dense(256, activation="relu")(c)
             c = kl.Dense(256, activation="relu")(c)
         z_mean = kl.Dense(config.z_size)(c)
-        z_log_var = kl.Dense(config.z_size)(c)
-        self.encoder = keras.Model(in_state, [z_mean, z_log_var], name="encoder")
+        z_log_stddev = kl.Dense(config.z_size)(c)
+        self.encoder = keras.Model(in_state, [z_mean, z_log_stddev], name="encoder")
 
         # --- decoder
         in_state = c = kl.Input(shape=(config.z_size,))
@@ -203,14 +203,14 @@ class _VAE(keras.Model):
         return self.decode(self.encode(x))
 
     def encode(self, x, training=False):
-        z_mean, z_log_var = self.encoder(x, training=training)
+        z_mean, z_log_stddev = self.encoder(x, training=training)
 
         # reparameterize
         e = tf.random.normal(z_mean.shape)
-        z = z_mean + tf.exp(0.5 * z_log_var) * e
+        z = z_mean + tf.exp(0.5 * z_log_stddev) * e
 
         if training:
-            return z_mean, z_log_var, z
+            return z_mean, z_log_stddev, z
         else:
             return z
 
@@ -421,7 +421,7 @@ class Trainer(RLTrainer):
 
         # --- VAE
         with tf.GradientTape() as tape:
-            z_mean, z_log_var, z = self.parameter.vae.encode(x, training=True)
+            z_mean, z_log_stddev, z = self.parameter.vae.encode(x, training=True)
             pred_x = self.parameter.vae.decode(z, training=True)
 
             if self.parameter.vae.use_image_head:
@@ -444,7 +444,7 @@ class Trainer(RLTrainer):
                 rc_loss = tf.reduce_mean(rc_loss)
 
             # KL loss
-            kl_loss = -0.5 * tf.reduce_sum(1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var), axis=1)
+            kl_loss = -0.5 * tf.reduce_sum(1 + z_log_stddev - tf.square(z_mean) - tf.exp(z_log_stddev), axis=1)
             kl_loss = tf.maximum(kl_loss, self.config.kl_tolerance * self.config.z_size)
             kl_loss = tf.reduce_mean(kl_loss)
 
@@ -534,7 +534,7 @@ class Worker(DiscreteActionWorker):
             self.recent_actions = []
 
         self.hidden_state = self.parameter.rnn.get_initial_state()
-        self.render_hidden_state = self.hidden_state
+        self.prev_hidden_state = self.hidden_state
 
         if self.training and self.config.train_mode == 3:
             self.parameter.controller.set_flat_params(self.elite_params[self.params_idx])
@@ -554,6 +554,7 @@ class Worker(DiscreteActionWorker):
             q = np.array([(-np.inf if i in invalid_actions else v) for i, v in enumerate(q)])
             action = int(np.argmax(q))  # 複数はほぼないので無視
 
+            self.prev_hidden_state = self.hidden_state
             self.hidden_state = self.parameter.rnn.forward(self.z, action, self.hidden_state, return_rnn_only=True)
 
         self.action = action
@@ -689,9 +690,7 @@ class Worker(DiscreteActionWorker):
             if i > _view_action:
                 break
 
-            pi, mu, log_sigma, _ = self.parameter.rnn.forward(
-                self.z, a, self.render_hidden_state, return_rnn_only=False
-            )
+            pi, mu, log_sigma, _ = self.parameter.rnn.forward(self.z, a, self.prev_hidden_state, return_rnn_only=False)
             self.viewer.draw_text(
                 (IMG_W + PADDING) * i, 20 + IMG_H, f"action {env.action_to_str(a)}", color=(255, 255, 255)
             )
@@ -704,9 +703,5 @@ class Worker(DiscreteActionWorker):
                 x = (IMG_W + PADDING) * i
                 y = 20 + IMG_H + 15 + (IMG_H + PADDING) * j
                 self.viewer.draw_image_rgb_array(x, y, n_img)
-
-        self.render_hidden_state = self.parameter.rnn.forward(
-            self.z, self.action, self.render_hidden_state, return_rnn_only=True
-        )
 
         return self.viewer.get_rgb_array()

@@ -18,7 +18,7 @@
 
 # Download/Install
 
-・**git clone install**
++ **git clone install**
 
 git clone してインストールする方法です。
 
@@ -37,7 +37,7 @@ pip install gym pygame
 python examples/minimum_runner.py
 ```
 
-・ **Direct install**
++ **Direct install**
 
 直接インストールする方法です。
 フレームワーク側で作成した環境とアルゴリズムはついてこないので必要に応じてダウンロードしてください
@@ -56,7 +56,7 @@ wget https://raw.githubusercontent.com/pocokhc/simple_distributed_rl/main/exampl
 python examples/minimum_runner.py
 ```
 
-・**No install(Download only)**
++ **No install(Download only)**
 
 srlに実行パスが通っていれば install しなくても使えます。
 
@@ -279,15 +279,15 @@ examples/custom_rl.ipynb
 
 ## Overview
 
-+ sequence flow
++ **sequence flow**
 
 ![overview-sequence.drawio.png](diagrams/overview-sequence.drawio.png)
 
-+ distributed flow
++ **distributed flow**
 
 ![overview-distributed.drawio.png](diagrams/overview-distributed.drawio.png)
 
-+ multiplay flow
++ **multiplay flow**
 
 ![overview-multiplay.drawio.png](diagrams/overview-multiplay.drawio.png)
 
@@ -297,15 +297,15 @@ examples/custom_rl.ipynb
 
 ## Distribute flow
 
-+ main
++ **main**
 
 ![runner_mp_flow.png](diagrams/runner_mp_flow.png)
 
-+ Trainer
++ **Trainer**
 
 ![runner_mp_flow_trainer.png](diagrams/runner_mp_flow_trainer.png)
 
-+ Workers
++ **Workers**
 
 ![runner_mp_flow_worker.png](diagrams/runner_mp_flow_worker.png)
 
@@ -336,7 +336,7 @@ examples/custom_rl.ipynb
 |ArrayContinuousSpace|list[float]|
 |BoxSpace            |np.ndarray |
 
-# Development environment / Operation check environment
+# Development environment
 
 + windows10
   + CPUx1: Core i7-8700 3.2GHz

@@ -139,31 +139,27 @@ def render_discrete_action(invalid_actions, maxa, env: EnvRun, func) -> None:
 
 
 def float_category_encode(val: float, v_min: int, v_max: int) -> List[float]:
-    category = [0.0 for _ in range(v_max - v_min + 1)]
-    low_int = math.floor(val)
-    high_int = low_int + 1
-    weight = val - low_int
-    low_idx = int(low_int - v_min)
-    high_idx = int(high_int - v_min)
-    if low_idx < 0:
-        low_idx = 0
-        logger.debug(f"category index out of range(val: {val:.3f}, min: {v_min}, max {v_max})")
-    if low_idx >= len(category) - 1:
-        low_idx = len(category) - 1
-        logger.debug(f"category index out of range(val: {val:.3f}, min: {v_min}, max {v_max})")
-    if high_idx < 1:
-        high_idx = 1
-        logger.debug(f"category index out of range(val: {val:.3f}, min: {v_min}, max {v_max})")
-    if high_idx >= len(category):
-        high_idx = len(category)
-        logger.debug(f"category index out of range(val: {val:.3f}, min: {v_min}, max {v_max})")
-    category[low_idx] = 1 - weight
-    category[high_idx] = weight
-    return category
+    eps = 1e-3
+    transformed = np.sign(val) * (np.sqrt(np.abs(val) + 1) - 1) + eps * val
+
+    transformed = np.clip(transformed, a_min=v_min, a_max=v_max)
+    floored = np.floor(transformed).astype(int)
+    prob = transformed - floored
+
+    support_size = v_max - v_min + 1
+    bins = np.zeros(support_size)
+
+    bins[floored + v_max] = 1 - prob
+    bins[floored + v_max + 1] = prob
+
+    return bins
 
 
 def float_category_decode(category: List[float], v_min: int) -> float:
-    n = 0
-    for i, w in enumerate(category):
-        n += (i + v_min) * w
-    return n
+    eps = 1e-3
+    bins = np.arange(v_min, abs(v_min) + 1)
+    y = np.dot(category, bins)
+
+    value = np.sign(y) * (((np.sqrt(1 + 4 * eps * (np.abs(y) + 1 + eps)) - 1) / (2 * eps)) ** 2 - 1)
+
+    return value

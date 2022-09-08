@@ -76,10 +76,10 @@ class Config(DiscreteActionConfig):
     cnn_block_kwargs: dict = None
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
-    batch_size: int = 32
-    q_ext_lr: float = 0.001
-    q_int_lr: float = 0.001
-    target_model_update_interval: int = 1000
+    batch_size: int = 64
+    q_ext_lr: float = 0.0001
+    q_int_lr: float = 0.0001
+    target_model_update_interval: int = 1500
 
     # rescale
     enable_rescale: bool = False

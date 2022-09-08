@@ -79,10 +79,10 @@ class Config(DiscreteActionConfig):
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
 
-    q_ext_lr: float = 0.001
-    q_int_lr: float = 0.001
-    batch_size: int = 32
-    target_model_update_interval: int = 1000
+    q_ext_lr: float = 0.0001
+    q_int_lr: float = 0.0001
+    batch_size: int = 64
+    target_model_update_interval: int = 1500
 
     # lstm
     burnin: int = 5

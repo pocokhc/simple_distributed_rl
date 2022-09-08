@@ -683,6 +683,7 @@ class ExtendWorker(WorkerBase):
 class WorkerRun:
     def __init__(self, worker: WorkerBase):
         self.worker = worker
+        self.fig = None
 
     # ------------------------------------
     # episode functions

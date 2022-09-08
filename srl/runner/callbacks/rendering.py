@@ -83,6 +83,7 @@ class Rendering(Callback):
         worker_idx: int = info["worker_idx"]
         worker: WorkerRun = info["workers"][worker_idx]
         action = info["action"]
+        step_time = info["step_time"] if "step_time" in info else None
 
         # env text
         env_text = env.render_terminal(return_text=True)
@@ -101,6 +102,8 @@ class Rendering(Callback):
         info_text += f", next {env.next_player_index}"
         if is_skip:
             info_text += "(skip frame)"
+        if step_time is not None:
+            info_text += f" ({step_time:.1f}s)"
         info_text += f"\nenv   {env.info}"
         info_text += f"\nwork{worker_idx: <2d}{worker.info}"
 

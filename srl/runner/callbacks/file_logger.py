@@ -496,7 +496,10 @@ class FileLogPlot:
             return df
 
         df["date"] = pd.to_datetime(df["date"])
-        df.sort_values(["date", "episode_count"], inplace=True)
+        if "episode_count" in df:
+            df.sort_values(["date", "episode_count"], inplace=True)
+        else:
+            df.sort_values(["date"], inplace=True)
         df["time"] = (df["date"] - df["date"][0]).dt.total_seconds()
         df.set_index("date", inplace=True)
 
@@ -533,7 +536,9 @@ class FileLogPlot:
         if len(df) == 0:
             return
 
-        if plot_type == "":
+        if "episode_count" not in df:
+            plot_type = "timeline"
+        elif plot_type == "":
             if self.distributed:
                 plot_type = "timeline"
             else:

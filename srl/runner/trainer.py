@@ -47,7 +47,7 @@ def train(
     checkpoint_interval: int = 60 * 20,  # s
     # other
     callbacks: List[TrainerCallback] = [],
-) -> Tuple[RLParameter, RLRemoteMemory, object]:
+) -> Tuple[RLParameter, RLRemoteMemory, FileLogPlot]:
     eval_players = eval_players[:]
     callbacks = callbacks[:]
 

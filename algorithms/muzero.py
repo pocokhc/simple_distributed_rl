@@ -16,6 +16,7 @@ from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperie
 from srl.rl.functions.common import (
     float_category_decode,
     float_category_encode,
+    inverse_rescaling,
     random_choice_by_probs,
     render_discrete_action,
     rescaling,
@@ -390,7 +391,7 @@ class Parameter(RLParameter):
         if state_str not in self.P:
             p, v_category = self.prediction_network(state)
             self.P[state_str] = p[0].numpy()
-            self.V[state_str] = float_category_decode(v_category.numpy()[0], self.config.v_min)
+            self.V[state_str] = float_category_decode(v_category.numpy()[0], self.config.v_min, self.config.v_max)
 
     def reset_cache(self):
         self.P = {}
@@ -611,7 +612,7 @@ class Worker(DiscreteActionWorker):
         # 次の状態を取得
         n_state, reward_category = self.parameter.dynamics_network(state, [action])
         n_state_str = n_state.ref()
-        reward = float_category_decode(reward_category.numpy()[0], self.config.v_min)
+        reward = float_category_decode(reward_category.numpy()[0], self.config.v_min, self.config.v_max)
         enemy_turn = self.config.env_player_num > 1  # 2player以上は相手番と決め打ち
 
         if self.N[state_str][action] == 0:
@@ -773,7 +774,11 @@ class Worker(DiscreteActionWorker):
         puct = self._calc_puct(self.s0_str, self.invalid_actions, False)
         maxa = self.action
 
-        print(f"V_net: {self.parameter.V[self.s0_str]:.5f}")
+        v = self.parameter.V[self.s0_str]
+        if self.config.enable_rescale:
+            v = inverse_rescaling(v)
+
+        print(f"V_net: {v:.5f}")
 
         def _render_sub(a: int) -> str:
             q = self.Q[self.s0_str][a]
@@ -781,9 +786,12 @@ class Worker(DiscreteActionWorker):
             p = self.step_policy[a]
 
             n_s, reward_category = self.parameter.dynamics_network(self.s0, [a])
-            reward = float_category_decode(reward_category.numpy()[0], self.config.v_min)
+            reward = float_category_decode(reward_category.numpy()[0], self.config.v_min, self.config.v_max)
             n_s_str = n_s.ref()
             self.parameter.pred_PV(n_s, n_s_str)
+
+            if self.config.enable_rescale:
+                reward = inverse_rescaling(reward)
 
             s = "{:5.1f}% ({:7d})(N), {:9.5f}(Q), {:9.5f}(PUCT), {:9.5f}(P), {:9.5f}(V), {:9.5f}(reward)".format(
                 p * 100,

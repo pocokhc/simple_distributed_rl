@@ -7,19 +7,18 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
-from srl.rl.functions.common import (
-    float_category_decode,
-    float_category_encode,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
+from srl.base.rl.remote_memory.priority_experience_replay import \
+    PriorityExperienceReplay
+from srl.rl.functions.common import (float_category_decode,
+                                     float_category_encode, inverse_rescaling,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling)
 from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.input_layer import create_input_layer
 from tensorflow.keras import layers as kl
@@ -545,12 +544,12 @@ class Parameter(RLParameter):
         if state_str not in self.P:
             p, v_category = self.prediction_network(state)
             self.P[state_str] = p[0].numpy()
-            self.V[state_str] = float_category_decode(v_category.numpy()[0], self.config.v_min)
+            self.V[state_str] = float_category_decode(v_category.numpy()[0], self.config.v_min, self.config.v_max)
 
     def afterstate_prediction(self, as_state, state_str):
         if state_str not in self.C:
             c, q_category = self.afterstate_prediction_network(as_state)
-            self.Q[state_str] = float_category_decode(q_category.numpy()[0], self.config.v_min)
+            self.Q[state_str] = float_category_decode(q_category.numpy()[0], self.config.v_min, self.config.v_max)
             self.C[state_str] = self.vq_vae.encode(c)
 
     def reset_cache(self):
@@ -791,7 +790,7 @@ class Worker(DiscreteActionWorker):
 
             # 次の状態を取得
             n_state, reward_category = self.parameter.dynamics_network(state, c)
-            reward = float_category_decode(reward_category.numpy()[0], self.config.v_min)
+            reward = float_category_decode(reward_category.numpy()[0], self.config.v_min, self.config.v_max)
             is_afterstate = False
 
         n_state_str = n_state.ref()
@@ -971,15 +970,23 @@ class Worker(DiscreteActionWorker):
         puct = self._calc_puct(self.s0_str, self.invalid_actions, False)
         maxa = self.action
 
-        print(f"V: {self.parameter.V[self.s0_str]:.5f}")
+        v = self.parameter.V[self.s0_str]
+        if self.config.enable_rescale:
+            v = inverse_rescaling(v)
+
+        print(f"V: {v:.5f}")
 
         def _render_sub(a: int) -> str:
             after_state = self.parameter.afterstate_dynamics_network(self.s0, [a])
             c, q_category = self.parameter.afterstate_prediction_network(after_state)
-            q = float_category_decode(q_category.numpy()[0], self.config.v_min)
+            q = float_category_decode(q_category.numpy()[0], self.config.v_min, self.config.v_max)
             c = self.parameter.vq_vae.encode(c)
             _, reward_category = self.parameter.dynamics_network(after_state, c)
-            reward = float_category_decode(reward_category.numpy()[0], self.config.v_min)
+            reward = float_category_decode(reward_category.numpy()[0], self.config.v_min, self.config.v_max)
+
+            if self.config.enable_rescale:
+                q = inverse_rescaling(q)
+                reward = inverse_rescaling(reward)
 
             s = f"{self.step_policy[a]*100:5.1f}%"
             s += f" {self.N[self.s0_str][a]:7d}(N)"

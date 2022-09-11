@@ -31,7 +31,6 @@ class Config(DiscreteActionConfig):
 
     train_mode: int = 1
 
-    discount: float = 0.99
     lr: float = 0.001
     batch_size: int = 32
     capacity: int = 100_000

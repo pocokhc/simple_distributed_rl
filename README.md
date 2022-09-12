@@ -39,9 +39,9 @@ python examples/minimum_runner.py
 
 + **Direct install**
 
-直接インストールする方法です。
-フレームワーク側で作成した環境とアルゴリズムはついてこないので必要に応じてダウンロードしてください
-（"envs" 配下に環境、"algorithms" 配下にアルゴリズムがあります）
+直接インストールする方法です。  
+フレームワーク側で作成した環境とアルゴリズムはついてこないので必要に応じてダウンロードしてください  
+（"envs" 配下に環境、"algorithms" 配下にアルゴリズムがあります）  
 
 ``` bash
 pip install git+https://github.com/pocokhc/simple_distributed_rl
@@ -347,7 +347,7 @@ examples/custom_rl.ipynb
 
 ![class_rl.png](diagrams/class_rl.png)
 
-![class_env.png)
+![class_env.png](diagrams/class_env.png)
 
 # Interface
 

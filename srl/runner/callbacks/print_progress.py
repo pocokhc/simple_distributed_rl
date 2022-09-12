@@ -1,6 +1,7 @@
 import datetime as dt
 import logging
 import time
+from collections import deque
 from dataclasses import dataclass
 
 import numpy as np
@@ -36,7 +37,12 @@ class PrintProgress(Callback):
         self.history_episode = []
         self.history_episode_start_idx = 0
 
-        self.last_episode_time = np.inf
+        self.resent_step_time = deque(maxlen=10)
+        self.resent_episode_time = deque(maxlen=10)
+        self.resent_train_time = deque(maxlen=10)
+        self.last_episode_count = 0
+        self.last_train_count = 0
+        self.last_memory = 0
 
     def on_episodes_begin(self, info):
         self.config = info["config"]
@@ -61,15 +67,13 @@ class PrintProgress(Callback):
         self.progress_history = []
 
     def on_episodes_end(self, info):
-        trainer = info["trainer"]
-
         if self.actor_id >= self.max_actor:
             return
-        if trainer is None:
-            train_count = 0
-        else:
-            train_count = trainer.get_train_count()
-        self._print(info["episode_count"], train_count)
+
+        self.last_episode_count = info["episode_count"]
+        if info["trainer"] is not None:
+            self.last_train_count = info["trainer"].get_train_count()
+        self._print()
 
     def on_episode_begin(self, info):
         if self.actor_id >= self.max_actor:
@@ -84,30 +88,31 @@ class PrintProgress(Callback):
         d = {
             "env_info": info["env"].info,
             "work_info": info["workers"][self.print_worker].info,
-            "step_time": info["step_time"],
             "train_info": info["train_info"],
-            "train_time": info["train_time"],
         }
-        if self.actor_id == 0:
-            remote_memory = info["remote_memory"]
-            d["remote_memory"] = remote_memory.length() if remote_memory is not None else 0
-        else:
-            d["remote_memory"] = 0
         self.history_step.append(d)
 
+        self.resent_step_time.append(info["step_time"])
+
+        if self.actor_id == 0:
+            remote_memory = info["remote_memory"]
+            self.last_memory = remote_memory.length() if remote_memory is not None else 0
+
+        trainer = info["trainer"]
+        if trainer is not None:
+            self.last_train_count = trainer.get_train_count()
+            self.resent_train_time.append(info["train_time"])
+
         if self._check_print_progress():
-            trainer = info["trainer"]
-            if trainer is None:
-                train_count = 0
-            else:
-                train_count = trainer.get_train_count()
-            self._print(info["episode_count"], train_count)
+            self._print()
 
     def on_episode_end(self, info):
-        episode_time = info["episode_time"]
         if self.actor_id >= self.max_actor:
             return
-        self.last_episode_time = episode_time
+
+        self.resent_episode_time.append(info["episode_time"])
+        self.last_episode_count = info["episode_count"]
+
         if len(self.history_step) == 0:
             return
         player_idx = info["worker_indices"][self.print_worker]
@@ -121,13 +126,9 @@ class PrintProgress(Callback):
         d = {
             "episode_step": info["episode_step"],
             "episode_reward": info["episode_rewards"][player_idx],
-            "episode_time": episode_time,
             "eval_reward": info["eval_reward"],
-            "step_time": np.mean([h["step_time"] for h in self.history_step]),
-            "remote_memory": self.history_step[-1]["remote_memory"],
             "env_info": env_info,
             "work_info": work_info,
-            "train_time": np.mean([h["train_time"] for h in self.history_step]),
         }
         if "sync" in info:
             d["sync"] = info["sync"]
@@ -155,18 +156,46 @@ class PrintProgress(Callback):
 
         return True
 
-    def _print(self, episode_count, train_count):
+    def _print(self):
         elapsed_time = time.time() - self.t0
 
         # --- head
-        # [TIME] [actor] [elapsed time] [all step] [all episode] [train]
+        # [TIME] [actor] [elapsed time]
         s = dt.datetime.now().strftime("%H:%M:%S")
         if self.config.distributed:
             s += f" actor{self.actor_id:2d}:"
         s += f" {to_str_time(elapsed_time)}"
-        s += f" {self.step_count:6d}st({episode_count:4d}ep)"
+
+        # [remain]
+        step_time = np.mean(self.resent_step_time) if len(self.resent_step_time) > 0 else np.inf
+        episode_time = np.mean(self.resent_episode_time) if len(self.resent_episode_time) > 0 else np.inf
+        train_time = np.mean(self.resent_train_time) if len(self.resent_train_time) > 0 else np.inf
+        if self.config.max_steps > 0:
+            remain_step = (self.config.max_steps - self.step_count) * (step_time + train_time)
+        else:
+            remain_step = np.inf
+        if self.config.max_episodes > 0:
+            remain_episode = (self.config.max_episodes - self.last_episode_count) * episode_time
+        else:
+            remain_episode = np.inf
+        if self.config.timeout > 0:
+            remain_time = self.config.timeout - elapsed_time
+        else:
+            remain_time = np.inf
+        if self.config.max_train_count > 0:
+            remain_train = (self.config.max_train_count - self.last_train_count) * train_time
+        else:
+            remain_train = np.inf
+        remain = min(min(min(remain_step, remain_episode), remain_time), remain_train)
+        if remain == np.inf:
+            s += "(      - remain)"
+        else:
+            s += f"({to_str_time(remain)} remain)"
+
+        # [all step] [all episode] [train]
+        s += f" {self.step_count:6d}st({self.last_episode_count:4d}ep)"
         if self.config.training and not self.config.distributed:
-            s += " {:5d}tr".format(train_count)
+            s += " {:5d}tr".format(self.last_train_count)
 
         if len(self.progress_history) == 0:
             if len(self.history_step) == 0:
@@ -174,43 +203,19 @@ class PrintProgress(Callback):
                 s += "1 step is not over."
             else:
                 # --- steps info
-                # [remain] [episode step] [step time] [train time] [memory]
-                step_num = len(self.history_step)
-                step_time = np.mean([h["step_time"] for h in self.history_step])
-                if self.config.training and not self.config.distributed:
-                    train_time = np.mean([h["train_time"] for h in self.history_step])
-                else:
-                    train_time = 0
-
-                # remain
-                if self.config.max_steps > 0:
-                    remain_step = (self.config.max_steps - self.step_count) * (step_time + train_time)
-                else:
-                    remain_step = np.inf
-                if self.config.max_episodes > 0:
-                    remain_episode = (self.config.max_episodes - episode_count) * self.last_episode_time
-                else:
-                    remain_episode = np.inf
-                if self.config.timeout > 0:
-                    remain_time = self.config.timeout - elapsed_time
-                else:
-                    remain_time = np.inf
-                # TODO max train count
-                remain = min(min(remain_step, remain_episode), remain_time)
-                s += f" {to_str_time(remain)}(remain)"
-
-                # episode step, step time
-                s += f", {step_num:5d} step"
+                # [episode step] [step time]
+                s += f", {len(self.history_step):5d} step"
                 s += f", {step_time:.5f}s/step"
 
-                # train time, memory
+                # [train time]
                 if self.config.training and not self.config.distributed:
                     s += f", {train_time:.5f}s/tr"
 
-                    memory_len = max([h["remote_memory"] for h in self.history_step])
-                    s += self._memory_str(memory_len)
+                # [memory]
+                if self.actor_id == 0:
+                    s += self._memory_str(self.last_memory)
 
-                # info
+                # [info]
                 if self.print_env_info:
                     s += self._info_str(self.history_step, "env_info")
                 if self.print_worker_info:
@@ -220,33 +225,11 @@ class PrintProgress(Callback):
 
         else:
             # --- episode info
-            # [remain] [reward] [eval reward] [episode step] [episode time] [train time] [sync] [memory] [info]
-            episode_time = np.mean([h["episode_time"] for h in self.progress_history])
-
-            # remain
-            if self.config.max_steps > 0:
-                step_time = np.mean([h["step_time"] for h in self.progress_history])
-                train_time = np.mean([h["train_time"] for h in self.progress_history])
-                remain_step = (self.config.max_steps - self.step_count) * (step_time + train_time)
-            else:
-                remain_step = np.inf
-            if self.config.max_episodes > 0:
-                remain_episode = (self.config.max_episodes - episode_count) * episode_time
-            else:
-                remain_episode = np.inf
-            if self.config.timeout > 0:
-                remain_time = self.config.timeout - elapsed_time
-            else:
-                remain_time = np.inf
-            # TODO max train count
-            remain = min(min(remain_step, remain_episode), remain_time)
-            s += f" {to_str_time(remain)}(remain)"
-
-            # reward
+            # [reward] [eval reward] [episode step] [episode time] [train time] [sync] [memory] [info]
             _r = [h["episode_reward"] for h in self.progress_history]
             s += f", {min(_r):.1f} {np.mean(_r):.3f} {max(_r):.1f} re"
 
-            # eval reward
+            # [eval reward]
             if self.config.distributed:
                 if self.config.enable_evaluation:
                     s += self._eval_reward_str(self.progress_history)
@@ -256,27 +239,25 @@ class PrintProgress(Callback):
                 if self.config.enable_evaluation:
                     s += self._eval_reward_str(self.progress_history)
 
-            # episode step, episode time
+            # [episode step] [episode time]
             _s = [h["episode_step"] for h in self.progress_history]
             s += f", {np.mean(_s):.1f} step"
             s += f", {episode_time:.2f}s/ep"
 
-            # train time
+            # [train time]
             if self.config.training and not self.config.distributed:
-                train_time = np.mean([h["train_time"] for h in self.progress_history])
                 s += f", {train_time:.3f}s/tr"
 
-            # sync
+            # [sync]
             if "sync" in self.progress_history[0]:
                 sync = max([h["sync"] for h in self.progress_history])
                 s += f", {sync:3d} recv"
 
-            # memory
+            # [memory]
             if self.actor_id == 0:
-                memory_len = max([h["remote_memory"] for h in self.progress_history])
-                s += self._memory_str(memory_len)
+                s += self._memory_str(self.last_memory)
 
-            # info
+            # [info]
             if self.print_env_info:
                 s += self._info_str(self.progress_history, "env_info")
             if self.print_worker_info:
@@ -304,7 +285,7 @@ class PrintProgress(Callback):
         if is_package_installed("psutil"):
             import psutil
 
-            s += f"({psutil.virtual_memory().percent:.1f}% PC)"
+            s += f"({psutil.virtual_memory().percent:3.1f}% PC)"
 
         return s
 
@@ -350,19 +331,18 @@ class TrainerPrintProgress(TrainerCallback):
         self.progress_t0 = self.t0 = time.time()
         self.progress_history = []
 
-        self.train_time = 0
-        self.train_count = 0
+        self.resent_train_time = deque(maxlen=10)
+        self.last_train_count = 0
 
     def on_trainer_end(self, info) -> None:
+        self.last_train_count = info["train_count"]
         self._print()
 
     def on_trainer_train(self, info) -> None:
-        self.train_time = info["train_time"]
-        self.train_count = info["train_count"]
+        self.resent_train_time.append(info["train_time"])
+        self.last_train_count = info["train_count"]
 
         d = {
-            "train_count": self.train_count,
-            "train_time": self.train_time,
             "train_info": info["train_info"],
             "eval_reward": info["eval_reward"],
         }
@@ -396,41 +376,45 @@ class TrainerPrintProgress(TrainerCallback):
         if self.config.distributed:
             s += " trainer:"
         s += f" {to_str_time(elapsed_time)}"
-        s += " {:6d}tr".format(self.train_count)
+
+        # [remain]
+        train_time = np.mean(self.resent_train_time) if len(self.resent_train_time) > 0 else np.inf
+        if self.config.max_train_count > 0:
+            remain_train = (self.config.max_train_count - self.last_train_count) * train_time
+        else:
+            remain_train = np.inf
+        if self.config.timeout > 0:
+            remain_time = self.config.timeout - elapsed_time
+        else:
+            remain_time = np.inf
+        remain = min(remain_train, remain_time)
+        if remain == np.inf:
+            s += "(      - remain)"
+        else:
+            s += f"({to_str_time(remain)} remain)"
+
+        # [train count]
+        s += " {:6d}tr".format(self.last_train_count)
 
         if len(self.progress_history) == 0:
             # --- no info
             s += "1 train is not over."
         else:
             # --- train info
-            # [remain] [train time] [eval] [sync] [info]
-            train_time = np.mean([h["train_time"] for h in self.progress_history])
-
-            if self.config.max_train_count > 0:
-                remain_train = (self.config.max_train_count - self.train_count) * train_time
-            else:
-                remain_train = np.inf
-            if self.config.timeout > 0:
-                remain_time = self.config.timeout - elapsed_time
-            else:
-                remain_time = np.inf
-            remain = min(remain_train, remain_time)
-            s += f" {to_str_time(remain)}(remain)"
-
-            # train time
+            # [train time] [eval] [sync] [info]
             s += f", {train_time:.4f}s/tr"
 
-            # eval
+            # [eval]
             if self.config.enable_evaluation:
                 eval_rewards = [h["eval_reward"] for h in self.progress_history if h["eval_reward"] is not None]
                 if len(eval_rewards) > 0:
                     s += f", {np.mean(eval_rewards):.3f} eval reward"
-            # sync
+            # [sync]
             if "sync" in self.progress_history[0]:
                 sync = max([h["sync"] for h in self.progress_history])
                 s += f", {sync:3d} send"
 
-            # train info
+            # [train info]
             if self.print_train_info:
                 d = listdictdict_to_dictlist(self.progress_history, "train_info")
                 d = summarize_info_from_dictlist(d)

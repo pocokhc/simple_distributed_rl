@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 
-# 方策が正規分布時の logπ(a|s)
+# 方策が正規分布時の log π(a|s)
 # @tf.function
 def compute_logprob(mean, stddev, action):
     a1 = -0.5 * np.log(2 * np.pi)
@@ -12,7 +12,7 @@ def compute_logprob(mean, stddev, action):
     return a1 + a2 + a3
 
 
-# Squashed Gaussian Policy の logπ(a|s)
+# Squashed Gaussian Policy の log π(a|s)
 # @tf.function
 def compute_logprob_sgp(mean, stddev, action):
     logmu = compute_logprob(mean, stddev, action)
@@ -20,3 +20,11 @@ def compute_logprob_sgp(mean, stddev, action):
     logpi = tf.clip_by_value(logpi, 1e-6, logpi)  # log(0)回避用
     logpi = logmu - tf.math.log(logpi)
     return logpi
+
+
+# 正規分布のKL divergence
+def gaussian_kl_divergence(mean1, log_stddev1, mean2, log_stddev2):
+    x1 = log_stddev2 - log_stddev1
+    x2 = (tf.exp(log_stddev1) ** 2 + (mean1 - mean2) ** 2) / (2 * tf.exp(log_stddev2) ** 2)
+    x3 = -0.5
+    return x1 + x2 + x3

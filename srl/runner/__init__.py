@@ -1,3 +1,4 @@
+from .callbacks.file_logger import load_history  # noqa F401
 from .mp import MpConfig  # noqa F401
 from .mp import train as mp_train  # noqa F401
 from .sequence import Config  # noqa F401

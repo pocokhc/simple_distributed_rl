@@ -596,3 +596,9 @@ class FileLogPlot:
         plt.grid()
         plt.tight_layout()
         plt.show()
+
+
+def load_history(log_dir: str):
+    history = FileLogPlot()
+    history.load(log_dir)
+    return history

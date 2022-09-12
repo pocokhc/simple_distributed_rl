@@ -36,15 +36,8 @@ class Config:
     env_config: EnvConfig
     rl_config: RLConfig
 
-    # episode option
-    max_episode_steps: int = 1_000_000
-    episode_timeout: int = 60 * 60  # s
-
     # multi player option
     players: List[Union[None, str, RLConfig]] = field(default_factory=list)
-
-    # play option
-    skip_frames: int = 0
 
     def __post_init__(self):
         # stop config
@@ -480,7 +473,6 @@ def render(
     font_name: str = "",
     font_size: int = 12,
     # stop config
-    episode_timeout: int = -1,
     max_steps: int = -1,
     timeout: int = -1,
     seed: Optional[int] = None,
@@ -503,7 +495,6 @@ def render(
     config.timeout = timeout
     config.max_steps = max_steps
     config.max_train_count = -1
-    config.episode_timeout = episode_timeout
     # play config
     config.shuffle_player = False
     config.disable_trainer = True
@@ -558,7 +549,6 @@ def animation(
     font_name: str = "",
     font_size: int = 12,
     # stop config
-    episode_timeout: int = -1,
     max_steps: int = -1,
     timeout: int = -1,
     seed: Optional[int] = None,
@@ -583,7 +573,6 @@ def animation(
         use_skip_step=use_skip_step,
         font_name=font_name,
         font_size=font_size,
-        episode_timeout=episode_timeout,
         max_steps=max_steps,
         timeout=timeout,
         seed=seed,
@@ -711,7 +700,7 @@ def play(
 
             # env reset
             episode_t0 = _time
-            env.reset(config.max_episode_steps, config.episode_timeout)
+            env.reset()
 
             # shuffle
             if config.shuffle_player:
@@ -737,10 +726,10 @@ def play(
         [c.on_step_begin(_info) for c in callbacks]
 
         # env step
-        if config.skip_frames == 0:
+        if config.env_config.skip_frames == 0:
             env.step(action)
         else:
-            env.step(action, config.skip_frames, lambda: [c.on_skip_step(_info) for c in callbacks])
+            env.step(action, lambda: [c.on_skip_step(_info) for c in callbacks])
         worker_idx = worker_indices[env.next_player_index]
 
         # rl step

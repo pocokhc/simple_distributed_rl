@@ -9,6 +9,7 @@ from typing import Any, List, Optional, Tuple
 import numpy as np
 import srl
 from srl.base.define import EnvAction, EnvObservation, EnvObservationType, Info
+from srl.base.env.config import EnvConfig
 from srl.base.env.space import SpaceBase
 from srl.base.env.spaces.discrete import DiscreteSpace
 
@@ -157,16 +158,15 @@ class EnvBase(ABC):
 
 # 実装と実行で名前空間を分けるために別クラスに
 class EnvRun:
-    def __init__(self, env: EnvBase) -> None:
+    def __init__(self, env: EnvBase, config: EnvConfig) -> None:
         self.env = env
+        self.config = config
         self.init()
 
         self.fig = None
         self.ax = None
 
         self.t0 = 0
-        self.max_steps = -1
-        self.timeout = -1
 
     def init(self):
         self._step_num = 0
@@ -210,7 +210,7 @@ class EnvRun:
 
     @property
     def max_episode_steps(self) -> int:
-        return self.env.max_episode_steps
+        return self.config.max_episode_steps
 
     @property
     def player_num(self) -> int:
@@ -251,8 +251,8 @@ class EnvRun:
     def info(self) -> Optional[Info]:
         return self._info
 
-    def reset(self, max_steps: int = -1, timeout: int = -1) -> None:
-        logger.debug(f"env.reset(max_steps={max_steps}, timeout={timeout})")
+    def reset(self) -> None:
+        logger.debug("env.reset()")
         self._state, self._next_player_index = self.env.reset()
         self._step_num = 0
         self._done = False
@@ -262,12 +262,8 @@ class EnvRun:
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
 
         self.t0 = time.time()
-        if max_steps != -1:
-            self.max_steps = max_steps
-        if timeout != -1:
-            self.timeout = timeout
 
-    def step(self, action: EnvAction, skip_frames: int = 0, skip_function=None) -> Info:
+    def step(self, action: EnvAction, skip_function=None) -> Info:
         assert not self.done, "It is in the done state. Please execute reset ()."
         logger.debug("env.step")
 
@@ -277,7 +273,7 @@ class EnvRun:
         self._step_rewards = np.asarray(rewards, dtype=np.float32)
 
         # skip frame の間は同じアクションを繰り返す
-        for _ in range(skip_frames):
+        for _ in range(self.config.skip_frames):
             assert self.player_num == 1
             self._state, rewards, self._done, self._next_player_index, self._info = self.env.step(
                 action, self.next_player_index
@@ -303,11 +299,8 @@ class EnvRun:
             self._done_reason = "env"
         elif self.step_num > self.max_episode_steps:
             self._done = True
-            self._done_reason = "env max steps"
-        elif self.max_steps > 0 and self.step_num > self.max_steps:
-            self._done = True
             self._done_reason = "episode max steps"
-        elif self.timeout > 0 and time.time() - self.t0 > self.timeout:
+        elif self.config.episode_timeout > 0 and time.time() - self.t0 > self.config.episode_timeout:
             self._done = True
             self._done_reason = "timeout"
 
@@ -327,8 +320,6 @@ class EnvRun:
             self._invalid_actions_list,
             self.info,
             self.t0,
-            self.max_steps,
-            self.timeout,
         ]
         return pickle.dumps(d)
 
@@ -346,8 +337,6 @@ class EnvRun:
         self._invalid_actions_list = d[8]
         self._info = d[9]
         self.t0 = d[10]
-        self.max_steps = d[11]
-        self.timeout = d[12]
 
     def render(self, **kwargs) -> None:
         logger.debug("env.render()")
@@ -481,7 +470,7 @@ class EnvRun:
 
     def copy(self):
         org_env = self.env.__class__()
-        env = self.__class__(org_env)
+        env = self.__class__(org_env, self.config)
         env.restore(self.backup())
         return env
 

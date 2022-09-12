@@ -11,6 +11,11 @@ class EnvConfig:
     name: str
     kwargs: Dict = field(default_factory=dict)
 
+    # episode option
+    max_episode_steps: int = -1
+    episode_timeout: int = -1  # s
+    skip_frames: int = 0
+
     # gym
     gym_prediction_by_simulation: bool = True
 
@@ -20,7 +25,8 @@ class EnvConfig:
         return make(self)
 
     def _update_env_info(self, env: "EnvBase"):
-        self.max_episode_steps = env.max_episode_steps
+        if self.max_episode_steps <= 0:
+            self.max_episode_steps = env.max_episode_steps
         self.player_num = env.player_num
 
     def copy(self) -> "EnvConfig":

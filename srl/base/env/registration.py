@@ -32,7 +32,7 @@ def make(config: Union[str, EnvConfig]) -> EnvRun:
     # config update
     config._update_env_info(env)
 
-    return EnvRun(env)
+    return EnvRun(env, config)
 
 
 def register(id: str, entry_point: str, kwargs: Dict = None) -> None:

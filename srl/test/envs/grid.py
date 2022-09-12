@@ -224,3 +224,33 @@ class Grid(SinglePlayEnv):
             done = True
 
         return reward, done
+
+
+class LayerProcessor(Processor):
+    def change_observation_info(
+        self,
+        env_observation_space: SpaceBase,
+        env_observation_type: EnvObservationType,
+        rl_observation_type: RLObservationType,
+        _env: EnvRun,
+    ) -> Tuple[SpaceBase, EnvObservationType]:
+        env = cast(Grid, _env.get_original_env())
+        observation_space = BoxSpace(
+            low=0,
+            high=1,
+            shape=(1, env.H, env.W),
+        )
+        return observation_space, EnvObservationType.SHAPE3
+
+    def process_observation(self, observation: np.ndarray, _env: EnvRun) -> np.ndarray:
+        env = cast(Grid, _env.get_original_env())
+
+        px = env.player_pos[0]
+        py = env.player_pos[1]
+
+        _field = np.zeros((1, env.H, env.W))
+        for y in range(env.H):
+            for x in range(env.W):
+                if y == py and x == px:
+                    _field[0][y][x] = 1
+        return _field

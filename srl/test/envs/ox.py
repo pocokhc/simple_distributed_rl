@@ -6,7 +6,7 @@ from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
-from srl.base.env.spaces import ArrayDiscreteSpace, DiscreteSpace
+from srl.base.env.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 from srl.base.rl.processor import Processor
 
 logger = logging.getLogger(__name__)
@@ -147,3 +147,40 @@ class OX(TurnBase2Player):
             print("next player: O")
         else:
             print("next player: X")
+
+
+class LayerProcessor(Processor):
+    def change_observation_info(
+        self,
+        env_observation_space: SpaceBase,
+        env_observation_type: EnvObservationType,
+        rl_observation_type: RLObservationType,
+        env: OX,
+    ) -> Tuple[SpaceBase, EnvObservationType]:
+        observation_space = BoxSpace(
+            low=0,
+            high=1,
+            shape=(2, 3, 3),
+        )
+        return observation_space, EnvObservationType.SHAPE3
+
+    def process_observation(self, observation: np.ndarray, _env: EnvRun) -> np.ndarray:
+        env = cast(OX, _env.get_original_env())
+
+        # Layer0: player1 field (0 or 1)
+        # Layer1: player2 field (0 or 1)
+        if env.player_index == 0:
+            my_field = 1
+            enemy_field = -1
+        else:
+            my_field = -1
+            enemy_field = 1
+        _field = np.zeros((2, env.H, env.W))
+        for y in range(env.H):
+            for x in range(env.W):
+                idx = x + y * env.W
+                if observation[idx] == my_field:
+                    _field[0][y][x] = 1
+                elif observation[idx] == enemy_field:
+                    _field[1][y][x] = 1
+        return _field

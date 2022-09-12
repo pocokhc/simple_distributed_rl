@@ -188,9 +188,9 @@ class PrintProgress(Callback):
             remain_train = np.inf
         remain = min(min(min(remain_step, remain_episode), remain_time), remain_train)
         if remain == np.inf:
-            s += "(      - remain)"
+            s += "(      - left)"
         else:
-            s += f"({to_str_time(remain)} remain)"
+            s += f"({to_str_time(remain)} left)"
 
         # [all step] [all episode] [train]
         s += f" {self.step_count:6d}st({self.last_episode_count:4d}ep)"
@@ -389,9 +389,9 @@ class TrainerPrintProgress(TrainerCallback):
             remain_time = np.inf
         remain = min(remain_train, remain_time)
         if remain == np.inf:
-            s += "(      - remain)"
+            s += "(      - left)"
         else:
-            s += f"({to_str_time(remain)} remain)"
+            s += f"({to_str_time(remain)} left)"
 
         # [train count]
         s += " {:6d}tr".format(self.last_train_count)

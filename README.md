@@ -133,6 +133,8 @@ if __name__ == "__main__":
 
 + **Commonly run Example**
 
+学習と評価を別々で実行できる形式です。
+
 ``` python
 import numpy as np
 import srl
@@ -143,21 +145,26 @@ from srl import runner
 import gym  # isort: skip # noqa F401
 from algorithms import ql  # isort: skip
 
+# --- save parameter path
+_parameter_path = "_params.dat"
 
-def main():
 
-    # --- set config
-    #   Configのパラメータは、引数補完または元コードを参照してください。
-    #   For the parameters of Config, refer to the argument completion or the original code.
+# --- sample config
+# For the parameters of Config, refer to the argument completion or the original code.
+def _create_config():
     env_config = srl.EnvConfig("FrozenLake-v1")
     rl_config = ql.Config()
     config = runner.Config(env_config, rl_config)
 
-    # load parameter (Loads the file if it exists)
-    parameter_path = "_params.dat"
-    rl_config.parameter_path = parameter_path
+    # setting load parameter (Loads the file if it exists)
+    rl_config.parameter_path = _parameter_path
 
-    # --- train
+    return config
+
+# --- train sample
+def train():
+    config = _create_config()
+
     if False:
         # sequence training
         parameter, remote_memory, history = runner.train(config, timeout=60)
@@ -167,42 +174,69 @@ def main():
         parameter, remote_memory, history = runner.mp_train(config, mp_config, timeout=60)
     
     # save parameter
-    parameter.save(parameter_path)
+    parameter.save(_parameter_path)
 
-    # --- training progress data
-    logs = history.get_logs()  # get raw data
+
+# --- evaluate sample
+def evaluate():
+    config = _create_config()
+    rewards = runner.evaluate(config, max_episodes=100)
+    print(f"Average reward for 100 episodes: {np.mean(rewards)}")
+
+
+# --- render sample
+# You can watch the progress of 1 episode
+def render():
+    config = _create_config()
+    runner.render(config)
+
+
+# --- animation sample
+#  (Run "pip install opencv-python pillow matplotlib pygame" to use the animation)
+def animation():
+    config = _create_config()
+    render = runner.animation(config)
+    render.create_anime(interval=1000 / 3).save("_FrozenLake.gif")
+
+
+# --- history sample
+def training_history():
+    #
+    # 'runner.train' を実行すると tmp 配下に log ディレクトリが生成されます。
+    # その log ディレクトリをロードすると学習過程を読み込むことができます。
+    # (不要な log ディレクトリは削除して問題ありません)
+    #
+    # --- English
+    # Running 'runner.train' will create a log directory under tmp.
+    # You can load the log directory to read the training process.
+    # (you can delete the log directory if you don't need it)
+    #
+    log_dir = "tmp/YYYYMMDD_HHMMSS_XXX_XXX"
+    history = runner.load_history(log_dir)
+    
+    # get raw data
+    logs = history.get_logs()
+
+    # get pandas DataFrame
+    # (Run "pip install pandas" to use the history.get_df())
+    df_logs = history.get_df()
+    print(df_logs)
 
     # plot
     # (Run "pip install matplotlib pandas" to use the history.plot())
     history.plot()
 
-    # (Run "pip install pandas" to use the history.get_df())
-    df_logs = history.get_df()
-
-    # --- evaluate
-    rewards = runner.evaluate(config, parameter, max_episodes=100)
-    print(f"Average reward for 100 episodes: {np.mean(rewards)}")
-
-    # rendering (You can watch the progress of 1 episode)
-    runner.render(config, parameter)
-
-    # animation
-    # (Run "pip install opencv-python pillow matplotlib pygame" to use the animation)
-    render = runner.animation(config, parameter)
-    render.create_anime(interval=1000 / 3).save("_FrozenLake.gif")
-
 
 if __name__ == "__main__":
-    main()
+    train()
+    evaluate()
+    render()
+    animation()
+    #training_history()
 
 ```
 
 ![FrozenLake.gif](FrozenLake.gif)
-
-※実行するとログ保存のために `./tmp/DATE_EnvName_AlgorithmName/` ディレクトリが作成ます。  
-　削除して問題ありません。  
-　作成をやめたい場合は `train` の引数に `enable_file_logger=False` を追加してください。  
-　ただ、その場合 `history` は使えなくなります。  
 
 # Customize
 
@@ -257,7 +291,7 @@ examples/custom_rl.ipynb
 |Algorithm  |Observation|Action     |Frameworks|ProgressRate|
 |-----------|-----------|-----------|----------|----|
 |WorldModels|Continuous |Discrete   |Tensorflow|100%|
-|PlaNet     |           |           ||  0%|
+|PlaNet     |Continuous |Discrete   |Tensorflow|  0%|
 |Dreamer    |           |           ||  0%|
 |DreamerV2  |           |           ||  0%|
 

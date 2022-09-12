@@ -14,17 +14,22 @@
 
 1. フレームワーク関係
    1. Infoに文字列も許可し、数値以外は文字列にする処理を追加
+   1. print_progressの表示方法を変更
+   1. runnerに過去のhistoryを読み込む関数を作成(load_history)
 1. アルゴリズム関係
    1. WorldModelsで温度パラメータのサンプル計算がおかしいbug fix
    1. PlaNet追加
    1. PR #5 より、float_category_encode/decodeを変更
+   1. common_tfにgaussian_kl_divergence 追加
 1. Env関係
    1. Envのチェック機構を強化し、ArrayDiscreteSpaceを見直して改修
       1. spaceにcheck_valを追加
       1. 合わせて全環境を見直し
       1. test.envをupdate
+   1. EnvConfigを整理し、runner.Config にあったパラメータをEnvConfig側に移動
 1. その他
    1. READMEのインストール方法を更新
+   1. READMEのサンプルコードを更新
 
 # v0.7.0
 

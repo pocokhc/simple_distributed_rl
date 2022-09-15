@@ -358,7 +358,7 @@ examples/custom_rl.ipynb
 |rl |action     |Discrete  |int|
 |rl |action     |Continuous|list[float]|
 |rl |observation|Discrete  |np.ndarray(dtype=int)|
-|rl |observation|Continuous|np.ndarray(dtype=float)|
+|rl |observation|Continuous|np.ndarray(dtype=np.float32)|
 
 + Space(srl.base.env.spaces)
 
@@ -372,20 +372,15 @@ examples/custom_rl.ipynb
 
 # Development environment
 
-+ windows10
++ PC1
+  + windows10
   + CPUx1: Core i7-8700 3.2GHz
   + GPUx1: NVIDIA GeForce GTX 1060 3GB
-  + memory 48GB
-+ Python(3.7.9, 3.9.13)
-  + numpy: 1.22.4
-  + tensorflow: 2.9.1
-  + tensorflow-addons: 0.17.1
-  + tensorflow_probability: 0.17.0
-  + matplotlib: 3.5.2
-  + pillow: 9.1.1
-  + pandas: 1.4.2
-  + opencv-python: 4.6.0.66
-  + gym: 0.24.1
-  + pygame: 2.1.2
-  + psutil: 5.9.1
-  + pynvml: 11.4.1
+  +memory 48GB
++ PC2
+  + windows11
+  + CPUx1: Core i9-12900 2.4GHz
+  + GPUx1: NVIDIA GeForce RTX 3060 12GB
+  + memory 32GB
++ Python(3.7.9, 3.10.7)
+  + look "./tests/requirements*".

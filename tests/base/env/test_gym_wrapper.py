@@ -1,6 +1,7 @@
 import unittest
 import warnings
 
+import gym  # noqa F401
 from srl.base.define import EnvObservationType
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.env.spaces.box import BoxSpace
@@ -45,14 +46,14 @@ class Test(unittest.TestCase):
         self.assertTrue(env.observation_type == EnvObservationType.CONTINUOUS)
         self.assertTrue(isinstance(env.action_space, BoxSpace))
 
-    def test_play_Pong(self):
+    def test_play_Tetris(self):
         # atari
-        env = self.tester.play_test("ALE/Pong-v5", check_render=False, max_step=100)
+        env = self.tester.play_test("ALE/Tetris-v5", check_render=False, max_step=100)
         self.assertTrue(isinstance(env.observation_space, BoxSpace))
         self.assertTrue(env.observation_type == EnvObservationType.UNKNOWN)
         self.assertTrue(isinstance(env.action_space, DiscreteSpace))
 
-    def test_play_Tetris(self):
+    def test_play_Tetris_ram(self):
         # atari
         env = self.tester.play_test("ALE/Tetris-ram-v5", check_render=False, max_step=100)
         self.assertTrue(isinstance(env.observation_space, BoxSpace))
@@ -84,4 +85,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_play_Tetris", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_play_Pong", verbosity=2)

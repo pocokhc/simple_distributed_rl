@@ -3,13 +3,14 @@ import unittest
 import numpy as np
 import srl
 import srl.rl.dummy
+from envs import grid  # noqa E401
 from srl.runner import sequence
 
 
 class Test(unittest.TestCase):
     def test_play(self):
 
-        env_config = srl.EnvConfig("Pendulum-v1")
+        env_config = srl.EnvConfig("Grid")
         rl_config = srl.rl.dummy.Config()
 
         config = sequence.Config(env_config, rl_config)

@@ -12,7 +12,7 @@ class Test(unittest.TestCase):
         x = np.ones((batch_size, 8))
         out_x = block(x)
 
-        self.assertTrue(out_x.shape == (batch_size, 512))
+        self.assertTrue(tuple(out_x.shape) == (batch_size, 512))
 
 
 if __name__ == "__main__":

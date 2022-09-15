@@ -4,6 +4,7 @@ import os
 import unittest
 
 import algorithms
+import tensorflow  # noqa F401
 from srl.test import TestRL
 
 
@@ -47,4 +48,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_simple_check_mp", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_simple_check", verbosity=2)

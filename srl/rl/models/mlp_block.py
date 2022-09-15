@@ -8,7 +8,7 @@ class MLPBlock(keras.Model):
     def __init__(
         self,
         hidden_layer_sizes: Tuple[int, ...] = (512,),
-        activation="swish",
+        activation="relu",
         kernel_initializer="he_normal",
         **kwargs,
     ):

@@ -221,25 +221,13 @@ class _QNetwork(keras.Model):
         if use_image_head:
             c = config.cnn_block(**config.cnn_block_kwargs)(c)
             c = kl.Flatten()(c)
-
-        # UVFA
-        input_list = []
-        if self.input_ext_reward:
-            input_list.append(kl.Input(shape=(1,)))
-        if self.input_int_reward:
-            input_list.append(kl.Input(shape=(1,)))
-        if self.input_action:
-            input_list.append(kl.Input(shape=(config.action_num,)))
-        input_list.append(kl.Input(shape=(config.actor_num,)))
-        c = kl.Concatenate()([c] + input_list)
-
-        self.in_block = kl.TimeDistributed(keras.Model([in_state] + input_list, c))
+        self.in_block = kl.TimeDistributed(keras.Model(in_state, c))
 
         # --- lstm
         self.lstm_layer = kl.LSTM(config.lstm_units, return_sequences=True, return_state=True)
 
         # --- out block
-        in_state = c = kl.Input((None, config.lstm_units))
+        in_state = c = kl.Input(config.lstm_units)
 
         for i in range(len(config.hidden_layer_sizes) - 1):
             c = kl.Dense(
@@ -277,16 +265,19 @@ class _QNetwork(keras.Model):
         assert val.shape == (config.batch_size, config.sequence_length, config.action_num)
 
     def call(self, state, reward_ext, reward_int, onehot_action, onehot_actor, hidden_states, training=False):
-        input_list = [state]
-        if self.input_ext_reward:
-            input_list.append(reward_ext)
-        if self.input_int_reward:
-            input_list.append(reward_int)
-        if self.input_action:
-            input_list.append(onehot_action)
-        input_list.append(onehot_actor)
+        x = self.in_block(state, training=training)
 
-        x = self.in_block(input_list, training=training)
+        # UVFA
+        uvfa_list = [x]
+        if self.input_ext_reward:
+            uvfa_list.append(reward_ext)
+        if self.input_int_reward:
+            uvfa_list.append(reward_int)
+        if self.input_action:
+            uvfa_list.append(onehot_action)
+        uvfa_list.append(onehot_actor)
+        x = tf.concat(uvfa_list, axis=2)
+
         x, h, c = self.lstm_layer(x, initial_state=hidden_states, training=training)
         x = self.out_block(x, training=training)
         return x, [h, c]
@@ -799,7 +790,7 @@ class Worker(DiscreteActionWorker):
         ]
 
         self.recent_states.pop(0)
-        self.recent_states.append(state.astype(float))
+        self.recent_states.append(state.astype(np.float32))
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
@@ -884,8 +875,8 @@ class Worker(DiscreteActionWorker):
 
         in_ = [
             self.recent_states[-1][np.newaxis, np.newaxis, ...],
-            np.array([[[self.reward_ext]]]),
-            np.array([[[self.reward_int]]]),
+            np.array([[[self.reward_ext]]], dtype=np.float32),
+            np.array([[[self.reward_int]]], dtype=np.float32),
             prev_onehot_action,
             self.onehot_actor_idx,
         ]

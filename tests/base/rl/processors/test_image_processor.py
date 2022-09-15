@@ -1,6 +1,7 @@
 import unittest
 from typing import cast
 
+import cv2  # noqa F401
 import numpy as np
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.spaces.box import BoxSpace

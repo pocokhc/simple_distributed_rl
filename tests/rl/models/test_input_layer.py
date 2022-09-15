@@ -19,8 +19,8 @@ class Test(unittest.TestCase):
             with self.subTest((obs_shape, obs_type, true_shape, true_image)):
                 in_layer, out_layer, use_image_head = create_input_layer(obs_shape, obs_type)
                 self.assertTrue(use_image_head == true_image)
-                self.assertTrue(in_layer.shape == (None,) + obs_shape)
-                self.assertTrue(out_layer.shape == (None,) + true_shape)
+                self.assertTrue(tuple(in_layer.shape) == (None,) + obs_shape)
+                self.assertTrue(tuple(out_layer.shape) == (None,) + true_shape)
 
     def test_window_10(self):
         for obs_shape, obs_type, true_shape, true_image, is_throw in [
@@ -40,8 +40,8 @@ class Test(unittest.TestCase):
                 else:
                     in_layer, out_layer, use_image_head = create_input_layer(obs_shape, obs_type)
                     self.assertTrue(use_image_head == true_image)
-                    self.assertTrue(in_layer.shape == (None,) + obs_shape)
-                    self.assertTrue(out_layer.shape == (None,) + true_shape)
+                    self.assertTrue(tuple(in_layer.shape) == (None,) + obs_shape)
+                    self.assertTrue(tuple(out_layer.shape) == (None,) + true_shape)
 
     def test_stateful_lstm_no_window(self):
         batch_size = 16
@@ -64,4 +64,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_window_10", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_no_window", verbosity=2)

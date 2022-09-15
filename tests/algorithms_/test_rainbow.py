@@ -1,7 +1,9 @@
 import unittest
 
+import tensorflow_addons
 from algorithms import rainbow
 from srl.test import TestRL
+from srl.utils.common import compare_less_version
 
 
 class Test(unittest.TestCase):
@@ -75,6 +77,7 @@ class TestPendulum(unittest.TestCase):
         self.rl_config.enable_dueling_network = True
         self.tester.verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70)
 
+    @unittest.skipIf(compare_less_version(tensorflow_addons.__version__, "0.17.1"), "no NoisyDense")
     def test_verify_noisy(self):
         self.rl_config.enable_noisy_dense = True
         self.tester.verify_singleplay("Pendulum-v1", self.rl_config, 200 * 80)
@@ -118,4 +121,4 @@ if __name__ == "__main__":
     import __init__  # noqa F401
 
     # unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum", verbosity=2)
-    unittest.main(module=__name__, defaultTest="TestPendulum.test_verify_multistep", verbosity=2)
+    unittest.main(module=__name__, defaultTest="TestPendulum.test_verify_noisy", verbosity=2)

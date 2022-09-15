@@ -291,7 +291,7 @@ examples/custom_rl.ipynb
 |Algorithm  |Observation|Action     |Frameworks|ProgressRate|
 |-----------|-----------|-----------|----------|----|
 |WorldModels|Continuous |Discrete   |Tensorflow|100%|
-|PlaNet     |Continuous |Discrete   |Tensorflow|  0%|
+|PlaNet     |Continuous |Discrete   |Tensorflow|100%|
 |Dreamer    |           |           ||  0%|
 |DreamerV2  |           |           ||  0%|
 

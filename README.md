@@ -7,14 +7,15 @@
 どちらかというと学習用フレームワークに近いかもしれません。  
 以下の特徴があります。  
 
-+ カスタマイズ可能な環境クラスの提供
-+ カスタマイズ可能な強化学習アルゴリズムクラスの提供
++ 標準で分散強化学習のサポート
 + 環境とアルゴリズム間のインタフェースの自動調整
-+ 分散強化学習のサポート
++ 上記を満たすカスタマイズ可能な環境クラスの提供
++ 上記を満たすカスタマイズ可能な強化学習アルゴリズムクラスの提供
 + 有名な強化学習アルゴリズムの提供
 + （新しいアルゴリズムへの対応）
 
-また本フレームワークの解説は[Qiita記事](https://qiita.com/pocokhc/items/a2f1ba993c79fdbd4b4d)に記載しております。
+また本フレームワークの解説は[Qiita記事](https://qiita.com/pocokhc/items/a2f1ba993c79fdbd4b4d)にして記載しています。
+アルゴリズムの解説等をしているのでハイパーパラメータの設定等に迷ったりしたら見てみてください。
 
 # Download/Install
 
@@ -94,7 +95,7 @@ import srl
 + gym の環境を使う場合に必要
   + gym
   + pygame
-+ cpu/gpu 情報を記録したい場合に必要
++ cpu/gpu 情報を記録する場合に必要
   + psutil
   + pynvml
 
@@ -303,11 +304,11 @@ examples/custom_rl.ipynb
 
 ## その他(Original)
 
-|Algorithm    |Observation|Action  |Type     |Frameworks|ProgressRate|
-|-------------|-----------|--------|---------|----------|----|
+|Algorithm    |Observation|Action  |Type     |Frameworks|ProgressRate||
+|-------------|-----------|--------|---------|----------|----|---|
 |QL_agent57   |Discrete   |Discrete|ValueBase|          | 80%|QL + Agent57|
 |Agent57_light|Continuous |Discrete|ValueBase|Tensorflow|100%|Agent57 - (LSTM,MultiStep)|
-|SearchDynaQ  |Discrete   |Discrete|ModelBase/ValueBase|| 80%||
+|SearchDynaQ  |Discrete   |Discrete|ModelBase/ValueBase|| 80%|original|
 
 # Diagrams
 
@@ -376,7 +377,7 @@ examples/custom_rl.ipynb
   + windows10
   + CPUx1: Core i7-8700 3.2GHz
   + GPUx1: NVIDIA GeForce GTX 1060 3GB
-  +memory 48GB
+  + memory 48GB
 + PC2
   + windows11
   + CPUx1: Core i9-12900 2.4GHz

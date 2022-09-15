@@ -171,7 +171,10 @@ class PrintProgress(Callback):
         episode_time = np.mean(self.resent_episode_time) if len(self.resent_episode_time) > 0 else np.inf
         train_time = np.mean(self.resent_train_time) if len(self.resent_train_time) > 0 else np.inf
         if self.config.max_steps > 0:
-            remain_step = (self.config.max_steps - self.step_count) * (step_time + train_time)
+            if len(self.resent_train_time) > 0 and train_time > 0:
+                remain_step = (self.config.max_steps - self.step_count) * (step_time + train_time)
+            else:
+                remain_step = (self.config.max_steps - self.step_count) * step_time
         else:
             remain_step = np.inf
         if self.config.max_episodes > 0:
@@ -379,7 +382,7 @@ class TrainerPrintProgress(TrainerCallback):
 
         # [remain]
         train_time = np.mean(self.resent_train_time) if len(self.resent_train_time) > 0 else np.inf
-        if self.config.max_train_count > 0:
+        if self.config.max_train_count > 0 and len(self.resent_train_time) > 0 and train_time > 0:
             remain_train = (self.config.max_train_count - self.last_train_count) * train_time
         else:
             remain_train = np.inf

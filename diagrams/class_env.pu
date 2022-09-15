@@ -65,6 +65,7 @@ abstract SpaceBase {
 
 }
 
+
 class EnvRun {
     state
     rewards
@@ -78,8 +79,15 @@ class EnvRun {
 }
 EnvRun o-- EnvBase
 
-note "It retains the state \nat the time of episode execution." as EnvRunMemo
+note "Keeps run-time state." as EnvRunMemo
 EnvRun . EnvRunMemo
+
+
+class EnvConfig {
+    name : str
+    kwargs : dict
+}
+EnvRun -- EnvConfig
 
 
 class WorkerRun {}

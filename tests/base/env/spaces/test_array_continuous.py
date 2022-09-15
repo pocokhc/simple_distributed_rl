@@ -56,7 +56,7 @@ class Test(unittest.TestCase):
         self.tester.check_observation_continuous(
             true_shape=(3,),
             state=[1.1, 0.1, 0.9],
-            encode_state=[1.1, 0.1, 0.9],
+            encode_state=np.array([1.1, 0.1, 0.9], dtype=np.float32),
         )
 
     def test_inf(self):
@@ -98,8 +98,19 @@ class Test(unittest.TestCase):
         self.tester.check_observation_continuous(
             true_shape=(3,),
             state=[1.1, 0.1, 0.9],
-            encode_state=[1.1, 0.1, 0.9],
+            encode_state=np.array([1.1, 0.1, 0.9], dtype=np.float32),
         )
+
+    def test_convert(self):
+        space = ArrayContinuousSpace(3, -1, 3)
+        val = space.convert(1.2)
+        np.testing.assert_array_equal([1.2], val)
+
+        val = space.convert([1.2, 0.9])
+        np.testing.assert_array_equal([1.2, 0.9], val)
+
+        val = space.convert((9, 10, True))
+        np.testing.assert_array_equal([9.0, 10.0, 1.0], val)
 
 
 if __name__ == "__main__":

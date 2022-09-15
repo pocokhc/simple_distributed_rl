@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import numpy as np
 from srl.base.define import ContinuousAction, DiscreteSpaceType, RLObservation
@@ -11,6 +11,9 @@ class ContinuousSpace(BoxSpace):
 
     def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> float:
         return float(super().sample(invalid_actions)[0])
+
+    def convert(self, val: Any) -> float:
+        return float(val)
 
     def __str__(self) -> str:
         return f"Continuous({self.low}, {self.high})"

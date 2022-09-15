@@ -17,6 +17,9 @@ class DiscreteSpace(SpaceBase[int]):
     def sample(self, invalid_actions: List[int] = []) -> int:
         return random.choice([a for a in range(self.n) if a not in invalid_actions])
 
+    def convert(self, val: Any) -> int:
+        return int(np.round(val))
+
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, int):
             return False

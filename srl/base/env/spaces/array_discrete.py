@@ -58,6 +58,14 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
 
         return list(random.choice(valid_actions))
 
+    def convert(self, val: Any) -> List[int]:
+        if isinstance(val, list):
+            return [int(np.round(v)) for v in val]
+        elif isinstance(val, tuple):
+            return [int(np.round(v)) for v in val]
+        else:
+            return [int(np.round(val))]
+
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, list):
             return False

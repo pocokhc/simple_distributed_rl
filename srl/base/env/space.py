@@ -13,6 +13,11 @@ class SpaceBase(ABC, Generic[T]):
         raise NotImplementedError()
 
     @abstractmethod
+    def convert(self, val: Any) -> T:
+        """可能な限り変換する"""
+        raise NotImplementedError()
+
+    @abstractmethod
     def check_val(self, val: Any) -> bool:
         raise NotImplementedError()
 

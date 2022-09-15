@@ -49,6 +49,9 @@ class BoxSpace(SpaceBase[np.ndarray]):
         r = np.random.random_sample(self.shape)
         return self.low + r * (self.high - self.low)
 
+    def convert(self, val: Any) -> np.ndarray:
+        return np.asarray(val)
+
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, np.ndarray):
             return False
@@ -131,4 +134,4 @@ class BoxSpace(SpaceBase[np.ndarray]):
         return np.round(val).astype(int)
 
     def observation_continuous_encode(self, val: np.ndarray) -> RLObservation:
-        return val.astype(float)
+        return val.astype(np.float32)

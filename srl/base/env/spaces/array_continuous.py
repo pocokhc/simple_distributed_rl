@@ -1,4 +1,4 @@
-from typing import List, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import numpy as np
 from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
@@ -21,6 +21,14 @@ class ArrayContinuousSpace(BoxSpace):
 
     def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> List[float]:
         return super().sample(invalid_actions).tolist()
+
+    def convert(self, val: Any) -> List[float]:
+        if isinstance(val, list):
+            return [float(v) for v in val]
+        elif isinstance(val, tuple):
+            return [float(v) for v in val]
+        else:
+            return [float(val)]
 
     def __str__(self) -> str:
         return f"ArrayContinuous({self.size}, {np.min(self.low)}, {np.max(self.high)})"

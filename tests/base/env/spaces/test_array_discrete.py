@@ -66,6 +66,16 @@ class Test(unittest.TestCase):
         self.assertTrue(self.space == ArrayDiscreteSpace(3, 0, [2, 5, 3]))
         self.assertTrue(self.space != ArrayDiscreteSpace(3, 0, [3, 5, 3]))
 
+    def test_convert(self):
+        val = self.space.convert(1.2)
+        np.testing.assert_array_equal([1], val)
+
+        val = self.space.convert([1.2, 0.9])
+        np.testing.assert_array_equal([1, 1], val)
+
+        val = self.space.convert((9, 10, True))
+        np.testing.assert_array_equal([9, 10, 1], val)
+
 
 if __name__ == "__main__":
     unittest.main(module=__name__, defaultTest="Test.test_space", verbosity=2)

@@ -54,15 +54,15 @@ class Test(unittest.TestCase):
         # observation discrete
         self.tester.check_observation_discrete(
             true_shape=(1,),
-            state=np.array([1.1]),
+            state=np.array([1.1], dtype=np.float32),
             encode_state=[1],
         )
 
         # observation continuous
         self.tester.check_observation_continuous(
             true_shape=(1,),
-            state=np.array([1.1]),
-            encode_state=[1.1],
+            state=np.array([1.1], dtype=np.float32),
+            encode_state=np.array([1.1], dtype=np.float32),
         )
 
         # eq
@@ -105,15 +105,15 @@ class Test(unittest.TestCase):
         # observation discrete
         self.tester.check_observation_discrete(
             true_shape=(3, 2),
-            state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]]),
+            state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]], dtype=np.float32),
             encode_state=[[1, 2], [3, -1], [1, 2]],
         )
 
         # observation continuous
         self.tester.check_observation_continuous(
             true_shape=(3, 2),
-            state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]]),
-            encode_state=[[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]],
+            state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]], dtype=np.float32),
+            encode_state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]], dtype=np.float32),
         )
 
         # eq
@@ -151,17 +151,22 @@ class Test(unittest.TestCase):
         # observation discrete
         self.tester.check_observation_discrete(
             true_shape=(3, 2),
-            state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]]),
+            state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]], dtype=np.float32),
             encode_state=[[1, 2], [3, -1], [1, 2]],
         )
 
         # observation continuous
         self.tester.check_observation_continuous(
             true_shape=(3, 2),
-            state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]]),
-            encode_state=[[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]],
+            state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]], dtype=np.float32),
+            encode_state=np.array([[1.1, 2.2], [3.0, -1.0], [1.3, 1.6]], dtype=np.float32),
         )
+
+    def test_convert(self):
+        space = BoxSpace((1,), -1, 3)
+        val = space.convert([1.2, 2])
+        np.testing.assert_array_equal([1.2, 2.0], val)
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_inf", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_convert", verbosity=2)

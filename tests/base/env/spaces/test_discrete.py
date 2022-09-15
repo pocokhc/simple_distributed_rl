@@ -54,6 +54,10 @@ class Test(unittest.TestCase):
         self.assertTrue(self.space == DiscreteSpace(5))
         self.assertTrue(self.space != DiscreteSpace(4))
 
+    def test_convert(self):
+        val = self.space.convert(0.9)
+        self.assertTrue(val == 1)
+
 
 if __name__ == "__main__":
     unittest.main(module=__name__, defaultTest="Test.test_space", verbosity=2)

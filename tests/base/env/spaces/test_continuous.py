@@ -60,7 +60,7 @@ class Test(unittest.TestCase):
         self.tester.check_observation_continuous(
             true_shape=(1,),
             state=1.1,
-            encode_state=[1.1],
+            encode_state=np.array([1.1], dtype=np.float32),
         )
 
         # eq
@@ -106,8 +106,13 @@ class Test(unittest.TestCase):
         self.tester.check_observation_continuous(
             true_shape=(1,),
             state=1.1,
-            encode_state=[1.1],
+            encode_state=np.array([1.1], dtype=np.float32),
         )
+
+    def test_convert(self):
+        space = ContinuousSpace(-1, 3)
+        val = space.convert(1)
+        self.assertTrue(val == 1.0)
 
 
 if __name__ == "__main__":

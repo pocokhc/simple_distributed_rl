@@ -1,22 +1,20 @@
 import logging
 import os
 import time
-from dataclasses import dataclass
-from typing import Optional, Tuple
+from dataclasses import dataclass, field
+from typing import List
 
 import numpy as np
-from packaging import version
+from srl.base.define import PlayRenderMode
 from srl.base.env.base import EnvRun
-from srl.base.rl.base import WorkerRun
+from srl.base.rl.worker import WorkerRun
 from srl.runner.callback import Callback
 from srl.utils.common import is_package_installed
+from srl.utils.render_functions import text_to_rgb_array
 
 try:
     import cv2
     import matplotlib.pyplot as plt
-    import PIL.Image
-    import PIL.ImageDraw
-    import PIL.ImageFont
     from matplotlib.animation import ArtistAnimation
 except ImportError:
     pass
@@ -29,17 +27,10 @@ class Rendering(Callback):
 
     render_terminal: bool = True
     render_window: bool = False
+    render_kwargs: dict = field(default_factory=dict)
     step_stop: bool = False
     enable_animation: bool = False
     use_skip_step: bool = True
-
-    # windows     : C:\Windows\Fonts
-    # max         : /System/Library/Fonts
-    # linux       : /usr/local/share/fonts/
-    # google colab: /usr/share/fonts/
-
-    font_name: str = ""
-    font_size: int = 12
 
     def __post_init__(self):
         self.frames = []
@@ -48,24 +39,46 @@ class Rendering(Callback):
         self.env_maxw = 0
         self.env_maxh = 0
 
-        self.fig = None
-        self.ax = None
-
         self.rl_text = ""
         self.rl_img = None
+
+        self.render_interval = -1
 
         self.default_font_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", "..", "font", "PlemolJPConsoleHS-Regular.ttf")
         )
         self.font = None
 
-        if self.enable_animation:
+        if self.enable_animation or self.render_window:
             if not (
-                is_package_installed("cv2") and is_package_installed("matplotlib") and is_package_installed("PIL")
+                is_package_installed("cv2")
+                and is_package_installed("matplotlib")
+                and is_package_installed("PIL")
+                and is_package_installed("pygame")
             ):
                 assert (
                     False
-                ), "To use animation you need to install 'cv2', 'matplotlib', 'PIL'. (pip install opencv-python matplotlib pillow)"
+                ), "To use animation you need to install 'cv2', 'matplotlib', 'PIL', 'pygame'. (pip install opencv-python matplotlib pillow pygame)"
+
+    def on_episodes_begin(self, info) -> None:
+        env: EnvRun = info["env"]
+        worker: List[WorkerRun] = info["workers"]
+
+        if self.render_window:
+            env_mode = PlayRenderMode.window
+            rl_mode = PlayRenderMode.terminal
+        elif self.enable_animation:
+            env_mode = PlayRenderMode.rgb_array
+            rl_mode = PlayRenderMode.rgb_array
+        elif self.render_terminal:
+            env_mode = PlayRenderMode.terminal
+            rl_mode = PlayRenderMode.terminal
+        else:
+            env_mode = PlayRenderMode.none
+            rl_mode = PlayRenderMode.none
+        env.set_render_mode(env_mode)
+        [w.set_render_mode(rl_mode) for w in worker]
+        self.render_interval = env.env.render_interval
 
     def on_step_begin(self, info) -> None:
         self._render_step(info)
@@ -86,17 +99,19 @@ class Rendering(Callback):
         step_time = info["step_time"] if "step_time" in info else None
 
         # env text
-        env_text = env.render_terminal(return_text=True)
+        env_text = env.render_terminal(return_text=True, **self.render_kwargs)
 
         # rl text
-        if is_skip:
-            rl_text = ""
-        else:
-            self.rl_text = worker.render_terminal(env, return_text=True)
-            rl_text = self.rl_text
+        if not is_skip:
+            self.rl_text = worker.render_terminal(env, return_text=True, **self.render_kwargs)
 
-        # info text
-        info_text = f"### {env.step_num}, action {action}, rewards {env.step_rewards}"
+        # --- info text
+        info_text = f"### {env.step_num}"
+        if isinstance(action, float):
+            info_text += f", action {action:.3f}"
+        else:
+            info_text += f", action {action}"
+        info_text += ", rewards[" + ",".join([f"{r:.3f}," for r in env.step_rewards]) + "]"
         if env.done:
             info_text += f", done({env.done_reason})"
         info_text += f", next {env.next_player_index}"
@@ -112,35 +127,28 @@ class Rendering(Callback):
             print(info_text)
             if env_text != "":
                 print(env_text)
-            if rl_text != "" and not env.done:
-                print(rl_text)
+            if self.rl_text != "" and not env.done:
+                print(self.rl_text)
 
-        # --- image
-        if self.render_window or self.enable_animation:
-            info_img = self._text_to_image(info_text)
-            try:
-                env_img = env.render_rgb_array()
-            except NotImplementedError:
-                env_img = self._text_to_image(env_text)
-            if not is_skip:
-                try:
-                    self.rl_img = worker.render_rgb_array(env)
-                except NotImplementedError:
-                    self.rl_img = self._text_to_image(self.rl_text)
+        # --- render window
+        if self.render_window:
+            env_img = env.render_window(**self.render_kwargs)
+        else:
+            env_img = None
+
+        # --- animation
+        if self.enable_animation:
+            info_img = text_to_rgb_array(info_text)
+            if env_img is None:
+                env_img = env.render_rgb_array(**self.render_kwargs)
+            if self.rl_img is None or not is_skip:
+                self.rl_img = worker.render_rgb_array(env, **self.render_kwargs)
 
             self.info_maxw = max(max(self.info_maxw, info_img.shape[1]), self.rl_img.shape[1])
             self.info_maxh = max(self.info_maxh, info_img.shape[0] + self.rl_img.shape[0])
             self.env_maxw = max(self.env_maxw, env_img.shape[1])
             self.env_maxh = max(self.env_maxh, env_img.shape[0])
 
-        if self.render_window:
-            if self.step_stop:
-                img = self._create_image(info_img, env_img, self.rl_img)
-                self._draw_window_image(img)
-            else:
-                self._draw_window_image(env_img)
-
-        if self.enable_animation:
             self.frames.append(
                 {
                     "info_image": info_img,
@@ -153,35 +161,6 @@ class Rendering(Callback):
             input("Enter to continue:")
 
     # -----------------------------------------------
-    def _text_to_image(self, text: str) -> np.ndarray:
-        text = text.encode("utf-8").decode("latin-1")
-        if self.font is None:
-            if self.font_name == "":
-                assert os.path.isfile(self.default_font_path), f"font file is not found({self.default_font_path})"
-                font_name = self.default_font_path
-                logger.debug(f"use font: {font_name}")
-            else:
-                font_name = self.font_name
-            self.font = PIL.ImageFont.truetype(font_name, size=self.font_size)
-
-        canvas_size = (640, 480)
-        img = PIL.Image.new("RGB", canvas_size)
-        draw = PIL.ImageDraw.Draw(img)
-        if version.parse(PIL.__version__) < version.Version("9.2.0"):
-            text_width, text_height = draw.multiline_textsize(text, font=self.font)
-        else:
-            _, _, text_width, text_height = draw.multiline_textbbox((0, 0), text, font=self.font)
-
-        canvas_size = (text_width, text_height)
-        background_rgb = (0, 0, 0)
-        text_rgb = (255, 255, 255)
-        img = PIL.Image.new("RGB", canvas_size, background_rgb)
-        draw = PIL.ImageDraw.Draw(img)
-        draw.text((0, 0), text, fill=text_rgb, font=self.font)
-        img = np.array(img, dtype=np.uint8)
-
-        return img
-
     def _create_image(self, info_image: np.ndarray, env_image: np.ndarray, rl_image: np.ndarray):
 
         # --- 余白を追加
@@ -214,26 +193,12 @@ class Rendering(Callback):
 
         return img2
 
-    def _draw_window_image(self, image):
-        """matplotlibを採用"""
-
-        if self.fig is None:
-            plt.ion()  # インタラクティブモードをオン
-            self.fig, self.ax = plt.subplots()
-            self.ax.axis("off")
-
-        self.ax.imshow(image)
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
-
     # -----------------------------------------------
 
     def create_anime(
         self,
         scale: float = 1.0,
-        interval: float = 1000 / 60,
-        gray: bool = False,
-        resize: Optional[Tuple[int, int]] = None,
+        interval: float = -1,  # ms
         draw_info: bool = False,
     ):
         if len(self.frames) == 0:
@@ -247,12 +212,8 @@ class Rendering(Callback):
             env_img = f["env_image"]
             info_img = f["info_image"]
             rl_img = f["rl_image"]
-
-            if resize is not None:
-                env_img = cv2.resize(env_img, resize)
-            if gray:
-                env_img = cv2.cvtColor(env_img, cv2.COLOR_RGB2GRAY)
-                env_img = np.stack((env_img,) * 3, -1)
+            if rl_img is None:
+                continue
 
             if draw_info:
                 img = self._create_image(info_img, env_img, rl_img)
@@ -262,25 +223,33 @@ class Rendering(Callback):
             maxw = max(maxw, img.shape[1])
             maxh = max(maxh, img.shape[0])
 
+        # --- interval
+        if interval <= 0:
+            interval = self.render_interval
+        if interval <= 0:
+            interval = 1000 / 60
+        logger.info("interval: {:.1f}ms".format(interval))
+
+        # --- size (inch = pixel / dpi)
         fig_dpi = 100
-        # inch = pixel / dpi
         fig = plt.figure(
             dpi=fig_dpi, figsize=(scale * maxw / fig_dpi, scale * maxh / fig_dpi), tight_layout=dict(pad=0)
         )
+
+        # --- animation
         ax = fig.add_subplot(1, 1, 1)
         ax.axis("off")
         images = [[ax.imshow(img, animated=True)] for img in images]
         anime = ArtistAnimation(fig, images, interval=interval, repeat=False)
         # plt.close(fig)  # notebook で画像が残るので出来ればcloseしたいけど、closeするとgym側でバグる
-        logger.debug("create animation({:.1f}s)".format(time.time() - t0))
+
+        logger.info("create animation({:.1f}s)".format(time.time() - t0))
         return anime
 
     def display(
         self,
         scale: float = 1.0,
-        interval: int = 1000 / 60,
-        gray: bool = False,
-        resize: Optional[Tuple[int, int]] = None,
+        interval: float = -1,  # ms
         draw_info: bool = False,
     ) -> None:
         if len(self.frames) == 0:
@@ -289,6 +258,6 @@ class Rendering(Callback):
         from IPython import display
 
         t0 = time.time()
-        anime = self.create_anime(scale, interval, gray, resize, draw_info)
+        anime = self.create_anime(scale, interval, draw_info)
         display.display(display.HTML(data=anime.to_jshtml()))
         logger.info("create display({:.1f}s)".format(time.time() - t0))

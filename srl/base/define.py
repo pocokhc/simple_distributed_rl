@@ -44,3 +44,44 @@ class RLActionType(enum.Enum):
     ANY = enum.auto()
     DISCRETE = enum.auto()  # 離散
     CONTINUOUS = enum.auto()  # 連続
+
+
+class RenderMode(enum.Enum):
+    NONE = enum.auto()
+    Terminal = enum.auto()
+    RBG_array = enum.auto()
+
+
+class PlayRenderMode(enum.Enum):
+    none = enum.auto()
+    terminal = enum.auto()
+    ansi = enum.auto()
+    window = enum.auto()
+    rgb_array = enum.auto()
+
+    @staticmethod
+    def get_names() -> List[str]:
+        return [i.name for i in PlayRenderMode]
+
+    @staticmethod
+    def from_str(mode: Union[str, "PlayRenderMode"]) -> "PlayRenderMode":
+        if isinstance(mode, str):
+            if mode == "":
+                mode = "none"
+            names = PlayRenderMode.get_names()
+            assert mode in names, "Unknown mode '{}'. mode list is [{}].".format(
+                mode,
+                ",".join(names),
+            )
+            mode = PlayRenderMode[mode]
+        return mode
+
+    @staticmethod
+    def convert_render_mode(mode: "PlayRenderMode") -> RenderMode:
+        return {
+            PlayRenderMode.none: RenderMode.NONE,
+            PlayRenderMode.terminal: RenderMode.Terminal,
+            PlayRenderMode.ansi: RenderMode.Terminal,
+            PlayRenderMode.window: RenderMode.RBG_array,
+            PlayRenderMode.rgb_array: RenderMode.RBG_array,
+        }[mode]

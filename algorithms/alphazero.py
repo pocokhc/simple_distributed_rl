@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass
-from typing import Any, List, cast
+from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -9,7 +9,7 @@ from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
-from srl.base.rl.base import RLParameter, RLTrainer, WorkerRun
+from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
 from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
@@ -326,19 +326,21 @@ class Worker(ModelBaseWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def call_on_reset(self, state: np.ndarray, env: EnvRun, worker: WorkerRun) -> None:
+    def call_on_reset(self, state: np.ndarray, env: EnvRun, worker) -> dict:
         self.sampling_step = 0
         self.history = []
 
         self.N = {}  # 訪問回数(s,a)
         self.W = {}  # 累計報酬(s,a)
 
+        return {}
+
     def _init_state(self, state_str):
         if state_str not in self.N:
             self.N[state_str] = [0 for _ in range(self.config.action_num)]
             self.W[state_str] = [0 for _ in range(self.config.action_num)]
 
-    def call_policy(self, state: np.ndarray, env: EnvRun, worker: WorkerRun) -> int:
+    def call_policy(self, state: np.ndarray, env: EnvRun, worker) -> Tuple[int, dict]:
         self.state = state
         self.state_str = to_str_observation(state)
         self.invalid_actions = env.get_invalid_actions()
@@ -361,7 +363,7 @@ class Worker(ModelBaseWorker):
             counts = np.asarray(self.N[self.state_str])
             action = random.choice(np.where(counts == counts.max())[0])
 
-        return int(action)
+        return int(action), {}
 
     def _simulation(
         self,
@@ -452,7 +454,7 @@ class Worker(ModelBaseWorker):
         reward: float,
         done: bool,
         env: EnvRun,
-        worker: WorkerRun,
+        worker,
     ):
         self.sampling_step += 1
 

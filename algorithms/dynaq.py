@@ -2,7 +2,7 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 from srl.base.define import RLObservationType
@@ -245,7 +245,7 @@ class Worker(DiscreteActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self.state = to_str_observation(state)
         self.invalid_actions = invalid_actions
 
@@ -254,7 +254,9 @@ class Worker(DiscreteActionWorker):
         else:
             self.epsilon = self.config.test_epsilon
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+        return {}
+
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         self.state = to_str_observation(state)
         self.invalid_actions = invalid_actions
 
@@ -267,7 +269,7 @@ class Worker(DiscreteActionWorker):
             action = random.choice(np.where(q == np.max(q))[0])
 
         self.action = int(action)
-        return self.action
+        return self.action, {}
 
     def call_on_step(
         self,

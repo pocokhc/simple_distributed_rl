@@ -1,7 +1,6 @@
 import importlib
 import json
 import logging
-import pkgutil
 import warnings
 from typing import Any, Dict, List, Union
 
@@ -149,16 +148,19 @@ def is_package_installed(name: str) -> bool:
 
     try:
         importlib.import_module(name)
+        result = True
     except ImportError:
-        pass
+        result = False
 
-    for m in pkgutil.iter_modules():
-        if m.name == name:
-            _package_cache[name] = True
-            return True
+    _package_cache[name] = result
+    return result
 
-    _package_cache[name] = False
-    return False
+
+def is_packages_installed(names: List[str]) -> bool:
+    for name in names:
+        if not is_package_installed(name):
+            return False
+    return True
 
 
 def is_env_notebook():
@@ -171,3 +173,15 @@ def is_env_notebook():
         return False
     # Jupyter Notebook
     return True
+
+
+def compare_less_version(v1, v2):
+    try:
+        from packaging import version
+
+        return version.parse(v1) < version.parse(v2)
+
+    except ImportError:
+        from distutils.version import LooseVersion
+
+        return LooseVersion(v1) < LooseVersion(v2)

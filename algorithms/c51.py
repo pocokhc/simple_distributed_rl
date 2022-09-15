@@ -1,14 +1,13 @@
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
@@ -245,9 +244,11 @@ class Worker(DiscreteActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-        self.Z = np.linspace(self.config.categorical_v_min, self.config.categorical_v_max, self.config.categorical_num_atoms)
+        self.Z = np.linspace(
+            self.config.categorical_v_min, self.config.categorical_v_max, self.config.categorical_num_atoms
+        )
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self.state = state
         self.invalid_actions = invalid_actions
 
@@ -256,7 +257,9 @@ class Worker(DiscreteActionWorker):
         else:
             self.epsilon = self.config.test_epsilon
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+        return {}
+
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         self.state = state
         self.invalid_actions = invalid_actions
 
@@ -276,7 +279,7 @@ class Worker(DiscreteActionWorker):
             action = random.choice(np.where(q == q.max())[0])
 
         self.action = action
-        return action
+        return action, {}
 
     def call_on_step(
         self,

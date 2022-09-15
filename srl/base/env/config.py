@@ -19,6 +19,10 @@ class EnvConfig:
     # gym
     gym_prediction_by_simulation: bool = True
 
+    # render option
+    font_name: str = ""
+    font_size: int = 12
+
     def make_env(self) -> "srl.base.env.base.EnvRun":
         from srl.base.env.registration import make
 

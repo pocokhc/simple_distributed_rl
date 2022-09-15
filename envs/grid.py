@@ -1,5 +1,4 @@
 import enum
-import json
 import logging
 import os
 import random
@@ -110,10 +109,10 @@ class Grid(SinglePlayEnv):
     def max_episode_steps(self) -> int:
         return 50
 
-    def call_reset(self) -> List[int]:
+    def call_reset(self) -> Tuple[List[int], dict]:
         self.player_pos = (1, 3)
         self.action = Action.DOWN
-        return list(self.player_pos)
+        return list(self.player_pos), {}
 
     def backup(self) -> Any:
         return self.player_pos
@@ -154,16 +153,17 @@ class Grid(SinglePlayEnv):
             print(s)
         print("")
 
-    def action_to_str(self, action) -> str:
-        if Action.DOWN.value == action:
-            return "↓"
-        if Action.LEFT.value == action:
-            return "←"
-        if Action.RIGHT.value == action:
-            return "→"
-        if Action.UP.value == action:
-            return "↑"
-        return str(action)
+    # 文字化けにつきいったん保留
+    # def action_to_str(self, action) -> str:
+    #    if Action.DOWN.value == action:
+    #        return "↓"
+    #    if Action.LEFT.value == action:
+    #        return "←"
+    #    if Action.RIGHT.value == action:
+    #        return "→"
+    #    if Action.UP.value == action:
+    #        return "↑"
+    #    return str(action)
 
     def render_rgb_array(self, **kwargs) -> np.ndarray:
         cell_size = 32
@@ -209,6 +209,10 @@ class Grid(SinglePlayEnv):
                     self.viewer.draw_image("wall", x_pos, y_pos)
 
         return self.viewer.get_rgb_array()
+
+    @property
+    def render_interval(self) -> float:
+        return 1000 / 1
 
     # ------------------------------------
     @property

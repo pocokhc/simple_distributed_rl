@@ -1,6 +1,6 @@
 import time
 import unittest
-from typing import cast
+from typing import Tuple, cast
 
 import numpy as np
 import srl
@@ -9,7 +9,7 @@ from envs import connectx
 from srl import runner
 from srl.base.define import EnvAction
 from srl.base.env.base import EnvRun
-from srl.base.rl.base import ExtendWorker, WorkerRun
+from srl.base.rl.worker import ExtendWorker, WorkerRun
 
 
 class MyConnectXWorker(ExtendWorker):
@@ -22,20 +22,21 @@ class MyConnectXWorker(ExtendWorker):
         # MinMaxの探索数
         self.max_depth = 4
 
-    def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> None:
+    def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> dict:
         self.is_rl = False
         self.scores = [0] * env.action_space.n
         self.minmax_time = 0
         self.minmax_count = 0
+        return {}
 
-    def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> EnvAction:
+    def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> Tuple[EnvAction, dict]:
         if env.step_num == 0:
             # --- 先行1ターン目
             # DQNの探索率を0.5にして実行
             self.rl_config.epsilon = 0.5
             action = self.rl_worker.policy(env)
             self.is_rl = True
-            return action
+            return action, {}
 
         # --- 2ターン目以降
         # DQNの探索率は0.1に戻す
@@ -58,7 +59,7 @@ class MyConnectXWorker(ExtendWorker):
         if max_count == 1:
             self.is_rl = False
             action = int(np.argmax(self.scores))
-            return action
+            return action, {}
 
         # 最大値以外のアクションを選択しないようにする(invalid_actionsに追加)
         new_invalid_actions = [a for a in range(env.action_space.n) if self.scores[a] != max_score]
@@ -68,7 +69,7 @@ class MyConnectXWorker(ExtendWorker):
         action = self.rl_worker.policy(env)
         self.is_rl = True
 
-        return action
+        return action, {}
 
     # MinMax
     def _minmax(self, env: "connectx.ConnectX", depth: int = 0):

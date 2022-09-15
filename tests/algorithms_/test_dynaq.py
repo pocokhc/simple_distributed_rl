@@ -21,11 +21,11 @@ class Test(unittest.TestCase):
 
     def test_verify_grid_mp(self):
         rl_config = dynaq.Config()
-        self.tester.verify_singleplay("Grid", rl_config, 50_000, is_mp=True)
+        self.tester.verify_singleplay("Grid", rl_config, 100_000, is_mp=True)
         self.tester.verify_grid_policy()
 
 
 if __name__ == "__main__":
     import __init__  # noqa F401
 
-    unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_grid_mp", verbosity=2)

@@ -1,17 +1,19 @@
 import unittest
-from typing import Any, cast
+from typing import Any, Tuple, cast
 
 import numpy as np
 import srl
-from srl.base.define import EnvObservationType, Info, RLAction, RLActionType, RLObservationType
+from srl.base.define import (EnvObservationType, Info, RLAction, RLActionType,
+                             RLObservationType)
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.genre.singleplay import SinglePlayEnv
 from srl.base.env.registration import register as register_env
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.env.spaces.discrete import DiscreteSpace
-from srl.base.rl.base import RLConfig, RLWorker, WorkerRun
+from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register as register_rl
+from srl.base.rl.worker import RLWorker
 from srl.test.env import TestEnv
 
 
@@ -47,8 +49,8 @@ class StubEnv(SinglePlayEnv):
     def player_num(self) -> int:
         return 1
 
-    def call_reset(self) -> np.ndarray:
-        return self.s_state
+    def call_reset(self) -> Tuple[int, Info]:
+        return self.s_state, {}
 
     def call_step(self, action):
         self.s_action = action
@@ -102,12 +104,13 @@ class StubRLWorker(RLWorker):
         self.state = np.array(0)
         self.action = 0
 
-    def _call_on_reset(self, state: np.ndarray, env: EnvBase, worker: WorkerRun) -> None:
+    def _call_on_reset(self, state: np.ndarray, env: EnvBase, worker) -> dict:
         self.on_reset_state = state
+        return {}
 
-    def _call_policy(self, state: np.ndarray, env: EnvBase, worker: WorkerRun) -> RLAction:
+    def _call_policy(self, state: np.ndarray, env: EnvBase, worker) -> Tuple[RLAction, dict]:
         self.state = state
-        return self.action
+        return self.action, {}
 
     def _call_on_step(
         self,
@@ -115,7 +118,7 @@ class StubRLWorker(RLWorker):
         reward: float,
         done: bool,
         env: EnvBase,
-        worker: WorkerRun,
+        worker,
     ) -> Info:
         self.state = next_state
         return {}
@@ -279,4 +282,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_action", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_env_play", verbosity=2)

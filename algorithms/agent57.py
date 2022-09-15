@@ -760,7 +760,7 @@ class Worker(DiscreteActionWorker):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self.q_ext = [0] * self.config.action_num
         self.q_int = [0] * self.config.action_num
         self.q = [0] * self.config.action_num
@@ -837,6 +837,8 @@ class Worker(DiscreteActionWorker):
         # エピソードメモリ(エピソード毎に初期化)
         self.episodic_memory = collections.deque(maxlen=self.config.episodic_memory_capacity)
 
+        return {}
+
     # (sliding-window UCB)
     def _calc_actor_index(self) -> int:
 
@@ -876,7 +878,7 @@ class Worker(DiscreteActionWorker):
         # UCB値最大のポリシー（複数あればランダム）
         return random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         prev_onehot_action = tf.one_hot(np.array(self.action), self.config.action_num)
         prev_onehot_action = tf.expand_dims(tf.expand_dims(prev_onehot_action, 0), 0)
 
@@ -896,7 +898,7 @@ class Worker(DiscreteActionWorker):
         probs = calc_epsilon_greedy_probs(self.q, invalid_actions, self.epsilon, self.config.action_num)
         self.action = random_choice_by_probs(probs)
         self.prob = probs[self.action]
-        return self.action
+        return self.action, {}
 
     def call_on_step(
         self,

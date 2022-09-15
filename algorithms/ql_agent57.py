@@ -2,11 +2,10 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, cast
+from typing import Any, List, Tuple, cast
 
 import numpy as np
 from srl.base.define import RLObservationType
-from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -337,7 +336,7 @@ class Worker(DiscreteActionWorker):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def call_on_reset(self, state_: np.ndarray, invalid_actions: List[int]) -> None:
+    def call_on_reset(self, state_: np.ndarray, invalid_actions: List[int]) -> dict:
         state = to_str_observation(state_)
 
         if self.training:
@@ -375,6 +374,8 @@ class Worker(DiscreteActionWorker):
 
         # エピソード内での訪問回数
         self.episodic_C = {}
+
+        return {}
 
     # (sliding-window UCB)
     def _calc_actor_index(self) -> int:
@@ -415,7 +416,7 @@ class Worker(DiscreteActionWorker):
         # UCB値最大のポリシー（複数あればランダム）
         return random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> int:
+    def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         state = self.recent_states[-1]
 
         self.parameter.init_state(state, invalid_actions)
@@ -426,7 +427,7 @@ class Worker(DiscreteActionWorker):
         probs = calc_epsilon_greedy_probs(q, invalid_actions, self.epsilon, self.config.action_num)
         self.action = random_choice_by_probs(probs)
         self.prob = probs[self.action]
-        return self.action
+        return self.action, {}
 
     def call_on_step(
         self,
@@ -434,7 +435,7 @@ class Worker(DiscreteActionWorker):
         reward: float,
         done: bool,
         next_invalid_actions: List[int],
-    ) -> Dict:
+    ) -> dict:
         n_state = to_str_observation(next_state)
         self.recent_states.pop(0)
         self.recent_states.append(n_state)

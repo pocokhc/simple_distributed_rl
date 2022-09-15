@@ -678,7 +678,7 @@ class Worker(DiscreteActionWorker):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
 
         if self.training:
             # エピソード毎に actor を決める
@@ -704,6 +704,8 @@ class Worker(DiscreteActionWorker):
 
         # エピソードメモリ(エピソード毎に初期化)
         self.episodic_memory = collections.deque(maxlen=self.config.episodic_memory_capacity)
+
+        return {}
 
     # (sliding-window UCB)
     def _calc_actor_index(self) -> int:
@@ -744,15 +746,15 @@ class Worker(DiscreteActionWorker):
         # UCB値最大のポリシー（複数あればランダム）
         return random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         self.state = state
         self.invalid_actions = invalid_actions
 
         prev_onehot_action = tf.one_hot(np.array(self.prev_action), self.config.action_num)[np.newaxis, ...]
         in_ = [
             state[np.newaxis, ...],
-            np.array([[self.prev_reward_ext]]),
-            np.array([[self.prev_reward_int]]),
+            np.array([[self.prev_reward_ext]], dtype=np.float32),
+            np.array([[self.prev_reward_int]], dtype=np.float32),
             prev_onehot_action,
             self.onehot_actor_idx,
         ]
@@ -769,7 +771,7 @@ class Worker(DiscreteActionWorker):
             # 最大値を選ぶ（複数はほぼないので無視）
             self.action = int(np.argmax(q))
 
-        return self.action
+        return self.action, {}
 
     def call_on_step(
         self,

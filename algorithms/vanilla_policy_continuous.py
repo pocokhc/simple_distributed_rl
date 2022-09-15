@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 from srl.base.define import RLObservationType
@@ -144,11 +144,13 @@ class Worker(ContinuousActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def call_on_reset(self, state: np.ndarray) -> None:
+    def call_on_reset(self, state: np.ndarray) -> dict:
         self.state = to_str_observation(state)
         self.history = []
 
-    def call_policy(self, state: np.ndarray) -> List[float]:
+        return {}
+
+    def call_policy(self, state: np.ndarray) -> Tuple[List[float], dict]:
         self.state = to_str_observation(state)
 
         # パラメータ
@@ -161,7 +163,7 @@ class Worker(ContinuousActionWorker):
         # 本当はポリシーが変化しちゃうのでよくない（暫定対処）
         env_action = np.clip(env_action, self.config.action_low[0], self.config.action_high[0])
 
-        return env_action
+        return env_action, {}
 
     def call_on_step(
         self,

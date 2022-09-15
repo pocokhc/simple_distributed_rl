@@ -12,8 +12,8 @@ from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
 from srl.base.env.spaces import BoxSpace, DiscreteSpace
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
-from srl.base.rl.base import RuleBaseWorker, WorkerRun
 from srl.base.rl.processor import Processor
+from srl.base.rl.worker import RuleBaseWorker, WorkerRun
 from srl.utils.viewer import Viewer
 
 logger = logging.getLogger(__name__)
@@ -87,7 +87,7 @@ class Othello(TurnBase2Player):
     def player_index(self) -> int:
         return self._player_index
 
-    def call_reset(self) -> List[int]:
+    def call_reset(self) -> Tuple[List[int], dict]:
         self.action = 0
 
         self._player_index = 0
@@ -103,7 +103,7 @@ class Othello(TurnBase2Player):
             self._calc_movable_dirs(1),
         ]
 
-        return self.field
+        return self.field, {}
 
     def backup(self) -> Any:
         return pickle.dumps(
@@ -275,7 +275,7 @@ class Othello(TurnBase2Player):
         else:
             print("next player: X")
 
-    def render_rgb_array(self, **kwargs) -> np.ndarray:
+    def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
 
         WIDTH = 400
         HEIGHT = 400
@@ -356,6 +356,10 @@ class Othello(TurnBase2Player):
 
         return self.viewer.get_rgb_array()
 
+    @property
+    def render_interval(self) -> float:
+        return 1000 / 5
+
     def make_worker(self, name: str) -> Optional[RuleBaseWorker]:
         if name == "cpu":
             return Cpu()
@@ -365,7 +369,7 @@ class Othello(TurnBase2Player):
 class Cpu(RuleBaseWorker):
     cache = {}
 
-    def call_on_reset(self, _env: EnvRun, worker: WorkerRun) -> None:
+    def call_on_reset(self, _env: EnvRun, worker: WorkerRun) -> dict:
         env = cast(Othello, _env.get_original_env())
         self.max_depth = 2
         self.eval_field = None
@@ -401,7 +405,9 @@ class Cpu(RuleBaseWorker):
         elif env.W == 4:
             self.max_depth = 6
 
-    def call_policy(self, env: EnvRun, worker: WorkerRun) -> EnvAction:
+        return {}
+
+    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[EnvAction, dict]:
         self._count = 0
         self.t0 = time.time()
         scores = self._negamax(env.get_original_env().copy())
@@ -411,7 +417,7 @@ class Cpu(RuleBaseWorker):
 
         scores = np.array(scores)
         action = int(random.choice(np.where(scores == scores.max())[0]))
-        return action
+        return action, {}
 
     def _negamax(self, env: Othello, depth: int = 0):
 
@@ -456,7 +462,7 @@ class Cpu(RuleBaseWorker):
         Cpu.cache[key] = scores
         return scores
 
-    def call_render(self, _env: EnvRun, worker_run: WorkerRun) -> None:
+    def render_terminal(self, _env: EnvRun, worker: WorkerRun, **kwargs) -> None:
         env = cast(Othello, _env.get_original_env())
         valid_actions = env.get_valid_actions(env.player_index)
 

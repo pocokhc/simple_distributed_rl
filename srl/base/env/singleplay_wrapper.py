@@ -1,18 +1,19 @@
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
-from srl.base.define import EnvAction, EnvObservation, Info
+from srl.base.define import EnvAction, EnvObservation, Info, PlayRenderMode
 from srl.base.env.base import EnvRun
 
 
 class SinglePlayEnvWrapper(EnvRun):
     def __init__(self, env: EnvRun):
         assert env.player_num == 1
-        super().__init__(env.env)
+        super().__init__(env.env, env.config)
 
     # ------------------------------------
     # episode functions
     # ------------------------------------
-    def reset(self) -> EnvObservation:
+    def reset(self, mode: Union[str, PlayRenderMode] = "", interval: float = -1) -> EnvObservation:
+        super().set_render_mode(mode, interval)
         super().reset()
         return self.state
 

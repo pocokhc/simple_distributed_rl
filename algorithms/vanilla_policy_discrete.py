@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 from srl.base.define import RLObservationType
@@ -136,12 +136,14 @@ class Worker(DiscreteActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self.state = to_str_observation(state)
         self.invalid_actions = invalid_actions
         self.history = []
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+        return {}
+
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         self.state = to_str_observation(state)
         self.invalid_actions = invalid_actions
 
@@ -149,7 +151,7 @@ class Worker(DiscreteActionWorker):
         action = np.random.choice([a for a in range(self.config.action_num)], p=probs)
         self.action = int(action)
         self.prob = probs[self.action]
-        return action
+        return action, {}
 
     def call_on_step(
         self,

@@ -1,12 +1,13 @@
 import unittest
 
 import srl
+from envs import grid
 from srl.base.env.config import EnvConfig
 
 
 class Test(unittest.TestCase):
     def test_config_copy(self):
-        config = EnvConfig("Grid", {"move_prob": 1.0}, False)
+        config = EnvConfig("Grid", {"move_prob": 1.0}, gym_prediction_by_simulation=False)
         env = srl.make_env(config)
 
         config2 = config.copy()

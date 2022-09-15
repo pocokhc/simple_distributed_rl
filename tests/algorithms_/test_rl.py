@@ -31,7 +31,11 @@ class Test(unittest.TestCase):
         tester = TestRL()
         for rl_config, enable_image in self.rl_list:
             with self.subTest(rl_config.getName()):
-                tester.simple_check(rl_config, enable_image=enable_image)
+                tester.simple_check(
+                    rl_config,
+                    enable_image=enable_image,
+                    check_render=False,
+                )
 
     # py ファイルからloadしたモジュールはpickle化できないのでテスト不可
     # def test_simple_check_mp(self):

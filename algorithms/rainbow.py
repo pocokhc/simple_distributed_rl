@@ -423,7 +423,7 @@ class Worker(DiscreteActionWorker):
             ) / self.config.exploration_steps
             self.final_epsilon = self.config.final_epsilon
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self.recent_states = [self.dummy_state for _ in range(self.config.multisteps + 1)]
         self.recent_actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.multisteps)]
         self.recent_probs = [1.0 / self.config.action_num for _ in range(self.config.multisteps)]
@@ -436,7 +436,9 @@ class Worker(DiscreteActionWorker):
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
-    def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> int:
+        return {}
+
+    def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         state = self.recent_states[-1]
         q = self.parameter.q_online(state[np.newaxis, ...])[0].numpy()
 
@@ -445,7 +447,7 @@ class Worker(DiscreteActionWorker):
             self.action = action
             self.prob = 1.0
             self.q = q[action]
-            return action
+            return action, {}
 
         if self.training:
             if self.config.exploration_steps > 0:
@@ -463,7 +465,7 @@ class Worker(DiscreteActionWorker):
 
         self.prob = probs[self.action]
         self.q = q[self.action]
-        return self.action
+        return self.action, {}
 
     def call_on_step(
         self,

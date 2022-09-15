@@ -1,12 +1,13 @@
 import os
 import sys
-from typing import Optional
+from typing import List, Optional
 
 import srl
 import srl.rl.random_play
 from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_worker_rulebase
+from srl.base.rl.worker import WorkerRun
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../"))
 
@@ -24,7 +25,7 @@ def _run_episode(
     rendering: bool = False,
 ):
 
-    workers = [
+    workers: List[WorkerRun] = [
         srl.make_worker(rl_config, parameter, remote_memory, training=training, distributed=False),
         make_worker_rulebase("random"),
     ]
@@ -32,6 +33,11 @@ def _run_episode(
         trainer = srl.make_trainer(rl_config, parameter, remote_memory)
     else:
         trainer = None
+
+    # --- set render mode
+    if rendering:
+        env.set_render_mode("terminal")
+        [w.set_render_mode("terminal") for w in workers]
 
     # --- reset
     env.reset()
@@ -43,16 +49,17 @@ def _run_episode(
 
     while not env.done:
 
-        # action
+        # --- action
         action = workers[env.next_player_index].policy(env)
 
+        # worker render
         if rendering:
             print(f"player {env.next_player_index}")
             workers[env.next_player_index].render(env)
 
-        # step
-        env_info = env.step(action)
-        worker_infos = [w.on_step(env) for w in workers]
+        # --- step
+        env.step(action)
+        [w.on_step(env) for w in workers]
 
         # --- trainer
         if trainer is not None:
@@ -60,14 +67,14 @@ def _run_episode(
         else:
             train_info = {}
 
-        # --- render
+        # env render
         if rendering:
             print(
-                "turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(
-                    env.step_num, action, env.step_rewards, env.done, env.next_player_index, env_info
+                "--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(
+                    env.step_num, action, env.step_rewards, env.done, env.next_player_index, env.info
                 )
             )
-            print("player {} info: {}".format(env.next_player_index, worker_infos[env.next_player_index]))
+            print("player {} info: {}".format(env.next_player_index, workers[env.next_player_index].info))
             print("train info: {}".format(train_info))
             env.render()
 

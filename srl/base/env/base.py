@@ -1,22 +1,21 @@
-import io
 import logging
 import pickle
-import sys
 import time
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import srl
-from srl.base.define import EnvAction, EnvObservation, EnvObservationType, Info
+from srl.base.define import EnvAction, EnvObservation, EnvObservationType, Info, PlayRenderMode
 from srl.base.env.config import EnvConfig
 from srl.base.env.space import SpaceBase
 from srl.base.env.spaces.discrete import DiscreteSpace
+from srl.base.render import IRender, Render
 
 logger = logging.getLogger(__name__)
 
 
-class EnvBase(ABC):
+class EnvBase(ABC, IRender):
     # --------------------------------
     # implement properties
     # --------------------------------
@@ -53,12 +52,13 @@ class EnvBase(ABC):
     # implement functions
     # --------------------------------
     @abstractmethod
-    def reset(self) -> Tuple[EnvObservation, int]:
+    def reset(self) -> Tuple[EnvObservation, int, Info]:
         """reset
 
         Returns: (
             init_state,
             next_player_index,
+            info,
         )
         """
         raise NotImplementedError()
@@ -75,8 +75,7 @@ class EnvBase(ABC):
             action (EnvAction): player_index action
             player_index (int): stepで行動するプレイヤーのindex
 
-        Returns:
-            (
+        Returns:(
             next_state,
             [
                 player1 reward,
@@ -99,47 +98,35 @@ class EnvBase(ABC):
     def restore(self, data: Any) -> None:
         raise NotImplementedError()
 
-    # option
+    # --------------------------------
+    # options
+    # --------------------------------
     def close(self) -> None:
         pass
 
-    # option
-    def render_terminal(self, **kwargs) -> None:
-        raise NotImplementedError()
-
-    # option
-    def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
-        raise NotImplementedError()
-
-    # option
     def get_invalid_actions(self, player_index: int) -> List[int]:
         return []
 
-    # option
     def action_to_str(self, action: EnvAction) -> str:
         return str(action)
 
-    # option
     def make_worker(self, name: str) -> Optional["srl.base.rl.base.WorkerBase"]:
         return None
 
-    # option
     def get_original_env(self) -> object:
         return self
 
-    # option
     def set_seed(self, seed: Optional[int] = None) -> None:
         pass
 
-    def copy(self):
-        env = self.__class__()
-        env.restore(self.backup())
-        return env
+    @property
+    def render_interval(self) -> float:
+        return 1000 / 60
 
     # --------------------------------
     # direct
     # --------------------------------
-    def direct_reset(self, *args, **kwargs) -> Tuple[EnvObservation, int]:
+    def direct_reset(self, *args, **kwargs) -> Tuple[EnvObservation, int, Info]:
         raise NotImplementedError()
 
     def direct_step(self, *args, **kwargs) -> Tuple[EnvObservation, List[float], bool, int, Info]:
@@ -148,6 +135,11 @@ class EnvBase(ABC):
     # --------------------------------
     # utils
     # --------------------------------
+    def copy(self):
+        env = self.__class__()
+        env.restore(self.backup())
+        return env
+
     def get_valid_actions(self, player_index: int) -> List[int]:
         if isinstance(self.action_space, DiscreteSpace):
             invalid_actions = self.get_invalid_actions(player_index)
@@ -163,8 +155,7 @@ class EnvRun:
         self.config = config
         self.init()
 
-        self.fig = None
-        self.ax = None
+        self._render = Render(env, config)
 
         self.t0 = 0
 
@@ -252,8 +243,9 @@ class EnvRun:
         return self._info
 
     def reset(self) -> None:
-        logger.debug("env.reset()")
-        self._state, self._next_player_index = self.env.reset()
+        logger.debug("env.reset")
+
+        self._state, self._next_player_index, self._info = self.env.reset()
         self._step_num = 0
         self._done = False
         self._done_reason = ""
@@ -263,7 +255,7 @@ class EnvRun:
 
         self.t0 = time.time()
 
-    def step(self, action: EnvAction, skip_function=None) -> Info:
+    def step(self, action: EnvAction, skip_function=None) -> None:
         assert not self.done, "It is in the done state. Please execute reset ()."
         logger.debug("env.step")
 
@@ -304,8 +296,6 @@ class EnvRun:
             self._done = True
             self._done_reason = "timeout"
 
-        return self.info
-
     def backup(self) -> Any:
         logger.debug("env.backup")
         d = [
@@ -338,67 +328,6 @@ class EnvRun:
         self._info = d[9]
         self.t0 = d[10]
 
-    def render(self, **kwargs) -> None:
-        logger.debug("env.render()")
-
-        # --- windowで描画
-        try:
-            self.render_window(**kwargs)
-        except NotImplementedError:
-            pass
-        except Exception:
-            import traceback
-
-            logger.debug(traceback.format_exc())
-
-        # --- windowで描画できなければterminalで描画
-        try:
-            self.render_terminal(**kwargs)
-        except NotImplementedError:
-            pass
-
-    def render_terminal(self, return_text: bool = False, **kwargs):
-        if return_text:
-            # 表示せずに文字列として返す
-            text = ""
-            _stdout = sys.stdout
-            try:
-                sys.stdout = io.StringIO()
-                self.env.render_terminal(**kwargs)
-                text = sys.stdout.getvalue()
-            except NotImplementedError:
-                pass
-            finally:
-                try:
-                    sys.stdout.close()
-                except Exception:
-                    pass
-                sys.stdout = _stdout
-            return text
-        else:
-            self.env.render_terminal(**kwargs)
-
-    def render_rgb_array(self, **kwargs) -> np.ndarray:
-        rgb_array = self.env.render_rgb_array(**kwargs)
-        if rgb_array is None:
-            raise NotImplementedError()
-        return rgb_array
-
-    def render_window(self, **kwargs):
-        """matplotlibを採用"""
-        rgb_array = self.env.render_rgb_array(**kwargs)
-
-        if self.fig is None:
-            import matplotlib.pyplot as plt
-
-            plt.ion()  # インタラクティブモードをオン
-            self.fig, self.ax = plt.subplots()
-            self.ax.axis("off")
-
-        self.ax.imshow(rgb_array)
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
-
     def get_invalid_actions(self, player_index: int = -1) -> List[int]:
         if isinstance(self.action_space, DiscreteSpace):
             if player_index == -1:
@@ -426,7 +355,7 @@ class EnvRun:
         if worker is None:
             return None
 
-        from srl.base.rl.base import WorkerRun
+        from srl.base.rl.worker import WorkerRun
 
         return WorkerRun(worker)
 
@@ -437,12 +366,32 @@ class EnvRun:
         self.env.set_seed(seed)
 
     # ------------------------------------
+    # render
+    # ------------------------------------
+    def set_render_mode(self, mode: Union[str, PlayRenderMode], interval: float = -1) -> None:
+        if interval <= 0:
+            interval = self.env.render_interval
+        self._render.reset(mode, interval)
+
+    def render(self, **kwargs) -> Union[None, str, np.ndarray]:
+        return self._render.render(**kwargs)
+
+    def render_terminal(self, return_text: bool = False, **kwargs) -> Union[None, str]:
+        return self._render.render_terminal(return_text, **kwargs)
+
+    def render_rgb_array(self, **kwargs) -> np.ndarray:
+        return self._render.render_rgb_array(**kwargs)
+
+    def render_window(self, **kwargs) -> np.ndarray:
+        return self._render.render_window(**kwargs)
+
+    # ------------------------------------
     # direct
     # ------------------------------------
-    def direct_reset(self, *args, **kwargs):
+    def direct_reset(self, *args, **kwargs) -> None:
         logger.debug("env.direct_reset")
 
-        self._state, self._next_player_index = self.env.direct_reset(*args, **kwargs)
+        self._state, self._next_player_index, self._info = self.env.direct_reset(*args, **kwargs)
         self._step_num = 0
         self._done = False
         self._done_reason = ""
@@ -450,7 +399,7 @@ class EnvRun:
         self._step_rewards = np.zeros(self.player_num)
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
 
-    def direct_step(self, *args, **kwargs):
+    def direct_step(self, *args, **kwargs) -> None:
         logger.debug("env.direct_step")
 
         self._state, rewards, self._done, self._next_player_index, self._info = self.env.direct_step(*args, **kwargs)
@@ -459,8 +408,6 @@ class EnvRun:
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
         self._step_num += 1
         self._episode_rewards += self.step_rewards
-
-        return self.info
 
     # ------------------------------------
     # util functions

@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass
-from typing import Any, List, cast
+from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -318,10 +318,10 @@ class Worker(DiscreteActionWorker):
             ) / self.config.exploration_steps
             self.final_epsilon = self.config.final_epsilon
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
-        pass
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+        return {}
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         self.invalid_actions = invalid_actions
         self.state = state
 
@@ -349,7 +349,7 @@ class Worker(DiscreteActionWorker):
             action = int(np.argmax(q))
 
         self.action = action
-        return action
+        return action, {}
 
     def call_on_step(
         self,

@@ -1,4 +1,5 @@
 import logging
+from typing import Tuple
 
 from srl.base.define import EnvAction, RLActionType, RLObservationType
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
@@ -67,11 +68,11 @@ class Worker(ModelBaseWorker):
     def __init__(self, *args):
         super().__init__(*args)
 
-    def call_on_reset(self, state, env, worker) -> None:
-        pass  # do nothing
+    def call_on_reset(self, state, env, worker) -> dict:
+        return {}
 
-    def call_policy(self, state, env, worker) -> EnvAction:
-        return env.sample()
+    def call_policy(self, state, env, worker) -> Tuple[EnvAction, dict]:
+        return env.sample(), {}
 
     def call_on_step(self, next_state, reward: float, done: bool, env, worker):
         return {}

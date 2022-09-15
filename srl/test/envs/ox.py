@@ -48,10 +48,10 @@ class OX(TurnBase2Player):
     def player_index(self) -> int:
         return self._player_index
 
-    def call_reset(self) -> List[int]:
+    def call_reset(self) -> Tuple[List[int], dict]:
         self.field = [0 for _ in range(self.W * self.H)]
         self._player_index = 0
-        return self.field
+        return self.field, {}
 
     def backup(self) -> Any:
         return [self.field[:], self._player_index]

@@ -68,7 +68,7 @@ class IGrid(SinglePlayEnv):
     def max_episode_steps(self) -> int:
         return (self.length + 2) * 2 * 2
 
-    def call_reset(self) -> List[int]:
+    def call_reset(self) -> Tuple[List[int], dict]:
         self.player_pos = (1, int((self.length + 2 - 1) / 2))
 
         self.field = [[1, 1, 1]]
@@ -76,7 +76,7 @@ class IGrid(SinglePlayEnv):
             self.field.append([0, 1, 0])
         self.field.append([2, 1, 3])
 
-        return list(self.player_pos)
+        return list(self.player_pos), {}
 
     def backup(self) -> Any:
         return json.dumps(
@@ -161,16 +161,9 @@ class IGrid(SinglePlayEnv):
             print(s)
         print("")
 
-    def action_to_str(self, action) -> str:
-        if Action.DOWN.value == action:
-            return "↓"
-        if Action.LEFT.value == action:
-            return "←"
-        if Action.RIGHT.value == action:
-            return "→"
-        if Action.UP.value == action:
-            return "↑"
-        return str(action)
+    @property
+    def render_interval(self) -> float:
+        return 1000 / 1
 
     # ------------------------------------
     @property

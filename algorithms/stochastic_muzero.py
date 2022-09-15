@@ -1,7 +1,7 @@
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, List, cast
+from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -711,7 +711,7 @@ class Worker(DiscreteActionWorker):
         self._v_min = np.inf
         self._v_max = -np.inf
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self.history = []
         self.episode_history = []
 
@@ -719,13 +719,15 @@ class Worker(DiscreteActionWorker):
         self.W = {}  # 累計報酬(s,a)
         self.Q = {}  # 報酬(s,a)
 
+        return {}
+
     def _init_state(self, state_str, num):
         if state_str not in self.N:
             self.N[state_str] = [0 for _ in range(num)]
             self.W[state_str] = [0 for _ in range(num)]
             self.Q[state_str] = [0 for _ in range(num)]
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         self.state = state
         self.invalid_actions = invalid_actions
 
@@ -763,7 +765,7 @@ class Worker(DiscreteActionWorker):
         self.step_policy = [self.N[self.s0_str][a] / N for a in range(self.config.action_num)]
 
         self.action = int(action)
-        return self.action
+        return self.action, {}
 
     def _simulation(self, state, state_str, invalid_actions, is_afterstate, depth: int = 0):
         if depth >= 99999:  # for safety

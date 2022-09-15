@@ -11,8 +11,8 @@ from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.spaces import BoxSpace, DiscreteSpace
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
-from srl.base.rl.base import RuleBaseWorker, WorkerRun
 from srl.base.rl.processor import Processor
+from srl.base.rl.worker import RuleBaseWorker, WorkerRun
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +53,10 @@ class ConnectX(TurnBase2Player):
     def player_index(self) -> int:
         return self._player_index
 
-    def call_reset(self) -> List[int]:
+    def call_reset(self) -> Tuple[List[int], dict]:
         self.board = [0] * self.columns * self.rows
         self._player_index = 0
-        return self.board
+        return self.board, {}
 
     def call_step(self, action: int) -> Tuple[List[int], float, float, bool, dict]:
         column = action
@@ -122,11 +122,9 @@ class ConnectX(TurnBase2Player):
 
         print(out)
 
-    def render_gui(self, **kwargs) -> None:
-        raise NotImplementedError()
-
-    def render_rgb_array(self, **kwargs) -> np.ndarray:
-        raise NotImplementedError()
+    @property
+    def render_interval(self) -> float:
+        return 1000 / 3
 
     def backup(self) -> Any:
         return [
@@ -171,10 +169,10 @@ class ConnectX(TurnBase2Player):
     }
     """
 
-    def call_direct_reset(self, observation, configuration) -> np.ndarray:
+    def call_direct_reset(self, observation, configuration) -> Tuple[np.ndarray, dict]:
         self._player_index = observation.mark - 1
         self.board = observation.board[:]
-        return self.board
+        return self.board, {}
 
     def call_direct_step(self, observation, configuration) -> Tuple[np.ndarray, float, float, bool, dict]:
         self._player_index = observation.mark - 1
@@ -189,10 +187,13 @@ class AlphaBeta(RuleBaseWorker):
     timeout: int = 6  # s
     equal_cut: bool = True
 
-    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> None:
-        pass  #
+    def __post_init__(self):
+        super().__init__()
 
-    def call_policy(self, env: EnvRun, worker: WorkerRun) -> EnvAction:
+    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> dict:
+        return {}
+
+    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[EnvAction, dict]:
         self._count = 0
         self.t0 = time.time()
         scores, action = self._alphabeta(env.get_original_env().copy())
@@ -207,7 +208,7 @@ class AlphaBeta(RuleBaseWorker):
         self._time = time.time() - self.t0
 
         # action = int(random.choice(np.where(scores == scores.max())[0]))
-        return action
+        return action, {}
 
     def _alphabeta(self, env: ConnectX, alpha=-np.inf, beta=np.inf, depth: int = 0):
         if depth == self.max_depth:
@@ -279,7 +280,7 @@ class AlphaBeta(RuleBaseWorker):
 
         return scores, select_action
 
-    def call_render(self, env: EnvRun, worker_run: WorkerRun) -> None:
+    def render_terminal(self, env: EnvRun, worker: WorkerRun, **kwargs) -> None:
         print(f"- alphabeta act: {self._action}, count: {self._count}, {self._time:.3f}s) -")
         print("+---+---+---+---+---+---+---+")
         s = "|"

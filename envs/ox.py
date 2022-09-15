@@ -10,8 +10,8 @@ from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
 from srl.base.env.spaces import BoxSpace, DiscreteSpace
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
-from srl.base.rl.base import RuleBaseWorker, WorkerRun
 from srl.base.rl.processor import Processor
+from srl.base.rl.worker import RuleBaseWorker, WorkerRun
 from srl.utils.viewer import Viewer
 
 logger = logging.getLogger(__name__)
@@ -54,10 +54,10 @@ class OX(TurnBase2Player):
     def player_index(self) -> int:
         return self._player_index
 
-    def call_reset(self) -> List[int]:
+    def call_reset(self) -> Tuple[List[int], dict]:
         self.field = [0 for _ in range(self.W * self.H)]
         self._player_index = 0
-        return self.field
+        return self.field, {}
 
     def backup(self) -> Any:
         return [self.field[:], self._player_index]
@@ -154,7 +154,7 @@ class OX(TurnBase2Player):
         else:
             print("next player: X")
 
-    def render_rgb_array(self, **kwargs) -> np.ndarray:
+    def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
 
         WIDTH = 200
         HEIGHT = 200
@@ -198,6 +198,10 @@ class OX(TurnBase2Player):
                     )
 
         return self.viewer.get_rgb_array()
+
+    @property
+    def render_interval(self) -> float:
+        return 1000 / 1
 
     def make_worker(self, name: str) -> Optional[RuleBaseWorker]:
         if name == "cpu":
@@ -244,10 +248,10 @@ class OX(TurnBase2Player):
 class Cpu(RuleBaseWorker):
     cache = {}
 
-    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> None:
-        pass  #
+    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> dict:
+        return {}
 
-    def call_policy(self, _env: EnvRun, worker: WorkerRun) -> EnvAction:
+    def call_policy(self, _env: EnvRun, worker: WorkerRun) -> Tuple[EnvAction, dict]:
         env = cast(OX, _env.get_original_env())
         scores = env.calc_scores()
         self._render_scores = scores
@@ -255,7 +259,7 @@ class Cpu(RuleBaseWorker):
         self._render_time = env._scores_time
 
         action = int(random.choice(np.where(scores == np.max(scores))[0]))
-        return action
+        return action, {}
 
     def render_render(self, _env: EnvRun, worker: WorkerRun, **kwargs) -> None:
         env = cast(OX, _env.get_original_env())

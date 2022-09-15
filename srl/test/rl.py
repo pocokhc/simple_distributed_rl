@@ -7,6 +7,7 @@ from srl.base.define import EnvObservationType
 from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
 from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
 from srl.rl.functions.common import to_str_observation
+from srl.utils.common import is_package_installed
 
 from .envs import grid, ox  # noqa F401
 
@@ -43,6 +44,7 @@ class TestRL:
         env_name: str = "",
         enable_image: bool = False,
         is_mp: bool = False,
+        check_render: bool = True,
     ):
         if env_name == "":
             env_list = ["TestGrid", "TestOX"]
@@ -65,7 +67,7 @@ class TestRL:
             if not is_mp:
                 # --- check raw
                 print(f"--- {env_name} raw check start ---")
-                self._check_play_raw(env_config, rl_config)
+                self._check_play_raw(env_config, rl_config, check_render)
 
                 # --- check sequence
                 print(f"--- {env_name} sequence check start ---")
@@ -75,11 +77,18 @@ class TestRL:
                     enable_evaluation=False,
                     enable_file_logger=False,
                 )
-                runner.render(
-                    config,
-                    parameter,
-                    max_steps=10,
-                )
+
+                # --- check render
+                if check_render:
+                    runner.render(config, parameter, max_steps=10)
+                    if (
+                        is_package_installed("cv2")
+                        and is_package_installed("matplotlib")
+                        and is_package_installed("PIL")
+                        and is_package_installed("pygame")
+                    ):
+                        render = runner.animation(config, parameter, max_steps=10)
+                        render.create_anime()
 
             else:
                 print(f"--- {env_name} mp check start ---")
@@ -102,7 +111,7 @@ class TestRL:
     def simple_check_mp(self, rl_config, enable_image: bool = False):
         self.simple_check(rl_config, enable_image=enable_image, is_mp=True)
 
-    def _check_play_raw(self, env_config, rl_config):
+    def _check_play_raw(self, env_config, rl_config, check_render):
         env = srl.make_env(env_config)
         rl_config.reset_config(env)
         rl_config.assert_params()
@@ -129,7 +138,9 @@ class TestRL:
                     ), f"unknown info type. worker{idx} info={workers[idx].info}"
 
                 # render
-                [w.render(env) for w in workers]
+                if check_render:
+                    for w in workers:
+                        w.render(env)
 
                 # step
                 env.step(action)

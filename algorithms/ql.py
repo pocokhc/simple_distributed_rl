@@ -2,7 +2,7 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Union, cast
+from typing import Any, List, Tuple, cast
 
 import numpy as np
 from srl.base.define import RLObservationType
@@ -102,10 +102,10 @@ class Trainer(RLTrainer):
 
         self.train_count = 0
 
-    def get_train_count(self):
+    def get_train_count(self) -> int:
         return self.train_count
 
-    def train(self):
+    def train(self) -> dict:
 
         batchs = self.remote_memory.sample()
         td_error_mean = 0
@@ -152,10 +152,10 @@ class Worker(DiscreteActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
-        pass
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+        return {}
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         self.invalid_actions = invalid_actions
         self.state = to_str_observation(state)
 
@@ -175,7 +175,7 @@ class Worker(DiscreteActionWorker):
             action = random.choice(np.where(q == q.max())[0])
 
         self.action = int(action)
-        return self.action
+        return self.action, {"epsilon": epsilon}
 
     def call_on_step(
         self,
@@ -183,7 +183,7 @@ class Worker(DiscreteActionWorker):
         reward: float,
         done: bool,
         next_invalid_actions: List[int],
-    ) -> Dict:
+    ) -> dict:
         if not self.training:
             return {}
 

@@ -37,7 +37,7 @@ class SpaceTest:
         self,
         true_shape: Tuple[int, ...],
         state,
-        encode_state: List,
+        encode_state,
     ):
         shape = self.space.observation_shape
         self.tester.assertTrue(isinstance(shape, tuple))
@@ -52,7 +52,7 @@ class SpaceTest:
         self,
         true_shape: Tuple[int, ...],
         state,
-        encode_state: List,
+        encode_state,
     ):
         shape = self.space.observation_shape
         self.tester.assertTrue(isinstance(shape, tuple))

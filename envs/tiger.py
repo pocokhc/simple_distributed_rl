@@ -53,10 +53,10 @@ class Tiger(SinglePlayEnv):
     def max_episode_steps(self) -> int:
         return 10
 
-    def call_reset(self) -> int:
+    def call_reset(self) -> Tuple[int, dict]:
         self.tiger = State(random.randint(0, 1))
         self.state = State(random.randint(0, 1))
-        return self.state.value
+        return self.state.value, {}
 
     def backup(self) -> Any:
         return json.dumps(
@@ -108,6 +108,10 @@ class Tiger(SinglePlayEnv):
 
     def render_terminal(self):
         print(f"state: {self.state}, tiger: {self.tiger}")
+
+    @property
+    def render_interval(self) -> float:
+        return 1000 / 1
 
     def action_to_str(self, action) -> str:
         if Action.CHECK.value == action:

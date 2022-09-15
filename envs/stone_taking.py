@@ -8,7 +8,7 @@ from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
 from srl.base.env.spaces import DiscreteSpace
-from srl.base.rl.base import RuleBaseWorker, WorkerRun
+from srl.base.rl.worker import RuleBaseWorker, WorkerRun
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +48,10 @@ class StoneTaking(TurnBase2Player):
     def player_index(self) -> int:
         return self._player_index
 
-    def call_reset(self) -> int:
+    def call_reset(self) -> Tuple[int, dict]:
         self.field = self.stones
         self._player_index = 0
-        return self.field
+        return self.field, {}
 
     def backup(self) -> Any:
         return [self.field, self._player_index]
@@ -92,6 +92,10 @@ class StoneTaking(TurnBase2Player):
         print(f"{self.field:3d}: {s}")
         print(f"next player: {self.player_index}")
 
+    @property
+    def render_interval(self) -> float:
+        return 1000 / 1
+
     def action_to_str(self, action: int) -> str:
         return str(action + 1)
 
@@ -102,22 +106,19 @@ class StoneTaking(TurnBase2Player):
 
 
 class CPU(RuleBaseWorker):
-    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> None:
-        pass  #
+    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> dict:
+        return {}
 
-    def call_policy(self, _env: EnvRun, worker: WorkerRun) -> EnvAction:
+    def call_policy(self, _env: EnvRun, worker: WorkerRun) -> Tuple[EnvAction, dict]:
         env = cast(StoneTaking, _env.get_original_env())
         if env.field == 1:
-            return 0
+            return 0, {}
 
         if env.field % 4 == 2:
-            return 1 - 1
+            return 1 - 1, {}
         if env.field % 4 == 3:
-            return 2 - 1
+            return 2 - 1, {}
         if env.field % 4 == 0:
-            return 3 - 1
+            return 3 - 1, {}
 
-        return random.randint(0, 2)
-
-    def call_render(self, _env: EnvRun, worker_run: WorkerRun) -> None:
-        pass  #
+        return random.randint(0, 2), {}

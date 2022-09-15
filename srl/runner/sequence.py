@@ -13,7 +13,7 @@ import srl.rl.human  # reservation
 import srl.rl.random_play  # reservation
 from srl.base.env.base import EnvRun
 from srl.base.env.config import EnvConfig
-from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer, WorkerRun
+from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
 from srl.base.rl.registration import (
     make_parameter,
     make_remote_memory,
@@ -21,6 +21,7 @@ from srl.base.rl.registration import (
     make_worker,
     make_worker_rulebase,
 )
+from srl.base.rl.worker import WorkerRun
 from srl.runner.callback import Callback, TrainerCallback
 from srl.runner.callbacks.file_logger import FileLogger, FileLogPlot
 from srl.runner.callbacks.print_progress import PrintProgress
@@ -202,7 +203,7 @@ class Config:
         return conf
 
     def copy(self, env_share: bool = False, callbacks_share: bool = True):
-        self.make_env()  # rl_config.set_config_by_env
+        self._set_env()
 
         env_config = self.env_config.copy()
         rl_config = self.rl_config.copy()
@@ -467,11 +468,10 @@ def render(
     # Rendering
     render_terminal: bool = True,
     render_window: bool = False,
+    render_kwargs: dict = {},
     step_stop: bool = False,
     enable_animation: bool = False,
     use_skip_step: bool = True,
-    font_name: str = "",
-    font_size: int = 12,
     # stop config
     max_steps: int = -1,
     timeout: int = -1,
@@ -488,6 +488,9 @@ def render(
     remote_memory: Optional[RLRemoteMemory] = None,
 ) -> Tuple[List[float], Rendering]:
     callbacks = callbacks[:]
+    _render_kwargs = {}
+    _render_kwargs.update(render_kwargs)
+    render_kwargs = _render_kwargs
 
     config = config.copy(env_share=True)
     # stop config
@@ -525,11 +528,10 @@ def render(
     render = Rendering(
         render_terminal=render_terminal,
         render_window=render_window,
+        render_kwargs=render_kwargs,
         step_stop=step_stop,
         enable_animation=enable_animation,
         use_skip_step=use_skip_step,
-        font_name=font_name,
-        font_size=font_size,
     )
     config.callbacks.append(render)
 
@@ -543,11 +545,8 @@ def animation(
     config: Config,
     parameter: Optional[RLParameter] = None,
     # Rendering
-    render_terminal: bool = False,
-    render_window: bool = False,
+    render_kwargs: dict = {},
     use_skip_step: bool = True,
-    font_name: str = "",
-    font_size: int = 12,
     # stop config
     max_steps: int = -1,
     timeout: int = -1,
@@ -566,13 +565,12 @@ def animation(
     rewards, anime = render(
         config=config,
         parameter=parameter,
-        render_terminal=render_terminal,
-        render_window=render_window,
+        render_terminal=False,
+        render_window=False,
+        render_kwargs=render_kwargs,
         step_stop=False,
         enable_animation=True,
         use_skip_step=use_skip_step,
-        font_name=font_name,
-        font_size=font_size,
         max_steps=max_steps,
         timeout=timeout,
         seed=seed,

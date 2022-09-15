@@ -1,10 +1,13 @@
 import logging
+import warnings
 from abc import abstractmethod
+from typing import Tuple
 
 import numpy as np
 from srl.base.define import ContinuousAction, EnvObservationType, Info, RLAction, RLActionType, RLObservation
 from srl.base.env.base import EnvRun, SpaceBase
-from srl.base.rl.base import RLConfig, RLWorker, WorkerRun
+from srl.base.rl.config import RLConfig
+from srl.base.rl.worker import RLWorker, WorkerRun
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +44,11 @@ class ContinuousActionConfig(RLConfig):
 
 class ContinuousActionWorker(RLWorker):
     @abstractmethod
-    def call_on_reset(self, state: np.ndarray) -> None:
+    def call_on_reset(self, state: np.ndarray) -> Info:
         raise NotImplementedError()
 
     @abstractmethod
-    def call_policy(self, state: np.ndarray) -> ContinuousAction:
+    def call_policy(self, state: np.ndarray) -> Tuple[ContinuousAction, Info]:
         raise NotImplementedError()
 
     @abstractmethod
@@ -59,11 +62,23 @@ class ContinuousActionWorker(RLWorker):
 
     # ----------------------------------
 
-    def _call_on_reset(self, state: RLObservation, env: EnvRun, worker: WorkerRun) -> None:
-        self.call_on_reset(state)
+    def _call_on_reset(self, state: RLObservation, env: EnvRun, worker: WorkerRun) -> Info:
+        _t = self.call_on_reset(state)
+        if _t is None:
+            warnings.warn("The return value of call_on_reset has changed from None to info.", DeprecationWarning)
+            return {}
+        return _t
 
-    def _call_policy(self, state: RLObservation, env: EnvRun, worker: WorkerRun) -> RLAction:
-        return self.call_policy(state)
+    def _call_policy(self, state: RLObservation, env: EnvRun, worker: WorkerRun) -> Tuple[RLAction, Info]:
+        action = self.call_policy(state)
+        if isinstance(action, tuple) and len(action) == 2 and isinstance(action[1], dict):
+            action, info = action
+        else:
+            warnings.warn(
+                "The return value of call_policy has changed from action to (action, info).", DeprecationWarning
+            )
+            info = {}
+        return action, info
 
     def _call_on_step(
         self,

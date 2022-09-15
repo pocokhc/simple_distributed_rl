@@ -8,7 +8,8 @@ from typing import Optional
 import srl
 from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
-from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer
+from srl.base.rl.registration import (make_parameter, make_remote_memory,
+                                      make_trainer)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../"))
 
@@ -28,6 +29,11 @@ def _run_episode(
 ):
 
     workers = [srl.make_worker(rl_config, parameter, remote_memory, training=training, distributed=distributed)]
+
+    # --- set render mode
+    if rendering:
+        env.set_render_mode("terminal")
+        [w.set_render_mode("terminal") for w in workers]
 
     # --- reset
     env.reset()

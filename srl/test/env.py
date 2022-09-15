@@ -1,6 +1,8 @@
 import srl
 from srl import runner
+from srl.base.define import PlayRenderMode
 from srl.base.env.base import EnvRun
+from srl.utils.common import is_package_installed
 
 
 class TestEnv:
@@ -12,24 +14,51 @@ class TestEnv:
         max_step: int = 0,
         print_enable: bool = False,
     ) -> EnvRun:
+        env = srl.make_env(env_name)
+        assert issubclass(env.__class__, EnvRun), "The way env is created is wrong. (Mainly due to framework side)"
 
-        # renderとrestoreの同時は想定しないとする
-        env = self._play_test(env_name, False, check_restore, max_step, print_enable)
+        # backup/restore と render は同時に使用しない
+        # render_terminal/render_window は1エピソードで変更しない
+        if check_restore:
+            env.set_render_mode(PlayRenderMode.none)
+            self._play_test(
+                env,
+                check_restore=True,
+                max_step=max_step,
+                print_enable=print_enable,
+            )
         if check_render:
-            env = self._play_test(env_name, check_render, False, max_step, print_enable)
+            env.set_render_mode(PlayRenderMode.terminal, interval=1)
+            self._play_test(
+                env,
+                check_restore=False,
+                max_step=max_step,
+                print_enable=print_enable,
+            )
+            if (
+                is_package_installed("cv2")
+                and is_package_installed("matplotlib")
+                and is_package_installed("PIL")
+                and is_package_installed("pygame")
+            ):
+                env.set_render_mode(PlayRenderMode.window, interval=1)
+                self._play_test(
+                    env,
+                    check_restore=False,
+                    max_step=max_step,
+                    print_enable=print_enable,
+                )
 
+        env.close()
         return env
 
     def _play_test(
         self,
-        env_name,
-        check_render,
+        env: EnvRun,
         check_restore,
         max_step,
         print_enable,
     ):
-        env = srl.make_env(env_name)
-        assert issubclass(env.__class__, EnvRun), "The way env is created is wrong. (Mainly due to framework side)"
 
         player_num = env.player_num
         assert player_num > 0, "player_num is greater than or equal to 1."
@@ -40,6 +69,7 @@ class TestEnv:
         assert (
             0 <= env.next_player_index < player_num
         ), f"next_player_index is out of range. (0 <= {env.next_player_index} < {player_num}) is false."
+        assert isinstance(env.info, dict), "The type of info is not dict."
 
         # --- restore/backup
         if check_restore:
@@ -50,20 +80,7 @@ class TestEnv:
         assert env.step_num == 0, "step_num should be 0 after reset."
 
         # render
-        if check_render:
-            env.render()
-            try:
-                env.render_rgb_array()
-            except NotImplementedError:
-                pass
-            try:
-                env.render_terminal()
-            except NotImplementedError:
-                pass
-            try:
-                env.render_window()
-            except NotImplementedError:
-                pass
+        env.render()
 
         while not env.done:
 
@@ -98,25 +115,11 @@ class TestEnv:
                 env.restore(dat)
 
             # render
-            if check_render:
-                env.render()
-                try:
-                    env.render_rgb_array()
-                except NotImplementedError:
-                    pass
-                try:
-                    env.render_terminal()
-                except NotImplementedError:
-                    pass
-                try:
-                    env.render_window()
-                except NotImplementedError:
-                    pass
+            env.render()
 
             if max_step > 0 and env.step_num > max_step:
                 break
 
-        env.close()
         return env
 
     def player_test(self, env_name: str, player: str) -> EnvRun:

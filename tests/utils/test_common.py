@@ -13,6 +13,11 @@ class Test(unittest.TestCase):
     def test_is_env_notebook(self):
         self.assertFalse(C.is_env_notebook())
 
+    def test_compare_less_version(self):
+        self.assertTrue(C.compare_less_version("1.2.a3", "2.0.0"))
+        self.assertFalse(C.compare_less_version("2.0.0", "1.2.a3"))
+        self.assertFalse(C.compare_less_version("3.0.0", "3.0.0"))
+
 
 if __name__ == "__main__":
     unittest.main(module=__name__, defaultTest="Test.test_is_env_notebook", verbosity=2)

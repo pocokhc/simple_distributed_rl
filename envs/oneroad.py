@@ -45,9 +45,9 @@ class OneRoad(SinglePlayEnv):
     def max_episode_steps(self) -> int:
         return int(self.N * 1.1)
 
-    def call_reset(self) -> int:
+    def call_reset(self) -> Tuple[int, dict]:
         self.player_pos = 0
-        return self.player_pos
+        return self.player_pos, {}
 
     def backup(self) -> Any:
         return json.dumps(
@@ -77,3 +77,7 @@ class OneRoad(SinglePlayEnv):
 
     def render_terminal(self):
         print(f"{self.player_pos} / {self.N}")
+
+    @property
+    def render_interval(self) -> float:
+        return 1000 / 1

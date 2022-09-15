@@ -29,9 +29,14 @@ def _run_episode(
     else:
         trainer = None
 
-    # change single play interface
+    # --- change single play interface
     env = SinglePlayEnvWrapper(env)
     worker = SinglePlayWorkerWrapper(worker)
+
+    # --- set render mode
+    if rendering:
+        env.set_render_mode("terminal")
+        worker.set_render_mode("terminal")
 
     # reset
     state = env.reset()

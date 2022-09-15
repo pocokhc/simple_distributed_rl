@@ -514,7 +514,7 @@ class Worker(DiscreteActionWorker):
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         # states : burnin + sequence_length + next_state
         # actions: sequence_length
         # probs  : sequence_length
@@ -552,7 +552,9 @@ class Worker(DiscreteActionWorker):
             self._calc_td_error = True
             self._history_batch = []
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+        return {}
+
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         state = np.asarray([[state]] * self.config.batch_size)
         q, self.hidden_state = self.parameter.q_online(state, self.hidden_state)
         q = q[0].numpy()
@@ -567,7 +569,7 @@ class Worker(DiscreteActionWorker):
 
         self.prob = probs[self.action]
         self.q = q
-        return self.action
+        return self.action, {}
 
     def call_on_step(
         self,

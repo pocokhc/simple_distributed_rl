@@ -1,14 +1,14 @@
 import json
 import random
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, Tuple, cast
 
 import numpy as np
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
-from srl.base.rl.base import RLParameter, RLTrainer, WorkerRun
+from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import SequenceRemoteMemory
 from srl.rl.functions.common import render_discrete_action, to_str_observation
@@ -124,10 +124,10 @@ class Worker(ModelBaseWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def call_on_reset(self, state: np.ndarray, env: EnvRun, worker: WorkerRun) -> None:
-        pass
+    def call_on_reset(self, state: np.ndarray, env: EnvRun, worker) -> dict:
+        return {}
 
-    def call_policy(self, _state: np.ndarray, env: EnvRun, worker: WorkerRun) -> int:
+    def call_policy(self, _state: np.ndarray, env: EnvRun, worker) -> Tuple[int, dict]:
         self.state = to_str_observation(_state)
         self.invalid_actions = self.get_invalid_actions()
         self.parameter.init_state(self.state)
@@ -143,7 +143,7 @@ class Worker(ModelBaseWorker):
         c = [-np.inf if a in self.invalid_actions else c[a] for a in range(self.config.action_num)]  # mask
         action = int(random.choice(np.where(c == np.max(c))[0]))
 
-        return action
+        return action, {}
 
     def _simulation(self, env: EnvRun, state: str, invalid_actions, depth: int = 0):
         if depth >= env.max_episode_steps:  # for safety
@@ -235,7 +235,7 @@ class Worker(ModelBaseWorker):
         reward: float,
         done: bool,
         env: EnvRun,
-        worker: WorkerRun,
+        worker,
     ) -> dict:
         return {}
 

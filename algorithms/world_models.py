@@ -2,7 +2,7 @@ import collections
 import random
 from dataclasses import dataclass
 from functools import reduce
-from typing import Any, List, Optional, cast
+from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -526,7 +526,7 @@ class Worker(DiscreteActionWorker):
                 self.elite_params.append(p)
             self.params_idx = 0
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> None:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         if self.sample_collection:
             self.remote_memory.vae_add(state)
             self.recent_states = [state]
@@ -539,7 +539,9 @@ class Worker(DiscreteActionWorker):
             self.parameter.controller.set_flat_params(self.elite_params[self.params_idx])
             self.total_reward = 0
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> int:
+        return {}
+
+    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         self.invalid_actions = invalid_actions
         self.state = state
         self.z = self.parameter.vae.encode(state[np.newaxis, ...])
@@ -557,7 +559,7 @@ class Worker(DiscreteActionWorker):
             self.hidden_state = self.parameter.rnn.forward(self.z, action, self.hidden_state, return_rnn_only=True)
 
         self.action = action
-        return action
+        return action, {}
 
     def call_on_step(
         self,

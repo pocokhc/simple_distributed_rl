@@ -1,7 +1,7 @@
+import warnings
 from abc import abstractmethod
 from typing import List, Tuple
 
-import numpy as np
 from srl.base.define import EnvAction, EnvObservation, Info
 from srl.base.env import EnvBase
 
@@ -22,29 +22,33 @@ class SinglePlayEnv(EnvBase):
     #  backup
     #  restore
     # (option)
-    #  close
     #  render_terminal
-    #  render_gui
     #  render_rgb_array
-    #  get_invalid_actions
+    #  close
     #  action_to_str
     #  make_worker
+    #  set_seed
+    #  set_render_mode
 
     @abstractmethod
-    def call_reset(self) -> np.ndarray:
+    def call_reset(self) -> Tuple[EnvObservation, Info]:
+        # state, info
         raise NotImplementedError()
 
     @abstractmethod
-    def call_step(self, action: EnvAction) -> Tuple[np.ndarray, float, bool, Info]:
+    def call_step(self, action: EnvAction) -> Tuple[EnvObservation, float, bool, Info]:
+        # state, reward, done, info
         raise NotImplementedError()
 
     def call_get_invalid_actions(self) -> List[int]:
         return []
 
-    def call_direct_reset(self, *args, **kwargs) -> np.ndarray:
+    def call_direct_reset(self, *args, **kwargs) -> Tuple[EnvObservation, Info]:
+        # state, info
         raise NotImplementedError()
 
-    def call_direct_step(self, *args, **kwargs) -> Tuple[np.ndarray, float, bool, Info]:
+    def call_direct_step(self, *args, **kwargs) -> Tuple[EnvObservation, float, bool, Info]:
+        # state, reward, done, info
         raise NotImplementedError()
 
     # -----------------------------------------------------
@@ -54,8 +58,14 @@ class SinglePlayEnv(EnvBase):
     def player_num(self) -> int:
         return 1
 
-    def reset(self) -> Tuple[np.ndarray, int]:
-        return self.call_reset(), 0
+    def reset(self) -> Tuple[EnvObservation, int, Info]:
+        state = self.call_reset()
+        if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
+            state, info = state
+        else:
+            info = {}
+            warnings.warn("The return value of reset has changed from 'state' to 'state, info'.", DeprecationWarning)
+        return state, 0, info
 
     def step(
         self,
@@ -68,9 +78,15 @@ class SinglePlayEnv(EnvBase):
     def get_invalid_actions(self, player_index: int) -> List[int]:
         return self.call_get_invalid_actions()
 
-    def direct_reset(self, *args, **kwargs) -> Tuple[np.ndarray, int]:
-        return self.call_direct_reset(*args, **kwargs), 0
+    def direct_reset(self, *args, **kwargs) -> Tuple[EnvObservation, int, Info]:
+        state = self.call_direct_reset(*args, **kwargs)
+        if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
+            state, info = state
+        else:
+            info = {}
+            warnings.warn("The return value of reset has changed from 'state' to 'state, info'.", DeprecationWarning)
+        return state, 0, info
 
-    def direct_step(self, *args, **kwargs) -> Tuple[np.ndarray, List[float], bool, int, Info]:
+    def direct_step(self, *args, **kwargs) -> Tuple[EnvObservation, List[float], bool, int, Info]:
         n_state, reward, done, info = self.call_direct_step(*args, **kwargs)
         return n_state, [reward], done, 0, info

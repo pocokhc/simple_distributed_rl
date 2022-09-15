@@ -3,7 +3,8 @@ import os
 from typing import Optional, Type
 
 from srl.base.env.base import EnvRun
-from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer, WorkerRun
+from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
+from srl.base.rl.worker import WorkerRun
 from srl.utils.common import load_module
 
 logger = logging.getLogger(__name__)
@@ -103,9 +104,8 @@ def make_worker(
     return worker
 
 
-def make_worker_rulebase(name: str, **kwargs) -> Optional[WorkerRun]:
-    if name not in _registry_worker:
-        return None
+def make_worker_rulebase(name: str, **kwargs) -> WorkerRun:
+    assert name in _registry_worker, f"{name} is not registered."
     worker = load_module(_registry_worker[name])(**kwargs)
     worker = WorkerRun(worker)
     return worker
@@ -121,8 +121,7 @@ def register(
     global _registry
 
     name = config_cls.getName()
-    if name in _registry:
-        raise ValueError(f"{name} was already registered.")
+    assert name not in _registry, f"{name} was already registered."
     _registry[name] = [
         memory_entry_point,
         parameter_entry_point,
@@ -136,7 +135,5 @@ def register_worker(
     worker_entry_point: str,
 ):
     global _registry_worker
-
-    if name in _registry_worker:
-        raise ValueError(f"{name} was already registered.")
+    assert name not in _registry_worker, f"{name} was already registered."
     _registry_worker[name] = worker_entry_point

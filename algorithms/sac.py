@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Union, cast
+from typing import Any, Dict, List, Tuple, Union, cast
 
 import numpy as np
 import tensorflow as tf
@@ -368,10 +368,11 @@ class Worker(ContinuousActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def call_on_reset(self, state: np.ndarray) -> None:
+    def call_on_reset(self, state: np.ndarray) -> dict:
         self.state = state
+        return {}
 
-    def call_policy(self, state: np.ndarray) -> List[float]:
+    def call_policy(self, state: np.ndarray) -> Tuple[List[float], dict]:
         self.state = state
         action, mean, stddev, _ = self.parameter.policy(state.reshape(1, -1))
 
@@ -389,7 +390,7 @@ class Worker(ContinuousActionWorker):
         self.mean = mean.numpy()[0]
         self.stddev = stddev.numpy()[0]
         self.action = action
-        return env_action
+        return env_action, {}
 
     def call_on_step(
         self,

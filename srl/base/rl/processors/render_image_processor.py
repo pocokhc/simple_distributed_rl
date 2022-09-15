@@ -27,16 +27,9 @@ class RenderImageProcessor(Processor):
         env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationType]:
 
-        try:
-            env.reset()
-            rgb_array = env.render_rgb_array(**self.render_kwargs)
-            self.shape = rgb_array.shape
-            self.enable_rgb_array = True
-        except NotImplementedError:
-            self.enable_rgb_array = False
-
-        if not self.enable_rgb_array:
-            return env_observation_space, env_observation_type
+        env.reset()
+        rgb_array = env.render_rgb_array(**self.render_kwargs)
+        self.shape = rgb_array.shape
 
         new_space = BoxSpace(self.shape, 0, 255)
         return new_space, EnvObservationType.COLOR
@@ -46,6 +39,4 @@ class RenderImageProcessor(Processor):
         observation: EnvObservation,
         env: EnvRun,
     ) -> EnvObservation:
-        if not self.enable_rgb_array:
-            return observation
         return env.render_rgb_array(**self.render_kwargs)

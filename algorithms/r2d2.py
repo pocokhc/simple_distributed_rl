@@ -214,7 +214,7 @@ class _QNetwork(keras.Model):
         self.lstm_layer = kl.LSTM(config.lstm_units, return_sequences=True, return_state=True)
 
         # --- out block
-        in_state = c = kl.Input((None, config.lstm_units))
+        in_state = c = kl.Input((config.lstm_units,))
 
         for i in range(len(config.hidden_layer_sizes) - 1):
             c = kl.Dense(
@@ -471,6 +471,8 @@ class Worker(DiscreteActionWorker):
         else:
             self._calc_td_error = True
             self._history_batch = []
+
+        return {}
 
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         state = state[np.newaxis, np.newaxis, ...]  # (batch, time step, ...)

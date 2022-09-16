@@ -4,18 +4,32 @@
    1. renderの改善
    1. R2D3
    1. GUIとの連携
-1. docker環境を整備して複数バージョンのテスト環境を実現したい
 1. TensorflowのGradientTapeでは正則化項が計算されていない？追加が必要か調査してアルゴリズムを見直す
 1. BizHawkのenv作成
-1. Env/Workerの戻り値の情報をすべての関数に入れたほうがいい？(gymがそんな変更になってた)
-1. renderはエピソード最初に決めてterminalとrgbを同時に使えなくする？(gymが将来的にそうなるっぽい)
+1. 学習途中での保存機能
+1. PyTorchのサンプル作成
+1. ネットワーク経由の学習
 
-# v0.7.1
+# v0.8.0
 
+1. gym v0.26.0 に合わせて大幅修正
+   1. (カスタマイズ側のI/F変更)EnvのresetとWorkerのon_reset/policyの戻り値にInfoを追加
+      1. 合わせて全環境を見直し
+      1. 合わせて全アルゴリズムを見直し
+      1. 一応Baseを直接継承していないInfoは省略可能に(DeprecationWarning)
+   1. 合わせてEnvBaseのI/Fを一部変更
+   1. gym.makeでrender_modeを指定するようで、合わせてrender関係を見直し
+      1. 1episodeの最初にrender_modeによって動作を変更できるように変更(set_render_mode関数を追加)
+      1. render_windowのintervalのデフォルト値を環境側で指定できるように render_interval プロパティを追加
+      1. renderでrgbがない場合、terminal情報を画像にするが、それをbase側(env/rl共に)に組み込み
+         1. baseにIRender/Renderクラスを作成し、ここで管理
+      1. パラメータにfont_nameとfont_sizeを追加（Renderingからは削除）
+      1. renderの未定義をNotImplementedErrorからNoneに変更
 1. フレームワーク関係
    1. Infoに文字列も許可し、数値以外は文字列にする処理を追加
    1. print_progressの表示方法を変更
    1. runnerに過去のhistoryを読み込む関数を作成(load_history)
+   1. WorkerとRLConfigを別ファイルに(比較的大きくなったので)
 1. アルゴリズム関係
    1. WorldModelsで温度パラメータのサンプル計算がおかしいbug fix
    1. PlaNet追加
@@ -23,13 +37,16 @@
    1. common_tfにgaussian_kl_divergence 追加
 1. Env関係
    1. Envのチェック機構を強化し、ArrayDiscreteSpaceを見直して改修
-      1. spaceにcheck_valを追加
+      1. spaceにcheck_val関数を追加
       1. 合わせて全環境を見直し
       1. test.envをupdate
+   1. spaceにconvert関数を追加（値をできる限りspaceの型に変換する）
    1. EnvConfigを整理し、runner.Config にあったパラメータをEnvConfig側に移動
 1. その他
    1. READMEのインストール方法を更新
    1. READMEのサンプルコードを更新
+   1. tests配下にrequirementsを追加
+      1. 合わせてそのversionはできる限り動作するように修正
 
 # v0.7.0
 

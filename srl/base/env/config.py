@@ -14,7 +14,7 @@ class EnvConfig:
     # episode option
     max_episode_steps: int = -1
     episode_timeout: int = -1  # s
-    skip_frames: int = 0
+    frameskip: int = 0
 
     # gym
     gym_prediction_by_simulation: bool = True

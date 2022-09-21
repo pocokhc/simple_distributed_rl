@@ -724,7 +724,7 @@ def play(
         [c.on_step_begin(_info) for c in callbacks]
 
         # env step
-        if config.env_config.skip_frames == 0:
+        if config.env_config.frameskip == 0:
             env.step(action)
         else:
             env.step(action, lambda: [c.on_skip_step(_info) for c in callbacks])

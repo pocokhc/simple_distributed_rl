@@ -265,7 +265,7 @@ class EnvRun:
         self._step_rewards = np.asarray(rewards, dtype=np.float32)
 
         # skip frame の間は同じアクションを繰り返す
-        for _ in range(self.config.skip_frames):
+        for _ in range(self.config.frameskip):
             assert self.player_num == 1
             self._state, rewards, self._done, self._next_player_index, self._info = self.env.step(
                 action, self.next_player_index

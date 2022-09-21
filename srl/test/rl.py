@@ -180,7 +180,7 @@ class TestRL:
         config = runner.Config(env_config, rl_config)
         if is_atari:
             config.max_episode_steps = 50
-            config.skip_frames = 4
+            config.frameskip = 4
 
         if is_mp:
             mp_config = runner.MpConfig(1, allocate_trainer="/CPU:0")

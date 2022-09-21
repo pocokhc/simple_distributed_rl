@@ -23,6 +23,7 @@ class ImageProcessor(Processor):
     image_type: EnvObservationType = EnvObservationType.GRAY_2ch
     resize: Optional[Tuple[int, int]] = None
     enable_norm: bool = False
+    trimming: Optional[Tuple[int, int, int, int]] = None  # (top, left, bottom, right)
 
     def __post_init__(self):
         self.before_observation_type = EnvObservationType.UNKNOWN
@@ -31,12 +32,7 @@ class ImageProcessor(Processor):
         assert is_package_installed(
             "cv2"
         ), "To use ImageProcessor you need to install the 'cv2'. (pip install opencv-python)"
-
-        assert self.image_type in [
-            EnvObservationType.GRAY_2ch,
-            EnvObservationType.GRAY_3ch,
-            EnvObservationType.COLOR,
-        ]
+        assert EnvObservationType.is_image(self.image_type)
 
     def change_observation_info(
         self,
@@ -65,21 +61,36 @@ class ImageProcessor(Processor):
                     self.before_observation_type = EnvObservationType.COLOR
 
         # 画像のみ対象
-        if self.before_observation_type not in [
-            EnvObservationType.GRAY_2ch,
-            EnvObservationType.GRAY_3ch,
-            EnvObservationType.COLOR,
-        ]:
+        if not EnvObservationType.is_image(self.before_observation_type):
             return env_observation_space, env_observation_type
 
         shape = env_observation_space.shape
         low = env_observation_space.low
         high = env_observation_space.high
+        new_shape = (shape[0], shape[1])
+
+        # trimming
+        if self.trimming is not None:
+            self.top = self.trimming[0]
+            self.left = self.trimming[1]
+            self.bottom = self.trimming[2]
+            self.right = self.trimming[3]
+            assert self.top < self.bottom
+            assert self.left < self.right
+            w = shape[0]
+            h = shape[1]
+            if self.top < 0:
+                self.top = 0
+            if self.left < 0:
+                self.left = 0
+            if self.bottom > h:
+                self.bottom = h
+            if self.right > w:
+                self.right = w
+            new_shape = (self.right - self.left, self.bottom - self.top)
 
         # resize
-        if self.resize is None:
-            new_shape = (shape[0], shape[1])
-        else:
+        if self.resize is not None:
             new_shape = self.resize
 
         # norm
@@ -123,6 +134,9 @@ class ImageProcessor(Processor):
         ):
             # color -> gray
             observation = cv2.cvtColor(observation, cv2.COLOR_RGB2GRAY)
+
+        if self.trimming is not None:
+            observation = observation[self.top : self.bottom, self.left : self.right]
 
         if self.resize is not None:
             observation = cv2.resize(observation, self.resize)

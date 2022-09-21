@@ -33,6 +33,14 @@ class EnvObservationType(enum.Enum):
     SHAPE2 = enum.auto()  # (width, height)
     SHAPE3 = enum.auto()  # (n, width, height)
 
+    @staticmethod
+    def is_image(val: "EnvObservationType") -> bool:
+        return val in [
+            EnvObservationType.GRAY_2ch,
+            EnvObservationType.GRAY_3ch,
+            EnvObservationType.COLOR,
+        ]
+
 
 class RLObservationType(enum.Enum):
     ANY = enum.auto()

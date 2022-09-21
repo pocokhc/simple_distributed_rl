@@ -80,6 +80,31 @@ class Test(unittest.TestCase):
             out_observation=out_image,
         )
 
+    def test_trimming(self):
+        space = BoxSpace(low=0, high=255, shape=(210, 160, 3))
+
+        processor = ImageProcessor(
+            image_type=EnvObservationType.GRAY_2ch,
+            trimming=(10, 10, 20, 20),
+        )
+
+        # change info
+        new_space, new_type = processor.change_observation_info(
+            space, EnvObservationType.COLOR, RLObservationType.ANY, None
+        )
+        self.assertTrue(new_type == EnvObservationType.GRAY_2ch)
+        self.assertTrue(isinstance(new_space, BoxSpace))
+        new_space = cast(BoxSpace, new_space)
+        self.assertTrue(new_space.shape == (10, 10))
+        np.testing.assert_array_equal(new_space.low, np.full((10, 10), 0))
+        np.testing.assert_array_equal(new_space.high, np.full((10, 10), 255))
+
+        # decode
+        image = np.ones((210, 160, 3)).astype(np.uint8)  # image
+        true_state = np.ones((10, 10)).astype(np.float32) / 255
+        new_obs = processor.process_observation(image, None)
+        self.assertTrue(true_state.shape == new_obs.shape)
+
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_image_atari", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_trimming", verbosity=2)

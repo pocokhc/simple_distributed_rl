@@ -5,11 +5,11 @@ from dataclasses import dataclass, field
 from typing import List
 
 import numpy as np
-from srl.base.define import PlayRenderMode
+from srl.base.define import EnvObservationType, PlayRenderMode
 from srl.base.env.base import EnvRun
-from srl.base.rl.worker import WorkerRun
+from srl.base.rl.worker import RLWorker, WorkerRun
 from srl.runner.callback import Callback
-from srl.utils.common import is_package_installed
+from srl.utils.common import is_packages_installed
 from srl.utils.render_functions import text_to_rgb_array
 
 try:
@@ -38,6 +38,10 @@ class Rendering(Callback):
         self.info_maxh = 0
         self.env_maxw = 0
         self.env_maxh = 0
+        self.rl_maxw = 0
+        self.rl_maxh = 0
+        self.rl_state_maxw = 0
+        self.rl_state_maxh = 0
 
         self.rl_text = ""
         self.rl_img = None
@@ -50,11 +54,13 @@ class Rendering(Callback):
         self.font = None
 
         if self.enable_animation or self.render_window:
-            if not (
-                is_package_installed("cv2")
-                and is_package_installed("matplotlib")
-                and is_package_installed("PIL")
-                and is_package_installed("pygame")
+            if not is_packages_installed(
+                [
+                    "cv2",
+                    "matplotlib",
+                    "PIL",
+                    "pygame",
+                ]
             ):
                 assert (
                     False
@@ -144,16 +150,38 @@ class Rendering(Callback):
             if self.rl_img is None or not is_skip:
                 self.rl_img = worker.render_rgb_array(env, **self.render_kwargs)
 
+            # 状態が画像の場合、rlに入力される画像
+            rl_state_image = None
+            if isinstance(worker.worker, RLWorker):
+                rl_worker: RLWorker = worker.worker
+                # COLOR画像に変換
+                if EnvObservationType.is_image(rl_worker.config.env_observation_type):
+                    _img = rl_worker.recent_states[-1]
+                    if _img.max() <= 1:
+                        _img *= 255
+                    if rl_worker.config.env_observation_type == EnvObservationType.GRAY_2ch:
+                        _img = _img[..., np.newaxis]
+                        _img = np.tile(_img, (1, 1, 3))
+                    elif rl_worker.config.env_observation_type == EnvObservationType.GRAY_3ch:
+                        _img = np.tile(_img, (1, 1, 3))
+                    rl_state_image = _img.astype(np.uint8)
+
             self.info_maxw = max(max(self.info_maxw, info_img.shape[1]), self.rl_img.shape[1])
             self.info_maxh = max(self.info_maxh, info_img.shape[0] + self.rl_img.shape[0])
             self.env_maxw = max(self.env_maxw, env_img.shape[1])
             self.env_maxh = max(self.env_maxh, env_img.shape[0])
+            self.rl_maxw = max(self.rl_maxw, self.rl_img.shape[1])
+            self.rl_maxh = max(self.rl_maxh, self.rl_img.shape[0])
+            if rl_state_image is not None:
+                self.rl_state_maxw = max(self.rl_state_maxw, rl_state_image.shape[1])
+                self.rl_state_maxh = max(self.rl_state_maxh, rl_state_image.shape[0])
 
             self.frames.append(
                 {
                     "info_image": info_img,
                     "env_image": env_img,
                     "rl_image": self.rl_img,
+                    "rl_state_image": rl_state_image,
                 }
             )
 
@@ -161,37 +189,66 @@ class Rendering(Callback):
             input("Enter to continue:")
 
     # -----------------------------------------------
-    def _create_image(self, info_image: np.ndarray, env_image: np.ndarray, rl_image: np.ndarray):
+    def _create_image(self, frame):
+        info_image = frame["info_image"]
+        env_image = frame["env_image"]
+        rl_image = frame["rl_image"]
+        rl_state_image = frame["rl_state_image"]
 
         # --- 余白を追加
         padding = 2
         info_image = cv2.copyMakeBorder(
             info_image, padding, padding, padding, padding, cv2.BORDER_CONSTANT, value=(0, 0, 0)
         )
-        rl_image = cv2.copyMakeBorder(
-            rl_image, padding, padding, padding, padding, cv2.BORDER_CONSTANT, value=(0, 0, 0)
-        )
+        if rl_image is not None:
+            rl_image = cv2.copyMakeBorder(
+                rl_image, padding, padding, padding, padding, cv2.BORDER_CONSTANT, value=(0, 0, 0)
+            )
         env_image = cv2.copyMakeBorder(
             env_image, padding, padding, padding, padding, cv2.BORDER_CONSTANT, value=(255, 255, 255)
         )
+        if rl_state_image is not None:
+            rl_state_image = cv2.copyMakeBorder(
+                rl_state_image, padding, padding, padding, padding, cv2.BORDER_CONSTANT, value=(255, 255, 255)
+            )
 
-        # --- info + rl_image、大きいほうに合わせる、余白は右に埋める
-        maxw = max(self.info_maxw + padding * 2, self.info_maxh + padding * 4)
-        info_w = maxw - info_image.shape[1]
-        rl_w = maxw - rl_image.shape[1]
-        info_image = cv2.copyMakeBorder(info_image, 0, 0, 0, info_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
-        rl_image = cv2.copyMakeBorder(rl_image, 0, 0, 0, rl_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
-        img1 = cv2.vconcat([info_image, rl_image])  # 縦連結
+        # --- info + rl_image: 余白は右を埋める
+        if rl_image is None:
+            right_img = info_image
+            right_maxh = self.info_maxh + padding * 2
+        else:
+            maxw = max(self.info_maxw + padding * 2, self.rl_maxw + padding * 2)
+            info_w = maxw - info_image.shape[1]
+            rl_w = maxw - rl_image.shape[1]
+            info_image = cv2.copyMakeBorder(info_image, 0, 0, 0, info_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+            rl_image = cv2.copyMakeBorder(rl_image, 0, 0, 0, rl_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+            right_img = cv2.vconcat([info_image, rl_image])  # 縦連結
+            right_maxh = self.info_maxh + self.rl_maxw + padding * 4
 
-        # --- env + info、下を埋める
-        maxw = max(self.env_maxh + padding * 2, self.info_maxh + padding * 4)
-        env_h = maxw - env_image.shape[0]
-        img1_h = maxw - img1.shape[0]
-        env_image = cv2.copyMakeBorder(env_image, 0, env_h, 0, 0, cv2.BORDER_CONSTANT, value=(255, 255, 255))
-        img1 = cv2.copyMakeBorder(img1, 0, img1_h, 0, 0, cv2.BORDER_CONSTANT, value=(0, 0, 0))
-        img2 = cv2.hconcat([env_image, img1])  # 横連結
+        # --- env + rl_state:
+        if rl_state_image is None:
+            left_img = env_image
+            left_maxh = self.env_maxh + padding * 2
+        else:
+            maxw = max(self.env_maxw + padding * 2, self.rl_state_maxw + padding * 2)
+            env_w = maxw - env_image.shape[1]
+            rl_state_w = maxw - rl_state_image.shape[1]
+            env_image = cv2.copyMakeBorder(env_image, 0, 0, 0, env_w, cv2.BORDER_CONSTANT, value=(255, 255, 255))
+            rl_state_image = cv2.copyMakeBorder(
+                rl_state_image, 0, 0, 0, rl_state_w, cv2.BORDER_CONSTANT, value=(255, 255, 255)
+            )
+            left_img = cv2.vconcat([env_image, rl_state_image])  # 縦連結
+            left_maxh = self.env_maxh + self.rl_state_maxh + padding * 4
 
-        return img2
+        # --- left_img + right_img: 余白は下を埋める
+        maxh = max(left_maxh, right_maxh)
+        left_h = maxh - left_img.shape[0]
+        right_h = maxh - right_img.shape[0]
+        left_img = cv2.copyMakeBorder(left_img, 0, left_h, 0, 0, cv2.BORDER_CONSTANT, value=(255, 255, 255))
+        right_img = cv2.copyMakeBorder(right_img, 0, right_h, 0, 0, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+        img = cv2.hconcat([left_img, right_img])  # 横連結
+
+        return img
 
     # -----------------------------------------------
 
@@ -209,16 +266,12 @@ class Rendering(Callback):
         maxh = 0
         images = []
         for f in self.frames:
-            env_img = f["env_image"]
-            info_img = f["info_image"]
-            rl_img = f["rl_image"]
-            if rl_img is None:
-                continue
-
             if draw_info:
-                img = self._create_image(info_img, env_img, rl_img)
+                img = self._create_image(f)
             else:
-                img = env_img
+                img = f["env_img"]
+            if img is None:
+                continue
             images.append(img)
             maxw = max(maxw, img.shape[1])
             maxh = max(maxh, img.shape[0])

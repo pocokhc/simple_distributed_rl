@@ -572,7 +572,7 @@ class Worker(DiscreteActionWorker):
             return {}
 
         if self.sample_collection:
-            self.remote_memory.vae_add(next_state)
+            self.remote_memory.vae_add(self.state)
 
             if len(self.recent_states) < self.config.sequence_length + 1:
                 self.recent_states.append(next_state)

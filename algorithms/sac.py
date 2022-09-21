@@ -6,7 +6,8 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
+from srl.base.rl.algorithms.continuous_action import (ContinuousActionConfig,
+                                                      ContinuousActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
@@ -397,7 +398,7 @@ class Worker(ContinuousActionWorker):
         next_state: np.ndarray,
         reward: float,
         done: bool,
-    ) -> Dict[str, Union[float, int]]:
+    ) -> dict:
         if not self.training:
             return {}
 

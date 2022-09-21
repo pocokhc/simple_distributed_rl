@@ -197,7 +197,7 @@ def render():
 def animation():
     config = _create_config()
     render = runner.animation(config)
-    render.create_anime(interval=1000 / 3).save("_FrozenLake.gif")
+    render.create_anime().save("_FrozenLake.gif")
 
 
 # --- history sample

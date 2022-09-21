@@ -6,10 +6,17 @@
    1. GUIとの連携
 1. TensorflowのGradientTapeでは正則化項が計算されていない？追加が必要か調査してアルゴリズムを見直す
 1. BizHawkのenv作成
-1. 学習途中での保存機能
 1. PyTorchのサンプル作成
 1. ネットワーク経由の学習
 
+# v0.8.1
+
+1. フレームワーク関係
+   1. ExperienceReplayBufferをmp環境で実行するとmemory上限を認識しない不具合修正
+      1. ExperienceReplayBuffer/ReplayMemoryのrestore/backupにて、下位versionと互換がありません
+   1. EnvConfigの skip_frames を frameskip に変更
+   1. renderingで、状態が画像の場合、rlに入力される画像も表示できるように追加
+   1. image_processorにtrimming機能を追加
 # v0.8.0
 
 1. gym v0.26.0 に合わせて大幅修正

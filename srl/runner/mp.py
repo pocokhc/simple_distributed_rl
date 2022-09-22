@@ -212,7 +212,7 @@ def __run_actor(
 # --------------------
 # trainer
 # --------------------
-class _TrainerInterrupt(sequence.TrainerCallback):
+class _TrainerInterrupt(TrainerCallback):
     def __init__(
         self,
         remote_board: Board,

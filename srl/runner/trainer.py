@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple, Union, cast
 
 import numpy as np
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
-from srl.runner import sequence
+from srl.runner import sequence_play
 from srl.runner.callback import TrainerCallback
 from srl.runner.callbacks.file_logger import FileLogger, FileLogPlot
 from srl.runner.callbacks.print_progress import TrainerPrintProgress

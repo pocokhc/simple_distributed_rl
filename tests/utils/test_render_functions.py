@@ -31,6 +31,13 @@ class Test(unittest.TestCase):
                 self.assertTrue((rgb_array <= 255).all())
                 self.assertTrue(rgb_array.dtype == np.uint8)
 
+                # debug
+                if False:
+                    from PIL import Image
+
+                    img = Image.fromarray(rgb_array)
+                    img.show()
+
 
 if __name__ == "__main__":
     unittest.main(module=__name__, defaultTest="Test.test_text_to_rgb_array", verbosity=2)

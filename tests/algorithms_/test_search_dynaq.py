@@ -20,6 +20,11 @@ class Test(unittest.TestCase):
         self.tester.verify_singleplay("Grid", rl_config, 10_000)
         self.tester.verify_grid_policy()
 
+    def test_verify_grid_mp(self):
+        rl_config = search_dynaq.Config()
+        rl_config.ext_lr = 0.01
+        self.tester.verify_singleplay("Grid", rl_config, 10_000, is_mp=True)
+
     def test_verify_oneroad(self):
         rl_config = search_dynaq.Config()
         self.tester.verify_singleplay("OneRoad", rl_config, 1_000)

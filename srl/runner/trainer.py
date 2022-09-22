@@ -143,10 +143,25 @@ def play(
 
     # --- eval
     if config.enable_evaluation:
-        eval_config = config.copy(env_share=False)
-        eval_config.enable_evaluation = False
+        eval_config = Config(config.env_config.copy(), config.rl_config.copy())
         eval_config.players = config.eval_players
         eval_config.rl_config.remote_memory_path = ""
+
+        # stop config
+        eval_config.max_steps = -1
+        eval_config.max_episodes = config.eval_num_episode
+        eval_config.timeout = -1
+        # play config
+        eval_config.shuffle_player = True
+        eval_config.disable_trainer = True
+        # evaluate
+        eval_config.enable_evaluation = False
+        # callbacks
+        eval_config.callbacks = []
+        # play info
+        eval_config.training = False
+        eval_config.distributed = False
+
         env = eval_config.make_env()
     else:
         env = None
@@ -169,10 +184,10 @@ def play(
 
     # --- loop
     while True:
-        _time = time.time()
+        train_t0 = time.time()
 
         # stop check
-        if config.timeout > 0 and _time - t0 > config.timeout:
+        if config.timeout > 0 and train_t0 - t0 > config.timeout:
             end_reason = "timeout."
             break
 
@@ -181,29 +196,22 @@ def play(
             break
 
         # train
-        train_t0 = _time
         train_info = trainer.train()
         train_time = time.time() - train_t0
         train_count = trainer.get_train_count()
 
         # eval
-        eval_reward = None
+        eval_rewards = None
         if config.enable_evaluation:
             if train_count % (config.eval_interval + 1) == 0:
-                rewards = sequence.evaluate(
-                    eval_config,
-                    parameter=parameter,
-                    max_episodes=config.eval_num_episode,
-                )
-                if env.player_num > 1:
-                    rewards = [r[config.eval_player] for r in rewards]
-                eval_reward = np.mean(rewards)
+                eval_rewards, _, _, _ = sequence_play.play(eval_config, parameter=parameter)
+                eval_rewards = np.mean(eval_rewards, axis=0)
 
         # callbacks
         _info["train_info"] = train_info
         _info["train_time"] = train_time
         _info["train_count"] = train_count
-        _info["eval_reward"] = eval_reward
+        _info["eval_rewards"] = eval_rewards
         [c.on_trainer_train(_info) for c in callbacks]
 
         # callback end

@@ -126,7 +126,7 @@ class PrintProgress(Callback):
         d = {
             "episode_step": info["episode_step"],
             "episode_reward": info["episode_rewards"][player_idx],
-            "eval_reward": info["eval_reward"],
+            "eval_reward": None if info["eval_rewards"] is None else info["eval_rewards"][self.print_worker],
             "env_info": env_info,
             "work_info": work_info,
         }
@@ -312,6 +312,7 @@ class TrainerPrintProgress(TrainerCallback):
     start_time: int = 5  # s
 
     print_train_info: bool = True
+    print_worker: int = 0
 
     def __post_init__(self):
         assert self.start_time > 0
@@ -347,7 +348,7 @@ class TrainerPrintProgress(TrainerCallback):
 
         d = {
             "train_info": info["train_info"],
-            "eval_reward": info["eval_reward"],
+            "eval_reward": None if info["eval_rewards"] is None else info["eval_rewards"][self.print_worker],
         }
         if "sync" in info:
             d["sync"] = info["sync"]

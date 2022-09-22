@@ -301,12 +301,14 @@ class FileLogger(Callback, MPCallback, TrainerCallback):
             "episode_count": info["episode_count"],
             "episode_step": info["episode_step"],
             "episode_time": info["episode_time"],
-            "eval_reward": info["eval_reward"],
             "remote_memory": 0 if remote_memory is None else remote_memory.length(),
             "train_count": 0 if trainer is None else trainer.get_train_count(),
         }
-        if "sync" in info:
-            d["worker_parameter_sync_count"] = info["sync"]
+        if info["eval_rewards"] is not None:
+            for i, r in enumerate(info["eval_rewards"]):
+                d[f"eval_reward{i}"] = r
+            if "sync" in info:
+                d["worker_parameter_sync_count"] = info["sync"]
 
         rewards = [episode_rewards[worker_indices[i]] for i in range(self.player_num)]
         for i, r in enumerate(rewards):
@@ -511,7 +513,7 @@ class FileLogPlot:
 
     def plot(
         self,
-        plot_left: List[str] = ["episode_reward0", "eval_reward"],
+        plot_left: List[str] = ["episode_reward0", "eval_reward0"],
         plot_right: List[str] = [],
         plot_type: str = "",
         aggregation_num: int = 50,

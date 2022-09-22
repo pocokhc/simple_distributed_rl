@@ -184,64 +184,9 @@ class EnvRun:
         logger.debug("env.close")
         self.env.close()
 
-    # --------------------------------
-    # implement properties
-    # --------------------------------
-    @property
-    def action_space(self) -> SpaceBase:
-        return self.env.action_space
-
-    @property
-    def observation_space(self) -> SpaceBase:
-        return self.env.observation_space
-
-    @property
-    def observation_type(self) -> EnvObservationType:
-        return self.env.observation_type
-
-    @property
-    def max_episode_steps(self) -> int:
-        return self.config.max_episode_steps
-
-    @property
-    def player_num(self) -> int:
-        return self.env.player_num
-
     # ------------------------------------
-    # episode functions
+    # change internal state
     # ------------------------------------
-    @property
-    def state(self) -> EnvObservation:
-        return self._state
-
-    @property
-    def next_player_index(self) -> int:
-        return self._next_player_index
-
-    @property
-    def step_num(self) -> int:
-        return self._step_num
-
-    @property
-    def done(self) -> bool:
-        return self._done
-
-    @property
-    def done_reason(self) -> str:
-        return self._done_reason
-
-    @property
-    def episode_rewards(self) -> np.ndarray:
-        return self._episode_rewards
-
-    @property
-    def step_rewards(self) -> np.ndarray:
-        return self._step_rewards
-
-    @property
-    def info(self) -> Optional[Info]:
-        return self._info
-
     def reset(self) -> None:
         logger.debug("env.reset")
 
@@ -296,10 +241,9 @@ class EnvRun:
             self._done = True
             self._done_reason = "timeout"
 
-    def backup(self) -> Any:
+    def backup(self, include_env: bool = True) -> Any:
         logger.debug("env.backup")
         d = [
-            self.env.backup(),
             self.step_num,
             self.episode_rewards,
             self.state,
@@ -311,23 +255,85 @@ class EnvRun:
             self.info,
             self.t0,
         ]
-        return pickle.dumps(d)
+        if include_env:
+            d.append(self.env.backup())
+        return d
 
     def restore(self, data: Any) -> None:
         logger.debug("env.restore")
-        d = pickle.loads(data)
-        self.env.restore(d[0])
-        self._step_num = d[1]
-        self._episode_rewards = d[2]
-        self._state = d[3]
-        self._step_rewards = d[4]
-        self._done = d[5]
-        self._done_reason = d[6]
-        self._next_player_index = d[7]
-        self._invalid_actions_list = d[8]
-        self._info = d[9]
-        self.t0 = d[10]
+        d = data
+        self._step_num = d[0]
+        self._episode_rewards = d[1]
+        self._state = d[2]
+        self._step_rewards = d[3]
+        self._done = d[4]
+        self._done_reason = d[5]
+        self._next_player_index = d[6]
+        self._invalid_actions_list = d[7]
+        self._info = d[8]
+        self.t0 = d[9]
+        if len(d) == 11:
+            self.env.restore(d[10])
 
+    # ------------------------------------
+    # No internal state change
+    # ------------------------------------
+
+    # implement properties
+    @property
+    def action_space(self) -> SpaceBase:
+        return self.env.action_space
+
+    @property
+    def observation_space(self) -> SpaceBase:
+        return self.env.observation_space
+
+    @property
+    def observation_type(self) -> EnvObservationType:
+        return self.env.observation_type
+
+    @property
+    def max_episode_steps(self) -> int:
+        return self.config.max_episode_steps
+
+    @property
+    def player_num(self) -> int:
+        return self.env.player_num
+
+    # state properties
+    @property
+    def state(self) -> EnvObservation:
+        return self._state
+
+    @property
+    def next_player_index(self) -> int:
+        return self._next_player_index
+
+    @property
+    def step_num(self) -> int:
+        return self._step_num
+
+    @property
+    def done(self) -> bool:
+        return self._done
+
+    @property
+    def done_reason(self) -> str:
+        return self._done_reason
+
+    @property
+    def episode_rewards(self) -> np.ndarray:
+        return self._episode_rewards
+
+    @property
+    def step_rewards(self) -> np.ndarray:
+        return self._step_rewards
+
+    @property
+    def info(self) -> Optional[Info]:
+        return self._info
+
+    # invalid actions
     def get_invalid_actions(self, player_index: int = -1) -> List[int]:
         if isinstance(self.action_space, DiscreteSpace):
             if player_index == -1:
@@ -347,6 +353,7 @@ class EnvRun:
         self._invalid_actions_list[player_index] += invalid_actions
         self._invalid_actions_list[player_index] = list(set(self._invalid_actions_list[player_index]))
 
+    # other functions
     def action_to_str(self, action: EnvAction) -> str:
         return self.env.action_to_str(action)
 

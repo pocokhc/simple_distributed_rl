@@ -153,17 +153,16 @@ class Grid(SinglePlayEnv):
             print(s)
         print("")
 
-    # 文字化けにつきいったん保留
-    # def action_to_str(self, action) -> str:
-    #    if Action.DOWN.value == action:
-    #        return "↓"
-    #    if Action.LEFT.value == action:
-    #        return "←"
-    #    if Action.RIGHT.value == action:
-    #        return "→"
-    #    if Action.UP.value == action:
-    #        return "↑"
-    #    return str(action)
+    def action_to_str(self, action) -> str:
+        if Action.DOWN.value == action:
+            return "↓"
+        if Action.LEFT.value == action:
+            return "←"
+        if Action.RIGHT.value == action:
+            return "→"
+        if Action.UP.value == action:
+            return "↑"
+        return str(action)
 
     def render_rgb_array(self, **kwargs) -> np.ndarray:
         cell_size = 32

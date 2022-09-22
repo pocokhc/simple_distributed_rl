@@ -49,7 +49,6 @@ def text_to_rgb_array(
 
     global _font
 
-    text = text.encode("utf-8").decode("latin-1")
     if text == "":
         return np.zeros((1, 1, 3), dtype=np.uint8)
 

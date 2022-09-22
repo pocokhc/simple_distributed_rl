@@ -1,18 +1,17 @@
 import unittest
-import warnings
 
-import gym  # noqa F401
 from srl.base.define import EnvObservationType
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.env.spaces.discrete import DiscreteSpace
 from srl.test import TestEnv
+from srl.utils.common import is_package_installed
 
 
+@unittest.skipUnless(is_package_installed("gym"), "no module")
 class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestEnv()
-        warnings.simplefilter("ignore")
 
     def test_play_FrozenLake(self):
         # observation_space: Discrete

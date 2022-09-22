@@ -1,14 +1,19 @@
 import unittest
 from typing import cast
 
-import cv2  # noqa F401
 import numpy as np
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.spaces.box import BoxSpace
-from srl.base.rl.processors import ImageProcessor
 from srl.test.processor import TestProcessor
+from srl.utils.common import is_package_installed
+
+try:
+    from srl.base.rl.processors import ImageProcessor
+except ModuleNotFoundError:
+    pass
 
 
+@unittest.skipUnless(is_package_installed("cv2"), "no module")
 class Test(unittest.TestCase):
     def test_image(self):
         image_w = 32

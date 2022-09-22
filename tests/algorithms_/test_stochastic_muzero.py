@@ -1,11 +1,17 @@
 import unittest
 
-from algorithms import stochastic_muzero
-from envs import grid
-from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
 from srl.test import TestRL
+from srl.utils.common import is_package_installed
+
+try:
+    from algorithms import stochastic_muzero
+    from envs import grid
+    from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
+except ModuleNotFoundError:
+    pass
 
 
+@unittest.skipUnless(is_package_installed("tensorflow"), "no module")
 class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()

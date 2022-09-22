@@ -4,12 +4,18 @@ from typing import Tuple, cast
 
 import numpy as np
 import srl
-from algorithms import dqn
-from envs import connectx
 from srl import runner
 from srl.base.define import EnvAction
 from srl.base.env.base import EnvRun
 from srl.base.rl.worker import ExtendWorker, WorkerRun
+from srl.utils.common import is_packages_installed
+
+try:
+    import kaggle_environments
+    from algorithms import dqn
+    from envs import connectx
+except ModuleNotFoundError:
+    pass
 
 
 class MyConnectXWorker(ExtendWorker):
@@ -135,6 +141,7 @@ class MyConnectXWorker(ExtendWorker):
             self.rl_worker.render(env)
 
 
+@unittest.skipUnless(is_packages_installed(["tensorflow", "kaggle_environments"]), "no module")
 class Test(unittest.TestCase):
     def setUp(self) -> None:
         env_config = srl.EnvConfig("ConnectX")
@@ -168,8 +175,6 @@ class Test(unittest.TestCase):
                 worker.on_reset(env, org_env.player_index)
             env.direct_step(observation, configuration)
             return worker.policy(env)
-
-        import kaggle_environments  # pip install kaggle_environments
 
         kaggle_env = kaggle_environments.make("connectx", debug=True)
         players = []

@@ -2,12 +2,18 @@ import unittest
 
 import numpy as np
 import srl
-from algorithms import world_models
-from envs import grid  # noqa F401
 from srl import runner
 from srl.test import TestRL
+from srl.utils.common import is_package_installed
+
+try:
+    from algorithms import world_models
+    from envs import grid  # noqa F401
+except ModuleNotFoundError:
+    pass
 
 
+@unittest.skipUnless(is_package_installed("tensorflow"), "no module")
 class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()

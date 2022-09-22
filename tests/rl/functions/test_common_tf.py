@@ -1,11 +1,17 @@
 import unittest
 
 import numpy as np
-import tensorflow as tf
-import tensorflow_probability as tfp
-from srl.rl.functions.common_tf import gaussian_kl_divergence
+from srl.utils.common import is_packages_installed
+
+try:
+    import tensorflow as tf
+    import tensorflow_probability as tfp
+    from srl.rl.functions.common_tf import gaussian_kl_divergence
+except ModuleNotFoundError:
+    pass
 
 
+@unittest.skipUnless(is_packages_installed(["tensorflow", "tensorflow_probability"]), "no module")
 class Test(unittest.TestCase):
     def test_gaussian_kl_divergence(self):
 

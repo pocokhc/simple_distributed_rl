@@ -1,15 +1,12 @@
 import unittest
 
-import cv2  # noqa E401
-import matplotlib  # noqa E401
-import PIL  # noqa E401
-import pygame  # noqa E401
 import srl
 from envs import grid  # noqa E401
 from srl.runner import sequence
-from srl.utils.common import is_package_installed
+from srl.utils.common import is_package_installed, is_packages_installed
 
 
+@unittest.skipUnless(is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]), "no module")
 class Test(unittest.TestCase):
     def test_play(self):
 

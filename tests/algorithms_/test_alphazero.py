@@ -1,9 +1,15 @@
 import unittest
 
-from algorithms import alphazero
 from srl.test import TestRL
+from srl.utils.common import is_package_installed
+
+try:
+    from algorithms import alphazero
+except ModuleNotFoundError:
+    pass
 
 
+@unittest.skipUnless(is_package_installed("tensorflow"), "no module")
 class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()
@@ -64,6 +70,7 @@ class Test(unittest.TestCase):
         self.tester.verify_2play("OX", rl_config, 200, is_mp=True)
 
 
+@unittest.skipUnless(is_package_installed("tensorflow"), "no module")
 class TestLong(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()

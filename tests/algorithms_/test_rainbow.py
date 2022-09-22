@@ -1,11 +1,16 @@
 import unittest
 
-import tensorflow_addons
-from algorithms import rainbow
 from srl.test import TestRL
-from srl.utils.common import compare_less_version
+from srl.utils.common import compare_less_version, is_packages_installed
+
+try:
+    import tensorflow_addons
+    from algorithms import rainbow
+except ModuleNotFoundError:
+    pass
 
 
+@unittest.skipUnless(is_packages_installed(["tensorflow", "tensorflow_addons"]), "no module")
 class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()
@@ -44,6 +49,7 @@ class Test(unittest.TestCase):
         self.tester.verify_2play("OX", self.rl_config, 15000)
 
 
+@unittest.skipUnless(is_packages_installed(["tensorflow", "tensorflow_addons"]), "no module")
 class TestPendulum(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()
@@ -77,7 +83,11 @@ class TestPendulum(unittest.TestCase):
         self.rl_config.enable_dueling_network = True
         self.tester.verify_singleplay("Pendulum-v1", self.rl_config, 200 * 70)
 
-    @unittest.skipIf(compare_less_version(tensorflow_addons.__version__, "0.17.1"), "no NoisyDense")
+    @unittest.skipIf(
+        is_packages_installed(["tensorflow", "tensorflow_addons"])
+        and compare_less_version(tensorflow_addons.__version__, "0.17.1"),
+        "no NoisyDense",
+    )
     def test_verify_noisy(self):
         self.rl_config.enable_noisy_dense = True
         self.tester.verify_singleplay("Pendulum-v1", self.rl_config, 200 * 80)

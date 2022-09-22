@@ -1,9 +1,15 @@
 import unittest
 
 from srl.base.define import EnvObservationType
-from srl.rl.models.input_layer import create_input_layer, create_input_layer_stateful_lstm
+from srl.utils.common import is_package_installed
+
+try:
+    from srl.rl.models.input_layer import create_input_layer, create_input_layer_stateful_lstm
+except ModuleNotFoundError:
+    pass
 
 
+@unittest.skipUnless(is_package_installed("tensorflow"), "no module")
 class Test(unittest.TestCase):
     def test_no_window(self):
         for obs_shape, obs_type, true_shape, true_image in [

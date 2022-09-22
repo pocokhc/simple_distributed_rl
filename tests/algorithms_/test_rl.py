@@ -4,7 +4,6 @@ import os
 import unittest
 
 import algorithms
-import tensorflow  # noqa F401
 from srl.test import TestRL
 
 

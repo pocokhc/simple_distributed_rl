@@ -1,9 +1,15 @@
 import unittest
 
-from algorithms import r2d2
 from srl.test import TestRL
+from srl.utils.common import is_package_installed
+
+try:
+    from algorithms import r2d2
+except ModuleNotFoundError:
+    pass
 
 
+@unittest.skipUnless(is_package_installed("tensorflow"), "no module")
 class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()

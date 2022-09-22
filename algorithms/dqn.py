@@ -349,7 +349,7 @@ class Worker(DiscreteActionWorker):
             action = int(np.argmax(q))
 
         self.action = action
-        return action, {}
+        return action, {"epsilon": epsilon}
 
     def call_on_step(
         self,

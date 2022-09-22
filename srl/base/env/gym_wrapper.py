@@ -51,68 +51,54 @@ class GymWrapper(EnvBase):
         self.prediction_by_simulation = prediction_by_simulation
 
         self._observation_type = EnvObservationType.UNKNOWN
-        self._pred_action_space(self.env.action_space)
-        self._pred_observation_space(self.env.observation_space)
+        self._action_space = self._pred_space(self.env.action_space, True)
+        self._observation_space, self._observation_type = self._pred_space(self.env.observation_space, False)
 
-    def _pred_action_space(self, space):
-        if isinstance(space, spaces.Discrete):
-            self._action_space = DiscreteSpace(space.n)
-            logger.debug(f"action_space: {self.action_space}")
-            return
-
-        if isinstance(space, spaces.Tuple):
-            # すべてDiscreteならdiscrete
-            if self._is_tuple_all_discrete(space):
-                nvec = [s.n for s in space.spaces]
-                self._action_space = ArrayDiscreteSpace(nvec)
-                logger.debug(f"action_space: {self.action_space}")
-                return
+    def _pred_space(self, gym_space, is_action: bool):
+        if isinstance(gym_space, spaces.Discrete):
+            space = DiscreteSpace(gym_space.n)
+            logger.debug(f"space: {space}")
+            if is_action:
+                return space
             else:
-                pass  # TODO
+                return space, EnvObservationType.DISCRETE
 
-        if isinstance(space, spaces.Box):
-            self._action_space = BoxSpace(space.shape, space.low, space.high)
-            logger.debug(f"action_space: {self.action_space}")
-            return
-
-        raise ValueError(f"not supported({space})")
-
-    def _pred_observation_space(self, space):
-        if isinstance(space, spaces.Discrete):
-            self._observation_space = DiscreteSpace(space.n)
-            self._observation_type = EnvObservationType.DISCRETE
-            logger.debug(f"observation_space: {self.observation_type} {self.observation_space}")
-            return
-
-        if isinstance(space, spaces.Tuple):
+        if isinstance(gym_space, spaces.Tuple):
             # すべてDiscreteならdiscrete
-            if self._is_tuple_all_discrete(space):
-                high = [s.n - 1 for s in space.spaces]
-                self._observation_space = ArrayDiscreteSpace(len(high), 0, high)
-                self._observation_type = EnvObservationType.DISCRETE
-                logger.debug(f"observation_space: {self.observation_type} {self.observation_space}")
-                return
-            else:
-                pass  # TODO
-
-        if isinstance(space, spaces.Box):
-            # 離散の可能性を確認
-            if self._observation_type == EnvObservationType.UNKNOWN and len(space.shape) == 1:
-                if "int" in str(space.dtype) or (self.prediction_by_simulation and self._pred_space_discrete()):
-                    self._observation_type == EnvObservationType.DISCRETE
-                    if space.shape[0] == 1:
-                        self._observation_space = DiscreteSpace(space.high[0])
-                    else:
-                        self._observation_space = BoxSpace(space.shape, space.low, space.high)
+            if self._is_tuple_all_discrete(gym_space):
+                high = [s.n - 1 for s in gym_space.spaces]
+                space = ArrayDiscreteSpace(len(high), 0, high)
+                logger.debug(f"space: {space}")
+                if is_action:
+                    return space
                 else:
-                    self._observation_space = BoxSpace(space.shape, space.low, space.high)
-                    self._observation_type = EnvObservationType.CONTINUOUS
+                    return space, EnvObservationType.DISCRETE
             else:
-                self._observation_space = BoxSpace(space.shape, space.low, space.high)
-            logger.debug(f"observation_space: {self.observation_type} {self.observation_space}")
-            return
+                pass  # TODO
 
-        raise ValueError(f"not supported({space})")
+        if isinstance(gym_space, spaces.Box):
+            if is_action:
+                return BoxSpace(gym_space.shape, gym_space.low, gym_space.high)
+
+            # 状態は、離散の可能性を確認
+            space_type = EnvObservationType.UNKNOWN
+            if self._observation_type == EnvObservationType.UNKNOWN and len(gym_space.shape) == 1:
+                if "int" in str(gym_space.dtype):
+                    space_type = EnvObservationType.DISCRETE
+                elif self._pred_space_discrete():
+                    space_type = EnvObservationType.DISCRETE
+                else:
+                    space_type = EnvObservationType.CONTINUOUS
+
+            if space_type == EnvObservationType.DISCRETE:
+                if gym_space.shape[0] == 1:
+                    return DiscreteSpace(gym_space.high[0]), space_type
+                else:
+                    return BoxSpace(gym_space.shape, gym_space.low, gym_space.high), space_type
+            else:
+                return BoxSpace(gym_space.shape, gym_space.low, gym_space.high), space_type
+
+        raise ValueError(f"not supported({gym_space})")
 
     def _is_tuple_all_discrete(self, space) -> bool:
         for s in space.spaces:
@@ -127,10 +113,17 @@ class GymWrapper(EnvBase):
         for _ in range(10):
             if done:
                 state = self.env.reset()
+                if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
+                    state, _ = state
                 done = False
             else:
                 action = self.env.action_space.sample()
-                state, _, done, _ = self.env.step(action)
+                _t = self.env.step(action)
+                if len(_t) == 4:
+                    state, reward, done, info = _t
+                else:
+                    state, reward, terminated, truncated, info = _t
+                    done = terminated or truncated
             if "int" not in str(np.asarray(state).dtype):
                 return False
 

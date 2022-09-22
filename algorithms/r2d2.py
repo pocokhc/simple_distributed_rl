@@ -443,7 +443,7 @@ class Worker(DiscreteActionWorker):
         # invalid_actions: sequence_length + next_invalid_actions
         # hidden_state   : burnin + sequence_length + next_state
 
-        self.recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.sequence_length + 1)]
+        self._recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.sequence_length + 1)]
         self.recent_actions = [
             random.randint(0, self.config.action_num - 1) for _ in range(self.config.sequence_length)
         ]
@@ -458,8 +458,8 @@ class Worker(DiscreteActionWorker):
             for _ in range(self.config.burnin + self.config.sequence_length + 1)
         ]
 
-        self.recent_states.pop(0)
-        self.recent_states.append(state.astype(np.float32))
+        self._recent_states.pop(0)
+        self._recent_states.append(state.astype(np.float32))
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
@@ -501,8 +501,8 @@ class Worker(DiscreteActionWorker):
         if not self.training:
             return {}
 
-        self.recent_states.pop(0)
-        self.recent_states.append(next_state.astype(np.float32))
+        self._recent_states.pop(0)
+        self._recent_states.append(next_state.astype(np.float32))
         self.recent_actions.pop(0)
         self.recent_actions.append(self.action)
         self.recent_probs.pop(0)
@@ -534,8 +534,8 @@ class Worker(DiscreteActionWorker):
         if done:
             # 残りstepも追加
             for _ in range(len(self.recent_rewards) - 1):
-                self.recent_states.pop(0)
-                self.recent_states.append(self.dummy_state)
+                self._recent_states.pop(0)
+                self._recent_states.append(self.dummy_state)
                 self.recent_actions.pop(0)
                 self.recent_actions.append(random.randint(0, self.config.action_num - 1))
                 self.recent_probs.pop(0)
@@ -575,7 +575,7 @@ class Worker(DiscreteActionWorker):
 
     def _add_memory(self, calc_info):
         batch = {
-            "states": self.recent_states[:],
+            "states": self._recent_states[:],
             "actions": self.recent_actions[:],
             "probs": self.recent_probs[:],
             "rewards": self.recent_rewards[:],

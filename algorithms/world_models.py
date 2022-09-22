@@ -529,7 +529,7 @@ class Worker(DiscreteActionWorker):
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         if self.sample_collection:
             self.remote_memory.vae_add(state)
-            self.recent_states = [state]
+            self._recent_states = [state]
             self.recent_actions = []
 
         self.hidden_state = self.parameter.rnn.get_initial_state()
@@ -574,18 +574,18 @@ class Worker(DiscreteActionWorker):
         if self.sample_collection:
             self.remote_memory.vae_add(self.state)
 
-            if len(self.recent_states) < self.config.sequence_length + 1:
-                self.recent_states.append(next_state)
+            if len(self._recent_states) < self.config.sequence_length + 1:
+                self._recent_states.append(next_state)
 
             if done:
                 # states : sequence_length + next_state
                 # actions: sequence_length
                 for _ in range(self.config.sequence_length - len(self.recent_actions)):
-                    self.recent_states.append(self.dummy_state)
+                    self._recent_states.append(self.dummy_state)
                     self.recent_actions.append(random.randint(0, self.config.action_num - 1))
                 self.remote_memory.rnn_add(
                     {
-                        "states": self.recent_states,
+                        "states": self._recent_states,
                         "actions": self.recent_actions,
                     }
                 )

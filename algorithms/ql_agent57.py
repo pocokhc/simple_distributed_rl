@@ -357,15 +357,15 @@ class Worker(DiscreteActionWorker):
         if self.config.enable_intrinsic_reward:
             self.beta = 0
 
-        self.recent_states = ["" for _ in range(self.config.multisteps + 1)]
+        self._recent_states = ["" for _ in range(self.config.multisteps + 1)]
         self.recent_ext_rewards = [0.0 for _ in range(self.config.multisteps)]
         self.recent_int_rewards = [0.0 for _ in range(self.config.multisteps)]
         self.recent_actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.multisteps)]
         self.recent_probs = [1.0 for _ in range(self.config.multisteps)]
         self.recent_invalid_actions = [[] for _ in range(self.config.multisteps + 1)]
 
-        self.recent_states.pop(0)
-        self.recent_states.append(state)
+        self._recent_states.pop(0)
+        self._recent_states.append(state)
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
@@ -417,7 +417,7 @@ class Worker(DiscreteActionWorker):
         return random.choice(np.where(ucbs == np.max(ucbs))[0])
 
     def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
-        state = self.recent_states[-1]
+        state = self._recent_states[-1]
 
         self.parameter.init_state(state, invalid_actions)
         q_ext = np.asarray(self.parameter.Q_ext[state])
@@ -437,8 +437,8 @@ class Worker(DiscreteActionWorker):
         next_invalid_actions: List[int],
     ) -> dict:
         n_state = to_str_observation(next_state)
-        self.recent_states.pop(0)
-        self.recent_states.append(n_state)
+        self._recent_states.pop(0)
+        self._recent_states.append(n_state)
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(next_invalid_actions)
 
@@ -469,7 +469,7 @@ class Worker(DiscreteActionWorker):
         if done:
             # 残りstepも追加
             for _ in range(len(self.recent_ext_rewards) - 1):
-                self.recent_states.pop(0)
+                self._recent_states.pop(0)
                 self.recent_invalid_actions.pop(0)
                 self.recent_actions.pop(0)
                 self.recent_probs.pop(0)
@@ -486,11 +486,11 @@ class Worker(DiscreteActionWorker):
         }
 
     def _add_memory(self, done):
-        if self.recent_states[0] == "" and self.recent_states[1] == "":
+        if self._recent_states[0] == "" and self._recent_states[1] == "":
             return
 
         batch = {
-            "states": self.recent_states[:],
+            "states": self._recent_states[:],
             "actions": self.recent_actions[:],
             "probs": self.recent_probs[:],
             "ext_rewards": self.recent_ext_rewards[:],
@@ -542,7 +542,7 @@ class Worker(DiscreteActionWorker):
         return reward + 1.0
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        state = self.recent_states[-1]
+        state = self._recent_states[-1]
         invalid_actions = self.recent_invalid_actions[-1]
         self.parameter.init_state(state, invalid_actions)
 

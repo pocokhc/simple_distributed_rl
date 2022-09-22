@@ -8,22 +8,18 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (
-    calc_epsilon_greedy_probs,
-    create_beta_list,
-    create_discount_list,
-    create_epsilon_list,
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
+from srl.rl.functions.common import (calc_epsilon_greedy_probs,
+                                     create_beta_list, create_discount_list,
+                                     create_epsilon_list, inverse_rescaling,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling)
 from srl.rl.models.dqn_image_block import DQNImageBlock
 from srl.rl.models.dueling_network import DuelingNetworkBlock
 from srl.rl.models.input_layer import create_input_layer
@@ -767,7 +763,7 @@ class Worker(DiscreteActionWorker):
         # invalid_actions: sequence_length + next_invalid_actions
         # hidden_state   : burnin + sequence_length + next_state
 
-        self.recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.sequence_length + 1)]
+        self._recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.sequence_length + 1)]
         self.recent_actions = [
             random.randint(0, self.config.action_num - 1)
             for _ in range(self.config.burnin + self.config.sequence_length + 1)
@@ -789,8 +785,8 @@ class Worker(DiscreteActionWorker):
             for _ in range(self.config.burnin + self.config.sequence_length + 1)
         ]
 
-        self.recent_states.pop(0)
-        self.recent_states.append(state.astype(np.float32))
+        self._recent_states.pop(0)
+        self._recent_states.append(state.astype(np.float32))
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
@@ -874,7 +870,7 @@ class Worker(DiscreteActionWorker):
         prev_onehot_action = tf.expand_dims(tf.expand_dims(prev_onehot_action, 0), 0)
 
         in_ = [
-            self.recent_states[-1][np.newaxis, np.newaxis, ...],
+            self._recent_states[-1][np.newaxis, np.newaxis, ...],
             np.array([[[self.reward_ext]]], dtype=np.float32),
             np.array([[[self.reward_int]]], dtype=np.float32),
             prev_onehot_action,
@@ -917,8 +913,8 @@ class Worker(DiscreteActionWorker):
             self.reward_int = 0.0
             _info = {}
 
-        self.recent_states.pop(0)
-        self.recent_states.append(next_state.astype(np.float32))
+        self._recent_states.pop(0)
+        self._recent_states.append(next_state.astype(np.float32))
         self.recent_actions.pop(0)
         self.recent_actions.append(self.action)
         self.recent_probs.pop(0)
@@ -963,8 +959,8 @@ class Worker(DiscreteActionWorker):
         if done:
             # 残りstepも追加
             for _ in range(len(self.recent_rewards_ext) - 1):
-                self.recent_states.pop(0)
-                self.recent_states.append(self.dummy_state)
+                self._recent_states.pop(0)
+                self._recent_states.append(self.dummy_state)
                 self.recent_actions.pop(0)
                 self.recent_actions.append(random.randint(0, self.config.action_num - 1))
                 self.recent_probs.pop(0)
@@ -1016,7 +1012,7 @@ class Worker(DiscreteActionWorker):
 
     def _add_memory(self, calc_info):
         batch = {
-            "states": self.recent_states[:],
+            "states": self._recent_states[:],
             "actions": self.recent_actions[:],
             "probs": self.recent_probs[:],
             "rewards_ext": self.recent_rewards_ext[:],

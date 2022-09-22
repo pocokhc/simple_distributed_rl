@@ -226,6 +226,10 @@ class RLWorker(WorkerBase):
     def step(self) -> int:
         return 0 if self.__env is None else self.__env.step_num
 
+    @property
+    def recent_states(self) -> List[np.ndarray]:
+        return self.__recent_states
+
     # ------------------------------------
     # utils
     # ------------------------------------

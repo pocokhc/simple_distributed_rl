@@ -424,22 +424,22 @@ class Worker(DiscreteActionWorker):
             self.final_epsilon = self.config.final_epsilon
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
-        self.recent_states = [self.dummy_state for _ in range(self.config.multisteps + 1)]
+        self._recent_states = [self.dummy_state for _ in range(self.config.multisteps + 1)]
         self.recent_actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.multisteps)]
         self.recent_probs = [1.0 / self.config.action_num for _ in range(self.config.multisteps)]
         self.recent_rewards = [0.0 for _ in range(self.config.multisteps)]
         self.recent_done = [False for _ in range(self.config.multisteps)]
         self.recent_invalid_actions = [[] for _ in range(self.config.multisteps + 1)]
 
-        self.recent_states.pop(0)
-        self.recent_states.append(state)
+        self._recent_states.pop(0)
+        self._recent_states.append(state)
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
         return {}
 
     def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
-        state = self.recent_states[-1]
+        state = self._recent_states[-1]
         q = self.parameter.q_online(state[np.newaxis, ...])[0].numpy()
 
         if self.config.enable_noisy_dense:
@@ -474,8 +474,8 @@ class Worker(DiscreteActionWorker):
         done: bool,
         next_invalid_actions: List[int],
     ) -> Dict:
-        self.recent_states.pop(0)
-        self.recent_states.append(next_state)
+        self._recent_states.pop(0)
+        self._recent_states.append(next_state)
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(next_invalid_actions)
 
@@ -506,7 +506,7 @@ class Worker(DiscreteActionWorker):
         if done:
             # 残りstepも追加
             for _ in range(len(self.recent_rewards) - 1):
-                self.recent_states.pop(0)
+                self._recent_states.pop(0)
                 self.recent_actions.pop(0)
                 self.recent_probs.pop(0)
                 self.recent_rewards.pop(0)
@@ -520,7 +520,7 @@ class Worker(DiscreteActionWorker):
     def _add_memory(self, q, td_error):
 
         batch = {
-            "states": self.recent_states[:],
+            "states": self._recent_states[:],
             "actions": self.recent_actions[:],
             "probs": self.recent_probs[:],
             "rewards": self.recent_rewards[:],
@@ -542,7 +542,7 @@ class Worker(DiscreteActionWorker):
         return td_error
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        state = self.recent_states[-1]
+        state = self._recent_states[-1]
         invalid_actions = self.recent_invalid_actions[-1]
         q = self.parameter.q_online(state[np.newaxis, ...])[0].numpy()
         maxa = np.argmax(q)

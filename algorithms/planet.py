@@ -482,7 +482,7 @@ class Worker(DiscreteActionWorker):
         self.viewer = None
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
-        self.recent_states = [state]
+        self._recent_states = [state]
         self.recent_actions = []
         self.recent_rewards = []
 
@@ -617,20 +617,20 @@ class Worker(DiscreteActionWorker):
         if not self.training:
             return {}
 
-        if len(self.recent_states) < self.config.sequence_length + 1:
-            self.recent_states.append(next_state)
+        if len(self._recent_states) < self.config.sequence_length + 1:
+            self._recent_states.append(next_state)
             self.recent_rewards.append(reward)
 
         if done:
             # states : sequence_length + next_state
             # actions: sequence_length
             for _ in range(self.config.sequence_length - len(self.recent_actions)):
-                self.recent_states.append(self.dummy_state)
+                self._recent_states.append(self.dummy_state)
                 self.recent_actions.append(random.randint(0, self.config.action_num - 1))
                 self.recent_rewards.append(0)
             self.remote_memory.add(
                 {
-                    "states": self.recent_states,
+                    "states": self._recent_states,
                     "actions": self.recent_actions,
                     "rewards": self.recent_rewards,
                 }

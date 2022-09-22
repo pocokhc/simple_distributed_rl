@@ -846,7 +846,7 @@ class Worker(DiscreteActionWorker):
         # invalid_actions: sequence_length + next_invalid_actions - now_invalid_actions
         # hidden_state   : burnin + sequence_length + next_state
 
-        self.recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.sequence_length + 1)]
+        self._recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.sequence_length + 1)]
         self.recent_actions = [
             random.randint(0, self.config.action_num - 1)
             for _ in range(self.config.burnin + self.config.sequence_length)
@@ -868,8 +868,8 @@ class Worker(DiscreteActionWorker):
             for _ in range(self.config.burnin + self.config.sequence_length + 1)
         ]
 
-        self.recent_states.pop(0)
-        self.recent_states.append(state.astype(float))
+        self._recent_states.pop(0)
+        self._recent_states.append(state.astype(float))
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
@@ -955,7 +955,7 @@ class Worker(DiscreteActionWorker):
         prev_onehot_action = tf.tile(prev_onehot_action, [self.config.batch_size, 1, 1])
 
         in_ = [
-            np.asarray([[self.recent_states[-1]]] * self.config.batch_size),
+            np.asarray([[self._recent_states[-1]]] * self.config.batch_size),
             np.array([[[self.reward_ext]]] * self.config.batch_size),
             np.array([[[self.reward_int]]] * self.config.batch_size),
             prev_onehot_action,
@@ -999,8 +999,8 @@ class Worker(DiscreteActionWorker):
             self.reward_int = 0.0
             _info = {}
 
-        self.recent_states.pop(0)
-        self.recent_states.append(next_state.astype(float))
+        self._recent_states.pop(0)
+        self._recent_states.append(next_state.astype(float))
         self.recent_actions.pop(0)
         self.recent_actions.append(self.action)
         self.recent_probs.pop(0)
@@ -1045,8 +1045,8 @@ class Worker(DiscreteActionWorker):
         if done:
             # 残りstepも追加
             for _ in range(len(self.recent_rewards_ext) - 1):
-                self.recent_states.pop(0)
-                self.recent_states.append(self.dummy_state)
+                self._recent_states.pop(0)
+                self._recent_states.append(self.dummy_state)
                 self.recent_actions.pop(0)
                 self.recent_actions.append(random.randint(0, self.config.action_num - 1))
                 self.recent_probs.pop(0)
@@ -1098,7 +1098,7 @@ class Worker(DiscreteActionWorker):
 
     def _add_memory(self, calc_info):
         batch = {
-            "states": self.recent_states[:],
+            "states": self._recent_states[:],
             "actions": self.recent_actions[:],
             "probs": self.recent_probs[:],
             "rewards_ext": self.recent_rewards_ext[:],

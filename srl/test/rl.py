@@ -1,4 +1,4 @@
-from typing import List, Optional, cast
+from typing import Optional, cast
 
 import numpy as np
 import srl
@@ -7,14 +7,9 @@ from srl.base.define import EnvObservationType
 from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
 from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
 from srl.rl.functions.common import to_str_observation
-from srl.utils.common import is_package_installed
+from srl.utils.common import is_packages_installed
 
 from .envs import grid, ox  # noqa F401
-
-try:
-    import gym  # noqa F401
-except ImportError:
-    pass
 
 
 class TestRL:
@@ -81,12 +76,7 @@ class TestRL:
                 # --- check render
                 if check_render:
                     runner.render(config, parameter, max_steps=10)
-                    if (
-                        is_package_installed("cv2")
-                        and is_package_installed("matplotlib")
-                        and is_package_installed("PIL")
-                        and is_package_installed("pygame")
-                    ):
+                    if is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]):
                         render = runner.animation(config, parameter, max_steps=10)
                         render.create_anime()
 

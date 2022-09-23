@@ -101,7 +101,7 @@ class Rendering(Callback):
         env: EnvRun = info["env"]
         worker_idx: int = info["worker_idx"]
         worker: WorkerRun = info["workers"][worker_idx]
-        action = info["action"]
+        action = info["action"] if "action" in info else "-"
         step_time = info["step_time"] if "step_time" in info else None
 
         # env text
@@ -114,9 +114,13 @@ class Rendering(Callback):
         # --- info text
         info_text = f"### {env.step_num}"
         if isinstance(action, float):
-            info_text += f", action {action:.3f}"
+            a1 = f"{action:.3f}"
         else:
-            info_text += f", action {action}"
+            a1 = f"{action}"
+        a2 = env.action_to_str(action)
+        if a1 != a2:
+            action = f"{a1}({a2})"
+        info_text += f", action {action}"
         info_text += ", rewards[" + ",".join([f"{r:.3f}," for r in env.step_rewards]) + "]"
         if env.done:
             info_text += f", done({env.done_reason})"
@@ -156,7 +160,7 @@ class Rendering(Callback):
                 rl_worker: RLWorker = worker.worker
                 # COLOR画像に変換
                 if EnvObservationType.is_image(rl_worker.config.env_observation_type):
-                    _img = rl_worker.recent_states[-1]
+                    _img = rl_worker.recent_states[-1].copy()
                     if _img.max() <= 1:
                         _img *= 255
                     if rl_worker.config.env_observation_type == EnvObservationType.GRAY_2ch:
@@ -166,12 +170,13 @@ class Rendering(Callback):
                         _img = np.tile(_img, (1, 1, 3))
                     rl_state_image = _img.astype(np.uint8)
 
-            self.info_maxw = max(max(self.info_maxw, info_img.shape[1]), self.rl_img.shape[1])
-            self.info_maxh = max(self.info_maxh, info_img.shape[0] + self.rl_img.shape[0])
+            self.info_maxw = max(self.info_maxw, info_img.shape[1])
+            self.info_maxh = max(self.info_maxh, info_img.shape[0])
             self.env_maxw = max(self.env_maxw, env_img.shape[1])
             self.env_maxh = max(self.env_maxh, env_img.shape[0])
-            self.rl_maxw = max(self.rl_maxw, self.rl_img.shape[1])
-            self.rl_maxh = max(self.rl_maxh, self.rl_img.shape[0])
+            if self.rl_img is not None:
+                self.rl_maxw = max(self.rl_maxw, self.rl_img.shape[1])
+                self.rl_maxh = max(self.rl_maxh, self.rl_img.shape[0])
             if rl_state_image is not None:
                 self.rl_state_maxw = max(self.rl_state_maxw, rl_state_image.shape[1])
                 self.rl_state_maxh = max(self.rl_state_maxh, rl_state_image.shape[0])
@@ -269,7 +274,7 @@ class Rendering(Callback):
             if draw_info:
                 img = self._create_image(f)
             else:
-                img = f["env_img"]
+                img = f["env_image"]
             if img is None:
                 continue
             images.append(img)
@@ -281,7 +286,6 @@ class Rendering(Callback):
             interval = self.render_interval
         if interval <= 0:
             interval = 1000 / 60
-        logger.info("interval: {:.1f}ms".format(interval))
 
         # --- size (inch = pixel / dpi)
         fig_dpi = 100
@@ -296,7 +300,7 @@ class Rendering(Callback):
         anime = ArtistAnimation(fig, images, interval=interval, repeat=False)
         # plt.close(fig)  # notebook で画像が残るので出来ればcloseしたいけど、closeするとgym側でバグる
 
-        logger.info("create animation({:.1f}s)".format(time.time() - t0))
+        logger.info(f"animation created(interval: {interval:.1f}ms, time {time.time() - t0:.1f}s)")
         return anime
 
     def display(
@@ -313,4 +317,4 @@ class Rendering(Callback):
         t0 = time.time()
         anime = self.create_anime(scale, interval, draw_info)
         display.display(display.HTML(data=anime.to_jshtml()))
-        logger.info("create display({:.1f}s)".format(time.time() - t0))
+        logger.info("display created({:.1f}s)".format(time.time() - t0))

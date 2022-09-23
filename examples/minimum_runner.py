@@ -1,14 +1,9 @@
-import os
-import sys
-
 import srl
 from srl import runner
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../"))
-
 # --- env & algorithm
-from envs import grid  # isort: skip # noqa F401
-from algorithms import ql  # isort: skip
+from srl.envs import grid  # isort: skip # noqa F401
+from srl.algorithms import ql  # isort: skip
 
 
 def main():

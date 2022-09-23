@@ -2,12 +2,37 @@ import unittest
 
 import numpy as np
 import srl
-from algorithms import ql_agent57
-from envs import grid
 from srl import runner
+from srl.algorithms import ql, ql_agent57
+from srl.envs import grid, ox
 
 
 class Test(unittest.TestCase):
+    def test_basic(self):
+        env_config = srl.EnvConfig("Grid")
+        rl_config = ql.Config()
+        config = runner.Config(env_config, rl_config)
+
+        # train
+        parameter, _, _ = runner.train(config, max_steps=10000)
+
+        # eval
+        rewards = runner.evaluate(config, parameter, max_episodes=100)
+        rewards = np.mean(rewards)
+        print(rewards)
+        self.assertTrue(rewards > 0.5)
+
+        # render
+        rewards, _ = runner.render(
+            config,
+            parameter,
+            render_terminal=False,
+            enable_animation=True,
+        )
+        rewards = np.mean(rewards)
+        print(rewards)
+        self.assertTrue(rewards > 0.5)
+
     def test_shuffle_player(self):
 
         env_config = srl.EnvConfig("OX")
@@ -35,4 +60,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_modelbase_train_flow", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_basic", verbosity=2)

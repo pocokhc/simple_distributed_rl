@@ -1,49 +1,98 @@
-import glob
-import importlib.machinery as imm
-import os
 import unittest
 
-import algorithms
 from srl.test import TestRL
+
+try:
+    from srl.algorithms import (
+        agent57,
+        agent57_light,
+        agent57_stateful,
+        alphazero,
+        c51,
+        ddpg,
+        dqn,
+        dreamer,
+        dynaq,
+        mcts,
+        muzero,
+        planet,
+        ql,
+        ql_agent57,
+        r2d2,
+        r2d2_stateful,
+        rainbow,
+        sac,
+        search_dynaq,
+        stochastic_muzero,
+        vanilla_policy_continuous,
+        vanilla_policy_discrete,
+        world_models,
+    )
+except ModuleNotFoundError as e:
+    print(e)
 
 
 class Test(unittest.TestCase):
     def setUp(self) -> None:
-        self.tester = TestRL()
-        self.rl_list = []
+        self.rl_list = [
+            agent57,
+            agent57_light,
+            agent57_stateful,
+            alphazero,
+            c51,
+            ddpg,
+            dqn,
+            # dqn_torch,
+            dreamer,
+            dynaq,
+            mcts,
+            muzero,
+            planet,
+            ql,
+            ql_agent57,
+            r2d2,
+            r2d2_stateful,
+            rainbow,
+            sac,
+            search_dynaq,
+            stochastic_muzero,
+            vanilla_policy_continuous,
+            vanilla_policy_discrete,
+            world_models,
+        ]
 
-        for path in glob.glob(os.path.join(list(algorithms.__path__)[0], "*.py")):
-            if os.path.basename(path).startswith("_"):
-                continue
-
-            module = imm.SourceFileLoader(os.path.basename(path), path).load_module()
-
-            if os.path.basename(path) in [
-                "muzero.py",
-                "stochastic_muzero.py",
-            ]:
-                enable_image = True
-            else:
-                enable_image = False
-            self.rl_list.append([module.Config(), enable_image])
+    def _enable_image(self, rl_config):
+        if rl_config.getName() in [
+            "MuZero",
+            "StochasticMuZero",
+            "Dreamer",
+            "PlaNet",
+        ]:
+            return True
+        return False
 
     def test_simple_check(self):
         tester = TestRL()
-        for rl_config, enable_image in self.rl_list:
+        for rl_pkg in self.rl_list:
+            rl_config = rl_pkg.Config()
             with self.subTest(rl_config.getName()):
                 tester.simple_check(
                     rl_config,
-                    enable_image=enable_image,
+                    enable_image=self._enable_image(rl_config),
                     check_render=False,
                 )
 
-    # py ファイルからloadしたモジュールはpickle化できないのでテスト不可
-    # def test_simple_check_mp(self):
-    #    tester = TestRL()
-    #    for rl_config, enable_image in self.rl_list:
-    #        with self.subTest(rl_config.getName()):
-    #            tester.simple_check(rl_config, enable_image=enable_image, is_mp=True)
-    #        break
+    def test_simple_check_mp(self):
+        tester = TestRL()
+        for rl_pkg in self.rl_list:
+            rl_config = rl_pkg.Config()
+            with self.subTest(rl_config.getName()):
+                tester.simple_check(
+                    rl_config,
+                    enable_image=self._enable_image(rl_config),
+                    check_render=False,
+                    is_mp=True,
+                )
 
 
 if __name__ == "__main__":

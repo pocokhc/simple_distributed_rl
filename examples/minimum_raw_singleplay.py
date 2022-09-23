@@ -1,5 +1,3 @@
-import os
-import sys
 from typing import Optional
 
 import srl
@@ -8,11 +6,9 @@ from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../"))
-
 # --- env & algorithm
-from envs import grid  # isort: skip # noqa F401
-from algorithms import ql  # isort: skip
+from srl.envs import grid  # isort: skip # noqa F401
+from srl.algorithms import ql  # isort: skip
 
 
 def _run_episode(

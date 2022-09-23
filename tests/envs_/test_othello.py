@@ -3,9 +3,9 @@ from typing import cast
 
 import numpy as np
 import srl
-from envs import othello  # noqa F401
 from srl.base.define import EnvObservationType
 from srl.base.env.spaces.box import BoxSpace
+from srl.envs import othello  # noqa F401
 from srl.test import TestEnv
 from srl.test.processor import TestProcessor
 

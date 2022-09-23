@@ -1,15 +1,10 @@
-import os
-import sys
-
 import numpy as np
 import srl
 from srl import runner
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../"))
-
 # --- env & algorithm load
-from envs import ox  # isort: skip # noqa F401
-from algorithms import ql  # isort: skip
+from srl.envs import ox  # isort: skip # noqa F401
+from srl.algorithms import ql  # isort: skip
 
 # --- save parameter path
 _parameter_path = "_parameter_ox_QL.dat"

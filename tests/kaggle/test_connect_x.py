@@ -12,8 +12,8 @@ from srl.utils.common import is_packages_installed
 
 try:
     import kaggle_environments
-    from algorithms import dqn
-    from envs import connectx
+    from srl.algorithms import dqn
+    from srl.envs import connectx
 except ModuleNotFoundError:
     pass
 

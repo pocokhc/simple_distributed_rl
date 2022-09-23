@@ -1,7 +1,9 @@
 import unittest
 
-from algorithms import dynaq
+from srl.algorithms import dynaq
 from srl.test import TestRL
+
+import srl.envs.grid  # noqa F401
 
 
 class Test(unittest.TestCase):
@@ -26,6 +28,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    import __init__  # noqa F401
-
     unittest.main(module=__name__, defaultTest="Test.test_verify_grid_mp", verbosity=2)

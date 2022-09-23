@@ -1,5 +1,3 @@
-import os
-import sys
 from typing import List, Optional
 
 import srl
@@ -9,11 +7,9 @@ from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_worker_rulebase
 from srl.base.rl.worker import WorkerRun
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../"))
-
 # --- env & algorithm
-from envs import ox  # isort: skip # noqa F401
-from algorithms import ql  # isort: skip
+from srl.envs import ox  # isort: skip # noqa F401
+from srl.algorithms import ql  # isort: skip
 
 
 def _run_episode(

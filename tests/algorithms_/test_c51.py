@@ -4,7 +4,8 @@ from srl.test import TestRL
 from srl.utils.common import is_package_installed
 
 try:
-    from algorithms import c51
+    import srl.envs.grid  # noqa F401
+    from srl.algorithms import c51
 except ModuleNotFoundError:
     pass
 
@@ -40,6 +41,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    import __init__  # noqa F401
-
     unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum", verbosity=2)

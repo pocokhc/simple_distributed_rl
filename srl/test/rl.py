@@ -6,10 +6,9 @@ from srl import runner
 from srl.base.define import EnvObservationType
 from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
 from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
+from srl.envs import grid, ox  # noqa F401
 from srl.rl.functions.common import to_str_observation
 from srl.utils.common import is_packages_installed
-
-from .envs import grid, ox  # noqa F401
 
 
 class TestRL:
@@ -42,7 +41,7 @@ class TestRL:
         check_render: bool = True,
     ):
         if env_name == "":
-            env_list = ["TestGrid", "TestOX"]
+            env_list = ["Grid", "OX"]
         else:
             env_list = [env_name]
 
@@ -52,9 +51,9 @@ class TestRL:
             rl_config = rl_config.copy(reset_env_config=True)
 
             if enable_image:
-                if env_name == "TestGrid":
+                if env_name == "Grid":
                     rl_config.processors = [grid.LayerProcessor()]
-                elif env_name == "TestOX":
+                elif env_name == "OX":
                     rl_config.processors = [ox.LayerProcessor()]
 
             config = runner.Config(env_config, rl_config)
@@ -206,7 +205,7 @@ class TestRL:
         print(s)
         assert np.mean(episode_rewards) >= true_env[0], s
 
-        # parameter backup/restore
+        # --- parameter backup/restore
         param2 = config.make_parameter()
         param2.restore(parameter.backup())
         episode_rewards = runner.evaluate(
@@ -308,7 +307,7 @@ class TestRL:
 
     def verify_grid_policy(self):
         assert self.config.env_config.name == "Grid"
-        from envs.grid import Grid
+        from srl.envs.grid import Grid
 
         env_for_rl = self.config.make_env()
         env = SinglePlayEnvWrapper(env_for_rl)

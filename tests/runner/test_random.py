@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import srl
 import srl.rl.dummy
-from envs import grid  # noqa E401
+from srl.envs import grid  # noqa E401
 from srl.runner import sequence
 
 

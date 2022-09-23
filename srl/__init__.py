@@ -6,4 +6,12 @@ from .base.rl.registration import make_trainer  # noqa F401
 from .base.rl.registration import make_worker  # noqa F401
 from .version import VERSION as __version__  # noqa F401
 
-__all__ = ["base", "rl", "runner", "test", "utils"]
+__all__ = [
+    "base",
+    "rl",
+    "runner",
+    "test",
+    "utils",
+    "algorithms",
+    "envs",
+]

@@ -1,12 +1,7 @@
-import os
-import sys
-
 import srl
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../"))
-
 # --- load env
-from envs import grid  # isort: skip # noqa F401
+from srl.envs import grid  # isort: skip # noqa F401
 
 
 def main():

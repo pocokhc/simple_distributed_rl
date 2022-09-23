@@ -1,6 +1,9 @@
 import unittest
 
-from algorithms import ql
+import srl.envs.grid  # noqa F401
+import srl.envs.ox  # noqa F401
+import srl.envs.tiger  # noqa F401
+from srl.algorithms import ql
 from srl.test import TestRL
 
 
@@ -51,6 +54,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    import __init__  # noqa F401
-
-    unittest.main(module=__name__, defaultTest="Test.test_verify_tiger", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)

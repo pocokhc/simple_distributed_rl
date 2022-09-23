@@ -31,7 +31,12 @@ setup(
     name=package_name,
     packages=[package for package in find_packages() if package.startswith(package_name)],
     package_data={
-        "srl": ["font/*.ttf", "font/README.md"],
+        "srl": [
+            "font/*.ttf",
+            "font/README.md",
+            "envs/img/*.png",
+            "envs/img/README.md",
+        ],
     },
     version=VERSION,
     license="MIT",

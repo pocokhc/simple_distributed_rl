@@ -104,13 +104,12 @@ import srl
 + **Basic run of study**
 
 ``` python
-import numpy as np
 import srl
 from srl import runner
 
 # --- env & algorithm load
-from envs import grid  # isort: skip # noqa F401
-from algorithms import ql  # isort: skip
+from srl.envs import grid  # isort: skip # noqa F401
+from srl.algorithms import ql  # isort: skip
 
 
 def main():
@@ -121,10 +120,10 @@ def main():
 
     # train
     parameter, remote_memory, history = runner.train(config, timeout=20)
-    
+
     # evaluate
-    rewards = runner.evaluate(config, parameter, max_episodes=100)
-    print(f"Average reward for 100 episodes: {np.mean(rewards)}")
+    rewards = runner.evaluate(config, parameter, max_episodes=10)
+    print(f"evaluate episodes: {rewards}")
 
 
 if __name__ == "__main__":
@@ -144,7 +143,7 @@ from srl import runner
 # --- use env & algorithm load
 # (Run "pip install gym pygame" to use the gym environment)
 import gym  # isort: skip # noqa F401
-from algorithms import ql  # isort: skip
+from srl.algorithms import ql  # isort: skip
 
 # --- save parameter path
 _parameter_path = "_params.dat"

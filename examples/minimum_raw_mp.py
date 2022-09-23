@@ -1,21 +1,16 @@
 import ctypes
 import multiprocessing as mp
-import os
-import sys
 from multiprocessing.managers import BaseManager
 from typing import Optional
 
 import srl
 from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
-from srl.base.rl.registration import (make_parameter, make_remote_memory,
-                                      make_trainer)
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../"))
+from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer
 
 # --- env & algorithm
-from envs import grid  # isort: skip # noqa F401
-from algorithms import ql  # isort: skip
+from srl.envs import grid  # isort: skip # noqa F401
+from srl.algorithms import ql  # isort: skip
 
 
 def _run_episode(

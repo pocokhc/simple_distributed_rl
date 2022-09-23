@@ -1,7 +1,7 @@
 import unittest
 
+from srl.envs import oneroad  # noqa F401
 from srl.test import TestEnv
-from envs import oneroad  # noqa F401
 
 
 class Test(unittest.TestCase):

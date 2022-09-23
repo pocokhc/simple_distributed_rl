@@ -1,6 +1,6 @@
 import unittest
 
-from envs import igrid  # noqa F401
+from srl.envs import igrid  # noqa F401
 from srl.test import TestEnv
 
 

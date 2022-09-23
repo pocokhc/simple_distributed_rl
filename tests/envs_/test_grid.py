@@ -1,9 +1,9 @@
 import unittest
 
 import numpy as np
-from envs import grid
 from srl.base.define import EnvObservationType
 from srl.base.env.spaces.box import BoxSpace  # noqa F401
+from srl.envs import grid
 from srl.test import TestEnv
 from srl.test.processor import TestProcessor
 

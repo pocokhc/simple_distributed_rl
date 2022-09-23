@@ -1,8 +1,8 @@
 import unittest
 
 import srl
-from envs import grid
 from srl.base.env.config import EnvConfig
+from srl.envs import grid
 
 
 class Test(unittest.TestCase):

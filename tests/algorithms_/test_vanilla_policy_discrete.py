@@ -1,6 +1,7 @@
 import unittest
 
-from algorithms import vanilla_policy_discrete
+import srl.envs.grid  # noqa F401
+from srl.algorithms import vanilla_policy_discrete
 from srl.test import TestRL
 
 
@@ -21,6 +22,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    import __init__  # noqa F401
-
     unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)

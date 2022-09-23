@@ -1,6 +1,6 @@
 import unittest
 
-from envs import tiger  # noqa F401
+from srl.envs import tiger  # noqa F401
 from srl.test import TestEnv
 
 

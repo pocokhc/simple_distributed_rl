@@ -4,8 +4,9 @@ from srl.test import TestRL
 from srl.utils.common import compare_less_version, is_packages_installed
 
 try:
+    import srl.envs.grid  # noqa F401
     import tensorflow_addons
-    from algorithms import rainbow
+    from srl.algorithms import rainbow
 except ModuleNotFoundError:
     pass
 
@@ -128,7 +129,5 @@ class TestPendulum(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    import __init__  # noqa F401
-
     # unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum", verbosity=2)
     unittest.main(module=__name__, defaultTest="TestPendulum.test_verify_noisy", verbosity=2)

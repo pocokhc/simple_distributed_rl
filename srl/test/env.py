@@ -2,7 +2,7 @@ import srl
 from srl import runner
 from srl.base.define import PlayRenderMode
 from srl.base.env.base import EnvRun
-from srl.utils.common import is_package_installed
+from srl.utils.common import is_packages_installed
 
 
 class TestEnv:
@@ -35,12 +35,7 @@ class TestEnv:
                 max_step=max_step,
                 print_enable=print_enable,
             )
-            if (
-                is_package_installed("cv2")
-                and is_package_installed("matplotlib")
-                and is_package_installed("PIL")
-                and is_package_installed("pygame")
-            ):
+            if is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]):
                 env.set_render_mode(PlayRenderMode.window, interval=1)
                 self._play_test(
                     env,

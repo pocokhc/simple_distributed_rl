@@ -93,6 +93,7 @@ class RLWorker(WorkerBase):
         self.actor_id = actor_id
         self.__dummy_state = np.full(self.config._one_observation_shape, self.config.dummy_state_val)
         self.__env = None
+        self.__recent_states = [self.__dummy_state for _ in range(self.config.window_length)]
 
     # ------------------------------
     # encode/decode
@@ -399,7 +400,10 @@ class ExtendWorker(WorkerBase):
 class WorkerRun:
     def __init__(self, worker: WorkerBase):
         self.worker = worker
-        self._render = Render(worker, worker.config)
+        if worker.config is None:
+            self._render = Render(worker)
+        else:
+            self._render = Render(worker, worker.config.font_name, worker.config.font_size)
 
     # ------------------------------------
     # episode functions

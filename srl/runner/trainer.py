@@ -33,7 +33,6 @@ def train(
     eval_interval: int = 0,  # episode
     eval_num_episode: int = 1,
     eval_players: List[Union[None, str, RLConfig]] = [],
-    eval_player: int = 0,
     # PrintProgress
     print_progress: bool = True,
     progress_max_time: int = 60 * 10,  # s
@@ -65,7 +64,6 @@ def train(
     config.eval_interval = eval_interval
     config.eval_num_episode = eval_num_episode
     config.eval_players = eval_players
-    config.eval_player = eval_player
     # callbacks
     config.callbacks.extend(callbacks)
     # play info
@@ -143,25 +141,7 @@ def play(
 
     # --- eval
     if config.enable_evaluation:
-        eval_config = Config(config.env_config.copy(), config.rl_config.copy())
-        eval_config.players = config.eval_players
-        eval_config.rl_config.remote_memory_path = ""
-
-        # stop config
-        eval_config.max_steps = -1
-        eval_config.max_episodes = config.eval_num_episode
-        eval_config.timeout = -1
-        # play config
-        eval_config.shuffle_player = True
-        eval_config.disable_trainer = True
-        # evaluate
-        eval_config.enable_evaluation = False
-        # callbacks
-        eval_config.callbacks = []
-        # play info
-        eval_config.training = False
-        eval_config.distributed = False
-
+        eval_config = config.create_eval_config()
         env = eval_config.make_env()
     else:
         env = None

@@ -234,6 +234,28 @@ class Config:
 
         return config
 
+    def create_eval_config(self):
+        eval_config = Config(self.env_config.copy(), self.rl_config.copy())
+        eval_config.players = self.eval_players
+        eval_config.rl_config.remote_memory_path = ""
+
+        # stop config
+        eval_config.max_steps = -1
+        eval_config.max_episodes = self.eval_num_episode
+        eval_config.timeout = -1
+        # play config
+        eval_config.shuffle_player = True
+        eval_config.disable_trainer = True
+        # evaluate
+        eval_config.enable_evaluation = False
+        # callbacks
+        eval_config.callbacks = []
+        # play info
+        eval_config.training = False
+        eval_config.distributed = False
+
+        return eval_config
+
     # ------------------------------
     # utility
     # ------------------------------

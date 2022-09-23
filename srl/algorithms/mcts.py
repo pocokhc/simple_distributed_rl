@@ -216,12 +216,10 @@ class Worker(ModelBaseWorker):
 
     # ロールアウト
     def _rollout(self, env: EnvRun, player_index):
-        done = False
         rewards = []
-        while not done:
+        while not env.done:
             env.step(env.sample())
             rewards.append(env.step_rewards[player_index])
-            done = env.done
 
         # 割引報酬
         reward = 0

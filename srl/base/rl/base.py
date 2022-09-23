@@ -43,11 +43,11 @@ class RLParameter(ABC):
             raise
 
     def load(self, path: str) -> None:
-        logger.info(f"parameter load: {path}")
+        logger.debug(f"parameter load: {path}")
         t0 = time.time()
         with open(path, "rb") as f:
             self.restore(pickle.load(f))
-        logger.debug(f"parameter loaded({time.time() - t0:.1f}s)")
+        logger.info(f"parameter loaded({time.time() - t0:.1f}s)")
 
     def summary(self, **kwargs):
         pass  # NotImplemented

@@ -56,7 +56,7 @@ class Test(unittest.TestCase):
         # atari
         env = self.tester.play_test("ALE/Tetris-ram-v5", check_render=False, max_step=100)
         self.assertTrue(isinstance(env.observation_space, BoxSpace))
-        self.assertTrue(env.observation_type == EnvObservationType.UNKNOWN)
+        self.assertTrue(env.observation_type == EnvObservationType.DISCRETE)
         self.assertTrue(isinstance(env.action_space, DiscreteSpace))
 
     # 時間がかかる割に有益じゃないのでコメントアウト
@@ -84,4 +84,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_play_Pong", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_play_Tetris_ram", verbosity=2)

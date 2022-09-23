@@ -311,4 +311,5 @@ def animation(
         callbacks=callbacks,
         remote_memory=remote_memory,
     )
+    logger.info(f"animation rewards: {rewards}")
     return anime

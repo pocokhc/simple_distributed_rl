@@ -19,15 +19,23 @@
 
 # Download/Install
 
-+ **git clone install**
++ **Install**
 
-git clone してインストールする方法です。
+git clone または直接インストールする方法です。
+
+``` bash
+pip install git+https://github.com/pocokhc/simple_distributed_rl
+```
+
+or
 
 ``` bash
 git clone https://github.com/pocokhc/simple_distributed_rl.git
 cd simple_distributed_rl
 pip install .
+```
 
+``` bash
 # (option) packages to use in plot/animation
 pip install opencv-python pillow matplotlib pandas pygame
 
@@ -38,26 +46,7 @@ pip install gym pygame
 python examples/minimum_runner.py
 ```
 
-+ **Direct install**
-
-直接インストールする方法です。  
-フレームワーク側で作成した環境とアルゴリズムはついてこないので必要に応じてダウンロードしてください  
-（"envs" 配下に環境、"algorithms" 配下にアルゴリズムがあります）  
-
-``` bash
-pip install git+https://github.com/pocokhc/simple_distributed_rl
-
-# --- run sample
-# wget で grid(env) と ql(algorithm) と実行用ファイルを download
-mkdir envs algorithms examples
-wget https://raw.githubusercontent.com/pocokhc/simple_distributed_rl/main/envs/grid.py -O envs/grid.py
-wget https://raw.githubusercontent.com/pocokhc/simple_distributed_rl/main/algorithms/ql.py -O algorithms/ql.py
-wget https://raw.githubusercontent.com/pocokhc/simple_distributed_rl/main/examples/minimum_runner.py -O examples/minimum_runner.py
-# run
-python examples/minimum_runner.py
-```
-
-+ **No install(Download only)**
++ **Download (No install)**
 
 srlに実行パスが通っていれば install しなくても使えます。
 

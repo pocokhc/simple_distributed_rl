@@ -9,14 +9,42 @@
 1. PyTorchのサンプル作成
 1. ネットワーク経由の学習
 
-# v0.8.1
+# v0.9.0
 
-1. フレームワーク関係
-   1. ExperienceReplayBufferをmp環境で実行するとmemory上限を認識しない不具合修正
-      1. ExperienceReplayBuffer/ReplayMemoryのrestore/backupにて、下位versionと互換がありません
+**Big changes**
+
+1. algorithmsとenvsをパッケージ内に移動
+
+**Updates**
+
+1. Config
    1. EnvConfigの skip_frames を frameskip に変更
+   1. Configから eval_player を削除し、eval_reward を eval_rewards に変更
+   1. eval用Configをリファクタリング
+1. Runner
+   1. sequence.pyが大きくなったのでファイル分割
+   1. callbacksのon_step_beginの位置をactionの前に変更
+1. rendering
+   1. 日本語の文字化け修正
    1. renderingで、状態が画像の場合、rlに入力される画像も表示できるように追加
+   1. render時にstep内は画像情報などが保持されるように修正
+1. processor
    1. image_processorにtrimming機能を追加
+1. RL
+   1. RLWorkerにrecent_statesを追加(追加に伴い実装側で変数名は使えなくなりました)
+   1. humanの挙動を改善
+1. Env
+   1. GymWrapperを更新
+1. Other
+   1. examplesの sample_atari.py を更新
+   1. examplesに minimum_env.py を追加
+   1. unittestにpackageのskip追加
+
+**Bug Fixes**
+
+1. ExperienceReplayBufferをmp環境で実行するとmemory上限を認識しない不具合修正
+   + ExperienceReplayBuffer/ReplayMemoryのrestore/backupにて、下位versionと互換がありません
+
 # v0.8.0
 
 1. gym v0.26.0 に合わせて大幅修正

@@ -148,14 +148,13 @@ class EnvBase(ABC, IRender):
             return []
 
 
-# 実装と実行で名前空間を分けるために別クラスに
 class EnvRun:
     def __init__(self, env: EnvBase, config: EnvConfig) -> None:
         self.env = env
         self.config = config
         self.init()
 
-        self._render = Render(env, config)
+        self._render = Render(env, config.font_name, config.font_size)
 
         self.t0 = 0
 
@@ -208,6 +207,7 @@ class EnvRun:
             action, self.next_player_index
         )
         self._step_rewards = np.asarray(rewards, dtype=np.float32)
+        self._render.step()
 
         # skip frame の間は同じアクションを繰り返す
         for _ in range(self.config.frameskip):
@@ -216,6 +216,7 @@ class EnvRun:
                 action, self.next_player_index
             )
             self._step_rewards += np.asarray(rewards, dtype=np.float32)
+            self._render.step()
             if self.done:
                 break
 
@@ -257,11 +258,11 @@ class EnvRun:
         ]
         if include_env:
             d.append(self.env.backup())
-        return d
+        return pickle.dumps(d)
 
     def restore(self, data: Any) -> None:
         logger.debug("env.restore")
-        d = data
+        d = pickle.loads(data)
         self._step_num = d[0]
         self._episode_rewards = d[1]
         self._state = d[2]

@@ -21,18 +21,35 @@ class IRender:
 
 
 class Render:
-    def __init__(self, render_obj: IRender, config) -> None:
-        self.fig = None
-        self.ax = None
+    def __init__(
+        self,
+        render_obj: IRender,
+        font_name: str = "",
+        font_size: int = 12,
+    ) -> None:
         self.render_obj = render_obj
-        self.config = config
+        self.font_name = font_name
+        self.font_size = font_size
         self.interval = -1
         self.mode = PlayRenderMode.none
+
+        self.fig = None
+        self.ax = None
+        self.screen = None
+
+        self.print_str = ""
+        self.rgb_array = None
 
     def reset(self, mode: Union[str, PlayRenderMode], interval: float = -1):
         self.interval = interval
         self.mode = PlayRenderMode.from_str(mode)
         self.render_obj.set_render_mode(PlayRenderMode.convert_render_mode(self.mode))
+
+    def step(self):
+        self.print_str = ""
+        self.rgb_array = None
+
+    # ----------------------------
 
     def get_dummy(self) -> Union[None, str, np.ndarray]:
         if self.mode == PlayRenderMode.none:
@@ -60,26 +77,21 @@ class Render:
 
     def render_terminal(self, return_text: bool = False, **kwargs) -> Union[None, str]:
         if return_text:
-            return print_to_text(lambda: self.render_obj.render_terminal(**kwargs))
+            if self.print_str == "":
+                self.print_str = print_to_text(lambda: self.render_obj.render_terminal(**kwargs))
+            return self.print_str
         else:
             self.render_obj.render_terminal(**kwargs)
 
     def render_rgb_array(self, **kwargs) -> np.ndarray:
-        rgb_array = self.render_obj.render_rgb_array(**kwargs)
-        if rgb_array is None:
+        if self.rgb_array is None:
+            self.rgb_array = self.render_obj.render_rgb_array(**kwargs)
+        if self.rgb_array is None:
             text = print_to_text(lambda: self.render_obj.render_terminal(**kwargs))
             if text == "":
                 return np.zeros((4, 4, 3), dtype=np.uint8)  # dummy
-
-            if self.config is not None:
-                font_name = self.config.font_name
-                font_size = self.config.font_size
-            else:
-                font_name = ""
-                font_size = 12
-
-            rgb_array = text_to_rgb_array(text, font_name, font_size)
-        return rgb_array.astype(np.uint8)
+            self.rgb_array = text_to_rgb_array(text, self.font_name, self.font_size)
+        return self.rgb_array.astype(np.uint8)
 
     def render_window(self, **kwargs) -> np.ndarray:
         rgb_array = self.render_rgb_array(**kwargs)

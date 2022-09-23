@@ -6,12 +6,6 @@ from srl.base.render import IRender, Render
 from srl.utils.common import is_packages_installed
 
 
-class StubConfig:
-    def __init__(self):
-        self.font_name = ""
-        self.font_size = 12
-
-
 class StubRender(IRender):
     def render_terminal(self, text, **kwargs) -> None:
         print(text)
@@ -25,7 +19,7 @@ class StubRender(IRender):
 
 class Test(unittest.TestCase):
     def setUp(self) -> None:
-        self.render = Render(StubRender(), StubConfig())
+        self.render = Render(StubRender())
 
     def test_render_terminal(self):
         text = "StubRender\nAAA"

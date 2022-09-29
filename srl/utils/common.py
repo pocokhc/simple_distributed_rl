@@ -1,6 +1,7 @@
 import importlib
 import json
 import logging
+import sys
 import warnings
 from typing import Any, Dict, List, Union
 
@@ -163,6 +164,10 @@ def is_packages_installed(names: List[str]) -> bool:
     return True
 
 
+def is_package_imported(name: str) -> bool:
+    return name in sys.modules
+
+
 def is_env_notebook():
     try:
         if get_ipython().__class__.__name__ == "TerminalInteractiveShell":
@@ -185,3 +190,15 @@ def compare_less_version(v1, v2):
         from distutils.version import LooseVersion
 
         return LooseVersion(v1) < LooseVersion(v2)
+
+
+def compare_equal_version(v1, v2):
+    try:
+        from packaging import version
+
+        return version.parse(v1) == version.parse(v2)
+
+    except ImportError:
+        from distutils.version import LooseVersion
+
+        return LooseVersion(v1) == LooseVersion(v2)

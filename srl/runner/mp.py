@@ -58,7 +58,7 @@ class MpConfig:
         self.callbacks: List[MPCallback] = []
 
         if self.use_tensorflow is None:
-            if is_package_installed("tensorflow"):
+            if is_package_imported("tensorflow"):
                 self.use_tensorflow = True
             else:
                 self.use_tensorflow = False

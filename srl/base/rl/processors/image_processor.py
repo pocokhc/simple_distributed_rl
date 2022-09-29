@@ -77,8 +77,8 @@ class ImageProcessor(Processor):
             self.right = self.trimming[3]
             assert self.top < self.bottom
             assert self.left < self.right
-            w = shape[0]
-            h = shape[1]
+            w = shape[1]
+            h = shape[0]
             if self.top < 0:
                 self.top = 0
             if self.left < 0:

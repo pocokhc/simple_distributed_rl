@@ -60,11 +60,14 @@ class PrintProgress(Callback):
         return True
 
     def on_episodes_begin(self, info):
-        self.config = info["config"]
+        self.config: Config = info["config"]
         self.actor_id = info["actor_id"]
 
         if self.actor_id >= self.max_actor:
             return
+
+        self.enable_ps = self.config.enable_ps
+        self.enable_nvidia = self.config.enable_nvidia
 
         if not self.config.distributed:
             print(
@@ -217,7 +220,7 @@ class PrintProgress(Callback):
 
                 # [memory]
                 if self.actor_id == 0:
-                    s += self._memory_str(self.last_memory)
+                    s += self._memory_system_str(self.last_memory)
 
                 # [info]
                 if self.print_env_info:
@@ -234,7 +237,7 @@ class PrintProgress(Callback):
             s += f", {min(_r):.1f} {np.mean(_r):.3f} {max(_r):.1f} re"
 
             # [eval reward]
-                    s += self._eval_reward_str(self.progress_history)
+            s += self._eval_reward_str(self.progress_history)
 
             # [episode step] [episode time]
             _s = [h["episode_step"] for h in self.progress_history]
@@ -252,7 +255,7 @@ class PrintProgress(Callback):
 
             # [memory]
             if self.actor_id == 0:
-                s += self._memory_str(self.last_memory)
+                s += self._memory_system_str(self.last_memory)
 
             # [info]
             if self.print_env_info:
@@ -275,14 +278,25 @@ class PrintProgress(Callback):
             s = " " * 12
         return s
 
-    def _memory_str(self, memory_len):
-        # , 1234567 mem(100% PC)
+    def _memory_system_str(self, memory_len) -> str:
+        # , 1234567 mem(100%used), GPU[100%,100%,100%]
         s = f", {memory_len:7d} mem"
 
-        if is_package_installed("psutil"):
+        if self.enable_ps:
             import psutil
 
-            s += f"({psutil.virtual_memory().percent:3.1f}% PC)"
+            s += f"({psutil.virtual_memory().percent:3.0f}% used)"
+
+        if self.enable_nvidia:
+            import pynvml
+
+            gpu_num = pynvml.nvmlDeviceGetCount()
+            gpus = []
+            for i in range(gpu_num):
+                handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+                rate = pynvml.nvmlDeviceGetUtilizationRates(handle)
+                gpus.append(f"{rate.gpu:3.0f}%")
+            s += ", GPU[" + ",".join(gpus) + "]"
 
         return s
 

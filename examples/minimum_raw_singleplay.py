@@ -11,66 +11,76 @@ from srl.envs import grid  # isort: skip # noqa F401
 from srl.algorithms import ql  # isort: skip
 
 
-def _run_episode(
+def _train(
     env: EnvRun,
     rl_config: RLConfig,
     parameter: RLParameter,
-    remote_memory: Optional[RLRemoteMemory],
-    training: bool,
-    rendering=False,
+    remote_memory: RLRemoteMemory,
 ):
-    worker = srl.make_worker(rl_config, parameter, remote_memory, training=training, distributed=False)
-    if training:
-        trainer = srl.make_trainer(rl_config, parameter, remote_memory)
-    else:
-        trainer = None
+    worker = srl.make_worker(rl_config, parameter, remote_memory, training=True, distributed=False)
+    trainer = srl.make_trainer(rl_config, parameter, remote_memory)
 
     # --- change single play interface
     env = SinglePlayEnvWrapper(env)
     worker = SinglePlayWorkerWrapper(worker)
 
-    # --- set render mode
-    if rendering:
-        env.set_render_mode("terminal")
-        worker.set_render_mode("terminal")
-
-    # reset
+    # 1. reset
     state = env.reset()
     worker.on_reset(env)
 
-    if rendering:
-        print("step 0")
-        env.render()
-
     while not env.done:
-
-        # action
+        # 2. action
         action = worker.policy(env)
 
-        # render
-        if rendering:
-            worker.render(env)
-
-        # step
+        # 3. step
         state, reward, done, env_info = env.step(action)
         work_info = worker.on_step(env)
 
-        # train
-        if trainer is None:
-            train_info = {}
-        else:
-            train_info = trainer.train()
-
-        # render
-        if rendering:
-            print(
-                "step {}, action {}, reward: {}, done: {}, info: {} {} {}".format(
-                    env.step_num, action, env.step_rewards[0], env.done, env_info, work_info, train_info
-                )
-            )
-            env.render()
+        # 4. train
+        train_info = trainer.train()
 
     return env.step_num, env.episode_rewards[0]
+
+
+def _render(
+    env: EnvRun,
+    rl_config: RLConfig,
+    parameter: RLParameter,
+):
+    worker = srl.make_worker(rl_config, parameter, remote_memory=None, training=False, distributed=False)
+
+    # --- change single play interface
+    env = SinglePlayEnvWrapper(env)
+    worker = SinglePlayWorkerWrapper(worker)
+
+    # 1. reset
+    state = env.reset(mode="terminal")
+    worker.on_reset(env, mode="terminal")
+
+    # --- render
+    print("step 0")
+    env.render()
+
+    while not env.done:
+        # 2. action
+        action = worker.policy(env)
+
+        # --- worker render
+        worker.render(env)
+
+        # 3. step
+        state, reward, done, env_info = env.step(action)
+        work_info = worker.on_step(env)
+
+        # --- env render
+        print(
+            "step {}, action {}, reward: {}, done: {}, info: {} {}".format(
+                env.step_num, action, env.step_rewards[0], env.done, env_info, work_info
+            )
+        )
+        env.render()
+
+    print(f"step: {env.step_num}, reward: {env.episode_rewards[0]}")
 
 
 def main():
@@ -88,13 +98,12 @@ def main():
 
     # --- train loop
     for episode in range(10000):
-        step, reward = _run_episode(env, rl_config, parameter, remote_memory, training=True)
+        step, reward = _train(env, rl_config, parameter, remote_memory)
         if episode % 1000 == 0:
             print(f"{episode} / 10000 episode, {step} step, {reward} reward")
 
     # --- render
-    step, reward = _run_episode(env, rl_config, parameter, None, training=False, rendering=True)
-    print(f"step: {step}, reward: {reward}")
+    _render(env, rl_config, parameter)
 
 
 if __name__ == "__main__":

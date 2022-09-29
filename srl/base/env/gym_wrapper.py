@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class GymWrapper(EnvBase):
-    def __init__(self, env_name: str, prediction_by_simulation: bool):
+    def __init__(self, env_name: str, arguments: dict, prediction_by_simulation: bool):
         self.seed = None
         self.render_mode = RenderMode.NONE
         self.v0260_older = compare_less_version(gym.__version__, "0.26.0")
@@ -34,12 +34,12 @@ class GymWrapper(EnvBase):
                     assert not compare_less_version(ale_py.__version__, "0.8.0")
 
         self.name = env_name
-        self.env: gym.Env = gym.make(env_name)
+        self.arguments = arguments
+        self.env: gym.Env = gym.make(env_name, **self.arguments)
         logger.info(f"metadata: {self.env.metadata}")
 
         # fps
         self.fps = self.env.metadata.get("render_fps", 60)
-        assert self.fps > 0
 
         # render_modes
         self.render_modes = ["ansi", "human", "rgb_array"]
@@ -219,11 +219,11 @@ class GymWrapper(EnvBase):
         # modeが違っていたら作り直す
         if mode == RenderMode.Terminal:
             if self.render_mode != RenderMode.Terminal and "ansi" in self.render_modes:
-                self.env = gym.make(self.name, render_mode="ansi")
+                self.env = gym.make(self.name, render_mode="ansi", **self.arguments)
                 self.render_mode = RenderMode.Terminal
         elif mode == RenderMode.RBG_array:
             if self.render_mode != RenderMode.RBG_array and "rgb_array" in self.render_modes:
-                self.env = gym.make(self.name, render_mode="rgb_array")
+                self.env = gym.make(self.name, render_mode="rgb_array", **self.arguments)
                 self.render_mode = RenderMode.RBG_array
 
     def render_terminal(self, **kwargs) -> None:

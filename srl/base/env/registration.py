@@ -25,7 +25,7 @@ def make(config: Union[str, EnvConfig]) -> EnvRun:
     elif is_package_installed("gym"):
         from srl.base.env.gym_wrapper import GymWrapper
 
-        env = GymWrapper(env_name, config.gym_prediction_by_simulation)
+        env = GymWrapper(env_name, config.kwargs, config.gym_prediction_by_simulation)
     else:
         raise ValueError(f"'{env_name}' is not found.")
 

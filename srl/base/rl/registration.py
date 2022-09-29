@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Optional, Type
+from typing import Optional, Type, Union
 
 from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer

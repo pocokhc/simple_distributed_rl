@@ -7,7 +7,6 @@ from srl.base.define import EnvObservationType, RLActionType, RLObservationType
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
-from srl.base.rl.processors.render_image_processor import RenderImageProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +103,8 @@ class RLConfig(ABC):
         # processor
         self._run_processors = []
         if self.change_observation_render_image:
+            from srl.base.rl.processors.render_image_processor import RenderImageProcessor
+
             self._run_processors.append(RenderImageProcessor())
         self._run_processors.extend(self.processors)
         if self.use_rl_processor:

@@ -30,6 +30,8 @@ class Rendering(Callback):
         self.rl_state_maxw = 0
         self.rl_state_maxh = 0
 
+        self.info_text = ""
+        self.env_img = None
         self.rl_text = ""
         self.rl_img = None
         self.rl_state_image = None
@@ -47,12 +49,14 @@ class Rendering(Callback):
 
     def on_step_begin(self, info) -> None:
         self._render_worker(info)
+        self._add_image()
 
         if self.step_stop:
             input("Enter to continue:")
 
     def on_episode_end(self, info) -> None:
         self._render_env(info)
+        self._add_image()
 
     def on_skip_step(self, info):
         if not self.use_skip_step:
@@ -90,6 +94,7 @@ class Rendering(Callback):
             info_text += f" ({step_time:.1f}s)"
         info_text += f"\nenv   {env.info}"
         info_text += f"\nwork{worker_idx: <2d}{worker.info}"
+        self.info_text = info_text
 
         # --- render_terminal
         if self.render_mode == PlayRenderMode.terminal:
@@ -102,19 +107,23 @@ class Rendering(Callback):
         if self.render_mode == PlayRenderMode.window:
             env.render_window(**self.render_kwargs)
 
+        if self.render_mode == PlayRenderMode.rgb_array:
+            self.env_img = env.render_rgb_array(**self.render_kwargs)
+            self.env_maxw = max(self.env_maxw, self.env_img.shape[1])
+            self.env_maxh = max(self.env_maxh, self.env_img.shape[0])
+
+    def _add_image(self):
+
         # --- rgb
         if self.render_mode == PlayRenderMode.rgb_array:
-            info_img = text_to_rgb_array(info_text)
-            env_img = env.render_rgb_array(**self.render_kwargs)
+            info_img = text_to_rgb_array(self.info_text)
             self.info_maxw = max(self.info_maxw, info_img.shape[1])
             self.info_maxh = max(self.info_maxh, info_img.shape[0])
-            self.env_maxw = max(self.env_maxw, env_img.shape[1])
-            self.env_maxh = max(self.env_maxh, env_img.shape[0])
 
             self.frames.append(
                 {
                     "info_image": info_img,
-                    "env_image": env_img,
+                    "env_image": self.env_img,
                     "rl_image": self.rl_img,
                     "rl_state_image": self.rl_state_image,
                 }

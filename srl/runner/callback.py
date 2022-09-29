@@ -27,8 +27,9 @@ class Callback(ABC):
     def intermediate_stop(self, info) -> bool:
         return False
 
-
-class TrainerCallback(ABC):
+    # -------------------------
+    # TrainerCallback
+    # -------------------------
     def on_trainer_start(self, info) -> None:
         pass  # do nothing
 
@@ -37,10 +38,6 @@ class TrainerCallback(ABC):
 
     def on_trainer_end(self, info) -> None:
         pass  # do nothing
-
-    # 外部から途中停止用
-    def intermediate_stop(self, info) -> bool:
-        return False
 
 
 class MPCallback(ABC):

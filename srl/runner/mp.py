@@ -212,7 +212,7 @@ def __run_actor(
 # --------------------
 # trainer
 # --------------------
-class _TrainerInterrupt(TrainerCallback):
+class _TrainerInterrupt(Callback):
     def __init__(
         self,
         remote_board: Board,
@@ -336,7 +336,7 @@ def train(
     enable_checkpoint: bool = True,
     checkpoint_interval: int = 60 * 20,  # s
     # other
-    callbacks: List[Union[Callback, TrainerCallback]] = [],
+    callbacks: List[Callback] = [],
     mp_callbacks: List[MPCallback] = [],
     init_parameter: Optional[RLParameter] = None,
     init_remote_memory: Optional[RLRemoteMemory] = None,
@@ -388,16 +388,9 @@ def train(
                 start_time=progress_start_time,
                 print_env_info=progress_print_env_info,
                 print_worker_info=progress_print_worker_info,
-                print_train_info=False,
+                print_train_info=progress_print_train_info,
                 print_worker=progress_print_worker,
                 max_actor=progress_max_actor,
-            )
-        )
-        config.callbacks.append(
-            TrainerPrintProgress(
-                max_time=progress_max_time,
-                start_time=progress_start_time,
-                print_train_info=progress_print_train_info,
             )
         )
         mp_config.callbacks.append(MPPrintProgress())

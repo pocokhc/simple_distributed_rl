@@ -5,8 +5,9 @@ from collections import deque
 from dataclasses import dataclass
 
 import numpy as np
-from srl.runner.callback import Callback, MPCallback, TrainerCallback
-from srl.utils.common import is_package_installed, listdictdict_to_dictlist, summarize_info_from_dictlist, to_str_time
+from srl.runner.callback import Callback, MPCallback
+from srl.runner.config import Config
+from srl.utils.common import listdictdict_to_dictlist, summarize_info_from_dictlist, to_str_time
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,20 @@ class PrintProgress(Callback):
         self.last_train_count = 0
         self.last_memory = 0
 
+    def _check_print_progress(self):
+        _time = time.time()
+        taken_time = _time - self.progress_t0
+        if taken_time < self.progress_timeout:
+            return False
+        self.progress_t0 = _time
+
+        # 表示間隔を増やす
+        self.progress_timeout *= 2
+        if self.progress_timeout > self.max_time:
+            self.progress_timeout = self.max_time
+
+        return True
+
     def on_episodes_begin(self, info):
         self.config = info["config"]
         self.actor_id = info["actor_id"]
@@ -73,7 +88,7 @@ class PrintProgress(Callback):
         self.last_episode_count = info["episode_count"]
         if info["trainer"] is not None:
             self.last_train_count = info["trainer"].get_train_count()
-        self._print()
+        self._print_actor()
 
     def on_episode_begin(self, info):
         if self.actor_id >= self.max_actor:
@@ -104,7 +119,7 @@ class PrintProgress(Callback):
             self.resent_train_time.append(info["train_time"])
 
         if self._check_print_progress():
-            self._print()
+            self._print_actor()
 
     def on_episode_end(self, info):
         if self.actor_id >= self.max_actor:
@@ -126,7 +141,7 @@ class PrintProgress(Callback):
         d = {
             "episode_step": info["episode_step"],
             "episode_reward": info["episode_rewards"][player_idx],
-            "eval_reward": None if info["eval_rewards"] is None else info["eval_rewards"][self.print_worker],
+            "eval_reward": None if info.get("eval_rewards", None) is None else info["eval_rewards"][self.print_worker],
             "env_info": env_info,
             "work_info": work_info,
         }
@@ -142,21 +157,7 @@ class PrintProgress(Callback):
 
     # -----------------------------------------
 
-    def _check_print_progress(self):
-        _time = time.time()
-        taken_time = _time - self.progress_t0
-        if taken_time < self.progress_timeout:
-            return False
-        self.progress_t0 = _time
-
-        # 表示間隔を増やす
-        self.progress_timeout *= 2
-        if self.progress_timeout > self.max_time:
-            self.progress_timeout = self.max_time
-
-        return True
-
-    def _print(self):
+    def _print_actor(self):
         elapsed_time = time.time() - self.t0
 
         # --- head
@@ -233,13 +234,6 @@ class PrintProgress(Callback):
             s += f", {min(_r):.1f} {np.mean(_r):.3f} {max(_r):.1f} re"
 
             # [eval reward]
-            if self.config.distributed:
-                if self.config.enable_evaluation:
-                    s += self._eval_reward_str(self.progress_history)
-                else:
-                    s += self._eval_reward_str(None)
-            else:
-                if self.config.enable_evaluation:
                     s += self._eval_reward_str(self.progress_history)
 
             # [episode step] [episode time]
@@ -271,8 +265,8 @@ class PrintProgress(Callback):
         print(s)
         self.progress_history = []
 
-    def _eval_reward_str(self, arr):
-        if arr is None:
+    def _eval_reward_str(self, arr) -> str:
+        if arr is None or len(arr) == 0:
             return " " * 12
         _rewards = [h["eval_reward"] for h in arr if h["eval_reward"] is not None]
         if len(_rewards) > 0:
@@ -292,7 +286,7 @@ class PrintProgress(Callback):
 
         return s
 
-    def _info_str(self, arr_dict, key):
+    def _info_str(self, arr_dict, key) -> str:
         s = ""
         d = listdictdict_to_dictlist(arr_dict, key)
         d = summarize_info_from_dictlist(d)
@@ -305,19 +299,9 @@ class PrintProgress(Callback):
                 s += f"|{k} {v}"
         return s
 
-
-@dataclass
-class TrainerPrintProgress(TrainerCallback):
-    max_time: int = 60 * 10  # s
-    start_time: int = 5  # s
-
-    print_train_info: bool = True
-    print_worker: int = 0
-
-    def __post_init__(self):
-        assert self.start_time > 0
-        assert self.start_time < self.max_time
-        self.progress_timeout = self.start_time
+    # ----------------------------------
+    # trainer
+    # ----------------------------------
 
     def on_trainer_start(self, info) -> None:
         self.config = info["config"]
@@ -340,7 +324,7 @@ class TrainerPrintProgress(TrainerCallback):
 
     def on_trainer_end(self, info) -> None:
         self.last_train_count = info["train_count"]
-        self._print()
+        self._print_trainer()
 
     def on_trainer_train(self, info) -> None:
         self.resent_train_time.append(info["train_time"])
@@ -348,30 +332,17 @@ class TrainerPrintProgress(TrainerCallback):
 
         d = {
             "train_info": info["train_info"],
-            "eval_reward": None if info["eval_rewards"] is None else info["eval_rewards"][self.print_worker],
         }
+        if info.get("eval_rewards", None) is not None:
+            d["eval_reward"] = info["eval_rewards"][self.print_worker]
         if "sync" in info:
             d["sync"] = info["sync"]
 
         self.progress_history.append(d)
         if self._check_print_progress():
-            self._print()
+            self._print_trainer()
 
-    def _check_print_progress(self):
-        _time = time.time()
-        taken_time = _time - self.progress_t0
-        if taken_time < self.progress_timeout:
-            return False
-        self.progress_t0 = _time
-
-        # 表示間隔を増やす
-        self.progress_timeout *= 2
-        if self.progress_timeout > self.max_time:
-            self.progress_timeout = self.max_time
-
-        return True
-
-    def _print(self):
+    def _print_trainer(self):
         elapsed_time = time.time() - self.t0
 
         # --- head
@@ -409,8 +380,8 @@ class TrainerPrintProgress(TrainerCallback):
             s += f", {train_time:.4f}s/tr"
 
             # [eval]
-            if self.config.enable_evaluation:
-                eval_rewards = [h["eval_reward"] for h in self.progress_history if h["eval_reward"] is not None]
+            if "eval_reward" in self.progress_history[0]:
+                eval_rewards = [h["eval_reward"] for h in self.progress_history]
                 if len(eval_rewards) > 0:
                     s += f", {np.mean(eval_rewards):.3f} eval reward"
             # [sync]

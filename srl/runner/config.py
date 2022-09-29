@@ -19,7 +19,7 @@ from srl.base.rl.registration import (
     make_worker_rulebase,
 )
 from srl.base.rl.worker import WorkerRun
-from srl.runner.callback import Callback, TrainerCallback
+from srl.runner.callback import Callback
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class Config:
         self.eval_num_episode: int = 1
         self.eval_players: List[Union[None, str, RLConfig]] = []
         # callbacks
-        self.callbacks: List[Union[Callback, TrainerCallback]] = []
+        self.callbacks: List[Callback] = []
 
         # play info
         self.training: bool = False

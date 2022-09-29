@@ -45,7 +45,7 @@ class Render:
         self.mode = PlayRenderMode.from_str(mode)
         self.render_obj.set_render_mode(PlayRenderMode.convert_render_mode(self.mode))
 
-    def step(self):
+    def cache_reset(self):
         self.print_str = ""
         self.rgb_array = None
 

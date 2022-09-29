@@ -435,6 +435,7 @@ class WorkerRun:
         self._info = None
         self._is_reset = False
         self._step_reward = 0
+        self._render.cache_reset()
 
     def policy(self, env: EnvRun) -> Optional[EnvAction]:
         if self.player_index != env.next_player_index:
@@ -453,6 +454,7 @@ class WorkerRun:
         # worker policy
         env_action, info = self.worker.policy(env, self)
         self._info.update(info)
+        self._render.cache_reset()
 
         return env_action
 
@@ -470,6 +472,7 @@ class WorkerRun:
         if env.done:
             self._info = self.worker.on_step(env, self)
             self._step_reward = 0
+            self._render.cache_reset()
 
     # ------------------------------------
     # render functions

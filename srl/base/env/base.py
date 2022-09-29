@@ -196,6 +196,7 @@ class EnvRun:
         self._episode_rewards = np.zeros(self.player_num)
         self._step_rewards = np.zeros(self.player_num)
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
+        self._render.cache_reset()
 
         self.t0 = time.time()
 
@@ -207,7 +208,7 @@ class EnvRun:
             action, self.next_player_index
         )
         self._step_rewards = np.asarray(rewards, dtype=np.float32)
-        self._render.step()
+        self._render.cache_reset()
 
         # skip frame の間は同じアクションを繰り返す
         for _ in range(self.config.frameskip):
@@ -216,7 +217,7 @@ class EnvRun:
                 action, self.next_player_index
             )
             self._step_rewards += np.asarray(rewards, dtype=np.float32)
-            self._render.step()
+            self._render.cache_reset()
             if self.done:
                 break
 

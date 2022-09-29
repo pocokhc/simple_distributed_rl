@@ -14,7 +14,6 @@ from srl.base.env.spaces import BoxSpace, DiscreteSpace
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.rl.processor import Processor
 from srl.base.rl.worker import RuleBaseWorker, WorkerRun
-from srl.utils.viewer import Viewer
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +42,7 @@ class Othello(TurnBase2Player):
 
     def __post_init__(self):
         self._player_index = 0
-        self.viewer = None
+        self.screen = None
 
     def get_field(self, x: int, y: int) -> int:
         if x < 0:
@@ -276,11 +275,12 @@ class Othello(TurnBase2Player):
             print("next player: X")
 
     def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
+        from srl.utils import pygame_wrapper as pw
 
         WIDTH = 400
         HEIGHT = 400
-        if self.viewer is None:
-            self.viewer = Viewer(WIDTH, HEIGHT, fps=1)
+        if self.screen is None:
+            self.screen = pw.create_surface(WIDTH, HEIGHT)
 
         w_margin = 10
         h_margin = 10
@@ -288,7 +288,7 @@ class Othello(TurnBase2Player):
         cell_h = int((HEIGHT - h_margin * 2) / self.H)
         invalid_actions = self.get_invalid_actions(self.player_index)
 
-        self.viewer.draw_fill(color=(255, 255, 255))
+        pw.draw_fill(self.screen, color=(255, 255, 255))
 
         # --- cell
         for y in range(self.H):
@@ -298,7 +298,8 @@ class Othello(TurnBase2Player):
                 left_top_x = w_margin + x * cell_w
                 left_top_y = h_margin + y * cell_h
 
-                self.viewer.draw_box(
+                pw.draw_box(
+                    self.screen,
                     left_top_x,
                     left_top_y,
                     cell_w,
@@ -316,7 +317,8 @@ class Othello(TurnBase2Player):
                     else:
                         width = 0
                         line_color = (0, 0, 0)
-                    self.viewer.draw_circle(
+                    pw.draw_circle(
+                        self.screen,
                         center_x,
                         center_y,
                         int(cell_w * 0.3),
@@ -332,7 +334,8 @@ class Othello(TurnBase2Player):
                     else:
                         width = 0
                         line_color = (0, 0, 0)
-                    self.viewer.draw_circle(
+                    pw.draw_circle(
+                        self.screen,
                         center_x,
                         center_y,
                         int(cell_w * 0.3),
@@ -346,7 +349,8 @@ class Othello(TurnBase2Player):
                         color = (0, 0, 0)
                     else:
                         color = (255, 255, 255)
-                    self.viewer.draw_circle(
+                    pw.draw_circle(
+                        self.screen,
                         center_x,
                         center_y,
                         int(cell_w * 0.1),
@@ -354,7 +358,7 @@ class Othello(TurnBase2Player):
                         fill_color=color,
                     )
 
-        return self.viewer.get_rgb_array()
+        return pw.get_rgb_array(self.screen)
 
     @property
     def render_interval(self) -> float:

@@ -12,7 +12,6 @@ from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import SinglePlayEnv
 from srl.base.env.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 from srl.base.rl.processor import Processor
-from srl.utils.viewer import Viewer
 
 logger = logging.getLogger(__name__)
 
@@ -86,12 +85,7 @@ class Grid(SinglePlayEnv):
             },
         }
 
-        self.viewer = None
-
-    def close(self):
-        if self.viewer is not None:
-            self.viewer.close()
-            self.viewer = None
+        self.screen = None
 
     @property
     def action_space(self) -> SpaceBase:
@@ -165,49 +159,51 @@ class Grid(SinglePlayEnv):
         return str(action)
 
     def render_rgb_array(self, **kwargs) -> np.ndarray:
+        from srl.utils import pygame_wrapper as pw
+
         cell_size = 32
         WIDTH = cell_size * self.W
         HEIGHT = cell_size * self.H
-        if self.viewer is None:
-            self.viewer = Viewer(WIDTH, HEIGHT)
+        if self.screen is None:
+            self.screen = pw.create_surface(WIDTH, HEIGHT)
 
-            self.viewer.load_image("cell", os.path.join(os.path.dirname(__file__), "img/cell.png"))
-            self.viewer.load_image("goal", os.path.join(os.path.dirname(__file__), "img/goal.png"))
-            self.viewer.load_image("hole", os.path.join(os.path.dirname(__file__), "img/hole.png"))
-            self.viewer.load_image("wall", os.path.join(os.path.dirname(__file__), "img/wall.png"))
-            self.viewer.load_image("player_down", os.path.join(os.path.dirname(__file__), "img/player_down.png"))
-            self.viewer.load_image("player_left", os.path.join(os.path.dirname(__file__), "img/player_left.png"))
-            self.viewer.load_image("player_right", os.path.join(os.path.dirname(__file__), "img/player_right.png"))
-            self.viewer.load_image("player_up", os.path.join(os.path.dirname(__file__), "img/player_up.png"))
+            pw.load_image("cell", os.path.join(os.path.dirname(__file__), "img/cell.png"))
+            pw.load_image("goal", os.path.join(os.path.dirname(__file__), "img/goal.png"))
+            pw.load_image("hole", os.path.join(os.path.dirname(__file__), "img/hole.png"))
+            pw.load_image("wall", os.path.join(os.path.dirname(__file__), "img/wall.png"))
+            pw.load_image("player_down", os.path.join(os.path.dirname(__file__), "img/player_down.png"))
+            pw.load_image("player_left", os.path.join(os.path.dirname(__file__), "img/player_left.png"))
+            pw.load_image("player_right", os.path.join(os.path.dirname(__file__), "img/player_right.png"))
+            pw.load_image("player_up", os.path.join(os.path.dirname(__file__), "img/player_up.png"))
 
-        self.viewer.draw_fill(color=(255, 255, 255))
+        pw.draw_fill(self.screen, color=(255, 255, 255))
 
         for y in range(self.H):
             for x in range(self.W):
                 x_pos = x * cell_size
                 y_pos = y * cell_size
-                self.viewer.draw_image("cell", x_pos, y_pos)
+                pw.draw_image(self.screen, "cell", x_pos, y_pos)
 
                 n = self.base_field[y][x]
                 if self.player_pos[0] == x and self.player_pos[1] == y:
                     if self.action == Action.DOWN:
-                        self.viewer.draw_image("player_down", x_pos, y_pos)
+                        pw.draw_image(self.screen, "player_down", x_pos, y_pos)
                     elif self.action == Action.RIGHT:
-                        self.viewer.draw_image("player_right", x_pos, y_pos)
+                        pw.draw_image(self.screen, "player_right", x_pos, y_pos)
                     elif self.action == Action.LEFT:
-                        self.viewer.draw_image("player_left", x_pos, y_pos)
+                        pw.draw_image(self.screen, "player_left", x_pos, y_pos)
                     elif self.action == Action.UP:
-                        self.viewer.draw_image("player_up", x_pos, y_pos)
+                        pw.draw_image(self.screen, "player_up", x_pos, y_pos)
                 elif n == 0:  # 道
                     pass
                 elif n == 1:  # goal
-                    self.viewer.draw_image("goal", x_pos, y_pos)
+                    pw.draw_image(self.screen, "goal", x_pos, y_pos)
                 elif n == -1:  # 穴
-                    self.viewer.draw_image("hole", x_pos, y_pos)
+                    pw.draw_image(self.screen, "hole", x_pos, y_pos)
                 elif n == 9:  # 壁
-                    self.viewer.draw_image("wall", x_pos, y_pos)
+                    pw.draw_image(self.screen, "wall", x_pos, y_pos)
 
-        return self.viewer.get_rgb_array()
+        return pw.get_rgb_array(self.screen)
 
     @property
     def render_interval(self) -> float:

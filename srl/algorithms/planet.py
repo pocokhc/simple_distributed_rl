@@ -17,7 +17,6 @@ from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common_tf import gaussian_kl_divergence
 from srl.rl.models.input_layer import create_input_layer
 from srl.rl.models.mlp_block import MLPBlock
-from srl.utils.viewer import Viewer
 
 """
 paper: https://arxiv.org/abs/1811.04551
@@ -479,7 +478,7 @@ class Worker(DiscreteActionWorker):
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
-        self.viewer = None
+        self.screen = None
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self._recent_states = [state]
@@ -644,6 +643,7 @@ class Worker(DiscreteActionWorker):
     def render_rgb_array(self, env, worker, **kwargs) -> Optional[np.ndarray]:
         if self.config.env_observation_type != EnvObservationType.COLOR:
             return None
+        from srl.utils import pygame_wrapper as pw
 
         _view_action = 4
         _view_sample = 3
@@ -654,9 +654,9 @@ class Worker(DiscreteActionWorker):
         WIDTH = (IMG_W + PADDING) * _view_action + 5
         HEIGHT = (IMG_H + PADDING + STR_H) * (_view_sample + 1) + STR_H * 2 + 5
 
-        if self.viewer is None:
-            self.viewer = Viewer(WIDTH, HEIGHT)
-        self.viewer.draw_fill(color=(0, 0, 0))
+        if self.screen is None:
+            self.screen = pw.create_surface(WIDTH, HEIGHT)
+        pw.draw_fill(self.screen, color=(0, 0, 0))
 
         # --- vae
         s = tf.concat([self.z, self.prev_hidden_state], axis=1)
@@ -666,10 +666,10 @@ class Worker(DiscreteActionWorker):
         img1 = self.state * 255
         img2 = pred_state * 255
 
-        self.viewer.draw_text(0, 0, "original", color=(255, 255, 255))
-        self.viewer.draw_image_rgb_array(0, STR_H, img1)
-        self.viewer.draw_text(IMG_W + PADDING, 0, f"decode(RMSE: {rmse:.5f})", color=(255, 255, 255))
-        self.viewer.draw_image_rgb_array(IMG_W + PADDING, STR_H, img2)
+        pw.draw_text(self.screen, 0, 0, "original", color=(255, 255, 255))
+        pw.draw_image_rgb_array(self.screen, 0, STR_H, img1)
+        pw.draw_text(self.screen, IMG_W + PADDING, 0, f"decode(RMSE: {rmse:.5f})", color=(255, 255, 255))
+        pw.draw_image_rgb_array(self.screen, IMG_W + PADDING, STR_H, img2)
 
         # 横にアクション後の結果を表示
         for i, a in enumerate(self.get_valid_actions()):
@@ -678,8 +678,8 @@ class Worker(DiscreteActionWorker):
 
             h, _ = self.parameter.model.one_step_transition(self.z, a, self.prev_hidden_state)
 
-            self.viewer.draw_text(
-                (IMG_W + PADDING) * i, 20 + IMG_H, f"action {env.action_to_str(a)}", color=(255, 255, 255)
+            pw.draw_text(
+                self.screen, (IMG_W + PADDING) * i, 20 + IMG_H, f"action {env.action_to_str(a)}", color=(255, 255, 255)
             )
 
             # 縦にいくつかサンプルを表示
@@ -695,7 +695,7 @@ class Worker(DiscreteActionWorker):
 
                 x = (IMG_W + PADDING) * i
                 y = 20 + IMG_H + STR_H + (IMG_H + PADDING + STR_H) * j
-                self.viewer.draw_text(x, y, f"{reward:.3f}", color=(255, 255, 255))
-                self.viewer.draw_image_rgb_array(x, y + STR_H, n_img)
+                pw.draw_text(self.screen, x, y, f"{reward:.3f}", color=(255, 255, 255))
+                pw.draw_image_rgb_array(self.screen, x, y + STR_H, n_img)
 
-        return self.viewer.get_rgb_array()
+        return pw.get_rgb_array(self.screen)

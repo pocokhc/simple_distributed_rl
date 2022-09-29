@@ -12,7 +12,6 @@ from srl.base.env.spaces import BoxSpace, DiscreteSpace
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.rl.processor import Processor
 from srl.base.rl.worker import RuleBaseWorker, WorkerRun
-from srl.utils.viewer import Viewer
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +31,7 @@ class OX(TurnBase2Player):
         self.H = 3
 
         self._player_index = 0
-        self.viewer = None
+        self.screen = None
 
     @property
     def action_space(self) -> SpaceBase:
@@ -155,27 +154,28 @@ class OX(TurnBase2Player):
             print("next player: X")
 
     def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
+        from srl.utils import pygame_wrapper as pw
 
         WIDTH = 200
         HEIGHT = 200
-        if self.viewer is None:
-            self.viewer = Viewer(WIDTH, HEIGHT)
+        if self.screen is None:
+            self.screen = pw.create_surface(WIDTH, HEIGHT)
 
         w_margin = 10
         h_margin = 10
         cell_w = int((WIDTH - w_margin * 2) / self.W)
         cell_h = int((HEIGHT - h_margin * 2) / self.H)
 
-        self.viewer.draw_fill()
+        pw.draw_fill(self.screen)
 
         # --- line
         width = 5
         for i in range(4):
             x = w_margin + i * cell_w
-            self.viewer.draw_line(x, h_margin, x, HEIGHT - h_margin, width=width)
+            pw.draw_line(self.screen, x, h_margin, x, HEIGHT - h_margin, width=width)
         for i in range(4):
             y = h_margin + i * cell_h
-            self.viewer.draw_line(w_margin, y, WIDTH - w_margin, y, width=width)
+            pw.draw_line(self.screen, w_margin, y, WIDTH - w_margin, y, width=width)
 
         # --- field
         for y in range(self.H):
@@ -185,19 +185,31 @@ class OX(TurnBase2Player):
 
                 a = x + y * self.W
                 if self.field[a] == 1:  # o
-                    self.viewer.draw_circle(center_x, center_y, int(cell_w * 0.3), line_color=(200, 0, 0), width=5)
+                    pw.draw_circle(self.screen, center_x, center_y, int(cell_w * 0.3), line_color=(200, 0, 0), width=5)
                 elif self.field[a] == -1:  # x
                     color = (0, 0, 200)
                     width = 5
                     diff = int(cell_w * 0.3)
-                    self.viewer.draw_line(
-                        center_x - diff, center_y - diff, center_x + diff, center_y + diff, color=color, width=width
+                    pw.draw_line(
+                        self.screen,
+                        center_x - diff,
+                        center_y - diff,
+                        center_x + diff,
+                        center_y + diff,
+                        color=color,
+                        width=width,
                     )
-                    self.viewer.draw_line(
-                        center_x - diff, center_y + diff, center_x + diff, center_y - diff, color=color, width=width
+                    pw.draw_line(
+                        self.screen,
+                        center_x - diff,
+                        center_y + diff,
+                        center_x + diff,
+                        center_y - diff,
+                        color=color,
+                        width=width,
                     )
 
-        return self.viewer.get_rgb_array()
+        return pw.get_rgb_array(self.screen)
 
     @property
     def render_interval(self) -> float:

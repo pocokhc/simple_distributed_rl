@@ -14,7 +14,6 @@ from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.rl.models.input_layer import create_input_layer
-from srl.utils.viewer import Viewer
 from tensorflow.keras import layers as kl
 
 """
@@ -509,7 +508,7 @@ class Worker(DiscreteActionWorker):
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
-        self.viewer = None
+        self.screen = None
 
         self.sample_collection = self.training and (self.config.train_mode == 1 or self.config.train_mode == 2)
 
@@ -666,6 +665,8 @@ class Worker(DiscreteActionWorker):
         if self.config.env_observation_type != EnvObservationType.COLOR:
             return None
 
+        from srl.utils import pygame_wrapper as pw
+
         _view_action = 4
         _view_sample = 3
         IMG_W = 64
@@ -674,17 +675,17 @@ class Worker(DiscreteActionWorker):
         WIDTH = (IMG_W + PADDING) * _view_action + 5
         HEIGHT = (IMG_H + PADDING) * (_view_sample + 1) + 15 * 2 + 5
 
-        if self.viewer is None:
-            self.viewer = Viewer(WIDTH, HEIGHT)
-        self.viewer.draw_fill(color=(0, 0, 0))
+        if self.screen is None:
+            self.screen = pw.create_surface(WIDTH, HEIGHT)
+        pw.draw_fill(self.screen, color=(0, 0, 0))
 
         img1 = self.state * 255
         img2 = self.parameter.vae.decode(self.z)[0].numpy() * 255
 
-        self.viewer.draw_text(0, 0, "original", color=(255, 255, 255))
-        self.viewer.draw_image_rgb_array(0, 15, img1)
-        self.viewer.draw_text(IMG_W + PADDING, 0, "decode", color=(255, 255, 255))
-        self.viewer.draw_image_rgb_array(IMG_W + PADDING, 15, img2)
+        pw.draw_text(self.screen, 0, 0, "original", color=(255, 255, 255))
+        pw.draw_image_rgb_array(self.screen, 0, 15, img1)
+        pw.draw_text(self.screen, IMG_W + PADDING, 0, "decode", color=(255, 255, 255))
+        pw.draw_image_rgb_array(self.screen, IMG_W + PADDING, 15, img2)
 
         # 横にアクション後の結果を表示
         for i, a in enumerate(self.get_valid_actions()):
@@ -692,8 +693,8 @@ class Worker(DiscreteActionWorker):
                 break
 
             pi, mu, log_sigma, _ = self.parameter.rnn.forward(self.z, a, self.prev_hidden_state, return_rnn_only=False)
-            self.viewer.draw_text(
-                (IMG_W + PADDING) * i, 20 + IMG_H, f"action {env.action_to_str(a)}", color=(255, 255, 255)
+            pw.draw_text(
+                self.screen, (IMG_W + PADDING) * i, 20 + IMG_H, f"action {env.action_to_str(a)}", color=(255, 255, 255)
             )
 
             # 縦にいくつかサンプルを表示
@@ -703,6 +704,6 @@ class Worker(DiscreteActionWorker):
 
                 x = (IMG_W + PADDING) * i
                 y = 20 + IMG_H + 15 + (IMG_H + PADDING) * j
-                self.viewer.draw_image_rgb_array(x, y, n_img)
+                pw.draw_image_rgb_array(self.screen, x, y, n_img)
 
-        return self.viewer.get_rgb_array()
+        return pw.get_rgb_array(self.screen)

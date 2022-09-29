@@ -1,7 +1,7 @@
 import ctypes
 import multiprocessing as mp
 from multiprocessing.managers import BaseManager
-from typing import Optional
+from typing import Any, Optional, Type, cast
 
 import srl
 from srl.base.env.base import EnvRun
@@ -182,10 +182,12 @@ def main():
     rl_config.reset_config(env)
 
     # --- async
-    MPManager.register("RemoteMemory", make_remote_memory(rl_config, return_class=True))
+    MPManager.register("RemoteMemory", cast(Type[RLRemoteMemory], make_remote_memory(rl_config, return_class=True)))
     MPManager.register("Board", Board)
 
     with MPManager() as manager:
+        manager = cast(Any, manager)
+
         # --- share values
         train_end_signal = mp.Value(ctypes.c_bool, False)
         remote_memory = manager.RemoteMemory(rl_config)

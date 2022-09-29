@@ -85,10 +85,9 @@ class Config(DiscreteActionConfig):
     def set_atari_config(self):
         self.batch_size = 32
         self.capacity = 1_000_000
-        self.window_length = 4
         self.cnn_block = DQNImageBlock
         self.hidden_block = MLPBlock
-        self.hidden_block_kwargs = dict(hidden_layer_sizes=(256,))
+        self.hidden_block_kwargs = dict(hidden_layer_sizes=(512,))
         self.target_model_update_interval = 10000
         self.discount = 0.99
         self.lr = 0.00025

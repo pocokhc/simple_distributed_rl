@@ -1,23 +1,14 @@
 import logging
-import os
 import time
 from dataclasses import dataclass, field
-from typing import List
 
 import numpy as np
 from srl.base.define import EnvObservationType, PlayRenderMode
 from srl.base.env.base import EnvRun
 from srl.base.rl.worker import RLWorker, WorkerRun
 from srl.runner.callback import Callback
-from srl.utils.common import is_packages_installed
+from srl.runner.config import Config
 from srl.utils.render_functions import text_to_rgb_array
-
-try:
-    import cv2
-    import matplotlib.pyplot as plt
-    from matplotlib.animation import ArtistAnimation
-except ImportError:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Rendering(Callback):
 
-    render_terminal: bool = True
-    render_window: bool = False
-    render_kwargs: dict = field(default_factory=dict)
     step_stop: bool = False
-    enable_animation: bool = False
     use_skip_step: bool = True
 
     def __post_init__(self):
@@ -45,73 +32,45 @@ class Rendering(Callback):
 
         self.rl_text = ""
         self.rl_img = None
-
+        self.rl_state_image = None
         self.render_interval = -1
-
-        self.default_font_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..", "font", "PlemolJPConsoleHS-Regular.ttf")
-        )
         self.font = None
 
-        if self.enable_animation or self.render_window:
-            if not is_packages_installed(
-                [
-                    "cv2",
-                    "matplotlib",
-                    "PIL",
-                    "pygame",
-                ]
-            ):
-                assert (
-                    False
-                ), "To use animation you need to install 'cv2', 'matplotlib', 'PIL', 'pygame'. (pip install opencv-python matplotlib pillow pygame)"
-
     def on_episodes_begin(self, info) -> None:
-        env: EnvRun = info["env"]
-        worker: List[WorkerRun] = info["workers"]
+        config: Config = info["config"]
+        self.render_mode = config.render_mode
+        self.render_kwargs = config.render_kwargs
+        self.render_interval = info["env"].render_interval
 
-        if self.render_window:
-            env_mode = PlayRenderMode.window
-            rl_mode = PlayRenderMode.terminal
-        elif self.enable_animation:
-            env_mode = PlayRenderMode.rgb_array
-            rl_mode = PlayRenderMode.rgb_array
-        elif self.render_terminal:
-            env_mode = PlayRenderMode.terminal
-            rl_mode = PlayRenderMode.terminal
-        else:
-            env_mode = PlayRenderMode.none
-            rl_mode = PlayRenderMode.none
-        env.set_render_mode(env_mode)
-        [w.set_render_mode(rl_mode) for w in worker]
-        self.render_interval = env.env.render_interval
+    def on_step_action_before(self, info) -> None:
+        self._render_env(info)
 
     def on_step_begin(self, info) -> None:
-        self._render_step(info)
+        self._render_worker(info)
+
+        if self.step_stop:
+            input("Enter to continue:")
 
     def on_episode_end(self, info) -> None:
-        self._render_step(info)
+        self._render_env(info)
 
     def on_skip_step(self, info):
         if not self.use_skip_step:
             return
-        self._render_step(info, True)
+        self._render_env(info, True)
 
-    def _render_step(self, info, is_skip=False):
+    def on_episodes_end(self, info) -> None:
+        if self.step_stop:
+            input("Enter to continue:")
+
+    def _render_env(self, info, skip_step=False):
         env: EnvRun = info["env"]
-        worker_idx: int = info["worker_idx"]
-        worker: WorkerRun = info["workers"][worker_idx]
-        action = info["action"] if "action" in info else "-"
-        step_time = info["step_time"] if "step_time" in info else None
-
-        # env text
-        env_text = env.render_terminal(return_text=True, **self.render_kwargs)
-
-        # rl text
-        if not is_skip:
-            self.rl_text = worker.render_terminal(env, return_text=True, **self.render_kwargs)
 
         # --- info text
+        action = info["action"] if "action" in info else "-"
+        step_time = info["step_time"] if "step_time" in info else None
+        worker_idx: int = info["worker_idx"]
+        worker: WorkerRun = info["workers"][worker_idx]
         info_text = f"### {env.step_num}"
         if isinstance(action, float):
             a1 = f"{action:.3f}"
@@ -125,7 +84,7 @@ class Rendering(Callback):
         if env.done:
             info_text += f", done({env.done_reason})"
         info_text += f", next {env.next_player_index}"
-        if is_skip:
+        if skip_step:
             info_text += "(skip frame)"
         if step_time is not None:
             info_text += f" ({step_time:.1f}s)"
@@ -133,33 +92,54 @@ class Rendering(Callback):
         info_text += f"\nwork{worker_idx: <2d}{worker.info}"
 
         # --- render_terminal
-        if self.render_terminal:
+        if self.render_mode == PlayRenderMode.terminal:
             print(info_text)
-            if env_text != "":
-                print(env_text)
-            if self.rl_text != "" and not env.done:
-                print(self.rl_text)
+
+            # --- env text
+            env.render_terminal(**self.render_kwargs)
 
         # --- render window
-        if self.render_window:
-            env_img = env.render_window(**self.render_kwargs)
-        else:
-            env_img = None
+        if self.render_mode == PlayRenderMode.window:
+            env.render_window(**self.render_kwargs)
 
-        # --- animation
-        if self.enable_animation:
+        # --- rgb
+        if self.render_mode == PlayRenderMode.rgb_array:
             info_img = text_to_rgb_array(info_text)
-            if env_img is None:
-                env_img = env.render_rgb_array(**self.render_kwargs)
-            if self.rl_img is None or not is_skip:
-                self.rl_img = worker.render_rgb_array(env, **self.render_kwargs)
+            env_img = env.render_rgb_array(**self.render_kwargs)
+            self.info_maxw = max(self.info_maxw, info_img.shape[1])
+            self.info_maxh = max(self.info_maxh, info_img.shape[0])
+            self.env_maxw = max(self.env_maxw, env_img.shape[1])
+            self.env_maxh = max(self.env_maxh, env_img.shape[0])
 
-            # 状態が画像の場合、rlに入力される画像
-            rl_state_image = None
+            self.frames.append(
+                {
+                    "info_image": info_img,
+                    "env_image": env_img,
+                    "rl_image": self.rl_img,
+                    "rl_state_image": self.rl_state_image,
+                }
+            )
+
+    def _render_worker(self, info):
+        env: EnvRun = info["env"]
+        worker_idx: int = info["worker_idx"]
+        worker: WorkerRun = info["workers"][worker_idx]
+
+        # --- render_terminal
+        if self.render_mode == PlayRenderMode.terminal:
+            worker.render_terminal(env, **self.render_kwargs)
+
+        # --- rgb
+        if self.render_mode == PlayRenderMode.rgb_array:
+            self.rl_img = worker.render_rgb_array(env, **self.render_kwargs)
+            self.rl_maxw = max(self.rl_maxw, self.rl_img.shape[1])
+            self.rl_maxh = max(self.rl_maxh, self.rl_img.shape[0])
+
+            # rlへの入力画像
             if isinstance(worker.worker, RLWorker):
                 rl_worker: RLWorker = worker.worker
-                # COLOR画像に変換
                 if EnvObservationType.is_image(rl_worker.config.env_observation_type):
+                    # COLOR画像に変換
                     _img = rl_worker.recent_states[-1].copy()
                     if _img.max() <= 1:
                         _img *= 255
@@ -168,33 +148,14 @@ class Rendering(Callback):
                         _img = np.tile(_img, (1, 1, 3))
                     elif rl_worker.config.env_observation_type == EnvObservationType.GRAY_3ch:
                         _img = np.tile(_img, (1, 1, 3))
-                    rl_state_image = _img.astype(np.uint8)
-
-            self.info_maxw = max(self.info_maxw, info_img.shape[1])
-            self.info_maxh = max(self.info_maxh, info_img.shape[0])
-            self.env_maxw = max(self.env_maxw, env_img.shape[1])
-            self.env_maxh = max(self.env_maxh, env_img.shape[0])
-            if self.rl_img is not None:
-                self.rl_maxw = max(self.rl_maxw, self.rl_img.shape[1])
-                self.rl_maxh = max(self.rl_maxh, self.rl_img.shape[0])
-            if rl_state_image is not None:
-                self.rl_state_maxw = max(self.rl_state_maxw, rl_state_image.shape[1])
-                self.rl_state_maxh = max(self.rl_state_maxh, rl_state_image.shape[0])
-
-            self.frames.append(
-                {
-                    "info_image": info_img,
-                    "env_image": env_img,
-                    "rl_image": self.rl_img,
-                    "rl_state_image": rl_state_image,
-                }
-            )
-
-        if self.step_stop:
-            input("Enter to continue:")
+                    self.rl_state_image = _img.astype(np.uint8)
+                    self.rl_state_maxw = max(self.rl_state_maxw, self.rl_state_image.shape[1])
+                    self.rl_state_maxh = max(self.rl_state_maxh, self.rl_state_image.shape[0])
 
     # -----------------------------------------------
     def _create_image(self, frame):
+        import cv2
+
         info_image = frame["info_image"]
         env_image = frame["env_image"]
         rl_image = frame["rl_image"]
@@ -265,6 +226,9 @@ class Rendering(Callback):
     ):
         if len(self.frames) == 0:
             return None
+        import matplotlib.pyplot as plt
+        from matplotlib.animation import ArtistAnimation
+
         t0 = time.time()
 
         maxw = 0

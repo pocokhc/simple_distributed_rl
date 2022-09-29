@@ -2,16 +2,13 @@ import logging
 import random
 import time
 import traceback
-from typing import List, Optional, Tuple, Union, cast
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
-from srl.runner import sequence_play
-from srl.runner.callback import TrainerCallback
-from srl.runner.callbacks.file_logger import FileLogger, FileLogPlot
-from srl.runner.callbacks.print_progress import TrainerPrintProgress
+from srl.runner.callback import Callback
 from srl.runner.sequence import Config
-from srl.utils.common import is_package_installed
+from srl.utils.common import is_package_imported
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +27,7 @@ def train(
     seed: Optional[int] = None,
     # evaluate
     enable_evaluation: bool = False,
+    eval_env_sharing: bool = True,
     eval_interval: int = 0,  # episode
     eval_num_episode: int = 1,
     eval_players: List[Union[None, str, RLConfig]] = [],
@@ -41,63 +39,77 @@ def train(
     # history
     enable_file_logger: bool = True,
     file_logger_tmp_dir: str = "tmp",
-    file_logger_interval: int = 1,  # s
-    enable_checkpoint: bool = True,
-    checkpoint_interval: int = 60 * 20,  # s
+    file_logger_enable_train_log: bool = True,
+    file_logger_train_log_interval: int = 1,  # s
+    file_logger_enable_checkpoint: bool = True,
+    file_logger_checkpoint_interval: int = 60 * 20,  # s
     # other
-    callbacks: List[TrainerCallback] = [],
-) -> Tuple[RLParameter, RLRemoteMemory, FileLogPlot]:
-    eval_players = eval_players[:]
-    callbacks = callbacks[:]
-
+    callbacks: List[Callback] = [],
+):
     assert max_train_count > 0 or timeout > 0, "Please specify 'max_train_count' or 'timeout'."
 
-    config = config.copy(env_share=False)
+    config = config.copy(env_share=True)
     # stop config
     config.max_train_count = max_train_count
     config.timeout = timeout
     # play config
     if config.seed is None:
         config.seed = seed
-    # evaluate
-    config.enable_evaluation = enable_evaluation
-    config.eval_interval = eval_interval
-    config.eval_num_episode = eval_num_episode
-    config.eval_players = eval_players
     # callbacks
-    config.callbacks.extend(callbacks)
+    config.callbacks = callbacks[:]
     # play info
     config.training = True
     config.distributed = False
 
-    # PrintProgress
+    # --- Evaluate(最初に追加)
+    if enable_evaluation:
+        from srl.runner.callbacks.evaluate import Evaluate
+
+        config.callbacks.insert(
+            0,
+            Evaluate(
+                env_sharing=eval_env_sharing,
+                interval=eval_interval,
+                num_episode=eval_num_episode,
+                eval_players=eval_players,
+            ),
+        )
+
+    # --- PrintProgress
     if print_progress:
+        from srl.runner.callbacks.print_progress import PrintProgress
+
         config.callbacks.append(
-            TrainerPrintProgress(
+            PrintProgress(
                 max_time=progress_max_time,
                 start_time=progress_start_time,
                 print_train_info=progress_print_train_info,
             )
         )
 
-    # FileLogger
+    # --- FileLog
     if enable_file_logger:
-        file_logger = FileLogger(
+        from srl.runner.callbacks.file_log_writer import FileLogWriter
+
+        file_logger = FileLogWriter(
             tmp_dir=file_logger_tmp_dir,
-            enable_log=True,
-            log_interval=file_logger_interval,
-            enable_checkpoint=enable_checkpoint,
-            checkpoint_interval=checkpoint_interval,
+            enable_train_log=file_logger_enable_train_log,
+            enable_episode_log=False,
+            train_log_interval=file_logger_train_log_interval,
+            enable_checkpoint=file_logger_enable_checkpoint,
+            checkpoint_interval=file_logger_checkpoint_interval,
         )
         config.callbacks.append(file_logger)
     else:
         file_logger = None
 
-    # play
+    # --- play
     parameter, remote_memory = play(config, parameter, remote_memory)
 
-    # history
-    history = FileLogPlot()
+    # --- history
+    from srl.runner.callbacks.file_log_reader import FileLogReader
+
+    history = FileLogReader()
     try:
         if file_logger is not None:
             history.load(file_logger.base_dir)
@@ -121,7 +133,7 @@ def play(
         random.seed(config.seed)
         np.random.seed(config.seed)
 
-        if is_package_installed("tensorflow"):
+        if is_package_imported("tensorflow"):
             import tensorflow as tf
 
             tf.random.set_seed(config.seed)
@@ -130,29 +142,22 @@ def play(
     config = config.copy(env_share=True)
     config.assert_params()
 
-    # --- trainer
+    # --- parameter/remote_memory/trainer
     if parameter is None:
         parameter = config.make_parameter()
     if remote_memory is None:
         remote_memory = config.make_remote_memory()
     trainer = config.make_trainer(parameter, remote_memory)
-    callbacks = [c for c in config.callbacks if issubclass(c.__class__, TrainerCallback)]
-    callbacks = cast(List[TrainerCallback], callbacks)
 
-    # --- eval
-    if config.enable_evaluation:
-        eval_config = config.create_eval_config()
-        env = eval_config.make_env()
-    else:
-        env = None
+    # callbacks
+    callbacks = [c for c in config.callbacks if issubclass(c.__class__, Callback)]
 
-    # callback
+    # callbacks
     _info = {
         "config": config,
         "parameter": parameter,
         "remote_memory": remote_memory,
         "trainer": trainer,
-        "env": env,
         "train_count": 0,
     }
     [c.on_trainer_start(_info) for c in callbacks]
@@ -180,18 +185,10 @@ def play(
         train_time = time.time() - train_t0
         train_count = trainer.get_train_count()
 
-        # eval
-        eval_rewards = None
-        if config.enable_evaluation:
-            if train_count % (config.eval_interval + 1) == 0:
-                eval_rewards, _, _, _ = sequence_play.play(eval_config, parameter=parameter)
-                eval_rewards = np.mean(eval_rewards, axis=0)
-
         # callbacks
         _info["train_info"] = train_info
         _info["train_time"] = train_time
         _info["train_count"] = train_count
-        _info["eval_rewards"] = eval_rewards
         [c.on_trainer_train(_info) for c in callbacks]
 
         # callback end

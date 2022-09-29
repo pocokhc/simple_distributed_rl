@@ -14,6 +14,9 @@ class Callback(ABC):
     def on_episode_end(self, info) -> None:
         pass  # do nothing
 
+    def on_step_action_before(self, info) -> None:
+        pass  # do nothing
+
     def on_step_begin(self, info) -> None:
         pass  # do nothing
 

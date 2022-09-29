@@ -2,20 +2,22 @@ import ctypes
 import logging
 import multiprocessing as mp
 import os
+import pickle
 import time
 import traceback
 from dataclasses import dataclass
 from multiprocessing.managers import BaseManager
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Type, Union, cast
 
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_remote_memory
-from srl.runner import sequence
-from srl.runner.callback import Callback, MPCallback, TrainerCallback
-from srl.runner.callbacks.file_logger import FileLogger, FileLogPlot
-from srl.runner.callbacks.print_progress import MPPrintProgress, PrintProgress, TrainerPrintProgress
-from srl.runner.trainer import play as trainer_play
-from srl.utils.common import is_package_installed
+from srl.runner import play_sequence
+from srl.runner.callback import Callback, MPCallback
+from srl.runner.callbacks.file_log_reader import FileLogReader
+from srl.runner.callbacks.print_progress import MPPrintProgress, PrintProgress
+from srl.runner.config import Config
+from srl.runner.play_trainer import play as train_only
+from srl.utils.common import is_package_imported
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +36,6 @@ RuntimeError:
     The "freeze_support()" line can be omitted if the program
     is not going to be frozen to produce an executable.
 
-→ メイン関数に "if __name__ == '__main__':" を明示していないと表示されます。
 """
 
 
@@ -69,20 +70,25 @@ class MpConfig:
     # -------------------------------------
 
     def to_dict(self) -> dict:
-        # TODO: list
         conf = {}
         for k, v in self.__dict__.items():
             if v is None or type(v) in [int, float, bool, str]:
                 conf[k] = v
+            elif type(v) is list:
+                conf[k] = [str(n) for n in v]
         return conf
 
-    def copy(self):
+    def copy(self, callbacks_share: bool = True):
         config = MpConfig(0)
         for k, v in self.__dict__.items():
             if v is None or type(v) in [int, float, bool, str]:
                 setattr(config, k, v)
 
-        config.callbacks = self.callbacks  # sync
+        if callbacks_share:
+            config.callbacks = self.callbacks
+        else:
+            config.callbacks = pickle.loads(pickle.dumps(self.callbacks))
+
         return config
 
 
@@ -108,7 +114,7 @@ class Board:
 # --------------------
 # actor
 # --------------------
-class _ActorInterrupt(sequence.Callback):
+class _ActorInterrupt(Callback):
     def __init__(
         self,
         remote_board: Board,
@@ -125,8 +131,8 @@ class _ActorInterrupt(sequence.Callback):
         self.prev_update_count = 0
         self.sync_count = 0
 
-    def on_trainer_start(self, info):
-        info["sync"] = 0  # 情報追加
+    def on_episodes_begin(self, info):
+        info["sync"] = 0
 
     def on_step_end(self, info):
         self.step += 1
@@ -150,7 +156,7 @@ class _ActorInterrupt(sequence.Callback):
 
 
 def _run_actor(
-    config: sequence.Config,
+    config: Config,
     mp_config: MpConfig,
     remote_memory: RLRemoteMemory,
     remote_board: Board,
@@ -168,7 +174,7 @@ def _run_actor(
 
 
 def __run_actor(
-    config: sequence.Config,
+    config: Config,
     mp_config: MpConfig,
     remote_memory: RLRemoteMemory,
     remote_board: Board,
@@ -178,20 +184,17 @@ def __run_actor(
     try:
         logger.debug(f"actor{actor_id} start")
 
+        # --- config
         config.disable_trainer = True
         config.rl_config.set_config_by_actor(mp_config.actor_num, actor_id)
 
-        # eval するのはactor0のみ
-        if actor_id != 0:
-            config.enable_evaluation = False
-
-        # parameter
+        # --- parameter
         parameter = config.make_parameter(is_load=False)
         params = remote_board.read()
         if params is not None:
             parameter.restore(params)
 
-        # callbacks
+        # --- callbacks
         config.callbacks.append(
             _ActorInterrupt(
                 remote_board,
@@ -201,8 +204,8 @@ def __run_actor(
             )
         )
 
-        # play
-        sequence.play(config, parameter, remote_memory, actor_id)
+        # --- play
+        play_sequence.play(config, parameter, remote_memory, actor_id)
 
     finally:
         train_end_signal.value = True
@@ -228,7 +231,7 @@ class _TrainerInterrupt(Callback):
         self.sync_count = 0
 
     def on_trainer_start(self, info):
-        info["sync"] = 0  # 情報追加
+        info["sync"] = 0
 
     def on_trainer_train(self, info):
         train_count = info["train_count"]
@@ -249,13 +252,12 @@ class _TrainerInterrupt(Callback):
 
 
 def _run_trainer(
-    config: sequence.Config,
+    config: Config,
     mp_config: MpConfig,
     remote_memory: RLRemoteMemory,
     remote_board: Board,
     train_end_signal: ctypes.c_bool,
 ):
-
     if mp_config.use_tensorflow:
         import tensorflow as tf
 
@@ -266,7 +268,7 @@ def _run_trainer(
 
 
 def __run_trainer(
-    config: sequence.Config,
+    config: Config,
     mp_config: MpConfig,
     remote_memory: RLRemoteMemory,
     remote_board: Board,
@@ -274,20 +276,25 @@ def __run_trainer(
 ):
     logger.debug("trainer start")
 
-    # parameter
+    # --- parameter
     parameter = config.make_parameter(is_load=False)
     params = remote_board.read()
     if params is not None:
         parameter.restore(params)
 
     try:
-        config.enable_evaluation = False
+        # --- callbacks
+        config.callbacks.append(
+            _TrainerInterrupt(
+                remote_board,
+                parameter,
+                train_end_signal,
+                mp_config,
+            )
+        )
 
-        # callbacks
-        config.callbacks.append(_TrainerInterrupt(remote_board, parameter, train_end_signal, mp_config))
-
-        # play
-        trainer_play(config, parameter, remote_memory)
+        # --- play
+        train_only(config, parameter, remote_memory)
 
     finally:
         train_end_signal.value = True
@@ -304,7 +311,7 @@ class MPManager(BaseManager):
 
 
 def train(
-    config: sequence.Config,
+    config: Config,
     mp_config: MpConfig,
     # stop config
     max_episodes: int = -1,
@@ -314,12 +321,13 @@ def train(
     # play config
     shuffle_player: bool = True,
     disable_trainer: bool = False,
+    enable_profiling: bool = True,
     # evaluate
     enable_evaluation: bool = True,
+    eval_env_sharing: bool = True,
     eval_interval: int = 0,  # episode
     eval_num_episode: int = 1,
     eval_players: List[Union[None, str, RLConfig]] = [],
-    eval_player: int = 0,
     # PrintProgress
     print_progress: bool = True,
     progress_max_time: int = 60 * 10,  # s
@@ -329,12 +337,13 @@ def train(
     progress_print_train_info: bool = True,
     progress_print_worker: int = 0,
     progress_max_actor: int = 5,
-    # history
+    # file_log
     enable_file_logger: bool = True,
     file_logger_tmp_dir: str = "tmp",
-    file_logger_interval: int = 1,  # s
-    enable_checkpoint: bool = True,
-    checkpoint_interval: int = 60 * 20,  # s
+    file_logger_enable_train_log: bool = True,
+    file_logger_train_log_interval: int = 1,  # s
+    file_logger_enable_checkpoint: bool = True,
+    file_logger_checkpoint_interval: int = 60 * 20,  # s
     # other
     callbacks: List[Callback] = [],
     mp_callbacks: List[MPCallback] = [],
@@ -342,10 +351,7 @@ def train(
     init_remote_memory: Optional[RLRemoteMemory] = None,
     return_memory: bool = False,
     save_memory: str = "",
-) -> Tuple[RLParameter, RLRemoteMemory, FileLogPlot]:
-    eval_players = eval_players[:]
-    callbacks = callbacks[:]
-    mp_callbacks = mp_callbacks[:]
+):
 
     if disable_trainer:
         enable_evaluation = False  # 学習しないので
@@ -367,20 +373,29 @@ def train(
     # play config
     config.shuffle_player = shuffle_player
     config.disable_trainer = disable_trainer
-    # evaluate
-    config.enable_evaluation = enable_evaluation
-    config.eval_interval = eval_interval
-    config.eval_num_episode = eval_num_episode
-    config.eval_players = eval_players
-    config.eval_player = eval_player
+    config.enable_profiling = enable_profiling
     # callbacks
-    config.callbacks = callbacks
-    mp_config.callbacks = mp_callbacks
+    config.callbacks = callbacks[:]
+    mp_config.callbacks = mp_callbacks[:]
     # play info
     config.training = True
     config.distributed = True
 
-    # PrintProgress
+    # --- Evaluate(最初に追加)
+    if enable_evaluation:
+        from srl.runner.callbacks.evaluate import Evaluate
+
+        config.callbacks.insert(
+            0,
+            Evaluate(
+                env_sharing=eval_env_sharing,
+                interval=eval_interval,
+                num_episode=eval_num_episode,
+                eval_players=eval_players,
+            ),
+        )
+
+    # --- PrintProgress
     if print_progress:
         config.callbacks.append(
             PrintProgress(
@@ -395,24 +410,28 @@ def train(
         )
         mp_config.callbacks.append(MPPrintProgress())
 
+    # --- FileLog
     if enable_file_logger:
-        file_logger = FileLogger(
+        from srl.runner.callbacks.file_log_writer import FileLogWriter
+
+        file_logger = FileLogWriter(
             tmp_dir=file_logger_tmp_dir,
-            enable_log=True,
-            log_interval=file_logger_interval,
-            enable_checkpoint=enable_checkpoint,
-            checkpoint_interval=checkpoint_interval,
+            enable_train_log=file_logger_enable_train_log,
+            train_log_interval=file_logger_train_log_interval,
+            enable_episode_log=False,
+            enable_checkpoint=file_logger_enable_checkpoint,
+            checkpoint_interval=file_logger_checkpoint_interval,
         )
         config.callbacks.append(file_logger)
         mp_config.callbacks.append(file_logger)
     else:
         file_logger = None
 
-    # ---
+    # ---------------------------------------------
     config.assert_params()
     mp_config.assert_params()
 
-    remote_memory_class = make_remote_memory(config.rl_config, return_class=True)
+    remote_memory_class = cast(Type[RLRemoteMemory], make_remote_memory(config.rl_config, return_class=True))
 
     # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような
     # if is_env_notebook() and "__main__" in str(remote_memory_class):
@@ -433,28 +452,27 @@ def train(
             save_memory,
         )
 
-    # history
-    history = FileLogPlot()
+    # --- history
+    history = FileLogReader()
     try:
         if file_logger is not None:
             history.load(file_logger.base_dir)
     except Exception:
-        logger.warning(traceback.format_exc())
+        logger.info(traceback.format_exc())
+
     return return_parameter, return_remote_memory, history
 
 
 def _train(
-    config: sequence.Config,
+    config: Config,
     mp_config: MpConfig,
     init_parameter: Optional[RLParameter],
     init_remote_memory: Optional[RLRemoteMemory],
-    manager: MPManager,
+    manager: Any,
     disable_trainer: bool,
     return_memory: bool,
     save_memory: str,
 ):
-    enable_trainer = not disable_trainer
-
     # callbacks
     _info = {
         "config": config,
@@ -463,7 +481,7 @@ def _train(
     [c.on_init(_info) for c in mp_config.callbacks]
 
     # --- share values
-    train_end_signal = mp.Value(ctypes.c_bool, False)
+    train_end_signal = cast(ctypes.c_bool, mp.Value(ctypes.c_bool, False))
     remote_memory = manager.RemoteMemory(config.rl_config)
     remote_board = manager.Board()
 
@@ -499,7 +517,9 @@ def _train(
         actors_ps_list.append(ps)
 
     # --- trainer
-    if enable_trainer:
+    if disable_trainer:
+        trainer_ps = None
+    else:
         params = (
             config,
             mp_config,
@@ -511,7 +531,7 @@ def _train(
 
     # --- start
     [p.start() for p in actors_ps_list]
-    if enable_trainer:
+    if trainer_ps is not None:
         trainer_ps.start()
 
     # callbacks
@@ -522,7 +542,7 @@ def _train(
         time.sleep(1)  # polling time
 
         # プロセスが落ちたら終了
-        if enable_trainer:
+        if trainer_ps is not None:
             if not trainer_ps.is_alive():
                 train_end_signal.value = True
                 logger.info("train end(trainer process dead)")
@@ -548,7 +568,7 @@ def _train(
                 break
         else:
             w.terminate()
-    if enable_trainer:
+    if trainer_ps is not None:
         for _ in range(60 * 10):
             if trainer_ps.is_alive():
                 time.sleep(1)
@@ -559,7 +579,7 @@ def _train(
 
     # 子プロセスが正常終了していなければ例外を出す
     # exitcode: 0 正常, 1 例外, 負 シグナル
-    if enable_trainer and trainer_ps.exitcode != 0:
+    if trainer_ps is not None and trainer_ps.exitcode != 0:
         raise RuntimeError(f"An exception has occurred in trainer process.(exitcode: {trainer_ps.exitcode})")
     for i, w in enumerate(actors_ps_list):
         if w.exitcode != 0 and w.exitcode is not None:

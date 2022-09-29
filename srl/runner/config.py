@@ -1,3 +1,4 @@
+import enum
 import logging
 import pickle
 from dataclasses import dataclass, field
@@ -8,6 +9,7 @@ import srl
 import srl.rl.dummy
 import srl.rl.human  # reservation
 import srl.rl.random_play  # reservation
+from srl.base.define import PlayRenderMode
 from srl.base.env.base import EnvRun
 from srl.base.env.config import EnvConfig
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
@@ -41,19 +43,19 @@ class Config:
         self.max_train_count: int = -1
         # play config
         self.shuffle_player: bool = False
-        self.disable_trainer = False
+        self.disable_trainer: bool = False
         self.seed: Optional[int] = None
-        # evaluate option
-        self.enable_evaluation: bool = False
-        self.eval_interval: int = 0  # episode
-        self.eval_num_episode: int = 1
-        self.eval_players: List[Union[None, str, RLConfig]] = []
+        self.render_mode: PlayRenderMode = PlayRenderMode.none
+        self.render_kwargs: dict = {}
+        self.enable_profiling: bool = True
         # callbacks
         self.callbacks: List[Callback] = []
 
         # play info
         self.training: bool = False
         self.distributed: bool = False
+        self.enable_ps: bool = False
+        self.enable_nvidia: bool = False
 
         if self.rl_config is None:
             self.rl_config = srl.rl.dummy.Config()
@@ -170,13 +172,16 @@ class Config:
     # other functions
     # ------------------------------
     def to_dict(self) -> dict:
-        # listは1階層のみ
         conf = {}
         for k, v in self.__dict__.items():
             if v is None or type(v) in [int, float, bool, str]:
                 conf[k] = v
             elif type(v) is list:
                 conf[k] = [str(n) for n in v]
+            elif type(v) is dict:
+                conf[k] = v.copy()
+            elif issubclass(type(v), enum.Enum):
+                conf[k] = v.name
 
         conf["rl_config"] = {}
         for k, v in self.rl_config.__dict__.items():
@@ -184,6 +189,10 @@ class Config:
                 conf["rl_config"][k] = v
             elif type(v) is list:
                 conf["rl_config"][k] = [str(n) for n in v]
+            elif type(v) is dict:
+                conf["rl_config"] = v.copy()
+            elif issubclass(type(v), enum.Enum):
+                conf["rl_config"][k] = v.name
 
         conf["env_config"] = {}
         for k, v in self.env_config.__dict__.items():
@@ -191,6 +200,10 @@ class Config:
                 conf["env_config"][k] = v
             elif type(v) is list:
                 conf["env_config"][k] = [str(n) for n in v]
+            elif type(v) is dict:
+                conf["env_config"] = v.copy()
+            elif issubclass(type(v), enum.Enum):
+                conf["env_config"][k] = v.name
 
         return conf
 
@@ -205,7 +218,7 @@ class Config:
         for k, v in self.__dict__.items():
             if v is None or type(v) in [int, float, bool, str]:
                 setattr(config, k, v)
-            if type(v) is list:
+            elif issubclass(type(v), enum.Enum):
                 setattr(config, k, v)
 
         # list parameter
@@ -215,12 +228,6 @@ class Config:
                 config.players.append(None)
             else:
                 config.players.append(pickle.loads(pickle.dumps(player)))
-        config.eval_players = []
-        for player in self.eval_players:
-            if player is None:
-                config.eval_players.append(None)
-            else:
-                config.eval_players.append(pickle.loads(pickle.dumps(player)))
 
         # callback
         if callbacks_share:
@@ -233,28 +240,6 @@ class Config:
             config.env = self.env
 
         return config
-
-    def create_eval_config(self):
-        eval_config = Config(self.env_config.copy(), self.rl_config.copy())
-        eval_config.players = self.eval_players
-        eval_config.rl_config.remote_memory_path = ""
-
-        # stop config
-        eval_config.max_steps = -1
-        eval_config.max_episodes = self.eval_num_episode
-        eval_config.timeout = -1
-        # play config
-        eval_config.shuffle_player = True
-        eval_config.disable_trainer = True
-        # evaluate
-        eval_config.enable_evaluation = False
-        # callbacks
-        eval_config.callbacks = []
-        # play info
-        eval_config.training = False
-        eval_config.distributed = False
-
-        return eval_config
 
     # ------------------------------
     # utility

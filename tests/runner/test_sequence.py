@@ -4,7 +4,7 @@ import numpy as np
 import srl
 from srl import runner
 from srl.algorithms import ql, ql_agent57
-from srl.envs import grid, ox
+from srl.envs import grid, ox  # noqa F401
 
 
 class Test(unittest.TestCase):
@@ -17,18 +17,19 @@ class Test(unittest.TestCase):
         parameter, _, _ = runner.train(config, max_steps=10000)
 
         # eval
-        rewards = runner.evaluate(config, parameter, max_episodes=100)
+        rewards = runner.evaluate(config, parameter, max_episodes=100, print_progress=True)
         rewards = np.mean(rewards)
         print(rewards)
         self.assertTrue(rewards > 0.5)
 
-        # render
-        rewards, _ = runner.render(
-            config,
-            parameter,
-            render_terminal=False,
-            enable_animation=True,
-        )
+        # render terminal
+        rewards = runner.render(config, parameter)
+        rewards = np.mean(rewards)
+        print(rewards)
+        self.assertTrue(rewards > 0.5)
+
+        # render window
+        rewards = runner.render(config, parameter, render_mode="window")
         rewards = np.mean(rewards)
         print(rewards)
         self.assertTrue(rewards > 0.5)

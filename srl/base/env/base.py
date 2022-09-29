@@ -107,7 +107,7 @@ class EnvBase(ABC, IRender):
     def get_invalid_actions(self, player_index: int) -> List[int]:
         return []
 
-    def action_to_str(self, action: EnvAction) -> str:
+    def action_to_str(self, action: Union[str, EnvAction]) -> str:
         return str(action)
 
     def make_worker(self, name: str) -> Optional["srl.base.rl.base.WorkerBase"]:
@@ -155,6 +155,7 @@ class EnvRun:
         self.init()
 
         self._render = Render(env, config.font_name, config.font_size)
+        self._render_interval = self.env.render_interval
 
         self.t0 = 0
 
@@ -356,7 +357,7 @@ class EnvRun:
         self._invalid_actions_list[player_index] = list(set(self._invalid_actions_list[player_index]))
 
     # other functions
-    def action_to_str(self, action: EnvAction) -> str:
+    def action_to_str(self, action: Union[str, EnvAction]) -> str:
         return self.env.action_to_str(action)
 
     def make_worker(self, name: str) -> Optional["srl.base.rl.base.WorkerRun"]:
@@ -374,13 +375,17 @@ class EnvRun:
     def set_seed(self, seed: Optional[int] = None) -> None:
         self.env.set_seed(seed)
 
+    @property
+    def render_interval(self) -> float:
+        return self._render_interval
+
     # ------------------------------------
     # render
     # ------------------------------------
     def set_render_mode(self, mode: Union[str, PlayRenderMode], interval: float = -1) -> None:
-        if interval <= 0:
-            interval = self.env.render_interval
-        self._render.reset(mode, interval)
+        if interval > 0:
+            self._render_interval = interval
+        self._render.reset(mode, self._render_interval)
 
     def render(self, **kwargs) -> Union[None, str, np.ndarray]:
         return self._render.render(**kwargs)

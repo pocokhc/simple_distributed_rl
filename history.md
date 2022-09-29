@@ -1,13 +1,60 @@
 # TODO list
 
-1. actionの手動の介入
-   1. renderの改善
-   1. R2D3
-   1. GUIとの連携
+1. actionの手動実行
 1. TensorflowのGradientTapeでは正則化項が計算されていない？追加が必要か調査してアルゴリズムを見直す
 1. BizHawkのenv作成
 1. PyTorchのサンプル作成
 1. ネットワーク経由の学習
+
+# v0.9.1
+
+**Big changes**
+
+actionの手動操作を視野に入れて、Runner と Render 関係を大幅見直しました。
+これに伴い runner 関係の引数が一部変わっています。（特にRender関係）
+
+1. runner関係の変更（主に引数）
+   1. enable_profiling を追加（CPU/GPU情報の取得を変更可能に）
+   1. eval_env_sharing を追加（評価用に使うenvを学習用と共有するかどうか）
+   1. file_logger_interval -> file_logger_enable_train_log
+   1. enable_checkpoint -> file_logger_enable_checkpoint
+   1. checkpoint_interval -> file_logger_checkpoint_interval
+   1. file_logger_enable_episode_log を追加（エピソード情報を別途保存します）
+   1. render_terminal, render_window, enable_animation を廃止し、render_mode に統一
+   1. render の戻り値から Render を廃止（報酬のみ返ります）
+   1. runner に test_play を 追加
+1. UpdateDetails
+   1. sequence の train,evaluate,render,animation を play_facade に統合し、リファクタリング
+   1. sequence_play.py, trainer.py を play_sequence.py, play_trainer.py に名前変更
+   1. file_logger.py を file_log_reader.py と file_log_writer.py に分割
+   1. file_log_writer.py にてエピソード情報も記録できるように追加（これに伴いlogディレクトリ構成が変わっています）
+   1. 評価(eval)を play_sequence 側に組み込みではなくcallback側に移動(evaluate.pyを追加)
+   1. render の初期化を play_sequence 側に組み込み
+   1. callbacksの on_step_begin の位置をactionの後に変更し、actionの前に on_step_action_before を追加
+   1. pynvml(nvidia)の初期化終了処理を play_sequence 側に実装
+   1. runner配下にimgフォルダを追加
+
+**Updates**
+
+1. Render
+   1. 環境のrender_rgb_arrayで使われる想定のViewerをpygame_wrapperに変更（クラスベースではなく関数ベースに）
+1. Env
+   1. EnvRun に render_interval を追加
+1. Callbacks
+   1. 問題なさそうだったので Callback と TrainerCallback を統合
+   1. GPU使用率を print_progress に追加
+1. Utils
+   1. common に is_package_imported と compare_equal_version を追加
+1. Other
+   1. 実行時に必要なimportのみを読み込むようにできる限り制限（特に外部ライブラリ）（暫定導入）
+   1. font のパスをどこからでも参照できるように修正
+   1. examples の minimum_raw でフローが見えやすいように学習と評価の関数を別に記載
+
+**Bug Fixes**
+
+1. render で2episode以降に初期画像が初期化されない不具合修正
+1. gym_wrapper で追加の引数が反映されていなかった不具合修正
+1. image_processor の trimming でwとhが逆になっていた不具合修正
 
 # v0.9.0
 

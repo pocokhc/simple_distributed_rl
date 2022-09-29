@@ -1,10 +1,10 @@
 import io
 import logging
-import os
 import sys
 from typing import Callable
 
 import numpy as np
+from srl.font import get_font_path
 from srl.utils.common import compare_less_version
 
 logger = logging.getLogger(__name__)
@@ -28,14 +28,7 @@ def print_to_text(print_function: Callable) -> str:
     return text
 
 
-# windows     : C:\Windows\Fonts
-# max         : /System/Library/Fonts
-# linux       : /usr/local/share/fonts/
-# colaboratory: /usr/share/fonts/
-_default_font_path = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "font", "PlemolJPConsoleHS-Regular.ttf")
-)
-_font = {}
+_fonts = {}
 
 
 def text_to_rgb_array(
@@ -47,20 +40,19 @@ def text_to_rgb_array(
     import PIL.ImageDraw
     import PIL.ImageFont
 
-    global _font
+    global _fonts
 
     if text == "":
         return np.zeros((1, 1, 3), dtype=np.uint8)
 
     if font_name == "":
-        assert os.path.isfile(_default_font_path), f"font file is not found({_default_font_path})"
-        font_name = _default_font_path
-    if font_name in _font:
-        font = _font[font_name]
+        font_name = get_font_path()
+    if font_name in _fonts:
+        font = _fonts[font_name]
     else:
         logger.debug(f"load font: {font_name}")
         font = PIL.ImageFont.truetype(font_name, size=font_size)
-        _font[font_name] = font
+        _fonts[font_name] = font
 
     canvas_size = (640, 480)
     img = PIL.Image.new("RGB", canvas_size)

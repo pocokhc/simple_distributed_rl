@@ -36,6 +36,8 @@ setup(
             "font/README.md",
             "envs/img/*.png",
             "envs/img/README.md",
+            "runner/img/*.svg",
+            "runner/img/README.md",
         ],
     },
     version=VERSION,

@@ -2,7 +2,7 @@ import random
 from typing import Any, List, Tuple
 
 import numpy as np
-from srl.base.define import ContinuousAction, DiscreteAction, RLObservation
+from srl.base.define import ContinuousAction, DiscreteAction, RLActionType, RLObservation
 from srl.base.env.base import SpaceBase
 
 
@@ -29,6 +29,10 @@ class DiscreteSpace(SpaceBase[int]):
         if val >= self.n:
             return False
         return True
+
+    @property
+    def base_action_type(self) -> RLActionType:
+        return RLActionType.DISCRETE
 
     def __eq__(self, o: object) -> bool:
         return self.n == o.n

@@ -3,7 +3,7 @@ import logging
 from typing import Any, List, Tuple, Union
 
 import numpy as np
-from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
+from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLActionType, RLObservation
 from srl.base.env.base import SpaceBase
 
 logger = logging.getLogger(__name__)
@@ -62,6 +62,10 @@ class BoxSpace(SpaceBase[np.ndarray]):
         if (val > self.high).any():
             return False
         return True
+
+    @property
+    def base_action_type(self) -> RLActionType:
+        return RLActionType.CONTINUOUS
 
     def __eq__(self, o: object) -> bool:
         return self.shape == o.shape and (self.low == o.low).all() and (self.high == o.high).all()

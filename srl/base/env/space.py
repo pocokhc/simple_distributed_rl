@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Generic, List, Tuple, TypeVar
 
 import numpy as np
-from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
+from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLActionType, RLObservation
 
 T = TypeVar("T", int, List[int], float, List[float], np.ndarray, covariant=True)
 
@@ -19,6 +19,11 @@ class SpaceBase(ABC, Generic[T]):
 
     @abstractmethod
     def check_val(self, val: Any) -> bool:
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def base_action_type(self) -> RLActionType:
         raise NotImplementedError()
 
     @abstractmethod

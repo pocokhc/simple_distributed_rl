@@ -4,7 +4,7 @@ import random
 from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
-from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
+from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLActionType, RLObservation
 from srl.base.env.base import SpaceBase
 
 logger = logging.getLogger(__name__)
@@ -79,6 +79,10 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
                 if val[i] > self.high[i]:
                     return False
         return True
+
+    @property
+    def base_action_type(self) -> RLActionType:
+        return RLActionType.DISCRETE
 
     def __eq__(self, o: "ArrayDiscreteSpace") -> bool:
         if self.size != o.size:

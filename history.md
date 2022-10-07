@@ -1,6 +1,6 @@
 # TODO list
 
-1. actionの手動実行
+1. (R2D3)
 1. TensorflowのGradientTapeでは正則化項が計算されていない？追加が必要か調査してアルゴリズムを見直す
 1. BizHawkのenv作成
 1. PyTorchのサンプル作成
@@ -10,8 +10,8 @@
 
 **Big changes**
 
-actionの手動操作を視野に入れて、Runner と Render 関係を大幅見直しました。
-これに伴い runner 関係の引数が一部変わっています。（特にRender関係）
+Env を手動操作のみで実行できる env_play の追加と、実行結果を window(pygame)上で見れる test_play を追加しました。
+これに伴い、Runner と Render 関係を大幅見直し、runner 関係の引数が一部変わっています。
 
 1. runner関係の変更（主に引数）
    1. enable_profiling を追加（CPU/GPU情報の取得を変更可能に）
@@ -22,7 +22,6 @@ actionの手動操作を視野に入れて、Runner と Render 関係を大幅�
    1. file_logger_enable_episode_log を追加（エピソード情報を別途保存します）
    1. render_terminal, render_window, enable_animation を廃止し、render_mode に統一
    1. render の戻り値から Render を廃止（報酬のみ返ります）
-   1. runner に test_play を 追加
 1. UpdateDetails
    1. sequence の train,evaluate,render,animation を play_facade に統合し、リファクタリング
    1. sequence_play.py, trainer.py を play_sequence.py, play_trainer.py に名前変更
@@ -36,19 +35,25 @@ actionの手動操作を視野に入れて、Runner と Render 関係を大幅�
 
 **Updates**
 
-1. Render
-   1. 環境のrender_rgb_arrayで使われる想定のViewerをpygame_wrapperに変更（クラスベースではなく関数ベースに）
+1. Runner
+   1. test_play を追加
+   1. env_play を追加
 1. Env
+   1. 環境のrender_rgb_arrayで使われる想定のViewerをpygame_wrapperに変更（クラスベースではなく関数ベースに）
    1. EnvRun に render_interval を追加
+   1. env_play用に、get_key_bind を追加（暫定導入）
 1. Callbacks
    1. 問題なさそうだったので Callback と TrainerCallback を統合
    1. GPU使用率を print_progress に追加
+1. base.Space
+   1. base_action_type を追加(追加しましたが、現状結局使っていません)
 1. Utils
    1. common に is_package_imported と compare_equal_version を追加
 1. Other
    1. 実行時に必要なimportのみを読み込むようにできる限り制限（特に外部ライブラリ）（暫定導入）
    1. font のパスをどこからでも参照できるように修正
    1. examples の minimum_raw でフローが見えやすいように学習と評価の関数を別に記載
+   1. 確認している最低versionを tensorflow==2.1.0 から 2.2.1 に変更
 
 **Bug Fixes**
 

@@ -5,9 +5,11 @@ import srl
 from srl import runner
 from srl.algorithms import ql, ql_agent57
 from srl.envs import grid, ox  # noqa F401
+from srl.utils.common import is_packages_installed
 
 
 class Test(unittest.TestCase):
+    @unittest.skipUnless(is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]), "no module")
     def test_basic(self):
         env_config = srl.EnvConfig("Grid")
         rl_config = ql.Config()

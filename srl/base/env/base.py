@@ -6,7 +6,7 @@ from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import srl
-from srl.base.define import EnvAction, EnvObservation, EnvObservationType, Info, PlayRenderMode
+from srl.base.define import EnvAction, EnvObservation, EnvObservationType, Info, KeyBindType, PlayRenderMode
 from srl.base.env.config import EnvConfig
 from srl.base.env.space import SpaceBase
 from srl.base.env.spaces.discrete import DiscreteSpace
@@ -109,6 +109,9 @@ class EnvBase(ABC, IRender):
 
     def action_to_str(self, action: Union[str, EnvAction]) -> str:
         return str(action)
+
+    def get_key_bind(self) -> KeyBindType:
+        return None
 
     def make_worker(self, name: str) -> Optional["srl.base.rl.base.WorkerBase"]:
         return None
@@ -350,7 +353,7 @@ class EnvRun:
             invalid_actions = self.get_invalid_actions(player_index)
             return [a for a in range(self.action_space.n) if a not in invalid_actions]
         else:
-            return []
+            assert False, "not support"
 
     def add_invalid_actions(self, invalid_actions: List[int], player_index: int) -> None:
         self._invalid_actions_list[player_index] += invalid_actions
@@ -359,6 +362,9 @@ class EnvRun:
     # other functions
     def action_to_str(self, action: Union[str, EnvAction]) -> str:
         return self.env.action_to_str(action)
+
+    def get_key_bind(self) -> KeyBindType:
+        return self.env.get_key_bind()
 
     def make_worker(self, name: str) -> Optional["srl.base.rl.base.WorkerRun"]:
         worker = self.env.make_worker(name)

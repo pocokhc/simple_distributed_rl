@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, List, Tuple, cast
 
 import numpy as np
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationType, KeyBindType, RLObservationType
 from srl.base.env import registration
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import SinglePlayEnv
@@ -147,17 +147,6 @@ class Grid(SinglePlayEnv):
             print(s)
         print("")
 
-    def action_to_str(self, action) -> str:
-        if Action.DOWN.value == action:
-            return "↓"
-        if Action.LEFT.value == action:
-            return "←"
-        if Action.RIGHT.value == action:
-            return "→"
-        if Action.UP.value == action:
-            return "↑"
-        return str(action)
-
     def render_rgb_array(self, **kwargs) -> np.ndarray:
         from srl.utils import pygame_wrapper as pw
 
@@ -204,6 +193,26 @@ class Grid(SinglePlayEnv):
                     pw.draw_image(self.screen, "wall", x_pos, y_pos)
 
         return pw.get_rgb_array(self.screen)
+
+    def action_to_str(self, action) -> str:
+        if Action.DOWN.value == action:
+            return "↓"
+        if Action.LEFT.value == action:
+            return "←"
+        if Action.RIGHT.value == action:
+            return "→"
+        if Action.UP.value == action:
+            return "↑"
+        return str(action)
+
+    def get_key_bind(self) -> KeyBindType:
+        return {
+            "": Action.LEFT.value,
+            "a": Action.LEFT.value,
+            "d": Action.RIGHT.value,
+            "w": Action.UP.value,
+            "s": Action.DOWN.value,
+        }
 
     @property
     def render_interval(self) -> float:

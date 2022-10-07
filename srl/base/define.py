@@ -1,5 +1,5 @@
 import enum
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -13,6 +13,7 @@ DiscreteAction = int
 ContinuousAction = List[float]
 EnvAction = Union[SpaceType, None]
 RLAction = Union[int, List[float], float]
+KeyBindType = Optional[Dict[Union[Tuple[Union[str, int]], str], EnvAction]]
 
 # other type
 EnvObservation = SpaceType

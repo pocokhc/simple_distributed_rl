@@ -150,6 +150,7 @@ def _create_config():
 
     return config
 
+
 # --- train sample
 def train():
     config = _create_config()
@@ -195,10 +196,8 @@ def test_play():
     history = runner.test_play(config)
 
     #
-    # pygame のウィンドウが開き、1step毎に情報を確認できます。
-    #
-    # --- English
-    # The pygame window will open, allowing you to see the information for each step.
+    # (pygame のウィンドウが開き、1step毎に情報を確認できます。)
+    # (The pygame window will open, allowing you to see the information for each step.)
     #
     history.replay()
 
@@ -248,20 +247,34 @@ if __name__ == "__main__":
 環境を手動で遊ぶ例です。
 
 ``` python
+import pygame
 import srl
 from srl import runner
 
 # --- use env & algorithm load
-# (Run "pip install gym pygame" to use the gym environment)
+# (Run "pip install gym[atari,accept-rom-license] pygame")
 import gym  # isort: skip # noqa F401
 
-env_config = srl.EnvConfig("FrozenLake-v1")
+env_config = srl.EnvConfig("ALE/Galaxian-v5", kwargs=dict(full_action_space=True))
 key_bind = {
     "": 0,
-    "a": 0,
-    "s": 1,
-    "d": 2,
-    "w": 3,
+    "z": 1,
+    pygame.K_UP: 2,
+    pygame.K_RIGHT: 3,
+    pygame.K_LEFT: 4,
+    pygame.K_DOWN: 5,
+    (pygame.K_UP, pygame.K_RIGHT): 6,
+    (pygame.K_UP, pygame.K_LEFT): 7,
+    (pygame.K_DOWN, pygame.K_RIGHT): 8,
+    (pygame.K_DOWN, pygame.K_LEFT): 9,
+    (pygame.K_UP, pygame.K_z): 10,
+    (pygame.K_RIGHT, pygame.K_z): 11,
+    (pygame.K_LEFT, pygame.K_z): 12,
+    (pygame.K_DOWN, pygame.K_z): 13,
+    (pygame.K_UP, pygame.K_RIGHT, pygame.K_z): 14,
+    (pygame.K_UP, pygame.K_LEFT, pygame.K_z): 15,
+    (pygame.K_DOWN, pygame.K_RIGHT, pygame.K_z): 16,
+    (pygame.K_DOWN, pygame.K_LEFT, pygame.K_z): 17,
 }
 
 runner.env_play(env_config, key_bind=key_bind)

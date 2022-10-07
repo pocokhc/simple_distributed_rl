@@ -13,7 +13,7 @@ DiscreteAction = int
 ContinuousAction = List[float]
 EnvAction = Union[SpaceType, None]
 RLAction = Union[int, List[float], float]
-KeyBindType = Optional[Dict[Union[Tuple[Union[str, int]], str], EnvAction]]
+KeyBindType = Optional[Dict[Union[Tuple[Union[str, int], ...], str, int], EnvAction]]
 
 # other type
 EnvObservation = SpaceType

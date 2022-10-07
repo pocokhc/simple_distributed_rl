@@ -203,9 +203,9 @@ class PlayableGame(_GameWindow):
         self.config = config
         self.env = srl.make_env(config)
         self.action_division_num = action_division_num
-        self.noop = None
         self.players = players  # TODO
         self.callbacks = callbacks[:]
+        self.noop = None
 
         # 扱いやすいように変形
         if key_bind is None:
@@ -219,9 +219,17 @@ class PlayableGame(_GameWindow):
                 if key_combination == "":
                     self.noop = action
                     continue
+                if isinstance(key_combination, int):
+                    key_combination = [key_combination]
+
+                # key_bind
                 key_code = tuple(sorted(ord(key) if isinstance(key, str) else key for key in key_combination))
                 self.key_bind[key_code] = action
-                self.key_bind_str[str(key_combination)] = action
+
+                # key_str
+                key_names = [pygame.key.name(key) if isinstance(key, int) else str(key) for key in key_combination]
+                self.key_bind_str[",".join(key_names)] = action
+
         self.key_bind = cast(Dict[Optional[Tuple[int]], EnvAction], self.key_bind)
         self.relevant_keys = []
         if self.key_bind is not None:
@@ -237,7 +245,7 @@ class PlayableGame(_GameWindow):
 
         self.scene = "START"
         self.mode = "Turn"  # "Turn" or "RealTime"
-        self.is_pause = True
+        self.is_pause = False
         self.action = 0
         self.cursor_action = 0
         self.valid_actions = []
@@ -271,10 +279,11 @@ class PlayableGame(_GameWindow):
                     self.action = self.valid_actions[self.cursor_action]
                     self.action = self.env.action_space.action_discrete_decode(self.action)
             else:
-                key = tuple(sorted(self.pressed_keys))
-                if key in self.key_bind:
-                    self.action = self.key_bind[key]
-                    if self.mode == "Turn":
+                # keybindがあり、turnの場合は押したら進める
+                if self.mode == "Turn":
+                    action = self._get_keybind_action()
+                    if action is not None:
+                        self.action = action
                         self._env_step(self.action)
 
             if event.key == pygame.K_r:
@@ -300,6 +309,13 @@ class PlayableGame(_GameWindow):
                     self.env_interval = 1
             elif event.key == pygame.K_p:
                 self.is_pause = not self.is_pause
+
+    def _get_keybind_action(self):
+        assert self.key_bind is not None
+        key = tuple(sorted(self.pressed_keys))
+        if key in self.key_bind:
+            return self.key_bind[key]
+        return self.noop
 
     def _env_step(self, action):
         self.env.step(action)
@@ -348,6 +364,9 @@ class PlayableGame(_GameWindow):
             self.add_info_texts([s])
 
             if self.mode == "RealTime":
+                # none じゃない場合は入力してるキーをアクションにする
+                if self.key_bind is not None:
+                    self.action = self._get_keybind_action()
                 if self.is_pause:
                     if self.frameadvance:
                         self._env_step(self.action)
@@ -361,6 +380,8 @@ class PlayableGame(_GameWindow):
         # --- key bind
         if self.key_bind is not None:
             t = ["", "- ActionKeys -"]
+            if self.noop is not None:
+                t.append(f"no: {self.noop}")
             for key, val in self.key_bind_str.items():
                 s1 = str(val)
                 s2 = self.env.action_to_str(val)
@@ -405,7 +426,6 @@ class PlayableGame(_GameWindow):
 
             self.step_t0 = time.time()
             self.frameadvance = False
-            self.is_pause = True
 
             [c.on_game_begin(self._callback_info) for c in self.callbacks]
 

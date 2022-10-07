@@ -1,5 +1,4 @@
 import logging
-import random
 import traceback
 from typing import List, Union
 
@@ -8,7 +7,6 @@ from srl.base.env.config import EnvConfig
 from srl.base.rl.base import RLConfig
 from srl.runner.callback import GameCallback
 from srl.runner.callbacks.file_log_reader import FileLogReader
-from srl.runner.config import Config
 from srl.utils.common import is_packages_installed
 
 logger = logging.getLogger(__name__)

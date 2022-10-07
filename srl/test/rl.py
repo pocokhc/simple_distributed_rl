@@ -36,7 +36,7 @@ class TestRL:
         self,
         rl_config,
         env_name: str = "",
-        enable_image: bool = False,
+        enable_change_layer: bool = False,
         is_mp: bool = False,
         check_render: bool = True,
     ):
@@ -50,7 +50,7 @@ class TestRL:
             env_config = srl.EnvConfig(env_name)
             rl_config = rl_config.copy(reset_env_config=True)
 
-            if enable_image:
+            if enable_change_layer:
                 if env_name == "Grid":
                     rl_config.processors = [grid.LayerProcessor()]
                 elif env_name == "OX":
@@ -97,8 +97,8 @@ class TestRL:
                 max_steps=10,
             )
 
-    def simple_check_mp(self, rl_config, enable_image: bool = False):
-        self.simple_check(rl_config, enable_image=enable_image, is_mp=True)
+    def simple_check_mp(self, rl_config, enable_change_layer: bool = False):
+        self.simple_check(rl_config, enable_change_layer=enable_change_layer, is_mp=True)
 
     def _check_play_raw(self, env_config, rl_config, check_render):
         env = srl.make_env(env_config)

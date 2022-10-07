@@ -17,10 +17,10 @@ class Test(unittest.TestCase):
         self.tester = TestRL()
 
     def test_simple_check(self):
-        self.tester.simple_check(muzero.Config(), enable_image=True)
+        self.tester.simple_check(muzero.Config(), enable_change_layer=True)
 
     def test_simple_check_mp(self):
-        self.tester.simple_check_mp(muzero.Config(), enable_image=True)
+        self.tester.simple_check_mp(muzero.Config(), enable_change_layer=True)
 
     def test_verify_grid(self):
         rl_config = muzero.Config(
@@ -76,4 +76,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_sequence", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)

@@ -17,10 +17,10 @@ class Test(unittest.TestCase):
         self.tester = TestRL()
 
     def test_simple_check(self):
-        self.tester.simple_check(stochastic_muzero.Config(), enable_image=True)
+        self.tester.simple_check(stochastic_muzero.Config(), enable_change_layer=True)
 
     def test_simple_check_mp(self):
-        self.tester.simple_check_mp(stochastic_muzero.Config(), enable_image=True)
+        self.tester.simple_check_mp(stochastic_muzero.Config(), enable_change_layer=True)
 
     def test_verify_grid(self):
         rl_config = stochastic_muzero.Config(

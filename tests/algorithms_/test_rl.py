@@ -34,37 +34,48 @@ except ModuleNotFoundError as e:
 
 class Test(unittest.TestCase):
     def setUp(self) -> None:
-        self.rl_list = [
-            agent57,
-            agent57_light,
-            agent57_stateful,
-            alphazero,
-            c51,
-            ddpg,
-            dqn,
-            # dqn_torch,
-            dreamer,
-            dynaq,
-            mcts,
-            muzero,
-            planet,
-            ql,
-            ql_agent57,
-            r2d2,
-            r2d2_stateful,
-            rainbow,
-            sac,
-            search_dynaq,
-            stochastic_muzero,
-            vanilla_policy_continuous,
-            vanilla_policy_discrete,
-            world_models,
-        ]
+        self.rl_list = []
+        try:
+            for rl in [
+                agent57,
+                agent57_light,
+                agent57_stateful,
+                alphazero,
+                c51,
+                ddpg,
+                dqn,
+                # dqn_torch,
+                dreamer,
+                dynaq,
+                mcts,
+                muzero,
+                planet,
+                ql,
+                ql_agent57,
+                r2d2,
+                r2d2_stateful,
+                rainbow,
+                sac,
+                search_dynaq,
+                stochastic_muzero,
+                vanilla_policy_continuous,
+                vanilla_policy_discrete,
+                world_models,
+            ]:
+                self.rl_list.append(rl)
+        except NameError as e:
+            print(e)
 
-    def _enable_image(self, rl_config):
+    def _enable_change_layer(self, rl_config):
         if rl_config.getName() in [
             "MuZero",
             "StochasticMuZero",
+        ]:
+            return True
+        return False
+
+    def _enable_obs_image(self, rl_config):
+        if rl_config.getName() in [
             "Dreamer",
             "PlaNet",
         ]:
@@ -76,9 +87,11 @@ class Test(unittest.TestCase):
         for rl_pkg in self.rl_list:
             rl_config = rl_pkg.Config()
             with self.subTest(rl_config.getName()):
+                if self._enable_obs_image(rl_config):
+                    rl_config.change_observation_render_image = True
                 tester.simple_check(
                     rl_config,
-                    enable_image=self._enable_image(rl_config),
+                    enable_change_layer=self._enable_change_layer(rl_config),
                     check_render=False,
                 )
 
@@ -87,9 +100,11 @@ class Test(unittest.TestCase):
         for rl_pkg in self.rl_list:
             rl_config = rl_pkg.Config()
             with self.subTest(rl_config.getName()):
+                if self._enable_obs_image(rl_config):
+                    rl_config.change_observation_render_image = True
                 tester.simple_check(
                     rl_config,
-                    enable_image=self._enable_image(rl_config),
+                    enable_change_layer=self._enable_change_layer(rl_config),
                     check_render=False,
                     is_mp=True,
                 )

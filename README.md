@@ -17,9 +17,9 @@
 また本フレームワークの解説は[Qiita記事](https://qiita.com/pocokhc/items/a2f1ba993c79fdbd4b4d)にして記載しています。
 アルゴリズムの解説等をしているのでハイパーパラメータの設定等に迷ったりしたら見てみてください。
 
-# Download/Install
+# 1. Install/Download
 
-+ **Install**
+## Install
 
 git clone または直接インストールする方法です。
 
@@ -46,9 +46,9 @@ pip install gym pygame
 python examples/minimum_runner.py
 ```
 
-+ **Download (No install)**
+## Download (No install)
 
-srlに実行パスが通っていれば install しなくても使えます。
+srl に実行パスが通っていれば install しなくても使えます。
 
 ``` bash
 # Download srl files
@@ -84,13 +84,13 @@ import srl
 + gym の環境を使う場合に必要
   + gym
   + pygame
-+ cpu/gpu 情報を記録する場合に必要
++ profile 情報を記録する場合に必要
   + psutil
   + pynvml
 
-# Usage
+# 2. Usage
 
-+ **Basic run of study**
+## Basic run of study
 
 ``` python
 import srl
@@ -120,7 +120,7 @@ if __name__ == "__main__":
 
 ```
 
-+ **Commonly run Example**
+## Commonly run Example
 
 学習と評価を別々で実行できる形式です。
 
@@ -188,6 +188,21 @@ def animation():
     render.create_anime().save("_FrozenLake.gif")
 
 
+# --- test play sample
+#  (Run "pip install opencv-python pillow matplotlib pygame" to use the test_play)
+def test_play():
+    config = _create_config()
+    history = runner.test_play(config)
+
+    #
+    # pygame のウィンドウが開き、1step毎に情報を確認できます。
+    #
+    # --- English
+    # The pygame window will open, allowing you to see the information for each step.
+    #
+    history.replay()
+
+
 # --- history sample
 def training_history():
     #
@@ -221,20 +236,46 @@ if __name__ == "__main__":
     evaluate()
     render()
     animation()
+    test_play()
     #training_history()
 
 ```
 
 ![FrozenLake.gif](FrozenLake.gif)
 
-# Customize
+## Manual play of environment Example
+
+環境を手動で遊ぶ例です。
+
+``` python
+import srl
+from srl import runner
+
+# --- use env & algorithm load
+# (Run "pip install gym pygame" to use the gym environment)
+import gym  # isort: skip # noqa F401
+
+env_config = srl.EnvConfig("FrozenLake-v1")
+key_bind = {
+    "": 0,
+    "a": 0,
+    "s": 1,
+    "d": 2,
+    "w": 3,
+}
+
+runner.env_play(env_config, key_bind=key_bind)
+
+```
+
+# 3. Customize
 
 オリジナル環境とアルゴリズムの作成例は以下のファイルを参考にしてください。
 
 examples/custom_env.ipynb  
 examples/custom_rl.ipynb  
 
-# Algorithms
+# 4. Algorithms
 
 ## ModelFree
 
@@ -281,7 +322,7 @@ examples/custom_rl.ipynb
 |-----------|-----------|-----------|----------|----|
 |WorldModels|Continuous |Discrete   |Tensorflow|100%|
 |PlaNet     |Continuous |Discrete   |Tensorflow|100%|
-|Dreamer    |           |           ||  0%|
+|Dreamer    |           |           |Tensorflow|  0%|
 |DreamerV2  |           |           ||  0%|
 
 ## Offline
@@ -298,7 +339,7 @@ examples/custom_rl.ipynb
 |Agent57_light|Continuous |Discrete|ValueBase|Tensorflow|100%|Agent57 - (LSTM,MultiStep)|
 |SearchDynaQ  |Discrete   |Discrete|ModelBase/ValueBase|| 80%|original|
 
-# Diagrams
+# 5. Diagrams
 
 ## Overview
 
@@ -338,7 +379,7 @@ examples/custom_rl.ipynb
 
 ![class_env.png](diagrams/class_env.png)
 
-# Interface
+# 6. Interface
 
 |   |           |          |Type|
 |---|-----------|----------|------|
@@ -359,7 +400,7 @@ examples/custom_rl.ipynb
 |ArrayContinuousSpace|list[float]|
 |BoxSpace            |np.ndarray |
 
-# Development environment
+# 7. Development environment
 
 + PC1
   + windows10

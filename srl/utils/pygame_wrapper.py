@@ -96,7 +96,7 @@ def draw_text(
     font: str = "",
     size: int = 12,
     color: Tuple[int, int, int] = (0, 0, 0),
-):
+) -> Tuple[int, int]:  # width, height
     global _fonts
 
     x = int(x)
@@ -111,6 +111,7 @@ def draw_text(
 
     _font = _fonts[font_key]
     surface.blit(_font.render(text, False, color), (x, y))
+    return _font.size(text)
 
 
 def draw_texts(
@@ -121,10 +122,14 @@ def draw_texts(
     font: str = "",
     size: int = 12,
     color: Tuple[int, int, int] = (0, 0, 0),
-    line_space: int = 12,
-):
+) -> Tuple[int, int]:  # width, height:
+    height = 0
+    width = 0
     for i, text in enumerate(texts):
-        draw_text(surface, x, y + line_space * i, text, font, size, color)
+        w, h = draw_text(surface, x, y + height, text, font, size, color)
+        width = max(width, w)
+        height += h
+    return width, height
 
 
 def draw_image_rgb_array(

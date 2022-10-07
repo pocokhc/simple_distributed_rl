@@ -2,8 +2,10 @@ import glob
 import json
 import logging
 import os
-from typing import Dict, List, Optional
+import time
+from typing import List, Optional, Tuple
 
+import numpy as np
 import srl
 from srl.utils.common import compare_equal_version, is_package_installed
 
@@ -55,6 +57,10 @@ class FileLogReader:
                 self.actor_num = d["actor_num"]
             self.distributed = True
 
+        # --- episode
+        self.episode_files = glob.glob(os.path.join(self.episode_log_dir, "episode*.txt"))
+        self.episode_cache = {}
+
     def remove_dir(self):
         # --- logs
         for fn in glob.glob(os.path.join(self.train_log_dir, "*.txt")):
@@ -87,6 +93,19 @@ class FileLogReader:
         logger.debug(f"remove dir : {self.base_dir}")
         os.rmdir(self.base_dir)  # 空のみ対象
 
+    def _read_log(self, path: str) -> List[dict]:
+        if not os.path.isfile(path):
+            return []
+        data = []
+        with open(path, "r") as f:
+            for line in f:
+                try:
+                    d = json.loads(line)
+                    data.append(d)
+                except json.JSONDecodeError as e:
+                    logger.warning(f"JSONDecodeError {e.args[0]}, '{line.strip()}'")
+        return data
+
     # ----------------------------------------
     # train logs
     # ----------------------------------------
@@ -95,25 +114,25 @@ class FileLogReader:
             return
 
         self.logs = []
-        self.logs.extend(self._read_log("trainer.txt", "trainer"))
-        for i in range(self.actor_num):
-            self.logs.extend(self._read_log(f"actor{i}.txt", f"actor{i}"))
-        self.logs.extend(self._read_log("system.txt", "system"))
 
-    def _read_log(self, filename, type_name) -> List[Dict[str, float]]:
-        path = os.path.join(self.train_log_dir, filename)
-        if not os.path.isfile(path):
-            return []
-        data = []
-        with open(path, "r") as f:
-            for line in f:
-                try:
-                    d = json.loads(line)
-                    d["_type"] = type_name
-                    data.append(d)
-                except json.JSONDecodeError as e:
-                    logger.error(f"JSONDecodeError {e.args[0]}, '{line.strip()}'")
-        return data
+        # trainer
+        train_logs = self._read_log(os.path.join(self.train_log_dir, "trainer.txt"))
+        for t in train_logs:
+            t["_type"] = "trainer"
+        self.logs.extend(train_logs)
+
+        # actor
+        for i in range(self.actor_num):
+            actor_logs = self._read_log(os.path.join(self.train_log_dir, f"actor{i}.txt"))
+            for t in actor_logs:
+                t["_type"] = f"actor{i}"
+            self.logs.extend(actor_logs)
+
+        # system
+        system_logs = self._read_log(os.path.join(self.train_log_dir, "system.txt"))
+        for t in system_logs:
+            t["_type"] = "system"
+        self.logs.extend(system_logs)
 
     def get_logs(self) -> List[dict]:
         self._read_train_logs()
@@ -242,25 +261,45 @@ class FileLogReader:
     # ----------------------------------------
     # episode logs
     # ----------------------------------------
-    def load_episode(self, episode: int):
-        episode_file = os.path.join(self.episode_save_dir, "episode{}.dat".format(self.episode))
-        path1 = episode_file
-        path2 = episode_file + ".display"
-        if not os.path.isfile(path1):
-            super().set_msg(["episode file is not found: {}".format(path1)])
-            return
-        with open(path1, "rb") as f:
-            self.states1 = pickle.load(f)
-        if os.path.isfile(path2):
-            with open(path2, "rb") as f:
-                d = pickle.load(f)
-            self.org_size = d["rgb_size"]
-            self.states2 = d["states"]
-        else:
-            print("display file is not found: {}".format(path2))
+    @property
+    def episode_num(self) -> int:
+        return len(self.episode_files)
+
+    def load_episode(self, episode: int) -> Tuple[dict, List[dict]]:
+        if episode < 0:
+            return {}, []
+        if episode >= len(self.episode_files):
+            return {}, []
+
+        if episode in self.episode_cache:
+            return self.episode_cache[episode]
+
+        logger.debug("Start loading episode.")
+        t0 = time.time()
+
+        steps = self._read_log(self.episode_files[episode])
+        total_reward = np.zeros(self.player_num)
+        for step in steps:
+            if "rewards" in step:
+                step["rewards"] = np.array(step["rewards"])
+                total_reward += step["rewards"]
+            if "env_rgb_array" in step:
+                step["env_rgb_array"] = np.array(step["env_rgb_array"])
+            for i in range(self.player_num):
+                if f"work{i}_rgb_array" in step:
+                    step[f"work{i}_rgb_array"] = np.array(step[f"work{i}_rgb_array"])
+        episode_info = {
+            "total_rewards": total_reward,
+        }
+        self.episode_cache[episode] = (episode_info, steps)
+
+        logger.info(f"Episode loaded.({time.time()-t0:.1f}s)")
+        return episode_info, steps
 
     def replay(self):
-        pass  # TODO
+        from srl.runner.game_window import EpisodeReplay
+
+        EpisodeReplay(self).play()
 
 
 def load_history(log_dir: str) -> FileLogReader:

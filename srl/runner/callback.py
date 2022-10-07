@@ -57,3 +57,17 @@ class MPCallback(ABC):
 
     def on_end(self, info) -> None:
         pass  # do nothing
+
+
+class GameCallback(ABC):
+    def on_game_init(self, info) -> None:
+        pass  # do nothing
+
+    def on_game_begin(self, info) -> None:
+        pass  # do nothing
+
+    def on_game_end(self, info) -> None:
+        pass  # do nothing
+
+    def on_game_step_end(self, info) -> None:
+        pass  # do nothing

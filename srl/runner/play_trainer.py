@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.runner.callback import Callback
+from srl.runner.callbacks.file_log_reader import FileLogReader
 from srl.runner.sequence import Config
 from srl.utils.common import is_package_imported
 
@@ -107,7 +108,6 @@ def train(
     parameter, remote_memory = play(config, parameter, remote_memory)
 
     # --- history
-    from srl.runner.callbacks.file_log_reader import FileLogReader
 
     history = FileLogReader()
     try:

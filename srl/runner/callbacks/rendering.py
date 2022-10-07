@@ -1,6 +1,6 @@
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 from srl.base.define import EnvObservationType, PlayRenderMode
@@ -54,14 +54,15 @@ class Rendering(Callback):
         if self.step_stop:
             input("Enter to continue:")
 
-    def on_episode_end(self, info) -> None:
-        self._render_env(info)
-        self._add_image()
-
     def on_skip_step(self, info):
         if not self.use_skip_step:
             return
         self._render_env(info, True)
+        self._add_image()
+
+    def on_episode_end(self, info) -> None:
+        self._render_env(info)
+        self._add_image()
 
     def on_episodes_end(self, info) -> None:
         if self.step_stop:
@@ -87,7 +88,8 @@ class Rendering(Callback):
         info_text += ", rewards[" + ",".join([f"{r:.3f}," for r in env.step_rewards]) + "]"
         if env.done:
             info_text += f", done({env.done_reason})"
-        info_text += f", next {env.next_player_index}"
+        if env.player_num > 1:
+            info_text += f", next {env.next_player_index}"
         if skip_step:
             info_text += "(skip frame)"
         if step_time is not None:
@@ -198,7 +200,7 @@ class Rendering(Callback):
             info_image = cv2.copyMakeBorder(info_image, 0, 0, 0, info_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
             rl_image = cv2.copyMakeBorder(rl_image, 0, 0, 0, rl_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
             right_img = cv2.vconcat([info_image, rl_image])  # 縦連結
-            right_maxh = self.info_maxh + self.rl_maxw + padding * 4
+            right_maxh = self.info_maxh + self.rl_maxh + padding * 4
 
         # --- env + rl_state:
         if rl_state_image is None:
@@ -273,7 +275,9 @@ class Rendering(Callback):
         anime = ArtistAnimation(fig, images, interval=interval, repeat=False)
         # plt.close(fig)  # notebook で画像が残るので出来ればcloseしたいけど、closeするとgym側でバグる
 
-        logger.info(f"animation created(interval: {interval:.1f}ms, time {time.time() - t0:.1f}s)")
+        logger.info(
+            f"animation created(frames: {len(self.frames)}, interval: {interval:.1f}ms, time {time.time() - t0:.1f}s)"
+        )
         return anime
 
     def display(

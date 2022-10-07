@@ -149,7 +149,7 @@ class Config:
             worker = make_worker_rulebase(player_obj)
             if worker is not None:
                 return worker
-            assert True, f"not registered: {player_obj}"
+            assert False, f"not registered: {player_obj}"
 
         # RLConfigは専用のWorkerを作成
         if isinstance(player_obj, object) and issubclass(player_obj.__class__, RLConfig):

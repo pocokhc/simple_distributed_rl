@@ -97,6 +97,7 @@ class PrintProgress(Callback):
         if self.actor_id >= self.max_actor:
             return
         self.history_step = []
+        self.last_episode_count = info["episode_count"]
 
     def on_step_end(self, info):
         if self.actor_id >= self.max_actor:
@@ -129,7 +130,6 @@ class PrintProgress(Callback):
             return
 
         self.resent_episode_time.append(info["episode_time"])
-        self.last_episode_count = info["episode_count"]
 
         if len(self.history_step) == 0:
             return

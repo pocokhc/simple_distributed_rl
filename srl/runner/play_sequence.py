@@ -10,6 +10,7 @@ from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.base.rl.config import RLConfig
 from srl.runner.callback import Callback
+from srl.runner.callbacks.file_log_reader import FileLogReader
 from srl.runner.config import Config
 from srl.utils.common import is_package_imported, is_package_installed, is_packages_installed
 
@@ -177,7 +178,6 @@ def play_facade(
     episode_rewards, parameter, memory, env = play(config, parameter, remote_memory)
 
     # --- history
-    from srl.runner.callbacks.file_log_reader import FileLogReader
 
     history = FileLogReader()
     try:

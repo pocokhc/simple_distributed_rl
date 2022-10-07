@@ -28,7 +28,7 @@ class RLConfig(ABC):
         font_name: str = "",
         font_size: int = 12,
     ) -> None:
-        self.processors = processors[:]
+        self.processors: List[Processor] = processors[:]
 
         self.override_env_observation_type = override_env_observation_type
         self.action_division_num = action_division_num

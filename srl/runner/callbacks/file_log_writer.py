@@ -1,5 +1,4 @@
 import datetime as dt
-import glob
 import io
 import json
 import logging
@@ -13,9 +12,10 @@ import numpy as np
 import srl
 from srl.base.define import PlayRenderMode, RenderMode
 from srl.base.env.base import EnvRun
-from srl.runner.callback import Callback, MPCallback
+from srl.base.rl.worker import WorkerRun
+from srl.runner.callback import Callback, GameCallback, MPCallback
 from srl.runner.config import Config
-from srl.utils.common import JsonNumpyEncoder, is_package_installed, summarize_info_from_list
+from srl.utils.common import JsonNumpyEncoder, summarize_info_from_list
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ tmp/
 
 
 @dataclass
-class FileLogWriter(Callback, MPCallback):
+class FileLogWriter(Callback, MPCallback, GameCallback):
     tmp_dir: str = "tmp"
 
     # train log
@@ -246,22 +246,20 @@ class FileLogWriter(Callback, MPCallback):
         self._write_config_summary(info["config"])
         self._write_system_info_summary(info["config"])
 
+        self.player_num = info["env"].player_num
         self.actor_id = info["actor_id"]
+
         self.fp_dict["actor"] = open(
             os.path.join(self.train_log_dir, f"actor{self.actor_id}.txt"), "w", encoding="utf-8"
         )
-
         if self.actor_id == 0:
             self.fp_dict["system"] = open(os.path.join(self.train_log_dir, "system.txt"), "w", encoding="utf-8")
         else:
             self.fp_dict["system"] = None
-
         self.fp_dict["episode"] = None
 
         self.log_history = []
         self.log_t0 = time.time()
-
-        self.player_num = info["env"].player_num
 
     def on_episodes_end(self, info):
         if self.enable_train_log:
@@ -279,8 +277,22 @@ class FileLogWriter(Callback, MPCallback):
             self.fp_dict["episode"] = open(
                 os.path.join(self.episode_log_dir, f"episode{episode_count}.txt"), "w", encoding="utf-8"
             )
+            self.episode_info_env = {}
+            self.episode_info_worker = {}
 
-            self._write_episode_log(info)
+    def on_step_action_before(self, info) -> None:
+        if self.actor_id == 0 and self.enable_episode_log:
+            self._tmp_episode_env(info)
+
+    def on_step_begin(self, info) -> None:
+        if self.actor_id == 0 and self.enable_episode_log:
+            self._tmp_episode_worker(info)
+            self._write_episode_log()
+
+    def on_skip_step(self, info) -> None:
+        if self.actor_id == 0 and self.enable_episode_log:
+            self._tmp_episode_env(info)
+            self._write_episode_log()
 
     def on_step_end(self, info):
         if self.enable_train_log:
@@ -301,12 +313,10 @@ class FileLogWriter(Callback, MPCallback):
             self._write_actor_log()
             self._write_system_log(info["config"])
 
-        if self.actor_id == 0 and self.enable_episode_log:
-            self._write_episode_log(info)
-
     def on_episode_end(self, info):
         if self.actor_id == 0 and self.enable_episode_log:
-            self._write_episode_log(info)
+            self._tmp_episode_env(info)
+            self._write_episode_log()
             if self.fp_dict["episode"] is not None:
                 self.fp_dict["episode"].close()
                 self.fp_dict["episode"] = None
@@ -407,12 +417,10 @@ class FileLogWriter(Callback, MPCallback):
 
         self._write_log(self.fp_dict["system"], d)
 
-    def _write_episode_log(self, info):
+    def _tmp_episode_env(self, info):
         if self.fp_dict["episode"] is None:
             return
-
         env: EnvRun = info["env"]
-        workers = info["workers"]
         d = {
             "step": env.step_num,
             "next_player_index": env.next_player_index,
@@ -421,34 +429,55 @@ class FileLogWriter(Callback, MPCallback):
             "rewards": env.step_rewards,
             "done": env.done,
             "done_reason": env.done_reason,
-            "time": info["step_time"],
-            "action": info["action"],
-            "train_time": info["train_time"],
-            # infoはそのまま格納
+            "time": info.get("step_time", 0),
             "env_info": env.info,
-            "train_info": info["train_info"],
+            "train_time": info.get("train_time", 0),
+            "train_info": info.get("train_info", None),
         }
-        for i, w in enumerate(workers):
-            d[f"work{i}_info"] = w.info
-
         if self.add_render:
-            config: Config = info["config"]
-
-            # env
-            render_mode = PlayRenderMode.convert_render_mode(config.env_play_render_mode)
+            if "config" in info:
+                config: Config = info["config"]
+                render_mode = config.render_mode
+                render_kwargs = config.render_kwargs
+            else:
+                render_mode = PlayRenderMode.rgb_array
+                render_kwargs = {}
+            render_mode = PlayRenderMode.convert_render_mode(render_mode)
             if render_mode == RenderMode.RBG_array:
-                d["env_rgb_array"] = env.render_rgb_array()
+                d["env_rgb_array"] = env.render_rgb_array(**render_kwargs)
             elif render_mode == RenderMode.Terminal:
-                d["env_terminal"] = env.render_terminal(return_text=True)
+                d["env_terminal"] = env.render_terminal(return_text=True, **render_kwargs)
 
-            # rl
+        self.episode_info_env = d
+
+    def _tmp_episode_worker(self, info):
+        if self.fp_dict["episode"] is None:
+            return
+        d = {
+            "action": info["action"],
+        }
+        if "workers" in info:
+            workers: List[WorkerRun] = info["workers"]
             for i, w in enumerate(workers):
-                render_mode = PlayRenderMode.convert_render_mode(config.rl_play_render_mode)
-                if render_mode == RenderMode.RBG_array:
-                    d[f"work{i}_rgb_array"] = w.render_rgb_array()
-                elif render_mode == RenderMode.Terminal:
-                    d[f"work{i}_terminal"] = w.render_terminal(return_text=True)
+                d[f"work{i}_info"] = w.info
+            if self.add_render:
+                env: EnvRun = info["env"]
+                config: Config = info["config"]
+                for i, w in enumerate(workers):
+                    render_mode = PlayRenderMode.convert_render_mode(config.render_mode)
+                    if render_mode == RenderMode.RBG_array:
+                        d[f"work{i}_rgb_array"] = w.render_rgb_array(env, **config.render_kwargs)
+                    elif render_mode == RenderMode.Terminal:
+                        d[f"work{i}_terminal"] = w.render_terminal(env, return_text=True, **config.render_kwargs)
 
+        self.episode_info_worker = d
+
+    def _write_episode_log(self):
+        if self.fp_dict["episode"] is None:
+            return
+        d = {}
+        d.update(self.episode_info_env)
+        d.update(self.episode_info_worker)
         self._write_log(self.fp_dict["episode"], d)
 
     def _dict_update(self, d1, d2, prefix: str):
@@ -459,3 +488,38 @@ class FileLogWriter(Callback, MPCallback):
             if key in d1:
                 key += "_2"
             d1[key] = v
+
+    # ---------------------------
+    # Game
+    # ---------------------------
+    def on_game_init(self, info) -> None:
+        env_config = info["env_config"]
+        config = Config(env_config, rl_config=None)
+        self._init_dir(config)
+        self.fp_dict["episode"] = None
+        self.episode_count = 0
+        self.episode_info_env = {}
+        self.episode_info_worker = {}
+
+    def on_game_begin(self, info) -> None:
+        if self.fp_dict["episode"] is not None:
+            self.fp_dict["episode"].close()
+            self.fp_dict["episode"] = None
+        self.fp_dict["episode"] = open(
+            os.path.join(self.episode_log_dir, f"episode{self.episode_count}.txt"), "w", encoding="utf-8"
+        )
+        self.episode_info_env = {}
+        self.episode_info_worker = {}
+        self._tmp_episode_env(info)
+        self._write_episode_log()
+
+    def on_game_end(self, info) -> None:
+        self.episode_count += 1
+        if self.fp_dict["episode"] is not None:
+            self.fp_dict["episode"].close()
+            self.fp_dict["episode"] = None
+
+    def on_game_step_end(self, info) -> None:
+        self._tmp_episode_env(info)
+        self._tmp_episode_worker(info)
+        self._write_episode_log()

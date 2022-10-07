@@ -869,7 +869,7 @@ class Worker(DiscreteActionWorker):
         ]
 
         self._recent_states.pop(0)
-        self._recent_states.append(state.astype(float))
+        self._recent_states.append(state.astype(np.float32))
         self.recent_invalid_actions.pop(0)
         self.recent_invalid_actions.append(invalid_actions)
 
@@ -955,9 +955,9 @@ class Worker(DiscreteActionWorker):
         prev_onehot_action = tf.tile(prev_onehot_action, [self.config.batch_size, 1, 1])
 
         in_ = [
-            np.asarray([[self._recent_states[-1]]] * self.config.batch_size),
-            np.array([[[self.reward_ext]]] * self.config.batch_size),
-            np.array([[[self.reward_int]]] * self.config.batch_size),
+            np.asarray([[self._recent_states[-1]]] * self.config.batch_size).astype(np.float32),
+            np.array([[[self.reward_ext]]] * self.config.batch_size).astype(np.float32),
+            np.array([[[self.reward_int]]] * self.config.batch_size).astype(np.float32),
             prev_onehot_action,
             self.onehot_actor_idx,
         ]
@@ -985,7 +985,7 @@ class Worker(DiscreteActionWorker):
 
         # 内部報酬
         if self.config.enable_intrinsic_reward:
-            n_s = np.asarray([next_state]).astype(float)
+            n_s = np.asarray([next_state]).astype(np.float32)
             self.episodic_reward = self._calc_episodic_reward(n_s)
             self.lifelong_reward = self._calc_lifelong_reward(n_s)
             self.reward_int = self.episodic_reward * self.lifelong_reward
@@ -1000,7 +1000,7 @@ class Worker(DiscreteActionWorker):
             _info = {}
 
         self._recent_states.pop(0)
-        self._recent_states.append(next_state.astype(float))
+        self._recent_states.append(next_state.astype(np.float32))
         self.recent_actions.pop(0)
         self.recent_actions.append(self.action)
         self.recent_probs.pop(0)

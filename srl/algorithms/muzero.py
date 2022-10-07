@@ -417,10 +417,13 @@ class Trainer(RLTrainer):
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.optimizer = keras.optimizers.Adam()
-        # バッチ毎に出力
-        self.cross_entropy_loss = keras.losses.CategoricalCrossentropy(axis=1, reduction=keras.losses.Reduction.NONE)
 
         self.train_count = 0
+
+    def _cross_entropy_loss(self, y_true, y_pred):
+        y_pred = tf.clip_by_value(y_pred, 1e-6, y_pred)  # log(0)回避用
+        loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=1)
+        return loss
 
     def get_train_count(self):
         return self.train_count
@@ -453,9 +456,9 @@ class Trainer(RLTrainer):
                     actions.append(b["actions"][i])
                     rewards.append(b["rewards"][i])
             actions_list.append(actions)
-            policies_list.append(np.asarray(policies))
-            values_list.append(np.asarray(values))
-            rewards_list.append(np.asarray(rewards))
+            policies_list.append(np.asarray(policies).astype(np.float32))
+            values_list.append(np.asarray(values).astype(np.float32))
+            rewards_list.append(np.asarray(rewards).astype(np.float32))
 
         with tf.GradientTape() as tape:
             # --- 1st step
@@ -463,8 +466,8 @@ class Trainer(RLTrainer):
             p_pred, v_pred = self.parameter.prediction_network(hidden_states)
 
             # loss
-            policy_loss = _scale_gradient(self.cross_entropy_loss(policies_list[0], p_pred), 1.0)
-            value_loss = _scale_gradient(self.cross_entropy_loss(values_list[0], v_pred), 1.0)
+            policy_loss = _scale_gradient(self._cross_entropy_loss(policies_list[0], p_pred), 1.0)
+            value_loss = _scale_gradient(self._cross_entropy_loss(values_list[0], v_pred), 1.0)
             reward_loss = tf.constant([0] * self.config.batch_size, dtype=tf.float32)
 
             # --- unroll steps
@@ -475,9 +478,9 @@ class Trainer(RLTrainer):
                 p_pred, v_pred = self.parameter.prediction_network(hidden_states)
 
                 # loss
-                policy_loss += _scale_gradient(self.cross_entropy_loss(policies_list[t + 1], p_pred), gradient_scale)
-                value_loss += _scale_gradient(self.cross_entropy_loss(values_list[t + 1], v_pred), gradient_scale)
-                reward_loss += _scale_gradient(self.cross_entropy_loss(rewards_list[t], p_rewards), gradient_scale)
+                policy_loss += _scale_gradient(self._cross_entropy_loss(policies_list[t + 1], p_pred), gradient_scale)
+                value_loss += _scale_gradient(self._cross_entropy_loss(values_list[t + 1], v_pred), gradient_scale)
+                reward_loss += _scale_gradient(self._cross_entropy_loss(rewards_list[t], p_rewards), gradient_scale)
 
                 hidden_states = _scale_gradient(hidden_states, 0.5)
 

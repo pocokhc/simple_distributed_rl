@@ -12,6 +12,7 @@ exec(open(version_path).read())
 
 extras = {
     "dev": [
+        "tensorflow",
         "tensorflow-addons",
         "tensorflow_probability",
         "matplotlib",

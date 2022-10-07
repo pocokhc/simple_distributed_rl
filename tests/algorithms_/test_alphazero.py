@@ -98,4 +98,4 @@ class TestLong(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_sequence", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_simple_check", verbosity=2)

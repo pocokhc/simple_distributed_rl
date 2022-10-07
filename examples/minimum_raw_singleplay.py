@@ -1,5 +1,3 @@
-from typing import Optional
-
 import srl
 from srl.base.env.base import EnvRun
 from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper

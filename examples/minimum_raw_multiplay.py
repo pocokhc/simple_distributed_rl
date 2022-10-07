@@ -1,11 +1,10 @@
-from typing import List, Optional
+from typing import List
 
 import numpy as np
 import srl
 import srl.rl.random_play
 from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
-from srl.base.rl.registration import make_worker_rulebase
 from srl.base.rl.worker import WorkerRun
 
 # --- env & algorithm load
@@ -21,7 +20,7 @@ def _train(
 ):
     workers: List[WorkerRun] = [
         srl.make_worker(rl_config, parameter, remote_memory, training=True, distributed=False),
-        make_worker_rulebase("random"),
+        srl.make_worker_rulebase("random"),
     ]
     trainer = srl.make_trainer(rl_config, parameter, remote_memory)
 
@@ -50,7 +49,7 @@ def _run_episode(
 ):
     workers: List[WorkerRun] = [
         srl.make_worker(rl_config, parameter, remote_memory=None, training=False, distributed=False),
-        make_worker_rulebase("random"),
+        srl.make_worker_rulebase("random"),
     ]
 
     # 1. reset
@@ -75,7 +74,7 @@ def _render(
 ):
     workers: List[WorkerRun] = [
         srl.make_worker(rl_config, parameter, remote_memory=None, training=False, distributed=False),
-        make_worker_rulebase("random"),
+        srl.make_worker_rulebase("random"),
     ]
 
     # --- set render mode

@@ -7,18 +7,20 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.priority_experience_replay import \
-    PriorityExperienceReplay
-from srl.rl.functions.common import (float_category_decode,
-                                     float_category_encode, inverse_rescaling,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
+from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
+from srl.rl.functions.common import (
+    float_category_decode,
+    float_category_encode,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
 from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.input_layer import create_input_layer
 from tensorflow.keras import layers as kl
@@ -570,10 +572,13 @@ class Trainer(RLTrainer):
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.optimizer = keras.optimizers.Adam()
-        # バッチ毎に出力
-        self.cross_entropy_loss = keras.losses.CategoricalCrossentropy(axis=1, reduction=keras.losses.Reduction.NONE)
 
         self.train_count = 0
+
+    def _cross_entropy_loss(self, y_true, y_pred):
+        y_pred = tf.clip_by_value(y_pred, 1e-6, y_pred)  # log(0)回避用
+        loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=1)
+        return loss
 
     def get_train_count(self):
         return self.train_count
@@ -604,9 +609,9 @@ class Trainer(RLTrainer):
                     rewards.append(b["rewards"][i])
             states_list.append(np.asarray(states))
             actions_list.append(actions)
-            policies_list.append(np.asarray(policies))
-            values_list.append(np.asarray(values))
-            rewards_list.append(np.asarray(rewards))
+            policies_list.append(np.asarray(policies).astype(np.float32))
+            values_list.append(np.asarray(values).astype(np.float32))
+            rewards_list.append(np.asarray(rewards).astype(np.float32))
 
         with tf.GradientTape() as tape:
             # --- 1st step
@@ -614,8 +619,8 @@ class Trainer(RLTrainer):
             p_pred, v_pred = self.parameter.prediction_network(hidden_states)
 
             # loss
-            policy_loss = self.cross_entropy_loss(policies_list[0], p_pred)
-            v_loss = self.cross_entropy_loss(values_list[0], v_pred)
+            policy_loss = self._cross_entropy_loss(policies_list[0], p_pred)
+            v_loss = self._cross_entropy_loss(values_list[0], v_pred)
             reward_loss = tf.constant([0] * self.config.batch_size, dtype=tf.float32)
             chance_loss = tf.constant([0] * self.config.batch_size, dtype=tf.float32)
             q_loss = tf.constant([0] * self.config.batch_size, dtype=tf.float32)
@@ -627,16 +632,16 @@ class Trainer(RLTrainer):
                 chance_pred, q_pred = self.parameter.afterstate_prediction_network(after_states)
                 chance_code, chance_vae_pred = self.parameter.vq_vae(states_list[t + 1])
 
-                chance_loss += self.cross_entropy_loss(chance_code, chance_pred)
-                q_loss += self.cross_entropy_loss(values_list[t], q_pred)
+                chance_loss += self._cross_entropy_loss(chance_code, chance_pred)
+                q_loss += self._cross_entropy_loss(values_list[t], q_pred)
                 vae_loss += tf.reduce_mean(tf.square(chance_code - chance_vae_pred), axis=1)  # MSE
 
                 hidden_states, rewards_pred = self.parameter.dynamics_network(after_states, chance_code)
                 p_pred, v_pred = self.parameter.prediction_network(hidden_states)
 
-                policy_loss += self.cross_entropy_loss(policies_list[t + 1], p_pred)
-                v_loss += self.cross_entropy_loss(values_list[t + 1], v_pred)
-                reward_loss += self.cross_entropy_loss(rewards_list[t], rewards_pred)
+                policy_loss += self._cross_entropy_loss(policies_list[t + 1], p_pred)
+                v_loss += self._cross_entropy_loss(values_list[t + 1], v_pred)
+                reward_loss += self._cross_entropy_loss(rewards_list[t], rewards_pred)
 
             loss = v_loss + policy_loss + reward_loss + chance_loss + q_loss + self.config.commitment_cost * vae_loss
             loss = tf.reduce_mean(loss * weights)

@@ -108,9 +108,6 @@ class Config(DiscreteActionConfig):
     batch_size: int = 4
     q_init: str = ""
 
-    def __post_init__(self):
-        super().__init__()
-
     @property
     def observation_type(self) -> RLObservationType:
         return RLObservationType.DISCRETE

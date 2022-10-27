@@ -53,7 +53,6 @@ class Config(DiscreteActionConfig):
     categorical_v_max: float = 10
 
     def __post_init__(self):
-        super().__init__()
         if self.cnn_block_kwargs is None:
             self.cnn_block_kwargs = {}
         if self.hidden_block_kwargs is None:

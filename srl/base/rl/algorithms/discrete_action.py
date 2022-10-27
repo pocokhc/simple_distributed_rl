@@ -1,6 +1,7 @@
 import logging
 import warnings
 from abc import abstractmethod
+from dataclasses import dataclass
 from typing import List, Tuple
 
 import numpy as np
@@ -12,6 +13,7 @@ from srl.base.rl.worker import RLWorker, WorkerRun
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class DiscreteActionConfig(RLConfig):
     @property
     def action_type(self) -> RLActionType:
@@ -36,7 +38,7 @@ class DiscreteActionWorker(RLWorker):
     def call_on_reset(
         self,
         state: np.ndarray,
-        invalid_actions: List[RLAction],
+        invalid_actions: List[DiscreteAction],
     ) -> Info:
         raise NotImplementedError()
 
@@ -44,7 +46,7 @@ class DiscreteActionWorker(RLWorker):
     def call_policy(
         self,
         state: np.ndarray,
-        invalid_actions: List[RLAction],
+        invalid_actions: List[DiscreteAction],
     ) -> Tuple[DiscreteAction, Info]:
         raise NotImplementedError()
 
@@ -54,7 +56,7 @@ class DiscreteActionWorker(RLWorker):
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        next_invalid_actions: List[RLAction],
+        next_invalid_actions: List[DiscreteAction],
     ) -> Info:
         raise NotImplementedError()
 

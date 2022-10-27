@@ -6,13 +6,15 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
-from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
+from srl.rl.functions.common import (create_epsilon_list, inverse_rescaling,
+                                     render_discrete_action, rescaling)
 from srl.rl.models.dqn_image_block import DQNImageBlock
 from srl.rl.models.input_layer import create_input_layer
 from srl.rl.models.mlp_block import MLPBlock
@@ -102,7 +104,6 @@ class Config(DiscreteActionConfig):
     # -------------------------------
 
     def __post_init__(self):
-        super().__init__()
         if self.cnn_block_kwargs is None:
             self.cnn_block_kwargs = {}
         if self.hidden_block_kwargs is None:
@@ -157,7 +158,7 @@ class RemoteMemory(ExperienceReplayBuffer):
 class _QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
-
+        
         in_state, c, use_image_head = create_input_layer(config.observation_shape, config.env_observation_type)
         if use_image_head:
             c = config.cnn_block(**config.cnn_block_kwargs)(c)

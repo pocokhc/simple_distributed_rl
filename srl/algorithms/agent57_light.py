@@ -134,7 +134,6 @@ class Config(DiscreteActionConfig):
     dummy_state_val: float = 0.0
 
     def __post_init__(self):
-        super().__init__()
         if self.cnn_block_kwargs is None:
             self.cnn_block_kwargs = {}
 

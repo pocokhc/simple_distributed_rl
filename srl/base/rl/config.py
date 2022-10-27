@@ -1,6 +1,7 @@
 import logging
 import pickle
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Type
 
 from srl.base.define import EnvObservationType, RLActionType, RLObservationType
@@ -11,38 +12,25 @@ from srl.base.rl.processor import Processor
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class RLConfig(ABC):
-    def __init__(
-        self,
-        processors: List[Processor] = [],
-        override_env_observation_type: EnvObservationType = EnvObservationType.UNKNOWN,
-        action_division_num: int = 5,
-        extend_worker: Optional[Type["ExtendWorker"]] = None,
-        window_length: int = 1,
-        dummy_state_val: float = 0.0,
-        parameter_path: str = "",
-        remote_memory_path: str = "",
-        use_rl_processor: bool = True,  # RL側のprocessorを使用するか
-        change_observation_render_image: bool = False,  # 状態の入力をrender_imageに変更
-        # render option
-        font_name: str = "",
-        font_size: int = 12,
-    ) -> None:
-        self.processors: List[Processor] = processors[:]
+    processors: List[Processor] = field(default_factory=list)
+    override_env_observation_type: EnvObservationType = EnvObservationType.UNKNOWN
+    override_rl_action_type: RLActionType = RLActionType.ANY  # RL側がANTの場合のみ有効
+    action_division_num: int = 5
+    # observation_division_num: int = 10
+    extend_worker: Optional[Type["ExtendWorker"]] = None
+    window_length: int = 1
+    dummy_state_val: float = 0.0
+    parameter_path: str = ""
+    remote_memory_path: str = ""
+    use_rl_processor: bool = True  # RL側のprocessorを使用するか
+    change_observation_render_image: bool = False  # 状態の入力をrender_imageに変更
+    # render option
+    font_name: str = ""
+    font_size: int = 12
 
-        self.override_env_observation_type = override_env_observation_type
-        self.action_division_num = action_division_num
-        # self.observation_division_num: int = 10
-        self.extend_worker = extend_worker
-        self.window_length = window_length
-        self.dummy_state_val = dummy_state_val
-        self.parameter_path = parameter_path
-        self.remote_memory_path = remote_memory_path
-        self.use_rl_processor = use_rl_processor
-        self.change_observation_render_image = change_observation_render_image
-        self.font_name = font_name
-        self.font_size = font_size
-
+    def __post_init__(self) -> None:
         self._is_set_env_config = False
 
     def assert_params(self) -> None:

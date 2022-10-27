@@ -32,9 +32,6 @@ class Config(DiscreteActionConfig):
     discount: float = 0.9
     lr: float = 0.1
 
-    def __post_init__(self):
-        super().__init__()
-
     @property
     def observation_type(self) -> RLObservationType:
         return RLObservationType.DISCRETE

@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import Tuple
 
 from srl.base.define import EnvAction, RLActionType, RLObservationType
@@ -10,10 +11,8 @@ from srl.base.rl.remote_memory.sequence_memory import SequenceRemoteMemory
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class Config(RLConfig):
-    def __init__(self) -> None:
-        super().__init__()
-
     @property
     def action_type(self) -> RLActionType:
         return RLActionType.ANY

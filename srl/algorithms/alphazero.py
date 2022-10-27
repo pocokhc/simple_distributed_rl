@@ -86,7 +86,6 @@ class Config(DiscreteActionConfig):
         self.policy_block_kwargs = dict(hidden_layer_sizes=())
 
     def __post_init__(self):
-        super().__init__()
         if self.lr_schedule is None:
             self.lr_schedule = [
                 {"train": 0, "lr": 0.02},

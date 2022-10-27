@@ -8,18 +8,22 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (calc_epsilon_greedy_probs,
-                                     create_beta_list, create_discount_list,
-                                     create_epsilon_list, inverse_rescaling,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
+from srl.rl.functions.common import (
+    calc_epsilon_greedy_probs,
+    create_beta_list,
+    create_discount_list,
+    create_epsilon_list,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
 from srl.rl.models.dqn_image_block import DQNImageBlock
 from srl.rl.models.dueling_network import DuelingNetworkBlock
 from srl.rl.models.input_layer import create_input_layer
@@ -141,7 +145,6 @@ class Config(DiscreteActionConfig):
     dummy_state_val: float = 0.0
 
     def __post_init__(self):
-        super().__init__()
         if self.cnn_block_kwargs is None:
             self.cnn_block_kwargs = {}
 

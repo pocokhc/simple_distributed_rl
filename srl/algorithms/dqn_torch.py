@@ -55,9 +55,6 @@ class Config(DiscreteActionConfig):
 
     # -------------------------------
 
-    def __post_init__(self):
-        super().__init__()
-
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(

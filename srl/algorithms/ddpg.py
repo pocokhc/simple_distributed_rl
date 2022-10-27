@@ -61,7 +61,6 @@ class Config(ContinuousActionConfig):
     actor_update_interval: int = 2
 
     def __post_init__(self):
-        super().__init__()
         if self.cnn_block_kwargs is None:
             self.cnn_block_kwargs = {}
         if self.policy_hidden_block_kwargs is None:

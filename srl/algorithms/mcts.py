@@ -25,9 +25,6 @@ class Config(DiscreteActionConfig):
     discount: float = 1.0
     uct_c: float = np.sqrt(2.0)
 
-    def __post_init__(self):
-        super().__init__()
-
     @property
     def observation_type(self) -> RLObservationType:
         return RLObservationType.DISCRETE

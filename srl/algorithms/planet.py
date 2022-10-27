@@ -58,9 +58,6 @@ class Config(DiscreteActionConfig):
     # other
     dummy_state_val: float = 0.0
 
-    def __post_init__(self):
-        super().__init__()
-
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(

@@ -89,7 +89,6 @@ class Config(DiscreteActionConfig):
     enable_rescale: bool = True
 
     def __post_init__(self):
-        super().__init__()
         if self.policy_tau_schedule is None:
             self.policy_tau_schedule = [
                 {"step": 0, "tau": 1.0},

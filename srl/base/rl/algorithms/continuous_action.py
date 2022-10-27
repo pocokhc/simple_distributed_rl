@@ -1,6 +1,7 @@
 import logging
 import warnings
 from abc import abstractmethod
+from dataclasses import dataclass
 from typing import Tuple
 
 import numpy as np
@@ -12,6 +13,7 @@ from srl.base.rl.worker import RLWorker, WorkerRun
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class ContinuousActionConfig(RLConfig):
     @property
     def action_type(self) -> RLActionType:

@@ -140,7 +140,6 @@ class Config(DiscreteActionConfig):
         self.memory_beta_steps: int = 1_000_000
 
     def __post_init__(self):
-        super().__init__()
         if self.cnn_block_kwargs is None:
             self.cnn_block_kwargs = {}
 

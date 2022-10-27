@@ -6,8 +6,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.continuous_action import (ContinuousActionConfig,
-                                                      ContinuousActionWorker)
+from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
@@ -60,7 +59,6 @@ class Config(ContinuousActionConfig):
     memory_warmup_size: int = 1000
 
     def __post_init__(self):
-        super().__init__()
         if self.cnn_block_kwargs is None:
             self.cnn_block_kwargs = {}
         if self.policy_hidden_block_kwargs is None:

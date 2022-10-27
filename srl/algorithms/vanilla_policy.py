@@ -1,27 +1,24 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, List, Tuple, cast
 
 import numpy as np
-from srl.base.define import RLObservationType
-from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
+from srl.base.define import RLAction, RLActionType, RLObservationType
+from srl.base.rl.algorithms.any_action import AnyActionConfig, AnyActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import SequenceRemoteMemory
-from srl.rl.functions.common import to_str_observation
+from srl.rl.functions.common import render_discrete_action, to_str_observation
 
 
 # ------------------------------------------------------
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(ContinuousActionConfig):
+class Config(AnyActionConfig):
 
     discount: float = 0.9
     lr: float = 0.1
-
-    def __post_init__(self):
-        super().__init__()
 
     @property
     def observation_type(self) -> RLObservationType:
@@ -29,7 +26,7 @@ class Config(ContinuousActionConfig):
 
     @staticmethod
     def getName() -> str:
-        return "VanillaPolicyContinuous"
+        return "VanillaPolicy"
 
 
 register(
@@ -67,7 +64,20 @@ class Parameter(RLParameter):
 
     # ---------------------------------
 
-    def get_param(self, state_str: str):
+    def get_probs(self, state_str: str, invalid_actions):
+        if state_str not in self.policy:
+            self.policy[state_str] = [None if a in invalid_actions else 0.0 for a in range(self.config.action_num)]
+
+        probs = []
+        for val in self.policy[state_str]:
+            if val is None:
+                probs.append(0)
+            else:
+                probs.append(np.exp(val))
+        probs /= np.sum(probs)
+        return probs
+
+    def get_normal(self, state_str: str):
         if state_str not in self.policy:
             self.policy[state_str] = {
                 "mean": 0.0,
@@ -100,13 +110,43 @@ class Trainer(RLTrainer):
         if len(batchs) == 0:
             return {}
 
+        if self.config.env_action_type == RLActionType.DISCRETE:
+            return self._train_discrete(batchs)
+        else:
+            return self._train_continuous(batchs)
+
+    def _train_discrete(self, batchs):
+        loss = []
+        for batch in batchs:
+            state = batch["state"]
+            action = batch["action"]
+            reward = batch["reward"]
+            invalid_actions = batch["invalid_actions"]
+
+            prob = self.parameter.get_probs(state, invalid_actions)[action]
+
+            # ∇log π
+            diff_logpi = 1 - prob
+
+            # ∇J(θ)
+            diff_j = diff_logpi * reward
+
+            # ポリシー更新
+            self.parameter.policy[state][action] += self.config.lr * diff_j
+            loss.append(abs(diff_j))
+
+            self.train_count += 1
+
+        return {"loss": np.mean(loss)}
+
+    def _train_continuous(self, batchs):
         loss_mean = []
         loss_stddev = []
         for batch in batchs:
             state = batch["state"]
             action = batch["action"]
             reward = batch["reward"]
-            mean, stddev = self.parameter.get_param(state)
+            mean, stddev = self.parameter.get_normal(state)
 
             # 平均
             mean_diff_logpi = (action - mean) / (stddev**2)
@@ -137,31 +177,43 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(ContinuousActionWorker):
+class Worker(AnyActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def call_on_reset(self, state: np.ndarray) -> dict:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[RLAction]) -> dict:
         self.state = to_str_observation(state)
+        self.invalid_actions = invalid_actions
         self.history = []
 
         return {}
 
-    def call_policy(self, state: np.ndarray) -> Tuple[List[float], dict]:
+    def call_policy(self, state: np.ndarray, invalid_actions: List[RLAction]) -> Tuple[RLAction, dict]:
         self.state = to_str_observation(state)
+        self.invalid_actions = invalid_actions
 
-        # パラメータ
-        mean, stddev = self.parameter.get_param(self.state)
+        if self.config.env_action_type == RLActionType.DISCRETE:
+            # --- 離散
+            probs = self.parameter.get_probs(self.state, invalid_actions)
+            action = np.random.choice([a for a in range(self.config.action_num)], p=probs)
+            self.action = int(action)
+            env_action = self.action
+            self.prob = probs[self.action]
 
-        # ガウス分布に従った乱数を出す
-        self.action = env_action = mean + np.random.normal() * stddev
+        else:
+            # --- 連続
+            # パラメータ
+            mean, stddev = self.parameter.get_normal(self.state)
 
-        # -inf～infの範囲を取るので実際に環境に渡すアクションはlowとhighで切り取る
-        # 本当はポリシーが変化しちゃうのでよくない（暫定対処）
-        env_action = np.clip(env_action, self.config.action_low[0], self.config.action_high[0])
+            # ガウス分布に従った乱数を出す
+            self.action = env_action = mean + np.random.normal() * stddev
+
+            # -inf～infの範囲を取るので実際に環境に渡すアクションはlowとhighで切り取る
+            # 本当はポリシーが変化しちゃうのでよくない（暫定対処）
+            env_action = np.clip(env_action, self.config.action_low[0], self.config.action_high[0])
 
         return env_action, {}
 
@@ -170,18 +222,27 @@ class Worker(ContinuousActionWorker):
         next_state: np.ndarray,
         reward: float,
         done: bool,
-    ) -> Dict:
+        next_invalid_actions: List[RLAction],
+    ) -> dict:
         if not self.training:
             return {}
-        self.history.append([self.state, self.action, reward])
+        self.history.append(
+            [
+                self.state,
+                self.action,
+                self.invalid_actions,
+                reward,
+            ]
+        )
 
         if done:
             reward = 0
             for h in reversed(self.history):
-                reward = h[2] + self.config.discount * reward
+                reward = h[3] + self.config.discount * reward
                 batch = {
                     "state": h[0],
                     "action": h[1],
+                    "invalid_actions": h[2],
                     "reward": reward,
                 }
                 self.remote_memory.add(batch)
@@ -189,5 +250,16 @@ class Worker(ContinuousActionWorker):
         return {}
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        mean, stddev = self.parameter.get_param(self.state)
-        print(f"mean {mean:.5f}, stddev {stddev:.5f}")
+        if self.config.env_action_type == RLActionType.DISCRETE:
+            probs = self.parameter.get_probs(self.state, self.invalid_actions)
+            vals = [0 if v is None else v for v in self.parameter.policy[self.state]]
+            maxa = np.argmax(vals)
+
+            def _render_sub(action: int) -> str:
+                return f"{probs[action]*100:5.1f}% ({vals[action]:.5f})"
+
+            render_discrete_action(self.invalid_actions, maxa, env, _render_sub)
+
+        else:
+            mean, stddev = self.parameter.get_normal(self.state)
+            print(f"mean {mean:.5f}, stddev {stddev:.5f}")

@@ -24,8 +24,7 @@ try:
         sac,
         search_dynaq,
         stochastic_muzero,
-        vanilla_policy_continuous,
-        vanilla_policy_discrete,
+        vanilla_policy,
         world_models,
     )
 except ModuleNotFoundError as e:
@@ -58,8 +57,7 @@ class Test(unittest.TestCase):
                 sac,
                 search_dynaq,
                 stochastic_muzero,
-                vanilla_policy_continuous,
-                vanilla_policy_discrete,
+                vanilla_policy,
                 world_models,
             ]:
                 self.rl_list.append(rl)

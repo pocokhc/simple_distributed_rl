@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import time
+import traceback
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, cast
 
@@ -115,28 +116,35 @@ class FileLogWriter(Callback, MPCallback, GameCallback):
         assert self.base_dir != ""
         info = {}
         if config.enable_ps:
-            import psutil
+            try:
+                import multiprocessing
 
-            info["memory size"] = psutil.virtual_memory().total
-            info["memory percent"] = psutil.virtual_memory().percent
-            cpus = psutil.Process().cpu_affinity()
-            info["cpu count"] = 0 if cpus is None else len(cpus)
-            info["cpu(MHz)"] = [c.max for c in psutil.cpu_freq(percpu=True)]
+                import psutil
+
+                info["memory size"] = psutil.virtual_memory().total
+                info["memory percent"] = psutil.virtual_memory().percent
+                info["cpu count"] = multiprocessing.cpu_count()
+                info["cpu(MHz)"] = [c.max for c in psutil.cpu_freq(percpu=True)]
+            except Exception:
+                logger.info(traceback.format_exc())
 
         # GPU(nvidia) の計測をするかどうか
         if config.enable_nvidia:
-            import pynvml
+            try:
+                import pynvml
 
-            info["nvidia driver version"] = str(pynvml.nvmlSystemGetDriverVersion())
-            info["gpu"] = []
-            for i in range(pynvml.nvmlDeviceGetCount()):
-                handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-                info["gpu"].append(
-                    {
-                        "device": str(pynvml.nvmlDeviceGetName(handle)),
-                        "memory": pynvml.nvmlDeviceGetMemoryInfo(handle).total,
-                    }
-                )
+                info["nvidia driver version"] = str(pynvml.nvmlSystemGetDriverVersion())
+                info["gpu"] = []
+                for i in range(pynvml.nvmlDeviceGetCount()):
+                    handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+                    info["gpu"].append(
+                        {
+                            "device": str(pynvml.nvmlDeviceGetName(handle)),
+                            "memory": pynvml.nvmlDeviceGetMemoryInfo(handle).total,
+                        }
+                    )
+            except Exception:
+                logger.info(traceback.format_exc())
 
         with open(os.path.join(self.base_dir, "system.json"), "w", encoding="utf-8") as f:
             json.dump(info, f, indent=2)
@@ -388,32 +396,38 @@ class FileLogWriter(Callback, MPCallback, GameCallback):
 
         d: Dict[str, Any] = {"date": dt.datetime.now().strftime("%Y/%m/%d %H:%M:%S")}
         if config.enable_ps:
-            import psutil
+            try:
+                import psutil
 
-            d["memory"] = psutil.virtual_memory().percent
-            cpus = cast(List[float], psutil.cpu_percent(percpu=True))
-            for i, cpu in enumerate(cpus):
-                d[f"cpu_{i}"] = cpu
-            d["cpu"] = np.mean(cpus)
-            d["cpu_num"] = len(cpus)
+                d["memory"] = psutil.virtual_memory().percent
+                cpus = cast(List[float], psutil.cpu_percent(percpu=True))
+                for i, cpu in enumerate(cpus):
+                    d[f"cpu_{i}"] = cpu
+                d["cpu"] = np.mean(cpus)
+                d["cpu_num"] = len(cpus)
+            except Exception:
+                logger.debug(traceback.format_exc())
 
         if config.enable_nvidia:
-            import pynvml
+            try:
+                import pynvml
 
-            gpu_num = pynvml.nvmlDeviceGetCount()
-            if gpu_num > 0:
-                gpu = 0
-                gpu_memory = 0
-                for i in range(gpu_num):
-                    handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-                    rate = pynvml.nvmlDeviceGetUtilizationRates(handle)
-                    d[f"gpu_{i}"] = rate.gpu
-                    d[f"gpu_{i}_memory"] = rate.memory
-                    gpu += rate.gpu
-                    gpu_memory += rate.memory
-                d["gpu"] = gpu / gpu_num
-                d["gpu_memory"] = gpu_memory / gpu_num
-                d["gpu_num"] = gpu_num
+                gpu_num = pynvml.nvmlDeviceGetCount()
+                if gpu_num > 0:
+                    gpu = 0
+                    gpu_memory = 0
+                    for i in range(gpu_num):
+                        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+                        rate = pynvml.nvmlDeviceGetUtilizationRates(handle)
+                        d[f"gpu_{i}"] = rate.gpu
+                        d[f"gpu_{i}_memory"] = rate.memory
+                        gpu += rate.gpu
+                        gpu_memory += rate.memory
+                    d["gpu"] = gpu / gpu_num
+                    d["gpu_memory"] = gpu_memory / gpu_num
+                    d["gpu_num"] = gpu_num
+            except Exception:
+                logger.debug(traceback.format_exc())
 
         self._write_log(self.fp_dict["system"], d)
 

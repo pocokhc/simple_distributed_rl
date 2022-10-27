@@ -1,6 +1,7 @@
 import datetime as dt
 import logging
 import time
+import traceback
 from collections import deque
 from dataclasses import dataclass
 
@@ -195,12 +196,12 @@ class PrintProgress(Callback):
             remain_train = np.inf
         remain = min(min(min(remain_step, remain_episode), remain_time), remain_train)
         if remain == np.inf:
-            s += "(      - left)"
+            s += "(     - left)"
         else:
             s += f"({to_str_time(remain)} left)"
 
         # [all step] [all episode] [train]
-        s += f" {self.step_count:6d}st({self.last_episode_count:4d}ep)"
+        s += f" {self.step_count:5d}st({self.last_episode_count:5d}ep)"
         if self.config.training and not self.config.distributed:
             s += " {:5d}tr".format(self.last_train_count)
 
@@ -270,33 +271,47 @@ class PrintProgress(Callback):
 
     def _eval_reward_str(self, arr) -> str:
         if arr is None or len(arr) == 0:
-            return " " * 12
+            if self.config.distributed:
+                return " " * 12
+            else:
+                return ""
         _rewards = [h["eval_reward"] for h in arr if h["eval_reward"] is not None]
         if len(_rewards) > 0:
             s = f"({np.mean(_rewards):.3f} eval)"
-        else:
+        elif self.config.distributed:
             s = " " * 12
+        else:
+            s = ""
         return s
 
     def _memory_system_str(self, memory_len) -> str:
-        # , 1234567 mem(100%used), GPU[100%,100%,100%]
-        s = f", {memory_len:7d} mem"
+        # , 1234567mem(100%used),GPU[100%,100%,100%]
+        s = f", {memory_len:5d}mem"
 
         if self.enable_ps:
-            import psutil
+            try:
+                import psutil
 
-            s += f"({psutil.virtual_memory().percent:3.0f}% used)"
+                s += f"({psutil.virtual_memory().percent:3.0f}%used)"
+
+            except Exception:
+                logger.debug(traceback.format_exc())
+                s += "(Nan%used)"
 
         if self.enable_nvidia:
-            import pynvml
+            try:
+                import pynvml
 
-            gpu_num = pynvml.nvmlDeviceGetCount()
-            gpus = []
-            for i in range(gpu_num):
-                handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-                rate = pynvml.nvmlDeviceGetUtilizationRates(handle)
-                gpus.append(f"{rate.gpu:3.0f}%")
-            s += ", GPU[" + ",".join(gpus) + "]"
+                gpu_num = pynvml.nvmlDeviceGetCount()
+                gpus = []
+                for i in range(gpu_num):
+                    handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+                    rate = pynvml.nvmlDeviceGetUtilizationRates(handle)
+                    gpus.append(f"{rate.gpu:3.0f}%")
+                s += ",GPU[" + ",".join(gpus) + "]"
+            except Exception:
+                logger.debug(traceback.format_exc())
+                s += ",GPU[Nan%]"
 
         return s
 
@@ -318,7 +333,7 @@ class PrintProgress(Callback):
     # ----------------------------------
 
     def on_trainer_start(self, info) -> None:
-        self.config = info["config"]
+        self.config: Config = info["config"]
         remote_memory = info["remote_memory"]
 
         if not self.config.distributed:

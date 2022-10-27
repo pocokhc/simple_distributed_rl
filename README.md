@@ -245,6 +245,7 @@ if __name__ == "__main__":
 ## Manual play of environment Example
 
 環境を手動で遊ぶ例です。
+`key_bind=None` の場合は汎用的な入力となります。
 
 ``` python
 import pygame

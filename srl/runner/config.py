@@ -1,5 +1,6 @@
 import enum
 import logging
+import os
 import pickle
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Union
@@ -36,6 +37,9 @@ class Config:
     # multi player option
     players: List[Union[None, str, RLConfig]] = field(default_factory=list)
 
+    # CPU/GPU
+    select_cpu: bool = False  # GPUが使える場合でもCPUを使う
+
     def __post_init__(self):
         # stop config
         self.max_episodes: int = -1
@@ -57,15 +61,6 @@ class Config:
         self.distributed: bool = False
         self.enable_ps: bool = False
         self.enable_nvidia: bool = False
-
-        # GPU
-        self.enable_gpu = False
-        if is_package_imported("tensorflow"):
-            import tensorflow as tf
-
-            if tf.test.gpu_device_name() != "":
-                self.enable_gpu = True
-        logger.info(f"enable_gpu: {self.enable_gpu}")
 
         if self.rl_config is None:
             self.rl_config = srl.rl.dummy.Config()
@@ -260,6 +255,9 @@ class Config:
         """
         if self.__is_init_tensorflow:
             return
+
+        if self.select_cpu:
+            os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
         # sequenceはGPU,mpはCPUにしたい…、仕様決めきれずTODO
         # if is_package_imported("tensorflow"):

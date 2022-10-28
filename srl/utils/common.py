@@ -2,10 +2,13 @@ import importlib
 import json
 import logging
 import sys
+import traceback
 import warnings
 from typing import Any, Dict, List, Union
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 def set_logger(
@@ -168,7 +171,7 @@ def is_package_imported(name: str) -> bool:
     return name in sys.modules
 
 
-def is_env_notebook():
+def is_env_notebook() -> bool:
     try:
         if get_ipython().__class__.__name__ == "TerminalInteractiveShell":
             # IPython shell
@@ -180,7 +183,7 @@ def is_env_notebook():
     return True
 
 
-def compare_less_version(v1, v2):
+def compare_less_version(v1, v2) -> bool:
     try:
         from packaging import version
 
@@ -192,7 +195,7 @@ def compare_less_version(v1, v2):
         return LooseVersion(v1) < LooseVersion(v2)
 
 
-def compare_equal_version(v1, v2):
+def compare_equal_version(v1, v2) -> bool:
     try:
         from packaging import version
 
@@ -202,3 +205,20 @@ def compare_equal_version(v1, v2):
         from distutils.version import LooseVersion
 
         return LooseVersion(v1) == LooseVersion(v2)
+
+
+def is_enable_device_name(device_name) -> bool:
+    from tensorflow.python.client import device_lib
+    from tensorflow.python.distribute import device_util
+
+    try:
+        full_device_name = device_util.canonicalize(device_name)
+    except ValueError:
+        logger.info(traceback.format_exc())
+        return False
+
+    for device in device_lib.list_local_devices():
+        d = device_util.canonicalize(device.name)
+        if full_device_name == d:
+            return True
+    return False

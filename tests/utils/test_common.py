@@ -18,6 +18,11 @@ class Test(unittest.TestCase):
         self.assertFalse(C.compare_less_version("2.0.0", "1.2.a3"))
         self.assertFalse(C.compare_less_version("3.0.0", "3.0.0"))
 
+    @unittest.skipUnless(C.is_package_installed("tensorflow"), "no module")
+    def test_is_enable_device_name(self):
+        self.assertTrue(C.is_enable_device_name("/CPU:0"))
+        self.assertFalse(C.is_enable_device_name("/CPU:99999"))
+
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_is_env_notebook", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_is_enable_device_name", verbosity=2)

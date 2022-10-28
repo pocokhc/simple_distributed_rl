@@ -17,7 +17,7 @@ from srl.runner.callbacks.file_log_reader import FileLogReader
 from srl.runner.callbacks.print_progress import MPPrintProgress, PrintProgress
 from srl.runner.config import Config
 from srl.runner.play_trainer import play as train_only
-from srl.utils.common import is_package_imported
+from srl.utils.common import is_enable_device_name, is_package_imported
 
 logger = logging.getLogger(__name__)
 
@@ -166,12 +166,14 @@ def _run_actor(
     if "CPU" in allocate:
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
-    if mp_config.use_tensorflow:
+    if mp_config.use_tensorflow and is_enable_device_name(allocate):
         import tensorflow as tf
 
         with tf.device(allocate):
+            logger.info(f"actor{actor_id} start({allocate})")
             __run_actor(config, mp_config, remote_memory, remote_board, actor_id, train_end_signal)
     else:
+        logger.info(f"actor{actor_id} start")
         __run_actor(config, mp_config, remote_memory, remote_board, actor_id, train_end_signal)
 
 
@@ -184,7 +186,6 @@ def __run_actor(
     train_end_signal: ctypes.c_bool,
 ):
     try:
-        logger.debug(f"actor{actor_id} start")
 
         # --- config
         config.disable_trainer = True
@@ -263,12 +264,14 @@ def _run_trainer(
     if "CPU" in mp_config.allocate_trainer:
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
-    if mp_config.use_tensorflow:
+    if mp_config.use_tensorflow and is_enable_device_name(mp_config.allocate_trainer):
         import tensorflow as tf
 
         with tf.device(mp_config.allocate_trainer):
+            logger.debug(f"trainer start({mp_config.allocate_trainer})")
             __run_trainer(config, mp_config, remote_memory, remote_board, train_end_signal)
     else:
+        logger.debug("trainer start")
         __run_trainer(config, mp_config, remote_memory, remote_board, train_end_signal)
 
 
@@ -279,8 +282,6 @@ def __run_trainer(
     remote_board: Board,
     train_end_signal: ctypes.c_bool,
 ):
-    logger.debug("trainer start")
-
     # --- parameter
     parameter = config.make_parameter(is_load=False)
     params = remote_board.read()

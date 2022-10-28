@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  tfgpu:
+    build:
+      dockerfile: ./tests/dockerfile_tf_gpu
+    volumes:
+      - ./:/code/
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    

@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+
+  py379-min:
+    build:
+      dockerfile: ./tests/dockerfile_py379_min
+    volumes:
+      - ./:/code/
+    tty: true
+
+  py379-devlow:
+    build:
+      dockerfile: ./tests/dockerfile_py379_dev_low
+    volumes:
+      - ./:/code/
+    tty: true

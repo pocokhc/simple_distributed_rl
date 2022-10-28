@@ -24,9 +24,21 @@
         "--line-length=119",  // defaultは79、119はgit向け
     ],
 
-    // --- フォーマッタ(md)
+    // --- フォーマッタ
+    "[lua]": {
+        "editor.formatOnSave": true
+    },
     "[markdown]": {
         "editor.formatOnSave": true
+    },
+    "[yaml]": {
+        "editor.formatOnSave": true,
+        "editor.insertSpaces": true,
+        "editor.tabSize": 2,
+        "editor.autoIndent": "advanced",
+        "gitlens.codeLens.scopes": [
+            "document"
+        ]
     },
 
     // --- 型アノテーション(Pylance)
@@ -47,5 +59,10 @@
     "plantuml.exportFormat": "png",
     "plantuml.exportOutDir": ".",
     "plantuml.exportSubFolder": false,
+
+    // --- docker
+    "files.associations": {
+        "dockerfile*": "dockerfile"
+    }
 
 }

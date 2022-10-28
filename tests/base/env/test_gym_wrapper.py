@@ -45,7 +45,7 @@ class Test(unittest.TestCase):
         self.assertTrue(env.observation_type == EnvObservationType.CONTINUOUS)
         self.assertTrue(isinstance(env.action_space, BoxSpace))
 
-    @unittest.skipUnless(is_package_installed("ale-py"), "no module")
+    @unittest.skipUnless(is_package_installed("ale_py"), "no module")
     def test_play_Tetris(self):
         # atari
         env = self.tester.play_test("ALE/Tetris-v5", check_render=False, max_step=100)
@@ -53,7 +53,7 @@ class Test(unittest.TestCase):
         self.assertTrue(env.observation_type == EnvObservationType.UNKNOWN)
         self.assertTrue(isinstance(env.action_space, DiscreteSpace))
 
-    @unittest.skipUnless(is_package_installed("ale-py"), "no module")
+    @unittest.skipUnless(is_package_installed("ale_py"), "no module")
     def test_play_Tetris_ram(self):
         # atari
         env = self.tester.play_test("ALE/Tetris-ram-v5", check_render=False, max_step=100)
@@ -86,4 +86,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_play_Tetris_ram", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_play_Tetris", verbosity=2)

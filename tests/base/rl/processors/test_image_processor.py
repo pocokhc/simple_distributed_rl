@@ -60,7 +60,7 @@ class Test(unittest.TestCase):
                 if check_val:
                     np.testing.assert_array_equal(true_state, new_obs)
 
-    @unittest.skipUnless(is_package_installed("ale-py"), "no module")
+    @unittest.skipUnless(is_package_installed("ale_py"), "no module")
     def test_image_atari(self):
         tester = TestProcessor()
         processor = ImageProcessor(

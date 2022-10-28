@@ -22,6 +22,7 @@ from srl.base.rl.registration import (
 )
 from srl.base.rl.worker import WorkerRun
 from srl.runner.callback import Callback
+from srl.utils.common import is_package_imported
 
 logger = logging.getLogger(__name__)
 
@@ -57,11 +58,22 @@ class Config:
         self.enable_ps: bool = False
         self.enable_nvidia: bool = False
 
+        # GPU
+        self.enable_gpu = False
+        if is_package_imported("tensorflow"):
+            import tensorflow as tf
+
+            if tf.test.gpu_device_name() != "":
+                self.enable_gpu = True
+        logger.info(f"enable_gpu: {self.enable_gpu}")
+
         if self.rl_config is None:
             self.rl_config = srl.rl.dummy.Config()
 
         self.rl_name = self.rl_config.getName()
         self.env = None
+
+        self.__is_init_tensorflow = False
 
     # ------------------------------
     # user functions
@@ -91,6 +103,7 @@ class Config:
         return self.env
 
     def make_parameter(self, is_load: bool = True) -> RLParameter:
+        self._init_tensorflow()
         self._set_env()
         return make_parameter(self.rl_config, env=self.env, is_load=is_load)
 
@@ -240,6 +253,20 @@ class Config:
             config.env = self.env
 
         return config
+
+    def _init_tensorflow(self):
+        """
+        tensorflow の初期化はmodel作成前にしかできない
+        """
+        if self.__is_init_tensorflow:
+            return
+
+        # sequenceはGPU,mpはCPUにしたい…、仕様決めきれずTODO
+        # if is_package_imported("tensorflow"):
+        #    os.environ["CUDA_VISIBLE_DEVICES"] = self.CUDA_VISIBLE_DEVICES
+
+        self.__is_init_tensorflow = True
+        logger.debug("init_tensorflow")
 
     # ------------------------------
     # utility

@@ -181,6 +181,9 @@ def main():
     env = srl.make_env(env_config)
     rl_config.reset_config(env)
 
+    # bug fix
+    mp.set_start_method("spawn")
+
     # --- async
     MPManager.register("RemoteMemory", cast(Type[RLRemoteMemory], make_remote_memory(rl_config, return_class=True)))
     MPManager.register("Board", Board)

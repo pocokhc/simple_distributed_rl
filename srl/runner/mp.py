@@ -51,11 +51,10 @@ class MpConfig:
     actor_parameter_sync_interval_by_step: int = 100
 
     use_tensorflow: Optional[bool] = None
-    allocate_trainer: str = "/CPU:0"
+    allocate_trainer: str = "/GPU:0"
     allocate_actor: Union[List[str], str] = "/CPU:0"
 
     def __post_init__(self):
-        # callbacks
         self.callbacks: List[MPCallback] = []
 
         if self.use_tensorflow is None:
@@ -164,6 +163,9 @@ def _run_actor(
     train_end_signal: ctypes.c_bool,
     allocate: str,
 ):
+    if "CPU" in allocate:
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
     if mp_config.use_tensorflow:
         import tensorflow as tf
 
@@ -258,6 +260,9 @@ def _run_trainer(
     remote_board: Board,
     train_end_signal: ctypes.c_bool,
 ):
+    if "CPU" in mp_config.allocate_trainer:
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
     if mp_config.use_tensorflow:
         import tensorflow as tf
 
@@ -310,6 +315,9 @@ class MPManager(BaseManager):
     pass
 
 
+__is_set_start_method = False
+
+
 def train(
     config: Config,
     mp_config: MpConfig,
@@ -352,6 +360,7 @@ def train(
     return_memory: bool = False,
     save_memory: str = "",
 ):
+    global __is_set_start_method
 
     if disable_trainer:
         enable_evaluation = False  # 学習しないので
@@ -437,9 +446,31 @@ def train(
     # if is_env_notebook() and "__main__" in str(remote_memory_class):
     #    raise RuntimeError("The definition of rl must be in the py file")
 
+    """ 以下2つのバグが発生したのでその対処として子プロセスを'spawn'で統一
+
+    ・以下issueと多分同じバグ
+    https://github.com/keras-team/keras/issues/3181#issuecomment-668175300
+
+    tensorflow の内部で使っている thread が multiprocessing の子プロセスと相性が悪いようでフリーズする不具合。
+    set_intra_op_parallelism_threads(1) にて子スレッドを作れないようにしても対処できる。
+
+    set_intra_op_parallelism_threads は tensorflow の初期化前にしか実行できずエラーになるので
+    こちらは実装が複雑になる可能性あり
+    # RuntimeError: Intra op parallelism cannot be modified after initialization.
+
+    ・linux + GPU + tensorflow + multiprocessing にて以下エラーがでてtrainerが落ちる
+    # Failed setting context: CUDA_ERROR_NOT_INITIALIZED: initialization error
+
+    tensorflow が fork で複製される場合の挙動はかなり怪しいものがありそう…
+    """
+    if not __is_set_start_method:
+        mp.set_start_method("spawn")
+        __is_set_start_method = True
+
     MPManager.register("RemoteMemory", remote_memory_class)
     MPManager.register("Board", Board)
 
+    logger.debug("MPManager start")
     with MPManager() as manager:
         return_parameter, return_remote_memory = _train(
             config,
@@ -451,6 +482,7 @@ def train(
             return_memory,
             save_memory,
         )
+    logger.debug("MPManager end")
 
     # --- history
     history = FileLogReader()
@@ -473,6 +505,7 @@ def _train(
     return_memory: bool,
     save_memory: str,
 ):
+
     # callbacks
     _info = {
         "config": config,
@@ -530,6 +563,7 @@ def _train(
         trainer_ps = mp.Process(target=_run_trainer, args=params)
 
     # --- start
+    logger.debug("process start")
     [p.start() for p in actors_ps_list]
     if trainer_ps is not None:
         trainer_ps.start()

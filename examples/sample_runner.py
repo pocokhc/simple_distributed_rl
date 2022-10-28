@@ -52,6 +52,12 @@ def animation():
     render.create_anime().save("_OX.gif")
 
 
+def test_play():
+    config = _create_config()
+    history = runner.test_play(config)
+    history.replay()
+
+
 def training_history():
     #
     # 'runner.train' を実行すると tmp 配下に log ディレクトリが生成されます。
@@ -84,4 +90,5 @@ if __name__ == "__main__":
     evaluate()
     render()
     animation()
+    test_play()
     # training_history()

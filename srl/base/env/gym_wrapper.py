@@ -1,4 +1,5 @@
 import logging
+import os
 import pickle
 from typing import Any, List, Optional, Tuple
 
@@ -32,6 +33,7 @@ class GymWrapper(EnvBase):
                     assert compare_less_version(ale_py.__version__, "0.8.0")
                 else:
                     assert not compare_less_version(ale_py.__version__, "0.8.0")
+        os.environ["SDL_VIDEODRIVER"] = "dummy"
 
         self.name = env_name
         self.arguments = arguments

@@ -1,3 +1,4 @@
+import os
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -6,6 +7,8 @@ from srl.font import get_font_path
 
 
 def create_surface(width: int, height: int) -> pygame.surface.Surface:
+    os.environ["SDL_VIDEODRIVER"] = "dummy"
+
     pygame.display.init()
     return pygame.Surface((width, height))
 

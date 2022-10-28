@@ -44,6 +44,9 @@ class _GameWindow(ABC):
         raise NotImplementedError()
 
     def play(self):
+        if "SDL_VIDEODRIVER" in os.environ:
+            pygame.display.quit()
+            del os.environ["SDL_VIDEODRIVER"]
 
         # --- pygame init
         self.base_info_x = self.env_w + self.padding

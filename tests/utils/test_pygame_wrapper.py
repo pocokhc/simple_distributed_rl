@@ -35,6 +35,7 @@ class Test(unittest.TestCase):
 
             img = Image.fromarray(rgb_array)
             img.show()
+            img.save("_test_pygame_wrapper.png")
 
 
 if __name__ == "__main__":

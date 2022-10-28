@@ -33,33 +33,50 @@ Env を手動操作のみで実行できる env_play の追加と、実行結果
    1. pynvml(nvidia)の初期化終了処理を play_sequence 側に実装
    1. runner配下にimgフォルダを追加
 
-**Updates**
+**MainUpdates**
 
 1. Runner
    1. test_play を追加
    1. env_play を追加
+1. RL
+   1. RLConfigをdataclass化
+      + 継承していたRLConfigで__init__を予備必要があったが、逆に呼んではダメになりました
+      + これによりRLConfigインスタンス時に継承元のハイパーパラメータも（VSCode上で）候補一覧に表示されるようになりました
+1. Docker環境を追加
+
+**OtherUpdates**
+
 1. Env
    1. 環境のrender_rgb_arrayで使われる想定のViewerをpygame_wrapperに変更（クラスベースではなく関数ベースに）
    1. EnvRun に render_interval を追加
    1. env_play用に、get_key_bind を追加（暫定導入）
+1. RL
+   1. RL側でdiscreteとcontinuousの両方に対応できる場合の書き方を整理
+      + base.Space に base_action_type を追加
+      + rl.algorithms に any_action.py を作成
+      + サンプルとして、vanilla_policy_discrete.py と vanilla_policy_continuous.py をvanilla_policy.py に統合
 1. Callbacks
    1. 問題なさそうだったので Callback と TrainerCallback を統合
    1. GPU使用率を print_progress に追加
-1. base.Space
-   1. base_action_type を追加(追加しましたが、現状結局使っていません)
+   1. CPUの数取得を psutil.Process().cpu_affinity() から multiprocessing.cpu_count() に変更
+   1. 統計情報でエラーがでても止まらないように変更
 1. Utils
    1. common に is_package_imported と compare_equal_version を追加
 1. Other
    1. 実行時に必要なimportのみを読み込むようにできる限り制限（特に外部ライブラリ）（暫定導入）
    1. font のパスをどこからでも参照できるように修正
    1. examples の minimum_raw でフローが見えやすいように学習と評価の関数を別に記載
-   1. 確認している最低versionを tensorflow==2.1.0 から 2.2.1 に変更
+   1. 確認しているtensorflowの最低versionを2.1.0から2.2.1に変更
+   1. 確認しているgymの最低versionを0.21.0からpygameを導入した0.22.0に変更
+   1. pygameの描画をdummyにし、画面がない環境でも動作するように変更
+   1. examplesにsample_pendulum.pyを追加
 
 **Bug Fixes**
 
 1. render で2episode以降に初期画像が初期化されない不具合修正
 1. gym_wrapper で追加の引数が反映されていなかった不具合修正
 1. image_processor の trimming でwとhが逆になっていた不具合修正
+1. linux/mac環境でtensorflow+mpを実行するとフリーズする不具合を修正（詳細はrunner.mp の修正箇所を参照）
 
 # v0.9.0
 

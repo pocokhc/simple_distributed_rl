@@ -76,7 +76,7 @@ Env を手動操作のみで実行できる env_play の追加と、実行結果
 1. render で2episode以降に初期画像が初期化されない不具合修正
 1. gym_wrapper で追加の引数が反映されていなかった不具合修正
 1. image_processor の trimming でwとhが逆になっていた不具合修正
-1. linux/mac環境でtensorflow+mpを実行するとフリーズする不具合を修正（詳細はrunner.mp の修正箇所を参照）
+1. linux/mac環境でtensorflow+mpを実行するとフリーズする不具合を修正（詳細はrunner.mpの修正箇所を参照）
 
 # v0.9.0
 

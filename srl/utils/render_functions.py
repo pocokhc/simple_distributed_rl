@@ -10,7 +10,7 @@ from srl.utils.common import compare_less_version
 logger = logging.getLogger(__name__)
 
 
-def print_to_text(print_function: Callable) -> str:
+def print_to_text(print_function: Callable[[], None]) -> str:
     text = ""
     _stdout = sys.stdout
     try:

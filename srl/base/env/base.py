@@ -2,7 +2,7 @@ import logging
 import pickle
 import time
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Callable, List, Optional, Tuple, Union
 
 import numpy as np
 import srl
@@ -204,7 +204,7 @@ class EnvRun:
 
         self.t0 = time.time()
 
-    def step(self, action: EnvAction, skip_function=None) -> None:
+    def step(self, action: EnvAction, skip_function: Optional[Callable[[], None]] = None) -> None:
         assert not self.done, "It is in the done state. Please execute reset ()."
         logger.debug("env.step")
 

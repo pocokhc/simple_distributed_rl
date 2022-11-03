@@ -1,6 +1,7 @@
 from typing import Optional, cast
 
 import numpy as np
+
 import srl
 from srl import runner
 from srl.base.define import EnvObservationType
@@ -59,10 +60,6 @@ class TestRL:
             config = runner.Config(env_config, rl_config)
 
             if not is_mp:
-                # --- check raw
-                print(f"--- {env_name} raw check start ---")
-                self._check_play_raw(env_config, rl_config, check_render)
-
                 # --- check sequence
                 print(f"--- {env_name} sequence check start ---")
                 parameter, _, _ = runner.train(
@@ -78,6 +75,10 @@ class TestRL:
                     if is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]):
                         render = runner.animation(config, parameter, max_steps=10)
                         render.create_anime()
+
+                # --- check raw
+                print(f"--- {env_name} raw check start ---")
+                self._check_play_raw(env_config, rl_config, check_render)
 
             else:
                 print(f"--- {env_name} mp check start ---")

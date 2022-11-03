@@ -6,6 +6,17 @@
 1. PyTorchのサンプル作成
 1. ネットワーク経由の学習
 
+# v0.9.2
+
+**MainUpdates**
+
+1. multiprocessing + GPU の環境を見直し
+   1. tensorflow の初期化タイミングを用意し、GPU関係の初期化を実装
+      1. main/actor/trainerプロセス毎にCPU/GPUを選択できるよう実装
+      1. GPUメモリの確保量を必要分か上限満杯までかを選ぶオプションを追加（デフォルト必要分）
+   1. MpConfigとConfigを統合（互換用にMpConfigも一応残しています）
+   1. ここら辺のlogメッセージを追加
+
 # v0.9.1
 
 **Big changes**

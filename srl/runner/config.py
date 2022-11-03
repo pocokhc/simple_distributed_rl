@@ -41,7 +41,7 @@ class Config:
     actor_num: int = 1
     trainer_parameter_send_interval_by_train_count: int = 100
     actor_parameter_sync_interval_by_step: int = 100
-    allocate_main: str = "/CPU:0"
+    allocate_main: str = ""
     allocate_trainer: str = "/GPU:0"
     allocate_actor: Union[List[str], str] = "/CPU:0"
 
@@ -300,10 +300,12 @@ class Config:
             logger.info(f"[{self.run_name}] set CUDA_VISIBLE_DEVICES=-1")
         else:
             allocate = self.get_allocate()
+
             if "CPU" in allocate:
                 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
                 logger.info(f"[{self.run_name}] set CUDA_VISIBLE_DEVICES=-1")
-            elif "GPU" in allocate:
+            else:
+                #  set default allocate
                 if self._default_CUDA_VISIBLE_DEVICES is None or self._default_CUDA_VISIBLE_DEVICES == "None":
                     if "CUDA_VISIBLE_DEVICES" in os.environ:
                         del os.environ["CUDA_VISIBLE_DEVICES"]
@@ -312,17 +314,17 @@ class Config:
                     os.environ["CUDA_VISIBLE_DEVICES"] = self._default_CUDA_VISIBLE_DEVICES
                     logger.info(f"[{self.run_name}] set CUDA_VISIBLE_DEVICES={self._default_CUDA_VISIBLE_DEVICES}")
 
-                if self.tf_enable_memory_growth:
-                    try:
-                        for device in tf.config.list_physical_devices("GPU"):
-                            logger.info(f"[{self.run_name}] set_memory_growth({device.name}, True)")
-                            tf.config.experimental.set_memory_growth(device, True)
-                            break
-                    except Exception:
-                        print(
-                            f"[{self.run_name}] 'set_memory_growth' failed. Also consider 'tf_enable_memory_growth=False'."
-                        )
-                        raise
+            if self.tf_enable_memory_growth:
+                try:
+                    for device in tf.config.list_physical_devices("GPU"):
+                        logger.info(f"[{self.run_name}] set_memory_growth({device.name}, True)")
+                        tf.config.experimental.set_memory_growth(device, True)
+                        break
+                except Exception:
+                    print(
+                        f"[{self.run_name}] 'set_memory_growth' failed. Also consider 'tf_enable_memory_growth=False'."
+                    )
+                    raise
 
         if self.tf_on_init_function is not None:
             self.tf_on_init_function(self)

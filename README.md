@@ -160,8 +160,7 @@ def train():
         parameter, remote_memory, history = runner.train(config, timeout=60)
     else:
         # distributed training
-        mp_config = runner.MpConfig(actor_num=2)  # distributed config
-        parameter, remote_memory, history = runner.mp_train(config, mp_config, timeout=60)
+        parameter, remote_memory, history = runner.mp_train(config, timeout=60)
     
     # save parameter
     parameter.save(_parameter_path)

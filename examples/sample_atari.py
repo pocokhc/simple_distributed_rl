@@ -1,4 +1,5 @@
 import numpy as np
+
 import srl
 from srl import runner
 from srl.base.define import EnvObservationType
@@ -47,7 +48,6 @@ def train():
     # --- train
     parameter, remote_memory, history = runner.mp_train(
         config,
-        runner.MpConfig(actor_num=1, allocate_trainer="/GPU:0"),
         max_train_count=500_000,
         enable_evaluation=False,
     )

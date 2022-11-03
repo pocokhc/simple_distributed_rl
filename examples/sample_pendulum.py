@@ -1,9 +1,14 @@
 import numpy as np
+
 import srl
 from srl import runner
+from srl.utils import common
 
 # --- algorithm load
 from srl.algorithms import dqn  # isort: skip
+
+
+common.set_logger()
 
 
 def main():
@@ -19,9 +24,6 @@ def main():
     )
     config = runner.Config(env_config, rl_config)
 
-    # (option) print tensorflow model
-    config.model_summary()
-
     # --- train
     if True:
         parameter, remote_memory, history = runner.train(
@@ -32,7 +34,6 @@ def main():
     else:
         parameter, remote_memory, history = runner.mp_train(
             config,
-            runner.MpConfig(1, allocate_trainer="/CPU:0"),
             max_train_count=50_000,
             enable_evaluation=False,
         )
@@ -47,7 +48,4 @@ def main():
 
 
 if __name__ == "__main__":
-    from srl.utils import common
-
-    common.set_logger()
     main()

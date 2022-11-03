@@ -18,8 +18,7 @@ def main():
         parameter, memory, history = runner.train(config, timeout=10)
     else:
         # distributed training
-        mp_config = runner.MpConfig(actor_num=2)
-        parameter, memory, history = runner.mp_train(config, mp_config, timeout=10)
+        parameter, memory, history = runner.mp_train(config, timeout=10)
 
     # --- evaluate
     rewards = runner.evaluate(config, parameter, max_episodes=10)

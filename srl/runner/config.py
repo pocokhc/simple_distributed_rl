@@ -303,6 +303,7 @@ class Config:
             logger.info(f"[{self.run_name}] set CUDA_VISIBLE_DEVICES=-1")
         else:
             allocate = self.get_allocate()
+            logger.info(f"[{self.run_name}] allocate={allocate}")
 
             if "CPU" in allocate:
                 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"

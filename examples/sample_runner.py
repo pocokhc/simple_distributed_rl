@@ -1,4 +1,5 @@
 import numpy as np
+
 import srl
 from srl import runner
 
@@ -25,8 +26,7 @@ def train():
         parameter, remote_memory, history = runner.train(config, timeout=10)
     else:
         # distributed training
-        mp_config = runner.MpConfig(actor_num=2)
-        parameter, remote_memory, history = runner.mp_train(config, mp_config, timeout=10)
+        parameter, remote_memory, history = runner.mp_train(config, timeout=10)
 
     # save parameter
     parameter.save(_parameter_path)
@@ -54,6 +54,7 @@ def animation():
 
 def test_play():
     config = _create_config()
+    config.rl_config.parameter_path = _parameter_path
     history = runner.test_play(config)
     history.replay()
 

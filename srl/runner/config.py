@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
+
 import srl
 import srl.rl.dummy
 import srl.rl.human  # reservation
@@ -270,6 +271,8 @@ class Config:
 
     def get_allocate(self) -> str:
         if self.run_name in ["main", "eval"]:
+            if self.allocate_main == "" and self.distributed:
+                return "/CPU:0"
             return self.allocate_main
         elif self.run_name == "trainer":
             return self.allocate_trainer

@@ -418,7 +418,7 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
 
-        return td_errors_list, loss
+        return td_errors_list, loss.numpy()
 
 
 # ------------------------------------------------------

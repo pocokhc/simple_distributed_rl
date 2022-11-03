@@ -14,7 +14,7 @@ import srl
 from srl.base.define import PlayRenderMode, RenderMode
 from srl.base.env.base import EnvRun
 from srl.base.rl.worker import WorkerRun
-from srl.runner.callback import Callback, GameCallback, MPCallback
+from srl.runner.callback import Callback, GameCallback
 from srl.runner.config import Config
 from srl.utils.common import JsonNumpyEncoder, summarize_info_from_list
 
@@ -35,7 +35,6 @@ tmp/
    │ └ xxxxx.pickle
    │
    ├ config.json
-   ├ mp_config.json
    ├ system.json
    └ version.txt
 
@@ -43,7 +42,7 @@ tmp/
 
 
 @dataclass
-class FileLogWriter(Callback, MPCallback, GameCallback):
+class FileLogWriter(Callback, GameCallback):
     tmp_dir: str = "tmp"
 
     # train log
@@ -77,7 +76,6 @@ class FileLogWriter(Callback, MPCallback, GameCallback):
 
     def on_init(self, info) -> None:
         self._init_dir(info["config"])
-        self._write_mp_config_summary(info["mp_config"])
 
     def _init_dir(self, config: Config):
         if self.base_dir != "":
@@ -107,23 +105,16 @@ class FileLogWriter(Callback, MPCallback, GameCallback):
         with open(os.path.join(self.base_dir, "config.json"), "w", encoding="utf-8") as f:
             json.dump(config.to_dict(), f, indent=2)
 
-    def _write_mp_config_summary(self, mp_config):
-        assert self.base_dir != ""
-        with open(os.path.join(self.base_dir, "mp_config.json"), "w", encoding="utf-8") as f:
-            json.dump(mp_config.to_dict(), f, indent=2)
-
     def _write_system_info_summary(self, config: Config):
         assert self.base_dir != ""
         info = {}
         if config.enable_ps:
             try:
-                import multiprocessing
-
                 import psutil
 
                 info["memory size"] = psutil.virtual_memory().total
                 info["memory percent"] = psutil.virtual_memory().percent
-                info["cpu count"] = multiprocessing.cpu_count()
+                info["cpu count"] = os.cpu_count()
                 info["cpu(MHz)"] = [c.max for c in psutil.cpu_freq(percpu=True)]
             except Exception:
                 logger.info(traceback.format_exc())

@@ -25,7 +25,6 @@ class FileLogReader:
         self.train_log_dir = os.path.join(path, "train_log")
         self.episode_log_dir = os.path.join(path, "episode_log")
         self.param_dir = os.path.join(path, "params")
-        self.path_mp_config = os.path.join(self.base_dir, "mp_config.json")
         self.path_config = os.path.join(self.base_dir, "config.json")
         self.path_system = os.path.join(self.base_dir, "system.json")
         self.path_version = os.path.join(self.base_dir, "version.txt")
@@ -49,13 +48,9 @@ class FileLogReader:
         if os.path.isfile(self.path_config):
             with open(self.path_config) as f:
                 d = json.load(f)
-                self.player_num = d["env_config"]["player_num"]
-
-        if os.path.isfile(self.path_mp_config):
-            with open(self.path_mp_config) as f:
-                d = json.load(f)
-                self.actor_num = d["actor_num"]
-            self.distributed = True
+            self.player_num = d["env_config"]["player_num"]
+            self.distributed = d["distributed"]
+            self.actor_num = d.get("actor_num", 1)
 
         # --- episode
         self.episode_files = glob.glob(os.path.join(self.episode_log_dir, "episode*.txt"))
@@ -81,7 +76,6 @@ class FileLogReader:
         # --- config
         for fn in [
             self.path_config,
-            self.path_mp_config,
             self.path_system,
             self.path_version,
         ]:

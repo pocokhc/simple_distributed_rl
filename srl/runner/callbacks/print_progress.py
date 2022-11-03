@@ -6,7 +6,7 @@ from collections import deque
 from dataclasses import dataclass
 
 import numpy as np
-from srl.runner.callback import Callback, MPCallback
+from srl.runner.callback import Callback
 from srl.runner.config import Config
 from srl.utils.common import listdictdict_to_dictlist, summarize_info_from_dictlist, to_str_time
 
@@ -331,7 +331,6 @@ class PrintProgress(Callback):
     # ----------------------------------
     # trainer
     # ----------------------------------
-
     def on_trainer_start(self, info) -> None:
         self.config: Config = info["config"]
         remote_memory = info["remote_memory"]
@@ -433,9 +432,9 @@ class PrintProgress(Callback):
         print(s)
         self.progress_history = []
 
-
-@dataclass
-class MPPrintProgress(MPCallback):
+    # ----------------------------------
+    # mp
+    # ----------------------------------
     def on_start(self, info):
         config = info["config"]
 

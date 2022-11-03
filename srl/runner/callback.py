@@ -42,13 +42,12 @@ class Callback(ABC):
     def on_trainer_end(self, info) -> None:
         pass  # do nothing
 
-
-class MPCallback(ABC):
-    # all
+    # -------------------------
+    # MPCallback
+    # -------------------------
     def on_init(self, info) -> None:
         pass  # do nothing
 
-    # main
     def on_start(self, info) -> None:
         pass  # do nothing
 

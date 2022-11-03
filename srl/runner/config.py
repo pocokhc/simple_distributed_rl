@@ -3,7 +3,7 @@ import logging
 import os
 import pickle
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
 import srl
@@ -37,8 +37,18 @@ class Config:
     # multi player option
     players: List[Union[None, str, RLConfig]] = field(default_factory=list)
 
-    # CPU/GPU
-    select_cpu: bool = False  # GPUが使える場合でもCPUを使う
+    # mp options
+    actor_num: int = 1
+    trainer_parameter_send_interval_by_train_count: int = 100
+    actor_parameter_sync_interval_by_step: int = 100
+    allocate_main: str = "/CPU:0"
+    allocate_trainer: str = "/GPU:0"
+    allocate_actor: Union[List[str], str] = "/CPU:0"
+
+    # tensorflow options
+    tf_disable_gpu: bool = False
+    tf_enable_memory_growth: bool = True
+    tf_on_init_function: Optional[Callable[["Config"], None]] = None  # tfの初期化を追加で設定できます
 
     def __post_init__(self):
         # stop config
@@ -61,6 +71,8 @@ class Config:
         self.distributed: bool = False
         self.enable_ps: bool = False
         self.enable_nvidia: bool = False
+        self.run_name: str = "main"
+        self.run_actor_id: int = 0
 
         if self.rl_config is None:
             self.rl_config = srl.rl.dummy.Config()
@@ -68,7 +80,8 @@ class Config:
         self.rl_name = self.rl_config.getName()
         self.env = None
 
-        self.__is_init_tensorflow = False
+        self._is_init_tensorflow: bool = False
+        self._default_CUDA_VISIBLE_DEVICES: Optional[str] = None
 
     # ------------------------------
     # user functions
@@ -85,6 +98,7 @@ class Config:
     # ------------------------------
     def assert_params(self):
         self.make_env()
+        assert self.actor_num > 0
         self.rl_config.assert_params()
 
     def _set_env(self):
@@ -93,20 +107,23 @@ class Config:
             self.rl_config.reset_config(self.env)
 
     def make_env(self) -> EnvRun:
+        self.init_tensorflow()
         self._set_env()
         self.env.init()
         return self.env
 
     def make_parameter(self, is_load: bool = True) -> RLParameter:
-        self._init_tensorflow()
+        self.init_tensorflow()
         self._set_env()
         return make_parameter(self.rl_config, env=self.env, is_load=is_load)
 
     def make_remote_memory(self, is_load: bool = True) -> RLRemoteMemory:
+        self.init_tensorflow()
         self._set_env()
         return make_remote_memory(self.rl_config, env=self.env, is_load=is_load)
 
     def make_trainer(self, parameter: RLParameter, remote_memory: RLRemoteMemory) -> RLTrainer:
+        self.init_tensorflow()
         self._set_env()
         return make_trainer(self.rl_config, parameter, remote_memory, env=self.env)
 
@@ -116,6 +133,7 @@ class Config:
         remote_memory: Optional[RLRemoteMemory] = None,
         actor_id: int = 0,
     ) -> WorkerRun:
+        self.init_tensorflow()
         self._set_env()
         worker = make_worker(
             self.rl_config,
@@ -135,6 +153,7 @@ class Config:
         remote_memory: Optional[RLRemoteMemory] = None,
         actor_id: int = 0,
     ):
+        self.init_tensorflow()
         env = self.make_env()
 
         # 設定されていない場合は 0 をrl、1以降をrandom
@@ -249,22 +268,67 @@ class Config:
 
         return config
 
-    def _init_tensorflow(self):
+    def get_allocate(self) -> str:
+        if self.run_name in ["main", "eval"]:
+            return self.allocate_main
+        elif self.run_name == "trainer":
+            return self.allocate_trainer
+        elif "actor" in self.run_name:
+            if isinstance(self.allocate_actor, str):
+                return self.allocate_actor
+            else:
+                return self.allocate_actor[self.run_actor_id]
+        raise ValueError()
+
+    def init_tensorflow(self, rerun: bool = False):
         """
         tensorflow の初期化はmodel作成前にしかできない
         """
-        if self.__is_init_tensorflow:
+        if not rerun and self._is_init_tensorflow:
             return
+        if not is_package_imported("tensorflow"):
+            self._is_init_tensorflow = True
+            return
+        import tensorflow as tf
 
-        if self.select_cpu:
-            os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        if self._default_CUDA_VISIBLE_DEVICES is None:
+            self._default_CUDA_VISIBLE_DEVICES = os.environ.get("CUDA_VISIBLE_DEVICES", "None")
+            logger.info(f"[{self.run_name}] default CUDA_VISIBLE_DEVICES={self._default_CUDA_VISIBLE_DEVICES}")
 
-        # sequenceはGPU,mpはCPUにしたい…、仕様決めきれずTODO
-        # if is_package_imported("tensorflow"):
-        #    os.environ["CUDA_VISIBLE_DEVICES"] = self.CUDA_VISIBLE_DEVICES
+        if self.tf_disable_gpu:
+            os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+            logger.info(f"[{self.run_name}] set CUDA_VISIBLE_DEVICES=-1")
+        else:
+            allocate = self.get_allocate()
+            if "CPU" in allocate:
+                os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+                logger.info(f"[{self.run_name}] set CUDA_VISIBLE_DEVICES=-1")
+            elif "GPU" in allocate:
+                if self._default_CUDA_VISIBLE_DEVICES is None or self._default_CUDA_VISIBLE_DEVICES == "None":
+                    if "CUDA_VISIBLE_DEVICES" in os.environ:
+                        del os.environ["CUDA_VISIBLE_DEVICES"]
+                        logger.info(f"[{self.run_name}] del CUDA_VISIBLE_DEVICES")
+                else:
+                    os.environ["CUDA_VISIBLE_DEVICES"] = self._default_CUDA_VISIBLE_DEVICES
+                    logger.info(f"[{self.run_name}] set CUDA_VISIBLE_DEVICES={self._default_CUDA_VISIBLE_DEVICES}")
 
-        self.__is_init_tensorflow = True
-        logger.debug("init_tensorflow")
+                if self.tf_enable_memory_growth:
+                    try:
+                        for device in tf.config.list_physical_devices("GPU"):
+                            logger.info(f"[{self.run_name}] set_memory_growth({device.name}, True)")
+                            tf.config.experimental.set_memory_growth(device, True)
+                            break
+                    except Exception:
+                        print(
+                            f"[{self.run_name}] 'set_memory_growth' failed. Also consider 'tf_enable_memory_growth=False'."
+                        )
+                        raise
+
+        if self.tf_on_init_function is not None:
+            self.tf_on_init_function(self)
+
+        self._is_init_tensorflow = True
+        logger.info(f"[{self.run_name}] Initialized tensorflow.")
 
     # ------------------------------
     # utility

@@ -24,7 +24,7 @@ class Evaluate(Callback):
         self.eval_config = None
 
     def _create_eval_config(self, config: Config):
-        eval_config = Config(config.env_config.copy(), config.rl_config.copy())
+        eval_config = config.copy(env_share=self.env_sharing)
         eval_config.players = self.eval_players[:]
         eval_config.rl_config.remote_memory_path = ""
 
@@ -35,8 +35,7 @@ class Evaluate(Callback):
         # play config
         eval_config.shuffle_player = True
         eval_config.disable_trainer = True
-        eval_config.env_play_render_mode = PlayRenderMode.none
-        eval_config.rl_play_render_mode = PlayRenderMode.none
+        eval_config.render_mode = PlayRenderMode.none
         eval_config.enable_profiling = False
         # callbacks
         eval_config.callbacks = []
@@ -45,8 +44,7 @@ class Evaluate(Callback):
         eval_config.training = False
         eval_config.distributed = False
 
-        if self.env_sharing:
-            eval_config.env = config.env
+        eval_config.run_name = "eval"
         return eval_config
 
     def on_episodes_begin(self, info) -> None:

@@ -1,4 +1,5 @@
 import logging
+import pprint
 import random
 import time
 import traceback
@@ -116,6 +117,9 @@ def play_facade(
                 False
             ), "To use animation you need to install 'cv2', 'matplotlib', 'PIL', 'pygame'. (pip install opencv-python matplotlib pillow pygame)"
 
+    # tensorflow
+    config.init_tensorflow(rerun=False)
+
     # --- Evaluate(最初に追加)
     if enable_evaluation:
         from srl.runner.callbacks.evaluate import Evaluate
@@ -189,7 +193,7 @@ def play_facade(
     return episode_rewards, parameter, memory, history, render
 
 
-# pynvmlはプロセス毎に管理したい
+# pynvmlはプロセス毎に管理
 __enabled_nvidia = False
 
 
@@ -268,11 +272,8 @@ def play(
     # --- rewards
     episode_rewards_list = []
 
-    logger.debug(f"timeout          : {config.timeout}s")
-    logger.debug(f"max_steps        : {config.max_steps}")
-    logger.debug(f"max_episodes     : {config.max_episodes}")
-    logger.debug(f"max_train_count  : {config.max_train_count}")
-    logger.debug(f"players          : {config.players}")
+    if config.training and not config.distributed:
+        logger.info(f"Training Config\n{pprint.pformat(config.to_dict())}")
 
     # --- render init
     env.set_render_mode(config.render_mode)
@@ -393,7 +394,8 @@ def play(
             end_reason = "callback.intermediate_stop"
             break
 
-    logger.debug(f"end_reason : {end_reason}")
+    if config.training:
+        logger.info(f"training end({end_reason})")
 
     # 一度もepisodeを終了していない場合は例外で途中経過を保存
     if len(episode_rewards_list) == 0:

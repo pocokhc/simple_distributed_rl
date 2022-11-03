@@ -47,7 +47,7 @@ class Config:
     allocate_actor: Union[List[str], str] = "/CPU:0"
 
     # tensorflow options
-    tf_disable_gpu: bool = False
+    tf_enable_gpu: bool = True
     tf_enable_memory_growth: bool = True
     tf_on_init_function: Optional[Callable[["Config"], None]] = None  # tfの初期化を追加で設定できます
 
@@ -298,7 +298,7 @@ class Config:
             self._default_CUDA_VISIBLE_DEVICES = os.environ.get("CUDA_VISIBLE_DEVICES", "None")
             logger.info(f"[{self.run_name}] default CUDA_VISIBLE_DEVICES={self._default_CUDA_VISIBLE_DEVICES}")
 
-        if self.tf_disable_gpu:
+        if not self.tf_enable_gpu:
             os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
             logger.info(f"[{self.run_name}] set CUDA_VISIBLE_DEVICES=-1")
         else:

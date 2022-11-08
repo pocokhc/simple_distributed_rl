@@ -6,6 +6,7 @@ from collections import deque
 from dataclasses import dataclass
 
 import numpy as np
+
 from srl.runner.callback import Callback
 from srl.runner.config import Config
 from srl.utils.common import listdictdict_to_dictlist, summarize_info_from_dictlist, to_str_time
@@ -29,7 +30,9 @@ class PrintProgress(Callback):
 
     def __post_init__(self):
         assert self.start_time > 0
-        assert self.start_time < self.max_time
+        if self.start_time > self.max_time:
+            logger.info(f"change start_time: {self.start_time}s -> {self.max_time}s")
+            self.start_time = self.max_time
         self.progress_timeout = self.start_time
         self.progress_step_count = 0
         self.progress_episode_count = 0
@@ -39,7 +42,7 @@ class PrintProgress(Callback):
         self.history_episode = []
         self.history_episode_start_idx = 0
 
-        self.resent_step_time = deque(maxlen=10)
+        self.resent_step_time: deque = deque(maxlen=10)
         self.resent_episode_time = deque(maxlen=10)
         self.resent_train_time = deque(maxlen=10)
         self.last_episode_count = 0
@@ -67,7 +70,16 @@ class PrintProgress(Callback):
         if self.actor_id >= self.max_actor:
             return
 
-        self.enable_ps = self.config.enable_ps
+        self.enable_ps = False
+        try:
+            if self.config.enable_ps:
+                import psutil
+
+                self._process = psutil.Process()
+                self.enable_ps = True
+        except Exception:
+            logger.info(traceback.format_exc())
+
         self.enable_nvidia = self.config.enable_nvidia
 
         if not self.config.distributed:
@@ -114,9 +126,8 @@ class PrintProgress(Callback):
 
         self.resent_step_time.append(info["step_time"])
 
-        if self.actor_id == 0:
-            remote_memory = info["remote_memory"]
-            self.last_memory = remote_memory.length() if remote_memory is not None else 0
+        remote_memory = info["remote_memory"]
+        self.last_memory = remote_memory.length() if remote_memory is not None else 0
 
         trainer = info["trainer"]
         if trainer is not None:
@@ -172,9 +183,11 @@ class PrintProgress(Callback):
         s += f" {to_str_time(elapsed_time)}"
 
         # [remain]
-        step_time = np.mean(self.resent_step_time) if len(self.resent_step_time) > 0 else np.inf
-        episode_time = np.mean(self.resent_episode_time) if len(self.resent_episode_time) > 0 else np.inf
-        train_time = np.mean(self.resent_train_time) if len(self.resent_train_time) > 0 else np.inf
+        step_time = np.mean(list(self.resent_step_time), dtype=float) if len(self.resent_step_time) > 0 else np.inf
+        episode_time = (
+            np.mean(list(self.resent_episode_time), dtype=float) if len(self.resent_episode_time) > 0 else np.inf
+        )
+        train_time = np.mean(list(self.resent_train_time), dtype=float) if len(self.resent_train_time) > 0 else np.inf
         if self.config.max_steps > 0:
             if len(self.resent_train_time) > 0 and train_time > 0:
                 remain_step = (self.config.max_steps - self.step_count) * (step_time + train_time)
@@ -219,9 +232,8 @@ class PrintProgress(Callback):
                 if self.config.training and not self.config.distributed:
                     s += f", {train_time:.5f}s/tr"
 
-                # [memory]
-                if self.actor_id == 0:
-                    s += self._memory_system_str(self.last_memory)
+                # [memory_system]
+                s += self._memory_system_str(self.last_memory)
 
                 # [info]
                 if self.print_env_info:
@@ -254,9 +266,8 @@ class PrintProgress(Callback):
                 sync = max([h["sync"] for h in self.progress_history])
                 s += f", {sync:3d} recv"
 
-            # [memory]
-            if self.actor_id == 0:
-                s += self._memory_system_str(self.last_memory)
+            # [memory_system]
+            s += self._memory_system_str(self.last_memory)
 
             # [info]
             if self.print_env_info:
@@ -285,33 +296,51 @@ class PrintProgress(Callback):
         return s
 
     def _memory_system_str(self, memory_len) -> str:
-        # , 1234567mem(100%used),GPU[100%,100%,100%]
-        s = f", {memory_len:5d}mem"
+        # , 1234567mem,CPU100% M100%,GPU0 100% M100%
+        s = ""
+        if self.actor_id != 0:
+            if self.enable_ps:
+                try:
+                    import psutil
 
-        if self.enable_ps:
-            try:
-                import psutil
+                    cpu_percent = self._process.cpu_percent(None) / psutil.cpu_count()
+                    s += f"[CPU{cpu_percent:3.0f}%]"
 
-                s += f"({psutil.virtual_memory().percent:3.0f}%used)"
+                except Exception:
+                    logger.debug(traceback.format_exc())
+                    s += "[CPU Nan%]"
 
-            except Exception:
-                logger.debug(traceback.format_exc())
-                s += "(Nan%used)"
+        else:
+            s = f", {memory_len:5d}mem"
 
-        if self.enable_nvidia:
-            try:
-                import pynvml
+            if self.enable_ps:
+                try:
+                    import psutil
 
-                gpu_num = pynvml.nvmlDeviceGetCount()
-                gpus = []
-                for i in range(gpu_num):
-                    handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-                    rate = pynvml.nvmlDeviceGetUtilizationRates(handle)
-                    gpus.append(f"{rate.gpu:3.0f}%")
-                s += ",GPU[" + ",".join(gpus) + "]"
-            except Exception:
-                logger.debug(traceback.format_exc())
-                s += ",GPU[Nan%]"
+                    # CPU,memory
+                    memory_percent = psutil.virtual_memory().percent
+                    cpu_percent = self._process.cpu_percent(None) / psutil.cpu_count()
+                    s += f"[CPU{cpu_percent:3.0f}%,M{memory_percent:2.0f}%]"
+
+                except Exception:
+                    logger.debug(traceback.format_exc())
+                    s += "[CPU Nan%]"
+
+            if self.enable_nvidia:
+                try:
+                    import pynvml
+
+                    gpu_num = pynvml.nvmlDeviceGetCount()
+                    gpus = []
+                    for device_id in range(gpu_num):
+                        handle = pynvml.nvmlDeviceGetHandleByIndex(device_id)
+                        rate = pynvml.nvmlDeviceGetUtilizationRates(handle)
+                        gpus.append(f"[GPU{device_id} {rate.gpu:2.0f}%,M{rate.memory:2.0f}%]")
+                    s += "".join(gpus)
+
+                except Exception:
+                    logger.debug(traceback.format_exc())
+                    s += ",GPU Nan%"
 
         return s
 
@@ -344,6 +373,18 @@ class PrintProgress(Callback):
                 )
             )
 
+        self.enable_ps = False
+        try:
+            if self.config.enable_ps:
+                import psutil
+
+                self._process = psutil.Process()
+                self.enable_ps = True
+        except Exception:
+            logger.info(traceback.format_exc())
+
+        self.enable_nvidia = self.config.enable_nvidia
+
         self.progress_t0 = self.t0 = time.time()
         self.progress_history = []
 
@@ -351,12 +392,12 @@ class PrintProgress(Callback):
         self.last_train_count = 0
 
     def on_trainer_end(self, info) -> None:
-        self.last_train_count = info["train_count"]
+        self.last_train_count: int = info["train_count"]
         self._print_trainer()
 
     def on_trainer_train(self, info) -> None:
         self.resent_train_time.append(info["train_time"])
-        self.last_train_count = info["train_count"]
+        self.last_train_count: int = info["train_count"]
 
         d = {
             "train_info": info["train_info"],
@@ -381,7 +422,7 @@ class PrintProgress(Callback):
         s += f" {to_str_time(elapsed_time)}"
 
         # [remain]
-        train_time = np.mean(self.resent_train_time) if len(self.resent_train_time) > 0 else np.inf
+        train_time = np.mean(list(self.resent_train_time), dtype=float) if len(self.resent_train_time) > 0 else np.inf
         if self.config.max_train_count > 0 and len(self.resent_train_time) > 0 and train_time > 0:
             remain_train = (self.config.max_train_count - self.last_train_count) * train_time
         else:
@@ -415,7 +456,50 @@ class PrintProgress(Callback):
             # [sync]
             if "sync" in self.progress_history[0]:
                 sync = max([h["sync"] for h in self.progress_history])
-                s += f", {sync:3d} send"
+                s += f", {sync:3d} send "
+
+            # [system]
+            if self.config.distributed:
+                if self.enable_ps:
+                    try:
+                        import psutil
+
+                        cpu_percent = self._process.cpu_percent(None) / psutil.cpu_count()
+                        s += f"[CPU{cpu_percent:3.0f}%]"
+
+                    except Exception:
+                        logger.debug(traceback.format_exc())
+                        s += "[CPU Nan%]"
+
+            else:
+                if self.enable_ps:
+                    try:
+                        import psutil
+
+                        # CPU,memory
+                        memory_percent = psutil.virtual_memory().percent
+                        cpu_percent = self._process.cpu_percent(None) / psutil.cpu_count()
+                        s += f"[CPU{cpu_percent:3.0f}%,M{memory_percent:2.0f}%]"
+
+                    except Exception:
+                        logger.debug(traceback.format_exc())
+                        s += "[CPU Nan%]"
+
+                if self.enable_nvidia:
+                    try:
+                        import pynvml
+
+                        gpu_num = pynvml.nvmlDeviceGetCount()
+                        gpus = []
+                        for device_id in range(gpu_num):
+                            handle = pynvml.nvmlDeviceGetHandleByIndex(device_id)
+                            rate = pynvml.nvmlDeviceGetUtilizationRates(handle)
+                            gpus.append(f"[GPU{device_id} {rate.gpu:2.0f}%,M{rate.memory:2.0f}%]")
+                        s += "".join(gpus)
+
+                    except Exception:
+                        logger.debug(traceback.format_exc())
+                        s += ",GPU Nan%"
 
             # [train info]
             if self.print_train_info:

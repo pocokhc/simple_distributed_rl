@@ -5,11 +5,12 @@ import traceback
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
+
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.runner.callback import Callback
 from srl.runner.callbacks.file_log_reader import FileLogReader
 from srl.runner.sequence import Config
-from srl.utils.common import is_package_imported
+from srl.utils.common import is_package_imported, is_package_installed
 
 logger = logging.getLogger(__name__)
 
@@ -122,11 +123,34 @@ def train(
 # ---------------------------------
 # play main
 # ---------------------------------
+
+# pynvmlはプロセス毎に管理
+__enabled_nvidia = False
+
+
 def play(
     config: Config,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
 ) -> Tuple[RLParameter, RLRemoteMemory]:
+    global __enabled_nvidia
+
+    # --- init profile
+    initialized_nvidia = False
+    if config.enable_profiling:
+        config.enable_ps = is_package_installed("psutil")
+        if not __enabled_nvidia:
+            config.enable_nvidia = False
+            if is_package_installed("pynvml"):
+                import pynvml
+
+                try:
+                    pynvml.nvmlInit()
+                    config.enable_nvidia = True
+                    __enabled_nvidia = True
+                    initialized_nvidia = True
+                except Exception:
+                    logger.info(traceback.format_exc())
 
     # --- random seed
     if config.seed is not None:
@@ -200,5 +224,16 @@ def play(
     _info["train_count"] = train_count
     _info["end_reason"] = end_reason
     [c.on_trainer_end(_info) for c in callbacks]
+
+    # close profile
+    if initialized_nvidia:
+        config.enable_nvidia = False
+        __enabled_nvidia = False
+        try:
+            import pynvml
+
+            pynvml.nvmlShutdown()
+        except Exception:
+            logger.info(traceback.format_exc())
 
     return parameter, remote_memory

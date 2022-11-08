@@ -6,6 +6,7 @@ import traceback
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
+
 from srl.base.define import PlayRenderMode
 from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLParameter, RLRemoteMemory
@@ -113,9 +114,10 @@ def play_facade(
                 "pygame",
             ]
         ):
-            assert (
-                False
-            ), "To use animation you need to install 'cv2', 'matplotlib', 'PIL', 'pygame'. (pip install opencv-python matplotlib pillow pygame)"
+            assert False, (
+                "To use animation you need to install 'cv2', 'matplotlib', 'PIL', 'pygame'."
+                "(pip install opencv-python matplotlib pillow pygame)"
+            )
 
     # tensorflow
     config.init_tensorflow(rerun=False)
@@ -207,7 +209,7 @@ def play(
 
     # --- init profile
     initialized_nvidia = False
-    if actor_id == 0 and config.enable_profiling:
+    if config.enable_profiling:
         config.enable_ps = is_package_installed("psutil")
         if not __enabled_nvidia:
             config.enable_nvidia = False

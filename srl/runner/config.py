@@ -323,7 +323,6 @@ class Config:
                     for device in tf.config.list_physical_devices("GPU"):
                         logger.info(f"[{self.run_name}] set_memory_growth({device.name}, True)")
                         tf.config.experimental.set_memory_growth(device, True)
-                        break
                 except Exception:
                     print(
                         f"[{self.run_name}] 'set_memory_growth' failed. Also consider 'tf_enable_memory_growth=False'."

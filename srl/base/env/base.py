@@ -1,10 +1,12 @@
 import logging
 import pickle
 import time
+import traceback
 from abc import ABC, abstractmethod
 from typing import Any, Callable, List, Optional, Tuple, Union
 
 import numpy as np
+
 import srl
 from srl.base.define import EnvAction, EnvObservation, EnvObservationType, Info, KeyBindType, PlayRenderMode
 from srl.base.env.config import EnvConfig
@@ -185,7 +187,10 @@ class EnvRun:
 
     def close(self) -> None:
         logger.debug("env.close")
-        self.env.close()
+        try:
+            self.env.close()
+        except Exception:
+            logger.error(traceback.format_exc())
 
     # ------------------------------------
     # change internal state

@@ -6,4 +6,5 @@ services:
       dockerfile: ./tests/dockerfile_tf_cpu
     volumes:
       - ./:/code/
+    command: /bin/bash
     tty: true

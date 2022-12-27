@@ -1,6 +1,7 @@
 from typing import Any, List, Tuple
 
 import numpy as np
+
 from srl.base.define import ContinuousAction, DiscreteSpaceType, RLObservation
 from srl.base.env.spaces.box import BoxSpace
 
@@ -13,6 +14,10 @@ class ContinuousSpace(BoxSpace):
         return float(super().sample(invalid_actions)[0])
 
     def convert(self, val: Any) -> float:
+        if isinstance(val, list):
+            return float(val[0])
+        elif isinstance(val, tuple):
+            return float(val[0])
         return float(val)
 
     def __str__(self) -> str:

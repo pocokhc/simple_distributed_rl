@@ -3,6 +3,7 @@ import logging
 from typing import Any, List, Tuple, Union
 
 import numpy as np
+
 from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLActionType, RLObservation
 from srl.base.env.base import SpaceBase
 
@@ -12,17 +13,17 @@ logger = logging.getLogger(__name__)
 class BoxSpace(SpaceBase[np.ndarray]):
     def __init__(
         self,
-        shape: Tuple[int, ...],
-        low: Union[float, np.ndarray] = -np.inf,
-        high: Union[float, np.ndarray] = np.inf,
+        shape: Union[List[int], Tuple[int, ...]],
+        low: Union[float, List[int], Tuple[int, ...], np.ndarray] = -np.inf,
+        high: Union[float, List[int], Tuple[int, ...], np.ndarray] = np.inf,
     ) -> None:
-        self._low: np.ndarray = np.full(shape, low, dtype=np.float32) if np.isscalar(low) else low
-        self._high: np.ndarray = np.full(shape, high, dtype=np.float32) if np.isscalar(high) else high
+        self._low: np.ndarray = np.full(shape, low, dtype=np.float32) if np.isscalar(low) else np.asarray(low)
+        self._high: np.ndarray = np.full(shape, high, dtype=np.float32) if np.isscalar(high) else np.asarray(high)
         self._shape = shape
 
         assert self.shape == self.high.shape
         assert self.low.shape == self.high.shape
-        assert np.less(self.low, self.high).all()
+        assert np.less_equal(self.low, self.high).all()
 
         self._is_inf = np.isinf(low).any() or np.isinf(high).any()
         self._is_division = False
@@ -72,6 +73,12 @@ class BoxSpace(SpaceBase[np.ndarray]):
 
     def __str__(self) -> str:
         return f"Box({self.shape}, {np.min(self.low)}, {np.max(self.high)})"
+
+    # --- test
+    def assert_params(self, true_shape, true_low, true_high):
+        assert self.shape == true_shape
+        assert (self.low == true_low).all()
+        assert (self.high == true_high).all()
 
     # --- discrete
     def set_action_division(self, division_num: int) -> None:

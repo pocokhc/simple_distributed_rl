@@ -2,6 +2,7 @@ import random
 from typing import Any, List, Tuple
 
 import numpy as np
+
 from srl.base.define import ContinuousAction, DiscreteAction, RLActionType, RLObservation
 from srl.base.env.base import SpaceBase
 
@@ -19,6 +20,10 @@ class DiscreteSpace(SpaceBase[int]):
         return random.choice([a for a in range(self.n) if a not in invalid_actions])
 
     def convert(self, val: Any) -> int:
+        if isinstance(val, list):
+            return int(np.round(val[0]))
+        elif isinstance(val, tuple):
+            return int(np.round(val[0]))
         return int(np.round(val))
 
     def check_val(self, val: Any) -> bool:

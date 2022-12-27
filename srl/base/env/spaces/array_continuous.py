@@ -1,6 +1,7 @@
 from typing import Any, List, Tuple, Union
 
 import numpy as np
+
 from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
 from srl.base.env.spaces.box import BoxSpace
 
@@ -27,8 +28,13 @@ class ArrayContinuousSpace(BoxSpace):
             return [float(v) for v in val]
         elif isinstance(val, tuple):
             return [float(v) for v in val]
-        else:
+        elif isinstance(val, np.ndarray):
+            return val.astype(np.float32).tolist()
+        elif isinstance(val, int):
             return [float(val)]
+        elif isinstance(val, float):
+            return [val]
+        return val
 
     def __str__(self) -> str:
         return f"ArrayContinuous({self.size}, {np.min(self.low)}, {np.max(self.high)})"

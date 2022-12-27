@@ -17,7 +17,9 @@ class EnvConfig:
     frameskip: int = 0
 
     # gym
+    gym_check_image: bool = True
     gym_prediction_by_simulation: bool = True
+    gym_prediction_step: int = 10
 
     # render option
     font_name: str = ""

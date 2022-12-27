@@ -6,6 +6,8 @@ from typing import Any, List, Optional, Tuple
 import gym
 import numpy as np
 from gym import spaces
+from gym.spaces import flatten, flatten_space, unflatten
+
 from srl.base.define import EnvAction, EnvObservationType, Info, RenderMode
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
@@ -19,9 +21,195 @@ logger = logging.getLogger(__name__)
 # v0.26.0 から大幅に変更
 # https://github.com/openai/gym/releases
 
+"""
+gym_spaceを1次元にして管理する
+decodeもあるので順序を保持する
+"""
+
+
+def _gym_space_flatten_sub(gym_space) -> Tuple[List[float], List[float], bool]:
+    if isinstance(gym_space, spaces.Discrete):
+        if hasattr(gym_space, "start"):
+            return [gym_space.start], [gym_space.start + gym_space.n - 1], True
+        else:
+            return [0], [gym_space.n - 1], True
+
+    if isinstance(gym_space, spaces.MultiDiscrete):
+        nvec = gym_space.nvec.flatten()
+        return np.zeros(nvec.shape).tolist(), nvec.tolist(), True
+
+    if isinstance(gym_space, spaces.MultiBinary):
+        shape = np.array(gym_space.shape).flatten()
+        return np.zeros(shape).tolist(), np.ones(shape).tolist(), True
+
+    if isinstance(gym_space, spaces.Box):
+        return gym_space.low.flatten().tolist(), gym_space.high.flatten().tolist(), False
+
+    if isinstance(gym_space, spaces.Tuple):
+        low = []
+        high = []
+        is_discrete = True
+        for c in gym_space.spaces:
+            _l, _h, _is_d = _gym_space_flatten_sub(c)
+            low.extend(_l)
+            high.extend(_h)
+            if not _is_d:
+                is_discrete = False
+        return low, high, is_discrete
+
+    if isinstance(gym_space, spaces.Dict):
+        low = []
+        high = []
+        is_discrete = True
+        for k in sorted(gym_space.spaces.keys()):
+            space = gym_space.spaces[k]
+            _l, _h, _is_d = _gym_space_flatten_sub(space)
+            low.extend(_l)
+            high.extend(_h)
+            if not _is_d:
+                is_discrete = False
+        return low, high, is_discrete
+
+    if isinstance(gym_space, spaces.Graph):
+        pass  # TODO
+
+    if isinstance(gym_space, spaces.Text):
+        shape = (gym_space.max_length,)
+        return np.zeros(shape).tolist(), np.full(shape, len(gym_space.character_set)).tolist(), True
+
+    if isinstance(gym_space, spaces.Sequence):
+        pass  # TODO
+
+    # other space
+    flat_space = flatten_space(gym_space)
+    if isinstance(flat_space, spaces.Box):
+        return flat_space.low.tolist(), flat_space.high.tolist(), False
+
+    raise NotImplementedError(f"not supported `{gym_space}`")
+
+
+def gym_space_flatten(gym_space) -> Tuple[BoxSpace, bool]:
+    low, high, is_discrete = _gym_space_flatten_sub(gym_space)
+    return BoxSpace((len(low),), low, high), is_discrete
+
+
+def _gym_space_flatten_encode_sub(gym_space, x):
+    if isinstance(gym_space, spaces.Discrete):
+        return np.array([x])
+
+    if isinstance(gym_space, spaces.MultiDiscrete):
+        return x.flatten()
+
+    if isinstance(gym_space, spaces.MultiBinary):
+        return x.flatten()
+
+    if isinstance(gym_space, spaces.Box):
+        return x.flatten()
+
+    if isinstance(gym_space, spaces.Tuple):
+        return np.concatenate(
+            [_gym_space_flatten_encode_sub(space, x_part) for space, x_part in zip(gym_space.spaces, x)],
+        )
+
+    if isinstance(gym_space, spaces.Dict):
+        keys = sorted(gym_space.spaces.keys())
+        return np.concatenate(
+            [_gym_space_flatten_encode_sub(gym_space.spaces[key], x[key]) for key in keys],
+        )
+
+    if isinstance(gym_space, spaces.Graph):
+        pass  # TODO
+
+    if isinstance(gym_space, spaces.Text):
+        arr = np.full(shape=(gym_space.max_length,), fill_value=len(gym_space.character_set), dtype=np.int32)
+        for i, val in enumerate(x):
+            arr[i] = gym_space.character_index(val)
+        return arr
+
+    if isinstance(gym_space, spaces.Sequence):
+        pass  # TODO
+
+    # other space
+    x = flatten(gym_space, x)
+    if isinstance(x, np.ndarray):
+        return x
+
+    raise NotImplementedError(f"not supported `{gym_space}` `{x}`")
+
+
+def gym_space_flatten_encode(gym_space, val):
+    # 主に状態
+    return _gym_space_flatten_encode_sub(gym_space, val)
+
+
+def _gym_space_flatten_decode_sub(gym_space, x, idx=0):
+    if isinstance(gym_space, spaces.Discrete):
+        return int(x[idx]), idx + 1
+
+    if isinstance(gym_space, spaces.MultiDiscrete):
+        size = len(gym_space.nvec.flatten())
+        arr = x[idx : idx + size]
+        return np.asarray(arr).reshape(gym_space.shape).astype(gym_space.dtype), idx + size
+
+    if isinstance(gym_space, spaces.MultiBinary):
+        size = len(np.zeros(gym_space.shape).flatten())
+        arr = x[idx : idx + size]
+        return np.asarray(arr).reshape(gym_space.shape).astype(gym_space.dtype), idx + size
+
+    if isinstance(gym_space, spaces.Box):
+        if gym_space.shape == ():
+            size = 1
+            arr = x[idx : idx + size]
+            return np.asarray(arr).astype(gym_space.dtype), idx + size
+        else:
+            size = len(np.zeros(gym_space.shape).flatten())
+            arr = x[idx : idx + size]
+            return np.asarray(arr).reshape(gym_space.shape).astype(gym_space.dtype), idx + size
+
+    if isinstance(gym_space, spaces.Tuple):
+        arr = []
+        for space in gym_space.spaces:
+            n, idx = _gym_space_flatten_decode_sub(space, x, idx)
+            arr.append(n)
+        return tuple(arr), idx
+
+    if isinstance(gym_space, spaces.Dict):
+        keys = sorted(gym_space.spaces.keys())
+        dic = {}
+        for key in keys:
+            n, idx = _gym_space_flatten_decode_sub(gym_space.spaces[key], x, idx)
+            dic[key] = n
+        return dic, idx
+
+    if isinstance(gym_space, spaces.Graph):
+        pass  # TODO
+
+    if isinstance(gym_space, spaces.Text):
+        pass  # TODO
+
+    if isinstance(gym_space, spaces.Sequence):
+        pass  # TODO
+
+    raise NotImplementedError(f"not supported `{gym_space}` `{x}`")
+
+
+def gym_space_flatten_decode(gym_space, val):
+    # 主にアクション
+    val, _ = _gym_space_flatten_decode_sub(gym_space, val)
+    return val
+
 
 class GymWrapper(EnvBase):
-    def __init__(self, env_name: str, arguments: dict, prediction_by_simulation: bool):
+    def __init__(
+        self,
+        env_name: str,
+        arguments: dict,
+        check_image: bool = True,
+        prediction_by_simulation: bool = True,
+        prediction_step: int = 10,
+    ):
+        self.prediction_step = prediction_step
+
         self.seed = None
         self.render_mode = RenderMode.NONE
         self.v0260_older = compare_less_version(gym.__version__, "0.26.0")
@@ -52,67 +240,60 @@ class GymWrapper(EnvBase):
 
         self.prediction_by_simulation = prediction_by_simulation
 
+        # --- space img
         self._observation_type = EnvObservationType.UNKNOWN
-        self._action_space = self._pred_space(self.env.action_space, True)
-        self._observation_space, self._observation_type = self._pred_space(self.env.observation_space, False)
+        if check_image:
+            if isinstance(self.env.observation_space, spaces.Box) and (
+                "uint" in str(self.env.observation_space.dtype)
+            ):
+                if len(self.env.observation_space.shape) == 2:
+                    self._observation_type = EnvObservationType.GRAY_2ch
+                elif len(self.env.observation_space.shape) == 3:
+                    # w,h,ch 想定
+                    ch = self.env.observation_space.shape[-1]
+                    if ch == 1:
+                        self._observation_type = EnvObservationType.GRAY_3ch
+                    elif ch == 3:
+                        self._observation_type = EnvObservationType.COLOR
 
-    def _pred_space(self, gym_space, is_action: bool):
-        if isinstance(gym_space, spaces.Discrete):
-            space = DiscreteSpace(gym_space.n)
-            logger.debug(f"space: {space}")
-            if is_action:
-                return space
-            else:
-                return space, EnvObservationType.DISCRETE
+                if self._observation_type != EnvObservationType.UNKNOWN:
+                    # 画像はそのままのshape
+                    self.enable_flatten_observation = False
+                    self._observation_space = BoxSpace(
+                        self.env.observation_space.shape,
+                        self.env.observation_space.low,
+                        self.env.observation_space.high,
+                    )
 
-        if isinstance(gym_space, spaces.Tuple):
-            # すべてDiscreteならdiscrete
-            if self._is_tuple_all_discrete(gym_space):
-                high = [s.n - 1 for s in gym_space.spaces]
-                space = ArrayDiscreteSpace(len(high), 0, high)
-                logger.debug(f"space: {space}")
-                if is_action:
-                    return space
+        # --- space obs
+        if self._observation_type == EnvObservationType.UNKNOWN:
+            self.enable_flatten_observation = True
+            self._observation_space, is_discrete = gym_space_flatten(self.env.observation_space)
+            if not is_discrete:
+                if self._pred_space_discrete():
+                    self._observation_type = EnvObservationType.DISCRETE
                 else:
-                    return space, EnvObservationType.DISCRETE
+                    self._observation_type = EnvObservationType.CONTINUOUS
             else:
-                pass  # TODO
+                self._observation_type = EnvObservationType.DISCRETE
 
-        if isinstance(gym_space, spaces.Box):
-            if is_action:
-                return BoxSpace(gym_space.shape, gym_space.low, gym_space.high)
+        # --- space action
+        self.enable_flatten_action = True
+        self._action_space, _ = gym_space_flatten(self.env.action_space)
 
-            # 状態は、離散の可能性を確認
-            space_type = EnvObservationType.UNKNOWN
-            if self._observation_type == EnvObservationType.UNKNOWN and len(gym_space.shape) == 1:
-                if "int" in str(gym_space.dtype):
-                    space_type = EnvObservationType.DISCRETE
-                elif self._pred_space_discrete():
-                    space_type = EnvObservationType.DISCRETE
-                else:
-                    space_type = EnvObservationType.CONTINUOUS
-
-            if space_type == EnvObservationType.DISCRETE:
-                if gym_space.shape[0] == 1:
-                    return DiscreteSpace(gym_space.high[0]), space_type
-                else:
-                    return BoxSpace(gym_space.shape, gym_space.low, gym_space.high), space_type
-            else:
-                return BoxSpace(gym_space.shape, gym_space.low, gym_space.high), space_type
-
-        raise ValueError(f"not supported({gym_space})")
-
-    def _is_tuple_all_discrete(self, space) -> bool:
-        for s in space.spaces:
-            if not isinstance(s, spaces.Discrete):
-                return False
-        return True
+        logger.info(f"obs original: {self.env.observation_space}")
+        logger.info(f"act original: {self.env.action_space}")
+        logger.info(f"obs_type   : {self._observation_type}")
+        logger.info(f"observation: {self._observation_space}")
+        logger.info(f"flatten_obs: {self.enable_flatten_observation}")
+        logger.info(f"action     : {self._action_space}")
+        logger.info(f"flatten_act: {self.enable_flatten_action}")
 
     def _pred_space_discrete(self):
 
         # 実際に値を取得して予測
         done = True
-        for _ in range(10):
+        for _ in range(self.prediction_step):
             if done:
                 state = self.env.reset()
                 if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
@@ -126,7 +307,8 @@ class GymWrapper(EnvBase):
                 else:
                     state, reward, terminated, truncated, info = _t
                     done = terminated or truncated
-            if "int" not in str(np.asarray(state).dtype):
+            flat_state = flatten(self.env.observation_space, state)
+            if "int" not in str(np.asarray(flat_state).dtype):
                 return False
 
         return True
@@ -177,6 +359,8 @@ class GymWrapper(EnvBase):
             self.env.action_space.seed(self.seed)
             self.env.observation_space.seed(self.seed)
             self.seed = None
+        if self.enable_flatten_observation:
+            state = gym_space_flatten_encode(self.env.observation_space, state)
         return self.observation_space.convert(state), 0, info
 
     def step(
@@ -184,12 +368,16 @@ class GymWrapper(EnvBase):
         action: EnvAction,
         player_index: int,
     ) -> Tuple[np.ndarray, List[float], bool, int, Info]:
+        if self.enable_flatten_action:
+            action = gym_space_flatten_decode(self.env.action_space, action)
         _t = self.env.step(action)
         if len(_t) == 4:
             state, reward, done, info = _t
         else:
             state, reward, terminated, truncated, info = _t
             done = terminated or truncated
+        if self.enable_flatten_observation:
+            state = gym_space_flatten_encode(self.env.observation_space, state)
         return self.observation_space.convert(state), [float(reward)], done, 0, info
 
     def backup(self) -> Any:
@@ -199,7 +387,7 @@ class GymWrapper(EnvBase):
         self.env = pickle.loads(data)
 
     def close(self) -> None:
-        # self.env.close()
+        self.env.close()
         # render 内で使われている pygame に対して close -> init をするとエラーになる
         # Fatal Python error: (pygame parachute) Segmentation Fault
         pass

@@ -4,6 +4,7 @@ import random
 from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
+
 from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLActionType, RLObservation
 from srl.base.env.base import SpaceBase
 
@@ -63,8 +64,13 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
             return [int(np.round(v)) for v in val]
         elif isinstance(val, tuple):
             return [int(np.round(v)) for v in val]
-        else:
+        elif isinstance(val, np.ndarray):
+            return val.round().tolist()
+        elif isinstance(val, int):
+            return [val]
+        elif isinstance(val, float):
             return [int(np.round(val))]
+        return val
 
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, list):
@@ -110,7 +116,7 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     def __str__(self) -> str:
         low = None if self.low is None else np.min(self.low)
         high = None if self.high is None else np.max(self.high)
-        return f"ArrayDiscrete({self.size}|{low}, {high})"
+        return f"ArrayDiscrete({self.size},low={low},high={high})"
 
     # --- discrete
     def _create_action_tbl(self) -> None:

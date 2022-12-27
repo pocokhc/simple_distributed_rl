@@ -127,7 +127,7 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         if self.size > 10:
             logger.warning("It may take some time.")
 
-        arr_list = [[a for a in range(self.low[i], self.high[i])] for i in range(self.size)]
+        arr_list = [[a for a in range(self.low[i], self.high[i] + 1)] for i in range(self.size)]
 
         self.decode_tbl = list(itertools.product(*arr_list))
         self.encode_tbl = {}

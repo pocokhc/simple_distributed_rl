@@ -1,6 +1,7 @@
 import unittest
 
 import numpy as np
+
 from srl.base.env.spaces import ArrayDiscreteSpace
 from tests.base.env.space_test import SpaceTest
 
@@ -33,7 +34,7 @@ class Test(unittest.TestCase):
 
         # action discrete
         decode_action = self.tester.check_action_discrete(
-            true_n=2 * 5 * 3,
+            true_n=(2 + 1) * (5 + 1) * (3 + 1),
             action=1,
         )
         self._check_action(decode_action, 3, [0, 0, 1])

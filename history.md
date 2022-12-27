@@ -16,6 +16,20 @@
       1. GPUメモリの確保量を必要分か上限満杯までかを選ぶオプションを追加（デフォルト必要分）
    1. MpConfigとConfigを統合（互換用にMpConfigも一応残しています）
    1. ここら辺のlogメッセージを追加
+1. gym の space を Graph と Sequence 以外に対応
+   1. これに伴って、gym の space は画像を除き、すべて１次元に変換されます。
+   1. GymWrapper の引数に画像判定を行うかどうかの check_image を追加
+
+**OtherUpdates**
+
+1. Dockerで常駐しない場合があるのでcommand追加
+1. envのcloseで例外時に処理を続けるように変更
+1. gym の状態判定シミュレーションで回数を指定できる引数 prediction_step を追加
+1. 各ライブラリのVersionを(2022/12)時点での最新に更新
+
+**Bug Fixes**
+
+1. ArrayDiscreteSpace にて discrete を返す時、最大値(high)を含めていなかった不具合修正
 
 # v0.9.1
 

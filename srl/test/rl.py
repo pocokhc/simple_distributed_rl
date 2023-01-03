@@ -161,6 +161,9 @@ class TestRL:
     ):
         assert env_name in self.baseline
         env_config = srl.EnvConfig(env_name)
+        if is_atari:
+            env_config.max_episode_steps = 50
+            env_config.frameskip = 4
         rl_config = _rl_config.copy()
 
         if env_name == "PendulumImage-v0":
@@ -168,15 +171,10 @@ class TestRL:
 
         # create config
         config = runner.Config(env_config, rl_config)
-        if is_atari:
-            config.max_episode_steps = 50
-            config.frameskip = 4
-
         if is_mp:
-            mp_config = runner.MpConfig(1, allocate_trainer="/CPU:0")
+            config.allocate_trainer = "/CPU:0"
             parameter, memory, _ = runner.mp_train(
                 config,
-                mp_config,
                 max_train_count=train_count,
                 enable_evaluation=is_eval,
                 enable_file_logger=False,

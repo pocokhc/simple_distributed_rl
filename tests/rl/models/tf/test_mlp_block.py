@@ -1,10 +1,11 @@
 import unittest
 
 import numpy as np
+
 from srl.utils.common import is_package_installed
 
 try:
-    from srl.rl.models.dueling_network import DuelingNetworkBlock
+    from srl.rl.models.tf.mlp_block import MLPBlock
 except ModuleNotFoundError:
     pass
 
@@ -12,16 +13,13 @@ except ModuleNotFoundError:
 @unittest.skipUnless(is_package_installed("tensorflow"), "no module")
 class Test(unittest.TestCase):
     def test_call(self):
-        action_num = 5
-        dense_units = 32
+        block = MLPBlock(hidden_layer_sizes=(128, 512))
         batch_size = 16
 
-        block = DuelingNetworkBlock(action_num, dense_units)
-
-        x = np.ones((batch_size, 128))
+        x = np.ones((batch_size, 8))
         out_x = block(x)
 
-        self.assertTrue(out_x.shape == (batch_size, action_num))
+        self.assertTrue(tuple(out_x.shape) == (batch_size, 512))
 
 
 if __name__ == "__main__":

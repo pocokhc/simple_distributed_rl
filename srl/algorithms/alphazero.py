@@ -5,6 +5,9 @@ from typing import Any, List, Tuple, cast
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
+from tensorflow.keras import layers as kl
+from tensorflow.keras import regularizers
+
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
@@ -13,11 +16,9 @@ from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
 from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
-from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
-from srl.rl.models.input_layer import create_input_layer
-from srl.rl.models.mlp_block import MLPBlock
-from tensorflow.keras import layers as kl
-from tensorflow.keras import regularizers
+from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
+from srl.rl.models.tf.input_layer import create_input_layer
+from srl.rl.models.tf.mlp_block import MLPBlock
 
 """
 Paper

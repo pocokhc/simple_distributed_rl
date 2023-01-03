@@ -7,14 +7,15 @@ from typing import Any, List, Optional, Tuple, cast
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
+from tensorflow.keras import layers as kl
+
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLRemoteMemory, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
-from srl.rl.models.input_layer import create_input_layer
-from tensorflow.keras import layers as kl
+from srl.rl.models.tf.input_layer import create_input_layer
 
 """
 vae ref: https://developers-jp.googleblog.com/2019/04/tensorflow-probability-vae.html

@@ -6,7 +6,7 @@ from srl.utils.common import is_package_installed
 try:
     from srl.algorithms import muzero
     from srl.envs import grid
-    from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
+    from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
 except ModuleNotFoundError:
     pass
 

@@ -5,6 +5,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
+
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
@@ -13,9 +14,9 @@ from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common_tf import compute_logprob_sgp
-from srl.rl.models.dqn_image_block import DQNImageBlock
-from srl.rl.models.input_layer import create_input_layer
-from srl.rl.models.mlp_block import MLPBlock
+from srl.rl.models.tf.dqn_image_block import DQNImageBlock
+from srl.rl.models.tf.input_layer import create_input_layer
+from srl.rl.models.tf.mlp_block import MLPBlock
 
 """
 Paper

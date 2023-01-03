@@ -6,6 +6,9 @@ from typing import Any, List, Tuple, cast
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
+from tensorflow.keras import layers as kl
+from tensorflow.keras import regularizers
+
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
@@ -21,10 +24,8 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
-from srl.rl.models.alphazero_image_block import AlphaZeroImageBlock
-from srl.rl.models.input_layer import create_input_layer
-from tensorflow.keras import layers as kl
-from tensorflow.keras import regularizers
+from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
+from srl.rl.models.tf.input_layer import create_input_layer
 
 logger = logging.getLogger(__name__)
 

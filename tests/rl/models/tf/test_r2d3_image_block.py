@@ -1,11 +1,13 @@
 import unittest
 
 import numpy as np
+
 from srl.utils.common import is_package_installed
 
 try:
-    from srl.rl.models.dqn_image_block import DQNImageBlock
     from tensorflow.keras import layers as kl
+
+    from srl.rl.models.tf.r2d3_image_block import R2D3ImageBlock
 except ModuleNotFoundError:
     pass
 
@@ -13,23 +15,23 @@ except ModuleNotFoundError:
 @unittest.skipUnless(is_package_installed("tensorflow"), "no module")
 class Test(unittest.TestCase):
     def test_call(self):
-        block = DQNImageBlock()
+        block = R2D3ImageBlock()
         batch_size = 16
 
-        x = np.ones((batch_size, 64, 75, 19))
+        x = np.ones((batch_size, 96, 72, 3))
         out_x = block(x)
 
-        self.assertTrue(out_x.shape == (batch_size, 8, 10, 64))
+        self.assertTrue(out_x.shape == (batch_size, 256))
 
     def test_call_lstm(self):
-        block = DQNImageBlock()
+        block = R2D3ImageBlock()
         batch_size = 16
 
-        x = np.ones((batch_size, 1, 64, 75, 19))
+        x = np.ones((batch_size, 1, 96, 72, 3))
         out_x = kl.TimeDistributed(block)(x)
 
-        self.assertTrue(out_x.shape == (batch_size, 1, 8, 10, 64))
+        self.assertTrue(out_x.shape == (batch_size, 1, 256))
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_call", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_call_lstm", verbosity=2)

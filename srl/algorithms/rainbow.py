@@ -6,6 +6,8 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow_addons as tfa
+from tensorflow.keras import layers as kl
+
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
@@ -21,10 +23,9 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
-from srl.rl.models.dqn_image_block import DQNImageBlock
-from srl.rl.models.dueling_network import create_dueling_network_layers
-from srl.rl.models.input_layer import create_input_layer
-from tensorflow.keras import layers as kl
+from srl.rl.models.tf.dqn_image_block import DQNImageBlock
+from srl.rl.models.tf.dueling_network import create_dueling_network_layers
+from srl.rl.models.tf.input_layer import create_input_layer
 
 """
 ・Paper

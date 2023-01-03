@@ -3,7 +3,6 @@
 1. (R2D3)
 1. TensorflowのGradientTapeでは正則化項が計算されていない？追加が必要か調査してアルゴリズムを見直す
 1. BizHawkのenv作成
-1. PyTorchのサンプル作成
 1. ネットワーク経由の学習
 
 # v0.9.2
@@ -19,6 +18,10 @@
 1. gym の space を Graph と Sequence 以外に対応
    1. これに伴って、gym の space は画像を除き、すべて１次元に変換されます。
    1. GymWrapper の引数に画像判定を行うかどうかの check_image を追加
+1. PyTorchを追加
+   1. srl.rl.models を srl.rl.models.tf に移動し、 srl.rl.models.torch ディレクトリを追加
+   1. torchのdocker環境を追加
+   1. DQN_torchを追加
 
 **OtherUpdates**
 
@@ -26,6 +29,7 @@
 1. envのcloseで例外時に処理を続けるように変更
 1. gym の状態判定シミュレーションで回数を指定できる引数 prediction_step を追加
 1. 各ライブラリのVersionを(2022/12)時点での最新に更新
+1. game_windowにてKeyを押す判定を厳密に定義
 
 **Bug Fixes**
 

@@ -44,25 +44,25 @@ class EnvObservationType(enum.Enum):
 
 
 class RLObservationType(enum.Enum):
-    ANY = enum.auto()
+    ANY = 0
     DISCRETE = enum.auto()  # 離散
     CONTINUOUS = enum.auto()  # 連続
 
 
 class RLActionType(enum.Enum):
-    ANY = enum.auto()
+    ANY = 0
     DISCRETE = enum.auto()  # 離散
     CONTINUOUS = enum.auto()  # 連続
 
 
 class RenderMode(enum.Enum):
-    NONE = enum.auto()
+    NONE = 0
     Terminal = enum.auto()
     RBG_array = enum.auto()
 
 
 class PlayRenderMode(enum.Enum):
-    none = enum.auto()
+    none = 0
     terminal = enum.auto()
     ansi = enum.auto()
     window = enum.auto()

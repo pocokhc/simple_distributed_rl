@@ -1,3 +1,4 @@
+import enum
 import logging
 import os
 import time
@@ -6,6 +7,7 @@ from typing import Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import pygame
+
 import srl
 from srl.base.define import EnvAction, KeyBindType, PlayRenderMode
 from srl.base.env.config import EnvConfig
@@ -18,13 +20,19 @@ from srl.utils import pygame_wrapper as pw
 logger = logging.getLogger(__name__)
 
 
+class KeyStatus(enum.Enum):
+    UP = enum.auto()  # 離している間
+    DOWN = enum.auto()  # 押している間
+    PRESSED = enum.auto()  # 押した瞬間のみ
+    RELEASED = enum.auto()  # 離した瞬間のみ
+
+
 class _GameWindow(ABC):
     def __init__(self) -> None:
         self.title: str = ""
         self.padding: int = 4
         self.img_dir = os.path.join(os.path.dirname(__file__), "img")
-        self.pressed_keys = []
-        self.relevant_keys = []
+        self.keys_status = {}
 
         self.org_env_w = 0
         self.org_env_h = 0
@@ -36,12 +44,14 @@ class _GameWindow(ABC):
         self.resize(1.0)
 
     @abstractmethod
-    def on_keydown(self, event):
+    def on_loop(self, events: List[pygame.event.Event]):
         raise NotImplementedError()
 
-    @abstractmethod
-    def on_loop(self):
-        raise NotImplementedError()
+    def get_key(self, key) -> KeyStatus:
+        return self.keys_status.get(key, KeyStatus.UP)
+
+    def get_down_keys(self) -> List[int]:
+        return [k for k, s in self.keys_status.items() if s == KeyStatus.DOWN]
 
     def play(self):
         if "SDL_VIDEODRIVER" in os.environ:
@@ -63,54 +73,66 @@ class _GameWindow(ABC):
         # -------------------------------
         pygame_done = False
         while not pygame_done:
+            # --- key check
+            for k in self.keys_status.keys():
+                if self.keys_status[k] == KeyStatus.RELEASED:
+                    self.keys_status[k] = KeyStatus.UP
+                if self.keys_status[k] == KeyStatus.PRESSED:
+                    self.keys_status[k] = KeyStatus.DOWN
 
-            is_update = False
-            for event in pygame.event.get():
+            # --- event check
+            is_window_resize = False
+            _valid_unicode_keys = ["-", "+"]
+            events = pygame.event.get()
+            for event in events:
                 if event.type == pygame.QUIT:
                     pygame_done = True
                 elif event.type == pygame.KEYUP:
-                    if event.key in self.relevant_keys and event.key in self.pressed_keys:
-                        self.pressed_keys.remove(event.key)
+                    self.keys_status[event.key] = KeyStatus.RELEASED
+                    if event.unicode in _valid_unicode_keys:
+                        self.keys_status[event.unicode] = KeyStatus.RELEASED
+
                 elif event.type == pygame.KEYDOWN:
-                    if event.key in self.relevant_keys and event.key not in self.pressed_keys:
-                        self.pressed_keys.append(event.key)
+                    if self.keys_status.get(event.key, KeyStatus.UP) != KeyStatus.DOWN:
+                        self.keys_status[event.key] = KeyStatus.PRESSED
+                    if event.unicode in _valid_unicode_keys:
+                        if self.keys_status.get(event.unicode, KeyStatus.UP) != KeyStatus.DOWN:
+                            self.keys_status[event.unicode] = KeyStatus.PRESSED
 
                     if event.key == pygame.K_ESCAPE:
                         pygame_done = True
                     elif event.unicode == "1":
                         self.scale = 0.5
-                        is_update = True
+                        is_window_resize = True
                     elif event.unicode == "2":
                         self.scale = 1.0
-                        is_update = True
+                        is_window_resize = True
                     elif event.unicode == "3":
                         self.scale = 1.5
-                        is_update = True
+                        is_window_resize = True
                     elif event.unicode == "4":
                         self.scale = 2.0
-                        is_update = True
+                        is_window_resize = True
                     elif event.unicode == "5":
                         self.scale = 3.0
-                        is_update = True
+                        is_window_resize = True
                     elif event.unicode == "6":
                         self.scale = 4.0
-                        is_update = True
-
-                    self.on_keydown(event)
+                        is_window_resize = True
 
             # --- window check
             if self.org_env_w < self.env_image.shape[1]:
                 self.org_env_w = self.env_image.shape[1]
-                is_update = True
+                is_window_resize = True
             if self.org_env_h < self.env_image.shape[0]:
                 self.org_env_h = self.env_image.shape[0]
-                is_update = True
+                is_window_resize = True
             if self.rl_w < self.rl_image.shape[1]:
                 self.rl_w = self.rl_image.shape[1]
-                is_update = True
+                is_window_resize = True
             if self.rl_h < self.rl_image.shape[0]:
                 self.rl_h = self.rl_image.shape[0]
-                is_update = True
+                is_window_resize = True
 
             self.screen.fill((0, 0, 0))
 
@@ -131,7 +153,7 @@ class _GameWindow(ABC):
                 f"1-6: change screen size (x{self.scale:.1f})",
             ]
 
-            self.on_loop()
+            self.on_loop(events)
             self.info_texts.append("")
             self.info_texts.extend(self.hotkey_texts)
             width, height = pw.draw_texts(
@@ -144,15 +166,15 @@ class _GameWindow(ABC):
             )
             if self.info_w < width:
                 self.info_w = width
-                is_update = True
+                is_window_resize = True
             if self.info_h < height:
                 self.info_h = height
-                is_update = True
+                is_window_resize = True
 
             pygame.display.flip()
             clock.tick(60)
 
-            if is_update:
+            if is_window_resize:
                 self.resize(self.scale)
 
     def set_image(self, env_image: np.ndarray, rl_image: Optional[np.ndarray]):
@@ -259,67 +281,6 @@ class PlayableGame(_GameWindow):
         }
         [c.on_game_init(self._callback_info) for c in self.callbacks]
 
-    def on_keydown(self, event):
-        if self.scene == "START":
-            if event.key == pygame.K_UP:
-                self.mode = "Turn"
-            elif event.key == pygame.K_DOWN:
-                self.mode = "RealTime"
-            elif event.key == pygame.K_RETURN:
-                self.scene = "RESET"
-        elif self.scene == "RUNNING":
-            if self.key_bind is None:
-                if event.key == pygame.K_LEFT:
-                    self.cursor_action -= 1
-                    if self.cursor_action < 0:
-                        self.cursor_action = 0
-                    self.action = self.valid_actions[self.cursor_action]
-                    self.action = self.env.action_space.action_discrete_decode(self.action)
-                elif event.key == pygame.K_RIGHT:
-                    self.cursor_action += 1
-                    if self.cursor_action >= len(self.valid_actions):
-                        self.cursor_action = len(self.valid_actions) - 1
-                    self.action = self.valid_actions[self.cursor_action]
-                    self.action = self.env.action_space.action_discrete_decode(self.action)
-            else:
-                # keybindがあり、turnの場合は押したら進める
-                if self.mode == "Turn":
-                    action = self._get_keybind_action()
-                    if action is not None:
-                        self.action = action
-                        self._env_step(self.action)
-
-            if event.key == pygame.K_r:
-                self.scene = "START"
-            elif self.mode == "Turn":
-                if self.key_bind is None:
-                    if event.key == pygame.K_RETURN or event.key == pygame.K_z:
-                        self._env_step(self.action)
-                        self.action = self.valid_actions[self.cursor_action]
-                        self.action = self.env.action_space.action_discrete_decode(self.action)
-
-            elif self.mode == "RealTime":
-                if event.key == pygame.K_f:
-                    self.frameadvance = True
-                    self.is_pause = True
-
-        if self.mode == "RealTime":
-            if event.unicode == "-":
-                self.env_interval *= 2
-            elif event.unicode == "+":
-                self.env_interval /= 2
-                if self.env_interval < 1:
-                    self.env_interval = 1
-            elif event.key == pygame.K_p:
-                self.is_pause = not self.is_pause
-
-    def _get_keybind_action(self):
-        assert self.key_bind is not None
-        key = tuple(sorted(self.pressed_keys))
-        if key in self.key_bind:
-            return self.key_bind[key]
-        return self.noop
-
     def _env_step(self, action):
         self.env.step(action)
         self.set_image(self.env.render_rgb_array(), None)
@@ -337,7 +298,8 @@ class PlayableGame(_GameWindow):
             self.scene = "START"
             [c.on_game_end(self._callback_info) for c in self.callbacks]
 
-    def on_loop(self):
+    def on_loop(self, events: List[pygame.event.Event]):
+        # --- 全体
         t = []
         t.append("r  : Reset")
         if self.mode == "RealTime":
@@ -349,12 +311,95 @@ class PlayableGame(_GameWindow):
             t.append("f  : FrameAdvance")
         self.add_hotkey_texts(t)
 
+        if self.mode == "RealTime":
+            if self.get_key("-") == KeyStatus.PRESSED:
+                self.env_interval *= 2
+            elif self.get_key("+") == KeyStatus.PRESSED:
+                self.env_interval /= 2
+                if self.env_interval < 1:
+                    self.env_interval = 1
+            elif self.get_key(pygame.K_p) == KeyStatus.PRESSED:
+                self.is_pause = not self.is_pause
+
         if self.scene == "START":
+            # --- START
+            if self.get_key(pygame.K_UP) == KeyStatus.PRESSED:
+                self.mode = "Turn"
+            elif self.get_key(pygame.K_DOWN) == KeyStatus.PRESSED:
+                self.mode = "RealTime"
+            elif self.get_key(pygame.K_RETURN) == KeyStatus.PRESSED:
+                self.scene = "RESET"
+
             if self.mode == "Turn":
                 self.add_info_texts(["> Turn", "  RealTime"])
             else:
                 self.add_info_texts(["  Turn", "> RealTime"])
+
         elif self.scene == "RUNNING":
+            # --- RUNNING
+            if self.get_key(pygame.K_r) == KeyStatus.PRESSED:
+                self.scene = "START"
+            elif (self.mode == "RealTime") and (self.get_key(pygame.K_f) == KeyStatus.PRESSED):
+                self.frameadvance = True
+                self.is_pause = True
+            elif self.key_bind is None:
+                # key_bindがない場合のアクションを決定
+                if self.get_key(pygame.K_LEFT) == KeyStatus.PRESSED:
+                    self.cursor_action -= 1
+                    if self.cursor_action < 0:
+                        self.cursor_action = 0
+                    self.action = self.valid_actions[self.cursor_action]
+                    self.action = self.env.action_space.action_discrete_decode(self.action)
+                elif self.get_key(pygame.K_RIGHT) == KeyStatus.PRESSED:
+                    self.cursor_action += 1
+                    if self.cursor_action >= len(self.valid_actions):
+                        self.cursor_action = len(self.valid_actions) - 1
+                    self.action = self.valid_actions[self.cursor_action]
+                    self.action = self.env.action_space.action_discrete_decode(self.action)
+
+                if self.mode == "Turn":
+                    # key_bindがない、Turnはアクション決定で1frame進める
+                    # 押しっぱなしも判定させる
+                    is_step = False
+                    for event in events:
+                        if event.type == pygame.KEYDOWN:
+                            if event.key == pygame.K_RETURN:
+                                is_step = True
+                                break
+                            elif event.key == pygame.K_z:
+                                is_step = True
+                                break
+                            elif event.key == pygame.K_f:
+                                is_step = True
+                                break
+                    if is_step:
+                        self._env_step(self.action)
+                        self.action = self.valid_actions[self.cursor_action]
+                        self.action = self.env.action_space.action_discrete_decode(self.action)
+
+            elif self.mode == "Turn":
+                # keybindがあり、Turnの場合は押したら進める
+                key = tuple(sorted(self.get_down_keys()))
+                if key in self.key_bind:
+                    self.action = self.key_bind[key]
+                    self._env_step(self.action)
+
+            if self.mode == "RealTime":
+                if self.key_bind is not None:
+                    # 押してあるkeys
+                    key = tuple(sorted(self.get_down_keys()))
+                    if key in self.key_bind:
+                        self.action = self.key_bind[key]
+                    else:
+                        self.action = self.noop
+                if self.is_pause:
+                    if self.frameadvance:
+                        self._env_step(self.action)
+                        self.frameadvance = False
+                elif time.time() - self.step_t0 > self.env_interval / 1000:
+                    self.step_t0 = time.time()
+                    self._env_step(self.action)
+
             self.add_info_texts([f"Select Action {self.valid_actions}"])
 
             s = " "
@@ -365,20 +410,6 @@ class PlayableGame(_GameWindow):
             else:
                 s += f"{s1}({s2})"
             self.add_info_texts([s])
-
-            if self.mode == "RealTime":
-                # none じゃない場合は入力してるキーをアクションにする
-                if self.key_bind is not None:
-                    self.action = self._get_keybind_action()
-                if self.is_pause:
-                    if self.frameadvance:
-                        self._env_step(self.action)
-                        self.action = self.noop
-                        self.frameadvance = False
-                elif time.time() - self.step_t0 > self.env_interval / 1000:
-                    self.step_t0 = time.time()
-                    self._env_step(self.action)
-                    self.action = self.noop
 
         # --- key bind
         if self.key_bind is not None:
@@ -411,6 +442,7 @@ class PlayableGame(_GameWindow):
         ]
         self.add_info_texts(s)
 
+        # --- RESET は最後
         if self.scene == "RESET":
             self.scene = "RUNNING"
             if isinstance(self.env.action_space, BoxSpace):
@@ -428,7 +460,12 @@ class PlayableGame(_GameWindow):
             self.action = self.env.action_space.action_discrete_decode(self.action)
 
             self.step_t0 = time.time()
-            self.frameadvance = False
+            if self.mode == "Turn":
+                self.frameadvance = False
+                self.is_pause = True
+            else:
+                self.frameadvance = False
+                self.is_pause = False
 
             [c.on_game_begin(self._callback_info) for c in self.callbacks]
 
@@ -453,37 +490,36 @@ class EpisodeReplay(_GameWindow):
         rl_image = self.episode_data[step].get("work0_rgb_array", None)
         self.set_image(env_image, rl_image)
 
-    def on_keydown(self, event):
-        if event.key == pygame.K_UP:
+    def on_loop(self, events: List[pygame.event.Event]):
+        if self.get_key(pygame.K_UP) == KeyStatus.PRESSED:
             self.episode += 1
             if self.episode >= self.history.episode_num:
                 self.episode = self.history.episode_num - 1
             else:
                 self._set_episode()
-        elif event.key == pygame.K_DOWN:
+        elif self.get_key(pygame.K_DOWN) == KeyStatus.PRESSED:
             self.episode -= 1
             if self.episode < 0:
                 self.episode = 0
             else:
                 self._set_episode()
-        elif event.key == pygame.K_RIGHT:
+        elif self.get_key(pygame.K_RIGHT) == KeyStatus.PRESSED:
             self.step += 1
-        elif event.key == pygame.K_LEFT:
+        elif self.get_key(pygame.K_LEFT) == KeyStatus.PRESSED:
             self.step -= 1
-        elif event.key == pygame.K_p:
+        elif self.get_key(pygame.K_p) == KeyStatus.PRESSED:
             self.env_pause = not self.env_pause
             self.step_t0 = time.time()
-        elif event.key == pygame.K_r:
+        elif self.get_key(pygame.K_r) == KeyStatus.PRESSED:
             self.step = 0
             self.env_pause = True
-        elif event.unicode == "-":
+        elif self.get_key("-") == KeyStatus.PRESSED:
             self.interval *= 2
-        elif event.unicode == "+":
+        elif self.get_key("+") == KeyStatus.PRESSED:
             self.interval /= 2
             if self.interval < 1:
                 self.interval = 1
 
-    def on_loop(self):
         t = []
         t.append(f"↑↓ : change episode({self.episode})")
         t.append(f"←→ : move step({self.step})")

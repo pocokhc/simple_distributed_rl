@@ -28,6 +28,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
         self._is_inf = np.isinf(low).any() or np.isinf(high).any()
         self._is_division = False
         self._n = 0
+        self.action_tbl = None
 
         assert isinstance(self._shape, tuple), f"shape is a tuple format. type=({type(shape)})"
 
@@ -75,7 +76,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
         return f"Box({self.shape}, {np.min(self.low)}, {np.max(self.high)})"
 
     # --- test
-    def assert_params(self, true_shape, true_low, true_high):
+    def assert_params(self, true_shape: Tuple[int, ...], true_low: np.ndarray, true_high: np.ndarray):
         assert self.shape == true_shape
         assert (self.low == true_low).all()
         assert (self.high == true_high).all()
@@ -107,13 +108,17 @@ class BoxSpace(SpaceBase[np.ndarray]):
         self.action_tbl = np.reshape(act_list, (-1,) + self.shape)
         self._n = len(self.action_tbl)
 
+        logger.info(f"action_division: {division_num}(n={self._n})")
+
     # --- action discrete
     def get_action_discrete_info(self) -> int:
+        assert self.action_tbl is not None, "If you want to use DISCRETE in BoxSpace, call set_action_division first."
         return self._n
 
     def action_discrete_encode(self, val: np.ndarray) -> DiscreteAction:
         if self._is_inf:  # infは定義できない
             raise NotImplementedError
+        assert self.action_tbl is not None, "If you want to use DISCRETE in BoxSpace, call set_action_division first."
         # ユークリッド距離で一番近いアクションを選択
         d = (self.action_tbl - val).reshape((self.action_tbl.shape[0], -1))
         d = np.linalg.norm(d, axis=1)
@@ -122,6 +127,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def action_discrete_decode(self, val: DiscreteAction) -> np.ndarray:
         if self._is_inf:  # infは定義できない
             return np.full(self.shape, val, dtype=np.float32)
+        assert self.action_tbl is not None, "If you want to use DISCRETE in BoxSpace, call set_action_division first."
         return self.action_tbl[val]
 
     # --- action continuous

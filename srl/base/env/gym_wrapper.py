@@ -1,12 +1,12 @@
 import logging
 import os
 import pickle
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Union
 
 import gym
 import numpy as np
 from gym import spaces
-from gym.spaces import flatten, flatten_space, unflatten
+from gym.spaces import flatten, flatten_space
 
 from srl.base.define import EnvAction, EnvObservationType, Info, RenderMode
 from srl.base.env.base import EnvBase, SpaceBase
@@ -39,7 +39,7 @@ def _gym_space_flatten_sub(gym_space) -> Tuple[List[float], List[float], bool]:
         return np.zeros(nvec.shape).tolist(), nvec.tolist(), True
 
     if isinstance(gym_space, spaces.MultiBinary):
-        shape = np.array(gym_space.shape).flatten()
+        shape = np.zeros(gym_space.shape).flatten().shape
         return np.zeros(shape).tolist(), np.ones(shape).tolist(), True
 
     if isinstance(gym_space, spaces.Box):
@@ -88,9 +88,12 @@ def _gym_space_flatten_sub(gym_space) -> Tuple[List[float], List[float], bool]:
     raise NotImplementedError(f"not supported `{gym_space}`")
 
 
-def gym_space_flatten(gym_space) -> Tuple[BoxSpace, bool]:
+def gym_space_flatten(gym_space) -> Tuple[Union[BoxSpace, ArrayDiscreteSpace], bool]:
     low, high, is_discrete = _gym_space_flatten_sub(gym_space)
-    return BoxSpace((len(low),), low, high), is_discrete
+    if is_discrete:
+        return ArrayDiscreteSpace(len(low), low, high), is_discrete
+    else:
+        return BoxSpace((len(low),), low, high), is_discrete
 
 
 def _gym_space_flatten_encode_sub(gym_space, x):
@@ -195,6 +198,12 @@ def _gym_space_flatten_decode_sub(gym_space, x, idx=0):
 
 def gym_space_flatten_decode(gym_space, val):
     # 主にアクション
+    if isinstance(val, tuple):
+        val = list(val)
+    elif isinstance(val, np.ndarray):
+        pass
+    elif not isinstance(val, list):
+        val = [val]
     val, _ = _gym_space_flatten_decode_sub(gym_space, val)
     return val
 

@@ -26,12 +26,14 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         else:
             self._low = [low for _ in range(self.size)] if isinstance(low, int) else low
             assert len(self._low) == size
+            self._low = [int(l) for l in self._low]
 
         if high is None:
             self._high = None
         else:
             self._high = [high for _ in range(self.size)] if isinstance(high, int) else high
             assert len(self._high) == size
+            self._high = [int(h) for h in self._high]
 
         self.decode_tbl = None
 
@@ -114,9 +116,15 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         return True
 
     def __str__(self) -> str:
-        low = None if self.low is None else np.min(self.low)
-        high = None if self.high is None else np.max(self.high)
+        low = None if self.low is None else int(np.min(self.low))
+        high = None if self.high is None else int(np.max(self.high))
         return f"ArrayDiscrete({self.size},low={low},high={high})"
+
+    # --- test
+    def assert_params(self, true_size: int, true_low: List[int], true_high: List[int]):
+        assert self.size == true_size
+        assert self.low == true_low
+        assert self.high == true_high
 
     # --- discrete
     def _create_action_tbl(self) -> None:

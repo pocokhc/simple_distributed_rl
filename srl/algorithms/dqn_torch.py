@@ -5,9 +5,8 @@ from typing import Any, List, Tuple, cast
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-import torchvision.transforms as T
+
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
@@ -15,11 +14,23 @@ from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
-from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
-from srl.rl.models.dqn_image_block import DQNImageBlock
-from srl.rl.models.input_layer import create_input_layer
-from srl.rl.models.mlp_block import MLPBlock
+from srl.rl.functions.common import create_epsilon_list, render_discrete_action
+from srl.rl.models.torch.input_layer import InputLayer
 
+"""
+window_length          : -
+Fixed Target Q-Network : o
+Error clipping     : o
+Experience Replay  : o
+Frame skip         : -
+Annealing e-greedy : o (config selection)
+Reward clip        : o (config selection)
+Image preprocessor : -
+
+Other
+    Double DQN      : o (config selection)
+    invalid_actions : o
+"""
 
 # ------------------------------------------------------
 # config
@@ -38,6 +49,9 @@ class Config(DiscreteActionConfig):
     final_epsilon: float = 0.01
     exploration_steps: int = 0  # 0 : no Annealing
 
+    # model
+    hidden_layer_sizes: Tuple[int, ...] = (512,)
+
     discount: float = 0.99  # 割引率
     lr: float = 0.001  # 学習率
     batch_size: int = 32
@@ -48,7 +62,6 @@ class Config(DiscreteActionConfig):
 
     # other
     enable_double_dqn: bool = True
-    enable_rescale: bool = False
 
     def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
         self.epsilon = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
@@ -76,6 +89,7 @@ class Config(DiscreteActionConfig):
         super().assert_params()
         assert self.memory_warmup_size < self.capacity
         assert self.batch_size < self.memory_warmup_size
+        assert len(self.hidden_layer_sizes) > 0
 
 
 register(
@@ -105,15 +119,35 @@ class _QNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.in_layer = nn.Linear(config.observation_shape[0], 64)
-        self.l1 = nn.Linear(64, 64)
-        self.l2 = nn.Linear(64, 64)
-        self.out_layer = nn.Linear(64, config.action_num)
+        self.in_layer = InputLayer(config.observation_shape, config.env_observation_type)
+        if self.in_layer.is_image_head():
+            self.conv1 = nn.Conv2d(1, 32, kernel_size=8, stride=4, padding="same")
+            self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, padding="same")
+            self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding="same")
+            self.flatten = nn.Flatten()
+            in_size = self.flatten.shape[1]
+        else:
+            flat_shape = np.zeros(config.observation_shape).flatten().shape
+            in_size = flat_shape[0]
+
+        self.hidden_layers = nn.Sequential()
+        self.hidden_layers.add_module("fc0", nn.Linear(in_size, config.hidden_layer_sizes[0]))
+        self.hidden_layers.add_module("act0", nn.ReLU())
+        for i in range(1, len(config.hidden_layer_sizes)):
+            h = nn.Linear(config.hidden_layer_sizes[i - 1], config.hidden_layer_sizes[i])
+            self.hidden_layers.add_module(f"fc{i}", h)
+            self.hidden_layers.add_module(f"act{i}", nn.ReLU())
+
+        self.out_layer = nn.Linear(config.hidden_layer_sizes[-1], config.action_num)
 
     def forward(self, x):
-        x = F.relu(self.in_layer(x))
-        x = F.relu(self.l1(x))
-        x = F.relu(self.l2(x))
+        x = self.in_layer(x)
+        if self.in_layer.is_image_head():
+            x = self.conv1(x)
+            x = self.conv2(x)
+            x = self.conv3(x)
+            x = self.flatten(x)
+        x = self.hidden_layers(x)
         return self.out_layer(x)
 
 
@@ -127,16 +161,21 @@ class Parameter(RLParameter):
 
         self.q_online = _QNetwork(self.config)
         self.q_target = _QNetwork(self.config)
+        self.q_target.eval()
 
     def call_restore(self, data: Any, **kwargs) -> None:
-        self.q_online.set_weights(data)
-        self.q_target.set_weights(data)
+        self.q_online.load_state_dict(data)
+        self.q_target.load_state_dict(data)
 
     def call_backup(self, **kwargs) -> Any:
-        return self.q_online.get_weights()
+        return self.q_online.state_dict()
 
     def summary(self, **kwargs):
-        pass
+        import torchinfo
+
+        shape = (1,) + self.config.observation_shape
+        print(f"input shape={shape}")
+        torchinfo.summary(self.q_online, input_size=shape)
 
 
 # ------------------------------------------------------
@@ -149,8 +188,9 @@ class Trainer(RLTrainer):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-        # self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
-        # self.loss = keras.losses.Huber()
+        self.optimizer = optim.Adam(self.parameter.q_online.parameters(), lr=self.config.lr)
+        self.criterion = nn.HuberLoss()
+        self.parameter.q_online.train()
 
         self.train_count = 0
         self.sync_count = 0
@@ -168,7 +208,7 @@ class Trainer(RLTrainer):
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
-            self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
+            self.parameter.q_target.load_state_dict(self.parameter.q_online.state_dict())
             self.sync_count += 1
 
         self.train_count += 1
@@ -190,6 +230,8 @@ class Trainer(RLTrainer):
         with torch.no_grad():
             n_q = self.parameter.q_online(n_states)
             n_q_target = self.parameter.q_target(n_states)
+            n_q = n_q.to("cpu").detach().numpy()
+            n_q_target = n_q_target.to("cpu").detach().numpy()
 
         # 各バッチのQ値を計算
         target_q = np.zeros(len(batchs))
@@ -210,42 +252,23 @@ class Trainer(RLTrainer):
                     ]
                     n_act_idx = np.argmax(n_q_target[i])
                 maxq = n_q_target[i][n_act_idx]
-                if self.config.enable_rescale:
-                    maxq = inverse_rescaling(maxq)
                 gain = reward + self.config.discount * maxq
-            if self.config.enable_rescale:
-                gain = rescaling(gain)
             target_q[i] = gain
+        target_q = torch.from_numpy(target_q.astype(np.float32))
 
-        # ---
-        q = self.parameter.q_online(torch.tensor(states))
+        # --- torch train
+        q = self.parameter.q_online(states)
 
         # 現在選んだアクションのQ値
-        actions_onehot = tf.one_hot(actions, self.config.action_num)
-        q = tf.reduce_sum(q * actions_onehot, axis=1)
+        actions_onehot = nn.functional.one_hot(torch.tensor(actions), self.config.action_num)
+        q = torch.sum(q * actions_onehot, dim=1)
 
-        # --- Compute Huber loss
-        loss = F.smooth_l1_loss(target_q, q)
-
-        optimizer.zero_grad()
+        loss = self.criterion(target_q, q)
+        self.optimizer.zero_grad()
         loss.backward()
-        for param in policy_net.parameters():
-            param.grad.data.clamp_(-1, 1)
-        optimizer.step()
+        self.optimizer.step()
 
-        with tf.GradientTape() as tape:
-            q = self.parameter.q_online(states)
-
-            # 現在選んだアクションのQ値
-            actions_onehot = tf.one_hot(actions, self.config.action_num)
-            q = tf.reduce_sum(q * actions_onehot, axis=1)
-
-            loss = self.loss(target_q, q)
-
-        grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
-        self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
-
-        return loss.numpy()
+        return loss.item()
 
 
 # ------------------------------------------------------
@@ -272,7 +295,7 @@ class Worker(DiscreteActionWorker):
 
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         self.invalid_actions = invalid_actions
-        self.state = state
+        self.state = state.astype(np.float32)
 
         if self.training:
             if self.config.exploration_steps > 0:
@@ -289,8 +312,10 @@ class Worker(DiscreteActionWorker):
             # epsilonより低いならランダム
             action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
+            self.parameter.q_online.eval()
             with torch.no_grad():
-                q = self.parameter.q_online(torch.tensor(self.state))
+                q = self.parameter.q_online(torch.tensor(self.state[np.newaxis, ...]))
+                q = q.to("cpu").detach().numpy()[0]
 
             # invalid actionsは -inf にする
             q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)]
@@ -323,7 +348,7 @@ class Worker(DiscreteActionWorker):
 
         batch = {
             "state": self.state,
-            "next_state": next_state,
+            "next_state": next_state.astype(np.float32),
             "action": self.action,
             "reward": reward,
             "done": done,
@@ -334,10 +359,11 @@ class Worker(DiscreteActionWorker):
         return {}
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        q = self.parameter.q_online(self.state[np.newaxis, ...])[0].numpy()
+        self.parameter.q_online.eval()
+        with torch.no_grad():
+            q = self.parameter.q_online(torch.tensor(self.state[np.newaxis, ...]))
+            q = q.to("cpu").detach().numpy()[0]
         maxa = np.argmax(q)
-        if self.config.enable_rescale:
-            q = inverse_rescaling(q)
 
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"

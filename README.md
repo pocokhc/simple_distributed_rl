@@ -297,7 +297,7 @@ examples/custom_rl.ipynb
 |Algorithm |Observation|Action  |Frameworks|ProgressRate||
 |----------|-----------|--------|----------|----|---|
 |QL        |Discrete   |Discrete|          |100%|Basic Q Learning|
-|DQN       |Continuous |Discrete|Tensorflow|100%||
+|DQN       |Continuous |Discrete|Tensorflow/PyTorch|100%||
 |C51       |Continuous |Discrete|Tensorflow| 99%|CategoricalDQN|
 |Rainbow   |Continuous |Discrete|Tensorflow,tensorflow_addons|100%||
 |R2D2      |Continuous |Discrete|Tensorflow|100%||

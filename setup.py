@@ -15,6 +15,8 @@ extras = {
         "tensorflow",
         "tensorflow-addons",
         "tensorflow_probability",
+        "torch",
+        "torchinfo",
         "matplotlib",
         "pillow",
         "pandas",

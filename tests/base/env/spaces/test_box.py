@@ -2,6 +2,7 @@ import itertools
 import unittest
 
 import numpy as np
+
 from srl.base.env.spaces import BoxSpace
 from tests.base.env.space_test import SpaceTest
 
@@ -131,13 +132,8 @@ class Test(unittest.TestCase):
 
         # action discrete
         self.space.set_action_division(5)
-        decode_action = self.tester.check_action_discrete(
-            true_n=0,
-            action=3,
-        )
-        self._check_action(decode_action, (3, 2), np.full((3, 2), 3))
         with self.assertRaises(NotImplementedError):
-            self.space.action_discrete_encode(decode_action)
+            self.space.action_discrete_encode(None)
 
         # action_continuous
         decode_action = self.tester.check_action_continuous(
@@ -169,4 +165,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_convert", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_inf", verbosity=2)

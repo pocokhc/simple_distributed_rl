@@ -55,7 +55,7 @@ class Test(unittest.TestCase):
         self.assertTrue(isinstance(env.observation_space, BoxSpace))
         self.assertTrue(env.observation_type == EnvObservationType.COLOR)
         env.observation_space.assert_params((210, 160, 3), np.zeros((210, 160, 3)), np.full((210, 160, 3), 255))
-        env.action_space.assert_params((1,), (0,), (4,))
+        env.action_space.assert_params(1, [0], [4])
 
     @unittest.skipUnless(is_package_installed("ale_py"), "no module")
     def test_play_Tetris_ram(self):
@@ -65,7 +65,7 @@ class Test(unittest.TestCase):
         self.assertTrue(isinstance(env.observation_space, BoxSpace))
         self.assertTrue(env.observation_type == EnvObservationType.DISCRETE)
         env.observation_space.assert_params((128,), (0,) * 128, (255,) * 128)
-        env.action_space.assert_params((1,), (0,), (4,))
+        env.action_space.assert_params(1, [0], [4])
 
     # 時間がかかる割に有益じゃないのでコメントアウト
     # def test_play_all(self):
@@ -255,4 +255,4 @@ if __name__ == "__main__":
     from srl.utils import common
 
     common.set_logger(print_level=logging.DEBUG)
-    unittest.main(module=__name__, defaultTest="Test.test_space_discrete", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_play_Tetris", verbosity=2)

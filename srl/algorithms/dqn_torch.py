@@ -32,6 +32,7 @@ Other
     invalid_actions : o
 """
 
+
 # ------------------------------------------------------
 # config
 # ------------------------------------------------------
@@ -121,11 +122,17 @@ class _QNetwork(nn.Module):
 
         self.in_layer = InputLayer(config.observation_shape, config.env_observation_type)
         if self.in_layer.is_image_head():
-            self.conv1 = nn.Conv2d(1, 32, kernel_size=8, stride=4, padding="same")
-            self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, padding="same")
-            self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding="same")
+            # (batch, 1, 84, 84)
+            # -> (batch, 32, 21, 21)
+            # -> (batch, 64, 11, 11)
+            # -> (batch, 64, 11, 11)
+            self.conv1 = nn.Conv2d(
+                config.window_length, 32, kernel_size=8, stride=4, padding=3, padding_mode="replicate"
+            )
+            self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=2, padding_mode="replicate")
+            self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, padding_mode="replicate")
             self.flatten = nn.Flatten()
-            in_size = self.flatten.shape[1]
+            in_size = 11 * 11 * 64
         else:
             flat_shape = np.zeros(config.observation_shape).flatten().shape
             in_size = flat_shape[0]

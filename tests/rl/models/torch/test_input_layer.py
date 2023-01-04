@@ -21,11 +21,11 @@ class Test(unittest.TestCase):
             ((2, 4, 8), EnvObservationType.UNKNOWN, (2 * 4 * 8,), False),
             ((2, 4, 8), EnvObservationType.DISCRETE, (2 * 4 * 8,), False),
             ((2, 4, 8), EnvObservationType.CONTINUOUS, (2 * 4 * 8,), False),
-            ((4, 8), EnvObservationType.GRAY_2ch, (4, 8, 1), True),
-            ((4, 8, 1), EnvObservationType.GRAY_3ch, (4, 8, 1), True),
-            ((4, 8, 3), EnvObservationType.COLOR, (4, 8, 3), True),
-            ((4, 8), EnvObservationType.SHAPE2, (4, 8, 1), True),
-            ((10, 4, 8), EnvObservationType.SHAPE3, (4, 8, 10), True),
+            ((4, 8), EnvObservationType.GRAY_2ch, (1, 8, 4), True),
+            ((4, 8, 1), EnvObservationType.GRAY_3ch, (1, 8, 4), True),
+            ((4, 8, 3), EnvObservationType.COLOR, (3, 8, 4), True),
+            ((4, 8), EnvObservationType.SHAPE2, (1, 8, 4), True),
+            ((10, 4, 8), EnvObservationType.SHAPE3, (10, 8, 4), True),
         ]:
             with self.subTest((obs_shape, obs_type, true_shape, true_image)):
                 layer = InputLayer(obs_shape, obs_type)
@@ -42,10 +42,10 @@ class Test(unittest.TestCase):
             ((10, 2, 4, 8), EnvObservationType.UNKNOWN, (10 * 2 * 4 * 8,), False, False),
             ((10, 2, 4, 8), EnvObservationType.DISCRETE, (10 * 2 * 4 * 8,), False, False),
             ((10, 2, 4, 8), EnvObservationType.CONTINUOUS, (10 * 2 * 4 * 8,), False, False),
-            ((10, 4, 8), EnvObservationType.GRAY_2ch, (4, 8, 10), True, False),
-            ((10, 4, 8, 1), EnvObservationType.GRAY_3ch, (4, 8, 10), True, False),
+            ((10, 4, 8), EnvObservationType.GRAY_2ch, (10, 8, 4), True, False),
+            ((10, 4, 8, 1), EnvObservationType.GRAY_3ch, (10, 8, 4), True, False),
             ((10, 4, 8, 3), EnvObservationType.COLOR, None, True, True),
-            ((10, 4, 8), EnvObservationType.SHAPE2, (4, 8, 10), True, False),
+            ((10, 4, 8), EnvObservationType.SHAPE2, (10, 8, 4), True, False),
             ((10, 10, 4, 8), EnvObservationType.SHAPE3, None, True, True),
         ]:
             with self.subTest((obs_shape, obs_type, true_shape, true_image)):
@@ -63,4 +63,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_window_10", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_no_window", verbosity=2)

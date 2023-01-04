@@ -53,47 +53,51 @@ class InputLayer(nn.Module):
         if self.observation_type == EnvObservationType.GRAY_2ch:
             if len(self.observation_shape) == 2:
                 # (batch, w, h) -> (batch, w, h, 1)
+                # (batch, w, h, 1) -> (batch, 1, h, w)
                 x = x.reshape(x.shape + (1,))
+                x = x.permute((0, 3, 2, 1))
             elif len(self.observation_shape) == 3:
-                # (batch, len, w, h) -> (batch, w, h, len)
-                x = x.permute((0, 2, 3, 1))
+                # (batch, len, w, h) -> (batch, len, h, w)
+                x = x.permute((0, 1, 3, 2))
             else:
                 raise ValueError(self.err_msg)
 
         elif self.observation_type == EnvObservationType.GRAY_3ch:
             assert self.observation_shape[-1] == 1
             if len(self.observation_shape) == 3:
-                # (batch, w, h, 1)
-                pass
+                # (batch, w, h, 1) -> (batch, 1, h, w)
+                x = x.permute((0, 3, 2, 1))
             elif len(self.observation_shape) == 4:
                 # (batch, len, w, h, 1) -> (batch, len, w, h)
-                # (batch, len, w, h) -> (batch, w, h, len)
+                # (batch, len, w, h) -> (batch, len, h, w)
                 x = x.reshape(x.shape[:4])
-                x = x.permute((0, 2, 3, 1))
+                x = x.permute((0, 1, 3, 2))
             else:
                 raise ValueError(self.err_msg)
 
         elif self.observation_type == EnvObservationType.COLOR:
             if len(self.observation_shape) == 3:
-                # (batch, w, h, ch)
-                pass
+                # (batch, w, h, ch) -> (batch, ch, h, w)
+                x = x.permute((0, 3, 2, 1))
             else:
                 raise ValueError(self.err_msg)
 
         elif self.observation_type == EnvObservationType.SHAPE2:
             if len(self.observation_shape) == 2:
                 # (batch, w, h) -> (batch, w, h, 1)
+                # (batch, w, h, 1) -> (batch, 1, h, w)
                 x = x.reshape(x.shape + (1,))
+                x = x.permute((0, 3, 2, 1))
             elif len(self.observation_shape) == 3:
-                # (batch, len, w, h) -> (batch, w, h, len)
-                x = x.permute((0, 2, 3, 1))
+                # (batch, len, w, h) -> (batch, len, h, w)
+                x = x.permute((0, 1, 3, 2))
             else:
                 raise ValueError(self.err_msg)
 
         elif self.observation_type == EnvObservationType.SHAPE3:
             if len(self.observation_shape) == 3:
-                # (batch, n, w, h) -> (batch, w, h, n)
-                x = x.permute((0, 2, 3, 1))
+                # (batch, n, w, h) -> (batch, n, h, w)
+                x = x.permute((0, 1, 3, 2))
             else:
                 raise ValueError(self.err_msg)
 

@@ -8,7 +8,8 @@ from typing import Any, Callable, List, Optional, Tuple, Union
 import numpy as np
 
 import srl
-from srl.base.define import EnvAction, EnvObservation, EnvObservationType, Info, KeyBindType, PlayRenderMode
+from srl.base.define import (EnvAction, EnvObservation, EnvObservationType,
+                             Info, KeyBindType, PlayRenderMode)
 from srl.base.env.config import EnvConfig
 from srl.base.env.space import SpaceBase
 from srl.base.env.spaces.discrete import DiscreteSpace
@@ -438,7 +439,7 @@ class EnvRun:
     # util functions
     # ------------------------------------
     def sample(self, player_index: int = -1) -> EnvAction:
-        return self.action_space.sample(self.get_invalid_actions(player_index))
+        return self.action_space.sample(self.get_valid_actions(player_index))
 
     def copy(self):
         org_env = self.env.__class__()

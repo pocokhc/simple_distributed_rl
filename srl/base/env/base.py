@@ -439,7 +439,7 @@ class EnvRun:
     # util functions
     # ------------------------------------
     def sample(self, player_index: int = -1) -> EnvAction:
-        return self.action_space.sample(self.get_valid_actions(player_index))
+        return self.action_space.sample(self.get_invalid_actions(player_index))
 
     def copy(self):
         org_env = self.env.__class__()

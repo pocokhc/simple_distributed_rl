@@ -3,7 +3,8 @@ from typing import Any, List, Tuple
 
 import numpy as np
 
-from srl.base.define import ContinuousAction, DiscreteAction, RLActionType, RLObservation
+from srl.base.define import (ContinuousAction, DiscreteAction, RLActionType,
+                             RLObservation)
 from srl.base.env.base import SpaceBase
 
 
@@ -17,6 +18,7 @@ class DiscreteSpace(SpaceBase[int]):
 
     def sample(self, invalid_actions: List[int] = []) -> int:
         assert len(invalid_actions) < self.n, f"No valid actions. {invalid_actions}"
+        print([a for a in range(self.n) if a not in invalid_actions])
         return random.choice([a for a in range(self.n) if a not in invalid_actions])
 
     def convert(self, val: Any) -> int:

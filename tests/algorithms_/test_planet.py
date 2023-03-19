@@ -1,6 +1,7 @@
 import unittest
 
 import numpy as np
+
 import srl
 from srl import runner
 from srl.test import TestRL
@@ -28,27 +29,29 @@ class Test(unittest.TestCase):
         rl_config.change_observation_render_image = True
         self.tester.simple_check_mp(rl_config)
 
-    def test_verify_grid(self):
+    def test_verify_easy_grid(self):
         rl_config = planet.Config(
-            sequence_length=10,
-            z_size=2,
-            rnn_units=64,
-            batch_size=16,
+            deter_size=50,
+            stoch_size=10,
+            num_units=100,
+            cnn_depth=32,
+            batch_size=8,
+            batch_length=20,
             lr=0.001,
-            hidden_block_kwargs={"hidden_layer_sizes": (8, 8)},
-            reward_block_kwargs={"hidden_layer_sizes": (16, 16)},
-            vae_beta=1000.0,
+            free_nats=3.0,
+            kl_scale=1.0,
             enable_overshooting_loss=False,
-            pred_action_length=3,
+            # GA
+            pred_action_length=10,
             num_generation=20,
-            num_individual=5,
-            num_simulations=10,
+            num_individual=10,
+            num_simulations=5,
             print_ga_debug=False,
         )
         rl_config.memory_warmup_size = rl_config.batch_size + 1
         rl_config.change_observation_render_image = True
-        env_config = srl.EnvConfig("Grid")
-        env_config.max_episode_steps = 10
+        env_config = srl.EnvConfig("EasyGrid")
+        env_config.max_episode_steps = 21
         config = runner.Config(env_config, rl_config)
 
         # train
@@ -61,15 +64,111 @@ class Test(unittest.TestCase):
         parameter, _, _ = runner.train_only(
             config,
             remote_memory=memory,
-            max_train_count=50_000,
+            max_train_count=10_000,
             enable_evaluation=False,
             enable_file_logger=False,
             progress_max_time=60 * 2,
         )
 
         # eval
-        rewards = runner.evaluate(config, parameter, max_episodes=5, print_progress=True)
-        true_reward = -0.1
+        rewards = runner.evaluate(config, parameter, max_episodes=10, print_progress=True)
+        true_reward = 0.5
+        s = f"{np.mean(rewards)} >= {true_reward}"
+        print(s)
+        assert np.mean(rewards) >= true_reward, s
+
+    def test_verify_grid(self):
+        rl_config = planet.Config(
+            deter_size=50,
+            stoch_size=10,
+            num_units=100,
+            cnn_depth=32,
+            batch_size=8,
+            batch_length=20,
+            lr=0.001,
+            free_nats=3.0,
+            kl_scale=1.0,
+            enable_overshooting_loss=False,
+            # GA
+            pred_action_length=10,
+            num_generation=20,
+            num_individual=10,
+            num_simulations=5,
+            print_ga_debug=False,
+        )
+        rl_config.memory_warmup_size = rl_config.batch_size + 1
+        rl_config.change_observation_render_image = True
+        env_config = srl.EnvConfig("Grid")
+        env_config.max_episode_steps = 21
+        config = runner.Config(env_config, rl_config)
+
+        # train
+        _, memory, _ = runner.train(
+            config,
+            max_episodes=1000,
+            enable_file_logger=False,
+            disable_trainer=True,
+        )
+        parameter, _, _ = runner.train_only(
+            config,
+            remote_memory=memory,
+            max_train_count=40_000,
+            enable_evaluation=False,
+            enable_file_logger=False,
+            progress_max_time=60 * 2,
+        )
+
+        # eval
+        rewards = runner.evaluate(config, parameter, max_episodes=10, print_progress=True)
+        true_reward = 0.1
+        s = f"{np.mean(rewards)} >= {true_reward}"
+        print(s)
+        assert np.mean(rewards) >= true_reward, s
+
+    def test_verify_grid_overshooting(self):
+        rl_config = planet.Config(
+            deter_size=50,
+            stoch_size=10,
+            num_units=100,
+            cnn_depth=32,
+            batch_size=8,
+            batch_length=20,
+            lr=0.001,
+            free_nats=3.0,
+            kl_scale=1.0,
+            enable_overshooting_loss=True,
+            # GA
+            pred_action_length=10,
+            num_generation=20,
+            num_individual=10,
+            num_simulations=5,
+            print_ga_debug=False,
+        )
+        rl_config.memory_warmup_size = rl_config.batch_size + 1
+        rl_config.change_observation_render_image = True
+        env_config = srl.EnvConfig("Grid")
+        env_config.max_episode_steps = 21
+        config = runner.Config(env_config, rl_config)
+
+        # train
+        _, memory, _ = runner.train(
+            config,
+            max_episodes=1000,
+            enable_file_logger=False,
+            disable_trainer=True,
+        )
+        parameter, _, _ = runner.train_only(
+            config,
+            remote_memory=memory,
+            max_train_count=40_000,
+            enable_evaluation=False,
+            enable_file_logger=False,
+            progress_max_time=60 * 2,
+        )
+
+        # eval
+        rewards = runner.evaluate(config, parameter, max_episodes=10, print_progress=True)
+        true_reward = 0.1
         s = f"{np.mean(rewards)} >= {true_reward}"
         print(s)
         assert np.mean(rewards) >= true_reward, s

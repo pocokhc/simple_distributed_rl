@@ -17,6 +17,7 @@ from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
+from srl.utils.common import compare_less_version
 
 tfd = tfp.distributions
 """
@@ -327,7 +328,11 @@ class Trainer(RLTrainer):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
+        if compare_less_version(tf.__version__, "2.11.0"):
+            self.optimizer = keras.optimizers.Adam()
+        else:
+            self.optimizer = keras.optimizers.legacy.Adam()
+
         self.train_count = 0
 
     def get_train_count(self):
@@ -570,9 +575,9 @@ class Worker(DiscreteActionWorker):
         # --- rssm step
         embed = self.parameter.encode(state[np.newaxis, ...])
         prev_action = tf.one_hot([self.action], self.config.action_num, axis=1)
-        latent, dater, _ = self.parameter.dynamics.obs_step(self.stoch, self.deter, prev_action, embed)
-        self.feat = tf.concat([latent["stoch"], dater], axis=1)
-        self.deter = dater
+        latent, deter, _ = self.parameter.dynamics.obs_step(self.stoch, self.deter, prev_action, embed)
+        self.feat = tf.concat([latent["stoch"], deter], axis=1)
+        self.deter = deter
         self.stoch = latent["stoch"]
 
         if self.config.action_algorithm == "random":

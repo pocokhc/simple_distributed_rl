@@ -26,6 +26,7 @@ from srl.rl.functions.common import (
 )
 from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.tf.input_layer import create_input_layer
+from srl.utils.common import compare_less_version
 
 logger = logging.getLogger(__name__)
 
@@ -571,7 +572,10 @@ class Trainer(RLTrainer):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-        self.optimizer = keras.optimizers.Adam()
+        if compare_less_version(tf.__version__, "2.11.0"):
+            self.optimizer = keras.optimizers.Adam()
+        else:
+            self.optimizer = keras.optimizers.legacy.Adam()
 
         self.train_count = 0
 

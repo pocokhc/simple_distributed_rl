@@ -871,6 +871,10 @@ class Worker(DiscreteActionWorker):
                     q = (q - self.parameter.q_min) / (self.parameter.q_max - self.parameter.q_min)
 
                 score = q + u
+            if np.isnan(score):
+                logger.warning(f"puct score is nan.(action={a}, scores={scores})")
+                score = -np.inf
+
             scores[a] = score
         return scores
 

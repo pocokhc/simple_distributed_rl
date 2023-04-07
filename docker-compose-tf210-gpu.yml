@@ -3,7 +3,7 @@ version: "3.9"
 services:
   tfgpu:
     build:
-      dockerfile: ./tests/dockerfile_tf_gpu
+      dockerfile: ./tests/dockerfile_tf210_gpu
     volumes:
       - ./:/code/
     command: /bin/bash

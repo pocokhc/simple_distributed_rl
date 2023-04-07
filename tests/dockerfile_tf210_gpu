@@ -8,7 +8,7 @@ RUN apt-get update
 RUN apt-get install -y libgl1-mesa-dev libglib2.0-0
 
 ENV PYTHONPATH="/code"
-COPY ./tests/requirements_tf.txt requirements.txt
+COPY ./tests/requirements_tf210.txt requirements.txt
 RUN pip install -U -r requirements.txt
 
 # CUDA on WSL User Guide

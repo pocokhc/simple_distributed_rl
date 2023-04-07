@@ -3,7 +3,7 @@ version: "3.9"
 services:
   tfcpu:
     build:
-      dockerfile: ./tests/dockerfile_tf_cpu
+      dockerfile: ./tests/dockerfile_tf210_cpu
     volumes:
       - ./:/code/
     command: /bin/bash

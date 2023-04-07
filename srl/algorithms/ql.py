@@ -163,13 +163,13 @@ class Worker(DiscreteActionWorker):
 
         if random.random() < epsilon:
             # epsilonより低いならランダムに移動
-            action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            action = np.random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
             q = self.parameter.get_action_values(self.state, self.invalid_actions)
             q = np.asarray(q)
 
             # 最大値を選ぶ（複数あればランダム）
-            action = random.choice(np.where(q == q.max())[0])
+            action = np.random.choice(np.where(q == q.max())[0])
 
         self.action = int(action)
         return self.action, {"epsilon": epsilon}

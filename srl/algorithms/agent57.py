@@ -870,7 +870,7 @@ class Worker(DiscreteActionWorker):
             ucbs.append(ucb)
 
         # UCB値最大のポリシー（複数あればランダム）
-        return random.choice(np.where(ucbs == np.max(ucbs))[0])
+        return np.random.choice(np.where(ucbs == np.max(ucbs))[0])
 
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         prev_onehot_action = tf.one_hot(np.array(self.action), self.config.action_num)

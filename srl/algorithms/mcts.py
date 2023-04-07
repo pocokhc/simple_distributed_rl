@@ -138,7 +138,7 @@ class Worker(ModelBaseWorker):
         # 試行回数のもっとも多いアクションを採用
         c = self.parameter.N[self.state]
         c = [-np.inf if a in self.invalid_actions else c[a] for a in range(self.config.action_num)]  # mask
-        action = int(random.choice(np.where(c == np.max(c))[0]))
+        action = int(np.random.choice(np.where(c == np.max(c))[0]))
 
         return action, {}
 
@@ -150,7 +150,7 @@ class Worker(ModelBaseWorker):
 
         # actionを選択
         uct_list = self._calc_uct(state, invalid_actions)
-        action = random.choice(np.where(uct_list == np.max(uct_list))[0])
+        action = np.random.choice(np.where(uct_list == np.max(uct_list))[0])
 
         if self.parameter.N[state][action] < self.config.expansion_threshold:
             # アクション回数がすくないのでロールアウト

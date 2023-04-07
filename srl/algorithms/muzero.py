@@ -587,7 +587,7 @@ class Worker(DiscreteActionWorker):
             self.policy_tau = 0  # 評価時は決定的に
         if self.policy_tau == 0:
             counts = np.asarray(self.N[self.s0_str])
-            action = random.choice(np.where(counts == counts.max())[0])
+            action = np.random.choice(np.where(counts == counts.max())[0])
         else:
             step_policy = np.array(
                 [self.N[self.s0_str][a] ** (1 / self.policy_tau) for a in range(self.config.action_num)]
@@ -616,7 +616,7 @@ class Worker(DiscreteActionWorker):
 
         # actionを選択
         puct_list = self._calc_puct(state_str, invalid_actions, depth == 0)
-        action = random.choice(np.where(puct_list == np.max(puct_list))[0])
+        action = np.random.choice(np.where(puct_list == np.max(puct_list))[0])
 
         # 次の状態を取得
         n_state, reward_category = self.parameter.dynamics_network(state, [action])

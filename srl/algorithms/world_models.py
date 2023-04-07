@@ -611,7 +611,7 @@ class Worker(DiscreteActionWorker):
 
         # --- エリート戦略
         next_elite_params = []
-        best_idx = random.choice(np.where(elite_rewards == elite_rewards.max())[0])
+        best_idx = np.random.choice(np.where(elite_rewards == elite_rewards.max())[0])
         best_params = self.elite_params[best_idx]
         next_elite_params.append(best_params)
 

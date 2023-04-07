@@ -270,7 +270,7 @@ class Cpu(RuleBaseWorker):
         self._render_count = env._scores_count
         self._render_time = env._scores_time
 
-        action = int(random.choice(np.where(scores == np.max(scores))[0]))
+        action = int(np.random.choice(np.where(scores == np.max(scores))[0]))
         return action, {}
 
     def render_render(self, _env: EnvRun, worker: WorkerRun, **kwargs) -> None:

@@ -359,13 +359,13 @@ class Worker(DiscreteActionWorker):
             search_rate = self.config.test_search_rate
 
         if random.random() < epsilon:
-            action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            action = np.random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
             q_ext = np.asarray(self.parameter.Q_ext[self.state])
             q_int = np.asarray(self.parameter.Q_int[self.state])
             q = (1 - search_rate) * q_ext + search_rate * q_int
             q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)]
-            action = random.choice(np.where(q == np.max(q))[0])
+            action = np.random.choice(np.where(q == np.max(q))[0])
 
         self.action = int(action)
         return self.action, {}

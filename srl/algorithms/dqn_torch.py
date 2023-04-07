@@ -317,7 +317,7 @@ class Worker(DiscreteActionWorker):
 
         if random.random() < epsilon:
             # epsilonより低いならランダム
-            action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            action = np.random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
             self.parameter.q_online.eval()
             with torch.no_grad():

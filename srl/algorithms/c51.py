@@ -266,7 +266,7 @@ class Worker(DiscreteActionWorker):
 
         if random.random() < self.epsilon:
             # epsilonより低いならランダム
-            action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            action = np.random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
             logits = self.parameter.Q(np.asarray([state]))
             probs = tf.nn.softmax(logits, axis=2)
@@ -277,7 +277,7 @@ class Worker(DiscreteActionWorker):
             q = np.array([(-np.inf if a in invalid_actions else v) for a, v in enumerate(q_means)])
 
             # 最大値を選ぶ（複数あればランダム）
-            action = random.choice(np.where(q == q.max())[0])
+            action = np.random.choice(np.where(q == q.max())[0])
 
         self.action = action
         return action, {}

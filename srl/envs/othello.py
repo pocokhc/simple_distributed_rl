@@ -420,7 +420,7 @@ class Cpu(RuleBaseWorker):
         self._render_time = time.time() - self.t0
 
         scores = np.array(scores)
-        action = int(random.choice(np.where(scores == scores.max())[0]))
+        action = int(np.random.choice(np.where(scores == scores.max())[0]))
         return action, {}
 
     def _negamax(self, env: Othello, depth: int = 0):

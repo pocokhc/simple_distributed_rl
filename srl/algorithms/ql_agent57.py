@@ -411,7 +411,7 @@ class Worker(DiscreteActionWorker):
             ucbs.append(ucb)
 
         # UCB値最大のポリシー（複数あればランダム）
-        return random.choice(np.where(ucbs == np.max(ucbs))[0])
+        return np.random.choice(np.where(ucbs == np.max(ucbs))[0])
 
     def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         state = self._recent_states[-1]

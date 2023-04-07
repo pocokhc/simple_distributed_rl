@@ -207,7 +207,7 @@ class AlphaBeta(RuleBaseWorker):
         self._count = self._count
         self._time = time.time() - self.t0
 
-        # action = int(random.choice(np.where(scores == scores.max())[0]))
+        # action = int(np.random.choice(np.where(scores == scores.max())[0]))
         return action, {}
 
     def _alphabeta(self, env: ConnectX, alpha=-np.inf, beta=np.inf, depth: int = 0):

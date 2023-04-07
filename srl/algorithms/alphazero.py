@@ -361,7 +361,7 @@ class Worker(ModelBaseWorker):
             action = random_choice_by_probs(self.N[self.state_str])
         else:
             counts = np.asarray(self.N[self.state_str])
-            action = random.choice(np.where(counts == counts.max())[0])
+            action = np.random.choice(np.where(counts == counts.max())[0])
 
         return int(action), {}
 
@@ -384,7 +384,7 @@ class Worker(ModelBaseWorker):
 
         # actionを選択
         puct_list = self._calc_puct(state_str, invalid_actions, depth == 0)
-        action = int(random.choice(np.where(puct_list == np.max(puct_list))[0]))
+        action = int(np.random.choice(np.where(puct_list == np.max(puct_list))[0]))
 
         # 1step
         n_state, rewards, done = self.env_step(env, action)

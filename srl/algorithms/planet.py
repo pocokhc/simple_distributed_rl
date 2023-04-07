@@ -618,7 +618,7 @@ class Worker(DiscreteActionWorker):
 
             # --- エリート戦略
             next_elite_actions = []
-            best_idx = random.choice(np.where(elite_rewards == elite_rewards.max())[0])
+            best_idx = np.random.choice(np.where(elite_rewards == elite_rewards.max())[0])
             best_actions = elite_actions[best_idx]
             next_elite_actions.append(best_actions)
 

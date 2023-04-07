@@ -747,7 +747,7 @@ class Worker(DiscreteActionWorker):
             ucbs.append(ucb)
 
         # UCB値最大のポリシー（複数あればランダム）
-        return random.choice(np.where(ucbs == np.max(ucbs))[0])
+        return np.random.choice(np.where(ucbs == np.max(ucbs))[0])
 
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         self.state = state
@@ -766,7 +766,7 @@ class Worker(DiscreteActionWorker):
         self.q = self.q_ext + self.beta * self.q_int
 
         if random.random() < self.epsilon:
-            self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            self.action = np.random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
             # valid actions以外は -inf にする
             q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(self.q)]

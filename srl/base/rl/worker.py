@@ -253,7 +253,7 @@ class RLWorker(WorkerBase):
 
     def sample_action(self, env=None) -> RLAction:
         if self.config.action_type == RLActionType.DISCRETE:
-            action = random.choice(self.get_valid_actions(env))
+            action = np.random.choice(self.get_valid_actions(env))
         else:
             if env is None:
                 env = self.__env

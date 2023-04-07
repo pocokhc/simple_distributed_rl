@@ -418,7 +418,7 @@ class Grid(SinglePlayEnv):
                         q.append(Q[state][a.value])
                     action = np.argmax(q)
                 else:
-                    action = random.choice(self.actions)
+                    action = np.random.choice(self.actions)
                 state, reward, done, _ = game.step(action)
                 total_reward += reward
 

@@ -263,7 +263,7 @@ class Worker(DiscreteActionWorker):
             q = self.parameter.get_action_values(self.state, invalid_actions)
             q = np.asarray(q)
             q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)]
-            action = random.choice(np.where(q == np.max(q))[0])
+            action = np.random.choice(np.where(q == np.max(q))[0])
 
         self.action = int(action)
         return self.action, {}

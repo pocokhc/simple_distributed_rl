@@ -445,6 +445,7 @@ class Trainer(RLTrainer):
             kl_loss = tf.reduce_mean(kl_loss)
 
             vae_loss = rc_loss + kl_loss
+            vae_loss += tf.reduce_sum(self.parameter.vae.losses)  # 正則化項
 
         grads = tape.gradient(vae_loss, self.parameter.vae.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.vae.trainable_variables))
@@ -488,6 +489,7 @@ class Trainer(RLTrainer):
             loss = tf.maximum(loss, 1e-6)  # log(0) 回避
             loss = -tf.math.log(loss)
             loss = tf.reduce_mean(loss)
+            loss += tf.reduce_sum(self.parameter.rnn.losses)  # 正則化項
 
         grads = tape.gradient(loss, self.parameter.rnn.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.rnn.trainable_variables))

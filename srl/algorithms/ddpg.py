@@ -280,6 +280,7 @@ class Trainer(RLTrainer):
                 actor_actions = self.parameter.actor_online(states)
                 q, _ = self.parameter.critic_online(states, actor_actions)
                 actor_loss = -tf.reduce_mean(q)  # 最大化
+                actor_loss += tf.reduce_sum(self.parameter.actor_online.losses)
 
             grads = tape.gradient(actor_loss, self.parameter.actor_online.trainable_variables)
             self.actor_optimizer.apply_gradients(zip(grads, self.parameter.actor_online.trainable_variables))
@@ -294,6 +295,7 @@ class Trainer(RLTrainer):
             loss1 = tf.reduce_mean(tf.square(q_vals - q1))
             loss2 = tf.reduce_mean(tf.square(q_vals - q2))
             critic_loss = (loss1 + loss2) / 2
+            critic_loss += tf.reduce_sum(self.parameter.critic_online.losses)
 
         grads = tape.gradient(critic_loss, self.parameter.critic_online.trainable_variables)
         self.critic_optimizer.apply_gradients(zip(grads, self.parameter.critic_online.trainable_variables))

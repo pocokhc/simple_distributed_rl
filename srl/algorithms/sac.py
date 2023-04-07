@@ -305,6 +305,7 @@ class Trainer(RLTrainer):
             loss1 = tf.reduce_mean(tf.square(q_vals - q1))
             loss2 = tf.reduce_mean(tf.square(q_vals - q2))
             q_loss = (loss1 + loss2) / 2
+            q_loss += tf.reduce_sum(self.parameter.q_online.losses)  # 正則化項
 
         grads = tape.gradient(q_loss, self.parameter.q_online.trainable_variables)
         self.q_optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
@@ -325,6 +326,7 @@ class Trainer(RLTrainer):
             policy_loss = q_min - (tf.stop_gradient(alpha) * logpi)
 
             policy_loss = -tf.reduce_mean(policy_loss)  # 最大化
+            policy_loss += tf.reduce_sum(self.parameter.policy.losses)  # 正則化項
 
         grads = tape.gradient(policy_loss, self.parameter.policy.trainable_variables)
         self.policy_optimizer.apply_gradients(zip(grads, self.parameter.policy.trainable_variables))

@@ -577,6 +577,7 @@ class Trainer(RLTrainer):
             with tf.GradientTape() as tape:
                 actions_probs = self.parameter.emb_network(states, n_states)
                 emb_loss = self.emb_loss(actions_probs, actions_onehot)
+                emb_loss += tf.reduce_sum(self.parameter.emb_network.losses)
 
             grads = tape.gradient(emb_loss, self.parameter.emb_network.trainable_variables)
             self.emb_optimizer.apply_gradients(zip(grads, self.parameter.emb_network.trainable_variables))
@@ -588,6 +589,7 @@ class Trainer(RLTrainer):
             with tf.GradientTape() as tape:
                 lifelong_train_val = self.parameter.lifelong_train(states)
                 lifelong_loss = self.lifelong_loss(lifelong_target_val, lifelong_train_val)
+                lifelong_loss += tf.reduce_sum(self.parameter.lifelong_train.losses)
 
             grads = tape.gradient(lifelong_loss, self.parameter.lifelong_train.trainable_variables)
             self.lifelong_optimizer.apply_gradients(zip(grads, self.parameter.lifelong_train.trainable_variables))
@@ -645,6 +647,7 @@ class Trainer(RLTrainer):
             q = model_q_online(states, prev_rewards_ext, prev_rewards_int, prev_actions_onehot, actor_idx_onehot)
             q = tf.reduce_sum(q * actions_onehot, axis=1)
             loss = self.q_loss(target_q * weights, q * weights)
+            loss += tf.reduce_sum(model_q_online.losses)
 
         grads = tape.gradient(loss, model_q_online.trainable_variables)
         optimizer.apply_gradients(zip(grads, model_q_online.trainable_variables))

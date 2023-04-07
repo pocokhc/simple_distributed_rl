@@ -415,6 +415,7 @@ class Trainer(RLTrainer):
             # --- update Q
             q_onehot = tf.reduce_sum(q * step_actions_onehot, axis=2)
             loss = self.loss(target_q_list * weights, q_onehot * weights)
+            loss += tf.reduce_sum(self.parameter.q_online.losses)
 
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))

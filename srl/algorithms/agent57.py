@@ -597,6 +597,7 @@ class Trainer(RLTrainer):
             with tf.GradientTape() as tape:
                 actions_probs = self.parameter.emb_network(one_states, one_n_states)
                 emb_loss = self.emb_loss(actions_probs, one_actions_onehot)
+                emb_loss += tf.reduce_sum(self.parameter.emb_network.losses)
 
             grads = tape.gradient(emb_loss, self.parameter.emb_network.trainable_variables)
             self.emb_optimizer.apply_gradients(zip(grads, self.parameter.emb_network.trainable_variables))
@@ -608,6 +609,7 @@ class Trainer(RLTrainer):
             with tf.GradientTape() as tape:
                 lifelong_train_val = self.parameter.lifelong_train(one_states)
                 lifelong_loss = self.lifelong_loss(lifelong_target_val, lifelong_train_val)
+                lifelong_loss += tf.reduce_sum(self.parameter.lifelong_train.losses)
 
             grads = tape.gradient(lifelong_loss, self.parameter.lifelong_train.trainable_variables)
             self.lifelong_optimizer.apply_gradients(zip(grads, self.parameter.lifelong_train.trainable_variables))
@@ -721,6 +723,7 @@ class Trainer(RLTrainer):
             # --- update Q
             q_onehot = tf.reduce_sum(q * step_actions_onehot, axis=2)
             loss = self.q_loss(target_q_list * weights, q_onehot * weights)
+            loss += tf.reduce_sum(model_q_online.losses)
 
         grads = tape.gradient(loss, model_q_online.trainable_variables)
         optimizer.apply_gradients(zip(grads, model_q_online.trainable_variables))

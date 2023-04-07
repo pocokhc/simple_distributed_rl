@@ -226,6 +226,7 @@ class Trainer(RLTrainer):
             #: categorical cross entropy
             loss = tf.reduce_sum(-1 * target_dists * tf.math.log(dists), axis=1, keepdims=True)
             loss = tf.reduce_mean(loss)
+            loss += tf.reduce_sum(self.parameter.Q.losses)  # 正則化のLoss
 
         grads = tape.gradient(loss, self.parameter.Q.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.Q.trainable_variables))

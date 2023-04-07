@@ -420,6 +420,12 @@ class Trainer(RLTrainer):
             kl_loss = tf.maximum(kl_loss, self.config.free_nats)
             loss = self.config.kl_scale * kl_loss - image_loss - reward_loss
 
+            # 正則化項
+            loss += tf.reduce_sum(self.parameter.encode.losses)
+            loss += tf.reduce_sum(self.parameter.dynamics.losses)
+            loss += tf.reduce_sum(self.parameter.decode.losses)
+            loss += tf.reduce_sum(self.parameter.reward.losses)
+
         variables = [
             self.parameter.encode.trainable_variables,
             self.parameter.dynamics.trainable_variables,

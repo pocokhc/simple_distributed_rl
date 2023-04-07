@@ -33,43 +33,37 @@ class Test(unittest.TestCase):
             enable_intrinsic_reward=True,
         )
 
-    def test_simple_check(self):
-        self.tester.simple_check(agent57.Config())
-
-    def test_simple_check_mp(self):
-        self.tester.simple_check_mp(agent57.Config())
-
     def test_Pendulum(self):
         rl_config = agent57.Config(**self.base_config)
-        self.tester.verify_singleplay("Pendulum-v1", rl_config, 200 * 50)
+        self.tester.verify_1player("Pendulum-v1", rl_config, 200 * 50)
 
     def test_Pendulum_mp(self):
         rl_config = agent57.Config(**self.base_config)
-        self.tester.verify_singleplay("Pendulum-v1", rl_config, 200 * 40, is_mp=True)
+        self.tester.verify_1player("Pendulum-v1", rl_config, 200 * 40, is_mp=True)
 
     def test_Pendulum_retrace(self):
         rl_config = agent57.Config(**self.base_config)
         rl_config.enable_retrace = True
-        self.tester.verify_singleplay("Pendulum-v1", rl_config, 200 * 50)
+        self.tester.verify_1player("Pendulum-v1", rl_config, 200 * 50)
 
     def test_Pendulum_uvfa(self):
         rl_config = agent57.Config(**self.base_config)
         rl_config.input_ext_reward = True
         rl_config.input_int_reward = True
         rl_config.input_action = True
-        self.tester.verify_singleplay("Pendulum-v1", rl_config, 200 * 150)
+        self.tester.verify_1player("Pendulum-v1", rl_config, 200 * 150)
 
     def test_Pendulum_memory(self):
         rl_config = agent57.Config(**self.base_config)
         rl_config.memory_name = "ProportionalMemory"
         rl_config.memory_beta_steps = 200 * 30
-        self.tester.verify_singleplay("Pendulum-v1", rl_config, 200 * 60)
+        self.tester.verify_1player("Pendulum-v1", rl_config, 200 * 60)
 
     def test_Pendulum_dis_int(self):
         rl_config = agent57.Config(**self.base_config)
         rl_config.enable_intrinsic_reward = False
-        self.tester.verify_singleplay("Pendulum-v1", rl_config, 200 * 50)
+        self.tester.verify_1player("Pendulum-v1", rl_config, 200 * 50)
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_simple_check", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_Pendulum", verbosity=2)

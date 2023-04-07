@@ -9,20 +9,14 @@ class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()
 
-    def test_simple_check(self):
-        self.tester.simple_check(vanilla_policy.Config())
-
-    def test_simple_check_mp(self):
-        self.tester.simple_check_mp(vanilla_policy.Config())
-
-    def test_verify_grid_discrete(self):
+    def test_Grid_discrete(self):
         rl_config = vanilla_policy.Config()
-        self.tester.verify_singleplay("Grid", rl_config, 10_000)
+        self.tester.verify_1player("Grid", rl_config, 10_000)
 
-    def test_verify_grid_continuous(self):
+    def test_Grid_continuous(self):
         rl_config = vanilla_policy.Config()
         rl_config.override_rl_action_type = RLActionType.CONTINUOUS
-        self.tester.verify_singleplay("Grid", rl_config, 150_000)
+        self.tester.verify_1player("Grid", rl_config, 150_000)
 
 
 if __name__ == "__main__":

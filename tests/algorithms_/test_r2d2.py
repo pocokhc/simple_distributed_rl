@@ -25,30 +25,24 @@ class Test(unittest.TestCase):
             enable_retrace=False,
         )
 
-    def test_simple_check(self):
-        self.tester.simple_check(r2d2.Config())
-
-    def test_simple_check_mp(self):
-        self.tester.simple_check_mp(r2d2.Config())
-
-    def test_verify_Pendulum(self):
+    def test_Pendulum(self):
         rl_config = r2d2.Config(**self.base_config)
-        self.tester.verify_singleplay("Pendulum-v1", rl_config, 200 * 35)
+        self.tester.verify_1player("Pendulum-v1", rl_config, 200 * 35)
 
-    def test_verify_Pendulum_mp(self):
+    def test_Pendulum_mp(self):
         rl_config = r2d2.Config(**self.base_config)
-        self.tester.verify_singleplay("Pendulum-v1", rl_config, 200 * 20, is_mp=True)
+        self.tester.verify_1player("Pendulum-v1", rl_config, 200 * 20, is_mp=True)
 
-    def test_verify_Pendulum_retrace(self):
+    def test_Pendulum_retrace(self):
         rl_config = r2d2.Config(**self.base_config)
         rl_config.enable_retrace = True
-        self.tester.verify_singleplay("Pendulum-v1", rl_config, 200 * 35)
+        self.tester.verify_1player("Pendulum-v1", rl_config, 200 * 35)
 
-    def test_verify_Pendulum_memory(self):
+    def test_Pendulum_memory(self):
         rl_config = r2d2.Config(**self.base_config)
         rl_config.memory_name = "ProportionalMemory"
-        self.tester.verify_singleplay("Pendulum-v1", rl_config, 200 * 50)
+        self.tester.verify_1player("Pendulum-v1", rl_config, 200 * 50)
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_Pendulum_disable_int", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_Pendulum", verbosity=2)

@@ -33,16 +33,10 @@ class Test(unittest.TestCase):
             enable_intrinsic_reward=True,
         )
 
-    def test_simple_check(self):
-        self.tester.simple_check(agent57_stateful.Config())
-
-    def test_simple_check_mp(self):
-        self.tester.simple_check_mp(agent57_stateful.Config())
-
     def test_Pendulum(self):
         rl_config = agent57_stateful.Config(**self.base_config)
-        self.tester.verify_singleplay("Pendulum-v1", rl_config, 200 * 50)
+        self.tester.verify_1player("Pendulum-v1", rl_config, 200 * 50)
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_simple_check", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_Pendulum", verbosity=2)

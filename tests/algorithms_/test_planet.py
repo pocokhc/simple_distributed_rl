@@ -19,17 +19,7 @@ class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()
 
-    def test_simple_check(self):
-        rl_config = planet.Config(num_generation=2, num_individual=2, num_simulations=1)
-        rl_config.change_observation_render_image = True
-        self.tester.simple_check(rl_config)
-
-    def test_simple_check_mp(self):
-        rl_config = planet.Config(num_generation=2, num_individual=2, num_simulations=1)
-        rl_config.change_observation_render_image = True
-        self.tester.simple_check_mp(rl_config)
-
-    def test_verify_easy_grid(self):
+    def test_EasyGrid(self):
         rl_config = planet.Config(
             deter_size=50,
             stoch_size=10,
@@ -77,7 +67,7 @@ class Test(unittest.TestCase):
         print(s)
         assert np.mean(rewards) >= true_reward, s
 
-    def test_verify_grid(self):
+    def test_Grid(self):
         rl_config = planet.Config(
             deter_size=50,
             stoch_size=10,
@@ -125,7 +115,7 @@ class Test(unittest.TestCase):
         print(s)
         assert np.mean(rewards) >= true_reward, s
 
-    def test_verify_grid_overshooting(self):
+    def test_Grid_overshooting(self):
         rl_config = planet.Config(
             deter_size=50,
             stoch_size=10,
@@ -175,4 +165,4 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_verify_grid_overshooting", verbosity=2)

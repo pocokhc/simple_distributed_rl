@@ -15,14 +15,12 @@ except ModuleNotFoundError:
 class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()
+        self.rl_config = muzero.Config(
+            batch_size=16,
+            memory_warmup_size=50,
+        )
 
-    def test_simple_check(self):
-        self.tester.simple_check(muzero.Config(), enable_change_layer=True)
-
-    def test_simple_check_mp(self):
-        self.tester.simple_check_mp(muzero.Config(), enable_change_layer=True)
-
-    def test_verify_grid(self):
+    def test_EasyGrid(self):
         rl_config = muzero.Config(
             num_simulations=20,
             discount=0.9,
@@ -41,15 +39,9 @@ class Test(unittest.TestCase):
             weight_decay=0,
         )
         rl_config.processors = [grid.LayerProcessor()]
-        self.tester.verify_singleplay(
-            "EasyGrid",
-            rl_config,
-            1500,
-            test_num=10,
-            # is_valid=True,
-        )
+        self.tester.verify_1player("EasyGrid", rl_config, train_count=1500, eval_episode=10)
 
-    def test_verify_grid_PER(self):
+    def test_EasyGrid_PER(self):
         rl_config = muzero.Config(
             num_simulations=20,
             discount=0.9,
@@ -67,13 +59,8 @@ class Test(unittest.TestCase):
             weight_decay=0,
         )
         rl_config.processors = [grid.LayerProcessor()]
-        self.tester.verify_singleplay(
-            "EasyGrid",
-            rl_config,
-            3000,
-            test_num=10,
-        )
+        self.tester.verify_1player("EasyGrid", rl_config, train_count=3000, eval_episode=10)
 
 
 if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_verify_grid", verbosity=2)
+    unittest.main(module=__name__, defaultTest="Test.test_EasyGrid", verbosity=2)

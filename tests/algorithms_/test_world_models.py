@@ -1,6 +1,7 @@
 import unittest
 
 import numpy as np
+
 import srl
 from srl import runner
 from srl.test import TestRL
@@ -18,13 +19,7 @@ class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()
 
-    def test_simple_check(self):
-        self.tester.simple_check(world_models.Config())
-
-    def test_simple_check_mp(self):
-        self.tester.simple_check_mp(world_models.Config())
-
-    def test_verify_grid(self):
+    def test_Grid(self):
         rl_config = world_models.Config(
             z_size=1,
             sequence_length=10,

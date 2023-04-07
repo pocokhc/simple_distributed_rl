@@ -16,13 +16,7 @@ class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()
 
-    def test_simple_check(self):
-        self.tester.simple_check(stochastic_muzero.Config(), enable_change_layer=True)
-
-    def test_simple_check_mp(self):
-        self.tester.simple_check_mp(stochastic_muzero.Config(), enable_change_layer=True)
-
-    def test_verify_grid(self):
+    def test_Grid(self):
         rl_config = stochastic_muzero.Config(
             num_simulations=10,
             discount=0.9,
@@ -41,7 +35,7 @@ class Test(unittest.TestCase):
             codebook_size=4,
         )
         rl_config.processors = [grid.LayerProcessor()]
-        self.tester.verify_singleplay(
+        self.tester.verify_1player(
             "Grid",
             rl_config,
             10000,

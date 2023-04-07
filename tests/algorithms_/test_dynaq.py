@@ -1,30 +1,23 @@
 import unittest
 
+import srl.envs.grid  # noqa F401
 from srl.algorithms import dynaq
 from srl.test import TestRL
-
-import srl.envs.grid  # noqa F401
 
 
 class Test(unittest.TestCase):
     def setUp(self) -> None:
         self.tester = TestRL()
 
-    def test_simple_check(self):
-        self.tester.simple_check(dynaq.Config())
-
-    def test_simple_check_mp(self):
-        self.tester.simple_check_mp(dynaq.Config())
-
-    def test_verify_grid(self):
+    def test_Grid(self):
         rl_config = dynaq.Config()
-        self.tester.verify_singleplay("Grid", rl_config, 50_000)
-        self.tester.verify_grid_policy()
+        parameter = self.tester.verify_1player("Grid", rl_config, 50_000)
+        self.tester.verify_grid_policy(rl_config, parameter)
 
-    def test_verify_grid_mp(self):
+    def test_Grid_mp(self):
         rl_config = dynaq.Config()
-        self.tester.verify_singleplay("Grid", rl_config, 100_000, is_mp=True)
-        self.tester.verify_grid_policy()
+        parameter = self.tester.verify_1player("Grid", rl_config, 100_000, is_mp=True)
+        self.tester.verify_grid_policy(rl_config, parameter)
 
 
 if __name__ == "__main__":

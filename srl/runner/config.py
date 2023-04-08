@@ -318,16 +318,14 @@ class Config:
                     os.environ["CUDA_VISIBLE_DEVICES"] = self._default_CUDA_VISIBLE_DEVICES
                     logger.info(f"[{self.run_name}] set CUDA_VISIBLE_DEVICES={self._default_CUDA_VISIBLE_DEVICES}")
 
-            if self.tf_enable_memory_growth:
-                try:
-                    for device in tf.config.list_physical_devices("GPU"):
-                        logger.info(f"[{self.run_name}] set_memory_growth({device.name}, True)")
-                        tf.config.experimental.set_memory_growth(device, True)
-                except Exception:
-                    print(
-                        f"[{self.run_name}] 'set_memory_growth' failed. Also consider 'tf_enable_memory_growth=False'."
-                    )
-                    raise
+                if self.tf_enable_memory_growth:
+                    try:
+                        for device in tf.config.list_physical_devices("GPU"):
+                            logger.info(f"[{self.run_name}] set_memory_growth({device.name}, True)")
+                            tf.config.experimental.set_memory_growth(device, True)
+                    except Exception:
+                        print(f"[{self.run_name}] 'set_memory_growth' failed. Also consider 'tf_enable_memory_growth=False'.")
+                        raise
 
         if self.tf_on_init_function is not None:
             self.tf_on_init_function(self)

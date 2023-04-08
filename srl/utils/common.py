@@ -11,16 +11,40 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-def set_logger(
-    name: str = "",
-    print_terminal: bool = True,
-    print_level=logging.INFO,
-    filename: str = "",
-    file_level=logging.DEBUG,
+def logger_print(
+    level: Union[int, str]=logging.INFO,
+    log_name: str = "",
+    enable_log_extra_suppression: bool = True,
 ) -> None:
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
-    formatter = logging.Formatter("%(asctime)s %(name)s %(funcName)s %(lineno)d [%(levelname)s] %(message)s")
+    set_logger(log_name, True, level, "", "DEBUG", enable_log_extra_suppression)
+
+def logger_file(
+    filename,
+    level: Union[int, str]=logging.DEBUG,
+    log_name: str = "",
+    enable_log_extra_suppression: bool = True,
+) -> None:
+    set_logger(log_name, False, "INFO", filename, level, enable_log_extra_suppression)
+
+
+def set_logger(
+    log_name: str = "",
+    print_terminal: bool = True,
+    print_level: Union[int, str]=logging.INFO,
+    filename: str = "",
+    file_level: Union[int, str]=logging.DEBUG,
+    enable_log_extra_suppression: bool = True,
+) -> None:
+    if isinstance(print_level, str):
+        print_level: int = logging.getLevelName(print_level)
+    if isinstance(file_level, str):
+        file_level: int = logging.getLevelName(file_level)
+    top_level = print_level if (print_level > file_level) else file_level
+
+    logger = logging.getLogger(log_name)
+    logger.setLevel(top_level)
+    fmt = "%(asctime)s %(name)s %(funcName)s %(lineno)d [%(levelname)s] %(message)s"
+    formatter = logging.Formatter(fmt)
 
     if print_terminal:
         h = logging.StreamHandler()
@@ -33,18 +57,24 @@ def set_logger(
         h.setLevel(file_level)
         h.setFormatter(formatter)
         logger.addHandler(h)
+    
+    # root level
+    root_logger = logging.getLogger()
+    if root_logger.level < top_level:
+        root_logger.setLevel(top_level)
 
-    # 余分なwarningを非表示
-    warnings.simplefilter("ignore")
+    if enable_log_extra_suppression:
+        # 余分なwarningを非表示
+        warnings.simplefilter("ignore")
 
-    # ライブラリ別にログレベルを調整
-    logging.getLogger("matplotlib").setLevel(logging.INFO)
-    logging.getLogger("PIL").setLevel(logging.INFO)
+        # ライブラリ別にログレベルを調整
+        logging.getLogger("matplotlib").setLevel(logging.INFO)
+        logging.getLogger("PIL").setLevel(logging.INFO)
 
-    # TF log
-    # os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-    logging.getLogger("tensorflow").setLevel(logging.INFO)
-    logging.getLogger("h5py").setLevel(logging.INFO)
+        # TF log
+        # os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+        logging.getLogger("tensorflow").setLevel(logging.INFO)
+        logging.getLogger("h5py").setLevel(logging.INFO)
 
 
 def listdict_to_dictlist(data: List[Dict[str, Any]]) -> Dict[str, List[Any]]:
@@ -181,6 +211,21 @@ def is_env_notebook() -> bool:
         return False
     # Jupyter Notebook
     return True
+
+
+def compare_less_package_version(name: str, v2) -> bool:
+    module = importlib.import_module(name)
+    v1 = module.__version__
+
+    try:
+        from packaging import version
+
+        return version.parse(v1) < version.parse(v2)
+
+    except ImportError:
+        from distutils.version import LooseVersion
+
+        return LooseVersion(v1) < LooseVersion(v2)
 
 
 def compare_less_version(v1, v2) -> bool:

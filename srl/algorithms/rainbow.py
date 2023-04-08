@@ -1,31 +1,27 @@
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
-import tensorflow_addons as tfa
 from tensorflow.keras import layers as kl
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (
-    calc_epsilon_greedy_probs,
-    create_epsilon_list,
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
+from srl.rl.functions.common import (calc_epsilon_greedy_probs,
+                                     create_epsilon_list, inverse_rescaling,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling)
 from srl.rl.models.tf.dqn_image_block import DQNImageBlock
-from srl.rl.models.tf.dueling_network import create_dueling_network_layers
-from srl.rl.models.tf.input_layer import create_input_layer
+from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
+from srl.rl.models.tf.input_block import InputBlock
 
 """
 ・Paper
@@ -80,8 +76,8 @@ class Config(DiscreteActionConfig):
     exploration_steps: int = 0  # 0 : no Annealing
 
     # model
-    cnn_block: kl.Layer = DQNImageBlock
-    cnn_block_kwargs: dict = None
+    cnn_block: keras.Model = DQNImageBlock
+    cnn_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
 
@@ -121,29 +117,45 @@ class Config(DiscreteActionConfig):
 
     # 論文のハイパーパラメーター
     def set_atari_config(self):
-        self.batch_size = 32
-        self.capacity = 1_000_000
-        self.window_length = 4
-        self.hidden_layer_sizes = (512,)
-        self.target_model_update_interval = 32000
-        self.discount = 0.99
-        self.lr = 0.0000625
+        # Annealing e-greedy
         self.initial_epsilon = 1.0
         self.final_epsilon = 0.1
         self.exploration_steps = 1_000_000
+        # model
+        self.cnn_block = DQNImageBlock
+        self.cnn_block_kwargs = {}
+        self.hidden_layer_sizes = (512,)
+        self.activation = "relu"
+
+        self.discount = 0.99
+        self.lr = 0.0000625
+        self.batch_size = 32
+        self.target_model_update_interval = 32000
         self.enable_reward_clip = True
-        self.enable_rescale = False
 
         self.enable_double_dqn = True
+
+        # Priority Experience Replay
+        self.capacity = 1_000_000
         self.memory_name: str = "ProportionalMemory"
         self.memory_warmup_size: int = 80_000
         self.memory_alpha: float = 0.5
         self.memory_beta_initial: float = 0.4
         self.memory_beta_steps: int = 1_000_000
 
-    def __post_init__(self):
-        if self.cnn_block_kwargs is None:
-            self.cnn_block_kwargs = {}
+        # DuelingNetwork
+        self.enable_dueling_network = True
+        self.dueling_network_type = "average"
+
+        # Multi-step learning
+        self.multisteps = 3
+        self.retrace_h = 1.0
+
+        # noisy dense
+        self.enable_noisy_dense = True
+
+        # other
+        self.enable_rescale = False
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -203,29 +215,36 @@ class _QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        in_state, c, use_image_head = create_input_layer(
-            config.observation_shape,
-            config.env_observation_type,
-        )
-        if use_image_head:
-            c = config.cnn_block(**config.cnn_block_kwargs)(c)
-            c = kl.Flatten()(c)
+        # input
+        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
+
+        # image
+        if self.in_block.use_image_layer:
+            self.image_block = config.cnn_block(**config.cnn_block_kwargs)
+            self.image_flatten = kl.Flatten()
 
         if config.enable_noisy_dense:
+            import tensorflow_addons as tfa
+
             _Dense = tfa.layers.NoisyDense
         else:
             _Dense = kl.Dense
 
+        # hidden
+        self.hidden_layers = []
         for i in range(len(config.hidden_layer_sizes) - 1):
-            c = _Dense(
-                config.hidden_layer_sizes[i],
-                activation=config.activation,
-                kernel_initializer="he_normal",
-            )(c)
+            self.hidden_layers.append(
+                _Dense(
+                    config.hidden_layer_sizes[i],
+                    activation=config.activation,
+                    kernel_initializer="he_normal",
+                )
+            )
 
+        # out
+        self.enable_dueling_network = config.enable_dueling_network
         if config.enable_dueling_network:
-            c = create_dueling_network_layers(
-                c,
+            self.dueling_block = DuelingNetworkBlock(
                 config.action_num,
                 config.hidden_layer_sizes[-1],
                 config.dueling_network_type,
@@ -233,20 +252,44 @@ class _QNetwork(keras.Model):
                 enable_noisy_dense=config.enable_noisy_dense,
             )
         else:
-            c = _Dense(config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal")(c)
-            c = _Dense(config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal")(
-                c
-            )
+            self.out_layers = [
+                _Dense(config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal"),
+                _Dense(config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"),
+            ]
 
-        self.model = keras.Model(in_state, c, name="QNetwork")
+        # build
+        self.build((None,) + config.observation_shape)
 
-        # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
-        val = self(dummy_state)
-        assert val.shape == (1, config.action_num)
+    def call(self, x, training=False):
+        x = self.in_block(x, training=training)
+        if self.in_block.use_image_layer:
+            x = self.image_block(x, training=training)
+            x = self.image_flatten(x)
+        for layer in self.hidden_layers:
+            x = layer(x, training=training)
+        if self.enable_dueling_network:
+            x = self.dueling_block(x, training=training)
+        else:
+            for layer in self.out_layers:
+                x = layer(x, training=training)
+        return x
 
-    def call(self, state):
-        return self.model(state)
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name="", **kwargs):
+        if hasattr(self.in_block, "init_model_graph"):
+            self.in_block.init_model_graph()
+        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
+            self.image_block.init_model_graph()
+        if self.enable_dueling_network and hasattr(self.dueling_block, "init_model_graph"):
+            self.dueling_block.init_model_graph()
+
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -268,7 +311,7 @@ class Parameter(RLParameter):
         return self.q_online.get_weights()
 
     def summary(self, **kwargs):
-        self.q_online.model.summary(**kwargs)
+        self.q_online.summary(**kwargs)
 
     # ----------------------------------------------
 

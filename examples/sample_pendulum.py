@@ -15,7 +15,7 @@ def main():
 
     env_config = srl.EnvConfig("Pendulum-v1")
     rl_config = dqn.Config(
-        hidden_block_kwargs=dict(hidden_layer_sizes=(64, 64)),
+        hidden_block_kwargs=dict(layer_sizes=(64, 64)),
         capacity=10_000,
         lr=0.001,
         epsilon=0.1,

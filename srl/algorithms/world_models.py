@@ -10,12 +10,13 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers as kl
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLRemoteMemory, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
-from srl.rl.models.tf.input_layer import create_input_layer
+from srl.rl.models.tf.input_block import InputBlock, create_input_layer
 
 """
 vae ref: https://developers-jp.googleblog.com/2019/04/tensorflow-probability-vae.html
@@ -155,51 +156,59 @@ class _VAE(keras.Model):
         self.kl_tolerance = config.kl_tolerance
 
         # --- encoder
-        in_state, c, use_image_head = create_input_layer(
-            config.observation_shape,
-            config.env_observation_type,
-        )
-        self.use_image_head = use_image_head
-        if use_image_head:
+        self.encoder_in_block = InputBlock(config.observation_shape, config.env_observation_type)
+        self.use_image_head = self.encoder_in_block.use_image_layer
+        if self.use_image_head:
             assert config.window_length == 1
-            c = kl.Conv2D(filters=32, kernel_size=4, strides=2, activation="relu")(c)
-            c = kl.Conv2D(filters=64, kernel_size=4, strides=2, activation="relu")(c)
-            c = kl.Conv2D(filters=128, kernel_size=4, strides=2, activation="relu")(c)
-            c = kl.Conv2D(filters=256, kernel_size=4, strides=2, activation="relu")(c)
-            c = kl.Flatten()(c)
+            self.encoder_in_layers = [
+                kl.Conv2D(filters=32, kernel_size=4, strides=2, activation="relu"),
+                kl.Conv2D(filters=64, kernel_size=4, strides=2, activation="relu"),
+                kl.Conv2D(filters=128, kernel_size=4, strides=2, activation="relu"),
+                kl.Conv2D(filters=256, kernel_size=4, strides=2, activation="relu"),
+                kl.Flatten(),
+            ]
         else:
-            c = kl.Dense(256, activation="relu")(c)
-            c = kl.Dense(256, activation="relu")(c)
-        z_mean = kl.Dense(config.z_size)(c)
-        z_log_stddev = kl.Dense(config.z_size)(c)
-        self.encoder = keras.Model(in_state, [z_mean, z_log_stddev], name="encoder")
+            self.encoder_in_layers = [
+                kl.Dense(256, activation="relu"),
+                kl.Dense(256, activation="relu"),
+            ]
+        self.encoder_z_mean_layer = kl.Dense(config.z_size)
+        self.encoder_z_log_stddev = kl.Dense(config.z_size)
 
         # --- decoder
-        in_state = c = kl.Input(shape=(config.z_size,))
-        if use_image_head:
-            c = kl.Dense(2 * 2 * 256, activation="relu")(c)
-            c = kl.Reshape((1, 1, 2 * 2 * 256))(c)
-            c = kl.Conv2DTranspose(128, kernel_size=5, strides=2, padding="valid", activation="relu")(c)
-            c = kl.Conv2DTranspose(64, kernel_size=5, strides=2, padding="valid", activation="relu")(c)
-            c = kl.Conv2DTranspose(32, kernel_size=6, strides=2, padding="valid", activation="relu")(c)
-            c = kl.Conv2DTranspose(3, kernel_size=6, strides=2, padding="valid", activation="sigmoid")(c)
+        if self.use_image_head:
+            self.decoder_in_layers = [
+                kl.Dense(2 * 2 * 256, activation="relu"),
+                kl.Reshape((1, 1, 2 * 2 * 256)),
+                kl.Conv2DTranspose(128, kernel_size=5, strides=2, padding="valid", activation="relu"),
+                kl.Conv2DTranspose(64, kernel_size=5, strides=2, padding="valid", activation="relu"),
+                kl.Conv2DTranspose(32, kernel_size=6, strides=2, padding="valid", activation="relu"),
+                kl.Conv2DTranspose(3, kernel_size=6, strides=2, padding="valid", activation="sigmoid"),
+            ]
         else:
             flatten_shape = np.zeros(config.observation_shape).flatten().shape
-            c = kl.Dense(256, activation="relu")(c)
-            c = kl.Dense(256, activation="relu")(c)
-            c = kl.Dense(flatten_shape[0])(c)
-            c = kl.Reshape(config.observation_shape)(c)
-        self.decoder = keras.Model(in_state, c, name="decoder")
+            self.decoder_in_layers = [
+                kl.Dense(256, activation="relu"),
+                kl.Dense(256, activation="relu"),
+                kl.Dense(flatten_shape[0]),
+                kl.Reshape(config.observation_shape),
+            ]
 
-        # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
-        self(dummy_state)
+        # build
+        self.build((None,) + config.observation_shape)
 
-    def call(self, x):
-        return self.decode(self.encode(x))
+    def call(self, x, training=False):
+        return self.decode(self.encode(x, training), training)
 
     def encode(self, x, training=False):
-        z_mean, z_log_stddev = self.encoder(x, training=training)
+        x = self.encoder_in_block(x, training=training)
+        for layer in self.encoder_in_layers:
+            x = layer(x, training=training)
+        z_mean = self.encoder_z_mean_layer(x, training=training)
+        z_log_stddev = self.encoder_z_log_stddev(x, training=training)
+
+        if x.shape[0] is None:
+            return z_mean
 
         # reparameterize
         e = tf.random.normal(z_mean.shape)
@@ -210,12 +219,27 @@ class _VAE(keras.Model):
         else:
             return z
 
-    def decode(self, z, training=False):
-        return self.decoder(z, training=training)
+    def decode(self, x, training=False):
+        for layer in self.decoder_in_layers:
+            x = layer(x, training=training)
+        return x
 
     def sample(self, size=1):
         z = np.random.normal(size=(size, self.z_size))
         return self.decode(z), z
+
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name: str = "", **kwargs):
+        if hasattr(self.encoder_in_block, "init_model_graph"):
+            self.encoder_in_block.init_model_graph()
+
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
 
 
 class _MDNRNN(keras.Model):
@@ -365,8 +389,7 @@ class Parameter(RLParameter):
         ]
 
     def summary(self, **kwargs):
-        self.vae.encoder.summary(**kwargs)
-        self.vae.decoder.summary(**kwargs)
+        self.vae.summary(**kwargs)
         self.rnn.summary(**kwargs)
         self.controller.summary(**kwargs)
 

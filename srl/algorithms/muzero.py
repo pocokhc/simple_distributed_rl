@@ -1,7 +1,7 @@
 import logging
 import random
-from dataclasses import dataclass
-from typing import Any, List, Tuple, cast
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -10,22 +10,20 @@ from tensorflow.keras import layers as kl
 from tensorflow.keras import regularizers
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
-from srl.rl.functions.common import (
-    float_category_decode,
-    float_category_encode,
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
+from srl.base.rl.remote_memory.priority_experience_replay import \
+    PriorityExperienceReplay
+from srl.rl.functions.common import (float_category_decode,
+                                     float_category_encode, inverse_rescaling,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling)
 from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
-from srl.rl.models.tf.input_layer import create_input_layer
+from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.models.tf.muzero_atari_block import MuZeroAtariBlock
 from srl.utils.common import compare_less_version
 
@@ -45,7 +43,6 @@ https://arxiv.org/src/1911.08265v2/anc/pseudocode.py
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     num_simulations: int = 20
     batch_size: int = 128
     discount: float = 0.99
@@ -60,7 +57,13 @@ class Config(DiscreteActionConfig):
     v_max: int = 10
 
     # policyの温度パラメータのリスト
-    policy_tau_schedule: List[dict] = None
+    policy_tau_schedule: List[dict] = field(
+        default_factory=lambda: [
+            {"step": 0, "tau": 1.0},
+            {"step": 50_000, "tau": 0.5},
+            {"step": 75_000, "tau": 0.25},
+        ]
+    )
 
     # td_steps: int = 5  # multisteps
     unroll_steps: int = 3  # unroll_steps
@@ -82,8 +85,8 @@ class Config(DiscreteActionConfig):
     memory_beta_steps: int = 100_000
 
     # model
-    input_image_block: kl.Layer = AlphaZeroImageBlock
-    input_image_block_kwargs: dict = None
+    input_image_block: keras.Model = AlphaZeroImageBlock
+    input_image_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
     dynamics_blocks: int = 15
     reward_dense_units: int = 0
     weight_decay: float = 0.0001
@@ -112,16 +115,6 @@ class Config(DiscreteActionConfig):
         self.dynamics_blocks = 15
         self.weight_decay = 0.0001
         self.enable_rescale = True
-
-    def __post_init__(self):
-        if self.policy_tau_schedule is None:
-            self.policy_tau_schedule = [
-                {"step": 0, "tau": 1.0},
-                {"step": 50_000, "tau": 0.5},
-                {"step": 75_000, "tau": 0.25},
-            ]
-        if self.input_image_block_kwargs is None:
-            self.input_image_block_kwargs = {}
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -193,27 +186,29 @@ class _RepresentationNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        in_state, c, use_image_head = create_input_layer(
-            config.observation_shape,
-            config.env_observation_type,
-        )
-        assert use_image_head, "Input supports only image format."
+        # input
+        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
+        assert self.in_block.use_image_layer, "Input supports only image format."
 
-        c = config.input_image_block(**config.input_image_block_kwargs)(c)
-        self.model = keras.Model(in_state, c, name="RepresentationNetwork")
+        # image
+        self.image_block = config.input_image_block(**config.input_image_block_kwargs)
 
-        # 重みを初期化
+        # build
+        self.build((None,) + config.observation_shape)
+
+        # 出力shapeを取得
         dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         hidden_state = self(dummy_state)
-
-        # 出力shape
         self.hidden_state_shape = hidden_state.shape[1:]
 
-    def call(self, state):
-        x = self.model(state)
+    def call(self, state, training=False):
+        x = self.in_block(state, training=training)
+        x = self.image_block(x, training=training)
 
         # 隠れ状態はアクションとスケールを合わせるため0-1で正規化(一応batch毎)
         batch, h, w, d = x.shape
+        if batch is None:
+            return x
         s_min = tf.reduce_min(tf.reshape(x, (batch, -1)), axis=1, keepdims=True)
         s_max = tf.reduce_max(tf.reshape(x, (batch, -1)), axis=1, keepdims=True)
         s_min = s_min * tf.ones((batch, h * w * d), dtype=tf.float32)
@@ -224,6 +219,21 @@ class _RepresentationNetwork(keras.Model):
         x = (x - s_min + epsilon) / tf.maximum((s_max - s_min), 2 * epsilon)
 
         return x
+
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name: str = "", **kwargs):
+        if hasattr(self.in_block, "init_model_graph"):
+            self.in_block.init_model_graph()
+        if hasattr(self.image_block, "init_model_graph"):
+            self.image_block.init_model_graph()
+
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
 
 
 class _DynamicsNetwork(keras.Model):
@@ -382,7 +392,7 @@ class Parameter(RLParameter):
         ]
 
     def summary(self, **kwargs):
-        self.representation_network.model.summary(**kwargs)
+        self.representation_network.summary(**kwargs)
         self.dynamics_network.model.summary(**kwargs)
         self.prediction_network.model.summary(**kwargs)
 
@@ -649,7 +659,6 @@ class Worker(DiscreteActionWorker):
         return reward
 
     def _calc_puct(self, state_str, invalid_actions, is_root):
-
         # ディリクレノイズ
         if is_root:
             noises = np.random.dirichlet([self.config.root_dirichlet_alpha] * self.config.action_num)
@@ -717,7 +726,6 @@ class Worker(DiscreteActionWorker):
 
             # batch create
             for idx in range(len(self.history)):
-
                 # --- policies
                 policies = [
                     [1 / self.config.action_num] * self.config.action_num for _ in range(self.config.unroll_steps + 1)

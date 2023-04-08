@@ -37,7 +37,7 @@ class AlphaZeroImageBlock(keras.Model):
             self.bn1 = kl.BatchNormalization()
         self.act1 = kl.ReLU()
 
-        self.resblocks = [ResidualBlock(filters, kernel_size, l2, use_layer_normalization) for _ in range(n_blocks)]
+        self.resblocks = [_ResidualBlock(filters, kernel_size, l2, use_layer_normalization) for _ in range(n_blocks)]
 
     def call(self, x):
         x = self.conv1(x)
@@ -47,8 +47,19 @@ class AlphaZeroImageBlock(keras.Model):
             x = resblock(x)
         return x
 
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
 
-class ResidualBlock(keras.Model):
+    def init_model_graph(self, name: str = ""):
+        [r.init_model_graph() for r in self.resblocks]
+
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        keras.Model(inputs=x, outputs=self.call(x), name=name)
+
+
+class _ResidualBlock(keras.Model):
     def __init__(
         self,
         filters: int,
@@ -95,12 +106,18 @@ class ResidualBlock(keras.Model):
         x = self.act2(x)
         return x
 
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def init_model_graph(self, name: str = ""):
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        keras.Model(inputs=x, outputs=self.call(x), name=name)
+
 
 if __name__ == "__main__":
-    in_ = c = keras.Input((96, 72, 3))
-    c = AlphaZeroImageBlock(n_blocks=1)(c)
-    model = keras.Model(in_, c)
-    model.summary(expand_nested=True)
-
-    # from tensorflow.keras.utils import plot_model
-    # plot_model(model, "tmp/model.png", show_shapes=True, expand_nested=True, show_layer_activations=True)
+    m = AlphaZeroImageBlock(n_blocks=1)
+    m.build((None, 96, 72, 3))
+    m.init_model_graph()
+    m.summary(expand_nested=True)

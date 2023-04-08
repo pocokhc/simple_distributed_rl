@@ -4,7 +4,8 @@ from srl.base.define import EnvObservationType
 from srl.utils.common import is_package_installed
 
 try:
-    from srl.rl.models.tf.input_layer import create_input_layer, create_input_layer_stateful_lstm
+    from srl.rl.models.tf.input_block import (create_input_layer,
+                                              create_input_layer_stateful_lstm)
 except ModuleNotFoundError:
     pass
 

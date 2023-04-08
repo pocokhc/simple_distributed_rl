@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, Union, cast
 
 import numpy as np
@@ -7,14 +7,15 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
+from srl.base.rl.algorithms.continuous_action import (ContinuousActionConfig,
+                                                      ContinuousActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.models.tf.dqn_image_block import DQNImageBlock
-from srl.rl.models.tf.input_layer import create_input_layer
+from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.models.tf.mlp_block import MLPBlock
 
 """
@@ -40,12 +41,12 @@ TD3
 class Config(ContinuousActionConfig):
 
     # model
-    cnn_block: kl.Layer = DQNImageBlock
-    cnn_block_kwargs: dict = None
-    policy_hidden_block: kl.Layer = MLPBlock
-    policy_hidden_block_kwargs: dict = None
-    q_hidden_block: kl.Layer = MLPBlock
-    q_hidden_block_kwargs: dict = None
+    cnn_block: keras.Model = DQNImageBlock
+    cnn_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
+    policy_hidden_block: keras.Model = MLPBlock
+    policy_hidden_block_kwargs: dict = field(default_factory=lambda: {})
+    q_hidden_block: keras.Model = MLPBlock
+    q_hidden_block_kwargs: dict = field(default_factory=lambda: {})
 
     discount: float = 0.9  # 割引率
     lr: float = 0.005  # 学習率
@@ -60,14 +61,6 @@ class Config(ContinuousActionConfig):
     target_policy_noise_stddev: float = 0.2  # Target policy ノイズの標準偏差
     target_policy_clip_range: float = 0.5  # Target policy ノイズのclip範囲
     actor_update_interval: int = 2
-
-    def __post_init__(self):
-        if self.cnn_block_kwargs is None:
-            self.cnn_block_kwargs = {}
-        if self.policy_hidden_block_kwargs is None:
-            self.policy_hidden_block_kwargs = {}
-        if self.q_hidden_block_kwargs is None:
-            self.q_hidden_block_kwargs = {}
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -119,71 +112,128 @@ class _ActorNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        in_state, c, use_image_head = create_input_layer(
-            config.observation_shape,
-            config.env_observation_type,
-        )
-        if use_image_head:
-            c = config.cnn_block(**config.cnn_block_kwargs)(c)
-            c = kl.Flatten()(c)
+        # input
+        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
+
+        # image
+        if self.in_block.use_image_layer:
+            self.image_block = config.cnn_block(**config.cnn_block_kwargs)
+            self.image_flatten = kl.Flatten()
 
         # --- hidden block
-        c = config.policy_hidden_block(**config.policy_hidden_block_kwargs)(c)
+        self.hidden_block = config.policy_hidden_block(**config.policy_hidden_block_kwargs)
 
         # --- out layer
-        c = kl.Dense(config.action_num, activation="tanh")(c)
-        self.model = keras.Model(in_state, c, name="ActorNetwork")
+        self.out_layer = kl.Dense(config.action_num, activation="tanh")
 
-        # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
-        actions = self(dummy_state)
-        assert actions.shape == (1, config.action_num)
+        # build
+        self.build((None,) + config.observation_shape)
 
-    def call(self, state):
-        return self.model(state)
+    def call(self, state, training=False):
+        x = self.in_block(state, training=training)
+        if self.in_block.use_image_layer:
+            x = self.image_block(x, training=training)
+            x = self.image_flatten(x)
+        x = self.hidden_block(x, training=training)
+        x = self.out_layer(x, training=training)
+        return x
+
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name: str = "", **kwargs):
+        if hasattr(self.in_block, "init_model_graph"):
+            self.in_block.init_model_graph()
+        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
+            self.image_block.init_model_graph()
+        if hasattr(self.hidden_block, "init_model_graph"):
+            self.hidden_block.init_model_graph()
+
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
 
 
 class _CriticNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        # in state
-        in_state, c, use_image_head = create_input_layer(
-            config.observation_shape,
-            config.env_observation_type,
-        )
-        if use_image_head:
-            c = config.cnn_block(**config.cnn_block_kwargs)(c)
-            c = kl.Flatten()(c)
+        # input
+        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
 
-        # in action
-        in_action = kl.Input(shape=(config.action_num,))
-        c = kl.Concatenate()([c, in_action])
+        # image
+        if self.in_block.use_image_layer:
+            self.image_block = config.cnn_block(**config.cnn_block_kwargs)
+            self.image_flatten = kl.Flatten()
 
         # q1
-        c1 = config.q_hidden_block(**config.q_hidden_block_kwargs)(c)
-        q1 = kl.Dense(
-            1, activation="linear", kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
-        )(c1)
+        self.q1_block = config.q_hidden_block(**config.q_hidden_block_kwargs)
+        self.q1_output = kl.Dense(
+            1,
+            activation="linear",
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+        )
 
         # q2
-        c2 = config.q_hidden_block(**config.q_hidden_block_kwargs)(c)
-        q2 = kl.Dense(
-            1, activation="linear", kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
-        )(c2)
+        self.q2_block = config.q_hidden_block(**config.q_hidden_block_kwargs)
+        self.q2_output = kl.Dense(
+            1,
+            activation="linear",
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+        )
 
-        # out layer
-        self.model = keras.Model([in_state, in_action], [q1, q2], name="CriticNetwork")
+        # build
+        self.build(
+            [
+                (None,) + config.observation_shape,
+                (None, config.action_num),
+            ]
+        )
 
-        # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
-        dummy_action = np.zeros(shape=(1, config.action_num), dtype=np.float32)
-        _q1, _q2 = self(dummy_state, dummy_action)
-        assert _q1.shape == (1, 1)
-        assert _q2.shape == (1, 1)
+    def call(self, inputs, training=False):
+        state = inputs[0]
+        action = inputs[1]
 
-    def call(self, state, action):
-        return self.model([state, action])
+        x = self.in_block(state, training=training)
+        if self.in_block.use_image_layer:
+            x = self.image_block(x, training=training)
+            x = self.image_flatten(x)
+        x = tf.concat([x, action], axis=1)
+
+        # q1
+        q1 = self.q1_block(x)
+        q1 = self.q1_output(q1)
+        # q2
+        q2 = self.q2_block(x)
+        q2 = self.q2_output(q1)
+
+        return q1, q2
+
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name: str = "", **kwargs):
+        if hasattr(self.in_block, "init_model_graph"):
+            self.in_block.init_model_graph()
+        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
+            self.image_block.init_model_graph()
+        if hasattr(self.q1_block, "init_model_graph"):
+            self.q1_block.init_model_graph()
+        if hasattr(self.q2_block, "init_model_graph"):
+            self.q2_block.init_model_graph()
+
+        x = [
+            kl.Input(shape=self.__input_shape[0][1:]),
+            kl.Input(shape=self.__input_shape[1][1:]),
+        ]
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -212,8 +262,8 @@ class Parameter(RLParameter):
         ]
 
     def summary(self, **kwargs):
-        self.actor_online.model.summary(**kwargs)
-        self.critic_online.model.summary(**kwargs)
+        self.actor_online.summary(**kwargs)
+        self.critic_online.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -269,7 +319,7 @@ class Trainer(RLTrainer):
 
         # 2つのQ値から小さいほうを採用(Clipped Double Q learning)して、
         # Q値を計算 : reward if done else (reward + discount * n_qval) - (alpha * H)
-        n_q1, n_q2 = self.parameter.critic_target(n_states, n_actions)
+        n_q1, n_q2 = self.parameter.critic_target([n_states, n_actions])
         q_vals = rewards + (1 - dones) * self.config.discount * tf.minimum(n_q1, n_q2)
 
         # --- ポリシーの学習
@@ -278,7 +328,7 @@ class Trainer(RLTrainer):
             with tf.GradientTape() as tape:
                 # アクションを出力
                 actor_actions = self.parameter.actor_online(states)
-                q, _ = self.parameter.critic_online(states, actor_actions)
+                q, _ = self.parameter.critic_online([states, actor_actions])
                 actor_loss = -tf.reduce_mean(q)  # 最大化
                 actor_loss += tf.reduce_sum(self.parameter.actor_online.losses)
 
@@ -291,7 +341,7 @@ class Trainer(RLTrainer):
 
         # --- Qモデルの学習
         with tf.GradientTape() as tape:
-            q1, q2 = self.parameter.critic_online(states, actions)
+            q1, q2 = self.parameter.critic_online([states, actions])
             loss1 = tf.reduce_mean(tf.square(q_vals - q1))
             loss2 = tf.reduce_mean(tf.square(q_vals - q2))
             critic_loss = (loss1 + loss2) / 2
@@ -375,7 +425,7 @@ class Worker(ContinuousActionWorker):
     def render_terminal(self, env, worker, **kwargs) -> None:
         state = self.state.reshape(1, -1)
         action = self.parameter.actor_online(state)
-        q1, q2 = self.parameter.critic_online(state, action)
+        q1, q2 = self.parameter.critic_online([state, action])
         q1 = q1.numpy()[0][0]
         q2 = q2.numpy()[0][0]
         action = action.numpy()[0]

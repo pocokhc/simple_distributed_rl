@@ -1,6 +1,6 @@
 import collections
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
@@ -9,25 +9,22 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (
-    calc_epsilon_greedy_probs,
-    create_beta_list,
-    create_discount_list,
-    create_epsilon_list,
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
+from srl.rl.functions.common import (calc_epsilon_greedy_probs,
+                                     create_beta_list, create_discount_list,
+                                     create_epsilon_list, inverse_rescaling,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling)
 from srl.rl.models.tf.dqn_image_block import DQNImageBlock
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
-from srl.rl.models.tf.input_layer import create_input_layer, create_input_layer_stateful_lstm
+from srl.rl.models.tf.input_block import (create_input_layer,
+                                          create_input_layer_stateful_lstm)
 
 """
 Paper: https://arxiv.org/abs/2003.13350
@@ -75,8 +72,8 @@ class Config(DiscreteActionConfig):
 
     # model
     lstm_units: int = 512
-    cnn_block: kl.Layer = DQNImageBlock
-    cnn_block_kwargs: dict = None
+    cnn_block: keras.Model = DQNImageBlock
+    cnn_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
 
@@ -142,12 +139,7 @@ class Config(DiscreteActionConfig):
 
     # other
     disable_int_priority: bool = False  # Not use internal rewards to calculate priority
-
     dummy_state_val: float = 0.0
-
-    def __post_init__(self):
-        if self.cnn_block_kwargs is None:
-            self.cnn_block_kwargs = {}
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -224,7 +216,9 @@ class _QNetwork(keras.Model):
             config.env_observation_type,
         )
         if use_image_head:
-            c = kl.TimeDistributed(config.cnn_block(**config.cnn_block_kwargs))(c)
+            c = kl.TimeDistributed(kl.Conv2D(32, (8, 8), strides=(4, 4), padding="same", activation="relu"))(c)
+            c = kl.TimeDistributed(kl.Conv2D(64, (4, 4), strides=(4, 4), padding="same", activation="relu"))(c)
+            c = kl.TimeDistributed(kl.Conv2D(64, (3, 3), strides=(4, 4), padding="same", activation="relu"))(c)
             c = kl.TimeDistributed(kl.Flatten())(c)
 
         # UVFA

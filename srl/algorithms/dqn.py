@@ -1,6 +1,6 @@
 import random
-from dataclasses import dataclass
-from typing import Any, List, Tuple, cast
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -8,15 +8,17 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers as kl
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
-from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
+from srl.rl.functions.common import (create_epsilon_list, inverse_rescaling,
+                                     render_discrete_action, rescaling)
 from srl.rl.models.tf.dqn_image_block import DQNImageBlock
-from srl.rl.models.tf.input_layer import create_input_layer
+from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.models.tf.mlp_block import MLPBlock
 
 """
@@ -62,10 +64,10 @@ class Config(DiscreteActionConfig):
     exploration_steps: int = 0  # 0 : no Annealing
 
     # model
-    cnn_block: kl.Layer = DQNImageBlock
-    cnn_block_kwargs: dict = None
-    hidden_block: kl.Layer = MLPBlock
-    hidden_block_kwargs: dict = None
+    cnn_block: keras.Model = DQNImageBlock
+    cnn_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
+    hidden_block: keras.Model = MLPBlock
+    hidden_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
 
     discount: float = 0.99  # 割引率
     lr: float = 0.001  # 学習率
@@ -87,8 +89,9 @@ class Config(DiscreteActionConfig):
         self.batch_size = 32
         self.capacity = 1_000_000
         self.cnn_block = DQNImageBlock
+        self.cnn_block_kwargs = {}
         self.hidden_block = MLPBlock
-        self.hidden_block_kwargs = dict(hidden_layer_sizes=(512,))
+        self.hidden_block_kwargs = dict(layer_sizes=(512,))
         self.target_model_update_interval = 10000
         self.discount = 0.99
         self.lr = 0.00025
@@ -101,12 +104,6 @@ class Config(DiscreteActionConfig):
         self.enable_rescale = False
 
     # -------------------------------
-
-    def __post_init__(self):
-        if self.cnn_block_kwargs is None:
-            self.cnn_block_kwargs = {}
-        if self.hidden_block_kwargs is None:
-            self.hidden_block_kwargs = {}
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -158,30 +155,53 @@ class _QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        in_state, c, use_image_head = create_input_layer(config.observation_shape, config.env_observation_type)
-        if use_image_head:
-            c = config.cnn_block(**config.cnn_block_kwargs)(c)
-            c = kl.Flatten()(c)
+        # input
+        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
 
-        # --- hidden block
-        c = config.hidden_block(**config.hidden_block_kwargs)(c)
+        # image
+        if self.in_block.use_image_layer:
+            self.image_block = config.cnn_block(**config.cnn_block_kwargs)
+            self.image_flatten = kl.Flatten()
 
-        # --- out layer
-        c = kl.Dense(
+        # hidden
+        self.hidden_block = config.hidden_block(**config.hidden_block_kwargs)
+
+        # out layer
+        self.out_layer = kl.Dense(
             config.action_num,
             activation="linear",
             kernel_initializer="truncated_normal",
             bias_initializer="truncated_normal",
-        )(c)
-        self.model = keras.Model(in_state, c, name="QNetwork")
+        )
 
-        # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
-        val = self(dummy_state)
-        assert val.shape == (1, config.action_num)
+        # build
+        self.build((None,) + config.observation_shape)
 
-    def call(self, state):
-        return self.model(state)
+    def call(self, x, training=False):
+        x = self.in_block(x, training=training)
+        if self.in_block.use_image_layer:
+            x = self.image_block(x, training=training)
+            x = self.image_flatten(x)
+        x = self.hidden_block(x, training=training)
+        x = self.out_layer(x, training=training)
+        return x
+
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name="", **kwargs):
+        if hasattr(self.in_block, "init_model_graph"):
+            self.in_block.init_model_graph()
+        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
+            self.image_block.init_model_graph()
+        if hasattr(self.hidden_block, "init_model_graph"):
+            self.hidden_block.init_model_graph()
+
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -203,7 +223,7 @@ class Parameter(RLParameter):
         return self.q_online.get_weights()
 
     def summary(self, **kwargs):
-        self.q_online.model.summary(**kwargs)
+        self.q_online.summary(**kwargs)
 
 
 # ------------------------------------------------------

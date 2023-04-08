@@ -13,7 +13,7 @@ except ModuleNotFoundError:
 @unittest.skipUnless(is_package_installed("tensorflow"), "no module")
 class Test(unittest.TestCase):
     def test_call(self):
-        block = MLPBlock(hidden_layer_sizes=(128, 512))
+        block = MLPBlock(layer_sizes=(128, 512))
         batch_size = 16
 
         x = np.ones((batch_size, 8))

@@ -1,6 +1,6 @@
 import random
-from dataclasses import dataclass
-from typing import Any, List, Tuple, cast
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -14,10 +14,13 @@ from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
-from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
+from srl.base.rl.remote_memory.experience_replay_buffer import \
+    ExperienceReplayBuffer
+from srl.rl.functions.common import (random_choice_by_probs,
+                                     render_discrete_action,
+                                     to_str_observation)
 from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
-from srl.rl.models.tf.input_layer import create_input_layer
+from srl.rl.models.tf.input_block import InputBlock, create_input_layer
 from srl.rl.models.tf.mlp_block import MLPBlock
 
 """
@@ -46,7 +49,13 @@ class Config(DiscreteActionConfig):
     warmup_size: int = 1000
 
     # 学習率
-    lr_schedule: List[dict] = None
+    lr_schedule: List[dict] = field(
+        default_factory=lambda: [
+            {"train": 0, "lr": 0.02},
+            {"train": 100, "lr": 0.002},
+            {"train": 1000, "lr": 0.0002},
+        ]
+    )
 
     # Root prior exploration noise.
     root_dirichlet_alpha: float = 0.3
@@ -57,12 +66,25 @@ class Config(DiscreteActionConfig):
     c_init: float = 1.25
 
     # model
-    input_image_block: kl.Layer = AlphaZeroImageBlock
-    input_image_block_kwargs: dict = None
+    input_image_block: keras.Model = AlphaZeroImageBlock
+    input_image_block_kwargs: Dict[str, Any] = field(
+        default_factory=lambda: {
+            "n_blocks": 3,
+            "filters": 64,
+        }
+    )
     value_block: kl.Layer = MLPBlock
-    value_block_kwargs: dict = None
+    value_block_kwargs: Dict[str, Any] = field(
+        default_factory=lambda: {
+            "layer_sizes": (64,),
+        }
+    )
     policy_block: kl.Layer = MLPBlock
-    policy_block_kwargs: dict = None
+    policy_block_kwargs: Dict[str, Any] = field(
+        default_factory=lambda: {
+            "layer_sizes": (),
+        }
+    )
 
     def set_go_config(self):
         self.num_simulations = 800
@@ -85,20 +107,6 @@ class Config(DiscreteActionConfig):
         self.value_block_kwargs = dict(hidden_layer_sizes=(256,))
         self.policy_block = MLPBlock
         self.policy_block_kwargs = dict(hidden_layer_sizes=())
-
-    def __post_init__(self):
-        if self.lr_schedule is None:
-            self.lr_schedule = [
-                {"train": 0, "lr": 0.02},
-                {"train": 100, "lr": 0.002},
-                {"train": 1000, "lr": 0.0002},
-            ]
-        if self.input_image_block_kwargs is None:
-            self.input_image_block_kwargs = dict(n_blocks=3, filters=64)
-        if self.value_block_kwargs is None:
-            self.value_block_kwargs = dict(hidden_layer_sizes=(64,))
-        if self.policy_block_kwargs is None:
-            self.policy_block_kwargs = dict(hidden_layer_sizes=())
 
     @property
     def observation_type(self) -> RLObservationType:
@@ -146,66 +154,109 @@ class _Network(keras.Model):
         else:
             _l2 = 0.0001
 
-        in_state, c, use_image_head = create_input_layer(
-            config.observation_shape,
-            config.env_observation_type,
-        )
-        if use_image_head:
-            c = config.input_image_block(**config.input_image_block_kwargs)(c)
+        # --- in block
+        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
+        self.use_image_layer = self.in_block.use_image_layer
+
+        # --- image
+        if self.use_image_layer:
+            self.input_image_block = config.input_image_block(**config.input_image_block_kwargs)
 
             # --- policy image
-            c1 = kl.Conv2D(
-                2,
-                kernel_size=(1, 1),
-                padding="same",
-                use_bias=False,
-                kernel_regularizer=regularizers.l2(_l2),
-            )(c)
-            c1 = kl.BatchNormalization()(c1)
-            c1 = kl.LeakyReLU()(c1)
-            c1 = kl.Flatten()(c1)
+            self.input_image_policy_layers = [
+                kl.Conv2D(
+                    2,
+                    kernel_size=(1, 1),
+                    padding="same",
+                    use_bias=False,
+                    kernel_regularizer=regularizers.l2(_l2),
+                ),
+                kl.BatchNormalization(),
+                kl.LeakyReLU(),
+                kl.Flatten(),
+            ]
 
             # --- value image
-            c2 = kl.Conv2D(
-                1,
-                kernel_size=(1, 1),
-                padding="same",
-                use_bias=False,
-                kernel_regularizer=regularizers.l2(_l2),
-            )(c)
-            c2 = kl.BatchNormalization()(c2)
-            c2 = kl.LeakyReLU()(c2)
-            c2 = kl.Flatten()(c2)
-        else:
-            c1 = c
-            c2 = c
+            self.input_image_value_layers = [
+                kl.Conv2D(
+                    1,
+                    kernel_size=(1, 1),
+                    padding="same",
+                    use_bias=False,
+                    kernel_regularizer=regularizers.l2(_l2),
+                ),
+                kl.BatchNormalization(),
+                kl.LeakyReLU(),
+                kl.Flatten(),
+            ]
 
         # --- policy output
-        c1 = config.policy_block(**config.policy_block_kwargs)(c1)
-        policy = kl.Dense(
+        self.policy_block = config.policy_block(**config.policy_block_kwargs)
+        self.policy_out_layer = kl.Dense(
             config.action_num,
             activation="softmax",
             kernel_initializer="truncated_normal",
-        )(c1)
+        )
 
         # --- value output
-        c2 = config.value_block(**config.value_block_kwargs)(c2)
-        value = kl.Dense(
+        self.value_block = config.value_block(**config.value_block_kwargs)
+        self.value_out_layer = kl.Dense(
             1,
             # activation="tanh",  # 論文はtanh(-1～1)
             kernel_initializer="truncated_normal",
-        )(c2)
+        )
 
-        self.model = keras.Model(in_state, [policy, value], name="PVNetwork")
+        # build
+        self.build((None,) + config.observation_shape)
 
-        # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
-        policy, value = self(dummy_state)
-        assert policy.shape == (1, config.action_num)
-        assert value.shape == (1, 1)
+    def call(self, state, training=False):
 
-    def call(self, state):
-        return self.model(state)
+        # input
+        x = self.in_block(state, training=training)
+        if self.use_image_layer:
+            x = self.input_image_block(x, training=training)
+
+            # --- policy image
+            x1 = x
+            for layer in self.input_image_policy_layers:
+                x1 = layer(x1, training=training)
+
+            # --- value image
+            x2 = x
+            for layer in self.input_image_value_layers:
+                x2 = layer(x2, training=training)
+        else:
+            x1 = x
+            x2 = x
+
+        # --- policy output
+        x1 = self.policy_block(x1, training=training)
+        x1 = self.policy_out_layer(x1, training=training)
+
+        # --- value output
+        x2 = self.value_block(x2, training=training)
+        x2 = self.value_out_layer(x2, training=training)
+
+        return x1, x2
+
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name="", **kwargs):
+        if hasattr(self.in_block, "init_model_graph"):
+            self.in_block.init_model_graph()
+        if self.use_image_layer and hasattr(self.input_image_block, "init_model_graph"):
+            self.input_image_block.init_model_graph()
+        if hasattr(self.policy_block, "init_model_graph"):
+            self.policy_block.init_model_graph()
+        if hasattr(self.value_block, "init_model_graph"):
+            self.value_block.init_model_graph()
+
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -230,7 +281,7 @@ class Parameter(RLParameter):
         return self.network.get_weights()
 
     def summary(self, **kwargs):
-        self.network.model.summary(**kwargs)
+        self.network.summary(**kwargs)
 
     # ------------------------
 

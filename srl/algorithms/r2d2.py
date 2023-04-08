@@ -1,5 +1,5 @@
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
@@ -8,23 +8,20 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (
-    calc_epsilon_greedy_probs,
-    create_epsilon_list,
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
+from srl.rl.functions.common import (calc_epsilon_greedy_probs,
+                                     create_epsilon_list, inverse_rescaling,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling)
 from srl.rl.models.tf.dqn_image_block import DQNImageBlock
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
-from srl.rl.models.tf.input_layer import create_input_layer
+from srl.rl.models.tf.input_block import InputBlock
 
 """
 ・Paper
@@ -69,8 +66,8 @@ class Config(DiscreteActionConfig):
     actor_alpha: float = 7.0
 
     # model
-    cnn_block: kl.Layer = DQNImageBlock
-    cnn_block_kwargs: dict = None
+    cnn_block: keras.Model = DQNImageBlock
+    cnn_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
     lstm_units: int = 512
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
@@ -140,10 +137,6 @@ class Config(DiscreteActionConfig):
         self.memory_beta_initial: float = 0.6
         self.memory_beta_steps: int = 1_000_000
 
-    def __post_init__(self):
-        if self.cnn_block_kwargs is None:
-            self.cnn_block_kwargs = {}
-
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(
@@ -204,55 +197,102 @@ class _QNetwork(keras.Model):
         super().__init__()
 
         # --- in block
-        in_state, c, use_image_head = create_input_layer(config.observation_shape, config.env_observation_type)
-        if use_image_head:
-            c = config.cnn_block(**config.cnn_block_kwargs)(c)
-            c = kl.Flatten()(c)
-        self.in_block = kl.TimeDistributed(keras.Model(in_state, c))
+        self.in_block = InputBlock(
+            config.observation_shape,
+            config.env_observation_type,
+            enable_time_distributed_layer=True,
+        )
+        self.use_image_layer = self.in_block.use_image_layer
+
+        # image
+        if self.use_image_layer:
+            self.image_block = config.cnn_block(enable_time_distributed_layer=True, **config.cnn_block_kwargs)
+            self.image_flatten = kl.TimeDistributed(kl.Flatten())
 
         # --- lstm
         self.lstm_layer = kl.LSTM(config.lstm_units, return_sequences=True, return_state=True)
 
-        # --- out block
-        in_state = c = kl.Input((config.lstm_units,))
-
+        # hidden
+        self.hidden_layers = []
         for i in range(len(config.hidden_layer_sizes) - 1):
-            c = kl.Dense(
-                config.hidden_layer_sizes[i],
-                activation=config.activation,
-                kernel_initializer="he_normal",
-            )(c)
+            self.hidden_layers.append(
+                kl.TimeDistributed(
+                    kl.Dense(
+                        config.hidden_layer_sizes[i],
+                        activation=config.activation,
+                        kernel_initializer="he_normal",
+                    )
+                )
+            )
 
+        # out
+        self.enable_dueling_network = config.enable_dueling_network
         if config.enable_dueling_network:
-            c = DuelingNetworkBlock(
+            self.dueling_block = DuelingNetworkBlock(
                 config.action_num,
                 config.hidden_layer_sizes[-1],
                 config.dueling_network_type,
                 activation=config.activation,
-            )(c)
-        else:
-            c = kl.Dense(config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal")(
-                c
+                enable_time_distributed_layer=True,
             )
-            c = kl.Dense(
-                config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
-            )(c)
+        else:
+            self.out_layers = [
+                kl.TimeDistributed(
+                    kl.Dense(
+                        config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal"
+                    )
+                ),
+                kl.TimeDistributed(
+                    kl.Dense(
+                        config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
+                    )
+                ),
+            ]
 
-        self.out_block = kl.TimeDistributed(keras.Model(in_state, c))
+        # build
+        self.build((None, config.sequence_length) + config.observation_shape)
 
-        # 重みを初期化
-        dummy_state = np.zeros(shape=(1, 1) + config.observation_shape, dtype=np.float32)
-        hidden_state = self.init_hidden_state()
-        self(dummy_state, hidden_state)
-
-    def call(self, state, hidden_state, training=False):
+    def call(self, state, hidden_state=None, training=False):
         x = self.in_block(state, training=training)
+        if self.use_image_layer:
+            x = self.image_block(x, training=training)
+            x = self.image_flatten(x)
+
+        # lstm
         x, h, c = self.lstm_layer(x, initial_state=hidden_state, training=training)
-        x = self.out_block(x, training=training)
+
+        # hidden
+        for layer in self.hidden_layers:
+            x = layer(x, training=training)
+
+        # out
+        if self.enable_dueling_network:
+            x = self.dueling_block(x, training=training)
+        else:
+            for layer in self.out_layers:
+                x = layer(x, training=training)
+
         return x, [h, c]
 
     def init_hidden_state(self):
         return self.lstm_layer.cell.get_initial_state(batch_size=1, dtype=tf.float32)
+
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name="", **kwargs):
+        if hasattr(self.in_block, "init_model_graph"):
+            self.in_block.init_model_graph()
+        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
+            self.image_block.init_model_graph()
+        if self.enable_dueling_network and hasattr(self.dueling_block, "init_model_graph"):
+            self.dueling_block.init_model_graph()
+
+        x = kl.Input(self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
 
 
 # ------------------------------------------------------

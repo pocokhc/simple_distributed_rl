@@ -1,5 +1,5 @@
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
@@ -8,7 +8,8 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
@@ -16,7 +17,7 @@ from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common import render_discrete_action
 from srl.rl.models.tf.dqn_image_block import DQNImageBlock
-from srl.rl.models.tf.input_layer import create_input_layer
+from srl.rl.models.tf.input_block import create_input_layer
 from srl.rl.models.tf.mlp_block import MLPBlock
 
 """
@@ -44,20 +45,14 @@ class Config(DiscreteActionConfig):
     capacity: int = 100_000
 
     # model
-    cnn_block: kl.Layer = DQNImageBlock
-    cnn_block_kwargs: dict = None
-    hidden_block: kl.Layer = MLPBlock
-    hidden_block_kwargs: dict = None
+    cnn_block: keras.Model = DQNImageBlock
+    cnn_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
+    hidden_block: keras.Model = MLPBlock
+    hidden_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
 
     categorical_num_atoms: int = 51
     categorical_v_min: float = -10
     categorical_v_max: float = 10
-
-    def __post_init__(self):
-        if self.cnn_block_kwargs is None:
-            self.cnn_block_kwargs = {}
-        if self.hidden_block_kwargs is None:
-            self.hidden_block_kwargs = {}
 
     def set_processor(self) -> List[Processor]:
         return [

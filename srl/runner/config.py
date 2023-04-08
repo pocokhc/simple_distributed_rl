@@ -15,13 +15,9 @@ from srl.base.define import PlayRenderMode
 from srl.base.env.base import EnvRun
 from srl.base.env.config import EnvConfig
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
-from srl.base.rl.registration import (
-    make_parameter,
-    make_remote_memory,
-    make_trainer,
-    make_worker,
-    make_worker_rulebase,
-)
+from srl.base.rl.registration import (make_parameter, make_remote_memory,
+                                      make_trainer, make_worker,
+                                      make_worker_rulebase)
 from srl.base.rl.worker import WorkerRun
 from srl.runner.callback import Callback
 from srl.utils.common import is_package_imported
@@ -32,7 +28,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Config:
 
-    env_config: EnvConfig
+    env_config: Union[str, EnvConfig]
     rl_config: RLConfig
 
     # multi player option
@@ -77,6 +73,8 @@ class Config:
 
         if self.rl_config is None:
             self.rl_config = srl.rl.dummy.Config()
+        if isinstance(self.env_config, str):
+            self.env_config = EnvConfig(self.env_config)
 
         self.rl_name = self.rl_config.getName()
         self.env = None

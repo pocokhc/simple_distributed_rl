@@ -191,3 +191,6 @@ class RLConfig(ABC):
         else:
             config._is_set_env_config = self._is_set_env_config
         return config
+
+    def set_parameter(self, update_params: dict):
+        self.__dict__.update(update_params)

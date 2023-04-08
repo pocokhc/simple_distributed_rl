@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, List, Tuple, cast
 
 import numpy as np
+
 from srl.base.define import EnvObservationType, KeyBindType, RLObservationType
 from srl.base.env import registration
 from srl.base.env.base import EnvRun, SpaceBase
@@ -22,6 +23,7 @@ registration.register(
     kwargs={
         "move_reward": -0.04,
         "move_prob": 0.8,
+        "reward_baseline": 0.65,  # # 0.7318 ぐらい
     },
 )
 
@@ -31,6 +33,7 @@ registration.register(
     kwargs={
         "move_reward": 0.0,
         "move_prob": 1.0,
+        "reward_baseline": 0.9,
     },
 )
 
@@ -47,6 +50,7 @@ class Grid(SinglePlayEnv):
 
     move_prob: float = 0.8
     move_reward: float = -0.04
+    reward_baseline: float = 0.6
 
     def __post_init__(self):
         self.base_field = [
@@ -102,6 +106,15 @@ class Grid(SinglePlayEnv):
     @property
     def max_episode_steps(self) -> int:
         return 50
+
+    @property
+    def reward_info(self) -> dict:
+        r_min = (self.max_episode_steps - 1) * self.move_reward - 1
+        r_max = 5 * self.move_reward + 1
+        return {
+            "range": (r_min, r_max),
+            "baseline": self.reward_baseline,
+        }
 
     def call_reset(self) -> Tuple[List[int], dict]:
         self.player_pos = (1, 3)

@@ -50,6 +50,13 @@ class EnvBase(ABC, IRender):
     def player_num(self) -> int:
         raise NotImplementedError()
 
+    # --- reward(option)
+    @property
+    def reward_info(self) -> dict:
+        return {
+            "range": None,
+        }
+
     # --------------------------------
     # implement functions
     # --------------------------------
@@ -310,6 +317,10 @@ class EnvRun:
     @property
     def player_num(self) -> int:
         return self.env.player_num
+
+    @property
+    def reward_info(self) -> dict:
+        return self.env.reward_info
 
     # state properties
     @property

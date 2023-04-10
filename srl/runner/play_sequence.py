@@ -215,12 +215,15 @@ def play(
             config.enable_nvidia = False
             if is_package_installed("pynvml"):
                 import pynvml
+                import pynvml.nvml
 
                 try:
                     pynvml.nvmlInit()
                     config.enable_nvidia = True
                     __enabled_nvidia = True
                     initialized_nvidia = True
+                except pynvml.nvml.NVMLError_LibraryNotFound as e:
+                    logger.info(e)
                 except Exception:
                     logger.info(traceback.format_exc())
 

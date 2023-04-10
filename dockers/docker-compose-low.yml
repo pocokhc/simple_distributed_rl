@@ -1,10 +1,10 @@
 version: "3.9"
 
 services:
-  torch:
+  srl-low:
     build:
-      dockerfile: ./tests/dockerfile_torch
+      dockerfile: ./dockerfile_low
     volumes:
-      - ./:/code/
+      - ../:/code/
     command: /bin/bash
     tty: true

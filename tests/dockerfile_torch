@@ -1,9 +1,0 @@
-# syntax=docker/dockerfile:1
-# [reference] https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch
-FROM nvcr.io/nvidia/pytorch:22.12-py3
-
-WORKDIR /code
-
-ENV PYTHONPATH="/code"
-COPY ./tests/requirements_torch.txt requirements.txt
-RUN pip install -U -r requirements.txt

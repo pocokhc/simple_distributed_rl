@@ -3,5 +3,5 @@ FROM python:3.7-slim
 WORKDIR /code
 
 ENV PYTHONPATH="/code"
-COPY ./tests/requirements_py379_min.txt requirements.txt
+COPY ./requirements_min.txt requirements.txt
 RUN pip install -U -r requirements.txt

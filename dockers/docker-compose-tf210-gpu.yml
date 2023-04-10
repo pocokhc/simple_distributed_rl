@@ -1,11 +1,11 @@
 version: "3.9"
 
 services:
-  tfgpu:
+  tf-gpu:
     build:
-      dockerfile: ./tests/dockerfile_tf210_gpu
+      dockerfile: ./dockerfile_tf210_gpu
     volumes:
-      - ./:/code/
+      - ../:/code/
     command: /bin/bash
     tty: true
     deploy:

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM tensorflow/tensorflow:2.10.1
+FROM pytorch/pytorch:2.0.0-cuda11.7-cudnn8-runtime
 WORKDIR /code
 
 # import cv2
@@ -8,6 +8,5 @@ RUN apt-get update
 RUN apt-get install -y libgl1-mesa-dev libglib2.0-0
 
 ENV PYTHONPATH="/code"
-COPY ./tests/requirements_tf210.txt requirements.txt
+COPY ./requirements_torch.txt requirements.txt
 RUN pip install -U -r requirements.txt
-RUN pip uninstall -y pynvml

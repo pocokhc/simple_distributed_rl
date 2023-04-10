@@ -10,18 +10,20 @@ from tensorflow.keras import layers as kl
 from tensorflow.keras import regularizers
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.priority_experience_replay import \
-    PriorityExperienceReplay
-from srl.rl.functions.common import (float_category_decode,
-                                     float_category_encode, inverse_rescaling,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
+from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
+from srl.rl.functions.common import (
+    float_category_decode,
+    float_category_encode,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
 from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.models.tf.muzero_atari_block import MuZeroAtariBlock
@@ -243,43 +245,57 @@ class _DynamicsNetwork(keras.Model):
         v_num = config.v_max - config.v_min + 1
         h, w, ch = input_shape
 
-        # hidden_state + action_space
-        in_state = c = kl.Input(shape=(h, w, ch + self.action_num))
-
-        # hidden_state
-        c1 = AlphaZeroImageBlock(
+        # --- hidden_state
+        self.image_block = AlphaZeroImageBlock(
             n_blocks=config.dynamics_blocks,
             filters=ch,
             l2=config.weight_decay,
-        )(c)
+        )
+
+        # --- reward
+        self.reward_layers = [
+            kl.Conv2D(
+                1,
+                kernel_size=(1, 1),
+                padding="same",
+                use_bias=False,
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+            kl.BatchNormalization(),
+            kl.ReLU(),
+            kl.Flatten(),
+        ]
+        if config.reward_dense_units > 0:
+            self.reward_layers.append(
+                kl.Dense(
+                    config.reward_dense_units,
+                    activation="swish",
+                    kernel_regularizer=regularizers.l2(config.weight_decay),
+                )
+            )
+        self.reward_layers.append(
+            kl.Dense(
+                v_num,
+                activation="softmax",
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            )
+        )
+
+        # build
+        self.build((None, h, w, ch + self.action_num))
+
+    def call(self, in_state, training=False):
+        # hidden state
+        x = self.image_block(in_state, training=training)
 
         # reward
-        c2 = kl.Conv2D(
-            1,
-            kernel_size=(1, 1),
-            padding="same",
-            use_bias=False,
-            kernel_regularizer=regularizers.l2(config.weight_decay),
-        )(c)
-        c2 = kl.BatchNormalization()(c2)
-        c2 = kl.ReLU()(c2)
-        c2 = kl.Flatten()(c2)
-        if config.reward_dense_units > 0:
-            c2 = kl.Dense(
-                config.reward_dense_units, activation="swish", kernel_regularizer=regularizers.l2(config.weight_decay)
-            )(c2)
-        reward = kl.Dense(v_num, activation="softmax", kernel_regularizer=regularizers.l2(config.weight_decay))(c2)
+        reward_category = in_state
+        for layer in self.reward_layers:
+            reward_category = layer(reward_category, training=training)
 
-        self.model = keras.Model(in_state, [c1, reward], name="DynamicsNetwork")
+        return x, reward_category
 
-        # 重みを初期化
-        dummy1 = np.zeros(shape=(1,) + input_shape, dtype=np.float32)
-        dummy2 = [1]
-        v1, v2 = self(dummy1, dummy2)
-        assert v1.shape == (1, h, w, ch)
-        assert v2.shape == (1, v_num)
-
-    def call(self, hidden_state, action):
+    def predict(self, hidden_state, action, training=False):
         batch_size, h, w, _ = hidden_state.shape
 
         action_image = tf.one_hot(action, self.action_num)  # (batch, action)
@@ -288,7 +304,7 @@ class _DynamicsNetwork(keras.Model):
         action_image = tf.transpose(action_image, perm=[0, 2, 3, 1])  # (batch, h, w, action)
 
         in_state = tf.concat([hidden_state, action_image], axis=3)
-        x, reward_category = self.model(in_state)
+        x, reward_category = self.call(in_state, training)
 
         # 隠れ状態はアクションとスケールを合わせるため0-1で正規化(一応batch毎)
         batch, h, w, d = x.shape
@@ -303,6 +319,19 @@ class _DynamicsNetwork(keras.Model):
 
         return x, reward_category
 
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name="", **kwargs):
+        if hasattr(self.image_block, "init_model_graph"):
+            self.image_block.init_model_graph()
+
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
+
 
 class _PredictionNetwork(keras.Model):
     def __init__(self, config: Config, input_shape):
@@ -310,46 +339,67 @@ class _PredictionNetwork(keras.Model):
 
         v_num = config.v_max - config.v_min + 1
 
-        in_layer = c = kl.Input(shape=input_shape)
-
         # --- policy
-        c1 = kl.Conv2D(
-            2,
-            kernel_size=(1, 1),
-            padding="same",
-            use_bias=False,
-            kernel_regularizer=regularizers.l2(config.weight_decay),
-        )(c)
-        c1 = kl.BatchNormalization()(c1)
-        c1 = kl.ReLU()(c1)
-        c1 = kl.Flatten()(c1)
-        policy = kl.Dense(
-            config.action_num, activation="softmax", kernel_regularizer=regularizers.l2(config.weight_decay)
-        )(c1)
+        self.policy_layers = [
+            kl.Conv2D(
+                2,
+                kernel_size=(1, 1),
+                padding="same",
+                use_bias=False,
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+            kl.BatchNormalization(),
+            kl.ReLU(),
+            kl.Flatten(),
+            kl.Dense(
+                config.action_num,
+                activation="softmax",
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+        ]
 
         # --- value
-        c2 = kl.Conv2D(
-            1,
-            kernel_size=(1, 1),
-            padding="same",
-            use_bias=False,
-            kernel_regularizer=regularizers.l2(config.weight_decay),
-        )(c)
-        c2 = kl.BatchNormalization()(c2)
-        c2 = kl.ReLU()(c2)
-        c2 = kl.Flatten()(c2)
-        value = kl.Dense(v_num, activation="softmax", kernel_regularizer=regularizers.l2(config.weight_decay))(c2)
+        self.value_layers = [
+            kl.Conv2D(
+                1,
+                kernel_size=(1, 1),
+                padding="same",
+                use_bias=False,
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+            kl.BatchNormalization(),
+            kl.ReLU(),
+            kl.Flatten(),
+            kl.Dense(
+                v_num,
+                activation="softmax",
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+        ]
 
-        self.model = keras.Model(in_layer, [policy, value], name="PredictionNetwork")
+        # build
+        self.build((None,) + input_shape)
 
-        # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + input_shape, dtype=np.float32)
-        policy, value = self(dummy_state)
-        assert policy.shape == (1, config.action_num)
-        assert value.shape == (1, v_num)
+    def call(self, state, training=False):
+        policy = state
+        for layer in self.policy_layers:
+            policy = layer(policy, training=training)
 
-    def call(self, state):
-        return self.model(state)
+        value = state
+        for layer in self.value_layers:
+            value = layer(value, training=training)
+
+        return policy, value
+
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name: str = "", **kwargs):
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -393,8 +443,8 @@ class Parameter(RLParameter):
 
     def summary(self, **kwargs):
         self.representation_network.summary(**kwargs)
-        self.dynamics_network.model.summary(**kwargs)
-        self.prediction_network.model.summary(**kwargs)
+        self.dynamics_network.summary(**kwargs)
+        self.prediction_network.summary(**kwargs)
 
     # ------------------------
 
@@ -476,8 +526,8 @@ class Trainer(RLTrainer):
 
         with tf.GradientTape() as tape:
             # --- 1st step
-            hidden_states = self.parameter.representation_network(states)
-            p_pred, v_pred = self.parameter.prediction_network(hidden_states)
+            hidden_states = self.parameter.representation_network(states, training=True)
+            p_pred, v_pred = self.parameter.prediction_network(hidden_states, training=True)
 
             # loss
             policy_loss = _scale_gradient(self._cross_entropy_loss(policies_list[0], p_pred), 1.0)
@@ -488,8 +538,10 @@ class Trainer(RLTrainer):
             gradient_scale = 1 / self.config.unroll_steps
             for t in range(self.config.unroll_steps):
                 # pred
-                hidden_states, p_rewards = self.parameter.dynamics_network(hidden_states, actions_list[t])
-                p_pred, v_pred = self.parameter.prediction_network(hidden_states)
+                hidden_states, p_rewards = self.parameter.dynamics_network.predict(
+                    hidden_states, actions_list[t], training=True
+                )
+                p_pred, v_pred = self.parameter.prediction_network(hidden_states, training=True)
 
                 # loss
                 policy_loss += _scale_gradient(self._cross_entropy_loss(policies_list[t + 1], p_pred), gradient_scale)
@@ -629,7 +681,7 @@ class Worker(DiscreteActionWorker):
         action = np.random.choice(np.where(puct_list == np.max(puct_list))[0])
 
         # 次の状態を取得
-        n_state, reward_category = self.parameter.dynamics_network(state, [action])
+        n_state, reward_category = self.parameter.dynamics_network.predict(state, [action])
         n_state_str = n_state.ref()
         reward = float_category_decode(reward_category.numpy()[0], self.config.v_min, self.config.v_max)
         enemy_turn = self.config.env_player_num > 1  # 2player以上は相手番と決め打ち
@@ -802,7 +854,7 @@ class Worker(DiscreteActionWorker):
             c = self.N[self.s0_str][a]
             p = self.step_policy[a]
 
-            n_s, reward_category = self.parameter.dynamics_network(self.s0, [a])
+            n_s, reward_category = self.parameter.dynamics_network.predict(self.s0, [a])
             reward = float_category_decode(reward_category.numpy()[0], self.config.v_min, self.config.v_max)
             n_s_str = n_s.ref()
             self.parameter.pred_PV(n_s, n_s_str)

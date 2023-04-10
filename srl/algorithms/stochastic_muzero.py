@@ -10,18 +10,20 @@ from tensorflow.keras import layers as kl
 from tensorflow.keras import regularizers
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.priority_experience_replay import \
-    PriorityExperienceReplay
-from srl.rl.functions.common import (float_category_decode,
-                                     float_category_encode, inverse_rescaling,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
+from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
+from srl.rl.functions.common import (
+    float_category_decode,
+    float_category_encode,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
 from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.tf.input_block import InputBlock
 from srl.utils.common import compare_less_version
@@ -39,7 +41,6 @@ https://openreview.net/forum?id=X6D9bAHhBQ1
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     num_simulations: int = 20
     batch_size: int = 128
     discount: float = 0.999
@@ -221,52 +222,57 @@ class _DynamicsNetwork(keras.Model):
         v_num = config.v_max - config.v_min + 1
         h, w, ch = as_shape
 
-        # hidden_state + code_shape
-        in_state = c = kl.Input(shape=(h, w, ch + self.c_size))
-
-        # hidden_state
-        c1 = AlphaZeroImageBlock(
+        # --- hidden_state
+        self.image_block = AlphaZeroImageBlock(
             n_blocks=config.dynamics_blocks,
             filters=ch,
             l2=config.weight_decay,
-        )(c)
+        )
 
         # reward
-        c2 = kl.Conv2D(
-            1,
-            kernel_size=(1, 1),
-            padding="same",
-            use_bias=False,
-            kernel_regularizer=regularizers.l2(config.weight_decay),
-        )(c)
-        c2 = kl.BatchNormalization()(c2)
-        c2 = kl.ReLU()(c2)
-        c2 = kl.Flatten()(c2)
-        c2 = kl.Dense(
-            v_num,
-            activation="softmax",
-            kernel_initializer="truncated_normal",
-            bias_initializer="truncated_normal",
-            kernel_regularizer=regularizers.l2(config.weight_decay),
-        )(c2)
+        self.reward_layers = [
+            kl.Conv2D(
+                1,
+                kernel_size=(1, 1),
+                padding="same",
+                use_bias=False,
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+            kl.BatchNormalization(),
+            kl.ReLU(),
+            kl.Flatten(),
+            kl.Dense(
+                v_num,
+                activation="softmax",
+                kernel_initializer="truncated_normal",
+                bias_initializer="truncated_normal",
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+        ]
 
-        self.model = keras.Model(in_state, [c1, c2], name="DynamicsNetwork")
+        # build
+        self.build((None, h, w, ch + self.c_size))
 
-        # 重みを初期化
-        dummy1 = np.zeros(shape=(1,) + as_shape, dtype=np.float32)
-        dummy2 = np.zeros(shape=(1, config.codebook_size), dtype=np.float32)
-        dummy2[0][0] = 1.0
-        self(dummy1, dummy2)
+    def call(self, in_state, training=False):
+        # hidden state
+        x = self.image_block(in_state, training=training)
 
-    def call(self, as_state, code_state):
-        batch, h, w, _ = as_state.shape
+        # reward
+        reward_category = in_state
+        for layer in self.reward_layers:
+            reward_category = layer(reward_category, training=training)
+
+        return x, reward_category
+
+    def predict(self, as_state, code_state, training=False):
+        batch_size, h, w, _ = as_state.shape
 
         code_image = tf.repeat(code_state, h * w, axis=1)  # (b, c_size)->(b, c_size * h * w)
-        code_image = tf.reshape(code_image, (batch, self.c_size, h, w))  # (b, c_size * h * w)->(b, c_size, h, w)
+        code_image = tf.reshape(code_image, (batch_size, self.c_size, h, w))  # (b, c_size * h * w)->(b, c_size, h, w)
         code_image = tf.transpose(code_image, perm=[0, 2, 3, 1])  # (b, c_size, h, w)->(b, h, w, c_size)
 
         in_state = tf.concat([as_state, code_image], axis=3)
-        x, reward_category = self.model(in_state)
+        x, reward_category = self.call(in_state, training)
 
         # 隠れ状態はアクションとスケールを合わせるため0-1で正規化(一応batch毎)
         batch, h, w, d = x.shape
@@ -281,6 +287,19 @@ class _DynamicsNetwork(keras.Model):
 
         return x, reward_category
 
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name="", **kwargs):
+        if hasattr(self.image_block, "init_model_graph"):
+            self.image_block.init_model_graph()
+
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
+
 
 class _PredictionNetwork(keras.Model):
     def __init__(self, config: Config, hidden_shape):
@@ -288,56 +307,71 @@ class _PredictionNetwork(keras.Model):
 
         v_num = config.v_max - config.v_min + 1
 
-        in_layer = c = kl.Input(shape=hidden_shape)
-
         # --- policy
-        c1 = kl.Conv2D(
-            2,
-            kernel_size=(1, 1),
-            padding="same",
-            use_bias=False,
-            kernel_regularizer=regularizers.l2(config.weight_decay),
-        )(c)
-        c1 = kl.BatchNormalization()(c1)
-        c1 = kl.ReLU()(c1)
-        c1 = kl.Flatten()(c1)
-        policy = kl.Dense(
-            config.action_num,
-            activation="softmax",
-            kernel_initializer="truncated_normal",
-            bias_initializer="truncated_normal",
-            kernel_regularizer=regularizers.l2(config.weight_decay),
-        )(c1)
+        self.policy_layers = [
+            kl.Conv2D(
+                2,
+                kernel_size=(1, 1),
+                padding="same",
+                use_bias=False,
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+            kl.BatchNormalization(),
+            kl.ReLU(),
+            kl.Flatten(),
+            kl.Dense(
+                config.action_num,
+                activation="softmax",
+                kernel_initializer="truncated_normal",
+                bias_initializer="truncated_normal",
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+        ]
 
         # --- value
-        c2 = kl.Conv2D(
-            1,
-            kernel_size=(1, 1),
-            padding="same",
-            use_bias=False,
-            kernel_regularizer=regularizers.l2(config.weight_decay),
-        )(c)
-        c2 = kl.BatchNormalization()(c2)
-        c2 = kl.ReLU()(c2)
-        c2 = kl.Flatten()(c2)
-        value = kl.Dense(
-            v_num,
-            activation="softmax",
-            kernel_initializer="truncated_normal",
-            bias_initializer="truncated_normal",
-            kernel_regularizer=regularizers.l2(config.weight_decay),
-        )(c2)
+        self.value_layers = [
+            kl.Conv2D(
+                1,
+                kernel_size=(1, 1),
+                padding="same",
+                use_bias=False,
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+            kl.BatchNormalization(),
+            kl.ReLU(),
+            kl.Flatten(),
+            kl.Dense(
+                v_num,
+                activation="softmax",
+                kernel_initializer="truncated_normal",
+                bias_initializer="truncated_normal",
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+        ]
 
-        self.model = keras.Model(in_layer, [policy, value], name="PredictionNetwork")
+        # build
+        self.build((None,) + hidden_shape)
 
-        # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + hidden_shape, dtype=np.float32)
-        policy, value = self(dummy_state)
-        assert policy.shape == (1, config.action_num)
-        assert value.shape == (1, v_num)
+    def call(self, state, training=False):
+        policy = state
+        for layer in self.policy_layers:
+            policy = layer(policy, training=training)
 
-    def call(self, state):
-        return self.model(state)
+        value = state
+        for layer in self.value_layers:
+            value = layer(value, training=training)
+
+        return policy, value
+
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name: str = "", **kwargs):
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
 
 
 class _AfterstateDynamicsNetwork(keras.Model):
@@ -346,24 +380,19 @@ class _AfterstateDynamicsNetwork(keras.Model):
         self.action_num = config.action_num
         h, w, ch = hidden_shape
 
-        # hidden_state + action_space
-        in_state = c = kl.Input(shape=(h, w, ch + self.action_num))
-
-        c = AlphaZeroImageBlock(
+        self.image_block = AlphaZeroImageBlock(
             n_blocks=config.dynamics_blocks,
             filters=ch,
             l2=config.weight_decay_afterstate,
-        )(c)
+        )
 
-        self.model = keras.Model(in_state, c, name="AfterstateDynamicsNetwork")
+        # build
+        self.build((None, h, w, ch + self.action_num))
 
-        # 重みを初期化
-        dummy1 = np.zeros(shape=(1,) + hidden_shape, dtype=np.float32)
-        dummy2 = [1]
-        s = self(dummy1, dummy2)
-        assert s.shape == (1, h, w, ch)
+    def call(self, in_state, training=False):
+        return self.image_block(in_state, training=training)
 
-    def call(self, hidden_state, action):
+    def predict(self, hidden_state, action, training=False):
         batch_size, h, w, _ = hidden_state.shape
 
         action_image = tf.one_hot(action, self.action_num)  # (batch, action)
@@ -371,8 +400,22 @@ class _AfterstateDynamicsNetwork(keras.Model):
         action_image = tf.reshape(action_image, (batch_size, self.action_num, h, w))  # (batch, action, h, w)
         action_image = tf.transpose(action_image, perm=[0, 2, 3, 1])  # (batch, h, w, action)
 
+        # hidden_state + action_space
         in_state = tf.concat([hidden_state, action_image], axis=3)
-        return self.model(in_state)
+        return self.call(in_state, training)
+
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name="", **kwargs):
+        if hasattr(self.image_block, "init_model_graph"):
+            self.image_block.init_model_graph()
+
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
 
 
 class _AfterstatePredictionNetwork(keras.Model):
@@ -381,54 +424,70 @@ class _AfterstatePredictionNetwork(keras.Model):
 
         v_num = config.v_max - config.v_min + 1
 
-        in_layer = c = kl.Input(shape=as_shape)
-
         # --- code
-        c1 = kl.Conv2D(
-            2,
-            kernel_size=(1, 1),
-            padding="same",
-            use_bias=False,
-            kernel_regularizer=regularizers.l2(config.weight_decay),
-        )(c)
-        c1 = kl.BatchNormalization()(c1)
-        c1 = kl.ReLU()(c1)
-        c1 = kl.Flatten()(c1)
-        c1 = kl.Dense(
-            config.codebook_size,
-            activation="softmax",
-            kernel_initializer="truncated_normal",
-            bias_initializer="truncated_normal",
-            kernel_regularizer=regularizers.l2(config.weight_decay),
-        )(c1)
+        self.code_layers = [
+            kl.Conv2D(
+                2,
+                kernel_size=(1, 1),
+                padding="same",
+                use_bias=False,
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+            kl.BatchNormalization(),
+            kl.ReLU(),
+            kl.Flatten(),
+            kl.Dense(
+                config.codebook_size,
+                activation="softmax",
+                kernel_initializer="truncated_normal",
+                bias_initializer="truncated_normal",
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+        ]
 
         # --- Q
-        c2 = kl.Conv2D(
-            1,
-            kernel_size=(1, 1),
-            padding="same",
-            use_bias=False,
-            kernel_regularizer=regularizers.l2(config.weight_decay),
-        )(c)
-        c2 = kl.BatchNormalization()(c2)
-        c2 = kl.ReLU()(c2)
-        c2 = kl.Flatten()(c2)
-        c2 = kl.Dense(
-            v_num,
-            activation="softmax",
-            kernel_initializer="truncated_normal",
-            bias_initializer="truncated_normal",
-            kernel_regularizer=regularizers.l2(config.weight_decay),
-        )(c2)
+        self.q_layers = [
+            kl.Conv2D(
+                1,
+                kernel_size=(1, 1),
+                padding="same",
+                use_bias=False,
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+            kl.BatchNormalization(),
+            kl.ReLU(),
+            kl.Flatten(),
+            kl.Dense(
+                v_num,
+                activation="softmax",
+                kernel_initializer="truncated_normal",
+                bias_initializer="truncated_normal",
+                kernel_regularizer=regularizers.l2(config.weight_decay),
+            ),
+        ]
+        # build
+        self.build((None,) + as_shape)
 
-        self.model = keras.Model(in_layer, [c1, c2], name="AfterstatePredictionNetwork")
+    def call(self, state, training=False):
+        code = state
+        for layer in self.code_layers:
+            code = layer(code, training=training)
 
-        # 重みを初期化
-        dummy_state = np.zeros(shape=(1,) + as_shape, dtype=np.float32)
-        self(dummy_state)
+        q = state
+        for layer in self.q_layers:
+            q = layer(q, training=training)
 
-    def call(self, state):
-        return self.model(state)
+        return code, q
+
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name: str = "", **kwargs):
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
 
 
 class _VQ_VAE(keras.Model):
@@ -564,10 +623,10 @@ class Parameter(RLParameter):
 
     def summary(self, **kwargs):
         self.representation_network.summary(**kwargs)
-        self.dynamics_network.model.summary(**kwargs)
-        self.prediction_network.model.summary(**kwargs)
-        self.afterstate_dynamics_network.model.summary(**kwargs)
-        self.afterstate_prediction_network.model.summary(**kwargs)
+        self.dynamics_network.summary(**kwargs)
+        self.prediction_network.summary(**kwargs)
+        self.afterstate_dynamics_network.summary(**kwargs)
+        self.afterstate_prediction_network.summary(**kwargs)
         self.vq_vae.summary(**kwargs)
 
     # ------------------------
@@ -648,8 +707,8 @@ class Trainer(RLTrainer):
 
         with tf.GradientTape() as tape:
             # --- 1st step
-            hidden_states = self.parameter.representation_network(states_list[0])
-            p_pred, v_pred = self.parameter.prediction_network(hidden_states)
+            hidden_states = self.parameter.representation_network(states_list[0], training=True)
+            p_pred, v_pred = self.parameter.prediction_network(hidden_states, training=True)
 
             # loss
             policy_loss = self._cross_entropy_loss(policies_list[0], p_pred)
@@ -661,15 +720,19 @@ class Trainer(RLTrainer):
 
             # --- unroll steps
             for t in range(self.config.unroll_steps):
-                after_states = self.parameter.afterstate_dynamics_network(hidden_states, actions_list[t])
-                chance_pred, q_pred = self.parameter.afterstate_prediction_network(after_states)
-                chance_code, chance_vae_pred = self.parameter.vq_vae(states_list[t + 1])
+                after_states = self.parameter.afterstate_dynamics_network.predict(
+                    hidden_states, actions_list[t], training=True
+                )
+                chance_pred, q_pred = self.parameter.afterstate_prediction_network(after_states, training=True)
+                chance_code, chance_vae_pred = self.parameter.vq_vae(states_list[t + 1], training=True)
 
                 chance_loss += self._cross_entropy_loss(chance_code, chance_pred)
                 q_loss += self._cross_entropy_loss(values_list[t], q_pred)
                 vae_loss += tf.reduce_mean(tf.square(chance_code - chance_vae_pred), axis=1)  # MSE
 
-                hidden_states, rewards_pred = self.parameter.dynamics_network(after_states, chance_code)
+                hidden_states, rewards_pred = self.parameter.dynamics_network.predict(
+                    after_states, chance_code, training=True
+                )
                 p_pred, v_pred = self.parameter.prediction_network(hidden_states)
 
                 policy_loss += self._cross_entropy_loss(policies_list[t + 1], p_pred)
@@ -818,7 +881,7 @@ class Worker(DiscreteActionWorker):
             action = np.random.choice(np.where(puct_list == np.max(puct_list))[0])
 
             # 次の状態を取得(after state)
-            n_state = self.parameter.afterstate_dynamics_network(state, [action])
+            n_state = self.parameter.afterstate_dynamics_network.predict(state, [action])
             reward = 0
             is_afterstate = True
 
@@ -829,7 +892,7 @@ class Worker(DiscreteActionWorker):
             action = np.argmax(c[0])  # outcomes
 
             # 次の状態を取得
-            n_state, reward_category = self.parameter.dynamics_network(state, c)
+            n_state, reward_category = self.parameter.dynamics_network.predict(state, c)
             reward = float_category_decode(reward_category.numpy()[0], self.config.v_min, self.config.v_max)
             is_afterstate = False
 
@@ -865,7 +928,6 @@ class Worker(DiscreteActionWorker):
         return reward
 
     def _calc_puct(self, state_str, invalid_actions, is_root):
-
         # ディリクレノイズ
         if is_root:
             dir_alpha = self.config.root_dirichlet_alpha
@@ -941,7 +1003,6 @@ class Worker(DiscreteActionWorker):
 
             # batch create
             for idx in range(len(self.history)):
-
                 # --- policies
                 policies = [
                     [1 / self.config.action_num] * self.config.action_num for _ in range(self.config.unroll_steps + 1)
@@ -1021,11 +1082,11 @@ class Worker(DiscreteActionWorker):
         print(f"V: {v:.5f}")
 
         def _render_sub(a: int) -> str:
-            after_state = self.parameter.afterstate_dynamics_network(self.s0, [a])
+            after_state = self.parameter.afterstate_dynamics_network.predict(self.s0, [a])
             c, q_category = self.parameter.afterstate_prediction_network(after_state)
             q = float_category_decode(q_category.numpy()[0], self.config.v_min, self.config.v_max)
             c = self.parameter.vq_vae.encode(c)
-            _, reward_category = self.parameter.dynamics_network(after_state, c)
+            _, reward_category = self.parameter.dynamics_network.predict(after_state, c)
             reward = float_category_decode(reward_category.numpy()[0], self.config.v_min, self.config.v_max)
 
             if self.config.enable_rescale:

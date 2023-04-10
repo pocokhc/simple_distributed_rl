@@ -1,7 +1,6 @@
 # TODO list
 
 1. (R2D3)
-1. TensorflowのGradientTapeでは正則化項が計算されていない？追加が必要か調査してアルゴリズムを見直す
 1. BizHawkのenv作成
 1. ネットワーク経由の学習
 
@@ -22,18 +21,39 @@
    1. srl.rl.models を srl.rl.models.tf に移動し、 srl.rl.models.torch ディレクトリを追加
    1. torchのdocker環境を追加
    1. DQN_torchを追加
+1. TFのmodelを'FunctionalAPI'から'SubclassingAPI'に変更
+   1. Modelのsummaryがちゃんと表記されるように修正
+   1. `srl.rl.models.tf` 配下をリファクタリング
+   1. 合わせて各アルゴリズムのコード修正
+1. Dockerファイルをリファクタリング
+   1. dockersディレクトリを作成しその配下に必要なファイルをまとめました
+   1. Dockerで常駐しない場合があるのでcommand追加
+   1. TF2.10 で 一旦Dockerファイルを固定
+   1. torch用Dockerファイルを作成
+
+**Algorims**
+
+1. PlanetをWorldModelsのコードに合わせて修正
+aaaaa1. WorldModelsを作成
 
 **OtherUpdates**
 
-1. Dockerで常駐しない場合があるのでcommand追加
-1. envのcloseで例外時に処理を続けるように変更
-1. gym の状態判定シミュレーションで回数を指定できる引数 prediction_step を追加
-1. 各ライブラリのVersionを(2022/12)時点での最新に更新
+1. env関係
+   1. envのcloseで例外時に処理を続けるように変更
+   1. gym の状態判定シミュレーションで回数を指定できる引数 prediction_step を追加
+   1. env.baseにreward_infoを導入（仮）
 1. game_windowにてKeyを押す判定を厳密に定義
+1. Configのenv指定を文字列でもできるように変更
+1. 各ライブラリのVersionを(2022/12)時点での最新に更新
+1. sub versionの表記でアルファベットを使うと一部のライブラリでエラーが出たので数字に変更
+1. test環境を大幅にリファクタリング
 
 **Bug Fixes**
 
 1. ArrayDiscreteSpace にて discrete を返す時、最大値(high)を含めていなかった不具合修正
+1. TF2.11.0から一部のoptimizerでエラーが出るようになったのでlegacyを追加
+1. TFのloss計算にて正則化項が加味されるように修正
+1. Py3.11でrandom.choiceにnumpy配列を渡すとエラーが出る不具合修正
 
 # v0.9.1
 

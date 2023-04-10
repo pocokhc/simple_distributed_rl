@@ -425,5 +425,4 @@ examples/custom_rl.ipynb
   + CPUx1: Core i9-12900 2.4GHz
   + GPUx1: NVIDIA GeForce RTX 3060 12GB
   + memory 32GB
-+ Python(3.7.9, 3.10.7)
-  + look "./tests/requirements*".
++ look "./dockers/"

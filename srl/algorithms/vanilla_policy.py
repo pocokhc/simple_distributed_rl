@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Any, List, Tuple, cast
 
 import numpy as np
+
 from srl.base.define import RLAction, RLActionType, RLObservationType
 from srl.base.rl.algorithms.any_action import AnyActionConfig, AnyActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
@@ -16,7 +17,6 @@ from srl.rl.functions.common import render_discrete_action, to_str_observation
 # ------------------------------------------------------
 @dataclass
 class Config(AnyActionConfig):
-
     discount: float = 0.9
     lr: float = 0.1
 
@@ -24,13 +24,12 @@ class Config(AnyActionConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.DISCRETE
 
-    @staticmethod
-    def getName() -> str:
+    def getName(self) -> str:
         return "VanillaPolicy"
 
 
 register(
-    Config,
+    Config(),
     __name__ + ":RemoteMemory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
@@ -105,7 +104,6 @@ class Trainer(RLTrainer):
         return self.train_count
 
     def train(self):
-
         batchs = self.remote_memory.sample()
         if len(batchs) == 0:
             return {}

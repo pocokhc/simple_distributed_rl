@@ -69,8 +69,7 @@ class Config(ContinuousActionConfig):
             )
         ]
 
-    @staticmethod
-    def getName() -> str:
+    def getName(self) -> str:
         return "SAC"
 
     def assert_params(self) -> None:
@@ -80,7 +79,7 @@ class Config(ContinuousActionConfig):
 
 
 register(
-    Config,
+    Config(),
     __name__ + ":RemoteMemory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",

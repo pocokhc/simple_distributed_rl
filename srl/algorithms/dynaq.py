@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
+
 from srl.base.define import RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
@@ -26,7 +27,6 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     epsilon: float = 0.1
     test_epsilon: float = 0
     discount: float = 0.9
@@ -36,13 +36,12 @@ class Config(DiscreteActionConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.DISCRETE
 
-    @staticmethod
-    def getName() -> str:
+    def getName(self) -> str:
         return "Dyna-Q"
 
 
 register(
-    Config,
+    Config(),
     __name__ + ":RemoteMemory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
@@ -62,7 +61,6 @@ class RemoteMemory(SequenceRemoteMemory):
 # ------------------------------------------------------
 class _A_MDP:
     def __init__(self):
-
         self.trans = {}  # [state][action][next_state] = 訪れた回数
         self.reward = {}  # [state][action] = 得た報酬の合計
         self.done = {}  # [state][action] = 終了した回数
@@ -178,12 +176,10 @@ class Trainer(RLTrainer):
         return self.train_count
 
     def train(self):
-
         # --- 近似モデルの学習
         model = self.parameter.model
         batchs = self.remote_memory.sample()
         for batch in batchs:
-
             # データ形式を変形
             state = batch["state"]
             n_state = batch["next_state"]
@@ -199,7 +195,6 @@ class Trainer(RLTrainer):
 
         # --- 近似モデルからランダムにサンプリング
         for batch in model.sample(10):
-
             # データ形式を変形
             s = batch["state"]
             n_s = batch["next_state"]

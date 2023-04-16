@@ -10,13 +10,12 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers as kl
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLRemoteMemory, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
-from srl.rl.models.tf.input_block import InputBlock, create_input_layer
+from srl.rl.models.tf.input_block import InputBlock
 
 """
 vae ref: https://developers-jp.googleblog.com/2019/04/tensorflow-probability-vae.html
@@ -29,7 +28,6 @@ ref: https://github.com/zacwellmer/WorldModels
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     train_mode: int = 1
 
     lr: float = 0.001
@@ -70,8 +68,7 @@ class Config(DiscreteActionConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.CONTINUOUS
 
-    @staticmethod
-    def getName() -> str:
+    def getName(self) -> str:
         return "WorldModels"
 
     def assert_params(self) -> None:
@@ -82,7 +79,7 @@ class Config(DiscreteActionConfig):
 
 
 register(
-    Config,
+    Config(),
     __name__ + ":RemoteMemory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
@@ -297,7 +294,6 @@ class _MDNRNN(keras.Model):
         return self(z, onehot_actions, hidden_state, return_rnn_only=return_rnn_only, training=False)
 
     def sample(self, pi, mu, log_sigma):
-
         batch = pi.shape[0]
         z_size = pi.shape[1]
 
@@ -656,7 +652,6 @@ class Worker(DiscreteActionWorker):
             # --- BLX-α交叉
             c = []
             for i in range(self.param_length):
-
                 if self.elite_params[idx1][i] < self.elite_params[idx2][i]:
                     xmin = self.elite_params[idx1][i]
                     xmax = self.elite_params[idx2][i]
@@ -678,7 +673,6 @@ class Worker(DiscreteActionWorker):
         self.elite_params = next_elite_params
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-
         # --- vae
         pred_state = self.parameter.vae.decode(self.z)[0].numpy()
         rmse = np.sqrt(np.mean((self.state - pred_state) ** 2))

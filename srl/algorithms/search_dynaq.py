@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
+
 from srl.base.define import RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
@@ -20,7 +21,6 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     test_search_rate: float = 0.0
     test_epsilon: float = 0.0
 
@@ -49,8 +49,7 @@ class Config(DiscreteActionConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.DISCRETE
 
-    @staticmethod
-    def getName() -> str:
+    def getName(self) -> str:
         return "SearchDynaQ"
 
     def assert_params(self) -> None:
@@ -58,7 +57,7 @@ class Config(DiscreteActionConfig):
 
 
 register(
-    Config,
+    Config(),
     __name__ + ":RemoteMemory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
@@ -238,7 +237,6 @@ class Trainer(RLTrainer):
         td_error_mean = 0
         batchs = self.remote_memory.sample()
         for batch in batchs:
-
             state = batch["state"]
             n_state = batch["next_state"]
             action = batch["action"]

@@ -1,9 +1,9 @@
 import json
-import random
 from dataclasses import dataclass
 from typing import Any, Tuple, cast
 
 import numpy as np
+
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
@@ -19,7 +19,6 @@ from srl.rl.functions.common import render_discrete_action, to_str_observation
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     num_simulations: int = 10
     expansion_threshold: int = 5
     discount: float = 1.0
@@ -29,13 +28,12 @@ class Config(DiscreteActionConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.DISCRETE
 
-    @staticmethod
-    def getName() -> str:
+    def getName(self) -> str:
         return "MCTS"
 
 
 register(
-    Config,
+    Config(),
     __name__ + ":RemoteMemory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",

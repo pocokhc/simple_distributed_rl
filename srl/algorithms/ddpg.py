@@ -71,8 +71,7 @@ class Config(ContinuousActionConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.CONTINUOUS
 
-    @staticmethod
-    def getName() -> str:
+    def getName(self) -> str:
         return "DDPG"
 
     def assert_params(self) -> None:
@@ -82,7 +81,7 @@ class Config(ContinuousActionConfig):
 
 
 register(
-    Config,
+    Config(),
     __name__ + ":RemoteMemory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",

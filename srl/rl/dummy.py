@@ -21,13 +21,12 @@ class Config(RLConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.ANY
 
-    @staticmethod
-    def getName() -> str:
+    def getName(self) -> str:
         return "Dummy"
 
 
 register(
-    Config,
+    Config(),
     __name__ + ":RemoteMemory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",

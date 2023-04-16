@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, List, Tuple, cast
 
 import numpy as np
+
 from srl.base.define import RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
@@ -62,7 +63,6 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     # ハイパーパラメータ
     test_epsilon: float = 0.0
     test_beta: float = 0.0
@@ -112,8 +112,7 @@ class Config(DiscreteActionConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.DISCRETE
 
-    @staticmethod
-    def getName() -> str:
+    def getName(self) -> str:
         return "QL_Agent57"
 
     def assert_params(self) -> None:
@@ -124,7 +123,7 @@ class Config(DiscreteActionConfig):
 
 
 register(
-    Config,
+    Config(),
     __name__ + ":RemoteMemory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
@@ -198,7 +197,6 @@ class Parameter(RLParameter):
             self.Q_C[state] = 0
 
     def calc_td_error(self, batch, q_tbl, rewards, enable_norm=False):
-
         dones = [False for _ in range(len(rewards))]
         dones[-1] = batch["done"]
         discount = batch["discount"]
@@ -269,7 +267,6 @@ class Trainer(RLTrainer):
         return self.train_count
 
     def train(self):
-
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
@@ -376,7 +373,6 @@ class Worker(DiscreteActionWorker):
 
     # (sliding-window UCB)
     def _calc_actor_index(self) -> int:
-
         # UCB計算用に保存
         if self.actor_index != -1:
             self.ucb_recent.append(

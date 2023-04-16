@@ -39,9 +39,8 @@ class RLConfig(ABC):
     # ----------------------------
     # RL config
     # ----------------------------
-    @staticmethod
     @abstractmethod
-    def getName() -> str:
+    def getName(self) -> str:
         raise NotImplementedError()
 
     @property

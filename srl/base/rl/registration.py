@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Optional, Type, Union
+from typing import Optional
 
 from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
@@ -112,7 +112,7 @@ def make_worker_rulebase(name: str, **kwargs) -> WorkerRun:
 
 
 def register(
-    config_cls: Type[RLConfig],
+    config: RLConfig,
     memory_entry_point: str,
     parameter_entry_point: str,
     trainer_entry_point: str,
@@ -120,7 +120,7 @@ def register(
 ):
     global _registry
 
-    name = config_cls.getName()
+    name = config.getName()
     assert name not in _registry, f"{name} was already registered."
     _registry[name] = [
         memory_entry_point,

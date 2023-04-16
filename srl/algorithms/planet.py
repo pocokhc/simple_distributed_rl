@@ -10,8 +10,7 @@ import tensorflow.keras.layers as kl
 import tensorflow_probability as tfp
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
@@ -31,7 +30,6 @@ ref: https://github.com/danijar/dreamer
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     lr: float = 0.001
     batch_size: int = 50
     batch_length: int = 50
@@ -76,8 +74,7 @@ class Config(DiscreteActionConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.CONTINUOUS
 
-    @staticmethod
-    def getName() -> str:
+    def getName(self) -> str:
         return "PlaNet"
 
     def assert_params(self) -> None:
@@ -87,7 +84,7 @@ class Config(DiscreteActionConfig):
 
 
 register(
-    Config,
+    Config(),
     __name__ + ":RemoteMemory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",

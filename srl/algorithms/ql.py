@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, List, Tuple, cast
 
 import numpy as np
+
 from srl.base.define import RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
@@ -26,7 +27,6 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     epsilon: float = 0.1
     test_epsilon: float = 0
     discount: float = 0.9
@@ -38,8 +38,7 @@ class Config(DiscreteActionConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.DISCRETE
 
-    @staticmethod
-    def getName() -> str:
+    def getName(self) -> str:
         return "QL"
 
     def assert_params(self) -> None:
@@ -47,7 +46,7 @@ class Config(DiscreteActionConfig):
 
 
 register(
-    Config,
+    Config(),
     __name__ + ":RemoteMemory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
@@ -103,11 +102,9 @@ class Trainer(RLTrainer):
         return self.train_count
 
     def train(self) -> dict:
-
         batchs = self.remote_memory.sample()
         td_error_mean = 0
         for batch in batchs:
-
             state = batch["state"]
             n_state = batch["next_state"]
             action = batch["action"]

@@ -8,18 +8,22 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers as kl
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (calc_epsilon_greedy_probs,
-                                     create_epsilon_list, inverse_rescaling,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
-from srl.rl.models.tf.dqn_image_block import DQNImageBlock
+from srl.rl.functions.common import (
+    calc_epsilon_greedy_probs,
+    create_epsilon_list,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
+from srl.rl.models.base_block_config import IImageBlockConfig
+from srl.rl.models.dqn_image_block_config import DQNImageBlockConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_block import InputBlock
 
@@ -63,7 +67,6 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     test_epsilon: float = 0
 
     epsilon: float = 0.1
@@ -76,8 +79,7 @@ class Config(DiscreteActionConfig):
     exploration_steps: int = 0  # 0 : no Annealing
 
     # model
-    cnn_block: keras.Model = DQNImageBlock
-    cnn_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
+    image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
 
@@ -122,8 +124,7 @@ class Config(DiscreteActionConfig):
         self.final_epsilon = 0.1
         self.exploration_steps = 1_000_000
         # model
-        self.cnn_block = DQNImageBlock
-        self.cnn_block_kwargs = {}
+        self.cnn_block = DQNImageBlockConfig()
         self.hidden_layer_sizes = (512,)
         self.activation = "relu"
 
@@ -220,7 +221,7 @@ class _QNetwork(keras.Model):
 
         # image
         if self.in_block.use_image_layer:
-            self.image_block = config.cnn_block(**config.cnn_block_kwargs)
+            self.image_block = config.image_block_config.create_block_tf()
             self.image_flatten = kl.Flatten()
 
         if config.enable_noisy_dense:
@@ -316,7 +317,6 @@ class Parameter(RLParameter):
     # ----------------------------------------------
 
     def calc_target_q(self, batchs):
-
         # (batch, dict, multistep, state)->(batch + multistep, state)
         n_states_list = []
         for b in batchs:
@@ -404,7 +404,6 @@ class Trainer(RLTrainer):
         return self.train_count
 
     def train(self):
-
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
@@ -421,7 +420,6 @@ class Trainer(RLTrainer):
         return {"loss": loss, "sync": self.sync_count}
 
     def _train_on_batchs(self, batchs, weights):
-
         states = []
         actions = []
         for b in batchs:
@@ -562,7 +560,6 @@ class Worker(DiscreteActionWorker):
         return {}
 
     def _add_memory(self, q, td_error):
-
         batch = {
             "states": self._recent_states[:],
             "actions": self.recent_actions[:],

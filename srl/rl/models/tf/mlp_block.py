@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Any, Dict, Tuple
 
 import tensorflow.keras as keras
 from tensorflow.keras import layers as kl
@@ -10,9 +10,11 @@ class MLPBlock(keras.Model):
         layer_sizes: Tuple[int, ...] = (512,),
         activation="relu",
         kernel_initializer="he_normal",
+        dense_kwargs: Dict[str, Any] = {},
+        enable_time_distributed_layer: bool = False,
         **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
 
         self.hidden_layers = []
         for h in layer_sizes:
@@ -21,9 +23,12 @@ class MLPBlock(keras.Model):
                     h,
                     activation=activation,
                     kernel_initializer=kernel_initializer,
-                    **kwargs,
+                    **dense_kwargs,
                 )
             )
+
+        if enable_time_distributed_layer:
+            self.hidden_layers = [kl.TimeDistributed(x) for x in self.hidden_layers]
 
     def call(self, x, training=False):
         for layer in self.hidden_layers:
@@ -39,3 +44,9 @@ class MLPBlock(keras.Model):
         name = self.__class__.__name__ if name == "" else name
         keras.Model(inputs=x, outputs=self.call(x), name=name)
 
+
+if __name__ == "__main__":
+    m = MLPBlock((512, 128, 256))
+    m.build((None, 64))
+    m.init_model_graph()
+    m.summary()

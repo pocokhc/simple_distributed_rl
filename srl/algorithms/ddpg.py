@@ -7,16 +7,16 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.continuous_action import (ContinuousActionConfig,
-                                                      ContinuousActionWorker)
+from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
-from srl.rl.models.tf.dqn_image_block import DQNImageBlock
+from srl.rl.models.base_block_config import IImageBlockConfig, IMLPBlockConfig
+from srl.rl.models.dqn_image_block_config import DQNImageBlockConfig
+from srl.rl.models.mlp_block_config import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
-from srl.rl.models.tf.mlp_block import MLPBlock
 
 """
 Ref
@@ -39,14 +39,10 @@ TD3
 # ------------------------------------------------------
 @dataclass
 class Config(ContinuousActionConfig):
-
     # model
-    cnn_block: keras.Model = DQNImageBlock
-    cnn_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
-    policy_hidden_block: keras.Model = MLPBlock
-    policy_hidden_block_kwargs: dict = field(default_factory=lambda: {})
-    q_hidden_block: keras.Model = MLPBlock
-    q_hidden_block_kwargs: dict = field(default_factory=lambda: {})
+    image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
+    policy_hidden_block: IMLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
+    q_hidden_block: IMLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
 
     discount: float = 0.9  # 割引率
     lr: float = 0.005  # 学習率
@@ -117,11 +113,11 @@ class _ActorNetwork(keras.Model):
 
         # image
         if self.in_block.use_image_layer:
-            self.image_block = config.cnn_block(**config.cnn_block_kwargs)
+            self.image_block = config.image_block_config.create_block_tf()
             self.image_flatten = kl.Flatten()
 
         # --- hidden block
-        self.hidden_block = config.policy_hidden_block(**config.policy_hidden_block_kwargs)
+        self.hidden_block = config.policy_hidden_block.create_block_tf()
 
         # --- out layer
         self.out_layer = kl.Dense(config.action_num, activation="tanh")
@@ -165,11 +161,11 @@ class _CriticNetwork(keras.Model):
 
         # image
         if self.in_block.use_image_layer:
-            self.image_block = config.cnn_block(**config.cnn_block_kwargs)
+            self.image_block = config.image_block_config.create_block_tf()
             self.image_flatten = kl.Flatten()
 
         # q1
-        self.q1_block = config.q_hidden_block(**config.q_hidden_block_kwargs)
+        self.q1_block = config.q_hidden_block.create_block_tf()
         self.q1_output = kl.Dense(
             1,
             activation="linear",
@@ -178,7 +174,7 @@ class _CriticNetwork(keras.Model):
         )
 
         # q2
-        self.q2_block = config.q_hidden_block(**config.q_hidden_block_kwargs)
+        self.q2_block = config.q_hidden_block.create_block_tf()
         self.q2_output = kl.Dense(
             1,
             activation="linear",

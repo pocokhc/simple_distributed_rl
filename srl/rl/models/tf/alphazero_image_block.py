@@ -20,8 +20,9 @@ class AlphaZeroImageBlock(keras.Model):
         kernel_size=(3, 3),
         l2: float = 0.0001,
         use_layer_normalization: bool = False,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
 
         self.conv1 = kl.Conv2D(
             filters=filters,
@@ -37,7 +38,15 @@ class AlphaZeroImageBlock(keras.Model):
             self.bn1 = kl.BatchNormalization()
         self.act1 = kl.ReLU()
 
-        self.resblocks = [_ResidualBlock(filters, kernel_size, l2, use_layer_normalization) for _ in range(n_blocks)]
+        self.resblocks = [
+            _ResidualBlock(
+                filters,
+                kernel_size,
+                l2,
+                use_layer_normalization,
+            )
+            for _ in range(n_blocks)
+        ]
 
     def call(self, x):
         x = self.conv1(x)
@@ -66,8 +75,9 @@ class _ResidualBlock(keras.Model):
         kernel_size=(3, 3),
         l2: float = 0.0001,
         use_layer_normalization: bool = False,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
 
         self.conv1 = kl.Conv2D(
             filters=filters,

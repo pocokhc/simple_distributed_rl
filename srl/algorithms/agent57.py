@@ -9,22 +9,27 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (calc_epsilon_greedy_probs,
-                                     create_beta_list, create_discount_list,
-                                     create_epsilon_list, inverse_rescaling,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
-from srl.rl.models.tf.dqn_image_block import DQNImageBlock
+from srl.rl.functions.common import (
+    calc_epsilon_greedy_probs,
+    create_beta_list,
+    create_discount_list,
+    create_epsilon_list,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
+from srl.rl.models.base_block_config import IImageBlockConfig, IMLPBlockConfig
+from srl.rl.models.dqn_image_block_config import DQNImageBlockConfig
+from srl.rl.models.mlp_block_config import MLPBlockConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_block import InputBlock
-from srl.rl.models.tf.mlp_block import MLPBlock
 
 """
 Paper: https://arxiv.org/abs/2003.13350
@@ -71,8 +76,7 @@ class Config(DiscreteActionConfig):
 
     # model
     lstm_units: int = 512
-    cnn_block: keras.Model = DQNImageBlock
-    cnn_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
+    image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
 
@@ -123,35 +127,43 @@ class Config(DiscreteActionConfig):
     episodic_cluster_distance: float = 0.008
     episodic_memory_capacity: int = 30000
     episodic_pseudo_counts: float = 0.1  # 疑似カウント定数
-    episodic_hidden_block1: keras.Model = MLPBlock
-    episodic_hidden_block1_kwargs: Dict[str, Any] = field(
-        default_factory=lambda: {
-            "layer_sizes": (32,),
-            "activation": "relu",
-            "kernel_initializer": "he_normal",
-            "bias_initializer": keras.initializers.constant(0.001),
-        }
+    episodic_hidden_block1: IMLPBlockConfig = field(
+        default_factory=lambda: MLPBlockConfig(
+            layer_sizes=(32,),
+            # TODO、指定方法が複雑
+            kwargs={
+                "activation": "relu",
+                "kernel_initializer": "he_normal",
+                "dense_kwargs": {
+                    "bias_initializer": keras.initializers.constant(0.001),
+                },
+            },
+        )
     )
-    episodic_hidden_block2: keras.Model = MLPBlock
-    episodic_hidden_block2_kwargs: Dict[str, Any] = field(
-        default_factory=lambda: {
-            "layer_sizes": (128,),
-            "activation": "relu",
-            "kernel_initializer": "he_normal",
-        }
+    episodic_hidden_block2: IMLPBlockConfig = field(
+        default_factory=lambda: MLPBlockConfig(
+            layer_sizes=(128,),
+            kwargs={
+                "activation": "relu",
+                "kernel_initializer": "he_normal",
+            },
+        )
     )
 
     # lifelong
     lifelong_lr: float = 0.00001
     lifelong_max: float = 5.0  # L
-    lifelong_hidden_block: keras.Model = MLPBlock
-    lifelong_hidden_block_kwargs: Dict[str, Any] = field(
-        default_factory=lambda: {
-            "layer_sizes": (128,),
-            "activation": "relu",
-            "kernel_initializer": "he_normal",
-            "bias_initializer": "he_normal",
-        }
+    lifelong_hidden_block: IMLPBlockConfig = field(
+        default_factory=lambda: MLPBlockConfig(
+            layer_sizes=(128,),
+            kwargs={
+                "activation": "relu",
+                "kernel_initializer": "he_normal",
+                "dense_kwargs": {
+                    "bias_initializer": "he_normal",
+                },
+            },
+        )
     )
 
     # UVFA
@@ -237,7 +249,7 @@ class _QNetwork(keras.Model):
 
         # image
         if self.use_image_layer:
-            self.image_block = config.cnn_block(enable_time_distributed_layer=True, **config.cnn_block_kwargs)
+            self.image_block = config.image_block_config.create_block_tf(enable_time_distributed_layer=True)
             self.image_flatten = kl.TimeDistributed(kl.Flatten())
 
         # --- lstm
@@ -387,14 +399,14 @@ class _EmbeddingNetwork(keras.Model):
 
         # image
         if self.in_block.use_image_layer:
-            self.image_block = config.cnn_block(**config.cnn_block_kwargs)
+            self.image_block = config.image_block_config.create_block_tf()
             self.image_flatten = kl.Flatten()
 
         # predict hidden
-        self.hidden_block1 = config.episodic_hidden_block1(**config.episodic_hidden_block1_kwargs)
+        self.hidden_block1 = config.episodic_hidden_block1.create_block_tf()
 
         # --- action model
-        self.hidden_block2 = config.episodic_hidden_block2(**config.episodic_hidden_block2_kwargs)
+        self.hidden_block2 = config.episodic_hidden_block2.create_block_tf()
         self.hidden_block2_normalize = kl.LayerNormalization()
         self.hidden_block2_out = kl.Dense(config.action_num, activation="softmax")
 
@@ -457,11 +469,11 @@ class _LifelongNetwork(keras.Model):
 
         # image
         if self.in_block.use_image_layer:
-            self.image_block = config.cnn_block(**config.cnn_block_kwargs)
+            self.image_block = config.image_block_config.create_block_tf()
             self.image_flatten = kl.Flatten()
 
         # hidden
-        self.hidden_block = config.lifelong_hidden_block(**config.lifelong_hidden_block_kwargs)
+        self.hidden_block = config.lifelong_hidden_block.create_block_tf()
         self.hidden_normalize = kl.LayerNormalization()
 
         # build

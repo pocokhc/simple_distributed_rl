@@ -1,6 +1,6 @@
 import collections
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
@@ -9,22 +9,23 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (calc_epsilon_greedy_probs,
-                                     create_beta_list, create_discount_list,
-                                     create_epsilon_list, inverse_rescaling,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
-from srl.rl.models.tf.dqn_image_block import DQNImageBlock
+from srl.rl.functions.common import (
+    calc_epsilon_greedy_probs,
+    create_beta_list,
+    create_discount_list,
+    create_epsilon_list,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
-from srl.rl.models.tf.input_block import (create_input_layer,
-                                          create_input_layer_stateful_lstm)
 
 """
 Paper: https://arxiv.org/abs/2003.13350
@@ -60,20 +61,176 @@ Other
 """
 
 
+def create_input_layer(
+    observation_shape: Tuple[int, ...],
+    observation_type: EnvObservationType,
+) -> Tuple[kl.Layer, kl.Layer, bool]:
+    """状態の入力レイヤーを作成して返します
+
+    Args:
+        observation_shape (Tuple[int, ...]): 状態の入力shape
+        observation_type (EnvObservationType): 状態が何かを表すEnvObservationType
+
+    Returns:
+        [
+            in_layer  (kl.Layer): modelの入力に使うlayerを返します
+            out_layer (kl.Layer): modelの続きに使うlayerを返します
+            use_image_head (bool):
+                Falseの時 out_layer は flatten、
+                Trueの時 out_layer は CNN の形式で返ります。
+        ]
+    """
+
+    # --- input
+    in_layer = c = kl.Input(shape=observation_shape)
+    err_msg = f"unknown observation_type: {observation_type}"
+
+    # --- value head
+    if (
+        observation_type == EnvObservationType.DISCRETE
+        or observation_type == EnvObservationType.CONTINUOUS
+        or observation_type == EnvObservationType.UNKNOWN
+    ):
+        c = kl.Flatten()(c)
+        return in_layer, c, False
+
+    # --- image head
+    if observation_type == EnvObservationType.GRAY_2ch:
+        if len(observation_shape) == 2:
+            # (w, h) -> (w, h, 1)
+            c = kl.Reshape(observation_shape + (1,))(c)
+        elif len(observation_shape) == 3:
+            # (len, w, h) -> (w, h, len)
+            c = kl.Permute((2, 3, 1))(c)
+        else:
+            raise ValueError(err_msg)
+
+    elif observation_type == EnvObservationType.GRAY_3ch:
+        assert observation_shape[-1] == 1
+        if len(observation_shape) == 3:
+            # (w, h, 1)
+            pass
+        elif len(observation_shape) == 4:
+            # (len, w, h, 1) -> (len, w, h)
+            # (len, w, h) -> (w, h, len)
+            c = kl.Reshape(observation_shape[:3])(c)
+            c = kl.Permute((2, 3, 1))(c)
+        else:
+            raise ValueError(err_msg)
+
+    elif observation_type == EnvObservationType.COLOR:
+        if len(observation_shape) == 3:
+            # (w, h, ch)
+            pass
+        else:
+            raise ValueError(err_msg)
+
+    elif observation_type == EnvObservationType.SHAPE2:
+        if len(observation_shape) == 2:
+            # (w, h) -> (w, h, 1)
+            c = kl.Reshape(observation_shape + (1,))(c)
+        elif len(observation_shape) == 3:
+            # (len, w, h) -> (w, h, len)
+            c = kl.Permute((2, 3, 1))(c)
+        else:
+            raise ValueError(err_msg)
+
+    elif observation_type == EnvObservationType.SHAPE3:
+        if len(observation_shape) == 3:
+            # (n, w, h) -> (w, h, n)
+            c = kl.Permute((2, 3, 1))(c)
+        else:
+            raise ValueError(err_msg)
+
+    else:
+        raise ValueError(err_msg)
+
+    return in_layer, c, True
+
+
+def create_input_layer_stateful_lstm(
+    batch_size: int,
+    observation_shape: Tuple[int, ...],
+    observation_type: EnvObservationType,
+) -> Tuple[kl.Layer, kl.Layer, bool]:
+    """状態の入力レイヤーを作成して返します。
+    input_sequence は1で固定します。
+
+    Args:
+        batch_size (int): batch_size
+        observation_shape (Tuple[int, ...]): 状態の入力shape
+        observation_type (EnvObservationType): 状態が何かを表すEnvObservationType
+
+    Returns:
+        [
+            in_layer  (kl.Layer): modelの入力に使うlayerを返します
+            out_layer (kl.Layer): modelの続きに使うlayerを返します
+            use_image_head (bool):
+                Falseの時 out_layer は flatten、
+                Trueの時 out_layer は CNN の形式で返ります。
+        ]
+    """
+
+    # --- input
+    input_shape = (1,) + observation_shape
+    in_layer = c = kl.Input(batch_input_shape=(batch_size,) + input_shape)
+
+    # --- value head
+    if (
+        observation_type == EnvObservationType.DISCRETE
+        or observation_type == EnvObservationType.CONTINUOUS
+        or observation_type == EnvObservationType.UNKNOWN
+    ):
+        c = kl.TimeDistributed(kl.Flatten())(c)
+        return in_layer, c, False
+
+    # --- image head
+    if observation_type == EnvObservationType.GRAY_2ch:
+        assert len(input_shape) == 3
+
+        # (timesteps, w, h) -> (timesteps, w, h, 1)
+        c = kl.Reshape(input_shape + (-1,))(c)
+
+    elif observation_type == EnvObservationType.GRAY_3ch:
+        assert len(input_shape) == 4
+        assert input_shape[-1] == 1
+
+        # (timesteps, width, height, 1)
+
+    elif observation_type == EnvObservationType.COLOR:
+        assert len(input_shape) == 4
+
+        # (timesteps, width, height, ch)
+
+    elif observation_type == EnvObservationType.SHAPE2:
+        assert len(input_shape) == 3
+
+        # (timesteps, width, height) -> (timesteps, width, height, 1)
+        c = kl.Reshape(input_shape + (-1,))(c)
+
+    elif observation_type == EnvObservationType.SHAPE3:
+        assert len(input_shape) == 4
+
+        # (timesteps, n, width, height) -> (timesteps, width, height, n)
+        c = kl.Permute((1, 3, 4, 2))(c)
+
+    else:
+        raise ValueError(f"unknown observation_type: {observation_type}")
+
+    return in_layer, c, True
+
+
 # ------------------------------------------------------
 # config
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     # test
     test_epsilon: float = 0
     test_beta: float = 0
 
     # model
     lstm_units: int = 512
-    cnn_block: keras.Model = DQNImageBlock
-    cnn_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
 
@@ -303,7 +460,9 @@ class _EmbeddingNetwork(keras.Model):
             config.env_observation_type,
         )
         if use_image_head:
-            c = config.cnn_block(**config.cnn_block_kwargs)(c)
+            c = kl.Conv2D(32, (8, 8), strides=(4, 4), padding="same", activation="relu")(c)
+            c = kl.Conv2D(64, (4, 4), strides=(4, 4), padding="same", activation="relu")(c)
+            c = kl.Conv2D(64, (3, 3), strides=(4, 4), padding="same", activation="relu")(c)
             c = kl.Flatten()(c)
 
         # hidden
@@ -357,7 +516,9 @@ class _LifelongNetwork(keras.Model):
             config.env_observation_type,
         )
         if use_image_head:
-            c = config.cnn_block(**config.cnn_block_kwargs)(c)
+            c = kl.Conv2D(32, (8, 8), strides=(4, 4), padding="same", activation="relu")(c)
+            c = kl.Conv2D(64, (4, 4), strides=(4, 4), padding="same", activation="relu")(c)
+            c = kl.Conv2D(64, (3, 3), strides=(4, 4), padding="same", activation="relu")(c)
             c = kl.Flatten()(c)
 
         # hidden
@@ -469,7 +630,6 @@ class Trainer(RLTrainer):
         return self.train_count
 
     def train(self):
-
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
@@ -488,7 +648,6 @@ class Trainer(RLTrainer):
         return info
 
     def _train_on_batchs(self, batchs, weights):
-
         # (batch, dict[x], step) -> (step, batch, 1, x)
         states_list = _batch_dict_step_to_step_batch(batchs, "states", in_step=True, is_list=True, to_np=True)
         rewards_ext_list = _batch_dict_step_to_step_batch(
@@ -686,7 +845,6 @@ class Trainer(RLTrainer):
         weights,
         idx,
     ):
-
         # 最後
         if idx == self.config.sequence_length:
             _in = [
@@ -909,7 +1067,6 @@ class Worker(DiscreteActionWorker):
 
     # (sliding-window UCB)
     def _calc_actor_index(self) -> int:
-
         # UCB計算用に保存
         if self.actor_index != -1:
             self.ucb_recent.append(

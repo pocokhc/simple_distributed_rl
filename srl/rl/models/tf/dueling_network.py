@@ -1,5 +1,3 @@
-import warnings
-
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers as kl
@@ -14,8 +12,9 @@ class DuelingNetworkBlock(keras.Model):
         activation: str = "relu",
         enable_noisy_dense: bool = False,
         enable_time_distributed_layer: bool = False,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.dueling_type = dueling_type
 
         if enable_noisy_dense:
@@ -26,13 +25,29 @@ class DuelingNetworkBlock(keras.Model):
             _Dense = kl.Dense
 
         # value
-        self.v1 = _Dense(dense_units, activation=activation, kernel_initializer="he_normal")
-        self.v2 = _Dense(1, kernel_initializer="truncated_normal", bias_initializer="truncated_normal", name="v")
+        self.v1 = _Dense(
+            dense_units,
+            activation=activation,
+            kernel_initializer="he_normal",
+        )
+        self.v2 = _Dense(
+            1,
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+            name="v",
+        )
 
         # advance
-        self.adv1 = _Dense(dense_units, activation=activation, kernel_initializer="he_normal")
+        self.adv1 = _Dense(
+            dense_units,
+            activation=activation,
+            kernel_initializer="he_normal",
+        )
         self.adv2 = _Dense(
-            action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal", name="adv"
+            action_num,
+            kernel_initializer="truncated_normal",
+            bias_initializer="truncated_normal",
+            name="adv",
         )
 
         self.enable_time_distributed_layer = enable_time_distributed_layer
@@ -74,43 +89,8 @@ class DuelingNetworkBlock(keras.Model):
         keras.Model(inputs=x, outputs=self.call(x), name=name)
 
 
-def create_dueling_network_layers(
-    c,
-    action_num: int,
-    dense_units: int,
-    dueling_type: str,
-    activation: str = "relu",
-    enable_noisy_dense: bool = False,
-):
-    #warnings.warn(
-    #    "'FunctionalAPI' was changed to 'SubclassingAPI'. This function will be removed in the next update.",
-    #    DeprecationWarning,
-    #)
-
-    if enable_noisy_dense:
-        import tensorflow_addons as tfa
-
-        _Dense = tfa.layers.NoisyDense
-    else:
-        _Dense = kl.Dense
-
-    # value
-    v = _Dense(dense_units, activation=activation, kernel_initializer="he_normal")(c)
-    v = _Dense(1, kernel_initializer="truncated_normal", bias_initializer="truncated_normal", name="v")(v)
-
-    # advance
-    adv = _Dense(dense_units, activation=activation, kernel_initializer="he_normal")(c)
-    adv = _Dense(action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal", name="adv")(
-        adv
-    )
-
-    if dueling_type == "average":
-        c = v + adv - tf.reduce_mean(adv, axis=1, keepdims=True)
-    elif dueling_type == "max":
-        c = v + adv - tf.reduce_max(adv, axis=1, keepdims=True)
-    elif dueling_type == "":  # naive
-        c = v + adv
-    else:
-        raise ValueError("dueling_network_type is undefined")
-
-    return c
+if __name__ == "__main__":
+    m = DuelingNetworkBlock(5, 128)
+    m.build((None, 64))
+    m.init_model_graph()
+    m.summary()

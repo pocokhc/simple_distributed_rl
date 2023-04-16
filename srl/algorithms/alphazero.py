@@ -1,6 +1,5 @@
-import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -14,14 +13,12 @@ from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.experience_replay_buffer import \
-    ExperienceReplayBuffer
-from srl.rl.functions.common import (random_choice_by_probs,
-                                     render_discrete_action,
-                                     to_str_observation)
-from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
-from srl.rl.models.tf.input_block import InputBlock, create_input_layer
-from srl.rl.models.tf.mlp_block import MLPBlock
+from srl.base.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
+from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
+from srl.rl.models.alphazero_image_block_config import AlphaZeroImageBlockConfig
+from srl.rl.models.base_block_config import IAlphaZeroImageBlockConfig, IMLPBlockConfig
+from srl.rl.models.mlp_block_config import MLPBlockConfig
+from srl.rl.models.tf.input_block import InputBlock
 
 """
 Paper
@@ -39,14 +36,13 @@ https://github.com/AppliedDataSciencePartners/DeepReinforcementLearning
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     num_simulations: int = 100
     capacity: int = 10_000
     discount: float = 1.0  # 割引率
 
     sampling_steps: int = 1
     batch_size: int = 128
-    warmup_size: int = 1000
+    memory_warmup_size: int = 1000
 
     # 学習率
     lr_schedule: List[dict] = field(
@@ -66,24 +62,21 @@ class Config(DiscreteActionConfig):
     c_init: float = 1.25
 
     # model
-    input_image_block: keras.Model = AlphaZeroImageBlock
-    input_image_block_kwargs: Dict[str, Any] = field(
-        default_factory=lambda: {
-            "n_blocks": 3,
-            "filters": 64,
-        }
+    input_image_block: IAlphaZeroImageBlockConfig = field(
+        default_factory=lambda: AlphaZeroImageBlockConfig(
+            n_blocks=3,
+            filters=64,
+        )
     )
-    value_block: kl.Layer = MLPBlock
-    value_block_kwargs: Dict[str, Any] = field(
-        default_factory=lambda: {
-            "layer_sizes": (64,),
-        }
+    value_block: IMLPBlockConfig = field(
+        default_factory=lambda: MLPBlockConfig(
+            layer_sizes=(64,),
+        )
     )
-    policy_block: kl.Layer = MLPBlock
-    policy_block_kwargs: Dict[str, Any] = field(
-        default_factory=lambda: {
-            "layer_sizes": (),
-        }
+    policy_block: IMLPBlockConfig = field(
+        default_factory=lambda: MLPBlockConfig(
+            layer_sizes=(),
+        )
     )
 
     def set_go_config(self):
@@ -94,19 +87,16 @@ class Config(DiscreteActionConfig):
         self.root_dirichlet_alpha = 0.03  # for Go, 0.3 for chess and 0.15 for shogi.
         self.root_exploration_fraction = 0.25
         self.batch_size = 4096
-        self.warmup_size = 10000
+        self.memory_warmup_size = 10000
         self.lr_schedule = [
             {"train": 0, "lr": 0.02},
             {"train": 300_000, "lr": 0.002},
             {"train": 500_000, "lr": 0.0002},
         ]
 
-        self.input_image_block = AlphaZeroImageBlock
-        self.input_image_block_kwargs = dict(n_blocks=19, filters=256)
-        self.value_block = MLPBlock
-        self.value_block_kwargs = dict(hidden_layer_sizes=(256,))
-        self.policy_block = MLPBlock
-        self.policy_block_kwargs = dict(hidden_layer_sizes=())
+        self.input_image_block = AlphaZeroImageBlockConfig(n_blocks=19, filters=256)
+        self.value_block = MLPBlockConfig(layer_sizes=(256,))
+        self.policy_block = MLPBlockConfig(layer_sizes=())
 
     @property
     def observation_type(self) -> RLObservationType:
@@ -118,7 +108,7 @@ class Config(DiscreteActionConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.batch_size < self.warmup_size
+        assert self.batch_size < self.memory_warmup_size
         assert self.lr_schedule[0]["train"] == 0
 
 
@@ -149,10 +139,7 @@ class _Network(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        if "l2" in config.input_image_block_kwargs:
-            _l2 = config.input_image_block_kwargs["l2"]
-        else:
-            _l2 = 0.0001
+        _l2 = 0.0001
 
         # --- in block
         self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
@@ -160,7 +147,7 @@ class _Network(keras.Model):
 
         # --- image
         if self.use_image_layer:
-            self.input_image_block = config.input_image_block(**config.input_image_block_kwargs)
+            self.input_image_block = config.input_image_block.create_block_tf()
 
             # --- policy image
             self.input_image_policy_layers = [
@@ -191,7 +178,7 @@ class _Network(keras.Model):
             ]
 
         # --- policy output
-        self.policy_block = config.policy_block(**config.policy_block_kwargs)
+        self.policy_block = config.policy_block.create_block_tf()
         self.policy_out_layer = kl.Dense(
             config.action_num,
             activation="softmax",
@@ -199,7 +186,7 @@ class _Network(keras.Model):
         )
 
         # --- value output
-        self.value_block = config.value_block(**config.value_block_kwargs)
+        self.value_block = config.value_block.create_block_tf()
         self.value_out_layer = kl.Dense(
             1,
             # activation="tanh",  # 論文はtanh(-1～1)
@@ -210,7 +197,6 @@ class _Network(keras.Model):
         self.build((None,) + config.observation_shape)
 
     def call(self, state, training=False):
-
         # input
         x = self.in_block(state, training=training)
         if self.use_image_layer:
@@ -319,7 +305,7 @@ class Trainer(RLTrainer):
         return self.train_count
 
     def train(self) -> dict:
-        if self.remote_memory.length() < self.config.warmup_size:
+        if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
         batchs = self.remote_memory.sample(self.config.batch_size)
 
@@ -469,7 +455,6 @@ class Worker(ModelBaseWorker):
         return reward
 
     def _calc_puct(self, state_str, invalid_actions, is_root):
-
         # ディリクレノイズ
         if is_root:
             noises = np.random.dirichlet([self.config.root_dirichlet_alpha] * self.config.action_num)

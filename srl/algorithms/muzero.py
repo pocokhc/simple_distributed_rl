@@ -1,7 +1,7 @@
 import logging
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -24,9 +24,11 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
+from srl.rl.models.alphazero_image_block_config import AlphaZeroImageBlockConfig
+from srl.rl.models.base_block_config import IAlphaZeroImageBlockConfig
+from srl.rl.models.muzero_atari_block_config import MuzeroAtariBlockConfig
 from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.tf.input_block import InputBlock
-from srl.rl.models.tf.muzero_atari_block import MuZeroAtariBlock
 from srl.utils.common import compare_less_version
 
 logger = logging.getLogger(__name__)
@@ -87,8 +89,7 @@ class Config(DiscreteActionConfig):
     memory_beta_steps: int = 100_000
 
     # model
-    input_image_block: keras.Model = AlphaZeroImageBlock
-    input_image_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
+    input_image_block: IAlphaZeroImageBlockConfig = field(default_factory=lambda: AlphaZeroImageBlockConfig())
     dynamics_blocks: int = 15
     reward_dense_units: int = 0
     weight_decay: float = 0.0001
@@ -112,8 +113,7 @@ class Config(DiscreteActionConfig):
             {"step": 500_000, "tau": 0.5},
             {"step": 750_000, "tau": 0.25},
         ]
-        self.representation_block = MuZeroAtariBlock
-        self.representation_block_kwargs = {"base_filters": 128}
+        self.input_image_block = MuzeroAtariBlockConfig(base_filters=128)
         self.dynamics_blocks = 15
         self.weight_decay = 0.0001
         self.enable_rescale = True
@@ -193,7 +193,7 @@ class _RepresentationNetwork(keras.Model):
         assert self.in_block.use_image_layer, "Input supports only image format."
 
         # image
-        self.image_block = config.input_image_block(**config.input_image_block_kwargs)
+        self.image_block = config.input_image_block.create_block_tf()
 
         # build
         self.build((None,) + config.observation_shape)

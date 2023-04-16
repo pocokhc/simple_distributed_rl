@@ -1,7 +1,7 @@
 import logging
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -24,6 +24,8 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
+from srl.rl.models.alphazero_image_block_config import AlphaZeroImageBlockConfig
+from srl.rl.models.base_block_config import IAlphaZeroImageBlockConfig
 from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.tf.input_block import InputBlock
 from srl.utils.common import compare_less_version
@@ -85,8 +87,7 @@ class Config(DiscreteActionConfig):
     memory_beta_steps: int = 100_000
 
     # model
-    input_image_block: keras.Model = AlphaZeroImageBlock
-    input_image_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
+    input_image_block: IAlphaZeroImageBlockConfig = field(default_factory=lambda: AlphaZeroImageBlockConfig())
     dynamics_blocks: int = 15
     commitment_cost: float = 0.25  # VQ_VAEのβ
     weight_decay: float = 0.0001
@@ -170,7 +171,7 @@ class _RepresentationNetwork(keras.Model):
         assert self.in_block.use_image_layer, "Input supports only image format."
 
         # image
-        self.image_block = config.input_image_block(**config.input_image_block_kwargs)
+        self.image_block = config.input_image_block.create_block_tf()
 
         # build
         self.build((None,) + config.observation_shape)
@@ -504,7 +505,7 @@ class _VQ_VAE(keras.Model):
         assert self.in_block.use_image_layer, "Input supports only image format."
 
         # image
-        self.image_block = config.input_image_block(**config.input_image_block_kwargs)
+        self.image_block = config.input_image_block.create_block_tf()
 
         self.out_layers = [
             kl.Conv2D(

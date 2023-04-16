@@ -8,18 +8,22 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (calc_epsilon_greedy_probs,
-                                     create_epsilon_list, inverse_rescaling,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
-from srl.rl.models.tf.dqn_image_block import DQNImageBlock
+from srl.rl.functions.common import (
+    calc_epsilon_greedy_probs,
+    create_epsilon_list,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
+from srl.rl.models.base_block_config import IImageBlockConfig
+from srl.rl.models.dqn_image_block_config import DQNImageBlockConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_block import InputBlock
 
@@ -59,15 +63,13 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     test_epsilon: float = 0
     epsilon: float = 0.1
     actor_epsilon: float = 0.4
     actor_alpha: float = 7.0
 
     # model
-    cnn_block: keras.Model = DQNImageBlock
-    cnn_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
+    image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
     lstm_units: int = 512
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
@@ -111,7 +113,6 @@ class Config(DiscreteActionConfig):
 
     # 論文のハイパーパラメーター
     def set_atari_config(self):
-
         # model
         self.lstm_units = 512
         self.hidden_layer_sizes = (512,)
@@ -206,7 +207,7 @@ class _QNetwork(keras.Model):
 
         # image
         if self.use_image_layer:
-            self.image_block = config.cnn_block(enable_time_distributed_layer=True, **config.cnn_block_kwargs)
+            self.image_block = config.image_block_config.create_block_tf(enable_time_distributed_layer=True)
             self.image_flatten = kl.TimeDistributed(kl.Flatten())
 
         # --- lstm
@@ -337,7 +338,6 @@ class Trainer(RLTrainer):
         return self.train_count
 
     def train(self):
-
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
@@ -354,7 +354,6 @@ class Trainer(RLTrainer):
         return {"loss": loss, "sync": self.sync_count}
 
     def _train_on_batchs(self, batchs, weights):
-
         # (batch, dict[x], step) -> (batch, step, x)
         burnin_states = []
         step_states = []

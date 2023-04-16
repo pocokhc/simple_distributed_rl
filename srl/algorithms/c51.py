@@ -8,17 +8,17 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as kl
 
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common import render_discrete_action
-from srl.rl.models.tf.dqn_image_block import DQNImageBlock
-from srl.rl.models.tf.input_block import create_input_layer
-from srl.rl.models.tf.mlp_block import MLPBlock
+from srl.rl.models.base_block_config import IImageBlockConfig, IMLPBlockConfig
+from srl.rl.models.dqn_image_block_config import DQNImageBlockConfig
+from srl.rl.models.mlp_block_config import MLPBlockConfig
+from srl.rl.models.tf.input_block import InputBlock
 
 """
 Categorical DQN（C51）
@@ -30,12 +30,98 @@ Other
 """
 
 
+def create_input_layer(
+    observation_shape: Tuple[int, ...],
+    observation_type: EnvObservationType,
+) -> Tuple[kl.Layer, kl.Layer, bool]:
+    """状態の入力レイヤーを作成して返します
+
+    Args:
+        observation_shape (Tuple[int, ...]): 状態の入力shape
+        observation_type (EnvObservationType): 状態が何かを表すEnvObservationType
+
+    Returns:
+        [
+            in_layer  (kl.Layer): modelの入力に使うlayerを返します
+            out_layer (kl.Layer): modelの続きに使うlayerを返します
+            use_image_head (bool):
+                Falseの時 out_layer は flatten、
+                Trueの時 out_layer は CNN の形式で返ります。
+        ]
+    """
+
+    # --- input
+    in_layer = c = kl.Input(shape=observation_shape)
+    err_msg = f"unknown observation_type: {observation_type}"
+
+    # --- value head
+    if (
+        observation_type == EnvObservationType.DISCRETE
+        or observation_type == EnvObservationType.CONTINUOUS
+        or observation_type == EnvObservationType.UNKNOWN
+    ):
+        c = kl.Flatten()(c)
+        return in_layer, c, False
+
+    # --- image head
+    if observation_type == EnvObservationType.GRAY_2ch:
+        if len(observation_shape) == 2:
+            # (w, h) -> (w, h, 1)
+            c = kl.Reshape(observation_shape + (1,))(c)
+        elif len(observation_shape) == 3:
+            # (len, w, h) -> (w, h, len)
+            c = kl.Permute((2, 3, 1))(c)
+        else:
+            raise ValueError(err_msg)
+
+    elif observation_type == EnvObservationType.GRAY_3ch:
+        assert observation_shape[-1] == 1
+        if len(observation_shape) == 3:
+            # (w, h, 1)
+            pass
+        elif len(observation_shape) == 4:
+            # (len, w, h, 1) -> (len, w, h)
+            # (len, w, h) -> (w, h, len)
+            c = kl.Reshape(observation_shape[:3])(c)
+            c = kl.Permute((2, 3, 1))(c)
+        else:
+            raise ValueError(err_msg)
+
+    elif observation_type == EnvObservationType.COLOR:
+        if len(observation_shape) == 3:
+            # (w, h, ch)
+            pass
+        else:
+            raise ValueError(err_msg)
+
+    elif observation_type == EnvObservationType.SHAPE2:
+        if len(observation_shape) == 2:
+            # (w, h) -> (w, h, 1)
+            c = kl.Reshape(observation_shape + (1,))(c)
+        elif len(observation_shape) == 3:
+            # (len, w, h) -> (w, h, len)
+            c = kl.Permute((2, 3, 1))(c)
+        else:
+            raise ValueError(err_msg)
+
+    elif observation_type == EnvObservationType.SHAPE3:
+        if len(observation_shape) == 3:
+            # (n, w, h) -> (w, h, n)
+            c = kl.Permute((2, 3, 1))(c)
+        else:
+            raise ValueError(err_msg)
+
+    else:
+        raise ValueError(err_msg)
+
+    return in_layer, c, True
+
+
 # ------------------------------------------------------
 # config
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     epsilon: float = 0.1
     test_epsilon: float = 0
     discount: float = 0.9
@@ -45,10 +131,8 @@ class Config(DiscreteActionConfig):
     capacity: int = 100_000
 
     # model
-    cnn_block: keras.Model = DQNImageBlock
-    cnn_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
-    hidden_block: keras.Model = MLPBlock
-    hidden_block_kwargs: Dict[str, Any] = field(default_factory=lambda: {})
+    image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
+    hidden_block: IMLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
 
     categorical_num_atoms: int = 51
     categorical_v_min: float = -10
@@ -98,6 +182,62 @@ class RemoteMemory(ExperienceReplayBuffer):
 
 
 # ------------------------------------------------------
+# network
+# ------------------------------------------------------
+class _QNetwork(keras.Model):
+    def __init__(self, config: Config):
+        super().__init__()
+
+        # input
+        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
+
+        # image
+        if self.in_block.use_image_layer:
+            self.image_block = config.image_block_config.create_block_tf()
+            self.image_flatten = kl.Flatten()
+
+        # hidden
+        self.hidden_block = config.hidden_block.create_block_tf()
+
+        # out
+        self.out_layers = [
+            kl.Dense(
+                self.config.action_num * self.config.categorical_num_atoms,
+                activation="linear",
+            ),
+            kl.Reshape((self.config.action_num, self.config.categorical_num_atoms)),
+        ]
+
+        # build
+        self.build((None,) + config.observation_shape)
+
+    def call(self, x, training=False):
+        x = self.in_block(x, training=training)
+        if self.in_block.use_image_layer:
+            x = self.image_block(x, training=training)
+            x = self.image_flatten(x)
+        x = self.hidden_block(x, training=training)
+        for layer in self.out_layers:
+            x = layer(x, training=training)
+        return x
+
+    def build(self, input_shape):
+        self.__input_shape = input_shape
+        super().build(self.__input_shape)
+
+    def summary(self, name="", **kwargs):
+        if hasattr(self.in_block, "init_model_graph"):
+            self.in_block.init_model_graph()
+        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
+            self.image_block.init_model_graph()
+
+        x = kl.Input(shape=self.__input_shape[1:])
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model.summary(**kwargs)
+
+
+# ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
 class Parameter(RLParameter):
@@ -110,11 +250,13 @@ class Parameter(RLParameter):
             self.config.env_observation_type,
         )
         if use_image_head:
-            c = self.config.cnn_block(**self.config.cnn_block_kwargs)(c)
+            c = kl.Conv2D(32, (8, 8), strides=(4, 4), padding="same", activation="relu")(c)
+            c = kl.Conv2D(64, (4, 4), strides=(4, 4), padding="same", activation="relu")(c)
+            c = kl.Conv2D(64, (3, 3), strides=(4, 4), padding="same", activation="relu")(c)
             c = kl.Flatten()(c)
 
         # --- hidden block
-        c = self.config.hidden_block(**self.config.hidden_block_kwargs)(c)
+        c = self.config.hidden_block.create_block_tf()(c)
 
         # --- out layer
         c = kl.Dense(self.config.action_num * self.config.categorical_num_atoms, activation="linear")(c)
@@ -284,7 +426,6 @@ class Worker(DiscreteActionWorker):
         done: bool,
         next_invalid_actions: List[int],
     ) -> Dict:
-
         if not self.training:
             return {}
 

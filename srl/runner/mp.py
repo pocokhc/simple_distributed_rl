@@ -158,7 +158,7 @@ class _ActorInterrupt(Callback):
         return False
 
 
-def _run_actor(
+def __run_actor(
     config: Config,
     remote_memory: RLRemoteMemory,
     remote_board: Board,
@@ -167,21 +167,21 @@ def _run_actor(
 ):
     config.run_name = f"actor{actor_id}"
     config.run_actor_id = actor_id
-    config.init_tensorflow(rerun=True)
+    config.init_device()
 
-    allocate = config.get_allocate()
-    if is_enable_device_name(allocate):
+    allocate = config.used_device_tf
+    if (not config.tf_disable) and is_enable_tf_device_name(allocate):
         import tensorflow as tf
 
         with tf.device(allocate):
             logger.info(f"actor{actor_id} start(allocate={allocate})")
-            __run_actor(config, remote_memory, remote_board, actor_id, train_end_signal)
+            __run_actor_main(config, remote_memory, remote_board, actor_id, train_end_signal)
     else:
-        logger.info(f"actor{actor_id} start(allocate=default)")
-        __run_actor(config, remote_memory, remote_board, actor_id, train_end_signal)
+        logger.info(f"actor{actor_id} start.")
+        __run_actor_main(config, remote_memory, remote_board, actor_id, train_end_signal)
 
 
-def __run_actor(
+def __run_actor_main(
     config: Config,
     remote_memory: RLRemoteMemory,
     remote_board: Board,
@@ -189,7 +189,6 @@ def __run_actor(
     train_end_signal: ctypes.c_bool,
 ):
     try:
-
         # --- config
         config.disable_trainer = True
         config.rl_config.set_config_by_actor(config.actor_num, actor_id)
@@ -257,28 +256,28 @@ class _TrainerInterrupt(Callback):
         return False
 
 
-def _run_trainer(
+def __run_trainer(
     config: Config,
     remote_memory: RLRemoteMemory,
     remote_board: Board,
     train_end_signal: ctypes.c_bool,
 ):
     config.run_name = "trainer"
-    config.init_tensorflow(rerun=True)
+    config.init_device()
 
-    allocate = config.get_allocate()
-    if is_enable_device_name(allocate):
+    allocate = config.used_device_tf
+    if (not config.tf_disable) and is_enable_tf_device_name(allocate):
         import tensorflow as tf
 
         with tf.device(allocate):
             logger.info(f"trainer start(allocate={allocate})")
-            __run_trainer(config, remote_memory, remote_board, train_end_signal)
+            __run_trainer_main(config, remote_memory, remote_board, train_end_signal)
     else:
-        logger.info("trainer start(allocate=default)")
-        __run_trainer(config, remote_memory, remote_board, train_end_signal)
+        logger.info("trainer start.")
+        __run_trainer_main(config, remote_memory, remote_board, train_end_signal)
 
 
-def __run_trainer(
+def __run_trainer_main(
     config: Config,
     remote_memory: RLRemoteMemory,
     remote_board: Board,
@@ -323,7 +322,6 @@ __is_set_start_method = False
 
 def train(
     config: Config,
-    mp_config: Optional[MpConfig] = None,  # DeprecationWarning
     # stop config
     max_episodes: int = -1,
     timeout: int = -1,
@@ -512,7 +510,6 @@ def _train(
     return_memory: bool,
     save_memory: str,
 ):
-
     # callbacks
     _info = {
         "config": config,
@@ -546,7 +543,7 @@ def _train(
             actor_id,
             train_end_signal,
         )
-        ps = mp.Process(target=_run_actor, args=params)
+        ps = mp.Process(target=__run_actor, args=params)
         actors_ps_list.append(ps)
 
     # --- trainer
@@ -559,7 +556,7 @@ def _train(
             remote_board,
             train_end_signal,
         )
-        trainer_ps = mp.Process(target=_run_trainer, args=params)
+        trainer_ps = mp.Process(target=__run_trainer, args=params)
 
     # --- start
     logger.debug("process start")

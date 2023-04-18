@@ -15,9 +15,13 @@ from srl.base.define import PlayRenderMode
 from srl.base.env.base import EnvRun
 from srl.base.env.config import EnvConfig
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
-from srl.base.rl.registration import (make_parameter, make_remote_memory,
-                                      make_trainer, make_worker,
-                                      make_worker_rulebase)
+from srl.base.rl.registration import (
+    make_parameter,
+    make_remote_memory,
+    make_trainer,
+    make_worker,
+    make_worker_rulebase,
+)
 from srl.base.rl.worker import WorkerRun
 from srl.runner.callback import Callback
 from srl.utils.common import is_package_imported
@@ -27,9 +31,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Config:
-
     env_config: Union[str, EnvConfig]
-    rl_config: RLConfig
+    rl_config: Optional[RLConfig]
 
     # multi player option
     players: List[Union[None, str, RLConfig]] = field(default_factory=list)
@@ -38,14 +41,31 @@ class Config:
     actor_num: int = 1
     trainer_parameter_send_interval_by_train_count: int = 100
     actor_parameter_sync_interval_by_step: int = 100
-    allocate_main: str = ""
-    allocate_trainer: str = "/GPU:0"
-    allocate_actor: Union[List[str], str] = "/CPU:0"
+
+    """ device option
+    "AUTO",""     : Automatic assignment.
+    "CPU","CPU:0" : Use CPU.
+    "GPU","GPU:0" : Use GPU.
+
+    AUTO assign
+    - sequence
+        - device  : GPU > CPU
+        - trainer : not use
+        - actors  : not use
+    - distribute
+        - device  : CPU
+        - trainer : GPU > CPU
+        - actors  : CPU
+    """
+    device: str = "AUTO"
+    device_mp_trainer: str = "AUTO"
+    device_mp_actor: Union[str, List[str]] = "AUTO"  # ["CPU:0", "CPU:1"]
+    on_device_init_function: Optional[Callable[["Config"], None]] = None
+    use_CUDA_VISIBLE_DEVICES: bool = True  # CPUの場合 CUDA_VISIBLE_DEVICES で制御します
 
     # tensorflow options
-    tf_enable_gpu: bool = True
+    tf_disable: bool = False
     tf_enable_memory_growth: bool = True
-    tf_on_init_function: Optional[Callable[["Config"], None]] = None  # tfの初期化を追加で設定できます
 
     def __post_init__(self):
         # stop config
@@ -71,6 +91,11 @@ class Config:
         self.run_name: str = "main"
         self.run_actor_id: int = 0
 
+        # The device used by the framework.
+        self.used_device_tf: str = ""
+        self.used_device_torch: str = ""
+        self.__is_init_device: bool = False
+
         if self.rl_config is None:
             self.rl_config = srl.rl.dummy.Config()
         if isinstance(self.env_config, str):
@@ -78,9 +103,6 @@ class Config:
 
         self.rl_name = self.rl_config.getName()
         self.env = None
-
-        self._is_init_tensorflow: bool = False
-        self._default_CUDA_VISIBLE_DEVICES: Optional[str] = None
 
     # ------------------------------
     # user functions
@@ -90,7 +112,6 @@ class Config:
         parameter = self.make_parameter()
         parameter.summary(**kwargs)
         return parameter
-        # TODO: plot model
 
     # ------------------------------
     # runner functions
@@ -106,23 +127,23 @@ class Config:
             self.rl_config.reset_config(self.env)
 
     def make_env(self) -> EnvRun:
-        self.init_tensorflow()
+        self.init_device()
         self._set_env()
         self.env.init()
         return self.env
 
     def make_parameter(self, is_load: bool = True) -> RLParameter:
-        self.init_tensorflow()
+        self.init_device()
         self._set_env()
         return make_parameter(self.rl_config, env=self.env, is_load=is_load)
 
     def make_remote_memory(self, is_load: bool = True) -> RLRemoteMemory:
-        self.init_tensorflow()
+        self.init_device()
         self._set_env()
         return make_remote_memory(self.rl_config, env=self.env, is_load=is_load)
 
     def make_trainer(self, parameter: RLParameter, remote_memory: RLRemoteMemory) -> RLTrainer:
-        self.init_tensorflow()
+        self.init_device()
         self._set_env()
         return make_trainer(self.rl_config, parameter, remote_memory, env=self.env)
 
@@ -132,7 +153,7 @@ class Config:
         remote_memory: Optional[RLRemoteMemory] = None,
         actor_id: int = 0,
     ) -> WorkerRun:
-        self.init_tensorflow()
+        self.init_device()
         self._set_env()
         worker = make_worker(
             self.rl_config,
@@ -151,8 +172,8 @@ class Config:
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
         actor_id: int = 0,
-    ):
-        self.init_tensorflow()
+    ) -> WorkerRun:
+        self.init_device()
         env = self.make_env()
 
         # 設定されていない場合は 0 をrl、1以降をrandom
@@ -195,11 +216,139 @@ class Config:
         raise ValueError(f"unknown player: {player_obj}")
 
     # ------------------------------
+    # GPU
+    # ------------------------------
+    def get_device_name(self) -> str:
+        if self.run_name in ["main", "eval"]:
+            device = self.device
+            if device in ["", "AUTO"]:
+                if self.distributed:
+                    device = "CPU"
+                else:
+                    device = "AUTO"
+        elif self.run_name == "trainer":
+            device = self.device_mp_trainer
+            if device == "":
+                device = "AUTO"
+        elif "actor" in self.run_name:
+            if isinstance(self.device_mp_actor, str):
+                device = self.device_mp_actor
+            else:
+                device = self.device_mp_actor[self.run_actor_id]
+            if device in ["", "AUTO"]:
+                device = "CPU"
+        else:
+            raise ValueError("not coming")
+
+        return device
+
+    def init_device(self):
+        if self.__is_init_device:
+            return
+
+        if "CUDA_VISIBLE_DEVICES" in os.environ:
+            cuda_devices = os.environ["CUDA_VISIBLE_DEVICES"]
+            logger.info(f"[{self.run_name}] CUDA_VISIBLE_DEVICES='{cuda_devices}'")
+        else:
+            logger.info(f"[{self.run_name}] CUDA_VISIBLE_DEVICES is not define.")
+
+        # --- device
+        device = self.get_device_name()
+        logger.info(f"[{self.run_name}] config device name: {device}")
+
+        if "CPU" in device:
+            if self.use_CUDA_VISIBLE_DEVICES:
+                os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+                logger.info(f"[{self.run_name}] set CUDA_VISIBLE_DEVICES=-1")
+
+            if "CPU" == device:
+                self.used_device_tf = "/CPU"
+                self.used_device_torch = "cpu"
+            elif "CPU:" in device:
+                t = device.split(":")
+                self.used_device_tf = f"/CPU:{t[1]}"
+                self.used_device_torch = f"cpu:{t[1]}"
+        else:
+            # CUDA_VISIBLE_DEVICES が -1 の場合のみ削除する
+            if os.environ.get("CUDA_VISIBLE_DEVICES", "") == "-1":
+                del os.environ["CUDA_VISIBLE_DEVICES"]
+                logger.info(f"[{self.run_name}] del CUDA_VISIBLE_DEVICES")
+
+            # --- tensorflow GPU check
+            if is_package_imported("tensorflow") or (self.rl_config.get_use_framework() == "tensorflow"):
+                import tensorflow as tf
+
+                gpu_devices = tf.config.list_physical_devices("GPU")
+                if len(gpu_devices) == 0:
+                    assert (
+                        "GPU" not in device
+                    ), f"[{self.run_name}] (tf) GPU is not found. {tf.config.list_physical_devices()}"
+
+                    self.used_device_tf = "/CPU"
+
+                else:
+                    logger.info(f"[{self.run_name}] (tf) gpu device: {len(gpu_devices)}")
+
+                    if "GPU:" in device:
+                        t = device.split(":")
+                        self.used_device_tf = f"/GPU:{t[1]}"
+                    else:
+                        self.used_device_tf = "/GPU"
+
+                    # --- memory growth
+                    if self.tf_enable_memory_growth:
+                        try:
+                            for d in gpu_devices:
+                                logger.info(f"[{self.run_name}] (tf) set_memory_growth({d.name}, True)")
+                                tf.config.experimental.set_memory_growth(d, True)
+                        except Exception:
+                            s = f"[{self.run_name}] (tf) 'set_memory_growth' failed."
+                            s += " Also consider 'tf_enable_memory_growth=False'."
+                            print(s)
+                            raise
+
+            # --- torch GPU check
+            if is_package_imported("torch") or (self.rl_config.get_use_framework() == "torch"):
+                import torch
+
+                if not torch.cuda.is_available():
+                    assert (
+                        "GPU" not in device
+                    ), f"[{self.run_name}] (torch) GPU is not found. {tf.config.list_physical_devices()}"
+
+                    self.used_device_torch = "cpu"
+                else:
+                    logger.info(f"[{self.run_name}] (torch) gpu device: {torch.cuda.get_device_name()}")
+
+                    if "GPU:" in device:
+                        t = device.split(":")
+                        self.used_device_torch = f"cuda:{t[1]}"
+                    else:
+                        self.used_device_torch = "cuda"
+
+        if self.on_device_init_function is not None:
+            self.on_device_init_function(self)
+
+        if is_package_imported("tensorflow") or (self.rl_config.get_use_framework() == "tensorflow"):
+            logger.info(f"[{self.run_name}] The device used by Tensorflow '{self.used_device_tf}'.")
+        if is_package_imported("torch") or (self.rl_config.get_use_framework() == "torch"):
+            logger.info(f"[{self.run_name}] The device used by Torch '{self.used_device_torch}'.")
+
+        self.rl_config.used_device_tf = self.used_device_tf
+        self.rl_config.used_device_torch = self.used_device_torch
+        self.env_config.used_device_tf = self.used_device_tf
+        self.env_config.used_device_torch = self.used_device_torch
+        self.__is_init_device = True
+        logger.info(f"[{self.run_name}] Initialized device.")
+
+    # ------------------------------
     # other functions
     # ------------------------------
     def to_dict(self) -> dict:
         conf = {}
         for k, v in self.__dict__.items():
+            if k.startswith("_"):
+                continue
             if v is None or type(v) in [int, float, bool, str]:
                 conf[k] = v
             elif type(v) is list:
@@ -208,28 +357,38 @@ class Config:
                 conf[k] = v.copy()
             elif issubclass(type(v), enum.Enum):
                 conf[k] = v.name
+            else:
+                conf[k] = str(v)
 
         conf["rl_config"] = {}
         for k, v in self.rl_config.__dict__.items():
+            if k.startswith("_"):
+                continue
             if v is None or type(v) in [int, float, bool, str]:
                 conf["rl_config"][k] = v
             elif type(v) is list:
                 conf["rl_config"][k] = [str(n) for n in v]
             elif type(v) is dict:
-                conf["rl_config"] = v.copy()
+                conf["rl_config"][k] = v.copy()
             elif issubclass(type(v), enum.Enum):
                 conf["rl_config"][k] = v.name
+            else:
+                conf["rl_config"][k] = str(v)
 
         conf["env_config"] = {}
         for k, v in self.env_config.__dict__.items():
+            if k.startswith("_"):
+                continue
             if v is None or type(v) in [int, float, bool, str]:
                 conf["env_config"][k] = v
             elif type(v) is list:
                 conf["env_config"][k] = [str(n) for n in v]
             elif type(v) is dict:
-                conf["env_config"] = v.copy()
+                conf["env_config"][k] = v.copy()
             elif issubclass(type(v), enum.Enum):
                 conf["env_config"][k] = v.name
+            else:
+                conf["env_config"][k] = str(v)
 
         return conf
 
@@ -266,70 +425,6 @@ class Config:
             config.env = self.env
 
         return config
-
-    def get_allocate(self) -> str:
-        if self.run_name in ["main", "eval"]:
-            if self.allocate_main == "" and self.distributed:
-                return "/CPU:0"
-            return self.allocate_main
-        elif self.run_name == "trainer":
-            return self.allocate_trainer
-        elif "actor" in self.run_name:
-            if isinstance(self.allocate_actor, str):
-                return self.allocate_actor
-            else:
-                return self.allocate_actor[self.run_actor_id]
-        raise ValueError()
-
-    def init_tensorflow(self, rerun: bool = False):
-        """
-        tensorflow の初期化はmodel作成前にしかできない
-        """
-        if not rerun and self._is_init_tensorflow:
-            return
-        if not is_package_imported("tensorflow"):
-            self._is_init_tensorflow = True
-            return
-        import tensorflow as tf
-
-        if self._default_CUDA_VISIBLE_DEVICES is None:
-            self._default_CUDA_VISIBLE_DEVICES = os.environ.get("CUDA_VISIBLE_DEVICES", "None")
-            logger.info(f"[{self.run_name}] default CUDA_VISIBLE_DEVICES={self._default_CUDA_VISIBLE_DEVICES}")
-
-        if not self.tf_enable_gpu:
-            os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-            logger.info(f"[{self.run_name}] set CUDA_VISIBLE_DEVICES=-1")
-        else:
-            allocate = self.get_allocate()
-            logger.info(f"[{self.run_name}] allocate={allocate}")
-
-            if "CPU" in allocate:
-                os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-                logger.info(f"[{self.run_name}] set CUDA_VISIBLE_DEVICES=-1")
-            else:
-                #  set default allocate
-                if self._default_CUDA_VISIBLE_DEVICES is None or self._default_CUDA_VISIBLE_DEVICES == "None":
-                    if "CUDA_VISIBLE_DEVICES" in os.environ:
-                        del os.environ["CUDA_VISIBLE_DEVICES"]
-                        logger.info(f"[{self.run_name}] del CUDA_VISIBLE_DEVICES")
-                else:
-                    os.environ["CUDA_VISIBLE_DEVICES"] = self._default_CUDA_VISIBLE_DEVICES
-                    logger.info(f"[{self.run_name}] set CUDA_VISIBLE_DEVICES={self._default_CUDA_VISIBLE_DEVICES}")
-
-                if self.tf_enable_memory_growth:
-                    try:
-                        for device in tf.config.list_physical_devices("GPU"):
-                            logger.info(f"[{self.run_name}] set_memory_growth({device.name}, True)")
-                            tf.config.experimental.set_memory_growth(device, True)
-                    except Exception:
-                        print(f"[{self.run_name}] 'set_memory_growth' failed. Also consider 'tf_enable_memory_growth=False'.")
-                        raise
-
-        if self.tf_on_init_function is not None:
-            self.tf_on_init_function(self)
-
-        self._is_init_tensorflow = True
-        logger.info(f"[{self.run_name}] Initialized tensorflow.")
 
     # ------------------------------
     # utility

@@ -25,6 +25,11 @@ class EnvConfig:
     font_name: str = ""
     font_size: int = 12
 
+    def __post_init__(self):
+        # The device used by the framework.
+        self.used_device_tf: str = "/CPU"
+        self.used_device_torch: str = "cpu"
+
     def make_env(self) -> "srl.base.env.base.EnvRun":
         from srl.base.env.registration import make
 

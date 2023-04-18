@@ -12,15 +12,16 @@ logger = logging.getLogger(__name__)
 
 
 def logger_print(
-    level: Union[int, str]=logging.INFO,
+    level: Union[int, str] = logging.INFO,
     log_name: str = "",
     enable_log_extra_suppression: bool = True,
 ) -> None:
     set_logger(log_name, True, level, "", "DEBUG", enable_log_extra_suppression)
 
+
 def logger_file(
     filename,
-    level: Union[int, str]=logging.DEBUG,
+    level: Union[int, str] = logging.DEBUG,
     log_name: str = "",
     enable_log_extra_suppression: bool = True,
 ) -> None:
@@ -30,9 +31,9 @@ def logger_file(
 def set_logger(
     log_name: str = "",
     print_terminal: bool = True,
-    print_level: Union[int, str]=logging.INFO,
+    print_level: Union[int, str] = logging.INFO,
     filename: str = "",
-    file_level: Union[int, str]=logging.DEBUG,
+    file_level: Union[int, str] = logging.DEBUG,
     enable_log_extra_suppression: bool = True,
 ) -> None:
     if isinstance(print_level, str):
@@ -57,7 +58,7 @@ def set_logger(
         h.setLevel(file_level)
         h.setFormatter(formatter)
         logger.addHandler(h)
-    
+
     # root level
     root_logger = logging.getLogger()
     if root_logger.level < top_level:
@@ -252,7 +253,9 @@ def compare_equal_version(v1, v2) -> bool:
         return LooseVersion(v1) == LooseVersion(v2)
 
 
-def is_enable_device_name(device_name) -> bool:
+def is_enable_tf_device_name(device_name) -> bool:
+    if device_name == "":
+        return False
     if not is_package_imported("tensorflow"):
         return False
     try:
@@ -268,3 +271,15 @@ def is_enable_device_name(device_name) -> bool:
     except ValueError:
         logger.info(traceback.format_exc())
     return False
+
+
+def is_available_gpu_tf():
+    import tensorflow as tf
+
+    return len(tf.config.list_physical_devices("GPU")) > 0
+
+
+def is_available_gpu_torch():
+    import torch
+
+    return torch.cuda.is_available()

@@ -119,9 +119,6 @@ def play_facade(
                 "(pip install opencv-python matplotlib pillow pygame)"
             )
 
-    # tensorflow
-    config.init_tensorflow(rerun=False)
-
     # --- Evaluate(最初に追加)
     if enable_evaluation:
         from srl.runner.callbacks.evaluate import Evaluate
@@ -184,7 +181,6 @@ def play_facade(
     episode_rewards, parameter, memory, env = play(config, parameter, remote_memory)
 
     # --- history
-
     history = FileLogReader()
     try:
         if file_logger is not None:
@@ -195,11 +191,34 @@ def play_facade(
     return episode_rewards, parameter, memory, history, render
 
 
+# --- (multiprocessing)
+# multiprocessing("spawn")ではプロセス毎に初期化される想定
 # pynvmlはプロセス毎に管理
 __enabled_nvidia = False
 
 
 def play(
+    config: Config,
+    parameter: Optional[RLParameter] = None,
+    remote_memory: Optional[RLRemoteMemory] = None,
+    actor_id: int = 0,
+) -> Tuple[List[List[float]], RLParameter, RLRemoteMemory, EnvRun]:
+    # init device
+    config.init_device()
+
+    allocate = config.used_device_tf
+    if (not config.tf_disable) and is_enable_tf_device_name(allocate):
+        import tensorflow as tf
+
+        with tf.device(allocate):
+            logger.debug(f"tf.device({allocate})")
+            return _play_main(config, parameter, remote_memory, actor_id)
+
+    else:
+        return _play_main(config, parameter, remote_memory, actor_id)
+
+
+def _play_main(
     config: Config,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,

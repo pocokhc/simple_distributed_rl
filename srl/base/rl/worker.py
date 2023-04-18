@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
+
 from srl.base.define import (
     EnvAction,
     EnvObservation,
@@ -26,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 class WorkerBase(ABC, IRender):
     def __init__(self, training: bool = False, distributed: bool = False):
-        self._training = training
-        self._distributed = distributed
+        self.__training = training
+        self.__distributed = distributed
         self.config = None
 
     # ------------------------------
@@ -53,9 +54,6 @@ class WorkerBase(ABC, IRender):
     # ------------------------------
     # implement(option)
     # ------------------------------
-    def set_render_mode(self, mode: RenderMode) -> None:
-        pass
-
     def render_terminal(self, env: EnvRun, worker: "WorkerRun", **kwargs) -> None:
         pass
 
@@ -67,11 +65,11 @@ class WorkerBase(ABC, IRender):
     # ------------------------------------
     @property
     def training(self) -> bool:
-        return self._training
+        return self.__training
 
     @property
     def distributed(self) -> bool:
-        return self._distributed
+        return self.__distributed
 
 
 class RLWorker(WorkerBase):
@@ -165,11 +163,11 @@ class RLWorker(WorkerBase):
     # ------------------------------------
     @property
     def player_index(self) -> int:
-        return self._player_index
+        return self.__player_index
 
     def on_reset(self, env: EnvRun, worker: "WorkerRun") -> Info:
         self.__recent_states = [self.__dummy_state for _ in range(self.config.window_length)]
-        self._player_index = worker.player_index
+        self.__player_index = worker.player_index
         self.__env = env
 
         state = self.state_encode(env.state, env)
@@ -180,6 +178,7 @@ class RLWorker(WorkerBase):
         if self.config.window_length > 1:
             state = np.asarray(self.__recent_states)
 
+        state = state.astype(np.float32)
         return self._call_on_reset(state, env, worker)
 
     def policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvAction, Info]:
@@ -189,6 +188,7 @@ class RLWorker(WorkerBase):
         else:
             state = self.__recent_states[-1]
 
+        state = state.astype(np.float32)
         action, info = self._call_policy(state, env, worker)
         action = self.action_decode(action)
         return action, info
@@ -204,6 +204,7 @@ class RLWorker(WorkerBase):
         if self.config.window_length > 1:
             next_state = np.asarray(self.__recent_states)
 
+        next_state = next_state.astype(np.float32)
         return self._call_on_step(
             next_state,
             reward,
@@ -428,14 +429,22 @@ class WorkerRun:
     def reward(self) -> float:
         return self._step_reward
 
-    def on_reset(self, env: EnvRun, player_index: int) -> None:
+    def on_reset(
+        self,
+        env: EnvRun,
+        player_index: int = 0,
+        render_mode: Union[str, PlayRenderMode] = "",
+    ) -> None:
         logger.debug(f"worker.on_reset({player_index})")
 
         self._player_index = player_index
         self._info = None
         self._is_reset = False
         self._step_reward = 0
+
+        # --- render
         self._render.cache_reset()
+        self._render.reset(render_mode, interval=-1)
 
     def policy(self, env: EnvRun) -> Optional[EnvAction]:
         if self.player_index != env.next_player_index:
@@ -477,9 +486,6 @@ class WorkerRun:
     # ------------------------------------
     # render functions
     # ------------------------------------
-    def set_render_mode(self, mode: Union[str, PlayRenderMode]) -> None:
-        self._render.reset(mode, interval=-1)
-
     def render(self, env: EnvRun, **kwargs) -> Union[None, str, np.ndarray]:
         # 初期化前はskip
         if not self._is_reset:

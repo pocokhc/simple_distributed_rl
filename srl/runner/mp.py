@@ -2,12 +2,9 @@ import ctypes
 import logging
 import multiprocessing as mp
 import os
-import pickle
 import pprint
 import time
 import traceback
-import warnings
-from dataclasses import dataclass
 from multiprocessing.managers import BaseManager
 from typing import Any, List, Optional, Type, Union, cast
 
@@ -19,7 +16,7 @@ from srl.runner.callbacks.file_log_reader import FileLogReader
 from srl.runner.callbacks.print_progress import PrintProgress
 from srl.runner.config import Config
 from srl.runner.play_trainer import play as train_only
-from srl.utils.common import is_enable_device_name, is_package_imported
+from srl.utils.common import is_enable_tf_device_name
 
 logger = logging.getLogger(__name__)
 

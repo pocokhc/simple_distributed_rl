@@ -178,9 +178,10 @@ class EnvRun:
         self._step_rewards = np.array(0)
         self._done = True
         self._done_reason = ""
+        self._prev_player_index = 0
         self._next_player_index = 0
         self._invalid_actions_list = [[] for _ in range(self.env.player_num)]
-        self._info = None
+        self._info = {}
 
     # --- with
     def __del__(self):
@@ -202,17 +203,32 @@ class EnvRun:
     # ------------------------------------
     # change internal state
     # ------------------------------------
-    def reset(self) -> None:
-        logger.debug("env.reset")
+    def reset(
+        self,
+        render_mode: Union[str, PlayRenderMode] = "",
+        render_interval: float = -1,
+        seed: Optional[int] = None,
+    ) -> None:
+        logger.debug(f"env.reset({render_mode}, {render_interval}, {seed})")
 
+        # --- render
+        self._render.cache_reset()
+        if render_interval > 0:
+            self._render_interval = render_interval
+        self._render.reset(render_mode, self.render_interval)
+
+        # --- env reset
         self._state, self._next_player_index, self._info = self.env.reset()
         self._step_num = 0
         self._done = False
         self._done_reason = ""
+        self._prev_player_index = 0
         self._episode_rewards = np.zeros(self.player_num)
         self._step_rewards = np.zeros(self.player_num)
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
-        self._render.cache_reset()
+
+        # --- seed
+        self.env.set_seed(seed)
 
         self.t0 = time.time()
 
@@ -220,6 +236,7 @@ class EnvRun:
         assert not self.done, "It is in the done state. Please execute reset ()."
         logger.debug("env.step")
 
+        self._prev_player_index = self._next_player_index
         self._state, rewards, self._done, self._next_player_index, self._info = self.env.step(
             action, self.next_player_index
         )
@@ -268,6 +285,7 @@ class EnvRun:
             self.step_rewards,
             self.done,
             self.done_reason,
+            self.prev_player_index,
             self.next_player_index,
             self._invalid_actions_list,
             self.info,
@@ -286,12 +304,13 @@ class EnvRun:
         self._step_rewards = d[3]
         self._done = d[4]
         self._done_reason = d[5]
-        self._next_player_index = d[6]
-        self._invalid_actions_list = d[7]
-        self._info = d[8]
-        self.t0 = d[9]
-        if len(d) == 11:
-            self.env.restore(d[10])
+        self._prev_player_index = d[6]
+        self._next_player_index = d[7]
+        self._invalid_actions_list = d[8]
+        self._info = d[9]
+        self.t0 = d[10]
+        if len(d) == 12:
+            self.env.restore(d[11])
 
     # ------------------------------------
     # No internal state change
@@ -328,6 +347,10 @@ class EnvRun:
         return self._state
 
     @property
+    def prev_player_index(self) -> int:
+        return self._prev_player_index
+
+    @property
     def next_player_index(self) -> int:
         return self._next_player_index
 
@@ -352,8 +375,13 @@ class EnvRun:
         return self._step_rewards
 
     @property
-    def info(self) -> Optional[Info]:
+    def info(self) -> Info:
         return self._info
+
+    @property
+    def reward(self) -> float:
+        """直前のrewardを返す"""
+        return self.step_rewards[self.prev_player_index]
 
     # invalid actions
     def get_invalid_actions(self, player_index: int = -1) -> List[int]:
@@ -394,9 +422,6 @@ class EnvRun:
     def get_original_env(self) -> object:
         return self.env.get_original_env()
 
-    def set_seed(self, seed: Optional[int] = None) -> None:
-        self.env.set_seed(seed)
-
     @property
     def render_interval(self) -> float:
         return self._render_interval
@@ -404,11 +429,6 @@ class EnvRun:
     # ------------------------------------
     # render
     # ------------------------------------
-    def set_render_mode(self, mode: Union[str, PlayRenderMode], interval: float = -1) -> None:
-        if interval > 0:
-            self._render_interval = interval
-        self._render.reset(mode, self._render_interval)
-
     def render(self, **kwargs) -> Union[None, str, np.ndarray]:
         return self._render.render(**kwargs)
 

@@ -12,7 +12,6 @@ from srl.base.define import EnvAction, EnvObservationType, Info, RenderMode
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.env.spaces.box import BoxSpace
-from srl.base.env.spaces.discrete import DiscreteSpace
 from srl.utils.common import compare_less_version, is_package_installed
 
 logger = logging.getLogger(__name__)
@@ -299,7 +298,6 @@ class GymWrapper(EnvBase):
         logger.info(f"flatten_act: {self.enable_flatten_action}")
 
     def _pred_space_discrete(self):
-
         # 実際に値を取得して予測
         done = True
         for _ in range(self.prediction_step):

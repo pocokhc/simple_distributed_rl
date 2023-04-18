@@ -14,7 +14,7 @@ from srl.base.rl.config import RLConfig
 from srl.runner.callback import Callback
 from srl.runner.callbacks.file_log_reader import FileLogReader
 from srl.runner.config import Config
-from srl.utils.common import is_package_imported, is_package_installed, is_packages_installed
+from srl.utils.common import is_enable_tf_device_name, is_package_imported, is_package_installed, is_packages_installed
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ def play_facade(
     progress_print_train_info: bool = True,
     progress_print_worker: int = 0,
     # file_log
-    enable_file_logger: bool = True,
+    enable_file_logger: bool = False,
     file_logger_tmp_dir: str = "tmp",
     file_logger_enable_train_log: bool = True,
     file_logger_train_log_interval: int = 1,  # s
@@ -258,8 +258,6 @@ def _play_main(
 
     # --- create env
     env = config.make_env()
-    if config.seed is not None:
-        env.set_seed(config.seed)
 
     # --- config
     config = config.copy(env_share=True)
@@ -298,10 +296,6 @@ def _play_main(
 
     if config.training and not config.distributed:
         logger.info(f"Training Config\n{pprint.pformat(config.to_dict())}")
-
-    # --- render init
-    env.set_render_mode(config.render_mode)
-    [w.set_render_mode(config.render_mode) for w in workers]
 
     # --- init
     episode_count = -1
@@ -342,7 +336,7 @@ def _play_main(
 
             # env reset
             episode_t0 = _time
-            env.reset()
+            env.reset(render_mode=config.render_mode, seed=config.seed)
 
             # shuffle
             if config.shuffle_player:
@@ -350,7 +344,7 @@ def _play_main(
             worker_idx = worker_indices[env.next_player_index]
 
             # worker reset
-            [w.on_reset(env, worker_indices[i]) for i, w in enumerate(workers)]
+            [w.on_reset(env, worker_indices[i], render_mode=config.render_mode) for i, w in enumerate(workers)]
 
             _info["episode_count"] = episode_count
             _info["worker_indices"] = worker_indices

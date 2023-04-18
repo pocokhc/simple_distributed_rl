@@ -7,7 +7,6 @@ from srl.base.env import EnvBase
 
 
 class TurnBase2Player(EnvBase):
-
     # -----------------------------------------------------
     # inheritance target implementation(継承先に必要な実装)
     # -----------------------------------------------------
@@ -29,7 +28,6 @@ class TurnBase2Player(EnvBase):
     #  action_to_str
     #  make_worker
     #  set_seed
-    #  set_render_mode
 
     @property
     @abstractmethod

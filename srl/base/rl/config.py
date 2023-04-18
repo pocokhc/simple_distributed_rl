@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class RLConfig(ABC):
     processors: List[Processor] = field(default_factory=list)
     override_env_observation_type: EnvObservationType = EnvObservationType.UNKNOWN
-    override_rl_action_type: RLActionType = RLActionType.ANY  # RL側がANTの場合のみ有効
+    override_rl_action_type: RLActionType = RLActionType.ANY  # RL側がANYの場合のみ有効
     action_division_num: int = 5
     # observation_division_num: int = 10
     extend_worker: Optional[Type["ExtendWorker"]] = None
@@ -33,8 +33,15 @@ class RLConfig(ABC):
     def __post_init__(self) -> None:
         self._is_set_env_config = False
 
+        # The device used by the framework.
+        self.used_device_tf: str = "/CPU"
+        self.used_device_torch: str = "cpu"
+
     def assert_params(self) -> None:
         assert self.window_length > 0
+
+    def get_use_framework(self) -> str:
+        return ""
 
     # ----------------------------
     # RL config
@@ -183,7 +190,10 @@ class RLConfig(ABC):
         for k, v in self.__dict__.items():
             if isinstance(v, EnvRun):
                 continue
-            setattr(config, k, pickle.loads(pickle.dumps(v)))
+            try:
+                setattr(config, k, pickle.loads(pickle.dumps(v)))
+            except TypeError as e:
+                logger.warning(f"'{k}' copy fail.({e})")
 
         if reset_env_config:
             config._is_set_env_config = False

@@ -42,60 +42,6 @@ RuntimeError:
 
 
 # --------------------
-# Config
-# --------------------
-@dataclass
-class MpConfig:
-
-    actor_num: int
-
-    trainer_parameter_send_interval_by_train_count: int = 100
-    actor_parameter_sync_interval_by_step: int = 100
-
-    use_tensorflow: Optional[bool] = None
-    allocate_trainer: str = "/GPU:0"
-    allocate_actor: Union[List[str], str] = "/CPU:0"
-
-    def __post_init__(self):
-        warnings.warn("MpConfig is now integrated into Config.", DeprecationWarning)
-
-        self.callbacks: List[Callback] = []
-
-        if self.use_tensorflow is None:
-            if is_package_imported("tensorflow"):
-                self.use_tensorflow = True
-            else:
-                self.use_tensorflow = False
-
-    def assert_params(self):
-        assert self.actor_num > 0
-
-    # -------------------------------------
-
-    def to_dict(self) -> dict:
-        conf = {}
-        for k, v in self.__dict__.items():
-            if v is None or type(v) in [int, float, bool, str]:
-                conf[k] = v
-            elif type(v) is list:
-                conf[k] = [str(n) for n in v]
-        return conf
-
-    def copy(self, callbacks_share: bool = True):
-        config = MpConfig(0)
-        for k, v in self.__dict__.items():
-            if v is None or type(v) in [int, float, bool, str]:
-                setattr(config, k, v)
-
-        if callbacks_share:
-            config.callbacks = self.callbacks
-        else:
-            config.callbacks = pickle.loads(pickle.dumps(self.callbacks))
-
-        return config
-
-
-# --------------------
 # board
 # --------------------
 class Board:
@@ -373,15 +319,6 @@ def train(
         ), "Please specify 'max_episodes', 'timeout' , 'max_steps' or 'max_train_count'."
 
     config = config.copy(env_share=False)
-    if mp_config is not None:
-        config.actor_num = mp_config.actor_num
-        config.trainer_parameter_send_interval_by_train_count = (
-            mp_config.trainer_parameter_send_interval_by_train_count
-        )
-        config.actor_parameter_sync_interval_by_step = mp_config.actor_parameter_sync_interval_by_step
-        config.allocate_trainer = mp_config.allocate_trainer
-        config.allocate_actor = mp_config.allocate_actor
-        config.callbacks.extend(mp_config.callbacks[:])
 
     # stop config
     config.max_episodes = max_episodes

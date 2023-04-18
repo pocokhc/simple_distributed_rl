@@ -1,9 +1,10 @@
 import logging
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 from srl.base.define import PlayRenderMode
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.runner.callback import Callback
+from srl.runner.callbacks.file_log_reader import FileLogReader
 from srl.runner.config import Config
 from srl.runner.play_sequence import play_facade
 
@@ -37,7 +38,7 @@ def train(
     progress_print_train_info: bool = True,
     progress_print_worker: int = 0,
     # file_log
-    enable_file_logger: bool = True,
+    enable_file_logger: bool = False,
     file_logger_tmp_dir: str = "tmp",
     file_logger_enable_train_log: bool = True,
     file_logger_train_log_interval: int = 1,  # s
@@ -48,7 +49,7 @@ def train(
     callbacks: List[Callback] = [],
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
-):
+) -> Tuple[RLParameter, RLRemoteMemory, FileLogReader]:
     _, parameter, remote_memory, history, _ = play_facade(
         config,
         # stop config
@@ -120,7 +121,6 @@ def evaluate(
     callbacks: List[Callback] = [],
     remote_memory: Optional[RLRemoteMemory] = None,
 ) -> Union[List[float], List[List[float]]]:  # single play , multi play
-
     episode_rewards, _, _, _, _ = play_facade(
         config,
         # stop config
@@ -186,7 +186,7 @@ def render(
     # other
     callbacks: List[Callback] = [],
     remote_memory: Optional[RLRemoteMemory] = None,
-):
+) -> List[float]:
     episode_rewards, _, _, _, _ = play_facade(
         config,
         # stop config
@@ -248,7 +248,7 @@ def animation(
     # other
     callbacks: List[Callback] = [],
     remote_memory: Optional[RLRemoteMemory] = None,
-):
+) -> "srl.runner.callbacks.rendering.Rendering":
     episode_rewards, _, _, _, _render = play_facade(
         config,
         # stop config
@@ -318,7 +318,7 @@ def test_play(
     # other
     callbacks: List[Callback] = [],
     remote_memory: Optional[RLRemoteMemory] = None,
-):
+) -> FileLogReader:
     _, parameter, memory, history, _ = play_facade(
         config,
         # stop config

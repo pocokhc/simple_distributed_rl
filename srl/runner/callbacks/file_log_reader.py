@@ -6,6 +6,7 @@ import time
 from typing import List, Optional, Tuple
 
 import numpy as np
+
 import srl
 from srl.utils.common import compare_equal_version, is_package_installed
 
@@ -106,6 +107,10 @@ class FileLogReader:
     def _read_train_logs(self):
         if self.logs is not None:
             return
+
+        assert os.path.isdir(
+            self.train_log_dir
+        ), f"'{self.train_log_dir}' is not found. Setting `enable_file_logger=True` in `runner.train` may solve this problem."
 
         self.logs = []
 

@@ -72,9 +72,12 @@ import srl
 
 ### Option library
 
-+ アルゴリズムによっては使用
++ Tensorflowを使う場合
   + tensorflow
   + tensorflow-addons
+  + tensorflow-probability
++ Torchを使う場合
+  + <https://pytorch.org/get-started/locally/>
 + 描画関係で使用
   + matplotlib
   + pillow
@@ -87,6 +90,8 @@ import srl
 + profile 情報を記録する場合に必要
   + psutil
   + pynvml
++ テスト用
+  + pytest
 
 # 2. Usage
 
@@ -281,14 +286,7 @@ runner.env_play(env_config, key_bind=key_bind)
 
 ```
 
-# 3. Customize
-
-オリジナル環境とアルゴリズムの作成例は以下のファイルを参考にしてください。
-
-examples/custom_env.ipynb  
-examples/custom_rl.ipynb  
-
-# 4. Algorithms
+# 3. Algorithms
 
 ## ModelFree
 
@@ -352,9 +350,20 @@ examples/custom_rl.ipynb
 |Agent57_light|Continuous |Discrete|ValueBase|Tensorflow|100%|Agent57 - (LSTM,MultiStep)|
 |SearchDynaQ  |Discrete   |Discrete|ModelBase/ValueBase|| 80%|original|
 
+# 4. Customize
+
+オリジナル環境とアルゴリズムの作成例は以下のファイルを参考にしてください。
+
+examples/custom_env.ipynb  
+examples/custom_rl.ipynb  
+
 # 5. Diagrams
 
 ## Overview
+
++ **runner overview**
+
+![overview-runner.drawio.png](diagrams/overview-runner.drawio.png)
 
 + **sequence flow**
 
@@ -394,18 +403,25 @@ examples/custom_rl.ipynb
 
 # 6. Interface
 
-|   |           |          |Type|
-|---|-----------|----------|------|
-|env|action     |          |Space|
-|env|observation|          |Space|
-|rl |action     |Discrete  |int|
-|rl |action     |Continuous|list[float]|
-|rl |observation|Discrete  |np.ndarray(dtype=int)|
-|rl |observation|Continuous|np.ndarray(dtype=np.float32)|
++ Env input/output type
+
+|   |           |Type|
+|---|-----------|------|
+|Env|action     |Space|
+|Env|observation|Space|
+
++ RL input/output type
+
+|   |          |           |Type|
+|---|----------|-----------|------|
+|RL |Discrete  |action     |int|
+|RL |Discrete  |observation|np.ndarray(dtype=int)|
+|RL |Continuous|action     |list[float]|
+|RL |Continuous|observation|np.ndarray(dtype=np.float32)|
 
 + Space(srl.base.env.spaces)
 
-|class               |Type       |
+|Class               |Type       |
 |--------------------|-----------|
 |DiscreteSpace       |int        |
 |ArrayDiscreteSpace  |list[int]  |
@@ -414,6 +430,8 @@ examples/custom_rl.ipynb
 |BoxSpace            |np.ndarray |
 
 # 7. Development environment
+
+Look "./dockers/"
 
 + PC1
   + windows10
@@ -425,4 +443,3 @@ examples/custom_rl.ipynb
   + CPUx1: Core i9-12900 2.4GHz
   + GPUx1: NVIDIA GeForce RTX 3060 12GB
   + memory 32GB
-+ look "./dockers/"

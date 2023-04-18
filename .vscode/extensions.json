@@ -1,9 +1,6 @@
 {
     "recommendations": [
-        "jebbs.plantuml",
         "ms-python.python",
-        "ms-toolsai.jupyter",
-        "ms-python.vscode-pylance",
-        "hediet.vscode-drawio"
+        "ms-python.vscode-pylance"
     ]
 }

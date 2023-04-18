@@ -3,7 +3,8 @@ from typing import Any, List, Tuple
 import numpy as np
 
 from srl.base.define import ContinuousAction, DiscreteSpaceType, RLObservation
-from srl.base.env.spaces.box import BoxSpace
+
+from .box import BoxSpace
 
 
 class ContinuousSpace(BoxSpace):
@@ -21,7 +22,16 @@ class ContinuousSpace(BoxSpace):
         return float(val)
 
     def __str__(self) -> str:
-        return f"Continuous({self.low}, {self.high})"
+        return f"Continuous({self.low} - {self.high})"
+
+    def check_val(self, val: Any) -> bool:
+        if not isinstance(val, float):
+            return False
+        if val < self.low:
+            return False
+        if val > self.high:
+            return False
+        return True
 
     # --- action discrete
     def get_action_discrete_info(self) -> int:

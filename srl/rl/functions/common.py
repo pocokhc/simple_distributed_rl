@@ -1,9 +1,8 @@
 import logging
-import math
 import random
-from typing import List
 
 import numpy as np
+
 from srl.base.env.base import EnvRun
 
 logger = logging.getLogger(__name__)
@@ -82,7 +81,6 @@ def random_choice_by_probs(probs, total=None):
 
 
 def calc_epsilon_greedy_probs(q, invalid_actions, epsilon, action_num):
-
     # filter
     q = np.array([(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)])
 

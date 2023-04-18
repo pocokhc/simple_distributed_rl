@@ -1,7 +1,8 @@
-import unittest
 from typing import Optional
 
 import numpy as np
+import pytest
+
 from srl.base.render import IRender, Render
 from srl.utils.common import is_packages_installed
 
@@ -17,40 +18,40 @@ class StubRender(IRender):
             return None
 
 
-class Test(unittest.TestCase):
-    def setUp(self) -> None:
-        self.render = Render(StubRender())
+def test_render_terminal():
+    render = Render(StubRender())
 
-    def test_render_terminal(self):
-        text = "StubRender\nAAA"
-        with self.subTest(("return_text=False",)):
-            self.render.render_terminal(return_text=False, text=text)
+    text = "StubRender\nAAA"
+    render.render_terminal(return_text=False, text=text)
 
-        with self.subTest(("return_text=True",)):
-            text2 = self.render.render_terminal(return_text=True, text=text)
-            self.assertTrue(text2 == text + "\n")
-
-    @unittest.skipUnless(is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]), "no module")
-    def test_render_rgb_array(self):
-        text = "StubRender\nAAA"
-
-        for return_rgb in [
-            False,
-            True,
-        ]:
-            with self.subTest((return_rgb,)):
-                rgb_array = self.render.render_rgb_array(return_rgb=return_rgb, text=text)
-                self.assertTrue(len(rgb_array.shape) == 3)
-                self.assertTrue(rgb_array.shape[2] == 3)
-                self.assertTrue((rgb_array >= 0).all())
-                self.assertTrue((rgb_array <= 255).all())
-                self.assertTrue(rgb_array.dtype == np.uint8)
-
-    @unittest.skipUnless(is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]), "no module")
-    def test_render_window(self):
-        for _ in range(10):
-            self.render.render_window(return_rgb=True)
+    text2 = render.render_terminal(return_text=True, text=text)
+    assert text2 == text + "\n"
 
 
-if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_render_rgb_array", verbosity=2)
+@pytest.mark.skipif(not is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]), reason="no module")
+@pytest.mark.parametrize(
+    "return_rgb",
+    [
+        False,
+        True,
+    ],
+)
+def test_render_rgb_array(return_rgb):
+    render = Render(StubRender())
+
+    text = "StubRender\nAAA"
+
+    rgb_array = render.render_rgb_array(return_rgb=return_rgb, text=text)
+    assert len(rgb_array.shape) == 3
+    assert rgb_array.shape[2] == 3
+    assert (rgb_array >= 0).all()
+    assert (rgb_array <= 255).all()
+    assert rgb_array.dtype == np.uint8
+
+
+@pytest.mark.skipif(not is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]), reason="no module")
+def test_render_window():
+    render = Render(StubRender())
+
+    for _ in range(10):
+        render.render_window(return_rgb=True)

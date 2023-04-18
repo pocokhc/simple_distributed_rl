@@ -1,16 +1,16 @@
 import numpy as np
+
 import srl
 import srl.rl.dummy
 from srl.base.define import EnvObservation, EnvObservationType, RLObservationType
 from srl.base.env.base import EnvRun
-from srl.base.env.space import SpaceBase
+from srl.base.env.spaces.space import SpaceBase
 from srl.base.rl.processor import Processor
 from srl.runner import sequence
 
 
 class TestProcessor:
     def run(self, processor: Processor, env_name: str) -> EnvRun:
-
         env_config = srl.EnvConfig(env_name)
         rl_config = srl.rl.dummy.Config()
         rl_config.processors = [processor]

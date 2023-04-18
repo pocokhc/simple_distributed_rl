@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Tuple
 
 from srl.base.define import EnvObservation, EnvObservationType, RLObservationType
@@ -12,12 +12,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RenderImageProcessor(Processor):
-
-    render_kwargs: dict = None
-
-    def __post_init__(self):
-        if self.render_kwargs is None:
-            self.render_kwargs = {}
+    render_kwargs: dict = field(default_factory=lambda: {})
 
     def change_observation_info(
         self,
@@ -26,7 +21,6 @@ class RenderImageProcessor(Processor):
         rl_observation_type: RLObservationType,
         env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationType]:
-
         env.reset()
         rgb_array = env.render_rgb_array(**self.render_kwargs)
         self.shape = rgb_array.shape

@@ -1,9 +1,10 @@
 from typing import Tuple
 
 import numpy as np
+
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.env.space import SpaceBase
 from srl.base.env.spaces.box import BoxSpace
+from srl.base.env.spaces.space import SpaceBase
 from srl.base.rl.processor import Processor
 
 

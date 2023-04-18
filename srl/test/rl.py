@@ -1,26 +1,31 @@
-import unittest
-from typing import List, Optional, Union, cast
+from typing import List, Tuple, Union, cast
 
 import numpy as np
 
 import srl
 from srl import runner
 from srl.base.env.config import EnvConfig
-from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
+from srl.base.rl.base import RLParameter
 from srl.base.rl.config import RLConfig
-from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
 from srl.envs import grid, ox  # noqa F401
 from srl.rl.functions.common import to_str_observation
 from srl.utils.common import is_packages_installed
 
 
-class TestRL(unittest.TestCase):
-    def __init__(self, *args):
-        super().__init__(*args)
+class TestRL:
+    #
+    # ここは試行錯誤の末に、VSCodeで、pytestで継承先のみテストを表示し、
+    # 継承元のテストを非表示にするテクニックです。
+    # __init__ があるとpytestはテストとして認識しません。
+    # __init__の引数は unittest 用です。
+    # 継承先は class A(TestRL, unittest.TestCase): と継承します。
+    # TestRL -> TestCase の順である必要があります。
+    #
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         self.rl_config = None
         self.simple_check_kwargs = {}
-
         self.baseline = {
             # 1p
             "Grid": 0.65,
@@ -31,24 +36,29 @@ class TestRL(unittest.TestCase):
             "OneRoad": 1,  # 乱数要素なし
             "ALE/Pong-v5": 0.0,
             "Tiger": 0.5,
-            # 2p
+            # 2p(random)
             "StoneTaking": [0.9, 0.7],  # 先行必勝(石10個)
             "OX": [0.8, 0.65],  # [0.987, 0.813] ぐらい
             "Othello4x4": [0.1, 0.5],  # [0.3, 0.9] ぐらい
         }
 
-    def test_simple_check(self):
-        assert self.rl_config is not None, "Define `rl_config` with `setUp`."
+    def init_simple_check(self) -> Tuple[RLConfig, dict]:
+        raise NotImplementedError()
 
+    def test_simple_check(self):
+        self.init_simple_check()
+        assert self.rl_config is not None, "Define `rl_config` with `init_simple_check`."
         self.simple_check(self.rl_config, **self.simple_check_kwargs)
 
     def test_simple_check_mp(self):
-        assert self.rl_config is not None, "Define `rl_config` with `setUp`."
+        self.init_simple_check()
+        assert self.rl_config is not None, "Define `rl_config` with `init_simple_check`."
 
         self.simple_check(self.rl_config, is_mp=True, **self.simple_check_kwargs)
 
     def test_summary(self):
-        assert self.rl_config is not None, "Define `rl_config` with `setUp`."
+        self.init_simple_check()
+        assert self.rl_config is not None, "Define `rl_config` with `init_simple_check`."
         _rl_config = self.rl_config.copy(reset_env_config=True)
 
         env = srl.make_env("Grid")
@@ -93,9 +103,9 @@ class TestRL(unittest.TestCase):
 
             config = runner.Config(env_config, _rl_config)
             if enable_cpu:
-                config.allocate_main = "/CPU:0"
-                config.allocate_trainer = "/CPU:0"
-                config.allocate_actor = "/CPU:0"
+                config.device = "CPU"
+                config.device_mp_trainer = "CPU"
+                config.device_mp_actor = "CPU"
 
             if not is_mp:
                 # --- check raw
@@ -175,173 +185,148 @@ class TestRL(unittest.TestCase):
                     break
 
     # ----------------------------------------------
-
-    def verify(
+    def train_eval(
         self,
-        env_config: Union[str, EnvConfig],
-        rl_config: RLConfig,
-        train_count: int,
-        train_kwargs: dict = {},
-        train_players: List[Union[None, str, RLConfig]] = [None, "random"],
-        evals=[
-            dict(
-                episode=100,
-                players=[None, "random"],
-                baseline=None,
-                baseline_player=0,
-            ),
-        ],
-        is_mp=False,
+        config: runner.Config,
+        train_count: int = -1,
         train_steps: int = -1,
+        train_kwargs: dict = {},
+        is_mp=False,
+        eval_episode: int = 100,
+        eval_kwargs: dict = {},
+        baseline=None,
         check_restore: bool = True,
-    ):
-        # --- create config
-        config = runner.Config(env_config, rl_config)
-
-        # evals check
+        return_memory_history: bool = False,
+    ) -> RLParameter:
+        # --- baseline check
         env = config.make_env()
-        for eval in evals:
-            assert "episode" in eval
-            assert "players" in eval
-            baseline = eval.get("baseline", None)
-            if baseline is None:
-                baseline = env.reward_info.get("baseline", None)
-            if baseline is None:
-                baseline = self.baseline.get(env.config.name, None)
-            assert baseline is not None, "Please specify a 'baseline'. (evals={})"
-            eval["baseline"] = baseline
+        if baseline is None:
+            baseline = env.reward_info.get("baseline", None)
+        if baseline is None:
+            baseline = self.baseline.get(config.env_config.name, None)
+        assert baseline is not None, "Please specify a 'baseline'."
+        assert env.player_num == 1, "For two or more players, use 'train' and 'eval'."
 
-        # --- train
-        config.players = train_players
-        train_kwargs_ = dict(
+        parameter, memory, history = self.train(
+            config,
+            train_count,
+            train_steps,
+            train_kwargs,
+            is_mp,
+            return_memory_history=True,
+        )
+        self.eval(
+            config,
+            parameter,
+            eval_episode,
+            eval_kwargs,
+            baseline,
+            check_restore,
+        )
+        if return_memory_history:
+            return parameter, memory, history
+        else:
+            return parameter
+
+    def train(
+        self,
+        config: runner.Config,
+        train_count: int = -1,
+        train_steps: int = -1,
+        train_kwargs: dict = {},
+        is_mp=False,
+        return_memory_history: bool = False,
+    ) -> RLParameter:
+        assert train_count != -1 or train_steps != -1, "Please specify 'train_count' or 'train_steps'."
+        config = config.copy(env_share=False)
+
+        _train_kwargs = dict(
             enable_evaluation=False,
             enable_file_logger=False,
             progress_max_time=60 * 5,
             max_train_count=train_count,
             max_steps=train_steps,
         )
-        train_kwargs_.update(train_kwargs)
-        train_kwargs = train_kwargs_
-        if train_count <= 0:
-            # 学習がいらないアルゴリズム
-            train_kwargs["max_steps"] = train_steps
+        _train_kwargs.update(train_kwargs)
         if is_mp:
-            parameter, memory, _ = runner.mp_train(config, **train_kwargs)
+            parameter, memory, history = runner.mp_train(config, **_train_kwargs)
         else:
-            parameter, memory, _ = runner.train(config, **train_kwargs)
+            parameter, memory, history = runner.train(config, **_train_kwargs)
+
+        if return_memory_history:
+            return parameter, memory, history
+        else:
+            return parameter
+
+    def eval(
+        self,
+        config: runner.Config,
+        parameter: RLParameter,
+        episode: int = 100,
+        eval_kwargs: dict = {},
+        baseline=None,
+        check_restore: bool = True,
+    ) -> Union[List[float], List[List[float]]]:  # single play , multi play
+        config = config.copy(env_share=False)
+        env = config.make_env()
+
+        # --- baseline check
+        if baseline is None:
+            baseline = env.reward_info.get("baseline", None)
+        if baseline is None:
+            baseline = self.baseline.get(env.config.name, None)
+        assert baseline is not None, "Please specify a 'baseline'."
+
+        # --- check restore
+        if check_restore:
+            param = config.make_parameter()
+            param.restore(parameter.backup())
+        else:
+            param = parameter
 
         # --- eval
-        for eval in evals:
-            config.players = eval["players"]
-            if check_restore:
-                param2 = config.make_parameter()
-                param2.restore(parameter.backup())
-            else:
-                param2 = parameter
-            episode_rewards = runner.evaluate(
-                config,
-                param2,
-                max_episodes=eval["episode"],
-                print_progress=True,
-            )
-            baseline = eval["baseline"]
-            if config.env_config.player_num == 1:
-                reward = np.mean(episode_rewards)
-            else:
-                baseline_player = eval.get("baseline_player", 0)
-                reward = np.mean([r[baseline_player] for r in episode_rewards])
-                baseline = baseline[baseline_player]
+        _eval_kwargs = dict(
+            max_episodes=episode,
+            print_progress=True,
+        )
+        _eval_kwargs.update(eval_kwargs)
+        config.players
+        episode_rewards = runner.evaluate(
+            config,
+            param,
+            **_eval_kwargs,
+        )
+
+        # --- assert
+        if config.env_config.player_num == 1:
+            reward = np.mean(episode_rewards)
+
             s = f"{reward} >= {baseline}"
             print(s)
             assert reward >= baseline, s
+        else:
+            rewards = np.mean(episode_rewards, axis=0)
+            print(f"baseline {baseline}, rewards {rewards}")
+            for i, reward in enumerate(rewards):
+                if baseline[i] is not None:
+                    assert reward >= baseline[i], f"{i} : {reward} >= {baseline[i]}"
 
-        return parameter
-
-    def verify_1player(
-        self,
-        env_config: Union[str, EnvConfig],
-        rl_config: RLConfig,
-        train_count: int,
-        train_kwargs: dict = {},
-        eval_episode: int = 100,
-        baseline: Optional[float] = None,
-        is_mp=False,
-        train_steps: int = -1,
-        check_restore: bool = True,
-    ):
-        return self.verify(
-            env_config,
-            rl_config,
-            train_count,
-            train_kwargs,
-            train_players=[None],
-            evals=[
-                dict(
-                    episode=eval_episode,
-                    players=[None],
-                    baseline=baseline,
-                    baseline_player=0,
-                ),
-            ],
-            is_mp=is_mp,
-            train_steps=train_steps,
-            check_restore=check_restore,
-        )
-
-    def verify_2player(
-        self,
-        env_config: Union[str, EnvConfig],
-        rl_config: RLConfig,
-        train_count: int,
-        train_kwargs: dict = {},
-        train_players: List[Union[None, str, RLConfig]] = [None, "random"],
-        eval_episode: int = 100,
-        evals=[
-            dict(
-                players=[None, "random"],
-                baseline=None,
-                baseline_player=0,
-            ),
-            dict(
-                players=["random", None],
-                baseline=None,
-                baseline_player=1,
-            ),
-        ],
-        is_mp=False,
-        train_steps: int = -1,
-        check_restore: bool = True,
-    ):
-        for eval in evals:
-            eval["episode"] = eval_episode
-        return self.verify(
-            env_config,
-            rl_config,
-            train_count,
-            train_kwargs,
-            train_players,
-            evals,
-            is_mp=is_mp,
-            train_steps=train_steps,
-            check_restore=check_restore,
-        )
+        return episode_rewards
 
     # ----------------------------------------------------
 
     def verify_grid_policy(self, rl_config, parameter):
         from srl.envs.grid import Grid
 
-        env_for_rl = srl.make_env("Grid")
-        env = SinglePlayEnvWrapper(env_for_rl)
+        env = srl.make_env("Grid")
         env_org = cast(Grid, env.get_original_env())
 
         worker = srl.make_worker(rl_config, parameter)
-        worker = SinglePlayWorkerWrapper(worker)
 
         V, _Q = env_org.calc_action_values()
         Q = {}
         for k, v in _Q.items():
-            new_k = worker.worker.worker.state_encode(k, env)
+            new_k = worker.worker.state_encode(k, env)
             new_k = to_str_observation(new_k)
             Q[new_k] = v
 
@@ -360,13 +345,13 @@ class TestRL(unittest.TestCase):
             # policyのアクションと最適アクションが等しいか確認
             key = to_str_observation(np.asarray(state))
             true_a = np.argmax(list(Q[key].values()))
-            pred_a = worker.worker.worker.action_decode(action)
+            pred_a = worker.worker.action_decode(action)
             print(f"{state}: {true_a} == {pred_a}")
             assert true_a == pred_a
             # -----------
 
             # env step
-            state, reward, done, env_info = env.step(action)
+            env.step(action)
 
             # rl step
             worker.on_step(env)

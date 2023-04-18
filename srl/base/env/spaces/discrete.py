@@ -1,10 +1,10 @@
-import random
 from typing import Any, List, Tuple
 
 import numpy as np
 
 from srl.base.define import ContinuousAction, DiscreteAction, RLActionType, RLObservation
-from srl.base.env.base import SpaceBase
+
+from .space import SpaceBase
 
 
 class DiscreteSpace(SpaceBase[int]):

@@ -20,25 +20,28 @@ class TestEnv:
         # backup/restore と render は同時に使用しない
         # render_terminal/render_window は1エピソードで変更しない
         if check_restore:
-            env.set_render_mode(PlayRenderMode.none)
             self._play_test(
                 env,
+                PlayRenderMode.none,
+                render_interval=-1,
                 check_restore=True,
                 max_step=max_step,
                 print_enable=print_enable,
             )
         if check_render:
-            env.set_render_mode(PlayRenderMode.terminal, interval=1)
             self._play_test(
                 env,
+                PlayRenderMode.terminal,
+                render_interval=1,
                 check_restore=False,
                 max_step=max_step,
                 print_enable=print_enable,
             )
             if is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]):
-                env.set_render_mode(PlayRenderMode.window, interval=1)
                 self._play_test(
                     env,
+                    PlayRenderMode.window,
+                    render_interval=1,
                     check_restore=False,
                     max_step=max_step,
                     print_enable=print_enable,
@@ -50,16 +53,17 @@ class TestEnv:
     def _play_test(
         self,
         env: EnvRun,
+        render_mode,
+        render_interval,
         check_restore,
         max_step,
         print_enable,
     ):
-
         player_num = env.player_num
         assert player_num > 0, "player_num is greater than or equal to 1."
 
         # --- reset
-        env.reset()
+        env.reset(render_mode, render_interval)
         assert env.observation_space.check_val(env.state), f"Checking observation_space failed. state={env.state}"
         assert (
             0 <= env.next_player_index < player_num
@@ -78,7 +82,6 @@ class TestEnv:
         env.render()
 
         while not env.done:
-
             # --- sample
             action = env.sample()
 

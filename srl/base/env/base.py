@@ -10,8 +10,8 @@ import numpy as np
 import srl
 from srl.base.define import EnvAction, EnvObservation, EnvObservationType, Info, KeyBindType, PlayRenderMode
 from srl.base.env.config import EnvConfig
-from srl.base.env.space import SpaceBase
 from srl.base.env.spaces.discrete import DiscreteSpace
+from srl.base.env.spaces.space import SpaceBase
 from srl.base.render import IRender, Render
 
 logger = logging.getLogger(__name__)

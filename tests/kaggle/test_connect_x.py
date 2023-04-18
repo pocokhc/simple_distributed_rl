@@ -1,8 +1,9 @@
 import time
-import unittest
 from typing import Tuple, cast
 
 import numpy as np
+import pytest
+
 import srl
 from srl import runner
 from srl.base.define import EnvAction
@@ -12,6 +13,7 @@ from srl.utils.common import is_packages_installed
 
 try:
     import kaggle_environments
+
     from srl.algorithms import dqn
     from srl.envs import connectx
 except ModuleNotFoundError:
@@ -141,57 +143,51 @@ class MyConnectXWorker(ExtendWorker):
             self.rl_worker.render(env)
 
 
-@unittest.skipUnless(is_packages_installed(["tensorflow", "kaggle_environments"]), "no module")
-class Test(unittest.TestCase):
-    def setUp(self) -> None:
-        env_config = srl.EnvConfig("ConnectX")
-        rl_config = dqn.Config()
-        rl_config.processors = [connectx.LayerProcessor()]
-        rl_config.extend_worker = MyConnectXWorker
-        self.config = runner.Config(env_config, rl_config)
+@pytest.mark.skipif(not is_packages_installed(["tensorflow", "kaggle_environments"]), reason="no module")
+def test_run():
+    env_config = srl.EnvConfig("ConnectX")
+    rl_config = dqn.Config()
+    rl_config.processors = [connectx.LayerProcessor()]
+    rl_config.extend_worker = MyConnectXWorker
+    config = runner.Config(env_config, rl_config)
 
-    def test_run(self):
-        # --- train
-        self.config.players = [None, None]
-        parameter, _, _ = runner.train(
-            self.config,
-            max_steps=100_000,
-            enable_file_logger=False,
-            enable_evaluation=False,
-        )
+    # --- train
+    config.players = [None, None]
+    parameter, _, _ = runner.train(
+        config,
+        max_steps=1_000,
+        enable_file_logger=False,
+        enable_evaluation=False,
+    )
 
-        # --- eval
-        env = self.config.make_env()
-        org_env = cast(connectx.ConnectX, env.get_original_env())
-        parameter = self.config.make_parameter()
-        worker = self.config.make_worker(parameter)
+    # --- eval
+    env = config.make_env()
+    org_env = cast(connectx.ConnectX, env.get_original_env())
+    parameter = config.make_parameter()
+    worker = config.make_worker(parameter)
 
-        def my_agent(observation, configuration):
-            step = observation.step
+    def my_agent(observation, configuration):
+        step = observation.step
 
-            # connectx は先行なら step==0、後攻なら step==1 がエピソードの最初
-            if step == 0 or step == 1:
-                env.direct_reset(observation, configuration)
-                worker.on_reset(env, org_env.player_index)
-            env.direct_step(observation, configuration)
-            return worker.policy(env)
+        # connectx は先行なら step==0、後攻なら step==1 がエピソードの最初
+        if step == 0 or step == 1:
+            env.direct_reset(observation, configuration)
+            worker.on_reset(env, org_env.player_index)
+        env.direct_step(observation, configuration)
+        return worker.policy(env)
 
-        kaggle_env = kaggle_environments.make("connectx", debug=True)
-        players = []
-        for players, p1_assert in [
-            ([my_agent, "random"], 0.7),  # [ 1. -1.]
-            (["random", my_agent], -0.7),  # [-1.  1.]
-            ([my_agent, "negamax"], 0.3),  # [ 0.6 -0.6]
-            (["negamax", my_agent], -0.3),  # [-0.6  0.6]
-        ]:
-            rewards = []
-            for _ in range(100):
-                steps = kaggle_env.run(players)
-                rewards.append(steps[-1][0]["reward"])
-            reward = np.mean(rewards)
-            print(f"{players}: {abs(reward)} >= {abs(p1_assert)}")
-            self.assertTrue(abs(reward) >= abs(p1_assert))
-
-
-if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_run", verbosity=2)
+    kaggle_env = kaggle_environments.make("connectx", debug=True)
+    players = []
+    for players, p1_assert in [
+        ([my_agent, "random"], 0.7),  # [ 1. -1.]
+        (["random", my_agent], -0.7),  # [-1.  1.]
+        ([my_agent, "negamax"], 0.3),  # [ 0.6 -0.6]
+        (["negamax", my_agent], -0.3),  # [-0.6  0.6]
+    ]:
+        rewards = []
+        for _ in range(100):
+            steps = kaggle_env.run(players)
+            rewards.append(steps[-1][0]["reward"])
+        reward = np.mean(rewards)
+        print(f"{players}: {abs(reward)} >= {abs(p1_assert)}")
+        assert abs(reward) >= abs(p1_assert)

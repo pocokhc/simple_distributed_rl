@@ -3,7 +3,8 @@ from typing import Any, List, Tuple, Union
 import numpy as np
 
 from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
-from srl.base.env.spaces.box import BoxSpace
+
+from .box import BoxSpace
 
 
 class ArrayContinuousSpace(BoxSpace):
@@ -29,15 +30,25 @@ class ArrayContinuousSpace(BoxSpace):
         elif isinstance(val, tuple):
             return [float(v) for v in val]
         elif isinstance(val, np.ndarray):
-            return val.astype(np.float32).tolist()
-        elif isinstance(val, int):
-            return [float(val)]
-        elif isinstance(val, float):
-            return [val]
-        return val
+            return val.tolist()
+        return [float(val) for _ in range(self.size)]
 
     def __str__(self) -> str:
-        return f"ArrayContinuous({self.size}, {np.min(self.low)}, {np.max(self.high)})"
+        return f"ArrayContinuous({self.size}, range[{np.min(self.low)}, {np.max(self.high)}])"
+
+    def check_val(self, val: Any) -> bool:
+        if not isinstance(val, list):
+            return False
+        if len(val) != self.size:
+            return False
+        for i in range(self.size):
+            if not isinstance(val[i], float):
+                return False
+            if val[i] < self.low[i]:
+                return False
+            if val[i] > self.high[i]:
+                return False
+        return True
 
     # --- action discrete
     def get_action_discrete_info(self) -> int:

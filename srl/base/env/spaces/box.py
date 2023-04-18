@@ -5,7 +5,8 @@ from typing import Any, List, Tuple, Union
 import numpy as np
 
 from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLActionType, RLObservation
-from srl.base.env.base import SpaceBase
+
+from .space import SpaceBase
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
         return self.shape == o.shape and (self.low == o.low).all() and (self.high == o.high).all()
 
     def __str__(self) -> str:
-        return f"Box({self.shape}, {np.min(self.low)}, {np.max(self.high)})"
+        return f"Box({self.shape}, range[{np.min(self.low)}, {np.max(self.high)}])"
 
     # --- test
     def assert_params(self, true_shape: Tuple[int, ...], true_low: np.ndarray, true_high: np.ndarray):

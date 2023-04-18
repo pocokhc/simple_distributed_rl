@@ -1,16 +1,7 @@
-import unittest
-
 from srl.envs import stone_taking  # noqa F401
 from srl.test import TestEnv
 
 
-class Test(unittest.TestCase):
-    def setUp(self) -> None:
-        self.tester = TestEnv()
-
-    def test_play(self):
-        self.tester.play_test("StoneTaking")
-
-
-if __name__ == "__main__":
-    unittest.main(module=__name__, defaultTest="Test.test_play", verbosity=2)
+def test_play():
+    tester = TestEnv()
+    tester.play_test("StoneTaking")

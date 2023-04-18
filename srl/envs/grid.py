@@ -1,7 +1,6 @@
 import enum
 import logging
 import os
-import random
 from dataclasses import dataclass
 from typing import Any, List, Tuple, cast
 
@@ -47,7 +46,6 @@ class Action(enum.Enum):
 
 @dataclass
 class Grid(SinglePlayEnv):
-
     move_prob: float = 0.8
     move_reward: float = -0.04
     reward_baseline: float = 0.6
@@ -328,7 +326,6 @@ class Grid(SinglePlayEnv):
                 # 各アクションでの報酬期待値を計算
                 expected_reward = []
                 for a in self.actions:
-
                     # 報酬期待値を計算
                     r = 0
                     for next_state, state_prob in self.transitions_at(s, a).items():
@@ -382,9 +379,8 @@ class Grid(SinglePlayEnv):
         for y in range(1, self.H - 1):
             s = ""
             for x in range(1, self.W - 1):
-                state = self._create_field((x, y), self.state_type)
-                if state in V:
-                    v = V[state]
+                if (x, y) in V:
+                    v = V[(x, y)]
                 else:
                     v = 0
                 s += "{:9.6f} ".format(v)
@@ -392,9 +388,8 @@ class Grid(SinglePlayEnv):
 
     def print_action_values(self, Q):
         def _Q(x, y, a):
-            s = self._create_field((x, y), self.state_type)
-            if s in Q:
-                return Q[s][a.value]
+            if (x, y) in Q:
+                return Q[(x, y)][a.value]
             else:
                 return 0
 

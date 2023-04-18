@@ -1,12 +1,13 @@
 import itertools
 import logging
 import random
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import numpy as np
 
 from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLActionType, RLObservation
-from srl.base.env.base import SpaceBase
+
+from .space import SpaceBase
 
 logger = logging.getLogger(__name__)
 
@@ -15,25 +16,19 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     def __init__(
         self,
         size: int,
-        low: Optional[Union[int, List[int]]] = None,
-        high: Optional[Union[int, List[int]]] = None,
+        low: Union[int, List[int]],
+        high: Union[int, List[int]],
     ) -> None:
         self._size = size
         assert isinstance(size, int)
 
-        if low is None:
-            self._low = None
-        else:
-            self._low = [low for _ in range(self.size)] if isinstance(low, int) else low
-            assert len(self._low) == size
-            self._low = [int(l) for l in self._low]
+        self._low = [low for _ in range(self.size)] if isinstance(low, int) else low
+        assert len(self._low) == size
+        self._low = [int(low) for low in self._low]
 
-        if high is None:
-            self._high = None
-        else:
-            self._high = [high for _ in range(self.size)] if isinstance(high, int) else high
-            assert len(self._high) == size
-            self._high = [int(h) for h in self._high]
+        self._high = [high for _ in range(self.size)] if isinstance(high, int) else high
+        assert len(self._high) == size
+        self._high = [int(h) for h in self._high]
 
         self.decode_tbl = None
 
@@ -42,16 +37,14 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         return self._size
 
     @property
-    def low(self) -> Optional[List[int]]:
+    def low(self) -> List[int]:
         return self._low
 
     @property
-    def high(self) -> Optional[List[int]]:
+    def high(self) -> List[int]:
         return self._high
 
     def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> List[int]:
-        assert self.low is not None and self.high is not None
-
         self._create_action_tbl()
 
         valid_actions = []
@@ -67,12 +60,11 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         elif isinstance(val, tuple):
             return [int(np.round(v)) for v in val]
         elif isinstance(val, np.ndarray):
-            return val.round().tolist()
-        elif isinstance(val, int):
-            return [val]
-        elif isinstance(val, float):
-            return [int(np.round(val))]
-        return val
+            return val.round().astype(int).tolist()
+        return [int(np.round(val)) for _ in range(self.size)]
+
+    def __str__(self) -> str:
+        return f"ArrayDiscrete({self.size}, range[{int(np.min(self.low))}, {int(np.max(self.high))}])"
 
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, list):
@@ -80,12 +72,12 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         if len(val) != self.size:
             return False
         for i in range(self.size):
-            if self.low is not None:
-                if val[i] < self.low[i]:
-                    return False
-            if self.high is not None:
-                if val[i] > self.high[i]:
-                    return False
+            if not isinstance(val[i], int):
+                return False
+            if val[i] < self.low[i]:
+                return False
+            if val[i] > self.high[i]:
+                return False
         return True
 
     @property
@@ -115,11 +107,6 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
                     return False
         return True
 
-    def __str__(self) -> str:
-        low = None if self.low is None else int(np.min(self.low))
-        high = None if self.high is None else int(np.max(self.high))
-        return f"ArrayDiscrete({self.size},low={low},high={high})"
-
     # --- test
     def assert_params(self, true_size: int, true_low: List[int], true_high: List[int]):
         assert self.size == true_size
@@ -128,7 +115,6 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
 
     # --- discrete
     def _create_action_tbl(self) -> None:
-        assert self.low is not None and self.high is not None
         if self.decode_tbl is not None:
             return
 

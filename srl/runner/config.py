@@ -34,6 +34,10 @@ class Config:
     env_config: Union[str, EnvConfig]
     rl_config: Optional[RLConfig]
 
+    # random
+    seed: Optional[int] = None
+    seed_enable_gpu: bool = True  # 有効にならない場合あり、また速度が犠牲になる可能性あり
+
     # multi player option
     players: List[Union[None, str, RLConfig]] = field(default_factory=list)
 
@@ -76,7 +80,6 @@ class Config:
         # play config
         self.shuffle_player: bool = False
         self.disable_trainer: bool = False
-        self.seed: Optional[int] = None
         self.render_mode: PlayRenderMode = PlayRenderMode.none
         self.render_kwargs: dict = {}
         self.enable_profiling: bool = True

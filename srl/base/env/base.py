@@ -211,6 +211,9 @@ class EnvRun:
     ) -> None:
         logger.debug(f"env.reset({render_mode}, {render_interval}, {seed})")
 
+        # --- seed
+        self.env.set_seed(seed)
+
         # --- render
         self._render.cache_reset()
         if render_interval > 0:
@@ -226,9 +229,6 @@ class EnvRun:
         self._episode_rewards = np.zeros(self.player_num)
         self._step_rewards = np.zeros(self.player_num)
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
-
-        # --- seed
-        self.env.set_seed(seed)
 
         self.t0 = time.time()
 

@@ -21,7 +21,6 @@ def train(
     # play config
     shuffle_player: bool = True,
     disable_trainer: bool = False,
-    seed: Optional[int] = None,
     enable_profiling: bool = True,
     # evaluate
     enable_evaluation: bool = True,
@@ -60,7 +59,6 @@ def train(
         # play config
         shuffle_player=shuffle_player,
         disable_trainer=disable_trainer,
-        seed=seed,
         enable_profiling=enable_profiling,
         # evaluate
         enable_evaluation=enable_evaluation,
@@ -109,7 +107,6 @@ def evaluate(
     max_steps: int = -1,
     # play config
     shuffle_player: bool = False,
-    seed: Optional[int] = None,
     # PrintProgress
     print_progress: bool = False,
     progress_max_time: int = 60 * 5,  # s
@@ -131,7 +128,6 @@ def evaluate(
         # play config
         shuffle_player=shuffle_player,
         disable_trainer=True,
-        seed=seed,
         enable_profiling=False,
         # evaluate
         enable_evaluation=False,
@@ -175,7 +171,6 @@ def render(
     # play config
     timeout: int = -1,
     max_steps: int = -1,
-    seed: Optional[int] = None,
     # PrintProgress
     print_progress: bool = False,
     progress_max_time: int = 60 * 5,  # s
@@ -197,7 +192,6 @@ def render(
         # play config
         shuffle_player=False,
         disable_trainer=True,
-        seed=seed,
         # render mode
         render_mode=render_mode,
         render_kwargs=render_kwargs,
@@ -237,7 +231,6 @@ def animation(
     # play config
     timeout: int = -1,
     max_steps: int = -1,
-    seed: Optional[int] = None,
     # PrintProgress
     print_progress: bool = False,
     progress_max_time: int = 60 * 5,  # s
@@ -259,7 +252,6 @@ def animation(
         # play config
         shuffle_player=False,
         disable_trainer=True,
-        seed=seed,
         # render mode
         render_mode=PlayRenderMode.rgb_array,
         render_kwargs=render_kwargs,
@@ -300,7 +292,6 @@ def test_play(
     max_steps: int = -1,
     # play config
     shuffle_player: bool = False,
-    seed: Optional[int] = None,
     enable_profiling: bool = False,
     # render mode
     render_mode: Union[str, PlayRenderMode] = PlayRenderMode.rgb_array,
@@ -329,7 +320,6 @@ def test_play(
         # play config
         shuffle_player=shuffle_player,
         disable_trainer=True,
-        seed=seed,
         enable_profiling=enable_profiling,
         # evaluate
         enable_evaluation=False,

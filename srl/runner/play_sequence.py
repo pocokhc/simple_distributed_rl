@@ -5,8 +5,6 @@ import time
 import traceback
 from typing import List, Optional, Tuple, Union
 
-import numpy as np
-
 from srl.base.define import PlayRenderMode
 from srl.base.env.base import EnvRun
 from srl.base.rl.base import RLParameter, RLRemoteMemory
@@ -14,7 +12,8 @@ from srl.base.rl.config import RLConfig
 from srl.runner.callback import Callback
 from srl.runner.callbacks.file_log_reader import FileLogReader
 from srl.runner.config import Config
-from srl.utils.common import is_enable_tf_device_name, is_package_imported, is_package_installed, is_packages_installed
+from srl.utils import common
+from srl.utils.common import is_enable_tf_device_name, is_package_installed, is_packages_installed
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,6 @@ def play_facade(
     # play config
     shuffle_player: bool = False,
     disable_trainer: bool = False,
-    seed: Optional[int] = None,
     enable_profiling: bool = True,
     # evaluate
     enable_evaluation: bool = False,
@@ -92,8 +90,6 @@ def play_facade(
     # play config
     config.shuffle_player = shuffle_player
     config.disable_trainer = disable_trainer
-    if config.seed is None:
-        config.seed = seed
     config.enable_profiling = enable_profiling
     # callbacks
     config.callbacks = callbacks[:]
@@ -210,8 +206,10 @@ def play(
     if (not config.tf_disable) and is_enable_tf_device_name(allocate):
         import tensorflow as tf
 
+        if (not config.distributed) and (config.run_name == "main"):
+            logger.info(f"tf.device({allocate})")
+
         with tf.device(allocate):
-            logger.debug(f"tf.device({allocate})")
             return _play_main(config, parameter, remote_memory, actor_id)
 
     else:
@@ -247,14 +245,11 @@ def _play_main(
                     logger.info(traceback.format_exc())
 
     # --- random seed
-    if config.seed is not None:
-        random.seed(config.seed)
-        np.random.seed(config.seed)
-
-        if is_package_imported("tensorflow"):
-            import tensorflow as tf
-
-            tf.random.set_seed(config.seed)
+    common.set_seed(config.seed, config.seed_enable_gpu)
+    episode_seed = random.randint(0, 2**16)
+    if config.run_name == "main":
+        logger.info(f"set_seed({config.seed})")
+        logger.info(f"1st episode seed: {episode_seed}")
 
     # --- create env
     env = config.make_env()
@@ -336,7 +331,8 @@ def _play_main(
 
             # env reset
             episode_t0 = _time
-            env.reset(render_mode=config.render_mode, seed=config.seed)
+            env.reset(render_mode=config.render_mode, seed=episode_seed)
+            episode_seed += 1
 
             # shuffle
             if config.shuffle_player:

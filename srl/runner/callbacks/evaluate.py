@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import List, Union
 
 import numpy as np
+
 from srl.base.define import PlayRenderMode
 from srl.base.rl.config import RLConfig
 from srl.runner.callback import Callback
@@ -14,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Evaluate(Callback):
-
     env_sharing: bool = True
     interval: int = 0  # episode
     num_episode: int = 1
@@ -45,6 +45,7 @@ class Evaluate(Callback):
         eval_config.distributed = False
 
         eval_config.run_name = "eval"
+        eval_config.seed = None
         return eval_config
 
     def on_episodes_begin(self, info) -> None:

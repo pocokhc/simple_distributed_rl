@@ -1,16 +1,14 @@
 import logging
-import random
 import time
 import traceback
 from typing import List, Optional, Tuple, Union
-
-import numpy as np
 
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.runner.callback import Callback
 from srl.runner.callbacks.file_log_reader import FileLogReader
 from srl.runner.sequence import Config
-from srl.utils.common import is_package_imported, is_package_installed
+from srl.utils import common
+from srl.utils.common import is_package_installed
 
 logger = logging.getLogger(__name__)
 
@@ -153,14 +151,7 @@ def play(
                     logger.info(traceback.format_exc())
 
     # --- random seed
-    if config.seed is not None:
-        random.seed(config.seed)
-        np.random.seed(config.seed)
-
-        if is_package_imported("tensorflow"):
-            import tensorflow as tf
-
-            tf.random.set_seed(config.seed)
+    common.set_seed(config.seed, config.seed_enable_gpu)
 
     # --- config
     config = config.copy(env_share=True)

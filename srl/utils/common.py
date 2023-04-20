@@ -1,14 +1,47 @@
 import importlib
 import json
 import logging
+import os
+import random
 import sys
 import traceback
 import warnings
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+def set_seed(seed: Optional[int], enable_gpu: bool = False):
+    if seed is None:
+        return
+    random.seed(seed)
+    logger.debug(f"random.seed({seed})")
+    np.random.seed(seed)
+    logger.debug(f"np.random.seed({seed})")
+
+    if is_package_imported("tensorflow"):
+        import tensorflow as tf
+
+        logger.debug(f"Tensorflow set_seed({seed})")
+        tf.random.set_seed(seed)
+
+        if enable_gpu:
+            # GPU内の計算順の固定
+            os.environ["TF_DETERMINISTIC_OPS"] = "1"
+
+    if is_package_imported("torch"):
+        import torch
+
+        # https://pytorch.org/docs/stable/notes/randomness.html#reproducibility
+
+        logger.debug(f"Torch set_seed({seed})")
+        torch.manual_seed(seed)
+        if enable_gpu:
+            torch.cuda.manual_seed(seed)
+            torch.use_deterministic_algorithms = True
+            torch.backends.cudnn.benchmark = False
 
 
 def logger_print(

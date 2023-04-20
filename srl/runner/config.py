@@ -24,7 +24,7 @@ from srl.base.rl.registration import (
 )
 from srl.base.rl.worker import WorkerRun
 from srl.runner.callback import Callback
-from srl.utils.common import is_package_imported
+from srl.utils.common import is_available_gpu_tf, is_package_imported
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ class Config:
     device_mp_trainer: str = "AUTO"
     device_mp_actor: Union[str, List[str]] = "AUTO"  # ["CPU:0", "CPU:1"]
     on_device_init_function: Optional[Callable[["Config"], None]] = None
-    use_CUDA_VISIBLE_DEVICES: bool = True  # CPUの場合 CUDA_VISIBLE_DEVICES で制御します
+    use_CUDA_VISIBLE_DEVICES: bool = True  # CPUの場合 CUDA_VISIBLE_DEVICES を-1にする
 
     # tensorflow options
     tf_disable: bool = False
@@ -95,8 +95,8 @@ class Config:
         self.run_actor_id: int = 0
 
         # The device used by the framework.
-        self.used_device_tf: str = ""
-        self.used_device_torch: str = ""
+        self.used_device_tf: str = "/CPU"
+        self.used_device_torch: str = "cpu"
         self.__is_init_device: bool = False
 
         if self.rl_config is None:
@@ -259,6 +259,21 @@ class Config:
         device = self.get_device_name()
         logger.info(f"[{self.run_name}] config device name: {device}")
 
+        # --- memory growth, Tensorflow,GPU がある場合に実施(CPUにしてもなぜかGPUの初期化は走る場合あり)
+        if self.tf_enable_memory_growth and is_package_imported("tensorflow") and is_available_gpu_tf():
+            import tensorflow as tf
+
+            try:
+                gpu_devices = tf.config.list_physical_devices("GPU")
+                for d in gpu_devices:
+                    logger.info(f"[{self.run_name}] (tf) set_memory_growth({d.name}, True)")
+                    tf.config.experimental.set_memory_growth(d, True)
+            except Exception:
+                s = f"[{self.run_name}] (tf) 'set_memory_growth' failed."
+                s += " Also consider 'tf_enable_memory_growth=False'."
+                print(s)
+                raise
+
         if "CPU" in device:
             if self.use_CUDA_VISIBLE_DEVICES:
                 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -298,18 +313,6 @@ class Config:
                     else:
                         self.used_device_tf = "/GPU"
 
-                    # --- memory growth
-                    if self.tf_enable_memory_growth:
-                        try:
-                            for d in gpu_devices:
-                                logger.info(f"[{self.run_name}] (tf) set_memory_growth({d.name}, True)")
-                                tf.config.experimental.set_memory_growth(d, True)
-                        except Exception:
-                            s = f"[{self.run_name}] (tf) 'set_memory_growth' failed."
-                            s += " Also consider 'tf_enable_memory_growth=False'."
-                            print(s)
-                            raise
-
             # --- torch GPU check
             if is_package_imported("torch") or (self.rl_config.get_use_framework() == "torch"):
                 import torch
@@ -343,6 +346,11 @@ class Config:
         self.env_config.used_device_torch = self.used_device_torch
         self.__is_init_device = True
         logger.info(f"[{self.run_name}] Initialized device.")
+
+    def on_init_process(self):
+        """プロセスの最初に実行される"""
+        self.__is_init_device = False
+        self.init_device()
 
     # ------------------------------
     # other functions

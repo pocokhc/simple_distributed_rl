@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 # 進捗に対して表示、少しずつ間隔を長くする(上限あり)
 @dataclass
 class PrintProgress(Callback):
-
     max_time: int = 60 * 10  # s
     start_time: int = 5  # s
 
@@ -188,14 +187,14 @@ class PrintProgress(Callback):
             np.mean(list(self.resent_episode_time), dtype=float) if len(self.resent_episode_time) > 0 else np.inf
         )
         train_time = np.mean(list(self.resent_train_time), dtype=float) if len(self.resent_train_time) > 0 else np.inf
-        if self.config.max_steps > 0:
+        if (self.config.max_steps > 0) and (self.step_count > 0):
             if len(self.resent_train_time) > 0 and train_time > 0:
                 remain_step = (self.config.max_steps - self.step_count) * (step_time + train_time)
             else:
                 remain_step = (self.config.max_steps - self.step_count) * step_time
         else:
             remain_step = np.inf
-        if self.config.max_episodes > 0:
+        if (self.config.max_episodes > 0) and (self.last_episode_count > 0):
             remain_episode = (self.config.max_episodes - self.last_episode_count) * episode_time
         else:
             remain_episode = np.inf
@@ -203,7 +202,7 @@ class PrintProgress(Callback):
             remain_time = self.config.timeout - elapsed_time
         else:
             remain_time = np.inf
-        if self.config.max_train_count > 0:
+        if (self.config.max_train_count > 0) and (self.last_train_count > 0):
             remain_train = (self.config.max_train_count - self.last_train_count) * train_time
         else:
             remain_train = np.inf
@@ -423,7 +422,7 @@ class PrintProgress(Callback):
 
         # [remain]
         train_time = np.mean(list(self.resent_train_time), dtype=float) if len(self.resent_train_time) > 0 else np.inf
-        if self.config.max_train_count > 0 and len(self.resent_train_time) > 0 and train_time > 0:
+        if (self.config.max_train_count > 0) and (len(self.resent_train_time) > 0):
             remain_train = (self.config.max_train_count - self.last_train_count) * train_time
         else:
             remain_train = np.inf

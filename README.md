@@ -98,7 +98,6 @@ import srl
 ## Basic run of study
 
 ``` python
-import srl
 from srl import runner
 
 # --- env & algorithm load
@@ -107,13 +106,11 @@ from srl.algorithms import ql  # isort: skip
 
 
 def main():
-    # config
-    env_config = srl.EnvConfig("Grid")
-    rl_config = ql.Config()
-    config = runner.Config(env_config, rl_config)
+    # create config
+    config = runner.Config("Grid", ql.Config())
 
     # train
-    parameter, remote_memory, history = runner.train(config, timeout=20)
+    parameter, _, _ = runner.train(config, timeout=20)
 
     # evaluate
     rewards = runner.evaluate(config, parameter, max_episodes=10)
@@ -165,7 +162,7 @@ def train():
         parameter, remote_memory, history = runner.train(config, timeout=60)
     else:
         # distributed training
-        parameter, remote_memory, history = runner.mp_train(config, timeout=60)
+        parameter, remote_memory, history = runner.train_mp(config, timeout=60)
     
     # save parameter
     parameter.save(_parameter_path)
@@ -209,12 +206,12 @@ def test_play():
 # --- history sample
 def training_history():
     #
-    # 'runner.train' を実行すると tmp 配下に log ディレクトリが生成されます。
+    # 'runner.train' を実行時に、enable_file_logger 引数を True にすると tmp 配下に log ディレクトリが生成されます。
     # その log ディレクトリをロードすると学習過程を読み込むことができます。
     # (不要な log ディレクトリは削除して問題ありません)
     #
     # --- English
-    # Running 'runner.train' will create a log directory under tmp.
+    # When 'runner.train' is executed, if the enable_file_logger argument is set to True, a log directory will be created under tmp.
     # You can load the log directory to read the training process.
     # (you can delete the log directory if you don't need it)
     #
@@ -286,7 +283,38 @@ runner.env_play(env_config, key_bind=key_bind)
 
 ```
 
-# 3. Algorithms
+# 3. Framework Overview
+
++ Sequence flow
+
+![overview-sequence.drawio.png](diagrams/overview-sequence.drawio.png)
+
++ Distributed flow
+
+![overview-distributed.drawio.png](diagrams/overview-distributed.drawio.png)
+
++ Runner
+
+![overview-runner.drawio.png](diagrams/overview-runner.drawio.png)
+
++ Simplified pseudo code
+
+``` python
+# Initializing phase
+env.reset()
+worker.on_reset(env)
+env.render()
+
+# 1 episode loop
+while not env.done:
+    action = worker.policy(env)
+    worker.render(env)
+    env.step(action)
+    worker.on_step(env)
+    env.render()
+```
+
+# 4. Algorithms
 
 ## ModelFree
 
@@ -295,9 +323,9 @@ runner.env_play(env_config, key_bind=key_bind)
 |Algorithm |Observation|Action  |Frameworks|ProgressRate||
 |----------|-----------|--------|----------|----|---|
 |QL        |Discrete   |Discrete|          |100%|Basic Q Learning|
-|DQN       |Continuous |Discrete|Tensorflow/PyTorch|100%||
+|DQN       |Continuous |Discrete|Tensorflow/Torch|100%||
 |C51       |Continuous |Discrete|Tensorflow| 99%|CategoricalDQN|
-|Rainbow   |Continuous |Discrete|Tensorflow,tensorflow_addons|100%||
+|Rainbow   |Continuous |Discrete|Tensorflow,tensorflow-addons|100%||
 |R2D2      |Continuous |Discrete|Tensorflow|100%||
 |Agent57   |Continuous |Discrete|Tensorflow|100%||
 
@@ -332,8 +360,8 @@ runner.env_play(env_config, key_bind=key_bind)
 |Algorithm  |Observation|Action     |Frameworks|ProgressRate|
 |-----------|-----------|-----------|----------|----|
 |WorldModels|Continuous |Discrete   |Tensorflow|100%|
-|PlaNet     |Continuous |Discrete   |Tensorflow,tensorflow_probability|100%|
-|Dreamer    |           |           |Tensorflow,tensorflow_probability|  0%|
+|PlaNet     |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%|
+|Dreamer    |           |           |Tensorflow,tensorflow-probability|  0%|
 |DreamerV2  |           |           ||  0%|
 
 ## Offline
@@ -350,34 +378,20 @@ runner.env_play(env_config, key_bind=key_bind)
 |Agent57_light|Continuous |Discrete|ValueBase|Tensorflow|100%|Agent57 - (LSTM,MultiStep)|
 |SearchDynaQ  |Discrete   |Discrete|ModelBase/ValueBase|| 80%|original|
 
-# 4. Customize
+# 5. Customize
 
 オリジナル環境とアルゴリズムの作成例は以下のファイルを参考にしてください。
 
 examples/custom_env.ipynb  
 examples/custom_rl.ipynb  
 
-# 5. Diagrams
+# 6. Detailed framework information
 
-## Overview
-
-+ **runner overview**
-
-![overview-runner.drawio.png](diagrams/overview-runner.drawio.png)
-
-+ **sequence flow**
-
-![overview-sequence.drawio.png](diagrams/overview-sequence.drawio.png)
-
-+ **distributed flow**
-
-![overview-distributed.drawio.png](diagrams/overview-distributed.drawio.png)
-
-+ **multiplay flow**
+## Multiplay flow
 
 ![overview-multiplay.drawio.png](diagrams/overview-multiplay.drawio.png)
 
-## PlayFlow
+## Play flow
 
 ![playflow.png](diagrams/playflow.png)
 
@@ -401,7 +415,7 @@ examples/custom_rl.ipynb
 
 ![class_env.png](diagrams/class_env.png)
 
-# 6. Interface
+## Interface
 
 + Env input/output type
 
@@ -434,7 +448,7 @@ examples/custom_rl.ipynb
 Look "./dockers/"
 
 + PC1
-  + windows10
+  + windows11
   + CPUx1: Core i7-8700 3.2GHz
   + GPUx1: NVIDIA GeForce GTX 1060 3GB
   + memory 48GB

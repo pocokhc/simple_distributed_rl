@@ -241,7 +241,9 @@ def animation(
     # other
     callbacks: List[Callback] = [],
     remote_memory: Optional[RLRemoteMemory] = None,
-) -> "srl.runner.callbacks.rendering.Rendering":
+):
+    from srl.runner.callbacks.rendering import Rendering
+
     episode_rewards, _, _, _, _render = play_facade(
         config,
         # stop config
@@ -280,6 +282,7 @@ def animation(
         remote_memory=remote_memory,
     )
     logger.info(f"animation rewards: {episode_rewards[0]}")
+    _render: Rendering = _render
     return _render
 
 

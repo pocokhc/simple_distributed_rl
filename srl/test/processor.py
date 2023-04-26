@@ -32,7 +32,10 @@ class TestProcessor:
         env = srl.make_env(env_name)
 
         new_space, new_type = processor.change_observation_info(
-            env.observation_space, env.observation_type, rl_observation_type, env
+            env.observation_space,
+            env.observation_type,
+            rl_observation_type,
+            env,
         )
         assert new_type == after_type
         assert new_space.__class__.__name__ == after_space.__class__.__name__

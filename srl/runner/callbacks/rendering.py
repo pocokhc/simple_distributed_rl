@@ -3,6 +3,7 @@ import time
 from dataclasses import dataclass
 
 import numpy as np
+
 from srl.base.define import EnvObservationType, PlayRenderMode
 from srl.base.env.base import EnvRun
 from srl.base.rl.worker import RLWorker, WorkerRun
@@ -15,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Rendering(Callback):
-
     step_stop: bool = False
     use_skip_step: bool = True
 
@@ -85,7 +85,7 @@ class Rendering(Callback):
         if a1 != a2:
             action = f"{a1}({a2})"
         info_text += f", action {action}"
-        info_text += ", rewards[" + ",".join([f"{r:.3f}," for r in env.step_rewards]) + "]"
+        info_text += ", rewards[" + ",".join([f"{r:.3f}" for r in env.step_rewards]) + "]"
         if env.done:
             info_text += f", done({env.done_reason})"
         if env.player_num > 1:
@@ -115,7 +115,6 @@ class Rendering(Callback):
             self.env_maxh = max(self.env_maxh, self.env_img.shape[0])
 
     def _add_image(self):
-
         # --- rgb
         if self.render_mode == PlayRenderMode.rgb_array:
             info_img = text_to_rgb_array(self.info_text)

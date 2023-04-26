@@ -56,7 +56,13 @@ def env_play(
     else:
         file_logger = None
 
-    game = PlayableGame(env_config, players, key_bind, action_division_num, callbacks)
+    game = PlayableGame(
+        env_config,
+        players,
+        key_bind,
+        action_division_num,
+        callbacks,
+    )
     game.play()
 
     # --- history

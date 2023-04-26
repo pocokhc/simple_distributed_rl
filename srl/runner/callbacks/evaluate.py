@@ -25,6 +25,10 @@ class Evaluate(Callback):
 
     def _create_eval_config(self, config: Config):
         eval_config = config.copy(env_share=self.env_sharing)
+
+        # random
+        eval_config.seed = None
+
         eval_config.players = self.eval_players[:]
         eval_config.rl_config.remote_memory_path = ""
 
@@ -45,7 +49,6 @@ class Evaluate(Callback):
         eval_config.distributed = False
 
         eval_config.run_name = "eval"
-        eval_config.seed = None
         return eval_config
 
     def on_episodes_begin(self, info) -> None:

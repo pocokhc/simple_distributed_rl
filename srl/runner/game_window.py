@@ -262,8 +262,7 @@ class PlayableGame(_GameWindow):
                 self.relevant_keys.extend(keys)
             self.relevant_keys = set(self.relevant_keys)
 
-        self.env.set_render_mode(PlayRenderMode.rgb_array)
-        self.env.reset()
+        self.env.reset(render_mode=PlayRenderMode.rgb_array)
         env_image = self.env.render_rgb_array()
         self.env_interval = self.env.render_interval
         self.set_image(env_image, None)

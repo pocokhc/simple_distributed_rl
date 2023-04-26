@@ -17,6 +17,11 @@ class TestEnv:
         env = srl.make_env(env_name)
         assert issubclass(env.__class__, EnvRun), "The way env is created is wrong. (Mainly due to framework side)"
 
+        # --- make_worker test
+        worker = env.make_worker("AAAAAA", enable_raise=False)
+        assert worker is None
+
+        # ---
         # backup/restore と render は同時に使用しない
         # render_terminal/render_window は1エピソードで変更しない
         if check_restore:
@@ -98,11 +103,12 @@ class TestEnv:
             assert env.observation_space.check_val(env.state), f"Checking observation_space failed. state={env.state}"
             assert isinstance(env.done, bool), "The type of done is not bool."
             assert isinstance(env.info, dict), "The type of info is not dict."
-            assert (
-                0 <= env.next_player_index < player_num
-            ), f"next_player_index is out of range. (0 <= {env.next_player_index} < {player_num}) is false."
             assert len(env.step_rewards) == player_num, "The number of rewards and players do not match."
             assert env.step_num > 0, "steps not counted.(Mainly due to framework side)"
+            if not env.done:
+                assert (
+                    0 <= env.next_player_index < player_num
+                ), f"next_player_index is out of range. (0 <= {env.next_player_index} < {player_num}) is false."
 
             if print_enable:
                 print(f"step {env.step_num}, actions {action}, rewards {env.step_rewards}")
@@ -127,5 +133,5 @@ class TestEnv:
         env = config.make_env()
         config.players = [player] * env.player_num
 
-        runner.evaluate(config, None, max_episodes=10)
+        runner.evaluate(config, None, max_episodes=3, print_progress=True)
         return env

@@ -1,4 +1,4 @@
-from typing import List, Tuple, Union, cast
+from typing import List, Optional, Tuple, Union, cast
 
 import numpy as np
 
@@ -7,7 +7,7 @@ from srl import runner
 from srl.base.env.config import EnvConfig
 from srl.base.rl.base import RLParameter
 from srl.base.rl.config import RLConfig
-from srl.envs import grid, ox  # noqa F401
+from srl.envs import grid, igrid, oneroad, othello, ox, stone_taking, tiger  # noqa F401
 from srl.rl.functions.common import to_str_observation
 from srl.utils.common import is_packages_installed
 
@@ -27,19 +27,19 @@ class TestRL:
         self.rl_config = None
         self.simple_check_kwargs = {}
         self.baseline = {
+            # (episode, baseline)
             # 1p
-            "Grid": 0.65,
-            "EasyGrid": 0.9,
-            "Pendulum-v1": -500,  # -179.51776165585284ぐらい
-            "PendulumImage-v0": -500,
-            "IGrid": 1,  # 乱数要素なし
-            "OneRoad": 1,  # 乱数要素なし
-            "ALE/Pong-v5": 0.0,
-            "Tiger": 0.5,
+            "Grid": (200, 0.65),
+            "EasyGrid": (100, 0.9),
+            "Pendulum-v1": (10, -500),  # -179.51776165585284ぐらい
+            "IGrid": (200, 1),  # 乱数要素なし
+            "OneRoad": (100, 1),  # 乱数要素なし
+            "ALE/Pong-v5": (5, 0.0),
+            "Tiger": (1000, 0.5),
             # 2p(random)
-            "StoneTaking": [0.9, 0.7],  # 先行必勝(石10個)
-            "OX": [0.8, 0.65],  # [0.987, 0.813] ぐらい
-            "Othello4x4": [0.1, 0.5],  # [0.3, 0.9] ぐらい
+            "StoneTaking": (200, [0.9, 0.7]),  # 先行必勝(石10個)
+            "OX": (200, [0.8, 0.65]),  # [0.987, 0.813] ぐらい
+            "Othello4x4": (50, [0.1, 0.5]),  # [0.3, 0.9] ぐらい
         }
 
     def init_simple_check(self) -> Tuple[RLConfig, dict]:
@@ -128,7 +128,7 @@ class TestRL:
             else:
                 print(f"--- {env_config.name} mp check start ---")
                 config.actor_num = 2
-                parameter, _, _ = runner.mp_train(config, **train_kwargs)
+                parameter, _, _ = runner.train_mp(config, **train_kwargs)
 
             runner.evaluate(
                 config,
@@ -187,6 +187,16 @@ class TestRL:
                     break
 
     # ----------------------------------------------
+    def _check_baseline(self, config, baseline):
+        env = config.make_env()
+        if baseline is None:
+            baseline = env.reward_info.get("baseline", None)
+        if baseline is None:
+            if config.env_config.name in self.baseline:
+                baseline = self.baseline[config.env_config.name][1]
+        assert baseline is not None, "Please specify a 'baseline'."
+        return baseline
+
     def train_eval(
         self,
         config: runner.Config,
@@ -194,20 +204,14 @@ class TestRL:
         train_steps: int = -1,
         train_kwargs: dict = {},
         is_mp=False,
-        eval_episode: int = 100,
+        eval_episode: Optional[int] = None,
         eval_kwargs: dict = {},
-        baseline=None,
+        baseline: Optional[Union[float, List[float]]] = None,
         check_restore: bool = True,
         return_memory_history: bool = False,
     ) -> RLParameter:
-        # --- baseline check
-        env = config.make_env()
-        if baseline is None:
-            baseline = env.reward_info.get("baseline", None)
-        if baseline is None:
-            baseline = self.baseline.get(config.env_config.name, None)
-        assert baseline is not None, "Please specify a 'baseline'."
-        assert env.player_num == 1, "For two or more players, use 'train' and 'eval'."
+        baseline = self._check_baseline(config, baseline)
+        assert config.env_config.player_num == 1, "For two or more players, use 'train' and 'eval'."
 
         parameter, memory, history = self.train(
             config,
@@ -251,7 +255,7 @@ class TestRL:
         )
         _train_kwargs.update(train_kwargs)
         if is_mp:
-            parameter, memory, history = runner.mp_train(config, **_train_kwargs)
+            parameter, memory, history = runner.train_mp(config, **_train_kwargs)
         else:
             parameter, memory, history = runner.train(config, **_train_kwargs)
 
@@ -264,20 +268,20 @@ class TestRL:
         self,
         config: runner.Config,
         parameter: RLParameter,
-        episode: int = 100,
+        episode: Optional[int] = None,
         eval_kwargs: dict = {},
-        baseline=None,
+        baseline: Optional[Union[float, List[Union[float, None]]]] = None,
         check_restore: bool = True,
     ) -> Union[List[float], List[List[float]]]:  # single play , multi play
         config = config.copy(env_share=False)
-        env = config.make_env()
 
-        # --- baseline check
-        if baseline is None:
-            baseline = env.reward_info.get("baseline", None)
-        if baseline is None:
-            baseline = self.baseline.get(env.config.name, None)
-        assert baseline is not None, "Please specify a 'baseline'."
+        baseline = self._check_baseline(config, baseline)
+
+        if episode is None:
+            if config.env_config.name in self.baseline:
+                episode = self.baseline[config.env_config.name][0]
+        if episode is None:
+            episode = 10
 
         # --- check restore
         if check_restore:
@@ -315,6 +319,26 @@ class TestRL:
 
         return episode_rewards
 
+    def eval_2player(
+        self,
+        config: runner.Config,
+        parameter: RLParameter,
+        episode: Optional[int] = None,
+        eval_1p_players=[None, "random"],
+        eval_2p_players=["random", None],
+        eval_kwargs: dict = {},
+        baseline=None,
+        check_restore: bool = True,
+    ):
+        # --- baseline check
+        baseline = self._check_baseline(config, baseline)
+
+        config.players = eval_1p_players
+        self.eval(config, parameter, episode, eval_kwargs, [baseline[0], None], check_restore)
+
+        config.players = eval_2p_players
+        self.eval(config, parameter, episode, eval_kwargs, [None, baseline[1]], check_restore)
+
     # ----------------------------------------------------
 
     def verify_grid_policy(self, rl_config, parameter):
@@ -333,11 +357,9 @@ class TestRL:
             Q[new_k] = v
 
         # 数ステップ回してactionを確認
-        done = True
         for _ in range(100):
-            if done:
-                state = env.reset()
-                done = False
+            if env.done:
+                env.reset()
                 worker.on_reset(env)
 
             # action
@@ -345,10 +367,10 @@ class TestRL:
 
             # -----------
             # policyのアクションと最適アクションが等しいか確認
-            key = to_str_observation(np.asarray(state))
+            key = to_str_observation(np.asarray(env.state))
             true_a = np.argmax(list(Q[key].values()))
             pred_a = worker.worker.action_decode(action)
-            print(f"{state}: {true_a} == {pred_a}")
+            print(f"{env.state}: {true_a} == {pred_a}")
             assert true_a == pred_a
             # -----------
 

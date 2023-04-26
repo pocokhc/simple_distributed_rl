@@ -26,7 +26,7 @@ def train():
         parameter, remote_memory, history = runner.train(config, timeout=10)
     else:
         # distributed training
-        parameter, remote_memory, history = runner.mp_train(config, timeout=10)
+        parameter, remote_memory, history = runner.train_mp(config, timeout=10)
 
     # save parameter
     parameter.save(_parameter_path)
@@ -61,12 +61,12 @@ def test_play():
 
 def training_history():
     #
-    # 'runner.train' を実行すると tmp 配下に log ディレクトリが生成されます。
+    # 'runner.train' を実行時に、enable_file_logger 引数を True にすると tmp 配下に log ディレクトリが生成されます。
     # その log ディレクトリをロードすると学習過程を読み込むことができます。
     # (不要な log ディレクトリは削除して問題ありません)
     #
     # --- English
-    # Running 'runner.train' will create a log directory under tmp.
+    # When 'runner.train' is executed, if the enable_file_logger argument is set to True, a log directory will be created under tmp.
     # You can load the log directory to read the training process.
     # (you can delete the log directory if you don't need it)
     #

@@ -6,7 +6,6 @@ from srl.envs import grid  # isort: skip # noqa F401
 
 def main():
     env = srl.make_env("Grid")
-    env.set_render_mode("terminal")
 
     # env information
     print(f"action_space     : {env.action_space}")
@@ -14,7 +13,7 @@ def main():
     print(f"observation_space: {env.observation_space}")
     print(f"player_num       : {env.player_num}")
 
-    env.reset()
+    env.reset(render_mode="terminal")
     env.render()
 
     while not env.done:

@@ -1,29 +1,31 @@
+import numpy as np
+
 import srl
 from srl.base.env.base import EnvRun
-from srl.base.env.singleplay_wrapper import SinglePlayEnvWrapper
-from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
-from srl.base.rl.singleplay_wrapper import SinglePlayWorkerWrapper
+from srl.base.rl.base import RLConfig, RLParameter
 
 # --- env & algorithm
 from srl.envs import grid  # isort: skip # noqa F401
 from srl.algorithms import ql  # isort: skip
 
 
-def _train(
+def _run_episode(
     env: EnvRun,
     rl_config: RLConfig,
     parameter: RLParameter,
-    remote_memory: RLRemoteMemory,
+    training: bool,
 ):
-    worker = srl.make_worker(rl_config, parameter, remote_memory, training=True, distributed=False)
-    trainer = srl.make_trainer(rl_config, parameter, remote_memory)
+    # 0. make
+    if training:
+        remote_memory = srl.make_remote_memory(rl_config)
+        trainer = srl.make_trainer(rl_config, parameter, remote_memory)
+    else:
+        remote_memory = None
 
-    # --- change single play interface
-    env = SinglePlayEnvWrapper(env)
-    worker = SinglePlayWorkerWrapper(worker)
+    worker = srl.make_worker(rl_config, parameter, remote_memory, training=training, distributed=False)
 
     # 1. reset
-    state = env.reset()
+    env.reset()
     worker.on_reset(env)
 
     while not env.done:
@@ -31,29 +33,33 @@ def _train(
         action = worker.policy(env)
 
         # 3. step
-        state, reward, done, env_info = env.step(action)
-        work_info = worker.on_step(env)
+        env.step(action)
+        worker.on_step(env)
 
         # 4. train
-        train_info = trainer.train()
+        if training:
+            train_info = trainer.train()
+        else:
+            train_info = {}
+
+        # --- step info
+        if False:
+            print(env.state)
+            print(env.reward)
+            print(env.done)
+            print(env.info)
+            print(worker.info)
+            print(train_info)
 
     return env.step_num, env.episode_rewards[0]
 
 
-def _render(
-    env: EnvRun,
-    rl_config: RLConfig,
-    parameter: RLParameter,
-):
-    worker = srl.make_worker(rl_config, parameter, remote_memory=None, training=False, distributed=False)
-
-    # --- change single play interface
-    env = SinglePlayEnvWrapper(env)
-    worker = SinglePlayWorkerWrapper(worker)
+def _render(env: EnvRun, rl_config: RLConfig, parameter: RLParameter):
+    worker = srl.make_worker(rl_config, parameter)
 
     # 1. reset
-    state = env.reset(mode="terminal")
-    worker.on_reset(env, mode="terminal")
+    env.reset(render_mode="terminal")
+    worker.on_reset(env, render_mode="terminal")
 
     # --- render
     print("step 0")
@@ -67,38 +73,43 @@ def _render(
         worker.render(env)
 
         # 3. step
-        state, reward, done, env_info = env.step(action)
-        work_info = worker.on_step(env)
+        env.step(action)
+        worker.on_step(env)
 
         # --- env render
         print(
-            "step {}, action {}, reward: {}, done: {}, info: {} {}".format(
-                env.step_num, action, env.step_rewards[0], env.done, env_info, work_info
+            "step {}, action {}, reward: {:.5f}, done: {}, info: {} {}".format(
+                env.step_num, action, env.step_rewards[0], env.done, env.info, worker.info
             )
         )
         env.render()
 
-    print(f"step: {env.step_num}, reward: {env.episode_rewards[0]}")
+    print(f"step: {env.step_num}, reward: {env.episode_rewards[0]:.5f}")
 
 
 def main():
-
     env_config = srl.EnvConfig("Grid")
     rl_config = ql.Config()
 
     # env init
     env = srl.make_env(env_config)
+    rl_config.reset(env)
 
-    # rl init
-    rl_config.reset_config(env)
+    # make parameter
     parameter = srl.make_parameter(rl_config)
-    remote_memory = srl.make_remote_memory(rl_config)
 
     # --- train loop
     for episode in range(10000):
-        step, reward = _train(env, rl_config, parameter, remote_memory)
+        step, reward = _run_episode(env, rl_config, parameter, True)
         if episode % 1000 == 0:
-            print(f"{episode} / 10000 episode, {step} step, {reward} reward")
+            print(f"{episode} / 10000 episode, {step} step, {reward:.5f} reward")
+
+    # --- evaluate
+    reward_list = []
+    for episode in range(100):
+        _, reward = _run_episode(env, rl_config, parameter, False)
+        reward_list.append(reward)
+    print(f"Average reward for 100 episodes: {np.mean(reward_list):.5f}")
 
     # --- render
     _render(env, rl_config, parameter)

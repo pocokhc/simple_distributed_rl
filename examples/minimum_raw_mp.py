@@ -22,24 +22,22 @@ def _run_episode(
     distributed: bool,
     rendering: bool = False,
 ):
-
     workers = [srl.make_worker(rl_config, parameter, remote_memory, training=training, distributed=distributed)]
 
-    # --- set render mode
     if rendering:
-        env.set_render_mode("terminal")
-        [w.set_render_mode("terminal") for w in workers]
+        render_mode = "terminal"
+    else:
+        render_mode = ""
 
     # --- reset
-    env.reset()
-    [w.on_reset(env, i) for i, w in enumerate(workers)]
+    env.reset(render_mode=render_mode)
+    [w.on_reset(env, i, render_mode=render_mode) for i, w in enumerate(workers)]
 
     if rendering:
         print("step 0")
         env.render()
 
     while not env.done:
-
         # action
         action = workers[env.next_player_index].policy(env)
 
@@ -48,17 +46,17 @@ def _run_episode(
             workers[env.next_player_index].render(env)
 
         # step
-        env_info = env.step(action)
-        worker_infos = [w.on_step(env) for w in workers]
+        env.step(action)
+        [w.on_step(env) for w in workers]
 
         # --- render
         if rendering:
             print(
                 "turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(
-                    env.step_num, action, env.step_rewards, env.done, env.next_player_index, env_info
+                    env.step_num, action, env.step_rewards, env.done, env.next_player_index, env.info
                 )
             )
-            print("player {} info: {}".format(env.next_player_index, worker_infos[env.next_player_index]))
+            print("player {} info: {}".format(env.next_player_index, workers[env.next_player_index].info))
             env.render()
 
     return env.step_num, env.episode_rewards
@@ -164,7 +162,6 @@ class MPManager(BaseManager):
 
 
 def main():
-
     # --- config
     env_config = srl.EnvConfig("Grid")
     rl_config = ql.Config()
@@ -179,7 +176,7 @@ def main():
 
     # init
     env = srl.make_env(env_config)
-    rl_config.reset_config(env)
+    rl_config.reset(env)
 
     # bug fix
     mp.set_start_method("spawn")

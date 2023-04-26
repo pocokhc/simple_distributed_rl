@@ -43,10 +43,10 @@ def train():
     config = _create_config()
 
     # (option) print tensorflow model
-    config.model_summary()
+    config.model_summary(expand_nested=True)
 
     # --- train
-    parameter, remote_memory, history = runner.mp_train(
+    parameter, remote_memory, history = runner.train_mp(
         config,
         max_train_count=500_000,
         enable_evaluation=False,

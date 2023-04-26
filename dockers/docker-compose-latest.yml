@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  srl-latest:
+    build:
+      dockerfile: ./dockerfile_latest
+    volumes:
+      - ../:/code/
+    command: /bin/bash
+    tty: true

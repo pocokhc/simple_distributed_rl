@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
-FROM pytorch/pytorch:2.0.0-cuda11.7-cudnn8-runtime
+#FROM python:3.10.11
+FROM python:3.11.3
 WORKDIR /code
 
 # import cv2
@@ -8,6 +9,7 @@ RUN apt-get update
 RUN apt-get install -y python3-opencv
 
 ENV PYTHONPATH="/code"
-COPY ./requirements_torch.txt requirements.txt
+COPY ./requirements_latest.txt requirements.txt
 RUN pip install -U -r requirements.txt
 RUN pip install pytest==7.3.1
+RUN pip install black flake8

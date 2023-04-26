@@ -10,3 +10,4 @@ RUN apt-get install -y libsm6 libxext6 libxrender-dev libglib2.0-0
 ENV PYTHONPATH="/code"
 COPY ./requirements_low.txt requirements.txt
 RUN pip install -U -r requirements.txt
+RUN pip install pytest==7.3.1

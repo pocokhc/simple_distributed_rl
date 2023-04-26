@@ -8,11 +8,11 @@ import numpy as np
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter
+from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action
-from srl.rl.models.base_block_config import IImageBlockConfig, IMLPBlockConfig
 from srl.rl.models.dqn_image_block_config import DQNImageBlockConfig
 from srl.rl.models.mlp_block_config import MLPBlockConfig
 from srl.utils import common
@@ -152,7 +152,7 @@ class RemoteMemory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 class CommonInterfaceParameter(RLParameter, ABC):
     @abstractmethod
-    def get_q(self, state: np.ndarray):
+    def get_q(self, state: np.ndarray, worker: "Worker"):
         raise NotImplementedError()
 
 
@@ -197,7 +197,7 @@ class Worker(DiscreteActionWorker):
             # epsilonより低いならランダム
             action = np.random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
-            q = self.parameter.get_q(self.state[np.newaxis, ...])[0]
+            q = self.parameter.get_q(self.state[np.newaxis, ...], self)[0]
 
             # invalid actionsは -inf にする
             q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)]
@@ -241,7 +241,7 @@ class Worker(DiscreteActionWorker):
         return {}
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        q = self.parameter.get_q(self.state[np.newaxis, ...])[0]
+        q = self.parameter.get_q(self.state[np.newaxis, ...], self)[0]
         maxa = np.argmax(q)
         if self.config.enable_rescale:
             q = inverse_rescaling(q)

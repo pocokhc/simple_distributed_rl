@@ -9,7 +9,7 @@ from srl.base.rl.base import RLTrainer
 from srl.rl.functions.common import inverse_rescaling, rescaling
 from srl.rl.models.tf.input_block import InputBlock
 
-from .dqn import CommonInterfaceParameter, Config, RemoteMemory
+from .dqn import CommonInterfaceParameter, Config, RemoteMemory, Worker
 
 
 # ------------------------------------------------------
@@ -92,7 +92,7 @@ class Parameter(CommonInterfaceParameter):
 
     # -------------------------------------
 
-    def get_q(self, state: np.ndarray):
+    def get_q(self, state: np.ndarray, worker: Worker):
         return self.q_online(state).numpy()
 
 

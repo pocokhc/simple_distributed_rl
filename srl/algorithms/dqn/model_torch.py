@@ -10,7 +10,7 @@ from srl.rl.functions.common import inverse_rescaling, rescaling
 from srl.rl.models.torch_.input_block import InputBlock
 from srl.utils import common
 
-from .dqn import CommonInterfaceParameter, Config, RemoteMemory
+from .dqn import CommonInterfaceParameter, Config, RemoteMemory, Worker
 
 
 # ------------------------------------------------------
@@ -50,6 +50,7 @@ class Parameter(CommonInterfaceParameter):
         self.config = cast(Config, self.config)
 
         self.device = torch.device(self.config.used_device_torch)
+
         self.q_online = _QNetwork(self.config).to(self.device)
         self.q_target = _QNetwork(self.config).to(self.device)
         self.q_target.eval()
@@ -57,9 +58,11 @@ class Parameter(CommonInterfaceParameter):
     def call_restore(self, data: Any, **kwargs) -> None:
         self.q_online.load_state_dict(data)
         self.q_target.load_state_dict(data)
+        self.q_online.to(self.device)
+        self.q_target.to(self.device)
 
     def call_backup(self, **kwargs) -> Any:
-        return self.q_online.state_dict()
+        return self.q_online.to("cpu").state_dict()
 
     def summary(self, **kwargs):
         if common.is_package_installed("torchinfo"):
@@ -73,7 +76,7 @@ class Parameter(CommonInterfaceParameter):
 
     # -----------------------------------
 
-    def get_q(self, state: np.ndarray):
+    def get_q(self, state: np.ndarray, worker: Worker):
         self.q_online.eval()
         with torch.no_grad():
             q = self.q_online(torch.tensor(state).to(self.device))
@@ -93,7 +96,6 @@ class Trainer(RLTrainer):
 
         self.optimizer = optim.Adam(self.parameter.q_online.parameters(), lr=self.config.lr)
         self.criterion = nn.HuberLoss()
-        self.parameter.q_online.train()
 
         self.train_count = 0
         self.sync_count = 0
@@ -117,6 +119,10 @@ class Trainer(RLTrainer):
         return {"loss": loss, "sync": self.sync_count}
 
     def _train_on_batchs(self, batchs):
+        device = self.parameter.device
+        self.parameter.q_online.to(device)
+        self.parameter.q_target.to(device)
+
         states = []
         n_states = []
         actions = []
@@ -124,13 +130,14 @@ class Trainer(RLTrainer):
             states.append(b["state"])
             n_states.append(b["next_state"])
             actions.append(b["action"])
-        states = torch.tensor(np.asarray(states).astype(np.float32)).to(self.parameter.device)
-        n_states = torch.tensor(np.asarray(n_states).astype(np.float32)).to(self.parameter.device)
+        states = torch.tensor(np.asarray(states).astype(np.float32)).to(device)
+        n_states = torch.tensor(np.asarray(n_states).astype(np.float32)).to(device)
         actions_onehot = np.identity(self.config.action_num)[actions].astype(np.float32)
-        actions_onehot = torch.tensor(actions_onehot).to(self.parameter.device)
+        actions_onehot = torch.tensor(actions_onehot).to(device)
 
         # next Q
         with torch.no_grad():
+            self.parameter.q_online.eval()
             n_q = self.parameter.q_online(n_states)
             n_q_target = self.parameter.q_target(n_states)
             n_q = n_q.to("cpu").detach().numpy()
@@ -161,9 +168,10 @@ class Trainer(RLTrainer):
             if self.config.enable_rescale:
                 gain = rescaling(gain)
             target_q[i] = gain
-        target_q = torch.from_numpy(target_q.astype(np.float32)).to(self.parameter.device)
+        target_q = torch.from_numpy(target_q.astype(np.float32)).to(device)
 
         # --- torch train
+        self.parameter.q_online.train()
         q = self.parameter.q_online(states)
 
         # 現在選んだアクションのQ値

@@ -1,6 +1,5 @@
 import tensorflow.keras as keras
 from tensorflow.keras import layers as kl
-from tensorflow.keras import regularizers
 
 """
 Paper:
@@ -9,6 +8,7 @@ https://discovery.ucl.ac.uk/id/eprint/10045895/1/agz_unformatted_nature.pdf
 
 Code ref:
 https://github.com/AppliedDataSciencePartners/DeepReinforcementLearning
+https://github.com/suragnair/alpha-zero-general
 """
 
 
@@ -17,41 +17,27 @@ class AlphaZeroImageBlock(keras.Model):
         self,
         n_blocks: int = 19,
         filters: int = 256,
-        kernel_size=(3, 3),
-        l2: float = 0.0001,
-        use_layer_normalization: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
 
-        self.conv1 = kl.Conv2D(
-            filters=filters,
-            kernel_size=kernel_size,
-            padding="same",
-            use_bias=False,
-            kernel_initializer="he_normal",
-            kernel_regularizer=regularizers.l2(l2),
-        )
-        if use_layer_normalization:
-            self.bn1 = kl.LayerNormalization()
-        else:
-            self.bn1 = kl.BatchNormalization()
-        self.act1 = kl.ReLU()
-
-        self.resblocks = [
-            _ResidualBlock(
-                filters,
-                kernel_size,
-                l2,
-                use_layer_normalization,
-            )
-            for _ in range(n_blocks)
+        self.input_layers = [
+            kl.BatchNormalization(),
+            kl.Conv2D(
+                filters=filters,
+                kernel_size=(3, 3),
+                strides=1,
+                padding="same",
+            ),
+            kl.ReLU(),
+            kl.BatchNormalization(),
         ]
 
+        self.resblocks = [_ResidualBlock(filters) for _ in range(n_blocks)]
+
     def call(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.act1(x)
+        for layer in self.input_layers:
+            x = layer(x)
         for resblock in self.resblocks:
             x = resblock(x)
         return x
@@ -72,46 +58,33 @@ class _ResidualBlock(keras.Model):
     def __init__(
         self,
         filters: int,
-        kernel_size=(3, 3),
-        l2: float = 0.0001,
-        use_layer_normalization: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
 
-        self.conv1 = kl.Conv2D(
-            filters=filters,
-            kernel_size=kernel_size,
-            padding="same",
-            use_bias=False,
-            kernel_initializer="he_normal",
-            kernel_regularizer=regularizers.l2(l2),
-        )
-        if use_layer_normalization:
-            self.bn1 = kl.LayerNormalization()
-        else:
-            self.bn1 = kl.BatchNormalization()
-        self.act1 = kl.ReLU()
-        self.conv2 = kl.Conv2D(
-            filters=filters,
-            kernel_size=kernel_size,
-            padding="same",
-            use_bias=False,
-            kernel_initializer="he_normal",
-            kernel_regularizer=regularizers.l2(l2),
-        )
-        if use_layer_normalization:
-            self.bn2 = kl.LayerNormalization()
-        else:
-            self.bn2 = kl.BatchNormalization()
+        self.res_layers = [
+            kl.Conv2D(
+                filters=filters,
+                kernel_size=(3, 3),
+                strides=1,
+                padding="same",
+            ),
+            kl.ReLU(),
+            kl.BatchNormalization(),
+            kl.Conv2D(
+                filters=filters,
+                kernel_size=(3, 3),
+                strides=1,
+                padding="same",
+            ),
+            kl.BatchNormalization(),
+        ]
         self.act2 = kl.ReLU()
 
     def call(self, x):
-        x1 = self.conv1(x)
-        x1 = self.bn1(x1)
-        x1 = self.act1(x1)
-        x1 = self.conv2(x1)
-        x1 = self.bn2(x1)
+        x1 = x
+        for layer in self.res_layers:
+            x1 = layer(x1)
         x = x + x1
         x = self.act2(x)
         return x

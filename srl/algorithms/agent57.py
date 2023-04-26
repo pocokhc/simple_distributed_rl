@@ -11,6 +11,7 @@ import tensorflow.keras.layers as kl
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
@@ -25,7 +26,6 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
-from srl.rl.models.base_block_config import IImageBlockConfig, IMLPBlockConfig
 from srl.rl.models.dqn_image_block_config import DQNImageBlockConfig
 from srl.rl.models.mlp_block_config import MLPBlockConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock

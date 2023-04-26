@@ -5,18 +5,17 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers as kl
-from tensorflow.keras import regularizers
 
 from srl.base.define import RLObservationType
 from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.model import IAlphaZeroImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
 from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
 from srl.rl.models.alphazero_image_block_config import AlphaZeroImageBlockConfig
-from srl.rl.models.base_block_config import IAlphaZeroImageBlockConfig, IMLPBlockConfig
 from srl.rl.models.mlp_block_config import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
 
@@ -138,8 +137,6 @@ class _Network(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        _l2 = 0.0001
-
         # --- in block
         self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
         self.use_image_layer = self.in_block.use_image_layer
@@ -153,12 +150,11 @@ class _Network(keras.Model):
                 kl.Conv2D(
                     2,
                     kernel_size=(1, 1),
+                    strides=1,
                     padding="same",
-                    use_bias=False,
-                    kernel_regularizer=regularizers.l2(_l2),
                 ),
                 kl.BatchNormalization(),
-                kl.LeakyReLU(),
+                kl.ReLU(),
                 kl.Flatten(),
             ]
 
@@ -167,12 +163,11 @@ class _Network(keras.Model):
                 kl.Conv2D(
                     1,
                     kernel_size=(1, 1),
+                    strides=1,
                     padding="same",
-                    use_bias=False,
-                    kernel_regularizer=regularizers.l2(_l2),
                 ),
                 kl.BatchNormalization(),
-                kl.LeakyReLU(),
+                kl.ReLU(),
                 kl.Flatten(),
             ]
 
@@ -188,7 +183,7 @@ class _Network(keras.Model):
         self.value_block = config.value_block.create_block_tf()
         self.value_out_layer = kl.Dense(
             1,
-            # activation="tanh",  # 論文はtanh(-1～1)
+            activation="tanh",  # 論文はtanh(-1～1)
             kernel_initializer="truncated_normal",
         )
 

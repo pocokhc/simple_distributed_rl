@@ -12,6 +12,7 @@ from tensorflow.keras import regularizers
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.model import IAlphaZeroImageBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
@@ -25,7 +26,6 @@ from srl.rl.functions.common import (
     rescaling,
 )
 from srl.rl.models.alphazero_image_block_config import AlphaZeroImageBlockConfig
-from srl.rl.models.base_block_config import IAlphaZeroImageBlockConfig
 from srl.rl.models.muzero_atari_block_config import MuzeroAtariBlockConfig
 from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.tf.input_block import InputBlock

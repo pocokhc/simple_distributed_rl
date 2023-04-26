@@ -3,38 +3,61 @@
 1. (R2D3)
 1. BizHawkのenv作成
 1. ネットワーク経由の学習
+1. tensorboard
 
-# v0.9.2
+# v0.10.0
+
+GPU,PyTorch,Dockerの環境を見直して、それに伴い大幅なリファクタリングを行いました。
 
 **MainUpdates**
 
-1. multiprocessing + GPU の環境を見直し
+1. 下記更新に合わせて一部のユーザ側のI/Fを変更
+   1. enable_file_logger のデフォルトを False に変更
+   1. exampleにQiitaで書いていた各アルゴリズムのコードを移動
+   1. READMEを分かりやすく更新
+   1. ハイパーパラメータの Model の指定方法を変更(Configクラスを作りました)
+   1. EnvBaseを一部変更（主にTurnBase2Playerに影響）
+   1. EnvRunに値チェック機構を導入(Configにcheck_action/check_valを追加)
+1. Tensorflow の multiprocessing + GPU の環境を見直し
    1. tensorflow の初期化タイミングを用意し、GPU関係の初期化を実装
-      1. main/actor/trainerプロセス毎にCPU/GPUを選択できるよう実装
-      1. GPUメモリの確保量を必要分か上限満杯までかを選ぶオプションを追加（デフォルト必要分）
-   1. MpConfigとConfigを統合（互換用にMpConfigも一応残しています）
-   1. ここら辺のlogメッセージを追加
-1. gym の space を Graph と Sequence 以外に対応
-   1. これに伴って、gym の space は画像を除き、すべて１次元に変換されます。
-   1. GymWrapper の引数に画像判定を行うかどうかの check_image を追加
-1. PyTorchを追加
-   1. srl.rl.models を srl.rl.models.tf に移動し、 srl.rl.models.torch ディレクトリを追加
+   1. set_memory_growthオプションをデフォルトTrueで追加（TFではデフォルトFalse）
+   1. MpConfigとConfigを統合し、MpConfigを削除
+1. PyTorchを追加（暫定）
+   1. `srl.rl.models`を整理
+      1. 既存コードを `srl.rl.models.tf` に移動
+      1. TFのmodelを'FunctionalAPI'から'SubclassingAPI'に変更(仮導入)
+      1. srl.rl.models.torch ディレクトリを追加
+      1. modelのrl_configの指定をクラスで指定し、tf/torchに依存しない構造に変更
    1. torchのdocker環境を追加
-   1. DQN_torchを追加
-1. TFのmodelを'FunctionalAPI'から'SubclassingAPI'に変更
-   1. Modelのsummaryがちゃんと表記されるように修正
-   1. `srl.rl.models.tf` 配下をリファクタリング
-   1. 合わせて各アルゴリズムのコード修正
+   1. DQNをtf/torch両方に対応（仮導入）
+   1. RLConfigのregister方法の仕様を変更
+      1. Algorithmにて例えばtf/torchで使い分けたい場合の仕組みを取り入れました
+      1. RLConfigのgetNameをstaticmethodをやめてただの関数に変更
+      1. registerのConfigの引数をクラスからインスタンスに変更
+1. 上記に関連して、GPU環境を見直し
+   1. configをallocateからdeviceに変数名変更
+   1. rl_configとenv_configにもdevice情報を追加(runner.configから継承される)
 1. Dockerファイルをリファクタリング
    1. dockersディレクトリを作成しその配下に必要なファイルをまとめました
    1. Dockerで常駐しない場合があるのでcommand追加
-   1. TF2.10 で 一旦Dockerファイルを固定
+   1. TF2.10で一旦Dockerファイルを固定
    1. torch用Dockerファイルを作成
+   1. 最新環境用のlatestファイルを追加
+1. gym の space を Graph と Sequence 以外に対応
+   1. これに伴って、gym の space は画像を除き、すべて１次元に変換されます。
+   1. GymWrapper の引数に画像判定を行うかどうかの check_image を追加
+1. WorkerRunとEnvRunのI/Fを見直し
+   1. set_render_mode を reset で実施するように引数を追加(set_render_modeは削除)
+   1. set_seed も reset で実施（set_seedを削除）
+   1. EnvBaseのstepにて、player_indexを削除し、next_player_index の propertyを追加
+   1. kaggle環境に適用できるようにdirect機構を見直し
+1. Test framework を unittest から pytest に変更
+   1. カバレッジを計測するcreate_coverage.pyを追加(VSCodeに埋め込むと重すぎた)
+   1. 乱数固定に。
 
 **Algorims**
 
 1. PlanetをWorldModelsのコードに合わせて修正
-aaaaa1. WorldModelsを作成
 
 **OtherUpdates**
 
@@ -44,9 +67,9 @@ aaaaa1. WorldModelsを作成
    1. env.baseにreward_infoを導入（仮）
 1. game_windowにてKeyを押す判定を厳密に定義
 1. Configのenv指定を文字列でもできるように変更
-1. 各ライブラリのVersionを(2022/12)時点での最新に更新
 1. sub versionの表記でアルファベットを使うと一部のライブラリでエラーが出たので数字に変更
-1. test環境を大幅にリファクタリング
+1. RLConfigのreset_configをresetに名前変更
+1. RLConfigにinit_runを追加、一連のrunの前に実行を想定する関数(runnerでは場合は内部で使用)
 
 **Bug Fixes**
 
@@ -54,6 +77,7 @@ aaaaa1. WorldModelsを作成
 1. TF2.11.0から一部のoptimizerでエラーが出るようになったのでlegacyを追加
 1. TFのloss計算にて正則化項が加味されるように修正
 1. Py3.11でrandom.choiceにnumpy配列を渡すとエラーが出る不具合修正
+1. print_progressで残り時間が不明な場合、0と表示される場合を-に変更
 
 # v0.9.1
 

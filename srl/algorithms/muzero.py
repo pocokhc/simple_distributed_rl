@@ -248,7 +248,7 @@ class _DynamicsNetwork(keras.Model):
         self.image_block = AlphaZeroImageBlock(
             n_blocks=config.dynamics_blocks,
             filters=ch,
-            l2=config.weight_decay,
+            # l2=config.weight_decay, TODO
         )
 
         # --- reward

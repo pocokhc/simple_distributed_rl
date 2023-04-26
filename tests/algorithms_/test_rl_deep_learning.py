@@ -157,6 +157,7 @@ class Test_muzero(TestRL, unittest.TestCase):
 class Test_planet(TestRL, unittest.TestCase):
     def init_simple_check(self) -> None:
         pytest.importorskip("tensorflow")
+        pytest.importorskip("tensorflow_probability")
 
         from srl.algorithms import planet
 

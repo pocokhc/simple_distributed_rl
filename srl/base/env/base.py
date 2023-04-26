@@ -78,7 +78,6 @@ class EnvBase(ABC, IRender):
 
         Args:
             action (EnvAction): player_index action
-            player_index (int): stepで行動するプレイヤーのindex
 
         Returns:(
             next_state,
@@ -544,12 +543,10 @@ class EnvRun:
             state = self.check_state(state, "'state' in 'env.direct_step' may not be SpaceType.")
             rewards = self.check_rewards(rewards, "'rewards' in 'env.direct_step' may not be List[float].")
             done = self.check_done(done, "'done' in 'env.direct_step may' not be bool.")
-            s = "'player_index' in 'env.direct_step may' not be int."
-            player_index = self.check_player_index(player_index, s)
 
         if self.is_start_episode:
             self._reset()
-        self._step(state, rewards, done, player_index, info)
+        self._step(state, rewards, done, info)
 
     def decode_action(self, action: EnvAction) -> Any:
         if self.config.check_action:

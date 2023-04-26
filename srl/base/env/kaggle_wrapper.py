@@ -21,6 +21,8 @@ class KaggleWrapper(EnvBase):
         self.__player_actions: List[Union[None, EnvAction]] = []
         self.__rewards: List[float] = []
         self.__config = self.env.configuration
+        self.__state = None
+        self.__info = {}
 
     @property
     def name(self) -> int:

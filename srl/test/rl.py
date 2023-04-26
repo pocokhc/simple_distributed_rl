@@ -81,7 +81,7 @@ class TestRL:
         ),
         use_layer_processor: bool = False,
         check_render: bool = True,
-        enable_cpu: bool = True,
+        enable_gpu: bool = False,
     ):
         env_list = env_list.copy()
         train_kwargs_ = dict(
@@ -102,16 +102,14 @@ class TestRL:
                     _rl_config.processors.append(ox.LayerProcessor())
 
             config = runner.Config(env_config, _rl_config)
-            if enable_cpu:
-                config.device = "CPU"
-                config.device_mp_trainer = "CPU"
-                config.device_mp_actor = "CPU"
+            config.device_main = "CPU"
+            config.device_mp_trainer = "CPU"
+            config.device_mp_actors = "CPU"
+            if enable_gpu:
+                config.device_main = "AUTO"
+                config.device_mp_trainer = "GPU"
 
             if not is_mp:
-                # --- check raw
-                print(f"--- {env_config.name} raw check start ---")
-                self._check_play_raw(env_config, _rl_config, check_render)
-
                 # --- check sequence
                 print(f"--- {env_config.name} sequence check start ---")
                 parameter, _, _ = runner.train(config, **train_kwargs)
@@ -122,6 +120,10 @@ class TestRL:
                     if is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]):
                         render = runner.animation(config, parameter, max_steps=10)
                         render.create_anime()
+
+                # --- check raw
+                print(f"--- {env_config.name} raw check start ---")
+                self._check_play_raw(env_config, _rl_config, check_render)
 
             else:
                 print(f"--- {env_config.name} mp check start ---")
@@ -138,7 +140,7 @@ class TestRL:
     def _check_play_raw(self, env_config, rl_config, check_render):
         env = srl.make_env(env_config)
         rl_config = rl_config.copy(reset_env_config=True)
-        rl_config.reset_config(env)
+        rl_config.reset(env)
         rl_config.assert_params()
 
         parameter = srl.make_parameter(rl_config)

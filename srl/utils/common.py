@@ -215,8 +215,16 @@ def is_package_installed(name: str) -> bool:
         return _package_cache[name]
 
     try:
-        importlib.import_module(name)
-        result = True
+        if name == "tensorflow":
+            import tensorflow as tf
+
+            if tf.__file__ is None:  # なぜかuninstallしても残る
+                result = False
+            else:
+                result = True
+        else:
+            importlib.import_module(name)
+            result = True
     except ImportError:
         result = False
 
@@ -232,7 +240,14 @@ def is_packages_installed(names: List[str]) -> bool:
 
 
 def is_package_imported(name: str) -> bool:
-    return name in sys.modules
+    if name in sys.modules:
+        if name == "tensorflow":
+            import tensorflow as tf
+
+            if tf.__file__ is None:  # なぜかuninstallしても残る
+                return False
+        return True
+    return False
 
 
 def is_env_notebook() -> bool:
@@ -286,10 +301,18 @@ def compare_equal_version(v1, v2) -> bool:
         return LooseVersion(v1) == LooseVersion(v2)
 
 
+__cache_device_name = {}
+
+
 def is_enable_tf_device_name(device_name) -> bool:
+    global __cache_device_name
+
     if device_name == "":
         return False
+    if device_name in __cache_device_name:
+        return __cache_device_name[device_name]
     if not is_package_imported("tensorflow"):
+        __cache_device_name[device_name] = False
         return False
     try:
         from tensorflow.python.client import device_lib
@@ -300,19 +323,30 @@ def is_enable_tf_device_name(device_name) -> bool:
         for device in device_lib.list_local_devices():
             d = device_util.canonicalize(device.name)
             if full_device_name == d:
+                __cache_device_name[device_name] = True
                 return True
-    except ValueError:
+    except (ValueError, ModuleNotFoundError):
         logger.info(traceback.format_exc())
+    __cache_device_name[device_name] = False
     return False
 
 
-def is_available_gpu_tf():
+def is_available_gpu_tf() -> bool:
+    if not is_package_installed("tensorflow"):
+        return False
+
     import tensorflow as tf
+
+    if tf.__file__ is None:  # なぜかuninstallしても残る
+        return False
 
     return len(tf.config.list_physical_devices("GPU")) > 0
 
 
-def is_available_gpu_torch():
+def is_available_gpu_torch() -> bool:
+    if not is_package_installed("torch"):
+        return False
+
     import torch
 
     return torch.cuda.is_available()

@@ -48,23 +48,23 @@ class Config:
     actor_parameter_sync_interval_by_step: int = 100
 
     """ device option
-    "AUTO",""     : Automatic assignment.
-    "CPU","CPU:0" : Use CPU.
-    "GPU","GPU:0" : Use GPU.
+    "AUTO",""    : Automatic assignment.
+    "CPU","CPU:0": Use CPU.
+    "GPU","GPU:0": Use GPU.
 
     AUTO assign
     - sequence
-        - device  : GPU > CPU
-        - trainer : not use
-        - actors  : not use
+        - main   : GPU > CPU
+        - trainer: not use
+        - actors : not use
     - distribute
-        - device  : CPU
-        - trainer : GPU > CPU
-        - actors  : CPU
+        - main   : CPU
+        - trainer: GPU > CPU
+        - actors : CPU
     """
-    device: str = "AUTO"
+    device_main: str = "AUTO"
     device_mp_trainer: str = "AUTO"
-    device_mp_actor: Union[str, List[str]] = "AUTO"  # ["CPU:0", "CPU:1"]
+    device_mp_actors: Union[str, List[str]] = "AUTO"  # ["CPU:0", "CPU:1"]
     on_device_init_function: Optional[Callable[["Config"], None]] = None
     use_CUDA_VISIBLE_DEVICES: bool = True  # CPUの場合 CUDA_VISIBLE_DEVICES を-1にする
 
@@ -233,21 +233,21 @@ class Config:
     # ------------------------------
     def get_device_name(self) -> str:
         if self.run_name in ["main", "eval"]:
-            device = self.device
+            device = self.device_main.upper()
             if device in ["", "AUTO"]:
                 if self.distributed:
                     device = "CPU"
                 else:
                     device = "AUTO"
         elif self.run_name == "trainer":
-            device = self.device_mp_trainer
+            device = self.device_mp_trainer.upper()
             if device == "":
                 device = "AUTO"
         elif "actor" in self.run_name:
-            if isinstance(self.device_mp_actor, str):
-                device = self.device_mp_actor
+            if isinstance(self.device_mp_actors, str):
+                device = self.device_mp_actors.upper()
             else:
-                device = self.device_mp_actor[self.run_actor_id]
+                device = self.device_mp_actors[self.run_actor_id].upper()
             if device in ["", "AUTO"]:
                 device = "CPU"
         else:
@@ -327,13 +327,7 @@ class Config:
             if is_package_imported("torch") or (self.rl_config.get_use_framework() == "torch"):
                 import torch
 
-                if not torch.cuda.is_available():
-                    assert (
-                        "GPU" not in device
-                    ), f"[{self.run_name}] (torch) GPU is not found. {tf.config.list_physical_devices()}"
-
-                    self.used_device_torch = "cpu"
-                else:
+                if torch.cuda.is_available():
                     logger.info(f"[{self.run_name}] (torch) gpu device: {torch.cuda.get_device_name()}")
 
                     if "GPU:" in device:
@@ -341,6 +335,12 @@ class Config:
                         self.used_device_torch = f"cuda:{t[1]}"
                     else:
                         self.used_device_torch = "cuda"
+                else:
+                    assert (
+                        "GPU" not in device
+                    ), f"[{self.run_name}] (torch) GPU is not found. {tf.config.list_physical_devices()}"
+
+                    self.used_device_torch = "cpu"
 
         if self.on_device_init_function is not None:
             self.on_device_init_function(self)
@@ -357,7 +357,7 @@ class Config:
         self.__is_init_device = True
         logger.info(f"[{self.run_name}] Initialized device.")
 
-    def on_init_process(self):
+    def init_process(self):
         """プロセスの最初に実行される"""
         self.__is_init_device = False
         self.init_device()

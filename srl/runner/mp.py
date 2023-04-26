@@ -110,7 +110,7 @@ def __run_actor(
 ):
     config.run_name = f"actor{actor_id}"
     config.run_actor_id = actor_id
-    config.on_init_process()
+    config.init_process()
 
     allocate = config.used_device_tf
     if (not config.tf_disable) and is_enable_tf_device_name(allocate):
@@ -206,7 +206,7 @@ def __run_trainer(
     train_end_signal: ctypes.c_bool,
 ):
     config.run_name = "trainer"
-    config.on_init_process()
+    config.init_process()
 
     allocate = config.used_device_tf
     if (not config.tf_disable) and is_enable_tf_device_name(allocate):

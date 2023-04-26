@@ -1,12 +1,18 @@
+import os
+
 import numpy as np
 
 import srl
 from srl import runner
-from srl.rl.models.mlp_block_config import MLPBlockConfig
+from srl.rl.models import MLPBlockConfig
+from srl.utils import common
 
 # --- env & algorithm load
 import gym  # isort: skip # noqa F401
 from srl.algorithms import dqn  # isort: skip
+
+
+common.logger_print()
 
 
 def main():
@@ -26,11 +32,14 @@ def main():
     rl_config.target_model_update_interval = 1000  # 大きすぎると学習がゆっくり
     rl_config.enable_reward_clip = False  # 報酬clipしない
 
-    config = runner.Config(env_config, rl_config)
+    # frameworkを指定したい場合 "tensorflow" or "torch"
+    # rl_config.framework = "tensorflow"
+
+    config = runner.Config(env_config, rl_config, seed=1)
     config.model_summary(expand_nested=True)
 
     # --- train
-    parameter, remote_memory, history = runner.train(config, max_episodes=200)
+    parameter, remote_memory, history = runner.train(config, max_episodes=200, enable_file_logger=True)
     history.plot(plot_right=["train_loss"])
 
     # --- evaluate
@@ -39,10 +48,8 @@ def main():
 
     # --- animation
     render = runner.animation(config, parameter)
-    render.create_anime().save("_DQN_Pendulum.gif")
+    render.create_anime().save(os.path.join(os.path.dirname(__file__), "_dqn.gif"))
 
 
 if __name__ == "__main__":
-    from srl.utils import common
-    common.logger_print()
     main()

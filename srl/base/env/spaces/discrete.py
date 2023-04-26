@@ -39,6 +39,9 @@ class DiscreteSpace(SpaceBase[int]):
     def base_action_type(self) -> RLActionType:
         return RLActionType.DISCRETE
 
+    def get_default(self) -> int:
+        return 0
+
     def __eq__(self, o: object) -> bool:
         return self.n == o.n
 

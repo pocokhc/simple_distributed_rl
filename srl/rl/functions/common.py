@@ -107,6 +107,7 @@ def to_str_observation(state: np.ndarray) -> str:
 def render_discrete_action(invalid_actions, maxa, env: EnvRun, func) -> None:
     action_num = env.action_space.get_action_discrete_info()
 
+    invalid_actions = env.get_invalid_actions()
     for action in range(action_num):
         if action in invalid_actions:
             continue
@@ -133,7 +134,7 @@ def render_discrete_action(invalid_actions, maxa, env: EnvRun, func) -> None:
         s += f"{env.action_to_str(action):3s}: {rl_s}"
         print(s)
     if view_invalid_actions_num > 2:
-        print(f"... Some invalid actions have been omitted. (invalid actions num: {len(invalid_actions)})")
+        print(f"... Some invalid actions have been omitted.")
 
 
 def float_category_encode(val: float, v_min: int, v_max: int) -> np.ndarray:  # List[float]

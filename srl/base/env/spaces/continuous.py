@@ -33,6 +33,9 @@ class ContinuousSpace(BoxSpace):
             return False
         return True
 
+    def get_default(self) -> float:
+        return 0.0
+
     # --- action discrete
     def get_action_discrete_info(self) -> int:
         return self._n

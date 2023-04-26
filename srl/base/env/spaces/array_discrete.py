@@ -84,6 +84,9 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     def base_action_type(self) -> RLActionType:
         return RLActionType.DISCRETE
 
+    def get_default(self) -> List[int]:
+        return [0 for _ in range(self.size)]
+
     def __eq__(self, o: "ArrayDiscreteSpace") -> bool:
         if self.size != o.size:
             return False

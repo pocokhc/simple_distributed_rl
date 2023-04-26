@@ -29,11 +29,6 @@ class TurnBase2Player(EnvBase):
     #  make_worker
     #  set_seed
 
-    @property
-    @abstractmethod
-    def player_index(self) -> int:
-        raise NotImplementedError()
-
     @abstractmethod
     def call_reset(self) -> Tuple[EnvObservation, Info]:
         # state, info
@@ -41,14 +36,6 @@ class TurnBase2Player(EnvBase):
 
     @abstractmethod
     def call_step(self, action: EnvAction) -> Tuple[EnvObservation, float, float, bool, Info]:
-        # state, reward1, reward2, done, info
-        raise NotImplementedError()
-
-    def call_direct_reset(self, *args, **kwargs) -> Tuple[EnvObservation, Info]:
-        # state, info
-        raise NotImplementedError()
-
-    def call_direct_step(self, *args, **kwargs) -> Tuple[EnvObservation, float, float, bool, Info]:
         # state, reward1, reward2, done, info
         raise NotImplementedError()
 
@@ -66,25 +53,9 @@ class TurnBase2Player(EnvBase):
         else:
             info = {}
             warnings.warn("The return value of reset has changed from (state) to (state, info).", DeprecationWarning)
-        return state, self.player_index, info
+        return state, self.next_player_index, info
 
-    def step(
-        self,
-        action: EnvAction,
-        player_index: int,
-    ) -> Tuple[EnvObservation, List[float], bool, int, Info]:
+    def step(self, action: EnvAction) -> Tuple[EnvObservation, List[float], bool, int, Info]:
         n_s, reward1, reward2, done, info = self.call_step(action)
-        return n_s, [reward1, reward2], done, self.player_index, info
 
-    def direct_reset(self, *args, **kwargs) -> Tuple[EnvObservation, int, Info]:
-        state = self.call_direct_reset(*args, **kwargs)
-        if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
-            state, info = state
-        else:
-            info = {}
-            warnings.warn("The return value of reset has changed from (state) to (state, info).", DeprecationWarning)
-        return state, self.player_index, info
-
-    def direct_step(self, *args, **kwargs) -> Tuple[EnvObservation, List[float], bool, int, Info]:
-        n_s, reward1, reward2, done, info = self.call_direct_step(*args, **kwargs)
-        return n_s, [reward1, reward2], done, self.player_index, info
+        return n_s, [reward1, reward2], done, self.next_player_index, info

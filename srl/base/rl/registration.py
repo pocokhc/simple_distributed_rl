@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 _registry = {}
 _registry_worker = {}
 
-_ASSERT_MSG = "Run 'rl_config.reset_config(env)' first"
+_ASSERT_MSG = "Run 'rl_config.reset(env)' first"
 
 
 def make_remote_memory(
@@ -24,7 +24,7 @@ def make_remote_memory(
     if env is None:
         assert rl_config.is_set_env_config, _ASSERT_MSG
     else:
-        rl_config.reset_config(env)
+        rl_config.reset(env)
     name = rl_config.getName()
     _class = load_module(_registry[name][0])
     if return_class:
@@ -47,7 +47,7 @@ def make_parameter(
     if env is None:
         assert rl_config.is_set_env_config, _ASSERT_MSG
     else:
-        rl_config.reset_config(env)
+        rl_config.reset(env)
     name = rl_config.getName()
     parameter = load_module(_registry[name][1])(rl_config)
     if is_load and rl_config.parameter_path != "":
@@ -67,7 +67,7 @@ def make_trainer(
     if env is None:
         assert rl_config.is_set_env_config, _ASSERT_MSG
     else:
-        rl_config.reset_config(env)
+        rl_config.reset(env)
     name = rl_config.getName()
     return load_module(_registry[name][2])(rl_config, parameter, remote_memory)
 
@@ -84,7 +84,10 @@ def make_worker(
     if env is None:
         assert rl_config.is_set_env_config, _ASSERT_MSG
     else:
-        rl_config.reset_config(env)
+        rl_config.reset(env)
+
+    rl_config.assert_params()
+
     name = rl_config.getName()
     worker = load_module(_registry[name][3])(
         rl_config,
@@ -94,20 +97,26 @@ def make_worker(
         distributed,
         actor_id,
     )
-    worker = WorkerRun(worker)
+    worker = WorkerRun(worker, rl_config.font_name, rl_config.font_size)
 
     # ExtendWorker
     if rl_config.extend_worker is not None:
-        worker = rl_config.extend_worker(worker)
-        worker = WorkerRun(worker)
+        worker = rl_config.extend_worker(worker, training, distributed)
+        worker = WorkerRun(worker, rl_config.font_name, rl_config.font_size)
 
     return worker
 
 
-def make_worker_rulebase(name: str, **kwargs) -> WorkerRun:
+def make_worker_rulebase(
+    name: str,
+    training: bool = False,
+    distributed: bool = False,
+    font_name: str = "",
+    font_size: int = 12,
+) -> WorkerRun:
     assert name in _registry_worker, f"{name} is not registered."
-    worker = load_module(_registry_worker[name])(**kwargs)
-    worker = WorkerRun(worker)
+    worker = load_module(_registry_worker[name])(training, distributed)
+    worker = WorkerRun(worker, font_name, font_size)
     return worker
 
 

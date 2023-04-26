@@ -230,6 +230,7 @@ class GymWrapper(EnvBase):
                 else:
                     assert not compare_less_version(ale_py.__version__, "0.8.0")
         os.environ["SDL_VIDEODRIVER"] = "dummy"
+        logger.info("set SDL_VIDEODRIVER='dummy'")
 
         self.name = env_name
         self.arguments = arguments
@@ -349,6 +350,10 @@ class GymWrapper(EnvBase):
     def player_num(self) -> int:
         return 1
 
+    @property
+    def next_player_index(self) -> int:
+        return 0
+
     def reset(self) -> Tuple[np.ndarray, int, dict]:
         if self.seed is None:
             state = self.env.reset()
@@ -370,11 +375,7 @@ class GymWrapper(EnvBase):
             state = gym_space_flatten_encode(self.env.observation_space, state)
         return self.observation_space.convert(state), 0, info
 
-    def step(
-        self,
-        action: EnvAction,
-        player_index: int,
-    ) -> Tuple[np.ndarray, List[float], bool, int, Info]:
+    def step(self, action: EnvAction) -> Tuple[np.ndarray, List[float], bool, int, Info]:
         if self.enable_flatten_action:
             action = gym_space_flatten_decode(self.env.action_space, action)
         _t = self.env.step(action)

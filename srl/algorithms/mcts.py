@@ -130,7 +130,7 @@ class Worker(ModelBaseWorker):
         if self.training:
             dat = env.backup()
             for _ in range(self.config.num_simulations):
-                self._simulation(env, self.state, self.invalid_actions)
+                self._simulation(env, self.state)
                 env.restore(dat)
 
         # 試行回数のもっとも多いアクションを採用
@@ -140,14 +140,14 @@ class Worker(ModelBaseWorker):
 
         return action, {}
 
-    def _simulation(self, env: EnvRun, state: str, invalid_actions, depth: int = 0):
+    def _simulation(self, env: EnvRun, state: str, depth: int = 0):
         if depth >= env.max_episode_steps:  # for safety
             return 0
 
         player_index = env.next_player_index
 
         # actionを選択
-        uct_list = self._calc_uct(state, invalid_actions)
+        uct_list = self._calc_uct(state, env.get_invalid_actions())
         action = np.random.choice(np.where(uct_list == np.max(uct_list))[0])
 
         if self.parameter.N[state][action] < self.config.expansion_threshold:
@@ -162,12 +162,11 @@ class Worker(ModelBaseWorker):
                 pass  # 終了
             else:
                 n_state = to_str_observation(n_state)
-                n_invalid_actions = self.get_invalid_actions(env)
 
                 enemy_turn = player_index != env.next_player_index
 
                 # expansion
-                n_reward = self._simulation(env, n_state, n_invalid_actions)
+                n_reward = self._simulation(env, n_state)
 
                 # 次が相手のターンの報酬は最小になってほしいので-をかける
                 if enemy_turn:
@@ -178,6 +177,7 @@ class Worker(ModelBaseWorker):
 
         self.parameter.N[state][action] += 1
         self.parameter.W[state][action] += reward
+
         if self.distributed:
             self.remote_memory.add(
                 {

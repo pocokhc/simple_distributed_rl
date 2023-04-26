@@ -1,6 +1,4 @@
 import logging
-import random
-import warnings
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple, Union
 
@@ -11,7 +9,6 @@ from srl.base.define import (
     EnvObservation,
     Info,
     PlayRenderMode,
-    RenderMode,
     RLAction,
     RLActionType,
     RLObservation,
@@ -26,10 +23,9 @@ logger = logging.getLogger(__name__)
 
 
 class WorkerBase(ABC, IRender):
-    def __init__(self, training: bool = False, distributed: bool = False):
+    def __init__(self, training: bool, distributed: bool):
         self.__training = training
         self.__distributed = distributed
-        self.config = None
 
     # ------------------------------
     # implement
@@ -61,7 +57,7 @@ class WorkerBase(ABC, IRender):
         return None
 
     # ------------------------------------
-    # episode
+    # run properties
     # ------------------------------------
     @property
     def training(self) -> bool:
@@ -85,6 +81,7 @@ class RLWorker(WorkerBase):
         actor_id: int = 0,
     ):
         super().__init__(training, distributed)
+
         self.config = config
         self.parameter = parameter
         self.remote_memory = remote_memory
@@ -278,6 +275,7 @@ class RLWorker(WorkerBase):
         # reward = env.step_rewards[player_index]  TODO:報酬の扱いが決まらないため保留
         rewards = env.step_rewards.tolist()
         self.__recent_states.append(next_state)
+
         return next_state, rewards, env.done
 
     # TODO: 現状使っていない、不要なら削除予定
@@ -312,12 +310,8 @@ class RLWorker(WorkerBase):
 
 
 class RuleBaseWorker(WorkerBase):
-    def __init__(self):
-        super().__init__(training=False, distributed=False)
-
-    @abstractmethod
     def call_on_reset(self, env: EnvRun, worker: "WorkerRun") -> Info:
-        raise NotImplementedError()
+        return {}
 
     @abstractmethod
     def call_policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvAction, Info]:
@@ -332,31 +326,25 @@ class RuleBaseWorker(WorkerBase):
 
     def on_reset(self, env: EnvRun, worker: "WorkerRun") -> Info:
         self._player_index = worker.player_index
-        _t = self.call_on_reset(env, worker)
-        if _t is None:
-            warnings.warn("The return value of call_on_reset has changed from None to info.", DeprecationWarning)
-            return {}
-        return _t
+        return self.call_on_reset(env, worker)
 
     def policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvAction, Info]:
-        action = self.call_policy(env, worker)
-        if isinstance(action, tuple) and len(action) == 2 and isinstance(action[1], dict):
-            action, info = action
-        else:
-            warnings.warn(
-                "The return value of call_policy has changed from action to (action, info).", DeprecationWarning
-            )
-            info = {}
-        return action, info
+        return self.call_policy(env, worker)
 
     def on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
         return self.call_on_step(env, worker)
 
 
 class ExtendWorker(WorkerBase):
-    def __init__(self, rl_worker: "WorkerRun"):
-        super().__init__(rl_worker.training, rl_worker.distributed)
+    def __init__(
+        self,
+        rl_worker: "WorkerRun",
+        training: bool,
+        distributed: bool,
+    ):
+        super().__init__(training, distributed)
         self.rl_worker = rl_worker
+        self.worker = self.rl_worker.worker
 
     @abstractmethod
     def call_on_reset(self, env: EnvRun, worker: "WorkerRun") -> Info:
@@ -376,22 +364,10 @@ class ExtendWorker(WorkerBase):
     def on_reset(self, env: EnvRun, worker: "WorkerRun") -> Info:
         self._player_index = worker.player_index
         self.rl_worker.on_reset(env, worker.player_index)
-        _t = self.call_on_reset(env, worker)
-        if _t is None:
-            warnings.warn("The return value of call_on_reset has changed from None to info.", DeprecationWarning)
-            return {}
-        return _t
+        return self.call_on_reset(env, worker)
 
     def policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvAction, Info]:
-        action = self.call_policy(env, worker)
-        if isinstance(action, tuple) and len(action) == 2 and isinstance(action[1], dict):
-            action, info = action
-        else:
-            warnings.warn(
-                "The return value of call_policy has changed from action to (action, info).", DeprecationWarning
-            )
-            info = {}
-        return action, info
+        return self.call_policy(env, worker)
 
     def on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
         self.rl_worker.on_step(env)
@@ -399,12 +375,14 @@ class ExtendWorker(WorkerBase):
 
 
 class WorkerRun:
-    def __init__(self, worker: WorkerBase):
+    def __init__(
+        self,
+        worker: WorkerBase,
+        font_name: str = "",
+        font_size: int = 12,
+    ):
         self.worker = worker
-        if worker.config is None:
-            self._render = Render(worker)
-        else:
-            self._render = Render(worker, worker.config.font_name, worker.config.font_size)
+        self._render = Render(worker, font_name, font_size)
 
     # ------------------------------------
     # episode functions
@@ -447,10 +425,6 @@ class WorkerRun:
         self._render.reset(render_mode, interval=-1)
 
     def policy(self, env: EnvRun) -> Optional[EnvAction]:
-        if self.player_index != env.next_player_index:
-            return None
-        logger.debug("worker.policy()")
-
         # 初期化していないなら初期化する
         if not self._is_reset:
             self._info = self.worker.on_reset(env, self)
@@ -468,8 +442,6 @@ class WorkerRun:
         return env_action
 
     def on_step(self, env: EnvRun) -> None:
-        logger.debug("worker.on_step()")
-
         # 初期化前はskip
         if not self._is_reset:
             return

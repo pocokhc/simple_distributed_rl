@@ -50,6 +50,9 @@ class ArrayContinuousSpace(BoxSpace):
                 return False
         return True
 
+    def get_default(self) -> List[float]:
+        return [0.0 for _ in range(self.size)]
+
     # --- action discrete
     def get_action_discrete_info(self) -> int:
         return self._n

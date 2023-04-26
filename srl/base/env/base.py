@@ -73,11 +73,7 @@ class EnvBase(ABC, IRender):
         raise NotImplementedError()
 
     @abstractmethod
-    def step(
-        self,
-        action: EnvAction,
-        player_index: int,
-    ) -> Tuple[EnvObservation, List[float], bool, int, Info]:
+    def step(self, action: EnvAction) -> Tuple[EnvObservation, List[float], bool, int, Info]:
         """step
 
         Args:
@@ -96,7 +92,11 @@ class EnvBase(ABC, IRender):
             info,
         )
         """
+        raise NotImplementedError()
 
+    @property
+    @abstractmethod
+    def next_player_index(self) -> int:
         raise NotImplementedError()
 
     @abstractmethod
@@ -113,7 +113,7 @@ class EnvBase(ABC, IRender):
     def close(self) -> None:
         pass
 
-    def get_invalid_actions(self, player_index: int) -> List[int]:
+    def get_invalid_actions(self, player_index: int = -1) -> List[int]:
         return []
 
     def action_to_str(self, action: Union[str, EnvAction]) -> str:
@@ -122,7 +122,11 @@ class EnvBase(ABC, IRender):
     def get_key_bind(self) -> KeyBindType:
         return None
 
-    def make_worker(self, name: str) -> Optional["srl.base.rl.base.WorkerBase"]:
+    def make_worker(
+        self,
+        name: str,
+        **kwargs,
+    ) -> Optional["srl.base.rl.base.WorkerBase"]:
         return None
 
     def get_original_env(self) -> object:
@@ -138,10 +142,25 @@ class EnvBase(ABC, IRender):
     # --------------------------------
     # direct
     # --------------------------------
-    def direct_reset(self, *args, **kwargs) -> Tuple[EnvObservation, int, Info]:
+    def direct_step(self, *args, **kwargs) -> Tuple[bool, EnvObservation, List[float], bool, int, Info]:
+        """direct step
+
+        Returns:(
+            is_start_episode,
+            state,
+            [
+                player1 reward,
+                player2 reward,
+                ...
+            ],
+            done,
+            player_index,
+            info,
+        )
+        """
         raise NotImplementedError()
 
-    def direct_step(self, *args, **kwargs) -> Tuple[EnvObservation, List[float], bool, int, Info]:
+    def decode_action(self, action: EnvAction) -> Any:
         raise NotImplementedError()
 
     # --------------------------------
@@ -152,7 +171,7 @@ class EnvBase(ABC, IRender):
         env.restore(self.backup())
         return env
 
-    def get_valid_actions(self, player_index: int) -> List[int]:
+    def get_valid_actions(self, player_index: int = -1) -> List[int]:
         if isinstance(self.action_space, DiscreteSpace):
             invalid_actions = self.get_invalid_actions(player_index)
             return [a for a in range(self.action_space.n) if a not in invalid_actions]
@@ -168,8 +187,7 @@ class EnvRun:
 
         self._render = Render(env, config.font_name, config.font_size)
         self._render_interval = self.env.render_interval
-
-        self.t0 = 0
+        self._t0 = 0
 
     def init(self):
         self._step_num = 0
@@ -221,7 +239,12 @@ class EnvRun:
         self._render.reset(render_mode, self.render_interval)
 
         # --- env reset
-        self._state, self._next_player_index, self._info = self.env.reset()
+        self._state, next_player_index, self._info = self.env.reset()
+        if self.config.check_val:
+            self._state = self.check_state(self._state, "state in env.reset may not be SpaceType.")
+        self._reset()
+
+    def _reset(self):
         self._step_num = 0
         self._done = False
         self._done_reason = ""
@@ -229,33 +252,50 @@ class EnvRun:
         self._episode_rewards = np.zeros(self.player_num)
         self._step_rewards = np.zeros(self.player_num)
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
+        self._t0 = time.time()
 
-        self.t0 = time.time()
+    def step(
+        self,
+        action: EnvAction,
+        skip_function: Optional[Callable[[], None]] = None,
+    ) -> None:
+        assert not self.done, "It is in the done state. Please execute reset()."
 
-    def step(self, action: EnvAction, skip_function: Optional[Callable[[], None]] = None) -> None:
-        assert not self.done, "It is in the done state. Please execute reset ()."
-        logger.debug("env.step")
+        if self.config.check_action:
+            action = self.check_action(action, "The format of 'action' entered in 'env.direct' was wrong.")
+        self._prev_player_index = self.env.next_player_index
+        state, rewards, done, _, info = self.env.step(action)
+        if self.config.check_val:
+            state = self.check_state(state, "'state' in 'env.step' may not be SpaceType.")
+            rewards = self.check_rewards(rewards, "'rewards' in 'env.step' may not be List[float].")
+            done = self.check_done(done, "'done' in 'env.reset may' not be bool.")
 
-        self._prev_player_index = self._next_player_index
-        self._state, rewards, self._done, self._next_player_index, self._info = self.env.step(
-            action, self.next_player_index
-        )
-        self._step_rewards = np.asarray(rewards, dtype=np.float32)
         self._render.cache_reset()
+        step_rewards = np.array(rewards, dtype=np.float32)
 
         # skip frame の間は同じアクションを繰り返す
         for _ in range(self.config.frameskip):
-            assert self.player_num == 1
-            self._state, rewards, self._done, self._next_player_index, self._info = self.env.step(
-                action, self.next_player_index
-            )
-            self._step_rewards += np.asarray(rewards, dtype=np.float32)
+            assert self.player_num == 1, "not support"
+            state, rewards, done, _, info = self.env.step(action)
+            if self.config.check_val:
+                state = self.check_state(state, "'state' in 'env.step' may not be SpaceType.")
+                rewards = self.check_rewards(rewards, "'rewards' in 'env.step' may not be List[float].")
+                done = self.check_done(done, "'done' in 'env.reset may' not be bool.")
+            step_rewards += np.array(rewards, dtype=np.float32)
             self._render.cache_reset()
-            if self.done:
+            if done:
                 break
 
             if skip_function is not None:
                 skip_function()
+
+        return self._step(state, step_rewards, done, info)
+
+    def _step(self, state, rewards, done, info):
+        self._state = state
+        self._step_rewards = rewards
+        self._done = done
+        self._info = info
 
         invalid_actions = self.env.get_invalid_actions(self.next_player_index)
         self._invalid_actions_list[self.next_player_index] = invalid_actions
@@ -272,7 +312,7 @@ class EnvRun:
         elif self.step_num > self.max_episode_steps:
             self._done = True
             self._done_reason = "episode max steps"
-        elif self.config.episode_timeout > 0 and time.time() - self.t0 > self.config.episode_timeout:
+        elif self.config.episode_timeout > 0 and time.time() - self._t0 > self.config.episode_timeout:
             self._done = True
             self._done_reason = "timeout"
 
@@ -286,18 +326,18 @@ class EnvRun:
             self.done,
             self.done_reason,
             self.prev_player_index,
-            self.next_player_index,
             self._invalid_actions_list,
             self.info,
-            self.t0,
+            self._t0,
         ]
+        data = [pickle.dumps(d)]
         if include_env:
-            d.append(self.env.backup())
-        return pickle.dumps(d)
+            data.append(self.env.backup())
+        return data
 
     def restore(self, data: Any) -> None:
         logger.debug("env.restore")
-        d = pickle.loads(data)
+        d = pickle.loads(data[0])
         self._step_num = d[0]
         self._episode_rewards = d[1]
         self._state = d[2]
@@ -305,12 +345,50 @@ class EnvRun:
         self._done = d[4]
         self._done_reason = d[5]
         self._prev_player_index = d[6]
-        self._next_player_index = d[7]
-        self._invalid_actions_list = d[8]
-        self._info = d[9]
-        self.t0 = d[10]
-        if len(d) == 12:
-            self.env.restore(d[11])
+        self._invalid_actions_list = d[7]
+        self._info = d[8]
+        self._t0 = d[9]
+        if len(data) == 2:
+            self.env.restore(data[1])
+
+    # ------------------------------------
+    # check
+    # ------------------------------------
+    def check_action(self, action, error_msg: str = "") -> EnvAction:
+        try:
+            if action in self.get_invalid_actions():
+                logger.error(f"{action}({type(action)}), {error_msg}, invalid action {self.get_invalid_actions()}")
+            return self.env.action_space.convert(action)
+        except Exception as e:
+            logger.error(f"{action}({type(action)}), {error_msg}, {e}")
+        return self.env.action_space.get_default()
+
+    def check_state(self, state, error_msg: str = "") -> EnvObservation:
+        try:
+            return self.env.observation_space.convert(state)
+        except Exception as e:
+            logger.error(f"{state}({type(state)}), {error_msg}, {e}")
+        return self.env.observation_space.get_default()
+
+    def check_rewards(self, rewards, error_msg: str = "") -> List[float]:
+        try:
+            for i, r in enumerate(rewards):
+                try:
+                    rewards[i] = float(r)
+                except Exception as e:
+                    logger.error(f"{rewards}({type(rewards)}, {type(r)}), {error_msg}, {e}")
+                    rewards[i] = 0.0
+            return rewards
+        except Exception as e:
+            logger.error(f"{rewards}({type(rewards)}), {error_msg}, {e}")
+        return [0.0 for _ in range(self.player_num)]
+
+    def check_done(self, done, error_msg: str = "") -> bool:
+        try:
+            return bool(done)
+        except Exception as e:
+            logger.error(f"{done}({type(done)}), {error_msg}, {e}")
+        return False
 
     # ------------------------------------
     # No internal state change
@@ -352,7 +430,7 @@ class EnvRun:
 
     @property
     def next_player_index(self) -> int:
-        return self._next_player_index
+        return self.env.next_player_index
 
     @property
     def step_num(self) -> int:
@@ -410,14 +488,28 @@ class EnvRun:
     def get_key_bind(self) -> KeyBindType:
         return self.env.get_key_bind()
 
-    def make_worker(self, name: str) -> Optional["srl.base.rl.base.WorkerRun"]:
-        worker = self.env.make_worker(name)
+    def make_worker(
+        self,
+        name: str,
+        training: bool = False,
+        distributed: bool = False,
+        font_name: str = "",
+        font_size: int = 12,
+        enable_raise: bool = True,
+        env_worker_kwargs: dict = {},
+    ) -> "srl.base.rl.worker.WorkerRun":
+        env_worker_kwargs = env_worker_kwargs.copy()
+        env_worker_kwargs["training"] = training
+        env_worker_kwargs["distributed"] = distributed
+        worker = self.env.make_worker(name, **env_worker_kwargs)
         if worker is None:
+            if enable_raise:
+                raise ValueError(f"'{name}' worker is not found.")
             return None
 
         from srl.base.rl.worker import WorkerRun
 
-        return WorkerRun(worker)
+        return WorkerRun(worker, font_name, font_size)
 
     def get_original_env(self) -> object:
         return self.env.get_original_env()
@@ -444,26 +536,25 @@ class EnvRun:
     # ------------------------------------
     # direct
     # ------------------------------------
-    def direct_reset(self, *args, **kwargs) -> None:
-        logger.debug("env.direct_reset")
-
-        self._state, self._next_player_index, self._info = self.env.direct_reset(*args, **kwargs)
-        self._step_num = 0
-        self._done = False
-        self._done_reason = ""
-        self._episode_rewards = np.zeros(self.player_num)
-        self._step_rewards = np.zeros(self.player_num)
-        self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
-
     def direct_step(self, *args, **kwargs) -> None:
-        logger.debug("env.direct_step")
+        self.is_start_episode, state, rewards, done, player_index, info = self.env.direct_step(*args, **kwargs)
+        if self.config.check_val:
+            s = "'is_start_episode' in 'env.direct_step may' not be bool."
+            self.is_start_episode = self.check_done(self.is_start_episode, s)
+            state = self.check_state(state, "'state' in 'env.direct_step' may not be SpaceType.")
+            rewards = self.check_rewards(rewards, "'rewards' in 'env.direct_step' may not be List[float].")
+            done = self.check_done(done, "'done' in 'env.direct_step may' not be bool.")
+            s = "'player_index' in 'env.direct_step may' not be int."
+            player_index = self.check_player_index(player_index, s)
 
-        self._state, rewards, self._done, self._next_player_index, self._info = self.env.direct_step(*args, **kwargs)
-        self._step_rewards = np.asarray(rewards)
+        if self.is_start_episode:
+            self._reset()
+        self._step(state, rewards, done, player_index, info)
 
-        self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
-        self._step_num += 1
-        self._episode_rewards += self.step_rewards
+    def decode_action(self, action: EnvAction) -> Any:
+        if self.config.check_action:
+            action = self.check_action(action, "The format of 'action' entered in 'env.direct' was wrong.")
+        return self.env.decode_action(action)
 
     # ------------------------------------
     # util functions

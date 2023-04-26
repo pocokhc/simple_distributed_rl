@@ -272,7 +272,15 @@ def _play_main(
     callbacks = [c for c in config.callbacks if issubclass(c.__class__, Callback)]
 
     # --- workers
-    workers = [config.make_player(i, parameter, remote_memory, actor_id) for i in range(env.player_num)]
+    workers = [
+        config.make_player(
+            config.players[i] if i < len(config.players) else None,
+            parameter,
+            remote_memory,
+            actor_id,
+        )
+        for i in range(env.player_num)
+    ]
 
     # callbacks
     _info = {

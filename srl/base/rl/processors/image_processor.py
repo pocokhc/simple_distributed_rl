@@ -29,9 +29,6 @@ class ImageProcessor(Processor):
         self.before_observation_type = EnvObservationType.UNKNOWN
         self.max_val = 0
 
-        assert is_package_installed(
-            "cv2"
-        ), "To use ImageProcessor you need to install the 'cv2'. (pip install opencv-python)"
         assert EnvObservationType.is_image(self.image_type)
 
     def change_observation_info(
@@ -43,6 +40,10 @@ class ImageProcessor(Processor):
     ) -> Tuple[SpaceBase, EnvObservationType]:
         self.before_observation_type = env_observation_type
         self.is_valid = False
+
+        # パッケージがなければ何もしない
+        if not is_package_installed("cv2"):
+            return env_observation_space, env_observation_type
 
         # BoxSpace のみ対象
         if not isinstance(env_observation_space, BoxSpace):

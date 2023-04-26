@@ -13,8 +13,5 @@ register_worker("random", __name__ + ":Worker")
 
 
 class Worker(RuleBaseWorker):
-    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> dict:
-        return {}
-
     def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[EnvAction, dict]:
         return env.sample(), {}

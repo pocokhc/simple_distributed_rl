@@ -1,12 +1,12 @@
 import logging
 import pickle
-import random
 import time
 from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
-from srl.base.define import EnvAction, EnvObservationType, RLObservationType
+
+from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
@@ -36,12 +36,11 @@ register(
 
 @dataclass
 class Othello(TurnBase2Player):
-
     W: int = 8
     H: int = 8
 
     def __post_init__(self):
-        self._player_index = 0
+        self._next_player_index = 0
         self.screen = None
 
     def get_field(self, x: int, y: int) -> int:
@@ -83,13 +82,13 @@ class Othello(TurnBase2Player):
         return self.W * self.H
 
     @property
-    def player_index(self) -> int:
-        return self._player_index
+    def next_player_index(self) -> int:
+        return self._next_player_index
 
     def call_reset(self) -> Tuple[List[int], dict]:
         self.action = 0
 
-        self._player_index = 0
+        self._next_player_index = 0
         self.field = [0] * (self.W * self.H)
         center_x = int(self.W / 2) - 1
         center_y = int(self.H / 2) - 1
@@ -107,7 +106,7 @@ class Othello(TurnBase2Player):
     def backup(self) -> Any:
         return pickle.dumps(
             [
-                self._player_index,
+                self._next_player_index,
                 self.W,
                 self.H,
                 self.field,
@@ -117,7 +116,7 @@ class Othello(TurnBase2Player):
 
     def restore(self, data: Any) -> None:
         d = pickle.loads(data)
-        self._player_index = d[0]
+        self._next_player_index = d[0]
         self.W = d[1]
         self.H = d[2]
         self.field = d[3]
@@ -169,8 +168,8 @@ class Othello(TurnBase2Player):
         self.action = action
 
         # --- error action
-        if len(self.movable_dirs[self.player_index][action]) == 0:
-            if self.player_index == 0:
+        if len(self.movable_dirs[self._next_player_index][action]) == 0:
+            if self._next_player_index == 0:
                 return self.field, -1, 0, True, {}
             else:
                 return self.field, 0, -1, True, {}
@@ -179,8 +178,8 @@ class Othello(TurnBase2Player):
         self._step(action)
 
         # --- 終了判定
-        enemy_player = 1 if self.player_index == 0 else 0
-        my_player = 0 if self.player_index == 0 else 1
+        enemy_player = 1 if self._next_player_index == 0 else 0
+        my_player = 0 if self._next_player_index == 0 else 1
         enemy_put_num = self.action_space.n - len(self.get_invalid_actions(enemy_player))
         my_put_num = self.action_space.n - len(self.get_invalid_actions(my_player))
         # 互いに置けないなら終了
@@ -202,14 +201,13 @@ class Othello(TurnBase2Player):
             return self.field, 0, 0, False, {}
 
         # 手番交代
-        self._player_index = enemy_player
+        self._next_player_index = enemy_player
         return self.field, 0, 0, False, {}
 
     def _step(self, action):
-
         # --- update
         x, y = self.pos_decode(action)
-        my_color = 1 if self.player_index == 0 else -1
+        my_color = 1 if self._next_player_index == 0 else -1
         self.field[action] = my_color
 
         # 移動方向はテンキー
@@ -223,7 +221,7 @@ class Othello(TurnBase2Player):
             7: (-1, -1),
             4: (-1, 0),
         }
-        for movable_dir in self.movable_dirs[self.player_index][action]:
+        for movable_dir in self.movable_dirs[self._next_player_index][action]:
             diff_x, diff_y = move_diff[movable_dir]
             tmp_x = x + diff_x
             tmp_y = y + diff_y
@@ -243,7 +241,7 @@ class Othello(TurnBase2Player):
         return [a for a in range(self.H * self.W) if len(self.movable_dirs[player_index][a]) == 0]
 
     def render_terminal(self, **kwargs) -> None:
-        invalid_actions = self.get_invalid_actions(self.player_index)
+        invalid_actions = self.get_invalid_actions(self._next_player_index)
         p1_count = len([f for f in self.field if f == 1])
         p2_count = len([f for f in self.field if f == -1])
 
@@ -269,7 +267,7 @@ class Othello(TurnBase2Player):
             print(s)
         print("-" * (1 + self.W * 3))
         print(f"O: {p1_count}, X: {p2_count}")
-        if self.player_index == 0:
+        if self._next_player_index == 0:
             print("next player: O")
         else:
             print("next player: X")
@@ -286,7 +284,7 @@ class Othello(TurnBase2Player):
         h_margin = 10
         cell_w = int((WIDTH - w_margin * 2) / self.W)
         cell_h = int((HEIGHT - h_margin * 2) / self.H)
-        invalid_actions = self.get_invalid_actions(self.player_index)
+        invalid_actions = self.get_invalid_actions(self._next_player_index)
 
         pw.draw_fill(self.screen, color=(255, 255, 255))
 
@@ -345,7 +343,7 @@ class Othello(TurnBase2Player):
                         line_color=line_color,
                     )
                 elif a not in invalid_actions:
-                    if self.player_index == 0:
+                    if self._next_player_index == 0:
                         color = (0, 0, 0)
                     else:
                         color = (255, 255, 255)
@@ -362,23 +360,23 @@ class Othello(TurnBase2Player):
 
     @property
     def render_interval(self) -> float:
-        return 1000 / 5
+        return 1000 / 1
 
-    def make_worker(self, name: str) -> Optional[RuleBaseWorker]:
+    def make_worker(self, name: str, **kwargs) -> Optional[RuleBaseWorker]:
         if name == "cpu":
-            return Cpu()
+            return Cpu(**kwargs)
         return None
 
 
 class Cpu(RuleBaseWorker):
     cache = {}
 
-    def call_on_reset(self, _env: EnvRun, worker: WorkerRun) -> dict:
-        env = cast(Othello, _env.get_original_env())
+    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> dict:
+        _env = cast(Othello, env.get_original_env())
         self.max_depth = 2
         self.eval_field = None
 
-        if env.W == 8:
+        if _env.W == 8:
             self.max_depth = 2
             self.eval_field = [
                 [30, -12, 0, -1, -1, 0, -12, 30],
@@ -393,7 +391,7 @@ class Cpu(RuleBaseWorker):
             self.eval_field = np.array(self.eval_field).flatten()
             assert self.eval_field.shape == (64,)
 
-        elif env.W == 6:
+        elif _env.W == 6:
             self.max_depth = 3
             self.eval_field = [
                 [30, -12, 0, 0, -12, 30],
@@ -406,12 +404,12 @@ class Cpu(RuleBaseWorker):
             self.eval_field = np.array(self.eval_field).flatten()
             assert self.eval_field.shape == (36,)
 
-        elif env.W == 4:
+        elif _env.W == 4:
             self.max_depth = 6
 
         return {}
 
-    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[EnvAction, dict]:
+    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[int, dict]:
         self._count = 0
         self.t0 = time.time()
         scores = self._negamax(env.get_original_env().copy())
@@ -424,7 +422,6 @@ class Cpu(RuleBaseWorker):
         return action, {}
 
     def _negamax(self, env: Othello, depth: int = 0):
-
         key = str(env.field)
         if key in Cpu.cache:
             return Cpu.cache[key]
@@ -432,7 +429,7 @@ class Cpu(RuleBaseWorker):
         self._count += 1
 
         env_dat = env.backup()
-        player_index = env.player_index
+        player_index = env._next_player_index
         valid_actions = env.get_valid_actions(player_index)
 
         scores = [-999.0 for _ in range(env.action_space.n)]
@@ -456,7 +453,7 @@ class Cpu(RuleBaseWorker):
                 if player_index != 0:
                     scores[a] = -scores[a]
             else:
-                is_enemy = player_index != env.player_index
+                is_enemy = player_index != env._next_player_index
                 n_scores = self._negamax(env, depth + 1)
                 if is_enemy:
                     scores[a] = -np.max(n_scores)
@@ -466,15 +463,15 @@ class Cpu(RuleBaseWorker):
         Cpu.cache[key] = scores
         return scores
 
-    def render_terminal(self, _env: EnvRun, worker: WorkerRun, **kwargs) -> None:
-        env = cast(Othello, _env.get_original_env())
-        valid_actions = env.get_valid_actions(env.player_index)
+    def render_terminal(self, env: EnvRun, worker: WorkerRun, **kwargs) -> None:
+        _env = cast(Othello, env.get_original_env())
+        valid_actions = env.get_valid_actions(_env._next_player_index)
 
         print(f"- MinMax count: {self._render_count}, {self._render_time:.3f}s -")
-        for y in range(env.H):
+        for y in range(_env.H):
             s = "|"
-            for x in range(env.W):
-                a = x + y * env.W
+            for x in range(_env.W):
+                a = x + y * _env.W
                 if a in valid_actions:
                     s += "{:6.1f}|".format(self._render_scores[a])
                 else:
@@ -489,31 +486,31 @@ class LayerProcessor(Processor):
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationType,
         rl_observation_type: RLObservationType,
-        _env: EnvRun,
+        env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationType]:
-        env = cast(Othello, _env.get_original_env())
+        _env = cast(Othello, env.get_original_env())
         observation_space = BoxSpace(
             low=0,
             high=1,
-            shape=(2, env.H, env.W),
+            shape=(2, _env.H, _env.W),
         )
         return observation_space, EnvObservationType.SHAPE3
 
-    def process_observation(self, observation: np.ndarray, _env: Othello) -> np.ndarray:
-        env = cast(Othello, _env.get_original_env())
+    def process_observation(self, observation: np.ndarray, env: Othello) -> np.ndarray:
+        _env = cast(Othello, env.get_original_env())
 
         # Layer0: my_player field (0 or 1)
         # Layer1: enemy_player field (0 or 1)
-        if env.player_index == 0:
+        if _env._next_player_index == 0:
             my_field = 1
             enemy_field = -1
         else:
             my_field = -1
             enemy_field = 1
-        _field = np.zeros((2, env.H, env.W))
-        for y in range(env.H):
-            for x in range(env.W):
-                idx = x + y * env.W
+        _field = np.zeros((2, _env.H, _env.W))
+        for y in range(_env.H):
+            for x in range(_env.W):
+                idx = x + y * _env.W
                 if observation[idx] == my_field:
                     _field[0][y][x] = 1
                 elif observation[idx] == enemy_field:

@@ -25,6 +25,10 @@ class EnvConfig:
     font_name: str = ""
     font_size: int = 12
 
+    # other
+    check_action: bool = True
+    check_val: bool = True
+
     def __post_init__(self):
         # The device used by the framework.
         self.used_device_tf: str = "/CPU"

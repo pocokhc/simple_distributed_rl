@@ -72,7 +72,7 @@ def test_processor():
 def test_othello():
     env_run = srl.make_env("Othello")
     env = cast(othello.Othello, env_run.get_original_env())
-    env_run.reset()
+    env_run.reset(render_mode="terminal")
     env_run.render()
 
     # common func
@@ -150,10 +150,10 @@ def test_othello():
     env_run.step(3)
     env_run.step(2)
     env_run.render()
-    assert env.player_index == 0
+    assert env.next_player_index == 0
     env_run.step(1)
     env_run.render()
-    assert env.player_index == 0  # skip
+    assert env.next_player_index == 0  # skip
     env_run.step(10)
     env_run.step(18)
     env_run.step(9)

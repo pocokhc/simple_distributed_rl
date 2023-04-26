@@ -39,6 +39,7 @@ class Config:
     seed_enable_gpu: bool = True  # 有効にならない場合あり、また速度が犠牲になる可能性あり
 
     # multi player option
+    # playersという変数名だけど、役割はworkersの方が正しい
     players: List[Union[None, str, RLConfig]] = field(default_factory=list)
 
     # mp options
@@ -125,9 +126,15 @@ class Config:
         self.rl_config.assert_params()
 
     def _set_env(self):
-        if self.env is None:
-            self.env = srl.make_env(self.env_config)
-            self.rl_config.reset_config(self.env)
+        if self.env is not None:
+            return
+        self.env = srl.make_env(self.env_config)
+        self.rl_config.reset(self.env)
+
+        # 初期化されていない場合、一人目はNone、二人目以降はrandomにする
+        if len(self.players) == 0:
+            self.players = ["random" for _ in range(self.env.player_num)]
+            self.players[0] = None
 
     def make_env(self) -> EnvRun:
         self.init_device()
@@ -162,61 +169,64 @@ class Config:
             self.rl_config,
             parameter,
             remote_memory,
-            env=self.env,
-            training=self.training,
-            distributed=self.distributed,
-            actor_id=actor_id,
+            self.env,
+            self.training,
+            self.distributed,
+            actor_id,
         )
         return worker
 
     def make_player(
         self,
-        player_index: int,
+        player: Union[None, str, RLConfig],
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
         actor_id: int = 0,
+        env_worker_kwargs={},
     ) -> WorkerRun:
         self.init_device()
         env = self.make_env()
 
-        # 設定されていない場合は 0 をrl、1以降をrandom
-        if player_index < len(self.players):
-            player_obj = self.players[player_index]
-        elif player_index == 0:
-            player_obj = None
-        else:
-            player_obj = "random"
-
         # none はベース
-        if player_obj is None:
+        if player is None:
             return self.make_worker(parameter, remote_memory, actor_id)
 
         # 文字列はenv側またはルールベースのアルゴリズム
-        if isinstance(player_obj, str):
-            worker = env.make_worker(player_obj)
+        if isinstance(player, str):
+            worker = env.make_worker(
+                player,
+                self.training,
+                self.distributed,
+                enable_raise=False,
+                env_worker_kwargs=env_worker_kwargs,
+            )
             if worker is not None:
                 return worker
-            worker = make_worker_rulebase(player_obj)
+            worker = make_worker_rulebase(
+                player,
+                self.training,
+                self.distributed,
+            )
             if worker is not None:
                 return worker
-            assert False, f"not registered: {player_obj}"
+            assert False, f"not registered: {player}"
 
         # RLConfigは専用のWorkerを作成
-        if isinstance(player_obj, object) and issubclass(player_obj.__class__, RLConfig):
+        if isinstance(player, object) and issubclass(player.__class__, RLConfig):
             parameter = make_parameter(self.rl_config)
             remote_memory = make_remote_memory(self.rl_config)
             worker = make_worker(
-                player_obj,
+                player,
                 parameter,
                 remote_memory,
-                env=env,
-                training=False,
-                distributed=False,
-                actor_id=actor_id,
+                env,
+                self.training,
+                self.distributed,
+                actor_id,
             )
             return worker
 
-        raise ValueError(f"unknown player: {player_obj}")
+        raise ValueError(f"unknown worker: {player}")
 
     # ------------------------------
     # GPU

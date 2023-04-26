@@ -70,6 +70,9 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def base_action_type(self) -> RLActionType:
         return RLActionType.CONTINUOUS
 
+    def get_default(self) -> np.ndarray:
+        return np.zeros(self.shape)
+
     def __eq__(self, o: object) -> bool:
         return self.shape == o.shape and (self.low == o.low).all() and (self.high == o.high).all()
 

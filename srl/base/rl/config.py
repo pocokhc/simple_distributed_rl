@@ -26,6 +26,7 @@ class RLConfig(ABC):
     remote_memory_path: str = ""
     use_rl_processor: bool = True  # RL側のprocessorを使用するか
     change_observation_render_image: bool = False  # 状態の入力をrender_imageに変更
+
     # render option
     font_name: str = ""
     font_size: int = 12
@@ -78,7 +79,7 @@ class RLConfig(ABC):
     # ----------------------------
     # reset config
     # ----------------------------
-    def reset_config(self, env: EnvRun) -> None:
+    def reset(self, env: EnvRun) -> None:
         if self._is_set_env_config:
             return
 
@@ -149,7 +150,7 @@ class RLConfig(ABC):
             object.__setattr__(self, name, value)
             return
 
-        # configが書き変わったら reset_config が必要
+        # configが書き変わったら reset が必要
         if name in [
             "processors",
             "override_env_observation_type",

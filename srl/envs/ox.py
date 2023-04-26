@@ -1,10 +1,10 @@
 import logging
-import random
 import time
 from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
-from srl.base.define import EnvAction, EnvObservationType, RLObservationType
+
+from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
@@ -26,12 +26,11 @@ class OX(TurnBase2Player):
     _scores_cache = {}
 
     def __init__(self):
-
         self.W = 3
         self.H = 3
 
-        self._player_index = 0
         self.screen = None
+        self._next_player_index = 0
 
     @property
     def action_space(self) -> SpaceBase:
@@ -50,44 +49,42 @@ class OX(TurnBase2Player):
         return 10
 
     @property
-    def player_index(self) -> int:
-        return self._player_index
+    def next_player_index(self) -> int:
+        return self._next_player_index
 
     def call_reset(self) -> Tuple[List[int], dict]:
         self.field = [0 for _ in range(self.W * self.H)]
-        self._player_index = 0
+        self._next_player_index = 0
         return self.field, {}
 
     def backup(self) -> Any:
-        return [self.field[:], self._player_index]
+        return [self.field[:], self._next_player_index]
 
     def restore(self, data: Any) -> None:
         self.field = data[0][:]
-        self._player_index = data[1]
+        self._next_player_index = data[1]
 
     def call_step(self, action: int) -> Tuple[List[int], float, float, bool, dict]:
-
         reward1, reward2, done = self._step(action)
 
         if not done:
-            if self._player_index == 0:
-                self._player_index = 1
+            if self._next_player_index == 0:
+                self._next_player_index = 1
             else:
-                self._player_index = 0
+                self._next_player_index = 0
 
         return self.field, reward1, reward2, done, {}
 
     def _step(self, action):
-
         # error action
         if self.field[action] != 0:
-            if self.player_index == 0:
+            if self._next_player_index == 0:
                 return -1, 0, True
             else:
                 return 0, -1, True
 
         # update
-        if self.player_index == 0:
+        if self._next_player_index == 0:
             self.field[action] = 1
         else:
             self.field[action] = -1
@@ -125,7 +122,7 @@ class OX(TurnBase2Player):
 
         return 0, 0, False
 
-    def get_invalid_actions(self, player_index: int = 0) -> List[int]:
+    def get_invalid_actions(self, player_index: int = -1) -> List[int]:
         actions = []
         for a in range(self.H * self.W):
             if self.field[a] != 0:
@@ -148,7 +145,7 @@ class OX(TurnBase2Player):
                     s += "{:2d}|".format(a)
             print(s)
             print("-" * 10)
-        if self.player_index == 0:
+        if self._next_player_index == 0:
             print("next player: O")
         else:
             print("next player: X")
@@ -215,9 +212,9 @@ class OX(TurnBase2Player):
     def render_interval(self) -> float:
         return 1000 / 1
 
-    def make_worker(self, name: str) -> Optional[RuleBaseWorker]:
+    def make_worker(self, name: str, **kwargs) -> Optional[RuleBaseWorker]:
         if name == "cpu":
-            return Cpu()
+            return Cpu(**kwargs)
         return None
 
     # --------------------------------------------
@@ -238,13 +235,13 @@ class OX(TurnBase2Player):
         env_dat = env.backup()
 
         scores = [-9.0 for _ in range(env.action_space.n)]
-        for a in self.get_valid_actions(self.player_index):
+        for a in self.get_valid_actions():
             a = cast(int, a)
             env.restore(env_dat)
 
             _, r1, r2, done, _ = env.call_step(a)
             if done:
-                if env.player_index == 0:
+                if env.next_player_index == 0:
                     scores[a] = r1
                 else:
                     scores[a] = r2
@@ -263,25 +260,25 @@ class Cpu(RuleBaseWorker):
     def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> dict:
         return {}
 
-    def call_policy(self, _env: EnvRun, worker: WorkerRun) -> Tuple[EnvAction, dict]:
-        env = cast(OX, _env.get_original_env())
-        scores = env.calc_scores()
+    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[int, dict]:
+        _env = cast(OX, env.get_original_env())
+        scores = _env.calc_scores()
         self._render_scores = scores
-        self._render_count = env._scores_count
-        self._render_time = env._scores_time
+        self._render_count = _env._scores_count
+        self._render_time = _env._scores_time
 
         action = int(np.random.choice(np.where(scores == np.max(scores))[0]))
         return action, {}
 
-    def render_render(self, _env: EnvRun, worker: WorkerRun, **kwargs) -> None:
-        env = cast(OX, _env.get_original_env())
+    def render_render(self, env: EnvRun, worker: WorkerRun, **kwargs) -> None:
+        _env = cast(OX, env.get_original_env())
 
         print(f"- alphabeta({self._render_count}, {self._render_time:.3f}s) -")
         print("-" * 10)
-        for y in range(env.H):
+        for y in range(_env.H):
             s = "|"
-            for x in range(env.W):
-                a = x + y * env.W
+            for x in range(_env.W):
+                a = x + y * _env.W
                 s += "{:2.0f}|".format(self._render_scores[a])
             print(s)
             print("-" * 10)
@@ -293,7 +290,7 @@ class LayerProcessor(Processor):
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationType,
         rl_observation_type: RLObservationType,
-        env: OX,
+        env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationType]:
         observation_space = BoxSpace(
             low=0,
@@ -302,21 +299,21 @@ class LayerProcessor(Processor):
         )
         return observation_space, EnvObservationType.SHAPE3
 
-    def process_observation(self, observation: np.ndarray, _env: EnvRun) -> np.ndarray:
-        env = cast(OX, _env.get_original_env())
+    def process_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
+        _env = cast(OX, env.get_original_env())
 
         # Layer0: player1 field (0 or 1)
         # Layer1: player2 field (0 or 1)
-        if env.player_index == 0:
+        if _env.next_player_index == 0:
             my_field = 1
             enemy_field = -1
         else:
             my_field = -1
             enemy_field = 1
-        _field = np.zeros((2, env.H, env.W))
-        for y in range(env.H):
-            for x in range(env.W):
-                idx = x + y * env.W
+        _field = np.zeros((2, _env.H, _env.W))
+        for y in range(_env.H):
+            for x in range(_env.W):
+                idx = x + y * _env.W
                 if observation[idx] == my_field:
                     _field[0][y][x] = 1
                 elif observation[idx] == enemy_field:

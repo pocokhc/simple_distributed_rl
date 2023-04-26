@@ -385,7 +385,7 @@ class Worker(ModelBaseWorker):
         # --- シミュレーションしてpolicyを作成
         dat = env.backup()
         for _ in range(self.config.num_simulations):
-            self._simulation(env, state, self.state_str, self.invalid_actions)
+            self._simulation(env, state, self.state_str)
             env.restore(dat)
 
         # --- (教師データ) 試行回数を元に確率を計算
@@ -406,7 +406,6 @@ class Worker(ModelBaseWorker):
         env: EnvRun,
         state: np.ndarray,
         state_str: str,
-        invalid_actions,
         depth: int = 0,
     ):
         if depth >= env.max_episode_steps:  # for safety
@@ -419,7 +418,7 @@ class Worker(ModelBaseWorker):
         self.parameter.pred_PV(state, state_str)
 
         # actionを選択
-        puct_list = self._calc_puct(state_str, invalid_actions, depth == 0)
+        puct_list = self._calc_puct(state_str, env.get_invalid_actions(), depth == 0)
         action = int(np.random.choice(np.where(puct_list == np.max(puct_list))[0]))
 
         # 1step
@@ -435,10 +434,8 @@ class Worker(ModelBaseWorker):
             self.parameter.pred_PV(n_state, n_state_str)
             n_value = self.parameter.V[n_state_str]
         else:
-            n_invalid_actions = self.get_invalid_actions(env)
-
             # 子ノードに降りる(展開)
-            n_value = self._simulation(env, n_state, n_state_str, n_invalid_actions, depth + 1)
+            n_value = self._simulation(env, n_state, n_state_str, depth + 1)
 
         # 次が相手のターンなら、報酬は最小になってほしいので-をかける
         if enemy_turn:

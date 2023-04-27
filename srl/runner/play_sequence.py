@@ -278,6 +278,7 @@ def _play_main(
             parameter,
             remote_memory,
             actor_id,
+            config.players_kwargs[i] if i < len(config.players_kwargs) else {},
         )
         for i in range(env.player_num)
     ]

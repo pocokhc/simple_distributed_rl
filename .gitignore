@@ -6,6 +6,7 @@ tmp*/
 *.dat
 *.prof
 *.dll
+*.tar.gz
 _*.*
 !__init__.py
 _*/

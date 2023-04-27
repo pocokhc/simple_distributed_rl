@@ -354,7 +354,7 @@ class GymWrapper(EnvBase):
     def next_player_index(self) -> int:
         return 0
 
-    def reset(self) -> Tuple[np.ndarray, int, dict]:
+    def reset(self) -> Tuple[np.ndarray, dict]:
         if self.seed is None:
             state = self.env.reset()
             if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
@@ -373,9 +373,9 @@ class GymWrapper(EnvBase):
             self.seed = None
         if self.enable_flatten_observation:
             state = gym_space_flatten_encode(self.env.observation_space, state)
-        return self.observation_space.convert(state), 0, info
+        return self.observation_space.convert(state), info
 
-    def step(self, action: EnvAction) -> Tuple[np.ndarray, List[float], bool, int, Info]:
+    def step(self, action: EnvAction) -> Tuple[np.ndarray, List[float], bool, Info]:
         if self.enable_flatten_action:
             action = gym_space_flatten_decode(self.env.action_space, action)
         _t = self.env.step(action)
@@ -386,7 +386,7 @@ class GymWrapper(EnvBase):
             done = terminated or truncated
         if self.enable_flatten_observation:
             state = gym_space_flatten_encode(self.env.observation_space, state)
-        return self.observation_space.convert(state), [float(reward)], done, 0, info
+        return self.observation_space.convert(state), [float(reward)], done, info
 
     def backup(self) -> Any:
         return pickle.dumps(self.env)

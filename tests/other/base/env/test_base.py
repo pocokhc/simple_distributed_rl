@@ -39,7 +39,7 @@ class StubEnv(EnvBase):
         self._step = 0
         state = 0
         info = {}
-        return state, self.next_player_index, info
+        return state, info
 
     def step(self, action):
         self._step += 1
@@ -47,7 +47,7 @@ class StubEnv(EnvBase):
         rewards = [1]
         done = False
         info = {}
-        return next_state, rewards, done, self.next_player_index, info
+        return next_state, rewards, done, info
 
     # backup/restore で現環境を復元できるように実装
     def backup(self):

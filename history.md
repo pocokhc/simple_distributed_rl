@@ -51,6 +51,7 @@ GPU,PyTorch,Dockerの環境を見直して、それに伴い大幅なリファ�
    1. set_seed も reset で実施（set_seedを削除）
    1. EnvBaseのstepにて、player_indexを削除し、next_player_index の propertyを追加
    1. kaggle環境に適用できるようにdirect機構を見直し
+   1. next_player_index を戻り値からプロパティに変更
 1. Test framework を unittest から pytest に変更
    1. カバレッジを計測するcreate_coverage.pyを追加(VSCodeに埋め込むと重すぎた)
    1. 乱数固定に。
@@ -69,7 +70,6 @@ GPU,PyTorch,Dockerの環境を見直して、それに伴い大幅なリファ�
 1. Configのenv指定を文字列でもできるように変更
 1. sub versionの表記でアルファベットを使うと一部のライブラリでエラーが出たので数字に変更
 1. RLConfigのreset_configをresetに名前変更
-1. RLConfigにinit_runを追加、一連のrunの前に実行を想定する関数(runnerでは場合は内部で使用)
 
 **Bug Fixes**
 

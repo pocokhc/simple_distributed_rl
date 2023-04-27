@@ -52,18 +52,18 @@ class SinglePlayEnv(EnvBase):
     def next_player_index(self) -> int:
         return 0
 
-    def reset(self) -> Tuple[EnvObservation, int, Info]:
+    def reset(self) -> Tuple[EnvObservation, Info]:
         state = self.call_reset()
         if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
             state, info = state
         else:
             info = {}
             warnings.warn("The return value of reset has changed from 'state' to 'state, info'.", DeprecationWarning)
-        return state, 0, info
+        return state, info
 
-    def step(self, action: EnvAction) -> Tuple[EnvObservation, List[float], bool, int, Info]:
+    def step(self, action: EnvAction) -> Tuple[EnvObservation, List[float], bool, Info]:
         n_state, reward, done, info = self.call_step(action)
-        return n_state, [reward], done, 0, info
+        return n_state, [reward], done, info
 
     def get_invalid_actions(self, player_index: int) -> List[int]:
         return self.call_get_invalid_actions()

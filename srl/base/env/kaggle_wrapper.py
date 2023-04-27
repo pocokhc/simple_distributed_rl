@@ -40,22 +40,23 @@ class KaggleWrapper(EnvBase):
     def next_player_index(self) -> int:
         return self.__player_index
 
-    def reset(self) -> Tuple[EnvObservation, int, dict]:
+    def reset(self) -> Tuple[EnvObservation, dict]:
         obs = self.env.reset(self.player_num)
-        self.__reset_step(obs)
+        self.__set_rewards(obs)
+        self.__set_player(obs)
 
         self.__obs = self.__create_player_state(obs)
-        is_start_episode, state, rewards, done, player_index, info = self.direct_step(self.__obs, self.config)
+        is_start_episode, state, player_index, info = self.encode_obs(self.__obs, self.config)
         self.__state = state
         self.__info = info
 
-        return self.__state, self.__player_index, self.__info
+        return self.__state, self.__info
 
-    def __reset_step(self, obs):
-        # reward
+    def __set_rewards(self, obs):
         self.__rewards = [0.0 if o.reward is None else o.reward for o in obs]
 
-        # action
+    def __set_player(self, obs):
+        # ACTIVEのユーザのみ予想する
         self.__player_actions = []
         for i in range(self.player_num):
             if obs[i]["status"] == "ACTIVE":
@@ -79,7 +80,7 @@ class KaggleWrapper(EnvBase):
         _obs.update(obs[self.__player_index]["observation"])
         return _obs
 
-    def step(self, action: EnvAction) -> Tuple[EnvObservation, List[float], bool, int, Info]:
+    def step(self, action: EnvAction) -> Tuple[EnvObservation, List[float], bool, Info]:
         self.__player_actions[self.__player_index] = action
 
         self.__search_next_player()
@@ -87,10 +88,11 @@ class KaggleWrapper(EnvBase):
             # 全プレイヤーがアクションを選択した
             actions = [self.decode_action(a) for a in self.__player_actions]
             obs = self.env.step(actions)
-            self.__reset_step(obs)
+            self.__set_rewards(obs)
+            self.__set_player(obs)
 
             self.__obs = self.__create_player_state(obs)
-            is_start_episode, state, rewards, done, player_index, info = self.direct_step(self.__obs, self.config)
+            is_start_episode, state, player_index, info = self.encode_obs(self.__obs, self.config)
             self.__state = state
             self.__info = info
 
@@ -98,9 +100,24 @@ class KaggleWrapper(EnvBase):
             self.__state,
             self.__rewards,
             self.env.done,
-            self.__player_index,
             self.__info,
         )
+
+    def direct_step(self, observation, configuration) -> Tuple[bool, EnvObservation, int, Info]:
+        return self.encode_obs(observation, configuration)
+
+    @property
+    def can_simulate_from_direct_step(self) -> bool:
+        """kaggle_environmentsの中身を復元できないのでシミュレートできない"""
+        return False
+
+    @abstractmethod
+    def encode_obs(self, observation, configuration) -> Tuple[bool, List[int], int, dict]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def decode_action(self, action: EnvAction) -> Any:
+        raise NotImplementedError()
 
     def backup(self) -> Any:
         return [

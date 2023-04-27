@@ -61,19 +61,15 @@ class EnvBase(ABC, IRender):
     # implement functions
     # --------------------------------
     @abstractmethod
-    def reset(self) -> Tuple[EnvObservation, int, Info]:
+    def reset(self) -> Tuple[EnvObservation, Info]:
         """reset
 
-        Returns: (
-            init_state,
-            next_player_index,
-            info,
-        )
+        Returns: init_state, info
         """
         raise NotImplementedError()
 
     @abstractmethod
-    def step(self, action: EnvAction) -> Tuple[EnvObservation, List[float], bool, int, Info]:
+    def step(self, action: EnvAction) -> Tuple[EnvObservation, List[float], bool, Info]:
         """step
 
         Args:
@@ -87,7 +83,6 @@ class EnvBase(ABC, IRender):
                 ...
             ],
             done,
-            next_player_index,
             info,
         )
         """
@@ -141,18 +136,14 @@ class EnvBase(ABC, IRender):
     # --------------------------------
     # direct
     # --------------------------------
-    def direct_step(self, *args, **kwargs) -> Tuple[bool, EnvObservation, List[float], bool, int, Info]:
+    def direct_step(self, *args, **kwargs) -> Tuple[bool, EnvObservation, int, Info]:
         """direct step
+        外部で環境を動かしてpolicyだけ実行したい場合に実装します。
+        これは学習で使う場合を想定していません。
 
         Returns:(
             is_start_episode,
             state,
-            [
-                player1 reward,
-                player2 reward,
-                ...
-            ],
-            done,
             player_index,
             info,
         )
@@ -160,6 +151,15 @@ class EnvBase(ABC, IRender):
         raise NotImplementedError()
 
     def decode_action(self, action: EnvAction) -> Any:
+        raise NotImplementedError()
+
+    @property
+    def can_simulate_from_direct_step(self) -> bool:
+        """
+        direct_stepで実行した場合に、そのあとにstepでシミュレーション可能かどうかを返します。
+        direct_step後にstepを機能させるには、direct_step内でstepが実行できるまでenv環境を復元する必要があります。
+        主にMCTS等、シミュレーションが必要なアルゴリズムに影響があります。
+        """
         raise NotImplementedError()
 
     # --------------------------------
@@ -196,9 +196,9 @@ class EnvRun:
         self._done = True
         self._done_reason = ""
         self._prev_player_index = 0
-        self._next_player_index = 0
         self._invalid_actions_list = [[] for _ in range(self.env.player_num)]
         self._info = {}
+        self._is_direct_step = False
 
     # --- with
     def __del__(self):
@@ -238,7 +238,7 @@ class EnvRun:
         self._render.reset(render_mode, self.render_interval)
 
         # --- env reset
-        self._state, next_player_index, self._info = self.env.reset()
+        self._state, self._info = self.env.reset()
         if self.config.check_val:
             self._state = self.check_state(self._state, "state in env.reset may not be SpaceType.")
         self._reset()
@@ -259,11 +259,13 @@ class EnvRun:
         skip_function: Optional[Callable[[], None]] = None,
     ) -> None:
         assert not self.done, "It is in the done state. Please execute reset()."
+        if self._is_direct_step:
+            assert self.env.can_simulate_from_direct_step, "env does not support 'step' after 'direct_step'."
 
         if self.config.check_action:
             action = self.check_action(action, "The format of 'action' entered in 'env.direct' was wrong.")
         self._prev_player_index = self.env.next_player_index
-        state, rewards, done, _, info = self.env.step(action)
+        state, rewards, done, info = self.env.step(action)
         if self.config.check_val:
             state = self.check_state(state, "'state' in 'env.step' may not be SpaceType.")
             rewards = self.check_rewards(rewards, "'rewards' in 'env.step' may not be List[float].")
@@ -275,7 +277,7 @@ class EnvRun:
         # skip frame の間は同じアクションを繰り返す
         for _ in range(self.config.frameskip):
             assert self.player_num == 1, "not support"
-            state, rewards, done, _, info = self.env.step(action)
+            state, rewards, done, info = self.env.step(action)
             if self.config.check_val:
                 state = self.check_state(state, "'state' in 'env.step' may not be SpaceType.")
                 rewards = self.check_rewards(rewards, "'rewards' in 'env.step' may not be List[float].")
@@ -328,6 +330,7 @@ class EnvRun:
             self._invalid_actions_list,
             self.info,
             self._t0,
+            self._is_direct_step,
         ]
         data = [pickle.dumps(d)]
         if include_env:
@@ -347,6 +350,10 @@ class EnvRun:
         self._invalid_actions_list = d[7]
         self._info = d[8]
         self._t0 = d[9]
+        self._is_direct_step = d[10]
+        if self._is_direct_step:
+            if not self.env.can_simulate_from_direct_step:
+                logger.warning("env does not support 'step' after 'direct_step'.")
         if len(data) == 2:
             self.env.restore(data[1])
 
@@ -536,17 +543,16 @@ class EnvRun:
     # direct
     # ------------------------------------
     def direct_step(self, *args, **kwargs) -> None:
-        self.is_start_episode, state, rewards, done, player_index, info = self.env.direct_step(*args, **kwargs)
+        self._is_direct_step = True
+        self.is_start_episode, state, player_index, info = self.env.direct_step(*args, **kwargs)
         if self.config.check_val:
             s = "'is_start_episode' in 'env.direct_step may' not be bool."
             self.is_start_episode = self.check_done(self.is_start_episode, s)
             state = self.check_state(state, "'state' in 'env.direct_step' may not be SpaceType.")
-            rewards = self.check_rewards(rewards, "'rewards' in 'env.direct_step' may not be List[float].")
-            done = self.check_done(done, "'done' in 'env.direct_step may' not be bool.")
 
         if self.is_start_episode:
             self._reset()
-        self._step(state, rewards, done, info)
+        self._step(state, [0.0] * self.player_num, False, info)
 
     def decode_action(self, action: EnvAction) -> Any:
         if self.config.check_action:

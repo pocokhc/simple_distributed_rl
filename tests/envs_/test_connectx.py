@@ -8,7 +8,7 @@ from srl.test import TestEnv
 from srl.test.processor import TestProcessor
 
 try:
-    from srl.envs.kaggle import connectx  # noqa F401
+    from srl.envs import connectx  # noqa F401
 except ModuleNotFoundError as e:
     print(e)
 
@@ -68,7 +68,14 @@ def test_play():
         assert env.state == board
 
 
-@pytest.mark.parametrize("player", ["negamax"])
+@pytest.mark.parametrize(
+    "player",
+    [
+        "alphabeta2",
+        "alphabeta3",
+        "alphabeta4",
+    ],
+)
 def test_player(player):
     pytest.importorskip("kaggle_environments")
 
@@ -130,7 +137,7 @@ def test_kaggle_connectx():
     assert r2 is not None
 
 
-def test_kaggle_connectx_fail():
+def test_kaggle_connectx_success():
     pytest.importorskip("kaggle_environments")
     import kaggle_environments
 
@@ -153,4 +160,5 @@ def test_kaggle_connectx_fail():
     steps = kaggle_env.run([agent, "random"])
     r1 = steps[-1][0]["reward"]
     r2 = steps[-1][1]["reward"]
-    assert (r1 is None) or (r2 is None)
+    assert r1 is not None
+    assert r2 is not None

@@ -126,12 +126,13 @@ class TestEnv:
 
         return env
 
-    def player_test(self, env_name: str, player: str) -> EnvRun:
+    def player_test(self, env_name: str, player: str, player_kwargs: dict = {}) -> EnvRun:
         env_config = srl.EnvConfig(env_name)
         config = runner.Config(env_config, None)
 
         env = config.make_env()
         config.players = [player] * env.player_num
+        config.players_kwargs = [player_kwargs for _ in range(env.player_num)]
 
         runner.evaluate(config, None, max_episodes=3, print_progress=True)
         return env

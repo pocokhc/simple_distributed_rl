@@ -82,11 +82,13 @@ class HungryGeese(KaggleWrapper):
     def player_num(self) -> int:
         return self._player_num
 
-    def direct_step(self, observation, configuration) -> Tuple[bool, List[int], List[float], bool, int, dict]:
+    def encode_obs(self, observation, configuration) -> Tuple[bool, List[int], int, dict]:
         step = observation.step
         player_index = observation.index
 
         is_start_episode = step == 0
+        if is_start_episode:
+            self.prev_action = None
 
         state = [0 for _ in range(11 * 7)]
         for n in observation.food:
@@ -95,10 +97,10 @@ class HungryGeese(KaggleWrapper):
             for n in geese:
                 state[n] = FieldType.GEESE1.value + index
 
-        rewards = [0.0 for _ in range(self.player_num)]
-        return is_start_episode, state, rewards, False, player_index, {}
+        return is_start_episode, state, player_index, {}
 
     def decode_action(self, action):
+        self.prev_action = action
         if action == 0:
             return Action.NORTH.name
         if action == 1:
@@ -109,6 +111,14 @@ class HungryGeese(KaggleWrapper):
             return Action.WEST.name
 
     def get_invalid_actions(self, player_index: int) -> List[int]:
+        if self.prev_action == 0:
+            return [2]
+        if self.prev_action == 1:
+            return [3]
+        if self.prev_action == 2:
+            return [0]
+        if self.prev_action == 3:
+            return [1]
         return []
 
     def make_worker(self, name: str, **kwargs) -> Optional[RuleBaseWorker]:

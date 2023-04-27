@@ -46,16 +46,16 @@ class TurnBase2Player(EnvBase):
     def player_num(self) -> int:
         return 2
 
-    def reset(self) -> Tuple[EnvObservation, int, Info]:
+    def reset(self) -> Tuple[EnvObservation, Info]:
         state = self.call_reset()
         if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
             state, info = state
         else:
             info = {}
             warnings.warn("The return value of reset has changed from (state) to (state, info).", DeprecationWarning)
-        return state, self.next_player_index, info
+        return state, info
 
-    def step(self, action: EnvAction) -> Tuple[EnvObservation, List[float], bool, int, Info]:
+    def step(self, action: EnvAction) -> Tuple[EnvObservation, List[float], bool, Info]:
         n_s, reward1, reward2, done, info = self.call_step(action)
 
-        return n_s, [reward1, reward2], done, self.next_player_index, info
+        return n_s, [reward1, reward2], done, info

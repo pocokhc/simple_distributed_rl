@@ -41,6 +41,7 @@ class Config:
     # multi player option
     # playersという変数名だけど、役割はworkersの方が正しい
     players: List[Union[None, str, RLConfig]] = field(default_factory=list)
+    players_kwargs: List[dict] = field(default_factory=list)  # 一部のworkerでのオプション
 
     # mp options
     actor_num: int = 1
@@ -422,18 +423,20 @@ class Config:
 
         # parameter
         for k, v in self.__dict__.items():
+            if k == "callbacks":
+                continue
             if v is None or type(v) in [int, float, bool, str]:
                 setattr(config, k, v)
             elif issubclass(type(v), enum.Enum):
                 setattr(config, k, v)
-
-        # list parameter
-        config.players = []
-        for player in self.players:
-            if player is None:
-                config.players.append(None)
-            else:
-                config.players.append(pickle.loads(pickle.dumps(player)))
+            elif type(v) is list:
+                arr = []
+                for a in v:
+                    if a is None:
+                        arr.append(None)
+                    else:
+                        arr.append(pickle.loads(pickle.dumps(a)))
+                setattr(config, k, arr)
 
         # callback
         if callbacks_share:

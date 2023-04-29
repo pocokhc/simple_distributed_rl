@@ -11,7 +11,7 @@ from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, Discret
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import SequenceRemoteMemory
-from srl.rl.functions.common import render_discrete_action, to_str_observation
+from srl.rl.functions import common
 
 logger = logging.getLogger(__name__)
 
@@ -113,14 +113,13 @@ class Trainer(RLTrainer):
             invalid_actions = batch["invalid_actions"]
             next_invalid_actions = batch["next_invalid_actions"]
 
-            q = self.parameter.get_action_values(state, invalid_actions)
-            n_q = self.parameter.get_action_values(n_state, next_invalid_actions)
-
             if done:
                 target_q = reward
             else:
+                n_q = self.parameter.get_action_values(n_state, next_invalid_actions)
                 target_q = reward + self.config.discount * max(n_q)
 
+            q = self.parameter.get_action_values(state, invalid_actions)
             td_error = target_q - q[action]
             self.parameter.Q[state][action] += self.config.lr * td_error
 
@@ -151,7 +150,7 @@ class Worker(DiscreteActionWorker):
 
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         self.invalid_actions = invalid_actions
-        self.state = to_str_observation(state)
+        self.state = common.to_str_observation(state)
 
         if self.training:
             epsilon = self.config.epsilon
@@ -160,15 +159,12 @@ class Worker(DiscreteActionWorker):
 
         if random.random() < epsilon:
             # epsilonより低いならランダムに移動
-            action = np.random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
+            # 最大値を選択
             q = self.parameter.get_action_values(self.state, self.invalid_actions)
-            q = np.asarray(q)
+            self.action = common.get_random_max_index(q)
 
-            # 最大値を選ぶ（複数あればランダム）
-            action = np.random.choice(np.where(q == q.max())[0])
-
-        self.action = int(action)
         return self.action, {"epsilon": epsilon}
 
     def call_on_step(
@@ -183,7 +179,7 @@ class Worker(DiscreteActionWorker):
 
         batch = {
             "state": self.state,
-            "next_state": to_str_observation(next_state),
+            "next_state": common.to_str_observation(next_state),
             "action": self.action,
             "reward": reward,
             "done": done,
@@ -200,4 +196,4 @@ class Worker(DiscreteActionWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        render_discrete_action(self.invalid_actions, maxa, env, _render_sub)
+        common.render_discrete_action(self.invalid_actions, maxa, env, _render_sub)

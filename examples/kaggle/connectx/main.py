@@ -1,3 +1,9 @@
+"""
+See also kaggle notebook
+https://www.kaggle.com/code/ngfkf1vv5ot6/connectx-alphazero-ab
+"""
+
+
 import os
 
 from model import create_config

@@ -342,7 +342,6 @@ class Trainer(RLTrainer):
         return {
             "value_loss": np.mean(value_loss.numpy()),
             "policy_loss": np.mean(policy_loss.numpy()),
-            "loss": loss.numpy(),
             "lr": self.optimizer.learning_rate.numpy(),
         }
 

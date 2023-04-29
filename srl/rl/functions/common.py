@@ -1,5 +1,6 @@
 import logging
 import random
+from typing import List
 
 import numpy as np
 
@@ -64,6 +65,16 @@ def create_epsilon_list(policy_num: int, epsilon=0.4, alpha=8.0):
         e = epsilon ** (1 + (i / (policy_num - 1)) * alpha)
         epsilon_list.append(e)
     return epsilon_list
+
+
+def get_random_max_index(arr: List[float]) -> int:
+    if len(arr) < 100:
+        max_value = max(arr)
+        max_list = [i for i, val in enumerate(arr) if val == max_value]
+        return max_list[0] if len(max_list) == 1 else random.choice(max_list)
+    else:
+        arr = np.asarray(arr)
+        return random.choice(np.where(arr == arr.max())[0].tolist())
 
 
 def random_choice_by_probs(probs, total=None):

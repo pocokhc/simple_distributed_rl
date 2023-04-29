@@ -195,7 +195,7 @@ class Worker(DiscreteActionWorker):
 
         if random.random() < epsilon:
             # epsilonより低いならランダム
-            action = np.random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
             q = self.parameter.get_q(self.state[np.newaxis, ...], self)[0]
 

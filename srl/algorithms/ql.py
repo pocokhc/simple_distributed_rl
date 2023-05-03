@@ -77,11 +77,10 @@ class Parameter(RLParameter):
     def call_backup(self, **kwargs):
         return json.dumps(self.Q)
 
-    def get_action_values(self, state: str, invalid_actions: List[int]) -> List[float]:
+    def get_action_values(self, state: str) -> List[float]:
         if state not in self.Q:
             self.Q[state] = [
-                -np.inf if a in invalid_actions else (np.random.normal() if self.config.q_init == "random" else 0.0)
-                for a in range(self.config.action_num)
+                np.random.normal() if self.config.q_init == "random" else 0.0 for a in range(self.config.action_num)
             ]
         return self.Q[state]
 
@@ -103,35 +102,27 @@ class Trainer(RLTrainer):
 
     def train(self) -> dict:
         batchs = self.remote_memory.sample()
-        td_error_mean = 0
+        td_error = 0
         for batch in batchs:
-            state = batch["state"]
-            n_state = batch["next_state"]
-            action = batch["action"]
-            reward = batch["reward"]
-            done = batch["done"]
-            invalid_actions = batch["invalid_actions"]
-            next_invalid_actions = batch["next_invalid_actions"]
+            state = batch[0]
+            n_state = batch[1]
+            action = batch[2]
+            reward = batch[3]
+            done = batch[4]
 
-            if done:
-                target_q = reward
-            else:
-                n_q = self.parameter.get_action_values(n_state, next_invalid_actions)
-                target_q = reward + self.config.discount * max(n_q)
+            target_q = reward
+            if not done:
+                n_q = self.parameter.get_action_values(n_state)
+                target_q += self.config.discount * max(n_q)
 
-            q = self.parameter.get_action_values(state, invalid_actions)
-            td_error = target_q - q[action]
+            td_error = target_q - self.parameter.get_action_values(state)[action]
             self.parameter.Q[state][action] += self.config.lr * td_error
 
-            td_error_mean += td_error
             self.train_count += 1
 
-        if len(batchs) > 0:
-            td_error_mean /= len(batchs)
-
         return {
-            "Q": len(self.parameter.Q),
-            "td_error": td_error_mean,
+            "size": len(self.parameter.Q),
+            "td_error": td_error,
         }
 
 
@@ -146,26 +137,24 @@ class Worker(DiscreteActionWorker):
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+        if self.training:
+            self.epsilon = self.config.epsilon
+        else:
+            self.epsilon = self.config.test_epsilon
         return {}
 
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
-        self.invalid_actions = invalid_actions
         self.state = common.to_str_observation(state)
 
-        if self.training:
-            epsilon = self.config.epsilon
-        else:
-            epsilon = self.config.test_epsilon
-
-        if random.random() < epsilon:
+        if random.random() < self.epsilon:
             # epsilonより低いならランダムに移動
             self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
             # 最大値を選択
-            q = self.parameter.get_action_values(self.state, self.invalid_actions)
-            self.action = common.get_random_max_index(q)
+            q = self.parameter.get_action_values(self.state)
+            self.action = common.get_random_max_index(q, invalid_actions)
 
-        return self.action, {"epsilon": epsilon}
+        return self.action, {"epsilon": self.epsilon}
 
     def call_on_step(
         self,
@@ -177,23 +166,22 @@ class Worker(DiscreteActionWorker):
         if not self.training:
             return {}
 
-        batch = {
-            "state": self.state,
-            "next_state": common.to_str_observation(next_state),
-            "action": self.action,
-            "reward": reward,
-            "done": done,
-            "invalid_actions": self.invalid_actions,
-            "next_invalid_actions": next_invalid_actions,
-        }
-        self.remote_memory.add(batch)
+        self.remote_memory.add(
+            [
+                self.state,
+                common.to_str_observation(next_state),
+                self.action,
+                reward,
+                done,
+            ]
+        )
         return {}
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        q = self.parameter.get_action_values(self.state, self.invalid_actions)
+        q = self.parameter.get_action_values(self.state)
         maxa = np.argmax(q)
 
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        common.render_discrete_action(self.invalid_actions, maxa, env, _render_sub)
+        common.render_discrete_action(None, maxa, env, _render_sub)

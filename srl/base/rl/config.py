@@ -8,6 +8,7 @@ from srl.base.define import EnvObservationType, RLActionType, RLObservationType
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
+from srl.utils import common
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,9 @@ class RLConfig(ABC):
     use_rl_processor: bool = True  # RL側のprocessorを使用するか
     change_observation_render_image: bool = False  # 状態の入力をrender_imageに変更
 
+    # model
+    framework: str = ""
+
     # render option
     font_name: str = ""
     font_size: int = 12
@@ -42,7 +46,16 @@ class RLConfig(ABC):
         assert self.window_length > 0
 
     def get_use_framework(self) -> str:
-        return ""
+        framework = self.framework
+        if framework == "tf":
+            return "tensorflow"
+        if framework == "":
+            if common.is_package_installed("tensorflow"):
+                framework = "tensorflow"
+        if framework == "":
+            if common.is_package_installed("torch"):
+                framework = "torch"
+        return framework
 
     # ----------------------------
     # RL config
@@ -165,6 +178,10 @@ class RLConfig(ABC):
     # ----------------------------
     # utils
     # ----------------------------
+    @property
+    def name(self) -> str:
+        return self.getName()
+
     @property
     def is_set_env_config(self) -> bool:
         return self._is_set_env_config

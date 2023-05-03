@@ -76,7 +76,7 @@ class Parameter(CommonInterfaceParameter):
 
     # -----------------------------------
 
-    def get_q(self, state: np.ndarray, worker: Worker):
+    def get_q(self, state: np.ndarray, worker: Worker) -> np.ndarray:
         self.q_online.eval()
         with torch.no_grad():
             q = self.q_online(torch.tensor(state).to(self.device))
@@ -107,35 +107,20 @@ class Trainer(RLTrainer):
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
-        batchs = self.remote_memory.sample(self.config.batch_size)
-        loss = self._train_on_batchs(batchs)
-
-        # targetと同期
-        if self.train_count % self.config.target_model_update_interval == 0:
-            self.parameter.q_target.load_state_dict(self.parameter.q_online.state_dict())
-            self.sync_count += 1
-
-        self.train_count += 1
-        return {"loss": loss, "sync": self.sync_count}
-
-    def _train_on_batchs(self, batchs):
         device = self.parameter.device
         self.parameter.q_online.to(device)
         self.parameter.q_target.to(device)
 
-        states = []
-        n_states = []
-        actions = []
-        for b in batchs:
-            states.append(b["state"])
-            n_states.append(b["next_state"])
-            actions.append(b["action"])
-        states = torch.tensor(np.asarray(states).astype(np.float32)).to(device)
-        n_states = torch.tensor(np.asarray(n_states).astype(np.float32)).to(device)
-        actions_onehot = np.identity(self.config.action_num)[actions].astype(np.float32)
-        actions_onehot = torch.tensor(actions_onehot).to(device)
+        batchs = self.remote_memory.sample(self.config.batch_size)
+        states = torch.tensor(np.asarray([b[0] for b in batchs])).to(device)
+        n_states = torch.tensor(np.asarray([b[1] for b in batchs])).to(device)
+        one_hot_actions = torch.tensor(np.asarray([b[2] for b in batchs])).to(device)
+        rewards = np.array([b[3] for b in batchs])
+        dones = np.array([b[4] for b in batchs])
+        next_invalid_actions = [e for b in batchs for e in b[5]]
+        next_invalid_actions_idx = [i for i, b in enumerate(batchs) for e in b[5]]
 
-        # next Q
+        # --- next Q
         with torch.no_grad():
             self.parameter.q_online.eval()
             n_q = self.parameter.q_online(n_states)
@@ -143,43 +128,41 @@ class Trainer(RLTrainer):
             n_q = n_q.to("cpu").detach().numpy()
             n_q_target = n_q_target.to("cpu").detach().numpy()
 
-        # 各バッチのQ値を計算
-        target_q = np.zeros(len(batchs))
-        for i, b in enumerate(batchs):
-            reward = b["reward"]
-            done = b["done"]
-            next_invalid_actions = b["next_invalid_actions"]
-            if done:
-                gain = reward
-            else:
-                # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
-                if self.config.enable_double_dqn:
-                    n_q[i] = [(-np.inf if a in next_invalid_actions else v) for a, v in enumerate(n_q[i])]
-                    n_act_idx = np.argmax(n_q[i])
-                else:
-                    n_q_target[i] = [
-                        (-np.inf if a in next_invalid_actions else v) for a, v in enumerate(n_q_target[i])
-                    ]
-                    n_act_idx = np.argmax(n_q_target[i])
-                maxq = n_q_target[i][n_act_idx]
-                if self.config.enable_rescale:
-                    maxq = inverse_rescaling(maxq)
-                gain = reward + self.config.discount * maxq
-            if self.config.enable_rescale:
-                gain = rescaling(gain)
-            target_q[i] = gain
-        target_q = torch.from_numpy(target_q.astype(np.float32)).to(device)
+        # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
+        if self.config.enable_double_dqn:
+            n_q[next_invalid_actions_idx, next_invalid_actions] = -np.inf
+            n_act_idx = np.argmax(n_q, axis=1)
+            maxq = n_q_target[np.arange(self.config.batch_size), n_act_idx]
+        else:
+            n_q[next_invalid_actions_idx, next_invalid_actions] = -np.inf
+            maxq = np.max(n_q_target, axis=1)
+
+        if self.config.enable_rescale:
+            maxq = inverse_rescaling(maxq)
+
+        # --- Q値を計算
+        target_q = rewards + dones * self.config.discount * maxq
+
+        if self.config.enable_rescale:
+            target_q = rescaling(target_q)
 
         # --- torch train
+        target_q = torch.from_numpy(target_q.astype(np.float32)).to(device)
         self.parameter.q_online.train()
         q = self.parameter.q_online(states)
 
         # 現在選んだアクションのQ値
-        q = torch.sum(q * actions_onehot, dim=1)
+        q = torch.sum(q * one_hot_actions, dim=1)
 
         loss = self.criterion(target_q, q)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
-        return loss.item()
+        # targetと同期
+        if self.train_count % self.config.target_model_update_interval == 0:
+            self.parameter.q_target.load_state_dict(self.parameter.q_online.state_dict())
+            self.sync_count += 1
+
+        self.train_count += 1
+        return {"loss": loss.item(), "sync": self.sync_count}

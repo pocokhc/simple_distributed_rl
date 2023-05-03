@@ -1,6 +1,6 @@
 import logging
 import random
-from typing import List
+from typing import List, Union
 
 import numpy as np
 
@@ -67,13 +67,19 @@ def create_epsilon_list(policy_num: int, epsilon=0.4, alpha=8.0):
     return epsilon_list
 
 
-def get_random_max_index(arr: List[float]) -> int:
+def get_random_max_index(arr: Union[np.ndarray, List[float]], invalid_actions: List[int] = []) -> int:
+    """Destructive to the original variable."""
     if len(arr) < 100:
+        if len(invalid_actions) > 0:
+            if isinstance(arr, np.ndarray):
+                arr = arr.tolist()
+            for a in invalid_actions:
+                arr[a] = -np.inf
         max_value = max(arr)
         max_list = [i for i, val in enumerate(arr) if val == max_value]
         return max_list[0] if len(max_list) == 1 else random.choice(max_list)
     else:
-        arr = np.asarray(arr)
+        arr = np.asarray(arr, dtype=float)
         return random.choice(np.where(arr == arr.max())[0].tolist())
 
 

@@ -71,7 +71,6 @@ class Config(DiscreteActionConfig):
     enable_rescale: bool = False
 
     # --- model
-    framework: str = ""
     image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
     hidden_block_config: IMLPBlockConfig = field(default_factory=lambda: MLPBlockConfig(layer_sizes=(512,)))
 
@@ -111,24 +110,8 @@ class Config(DiscreteActionConfig):
         return RLObservationType.CONTINUOUS
 
     def getName(self) -> str:
-        framework = self.framework
-        if framework == "":
-            if common.is_package_installed("tensorflow"):
-                framework = "tensorflow"
-        if framework == "":
-            if common.is_package_installed("torch"):
-                framework = "torch"
+        framework = self.get_use_framework()
         return f"DQN:{framework}"
-
-    def get_use_framework(self) -> str:
-        framework = self.framework
-        if framework == "":
-            if common.is_package_installed("tensorflow"):
-                framework = "tensorflow"
-        if framework == "":
-            if common.is_package_installed("torch"):
-                framework = "torch"
-        return framework
 
     def assert_params(self) -> None:
         super().assert_params()
@@ -152,7 +135,7 @@ class RemoteMemory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 class CommonInterfaceParameter(RLParameter, ABC):
     @abstractmethod
-    def get_q(self, state: np.ndarray, worker: "Worker"):
+    def get_q(self, state: np.ndarray, worker: "Worker") -> np.ndarray:
         raise NotImplementedError()
 
 
@@ -179,7 +162,6 @@ class Worker(DiscreteActionWorker):
         return {}
 
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
-        self.invalid_actions = invalid_actions
         self.state = state
 
         if self.training:
@@ -195,18 +177,15 @@ class Worker(DiscreteActionWorker):
 
         if random.random() < epsilon:
             # epsilonより低いならランダム
-            action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
-            q = self.parameter.get_q(self.state[np.newaxis, ...], self)[0]
-
-            # invalid actionsは -inf にする
-            q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)]
+            q = self.parameter.get_q(state[np.newaxis, ...], self)[0]
+            q[invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないので無視）
-            action = int(np.argmax(q))
+            self.action = int(np.argmax(q))
 
-        self.action = action
-        return action, {"epsilon": epsilon}
+        return self.action, {"epsilon": epsilon}
 
     def call_on_step(
         self,
@@ -228,15 +207,16 @@ class Worker(DiscreteActionWorker):
             else:
                 reward = 0
 
-        batch = {
-            "state": self.state,
-            "next_state": next_state,
-            "action": self.action,
-            "reward": reward,
-            "done": done,
-            "next_invalid_actions": next_invalid_actions,
-        }
-        self.remote_memory.add(batch)
+        self.remote_memory.add(
+            [
+                self.state,
+                next_state,
+                np.identity(self.config.action_num, dtype=int)[self.action],
+                reward,
+                int(not done),
+                next_invalid_actions,
+            ]
+        )
 
         return {}
 
@@ -249,4 +229,4 @@ class Worker(DiscreteActionWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        render_discrete_action(self.invalid_actions, maxa, env, _render_sub)
+        render_discrete_action(None, maxa, env, _render_sub)

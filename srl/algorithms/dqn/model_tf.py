@@ -92,7 +92,7 @@ class Parameter(CommonInterfaceParameter):
 
     # -------------------------------------
 
-    def get_q(self, state: np.ndarray, worker: Worker):
+    def get_q(self, state: np.ndarray, worker: Worker) -> np.ndarray:
         return self.q_online(state).numpy()
 
 
@@ -107,7 +107,7 @@ class Trainer(RLTrainer):
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
-        self.loss = keras.losses.Huber()
+        self.loss_func = keras.losses.Huber()
 
         self.train_count = 0
         self.sync_count = 0
@@ -120,68 +120,50 @@ class Trainer(RLTrainer):
             return {}
 
         batchs = self.remote_memory.sample(self.config.batch_size)
-        loss = self._train_on_batchs(batchs)
+        states = np.asarray([b[0] for b in batchs])
+        n_states = np.asarray([b[1] for b in batchs])
+        one_hot_actions = np.asarray([b[2] for b in batchs])
+        rewards = np.array([b[3] for b in batchs], dtype=np.float32)
+        dones = np.array([b[4] for b in batchs])
+        next_invalid_actions = [e for b in batchs for e in b[5]]
+        next_invalid_actions_idx = [i for i, b in enumerate(batchs) for e in b[5]]
 
-        # targetと同期
-        if self.train_count % self.config.target_model_update_interval == 0:
-            self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
-            self.sync_count += 1
-
-        self.train_count += 1
-        return {"loss": loss, "sync": self.sync_count}
-
-    def _train_on_batchs(self, batchs):
-        states = []
-        n_states = []
-        actions = []
-        for b in batchs:
-            states.append(b["state"])
-            n_states.append(b["next_state"])
-            actions.append(b["action"])
-        states = np.asarray(states)
-        n_states = np.asarray(n_states)
-
-        # next Q
+        # --- next Q
         n_q = self.parameter.q_online(n_states).numpy()
         n_q_target = self.parameter.q_target(n_states).numpy()
 
-        # 各バッチのQ値を計算
-        target_q = np.zeros(len(batchs))
-        for i, b in enumerate(batchs):
-            reward = b["reward"]
-            done = b["done"]
-            next_invalid_actions = b["next_invalid_actions"]
-            if done:
-                gain = reward
-            else:
-                # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
-                if self.config.enable_double_dqn:
-                    n_q[i] = [(-np.inf if a in next_invalid_actions else v) for a, v in enumerate(n_q[i])]
-                    n_act_idx = np.argmax(n_q[i])
-                else:
-                    n_q_target[i] = [
-                        (-np.inf if a in next_invalid_actions else v) for a, v in enumerate(n_q_target[i])
-                    ]
-                    n_act_idx = np.argmax(n_q_target[i])
-                maxq = n_q_target[i][n_act_idx]
-                if self.config.enable_rescale:
-                    maxq = inverse_rescaling(maxq)
-                gain = reward + self.config.discount * maxq
-            if self.config.enable_rescale:
-                gain = rescaling(gain)
-            target_q[i] = gain
+        # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
+        if self.config.enable_double_dqn:
+            n_q[next_invalid_actions_idx, next_invalid_actions] = -np.inf
+            n_act_idx = np.argmax(n_q, axis=1)
+            maxq = n_q_target[np.arange(self.config.batch_size), n_act_idx]
+        else:
+            n_q[next_invalid_actions_idx, next_invalid_actions] = -np.inf
+            maxq = np.max(n_q_target, axis=1)
+
+        if self.config.enable_rescale:
+            maxq = inverse_rescaling(maxq)
+
+        # --- Q値を計算
+        target_q = rewards + dones * self.config.discount * maxq
+
+        if self.config.enable_rescale:
+            target_q = rescaling(target_q)
 
         with tf.GradientTape() as tape:
             q = self.parameter.q_online(states)
+            q = tf.reduce_sum(q * one_hot_actions, axis=1)
 
-            # 現在選んだアクションのQ値
-            actions_onehot = tf.one_hot(actions, self.config.action_num)
-            q = tf.reduce_sum(q * actions_onehot, axis=1)
-
-            loss = self.loss(target_q, q)
+            loss = self.loss_func(target_q, q)
             loss += tf.reduce_sum(self.parameter.q_online.losses)
 
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
 
-        return loss.numpy()
+        # --- targetと同期
+        if self.train_count % self.config.target_model_update_interval == 0:
+            self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
+            self.sync_count += 1
+
+        self.train_count += 1
+        return {"loss": loss.numpy(), "sync": self.sync_count}

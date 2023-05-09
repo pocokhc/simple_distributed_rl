@@ -50,6 +50,9 @@ class Grid(SinglePlayEnv):
     move_reward: float = -0.04
     reward_baseline: float = 0.6
 
+    goal_reward: float = 1.0
+    hole_reward: float = -1.0
+
     def __post_init__(self):
         self.base_field = [
             [9, 9, 9, 9, 9, 9],
@@ -299,10 +302,10 @@ class Grid(SinglePlayEnv):
 
         attribute = self.base_field[state[1]][state[0]]
         if attribute == 1:
-            reward = 1
+            reward = self.goal_reward
             done = True
         elif attribute == -1:
-            reward = -1
+            reward = self.hole_reward
             done = True
 
         return reward, done

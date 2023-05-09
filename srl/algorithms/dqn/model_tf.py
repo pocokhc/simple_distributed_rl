@@ -119,12 +119,13 @@ class Trainer(RLTrainer):
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
-        batchs = self.remote_memory.sample(self.config.batch_size)
-        states = np.asarray([b[0] for b in batchs])
-        n_states = np.asarray([b[1] for b in batchs])
-        one_hot_actions = np.asarray([b[2] for b in batchs])
-        rewards = np.array([b[3] for b in batchs], dtype=np.float32)
-        dones = np.array([b[4] for b in batchs])
+        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
+        states, n_states, onehot_actions, rewards, dones, _ = zip(*batchs)
+        states = np.asarray(states)
+        n_states = np.asarray(n_states)
+        onehot_actions = np.asarray(onehot_actions)
+        rewards = np.array(rewards, dtype=np.float32)
+        dones = np.array(dones)
         next_invalid_actions = [e for b in batchs for e in b[5]]
         next_invalid_actions_idx = [i for i, b in enumerate(batchs) for e in b[5]]
 
@@ -152,13 +153,17 @@ class Trainer(RLTrainer):
 
         with tf.GradientTape() as tape:
             q = self.parameter.q_online(states)
-            q = tf.reduce_sum(q * one_hot_actions, axis=1)
+            q = tf.reduce_sum(q * onehot_actions, axis=1)
 
-            loss = self.loss_func(target_q, q)
+            loss = self.loss_func(target_q * weights, q * weights)
             loss += tf.reduce_sum(self.parameter.q_online.losses)
 
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
+
+        # --- update
+        td_errors = (target_q - q).numpy()
+        self.remote_memory.update(indices, batchs, td_errors)
 
         # --- targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:

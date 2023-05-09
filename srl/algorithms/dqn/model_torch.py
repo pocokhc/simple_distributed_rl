@@ -111,14 +111,16 @@ class Trainer(RLTrainer):
         self.parameter.q_online.to(device)
         self.parameter.q_target.to(device)
 
-        batchs = self.remote_memory.sample(self.config.batch_size)
-        states = torch.tensor(np.asarray([b[0] for b in batchs])).to(device)
-        n_states = torch.tensor(np.asarray([b[1] for b in batchs])).to(device)
-        one_hot_actions = torch.tensor(np.asarray([b[2] for b in batchs])).to(device)
-        rewards = np.array([b[3] for b in batchs])
-        dones = np.array([b[4] for b in batchs])
+        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
+        states, n_states, onehot_actions, rewards, dones, _ = zip(*batchs)
+        states = torch.tensor(np.asarray(states)).to(device)
+        n_states = torch.tensor(np.asarray(n_states)).to(device)
+        onehot_actions = torch.tensor(np.asarray(onehot_actions)).to(device)
+        rewards = np.array(rewards, dtype=np.float32)
+        dones = np.array(dones)
         next_invalid_actions = [e for b in batchs for e in b[5]]
         next_invalid_actions_idx = [i for i, b in enumerate(batchs) for e in b[5]]
+        weights = torch.tensor(weights).to(device)
 
         # --- next Q
         with torch.no_grad():
@@ -152,12 +154,16 @@ class Trainer(RLTrainer):
         q = self.parameter.q_online(states)
 
         # 現在選んだアクションのQ値
-        q = torch.sum(q * one_hot_actions, dim=1)
+        q = torch.sum(q * onehot_actions, dim=1)
 
-        loss = self.criterion(target_q, q)
+        loss = self.criterion(target_q * weights, q * weights)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+
+        # --- update
+        td_errors = (target_q - q).to("cpu").detach().numpy()
+        self.remote_memory.update(indices, batchs, td_errors)
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:

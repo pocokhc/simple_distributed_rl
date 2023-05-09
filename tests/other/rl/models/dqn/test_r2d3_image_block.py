@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from srl.rl.models.r2d3_image_block_config import R2D3ImageBlockConfig
+from srl.rl.models.dqn.r2d3_image_block_config import R2D3ImageBlockConfig
 
 
 def test_call_tf():
@@ -37,7 +37,7 @@ def test_call_torch():
 
 def test_call_lstm_tf():
     pytest.importorskip("tensorflow")
-    
+
     config = R2D3ImageBlockConfig()
     batch_size = 16
     seq_len = 7

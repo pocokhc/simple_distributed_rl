@@ -8,8 +8,8 @@ from .common_base_class import CommonBaseClass
 class _BaseCase(CommonBaseClass):
     def return_rl_config(self, framework):
         from srl.algorithms import alphazero
-        from srl.rl.models.alphazero_image_block_config import AlphaZeroImageBlockConfig
-        from srl.rl.models.mlp_block_config import MLPBlockConfig
+        from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
+        from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 
         return alphazero.Config(
             num_simulations=100,
@@ -71,8 +71,8 @@ class _BaseCase(CommonBaseClass):
 
     def test_Othello4x4(self):
         from srl.envs import othello
-        from srl.rl.models.alphazero_image_block_config import AlphaZeroImageBlockConfig
-        from srl.rl.models.mlp_block_config import MLPBlockConfig
+        from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
+        from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 
         config, rl_config, tester = self.create_config("Othello4x4")
         rl_config.batch_size = 32

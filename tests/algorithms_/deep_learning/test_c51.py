@@ -1,6 +1,6 @@
 import pytest
 
-from srl.rl.models.mlp_block_config import MLPBlockConfig
+from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 from srl.utils import common
 
 from .common_base_class import CommonBaseClass

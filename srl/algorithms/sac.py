@@ -15,8 +15,8 @@ from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common_tf import compute_logprob_sgp
-from srl.rl.models.dqn_image_block_config import DQNImageBlockConfig
-from srl.rl.models.mlp_block_config import MLPBlockConfig
+from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
+from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
 
 """

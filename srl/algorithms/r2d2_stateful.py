@@ -22,7 +22,7 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
-from srl.rl.models.tf.dqn_image_block import DQNImageBlock
+from srl.rl.models.dqn.tf.dqn_image_block import DQNImageBlock
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_layer import create_input_layer_stateful_lstm
 

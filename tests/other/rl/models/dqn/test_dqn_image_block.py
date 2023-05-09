@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from srl.rl.models.dqn_image_block_config import DQNImageBlockConfig
+from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
 from srl.utils.common import is_package_installed
 
 
@@ -20,7 +20,7 @@ def test_call_tf():
 
 def test_call_torch():
     pytest.importorskip("torch")
-    
+
     import torch
 
     config = DQNImageBlockConfig()

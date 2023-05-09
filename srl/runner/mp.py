@@ -501,7 +501,8 @@ def _train(
     # callbacks
     [c.on_start(_info) for c in config.callbacks]
 
-    # 終了を待つ
+    # --- wait loop
+    t0 = time.time()
     while True:
         time.sleep(1)  # polling time
 
@@ -522,6 +523,7 @@ def _train(
 
         if train_end_signal.value:
             break
+    logger.info(f"wait loop end.(run time: {(time.time() - t0)/60:.2f}m)")
 
     # --- プロセスの終了を待つ
     for w in actors_ps_list:

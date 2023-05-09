@@ -1,7 +1,7 @@
 import json
 import logging
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, List, Tuple, cast
 
 import numpy as np
@@ -9,6 +9,7 @@ import numpy as np
 from srl.base.define import RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.memory import IPriorityMemoryConfig
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions.common import (
@@ -22,6 +23,7 @@ from srl.rl.functions.common import (
     rescaling,
     to_str_observation,
 )
+from srl.rl.memories.config import ProportionalMemoryConfig
 
 logger = logging.getLogger(__name__)
 
@@ -70,13 +72,9 @@ class Config(DiscreteActionConfig):
     ext_lr: float = 0.01
     enable_rescale: bool = False
 
-    # Priority Experience Replay
-    capacity: int = 100_000
-    memory_name: str = "ProportionalMemory"
+    # memory
+    memory: IPriorityMemoryConfig = field(default_factory=lambda: ProportionalMemoryConfig())
     memory_warmup_size: int = 10
-    memory_alpha: float = 0.6
-    memory_beta_initial: float = 1.0
-    memory_beta_steps: int = 1_000_000
 
     # retrace
     multisteps: int = 1
@@ -119,7 +117,7 @@ class Config(DiscreteActionConfig):
         super().assert_params()
         assert self.actor_num > 0
         assert self.multisteps >= 1
-        assert self.memory_warmup_size < self.capacity
+        assert self.memory_warmup_size < self.memory.get_capacity()
 
 
 register(
@@ -138,14 +136,7 @@ class RemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
-
-        self.init(
-            self.config.memory_name,
-            self.config.capacity,
-            self.config.memory_alpha,
-            self.config.memory_beta_initial,
-            self.config.memory_beta_steps,
-        )
+        super().init(self.config.memory)
 
 
 # ------------------------------------------------------
@@ -270,7 +261,7 @@ class Trainer(RLTrainer):
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
-        indices, batchs, weights = self.remote_memory.sample(self.train_count, self.config.batch_size)
+        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
         ext_td_errors = []
         int_td_errors = []
         for i in range(self.config.batch_size):
@@ -471,6 +462,7 @@ class Worker(DiscreteActionWorker):
 
                 self._add_memory(done)
 
+        self.remote_memory.on_step(reward, done)
         return {
             "episodic_reward": episodic_reward,
             "lifelong_reward": lifelong_reward,
@@ -494,7 +486,7 @@ class Worker(DiscreteActionWorker):
         }
 
         # priority
-        if self.config.memory_name == "ReplayMemory":
+        if self.config.memory.is_replay_memory():
             priority = 0
         elif not self.distributed:
             priority = 0
@@ -507,7 +499,6 @@ class Worker(DiscreteActionWorker):
             priority = abs(td_error) + 0.0001
 
         self.remote_memory.add(batch, priority)
-
         return priority
 
     def _calc_episodic_reward(self, state, update: bool = True):

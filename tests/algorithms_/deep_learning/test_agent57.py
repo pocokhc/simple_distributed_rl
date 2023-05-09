@@ -1,5 +1,6 @@
 import pytest
 
+from srl.rl.memories.config import ProportionalMemoryConfig, ReplayMemoryConfig
 from srl.utils import common
 
 from .common_base_class import CommonBaseClass
@@ -13,7 +14,7 @@ class _BaseCase(CommonBaseClass):
             lstm_units=128,
             hidden_layer_sizes=(128,),
             enable_dueling_network=False,
-            memory_name="ReplayMemory",
+            memory=ReplayMemoryConfig(),
             target_model_update_interval=100,
             enable_rescale=True,
             q_ext_lr=0.001,
@@ -52,8 +53,7 @@ class _BaseCase(CommonBaseClass):
 
     def test_Pendulum_memory(self):
         config, rl_config, tester = self.create_config("Pendulum-v1")
-        rl_config.memory_name = "ProportionalMemory"
-        rl_config.memory_beta_steps = 200 * 30
+        rl_config.memory = ProportionalMemoryConfig(beta_steps=200 * 30)
         tester.train_eval(config, 200 * 60)
 
     def test_Pendulum_dis_int(self):

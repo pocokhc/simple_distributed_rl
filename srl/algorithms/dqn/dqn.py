@@ -8,14 +8,15 @@ import numpy as np
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter
+from srl.base.rl.memory import IPriorityMemoryConfig
 from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
-from srl.base.rl.remote_memory import ExperienceReplayBuffer
+from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
 from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action
-from srl.rl.models.dqn_image_block_config import DQNImageBlockConfig
-from srl.rl.models.mlp_block_config import MLPBlockConfig
-from srl.utils import common
+from srl.rl.memories.config import ReplayMemoryConfig
+from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
+from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 
 """
 Paper
@@ -36,9 +37,10 @@ Reward clip        : o (config selection)
 Image preprocessor : -
 
 Other
-    Double DQN               : o (config selection)
-    Value function rescaling : o (config selection)
-    invalid_actions          : o
+    Double DQN                 : o (config selection)
+    Priority Experience Replay : o (config selection)
+    Value function rescaling   : o (config selection)
+    invalid_actions            : o
 """
 
 
@@ -61,10 +63,12 @@ class Config(DiscreteActionConfig):
     discount: float = 0.99  # 割引率
     lr: float = 0.001  # 学習率
     batch_size: int = 32
-    capacity: int = 100_000
     memory_warmup_size: int = 1000
     target_model_update_interval: int = 1000
     enable_reward_clip: bool = False
+
+    # memory
+    memory: IPriorityMemoryConfig = field(default_factory=lambda: ReplayMemoryConfig())
 
     # other
     enable_double_dqn: bool = True
@@ -80,7 +84,7 @@ class Config(DiscreteActionConfig):
     # 論文のハイパーパラメーター
     def set_atari_config(self):
         self.batch_size = 32
-        self.capacity = 1_000_000
+        self.memory = ReplayMemoryConfig(1_000_000)
         self.image_block_config = DQNImageBlockConfig()
         self.hidden_block_config = MLPBlockConfig(layer_sizes=(512,))
         self.target_model_update_interval = 10000
@@ -115,19 +119,18 @@ class Config(DiscreteActionConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size < self.capacity
+        assert self.memory_warmup_size < self.memory.get_capacity()
         assert self.batch_size < self.memory_warmup_size
 
 
 # ------------------------------------------------------
 # RemoteMemory
 # ------------------------------------------------------
-class RemoteMemory(ExperienceReplayBuffer):
+class RemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
-
-        self.init(self.config.capacity)
+        super().init(self.config.memory)
 
 
 # ------------------------------------------------------
@@ -217,7 +220,7 @@ class Worker(DiscreteActionWorker):
                 next_invalid_actions,
             ]
         )
-
+        self.remote_memory.on_step(reward, done)
         return {}
 
     def render_terminal(self, env, worker, **kwargs) -> None:

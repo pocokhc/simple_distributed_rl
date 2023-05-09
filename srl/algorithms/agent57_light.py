@@ -12,6 +12,7 @@ import tensorflow.keras.layers as kl
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.memory import IPriorityMemoryConfig
 from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
@@ -25,6 +26,7 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
+from srl.rl.memories.config import ProportionalMemoryConfig
 from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
 from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
@@ -78,6 +80,7 @@ class Config(DiscreteActionConfig):
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
     batch_size: int = 64
+    memory_warmup_size: int = 1000
     q_ext_lr: float = 0.0001
     q_int_lr: float = 0.0001
     target_model_update_interval: int = 1500
@@ -92,13 +95,8 @@ class Config(DiscreteActionConfig):
     enable_dueling_network: bool = True
     dueling_network_type: str = "average"
 
-    # Priority Experience Replay
-    capacity: int = 100_000
-    memory_name: str = "ProportionalMemory"
-    memory_warmup_size: int = 1000
-    memory_alpha: float = 0.6
-    memory_beta_initial: float = 1.0
-    memory_beta_steps: int = 1_000_000
+    # memory
+    memory: IPriorityMemoryConfig = field(default_factory=lambda: ProportionalMemoryConfig())
 
     # ucb(160,0.5 or 3600,0.01)
     actor_num: int = 32
@@ -182,7 +180,7 @@ class Config(DiscreteActionConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size < self.capacity
+        assert self.memory_warmup_size < self.memory.get_capacity()
         assert self.batch_size < self.memory_warmup_size
         assert len(self.hidden_layer_sizes) > 0
 
@@ -203,14 +201,7 @@ class RemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
-
-        self.init(
-            self.config.memory_name,
-            self.config.capacity,
-            self.config.memory_alpha,
-            self.config.memory_beta_initial,
-            self.config.memory_beta_steps,
-        )
+        super().init(self.config.memory)
 
 
 # ------------------------------------------------------
@@ -599,7 +590,7 @@ class Trainer(RLTrainer):
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
-        indices, batchs, weights = self.remote_memory.sample(self.train_count, self.config.batch_size)
+        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
         td_errors, info = self._train_on_batchs(batchs, weights)
         self.remote_memory.update(indices, batchs, td_errors)
 
@@ -951,7 +942,7 @@ class Worker(DiscreteActionWorker):
             "actor": self.actor_index,
         }
 
-        if self.config.memory_name == "ReplayMemory":
+        if self.config.memory.is_replay_memory():
             td_error = None
         elif not self.distributed:
             td_error = None
@@ -986,7 +977,7 @@ class Worker(DiscreteActionWorker):
             td_error = td_error[0]
 
         self.remote_memory.add(batch, td_error)
-
+        self.remote_memory.on_step(reward_ext, done)
         return _info
 
     def _calc_episodic_reward(self, state):

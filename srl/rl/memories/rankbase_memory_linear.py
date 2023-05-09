@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from typing import Any, List, Optional
 
 import numpy as np
-from srl.base.rl.memory import Memory
+
+from srl.base.rl.memory import IPriorityMemory
 
 
 def rank_sum(k, a):
@@ -32,16 +33,11 @@ class _bisect_wrapper:
 
 
 @dataclass
-class RankBaseMemoryLinear(Memory):
-
+class RankBaseMemoryLinear(IPriorityMemory):
     capacity: int = 100_000
     alpha: float = 1.0
     beta_initial: float = 0.4
     beta_steps: int = 1_000_000
-
-    @staticmethod
-    def getName() -> str:
-        return "RankBaseMemoryLinear"
 
     def __post_init__(self):
         self.init()

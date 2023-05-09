@@ -4,6 +4,7 @@ import numpy as np
 
 import srl
 from srl import runner
+from srl.rl.memories import ReplayMemoryConfig
 from srl.rl.models.mlp import MLPBlockConfig
 from srl.utils import common
 
@@ -23,7 +24,7 @@ def main():
     rl_config = dqn.Config()
     rl_config.set_atari_config()
     rl_config.hidden_block_config = MLPBlockConfig(layer_sizes=(64, 64))  # 画像処理層がないので隠れ層を増やしてます
-    rl_config.capacity = 100_000  # 下げないとメモリ足りなくなる可能性あり
+    rl_config.memory = ReplayMemoryConfig(100_000)  # 下げないとメモリ足りなくなる可能性あり
     rl_config.window_length = 1  # Pendulum は加速も状態に含まれているので不要
     rl_config.lr = 0.001
     rl_config.exploration_steps = -1  # Annealing e-greedy は使わずに一定値を使用

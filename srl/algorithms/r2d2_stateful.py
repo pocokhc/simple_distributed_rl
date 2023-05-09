@@ -22,6 +22,7 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
+from srl.rl.memories.config import ReplayMemoryConfig
 from srl.rl.models.dqn.tf.dqn_image_block import DQNImageBlock
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_layer import create_input_layer_stateful_lstm
@@ -62,7 +63,6 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(DiscreteActionConfig):
-
     test_epsilon: float = 0
     epsilon: float = 0.1
     actor_epsilon: float = 0.4
@@ -100,11 +100,6 @@ class Config(DiscreteActionConfig):
 
     # Priority Experience Replay
     capacity: int = 100_000
-    memory_name: str = "ProportionalMemory"
-    memory_warmup_size: int = 1000
-    memory_alpha: float = 0.6
-    memory_beta_initial: float = 1.0
-    memory_beta_steps: int = 1_000_000
 
     # other
     dummy_state_val: float = 0.0
@@ -114,7 +109,6 @@ class Config(DiscreteActionConfig):
 
     # 論文のハイパーパラメーター
     def set_atari_config(self):
-
         # model
         self.lstm_units = 512
         self.hidden_layer_sizes = (512,)
@@ -157,8 +151,7 @@ class Config(DiscreteActionConfig):
     def observation_type(self) -> RLObservationType:
         return RLObservationType.CONTINUOUS
 
-    @staticmethod
-    def getName() -> str:
+    def getName(self) -> str:
         return "R2D2_stateful"
 
     def assert_params(self) -> None:
@@ -171,7 +164,7 @@ class Config(DiscreteActionConfig):
 
 
 register(
-    Config,
+    Config(),
     __name__ + ":RemoteMemory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
@@ -186,14 +179,7 @@ class RemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
-
-        self.init(
-            self.config.memory_name,
-            self.config.capacity,
-            self.config.memory_alpha,
-            self.config.memory_beta_initial,
-            self.config.memory_beta_steps,
-        )
+        self.init(ReplayMemoryConfig(self.config.capacity))
 
 
 # ------------------------------------------------------
@@ -321,11 +307,10 @@ class Trainer(RLTrainer):
         return self.train_count
 
     def train(self):
-
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
-        indices, batchs, weights = self.remote_memory.sample(self.train_count, self.config.batch_size)
+        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
         td_errors, loss = self._train_on_batchs(batchs, weights)
         self.remote_memory.update(indices, batchs, td_errors)
 
@@ -338,7 +323,6 @@ class Trainer(RLTrainer):
         return {"loss": loss, "sync": self.sync_count}
 
     def _train_on_batchs(self, batchs, weights):
-
         # (batch, dict[x], step) -> (step, batch, 1, x)
         states_list = _batch_dict_step_to_step_batch(batchs, "states", in_step=True, is_list=True, to_np=True)
         burnin_states = states_list[: self.config.burnin]
@@ -405,7 +389,6 @@ class Trainer(RLTrainer):
         hidden_states_t,
         idx,
     ):
-
         # 最後
         if idx == self.config.sequence_length:
             n_states = step_states_list[idx]

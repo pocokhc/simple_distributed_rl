@@ -10,6 +10,7 @@ import tensorflow.keras.layers as kl
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.memory import IPriorityMemoryConfig
 from srl.base.rl.model import IImageBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
@@ -23,6 +24,7 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
+from srl.rl.memories.config import ProportionalMemoryConfig
 from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_block import InputBlock
@@ -81,6 +83,7 @@ class Config(DiscreteActionConfig):
     discount: float = 0.997
     lr: float = 0.001
     batch_size: int = 32
+    memory_warmup_size: int = 1000
     target_model_update_interval: int = 1000
 
     # double dqn
@@ -97,13 +100,8 @@ class Config(DiscreteActionConfig):
     enable_dueling_network: bool = True
     dueling_network_type: str = "average"
 
-    # Priority Experience Replay
-    capacity: int = 100_000
-    memory_name: str = "ProportionalMemory"
-    memory_warmup_size: int = 1000
-    memory_alpha: float = 0.6
-    memory_beta_initial: float = 1.0
-    memory_beta_steps: int = 1_000_000
+    # memory
+    memory: IPriorityMemoryConfig = field(default_factory=lambda: ProportionalMemoryConfig())
 
     # other
     dummy_state_val: float = 0.0
@@ -131,12 +129,12 @@ class Config(DiscreteActionConfig):
         self.enable_rescale = True
         self.enable_retrace = False
 
-        self.capacity = 1_000_000
-        self.memory_name: str = "ProportionalMemory"
-        self.memory_warmup_size: int = 80_000
-        self.memory_alpha: float = 0.9
-        self.memory_beta_initial: float = 0.6
-        self.memory_beta_steps: int = 1_000_000
+        self.memory = ProportionalMemoryConfig(
+            capacity=1_000_000,
+            alpha=0.9,
+            beta_initial=0.6,
+            beta_steps=1_000_000,
+        )
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -158,7 +156,7 @@ class Config(DiscreteActionConfig):
         super().assert_params()
         assert self.burnin >= 0
         assert self.sequence_length >= 1
-        assert self.memory_warmup_size < self.capacity
+        assert self.memory_warmup_size < self.memory.get_capacity()
         assert self.batch_size < self.memory_warmup_size
         assert len(self.hidden_layer_sizes) > 0
 
@@ -179,14 +177,7 @@ class RemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
-
-        self.init(
-            self.config.memory_name,
-            self.config.capacity,
-            self.config.memory_alpha,
-            self.config.memory_beta_initial,
-            self.config.memory_beta_steps,
-        )
+        super().init(self.config.memory)
 
 
 # ------------------------------------------------------
@@ -340,7 +331,7 @@ class Trainer(RLTrainer):
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
-        indices, batchs, weights = self.remote_memory.sample(self.train_count, self.config.batch_size)
+        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
         td_errors, loss = self._train_on_batchs(batchs, np.array(weights).reshape(-1, 1))
         self.remote_memory.update(indices, batchs, td_errors)
 
@@ -503,7 +494,7 @@ class Worker(DiscreteActionWorker):
         self.recent_invalid_actions.append(invalid_actions)
 
         # TD誤差を計算するか
-        if self.config.memory_name == "ReplayMemory":
+        if self.config.memory.is_replay_memory():
             self._calc_td_error = False
         elif not self.distributed:
             self._calc_td_error = False
@@ -610,6 +601,7 @@ class Worker(DiscreteActionWorker):
                         td_error = reward - info["q"]
                         self.remote_memory.add(batch, td_error)
 
+        self.remote_memory.on_step(reward, done)
         return {}
 
     def _add_memory(self, calc_info):

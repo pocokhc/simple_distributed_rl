@@ -12,6 +12,7 @@ from tensorflow.keras import regularizers
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.memory import IPriorityMemoryConfig
 from srl.base.rl.model import IAlphaZeroImageBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
@@ -25,8 +26,9 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
-from srl.rl.models.alphazero_image_block_config import AlphaZeroImageBlockConfig
-from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
+from srl.rl.memories.config import ProportionalMemoryConfig
+from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
+from srl.rl.models.alphazero.tf.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.tf.input_block import InputBlock
 from srl.utils.common import compare_less_version
 
@@ -45,6 +47,7 @@ https://openreview.net/forum?id=X6D9bAHhBQ1
 class Config(DiscreteActionConfig):
     num_simulations: int = 20
     batch_size: int = 128
+    memory_warmup_size: int = 1000
     discount: float = 0.999
 
     # 学習率
@@ -78,13 +81,8 @@ class Config(DiscreteActionConfig):
     c_base: float = 19652
     c_init: float = 1.25
 
-    # Priority Experience Replay
-    capacity: int = 100_000
-    memory_name: str = "ProportionalMemory"
-    memory_warmup_size: int = 1000
-    memory_alpha: float = 1.0
-    memory_beta_initial: float = 1.0
-    memory_beta_steps: int = 100_000
+    # memory
+    memory: IPriorityMemoryConfig = field(default_factory=lambda: ProportionalMemoryConfig())
 
     # model
     input_image_block: IAlphaZeroImageBlockConfig = field(default_factory=lambda: AlphaZeroImageBlockConfig())
@@ -114,6 +112,7 @@ class Config(DiscreteActionConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
+        assert self.memory_warmup_size < self.memory.get_capacity()
         assert self.batch_size < self.memory_warmup_size
         assert self.policy_tau_schedule[0]["step"] == 0
         for tau in self.policy_tau_schedule:
@@ -138,14 +137,7 @@ class RemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
-
-        self.init(
-            self.config.memory_name,
-            self.config.capacity,
-            self.config.memory_alpha,
-            self.config.memory_beta_initial,
-            self.config.memory_beta_steps,
-        )
+        super().init(self.config.memory)
 
         self.q_min = np.inf
         self.q_max = -np.inf
@@ -678,7 +670,7 @@ class Trainer(RLTrainer):
     def train(self):
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
-        indices, batchs, weights = self.remote_memory.sample(self.train_count, self.config.batch_size)
+        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
 
         # (batch, dict, steps, val) -> (steps, batch, val)
         states_list = []
@@ -1064,6 +1056,7 @@ class Worker(DiscreteActionWorker):
                     priority,
                 )
 
+        self.remote_memory.on_step(reward, done)
         return {
             "v_min": self._v_min,
             "v_max": self._v_max,

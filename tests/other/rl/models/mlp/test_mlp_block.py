@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from srl.rl.models.mlp_block_config import MLPBlockConfig
+from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 
 
 def test_call_tf():

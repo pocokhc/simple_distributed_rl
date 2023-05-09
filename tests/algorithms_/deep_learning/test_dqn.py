@@ -10,7 +10,7 @@ common.logger_print()
 class _BaseCase(CommonBaseClass):
     def return_rl_config(self, framework):
         from srl.algorithms import dqn
-        from srl.rl.models.mlp_block_config import MLPBlockConfig
+        from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 
         return dqn.Config(
             hidden_block_config=MLPBlockConfig(layer_sizes=(64, 64)),
@@ -39,7 +39,7 @@ class _BaseCase(CommonBaseClass):
         config.model_summary()
 
     def test_OX(self):
-        from srl.rl.models.mlp_block_config import MLPBlockConfig
+        from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 
         config, rl_config, tester = self.create_config("OX")
         rl_config.hidden_block_config = MLPBlockConfig(layer_sizes=(128,))
@@ -53,8 +53,8 @@ class _BaseCase(CommonBaseClass):
         tester.eval(config, parameter, baseline=[None, 0.65])
 
     def case_image_r2d3(self):
-        from srl.rl.models.mlp_block_config import MLPBlockConfig
-        from srl.rl.models.r2d3_image_block_config import R2D3ImageBlockConfig
+        from srl.rl.models.dqn.r2d3_image_block_config import R2D3ImageBlockConfig
+        from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 
         config, rl_config, tester = self.create_config("Grid")
 

@@ -4,7 +4,7 @@ import numpy as np
 
 import srl
 from srl import runner
-from srl.rl.models import MLPBlockConfig
+from srl.rl.models.mlp import MLPBlockConfig
 from srl.utils import common
 
 # --- env & algorithm load

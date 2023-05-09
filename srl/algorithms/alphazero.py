@@ -15,8 +15,8 @@ from srl.base.rl.model import IAlphaZeroImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
 from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
-from srl.rl.models.alphazero_image_block_config import AlphaZeroImageBlockConfig
-from srl.rl.models.mlp_block_config import MLPBlockConfig
+from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
+from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
 
 """

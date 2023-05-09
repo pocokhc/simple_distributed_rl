@@ -79,13 +79,37 @@ def batch_speed_test():
     # --- for array
     t0 = time.time()
     for _ in tqdm(range(try_times)):
-        states, actions, rewards, next_states, dones = zip(*random.sample(buffer_arr, batch_size))
+        batchs = random.sample(buffer_arr, batch_size)
+        states, actions, rewards, next_states, dones = zip(*batchs)
         states = np.array(states)
         actions = np.array(actions)
         rewards = np.array(rewards)
         next_states = np.array(next_states)
         dones = np.array(dones)
     print("for array: {}s".format(time.time() - t0))
+
+    # --- for asarray
+    t0 = time.time()
+    for _ in tqdm(range(try_times)):
+        batchs = random.sample(buffer_arr, batch_size)
+        states, actions, rewards, next_states, dones = zip(*batchs)
+        states = np.asarray(states)
+        actions = np.asarray(actions)
+        rewards = np.asarray(rewards)
+        next_states = np.asarray(next_states)
+        dones = np.asarray(dones)
+    print("for asarray: {}s".format(time.time() - t0))
+
+    # --- for array one line
+    t0 = time.time()
+    for _ in tqdm(range(try_times)):
+        batchs = random.sample(buffer_arr, batch_size)
+        states = np.array([b[0] for b in batchs])
+        actions = np.array([b[1] for b in batchs])
+        rewards = np.array([b[2] for b in batchs])
+        next_states = np.array([b[3] for b in batchs])
+        dones = np.array([b[4] for b in batchs])
+    print("for array one line: {}s".format(time.time() - t0))
 
     # --- for dict
     t0 = time.time()
@@ -106,7 +130,7 @@ def batch_speed_test():
         rewards = np.array(rewards)
         next_states = np.array(next_states)
         dones = np.array(dones)
-    print("for for dict: {}s".format(time.time() - t0))
+    print("for dict: {}s".format(time.time() - t0))
 
     # --- for dict one line
     t0 = time.time()

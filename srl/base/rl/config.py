@@ -42,6 +42,8 @@ class RLConfig(ABC):
         self.used_device_tf: str = "/CPU"
         self.used_device_torch: str = "cpu"
 
+        self._check_parameter = True
+
     def assert_params(self) -> None:
         assert self.window_length > 0
 
@@ -95,6 +97,7 @@ class RLConfig(ABC):
     def reset(self, env: EnvRun) -> None:
         if self._is_set_env_config:
             return
+        self._check_parameter = False
 
         # env property
         self.env_max_episode_steps = env.max_episode_steps
@@ -163,6 +166,10 @@ class RLConfig(ABC):
             object.__setattr__(self, name, value)
             return
 
+        if hasattr(self, "_check_parameter"):
+            if self._check_parameter and not hasattr(self, name):
+                logger.warning(f"An undefined variable was assigned. {name}={value}")
+
         # configが書き変わったら reset が必要
         if name in [
             "processors",
@@ -204,6 +211,7 @@ class RLConfig(ABC):
 
     def copy(self, reset_env_config: bool = False) -> "RLConfig":
         config = self.__class__()
+        config._check_parameter = False
 
         for k, v in self.__dict__.items():
             if isinstance(v, EnvRun):
@@ -220,4 +228,5 @@ class RLConfig(ABC):
         return config
 
     def set_parameter(self, update_params: dict):
+        self._check_parameter = True
         self.__dict__.update(update_params)

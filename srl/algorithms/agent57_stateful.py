@@ -25,6 +25,7 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
+from srl.rl.memories.config import ReplayMemoryConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 
 """
@@ -259,11 +260,7 @@ class Config(DiscreteActionConfig):
 
     # Priority Experience Replay
     capacity: int = 100_000
-    memory_name: str = "ProportionalMemory"
     memory_warmup_size: int = 1000
-    memory_alpha: float = 0.6
-    memory_beta_initial: float = 1.0
-    memory_beta_steps: int = 1_000_000
 
     # ucb(160,0.5 or 3600,0.01)
     actor_num: int = 32
@@ -342,14 +339,7 @@ class RemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
-
-        self.init(
-            self.config.memory_name,
-            self.config.capacity,
-            self.config.memory_alpha,
-            self.config.memory_beta_initial,
-            self.config.memory_beta_steps,
-        )
+        self.init(ReplayMemoryConfig(self.config.capacity))
 
 
 # ------------------------------------------------------
@@ -632,7 +622,7 @@ class Trainer(RLTrainer):
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
 
-        indices, batchs, weights = self.remote_memory.sample(self.train_count, self.config.batch_size)
+        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
         td_errors, info = self._train_on_batchs(batchs, weights)
         self.remote_memory.update(indices, batchs, td_errors)
 
@@ -1028,7 +1018,7 @@ class Worker(DiscreteActionWorker):
         self.recent_invalid_actions.append(invalid_actions)
 
         # TD誤差を計算するか
-        if self.config.memory_name == "ReplayMemory":
+        if True:
             self._calc_td_error = False
         elif not self.distributed:
             self._calc_td_error = False
@@ -1247,6 +1237,7 @@ class Worker(DiscreteActionWorker):
                             td_error = (reward_ext + self.beta * reward_int) - info["q"]
                         self.remote_memory.add(batch, td_error)
 
+        self.remote_memory.on_step(reward_ext, done)
         return _info
 
     def _add_memory(self, calc_info):

@@ -2,22 +2,12 @@ import random
 from dataclasses import dataclass
 from typing import Any
 
-from srl.base.rl.memory import Memory
+from srl.base.rl.memory import IPriorityMemory
 
 
 @dataclass
-class ReplayMemory(Memory):
-
+class ReplayMemory(IPriorityMemory):
     capacity: int = 100_000
-
-    # no use
-    alpha: float = 0
-    beta_initial: float = 0
-    beta_steps: int = 0
-
-    @staticmethod
-    def getName() -> str:
-        return "ReplayMemory"
 
     def __post_init__(self):
         self.init()

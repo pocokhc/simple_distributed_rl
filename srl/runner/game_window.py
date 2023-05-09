@@ -222,6 +222,7 @@ class PlayableGame(_GameWindow):
         players: List[Union[None, str, RLConfig]] = [None],
         key_bind: KeyBindType = None,
         action_division_num: int = 5,
+        rl_config: Optional[RLConfig] = None,
         callbacks: List[GameCallback] = [],
     ) -> None:
         super().__init__()
@@ -231,6 +232,8 @@ class PlayableGame(_GameWindow):
         self.players = players  # TODO
         self.callbacks = callbacks[:]
         self.noop = None
+        self.step_time = 0
+        self.rl_config = rl_config
 
         # 扱いやすいように変形
         if key_bind is None:
@@ -266,6 +269,11 @@ class PlayableGame(_GameWindow):
         env_image = self.env.render_rgb_array()
         self.env_interval = self.env.render_interval
         self.set_image(env_image, None)
+        if self.rl_config is not None:
+            self.memory = srl.make_remote_memory(rl_config, self.env)
+            parameter = srl.make_parameter(rl_config, self.env)
+            self.worker = srl.make_worker(rl_config, parameter, self.memory, training=True)
+            self.worker.on_reset(self.env)
 
         self.scene = "START"
         self.mode = "Turn"  # "Turn" or "RealTime"
@@ -281,7 +289,12 @@ class PlayableGame(_GameWindow):
         [c.on_game_init(self._callback_info) for c in self.callbacks]
 
     def _env_step(self, action):
+        t0 = time.time()
+        if self.rl_config is not None:
+            _ = self.worker.policy(self.env)
         self.env.step(action)
+        if self.rl_config is not None:
+            self.worker.on_step(self.env)
         self.set_image(self.env.render_rgb_array(), None)
         invalid_actions = self.env.get_invalid_actions()
         self.valid_actions = [a for a in range(self.action_size) if a not in invalid_actions]
@@ -296,6 +309,8 @@ class PlayableGame(_GameWindow):
         if self.env.done:
             self.scene = "START"
             [c.on_game_end(self._callback_info) for c in self.callbacks]
+
+        self.step_time = time.time() - t0
 
     def on_loop(self, events: List[pygame.event.Event]):
         # --- 全体
@@ -438,6 +453,7 @@ class PlayableGame(_GameWindow):
             f"rewards: {self.env.step_rewards}",
             f"info   : {self.env.info}",
             f"done   : {self.env.done}({self.env.done_reason})",
+            f"time   : {self.step_time*1000:.1f}ms",
         ]
         self.add_info_texts(s)
 

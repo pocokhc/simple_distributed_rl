@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from typing import Any, List, Optional
 
 import numpy as np
-from srl.base.rl.memory import Memory
+
+from srl.base.rl.memory import IPriorityMemory
 
 
 class _bisect_wrapper:
@@ -16,16 +17,11 @@ class _bisect_wrapper:
 
 
 @dataclass
-class RankBaseMemory(Memory):
-
+class RankBaseMemory(IPriorityMemory):
     capacity: int = 100_000
     alpha: float = 0.6
     beta_initial: float = 0.4
     beta_steps: int = 1_000_000
-
-    @staticmethod
-    def getName() -> str:
-        return "RankBaseMemory"
 
     def __post_init__(self):
         self.init()
@@ -70,7 +66,6 @@ class RankBaseMemory(Memory):
             bisect.insort(self.memory, _bisect_wrapper(priority, batchs[i]))
 
     def sample(self, batch_size, step):
-
         # βは最初は低く、学習終わりに1にする。
         beta = self.beta_initial + (1 - self.beta_initial) * step / self.beta_steps
         if beta > 1:

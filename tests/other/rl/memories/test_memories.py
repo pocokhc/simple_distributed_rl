@@ -4,30 +4,40 @@ import math
 import numpy as np
 import pytest
 
+from srl.rl.memories import config
 from srl.rl.memories.proportional_memory import ProportionalMemory
 from srl.rl.memories.rankbase_memory import RankBaseMemory
 from srl.rl.memories.rankbase_memory_linear import RankBaseMemoryLinear
-from srl.rl.memories.replay_memory import ReplayMemory
 
 capacity = 10
 
 
 @pytest.mark.parametrize(
-    "memory, use_priority",
+    "memory_config, use_priority, check_dup",
     [
-        (ReplayMemory(capacity), False),
-        (ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=False), True),
-        (RankBaseMemory(capacity, 0.8, 1, 10), True),
-        (RankBaseMemoryLinear(capacity, 0.8, 1, 10), True),
+        (config.ReplayMemoryConfig(capacity), False, True),
+        (config.ProportionalMemoryConfig(capacity, 0.8, 1, 10, has_duplicate=False), True, True),
+        (config.RankBaseMemoryConfig(capacity, 0.8, 1, 10), True, True),
+        (config.RankBaseMemoryLinearConfig(capacity, 0.8, 1, 10), True, True),
+        (
+            config.BestEpisodeMemoryConfig(
+                memory=config.ProportionalMemoryConfig(capacity, 0.8, 1, 10),
+            ),
+            False,
+            False,
+        ),
+        (config.DemoMemoryConfig(memory=config.ProportionalMemoryConfig(capacity, 0.8, 1, 10)), False, False),
     ],
 )
-def test_memory(memory, use_priority):
-    capacity = memory.capacity
+def test_memory(memory_config, use_priority, check_dup):
+    capacity = memory_config.get_capacity()
     assert capacity == 10
+    memory = memory_config.create_memory()
 
     # add
     for i in range(100):
         memory.add((i, i, i, i), 0)
+        memory.on_step(i, (i == 99))
     assert len(memory) == capacity
 
     # 中身を1～10にする
@@ -43,8 +53,9 @@ def test_memory(memory, use_priority):
         assert len(batchs) == 5
         assert len(weights) == 5
 
-        # 重複がないこと
-        assert len(list(set(batchs))) == 5, list(set(batchs))
+        if check_dup:
+            # 重複がないこと
+            assert len(list(set(batchs))) == 5, list(set(batchs))
 
         # batchの中身をカウント
         for batch in batchs:
@@ -62,9 +73,10 @@ def test_memory(memory, use_priority):
 
     counter = collections.Counter(counter)
 
-    # keyは1～10まであること
-    keys = sorted(counter.keys())
-    assert keys == [i + 1 for i in range(capacity)]
+    if check_dup:
+        # keyは1～10まであること
+        keys = sorted(counter.keys())
+        assert keys == [i + 1 for i in range(capacity)]
 
     if use_priority:
         # priorityが高いほど数が増えている

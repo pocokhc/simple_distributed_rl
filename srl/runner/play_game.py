@@ -1,6 +1,6 @@
 import logging
 import traceback
-from typing import List, Union
+from typing import List, Optional, Union
 
 from srl.base.define import KeyBindType
 from srl.base.env.config import EnvConfig
@@ -17,8 +17,10 @@ def env_play(
     players: List[Union[None, str, RLConfig]] = [None],
     key_bind: KeyBindType = None,
     action_division_num: int = 5,
+    # worker memory
+    rl_config: Optional[RLConfig] = None,
     # file_log
-    enable_file_logger: bool = True,
+    enable_file_logger: bool = False,
     file_logger_tmp_dir: str = "tmp",
     file_logger_enable_episode_log: bool = False,
     file_logger_episode_log_add_render: bool = True,
@@ -61,6 +63,7 @@ def env_play(
         players,
         key_bind,
         action_division_num,
+        rl_config,
         callbacks,
     )
     game.play()
@@ -73,4 +76,7 @@ def env_play(
     except Exception:
         logger.info(traceback.format_exc())
 
-    return history
+    if rl_config is None:
+        return history
+    else:
+        return history, game.memory

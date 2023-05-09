@@ -1,9 +1,20 @@
 # TODO list
 
-1. (R2D3)
 1. BizHawkのenv作成
 1. ネットワーク経由の学習
 1. tensorboard
+1. (IMPALA)
+
+# v0.10.1
+
+**MainUpdates**
+
+1. srl.rl.models配下を再整理し、もう1つ階層を追加（importのpathも変わります）
+1. PriorityMemoryの設定方法をmodelと同様にConfigクラスに変更
+   1. BestEpisodeMemory と DemoMemory を追加
+   1. env_play に人間が操作した結果を memory に保存する仕組みを追加(R2D3みたいな)
+   1. PriorityMemory にエピソード終了処理を入れたかったので on_step を追加
+   1. この修正に合わせて PriorityMemory を使っているアルゴリズムも修正
 
 # v0.10.0
 

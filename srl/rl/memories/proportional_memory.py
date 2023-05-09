@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from typing import Any, List, Optional
 
 import numpy as np
-from srl.base.rl.memory import Memory
+
+from srl.base.rl.memory import IPriorityMemory
 
 
 class SumTree:
@@ -95,18 +96,13 @@ class SumTree:
 
 
 @dataclass
-class ProportionalMemory(Memory):
-
+class ProportionalMemory(IPriorityMemory):
     capacity: int = 100_000
     alpha: float = 0.6
     beta_initial: float = 0.4
     beta_steps: int = 1_000_000
     has_duplicate: bool = True
     epsilon: float = 0.0001
-
-    @staticmethod
-    def getName() -> str:
-        return "ProportionalMemory"
 
     def __post_init__(self):
         self.init()
@@ -148,7 +144,6 @@ class ProportionalMemory(Memory):
             beta = 1
 
         for i in range(batch_size):
-
             for _ in range(9999):  # for safety
                 r = random.random() * total
                 idx, priority, batch = self.tree.get(r)

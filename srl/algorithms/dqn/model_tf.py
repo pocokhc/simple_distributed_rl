@@ -6,10 +6,9 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers as kl
 
 from srl.base.rl.base import RLTrainer
-from srl.rl.functions.common import inverse_rescaling, rescaling
 from srl.rl.models.tf.input_block import InputBlock
 
-from .dqn import CommonInterfaceParameter, Config, RemoteMemory, Worker
+from .dqn import CommonInterfaceParameter, Config, RemoteMemory
 
 
 # ------------------------------------------------------
@@ -92,8 +91,11 @@ class Parameter(CommonInterfaceParameter):
 
     # -------------------------------------
 
-    def get_q(self, state: np.ndarray, worker: Worker) -> np.ndarray:
+    def predict_q(self, state: np.ndarray) -> np.ndarray:
         return self.q_online(state).numpy()
+
+    def predict_target_q(self, state: np.ndarray) -> np.ndarray:
+        return self.q_target(state).numpy()
 
 
 # ------------------------------------------------------
@@ -120,36 +122,7 @@ class Trainer(RLTrainer):
             return {}
 
         indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
-        states, n_states, onehot_actions, rewards, dones, _ = zip(*batchs)
-        states = np.asarray(states)
-        n_states = np.asarray(n_states)
-        onehot_actions = np.asarray(onehot_actions)
-        rewards = np.array(rewards, dtype=np.float32)
-        dones = np.array(dones)
-        next_invalid_actions = [e for b in batchs for e in b[5]]
-        next_invalid_actions_idx = [i for i, b in enumerate(batchs) for e in b[5]]
-
-        # --- next Q
-        n_q = self.parameter.q_online(n_states).numpy()
-        n_q_target = self.parameter.q_target(n_states).numpy()
-
-        # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
-        if self.config.enable_double_dqn:
-            n_q[next_invalid_actions_idx, next_invalid_actions] = -np.inf
-            n_act_idx = np.argmax(n_q, axis=1)
-            maxq = n_q_target[np.arange(self.config.batch_size), n_act_idx]
-        else:
-            n_q[next_invalid_actions_idx, next_invalid_actions] = -np.inf
-            maxq = np.max(n_q_target, axis=1)
-
-        if self.config.enable_rescale:
-            maxq = inverse_rescaling(maxq)
-
-        # --- Q値を計算
-        target_q = rewards + dones * self.config.discount * maxq
-
-        if self.config.enable_rescale:
-            target_q = rescaling(target_q)
+        target_q, states, onehot_actions = self.parameter.calc_target_q(batchs, training=True)
 
         with tf.GradientTape() as tape:
             q = self.parameter.q_online(states)

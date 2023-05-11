@@ -6,11 +6,10 @@ import torch.nn as nn
 import torch.optim as optim
 
 from srl.base.rl.base import RLTrainer
-from srl.rl.functions.common import inverse_rescaling, rescaling
 from srl.rl.models.torch_.input_block import InputBlock
 from srl.utils import common
 
-from .dqn import CommonInterfaceParameter, Config, RemoteMemory, Worker
+from .dqn import CommonInterfaceParameter, Config, RemoteMemory
 
 
 # ------------------------------------------------------
@@ -76,10 +75,16 @@ class Parameter(CommonInterfaceParameter):
 
     # -----------------------------------
 
-    def get_q(self, state: np.ndarray, worker: Worker) -> np.ndarray:
+    def predict_q(self, state: np.ndarray) -> np.ndarray:
         self.q_online.eval()
         with torch.no_grad():
             q = self.q_online(torch.tensor(state).to(self.device))
+            q = q.to("cpu").detach().numpy()
+        return q
+
+    def predict_target_q(self, state: np.ndarray) -> np.ndarray:
+        with torch.no_grad():
+            q = self.q_target(torch.tensor(state).to(self.device))
             q = q.to("cpu").detach().numpy()
         return q
 
@@ -112,44 +117,14 @@ class Trainer(RLTrainer):
         self.parameter.q_target.to(device)
 
         indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
-        states, n_states, onehot_actions, rewards, dones, _ = zip(*batchs)
-        states = torch.tensor(np.asarray(states)).to(device)
-        n_states = torch.tensor(np.asarray(n_states)).to(device)
-        onehot_actions = torch.tensor(np.asarray(onehot_actions)).to(device)
-        rewards = np.array(rewards, dtype=np.float32)
-        dones = np.array(dones)
-        next_invalid_actions = [e for b in batchs for e in b[5]]
-        next_invalid_actions_idx = [i for i, b in enumerate(batchs) for e in b[5]]
+        target_q, states, onehot_actions = self.parameter.calc_target_q(batchs, training=True)
+
+        states = torch.tensor(states).to(device)
+        onehot_actions = torch.tensor(onehot_actions).to(device)
         weights = torch.tensor(weights).to(device)
-
-        # --- next Q
-        with torch.no_grad():
-            self.parameter.q_online.eval()
-            n_q = self.parameter.q_online(n_states)
-            n_q_target = self.parameter.q_target(n_states)
-            n_q = n_q.to("cpu").detach().numpy()
-            n_q_target = n_q_target.to("cpu").detach().numpy()
-
-        # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
-        if self.config.enable_double_dqn:
-            n_q[next_invalid_actions_idx, next_invalid_actions] = -np.inf
-            n_act_idx = np.argmax(n_q, axis=1)
-            maxq = n_q_target[np.arange(self.config.batch_size), n_act_idx]
-        else:
-            n_q[next_invalid_actions_idx, next_invalid_actions] = -np.inf
-            maxq = np.max(n_q_target, axis=1)
-
-        if self.config.enable_rescale:
-            maxq = inverse_rescaling(maxq)
-
-        # --- Q値を計算
-        target_q = rewards + dones * self.config.discount * maxq
-
-        if self.config.enable_rescale:
-            target_q = rescaling(target_q)
+        target_q = torch.from_numpy(target_q).to(dtype=torch.float32).to(device)
 
         # --- torch train
-        target_q = torch.from_numpy(target_q.astype(np.float32)).to(device)
         self.parameter.q_online.train()
         q = self.parameter.q_online(states)
 

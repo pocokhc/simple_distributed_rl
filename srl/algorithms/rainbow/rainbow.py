@@ -214,7 +214,7 @@ class CommonInterfaceParameter(RLParameter, ABC):
 
         # 1step目はretraceで使わない、retraceで使うのは 2step以降
         states = states_list[:, 0, :]
-        online_states = states_list[:, 1:, :]
+        n_states = states_list[:, 1:, :]
         onehot_actions = onehot_actions_list[:, 0, :]
         n_onehot_actions = onehot_actions_list[:, 1:, :]
 
@@ -229,21 +229,22 @@ class CommonInterfaceParameter(RLParameter, ABC):
             (target) 1step ～ N+1 step
         """
         if self.config.enable_double_dqn:
-            online_states = online_states
-            target_states = online_states
+            online_states = n_states
+            target_states = n_states
         else:
-            online_states = online_states[:, -1:, :]
-            target_states = online_states
+            online_states = n_states[:, :-1, :]
+            target_states = n_states
 
         # (batch, multistep, shape) -> (batch * multistep, shape)
-        online_states = np.reshape(online_states, (batch_size * self.config.multisteps,) + online_states.shape[2:])
+        online_shape1 = online_states.shape[1]
+        online_states = np.reshape(online_states, (batch_size * online_shape1,) + online_states.shape[2:])
         target_states = np.reshape(target_states, (batch_size * self.config.multisteps,) + target_states.shape[2:])
 
         q_online = self.predict_q(online_states)
         q_target = self.predict_target_q(target_states)
 
         # (batch * multistep, shape) -> (batch, multistep, shape)
-        q_online = np.reshape(q_online, (batch_size, self.config.multisteps) + q_online.shape[1:])
+        q_online = np.reshape(q_online, (batch_size, online_shape1) + q_online.shape[1:])
         q_target = np.reshape(q_target, (batch_size, self.config.multisteps) + q_target.shape[1:])
 
         # --- action Q

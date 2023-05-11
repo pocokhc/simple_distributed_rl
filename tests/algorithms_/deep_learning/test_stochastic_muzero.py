@@ -1,5 +1,6 @@
 import pytest
 
+from srl.rl.memories.config import ReplayMemoryConfig
 from srl.utils import common
 
 from .common_base_class import CommonBaseClass
@@ -8,14 +9,14 @@ from .common_base_class import CommonBaseClass
 class _BaseCase(CommonBaseClass):
     def return_rl_config(self, framework):
         from srl.algorithms import stochastic_muzero
-        from srl.rl.models.alphazero_image_block_config import AlphaZeroImageBlockConfig
+        from srl.rl.models.alphazero import AlphaZeroImageBlockConfig
 
         return stochastic_muzero.Config(
             num_simulations=10,
             discount=0.9,
             batch_size=16,
             memory_warmup_size=200,
-            memory_name="ReplayMemory",
+            memory=ReplayMemoryConfig(),
             lr_init=0.01,
             lr_decay_steps=10_000,
             v_min=-2,

@@ -2,6 +2,7 @@ import numpy as np
 
 import srl
 from srl import runner
+from srl.rl import memories
 from srl.utils import common
 
 # --- env & algorithm load
@@ -20,7 +21,7 @@ def main():
         #
         enable_double_dqn=True,
         enable_dueling_network=True,
-        memory_name="ReplayMemory",
+        memory=memories.ReplayMemoryConfig(100_000),
         #
         actor_num=4,
         enable_intrinsic_reward=True,

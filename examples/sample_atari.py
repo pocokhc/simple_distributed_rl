@@ -4,6 +4,9 @@ import srl
 from srl import runner
 from srl.base.define import EnvObservationType
 from srl.base.rl.processors.image_processor import ImageProcessor
+from srl.rl import memories
+from srl.rl.models import dqn as dqn_model
+from srl.rl.models import mlp
 from srl.utils import common
 
 # --- env & algorithm load
@@ -14,6 +17,9 @@ common.set_logger()
 
 _parameter_path = "_sample_atari_parameter.dat"
 
+WARMUP_COUNT = 5_000
+TRAIN_COUNT = 500_000
+
 
 def _create_config():
     env_config = srl.EnvConfig(
@@ -21,11 +27,22 @@ def _create_config():
         kwargs=dict(frameskip=1, repeat_action_probability=0, full_action_space=False),
         frameskip=7,
     )
-    rl_config = dqn.Config()
-    rl_config.set_atari_config()
-    rl_config.capacity = 10_000
-    rl_config.memory_warmup_size = 5_000
-    rl_config.exploration_steps = 1000_000
+    rl_config = dqn.Config(
+        batch_size=32,
+        memory=memories.ProportionalMemoryConfig(capacity=10_000, beta_steps=TRAIN_COUNT),
+        image_block_config=dqn_model.R2D3ImageBlockConfig(),
+        hidden_block_config=mlp.MLPBlockConfig(layer_sizes=(512,)),
+        target_model_update_interval=10_000,
+        discount=0.99,
+        lr=0.00025,
+        initial_epsilon=1.0,
+        final_epsilon=0.1,
+        exploration_steps=TRAIN_COUNT,
+        memory_warmup_size=WARMUP_COUNT,
+        enable_reward_clip=False,
+        enable_double_dqn=True,
+        enable_rescale=False,
+    )
     rl_config.processors = [
         ImageProcessor(
             image_type=EnvObservationType.GRAY_2ch,
@@ -46,9 +63,10 @@ def train():
     config.model_summary(expand_nested=True)
 
     # --- train
+    config.actor_num = 2
     parameter, remote_memory, history = runner.train_mp(
         config,
-        max_train_count=500_000,
+        max_train_count=TRAIN_COUNT,
         enable_evaluation=False,
     )
     parameter.save(_parameter_path)

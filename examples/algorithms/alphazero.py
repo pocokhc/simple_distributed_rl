@@ -4,7 +4,8 @@ import numpy as np
 
 import srl
 from srl import runner
-from srl.rl.models import AlphaZeroImageBlockConfig, MLPBlockConfig
+from srl.rl.models import alphazero as alphazero_model
+from srl.rl.models import mlp
 from srl.utils import common
 
 # --- env & algorithm load
@@ -16,9 +17,9 @@ common.logger_print()
 
 def main():
     rl_config = alphazero.Config(
-        input_image_block=AlphaZeroImageBlockConfig(n_blocks=9, filters=64),
-        value_block=MLPBlockConfig((128,)),
-        policy_block=MLPBlockConfig((128,)),
+        input_image_block=alphazero_model.AlphaZeroImageBlockConfig(n_blocks=9, filters=64),
+        value_block=mlp.MLPBlockConfig((128,)),
+        policy_block=mlp.MLPBlockConfig((128,)),
         num_simulations=100,
         sampling_steps=1,
         lr_schedule=[

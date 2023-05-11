@@ -1,5 +1,6 @@
 import pytest
 
+from srl.rl.memories.config import ReplayMemoryConfig
 from srl.utils import common
 
 from .common_base_class import CommonBaseClass
@@ -18,7 +19,7 @@ class _BaseCase(CommonBaseClass):
 
     def test_EasyGrid(self):
         from srl.envs import grid
-        from srl.rl.models.alphazero_image_block_config import AlphaZeroImageBlockConfig
+        from srl.rl.models.alphazero import AlphaZeroImageBlockConfig
 
         config, rl_config, tester = self.create_config("EasyGrid")
         rl_config.set_parameter(
@@ -27,7 +28,7 @@ class _BaseCase(CommonBaseClass):
                 discount=0.9,
                 batch_size=16,
                 memory_warmup_size=200,
-                memory_name="ReplayMemory",
+                memory=ReplayMemoryConfig(),
                 lr_init=0.002,
                 lr_decay_steps=10_000,
                 v_min=-2,
@@ -44,7 +45,7 @@ class _BaseCase(CommonBaseClass):
 
     def test_EasyGrid_PER(self):
         from srl.envs import grid
-        from srl.rl.models.alphazero_image_block_config import AlphaZeroImageBlockConfig
+        from srl.rl.models.alphazero import AlphaZeroImageBlockConfig
 
         config, rl_config, tester = self.create_config("EasyGrid")
         rl_config.set_parameter(

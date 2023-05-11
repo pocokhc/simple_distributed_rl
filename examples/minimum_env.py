@@ -1,13 +1,12 @@
 import srl
 
 # --- load env
-from srl.envs import grid  # isort: skip # noqa F401
+from srl.envs import grid, ox  # isort: skip # noqa F401
 
 
-def main():
-    env = srl.make_env("Grid")
+def main(env_name):
+    env = srl.make_env(env_name)
 
-    # env information
     print(f"action_space     : {env.action_space}")
     print(f"observation_type : {env.observation_type}")
     print(f"observation_space: {env.observation_space}")
@@ -20,12 +19,12 @@ def main():
         action = env.sample()
         env.step(action)
 
-        # env status
+        print(f"action           : {action}")
         print(f"step             : {env.step_num}")
         print(f"next_player_index: {env.next_player_index}")
         print(f"state            : {env.state}")
         print(f"invalid_actions  : {env.get_invalid_actions()}")
-        print(f"rewards          : {env.step_rewards}")
+        print(f"reward [rewards] : {env.reward} {env.step_rewards}")
         print(f"info             : {env.info}")
         print(f"done             : {env.done}")
         print(f"done_reason      : {env.done_reason}")
@@ -36,4 +35,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main("Grid")
+    print("=" * 40)
+    main("OX")

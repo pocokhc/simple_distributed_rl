@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 
 import srl
 from srl import runner
-from srl.rl.models import MLPBlockConfig
+from srl.rl import memories
+from srl.rl.models import mlp
 
 # --- env & algorithm load
 import gym  # isort: skip # noqa F401
@@ -19,7 +20,7 @@ def main():
         (
             "DQN",
             dqn.Config(
-                hidden_block_config=MLPBlockConfig(layer_sizes=(64, 64)),
+                hidden_block_config=mlp.MLPBlockConfig(layer_sizes=(64, 64)),
                 lr=0.0005,
                 enable_double_dqn=False,
                 enable_rescale=False,
@@ -34,7 +35,7 @@ def main():
         enable_dueling_network=False,
         enable_noisy_dense=False,
         multisteps=1,
-        memory_name="ReplayMemory",
+        memory=memories.ReplayMemoryConfig(),
         enable_rescale=False,
     )
     rl_configs.append(("base", rainbow.Config(**rainbow_base)))
@@ -56,9 +57,7 @@ def main():
     rl_configs.append(("multisteps 10", rl_config))
 
     rl_config = rainbow.Config(**rainbow_base)
-    rl_config.memory_name = "ProportionalMemory"
-    rl_config.memory_alpha = 1.0
-    rl_config.memory_beta_initial = 1.0
+    rl_config.memory = memories.ProportionalMemoryConfig(alpha=1.0, beta_initial=1.0)
     rl_configs.append(("ProportionalMemory", rl_config))
 
     rl_config = rainbow.Config(**rainbow_base)
@@ -66,10 +65,7 @@ def main():
     rl_config.enable_dueling_network = True
     rl_config.enable_noisy_dense = True
     rl_config.multisteps = 10
-    rl_config.memory_name = "ProportionalMemory"
-    rl_config.memory_alpha = 1.0
-    rl_config.memory_beta_initial = 0.8
-    rl_config.memory_beta_steps = 200 * 50
+    rl_config.memory = memories.ProportionalMemoryConfig(alpha=1.0, beta_initial=0.8, beta_steps=200 * 50)
     rl_configs.append(("Rainbow", rl_config))
 
     results = []

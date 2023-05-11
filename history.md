@@ -16,6 +16,13 @@
    1. PriorityMemory にエピソード終了処理を入れたかったので on_step を追加
    1. この修正に合わせて PriorityMemory を使っているアルゴリズムも修正
 
+**OtherUpdates**
+
+1. Gridにparameter追加(動作に変化なし)
+1. RLConfigに使ってないparameterが追加されたら警告を出すように変更
+1. 速度計測を一部実施し修正(batchとrandom.choice)
+1. dockerfileにblackとflake8を追加
+
 # v0.10.0
 
 GPU,PyTorch,Dockerの環境を見直して、それに伴い大幅なリファクタリングを行いました。

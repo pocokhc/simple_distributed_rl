@@ -76,15 +76,18 @@ def _render(env: EnvRun, rl_config: RLConfig, parameter: RLParameter):
         env.step(action)
         worker.on_step(env)
 
-        # --- env render
-        print(
-            "step {}, action {}, reward: {:.5f}, done: {}, info: {} {}".format(
-                env.step_num, action, env.step_rewards[0], env.done, env.info, worker.info
-            )
-        )
+        # --- render
+        print(f"step        :{env.step_num}")
+        print(f"action      :{action}")
+        print(f"reward      :{env.reward} {env.step_rewards}")
+        print(f"env info    :{env.info}")
+        print(f"worker info :{worker.info}")
+
         env.render()
 
-    print(f"step: {env.step_num}, reward: {env.episode_rewards[0]:.5f}")
+    print(f"done reason : {env.done_reason}")
+    print(f"step        : {env.step_num}")
+    print(f"reward      : {env.episode_rewards[0]}")
 
 
 def main():

@@ -76,7 +76,6 @@ class _BaseCase(CommonBaseClass):
 
         config, rl_config, tester = self.create_config("Othello4x4")
         rl_config.batch_size = 32
-        rl_config.capacity = 100_000
         rl_config.memory_warmup_size = 500
         rl_config.lr_schedule = [
             {"train": 0, "lr": 0.001},

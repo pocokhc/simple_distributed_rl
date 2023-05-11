@@ -1,5 +1,6 @@
 import pytest
 
+from srl.rl.memories.config import ReplayMemoryConfig
 from srl.utils import common
 
 from .common_base_class import CommonBaseClass
@@ -12,7 +13,7 @@ class _BaseCase(CommonBaseClass):
         return agent57_light.Config(
             hidden_layer_sizes=(64, 64, 64),
             enable_dueling_network=False,
-            memory_name="ReplayMemory",
+            memory=ReplayMemoryConfig(),
             target_model_update_interval=100,
             q_ext_lr=0.001,
             q_int_lr=0.001,
@@ -30,7 +31,6 @@ class _BaseCase(CommonBaseClass):
 
     def test_Pendulum_mp(self):
         config, rl_config, tester = self.create_config("Pendulum-v1")
-        rl_config.memory_name = "ProportionalMemory"
         tester.train_eval(config, 200 * 100, is_mp=True)
 
     def test_Pendulum_uvfa(self):
@@ -42,8 +42,6 @@ class _BaseCase(CommonBaseClass):
 
     def test_Pendulum_memory(self):
         config, rl_config, tester = self.create_config("Pendulum-v1")
-        rl_config.memory_name = "ProportionalMemory"
-        rl_config.memory_beta_steps = 200 * 30
         tester.train_eval(config, 200 * 40)
 
 

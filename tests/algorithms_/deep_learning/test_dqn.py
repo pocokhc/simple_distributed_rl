@@ -23,7 +23,10 @@ class _BaseCase(CommonBaseClass):
         tester.train_eval(config, 200 * 100)
 
     def test_Pendulum_mp(self):
+        from srl.rl import memories
+
         config, rl_config, tester = self.create_config("Pendulum-v1")
+        rl_config.memory = memories.ProportionalMemoryConfig()
         tester.train_eval(config, 200 * 100, is_mp=True)
 
     def test_Pendulum_DDQN(self):

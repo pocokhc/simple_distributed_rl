@@ -4,7 +4,8 @@ import numpy as np
 
 import srl
 from srl import runner
-from srl.rl.models import AlphaZeroImageBlockConfig
+from srl.rl import memories
+from srl.rl.models import alphazero as alphazero_model
 from srl.utils import common
 
 # --- env & algorithm load
@@ -20,13 +21,13 @@ def main():
         discount=0.9,
         batch_size=16,
         memory_warmup_size=200,
-        memory_name="ReplayMemory",
+        memory=memories.ReplayMemoryConfig(100_000),
         lr_init=0.002,
         lr_decay_steps=10_000,
         v_min=-2,
         v_max=2,
         unroll_steps=1,
-        input_image_block=AlphaZeroImageBlockConfig(n_blocks=1, filters=16),
+        input_image_block=alphazero_model.AlphaZeroImageBlockConfig(n_blocks=1, filters=16),
         dynamics_blocks=1,
         enable_rescale=False,
         weight_decay=0,

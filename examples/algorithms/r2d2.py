@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 
 import srl
 from srl import runner
+from srl.algorithms import r2d2
 
 # --- env & algorithm load
 import gym  # isort: skip # noqa F401
-from srl.algorithms import r2d2  # isort: skip
+from srl.rl import memories  # isort: skip
 
 
 def main():
@@ -19,7 +20,7 @@ def main():
         lstm_units=64,
         hidden_layer_sizes=(64,),
         enable_dueling_network=False,
-        memory_name="ReplayMemory",
+        memory=memories.ReplayMemoryConfig(100_000),
         target_model_update_interval=100,
         enable_rescale=False,
         burnin=5,

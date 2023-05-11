@@ -13,7 +13,7 @@ from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
-from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action
+from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
 from srl.rl.memories.config import ReplayMemoryConfig
 from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
 from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
@@ -137,9 +137,55 @@ class RemoteMemory(PriorityExperienceReplay):
 # Parameter
 # ------------------------------------------------------
 class CommonInterfaceParameter(RLParameter, ABC):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.config = cast(Config, self.config)
+
     @abstractmethod
-    def get_q(self, state: np.ndarray, worker: "Worker") -> np.ndarray:
+    def predict_q(self, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError()
+
+    @abstractmethod
+    def predict_target_q(self, state: np.ndarray) -> np.ndarray:
+        raise NotImplementedError()
+
+    def calc_target_q(self, batchs, training: bool):
+        batch_size = len(batchs)
+
+        states, n_states, onehot_actions, rewards, dones, _ = zip(*batchs)
+        states = np.asarray(states)
+        n_states = np.asarray(n_states)
+        onehot_actions = np.asarray(onehot_actions)
+        rewards = np.array(rewards, dtype=np.float32)
+        dones = np.array(dones)
+        next_invalid_actions = [e for b in batchs for e in b[5]]
+        next_invalid_actions_idx = [i for i, b in enumerate(batchs) for e in b[5]]
+
+        n_q_target = self.predict_target_q(n_states)
+
+        # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
+        if self.config.enable_double_dqn:
+            n_q = self.predict_q(n_states)
+            n_q[next_invalid_actions_idx, next_invalid_actions] = np.min(n_q)
+            n_act_idx = np.argmax(n_q, axis=1)
+            maxq = n_q_target[np.arange(batch_size), n_act_idx]
+        else:
+            n_q_target[next_invalid_actions_idx, next_invalid_actions] = np.min(n_q_target)
+            maxq = np.max(n_q_target, axis=1)
+
+        if self.config.enable_rescale:
+            maxq = inverse_rescaling(maxq)
+
+        # --- Q値を計算
+        target_q = rewards + dones * self.config.discount * maxq
+
+        if self.config.enable_rescale:
+            target_q = rescaling(target_q)
+
+        if training:
+            return target_q, states, onehot_actions
+        else:
+            return target_q
 
 
 # ------------------------------------------------------
@@ -181,12 +227,13 @@ class Worker(DiscreteActionWorker):
         if random.random() < epsilon:
             # epsilonより低いならランダム
             self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            self.q = None
         else:
-            q = self.parameter.get_q(state[np.newaxis, ...], self)[0]
-            q[invalid_actions] = -np.inf
+            self.q = self.parameter.predict_q(state[np.newaxis, ...])[0]
+            self.q[invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないので無視）
-            self.action = int(np.argmax(q))
+            self.action = int(np.argmax(self.q))
 
         return self.action, {"epsilon": epsilon}
 
@@ -210,21 +257,45 @@ class Worker(DiscreteActionWorker):
             else:
                 reward = 0
 
-        self.remote_memory.add(
-            [
-                self.state,
-                next_state,
-                np.identity(self.config.action_num, dtype=int)[self.action],
-                reward,
-                int(not done),
-                next_invalid_actions,
-            ]
-        )
+        """
+        [
+            state,
+            n_state,
+            onehot_action,
+            reward,
+            done,
+            next_invalid_actions,
+        ]
+        """
+        batch = [
+            self.state,
+            next_state,
+            np.identity(self.config.action_num, dtype=int)[self.action],
+            reward,
+            int(not done),
+            next_invalid_actions,
+        ]
+
+        if not self.distributed:
+            td_error = None
+        elif self.config.memory.is_replay_memory():
+            td_error = None
+        else:
+            if self.q is None:
+                self.q = self.parameter.predict_q(self.state[np.newaxis, ...])[0]
+            select_q = self.q[self.action]
+            target_q = self.parameter.calc_target_q([batch], training=False)[0]
+            td_error = target_q - select_q
+
+        self.remote_memory.add(batch, td_error)
         self.remote_memory.on_step(reward, done)
         return {}
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        q = self.parameter.get_q(self.state[np.newaxis, ...], self)[0]
+        if self.q is None:
+            q = self.parameter.predict_q(self.state[np.newaxis, ...])[0]
+        else:
+            q = self.q
         maxa = np.argmax(q)
         if self.config.enable_rescale:
             q = inverse_rescaling(q)

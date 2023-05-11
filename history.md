@@ -16,6 +16,11 @@
    1. PriorityMemory にエピソード終了処理を入れたかったので on_step を追加
    1. この修正に合わせて PriorityMemory を使っているアルゴリズムも修正
 
+**Algorims**
+
+1. DQNを最適化
+1. Rainbowをtorchに対応し、最適化も実施
+
 **OtherUpdates**
 
 1. Gridにparameter追加(動作に変化なし)

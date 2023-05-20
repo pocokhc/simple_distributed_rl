@@ -16,11 +16,11 @@ def _run_episode(
     training: bool,
 ):
     # 0. make
+    remote_memory = None
+    trainer = None
     if training:
         remote_memory = srl.make_remote_memory(rl_config)
         trainer = srl.make_trainer(rl_config, parameter, remote_memory)
-    else:
-        remote_memory = None
 
     worker = srl.make_worker(rl_config, parameter, remote_memory, training=training, distributed=False)
 
@@ -37,7 +37,7 @@ def _run_episode(
         worker.on_step(env)
 
         # 4. train
-        if training:
+        if trainer is not None:
             train_info = trainer.train()
         else:
             train_info = {}

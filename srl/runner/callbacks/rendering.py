@@ -1,6 +1,7 @@
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Union, cast
 
 import numpy as np
 
@@ -8,7 +9,6 @@ from srl.base.define import EnvObservationType, PlayRenderMode
 from srl.base.env.base import EnvRun
 from srl.base.rl.worker import RLWorker, WorkerRun
 from srl.runner.callback import Callback
-from srl.runner.config import Config
 from srl.utils.render_functions import text_to_rgb_array
 
 logger = logging.getLogger(__name__)
@@ -16,8 +16,10 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Rendering(Callback):
+    mode: Union[str, PlayRenderMode] = PlayRenderMode.none
+    kwargs: dict = field(default_factory=lambda: {})
     step_stop: bool = False
-    use_skip_step: bool = True
+    render_skip_step: bool = True
 
     def __post_init__(self):
         self.frames = []
@@ -38,10 +40,9 @@ class Rendering(Callback):
         self.render_interval = -1
         self.font = None
 
+        self.mode = PlayRenderMode.from_str(self.mode)
+
     def on_episodes_begin(self, info) -> None:
-        config: Config = info["config"]
-        self.render_mode = config.render_mode
-        self.render_kwargs = config.render_kwargs
         self.render_interval = info["env"].render_interval
 
     def on_step_action_before(self, info) -> None:
@@ -55,7 +56,7 @@ class Rendering(Callback):
             input("Enter to continue:")
 
     def on_skip_step(self, info):
-        if not self.use_skip_step:
+        if not self.render_skip_step:
             return
         self._render_env(info, True)
         self._add_image()
@@ -99,24 +100,24 @@ class Rendering(Callback):
         self.info_text = info_text
 
         # --- render_terminal
-        if self.render_mode == PlayRenderMode.terminal:
+        if self.mode == PlayRenderMode.terminal:
             print(info_text)
 
             # --- env text
-            env.render_terminal(**self.render_kwargs)
+            env.render_terminal(**self.kwargs)
 
         # --- render window
-        if self.render_mode == PlayRenderMode.window:
-            env.render_window(**self.render_kwargs)
+        if self.mode == PlayRenderMode.window:
+            env.render_window(**self.kwargs)
 
-        if self.render_mode == PlayRenderMode.rgb_array:
-            self.env_img = env.render_rgb_array(**self.render_kwargs)
+        if self.mode == PlayRenderMode.rgb_array:
+            self.env_img = env.render_rgb_array(**self.kwargs)
             self.env_maxw = max(self.env_maxw, self.env_img.shape[1])
             self.env_maxh = max(self.env_maxh, self.env_img.shape[0])
 
     def _add_image(self):
         # --- rgb
-        if self.render_mode == PlayRenderMode.rgb_array:
+        if self.mode == PlayRenderMode.rgb_array:
             info_img = text_to_rgb_array(self.info_text)
             self.info_maxw = max(self.info_maxw, info_img.shape[1])
             self.info_maxh = max(self.info_maxh, info_img.shape[0])
@@ -136,12 +137,12 @@ class Rendering(Callback):
         worker: WorkerRun = info["workers"][worker_idx]
 
         # --- render_terminal
-        if self.render_mode == PlayRenderMode.terminal:
-            worker.render_terminal(env, **self.render_kwargs)
+        if self.mode == PlayRenderMode.terminal:
+            worker.render_terminal(env, **self.kwargs)
 
         # --- rgb
-        if self.render_mode == PlayRenderMode.rgb_array:
-            self.rl_img = worker.render_rgb_array(env, **self.render_kwargs)
+        if self.mode == PlayRenderMode.rgb_array:
+            self.rl_img = worker.render_rgb_array(env, **self.kwargs)
             self.rl_maxw = max(self.rl_maxw, self.rl_img.shape[1])
             self.rl_maxh = max(self.rl_maxh, self.rl_img.shape[0])
 
@@ -165,6 +166,7 @@ class Rendering(Callback):
     # -----------------------------------------------
     def _create_image(self, frame):
         import cv2
+        from cv2 import Mat
 
         info_image = frame["info_image"]
         env_image = frame["env_image"]
@@ -198,7 +200,7 @@ class Rendering(Callback):
             rl_w = maxw - rl_image.shape[1]
             info_image = cv2.copyMakeBorder(info_image, 0, 0, 0, info_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
             rl_image = cv2.copyMakeBorder(rl_image, 0, 0, 0, rl_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
-            right_img = cv2.vconcat([info_image, rl_image])  # 縦連結
+            right_img = cv2.vconcat(cast(Mat, [info_image, rl_image]))  # 縦連結
             right_maxh = self.info_maxh + self.rl_maxh + padding * 4
 
         # --- env + rl_state:
@@ -213,7 +215,7 @@ class Rendering(Callback):
             rl_state_image = cv2.copyMakeBorder(
                 rl_state_image, 0, 0, 0, rl_state_w, cv2.BORDER_CONSTANT, value=(255, 255, 255)
             )
-            left_img = cv2.vconcat([env_image, rl_state_image])  # 縦連結
+            left_img = cv2.vconcat(cast(Mat, [env_image, rl_state_image]))  # 縦連結
             left_maxh = self.env_maxh + self.rl_state_maxh + padding * 4
 
         # --- left_img + right_img: 余白は下を埋める
@@ -222,7 +224,7 @@ class Rendering(Callback):
         right_h = maxh - right_img.shape[0]
         left_img = cv2.copyMakeBorder(left_img, 0, left_h, 0, 0, cv2.BORDER_CONSTANT, value=(255, 255, 255))
         right_img = cv2.copyMakeBorder(right_img, 0, right_h, 0, 0, cv2.BORDER_CONSTANT, value=(0, 0, 0))
-        img = cv2.hconcat([left_img, right_img])  # 横連結
+        img = cv2.hconcat(cast(Mat, [left_img, right_img]))  # 横連結
 
         return img
 
@@ -234,8 +236,8 @@ class Rendering(Callback):
         interval: float = -1,  # ms
         draw_info: bool = False,
     ):
-        if len(self.frames) == 0:
-            return None
+        assert len(self.frames) > 0
+
         import matplotlib.pyplot as plt
         from matplotlib.animation import ArtistAnimation
 
@@ -288,9 +290,9 @@ class Rendering(Callback):
         if len(self.frames) == 0:
             return
 
-        from IPython import display
+        from IPython import display  # type: ignore
 
         t0 = time.time()
         anime = self.create_anime(scale, interval, draw_info)
-        display.display(display.HTML(data=anime.to_jshtml()))
+        display.display(display.HTML(data=anime.to_jshtml()))  # type: ignore
         logger.info("display created({:.1f}s)".format(time.time() - t0))

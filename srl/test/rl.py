@@ -85,8 +85,8 @@ class TestRL:
     ):
         env_list = env_list.copy()
         train_kwargs_ = dict(
-            enable_evaluation=False,
-            enable_file_logger=False,
+            eval=None,
+            history=None,
         )
         train_kwargs_.update(train_kwargs)
         train_kwargs = train_kwargs_
@@ -247,9 +247,8 @@ class TestRL:
         config = config.copy(env_share=False)
 
         _train_kwargs = dict(
-            enable_evaluation=False,
-            enable_file_logger=False,
-            progress_max_time=60 * 5,
+            eval=None,
+            history=None,
             max_train_count=train_count,
             max_steps=train_steps,
         )
@@ -293,7 +292,6 @@ class TestRL:
         # --- eval
         _eval_kwargs = dict(
             max_episodes=episode,
-            print_progress=True,
         )
         _eval_kwargs.update(eval_kwargs)
         config.players
@@ -347,7 +345,7 @@ class TestRL:
         env = srl.make_env("Grid")
         env_org = cast(Grid, env.get_original_env())
 
-        worker = srl.make_worker(rl_config, parameter)
+        worker = srl.make_worker(rl_config, parameter, env=env)
 
         V, _Q = env_org.calc_action_values()
         Q = {}

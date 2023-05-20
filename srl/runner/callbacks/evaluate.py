@@ -1,14 +1,13 @@
 import logging
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
 
-from srl.base.define import PlayRenderMode
+from srl import runner
 from srl.base.rl.config import RLConfig
 from srl.runner.callback import Callback
 from srl.runner.config import Config
-from srl.runner.play_sequence import play
 
 logger = logging.getLogger(__name__)
 
@@ -17,45 +16,63 @@ logger = logging.getLogger(__name__)
 class Evaluate(Callback):
     env_sharing: bool = True
     interval: int = 0  # episode
-    num_episode: int = 1
-    eval_players: List[Union[None, str, RLConfig]] = field(default_factory=list)
+    # stop config
+    episode: int = 1
+    timeout: int = -1
+    max_steps: int = -1
+    # play config
+    players: List[Union[None, str, RLConfig]] = field(default_factory=list)
+    players_kwargs: List[dict] = field(default_factory=list)
+    shuffle_player: bool = False
+    # tensorflow options
+    device: str = "CPU"
+    tf_disable: bool = True
+    # random
+    seed: Optional[int] = None
+    # other
+    callbacks: List[Callback] = field(default_factory=list)
 
     def __post_init__(self):
         self.eval_config = None
 
-    def _create_eval_config(self, config: Config):
+    def create_eval_config(self, config: Config):
         eval_config = config.copy(env_share=self.env_sharing)
 
-        # random
-        eval_config.seed = None
-
-        eval_config.players = self.eval_players[:]
         eval_config.rl_config.remote_memory_path = ""
 
-        # stop config
-        eval_config.max_steps = -1
-        eval_config.max_episodes = self.num_episode
-        eval_config.timeout = -1
-        # play config
-        eval_config.shuffle_player = True
-        eval_config.disable_trainer = True
-        eval_config.render_mode = PlayRenderMode.none
-        eval_config.enable_profiling = False
-        # callbacks
-        eval_config.callbacks = []
+        eval_config.seed = self.seed
+        eval_config.device_main = self.device
+        eval_config.tf_disable = self.tf_disable
+        eval_config.players = self.players
+        eval_config.players_kwargs = self.players_kwargs
 
-        # play info
-        eval_config.training = False
-        eval_config.distributed = False
+        self.eval_config = eval_config
 
-        eval_config.run_name = "eval"
-        return eval_config
+    def evaluate(self, parameter):
+        if self.eval_config is None:
+            return
+        eval_rewards = runner.evaluate(
+            self.eval_config,
+            parameter=parameter,
+            max_episodes=self.episode,
+            timeout=self.timeout,
+            max_steps=self.max_steps,
+            shuffle_player=self.shuffle_player,
+            progress=None,
+            callbacks=self.callbacks,
+        )
+        if self.eval_config.env_config.player_num == 1:
+            eval_rewards = [np.mean(eval_rewards)]
+        else:
+            eval_rewards = np.mean(eval_rewards, axis=0)
+        return eval_rewards
 
+    # --- Actor
     def on_episodes_begin(self, info) -> None:
-        if info["actor_id"] != 0:
+        if info["config"].actor_id != 0:
             return
 
-        self.eval_config = self._create_eval_config(info["config"])
+        self.create_eval_config(info["config"])
         self.eval_episode = 0
 
     def on_episode_end(self, info) -> None:
@@ -64,11 +81,7 @@ class Evaluate(Callback):
 
         self.eval_episode += 1
         if self.eval_episode > self.interval:
-            eval_rewards, _, _, _ = play(
-                self.eval_config,
-                parameter=info["parameter"],
-            )
-            info["eval_rewards"] = np.mean(eval_rewards, axis=0)
+            info["eval_rewards"] = self.evaluate(info["parameter"])
             self.eval_episode = 0
 
     # --- Trainer
@@ -77,7 +90,7 @@ class Evaluate(Callback):
         if config.distributed:
             return
 
-        self.eval_config = self._create_eval_config(config)
+        self.create_eval_config(config)
 
     def on_trainer_train(self, info) -> None:
         if self.eval_config is None:
@@ -85,8 +98,4 @@ class Evaluate(Callback):
 
         train_count = info["train_count"]
         if train_count % (self.interval + 1) == 0:
-            eval_rewards, _, _, _ = play(
-                self.eval_config,
-                parameter=info["parameter"],
-            )
-            info["eval_rewards"] = np.mean(eval_rewards, axis=0)
+            info["eval_rewards"] = self.evaluate(info["parameter"])

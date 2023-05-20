@@ -69,6 +69,7 @@ class Config(DiscreteActionConfig):
     exploration_steps: int = 0  # 0 : no Annealing
 
     # --- model
+    framework: str = ""
     image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     # activation: str = "relu"  TODO

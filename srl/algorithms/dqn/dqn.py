@@ -75,6 +75,7 @@ class Config(DiscreteActionConfig):
     enable_rescale: bool = False
 
     # --- model
+    framework: str = ""
     image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
     hidden_block_config: IMLPBlockConfig = field(default_factory=lambda: MLPBlockConfig(layer_sizes=(512,)))
 

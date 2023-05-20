@@ -1,6 +1,4 @@
-import binascii
 import logging
-import lzma
 import os
 import pickle
 import time
@@ -72,6 +70,8 @@ class RLRemoteMemory(ABC):
 
     def restore(self, dat: Any, **kwargs) -> None:
         if isinstance(dat, tuple):
+            import lzma
+
             dat = lzma.decompress(dat[0])
             dat = pickle.loads(dat)
         self.call_restore(dat, **kwargs)
@@ -79,6 +79,8 @@ class RLRemoteMemory(ABC):
     def backup(self, compress: bool = False, **kwargs) -> Any:
         dat = self.call_backup(**kwargs)
         if compress:
+            import lzma
+
             dat = pickle.dumps(dat)
             dat = lzma.compress(dat)
             dat = (dat, True)
@@ -90,6 +92,8 @@ class RLRemoteMemory(ABC):
             t0 = time.time()
             dat = self.call_backup(**kwargs)
             if compress:
+                import lzma
+
                 dat = pickle.dumps(dat)
                 with lzma.open(path, "w") as f:
                     f.write(dat)
@@ -103,12 +107,16 @@ class RLRemoteMemory(ABC):
             raise
 
     def load(self, path: str, **kwargs) -> None:
+        import binascii
+
         logger.debug(f"memory load: {path}")
         t0 = time.time()
         # LZMA
         with open(path, "rb") as f:
             compress = binascii.hexlify(f.read(6)) == b"fd377a585a00"
         if compress:
+            import lzma
+
             with lzma.open(path) as f:
                 dat = f.read()
             dat = pickle.loads(dat)

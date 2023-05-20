@@ -17,9 +17,8 @@ logger = logging.getLogger(__name__)
 # 進捗に対して表示、少しずつ間隔を長くする(上限あり)
 @dataclass
 class PrintProgress(Callback):
-    max_time: int = 60 * 10  # s
-    start_time: int = 5  # s
-
+    interval_max_time: int = 60 * 10  # s
+    print_start_time: int = 5  # s
     print_env_info: bool = False
     print_worker_info: bool = True
     print_train_info: bool = True
@@ -28,11 +27,11 @@ class PrintProgress(Callback):
     max_actor: int = 5
 
     def __post_init__(self):
-        assert self.start_time > 0
-        if self.start_time > self.max_time:
-            logger.info(f"change start_time: {self.start_time}s -> {self.max_time}s")
-            self.start_time = self.max_time
-        self.progress_timeout = self.start_time
+        assert self.print_start_time > 0
+        if self.print_start_time > self.interval_max_time:
+            logger.info(f"change start_time: {self.print_start_time}s -> {self.interval_max_time}s")
+            self.print_start_time = self.interval_max_time
+        self.progress_timeout = self.print_start_time
         self.progress_step_count = 0
         self.progress_episode_count = 0
         self.step_count = 0
@@ -57,25 +56,24 @@ class PrintProgress(Callback):
 
         # 表示間隔を増やす
         self.progress_timeout *= 2
-        if self.progress_timeout > self.max_time:
-            self.progress_timeout = self.max_time
+        if self.progress_timeout > self.interval_max_time:
+            self.progress_timeout = self.interval_max_time
 
         return True
 
     def on_episodes_begin(self, info):
         self.config: Config = info["config"]
-        self.actor_id = info["actor_id"]
 
-        if self.actor_id >= self.max_actor:
+        if self.config.actor_id >= self.max_actor:
             return
 
-        self.enable_ps = False
+        self.enable_psutil = False
         try:
-            if self.config.enable_ps:
+            if self.config.enable_psutil:
                 import psutil
 
                 self._process = psutil.Process()
-                self.enable_ps = True
+                self.enable_psutil = True
         except Exception:
             logger.info(traceback.format_exc())
 
@@ -97,7 +95,7 @@ class PrintProgress(Callback):
         self.progress_history = []
 
     def on_episodes_end(self, info):
-        if self.actor_id >= self.max_actor:
+        if self.config.actor_id >= self.max_actor:
             return
 
         self.last_episode_count = info["episode_count"]
@@ -106,13 +104,13 @@ class PrintProgress(Callback):
         self._print_actor()
 
     def on_episode_begin(self, info):
-        if self.actor_id >= self.max_actor:
+        if self.config.actor_id >= self.max_actor:
             return
         self.history_step = []
         self.last_episode_count = info["episode_count"]
 
     def on_step_end(self, info):
-        if self.actor_id >= self.max_actor:
+        if self.config.actor_id >= self.max_actor:
             return
 
         self.step_count += 1
@@ -137,7 +135,7 @@ class PrintProgress(Callback):
             self._print_actor()
 
     def on_episode_end(self, info):
-        if self.actor_id >= self.max_actor:
+        if self.config.actor_id >= self.max_actor:
             return
 
         self.resent_episode_time.append(info["episode_time"])
@@ -178,7 +176,7 @@ class PrintProgress(Callback):
         # [TIME] [actor] [elapsed time]
         s = dt.datetime.now().strftime("%H:%M:%S")
         if self.config.distributed:
-            s += f" actor{self.actor_id:2d}:"
+            s += f" actor{self.config.actor_id:2d}:"
         s += f" {to_str_time(elapsed_time)}"
 
         # [remain]
@@ -297,8 +295,8 @@ class PrintProgress(Callback):
     def _memory_system_str(self, memory_len) -> str:
         # , 1234567mem,CPU100% M100%,GPU0 100% M100%
         s = ""
-        if self.actor_id != 0:
-            if self.enable_ps:
+        if self.config.actor_id != 0:
+            if self.enable_psutil:
                 try:
                     import psutil
 
@@ -312,7 +310,7 @@ class PrintProgress(Callback):
         else:
             s = f", {memory_len:5d}mem"
 
-            if self.enable_ps:
+            if self.enable_psutil:
                 try:
                     import psutil
 
@@ -372,13 +370,13 @@ class PrintProgress(Callback):
                 )
             )
 
-        self.enable_ps = False
+        self.enable_psutil = False
         try:
-            if self.config.enable_ps:
+            if self.config.enable_psutil:
                 import psutil
 
                 self._process = psutil.Process()
-                self.enable_ps = True
+                self.enable_psutil = True
         except Exception:
             logger.info(traceback.format_exc())
 
@@ -459,7 +457,7 @@ class PrintProgress(Callback):
 
             # [system]
             if self.config.distributed:
-                if self.enable_ps:
+                if self.enable_psutil:
                     try:
                         import psutil
 
@@ -471,7 +469,7 @@ class PrintProgress(Callback):
                         s += "[CPU Nan%]"
 
             else:
-                if self.enable_ps:
+                if self.enable_psutil:
                     try:
                         import psutil
 

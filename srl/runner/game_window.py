@@ -14,7 +14,7 @@ from srl.base.env.config import EnvConfig
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.config import RLConfig
 from srl.runner.callback import GameCallback
-from srl.runner.callbacks.file_log_reader import FileLogReader
+from srl.runner.callbacks.history_episode import HistoryEpisode
 from srl.utils import pygame_wrapper as pw
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,9 @@ class _GameWindow(ABC):
 
     def get_down_keys(self) -> List[int]:
         return [k for k, s in self.keys_status.items() if s == KeyStatus.DOWN]
+
+    def get_pressed_keys(self) -> List[int]:
+        return [k for k, s in self.keys_status.items() if s == KeyStatus.PRESSED]
 
     def play(self):
         if "SDL_VIDEODRIVER" in os.environ:
@@ -142,7 +145,10 @@ class _GameWindow(ABC):
                 0,
                 0,
                 self.env_image,
-                resize=(self.env_image.shape[1] * self.scale, self.env_image.shape[0] * self.scale),
+                resize=(
+                    int(self.env_image.shape[1] * self.scale),
+                    int(self.env_image.shape[0] * self.scale),
+                ),
             )
             pw.draw_image_rgb_array(self.screen, self.base_rl_x, self.base_rl_y, self.rl_image)
 
@@ -218,24 +224,24 @@ class _GameWindow(ABC):
 class PlayableGame(_GameWindow):
     def __init__(
         self,
-        config: EnvConfig,
-        players: List[Union[None, str, RLConfig]] = [None],
+        env_config: Union[str, EnvConfig],
+        # players: List[Union[None, str, RLConfig]] = [],  TODO
         key_bind: KeyBindType = None,
         action_division_num: int = 5,
         rl_config: Optional[RLConfig] = None,
+        rl_config_player: int = 0,  # rl_config_player が記録するプレイヤー
         callbacks: List[GameCallback] = [],
     ) -> None:
         super().__init__()
-        self.config = config
-        self.env = srl.make_env(config)
+        self.env = srl.make_env(env_config)
         self.action_division_num = action_division_num
-        self.players = players  # TODO
         self.callbacks = callbacks[:]
         self.noop = None
         self.step_time = 0
         self.rl_config = rl_config
+        self.rl_config_player = rl_config_player
 
-        # 扱いやすいように変形
+        # --- key bind (扱いやすいように変形)
         if key_bind is None:
             key_bind = self.env.get_key_bind()
         if key_bind is None:
@@ -259,21 +265,19 @@ class PlayableGame(_GameWindow):
                 self.key_bind_str[",".join(key_names)] = action
 
         self.key_bind = cast(Dict[Optional[Tuple[int]], EnvAction], self.key_bind)
-        self.relevant_keys = []
-        if self.key_bind is not None:
-            for keys in self.key_bind.keys():
-                self.relevant_keys.extend(keys)
-            self.relevant_keys = set(self.relevant_keys)
 
+        # --- reset
         self.env.reset(render_mode=PlayRenderMode.rgb_array)
-        env_image = self.env.render_rgb_array()
         self.env_interval = self.env.render_interval
-        self.set_image(env_image, None)
-        if self.rl_config is not None:
-            self.memory = srl.make_remote_memory(rl_config, self.env)
+        self.set_image(self.env.render_rgb_array(), None)
+        if rl_config is not None:
+            assert 0 <= rl_config_player < self.env.player_num
+            self.remote_memory = srl.make_remote_memory(rl_config, self.env)
             parameter = srl.make_parameter(rl_config, self.env)
-            self.worker = srl.make_worker(rl_config, parameter, self.memory, training=True)
-            self.worker.on_reset(self.env)
+            self.rl_worker = srl.make_worker(rl_config, parameter, self.remote_memory, training=True)
+            self.rl_worker.on_reset(self.env, self.rl_config_player)
+        else:
+            self.remote_memory = None
 
         self.scene = "START"
         self.mode = "Turn"  # "Turn" or "RealTime"
@@ -283,18 +287,25 @@ class PlayableGame(_GameWindow):
         self.valid_actions = []
 
         self._callback_info = {
-            "env_config": config,
             "env": self.env,
         }
         [c.on_game_init(self._callback_info) for c in self.callbacks]
 
     def _env_step(self, action):
         t0 = time.time()
+
+        # worker.policy
         if self.rl_config is not None:
-            _ = self.worker.policy(self.env)
+            _ = self.rl_worker.policy(self.env)
+
+        # env.step
         self.env.step(action)
+
+        # worker.on_step
         if self.rl_config is not None:
-            self.worker.on_step(self.env)
+            self.rl_worker.on_step(self.env)
+
+        # render
         self.set_image(self.env.render_rgb_array(), None)
         invalid_actions = self.env.get_invalid_actions()
         self.valid_actions = [a for a in range(self.action_size) if a not in invalid_actions]
@@ -373,7 +384,6 @@ class PlayableGame(_GameWindow):
 
                 if self.mode == "Turn":
                     # key_bindがない、Turnはアクション決定で1frame進める
-                    # 押しっぱなしも判定させる
                     is_step = False
                     for event in events:
                         if event.type == pygame.KEYDOWN:
@@ -393,7 +403,7 @@ class PlayableGame(_GameWindow):
 
             elif self.mode == "Turn":
                 # keybindがあり、Turnの場合は押したら進める
-                key = tuple(sorted(self.get_down_keys()))
+                key = tuple(sorted(self.get_pressed_keys()))
                 if key in self.key_bind:
                     self.action = self.key_bind[key]
                     self._env_step(self.action)
@@ -486,7 +496,7 @@ class PlayableGame(_GameWindow):
 
 
 class EpisodeReplay(_GameWindow):
-    def __init__(self, history: FileLogReader) -> None:
+    def __init__(self, history: HistoryEpisode) -> None:
         super().__init__()
 
         self.history = history

@@ -30,6 +30,7 @@ def set_seed(seed: Optional[int], enable_gpu: bool = False):
         if enable_gpu:
             # GPU内の計算順の固定
             os.environ["TF_DETERMINISTIC_OPS"] = "1"
+            logger.debug("set TF_DETERMINISTIC_OPS=1")
 
     if is_package_imported("torch"):
         import torch

@@ -11,7 +11,7 @@ def test_play():
     rl_config = srl.rl.dummy.Config()
 
     config = sequence.Config(env_config, rl_config, seed=1, seed_enable_gpu=True)
-    parameter, _, _ = sequence.train(config, max_episodes=10, enable_file_logger=False)
+    parameter, _, _ = sequence.train(config, max_episodes=10)
 
     # reward1 == reward3
     # reward2 == reward4

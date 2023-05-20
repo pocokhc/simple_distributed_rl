@@ -1,7 +1,11 @@
 import copy
 import logging
 from dataclasses import dataclass, field
-from typing import Dict
+from typing import TYPE_CHECKING, Dict
+
+if TYPE_CHECKING:
+    from srl.base.env.base import EnvBase, EnvRun
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,17 +33,13 @@ class EnvConfig:
     check_action: bool = True
     check_val: bool = True
 
-    def __post_init__(self):
-        # The device used by the framework.
-        self.used_device_tf: str = "/CPU"
-        self.used_device_torch: str = "cpu"
-
-    def make_env(self) -> "srl.base.env.base.EnvRun":
+    def make_env(self) -> "EnvRun":
         from srl.base.env.registration import make
 
         return make(self)
 
     def _update_env_info(self, env: "EnvBase"):
+        """env 作成時に env 情報を元に Config を更新"""
         if self.max_episode_steps <= 0:
             self.max_episode_steps = env.max_episode_steps
         self.player_num = env.player_num

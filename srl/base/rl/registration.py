@@ -120,6 +120,25 @@ def make_worker_rulebase(
     return worker
 
 
+def make_worker_env(
+    env: EnvRun,
+    name: str,
+    env_worker_kwargs={},
+    training: bool = False,
+    distributed: bool = False,
+    font_name: str = "",
+    font_size: int = 12,
+) -> Optional[WorkerRun]:
+    return env.make_worker(
+        name,
+        training,
+        distributed,
+        font_name,
+        font_size,
+        env_worker_kwargs=env_worker_kwargs,
+    )
+
+
 def register(
     config: RLConfig,
     memory_entry_point: str,

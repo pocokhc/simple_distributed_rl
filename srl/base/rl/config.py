@@ -1,14 +1,17 @@
 import logging
-import pickle
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, List, Optional, Tuple, Type
 
 from srl.base.define import EnvObservationType, RLActionType, RLObservationType
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
 from srl.utils import common
+
+if TYPE_CHECKING:
+    from srl.base.rl.worker import ExtendWorker
+
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +31,6 @@ class RLConfig(ABC):
     use_rl_processor: bool = True  # RL側のprocessorを使用するか
     change_observation_render_image: bool = False  # 状態の入力をrender_imageに変更
 
-    # model
-    framework: str = ""
-
     # render option
     font_name: str = ""
     font_size: int = 12
@@ -39,16 +39,18 @@ class RLConfig(ABC):
         self._is_set_env_config = False
 
         # The device used by the framework.
-        self.used_device_tf: str = "/CPU"
-        self.used_device_torch: str = "cpu"
+        self._used_device_tf: str = "/CPU"
+        self._used_device_torch: str = "cpu"
 
         self._check_parameter = True
 
     def assert_params(self) -> None:
         assert self.window_length > 0
 
-    def get_use_framework(self) -> str:
-        framework = self.framework
+    def get_use_framework(self) -> Optional[str]:
+        if not hasattr(self, "framework"):
+            return None
+        framework = getattr(self, "framework")
         if framework == "tf":
             return "tensorflow"
         if framework == "":
@@ -57,6 +59,7 @@ class RLConfig(ABC):
         if framework == "":
             if common.is_package_installed("torch"):
                 framework = "torch"
+        assert framework != "", "'tensorflow' or 'torch' could not be found."
         return framework
 
     # ----------------------------
@@ -194,6 +197,14 @@ class RLConfig(ABC):
         return self._is_set_env_config
 
     @property
+    def used_device_tf(self) -> str:
+        return self._used_device_tf
+
+    @property
+    def used_device_torch(self) -> str:
+        return self._used_device_torch
+
+    @property
     def action_space(self) -> SpaceBase:
         return self._env_action_space
 
@@ -210,6 +221,8 @@ class RLConfig(ABC):
         return self._env_observation_type
 
     def copy(self, reset_env_config: bool = False) -> "RLConfig":
+        import pickle
+
         config = self.__class__()
         config._check_parameter = False
 

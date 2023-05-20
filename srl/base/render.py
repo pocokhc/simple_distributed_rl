@@ -3,7 +3,9 @@ import time
 from typing import Optional, Union
 
 import numpy as np
+
 from srl.base.define import PlayRenderMode, RenderMode
+from srl.utils.common import is_packages_installed
 from srl.utils.render_functions import print_to_text, text_to_rgb_array
 
 logger = logging.getLogger(__name__)
@@ -43,6 +45,20 @@ class Render:
     def reset(self, mode: Union[str, PlayRenderMode], interval: float = -1):
         self.interval = interval
         self.mode = PlayRenderMode.from_str(mode)
+
+        if self.mode in [PlayRenderMode.rgb_array, PlayRenderMode.window]:
+            assert is_packages_installed(
+                [
+                    "cv2",
+                    "matplotlib",
+                    "PIL",
+                    "pygame",
+                ]
+            ), (
+                "To use animation you need to install 'cv2', 'matplotlib', 'PIL', 'pygame'."
+                "(pip install opencv-python matplotlib pillow pygame)"
+            )
+
         self.render_obj.set_render_mode(PlayRenderMode.convert_render_mode(self.mode))
 
     def cache_reset(self):

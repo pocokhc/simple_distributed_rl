@@ -1,7 +1,6 @@
 # TODO list
 
 1. BizHawkのenv作成
-1. ネットワーク経由の学習
 1. tensorboard
 1. (IMPALA)
 
@@ -9,12 +8,18 @@
 
 **MainUpdates**
 
+1. runner配下を大幅にリファクタリング
+   1. progress等のoptionの指定を引数からクラス形式に変更、使い方が変わります（examplesを参照）
+   1. examples配下を合わせて整理
 1. srl.rl.models配下を再整理し、もう1つ階層を追加（importのpathも変わります）
 1. PriorityMemoryの設定方法をmodelと同様にConfigクラスに変更
    1. BestEpisodeMemory と DemoMemory を追加
    1. env_play に人間が操作した結果を memory に保存する仕組みを追加(R2D3みたいな)
    1. PriorityMemory にエピソード終了処理を入れたかったので on_step を追加
    1. この修正に合わせて PriorityMemory を使っているアルゴリズムも修正
+1. VSCode上でpylanceによるエラーをなくすように修正
+   1. define.py の型アノテーションを全部Typeで終わる名前に変更
+1. remote（分散コンピューティングによる学習）をテスト導入
 
 **Algorims**
 
@@ -148,7 +153,7 @@ Env を手動操作のみで実行できる env_play の追加と、実行結果
    1. env_play用に、get_key_bind を追加（暫定導入）
 1. RL
    1. RL側でdiscreteとcontinuousの両方に対応できる場合の書き方を整理
-      + base.Space に base_action_type を追加
+      + base.Space に rl_action_type を追加
       + rl.algorithms に any_action.py を作成
       + サンプルとして、vanilla_policy_discrete.py と vanilla_policy_continuous.py をvanilla_policy.py に統合
 1. Callbacks

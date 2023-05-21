@@ -3,7 +3,7 @@ import itertools
 import numpy as np
 import pytest
 
-from srl.base.define import RLActionType
+from srl.base.define import RLActionTypes
 from srl.base.env.spaces import BoxSpace
 
 from .space_test import SpaceTest
@@ -20,7 +20,7 @@ def _check_action(decode_action, true_shape, true_action):
 def test_space1():
     space = BoxSpace((1,), -1, 3)
     tester = SpaceTest(space)
-    assert space.base_action_type == RLActionType.CONTINUOUS
+    assert space.rl_action_type == RLActionTypes.CONTINUOUS
 
     print(space)
 
@@ -40,6 +40,7 @@ def test_space1():
         [2],
         [3],
     ]
+    assert space.action_tbl is not None
     np.testing.assert_array_equal(true_tbl[0], space.action_tbl[0])
     decode_action = tester.check_action_discrete(
         true_n=5,
@@ -91,6 +92,7 @@ def test_space2():
     space.set_action_division(5)
     _t = list(itertools.product([-1, 0, 1, 2, 3], [-1, 0, 1, 2, 3]))
     true_tbl = list(itertools.product(_t, _t, _t))
+    assert space.action_tbl is not None
     for a in range(len(true_tbl)):
         np.testing.assert_array_equal(true_tbl[a], space.action_tbl[a])
     decode_action = tester.check_action_discrete(
@@ -140,7 +142,7 @@ def test_inf():
     # action discrete
     space.set_action_division(5)
     with pytest.raises(NotImplementedError):
-        space.action_discrete_encode(None)
+        space.action_discrete_encode(None)  # type: ignore
 
     # action_continuous
     decode_action = tester.check_action_continuous(

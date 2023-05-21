@@ -5,28 +5,25 @@ from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-import tensorflow.keras.layers as kl
+from tensorflow import keras
 
-from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.define import EnvObservationTypes, RLObservationTypes
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (
-    calc_epsilon_greedy_probs,
-    create_beta_list,
-    create_discount_list,
-    create_epsilon_list,
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
+from srl.rl.functions.common import (calc_epsilon_greedy_probs,
+                                     create_beta_list, create_discount_list,
+                                     create_epsilon_list, inverse_rescaling,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling)
 from srl.rl.memories.config import ReplayMemoryConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
+
+kl = keras.layers
 
 """
 Paper: https://arxiv.org/abs/2003.13350
@@ -64,7 +61,7 @@ Other
 
 def create_input_layer(
     observation_shape: Tuple[int, ...],
-    observation_type: EnvObservationType,
+    observation_type: EnvObservationTypes,
 ) -> Tuple[kl.Layer, kl.Layer, bool]:
     """状態の入力レイヤーを作成して返します
 
@@ -88,15 +85,15 @@ def create_input_layer(
 
     # --- value head
     if (
-        observation_type == EnvObservationType.DISCRETE
-        or observation_type == EnvObservationType.CONTINUOUS
-        or observation_type == EnvObservationType.UNKNOWN
+        observation_type == EnvObservationTypes.DISCRETE
+        or observation_type == EnvObservationTypes.CONTINUOUS
+        or observation_type == EnvObservationTypes.UNKNOWN
     ):
         c = kl.Flatten()(c)
-        return in_layer, c, False
+        return cast(kl.Layer, in_layer), cast(kl.Layer, c), False
 
     # --- image head
-    if observation_type == EnvObservationType.GRAY_2ch:
+    if observation_type == EnvObservationTypes.GRAY_2ch:
         if len(observation_shape) == 2:
             # (w, h) -> (w, h, 1)
             c = kl.Reshape(observation_shape + (1,))(c)
@@ -106,7 +103,7 @@ def create_input_layer(
         else:
             raise ValueError(err_msg)
 
-    elif observation_type == EnvObservationType.GRAY_3ch:
+    elif observation_type == EnvObservationTypes.GRAY_3ch:
         assert observation_shape[-1] == 1
         if len(observation_shape) == 3:
             # (w, h, 1)
@@ -119,14 +116,14 @@ def create_input_layer(
         else:
             raise ValueError(err_msg)
 
-    elif observation_type == EnvObservationType.COLOR:
+    elif observation_type == EnvObservationTypes.COLOR:
         if len(observation_shape) == 3:
             # (w, h, ch)
             pass
         else:
             raise ValueError(err_msg)
 
-    elif observation_type == EnvObservationType.SHAPE2:
+    elif observation_type == EnvObservationTypes.SHAPE2:
         if len(observation_shape) == 2:
             # (w, h) -> (w, h, 1)
             c = kl.Reshape(observation_shape + (1,))(c)
@@ -136,7 +133,7 @@ def create_input_layer(
         else:
             raise ValueError(err_msg)
 
-    elif observation_type == EnvObservationType.SHAPE3:
+    elif observation_type == EnvObservationTypes.SHAPE3:
         if len(observation_shape) == 3:
             # (n, w, h) -> (w, h, n)
             c = kl.Permute((2, 3, 1))(c)
@@ -146,13 +143,13 @@ def create_input_layer(
     else:
         raise ValueError(err_msg)
 
-    return in_layer, c, True
+    return cast(kl.Layer, in_layer), cast(kl.Layer, c), True
 
 
 def create_input_layer_stateful_lstm(
     batch_size: int,
     observation_shape: Tuple[int, ...],
-    observation_type: EnvObservationType,
+    observation_type: EnvObservationTypes,
 ) -> Tuple[kl.Layer, kl.Layer, bool]:
     """状態の入力レイヤーを作成して返します。
     input_sequence は1で固定します。
@@ -178,38 +175,38 @@ def create_input_layer_stateful_lstm(
 
     # --- value head
     if (
-        observation_type == EnvObservationType.DISCRETE
-        or observation_type == EnvObservationType.CONTINUOUS
-        or observation_type == EnvObservationType.UNKNOWN
+        observation_type == EnvObservationTypes.DISCRETE
+        or observation_type == EnvObservationTypes.CONTINUOUS
+        or observation_type == EnvObservationTypes.UNKNOWN
     ):
         c = kl.TimeDistributed(kl.Flatten())(c)
-        return in_layer, c, False
+        return cast(kl.Layer, in_layer), cast(kl.Layer, c), False
 
     # --- image head
-    if observation_type == EnvObservationType.GRAY_2ch:
+    if observation_type == EnvObservationTypes.GRAY_2ch:
         assert len(input_shape) == 3
 
         # (timesteps, w, h) -> (timesteps, w, h, 1)
         c = kl.Reshape(input_shape + (-1,))(c)
 
-    elif observation_type == EnvObservationType.GRAY_3ch:
+    elif observation_type == EnvObservationTypes.GRAY_3ch:
         assert len(input_shape) == 4
         assert input_shape[-1] == 1
 
         # (timesteps, width, height, 1)
 
-    elif observation_type == EnvObservationType.COLOR:
+    elif observation_type == EnvObservationTypes.COLOR:
         assert len(input_shape) == 4
 
         # (timesteps, width, height, ch)
 
-    elif observation_type == EnvObservationType.SHAPE2:
+    elif observation_type == EnvObservationTypes.SHAPE2:
         assert len(input_shape) == 3
 
         # (timesteps, width, height) -> (timesteps, width, height, 1)
         c = kl.Reshape(input_shape + (-1,))(c)
 
-    elif observation_type == EnvObservationType.SHAPE3:
+    elif observation_type == EnvObservationTypes.SHAPE3:
         assert len(input_shape) == 4
 
         # (timesteps, n, width, height) -> (timesteps, width, height, n)
@@ -218,7 +215,7 @@ def create_input_layer_stateful_lstm(
     else:
         raise ValueError(f"unknown observation_type: {observation_type}")
 
-    return in_layer, c, True
+    return cast(kl.Layer, in_layer), cast(kl.Layer, c), True
 
 
 # ------------------------------------------------------
@@ -298,15 +295,15 @@ class Config(DiscreteActionConfig):
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(
-                image_type=EnvObservationType.GRAY_2ch,
+                image_type=EnvObservationTypes.GRAY_2ch,
                 resize=(84, 84),
                 enable_norm=True,
             )
         ]
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.CONTINUOUS
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "Agent57_stateful"
@@ -405,7 +402,7 @@ class _QNetwork(keras.Model):
             )(c)
 
         self.model = keras.Model([in_state] + input_list, c, name="QNetwork")
-        self.lstm_layer = self.model.get_layer("lstm")
+        self.lstm_layer: kl.LSTM = self.model.get_layer("lstm")
 
         # 重みを初期化
         dummy1 = np.zeros(shape=(config.batch_size, 1) + config.observation_shape, dtype=np.float32)
@@ -413,7 +410,7 @@ class _QNetwork(keras.Model):
         dummy3 = np.zeros(shape=(config.batch_size, 1, 1), dtype=np.float32)
         dummy4 = np.zeros(shape=(config.batch_size, 1, config.action_num), dtype=np.float32)
         dummy5 = np.zeros(shape=(config.batch_size, 1, config.actor_num), dtype=np.float32)
-        val, _ = self(dummy1, dummy2, dummy3, dummy4, dummy5, None)
+        val, _ = self(dummy1, dummy2, dummy3, dummy4, dummy5, None)  # type:ignore
         assert val.shape == (config.batch_size, config.action_num)
 
     def call(self, state, reward_ext, reward_int, onehot_action, onehot_actor, hidden_states):
@@ -460,7 +457,7 @@ class _EmbeddingNetwork(keras.Model):
                 h,
                 activation="relu",
                 kernel_initializer="he_normal",
-                bias_initializer=keras.initializers.constant(0.001),
+                bias_initializer=keras.initializers.constant(0.001),  # type:ignore
             )(c)
         self.model1 = keras.Model(in_state, c, name="EmbeddingNetwork_predict")
 
@@ -482,7 +479,7 @@ class _EmbeddingNetwork(keras.Model):
         # 重みを初期化
         dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         val = self(dummy_state, dummy_state)
-        assert val.shape == (1, config.action_num)
+        assert val.shape == (1, config.action_num)  # type:ignore
 
     def call(self, state1, state2):
         c1 = self.model1(state1)
@@ -524,7 +521,7 @@ class _LifelongNetwork(keras.Model):
         # 重みを初期化
         dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         val = self(dummy_state)
-        assert val.shape == (1, config.lifelong_hidden_layer_sizes[-1])
+        assert val.shape == (1, config.lifelong_hidden_layer_sizes[-1])  # type:ignore
 
     def call(self, state):
         return self.model(state)
@@ -624,7 +621,7 @@ class Trainer(RLTrainer):
 
         indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
         td_errors, info = self._train_on_batchs(batchs, weights)
-        self.remote_memory.update(indices, batchs, td_errors)
+        self.remote_memory.update(indices, batchs, np.array(td_errors))
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
@@ -723,10 +720,10 @@ class Trainer(RLTrainer):
                 burnin_actions_onehot[i],
                 actor_idx_onehot,
             ]
-            _, hidden_states_ext = self.parameter.q_ext_online(*_burnin, hidden_states_ext)
-            _, hidden_states_int = self.parameter.q_int_online(*_burnin, hidden_states_int)
-            _, hidden_states_ext_t = self.parameter.q_ext_target(*_burnin, hidden_states_ext_t)
-            _, hidden_states_int_t = self.parameter.q_int_target(*_burnin, hidden_states_int_t)
+            _, hidden_states_ext = self.parameter.q_ext_online(*_burnin, hidden_states_ext)  # type:ignore
+            _, hidden_states_int = self.parameter.q_int_online(*_burnin, hidden_states_int)  # type:ignore
+            _, hidden_states_ext_t = self.parameter.q_ext_target(*_burnin, hidden_states_ext_t)  # type:ignore
+            _, hidden_states_int_t = self.parameter.q_int_target(*_burnin, hidden_states_int_t)  # type:ignore
 
         _params = [
             step_states_list,
@@ -845,8 +842,8 @@ class Trainer(RLTrainer):
             ]
             n_q, _ = model_q_online(*_in, hidden_states)
             n_q_target, _ = model_q_target(*_in, hidden_states_t)
-            n_q = tf.stop_gradient(n_q).numpy()
-            n_q_target = tf.stop_gradient(n_q_target).numpy()
+            n_q = tf.stop_gradient(n_q).numpy()  # type:ignore
+            n_q_target = tf.stop_gradient(n_q_target).numpy()  # type:ignore
             # q, target_q, td_error, retrace, loss
             return n_q, n_q_target, 0.0, 1.0, 0.0
 
@@ -860,7 +857,7 @@ class Trainer(RLTrainer):
 
         # return用にq_targetを計算
         q_target, n_hidden_states_t = model_q_target(*_in, hidden_states_t)
-        q_target = tf.stop_gradient(q_target).numpy()
+        q_target = tf.stop_gradient(q_target).numpy()  # type:ignore
 
         # --- 勾配 + targetQを計算
         with tf.GradientTape() as tape:
@@ -942,7 +939,7 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, model_q_online.trainable_variables)
         optimizer.apply_gradients(zip(grads, model_q_online.trainable_variables))
         # --- 勾配計算ここまで
-        q = tf.stop_gradient(q).numpy()
+        q = tf.stop_gradient(q).numpy()  # type:ignore
 
         if idx == 0 or self.config.enable_retrace:
             td_error = target_q - q_onehot.numpy() + discount_list * retrace * n_td_error
@@ -1104,8 +1101,8 @@ class Worker(DiscreteActionWorker):
             prev_onehot_action,
             self.onehot_actor_idx,
         ]
-        self.q_ext, self.hidden_state_ext = self.parameter.q_ext_online(*in_, self.hidden_state_ext)
-        self.q_int, self.hidden_state_int = self.parameter.q_int_online(*in_, self.hidden_state_int)
+        self.q_ext, self.hidden_state_ext = self.parameter.q_ext_online(*in_, self.hidden_state_ext)  # type:ignore
+        self.q_int, self.hidden_state_int = self.parameter.q_int_online(*in_, self.hidden_state_int)  # type:ignore
         self.q_ext = self.q_ext[0].numpy()
         self.q_int = self.q_int[0].numpy()
         self.q = self.q_ext + self.beta * self.q_int
@@ -1218,7 +1215,7 @@ class Worker(DiscreteActionWorker):
                     # targetQはモンテカルロ法
                     reward_ext = 0
                     reward_int = 0
-                    for batch, info in reversed(self._history_batch):
+                    for batch, info in reversed(self._history_batch):  # type:ignore
                         if self.config.enable_rescale:
                             _r_ext = inverse_rescaling(reward_ext)
                             _r_int = inverse_rescaling(reward_int)
@@ -1256,7 +1253,7 @@ class Worker(DiscreteActionWorker):
 
         if self._calc_td_error:
             # エピソード最後に計算してメモリに送る
-            self._history_batch.append([batch, calc_info])
+            self._history_batch.append([batch, calc_info])  # type:ignore
         else:
             # 計算する必要がない場合はそのままメモリに送る
             self.remote_memory.add(batch, None)
@@ -1268,7 +1265,7 @@ class Worker(DiscreteActionWorker):
         c = self.config.episodic_pseudo_counts
 
         # 埋め込み関数から制御可能状態を取得
-        cont_state = self.parameter.emb_network.predict(state)[0].numpy()
+        cont_state = self.parameter.emb_network.predict(state)[0].numpy()  # type:ignore
 
         # 初回
         if len(self.episodic_memory) == 0:
@@ -1305,8 +1302,8 @@ class Worker(DiscreteActionWorker):
 
     def _calc_lifelong_reward(self, state):
         # RND取得
-        rnd_target_val = self.parameter.lifelong_target(state)[0]
-        rnd_train_val = self.parameter.lifelong_train(state)[0]
+        rnd_target_val = self.parameter.lifelong_target(state)[0]  # type:ignore
+        rnd_train_val = self.parameter.lifelong_train(state)[0]  # type:ignore
 
         # MSE
         error = np.square(rnd_target_val - rnd_train_val).mean()

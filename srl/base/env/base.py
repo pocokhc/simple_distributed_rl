@@ -1,18 +1,28 @@
 import logging
 import pickle
 import time
-import traceback
 from abc import ABC, abstractmethod
-from typing import Any, Callable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, Union
 
 import numpy as np
 
-import srl
-from srl.base.define import EnvAction, EnvObservation, EnvObservationType, Info, KeyBindType, PlayRenderMode
+from srl.base.define import (
+    EnvActionType,
+    EnvObservationType,
+    EnvObservationTypes,
+    InfoType,
+    InvalidActionsType,
+    KeyBindType,
+    PlayRenderModes,
+)
 from srl.base.env.config import EnvConfig
 from srl.base.env.spaces.discrete import DiscreteSpace
 from srl.base.env.spaces.space import SpaceBase
 from srl.base.render import IRender, Render
+
+if TYPE_CHECKING:
+    from srl.base.rl.worker import WorkerBase, WorkerRun
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +46,7 @@ class EnvBase(ABC, IRender):
 
     @property
     @abstractmethod
-    def observation_type(self) -> EnvObservationType:
+    def observation_type(self) -> EnvObservationTypes:
         raise NotImplementedError()
 
     # --- properties
@@ -54,14 +64,16 @@ class EnvBase(ABC, IRender):
     @property
     def reward_info(self) -> dict:
         return {
-            "range": None,
+            "min": None,
+            "max": None,
+            "baseline": None,
         }
 
     # --------------------------------
     # implement functions
     # --------------------------------
     @abstractmethod
-    def reset(self) -> Tuple[EnvObservation, Info]:
+    def reset(self) -> Tuple[EnvObservationType, InfoType]:
         """reset
 
         Returns: init_state, info
@@ -69,7 +81,7 @@ class EnvBase(ABC, IRender):
         raise NotImplementedError()
 
     @abstractmethod
-    def step(self, action: EnvAction) -> Tuple[EnvObservation, List[float], bool, Info]:
+    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], bool, InfoType]:
         """step
 
         Args:
@@ -107,10 +119,10 @@ class EnvBase(ABC, IRender):
     def close(self) -> None:
         pass
 
-    def get_invalid_actions(self, player_index: int = -1) -> List[int]:
+    def get_invalid_actions(self, player_index: int = -1) -> InvalidActionsType:
         return []
 
-    def action_to_str(self, action: Union[str, EnvAction]) -> str:
+    def action_to_str(self, action: Union[str, EnvActionType]) -> str:
         return str(action)
 
     def get_key_bind(self) -> KeyBindType:
@@ -120,7 +132,7 @@ class EnvBase(ABC, IRender):
         self,
         name: str,
         **kwargs,
-    ) -> Optional["srl.base.rl.base.WorkerBase"]:
+    ) -> Optional["WorkerBase"]:
         return None
 
     def get_original_env(self) -> object:
@@ -136,7 +148,7 @@ class EnvBase(ABC, IRender):
     # --------------------------------
     # direct
     # --------------------------------
-    def direct_step(self, *args, **kwargs) -> Tuple[bool, EnvObservation, int, Info]:
+    def direct_step(self, *args, **kwargs) -> Tuple[bool, EnvObservationType, int, InfoType]:
         """direct step
         外部で環境を動かしてpolicyだけ実行したい場合に実装します。
         これは学習で使う場合を想定していません。
@@ -150,7 +162,7 @@ class EnvBase(ABC, IRender):
         """
         raise NotImplementedError()
 
-    def decode_action(self, action: EnvAction) -> Any:
+    def decode_action(self, action: EnvActionType) -> Any:
         raise NotImplementedError()
 
     @property
@@ -170,7 +182,7 @@ class EnvBase(ABC, IRender):
         env.restore(self.backup())
         return env
 
-    def get_valid_actions(self, player_index: int = -1) -> List[int]:
+    def get_valid_actions(self, player_index: int = -1) -> InvalidActionsType:
         if isinstance(self.action_space, DiscreteSpace):
             invalid_actions = self.get_invalid_actions(player_index)
             return [a for a in range(self.action_space.n) if a not in invalid_actions]
@@ -190,7 +202,7 @@ class EnvRun:
 
     def init(self):
         self._step_num = 0
-        self._state = None
+        # self._state = None
         self._episode_rewards = np.array(0)
         self._step_rewards = np.array(0)
         self._done = True
@@ -211,10 +223,11 @@ class EnvRun:
         self.close()
 
     def close(self) -> None:
-        logger.debug("env.close")
         try:
             self.env.close()
         except Exception:
+            import traceback
+
             logger.error(traceback.format_exc())
 
     # ------------------------------------
@@ -222,12 +235,10 @@ class EnvRun:
     # ------------------------------------
     def reset(
         self,
-        render_mode: Union[str, PlayRenderMode] = "",
+        render_mode: Union[str, PlayRenderModes] = "",
         render_interval: float = -1,
         seed: Optional[int] = None,
     ) -> None:
-        logger.debug(f"env.reset({render_mode}, {render_interval}, {seed})")
-
         # --- seed
         self.env.set_seed(seed)
 
@@ -255,7 +266,7 @@ class EnvRun:
 
     def step(
         self,
-        action: EnvAction,
+        action: EnvActionType,
         skip_function: Optional[Callable[[], None]] = None,
     ) -> None:
         assert not self.done, "It is in the done state. Please execute reset()."
@@ -292,7 +303,7 @@ class EnvRun:
 
         return self._step(state, step_rewards, done, info)
 
-    def _step(self, state, rewards, done, info):
+    def _step(self, state: EnvObservationType, rewards: np.ndarray, done: bool, info: InfoType):
         self._state = state
         self._step_rewards = rewards
         self._done = done
@@ -360,7 +371,7 @@ class EnvRun:
     # ------------------------------------
     # check
     # ------------------------------------
-    def check_action(self, action, error_msg: str = "") -> EnvAction:
+    def check_action(self, action: EnvActionType, error_msg: str = "") -> EnvActionType:
         try:
             if action in self.get_invalid_actions():
                 logger.error(f"{action}({type(action)}), {error_msg}, invalid action {self.get_invalid_actions()}")
@@ -369,14 +380,14 @@ class EnvRun:
             logger.error(f"{action}({type(action)}), {error_msg}, {e}")
         return self.env.action_space.get_default()
 
-    def check_state(self, state, error_msg: str = "") -> EnvObservation:
+    def check_state(self, state: EnvObservationType, error_msg: str = "") -> EnvObservationType:
         try:
             return self.env.observation_space.convert(state)
         except Exception as e:
             logger.error(f"{state}({type(state)}), {error_msg}, {e}")
         return self.env.observation_space.get_default()
 
-    def check_rewards(self, rewards, error_msg: str = "") -> List[float]:
+    def check_rewards(self, rewards: List[float], error_msg: str = "") -> List[float]:
         try:
             for i, r in enumerate(rewards):
                 try:
@@ -389,7 +400,7 @@ class EnvRun:
             logger.error(f"{rewards}({type(rewards)}), {error_msg}, {e}")
         return [0.0 for _ in range(self.player_num)]
 
-    def check_done(self, done, error_msg: str = "") -> bool:
+    def check_done(self, done: bool, error_msg: str = "") -> bool:
         try:
             return bool(done)
         except Exception as e:
@@ -410,7 +421,7 @@ class EnvRun:
         return self.env.observation_space
 
     @property
-    def observation_type(self) -> EnvObservationType:
+    def observation_type(self) -> EnvObservationTypes:
         return self.env.observation_type
 
     @property
@@ -427,7 +438,7 @@ class EnvRun:
 
     # state properties
     @property
-    def state(self) -> EnvObservation:
+    def state(self) -> EnvObservationType:
         return self._state
 
     @property
@@ -459,7 +470,7 @@ class EnvRun:
         return self._step_rewards
 
     @property
-    def info(self) -> Info:
+    def info(self) -> InfoType:
         return self._info
 
     @property
@@ -468,7 +479,7 @@ class EnvRun:
         return self.step_rewards[self.prev_player_index]
 
     # invalid actions
-    def get_invalid_actions(self, player_index: int = -1) -> List[int]:
+    def get_invalid_actions(self, player_index: int = -1) -> InvalidActionsType:
         if isinstance(self.action_space, DiscreteSpace):
             if player_index == -1:
                 player_index = self.next_player_index
@@ -476,19 +487,19 @@ class EnvRun:
         else:
             return []
 
-    def get_valid_actions(self, player_index: int = -1) -> List[int]:
+    def get_valid_actions(self, player_index: int = -1) -> InvalidActionsType:
         if isinstance(self.action_space, DiscreteSpace):
             invalid_actions = self.get_invalid_actions(player_index)
             return [a for a in range(self.action_space.n) if a not in invalid_actions]
         else:
             assert False, "not support"
 
-    def add_invalid_actions(self, invalid_actions: List[int], player_index: int) -> None:
+    def add_invalid_actions(self, invalid_actions: InvalidActionsType, player_index: int) -> None:
         self._invalid_actions_list[player_index] += invalid_actions
         self._invalid_actions_list[player_index] = list(set(self._invalid_actions_list[player_index]))
 
     # other functions
-    def action_to_str(self, action: Union[str, EnvAction]) -> str:
+    def action_to_str(self, action: Union[str, EnvActionType]) -> str:
         return self.env.action_to_str(action)
 
     def get_key_bind(self) -> KeyBindType:
@@ -503,7 +514,7 @@ class EnvRun:
         font_size: int = 12,
         enable_raise: bool = True,
         env_worker_kwargs: dict = {},
-    ) -> "srl.base.rl.worker.WorkerRun":
+    ) -> Optional["WorkerRun"]:
         env_worker_kwargs = env_worker_kwargs.copy()
         env_worker_kwargs["training"] = training
         env_worker_kwargs["distributed"] = distributed
@@ -519,6 +530,9 @@ class EnvRun:
 
     def get_original_env(self) -> object:
         return self.env.get_original_env()
+
+    def get_env_base(self) -> EnvBase:
+        return self.env
 
     @property
     def render_interval(self) -> float:
@@ -552,9 +566,9 @@ class EnvRun:
 
         if self.is_start_episode:
             self._reset()
-        self._step(state, [0.0] * self.player_num, False, info)
+        self._step(state, np.zeros((self.player_num,)), False, info)
 
-    def decode_action(self, action: EnvAction) -> Any:
+    def decode_action(self, action: EnvActionType) -> Any:
         if self.config.check_action:
             action = self.check_action(action, "The format of 'action' entered in 'env.direct' was wrong.")
         return self.env.decode_action(action)
@@ -562,7 +576,7 @@ class EnvRun:
     # ------------------------------------
     # util functions
     # ------------------------------------
-    def sample(self, player_index: int = -1) -> EnvAction:
+    def sample(self, player_index: int = -1) -> EnvActionType:
         return self.action_space.sample(self.get_invalid_actions(player_index))
 
     def copy(self):

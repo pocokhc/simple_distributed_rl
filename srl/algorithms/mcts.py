@@ -4,7 +4,7 @@ from typing import Any, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import RLObservationType
+from srl.base.define import RLObservationTypes
 from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
@@ -25,8 +25,8 @@ class Config(DiscreteActionConfig):
     uct_c: float = np.sqrt(2.0)
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.DISCRETE
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.DISCRETE
 
     def getName(self) -> str:
         return "MCTS"

@@ -6,7 +6,7 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationType, KeyBindType, RLObservationType
+from srl.base.define import EnvObservationTypes, KeyBindType, RLObservationTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import SinglePlayEnv
@@ -93,16 +93,16 @@ class Grid(SinglePlayEnv):
         self.screen = None
 
     @property
-    def action_space(self) -> SpaceBase:
+    def action_space(self) -> DiscreteSpace:
         return DiscreteSpace(len(Action))
 
     @property
-    def observation_space(self) -> SpaceBase:
+    def observation_space(self) -> ArrayDiscreteSpace:
         return ArrayDiscreteSpace(2, low=0, high=[self.W, self.H])
 
     @property
-    def observation_type(self) -> EnvObservationType:
-        return EnvObservationType.DISCRETE
+    def observation_type(self) -> EnvObservationTypes:
+        return EnvObservationTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:
@@ -113,7 +113,8 @@ class Grid(SinglePlayEnv):
         r_min = (self.max_episode_steps - 1) * self.move_reward - 1
         r_max = 5 * self.move_reward + 1
         return {
-            "range": (r_min, r_max),
+            "min": r_min,
+            "max": r_max,
             "baseline": self.reward_baseline,
         }
 
@@ -242,7 +243,7 @@ class Grid(SinglePlayEnv):
         return len(self.base_field)
 
     @property
-    def actions(self):
+    def actions(self) -> List[Action]:
         return [a for a in Action]
 
     @property
@@ -429,9 +430,9 @@ class Grid(SinglePlayEnv):
                         q.append(Q[state][a.value])
                     action = np.argmax(q)
                 else:
-                    action = np.random.choice(self.actions)
-                state, reward, done, _ = game.step(action)
-                total_reward += reward
+                    action = np.random.choice([a.value for a in self.actions])
+                state, reward, done, _ = game.step(int(action))
+                total_reward += reward[0]
 
             rewards.append(total_reward)
         return np.mean(rewards)
@@ -441,17 +442,17 @@ class LayerProcessor(Processor):
     def change_observation_info(
         self,
         env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationType,
-        rl_observation_type: RLObservationType,
+        env_observation_type: EnvObservationTypes,
+        rl_observation_type: RLObservationTypes,
         env: EnvRun,
-    ) -> Tuple[SpaceBase, EnvObservationType]:
+    ) -> Tuple[SpaceBase, EnvObservationTypes]:
         _env = cast(Grid, env.get_original_env())
         observation_space = BoxSpace(
             low=0,
             high=1,
             shape=(1, _env.H, _env.W),
         )
-        return observation_space, EnvObservationType.SHAPE3
+        return observation_space, EnvObservationTypes.SHAPE3
 
     def process_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
         _env = cast(Grid, env.get_original_env())

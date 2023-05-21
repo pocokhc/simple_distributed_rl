@@ -22,7 +22,7 @@ setup(
             "runner/img/README.md",
         ],
     },
-    version=VERSION,
+    version=VERSION,  # type: ignore  # noqa
     license="MIT",
     author="poco",
     author_email="pocopococpp198@gmail.com",

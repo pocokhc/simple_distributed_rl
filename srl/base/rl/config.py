@@ -1,9 +1,10 @@
 import logging
+import pickle
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, List, Optional, Tuple, Type
 
-from srl.base.define import EnvObservationType, RLActionType, RLObservationType
+from srl.base.define import EnvObservationTypes, RLActionTypes, RLObservationTypes
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
@@ -19,8 +20,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RLConfig(ABC):
     processors: List[Processor] = field(default_factory=list)
-    override_env_observation_type: EnvObservationType = EnvObservationType.UNKNOWN
-    override_rl_action_type: RLActionType = RLActionType.ANY  # RL側がANYの場合のみ有効
+    override_env_observation_type: EnvObservationTypes = EnvObservationTypes.UNKNOWN
+    override_rl_action_type: RLActionTypes = RLActionTypes.ANY  # RL側がANYの場合のみ有効
     action_division_num: int = 5
     # observation_division_num: int = 10
     extend_worker: Optional[Type["ExtendWorker"]] = None
@@ -37,6 +38,7 @@ class RLConfig(ABC):
 
     def __post_init__(self) -> None:
         self._is_set_env_config = False
+        self._run_processors: List[Processor] = []
 
         # The device used by the framework.
         self._used_device_tf: str = "/CPU"
@@ -71,12 +73,12 @@ class RLConfig(ABC):
 
     @property
     @abstractmethod
-    def action_type(self) -> RLActionType:
+    def action_type(self) -> RLActionTypes:
         raise NotImplementedError()
 
     @property
     @abstractmethod
-    def observation_type(self) -> RLObservationType:
+    def observation_type(self) -> RLObservationTypes:
         raise NotImplementedError()
 
     def set_config_by_env(
@@ -84,7 +86,7 @@ class RLConfig(ABC):
         env: EnvRun,
         env_action_space: SpaceBase,
         env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationType,
+        env_observation_type: EnvObservationTypes,
     ) -> None:
         pass  # NotImplemented
 
@@ -111,7 +113,7 @@ class RLConfig(ABC):
         env_observation_type = env.observation_type
 
         # observation_typeの上書き
-        if self.override_env_observation_type != EnvObservationType.UNKNOWN:
+        if self.override_env_observation_type != EnvObservationTypes.UNKNOWN:
             env_observation_type = self.override_env_observation_type
 
         # processor
@@ -140,7 +142,7 @@ class RLConfig(ABC):
         self._env_observation_type = env_observation_type
 
         # action division
-        if isinstance(self._env_action_space, BoxSpace) and self.action_type == RLActionType.DISCRETE:
+        if isinstance(self._env_action_space, BoxSpace) and self.action_type == RLActionTypes.DISCRETE:
             self._env_action_space.set_action_division(self.action_division_num)
 
         # observation division
@@ -197,6 +199,10 @@ class RLConfig(ABC):
         return self._is_set_env_config
 
     @property
+    def run_processors(self) -> List[Processor]:
+        return self._run_processors
+
+    @property
     def used_device_tf(self) -> str:
         return self._used_device_tf
 
@@ -217,12 +223,10 @@ class RLConfig(ABC):
         return self._env_observation_space.observation_shape
 
     @property
-    def env_observation_type(self) -> EnvObservationType:
+    def env_observation_type(self) -> EnvObservationTypes:
         return self._env_observation_type
 
     def copy(self, reset_env_config: bool = False) -> "RLConfig":
-        import pickle
-
         config = self.__class__()
         config._check_parameter = False
 
@@ -240,6 +244,6 @@ class RLConfig(ABC):
             config._is_set_env_config = self._is_set_env_config
         return config
 
-    def set_parameter(self, update_params: dict):
+    def set_parameter(self, update_params: dict) -> None:
         self._check_parameter = True
         self.__dict__.update(update_params)

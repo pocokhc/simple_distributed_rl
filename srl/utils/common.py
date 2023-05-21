@@ -6,7 +6,7 @@ import random
 import sys
 import traceback
 import warnings
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 import numpy as np
 
@@ -42,7 +42,7 @@ def set_seed(seed: Optional[int], enable_gpu: bool = False):
         if enable_gpu:
             torch.cuda.manual_seed(seed)
             torch.use_deterministic_algorithms = True
-            torch.backends.cudnn.benchmark = False
+            torch.backends.cudnn.benchmark = False  # type: ignore
 
 
 def logger_print(
@@ -71,9 +71,9 @@ def set_logger(
     enable_log_extra_suppression: bool = True,
 ) -> None:
     if isinstance(print_level, str):
-        print_level: int = logging.getLevelName(print_level)
+        print_level = cast(int, logging.getLevelName(print_level))
     if isinstance(file_level, str):
-        file_level: int = logging.getLevelName(file_level)
+        file_level = cast(int, logging.getLevelName(file_level))
     top_level = print_level if (print_level > file_level) else file_level
 
     logger = logging.getLogger(log_name)
@@ -253,7 +253,7 @@ def is_package_imported(name: str) -> bool:
 
 def is_env_notebook() -> bool:
     try:
-        if get_ipython().__class__.__name__ == "TerminalInteractiveShell":
+        if get_ipython().__class__.__name__ == "TerminalInteractiveShell":  # type: ignore
             # IPython shell
             return False
     except NameError:
@@ -322,7 +322,7 @@ def is_enable_tf_device_name(device_name) -> bool:
         full_device_name = device_util.canonicalize(device_name)
 
         for device in device_lib.list_local_devices():
-            d = device_util.canonicalize(device.name)
+            d = device_util.canonicalize(device.name)  # type: ignore
             if full_device_name == d:
                 __cache_device_name[device_name] = True
                 return True

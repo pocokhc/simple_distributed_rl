@@ -10,7 +10,7 @@ def test_StoneTaking():
     tester = TestRL()
     rl_config = mcts.Config(num_simulations=10)
     config = runner.Config("StoneTaking", rl_config, seed=1)
-    parameter = tester.train(config, train_steps=1000)
+    parameter, _, _ = tester.train(config, train_steps=1000)
     tester.eval_2player(config, parameter)
 
 
@@ -18,7 +18,7 @@ def test_OX():
     tester = TestRL()
     rl_config = mcts.Config(num_simulations=10)
     config = runner.Config("OX", rl_config, seed=2)
-    parameter = tester.train(config, train_steps=20000)
+    parameter, _, _ = tester.train(config, train_steps=20000)
     tester.eval_2player(config, parameter)
 
 
@@ -27,4 +27,3 @@ def test_Grid():
     rl_config = mcts.Config(num_simulations=10, discount=0.9)
     config = runner.Config("Grid", rl_config, seed=2)
     tester.train_eval(config, train_steps=50000)
-

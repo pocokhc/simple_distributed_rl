@@ -12,7 +12,9 @@ def test_call_tf():
     x = np.ones((batch_size, 96, 72, 3), dtype=np.float32)
 
     block = config.create_block_tf()
-    y = block(x).numpy()
+    y = block(x)
+    assert y is not None
+    y = y.numpy()
 
     assert y.shape == (batch_size, 6, 5, 256)
 

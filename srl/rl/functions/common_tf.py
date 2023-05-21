@@ -7,8 +7,8 @@ import tensorflow as tf
 def compute_logprob(mean, stddev, action):
     a1 = -0.5 * np.log(2 * np.pi)
     stddev = tf.clip_by_value(stddev, 1e-6, stddev)  # log(0)回避用
-    a2 = -tf.math.log(stddev)
-    a3 = -0.5 * tf.square((action - mean) / stddev)
+    a2 = -tf.math.log(stddev)  # type: ignore TODO
+    a3 = -0.5 * tf.square((action - mean) / stddev)  # type: ignore TODO
     return a1 + a2 + a3
 
 
@@ -16,7 +16,7 @@ def compute_logprob(mean, stddev, action):
 # @tf.function
 def compute_logprob_sgp(mean, stddev, action):
     logmu = compute_logprob(mean, stddev, action)
-    logpi = 1.0 - tf.tanh(action) ** 2
+    logpi = 1.0 - tf.tanh(action) ** 2  # type: ignore TODO
     logpi = tf.clip_by_value(logpi, 1e-6, logpi)  # log(0)回避用
     logpi = logmu - tf.math.log(logpi)
     return logpi

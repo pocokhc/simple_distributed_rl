@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from srl.base.define import RLActionType
+from srl.base.define import RLActionTypes
 from srl.base.env.spaces import ContinuousSpace
 
 from .space_test import SpaceTest
@@ -16,7 +16,7 @@ def _check_action(decode_action, true_action):
 def test_space():
     space = ContinuousSpace(-1, 3)
     tester = SpaceTest(space)
-    assert space.base_action_type == RLActionType.CONTINUOUS
+    assert space.rl_action_type == RLActionTypes.CONTINUOUS
 
     # sample
     for _ in range(100):
@@ -34,6 +34,7 @@ def test_space():
         [2],
         [3],
     ]
+    assert space.action_tbl is not None
     np.testing.assert_array_equal(true_tbl[0], space.action_tbl[0])
     decode_action = tester.check_action_discrete(
         true_n=5,

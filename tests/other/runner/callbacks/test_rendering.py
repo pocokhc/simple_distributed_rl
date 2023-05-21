@@ -2,7 +2,7 @@ import pytest
 
 from srl import runner
 from srl.algorithms import ql
-from srl.base.define import PlayRenderMode
+from srl.base.define import PlayRenderModes
 from srl.envs import grid  # noqa F401
 from srl.runner.callbacks.rendering import Rendering
 from srl.runner.core import play
@@ -14,15 +14,15 @@ common.logger_print()
 @pytest.mark.parametrize(
     "mode",
     [
-        PlayRenderMode.none,
-        PlayRenderMode.terminal,
-        PlayRenderMode.ansi,
-        PlayRenderMode.window,
-        PlayRenderMode.rgb_array,
+        PlayRenderModes.none,
+        PlayRenderModes.terminal,
+        PlayRenderModes.ansi,
+        PlayRenderModes.window,
+        PlayRenderModes.rgb_array,
     ],
 )
 def test_run(mode):
-    if mode == PlayRenderMode.window or mode == PlayRenderMode.rgb_array:
+    if mode == PlayRenderModes.window or mode == PlayRenderModes.rgb_array:
         pytest.importorskip("cv2")
         pytest.importorskip("matplotlib")
         pytest.importorskip("PIL")
@@ -50,7 +50,7 @@ def test_anime():
     pytest.importorskip("pygame")
 
     config = runner.Config("Grid", ql.Config())
-    callback = Rendering(PlayRenderMode.rgb_array)
+    callback = Rendering(PlayRenderModes.rgb_array)
     play(
         config,
         max_episodes=1,

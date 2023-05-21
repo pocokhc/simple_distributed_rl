@@ -8,7 +8,6 @@ import torch.optim as optim
 from srl.base.rl.base import RLTrainer
 from srl.rl.models.torch_.dueling_network import DuelingNetworkBlock
 from srl.rl.models.torch_.input_block import InputBlock
-from srl.utils import common
 
 from .rainbow import CommonInterfaceParameter, Config, RemoteMemory
 from .rainbow_nomultisteps import calc_target_q
@@ -107,14 +106,7 @@ class Parameter(CommonInterfaceParameter):
         return self.q_online.to("cpu").state_dict()
 
     def summary(self, **kwargs):
-        if common.is_package_installed("torchinfo"):
-            import torchinfo
-
-            shape = (1,) + self.config.observation_shape
-            print(f"input shape={shape}")
-            torchinfo.summary(self.q_online, input_size=shape)
-        else:
-            print(self.q_online)
+        print(self.q_online)
 
     # ----------------------------------------------
 

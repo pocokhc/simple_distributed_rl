@@ -5,7 +5,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any
 
-from srl.base.define import Info
+from srl.base.define import InfoType
 from srl.base.rl.config import RLConfig
 
 logger = logging.getLogger(__name__)
@@ -138,5 +138,5 @@ class RLTrainer(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def train(self) -> Info:
+    def train(self) -> InfoType:
         raise NotImplementedError()

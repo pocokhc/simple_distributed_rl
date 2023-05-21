@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import RLObservationType
+from srl.base.define import RLObservationTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -33,8 +33,8 @@ class Config(DiscreteActionConfig):
     lr: float = 0.1
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.DISCRETE
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.DISCRETE
 
     def getName(self) -> str:
         return "Dyna-Q"
@@ -253,14 +253,13 @@ class Worker(DiscreteActionWorker):
         self.invalid_actions = invalid_actions
 
         if random.random() < self.epsilon:
-            action = self.sample_action()
+            self.action = cast(int, self.sample_action())
         else:
             q = self.parameter.get_action_values(self.state, invalid_actions)
             q = np.asarray(q)
             q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)]
-            action = np.random.choice(np.where(q == np.max(q))[0])
+            self.action = np.random.choice(np.where(q == np.max(q))[0])
 
-        self.action = int(action)
         return self.action, {}
 
     def call_on_step(

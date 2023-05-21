@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Tuple
 
-from srl.base.define import EnvObservation, EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationType, EnvObservationTypes, RLObservationTypes
 from srl.base.env.base import EnvRun, SpaceBase
 
 
@@ -13,17 +13,17 @@ class Processor(ABC):
     def change_observation_info(
         self,
         env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationType,
-        rl_observation_type: RLObservationType,
+        env_observation_type: EnvObservationTypes,
+        rl_observation_type: RLObservationTypes,
         env: EnvRun,
-    ) -> Tuple[SpaceBase, EnvObservationType]:
+    ) -> Tuple[SpaceBase, EnvObservationTypes]:
         return env_observation_space, env_observation_type
 
     def process_observation(
         self,
-        observation: EnvObservation,
+        observation: EnvObservationType,
         env: EnvRun,
-    ) -> EnvObservation:
+    ) -> EnvObservationType:
         return observation
 
     def process_reward(

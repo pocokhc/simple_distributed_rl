@@ -4,10 +4,9 @@ from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-import tensorflow.keras.layers as kl
+from tensorflow import keras
 
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationTypes, RLObservationTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
@@ -19,6 +18,8 @@ from srl.rl.functions.common import render_discrete_action
 from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
 from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
+
+kl = keras.layers
 
 """
 Categorical DQN（C51）
@@ -32,7 +33,7 @@ Other
 
 def create_input_layer(
     observation_shape: Tuple[int, ...],
-    observation_type: EnvObservationType,
+    observation_type: EnvObservationTypes,
 ) -> Tuple[kl.Layer, kl.Layer, bool]:
     """状態の入力レイヤーを作成して返します
 
@@ -56,15 +57,15 @@ def create_input_layer(
 
     # --- value head
     if (
-        observation_type == EnvObservationType.DISCRETE
-        or observation_type == EnvObservationType.CONTINUOUS
-        or observation_type == EnvObservationType.UNKNOWN
+        observation_type == EnvObservationTypes.DISCRETE
+        or observation_type == EnvObservationTypes.CONTINUOUS
+        or observation_type == EnvObservationTypes.UNKNOWN
     ):
         c = kl.Flatten()(c)
-        return in_layer, c, False
+        return cast(kl.Layer, in_layer), cast(kl.Layer, c), False
 
     # --- image head
-    if observation_type == EnvObservationType.GRAY_2ch:
+    if observation_type == EnvObservationTypes.GRAY_2ch:
         if len(observation_shape) == 2:
             # (w, h) -> (w, h, 1)
             c = kl.Reshape(observation_shape + (1,))(c)
@@ -74,7 +75,7 @@ def create_input_layer(
         else:
             raise ValueError(err_msg)
 
-    elif observation_type == EnvObservationType.GRAY_3ch:
+    elif observation_type == EnvObservationTypes.GRAY_3ch:
         assert observation_shape[-1] == 1
         if len(observation_shape) == 3:
             # (w, h, 1)
@@ -87,14 +88,14 @@ def create_input_layer(
         else:
             raise ValueError(err_msg)
 
-    elif observation_type == EnvObservationType.COLOR:
+    elif observation_type == EnvObservationTypes.COLOR:
         if len(observation_shape) == 3:
             # (w, h, ch)
             pass
         else:
             raise ValueError(err_msg)
 
-    elif observation_type == EnvObservationType.SHAPE2:
+    elif observation_type == EnvObservationTypes.SHAPE2:
         if len(observation_shape) == 2:
             # (w, h) -> (w, h, 1)
             c = kl.Reshape(observation_shape + (1,))(c)
@@ -104,7 +105,7 @@ def create_input_layer(
         else:
             raise ValueError(err_msg)
 
-    elif observation_type == EnvObservationType.SHAPE3:
+    elif observation_type == EnvObservationTypes.SHAPE3:
         if len(observation_shape) == 3:
             # (n, w, h) -> (w, h, n)
             c = kl.Permute((2, 3, 1))(c)
@@ -114,7 +115,7 @@ def create_input_layer(
     else:
         raise ValueError(err_msg)
 
-    return in_layer, c, True
+    return cast(kl.Layer, in_layer), cast(kl.Layer, c), True
 
 
 # ------------------------------------------------------
@@ -141,15 +142,15 @@ class Config(DiscreteActionConfig):
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(
-                image_type=EnvObservationType.GRAY_2ch,
+                image_type=EnvObservationTypes.GRAY_2ch,
                 resize=(84, 84),
                 enable_norm=True,
             )
         ]
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.CONTINUOUS
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "C51"
@@ -360,7 +361,7 @@ class Trainer(RLTrainer):
             dists = tf.clip_by_value(dists, 1e-6, 1.0)
 
             #: categorical cross entropy
-            loss = tf.reduce_sum(-1 * target_dists * tf.math.log(dists), axis=1, keepdims=True)
+            loss = tf.reduce_sum(-1 * target_dists * tf.math.log(dists), axis=1, keepdims=True)  # type:ignore
             loss = tf.reduce_mean(loss)
             loss += tf.reduce_sum(self.parameter.Q.losses)  # 正則化のLoss
 

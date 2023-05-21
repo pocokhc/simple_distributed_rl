@@ -2,13 +2,14 @@ from typing import Any, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-from tensorflow.keras import layers as kl
+from tensorflow import keras
 
 from srl.base.rl.base import RLTrainer
 from srl.rl.models.tf.input_block import InputBlock
 
 from .dqn import CommonInterfaceParameter, Config, RemoteMemory
+
+kl = keras.layers
 
 
 # ------------------------------------------------------
@@ -92,10 +93,10 @@ class Parameter(CommonInterfaceParameter):
     # -------------------------------------
 
     def predict_q(self, state: np.ndarray) -> np.ndarray:
-        return self.q_online(state).numpy()
+        return self.q_online.call(state).numpy()  # type:ignore , ignore check "None"
 
     def predict_target_q(self, state: np.ndarray) -> np.ndarray:
-        return self.q_target(state).numpy()
+        return self.q_target(state).numpy()  # type:ignore , ignore check "None"
 
 
 # ------------------------------------------------------

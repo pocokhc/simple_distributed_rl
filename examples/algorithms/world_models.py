@@ -6,6 +6,7 @@ import numpy as np
 
 import srl
 from srl import runner
+
 # --- env & algorithm load
 from srl.envs import grid  # noqa F401
 from srl.utils import common
@@ -71,12 +72,7 @@ def s4_train_controller():
     rl_config.num_simulations = 20
     rl_config.num_individual = 4
     max_episodes = rl_config.num_simulations * rl_config.num_individual * 300
-    parameter, memory, history = runner.train(
-        config,
-        max_episodes=max_episodes,
-        enable_file_logger=False,
-        enable_evaluation=False,
-    )
+    parameter, memory, history = runner.train(config, max_episodes=max_episodes)
     parameter.save(param_path)
 
 

@@ -13,8 +13,9 @@ def test_call_tf():
     x = np.ones((batch_size, 64, 75, 19), dtype=np.float32)
 
     block = config.create_block_tf()
-    y = block(x).numpy()
-
+    y = block(x)
+    assert y is not None
+    y = y.numpy()
     assert y.shape == (batch_size, 8, 10, 64)
 
 
@@ -44,8 +45,9 @@ def test_call_lstm_tf():
     x = np.ones((batch_size, seq_len, 64, 75, 19), dtype=np.float32)
 
     block = config.create_block_tf(enable_time_distributed_layer=True)
-    y = block(x).numpy()
-
+    y = block(x)
+    assert y is not None
+    y = y.numpy()
     assert y.shape == (batch_size, seq_len, 8, 10, 64)
 
 

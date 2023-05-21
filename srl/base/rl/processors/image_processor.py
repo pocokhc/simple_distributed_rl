@@ -1,9 +1,10 @@
 import logging
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Tuple, cast
 
 import numpy as np
-from srl.base.define import EnvObservation, EnvObservationType, RLObservationType
+
+from srl.base.define import EnvObservationType, EnvObservationTypes, RLObservationTypes
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
@@ -19,25 +20,24 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ImageProcessor(Processor):
-
-    image_type: EnvObservationType = EnvObservationType.GRAY_2ch
+    image_type: EnvObservationTypes = EnvObservationTypes.GRAY_2ch
     resize: Optional[Tuple[int, int]] = None
     enable_norm: bool = False
     trimming: Optional[Tuple[int, int, int, int]] = None  # (top, left, bottom, right)
 
     def __post_init__(self):
-        self.before_observation_type = EnvObservationType.UNKNOWN
+        self.before_observation_type = EnvObservationTypes.UNKNOWN
         self.max_val = 0
 
-        assert EnvObservationType.is_image(self.image_type)
+        assert EnvObservationTypes.is_image(self.image_type)
 
     def change_observation_info(
         self,
         env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationType,
-        rl_observation_type: RLObservationType,
+        env_observation_type: EnvObservationTypes,
+        rl_observation_type: RLObservationTypes,
         env: EnvRun,
-    ) -> Tuple[SpaceBase, EnvObservationType]:
+    ) -> Tuple[SpaceBase, EnvObservationTypes]:
         self.before_observation_type = env_observation_type
         self.is_valid = False
 
@@ -50,19 +50,19 @@ class ImageProcessor(Processor):
             return env_observation_space, env_observation_type
 
         # 予測する
-        if self.before_observation_type == EnvObservationType.UNKNOWN:
+        if self.before_observation_type == EnvObservationTypes.UNKNOWN:
             if len(env_observation_space.shape) == 2:
-                self.before_observation_type = EnvObservationType.GRAY_2ch
+                self.before_observation_type = EnvObservationTypes.GRAY_2ch
             elif len(env_observation_space.shape) == 3:
                 # w,h,ch 想定
                 ch = env_observation_space.shape[-1]
                 if ch == 1:
-                    self.before_observation_type = EnvObservationType.GRAY_3ch
+                    self.before_observation_type = EnvObservationTypes.GRAY_3ch
                 elif ch == 3:
-                    self.before_observation_type = EnvObservationType.COLOR
+                    self.before_observation_type = EnvObservationTypes.COLOR
 
         # 画像のみ対象
-        if not EnvObservationType.is_image(self.before_observation_type):
+        if not EnvObservationTypes.is_image(self.before_observation_type):
             return env_observation_space, env_observation_type
 
         shape = env_observation_space.shape
@@ -106,9 +106,9 @@ class ImageProcessor(Processor):
         new_type = self.image_type
 
         # shape
-        if self.image_type == EnvObservationType.GRAY_3ch:
+        if self.image_type == EnvObservationTypes.GRAY_3ch:
             new_shape = new_shape + (1,)
-        elif self.image_type == EnvObservationType.COLOR:
+        elif self.image_type == EnvObservationTypes.COLOR:
             new_shape = new_shape + (3,)
 
         self.is_valid = True
@@ -117,36 +117,39 @@ class ImageProcessor(Processor):
 
     def process_observation(
         self,
-        observation: EnvObservation,
+        observation: EnvObservationType,
         env: EnvRun,
-    ) -> EnvObservation:
+    ) -> EnvObservationType:
         if not self.is_valid:
             return observation
         observation = np.asarray(observation).astype(np.uint8)
 
-        if self.image_type == EnvObservationType.COLOR and (
-            self.before_observation_type == EnvObservationType.GRAY_2ch
-            or self.before_observation_type == EnvObservationType.GRAY_3ch
+        if self.image_type == EnvObservationTypes.COLOR and (
+            self.before_observation_type == EnvObservationTypes.GRAY_2ch
+            or self.before_observation_type == EnvObservationTypes.GRAY_3ch
         ):
             # gray -> color
             observation = cv2.applyColorMap(observation, cv2.COLORMAP_HOT)
-        elif self.before_observation_type == EnvObservationType.COLOR and (
-            self.image_type == EnvObservationType.GRAY_2ch or self.image_type == EnvObservationType.GRAY_3ch
+        elif self.before_observation_type == EnvObservationTypes.COLOR and (
+            self.image_type == EnvObservationTypes.GRAY_2ch or self.image_type == EnvObservationTypes.GRAY_3ch
         ):
             # color -> gray
             observation = cv2.cvtColor(observation, cv2.COLOR_RGB2GRAY)
 
         if self.trimming is not None:
+            observation = cast(np.ndarray, observation)
             observation = observation[self.top : self.bottom, self.left : self.right]
 
         if self.resize is not None:
+            observation = cast(cv2.Mat, observation)
             observation = cv2.resize(observation, self.resize)
 
+        observation = cast(np.ndarray, observation)
         if self.enable_norm:
             observation = observation.astype(np.float32)
             observation /= self.max_val
 
-        if len(observation.shape) == 2 and self.image_type == EnvObservationType.GRAY_3ch:
+        if len(observation.shape) == 2 and self.image_type == EnvObservationTypes.GRAY_3ch:
             observation = observation[..., np.newaxis]
 
         return observation

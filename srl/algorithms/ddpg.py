@@ -3,10 +3,9 @@ from typing import Any, Dict, List, Tuple, Union, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-import tensorflow.keras.layers as kl
+from tensorflow import keras
 
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationTypes, RLObservationTypes
 from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
@@ -17,6 +16,8 @@ from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
 from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
+
+kl = keras.layers
 
 """
 Ref
@@ -61,15 +62,15 @@ class Config(ContinuousActionConfig):
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(
-                image_type=EnvObservationType.GRAY_2ch,
+                image_type=EnvObservationTypes.GRAY_2ch,
                 resize=(84, 84),
                 enable_norm=True,
             )
         ]
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.CONTINUOUS
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "DDPG"
@@ -306,7 +307,7 @@ class Trainer(RLTrainer):
 
         # Target Actionのノイズ
         clipped_noise = np.clip(
-            np.random.normal(0, self.config.target_policy_noise_stddev, size=n_actions.shape),
+            np.random.normal(0, self.config.target_policy_noise_stddev, size=n_actions.shape),  # type:ignore
             -self.config.target_policy_clip_range,
             self.config.target_policy_clip_range,
         )
@@ -314,8 +315,8 @@ class Trainer(RLTrainer):
 
         # 2つのQ値から小さいほうを採用(Clipped Double Q learning)して、
         # Q値を計算 : reward if done else (reward + discount * n_qval) - (alpha * H)
-        n_q1, n_q2 = self.parameter.critic_target([n_states, n_actions])
-        q_vals = rewards + (1 - dones) * self.config.discount * tf.minimum(n_q1, n_q2)
+        n_q1, n_q2 = self.parameter.critic_target([n_states, n_actions])  # type:ignore
+        q_vals = rewards + (1 - dones) * self.config.discount * tf.minimum(n_q1, n_q2)  # type:ignore
 
         # --- ポリシーの学習
         # Actorの学習は少し減らす
@@ -323,7 +324,7 @@ class Trainer(RLTrainer):
             with tf.GradientTape() as tape:
                 # アクションを出力
                 actor_actions = self.parameter.actor_online(states)
-                q, _ = self.parameter.critic_online([states, actor_actions])
+                q, _ = self.parameter.critic_online([states, actor_actions])  # type:ignore
                 actor_loss = -tf.reduce_mean(q)  # 最大化
                 actor_loss += tf.reduce_sum(self.parameter.actor_online.losses)
 
@@ -336,7 +337,7 @@ class Trainer(RLTrainer):
 
         # --- Qモデルの学習
         with tf.GradientTape() as tape:
-            q1, q2 = self.parameter.critic_online([states, actions])
+            q1, q2 = self.parameter.critic_online([states, actions])  # type:ignore
             loss1 = tf.reduce_mean(tf.square(q_vals - q1))
             loss2 = tf.reduce_mean(tf.square(q_vals - q2))
             critic_loss = (loss1 + loss2) / 2
@@ -385,7 +386,7 @@ class Worker(ContinuousActionWorker):
 
     def call_policy(self, state: np.ndarray) -> Tuple[List[float], dict]:
         self.state = state
-        self.action = self.parameter.actor_online(state.reshape(1, -1)).numpy()[0]
+        self.action = self.parameter.actor_online(state.reshape(1, -1)).numpy()[0]  # type:ignore
 
         if self.training:
             # 学習用はノイズを混ぜる
@@ -420,9 +421,9 @@ class Worker(ContinuousActionWorker):
     def render_terminal(self, env, worker, **kwargs) -> None:
         state = self.state.reshape(1, -1)
         action = self.parameter.actor_online(state)
-        q1, q2 = self.parameter.critic_online([state, action])
+        q1, q2 = self.parameter.critic_online([state, action])  # type:ignore
         q1 = q1.numpy()[0][0]
         q2 = q2.numpy()[0][0]
-        action = action.numpy()[0]
+        action = action.numpy()[0]  # type:ignore
         print(f"action {action}")
         print(f"q1   {q1:.5f}, q2    {q2:.5f}")

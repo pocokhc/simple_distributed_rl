@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 import numpy as np
 
-from srl.base.define import PlayRenderMode, RenderMode
+from srl.base.define import PlayRenderModes, RenderModes
 from srl.utils.common import is_packages_installed
 from srl.utils.render_functions import print_to_text, text_to_rgb_array
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class IRender:
-    def set_render_mode(self, mode: RenderMode) -> None:
+    def set_render_mode(self, mode: RenderModes) -> None:
         pass
 
     def render_terminal(self, **kwargs) -> None:
@@ -33,7 +33,7 @@ class Render:
         self.font_name = font_name
         self.font_size = font_size
         self.interval = -1
-        self.mode = PlayRenderMode.none
+        self.mode = PlayRenderModes.none
 
         self.fig = None
         self.ax = None
@@ -42,11 +42,11 @@ class Render:
         self.print_str = ""
         self.rgb_array = None
 
-    def reset(self, mode: Union[str, PlayRenderMode], interval: float = -1):
+    def reset(self, mode: Union[str, PlayRenderModes], interval: float = -1):
         self.interval = interval
-        self.mode = PlayRenderMode.from_str(mode)
+        self.mode = PlayRenderModes.from_str(mode)
 
-        if self.mode in [PlayRenderMode.rgb_array, PlayRenderMode.window]:
+        if self.mode in [PlayRenderModes.rgb_array, PlayRenderModes.window]:
             assert is_packages_installed(
                 [
                     "cv2",
@@ -59,7 +59,7 @@ class Render:
                 "(pip install opencv-python matplotlib pillow pygame)"
             )
 
-        self.render_obj.set_render_mode(PlayRenderMode.convert_render_mode(self.mode))
+        self.render_obj.set_render_mode(PlayRenderModes.convert_render_mode(self.mode))
 
     def cache_reset(self):
         self.print_str = ""
@@ -68,27 +68,27 @@ class Render:
     # ----------------------------
 
     def get_dummy(self) -> Union[None, str, np.ndarray]:
-        if self.mode == PlayRenderMode.none:
+        if self.mode == PlayRenderModes.none:
             return
-        elif self.mode == PlayRenderMode.terminal:
+        elif self.mode == PlayRenderModes.terminal:
             return
-        elif self.mode == PlayRenderMode.ansi:
+        elif self.mode == PlayRenderModes.ansi:
             return ""
-        elif self.mode == PlayRenderMode.rgb_array:
+        elif self.mode == PlayRenderModes.rgb_array:
             return np.zeros((4, 4, 3), dtype=np.uint8)
-        elif self.mode == PlayRenderMode.window:
+        elif self.mode == PlayRenderModes.window:
             return
 
     def render(self, **kwargs) -> Union[None, str, np.ndarray]:
-        if self.mode == PlayRenderMode.none:
+        if self.mode == PlayRenderModes.none:
             return
-        elif self.mode == PlayRenderMode.terminal:
+        elif self.mode == PlayRenderModes.terminal:
             return self.render_terminal(**kwargs)
-        elif self.mode == PlayRenderMode.ansi:
+        elif self.mode == PlayRenderModes.ansi:
             return self.render_terminal(return_text=True, **kwargs)
-        elif self.mode == PlayRenderMode.rgb_array:
+        elif self.mode == PlayRenderModes.rgb_array:
             return self.render_rgb_array(**kwargs)
-        elif self.mode == PlayRenderMode.window:
+        elif self.mode == PlayRenderModes.window:
             return self.render_window(**kwargs)
 
     def render_terminal(self, return_text: bool = False, **kwargs) -> Union[None, str]:
@@ -113,7 +113,7 @@ class Render:
         rgb_array = self.render_rgb_array(**kwargs)
 
         """matplotlibを採用"""
-        if self.fig is None:
+        if self.fig is None or self.ax is None:
             import matplotlib.pyplot as plt
 
             plt.ion()  # インタラクティブモードをオン

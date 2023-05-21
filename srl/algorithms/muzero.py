@@ -5,11 +5,9 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-from tensorflow.keras import layers as kl
-from tensorflow.keras import regularizers
+from tensorflow import keras
 
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationTypes, RLObservationTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.memory import IPriorityMemoryConfig
@@ -33,6 +31,7 @@ from srl.rl.models.alphazero.tf.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.tf.input_block import InputBlock
 from srl.utils.common import compare_less_version
 
+kl = keras.layers
 logger = logging.getLogger(__name__)
 
 """
@@ -119,15 +118,15 @@ class Config(DiscreteActionConfig):
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(
-                image_type=EnvObservationType.GRAY_2ch,
+                image_type=EnvObservationTypes.GRAY_2ch,
                 resize=(96, 96),
                 enable_norm=True,
             )
         ]
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.CONTINUOUS
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "MuZero"
@@ -192,7 +191,7 @@ class _RepresentationNetwork(keras.Model):
         # 出力shapeを取得
         dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         hidden_state = self(dummy_state)
-        self.hidden_state_shape = hidden_state.shape[1:]
+        self.hidden_state_shape = hidden_state.shape[1:]  # type:ignore , ignore check "None"
 
     def call(self, state, training=False):
         x = self.in_block(state, training=training)
@@ -250,7 +249,7 @@ class _DynamicsNetwork(keras.Model):
                 kernel_size=(1, 1),
                 padding="same",
                 use_bias=False,
-                kernel_regularizer=regularizers.l2(config.weight_decay),
+                kernel_regularizer=keras.regularizers.l2(config.weight_decay),
             ),
             kl.BatchNormalization(),
             kl.ReLU(),
@@ -261,14 +260,14 @@ class _DynamicsNetwork(keras.Model):
                 kl.Dense(
                     config.reward_dense_units,
                     activation="swish",
-                    kernel_regularizer=regularizers.l2(config.weight_decay),
+                    kernel_regularizer=keras.regularizers.l2(config.weight_decay),
                 )
             )
         self.reward_layers.append(
             kl.Dense(
                 v_num,
                 activation="softmax",
-                kernel_regularizer=regularizers.l2(config.weight_decay),
+                kernel_regularizer=keras.regularizers.l2(config.weight_decay),
             )
         )
 
@@ -284,7 +283,7 @@ class _DynamicsNetwork(keras.Model):
         for layer in self.reward_layers:
             reward_category = layer(reward_category, training=training)
 
-        return x, reward_category
+        return x, reward_category  # type:ignore , ignore check "None"
 
     def predict(self, hidden_state, action, training=False):
         batch_size, h, w, _ = hidden_state.shape
@@ -298,7 +297,7 @@ class _DynamicsNetwork(keras.Model):
         x, reward_category = self.call(in_state, training)
 
         # 隠れ状態はアクションとスケールを合わせるため0-1で正規化(一応batch毎)
-        batch, h, w, d = x.shape
+        batch, h, w, d = x.shape  # type:ignore , ignore check "None"
         s_min = tf.reduce_min(tf.reshape(x, (batch, -1)), axis=1, keepdims=True)
         s_max = tf.reduce_max(tf.reshape(x, (batch, -1)), axis=1, keepdims=True)
         s_min = s_min * tf.ones((batch, h * w * d), dtype=tf.float32)
@@ -337,7 +336,7 @@ class _PredictionNetwork(keras.Model):
                 kernel_size=(1, 1),
                 padding="same",
                 use_bias=False,
-                kernel_regularizer=regularizers.l2(config.weight_decay),
+                kernel_regularizer=keras.regularizers.l2(config.weight_decay),
             ),
             kl.BatchNormalization(),
             kl.ReLU(),
@@ -345,7 +344,7 @@ class _PredictionNetwork(keras.Model):
             kl.Dense(
                 config.action_num,
                 activation="softmax",
-                kernel_regularizer=regularizers.l2(config.weight_decay),
+                kernel_regularizer=keras.regularizers.l2(config.weight_decay),
             ),
         ]
 
@@ -356,7 +355,7 @@ class _PredictionNetwork(keras.Model):
                 kernel_size=(1, 1),
                 padding="same",
                 use_bias=False,
-                kernel_regularizer=regularizers.l2(config.weight_decay),
+                kernel_regularizer=keras.regularizers.l2(config.weight_decay),
             ),
             kl.BatchNormalization(),
             kl.ReLU(),
@@ -364,7 +363,7 @@ class _PredictionNetwork(keras.Model):
             kl.Dense(
                 v_num,
                 activation="softmax",
-                kernel_regularizer=regularizers.l2(config.weight_decay),
+                kernel_regularizer=keras.regularizers.l2(config.weight_decay),
             ),
         ]
 
@@ -441,7 +440,7 @@ class Parameter(RLParameter):
 
     def pred_PV(self, state, state_str):
         if state_str not in self.P:
-            p, v_category = self.prediction_network(state)
+            p, v_category = self.prediction_network(state)  # type:ignore , ignore check "None"
             self.P[state_str] = p[0].numpy()
             self.V[state_str] = float_category_decode(v_category.numpy()[0], self.config.v_min, self.config.v_max)
 
@@ -518,7 +517,9 @@ class Trainer(RLTrainer):
         with tf.GradientTape() as tape:
             # --- 1st step
             hidden_states = self.parameter.representation_network(states, training=True)
-            p_pred, v_pred = self.parameter.prediction_network(hidden_states, training=True)
+            p_pred, v_pred = self.parameter.prediction_network(
+                hidden_states, training=True
+            )  # type:ignore , ignore check "None"
 
             # loss
             policy_loss = _scale_gradient(self._cross_entropy_loss(policies_list[0], p_pred), 1.0)
@@ -532,7 +533,9 @@ class Trainer(RLTrainer):
                 hidden_states, p_rewards = self.parameter.dynamics_network.predict(
                     hidden_states, actions_list[t], training=True
                 )
-                p_pred, v_pred = self.parameter.prediction_network(hidden_states, training=True)
+                p_pred, v_pred = self.parameter.prediction_network(
+                    hidden_states, training=True
+                )  # type:ignore , ignore check "None"
 
                 # loss
                 policy_loss += _scale_gradient(self._cross_entropy_loss(policies_list[t + 1], p_pred), gradient_scale)
@@ -625,7 +628,7 @@ class Worker(DiscreteActionWorker):
 
         # --- シミュレーションしてpolicyを作成
         self.s0 = self.parameter.representation_network(state[np.newaxis, ...])
-        self.s0_str = self.s0.ref()
+        self.s0_str = self.s0.ref()  # type:ignore , ignore check "None"
         for _ in range(self.config.num_simulations):
             self._simulation(self.s0, self.s0_str, invalid_actions)
 
@@ -674,7 +677,11 @@ class Worker(DiscreteActionWorker):
         # 次の状態を取得
         n_state, reward_category = self.parameter.dynamics_network.predict(state, [action])
         n_state_str = n_state.ref()
-        reward = float_category_decode(reward_category.numpy()[0], self.config.v_min, self.config.v_max)
+        reward = float_category_decode(
+            reward_category.numpy()[0],  # type:ignore , ignore check "None"
+            self.config.v_min,
+            self.config.v_max,
+        )
         enemy_turn = self.config.env_player_num > 1  # 2player以上は相手番と決め打ち
 
         if self.N[state_str][action] == 0:
@@ -705,6 +712,8 @@ class Worker(DiscreteActionWorker):
         # ディリクレノイズ
         if is_root:
             noises = np.random.dirichlet([self.config.root_dirichlet_alpha] * self.config.action_num)
+        else:
+            noises = []
 
         N = np.sum(self.N[state_str])
         scores = np.zeros(self.config.action_num)
@@ -847,7 +856,11 @@ class Worker(DiscreteActionWorker):
             p = self.step_policy[a]
 
             n_s, reward_category = self.parameter.dynamics_network.predict(self.s0, [a])
-            reward = float_category_decode(reward_category.numpy()[0], self.config.v_min, self.config.v_max)
+            reward = float_category_decode(
+                reward_category.numpy()[0],  # type:ignore , ignore check "None"
+                self.config.v_min,
+                self.config.v_max,
+            )
             n_s_str = n_s.ref()
             self.parameter.pred_PV(n_s, n_s_str)
 

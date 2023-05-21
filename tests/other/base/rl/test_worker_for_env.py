@@ -1,11 +1,10 @@
-import unittest
-from typing import Any, Tuple, cast
+from typing import Any, List, Tuple, cast
 
 import numpy as np
 import pytest
 
 import srl
-from srl.base.define import EnvObservationType, Info, RLAction, RLActionType, RLObservationType
+from srl.base.define import EnvObservationTypes, InfoType, RLActionType, RLActionTypes, RLObservationTypes
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.genre.singleplay import SinglePlayEnv
 from srl.base.env.registration import register as register_env
@@ -22,9 +21,9 @@ class StubEnv(SinglePlayEnv):
     def __init__(self):
         self._action_space: SpaceBase = DiscreteSpace(5)
         self._observation_space: SpaceBase = DiscreteSpace(5)
-        self._observation_type = EnvObservationType.UNKNOWN
+        self._observation_type = EnvObservationTypes.UNKNOWN
 
-        self.s_state = 0
+        self.s_state: Any = 0
         self.s_reward = 0
         self.s_done = True
         self.s_info = {}
@@ -39,7 +38,7 @@ class StubEnv(SinglePlayEnv):
         return self._observation_space
 
     @property
-    def observation_type(self) -> EnvObservationType:
+    def observation_type(self) -> EnvObservationTypes:
         return self._observation_type
 
     @property
@@ -50,7 +49,7 @@ class StubEnv(SinglePlayEnv):
     def player_num(self) -> int:
         return 1
 
-    def call_reset(self) -> Tuple[int, Info]:
+    def call_reset(self) -> Tuple[int, InfoType]:
         return self.s_state, {}
 
     def call_step(self, action):
@@ -73,18 +72,18 @@ register_env(
 class StubRLConfig(RLConfig):
     def __init__(self) -> None:
         super().__init__()
-        self._action_type = RLActionType.ANY
-        self._observation_type = RLObservationType.ANY
+        self._action_type = RLActionTypes.ANY
+        self._observation_type = RLObservationTypes.ANY
 
     def getName(self) -> str:
         return "Stub"
 
     @property
-    def action_type(self) -> RLActionType:
+    def action_type(self) -> RLActionTypes:
         return self._action_type
 
     @property
-    def observation_type(self) -> RLObservationType:
+    def observation_type(self) -> RLObservationTypes:
         return self._observation_type
 
     def set_config_by_env(
@@ -92,7 +91,7 @@ class StubRLConfig(RLConfig):
         env: EnvBase,
         env_action_space: SpaceBase,
         env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationType,
+        env_observation_type: EnvObservationTypes,
     ) -> None:
         pass  # do nothing
 
@@ -108,7 +107,7 @@ class StubRLWorker(RLWorker):
         self.on_reset_state = state
         return {}
 
-    def _call_policy(self, state: np.ndarray, env: EnvBase, worker) -> Tuple[RLAction, dict]:
+    def _call_policy(self, state: np.ndarray, env: EnvBase, worker) -> Tuple[RLActionType, dict]:
         self.state = state
         return self.action, {}
 
@@ -119,7 +118,7 @@ class StubRLWorker(RLWorker):
         done: bool,
         env: EnvBase,
         worker,
-    ) -> Info:
+    ) -> InfoType:
         self.state = next_state
         return {}
 
@@ -155,8 +154,8 @@ def test_action(env_action_space, rl_action_type, rl_action, env_action):
     worker_run = srl.make_worker(rl_config, env=env)
 
     env_org._observation_space = DiscreteSpace(5)
-    env_org._observation_type = EnvObservationType.DISCRETE
-    rl_config._observation_type = RLObservationType.DISCRETE
+    env_org._observation_type = EnvObservationTypes.DISCRETE
+    rl_config._observation_type = RLObservationTypes.DISCRETE
 
     if env_action_space == "Dis":
         env_org._action_space = DiscreteSpace(5)
@@ -166,17 +165,17 @@ def test_action(env_action_space, rl_action_type, rl_action, env_action):
         env_org._action_space = BoxSpace(low=-1, high=3, shape=(2, 3))
 
     if rl_action_type == "Dis":
-        rl_config._action_type = RLActionType.DISCRETE
+        rl_config._action_type = RLActionTypes.DISCRETE
     elif rl_action_type == "Con":
-        rl_config._action_type = RLActionType.CONTINUOUS
+        rl_config._action_type = RLActionTypes.CONTINUOUS
     elif rl_action_type == "Any":
-        rl_config._action_type = RLActionType.ANY
+        rl_config._action_type = RLActionTypes.ANY
 
     env.reset()
     rl_config._is_set_env_config = False
     rl_config.reset(env)
     worker_run.on_reset(env, 0)
-    worker = cast(RLWorker, worker_run.worker)
+    worker = cast(StubRLWorker, worker_run.worker)
 
     action_space = rl_config.action_space
     if env_action_space == "Dis":
@@ -184,16 +183,18 @@ def test_action(env_action_space, rl_action_type, rl_action, env_action):
         assert worker.action_decode(rl_action) == env_action
     elif env_action_space == "Array":
         assert isinstance(action_space, ArrayDiscreteSpace)
-        np.testing.assert_array_equal(worker.action_decode(rl_action), env_action)
+        a = cast(List[int], worker.action_decode(rl_action))
+        np.testing.assert_array_equal(a, env_action)
     elif env_action_space == "Box":
         assert isinstance(action_space, BoxSpace)
-        np.testing.assert_array_equal(worker.action_decode(rl_action), env_action)
+        a = cast(np.ndarray, worker.action_decode(rl_action))
+        np.testing.assert_array_equal(a, env_action)
 
     assert isinstance(rl_config.observation_space, DiscreteSpace)
-    assert rl_config.env_observation_type == EnvObservationType.DISCRETE
+    assert rl_config.env_observation_type == EnvObservationTypes.DISCRETE
 
     worker.action = rl_action
-    action = worker_run.policy(env)
+    action = cast(int, worker_run.policy(env))
     np.testing.assert_array_equal([action], [env_action])
 
 
@@ -220,37 +221,38 @@ def test_observation(env_action_space, rl_action_type, rl_state):
     rl_config.reset(env)
     worker_run = srl.make_worker(rl_config, env=env)
 
-    rl_config._action_type = RLActionType.DISCRETE
+    rl_config._action_type = RLActionTypes.DISCRETE
     rl_action = 1
     env_action = 1
 
     rl_state = np.array(rl_state)
 
+    env_state = 0
     if env_action_space == "Dis":
         env_org._observation_space = DiscreteSpace(5)
-        env_org._observation_type = EnvObservationType.DISCRETE
+        env_org._observation_type = EnvObservationTypes.DISCRETE
         env_state = 5
     elif env_action_space == "Array":
         env_org._observation_space = ArrayDiscreteSpace(2, 0, [2, 3])
-        env_org._observation_type = EnvObservationType.DISCRETE
+        env_org._observation_type = EnvObservationTypes.DISCRETE
         env_state = [1, 2]
     elif env_action_space == "Box":
         env_org._observation_space = BoxSpace(low=-1, high=3, shape=(2, 3))
-        env_org._observation_type = EnvObservationType.UNKNOWN
+        env_org._observation_type = EnvObservationTypes.UNKNOWN
         env_state = np.array([[0.1, 0.2, 0.3], [0.7, 0.8, 0.9]])
 
     if rl_action_type == "Dis":
-        rl_config._observation_type = RLObservationType.DISCRETE
+        rl_config._observation_type = RLObservationTypes.DISCRETE
     if rl_action_type == "Box":
-        rl_config._observation_type = RLObservationType.CONTINUOUS
+        rl_config._observation_type = RLObservationTypes.CONTINUOUS
     if rl_action_type == "Any":
-        rl_config._observation_type = RLObservationType.ANY
+        rl_config._observation_type = RLObservationTypes.ANY
 
     env.reset()
     rl_config._is_set_env_config = False
     rl_config.reset(env)
     worker_run.on_reset(env, 0)
-    worker = cast(RLWorker, worker_run.worker)
+    worker = cast(StubRLWorker, worker_run.worker)
 
     assert isinstance(rl_config.action_space, DiscreteSpace)
     assert worker.action_decode(rl_action) == env_action
@@ -259,15 +261,15 @@ def test_observation(env_action_space, rl_action_type, rl_state):
     observation_type = rl_config.env_observation_type
     if env_action_space == "Dis":
         assert isinstance(observation_space, DiscreteSpace)
-        assert observation_type == EnvObservationType.DISCRETE
+        assert observation_type == EnvObservationTypes.DISCRETE
     elif env_action_space == "Array":
         assert isinstance(observation_space, ArrayDiscreteSpace)
-        assert observation_type == EnvObservationType.DISCRETE
+        assert observation_type == EnvObservationTypes.DISCRETE
     elif env_action_space == "Box":
         assert isinstance(observation_space, BoxSpace)
-        assert observation_type == EnvObservationType.UNKNOWN
+        assert observation_type == EnvObservationTypes.UNKNOWN
 
-    assert np.allclose(worker.state_encode(env_state, env_org), rl_state)
+    assert np.allclose(worker.state_encode(env_state, env), rl_state)
 
     # on_reset
     env_org.s_state = env_state
@@ -275,7 +277,7 @@ def test_observation(env_action_space, rl_action_type, rl_state):
     worker_run.on_reset(env, 0)
     # policy
     worker.action = rl_action
-    action = worker_run.policy(env)
+    action = cast(int, worker_run.policy(env))
     assert isinstance(worker.on_reset_state, np.ndarray)
     assert np.allclose(worker.on_reset_state, rl_state)
     np.testing.assert_array_equal([action], [env_action])

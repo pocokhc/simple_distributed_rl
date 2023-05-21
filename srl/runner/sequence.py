@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional, Tuple, Union, cast
 
-from srl.base.define import PlayRenderMode
+from srl.base.define import PlayRenderModes
 from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.runner.callback import Callback
 from srl.runner.callbacks.history_viewer import HistoryViewer
@@ -50,7 +50,7 @@ def train(
         # play info
         training=True,
         distributed=False,
-        render_mode=PlayRenderMode.none,
+        render_mode=PlayRenderModes.none,
         # option
         eval=eval,
         progress=progress,
@@ -96,7 +96,7 @@ def train_only(
         # play info
         training=True,
         distributed=False,
-        render_mode=PlayRenderMode.none,
+        render_mode=PlayRenderModes.none,
         # option
         eval=eval,
         progress=progress,
@@ -141,7 +141,7 @@ def evaluate(
         # play info
         training=False,
         distributed=False,
-        render_mode=PlayRenderMode.none,
+        render_mode=PlayRenderModes.none,
         # option
         eval=None,
         progress=progress,
@@ -162,7 +162,7 @@ def render(
     config: Config,
     parameter: Optional[RLParameter] = None,
     # Rendering
-    mode: PlayRenderMode = PlayRenderMode.terminal,
+    mode: PlayRenderModes = PlayRenderModes.terminal,
     render_kwargs: dict = {},
     step_stop: bool = False,
     render_skip_step: bool = True,
@@ -221,7 +221,7 @@ def render_window(
     config: Config,
     parameter: Optional[RLParameter] = None,
     # Rendering
-    mode: PlayRenderMode = PlayRenderMode.window,
+    mode: PlayRenderModes = PlayRenderModes.window,
     render_kwargs: dict = {},
     step_stop: bool = False,
     render_skip_step: bool = True,
@@ -295,7 +295,7 @@ def animation(
 
     from srl.runner.callbacks.rendering import Rendering
 
-    mode = PlayRenderMode.rgb_array
+    mode = PlayRenderModes.rgb_array
     rendering = Rendering(
         mode=mode,
         kwargs=render_kwargs,
@@ -366,7 +366,7 @@ def replay(
         # play info
         training=False,
         distributed=False,
-        render_mode=PlayRenderMode.rgb_array,
+        render_mode=PlayRenderModes.rgb_array,
         # option
         eval=None,
         progress=progress,

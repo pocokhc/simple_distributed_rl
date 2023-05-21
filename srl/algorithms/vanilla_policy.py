@@ -4,7 +4,7 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import RLAction, RLActionType, RLObservationType
+from srl.base.define import InvalidActionsType, RLActionType, RLActionTypes, RLObservationTypes
 from srl.base.rl.algorithms.any_action import AnyActionConfig, AnyActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -21,8 +21,8 @@ class Config(AnyActionConfig):
     lr: float = 0.1
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.DISCRETE
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.DISCRETE
 
     def getName(self) -> str:
         return "VanillaPolicy"
@@ -108,7 +108,7 @@ class Trainer(RLTrainer):
         if len(batchs) == 0:
             return {}
 
-        if self.config.env_action_type == RLActionType.DISCRETE:
+        if self.config.env_action_type == RLActionTypes.DISCRETE:
             return self._train_discrete(batchs)
         else:
             return self._train_continuous(batchs)
@@ -182,18 +182,18 @@ class Worker(AnyActionWorker):
         self.parameter = cast(Parameter, self.parameter)
         self.remote_memory = cast(RemoteMemory, self.remote_memory)
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[RLAction]) -> dict:
+    def call_on_reset(self, state: np.ndarray, invalid_actions: InvalidActionsType) -> dict:
         self.state = to_str_observation(state)
         self.invalid_actions = invalid_actions
         self.history = []
 
         return {}
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[RLAction]) -> Tuple[RLAction, dict]:
+    def call_policy(self, state: np.ndarray, invalid_actions: InvalidActionsType) -> Tuple[RLActionType, dict]:
         self.state = to_str_observation(state)
         self.invalid_actions = invalid_actions
 
-        if self.config.env_action_type == RLActionType.DISCRETE:
+        if self.config.env_action_type == RLActionTypes.DISCRETE:
             # --- 離散
             probs = self.parameter.get_probs(self.state, invalid_actions)
             action = np.random.choice([a for a in range(self.config.action_num)], p=probs)
@@ -220,7 +220,7 @@ class Worker(AnyActionWorker):
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        next_invalid_actions: List[RLAction],
+        next_invalid_actions: List[RLActionTypes],
     ) -> dict:
         if not self.training:
             return {}
@@ -248,7 +248,7 @@ class Worker(AnyActionWorker):
         return {}
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        if self.config.env_action_type == RLActionType.DISCRETE:
+        if self.config.env_action_type == RLActionTypes.DISCRETE:
             probs = self.parameter.get_probs(self.state, self.invalid_actions)
             vals = [0 if v is None else v for v in self.parameter.policy[self.state]]
             maxa = np.argmax(vals)

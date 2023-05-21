@@ -94,6 +94,7 @@ def test_train2():
     server.start()
     time.sleep(30)
     client.start()
+    time.sleep(10)
 
     while True:
         time.sleep(1)  # polling time

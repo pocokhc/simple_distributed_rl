@@ -6,7 +6,7 @@ import numpy as np
 import srl
 from srl import runner
 from srl.algorithms import dqn
-from srl.base.define import EnvAction
+from srl.base.define import EnvActionType
 from srl.base.env.base import EnvRun
 from srl.base.rl.worker import ExtendWorker, WorkerRun
 from srl.envs import connectx
@@ -24,13 +24,14 @@ class MyConnectXWorker(ExtendWorker):
         self.max_depth = 3
 
     def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> dict:
+        self.action_num = cast(connectx.ConnectX, env.get_env_base()).action_space.n
         self._is_rl = False
-        self.scores = [0] * env.action_space.n
+        self.scores = [0] * self.action_num
         self.minmax_time = 0
         self.minmax_count = 0
         return {}
 
-    def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> Tuple[EnvAction, dict]:
+    def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> Tuple[EnvActionType, dict]:
         if env.step_num == 0:
             # --- 先行1ターン目
             # DQNの探索率を0.5にして実行
@@ -60,7 +61,7 @@ class MyConnectXWorker(ExtendWorker):
             return action, {}
 
         # 最大値以外のアクションを選択しないようにする(invalid_actionsに追加)
-        new_invalid_actions = [a for a in range(env.action_space.n) if self.scores[a] != max_score]
+        new_invalid_actions = [a for a in range(self.action_num) if self.scores[a] != max_score]
         env.add_invalid_actions(new_invalid_actions, self.player_index)
 
         # rl実施
@@ -74,7 +75,7 @@ class MyConnectXWorker(ExtendWorker):
     # EnvRunを使わずにboardをコピーして自作した方が早くなります
     def _minmax(self, env: EnvRun, depth: int = 0):
         if depth == self.max_depth:
-            return [0] * env.action_space.n
+            return [0] * self.action_num
 
         self.minmax_count += 1
 
@@ -86,7 +87,7 @@ class MyConnectXWorker(ExtendWorker):
 
         if env.next_player_index == self.player_index:
             # 自分の番
-            scores = [-9.0 for _ in range(env.action_space.n)]
+            scores = [-9.0 for _ in range(self.action_num)]
             for a in valid_actions:
                 # envを復元
                 env.restore(env_dat)
@@ -103,7 +104,7 @@ class MyConnectXWorker(ExtendWorker):
 
         else:
             # 相手の番
-            scores = [9.0 for _ in range(env.action_space.n)]
+            scores = [9.0 for _ in range(self.action_num)]
             for a in valid_actions:
                 env.restore(env_dat)
 
@@ -121,7 +122,7 @@ class MyConnectXWorker(ExtendWorker):
         print(f"- MinMax count: {self.minmax_count}, {self.minmax_time:.3f}s -")
         print("+---+---+---+---+---+---+---+")
         s = "|"
-        for a in range(env.action_space.n):
+        for a in range(self.action_num):
             s += "{:2d} |".format(int(self.scores[a]))
         print(s)
         print("+---+---+---+---+---+---+---+")

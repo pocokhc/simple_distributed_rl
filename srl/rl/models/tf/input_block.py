@@ -1,10 +1,12 @@
 import logging
 from typing import Tuple
 
-import tensorflow.keras as keras
-from tensorflow.keras import layers as kl
+from tensorflow import keras
 
-from srl.base.define import EnvObservationType
+from srl.base.define import EnvObservationTypes
+
+kl = keras.layers
+
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +15,7 @@ class InputBlock(keras.Model):
     def __init__(
         self,
         observation_shape: Tuple[int, ...],
-        observation_type: EnvObservationType,
+        observation_type: EnvObservationTypes,
         enable_time_distributed_layer: bool = False,
         **kwargs,
     ):
@@ -27,9 +29,9 @@ class InputBlock(keras.Model):
         err_msg = f"unknown observation_type: {observation_type}"
         self.in_layers = []
         self.use_image_layer = not (
-            observation_type == EnvObservationType.DISCRETE
-            or observation_type == EnvObservationType.CONTINUOUS
-            or observation_type == EnvObservationType.UNKNOWN
+            observation_type == EnvObservationTypes.DISCRETE
+            or observation_type == EnvObservationTypes.CONTINUOUS
+            or observation_type == EnvObservationTypes.UNKNOWN
         )
         # --- value head
         if not self.use_image_layer:
@@ -37,7 +39,7 @@ class InputBlock(keras.Model):
             return
 
         # --- image head
-        if observation_type == EnvObservationType.GRAY_2ch:
+        if observation_type == EnvObservationTypes.GRAY_2ch:
             if len(observation_shape) == 2:
                 # (h, w) -> (h, w, 1)
                 self.in_layers.append(kl.Reshape(observation_shape + (1,)))
@@ -47,7 +49,7 @@ class InputBlock(keras.Model):
             else:
                 raise ValueError(err_msg)
 
-        elif observation_type == EnvObservationType.GRAY_3ch:
+        elif observation_type == EnvObservationTypes.GRAY_3ch:
             assert observation_shape[-1] == 1
             if len(observation_shape) == 3:
                 # (h, w, 1)
@@ -60,14 +62,14 @@ class InputBlock(keras.Model):
             else:
                 raise ValueError(err_msg)
 
-        elif observation_type == EnvObservationType.COLOR:
+        elif observation_type == EnvObservationTypes.COLOR:
             if len(observation_shape) == 3:
                 # (h, w, ch)
                 pass
             else:
                 raise ValueError(err_msg)
 
-        elif observation_type == EnvObservationType.SHAPE2:
+        elif observation_type == EnvObservationTypes.SHAPE2:
             if len(observation_shape) == 2:
                 # (h, w) -> (h, w, 1)
                 self.in_layers.append(kl.Reshape(observation_shape + (1,)))
@@ -77,7 +79,7 @@ class InputBlock(keras.Model):
             else:
                 raise ValueError(err_msg)
 
-        elif observation_type == EnvObservationType.SHAPE3:
+        elif observation_type == EnvObservationTypes.SHAPE3:
             if len(observation_shape) == 3:
                 # (n, h, w) -> (h, w, n)
                 self.in_layers.append(kl.Permute((2, 3, 1)))
@@ -103,7 +105,7 @@ class InputBlock(keras.Model):
 
 
 if __name__ == "__main__":
-    m = InputBlock((1, 2, 3), EnvObservationType.COLOR)
+    m = InputBlock((1, 2, 3), EnvObservationTypes.COLOR)
     m.build((None, 1, 2, 3))
     m.init_model_graph()
     m.summary()

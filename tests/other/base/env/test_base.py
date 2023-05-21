@@ -1,9 +1,10 @@
 import time
+from typing import cast
 
 import pytest
 
 import srl
-from srl.base.define import EnvObservationType
+from srl.base.define import EnvObservationTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvBase
 from srl.base.env.spaces.discrete import DiscreteSpace
@@ -20,8 +21,8 @@ class StubEnv(EnvBase):
         return DiscreteSpace(4)
 
     @property
-    def observation_type(self) -> EnvObservationType:
-        return EnvObservationType.DISCRETE
+    def observation_type(self) -> EnvObservationTypes:
+        return EnvObservationTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:
@@ -72,7 +73,7 @@ registration.register(id="StubEnv", entry_point=__name__ + ":StubEnv")
 def test_EnvRun():
     env_config = srl.EnvConfig("StubEnv", frameskip=3)
     env = srl.make_env(env_config)
-    env_org: StubEnv = env.get_original_env()
+    env_org = cast(StubEnv, env.get_original_env())
 
     with pytest.raises(AssertionError):
         env.step(0)
@@ -88,7 +89,7 @@ def test_EnvRun():
     env2 = srl.make_env("StubEnv")
     env2.restore(env.backup())
     assert env2.step_num == 1
-    assert env2.get_original_env()._step == 4
+    assert cast(StubEnv, env2.get_original_env())._step == 4
 
 
 def test_EnvRun_max_steps():

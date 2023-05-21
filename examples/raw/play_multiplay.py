@@ -141,6 +141,7 @@ def play_cpu():
     env = srl.make_env(env_config)
     player = srl.make_worker_rulebase("human")
     cpu = env.make_worker("cpu")
+    assert cpu is not None
 
     # reset
     env.reset(render_mode="terminal")

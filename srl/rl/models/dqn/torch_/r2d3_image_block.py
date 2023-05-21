@@ -21,9 +21,6 @@ class R2D3ImageBlock(nn.Module):
         self.res3 = _ResBlock(32, 32)
         self.relu = nn.ReLU(inplace=True)
 
-        if enable_time_distributed_layer:
-            pass  # TODO
-
         # --- out shape
         x = np.ones((1,) + in_shape, dtype=np.float32)
         y = self.forward(torch.tensor(x))
@@ -35,15 +32,20 @@ class R2D3ImageBlock(nn.Module):
             batch_size, seq, channels, height, width = x.size()
             x = x.view(batch_size * seq, channels, height, width)
 
-        x = self.res1(x)
-        x = self.res2(x)
-        x = self.res3(x)
-        x = self.relu(x)
+            x = self.res1(x)
+            x = self.res2(x)
+            x = self.res3(x)
+            x = self.relu(x)
 
-        if self.enable_time_distributed_layer:
             # (batch*seq, c, h, w) -> (batch, seq, c, h, w)
             _, channels, height, width = x.size()
             x = x.view(batch_size, seq, channels, height, width)
+
+        else:
+            x = self.res1(x)
+            x = self.res2(x)
+            x = self.res3(x)
+            x = self.relu(x)
 
         return x
 

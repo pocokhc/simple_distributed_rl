@@ -77,6 +77,8 @@ def test_memory(memory_config, use_priority, check_dup):
         # keyは1～10まであること
         keys = sorted(counter.keys())
         assert keys == [i + 1 for i in range(capacity)]
+    else:
+        keys = []
 
     if use_priority:
         # priorityが高いほど数が増えている

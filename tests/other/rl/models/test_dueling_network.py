@@ -14,8 +14,9 @@ def test_call_tf():
     block = DuelingNetworkBlock(action_num, dense_units)
 
     x = np.ones((batch_size, 128), dtype=np.float32)
-    y = block(x).numpy()
-
+    y = block(x)
+    assert y is not None
+    y = y.numpy()
     assert y.shape == (batch_size, action_num)
 
 

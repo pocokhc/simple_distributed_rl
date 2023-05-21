@@ -1,8 +1,7 @@
-import warnings
 from abc import abstractmethod
 from typing import List, Tuple
 
-from srl.base.define import EnvAction, EnvObservation, Info
+from srl.base.define import EnvActionType, EnvObservationType, InfoType, InvalidActionsType
 from srl.base.env import EnvBase
 
 
@@ -29,16 +28,16 @@ class SinglePlayEnv(EnvBase):
     #  set_seed
 
     @abstractmethod
-    def call_reset(self) -> Tuple[EnvObservation, Info]:
+    def call_reset(self) -> Tuple[EnvObservationType, InfoType]:
         # state, info
         raise NotImplementedError()
 
     @abstractmethod
-    def call_step(self, action: EnvAction) -> Tuple[EnvObservation, float, bool, Info]:
+    def call_step(self, action: EnvActionType) -> Tuple[EnvObservationType, float, bool, InfoType]:
         # state, reward, done, info
         raise NotImplementedError()
 
-    def call_get_invalid_actions(self) -> List[int]:
+    def call_get_invalid_actions(self) -> InvalidActionsType:
         return []
 
     # -----------------------------------------------------
@@ -52,18 +51,12 @@ class SinglePlayEnv(EnvBase):
     def next_player_index(self) -> int:
         return 0
 
-    def reset(self) -> Tuple[EnvObservation, Info]:
-        state = self.call_reset()
-        if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
-            state, info = state
-        else:
-            info = {}
-            warnings.warn("The return value of reset has changed from 'state' to 'state, info'.", DeprecationWarning)
-        return state, info
+    def reset(self) -> Tuple[EnvObservationType, InfoType]:
+        return self.call_reset()
 
-    def step(self, action: EnvAction) -> Tuple[EnvObservation, List[float], bool, Info]:
+    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], bool, InfoType]:
         n_state, reward, done, info = self.call_step(action)
         return n_state, [reward], done, info
 
-    def get_invalid_actions(self, player_index: int) -> List[int]:
+    def get_invalid_actions(self, player_index: int) -> InvalidActionsType:
         return self.call_get_invalid_actions()

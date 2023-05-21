@@ -48,7 +48,7 @@ class _BaseCase(CommonBaseClass):
         rl_config.hidden_block_config = MLPBlockConfig(layer_sizes=(128,))
         rl_config.epsilon = 0.5
         config.seed = 2
-        parameter = tester.train(config, 10000)
+        parameter, _, _ = tester.train(config, 10000)
 
         config.players = [None, "random"]
         tester.eval(config, parameter, baseline=[0.8, None])

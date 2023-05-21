@@ -5,12 +5,12 @@ from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-import tensorflow.keras.layers as kl
 import tensorflow_probability as tfp
+from tensorflow import keras
 
-from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.define import EnvObservationTypes, RLObservationTypes
+from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
+                                                    DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
@@ -18,7 +18,10 @@ from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.utils.common import compare_less_version
 
+kl = keras.layers
 tfd = tfp.distributions
+
+
 """
 paper: https://arxiv.org/abs/1811.04551
 ref: https://github.com/danijar/dreamer
@@ -64,15 +67,15 @@ class Config(DiscreteActionConfig):
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(
-                image_type=EnvObservationType.COLOR,
+                image_type=EnvObservationTypes.COLOR,
                 resize=(64, 64),
                 enable_norm=True,
             )
         ]
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.CONTINUOUS
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "PlaNet"
@@ -135,7 +138,7 @@ class _RSSM(keras.Model):
     def img_step(self, prev_stoch, prev_deter, prev_action, training=False, _summary: bool = False):
         x = tf.concat([prev_stoch, prev_action], -1)
         x = self.img1(x)
-        x, deter = self.rnn_cell(x, [prev_deter], training=training)
+        x, deter = self.rnn_cell(x, [prev_deter], training=training)  # type:ignore , ignore check "None"
         deter = deter[0]
         x = self.img2(x)
         mean = self.img_mean(x)
@@ -226,7 +229,10 @@ class _ConvDecoder(keras.Model):
         x_std = tf.nn.softplus(x_std) + 0.1
         if _summary:
             return x_mean
-        return tfd.Independent(tfd.Normal(x_mean, x_std), reinterpreted_batch_ndims=len(x.shape) - 1)
+        return tfd.Independent(
+            tfd.Normal(x_mean, x_std),
+            reinterpreted_batch_ndims=len(x.shape) - 1,  # type:ignore , ignore check "None"
+        )
 
     def build(self, input_shape):
         self._input_shape = input_shape
@@ -359,10 +365,11 @@ class Trainer(RLTrainer):
 
         with tf.GradientTape() as tape:
             embed = self.parameter.encode(states, training=True)
+            embed_shape = embed.shape  # type:ignore , ignore check "None"
 
             # (batch * seq, shape) -> (batch, seq, shape)
             # (batch, seq, shape) -> (seq, batch, shape)
-            shape = (self.config.batch_size, self.config.batch_length) + embed.shape[1:]
+            shape = (self.config.batch_size, self.config.batch_length) + embed_shape[1:]
             embed = tf.reshape(embed, shape)
             embed = tf.transpose(embed, [1, 0, 2])
             actions = tf.transpose(actions, [1, 0, 2])
@@ -402,12 +409,13 @@ class Trainer(RLTrainer):
             prior_std = tf.transpose(prior_std, [1, 0, 2])
 
             feat = tf.concat([stochs, deters], -1)
-            feat = tf.reshape(feat, (self.config.batch_size * self.config.batch_length,) + feat.shape[2:])
+            feat_shape = feat.shape  # type:ignore , ignore check "None"
+            feat = tf.reshape(feat, (self.config.batch_size * self.config.batch_length,) + feat_shape[2:])
             image_pred = self.parameter.decode(feat)
             reward_pred = self.parameter.reward(feat)
 
-            image_loss = tf.reduce_mean(image_pred.log_prob(states))
-            reward_loss = tf.reduce_mean(reward_pred.log_prob(rewards))
+            image_loss = tf.reduce_mean(image_pred.log_prob(states))  # type:ignore , ignore check "None"
+            reward_loss = tf.reduce_mean(reward_pred.log_prob(rewards))  # type:ignore , ignore check "None"
 
             prior_dist = tfd.MultivariateNormalDiag(prior_mean, prior_std)
             post_dist = tfd.MultivariateNormalDiag(post_mean, post_std)
@@ -415,7 +423,7 @@ class Trainer(RLTrainer):
             kl_loss = tfd.kl_divergence(post_dist, prior_dist)
             kl_loss = tf.reduce_mean(kl_loss)
             kl_loss = tf.maximum(kl_loss, self.config.free_nats)
-            loss = self.config.kl_scale * kl_loss - image_loss - reward_loss
+            loss = self.config.kl_scale * kl_loss - image_loss - reward_loss  # type:ignore , ignore check "None"
 
             # 正則化項
             loss += tf.reduce_sum(self.parameter.encode.losses)
@@ -437,7 +445,7 @@ class Trainer(RLTrainer):
         return {
             "img_loss": -image_loss.numpy() / (64 * 64 * 3),
             "reward_loss": -reward_loss.numpy(),
-            "kl_loss": kl_loss.numpy(),
+            "kl_loss": kl_loss.numpy(),  # type:ignore , ignore check "None"
         }
 
     def _train_latent_overshooting_loss(self):
@@ -458,10 +466,11 @@ class Trainer(RLTrainer):
 
         with tf.GradientTape() as tape:
             embed = self.parameter.encode(states, training=True)
+            embed_shape = embed.shape  # type:ignore , ignore check "None"
 
             # (batch * seq, shape) -> (batch, seq, shape)
             # (batch, seq, shape) -> (seq, batch, shape)
-            shape = (self.config.batch_size, self.config.batch_length) + embed.shape[1:]
+            shape = (self.config.batch_size, self.config.batch_length) + embed_shape[1:]
             embed = tf.reshape(embed, shape)
             embed = tf.transpose(embed, [1, 0, 2])
             actions = tf.transpose(actions, [1, 0, 2])
@@ -514,16 +523,17 @@ class Trainer(RLTrainer):
             deters = tf.transpose(deters, [1, 0, 2])
 
             feat = tf.concat([stochs, deters], -1)
-            feat = tf.reshape(feat, (self.config.batch_size * self.config.batch_length,) + feat.shape[2:])
+            feat_shape = feat.shape  # type:ignore , ignore check "None"
+            feat = tf.reshape(feat, (self.config.batch_size * self.config.batch_length,) + feat_shape[2:])
             image_pred = self.parameter.decode(feat)
             reward_pred = self.parameter.reward(feat)
 
-            image_loss = tf.reduce_mean(image_pred.log_prob(states))
-            reward_loss = tf.reduce_mean(reward_pred.log_prob(rewards))
+            image_loss = tf.reduce_mean(image_pred.log_prob(states))  # type:ignore , ignore check "None"
+            reward_loss = tf.reduce_mean(reward_pred.log_prob(rewards))  # type:ignore , ignore check "None"
 
             kl_loss = tf.reduce_mean(kl_loss_list)
             kl_loss = tf.maximum(kl_loss, self.config.free_nats)
-            loss = self.config.kl_scale * kl_loss - image_loss - reward_loss
+            loss = self.config.kl_scale * kl_loss - image_loss - reward_loss  # type:ignore , ignore check "None"
 
         variables = [
             self.parameter.encode.trainable_variables,
@@ -539,7 +549,7 @@ class Trainer(RLTrainer):
         return {
             "img_loss": -image_loss.numpy() / (64 * 64 * 3),
             "reward_loss": -reward_loss.numpy(),
-            "kl_loss": kl_loss.numpy(),
+            "kl_loss": kl_loss.numpy(),  # type:ignore , ignore check "None"
         }
 
 
@@ -572,7 +582,7 @@ class Worker(DiscreteActionWorker):
         self.state = state
 
         if self.training:
-            self.action = self.sample_action()
+            self.action = cast(int, self.sample_action())
             return self.action, {}
 
         # --- rssm step
@@ -584,7 +594,7 @@ class Worker(DiscreteActionWorker):
         self.stoch = latent["stoch"]
 
         if self.config.action_algorithm == "random":
-            self.action = self.sample_action()
+            self.action = cast(int, self.sample_action())
         elif self.config.action_algorithm == "ga":
             self.action = self._ga_policy(self.deter, self.stoch)
         else:
@@ -598,7 +608,7 @@ class Worker(DiscreteActionWorker):
             [random.randint(0, self.config.action_num - 1) for a in range(self.config.pred_action_length)]
             for _ in range(self.config.num_individual)
         ]
-        best_actions = None
+        best_actions = []
 
         # --- 世代ループ
         for g in range(self.config.num_generation):
@@ -680,7 +690,7 @@ class Worker(DiscreteActionWorker):
             deter, prior = self.parameter.dynamics.img_step(stoch, deter, action)
             stoch = prior["stoch"]
             feat = tf.concat([stoch, deter], -1)
-            _r = self.parameter.reward(feat).mode()
+            _r = self.parameter.reward(feat).mode()  # type:ignore , ignore check "None"
             reward += _r.numpy()[0][0]
         return reward
 
@@ -722,7 +732,7 @@ class Worker(DiscreteActionWorker):
         pass
 
     def render_rgb_array(self, env, worker, **kwargs) -> Optional[np.ndarray]:
-        if self.config.env_observation_type != EnvObservationType.COLOR:
+        if self.config.env_observation_type != EnvObservationTypes.COLOR:
             return None
         from srl.utils import pygame_wrapper as pw
 
@@ -740,10 +750,10 @@ class Worker(DiscreteActionWorker):
         pw.draw_fill(self.screen, color=(0, 0, 0))
 
         # --- decode
-        pred_state = self.parameter.decode(self.feat).mode()[0].numpy()
+        pred_state = self.parameter.decode(self.feat).mode()[0].numpy()  # type:ignore , ignore check "None"
         rmse = np.sqrt(np.mean((self.state - pred_state) ** 2))
 
-        pred_reward = self.parameter.reward(self.feat).mode()[0][0].numpy()
+        pred_reward = self.parameter.reward(self.feat).mode()[0][0].numpy()  # type:ignore , ignore check "None"
 
         img1 = self.state * 255
         img2 = pred_state * 255
@@ -774,11 +784,11 @@ class Worker(DiscreteActionWorker):
             # 縦にいくつかサンプルを表示
             for j in range(_view_sample):
                 if j == 0:
-                    next_state = next_state_dist.mode()
-                    reward = reward_dist.mode()
+                    next_state = next_state_dist.mode()  # type:ignore , ignore check "None"
+                    reward = reward_dist.mode()  # type:ignore , ignore check "None"
                 else:
-                    next_state = next_state_dist.sample()
-                    reward = reward_dist.sample()
+                    next_state = next_state_dist.sample()  # type:ignore , ignore check "None"
+                    reward = reward_dist.sample()  # type:ignore , ignore check "None"
 
                 n_img = next_state[0].numpy() * 255
                 reward = reward.numpy()[0][0]

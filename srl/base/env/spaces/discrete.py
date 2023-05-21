@@ -1,8 +1,15 @@
-from typing import Any, List, Tuple
+from typing import Any, Tuple
 
 import numpy as np
 
-from srl.base.define import ContinuousAction, DiscreteAction, RLActionType, RLObservation
+from srl.base.define import (
+    ContinuousActionType,
+    DiscreteActionType,
+    InvalidActionsType,
+    RLActionTypes,
+    RLObservationType,
+    RLObservationTypes,
+)
 
 from .space import SpaceBase
 
@@ -15,7 +22,7 @@ class DiscreteSpace(SpaceBase[int]):
     def n(self) -> int:
         return self._n
 
-    def sample(self, invalid_actions: List[int] = []) -> int:
+    def sample(self, invalid_actions: InvalidActionsType = []) -> int:
         assert len(invalid_actions) < self.n, f"No valid actions. {invalid_actions}"
         return int(np.random.choice([a for a in range(self.n) if a not in invalid_actions]))
 
@@ -36,13 +43,17 @@ class DiscreteSpace(SpaceBase[int]):
         return True
 
     @property
-    def base_action_type(self) -> RLActionType:
-        return RLActionType.DISCRETE
+    def rl_action_type(self) -> RLActionTypes:
+        return RLActionTypes.DISCRETE
+
+    @property
+    def rl_observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.DISCRETE
 
     def get_default(self) -> int:
         return 0
 
-    def __eq__(self, o: object) -> bool:
+    def __eq__(self, o: "DiscreteSpace") -> bool:
         return self.n == o.n
 
     def __str__(self) -> str:
@@ -52,10 +63,10 @@ class DiscreteSpace(SpaceBase[int]):
     def get_action_discrete_info(self) -> int:
         return self.n
 
-    def action_discrete_encode(self, val: int) -> DiscreteAction:
+    def action_discrete_encode(self, val: int) -> DiscreteActionType:
         return val
 
-    def action_discrete_decode(self, val: DiscreteAction) -> int:
+    def action_discrete_decode(self, val: DiscreteActionType) -> int:
         return val
 
     # --- action continuous
@@ -65,7 +76,7 @@ class DiscreteSpace(SpaceBase[int]):
     # def action_continuous_encode(self, val: int) -> ContinuousAction:
     #    return [float(val)]
 
-    def action_continuous_decode(self, val: ContinuousAction) -> int:
+    def action_continuous_decode(self, val: ContinuousActionType) -> int:
         return int(np.round(val[0]))
 
     # --- observation
@@ -73,8 +84,8 @@ class DiscreteSpace(SpaceBase[int]):
     def observation_shape(self) -> Tuple[int, ...]:
         return (1,)
 
-    def observation_discrete_encode(self, val: int) -> RLObservation:
+    def observation_discrete_encode(self, val: int) -> RLObservationType:
         return np.array([val], dtype=int)
 
-    def observation_continuous_encode(self, val: int) -> RLObservation:
+    def observation_continuous_encode(self, val: int) -> RLObservationType:
         return np.array([val], dtype=np.float32)

@@ -60,14 +60,14 @@ def train():
 
 def evaluate():
     config, rl_config = _create_config()
-    rewards = runner.evaluate(config, max_episodes=10, print_progress=True)
+    rewards = runner.evaluate(config, max_episodes=10)
     print(rewards)
     print("mean", np.mean(rewards))
 
 
 def animation():
     config, rl_config = _create_config()
-    render = runner.animation(config, print_progress=True)
+    render = runner.animation(config)
     render.create_anime(draw_info=True).save(os.path.join(os.path.dirname(__file__), "_planet.gif"))
 
 

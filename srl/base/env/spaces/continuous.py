@@ -1,8 +1,8 @@
-from typing import Any, List, Tuple
+from typing import Any, Tuple
 
 import numpy as np
 
-from srl.base.define import ContinuousAction, DiscreteSpaceType, RLObservation
+from srl.base.define import ContinuousActionType, InvalidActionsType, RLObservationType
 
 from .box import BoxSpace
 
@@ -11,7 +11,7 @@ class ContinuousSpace(BoxSpace):
     def __init__(self, low: float = -np.inf, high: float = np.inf) -> None:
         super().__init__((1,), low, high)
 
-    def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> float:
+    def sample(self, invalid_actions: InvalidActionsType = []) -> float:
         return float(super().sample(invalid_actions)[0])
 
     def convert(self, val: Any) -> float:
@@ -41,7 +41,7 @@ class ContinuousSpace(BoxSpace):
         return self._n
 
     def action_discrete_encode(self, val: float) -> int:
-        return super().action_discrete_encode(val)
+        return super().action_discrete_encode(np.array(val))
 
     def action_discrete_decode(self, val: int) -> float:
         return float(super().action_discrete_decode(val)[0])
@@ -53,7 +53,7 @@ class ContinuousSpace(BoxSpace):
     # def action_continuous_encode(self, val: float) -> ContinuousAction:
     #    return [val]
 
-    def action_continuous_decode(self, val: ContinuousAction) -> float:
+    def action_continuous_decode(self, val: ContinuousActionType) -> float:
         return val[0]
 
     # --- observation
@@ -61,8 +61,8 @@ class ContinuousSpace(BoxSpace):
     def observation_shape(self) -> Tuple[int, ...]:
         return (1,)
 
-    def observation_discrete_encode(self, val: float) -> RLObservation:
-        return super().observation_discrete_encode(np.asarray([val]))
+    def observation_discrete_encode(self, val: float) -> RLObservationType:
+        return super().observation_discrete_encode(np.array([val]))
 
-    def observation_continuous_encode(self, val: float) -> RLObservation:
-        return super().observation_continuous_encode(np.asarray([val]))
+    def observation_continuous_encode(self, val: float) -> RLObservationType:
+        return super().observation_continuous_encode(np.array([val]))

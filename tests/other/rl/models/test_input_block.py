@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from srl.base.define import EnvObservationType
+from srl.base.define import EnvObservationTypes
 
 
 def call_block_tf(
@@ -17,7 +17,9 @@ def call_block_tf(
         obs_type,
         enable_time_distributed_layer=enable_time_distributed_layer,
     )
-    y = block(x).numpy()
+    y = block(x)
+    assert y is not None
+    y = y.numpy()
     return y, block.use_image_layer, None
 
 
@@ -53,14 +55,14 @@ def call_block_torch(
 
 
 pattern0 = [
-    ((2, 4, 8), EnvObservationType.UNKNOWN, (2 * 4 * 8,), False),
-    ((2, 4, 8), EnvObservationType.DISCRETE, (2 * 4 * 8,), False),
-    ((2, 4, 8), EnvObservationType.CONTINUOUS, (2 * 4 * 8,), False),
-    ((4, 8), EnvObservationType.GRAY_2ch, (4, 8, 1), True),
-    ((4, 8, 1), EnvObservationType.GRAY_3ch, (4, 8, 1), True),
-    ((4, 8, 3), EnvObservationType.COLOR, (4, 8, 3), True),
-    ((4, 8), EnvObservationType.SHAPE2, (4, 8, 1), True),
-    ((10, 4, 8), EnvObservationType.SHAPE3, (4, 8, 10), True),
+    ((2, 4, 8), EnvObservationTypes.UNKNOWN, (2 * 4 * 8,), False),
+    ((2, 4, 8), EnvObservationTypes.DISCRETE, (2 * 4 * 8,), False),
+    ((2, 4, 8), EnvObservationTypes.CONTINUOUS, (2 * 4 * 8,), False),
+    ((4, 8), EnvObservationTypes.GRAY_2ch, (4, 8, 1), True),
+    ((4, 8, 1), EnvObservationTypes.GRAY_3ch, (4, 8, 1), True),
+    ((4, 8, 3), EnvObservationTypes.COLOR, (4, 8, 3), True),
+    ((4, 8), EnvObservationTypes.SHAPE2, (4, 8, 1), True),
+    ((10, 4, 8), EnvObservationTypes.SHAPE3, (4, 8, 10), True),
 ]
 
 
@@ -88,14 +90,14 @@ def _window_0(call_block, obs_shape, obs_type, true_shape, true_image):
 
 
 pattern10 = [
-    ((10, 2, 4, 8), EnvObservationType.UNKNOWN, (10 * 2 * 4 * 8,), False, False),
-    ((10, 2, 4, 8), EnvObservationType.DISCRETE, (10 * 2 * 4 * 8,), False, False),
-    ((10, 2, 4, 8), EnvObservationType.CONTINUOUS, (10 * 2 * 4 * 8,), False, False),
-    ((10, 4, 8), EnvObservationType.GRAY_2ch, (4, 8, 10), True, False),
-    ((10, 4, 8, 1), EnvObservationType.GRAY_3ch, (4, 8, 10), True, False),
-    ((10, 4, 8, 3), EnvObservationType.COLOR, None, None, True),
-    ((10, 4, 8), EnvObservationType.SHAPE2, (4, 8, 10), True, False),
-    ((10, 10, 4, 8), EnvObservationType.SHAPE3, None, None, True),
+    ((10, 2, 4, 8), EnvObservationTypes.UNKNOWN, (10 * 2 * 4 * 8,), False, False),
+    ((10, 2, 4, 8), EnvObservationTypes.DISCRETE, (10 * 2 * 4 * 8,), False, False),
+    ((10, 2, 4, 8), EnvObservationTypes.CONTINUOUS, (10 * 2 * 4 * 8,), False, False),
+    ((10, 4, 8), EnvObservationTypes.GRAY_2ch, (4, 8, 10), True, False),
+    ((10, 4, 8, 1), EnvObservationTypes.GRAY_3ch, (4, 8, 10), True, False),
+    ((10, 4, 8, 3), EnvObservationTypes.COLOR, None, None, True),
+    ((10, 4, 8), EnvObservationTypes.SHAPE2, (4, 8, 10), True, False),
+    ((10, 10, 4, 8), EnvObservationTypes.SHAPE3, None, None, True),
 ]
 
 
@@ -127,14 +129,14 @@ def _window_10(call_block, obs_shape, obs_type, true_shape, true_image, is_throw
 
 
 pattern_time = [
-    ((2, 4, 8), EnvObservationType.UNKNOWN, (2 * 4 * 8,), False),
-    ((2, 4, 8), EnvObservationType.DISCRETE, (2 * 4 * 8,), False),
-    ((2, 4, 8), EnvObservationType.CONTINUOUS, (2 * 4 * 8,), False),
-    ((4, 8), EnvObservationType.GRAY_2ch, (4, 8, 1), True),
-    ((4, 8, 1), EnvObservationType.GRAY_3ch, (4, 8, 1), True),
-    ((4, 8, 3), EnvObservationType.COLOR, (4, 8, 3), True),
-    ((4, 8), EnvObservationType.SHAPE2, (4, 8, 1), True),
-    ((10, 4, 8), EnvObservationType.SHAPE3, (4, 8, 10), True),
+    ((2, 4, 8), EnvObservationTypes.UNKNOWN, (2 * 4 * 8,), False),
+    ((2, 4, 8), EnvObservationTypes.DISCRETE, (2 * 4 * 8,), False),
+    ((2, 4, 8), EnvObservationTypes.CONTINUOUS, (2 * 4 * 8,), False),
+    ((4, 8), EnvObservationTypes.GRAY_2ch, (4, 8, 1), True),
+    ((4, 8, 1), EnvObservationTypes.GRAY_3ch, (4, 8, 1), True),
+    ((4, 8, 3), EnvObservationTypes.COLOR, (4, 8, 3), True),
+    ((4, 8), EnvObservationTypes.SHAPE2, (4, 8, 1), True),
+    ((10, 4, 8), EnvObservationTypes.SHAPE3, (4, 8, 10), True),
 ]
 
 

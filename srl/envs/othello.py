@@ -6,7 +6,7 @@ from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationTypes, RLObservationTypes
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
@@ -70,12 +70,12 @@ class Othello(TurnBase2Player):
         return DiscreteSpace(self.W * self.H)
 
     @property
-    def observation_space(self) -> SpaceBase:
+    def observation_space(self) -> ArrayDiscreteSpace:
         return ArrayDiscreteSpace(self.W * self.H, low=-1, high=1)
 
     @property
-    def observation_type(self) -> EnvObservationType:
-        return EnvObservationType.DISCRETE
+    def observation_type(self) -> EnvObservationTypes:
+        return EnvObservationTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:
@@ -412,7 +412,8 @@ class Cpu(RuleBaseWorker):
     def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[int, dict]:
         self._count = 0
         self.t0 = time.time()
-        scores = self._negamax(env.get_original_env().copy())
+        _env = cast(Othello, env.get_original_env())
+        scores = self._negamax(cast(Othello, _env.copy()))
         self._render_scores = scores
         self._render_count = self._count
         self._render_time = time.time() - self.t0
@@ -449,7 +450,7 @@ class Cpu(RuleBaseWorker):
                 if self.eval_field is None:
                     scores[a] = 0
                 else:
-                    scores[a] = np.sum(self.eval_field * env.field)
+                    scores[a] = np.sum(self.eval_field * np.array(env.field))
                 if player_index != 0:
                     scores[a] = -scores[a]
             else:
@@ -484,17 +485,17 @@ class LayerProcessor(Processor):
     def change_observation_info(
         self,
         env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationType,
-        rl_observation_type: RLObservationType,
+        env_observation_type: EnvObservationTypes,
+        rl_observation_type: RLObservationTypes,
         env: EnvRun,
-    ) -> Tuple[SpaceBase, EnvObservationType]:
+    ) -> Tuple[SpaceBase, EnvObservationTypes]:
         _env = cast(Othello, env.get_original_env())
         observation_space = BoxSpace(
             low=0,
             high=1,
             shape=(2, _env.H, _env.W),
         )
-        return observation_space, EnvObservationType.SHAPE3
+        return observation_space, EnvObservationTypes.SHAPE3
 
     def process_observation(self, observation: np.ndarray, env: Othello) -> np.ndarray:
         _env = cast(Othello, env.get_original_env())

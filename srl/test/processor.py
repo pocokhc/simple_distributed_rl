@@ -2,7 +2,7 @@ import numpy as np
 
 import srl
 import srl.rl.dummy
-from srl.base.define import EnvObservation, EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationType, EnvObservationTypes, RLObservationTypes
 from srl.base.env.base import EnvRun
 from srl.base.env.spaces.space import SpaceBase
 from srl.base.rl.processor import Processor
@@ -25,9 +25,9 @@ class TestProcessor:
         self,
         processor: Processor,
         env_name: str,
-        after_type: EnvObservationType,
+        after_type: EnvObservationTypes,
         after_space: SpaceBase,
-        rl_observation_type: RLObservationType = RLObservationType.ANY,
+        rl_observation_type: RLObservationTypes = RLObservationTypes.ANY,
     ):
         env = srl.make_env(env_name)
 
@@ -42,7 +42,11 @@ class TestProcessor:
         assert new_space == after_space
 
     def observation_decode(
-        self, processor: Processor, env_name: str, in_observation: EnvObservation, out_observation: EnvObservation
+        self,
+        processor: Processor,
+        env_name: str,
+        in_observation: EnvObservationType,
+        out_observation: EnvObservationType,
     ):
         env = srl.make_env(env_name)
         env.reset()

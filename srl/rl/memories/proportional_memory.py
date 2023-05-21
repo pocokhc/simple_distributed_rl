@@ -41,7 +41,7 @@ class SumTree:
     def __init__(self, capacity):
         self.capacity = capacity
         self.write = 0
-        self.tree = [0 for _ in range(2 * self.capacity - 1)]
+        self.tree: List[float] = [0 for _ in range(2 * self.capacity - 1)]
         self.data = [None for _ in range(capacity)]
 
     def _propagate(self, idx, change):
@@ -80,7 +80,7 @@ class SumTree:
         if self.write >= self.capacity:
             self.write = 0
 
-    def update(self, tree_idx, priority):
+    def update(self, tree_idx: int, priority):
         # numpyよりプリミティブ型の方が早い、再帰されるので無視できないレベルで違いが出る
         priority = float(priority)
         change = priority - self.tree[tree_idx]
@@ -143,6 +143,9 @@ class ProportionalMemory(IPriorityMemory):
         if beta > 1:
             beta = 1
 
+        idx = 0
+        batch = None
+        priority = 0
         for i in range(batch_size):
             for _ in range(9999):  # for safety
                 r = random.random() * total

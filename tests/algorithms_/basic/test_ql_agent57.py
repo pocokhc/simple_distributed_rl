@@ -10,8 +10,8 @@ def test_Grid():
     rl_config = ql_agent57.Config()
     rl_config.enable_actor = False
     rl_config.epsilon = 0.5
-    config = runner.Config("Grid", rl_config, seed=2)
-    parameter = tester.train_eval(config, 100_000, eval_episode=100)
+    config = runner.Config("Grid", rl_config, seed=3)
+    parameter, _, _ = tester.train_eval(config, 100_000, eval_episode=100)
     tester.verify_grid_policy(rl_config, parameter)
 
 
@@ -37,5 +37,5 @@ def test_Grid_mp():
 def test_OneRoad():
     tester = TestRL()
     rl_config = ql_agent57.Config()
-    config = runner.Config("Grid", rl_config, seed=1)
-    tester.train_eval(config, 20_000)
+    config = runner.Config("Grid", rl_config, seed=2)
+    tester.train_eval(config, 10_000)

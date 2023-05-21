@@ -4,7 +4,7 @@ from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationTypes, RLObservationTypes
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
@@ -33,16 +33,16 @@ class OX(TurnBase2Player):
         self._next_player_index = 0
 
     @property
-    def action_space(self) -> SpaceBase:
+    def action_space(self) -> DiscreteSpace:
         return DiscreteSpace(self.W * self.H)
 
     @property
-    def observation_space(self) -> SpaceBase:
+    def observation_space(self) -> ArrayDiscreteSpace:
         return ArrayDiscreteSpace(self.H * self.W, low=-1, high=1)
 
     @property
-    def observation_type(self) -> EnvObservationType:
-        return EnvObservationType.DISCRETE
+    def observation_type(self) -> EnvObservationTypes:
+        return EnvObservationTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:
@@ -222,7 +222,7 @@ class OX(TurnBase2Player):
     def calc_scores(self) -> List[float]:
         self._scores_count = 0
         t0 = time.time()
-        scores = self._negamax(self.copy())
+        scores = self._negamax(cast(OX, self.copy()))
         self._scores_time = time.time() - t0
         return scores
 
@@ -288,16 +288,16 @@ class LayerProcessor(Processor):
     def change_observation_info(
         self,
         env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationType,
-        rl_observation_type: RLObservationType,
+        env_observation_type: EnvObservationTypes,
+        rl_observation_type: RLObservationTypes,
         env: EnvRun,
-    ) -> Tuple[SpaceBase, EnvObservationType]:
+    ) -> Tuple[SpaceBase, EnvObservationTypes]:
         observation_space = BoxSpace(
             low=0,
             high=1,
             shape=(2, 3, 3),
         )
-        return observation_space, EnvObservationType.SHAPE3
+        return observation_space, EnvObservationTypes.SHAPE3
 
     def process_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
         _env = cast(OX, env.get_original_env())

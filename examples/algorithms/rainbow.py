@@ -74,14 +74,19 @@ def main():
         print(name)
 
         # --- train
-        _, _, history = runner.train(config, max_episodes=200, enable_file_logger=True)
+        _, _, history = runner.train(
+            config,
+            max_episodes=200,
+            history=runner.HistoryOption(),
+            eval=runner.EvalOption(),
+        )
         results.append((name, history))
 
     plt.xlabel("episode")
     plt.ylabel("valid reward")
     for name, h in results:
         df = h.get_df()
-        plt.plot(df["episode_count"], df["eval_reward0"].rolling(50).mean(), label=name)
+        plt.plot(df["actor0_episode"], df["actor0_eval_reward0"].rolling(50).mean(), label=name)
     plt.grid()
     plt.legend()
     plt.tight_layout()

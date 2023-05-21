@@ -1,7 +1,8 @@
 from typing import Any, Dict, Tuple
 
-import tensorflow.keras as keras
-from tensorflow.keras import layers as kl
+from tensorflow import keras
+
+kl = keras.layers
 
 
 class MLPBlock(keras.Model):

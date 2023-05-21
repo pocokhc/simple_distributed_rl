@@ -1,6 +1,6 @@
-import tensorflow.keras as keras
-from tensorflow.keras import layers as kl
-from tensorflow.keras import regularizers
+from tensorflow import keras
+
+kl = keras.layers
 
 """
 Paper
@@ -30,7 +30,7 @@ class MuZeroAtariBlock(keras.Model):
             activation="relu",
             use_bias=False,
             kernel_initializer="he_normal",
-            kernel_regularizer=regularizers.l2(l2),
+            kernel_regularizer=keras.regularizers.l2(l2),
         )
         self.resblock1 = _ResidualBlock(base_filters, kernel_size, l2, use_layer_normalization)
         self.resblock2 = _ResidualBlock(base_filters, kernel_size, l2, use_layer_normalization)
@@ -42,7 +42,7 @@ class MuZeroAtariBlock(keras.Model):
             activation="relu",
             use_bias=False,
             kernel_initializer="he_normal",
-            kernel_regularizer=regularizers.l2(l2),
+            kernel_regularizer=keras.regularizers.l2(l2),
         )
         self.resblock3 = _ResidualBlock(base_filters * 2, kernel_size, l2, use_layer_normalization)
         self.resblock4 = _ResidualBlock(base_filters * 2, kernel_size, l2, use_layer_normalization)
@@ -86,7 +86,7 @@ class _ResidualBlock(keras.Model):
             padding="same",
             use_bias=False,
             kernel_initializer="he_normal",
-            kernel_regularizer=regularizers.l2(l2),
+            kernel_regularizer=keras.regularizers.l2(l2),
         )
         if use_layer_normalization:
             self.bn1 = kl.LayerNormalization()
@@ -99,7 +99,7 @@ class _ResidualBlock(keras.Model):
             padding="same",
             use_bias=False,
             kernel_initializer="he_normal",
-            kernel_regularizer=regularizers.l2(l2),
+            kernel_regularizer=keras.regularizers.l2(l2),
         )
         if use_layer_normalization:
             self.bn2 = kl.LayerNormalization()

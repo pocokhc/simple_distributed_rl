@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from srl.base.define import EnvObservationType
+from srl.base.define import EnvObservationTypes
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ class InputBlock(nn.Module):
     def __init__(
         self,
         observation_shape: Tuple[int, ...],
-        observation_type: EnvObservationType,
+        observation_type: EnvObservationTypes,
         enable_time_distributed_layer: bool = False,
         **kwargs,
     ):
@@ -28,9 +28,9 @@ class InputBlock(nn.Module):
         self.flatten = nn.Flatten()
 
         self.use_image_layer = not (
-            self.observation_type == EnvObservationType.DISCRETE
-            or self.observation_type == EnvObservationType.CONTINUOUS
-            or self.observation_type == EnvObservationType.UNKNOWN
+            self.observation_type == EnvObservationTypes.DISCRETE
+            or self.observation_type == EnvObservationTypes.CONTINUOUS
+            or self.observation_type == EnvObservationTypes.UNKNOWN
         )
 
         # --- out shape
@@ -44,6 +44,8 @@ class InputBlock(nn.Module):
             self.out_shape = y.shape[1:]
 
     def forward(self, x: torch.Tensor):
+        batch_size = 0
+        seq = 0
         if self.enable_time_distributed_layer:
             # (batch, seq, shape) -> (batch*seq, shape)
             size = x.size()
@@ -55,7 +57,7 @@ class InputBlock(nn.Module):
         if not self.use_image_layer:
             # --- value head
             x = self.flatten(x)
-        elif self.observation_type == EnvObservationType.GRAY_2ch:
+        elif self.observation_type == EnvObservationTypes.GRAY_2ch:
             # --- image head
 
             if len(self.observation_shape) == 2:
@@ -69,7 +71,7 @@ class InputBlock(nn.Module):
             else:
                 raise ValueError(self.error_msg)
 
-        elif self.observation_type == EnvObservationType.GRAY_3ch:
+        elif self.observation_type == EnvObservationTypes.GRAY_3ch:
             assert self.observation_shape[-1] == 1
             if len(self.observation_shape) == 3:
                 # (batch, h, w, 1) -> (batch, 1, h, w)
@@ -80,14 +82,14 @@ class InputBlock(nn.Module):
             else:
                 raise ValueError(self.error_msg)
 
-        elif self.observation_type == EnvObservationType.COLOR:
+        elif self.observation_type == EnvObservationTypes.COLOR:
             if len(self.observation_shape) == 3:
                 # (batch, h, w, ch) -> (batch, ch, h, w)
                 x = x.permute((0, 3, 1, 2))
             else:
                 raise ValueError(self.error_msg)
 
-        elif self.observation_type == EnvObservationType.SHAPE2:
+        elif self.observation_type == EnvObservationTypes.SHAPE2:
             if len(self.observation_shape) == 2:
                 # (batch, h, w) -> (batch, h, w, 1)
                 # (batch, h, w, 1) -> (batch, 1, h, w)
@@ -99,7 +101,7 @@ class InputBlock(nn.Module):
             else:
                 raise ValueError(self.error_msg)
 
-        elif self.observation_type == EnvObservationType.SHAPE3:
+        elif self.observation_type == EnvObservationTypes.SHAPE3:
             if len(self.observation_shape) == 3:
                 # (batch, n, h, w)
                 pass
@@ -119,5 +121,5 @@ class InputBlock(nn.Module):
 
 
 if __name__ == "__main__":
-    m = InputBlock((1, 2, 3), EnvObservationType.COLOR)
+    m = InputBlock((1, 2, 3), EnvObservationTypes.COLOR)
     print(m)

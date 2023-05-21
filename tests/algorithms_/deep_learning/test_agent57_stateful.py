@@ -13,7 +13,6 @@ def test_Pendulum():
         lstm_units=128,
         hidden_layer_sizes=(128,),
         enable_dueling_network=False,
-        memory_name="ReplayMemory",
         target_model_update_interval=100,
         enable_rescale=True,
         q_ext_lr=0.001,

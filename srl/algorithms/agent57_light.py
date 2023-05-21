@@ -6,10 +6,9 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-import tensorflow.keras.layers as kl
+from tensorflow import keras
 
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationTypes, RLObservationTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.memory import IPriorityMemoryConfig
@@ -32,6 +31,7 @@ from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_block import InputBlock
 
+kl = keras.layers
 logger = logging.getLogger(__name__)
 
 """
@@ -121,9 +121,9 @@ class Config(DiscreteActionConfig):
             kwargs={
                 "activation": "relu",
                 "kernel_initializer": "he_normal",
-                "dense_kwargs": {
-                    "bias_initializer": keras.initializers.constant(0.001),
-                },
+                # "dense_kwargs": {
+                #    "bias_initializer": keras.initializers.constant(0.001),
+                # },
             },
         )
     )
@@ -165,15 +165,15 @@ class Config(DiscreteActionConfig):
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(
-                image_type=EnvObservationType.GRAY_2ch,
+                image_type=EnvObservationTypes.GRAY_2ch,
                 resize=(84, 84),
                 enable_norm=True,
             )
         ]
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.CONTINUOUS
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "Agent57_light"
@@ -878,8 +878,8 @@ class Worker(DiscreteActionWorker):
             prev_onehot_action,
             self.onehot_actor_idx,
         ]
-        self.q_ext = self.parameter.q_ext_online(in_)[0].numpy()
-        self.q_int = self.parameter.q_int_online(in_)[0].numpy()
+        self.q_ext = self.parameter.q_ext_online(in_)[0].numpy()  # type:ignore , ignore check "None"
+        self.q_int = self.parameter.q_int_online(in_)[0].numpy()  # type:ignore , ignore check "None"
         self.q = self.q_ext + self.beta * self.q_int
 
         if random.random() < self.epsilon:
@@ -1024,8 +1024,8 @@ class Worker(DiscreteActionWorker):
 
     def _calc_lifelong_reward(self, state):
         # RND取得
-        rnd_target_val = self.parameter.lifelong_target(state)[0]
-        rnd_train_val = self.parameter.lifelong_train(state)[0]
+        rnd_target_val = self.parameter.lifelong_target(state)[0]  # type:ignore , ignore check "None"
+        rnd_train_val = self.parameter.lifelong_train(state)[0]  # type:ignore , ignore check "None"
 
         # MSE
         error = np.square(rnd_target_val - rnd_train_val).mean()

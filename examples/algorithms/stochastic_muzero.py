@@ -39,11 +39,11 @@ def main():
     parameter, _, _ = runner.train(config, max_episodes=500)
 
     # --- evaluate
-    rewards = runner.evaluate(config, parameter, max_episodes=10, print_progress=True)
+    rewards = runner.evaluate(config, parameter, max_episodes=10)
     print("mean", np.mean(rewards))
 
     # --- rendering
-    render = runner.animation(config, parameter, print_progress=True)
+    render = runner.animation(config, parameter)
     render.create_anime(draw_info=True).save(os.path.join(os.path.dirname(__file__), "_stochastic_muzero.gif"))
 
 

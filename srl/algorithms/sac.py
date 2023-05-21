@@ -3,10 +3,9 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-import tensorflow.keras.layers as kl
+from tensorflow import keras
 
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationTypes, RLObservationTypes
 from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
@@ -18,6 +17,8 @@ from srl.rl.functions.common_tf import compute_logprob_sgp
 from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
 from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
+
+kl = keras.layers
 
 """
 Paper
@@ -57,13 +58,13 @@ class Config(ContinuousActionConfig):
     memory_warmup_size: int = 1000
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.CONTINUOUS
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.CONTINUOUS
 
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(
-                image_type=EnvObservationType.GRAY_2ch,
+                image_type=EnvObservationTypes.GRAY_2ch,
                 resize=(84, 84),
                 enable_norm=True,
             )
@@ -147,11 +148,11 @@ class _PolicyNetwork(keras.Model):
         # σ > 0
         stddev = tf.exp(stddev)
 
-        if mean.shape[0] is None:
+        if mean.shape[0] is None:  # type:ignore , ignore check "None"
             return mean, stddev
 
         # Reparameterization trick
-        normal_random = tf.random.normal(mean.shape, mean=0.0, stddev=1.0)
+        normal_random = tf.random.normal(mean.shape, mean=0.0, stddev=1.0)  # type:ignore , ignore check "None"
         action_org = mean + stddev * normal_random
 
         # Squashed Gaussian Policy
@@ -344,18 +345,21 @@ class Trainer(RLTrainer):
         alpha = tf.math.exp(self.log_alpha)
 
         # ポリシーより次の状態のアクションを取得
-        n_actions, n_means, n_stddevs, n_action_orgs = self.parameter.policy(n_states)
+        n_actions, n_means, n_stddevs, n_action_orgs = self.parameter.policy(
+            n_states
+        )  # type:ignore , ignore check "None"
         # 次の状態のアクションのlogpiを取得(Squashed Gaussian Policy時)
         n_logpi = compute_logprob_sgp(n_means, n_stddevs, n_action_orgs)
 
         # 2つのQ値から小さいほうを採用(Clipped Double Q learning)して、
         # Q値を計算 : reward if done else (reward + discount * n_qval) - (alpha * H)
-        n_q1, n_q2 = self.parameter.q_target([n_states, n_actions])
-        q_vals = rewards + (1 - dones) * self.config.discount * tf.minimum(n_q1, n_q2) - (alpha * n_logpi)
+        n_q1, n_q2 = self.parameter.q_target([n_states, n_actions])  # type:ignore , ignore check "None"
+        n_qval = self.config.discount * tf.minimum(n_q1, n_q2)  # type:ignore , ignore check "None"
+        q_vals = rewards + (1 - dones) * n_qval - (alpha * n_logpi)
 
         # --- Qモデルの学習
         with tf.GradientTape() as tape:
-            q1, q2 = self.parameter.q_online([states, actions], training=True)
+            q1, q2 = self.parameter.q_online([states, actions], training=True)  # type:ignore , ignore check "None"
             loss1 = tf.reduce_mean(tf.square(q_vals - q1))
             loss2 = tf.reduce_mean(tf.square(q_vals - q2))
             q_loss = (loss1 + loss2) / 2
@@ -367,13 +371,15 @@ class Trainer(RLTrainer):
         # --- ポリシーの学習
         with tf.GradientTape() as tape:
             # アクションを出力
-            selected_actions, means, stddevs, action_orgs = self.parameter.policy(states, training=True)
+            selected_actions, means, stddevs, action_orgs = self.parameter.policy(
+                states, training=True
+            )  # type:ignore , ignore check "None"
 
             # logπ(a|s) (Squashed Gaussian Policy)
             logpi = compute_logprob_sgp(means, stddevs, action_orgs)
 
             # Q値を出力、小さいほうを使う
-            q1, q2 = self.parameter.q_online([states, selected_actions])
+            q1, q2 = self.parameter.q_online([states, selected_actions])  # type:ignore , ignore check "None"
             q_min = tf.minimum(q1, q2)
 
             # alphaは定数扱いなので勾配が流れないようにする
@@ -386,7 +392,7 @@ class Trainer(RLTrainer):
         self.policy_optimizer.apply_gradients(zip(grads, self.parameter.policy.trainable_variables))
 
         # --- 方策エントロピーαの自動調整
-        _, means, stddevs, action_orgs = self.parameter.policy(states)
+        _, means, stddevs, action_orgs = self.parameter.policy(states)  # type:ignore , ignore check "None"
         logpi = compute_logprob_sgp(means, stddevs, action_orgs)
 
         with tf.GradientTape() as tape:
@@ -430,20 +436,20 @@ class Worker(ContinuousActionWorker):
 
     def call_policy(self, state: np.ndarray) -> Tuple[List[float], dict]:
         self.state = state
-        action, mean, stddev, _ = self.parameter.policy(state.reshape(1, -1))
+        action, mean, stddev, _ = self.parameter.policy(state.reshape(1, -1))  # type:ignore , ignore check "None"
 
         if self.training:
             action = action.numpy()[0]
         else:
             # テスト時は平均を使う
             mean = tf.tanh(mean)
-            action = mean.numpy()[0]
+            action = mean.numpy()[0]  # type:ignore , ignore check "None"
 
         # Squashed Gaussian Policy (-1, 1) -> (action range)
         env_action = (action + 1) / 2
         env_action = self.config.action_low + env_action * (self.config.action_high - self.config.action_low)
 
-        self.mean = mean.numpy()[0]
+        self.mean = mean.numpy()[0]  # type:ignore , ignore check "None"
         self.stddev = stddev.numpy()[0]
         self.action = action
         return env_action, {}
@@ -469,7 +475,9 @@ class Worker(ContinuousActionWorker):
         return {}
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        q1, q2 = self.parameter.q_online([self.state.reshape(1, -1), np.asarray([self.action])])
+        q1, q2 = self.parameter.q_online(
+            [self.state.reshape(1, -1), np.asarray([self.action])]
+        )  # type:ignore , ignore check "None"
         q1 = q1.numpy()[0][0]
         q2 = q2.numpy()[0][0]
 

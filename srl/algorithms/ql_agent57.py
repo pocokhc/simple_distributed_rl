@@ -6,7 +6,7 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import RLObservationType
+from srl.base.define import RLObservationTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.memory import IPriorityMemoryConfig
@@ -107,8 +107,8 @@ class Config(DiscreteActionConfig):
     q_init: str = ""
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.DISCRETE
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.DISCRETE
 
     def getName(self) -> str:
         return "QL_Agent57"
@@ -292,7 +292,7 @@ class Trainer(RLTrainer):
 
         # 外部Qを優先
         # priority = abs(ext_td_error) + batch["beta"] * abs(int_td_error)
-        self.remote_memory.update(indices, batchs, ext_td_errors)
+        self.remote_memory.update(indices, batchs, np.array(ext_td_errors))
 
         return {
             "Q": len(self.parameter.Q_ext),

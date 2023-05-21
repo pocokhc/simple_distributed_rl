@@ -2,7 +2,7 @@ from typing import Any, List, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLObservation
+from srl.base.define import ContinuousActionType, DiscreteActionType, InvalidActionsType, RLObservationType
 
 from .box import BoxSpace
 
@@ -21,7 +21,7 @@ class ArrayContinuousSpace(BoxSpace):
     def size(self):
         return self._size
 
-    def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> List[float]:
+    def sample(self, invalid_actions: InvalidActionsType = []) -> List[float]:
         return super().sample(invalid_actions).tolist()
 
     def convert(self, val: Any) -> List[float]:
@@ -57,17 +57,17 @@ class ArrayContinuousSpace(BoxSpace):
     def get_action_discrete_info(self) -> int:
         return self._n
 
-    def action_discrete_encode(self, val: List[float]) -> DiscreteAction:
-        return super().action_discrete_encode(val)
+    def action_discrete_encode(self, val: List[float]) -> DiscreteActionType:
+        return super().action_discrete_encode(np.array(val))
 
-    def action_discrete_decode(self, val: DiscreteAction) -> List[float]:
+    def action_discrete_decode(self, val: DiscreteActionType) -> List[float]:
         return super().action_discrete_decode(val).tolist()
 
     # --- action continuous
     def get_action_continuous_info(self) -> Tuple[int, np.ndarray, np.ndarray]:
         return super().get_action_continuous_info()
 
-    def action_continuous_decode(self, val: ContinuousAction) -> List[float]:
+    def action_continuous_decode(self, val: ContinuousActionType) -> List[float]:
         return val
 
     # --- observation
@@ -75,8 +75,8 @@ class ArrayContinuousSpace(BoxSpace):
     def observation_shape(self) -> Tuple[int, ...]:
         return super().observation_shape
 
-    def observation_discrete_encode(self, val: List[float]) -> RLObservation:
+    def observation_discrete_encode(self, val: List[float]) -> RLObservationType:
         return super().observation_discrete_encode(np.asarray(val))
 
-    def observation_continuous_encode(self, val: List[float]) -> RLObservation:
+    def observation_continuous_encode(self, val: List[float]) -> RLObservationType:
         return super().observation_continuous_encode(np.asarray(val))

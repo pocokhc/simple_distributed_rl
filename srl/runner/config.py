@@ -8,7 +8,7 @@ from typing import Callable, ClassVar, List, Optional, Tuple, Union
 
 import srl.rl.human  # reservation   # noqa F401
 import srl.rl.random_play  # reservation   # noqa F401
-from srl.base.define import EnvObservation, RLObservation
+from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.base import EnvRun
 from srl.base.env.config import EnvConfig
 from srl.base.env.registration import make as srl_make_env
@@ -573,7 +573,7 @@ class Config:
     # ------------------------------
     # utility
     # ------------------------------
-    def get_env_init_state(self, encode: bool = True) -> Union[EnvObservation, RLObservation]:
+    def get_env_init_state(self, encode: bool = True) -> Union[EnvObservationType, RLObservationType]:
         env = self.make_env()
         env.reset()
         state = env.state

@@ -41,7 +41,12 @@ def main():
     for name, rl_config in rl_configs:
         print(name)
         config = runner.Config(env_config, rl_config)
-        _, _, history = runner.train(config, max_episodes=50, enable_evaluation=False, enable_file_logger=True)
+        _, _, history = runner.train(
+            config,
+            max_episodes=50,
+            history=runner.HistoryOption(),
+            eval=runner.EvalOption(),
+        )
         results.append((name, history))
 
     # plot
@@ -50,7 +55,7 @@ def main():
     plt.ylabel("reward")
     for name, h in results:
         df = h.get_df()
-        plt.plot(df["episode_count"], df["episode_reward0"].rolling(20).mean(), label=name)
+        plt.plot(df["actor0_episode"], df["actor0_eval_reward0"].rolling(10).mean(), label=name)
     plt.grid()
     plt.legend()
     plt.tight_layout()

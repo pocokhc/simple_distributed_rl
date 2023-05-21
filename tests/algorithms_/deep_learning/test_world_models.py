@@ -30,7 +30,6 @@ class _BaseCase(CommonBaseClass):
             config,
             max_episodes=100,
             disable_trainer=True,
-            enable_file_logger=False,
         )
 
         # vae
@@ -41,7 +40,6 @@ class _BaseCase(CommonBaseClass):
             config,
             remote_memory=memory,
             max_train_count=20_000,
-            enable_file_logger=False,
         )
 
         # rnn
@@ -53,7 +51,6 @@ class _BaseCase(CommonBaseClass):
             parameter=parameter,
             remote_memory=memory,
             max_train_count=40_000,
-            enable_file_logger=False,
         )
 
         # controller
@@ -66,7 +63,6 @@ class _BaseCase(CommonBaseClass):
             config,
             parameter=parameter,
             max_episodes=max_episodes,
-            enable_file_logger=False,
         )
 
         tester.eval(config, parameter, episode=200, baseline=0.3)

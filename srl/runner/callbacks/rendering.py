@@ -5,7 +5,7 @@ from typing import Union, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationType, PlayRenderMode
+from srl.base.define import EnvObservationTypes, PlayRenderModes
 from srl.base.env.base import EnvRun
 from srl.base.rl.worker import RLWorker, WorkerRun
 from srl.runner.callback import Callback
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Rendering(Callback):
-    mode: Union[str, PlayRenderMode] = PlayRenderMode.none
+    mode: Union[str, PlayRenderModes] = PlayRenderModes.none
     kwargs: dict = field(default_factory=lambda: {})
     step_stop: bool = False
     render_skip_step: bool = True
@@ -40,7 +40,7 @@ class Rendering(Callback):
         self.render_interval = -1
         self.font = None
 
-        self.mode = PlayRenderMode.from_str(self.mode)
+        self.mode = PlayRenderModes.from_str(self.mode)
 
     def on_episodes_begin(self, info) -> None:
         self.render_interval = info["env"].render_interval
@@ -100,24 +100,24 @@ class Rendering(Callback):
         self.info_text = info_text
 
         # --- render_terminal
-        if self.mode == PlayRenderMode.terminal:
+        if self.mode == PlayRenderModes.terminal:
             print(info_text)
 
             # --- env text
             env.render_terminal(**self.kwargs)
 
         # --- render window
-        if self.mode == PlayRenderMode.window:
+        if self.mode == PlayRenderModes.window:
             env.render_window(**self.kwargs)
 
-        if self.mode == PlayRenderMode.rgb_array:
+        if self.mode == PlayRenderModes.rgb_array:
             self.env_img = env.render_rgb_array(**self.kwargs)
             self.env_maxw = max(self.env_maxw, self.env_img.shape[1])
             self.env_maxh = max(self.env_maxh, self.env_img.shape[0])
 
     def _add_image(self):
         # --- rgb
-        if self.mode == PlayRenderMode.rgb_array:
+        if self.mode == PlayRenderModes.rgb_array:
             info_img = text_to_rgb_array(self.info_text)
             self.info_maxw = max(self.info_maxw, info_img.shape[1])
             self.info_maxh = max(self.info_maxh, info_img.shape[0])
@@ -137,11 +137,11 @@ class Rendering(Callback):
         worker: WorkerRun = info["workers"][worker_idx]
 
         # --- render_terminal
-        if self.mode == PlayRenderMode.terminal:
+        if self.mode == PlayRenderModes.terminal:
             worker.render_terminal(env, **self.kwargs)
 
         # --- rgb
-        if self.mode == PlayRenderMode.rgb_array:
+        if self.mode == PlayRenderModes.rgb_array:
             self.rl_img = worker.render_rgb_array(env, **self.kwargs)
             self.rl_maxw = max(self.rl_maxw, self.rl_img.shape[1])
             self.rl_maxh = max(self.rl_maxh, self.rl_img.shape[0])
@@ -149,15 +149,15 @@ class Rendering(Callback):
             # rlへの入力画像
             if isinstance(worker.worker, RLWorker):
                 rl_worker: RLWorker = worker.worker
-                if EnvObservationType.is_image(rl_worker.config.env_observation_type):
+                if EnvObservationTypes.is_image(rl_worker.config.env_observation_type):
                     # COLOR画像に変換
                     _img = rl_worker.recent_states[-1].copy()
                     if _img.max() <= 1:
                         _img *= 255
-                    if rl_worker.config.env_observation_type == EnvObservationType.GRAY_2ch:
+                    if rl_worker.config.env_observation_type == EnvObservationTypes.GRAY_2ch:
                         _img = _img[..., np.newaxis]
                         _img = np.tile(_img, (1, 1, 3))
-                    elif rl_worker.config.env_observation_type == EnvObservationType.GRAY_3ch:
+                    elif rl_worker.config.env_observation_type == EnvObservationTypes.GRAY_3ch:
                         _img = np.tile(_img, (1, 1, 3))
                     self.rl_state_image = _img.astype(np.uint8)
                     self.rl_state_maxw = max(self.rl_state_maxw, self.rl_state_image.shape[1])

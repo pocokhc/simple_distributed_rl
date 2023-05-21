@@ -3,10 +3,9 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-from tensorflow.keras import layers as kl
+from tensorflow import keras
 
-from srl.base.define import RLObservationType
+from srl.base.define import RLObservationTypes
 from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
@@ -18,6 +17,8 @@ from srl.rl.functions.common import random_choice_by_probs, render_discrete_acti
 from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
 from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
+
+kl = keras.layers
 
 """
 Paper
@@ -98,8 +99,8 @@ class Config(DiscreteActionConfig):
         self.policy_block = MLPBlockConfig(layer_sizes=())
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.CONTINUOUS
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "AlphaZero"
@@ -267,7 +268,7 @@ class Parameter(RLParameter):
 
     def pred_PV(self, state, state_str):
         if state_str not in self.P:
-            p, v = self.network(np.asarray([state]))
+            p, v = self.network(np.asarray([state]))  # type:ignore , ignore check "None"
             self.P[state_str] = p[0].numpy()
             self.V[state_str] = v[0][0].numpy()
 
@@ -315,7 +316,7 @@ class Trainer(RLTrainer):
         rewards = np.asarray(rewards)
 
         with tf.GradientTape() as tape:
-            p_pred, v_pred = self.parameter.network(states)
+            p_pred, v_pred = self.parameter.network(states)  # type:ignore , ignore check "None"
 
             # value: 状態に対する勝率(reward)を教師に学習(MSE)
             value_loss = tf.square(rewards - v_pred)
@@ -340,7 +341,7 @@ class Trainer(RLTrainer):
         self.parameter.reset_cache()
 
         return {
-            "value_loss": np.mean(value_loss.numpy()),
+            "value_loss": np.mean(value_loss.numpy()),  # type:ignore , ignore check "None"
             "policy_loss": np.mean(policy_loss.numpy()),
             "lr": self.optimizer.learning_rate.numpy(),
         }
@@ -448,6 +449,8 @@ class Worker(ModelBaseWorker):
         # ディリクレノイズ
         if is_root:
             noises = np.random.dirichlet([self.config.root_dirichlet_alpha] * self.config.action_num)
+        else:
+            noises = []
 
         N = np.sum(self.N[state_str])
         scores = np.zeros(self.config.action_num)

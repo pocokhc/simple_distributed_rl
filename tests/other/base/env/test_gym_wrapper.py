@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 import srl
-from srl.base.define import EnvObservationType
+from srl.base.define import EnvObservationTypes
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.env.spaces.box import BoxSpace
 from srl.test import TestEnv
@@ -18,7 +18,9 @@ def test_play_FrozenLake():
     # action_space     : Discrete(4)
     tester = TestEnv()
     env = tester.play_test("FrozenLake-v1")
-    assert env.observation_type == EnvObservationType.DISCRETE
+    assert env.observation_type == EnvObservationTypes.DISCRETE
+    assert isinstance(env.observation_space, ArrayDiscreteSpace)
+    assert isinstance(env.action_space, ArrayDiscreteSpace)
     env.observation_space.assert_params(1, [0], [15])
     env.action_space.assert_params(1, [0], [3])
 
@@ -30,7 +32,9 @@ def test_play_CartPole():
     # action_space     : Discrete(2)
     tester = TestEnv()
     env = tester.play_test("CartPole-v1", max_step=10)
-    assert env.observation_type == EnvObservationType.CONTINUOUS
+    assert env.observation_type == EnvObservationTypes.CONTINUOUS
+    assert isinstance(env.observation_space, BoxSpace)
+    assert isinstance(env.action_space, ArrayDiscreteSpace)
     assert env.observation_space.shape == (4,)
     env.action_space.assert_params(1, [0], [1])
 
@@ -42,7 +46,9 @@ def test_play_Blackjack():
     # action_space     : Discrete(2)
     tester = TestEnv()
     env = tester.play_test("Blackjack-v1", max_step=10)
-    assert env.observation_type == EnvObservationType.DISCRETE
+    assert env.observation_type == EnvObservationTypes.DISCRETE
+    assert isinstance(env.observation_space, ArrayDiscreteSpace)
+    assert isinstance(env.action_space, ArrayDiscreteSpace)
     env.observation_space.assert_params(3, [0, 0, 0], [31, 10, 1])
     env.action_space.assert_params(1, [0], [1])
 
@@ -54,10 +60,11 @@ def test_play_Pendulum():
     # action_space     : Box(-2.0, 2.0, (1,), float32)
     tester = TestEnv()
     env = tester.play_test("Pendulum-v1", max_step=10)
+    assert env.observation_type == EnvObservationTypes.CONTINUOUS
     assert isinstance(env.observation_space, BoxSpace)
-    assert env.observation_type == EnvObservationType.CONTINUOUS
-    env.observation_space.assert_params((3,), (-1, -1, -8), (1, 1, 8))
-    env.action_space.assert_params((1,), (-2,), (2,))
+    assert isinstance(env.action_space, BoxSpace)
+    env.observation_space.assert_params((3,), np.array([-1, -1, -8]), np.array([1, 1, 8]))
+    env.action_space.assert_params((1,), np.array([-2]), np.array([2]))
 
 
 def test_play_Tetris():
@@ -68,8 +75,9 @@ def test_play_Tetris():
     # Discrete(5)
     tester = TestEnv()
     env = tester.play_test("ALE/Tetris-v5", check_render=False, max_step=10)
+    assert env.observation_type == EnvObservationTypes.COLOR
     assert isinstance(env.observation_space, BoxSpace)
-    assert env.observation_type == EnvObservationType.COLOR
+    assert isinstance(env.action_space, ArrayDiscreteSpace)
     env.observation_space.assert_params((210, 160, 3), np.zeros((210, 160, 3)), np.full((210, 160, 3), 255))
     env.action_space.assert_params(1, [0], [4])
 
@@ -82,9 +90,10 @@ def test_play_Tetris_ram():
     # Discrete(5)
     tester = TestEnv()
     env = tester.play_test("ALE/Tetris-ram-v5", check_render=False, max_step=10)
+    assert env.observation_type == EnvObservationTypes.DISCRETE
     assert isinstance(env.observation_space, BoxSpace)
-    assert env.observation_type == EnvObservationType.DISCRETE
-    env.observation_space.assert_params((128,), (0,) * 128, (255,) * 128)
+    assert isinstance(env.action_space, ArrayDiscreteSpace)
+    env.observation_space.assert_params((128,), np.array((0,) * 128), np.array((255,) * 128))
     env.action_space.assert_params(1, [0], [4])
 
 
@@ -147,7 +156,7 @@ def test_space():
 
     flat_space, is_discrete = gym_space_flatten(space)
     print(flat_space)
-    assert is_discrete == False
+    assert not is_discrete
     assert isinstance(flat_space, BoxSpace)
     assert flat_space.shape == (23,)
     assert (flat_space.low == [0] * 23).all()
@@ -232,7 +241,7 @@ def test_space_discrete():
     flat_space, is_discrete = gym_space_flatten(space)
     print(flat_space)
     print(flat_space.high)
-    assert is_discrete == True
+    assert is_discrete
     assert isinstance(flat_space, ArrayDiscreteSpace)
     assert flat_space.size == 12
     assert flat_space.low == [0] * 12

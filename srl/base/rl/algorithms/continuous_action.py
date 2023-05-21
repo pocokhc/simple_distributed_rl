@@ -1,11 +1,18 @@
 import logging
-import warnings
 from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Tuple
 
 import numpy as np
-from srl.base.define import ContinuousAction, EnvObservationType, Info, RLAction, RLActionType, RLObservation
+
+from srl.base.define import (
+    ContinuousActionType,
+    EnvObservationTypes,
+    InfoType,
+    RLActionType,
+    RLActionTypes,
+    RLObservationType,
+)
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.rl.config import RLConfig
 from srl.base.rl.worker import RLWorker, WorkerRun
@@ -16,15 +23,15 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ContinuousActionConfig(RLConfig):
     @property
-    def action_type(self) -> RLActionType:
-        return RLActionType.CONTINUOUS
+    def action_type(self) -> RLActionTypes:
+        return RLActionTypes.CONTINUOUS
 
     def set_config_by_env(
         self,
         env: EnvRun,
         env_action_space: SpaceBase,
         env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationType,
+        env_observation_type: EnvObservationTypes,
     ) -> None:
         n, low, high = env_action_space.get_action_continuous_info()
         self._action_num = n
@@ -46,11 +53,11 @@ class ContinuousActionConfig(RLConfig):
 
 class ContinuousActionWorker(RLWorker):
     @abstractmethod
-    def call_on_reset(self, state: np.ndarray) -> Info:
+    def call_on_reset(self, state: np.ndarray) -> InfoType:
         raise NotImplementedError()
 
     @abstractmethod
-    def call_policy(self, state: np.ndarray) -> Tuple[ContinuousAction, Info]:
+    def call_policy(self, state: np.ndarray) -> Tuple[ContinuousActionType, InfoType]:
         raise NotImplementedError()
 
     @abstractmethod
@@ -59,35 +66,23 @@ class ContinuousActionWorker(RLWorker):
         next_state: np.ndarray,
         reward: float,
         done: bool,
-    ) -> Info:
+    ) -> InfoType:
         raise NotImplementedError()
 
     # ----------------------------------
 
-    def _call_on_reset(self, state: RLObservation, env: EnvRun, worker: WorkerRun) -> Info:
-        _t = self.call_on_reset(state)
-        if _t is None:
-            warnings.warn("The return value of call_on_reset has changed from None to info.", DeprecationWarning)
-            return {}
-        return _t
+    def _call_on_reset(self, state: RLObservationType, env: EnvRun, worker: WorkerRun) -> InfoType:
+        return self.call_on_reset(state)
 
-    def _call_policy(self, state: RLObservation, env: EnvRun, worker: WorkerRun) -> Tuple[RLAction, Info]:
-        action = self.call_policy(state)
-        if isinstance(action, tuple) and len(action) == 2 and isinstance(action[1], dict):
-            action, info = action
-        else:
-            warnings.warn(
-                "The return value of call_policy has changed from action to (action, info).", DeprecationWarning
-            )
-            info = {}
-        return action, info
+    def _call_policy(self, state: RLObservationType, env: EnvRun, worker: WorkerRun) -> Tuple[RLActionType, InfoType]:
+        return self.call_policy(state)
 
     def _call_on_step(
         self,
-        next_state: RLObservation,
+        next_state: RLObservationType,
         reward: float,
         done: bool,
         env: EnvRun,
         worker: WorkerRun,
-    ) -> Info:
+    ) -> InfoType:
         return self.call_on_step(next_state, reward, done)

@@ -2,7 +2,7 @@ import numpy as np
 
 import srl
 from srl import runner
-from srl.base.define import EnvObservationType
+from srl.base.define import EnvObservationTypes
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.rl import memories
 from srl.rl.models import dqn as dqn_model
@@ -45,7 +45,7 @@ def _create_config():
     )
     rl_config.processors = [
         ImageProcessor(
-            image_type=EnvObservationType.GRAY_2ch,
+            image_type=EnvObservationTypes.GRAY_2ch,
             trimming=(30, 0, 210, 160),
             resize=(84, 84),
             enable_norm=True,
@@ -67,7 +67,6 @@ def train():
     parameter, remote_memory, history = runner.train_mp(
         config,
         max_train_count=TRAIN_COUNT,
-        enable_evaluation=False,
     )
     parameter.save(_parameter_path)
 

@@ -69,13 +69,16 @@ class DQNImageBlock(nn.Module):
             batch_size, seq, channels, height, width = x.size()
             x = x.view(batch_size * seq, channels, height, width)
 
-        for layer in self.image_layers:
-            x = layer(x)
+            for layer in self.image_layers:
+                x = layer(x)
 
-        if self.enable_time_distributed_layer:
             # (batch*seq, c, h, w) -> (batch, seq, c, h, w)
             _, channels, height, width = x.size()
             x = x.view(batch_size, seq, channels, height, width)
+
+        else:
+            for layer in self.image_layers:
+                x = layer(x)
 
         return x
 

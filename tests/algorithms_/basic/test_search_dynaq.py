@@ -10,7 +10,7 @@ def test_Grid():
     rl_config = search_dynaq.Config()
     rl_config.ext_lr = 0.01
     config = runner.Config("Grid", rl_config, seed=1)
-    parameter = tester.train_eval(config, 10_000, eval_episode=100)
+    parameter, _, _ = tester.train_eval(config, 10_000, eval_episode=100)
     tester.verify_grid_policy(rl_config, parameter)
 
 

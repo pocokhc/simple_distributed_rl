@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Tuple
 
-from srl.base.define import EnvObservation, EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationType, EnvObservationTypes, RLObservationTypes
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
@@ -17,20 +17,20 @@ class RenderImageProcessor(Processor):
     def change_observation_info(
         self,
         env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationType,
-        rl_observation_type: RLObservationType,
+        env_observation_type: EnvObservationTypes,
+        rl_observation_type: RLObservationTypes,
         env: EnvRun,
-    ) -> Tuple[SpaceBase, EnvObservationType]:
+    ) -> Tuple[SpaceBase, EnvObservationTypes]:
         env.reset()
         rgb_array = env.render_rgb_array(**self.render_kwargs)
         self.shape = rgb_array.shape
 
         new_space = BoxSpace(self.shape, 0, 255)
-        return new_space, EnvObservationType.COLOR
+        return new_space, EnvObservationTypes.COLOR
 
     def process_observation(
         self,
-        observation: EnvObservation,
+        observation: EnvObservationType,
         env: EnvRun,
-    ) -> EnvObservation:
+    ) -> EnvObservationType:
         return env.render_rgb_array(**self.render_kwargs)

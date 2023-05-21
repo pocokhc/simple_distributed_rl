@@ -10,9 +10,6 @@ from typing import Any, Dict, List, Optional, cast
 import numpy as np
 
 import srl
-from srl.base.define import PlayRenderMode, RenderMode
-from srl.base.env.base import EnvRun
-from srl.base.rl.worker import WorkerRun
 from srl.runner.callback import Callback
 from srl.runner.config import Config
 from srl.utils.common import JsonNumpyEncoder, summarize_info_from_dictlist
@@ -279,75 +276,3 @@ class HistoryOnFile(Callback):
                 logger.debug(traceback.format_exc())
 
         self._write_log(self.fp_dict["system"], d)
-
-    def _tmp_episode_env(self, info):
-        if self.fp_dict["episode"] is None:
-            return
-        env: EnvRun = info["env"]
-        d = {
-            "step": env.step_num,
-            "next_player_index": env.next_player_index,
-            "state": env.state,
-            "invalid_actions": env.get_invalid_actions(),
-            "rewards": env.step_rewards,
-            "done": env.done,
-            "done_reason": env.done_reason,
-            "time": info.get("step_time", 0),
-            "env_info": env.info,
-            "train_time": info.get("train_time", 0),
-            "train_info": info.get("train_info", None),
-        }
-        if self.save_render:
-            if "config" in info:
-                config: Config = info["config"]
-                render_mode = config.render_mode
-                render_kwargs = config.render_kwargs
-            else:
-                render_mode = PlayRenderMode.rgb_array
-                render_kwargs = {}
-            render_mode = PlayRenderMode.convert_render_mode(render_mode)
-            if render_mode == RenderMode.RBG_array:
-                d["env_rgb_array"] = env.render_rgb_array(**render_kwargs)
-            elif render_mode == RenderMode.Terminal:
-                d["env_terminal"] = env.render_terminal(return_text=True, **render_kwargs)
-
-        self.episode_info_env = d
-
-    def _tmp_episode_worker(self, info):
-        if self.fp_dict["episode"] is None:
-            return
-        d = {
-            "action": info["action"],
-        }
-        if "workers" in info:
-            workers: List[WorkerRun] = info["workers"]
-            for i, w in enumerate(workers):
-                d[f"work{i}_info"] = w.info
-            if self.save_render:
-                env: EnvRun = info["env"]
-                config: Config = info["config"]
-                for i, w in enumerate(workers):
-                    render_mode = PlayRenderMode.convert_render_mode(config.render_mode)
-                    if render_mode == RenderMode.RBG_array:
-                        d[f"work{i}_rgb_array"] = w.render_rgb_array(env, **config.render_kwargs)
-                    elif render_mode == RenderMode.Terminal:
-                        d[f"work{i}_terminal"] = w.render_terminal(env, return_text=True, **config.render_kwargs)
-
-        self.episode_info_worker = d
-
-    def _write_episode_log(self):
-        if self.fp_dict["episode"] is None:
-            return
-        d = {}
-        d.update(self.episode_info_env)
-        d.update(self.episode_info_worker)
-        self._write_log(self.fp_dict["episode"], d)
-
-    def _dict_update(self, d1, d2, prefix: str):
-        if d2 is None:
-            return
-        for k, v in d2.items():
-            key = f"{prefix}_{k}"
-            if key in d1:
-                key += "_2"
-            d1[key] = v

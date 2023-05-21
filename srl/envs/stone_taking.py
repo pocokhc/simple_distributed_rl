@@ -3,8 +3,8 @@ import random
 from dataclasses import dataclass
 from typing import Any, Optional, Tuple, cast
 
-from srl.base.define import EnvAction, EnvObservationType
-from srl.base.env.base import EnvRun, SpaceBase
+from srl.base.define import EnvActionType, EnvObservationTypes
+from srl.base.env.base import EnvRun
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
 from srl.base.env.spaces import DiscreteSpace
@@ -28,16 +28,16 @@ class StoneTaking(TurnBase2Player):
         pass  #
 
     @property
-    def action_space(self) -> SpaceBase:
+    def action_space(self) -> DiscreteSpace:
         return DiscreteSpace(self.max_stones)
 
     @property
-    def observation_space(self) -> SpaceBase:
+    def observation_space(self) -> DiscreteSpace:
         return DiscreteSpace(self.stones + 1)
 
     @property
-    def observation_type(self) -> EnvObservationType:
-        return EnvObservationType.DISCRETE
+    def observation_type(self) -> EnvObservationTypes:
+        return EnvObservationTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:
@@ -110,7 +110,7 @@ class CPU(RuleBaseWorker):
     def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> dict:
         return {}
 
-    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[EnvAction, dict]:
+    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[EnvActionType, dict]:
         _env = cast(StoneTaking, env.get_original_env())
         if _env.field == 1:
             return 0, {}

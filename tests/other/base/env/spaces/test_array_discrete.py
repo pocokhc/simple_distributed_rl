@@ -1,6 +1,6 @@
 import numpy as np
 
-from srl.base.define import RLActionType
+from srl.base.define import RLActionTypes
 from srl.base.env.spaces import ArrayDiscreteSpace
 
 from .space_test import SpaceTest
@@ -17,7 +17,7 @@ def _check_action(decode_action, size, true_action):
 
 def test_space():
     space = ArrayDiscreteSpace(3, 0, [2, 5, 3])
-    assert space.base_action_type == RLActionType.DISCRETE
+    assert space.rl_action_type == RLActionTypes.DISCRETE
     assert space.size, 3
     np.testing.assert_array_equal(space.low, [0, 0, 0])
     np.testing.assert_array_equal(space.high, [2, 5, 3])

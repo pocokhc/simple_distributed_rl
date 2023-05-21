@@ -1,10 +1,10 @@
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, cast
 
 import numpy as np
 from kaggle_environments.envs.connectx.connectx import negamax_agent
 
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationTypes, RLObservationTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.kaggle_wrapper import KaggleWorker, KaggleWrapper
@@ -45,6 +45,7 @@ class ConnectX(KaggleWrapper):
     def __init__(self):
         super().__init__("connectx")
 
+        assert isinstance(self.env.configuration, dict)
         self._action_num = self.env.configuration["columns"]
         self.columns = self.env.configuration["columns"]
         self.rows = self.env.configuration["rows"]
@@ -58,8 +59,8 @@ class ConnectX(KaggleWrapper):
         return ArrayDiscreteSpace(self.columns * self.rows, low=0, high=2)
 
     @property
-    def observation_type(self) -> EnvObservationType:
-        return EnvObservationType.DISCRETE
+    def observation_type(self) -> EnvObservationTypes:
+        return EnvObservationTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:
@@ -101,36 +102,36 @@ class LayerProcessor(Processor):
     def change_observation_info(
         self,
         env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationType,
-        rl_observation_type: RLObservationType,
+        env_observation_type: EnvObservationTypes,
+        rl_observation_type: RLObservationTypes,
         env: EnvRun,
-    ) -> Tuple[SpaceBase, EnvObservationType]:
-        env: ConnectX = env.env
+    ) -> Tuple[SpaceBase, EnvObservationTypes]:
+        _env = cast(ConnectX, env.env)
         observation_space = BoxSpace(
             low=0,
             high=1,
-            shape=(2, env.columns, env.rows),
+            shape=(2, _env.columns, _env.rows),
         )
-        return observation_space, EnvObservationType.SHAPE3
+        return observation_space, EnvObservationTypes.SHAPE3
 
     def process_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
-        env: ConnectX = env.env
+        _env = cast(ConnectX, env.env)
 
         # Layer0: my player field (0 or 1)
         # Layer1: enemy player field (0 or 1)
-        _field = np.zeros((2, env.columns, env.rows))
+        _field = np.zeros((2, _env.columns, _env.rows))
         if env.next_player_index == 0:
             my_player = 1
             enemy_player = 2
         else:
             my_player = 2
             enemy_player = 1
-        for y in range(env.columns):
-            for x in range(env.rows):
-                idx = x + y * env.rows
-                if env.board[idx] == my_player:
+        for y in range(_env.columns):
+            for x in range(_env.rows):
+                idx = x + y * _env.rows
+                if _env.board[idx] == my_player:
                     _field[0][y][x] = 1
-                elif env.board[idx] == enemy_player:
+                elif _env.board[idx] == enemy_player:
                     _field[1][y][x] = 1
         return _field
 

@@ -4,10 +4,9 @@ from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-import tensorflow.keras.layers as kl
+from tensorflow import keras
 
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationTypes, RLObservationTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.memory import IPriorityMemoryConfig
@@ -28,6 +27,8 @@ from srl.rl.memories.config import ProportionalMemoryConfig
 from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_block import InputBlock
+
+kl = keras.layers
 
 """
 ・Paper
@@ -139,15 +140,15 @@ class Config(DiscreteActionConfig):
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(
-                image_type=EnvObservationType.GRAY_2ch,
+                image_type=EnvObservationTypes.GRAY_2ch,
                 resize=(84, 84),
                 enable_norm=True,
             )
         ]
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.CONTINUOUS
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "R2D2"
@@ -250,7 +251,9 @@ class _QNetwork(keras.Model):
             x = self.image_flatten(x)
 
         # lstm
-        x, h, c = self.lstm_layer(x, initial_state=hidden_state, training=training)
+        x, h, c = self.lstm_layer(
+            x, initial_state=hidden_state, training=training
+        )  # type:ignore , ignore check "None"
 
         # hidden
         for layer in self.hidden_layers:
@@ -333,7 +336,7 @@ class Trainer(RLTrainer):
 
         indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
         td_errors, loss = self._train_on_batchs(batchs, np.array(weights).reshape(-1, 1))
-        self.remote_memory.update(indices, batchs, td_errors)
+        self.remote_memory.update(indices, batchs, np.array(td_errors))
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
@@ -369,18 +372,24 @@ class Trainer(RLTrainer):
 
         # burn-in
         if self.config.burnin > 0:
-            _, hidden_states = self.parameter.q_online(burnin_states, hidden_states)
-            _, hidden_states_t = self.parameter.q_target(burnin_states, hidden_states_t)
+            _, hidden_states = self.parameter.q_online(
+                burnin_states, hidden_states
+            )  # type:ignore , ignore check "None"
+            _, hidden_states_t = self.parameter.q_target(
+                burnin_states, hidden_states_t
+            )  # type:ignore , ignore check "None"
 
         # targetQ
-        q_target, _ = self.parameter.q_target(step_states, hidden_states_t)
+        q_target, _ = self.parameter.q_target(step_states, hidden_states_t)  # type:ignore , ignore check "None"
         q_target = q_target.numpy()
 
         # --- 勾配 + targetQを計算
         td_errors_list = []
         with tf.GradientTape() as tape:
-            q, _ = self.parameter.q_online(step_states, hidden_states, training=True)
-            frozen_q = tf.stop_gradient(q).numpy()
+            q, _ = self.parameter.q_online(
+                step_states, hidden_states, training=True
+            )  # type:ignore , ignore check "None"
+            frozen_q = tf.stop_gradient(q).numpy()  # type:ignore , ignore check "None"
 
             # 最後は学習しないので除く
             tf.stop_gradient(q[:, -1, ...])
@@ -506,7 +515,7 @@ class Worker(DiscreteActionWorker):
 
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         state = state[np.newaxis, np.newaxis, ...]  # (batch, time step, ...)
-        q, self.hidden_state = self.parameter.q_online(state, self.hidden_state)
+        q, self.hidden_state = self.parameter.q_online(state, self.hidden_state)  # type:ignore , ignore check "None"
         q = q[0][0].numpy()  # (batch, time step, action_num)
 
         if self.training:

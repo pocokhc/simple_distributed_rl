@@ -1,7 +1,7 @@
 import logging
 from typing import Tuple
 
-from srl.base.define import EnvAction
+from srl.base.define import EnvActionType
 from srl.base.env.base import EnvRun
 from srl.base.env.spaces.continuous import ContinuousSpace
 from srl.base.env.spaces.discrete import DiscreteSpace
@@ -15,7 +15,7 @@ register_worker("human", __name__ + ":Worker")
 
 
 class Worker(RuleBaseWorker):
-    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[EnvAction, dict]:
+    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[EnvActionType, dict]:
         if isinstance(env.action_space, DiscreteSpace):
             valid_actions = env.get_valid_actions()
 

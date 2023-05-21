@@ -1,8 +1,7 @@
-import warnings
 from abc import abstractmethod
 from typing import List, Tuple
 
-from srl.base.define import EnvAction, EnvObservation, Info
+from srl.base.define import EnvActionType, EnvObservationType, InfoType
 from srl.base.env import EnvBase
 
 
@@ -30,12 +29,12 @@ class TurnBase2Player(EnvBase):
     #  set_seed
 
     @abstractmethod
-    def call_reset(self) -> Tuple[EnvObservation, Info]:
+    def call_reset(self) -> Tuple[EnvObservationType, InfoType]:
         # state, info
         raise NotImplementedError()
 
     @abstractmethod
-    def call_step(self, action: EnvAction) -> Tuple[EnvObservation, float, float, bool, Info]:
+    def call_step(self, action: EnvActionType) -> Tuple[EnvObservationType, float, float, bool, InfoType]:
         # state, reward1, reward2, done, info
         raise NotImplementedError()
 
@@ -46,16 +45,10 @@ class TurnBase2Player(EnvBase):
     def player_num(self) -> int:
         return 2
 
-    def reset(self) -> Tuple[EnvObservation, Info]:
-        state = self.call_reset()
-        if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
-            state, info = state
-        else:
-            info = {}
-            warnings.warn("The return value of reset has changed from (state) to (state, info).", DeprecationWarning)
-        return state, info
+    def reset(self) -> Tuple[EnvObservationType, InfoType]:
+        return self.call_reset()
 
-    def step(self, action: EnvAction) -> Tuple[EnvObservation, List[float], bool, Info]:
+    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], bool, InfoType]:
         n_s, reward1, reward2, done, info = self.call_step(action)
 
         return n_s, [reward1, reward2], done, info

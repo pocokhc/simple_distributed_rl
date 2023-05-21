@@ -1,13 +1,12 @@
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-from tensorflow.keras import layers as kl
+from tensorflow import keras
 
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationTypes, RLObservationTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
@@ -25,7 +24,8 @@ from srl.rl.functions.common import (
 from srl.rl.memories.config import ReplayMemoryConfig
 from srl.rl.models.dqn.tf.dqn_image_block import DQNImageBlock
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
-from srl.rl.models.tf.input_layer import create_input_layer_stateful_lstm
+
+kl = keras.layers
 
 """
 ・Paper
@@ -58,6 +58,78 @@ Other
 """
 
 
+def create_input_layer_stateful_lstm(
+    batch_size: int,
+    observation_shape: Tuple[int, ...],
+    observation_type: EnvObservationTypes,
+) -> Tuple[kl.Layer, kl.Layer, bool]:
+    """状態の入力レイヤーを作成して返します。
+    input_sequence は1で固定します。
+
+    Args:
+        batch_size (int): batch_size
+        observation_shape (Tuple[int, ...]): 状態の入力shape
+        observation_type (EnvObservationType): 状態が何かを表すEnvObservationType
+
+    Returns:
+        [
+            in_layer  (kl.Layer): modelの入力に使うlayerを返します
+            out_layer (kl.Layer): modelの続きに使うlayerを返します
+            use_image_head (bool):
+                Falseの時 out_layer は flatten、
+                Trueの時 out_layer は CNN の形式で返ります。
+        ]
+    """
+
+    # --- input
+    input_shape = (1,) + observation_shape
+    in_layer = c = kl.Input(batch_input_shape=(batch_size,) + input_shape)
+
+    # --- value head
+    if (
+        observation_type == EnvObservationTypes.DISCRETE
+        or observation_type == EnvObservationTypes.CONTINUOUS
+        or observation_type == EnvObservationTypes.UNKNOWN
+    ):
+        c = kl.TimeDistributed(kl.Flatten())(c)
+        return cast(kl.Layer, in_layer), cast(kl.Layer, c), False
+
+    # --- image head
+    if observation_type == EnvObservationTypes.GRAY_2ch:
+        assert len(input_shape) == 3
+
+        # (timesteps, w, h) -> (timesteps, w, h, 1)
+        c = kl.Reshape(input_shape + (-1,))(c)
+
+    elif observation_type == EnvObservationTypes.GRAY_3ch:
+        assert len(input_shape) == 4
+        assert input_shape[-1] == 1
+
+        # (timesteps, width, height, 1)
+
+    elif observation_type == EnvObservationTypes.COLOR:
+        assert len(input_shape) == 4
+
+        # (timesteps, width, height, ch)
+
+    elif observation_type == EnvObservationTypes.SHAPE2:
+        assert len(input_shape) == 3
+
+        # (timesteps, width, height) -> (timesteps, width, height, 1)
+        c = kl.Reshape(input_shape + (-1,))(c)
+
+    elif observation_type == EnvObservationTypes.SHAPE3:
+        assert len(input_shape) == 4
+
+        # (timesteps, n, width, height) -> (timesteps, width, height, n)
+        c = kl.Permute((1, 3, 4, 2))(c)
+
+    else:
+        raise ValueError(f"unknown observation_type: {observation_type}")
+
+    return cast(kl.Layer, in_layer), cast(kl.Layer, c), True
+
+
 # ------------------------------------------------------
 # config
 # ------------------------------------------------------
@@ -70,7 +142,7 @@ class Config(DiscreteActionConfig):
 
     # model
     cnn_block: kl.Layer = DQNImageBlock
-    cnn_block_kwargs: dict = None
+    cnn_block_kwargs: dict = field(default_factory=lambda: {})
     lstm_units: int = 512
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
@@ -141,15 +213,15 @@ class Config(DiscreteActionConfig):
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(
-                image_type=EnvObservationType.GRAY_2ch,
+                image_type=EnvObservationTypes.GRAY_2ch,
                 resize=(84, 84),
                 enable_norm=True,
             )
         ]
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.CONTINUOUS
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "R2D2_stateful"
@@ -227,12 +299,12 @@ class _QNetwork(keras.Model):
             )(c)
 
         self.model = keras.Model(in_state, c, name="QNetwork")
-        self.lstm_layer = self.model.get_layer("lstm")
+        self.lstm_layer: kl.LSTM = self.model.get_layer("lstm")
 
         # 重みを初期化
         in_shape = (1,) + config.observation_shape
         dummy_state = np.zeros(shape=(config.batch_size,) + in_shape, dtype=np.float32)
-        val, _ = self(dummy_state, None)
+        val, _ = self(dummy_state, None)  # type: ignore
         assert val.shape == (config.batch_size, config.action_num)
 
     def call(self, state, hidden_states):
@@ -312,7 +384,7 @@ class Trainer(RLTrainer):
 
         indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
         td_errors, loss = self._train_on_batchs(batchs, weights)
-        self.remote_memory.update(indices, batchs, td_errors)
+        self.remote_memory.update(indices, batchs, np.array(td_errors))
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
@@ -356,8 +428,8 @@ class Trainer(RLTrainer):
         # burn-in
         for i in range(self.config.burnin):
             burnin_state = burnin_states[i]
-            _, hidden_states = self.parameter.q_online(burnin_state, hidden_states)
-            _, hidden_states_t = self.parameter.q_target(burnin_state, hidden_states_t)
+            _, hidden_states = self.parameter.q_online(burnin_state, hidden_states)  # type: ignore
+            _, hidden_states_t = self.parameter.q_target(burnin_state, hidden_states_t)  # type: ignore
 
         _, _, td_error, _, loss = self._train_steps(
             step_states_list,
@@ -392,22 +464,24 @@ class Trainer(RLTrainer):
         # 最後
         if idx == self.config.sequence_length:
             n_states = step_states_list[idx]
-            n_q, _ = self.parameter.q_online(n_states, hidden_states)
-            n_q_target, _ = self.parameter.q_target(n_states, hidden_states_t)
-            n_q = tf.stop_gradient(n_q).numpy()
-            n_q_target = tf.stop_gradient(n_q_target).numpy()
+            n_q, _ = self.parameter.q_online(n_states, hidden_states)  # type:ignore , ignore check "None"
+            n_q_target, _ = self.parameter.q_target(n_states, hidden_states_t)  # type:ignore , ignore check "None"
+            n_q = tf.stop_gradient(n_q).numpy()  # type:ignore , ignore check "None"
+            n_q_target = tf.stop_gradient(n_q_target).numpy()  # type:ignore , ignore check "None"
             # q, target_q, td_error, retrace, loss
             return n_q, n_q_target, 0.0, 1.0, 0.0
 
         states = step_states_list[idx]
 
         # return用にq_targetを計算
-        q_target, n_hidden_states_t = self.parameter.q_target(states, hidden_states_t)
-        q_target = tf.stop_gradient(q_target).numpy()
+        q_target, n_hidden_states_t = self.parameter.q_target(
+            states, hidden_states_t
+        )  # type:ignore , ignore check "None"
+        q_target = tf.stop_gradient(q_target).numpy()  # type:ignore , ignore check "None"
 
         # --- 勾配 + targetQを計算
         with tf.GradientTape() as tape:
-            q, n_hidden_states = self.parameter.q_online(states, hidden_states)
+            q, n_hidden_states = self.parameter.q_online(states, hidden_states)  # type:ignore , ignore check "None"
 
             # 次のQ値を取得
             n_q, n_q_target, n_td_error, retrace, n_loss = self._train_steps(
@@ -477,7 +551,7 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
         # --- 勾配計算ここまで
-        q = tf.stop_gradient(q).numpy()
+        q = tf.stop_gradient(q).numpy()  # type:ignore , ignore check "None"
 
         if idx == 0 or self.config.enable_retrace:
             td_error = target_q - q_onehot.numpy() + self.config.discount * retrace * n_td_error
@@ -540,7 +614,7 @@ class Worker(DiscreteActionWorker):
 
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         state = np.asarray([[state]] * self.config.batch_size)
-        q, self.hidden_state = self.parameter.q_online(state, self.hidden_state)
+        q, self.hidden_state = self.parameter.q_online(state, self.hidden_state)  # type:ignore , ignore check "None"
         q = q[0].numpy()
 
         if self.training:

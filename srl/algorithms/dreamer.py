@@ -4,11 +4,10 @@ from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-import tensorflow.keras.layers as kl
 import tensorflow_probability as tfp
+from tensorflow import keras
 
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationTypes, RLObservationTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLRemoteMemory, RLTrainer
 from srl.base.rl.processor import Processor
@@ -17,6 +16,7 @@ from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.utils.common import compare_less_version
 
+kl = keras.layers
 tfd = tfp.distributions
 
 """
@@ -68,15 +68,15 @@ class Config(DiscreteActionConfig):
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(
-                image_type=EnvObservationType.COLOR,
+                image_type=EnvObservationTypes.COLOR,
                 resize=(64, 64),
                 enable_norm=True,
             )
         ]
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.CONTINUOUS
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "Dreamer"
@@ -174,7 +174,7 @@ class _RSSM(keras.Model):
     def img_step(self, prev_stoch, prev_deter, prev_action, training=False, _summary: bool = False):
         x = tf.concat([prev_stoch, prev_action], -1)
         x = self.img1(x)
-        x, deter = self.rnn_cell(x, [prev_deter], training=training)
+        x, deter = self.rnn_cell(x, [prev_deter], training=training)  # type:ignore , ignore check "None"
         deter = deter[0]
         x = self.img2(x)
         mean = self.img_mean(x)
@@ -265,7 +265,10 @@ class _ConvDecoder(keras.Model):
         x_std = tf.nn.softplus(x_std) + 0.1
         if _summary:
             return x_mean
-        return tfd.Independent(tfd.Normal(x_mean, x_std), reinterpreted_batch_ndims=len(x.shape) - 1)
+        return tfd.Independent(
+            tfd.Normal(x_mean, x_std),
+            reinterpreted_batch_ndims=len(x.shape) - 1,  # type:ignore , ignore check "None"
+        )
 
     def build(self, input_shape):
         self.__input_shape = input_shape
@@ -367,6 +370,7 @@ class _ActionDecoder(keras.Model):
             x = layer(x)
         if self._dist == "tanh_normal":
             pass  # TODO
+            dist = 1
         elif self._dist == "onehot":
             x = self.out(x)
             dist = OneHotDist(logits=x)
@@ -404,7 +408,8 @@ class Parameter(RLParameter):
         self.decode = _ConvDecoder(self.config.cnn_depth, self.config.cnn_act)
         self.reward = _DenseDecoder((1,), 2, self.config.num_units, "normal", self.config.dense_act)
         self.value = _DenseDecoder((1,), 3, self.config.num_units, "normal")
-        self.actor = _ActionDecoder(self.config.action_num, 4, self.config.num_units, "onehot")
+        self.actor = _ActionDecoder(self.config.action_num, 2, 50, "onehot")
+        # self.actor = _ActionDecoder(self.config.action_num, 4, self.config.num_units, "onehot")
 
         self.encode.build(self.config.observation_shape)
         self.dynamics.build(self.config)
@@ -493,10 +498,11 @@ class Trainer(RLTrainer):
         self.parameter.value.trainable = False
         with tf.GradientTape() as tape:
             embed = self.parameter.encode(states, training=True)
+            embed_shape = embed.shape  # type:ignore , ignore check "None"
 
             # (batch * seq, shape) -> (batch, seq, shape)
             # (batch, seq, shape) -> (seq, batch, shape)
-            shape = (self.config.batch_size, self.config.batch_length) + embed.shape[1:]
+            shape = (self.config.batch_size, self.config.batch_length) + embed_shape[1:]
             embed = tf.reshape(embed, shape)
             embed = tf.transpose(embed, [1, 0, 2])
             actions = tf.transpose(actions, [1, 0, 2])
@@ -563,7 +569,7 @@ class Trainer(RLTrainer):
 
             info["img_loss"] = -image_loss.numpy() / (64 * 64 * 3)
             info["reward_loss"] = -reward_loss.numpy()
-            info["kl_loss"] = kl_loss.numpy()
+            info["kl_loss"] = kl_loss.numpy()  # type:ignore , ignore check "None"
 
         if (not self.config.enable_train_actor) and (self.config.enable_train_value):
             # WorldModelsのみ学習
@@ -595,18 +601,18 @@ class Trainer(RLTrainer):
                 for t in range(self.config.horizon):
                     if self.config.value_estimation == "simple":
                         reward = self.parameter.reward(horizon_feat).mode()
+                        value = self.parameter.value(horizon_feat).mode()
                         # print(reward)
                         # returns += reward * (self.config.discount**t)
-                        returns += reward
-                        # value = self.parameter.value(horizon_feat).mode()
-
+                        returns += (self.config.discount**t) * (reward + value) / 5
                     policy = self.parameter.actor(horizon_feat).sample()
                     horizon_deter, horizon_prior = self.parameter.dynamics.img_step(
                         horizon_stoch, horizon_deter, policy
                     )
                     horizon_stoch = horizon_prior["stoch"]
                     horizon_feat = tf.concat([horizon_stoch, horizon_deter], -1)
-                act_loss = -tf.reduce_mean(returns)
+                act_loss = -tf.reduce_mean(returns) / self.config.horizon
+                act_loss /= 10
 
             grads = tape.gradient(act_loss, self.parameter.actor.trainable_variables)
             self._actor_opt.apply_gradients(zip(grads, self.parameter.actor.trainable_variables))
@@ -691,7 +697,7 @@ class Worker(DiscreteActionWorker):
             action_type = self.config.test_action
 
         if action_type == "random":
-            self.action = self.sample_action()
+            self.action = cast(int, self.sample_action())
             return self.action, {}
 
         # --- rssm step
@@ -699,9 +705,9 @@ class Worker(DiscreteActionWorker):
 
         if action_type == "actor":
             if self.training:
-                action = self.parameter.actor(self.feat).sample()
+                action = self.parameter.actor(self.feat).sample()  # type:ignore , ignore check "None"
             else:
-                action = self.parameter.actor(self.feat).mode()
+                action = self.parameter.actor(self.feat).mode()  # type:ignore , ignore check "None"
             self.action = np.argmax(action[0])
         else:
             raise NotImplementedError(action_type)
@@ -754,7 +760,7 @@ class Worker(DiscreteActionWorker):
         pass
 
     def render_rgb_array(self, env, worker, **kwargs) -> Optional[np.ndarray]:
-        if self.config.env_observation_type != EnvObservationType.COLOR:
+        if self.config.env_observation_type != EnvObservationTypes.COLOR:
             return None
 
         from srl.utils import pygame_wrapper as pw
@@ -776,11 +782,11 @@ class Worker(DiscreteActionWorker):
             self._rssm_step()
 
         # --- decode
-        pred_state = self.parameter.decode(self.feat).mode()[0].numpy()
+        pred_state = self.parameter.decode(self.feat).mode()[0].numpy()  # type:ignore , ignore check "None"
         rmse = np.sqrt(np.mean((self.state - pred_state) ** 2))
 
-        pred_reward = self.parameter.reward(self.feat).mode()[0][0].numpy()
-        _, policy_logits = self.parameter.actor(self.feat, return_logits=True)
+        pred_reward = self.parameter.reward(self.feat).mode()[0][0].numpy()  # type:ignore , ignore check "None"
+        _, policy_logits = self.parameter.actor(self.feat, return_logits=True)  # type:ignore , ignore check "None"
         policy_logits = policy_logits[0].numpy()
 
         img1 = self.state * 255
@@ -816,13 +822,13 @@ class Worker(DiscreteActionWorker):
             # 縦にいくつかサンプルを表示
             for j in range(_view_sample):
                 if j == 0:
-                    next_state = next_state_dist.mode()
-                    reward = reward_dist.mode()
-                    value = value_dist.mode()
+                    next_state = next_state_dist.mode()  # type:ignore , ignore check "None"
+                    reward = reward_dist.mode()  # type:ignore , ignore check "None"
+                    value = value_dist.mode()  # type:ignore , ignore check "None"
                 else:
-                    next_state = next_state_dist.sample()
-                    reward = reward_dist.sample()
-                    value = value_dist.sample()
+                    next_state = next_state_dist.sample()  # type:ignore , ignore check "None"
+                    reward = reward_dist.sample()  # type:ignore , ignore check "None"
+                    value = value_dist.sample()  # type:ignore , ignore check "None"
 
                 n_img = next_state[0].numpy() * 255
                 reward = reward.numpy()[0][0]

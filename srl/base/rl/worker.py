@@ -1,18 +1,20 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, cast
 
 import numpy as np
 
 from srl.base.define import (
-    EnvAction,
-    EnvObservation,
-    Info,
-    PlayRenderMode,
-    RLAction,
+    EnvActionType,
+    EnvObservationType,
+    InfoType,
+    InvalidActionsType,
+    InvalidActionType,
+    PlayRenderModes,
     RLActionType,
-    RLObservation,
+    RLActionTypes,
     RLObservationType,
+    RLObservationTypes,
 )
 from srl.base.env.base import EnvRun
 from srl.base.render import IRender, Render
@@ -36,15 +38,15 @@ class WorkerBase(ABC, IRender):
         raise NotImplementedError()
 
     @abstractmethod
-    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> Info:
+    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
         raise NotImplementedError()
 
     @abstractmethod
-    def policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvAction, Info]:
+    def policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvActionType, InfoType]:
         raise NotImplementedError()
 
     @abstractmethod
-    def on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
+    def on_step(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
         raise NotImplementedError()
 
     # ------------------------------
@@ -87,19 +89,19 @@ class RLWorker(WorkerBase):
         self.remote_memory = remote_memory
         self.actor_id = actor_id
         self.__dummy_state = np.full(self.config._one_observation_shape, self.config.dummy_state_val)
-        self.__env = None
+        # self.__env = None
         self.__recent_states = [self.__dummy_state for _ in range(self.config.window_length)]
 
     # ------------------------------
     # encode/decode
     # ------------------------------
-    def state_encode(self, state: EnvObservation, env: EnvRun) -> RLObservation:
-        for processor in self.config._run_processors:
+    def state_encode(self, state: EnvObservationType, env: EnvRun) -> RLObservationType:
+        for processor in self.config.run_processors:
             state = processor.process_observation(state, env)
 
-        if self.config.observation_type == RLObservationType.DISCRETE:
+        if self.config.observation_type == RLObservationTypes.DISCRETE:
             state = self.config.observation_space.observation_discrete_encode(state)
-        elif self.config.observation_type == RLObservationType.CONTINUOUS:
+        elif self.config.observation_type == RLObservationTypes.CONTINUOUS:
             state = self.config.observation_space.observation_continuous_encode(state)
         else:
             state = np.asarray(state)
@@ -107,29 +109,27 @@ class RLWorker(WorkerBase):
             state = state.reshape((1,))
         return state
 
-    def action_encode(self, action: EnvAction) -> RLAction:
+    def action_encode(self, action: EnvActionType) -> RLActionType:
         # discrete only
-        if self.config.action_type == RLActionType.DISCRETE:
+        if self.config.action_type == RLActionTypes.DISCRETE:
             action = self.config.action_space.action_discrete_encode(action)
         return action  # type: ignore
 
-    def action_decode(self, action: RLAction) -> EnvAction:
-        if self.config.action_type == RLActionType.DISCRETE:
+    def action_decode(self, action: RLActionType) -> EnvActionType:
+        if self.config.action_type == RLActionTypes.DISCRETE:
             assert not isinstance(action, list)
             action = int(action)
-            env_action = self.config.action_space.action_discrete_decode(action)
-        elif self.config.action_type == RLActionType.CONTINUOUS:
+            action = self.config.action_space.action_discrete_decode(action)
+        elif self.config.action_type == RLActionTypes.CONTINUOUS:
             if isinstance(action, list):
                 action = [float(a) for a in action]
             else:
                 action = [float(action)]
-            env_action = self.config.action_space.action_continuous_decode(action)
-        else:
-            env_action = action
-        return env_action
+            action = self.config.action_space.action_continuous_decode(action)
+        return action
 
     def reward_encode(self, reward: float, env: EnvRun) -> float:
-        for processor in self.config._run_processors:
+        for processor in self.config.run_processors:
             reward = processor.process_reward(reward, env)
         return reward
 
@@ -137,22 +137,24 @@ class RLWorker(WorkerBase):
     # implement
     # ------------------------------
     @abstractmethod
-    def _call_on_reset(self, state: RLObservation, env: EnvRun, worker: "WorkerRun") -> Info:
+    def _call_on_reset(self, state: RLObservationType, env: EnvRun, worker: "WorkerRun") -> InfoType:
         raise NotImplementedError()
 
     @abstractmethod
-    def _call_policy(self, state: RLObservation, env: EnvRun, worker: "WorkerRun") -> Tuple[RLAction, Info]:
+    def _call_policy(
+        self, state: RLObservationType, env: EnvRun, worker: "WorkerRun"
+    ) -> Tuple[RLActionType, InfoType]:
         raise NotImplementedError()
 
     @abstractmethod
     def _call_on_step(
         self,
-        next_state: RLObservation,
+        next_state: RLObservationType,
         reward: float,
         done: bool,
         env: EnvRun,
         worker: "WorkerRun",
-    ) -> Info:
+    ) -> InfoType:
         raise NotImplementedError()
 
     # ------------------------------------
@@ -162,7 +164,7 @@ class RLWorker(WorkerBase):
     def player_index(self) -> int:
         return self.__player_index
 
-    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> Info:
+    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
         self.__recent_states = [self.__dummy_state for _ in range(self.config.window_length)]
         self.__player_index = worker.player_index
         self.__env = env
@@ -178,7 +180,7 @@ class RLWorker(WorkerBase):
         state = state.astype(np.float32)
         return self._call_on_reset(state, env, worker)
 
-    def policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvAction, Info]:
+    def policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvActionType, InfoType]:
         # stacked state
         if self.config.window_length > 1:
             state = np.asarray(self.__recent_states)
@@ -190,7 +192,7 @@ class RLWorker(WorkerBase):
         action = self.action_decode(action)
         return action, info
 
-    def on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
+    def on_step(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
         next_state = self.state_encode(env.state, env)
         reward = self.reward_encode(worker.reward, env)
 
@@ -215,15 +217,15 @@ class RLWorker(WorkerBase):
     # ------------------------------------
     @property
     def max_episode_steps(self) -> int:
-        return 0 if self.__env is None else self.__env.max_episode_steps
+        return self.__env.max_episode_steps
 
     @property
     def player_num(self) -> int:
-        return 0 if self.__env is None else self.__env.player_num
+        return self.__env.player_num
 
     @property
     def step(self) -> int:
-        return 0 if self.__env is None else self.__env.step_num
+        return self.__env.step_num
 
     @property
     def recent_states(self) -> List[np.ndarray]:
@@ -232,16 +234,16 @@ class RLWorker(WorkerBase):
     # ------------------------------------
     # utils
     # ------------------------------------
-    def get_invalid_actions(self, env=None) -> List[int]:
-        if self.config.action_type == RLActionType.DISCRETE:
+    def get_invalid_actions(self, env=None) -> InvalidActionsType:
+        if self.config.action_type == RLActionTypes.DISCRETE:
             if env is None:
                 env = self.__env
-            return [self.action_encode(a) for a in env.get_invalid_actions(self.player_index)]
+            return [cast(InvalidActionType, self.action_encode(a)) for a in env.get_invalid_actions(self.player_index)]
         else:
             return []
 
-    def get_valid_actions(self, env=None) -> List[RLAction]:
-        if self.config.action_type == RLActionType.DISCRETE:
+    def get_valid_actions(self, env=None) -> InvalidActionsType:
+        if self.config.action_type == RLActionTypes.DISCRETE:
             if env is None:
                 env = self.__env
             invalid_actions = self.get_invalid_actions(env)
@@ -249,8 +251,8 @@ class RLWorker(WorkerBase):
         else:
             return []
 
-    def sample_action(self, env=None) -> RLAction:
-        if self.config.action_type == RLActionType.DISCRETE:
+    def sample_action(self, env=None) -> RLActionType:
+        if self.config.action_type == RLActionTypes.DISCRETE:
             action = np.random.choice(self.get_valid_actions(env))
         else:
             if env is None:
@@ -259,7 +261,7 @@ class RLWorker(WorkerBase):
             action = self.action_encode(action)
         return action
 
-    def env_step(self, env: EnvRun, action: RLAction, **kwargs) -> Tuple[np.ndarray, List[float], bool]:
+    def env_step(self, env: EnvRun, action: RLActionType, **kwargs) -> Tuple[np.ndarray, List[float], bool]:
         """Advance env one step
 
         Args:
@@ -269,8 +271,8 @@ class RLWorker(WorkerBase):
         Returns:
             Tuple[np.ndarray, List[float], bool]: 次の状態, 報酬, 終了したかどうか
         """
-        _action = self.action_decode(action)
-        env.step(_action, **kwargs)
+        env_action = self.action_decode(action)
+        env.step(env_action, **kwargs)
         next_state = self.state_encode(env.state, env)
         # reward = env.step_rewards[player_index]  TODO:報酬の扱いが決まらないため保留
         rewards = env.step_rewards.tolist()
@@ -310,28 +312,28 @@ class RLWorker(WorkerBase):
 
 
 class RuleBaseWorker(WorkerBase):
-    def call_on_reset(self, env: EnvRun, worker: "WorkerRun") -> Info:
+    def call_on_reset(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
         return {}
 
     @abstractmethod
-    def call_policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvAction, Info]:
+    def call_policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvActionType, InfoType]:
         raise NotImplementedError()
 
-    def call_on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
+    def call_on_step(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
         return {}  # do nothing
 
     @property
     def player_index(self) -> int:
         return self._player_index
 
-    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> Info:
+    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
         self._player_index = worker.player_index
         return self.call_on_reset(env, worker)
 
-    def policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvAction, Info]:
+    def policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvActionType, InfoType]:
         return self.call_policy(env, worker)
 
-    def on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
+    def on_step(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
         return self.call_on_step(env, worker)
 
 
@@ -347,29 +349,29 @@ class ExtendWorker(WorkerBase):
         self.worker = self.rl_worker.worker
 
     @abstractmethod
-    def call_on_reset(self, env: EnvRun, worker: "WorkerRun") -> Info:
+    def call_on_reset(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
         raise NotImplementedError()
 
     @abstractmethod
-    def call_policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvAction, Info]:
+    def call_policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvActionType, InfoType]:
         raise NotImplementedError()
 
-    def call_on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
+    def call_on_step(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
         return {}  # do nothing
 
     @property
     def player_index(self) -> int:
         return self._player_index
 
-    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> Info:
+    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
         self._player_index = worker.player_index
         self.rl_worker.on_reset(env, worker.player_index)
         return self.call_on_reset(env, worker)
 
-    def policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvAction, Info]:
+    def policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvActionType, InfoType]:
         return self.call_policy(env, worker)
 
-    def on_step(self, env: EnvRun, worker: "WorkerRun") -> Info:
+    def on_step(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
         self.rl_worker.on_step(env)
         return self.call_on_step(env, worker)
 
@@ -400,7 +402,7 @@ class WorkerRun:
         return self._player_index
 
     @property
-    def info(self) -> Optional[Info]:
+    def info(self) -> Optional[InfoType]:
         return self._info
 
     @property
@@ -411,10 +413,8 @@ class WorkerRun:
         self,
         env: EnvRun,
         player_index: int = 0,
-        render_mode: Union[str, PlayRenderMode] = "",
+        render_mode: Union[str, PlayRenderModes] = "",
     ) -> None:
-        logger.debug(f"worker.on_reset({player_index})")
-
         self._player_index = player_index
         self._info = None
         self._is_reset = False
@@ -424,7 +424,7 @@ class WorkerRun:
         self._render.cache_reset()
         self._render.reset(render_mode, interval=-1)
 
-    def policy(self, env: EnvRun) -> Optional[EnvAction]:
+    def policy(self, env: EnvRun) -> Optional[EnvActionType]:
         # 初期化していないなら初期化する
         if not self._is_reset:
             self._info = self.worker.on_reset(env, self)

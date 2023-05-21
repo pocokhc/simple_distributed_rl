@@ -1,11 +1,17 @@
-import itertools
 import logging
 import random
 from typing import Any, List, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLActionType, RLObservation
+from srl.base.define import (
+    ContinuousActionType,
+    DiscreteActionType,
+    InvalidActionsType,
+    RLActionTypes,
+    RLObservationType,
+    RLObservationTypes,
+)
 
 from .space import SpaceBase
 
@@ -44,8 +50,9 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     def high(self) -> List[int]:
         return self._high
 
-    def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> List[int]:
+    def sample(self, invalid_actions: InvalidActionsType = []) -> List[int]:
         self._create_action_tbl()
+        assert self.decode_tbl is not None
 
         valid_actions = []
         for a in self.decode_tbl:  # decode_tbl is all action
@@ -81,8 +88,12 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         return True
 
     @property
-    def base_action_type(self) -> RLActionType:
-        return RLActionType.DISCRETE
+    def rl_action_type(self) -> RLActionTypes:
+        return RLActionTypes.DISCRETE
+
+    @property
+    def rl_observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.DISCRETE
 
     def get_default(self) -> List[int]:
         return [0 for _ in range(self.size)]
@@ -120,6 +131,7 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     def _create_action_tbl(self) -> None:
         if self.decode_tbl is not None:
             return
+        import itertools
 
         if self.size > 10:
             logger.warning("It may take some time.")
@@ -134,14 +146,16 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     # --- action discrete
     def get_action_discrete_info(self) -> int:
         self._create_action_tbl()
+        assert self.decode_tbl is not None
         return len(self.decode_tbl)
 
-    def action_discrete_encode(self, val: List[int]) -> DiscreteAction:
+    def action_discrete_encode(self, val: List[int]) -> DiscreteActionType:
         self._create_action_tbl()
         return self.encode_tbl[tuple(val)]
 
-    def action_discrete_decode(self, val: DiscreteAction) -> List[int]:
+    def action_discrete_decode(self, val: DiscreteActionType) -> List[int]:
         self._create_action_tbl()
+        assert self.decode_tbl is not None
         return list(self.decode_tbl[val])
 
     # --- action continuous
@@ -151,7 +165,7 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     # def action_continuous_encode(self, val: List[int]) -> ContinuousAction:
     #    return [float(v) for v in val]
 
-    def action_continuous_decode(self, val: ContinuousAction) -> List[int]:
+    def action_continuous_decode(self, val: ContinuousActionType) -> List[int]:
         return [int(np.round(v)) for v in val]
 
     # --- observation
@@ -159,8 +173,8 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     def observation_shape(self) -> Tuple[int, ...]:
         return (self.size,)
 
-    def observation_discrete_encode(self, val: List[int]) -> RLObservation:
+    def observation_discrete_encode(self, val: List[int]) -> RLObservationType:
         return np.array(val, dtype=int)
 
-    def observation_continuous_encode(self, val: List[int]) -> RLObservation:
+    def observation_continuous_encode(self, val: List[int]) -> RLObservationType:
         return np.array(val, dtype=np.float32)

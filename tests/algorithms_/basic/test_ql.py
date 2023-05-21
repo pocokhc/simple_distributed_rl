@@ -16,7 +16,7 @@ def test_Grid():
         lr=0.01,
     )
     config = runner.Config("Grid", rl_config, seed=2)
-    parameter = tester.train_eval(config, 100_000, eval_episode=100)
+    parameter, _, _ = tester.train_eval(config, 100_000, eval_episode=100)
     tester.verify_grid_policy(rl_config, parameter)
 
 
@@ -47,7 +47,7 @@ def test_OX():
         lr=0.1,
     )
     config = runner.Config("OX", rl_config, seed=1)
-    parameter = tester.train(config, 100_000)
+    parameter, _, _ = tester.train(config, 100_000)
     tester.eval_2player(config, parameter)
 
 

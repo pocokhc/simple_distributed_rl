@@ -40,7 +40,7 @@ def main():
     config.model_summary(expand_nested=True)
 
     # --- train
-    parameter, remote_memory, history = runner.train(config, max_episodes=200, enable_file_logger=True)
+    parameter, remote_memory, history = runner.train(config, max_episodes=200, eval=runner.EvalOption())
     history.plot(plot_right=["train_loss"])
 
     # --- evaluate

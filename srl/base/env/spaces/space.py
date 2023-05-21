@@ -3,14 +3,22 @@ from typing import Any, Generic, List, Tuple, TypeVar
 
 import numpy as np
 
-from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLActionType, RLObservation
+from srl.base.define import (
+    ContinuousActionType,
+    DiscreteActionType,
+    InvalidActionsType,
+    RLActionTypes,
+    RLObservationType,
+    RLObservationTypes,
+)
 
 T = TypeVar("T", int, List[int], float, List[float], np.ndarray, covariant=True)
 
 
 class SpaceBase(ABC, Generic[T]):
     @abstractmethod
-    def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> T:
+    def sample(self, invalid_actions: InvalidActionsType = []) -> T:
+        """ランダムな値を返す"""
         raise NotImplementedError()
 
     @abstractmethod
@@ -20,19 +28,28 @@ class SpaceBase(ABC, Generic[T]):
 
     @abstractmethod
     def check_val(self, val: Any) -> bool:
+        """val が space の値として妥当か確認"""
         raise NotImplementedError()
 
     @property
     @abstractmethod
-    def base_action_type(self) -> RLActionType:
+    def rl_action_type(self) -> RLActionTypes:
+        """RLActionTypes を返す"""
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def rl_observation_type(self) -> RLObservationTypes:
+        """RLObservationTypes を返す"""
         raise NotImplementedError()
 
     @abstractmethod
     def get_default(self) -> T:
+        """return default value"""
         return NotImplemented
 
     @abstractmethod
-    def __eq__(self, __o: object) -> bool:
+    def __eq__(self, __o: "SpaceBase") -> bool:
         return NotImplemented
 
     # --- action discrete
@@ -41,11 +58,11 @@ class SpaceBase(ABC, Generic[T]):
         raise NotImplementedError()
 
     @abstractmethod
-    def action_discrete_encode(self, val: T) -> DiscreteAction:
+    def action_discrete_encode(self, val) -> DiscreteActionType:
         raise NotImplementedError()
 
     @abstractmethod
-    def action_discrete_decode(self, val: DiscreteAction) -> T:
+    def action_discrete_decode(self, val: DiscreteActionType) -> T:
         raise NotImplementedError()
 
     # --- action continuous
@@ -59,7 +76,7 @@ class SpaceBase(ABC, Generic[T]):
     #    raise NotImplementedError()
 
     @abstractmethod
-    def action_continuous_decode(self, val: ContinuousAction) -> T:
+    def action_continuous_decode(self, val: ContinuousActionType) -> T:
         raise NotImplementedError()
 
     # --- observation
@@ -69,9 +86,9 @@ class SpaceBase(ABC, Generic[T]):
         raise NotImplementedError()  # shape
 
     @abstractmethod
-    def observation_discrete_encode(self, val: T) -> RLObservation:
+    def observation_discrete_encode(self, val) -> RLObservationType:
         raise NotImplementedError()
 
     @abstractmethod
-    def observation_continuous_encode(self, val: T) -> RLObservation:
+    def observation_continuous_encode(self, val) -> RLObservationType:
         raise NotImplementedError()

@@ -65,7 +65,7 @@ def main():
     for name, rl_config in rl_configs:
         print(name)
         config = runner.Config(env_config, rl_config)
-        _, _, history = runner.train(config, max_episodes=200, enable_evaluation=False, enable_file_logger=True)
+        _, _, history = runner.train(config, max_episodes=200, history=runner.HistoryOption())
         results.append((name, history))
 
     # plot

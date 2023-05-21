@@ -1,7 +1,9 @@
+from typing import cast
+
 import numpy as np
 
 import srl
-from srl.base.define import EnvObservationType
+from srl.base.define import EnvObservationTypes
 from srl.base.env.spaces.box import BoxSpace  # noqa F401
 from srl.envs import grid
 from srl.test import TestEnv
@@ -31,7 +33,7 @@ def test_processor():
     tester.change_observation_info(
         processor,
         env_name,
-        after_type=EnvObservationType.SHAPE3,
+        after_type=EnvObservationTypes.SHAPE3,
         after_space=BoxSpace((1, env.H, env.W), 0, 1),
     )
     tester.observation_decode(
@@ -43,7 +45,7 @@ def test_processor():
 
 
 def test_calc_action_values():
-    env: grid.Grid = srl.make_env("Grid").get_original_env()
+    env = cast(grid.Grid, srl.make_env("Grid").get_original_env())
 
     V, Q = env.calc_action_values()
     env.print_state_values(V)

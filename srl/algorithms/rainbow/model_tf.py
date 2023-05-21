@@ -2,8 +2,7 @@ from typing import Any, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-from tensorflow.keras import layers as kl
+from tensorflow import keras
 
 from srl.base.rl.base import RLTrainer
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
@@ -11,6 +10,8 @@ from srl.rl.models.tf.input_block import InputBlock
 
 from .rainbow import CommonInterfaceParameter, Config, RemoteMemory
 from .rainbow_nomultisteps import calc_target_q
+
+kl = keras.layers
 
 
 # ------------------------------------------------------
@@ -123,10 +124,10 @@ class Parameter(CommonInterfaceParameter):
 
     # ----------------------------------------------
     def predict_q(self, state: np.ndarray) -> np.ndarray:
-        return self.q_online(state).numpy()
+        return self.q_online(state).numpy()  # type:ignore , "numpy" is not a known member of "None"
 
     def predict_target_q(self, state: np.ndarray) -> np.ndarray:
-        return self.q_target(state).numpy()
+        return self.q_target(state).numpy()  # type:ignore , "numpy" is not a known member of "None"
 
 
 # ------------------------------------------------------

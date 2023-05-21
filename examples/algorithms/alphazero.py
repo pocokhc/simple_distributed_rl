@@ -44,11 +44,7 @@ def main():
 
     # --- train
     config.players = [None, None]
-    parameter, _, _ = runner.train(
-        config,
-        max_episodes=2000,
-        enable_evaluation=False,
-    )
+    parameter, _, _ = runner.train(config, max_episodes=2000)
 
     # --- evaluate
     for players in [

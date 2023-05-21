@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Tuple
 
-from srl.base.define import EnvAction, RLActionType, RLObservationType
+from srl.base.define import EnvActionType, RLActionTypes, RLObservationTypes
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
 from srl.base.rl.base import RLConfig, RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -14,12 +14,12 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Config(RLConfig):
     @property
-    def action_type(self) -> RLActionType:
-        return RLActionType.ANY
+    def action_type(self) -> RLActionTypes:
+        return RLActionTypes.ANY
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.ANY
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.ANY
 
     def getName(self) -> str:
         return "Dummy"
@@ -69,7 +69,7 @@ class Worker(ModelBaseWorker):
     def call_on_reset(self, state, env, worker) -> dict:
         return {}
 
-    def call_policy(self, state, env, worker) -> Tuple[EnvAction, dict]:
+    def call_policy(self, state, env, worker) -> Tuple[EnvActionType, dict]:
         return env.sample(), {}
 
     def call_on_step(self, next_state, reward: float, done: bool, env, worker):

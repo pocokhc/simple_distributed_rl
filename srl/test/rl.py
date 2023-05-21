@@ -5,11 +5,16 @@ import numpy as np
 import srl
 from srl import runner
 from srl.base.env.config import EnvConfig
-from srl.base.rl.base import RLParameter
+from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.base.rl.config import RLConfig
+from srl.base.rl.worker import RLWorker
 from srl.envs import grid, igrid, oneroad, othello, ox, stone_taking, tiger  # noqa F401
 from srl.rl.functions.common import to_str_observation
+from srl.runner import Config
+from srl.runner.callbacks.history_viewer import HistoryViewer
 from srl.utils.common import is_packages_installed
+
+BaseLineType = Union[float, List[Union[float, None]]]
 
 
 class TestRL:
@@ -187,7 +192,7 @@ class TestRL:
                     break
 
     # ----------------------------------------------
-    def _check_baseline(self, config, baseline):
+    def _check_baseline(self, config: Config, baseline: Optional[BaseLineType]) -> BaseLineType:
         env = config.make_env()
         if baseline is None:
             baseline = env.reward_info.get("baseline", None)
@@ -206,10 +211,9 @@ class TestRL:
         is_mp=False,
         eval_episode: Optional[int] = None,
         eval_kwargs: dict = {},
-        baseline: Optional[Union[float, List[float]]] = None,
+        baseline: Optional[BaseLineType] = None,
         check_restore: bool = True,
-        return_memory_history: bool = False,
-    ) -> RLParameter:
+    ) -> Tuple[RLParameter, RLRemoteMemory, HistoryViewer]:
         baseline = self._check_baseline(config, baseline)
         assert config.env_config.player_num == 1, "For two or more players, use 'train' and 'eval'."
 
@@ -219,7 +223,6 @@ class TestRL:
             train_steps,
             train_kwargs,
             is_mp,
-            return_memory_history=True,
         )
         self.eval(
             config,
@@ -229,10 +232,7 @@ class TestRL:
             baseline,
             check_restore,
         )
-        if return_memory_history:
-            return parameter, memory, history
-        else:
-            return parameter
+        return parameter, memory, history
 
     def train(
         self,
@@ -241,8 +241,7 @@ class TestRL:
         train_steps: int = -1,
         train_kwargs: dict = {},
         is_mp=False,
-        return_memory_history: bool = False,
-    ) -> RLParameter:
+    ) -> Tuple[RLParameter, RLRemoteMemory, HistoryViewer]:
         assert train_count != -1 or train_steps != -1, "Please specify 'train_count' or 'train_steps'."
         config = config.copy(env_share=False)
 
@@ -258,10 +257,7 @@ class TestRL:
         else:
             parameter, memory, history = runner.train(config, **_train_kwargs)
 
-        if return_memory_history:
-            return parameter, memory, history
-        else:
-            return parameter
+        return parameter, memory, history
 
     def eval(
         self,
@@ -269,7 +265,7 @@ class TestRL:
         parameter: RLParameter,
         episode: Optional[int] = None,
         eval_kwargs: dict = {},
-        baseline: Optional[Union[float, List[Union[float, None]]]] = None,
+        baseline: Optional[BaseLineType] = None,
         check_restore: bool = True,
     ) -> Union[List[float], List[List[float]]]:  # single play , multi play
         config = config.copy(env_share=False)
@@ -302,7 +298,7 @@ class TestRL:
         )
 
         # --- assert
-        if config.env_config.player_num == 1:
+        if not isinstance(baseline, list):
             reward = np.mean(episode_rewards)
 
             s = f"{reward} >= {baseline}"
@@ -325,11 +321,12 @@ class TestRL:
         eval_1p_players=[None, "random"],
         eval_2p_players=["random", None],
         eval_kwargs: dict = {},
-        baseline=None,
+        baseline: Optional[BaseLineType] = None,
         check_restore: bool = True,
     ):
         # --- baseline check
         baseline = self._check_baseline(config, baseline)
+        assert isinstance(baseline, list)
 
         config.players = eval_1p_players
         self.eval(config, parameter, episode, eval_kwargs, [baseline[0], None], check_restore)
@@ -346,11 +343,12 @@ class TestRL:
         env_org = cast(Grid, env.get_original_env())
 
         worker = srl.make_worker(rl_config, parameter, env=env)
+        rl_worker = cast(RLWorker, worker.worker)
 
         V, _Q = env_org.calc_action_values()
         Q = {}
         for k, v in _Q.items():
-            new_k = worker.worker.state_encode(k, env)
+            new_k = rl_worker.state_encode(k, env)
             new_k = to_str_observation(new_k)
             Q[new_k] = v
 
@@ -361,19 +359,18 @@ class TestRL:
                 worker.on_reset(env)
 
             # action
-            action = worker.policy(env)
+            pred_a = worker.policy(env)
 
             # -----------
             # policyのアクションと最適アクションが等しいか確認
             key = to_str_observation(np.asarray(env.state))
             true_a = np.argmax(list(Q[key].values()))
-            pred_a = worker.worker.action_decode(action)
             print(f"{env.state}: {true_a} == {pred_a}")
             assert true_a == pred_a
             # -----------
 
             # env step
-            env.step(action)
+            env.step(pred_a)
 
             # rl step
             worker.on_step(env)

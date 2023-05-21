@@ -1,10 +1,16 @@
-import itertools
 import logging
 from typing import Any, List, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import ContinuousAction, DiscreteAction, DiscreteSpaceType, RLActionType, RLObservation
+from srl.base.define import (
+    ContinuousActionType,
+    DiscreteActionType,
+    InvalidActionsType,
+    RLActionTypes,
+    RLObservationType,
+    RLObservationTypes,
+)
 
 from .space import SpaceBase
 
@@ -15,12 +21,12 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def __init__(
         self,
         shape: Union[List[int], Tuple[int, ...]],
-        low: Union[float, List[int], Tuple[int, ...], np.ndarray] = -np.inf,
-        high: Union[float, List[int], Tuple[int, ...], np.ndarray] = np.inf,
+        low: Union[float, List[float], Tuple[float, ...], np.ndarray] = -np.inf,
+        high: Union[float, List[float], Tuple[float, ...], np.ndarray] = np.inf,
     ) -> None:
         self._low: np.ndarray = np.full(shape, low, dtype=np.float32) if np.isscalar(low) else np.asarray(low)
         self._high: np.ndarray = np.full(shape, high, dtype=np.float32) if np.isscalar(high) else np.asarray(high)
-        self._shape = shape
+        self._shape = tuple(shape)
 
         assert self.shape == self.high.shape
         assert self.low.shape == self.high.shape
@@ -30,8 +36,6 @@ class BoxSpace(SpaceBase[np.ndarray]):
         self._is_division = False
         self._n = 0
         self.action_tbl = None
-
-        assert isinstance(self._shape, tuple), f"shape is a tuple format. type=({type(shape)})"
 
     @property
     def shape(self) -> Tuple[int, ...]:
@@ -45,7 +49,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def high(self) -> np.ndarray:
         return self._high
 
-    def sample(self, invalid_actions: List[DiscreteSpaceType] = []) -> np.ndarray:
+    def sample(self, invalid_actions: InvalidActionsType = []) -> np.ndarray:
         if self._is_inf:
             # infの場合は正規分布に従う乱数
             return np.random.normal(size=self.shape)
@@ -67,13 +71,17 @@ class BoxSpace(SpaceBase[np.ndarray]):
         return True
 
     @property
-    def base_action_type(self) -> RLActionType:
-        return RLActionType.CONTINUOUS
+    def rl_action_type(self) -> RLActionTypes:
+        return RLActionTypes.CONTINUOUS
+
+    @property
+    def rl_observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.CONTINUOUS
 
     def get_default(self) -> np.ndarray:
         return np.zeros(self.shape)
 
-    def __eq__(self, o: object) -> bool:
+    def __eq__(self, o: "BoxSpace") -> bool:
         return self.shape == o.shape and (self.low == o.low).all() and (self.high == o.high).all()
 
     def __str__(self) -> str:
@@ -89,6 +97,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def set_action_division(self, division_num: int) -> None:
         if self._is_inf:
             return
+        import itertools
 
         low_flatten = self.low.flatten()
         high_flatten = self.high.flatten()
@@ -119,16 +128,16 @@ class BoxSpace(SpaceBase[np.ndarray]):
         assert self.action_tbl is not None, "If you want to use DISCRETE in BoxSpace, call set_action_division first."
         return self._n
 
-    def action_discrete_encode(self, val: np.ndarray) -> DiscreteAction:
+    def action_discrete_encode(self, val: np.ndarray) -> DiscreteActionType:
         if self._is_inf:  # infは定義できない
             raise NotImplementedError
         assert self.action_tbl is not None, "If you want to use DISCRETE in BoxSpace, call set_action_division first."
         # ユークリッド距離で一番近いアクションを選択
         d = (self.action_tbl - val).reshape((self.action_tbl.shape[0], -1))
         d = np.linalg.norm(d, axis=1)
-        return np.argmin(d)
+        return int(np.argmin(d))
 
-    def action_discrete_decode(self, val: DiscreteAction) -> np.ndarray:
+    def action_discrete_decode(self, val: DiscreteActionType) -> np.ndarray:
         if self._is_inf:  # infは定義できない
             return np.full(self.shape, val, dtype=np.float32)
         assert self.action_tbl is not None, "If you want to use DISCRETE in BoxSpace, call set_action_division first."
@@ -143,7 +152,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
     # def action_continuous_encode(self, val: np.ndarray) -> ContinuousAction:
     #    return val.flatten().tolist()
 
-    def action_continuous_decode(self, val: ContinuousAction) -> np.ndarray:
+    def action_continuous_decode(self, val: ContinuousActionType) -> np.ndarray:
         return np.asarray(val).reshape(self.shape)
 
     # --- observation
@@ -151,8 +160,8 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def observation_shape(self) -> Tuple[int, ...]:
         return self.shape
 
-    def observation_discrete_encode(self, val: np.ndarray) -> RLObservation:
+    def observation_discrete_encode(self, val: np.ndarray) -> RLObservationType:
         return np.round(val).astype(int)
 
-    def observation_continuous_encode(self, val: np.ndarray) -> RLObservation:
+    def observation_continuous_encode(self, val: np.ndarray) -> RLObservationType:
         return val.astype(np.float32)

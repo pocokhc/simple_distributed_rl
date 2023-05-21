@@ -9,7 +9,7 @@ import numpy as np
 import pygame
 
 import srl
-from srl.base.define import EnvAction, KeyBindType, PlayRenderMode
+from srl.base.define import EnvActionType, KeyBindType, PlayRenderModes
 from srl.base.env.config import EnvConfig
 from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.config import RLConfig
@@ -264,10 +264,10 @@ class PlayableGame(_GameWindow):
                 key_names = [pygame.key.name(key) if isinstance(key, int) else str(key) for key in key_combination]
                 self.key_bind_str[",".join(key_names)] = action
 
-        self.key_bind = cast(Dict[Optional[Tuple[int]], EnvAction], self.key_bind)
+        self.key_bind = cast(Dict[Optional[Tuple[int]], EnvActionType], self.key_bind)
 
         # --- reset
-        self.env.reset(render_mode=PlayRenderMode.rgb_array)
+        self.env.reset(render_mode=PlayRenderModes.rgb_array)
         self.env_interval = self.env.render_interval
         self.set_image(self.env.render_rgb_array(), None)
         if rl_config is not None:

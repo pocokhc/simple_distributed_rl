@@ -5,7 +5,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from typing import List, Optional, Tuple, Union
 
-from srl.base.define import PlayRenderMode
+from srl.base.define import PlayRenderModes
 from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.base.rl.config import RLConfig
 from srl.runner.callback import Callback
@@ -90,7 +90,7 @@ def play(
     # play info
     training: bool = False,
     distributed: bool = False,
-    render_mode: Union[str, PlayRenderMode] = PlayRenderMode.none,
+    render_mode: Union[str, PlayRenderModes] = PlayRenderModes.none,
     # options
     eval: Optional[EvalOption] = None,
     progress: Optional[ProgressOption] = ProgressOption(),
@@ -206,7 +206,7 @@ def _play_main_tf(
     config: Config,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
-    render_mode: Union[str, PlayRenderMode] = PlayRenderMode.none,
+    render_mode: Union[str, PlayRenderModes] = PlayRenderModes.none,
     train_only: bool = False,
 ) -> Tuple[List[List[float]], RLParameter, RLRemoteMemory]:
     allocate = config.used_device_tf
@@ -233,7 +233,7 @@ def _play_main(
     config: Config,
     parameter: Optional[RLParameter],
     remote_memory: Optional[RLRemoteMemory],
-    render_mode: Union[str, PlayRenderMode],
+    render_mode: Union[str, PlayRenderModes],
     train_only: bool,
 ) -> Tuple[List[List[float]], RLParameter, RLRemoteMemory]:
     global __enabled_nvidia
@@ -313,7 +313,7 @@ def _play_run(
     config: Config,
     parameter: RLParameter,
     remote_memory: RLRemoteMemory,
-    render_mode: Union[str, PlayRenderMode],
+    render_mode: Union[str, PlayRenderModes],
     callbacks: List[Callback],
     episode_seed: int,
 ):

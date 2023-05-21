@@ -1,6 +1,6 @@
 import srl
 from srl import runner
-from srl.base.define import PlayRenderMode
+from srl.base.define import PlayRenderModes
 from srl.base.env.base import EnvRun
 from srl.utils.common import is_packages_installed
 
@@ -27,7 +27,7 @@ class TestEnv:
         if check_restore:
             self._play_test(
                 env,
-                PlayRenderMode.none,
+                PlayRenderModes.none,
                 render_interval=-1,
                 check_restore=True,
                 max_step=max_step,
@@ -36,7 +36,7 @@ class TestEnv:
         if check_render:
             self._play_test(
                 env,
-                PlayRenderMode.terminal,
+                PlayRenderModes.terminal,
                 render_interval=1,
                 check_restore=False,
                 max_step=max_step,
@@ -45,7 +45,7 @@ class TestEnv:
             if is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]):
                 self._play_test(
                     env,
-                    PlayRenderMode.window,
+                    PlayRenderModes.window,
                     render_interval=1,
                     check_restore=False,
                     max_step=max_step,

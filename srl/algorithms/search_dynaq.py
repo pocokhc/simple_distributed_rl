@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import RLObservationType
+from srl.base.define import RLObservationTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -46,8 +46,8 @@ class Config(DiscreteActionConfig):
     q_init: str = ""
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.DISCRETE
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.DISCRETE
 
     def getName(self) -> str:
         return "SearchDynaQ"
@@ -422,9 +422,9 @@ class Worker(DiscreteActionWorker):
     def render_terminal(self, env, worker, **kwargs) -> None:
         self.parameter.init_state(self.state, self.invalid_actions)
 
-        print(
-            f"int_reward {self.reward_int:.4f} = episodic {self.episodic_reward:.3f} * lifelong {self.lifelong_reward:.3f}"
-        )
+        s = f"int_reward {self.reward_int:.4f} = "
+        s += f"episodic {self.episodic_reward:.3f} * lifelong {self.lifelong_reward:.3f}"
+        print(s)
         q_ext = np.asarray(self.parameter.Q_ext[self.state])
         q_int = np.asarray(self.parameter.Q_int[self.state])
 

@@ -1,6 +1,6 @@
 import numpy as np
 
-from srl.base.define import RLActionType
+from srl.base.define import RLActionTypes
 from srl.base.env.spaces import DiscreteSpace
 
 from .space_test import SpaceTest
@@ -13,7 +13,7 @@ def _check_action(decode_action, true_action):
 
 def test_space():
     space = DiscreteSpace(5)
-    assert space.base_action_type == RLActionType.DISCRETE
+    assert space.rl_action_type == RLActionTypes.DISCRETE
     assert space.n == 5
 
     print(space)

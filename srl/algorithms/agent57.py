@@ -5,10 +5,9 @@ from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-import tensorflow.keras.layers as kl
+from tensorflow import keras
 
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationTypes, RLObservationTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.memory import IPriorityMemoryConfig
@@ -32,6 +31,8 @@ from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
 from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_block import InputBlock
+
+kl = keras.layers
 
 """
 Paper: https://arxiv.org/abs/2003.13350
@@ -132,9 +133,9 @@ class Config(DiscreteActionConfig):
             kwargs={
                 "activation": "relu",
                 "kernel_initializer": "he_normal",
-                "dense_kwargs": {
-                    "bias_initializer": keras.initializers.constant(0.001),
-                },
+                # "dense_kwargs": {
+                #    "bias_initializer": keras.initializers.constant(0.001),
+                # },
             },
         )
     )
@@ -176,15 +177,15 @@ class Config(DiscreteActionConfig):
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(
-                image_type=EnvObservationType.GRAY_2ch,
+                image_type=EnvObservationTypes.GRAY_2ch,
                 resize=(84, 84),
                 enable_norm=True,
             )
         ]
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.CONTINUOUS
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "Agent57"
@@ -319,7 +320,9 @@ class _QNetwork(keras.Model):
         x = tf.concat(uvfa_list, axis=2)
 
         # lstm
-        x, h, c = self.lstm_layer(x, initial_state=hidden_states, training=training)
+        x, h, c = self.lstm_layer(
+            x, initial_state=hidden_states, training=training
+        )  # type:ignore , ignore check "None"
 
         # hidden
         for layer in self.hidden_layers:
@@ -775,7 +778,7 @@ class Trainer(RLTrainer):
         td_errors_list = []
         with tf.GradientTape() as tape:
             q, _ = model_q_online(in_steps, hidden_states, training=True)
-            frozen_q = tf.stop_gradient(q).numpy()
+            frozen_q = tf.stop_gradient(q).numpy()  # type:ignore , ignore check "None"
 
             # 最後は学習しないので除く
             tf.stop_gradient(q[:, -1, :])
@@ -844,7 +847,7 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, model_q_online.trainable_variables)
         optimizer.apply_gradients(zip(grads, model_q_online.trainable_variables))
 
-        return td_errors_list, loss.numpy()
+        return np.array(td_errors_list), loss.numpy()
 
 
 # ------------------------------------------------------
@@ -998,8 +1001,12 @@ class Worker(DiscreteActionWorker):
             prev_onehot_action,
             self.onehot_actor_idx,
         ]
-        self.q_ext, self.hidden_state_ext = self.parameter.q_ext_online(in_, self.hidden_state_ext)
-        self.q_int, self.hidden_state_int = self.parameter.q_int_online(in_, self.hidden_state_int)
+        self.q_ext, self.hidden_state_ext = self.parameter.q_ext_online(
+            in_, self.hidden_state_ext
+        )  # type:ignore , ignore check "None"
+        self.q_int, self.hidden_state_int = self.parameter.q_int_online(
+            in_, self.hidden_state_int
+        )  # type:ignore , ignore check "None"
         self.q_ext = self.q_ext[0][0].numpy()
         self.q_int = self.q_int[0][0].numpy()
         self.q = self.q_ext + self.beta * self.q_int
@@ -1198,8 +1205,8 @@ class Worker(DiscreteActionWorker):
 
     def _calc_lifelong_reward(self, state):
         # RND取得
-        rnd_target_val = self.parameter.lifelong_target(state)[0]
-        rnd_train_val = self.parameter.lifelong_train(state)[0]
+        rnd_target_val = self.parameter.lifelong_target(state)[0]  # type:ignore , ignore check "None"
+        rnd_train_val = self.parameter.lifelong_train(state)[0]  # type:ignore , ignore check "None"
 
         # MSE
         error = np.square(rnd_target_val - rnd_train_val).mean()

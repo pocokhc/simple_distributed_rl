@@ -8,7 +8,7 @@ import numpy as np
 from gym import spaces
 from gym.spaces import flatten, flatten_space
 
-from srl.base.define import EnvAction, EnvObservationType, Info, RenderMode
+from srl.base.define import EnvActionType, EnvObservationTypes, InfoType, RenderModes
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.env.spaces.box import BoxSpace
@@ -90,6 +90,8 @@ def _gym_space_flatten_sub(gym_space) -> Tuple[List[float], List[float], bool]:
 def gym_space_flatten(gym_space) -> Tuple[Union[BoxSpace, ArrayDiscreteSpace], bool]:
     low, high, is_discrete = _gym_space_flatten_sub(gym_space)
     if is_discrete:
+        low = [int(n) for n in low]
+        high = [int(n) for n in high]
         return ArrayDiscreteSpace(len(low), low, high), is_discrete
     else:
         return BoxSpace((len(low),), low, high), is_discrete
@@ -144,7 +146,7 @@ def gym_space_flatten_encode(gym_space, val):
     return _gym_space_flatten_encode_sub(gym_space, val)
 
 
-def _gym_space_flatten_decode_sub(gym_space, x, idx=0):
+def _gym_space_flatten_decode_sub(gym_space: spaces.Space, x, idx=0):
     if isinstance(gym_space, spaces.Discrete):
         return int(x[idx]), idx + 1
 
@@ -195,7 +197,7 @@ def _gym_space_flatten_decode_sub(gym_space, x, idx=0):
     raise NotImplementedError(f"not supported `{gym_space}` `{x}`")
 
 
-def gym_space_flatten_decode(gym_space, val):
+def gym_space_flatten_decode(gym_space: spaces.Space, val) -> Any:
     # 主にアクション
     if isinstance(val, tuple):
         val = list(val)
@@ -219,8 +221,8 @@ class GymWrapper(EnvBase):
         self.prediction_step = prediction_step
 
         self.seed = None
-        self.render_mode = RenderMode.NONE
-        self.v0260_older = compare_less_version(gym.__version__, "0.26.0")
+        self.render_mode = RenderModes.NONE
+        self.v0260_older = compare_less_version(gym.__version__, "0.26.0")  # type: ignore
         if False:
             if is_package_installed("ale_py"):
                 import ale_py
@@ -250,22 +252,22 @@ class GymWrapper(EnvBase):
         self.prediction_by_simulation = prediction_by_simulation
 
         # --- space img
-        self._observation_type = EnvObservationType.UNKNOWN
+        self._observation_type = EnvObservationTypes.UNKNOWN
         if check_image:
             if isinstance(self.env.observation_space, spaces.Box) and (
                 "uint" in str(self.env.observation_space.dtype)
             ):
                 if len(self.env.observation_space.shape) == 2:
-                    self._observation_type = EnvObservationType.GRAY_2ch
+                    self._observation_type = EnvObservationTypes.GRAY_2ch
                 elif len(self.env.observation_space.shape) == 3:
                     # w,h,ch 想定
                     ch = self.env.observation_space.shape[-1]
                     if ch == 1:
-                        self._observation_type = EnvObservationType.GRAY_3ch
+                        self._observation_type = EnvObservationTypes.GRAY_3ch
                     elif ch == 3:
-                        self._observation_type = EnvObservationType.COLOR
+                        self._observation_type = EnvObservationTypes.COLOR
 
-                if self._observation_type != EnvObservationType.UNKNOWN:
+                if self._observation_type != EnvObservationTypes.UNKNOWN:
                     # 画像はそのままのshape
                     self.enable_flatten_observation = False
                     self._observation_space = BoxSpace(
@@ -275,16 +277,16 @@ class GymWrapper(EnvBase):
                     )
 
         # --- space obs
-        if self._observation_type == EnvObservationType.UNKNOWN:
+        if self._observation_type == EnvObservationTypes.UNKNOWN:
             self.enable_flatten_observation = True
             self._observation_space, is_discrete = gym_space_flatten(self.env.observation_space)
             if not is_discrete:
                 if self._pred_space_discrete():
-                    self._observation_type = EnvObservationType.DISCRETE
+                    self._observation_type = EnvObservationTypes.DISCRETE
                 else:
-                    self._observation_type = EnvObservationType.CONTINUOUS
+                    self._observation_type = EnvObservationTypes.CONTINUOUS
             else:
-                self._observation_type = EnvObservationType.DISCRETE
+                self._observation_type = EnvObservationTypes.DISCRETE
 
         # --- space action
         self.enable_flatten_action = True
@@ -311,7 +313,7 @@ class GymWrapper(EnvBase):
                 action = self.env.action_space.sample()
                 _t = self.env.step(action)
                 if len(_t) == 4:
-                    state, reward, done, info = _t
+                    state, reward, done, info = _t  # type: ignore
                 else:
                     state, reward, terminated, truncated, info = _t
                     done = terminated or truncated
@@ -334,7 +336,7 @@ class GymWrapper(EnvBase):
         return self._observation_space
 
     @property
-    def observation_type(self) -> EnvObservationType:
+    def observation_type(self) -> EnvObservationTypes:
         return self._observation_type
 
     @property
@@ -375,12 +377,12 @@ class GymWrapper(EnvBase):
             state = gym_space_flatten_encode(self.env.observation_space, state)
         return self.observation_space.convert(state), info
 
-    def step(self, action: EnvAction) -> Tuple[np.ndarray, List[float], bool, Info]:
+    def step(self, action: EnvActionType) -> Tuple[np.ndarray, List[float], bool, InfoType]:
         if self.enable_flatten_action:
             action = gym_space_flatten_decode(self.env.action_space, action)
         _t = self.env.step(action)
         if len(_t) == 4:
-            state, reward, done, info = _t
+            state, reward, done, info = _t  # type: ignore
         else:
             state, reward, terminated, truncated, info = _t
             done = terminated or truncated
@@ -410,33 +412,33 @@ class GymWrapper(EnvBase):
     def render_interval(self) -> float:
         return 1000 / self.fps
 
-    def set_render_mode(self, mode: RenderMode) -> None:
+    def set_render_mode(self, mode: RenderModes) -> None:
         if self.v0260_older:
             return
 
         # modeが違っていたら作り直す
-        if mode == RenderMode.Terminal:
-            if self.render_mode != RenderMode.Terminal and "ansi" in self.render_modes:
+        if mode == RenderModes.Terminal:
+            if self.render_mode != RenderModes.Terminal and "ansi" in self.render_modes:
                 self.env = gym.make(self.name, render_mode="ansi", **self.arguments)
-                self.render_mode = RenderMode.Terminal
-        elif mode == RenderMode.RBG_array:
-            if self.render_mode != RenderMode.RBG_array and "rgb_array" in self.render_modes:
+                self.render_mode = RenderModes.Terminal
+        elif mode == RenderModes.RBG_array:
+            if self.render_mode != RenderModes.RBG_array and "rgb_array" in self.render_modes:
                 self.env = gym.make(self.name, render_mode="rgb_array", **self.arguments)
-                self.render_mode = RenderMode.RBG_array
+                self.render_mode = RenderModes.RBG_array
 
     def render_terminal(self, **kwargs) -> None:
         if self.v0260_older:
             if "ansi" in self.render_modes:
-                print(self.env.render(mode="ansi", **kwargs))
+                print(self.env.render(mode="ansi", **kwargs))  # type: ignore
         else:
-            if self.render_mode == RenderMode.Terminal:
+            if self.render_mode == RenderModes.Terminal:
                 print(self.env.render(**kwargs))
 
     def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
         if self.v0260_older:
             if "rgb_array" in self.render_modes:
-                return np.asarray(self.env.render(mode="rgb_array", **kwargs))
+                return np.asarray(self.env.render(mode="rgb_array", **kwargs))  # type: ignore
         else:
-            if self.render_mode == RenderMode.RBG_array:
+            if self.render_mode == RenderModes.RBG_array:
                 return np.asarray(self.env.render(**kwargs))
         return None

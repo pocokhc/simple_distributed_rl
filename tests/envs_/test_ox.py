@@ -1,7 +1,7 @@
 import numpy as np
 
 import srl
-from srl.base.define import EnvObservationType
+from srl.base.define import EnvObservationTypes
 from srl.base.env.spaces.box import BoxSpace
 from srl.envs import ox  # noqa F401
 from srl.test import TestEnv
@@ -30,7 +30,7 @@ def test_processor():
     tester.change_observation_info(
         processor,
         env_name,
-        EnvObservationType.SHAPE3,
+        EnvObservationTypes.SHAPE3,
         BoxSpace((2, 3, 3), 0, 1),
     )
     tester.observation_decode(

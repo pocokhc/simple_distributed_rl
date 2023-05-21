@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 
 import srl
@@ -43,16 +42,12 @@ class _BaseCase(CommonBaseClass):
         _, memory, _ = runner.train(
             config,
             max_episodes=1000,
-            enable_file_logger=False,
             disable_trainer=True,
         )
         parameter, _, _ = runner.train_only(
             config,
             remote_memory=memory,
             max_train_count=10_000,
-            enable_evaluation=False,
-            enable_file_logger=False,
-            progress_max_time=60 * 2,
         )
 
         # --- eval
@@ -92,16 +87,12 @@ class _BaseCase(CommonBaseClass):
         _, memory, _ = runner.train(
             config,
             max_episodes=1000,
-            enable_file_logger=False,
             disable_trainer=True,
         )
         parameter, _, _ = runner.train_only(
             config,
             remote_memory=memory,
             max_train_count=40_000,
-            enable_evaluation=False,
-            enable_file_logger=False,
-            progress_max_time=60 * 2,
         )
 
         # eval
@@ -142,16 +133,12 @@ class _BaseCase(CommonBaseClass):
         _, memory, _ = runner.train(
             config,
             max_episodes=1000,
-            enable_file_logger=False,
             disable_trainer=True,
         )
         parameter, _, _ = runner.train_only(
             config,
             remote_memory=memory,
             max_train_count=40_000,
-            enable_evaluation=False,
-            enable_file_logger=False,
-            progress_max_time=60 * 2,
         )
 
         # eval

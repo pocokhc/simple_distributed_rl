@@ -31,21 +31,11 @@ def train():
     # --- train
     if True:
         # sequence training
-        parameter, memory, history = runner.train(
-            config,
-            parameter=parameter,
-            timeout=60 * 60 * 5,
-            enable_evaluation=False,
-        )
+        parameter, memory, history = runner.train(config, parameter=parameter, timeout=60 * 60 * 5)
     else:
         # distributed training
         config.actor_num = 2
-        parameter, memory, history = runner.train_mp(
-            config,
-            init_parameter=parameter,
-            timeout=10,
-            enable_evaluation=False,
-        )
+        parameter, memory, history = runner.train_mp(config, init_parameter=parameter, timeout=60 * 60 * 5)
 
     # --- save parameter
     parameter.save(path)

@@ -5,9 +5,8 @@ import random
 from dataclasses import dataclass
 from typing import Any, Tuple
 
-from srl.base.define import EnvObservationType
+from srl.base.define import EnvObservationTypes
 from srl.base.env import registration
-from srl.base.env.base import SpaceBase
 from srl.base.env.genre import SinglePlayEnv
 from srl.base.env.spaces import DiscreteSpace
 
@@ -38,16 +37,16 @@ class Tiger(SinglePlayEnv):
         self.prob = 0.85
 
     @property
-    def action_space(self) -> SpaceBase:
+    def action_space(self) -> DiscreteSpace:
         return DiscreteSpace(len(Action))
 
     @property
-    def observation_space(self) -> SpaceBase:
+    def observation_space(self) -> DiscreteSpace:
         return DiscreteSpace(len(State))
 
     @property
-    def observation_type(self) -> EnvObservationType:
-        return EnvObservationType.DISCRETE
+    def observation_type(self) -> EnvObservationTypes:
+        return EnvObservationTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:

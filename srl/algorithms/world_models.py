@@ -6,16 +6,17 @@ from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras as keras
-from tensorflow.keras import layers as kl
+from tensorflow import keras
 
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.define import EnvObservationTypes, RLObservationTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLRemoteMemory, RLTrainer
 from srl.base.rl.processor import Processor
 from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.rl.models.tf.input_block import InputBlock
+
+kl = keras.layers
 
 """
 vae ref: https://developers-jp.googleblog.com/2019/04/tensorflow-probability-vae.html
@@ -58,15 +59,15 @@ class Config(DiscreteActionConfig):
     def set_processor(self) -> List[Processor]:
         return [
             ImageProcessor(
-                image_type=EnvObservationType.COLOR,
+                image_type=EnvObservationTypes.COLOR,
                 resize=(64, 64),
                 enable_norm=True,
             )
         ]
 
     @property
-    def observation_type(self) -> RLObservationType:
-        return RLObservationType.CONTINUOUS
+    def observation_type(self) -> RLObservationTypes:
+        return RLObservationTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "WorldModels"
@@ -204,12 +205,12 @@ class _VAE(keras.Model):
         z_mean = self.encoder_z_mean_layer(x, training=training)
         z_log_stddev = self.encoder_z_log_stddev(x, training=training)
 
-        if x.shape[0] is None:
+        if x.shape[0] is None:  # type:ignore , ignore check "None"
             return z_mean
 
         # reparameterize
-        e = tf.random.normal(z_mean.shape)
-        z = z_mean + tf.exp(0.5 * z_log_stddev) * e
+        e = tf.random.normal(z_mean.shape)  # type:ignore , ignore check "None"
+        z = z_mean + tf.exp(0.5 * z_log_stddev) * e  # type:ignore , ignore check "None"
 
         if training:
             return z_mean, z_log_stddev, z
@@ -265,7 +266,9 @@ class _MDNRNN(keras.Model):
 
         # (batch, timesteps, z + action) -> (batch, timesteps, lstm_dim)
         x = tf.concat([z, onehot_actions], axis=2)
-        x, h, c = self.lstm_layer(x, initial_state=hidden_state, training=training)
+        x, h, c = self.lstm_layer(
+            x, initial_state=hidden_state, training=training
+        )  # type:ignore , ignore check "None"
         if return_rnn_only:
             return [h, c]
 
@@ -436,7 +439,7 @@ class Trainer(RLTrainer):
 
         # --- VAE
         with tf.GradientTape() as tape:
-            z_mean, z_log_stddev, z = self.parameter.vae.encode(x, training=True)
+            z_mean, z_log_stddev, z = self.parameter.vae.encode(x, training=True)  # type:ignore , ignore check "None"
             pred_x = self.parameter.vae.decode(z, training=True)
 
             if self.parameter.vae.use_image_head:
@@ -459,7 +462,10 @@ class Trainer(RLTrainer):
                 rc_loss = tf.reduce_mean(rc_loss)
 
             # KL loss
-            kl_loss = -0.5 * tf.reduce_sum(1 + z_log_stddev - tf.square(z_mean) - tf.exp(z_log_stddev), axis=1)
+            kl_loss = -0.5 * tf.reduce_sum(
+                1 + z_log_stddev - tf.square(z_mean) - tf.exp(z_log_stddev),  # type:ignore , ignore check "None"
+                axis=1,
+            )
             kl_loss = tf.maximum(kl_loss, self.config.kl_tolerance * self.config.z_size)
             kl_loss = tf.reduce_mean(kl_loss)
 
@@ -486,7 +492,7 @@ class Trainer(RLTrainer):
 
         # encode
         states = states.reshape((self.config.batch_size * (self.config.sequence_length + 1),) + states.shape[2:])
-        z = self.parameter.vae.encode(states).numpy()
+        z = self.parameter.vae.encode(states).numpy()  # type:ignore , ignore check "None"
         z = z.reshape((self.config.batch_size, self.config.sequence_length + 1, -1))
 
         # --- MDN-RNN
@@ -494,7 +500,9 @@ class Trainer(RLTrainer):
         z2 = z[:, 1:, ...]
         z2 = z2.reshape((self.config.batch_size * self.config.sequence_length, -1, 1))
         with tf.GradientTape() as tape:
-            pi, mu, log_sigma, _ = self.parameter.rnn(z1, onehot_actions, None, return_rnn_only=False, training=True)
+            pi, mu, log_sigma, _ = self.parameter.rnn(
+                z1, onehot_actions, None, return_rnn_only=False, training=True
+            )  # type:ignore , ignore check "None"
 
             # log softmax
             pi = pi - tf.reduce_max(pi, axis=2, keepdims=True)  # overflow_protection
@@ -506,7 +514,7 @@ class Trainer(RLTrainer):
             # loss
             loss = tf.reduce_sum(tf.exp(log_pi + log_gauss), axis=2, keepdims=True)
             loss = tf.maximum(loss, 1e-6)  # log(0) 回避
-            loss = -tf.math.log(loss)
+            loss = -tf.math.log(loss)  # type:ignore , ignore check "None"
             loss = tf.reduce_mean(loss)
             loss += tf.reduce_sum(self.parameter.rnn.losses)  # 正則化項
 
@@ -565,11 +573,11 @@ class Worker(DiscreteActionWorker):
         self.z = self.parameter.vae.encode(state[np.newaxis, ...])
 
         if self.sample_collection:
-            action = self.sample_action()
+            action = cast(int, self.sample_action())
             if len(self.recent_actions) < self.config.sequence_length:
                 self.recent_actions.append(action)
         else:
-            q = self.parameter.controller(self.z, self.hidden_state)[0].numpy()
+            q = self.parameter.controller(self.z, self.hidden_state)[0].numpy()  # type:ignore , ignore check "None"
             q = np.array([(-np.inf if i in invalid_actions else v) for i, v in enumerate(q)])
             action = int(np.argmax(q))  # 複数はほぼないので無視
 
@@ -674,12 +682,12 @@ class Worker(DiscreteActionWorker):
 
     def render_terminal(self, env, worker, **kwargs) -> None:
         # --- vae
-        pred_state = self.parameter.vae.decode(self.z)[0].numpy()
+        pred_state = self.parameter.vae.decode(self.z)[0].numpy()  # type:ignore , ignore check "None"
         rmse = np.sqrt(np.mean((self.state - pred_state) ** 2))
         print(f"VAE RMSE: {rmse:.5f}")
 
     def render_rgb_array(self, env, worker, **kwargs) -> Optional[np.ndarray]:
-        if self.config.env_observation_type != EnvObservationType.COLOR:
+        if self.config.env_observation_type != EnvObservationTypes.COLOR:
             return None
 
         from srl.utils import pygame_wrapper as pw
@@ -697,7 +705,7 @@ class Worker(DiscreteActionWorker):
         pw.draw_fill(self.screen, color=(0, 0, 0))
 
         img1 = self.state * 255
-        img2 = self.parameter.vae.decode(self.z)[0].numpy() * 255
+        img2 = self.parameter.vae.decode(self.z)[0].numpy() * 255  # type:ignore , ignore check "None"
 
         pw.draw_text(self.screen, 0, 0, "original", color=(255, 255, 255))
         pw.draw_image_rgb_array(self.screen, 0, 15, img1)
@@ -709,7 +717,9 @@ class Worker(DiscreteActionWorker):
             if i > _view_action:
                 break
 
-            pi, mu, log_sigma, _ = self.parameter.rnn.forward(self.z, a, self.prev_hidden_state, return_rnn_only=False)
+            pi, mu, log_sigma, _ = self.parameter.rnn.forward(
+                self.z, a, self.prev_hidden_state, return_rnn_only=False
+            )  # type:ignore , ignore check "None"
             pw.draw_text(
                 self.screen, (IMG_W + PADDING) * i, 20 + IMG_H, f"action {env.action_to_str(a)}", color=(255, 255, 255)
             )

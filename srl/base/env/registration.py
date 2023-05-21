@@ -41,10 +41,8 @@ def make(config: Union[str, EnvConfig]) -> EnvRun:
     return EnvRun(env, config)
 
 
-def register(id: str, entry_point: str, kwargs: Dict = None) -> None:
+def register(id: str, entry_point: str, kwargs: Dict = {}) -> None:
     global _registry
-    if kwargs is None:
-        kwargs = {}
 
     if id in _registry:
         logger.warn(f"{id} was already registered. It will be overwritten.")

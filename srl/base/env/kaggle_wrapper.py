@@ -6,7 +6,7 @@ from typing import Any, List, Tuple, Union, cast
 
 import kaggle_environments
 
-from srl.base.define import EnvAction, EnvObservation, Info
+from srl.base.define import EnvActionType, EnvObservationType, InfoType
 from srl.base.env.base import EnvBase, EnvRun
 from srl.base.rl.worker import RuleBaseWorker, WorkerRun
 
@@ -18,7 +18,7 @@ class KaggleWrapper(EnvBase):
         self.__name = name
         self.env = kaggle_environments.make(name, debug=False)
         self.__player_index: int = 0
-        self.__player_actions: List[Union[None, EnvAction]] = []
+        self.__player_actions: List[Union[None, EnvActionType]] = []
         self.__rewards: List[float] = []
         self.__config = self.env.configuration
         self.__state = None
@@ -29,7 +29,7 @@ class KaggleWrapper(EnvBase):
         return self.__name
 
     @property
-    def config(self) -> dict:
+    def config(self):
         return self.__config
 
     @property
@@ -40,7 +40,7 @@ class KaggleWrapper(EnvBase):
     def next_player_index(self) -> int:
         return self.__player_index
 
-    def reset(self) -> Tuple[EnvObservation, dict]:
+    def reset(self) -> Tuple[EnvObservationType, dict]:
         obs = self.env.reset(self.player_num)
         self.__set_rewards(obs)
         self.__set_player(obs)
@@ -80,7 +80,7 @@ class KaggleWrapper(EnvBase):
         _obs.update(obs[self.__player_index]["observation"])
         return _obs
 
-    def step(self, action: EnvAction) -> Tuple[EnvObservation, List[float], bool, Info]:
+    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], bool, InfoType]:
         self.__player_actions[self.__player_index] = action
 
         self.__search_next_player()
@@ -96,6 +96,7 @@ class KaggleWrapper(EnvBase):
             self.__state = state
             self.__info = info
 
+        assert self.__state is not None
         return (
             self.__state,
             self.__rewards,
@@ -103,7 +104,7 @@ class KaggleWrapper(EnvBase):
             self.__info,
         )
 
-    def direct_step(self, observation, configuration) -> Tuple[bool, EnvObservation, int, Info]:
+    def direct_step(self, observation, configuration) -> Tuple[bool, EnvObservationType, int, InfoType]:
         return self.encode_obs(observation, configuration)
 
     @property
@@ -112,11 +113,11 @@ class KaggleWrapper(EnvBase):
         return False
 
     @abstractmethod
-    def encode_obs(self, observation, configuration) -> Tuple[bool, List[int], int, dict]:
+    def encode_obs(self, observation, configuration) -> Tuple[bool, EnvObservationType, int, dict]:
         raise NotImplementedError()
 
     @abstractmethod
-    def decode_action(self, action: EnvAction) -> Any:
+    def decode_action(self, action: EnvActionType) -> Any:
         raise NotImplementedError()
 
     def backup(self) -> Any:

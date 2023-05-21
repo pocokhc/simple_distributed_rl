@@ -1,6 +1,7 @@
 import tensorflow as tf
-import tensorflow.keras as keras
-from tensorflow.keras import layers as kl
+from tensorflow import keras
+
+kl = keras.layers
 
 
 class DuelingNetworkBlock(keras.Model):
@@ -69,11 +70,11 @@ class DuelingNetworkBlock(keras.Model):
             axis = 1
 
         if self.dueling_type == "average":
-            x = v + adv - tf.reduce_mean(adv, axis=axis, keepdims=True)
+            x = v + adv - tf.reduce_mean(adv, axis=axis, keepdims=True)  # type: ignore TODO
         elif self.dueling_type == "max":
-            x = v + adv - tf.reduce_max(adv, axis=axis, keepdims=True)
+            x = v + adv - tf.reduce_max(adv, axis=axis, keepdims=True)  # type: ignore TODO
         elif self.dueling_type == "":  # naive
-            x = v + adv
+            x = v + adv  # type: ignore TODO
         else:
             raise ValueError("dueling_network_type is undefined")
 

@@ -43,7 +43,7 @@ class _BaseCase(CommonBaseClass):
     def test_StoneTaking(self):
         config, rl_config, tester = self.create_config("StoneTaking")
         config.seed = 2
-        parameter = tester.train(config, 300)
+        parameter, _, _ = tester.train(config, 300)
 
         config.players = [None, "random"]
         tester.eval(config, parameter, baseline=[0.9, None])
@@ -52,7 +52,7 @@ class _BaseCase(CommonBaseClass):
 
     def test_OX(self):
         config, rl_config, tester = self.create_config("OX")
-        parameter = tester.train(config, 200)
+        parameter, _, _ = tester.train(config, 200)
 
         config.players = [None, "random"]
         tester.eval(config, parameter, baseline=[0.8, None])
@@ -62,7 +62,7 @@ class _BaseCase(CommonBaseClass):
     def test_OX_mp(self):
         config, rl_config, tester = self.create_config("OX")
         config.seed = 2
-        parameter = tester.train(config, 200, is_mp=True)
+        parameter, _, _ = tester.train(config, 200, is_mp=True)
 
         config.players = [None, "random"]
         tester.eval(config, parameter, baseline=[0.8, None])
@@ -93,7 +93,7 @@ class _BaseCase(CommonBaseClass):
             layer_sizes=(32,),
         )
         rl_config.processors = [othello.LayerProcessor()]
-        parameter = tester.train(config, 20_000)
+        parameter, _, _ = tester.train(config, 20_000)
 
         config.players = [None, "random"]
         tester.eval(config, parameter, baseline=[0.1, None])

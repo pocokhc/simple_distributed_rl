@@ -3,9 +3,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Tuple
 
-from srl.base.define import EnvObservationType
+from srl.base.define import EnvObservationTypes
 from srl.base.env import registration
-from srl.base.env.base import SpaceBase
 from srl.base.env.genre import SinglePlayEnv
 from srl.base.env.spaces import DiscreteSpace
 
@@ -25,21 +24,20 @@ registration.register(
 
 @dataclass
 class OneRoad(SinglePlayEnv):
-
     N: int = 10
     action: int = 2
 
     @property
-    def action_space(self) -> SpaceBase:
+    def action_space(self) -> DiscreteSpace:
         return DiscreteSpace(self.action)
 
     @property
-    def observation_space(self) -> SpaceBase:
+    def observation_space(self) -> DiscreteSpace:
         return DiscreteSpace(self.N)
 
     @property
-    def observation_type(self) -> EnvObservationType:
-        return EnvObservationType.DISCRETE
+    def observation_type(self) -> EnvObservationTypes:
+        return EnvObservationTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:

@@ -1,11 +1,11 @@
 import logging
 import random
 import time
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvAction, EnvObservationType, RLObservationType
+from srl.base.define import EnvActionType, EnvObservationTypes, RLObservationTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
@@ -38,12 +38,12 @@ class ConnectX(TurnBase2Player):
         return DiscreteSpace(self.columns)
 
     @property
-    def observation_space(self) -> SpaceBase:
+    def observation_space(self) -> ArrayDiscreteSpace:
         return ArrayDiscreteSpace(self.columns * self.rows, low=0, high=2)
 
     @property
-    def observation_type(self) -> EnvObservationType:
-        return EnvObservationType.DISCRETE
+    def observation_type(self) -> EnvObservationTypes:
+        return EnvObservationTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:
@@ -194,10 +194,10 @@ class AlphaBeta(RuleBaseWorker):
     def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> dict:
         return {}
 
-    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[EnvAction, dict]:
+    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[EnvActionType, dict]:
         self._count = 0
         self.t0 = time.time()
-        scores, action = self._alphabeta(env.get_original_env().copy())
+        scores, action = self._alphabeta(cast(ConnectX, cast(ConnectX, env.get_original_env()).copy()))
 
         scores = np.array(scores)
         if worker.player_index == 1:
@@ -283,7 +283,7 @@ class AlphaBeta(RuleBaseWorker):
         print(f"- alphabeta act: {self._action}, count: {self._count}, {self._time:.3f}s) -")
         print("+---+---+---+---+---+---+---+")
         s = "|"
-        for a in range(env.action_space.n):
+        for a in range(cast(DiscreteSpace, env.action_space).n):
             s += "{:2d} |".format(int(self._scores[a]))
         print(s)
         print("+---+---+---+---+---+---+---+")
@@ -293,35 +293,35 @@ class LayerProcessor(Processor):
     def change_observation_info(
         self,
         env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationType,
-        rl_observation_type: RLObservationType,
+        env_observation_type: EnvObservationTypes,
+        rl_observation_type: RLObservationTypes,
         env: EnvRun,
-    ) -> Tuple[SpaceBase, EnvObservationType]:
-        env: ConnectX = env.env
+    ) -> Tuple[SpaceBase, EnvObservationTypes]:
+        _env = cast(ConnectX, env.env)
         observation_space = BoxSpace(
             low=0,
             high=1,
-            shape=(2, env.columns, env.rows),
+            shape=(2, _env.columns, _env.rows),
         )
-        return observation_space, EnvObservationType.SHAPE3
+        return observation_space, EnvObservationTypes.SHAPE3
 
     def process_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
-        env: ConnectX = env.env
+        _env = cast(ConnectX, env.env)
 
         # Layer0: my player field (0 or 1)
         # Layer1: enemy player field (0 or 1)
-        _field = np.zeros((2, env.columns, env.rows))
+        _field = np.zeros((2, _env.columns, _env.rows))
         if env.next_player_index == 0:
             my_player = 1
             enemy_player = 2
         else:
             my_player = 2
             enemy_player = 1
-        for y in range(env.columns):
-            for x in range(env.rows):
-                idx = x + y * env.rows
-                if env.board[idx] == my_player:
+        for y in range(_env.columns):
+            for x in range(_env.rows):
+                idx = x + y * _env.rows
+                if _env.board[idx] == my_player:
                     _field[0][y][x] = 1
-                elif env.board[idx] == enemy_player:
+                elif _env.board[idx] == enemy_player:
                     _field[1][y][x] = 1
         return _field

@@ -6,8 +6,8 @@ import numpy as np
 
 from srl.base.define import EnvObservationType, EnvObservationTypes, RLObservationTypes
 from srl.base.env.base import EnvRun, SpaceBase
-from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
+from srl.base.spaces.box import BoxSpace
 from srl.utils.common import is_package_installed
 
 try:
@@ -141,8 +141,7 @@ class ImageProcessor(Processor):
             observation = observation[self.top : self.bottom, self.left : self.right]
 
         if self.resize is not None:
-            observation = cast(cv2.Mat, observation)
-            observation = cv2.resize(observation, self.resize)
+            observation = cv2.resize(observation, self.resize)  # type: ignore , MAT module
 
         observation = cast(np.ndarray, observation)
         if self.enable_norm:

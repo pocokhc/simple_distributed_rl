@@ -20,6 +20,8 @@
 1. VSCode上でpylanceによるエラーをなくすように修正
    1. define.py の型アノテーションを全部Typeで終わる名前に変更
 1. remote（分散コンピューティングによる学習）をテスト導入
+1. spaces をリファクタリング
+   1. "srl.base.env.spaces" を "srl.base.spaces" に移動
 
 **Algorims**
 

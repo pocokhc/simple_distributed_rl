@@ -1,7 +1,7 @@
 import numpy as np
 
 from srl.base.define import RLActionTypes
-from srl.base.env.spaces import DiscreteSpace
+from srl.base.spaces.discrete import DiscreteSpace
 
 from .space_test import SpaceTest
 

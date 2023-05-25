@@ -8,12 +8,10 @@ from srl.base.define import EnvObservationTypes, InfoType, RLActionType, RLActio
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.genre.singleplay import SinglePlayEnv
 from srl.base.env.registration import register as register_env
-from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
-from srl.base.env.spaces.box import BoxSpace
-from srl.base.env.spaces.discrete import DiscreteSpace
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register as register_rl
 from srl.base.rl.worker import RLWorker
+from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 from srl.test.env import TestEnv
 
 

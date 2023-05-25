@@ -4,8 +4,8 @@ import srl
 import srl.rl.dummy
 from srl.base.define import EnvObservationType, EnvObservationTypes, RLObservationTypes
 from srl.base.env.base import EnvRun
-from srl.base.env.spaces.space import SpaceBase
 from srl.base.rl.processor import Processor
+from srl.base.spaces.space import SpaceBase
 from srl.runner import sequence
 
 

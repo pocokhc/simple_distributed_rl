@@ -9,10 +9,9 @@ from srl.base.define import EnvActionType, EnvObservationTypes, RLObservationTyp
 from srl.base.env import registration
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
-from srl.base.env.spaces import BoxSpace, DiscreteSpace
-from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.rl.processor import Processor
 from srl.base.rl.worker import RuleBaseWorker, WorkerRun
+from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
 

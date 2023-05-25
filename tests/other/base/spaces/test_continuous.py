@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from srl.base.define import RLActionTypes
-from srl.base.env.spaces import ContinuousSpace
+from srl.base.spaces import ContinuousSpace
 
 from .space_test import SpaceTest
 

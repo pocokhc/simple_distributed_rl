@@ -10,8 +10,8 @@ from gym.spaces import flatten, flatten_space
 
 from srl.base.define import EnvActionType, EnvObservationTypes, InfoType, RenderModes
 from srl.base.env.base import EnvBase, SpaceBase
-from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
-from srl.base.env.spaces.box import BoxSpace
+from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+from srl.base.spaces.box import BoxSpace
 from srl.utils.common import compare_less_version, is_package_installed
 
 logger = logging.getLogger(__name__)

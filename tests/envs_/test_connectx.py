@@ -3,7 +3,7 @@ import pytest
 
 import srl
 from srl.base.define import EnvObservationTypes
-from srl.base.env.spaces.box import BoxSpace
+from srl.base.spaces.box import BoxSpace
 from srl.test import TestEnv
 from srl.test.processor import TestProcessor
 

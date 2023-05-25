@@ -6,8 +6,7 @@ import pytest
 
 import srl
 from srl.base.define import EnvObservationTypes
-from srl.base.env.spaces.array_discrete import ArrayDiscreteSpace
-from srl.base.env.spaces.box import BoxSpace
+from srl.base.spaces import ArrayDiscreteSpace, BoxSpace
 from srl.test import TestEnv
 
 

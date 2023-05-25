@@ -6,7 +6,7 @@ import pytest
 import srl
 import srl.envs.grid
 from srl.base.define import EnvObservationTypes, RLObservationTypes
-from srl.base.env.spaces.box import BoxSpace
+from srl.base.spaces.box import BoxSpace
 from srl.test.processor import TestProcessor
 
 try:

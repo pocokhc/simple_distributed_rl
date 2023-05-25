@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, List, Optional, Tuple, Type
 
 from srl.base.define import EnvObservationTypes, RLActionTypes, RLObservationTypes
 from srl.base.env.base import EnvRun, SpaceBase
-from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
+from srl.base.spaces.box import BoxSpace
 from srl.utils import common
 
 if TYPE_CHECKING:

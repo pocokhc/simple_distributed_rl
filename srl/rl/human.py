@@ -3,10 +3,9 @@ from typing import Tuple
 
 from srl.base.define import EnvActionType
 from srl.base.env.base import EnvRun
-from srl.base.env.spaces.continuous import ContinuousSpace
-from srl.base.env.spaces.discrete import DiscreteSpace
 from srl.base.rl.registration import register_worker
 from srl.base.rl.worker import RuleBaseWorker, WorkerRun
+from srl.base.spaces import ContinuousSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
 

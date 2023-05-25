@@ -11,8 +11,8 @@ import pygame
 import srl
 from srl.base.define import EnvActionType, KeyBindType, PlayRenderModes
 from srl.base.env.config import EnvConfig
-from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.config import RLConfig
+from srl.base.spaces.box import BoxSpace
 from srl.runner.callback import GameCallback
 from srl.runner.callbacks.history_episode import HistoryEpisode
 from srl.utils import pygame_wrapper as pw

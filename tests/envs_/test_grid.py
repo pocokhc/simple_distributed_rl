@@ -4,7 +4,7 @@ import numpy as np
 
 import srl
 from srl.base.define import EnvObservationTypes
-from srl.base.env.spaces.box import BoxSpace  # noqa F401
+from srl.base.spaces.box import BoxSpace  # noqa F401
 from srl.envs import grid
 from srl.test import TestEnv
 from srl.test.processor import TestProcessor

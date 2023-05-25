@@ -2,7 +2,7 @@ from typing import Any, List, Tuple
 
 import numpy as np
 
-from srl.base.env.base import SpaceBase
+from srl.base.spaces.space import SpaceBase
 
 
 class SpaceTest:

@@ -7,17 +7,16 @@ import srl
 from srl.base.define import EnvObservationTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvBase
-from srl.base.env.spaces.discrete import DiscreteSpace
-from srl.base.env.spaces.space import SpaceBase
+from srl.base.spaces.discrete import DiscreteSpace
 
 
 class StubEnv(EnvBase):
     @property
-    def action_space(self) -> SpaceBase:
+    def action_space(self) -> DiscreteSpace:
         return DiscreteSpace(4)
 
     @property
-    def observation_space(self) -> SpaceBase:
+    def observation_space(self) -> DiscreteSpace:
         return DiscreteSpace(4)
 
     @property

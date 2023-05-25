@@ -2,7 +2,7 @@ import numpy as np
 
 import srl
 from srl.base.define import EnvObservationTypes
-from srl.base.env.spaces.box import BoxSpace
+from srl.base.spaces.box import BoxSpace
 from srl.envs import ox  # noqa F401
 from srl.test import TestEnv
 from srl.test.processor import TestProcessor
@@ -55,7 +55,7 @@ def test_play_step():
     np.testing.assert_array_equal(env.state, [1, 0, 0, 0, 0, 0, 0, 0, 0])
     np.testing.assert_array_equal(env.get_invalid_actions(), [0])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
-    assert env.done == False
+    assert not env.done
     assert env.done_reason == ""
 
     # 2
@@ -65,7 +65,7 @@ def test_play_step():
     np.testing.assert_array_equal(env.state, [1, -1, 0, 0, 0, 0, 0, 0, 0])
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
-    assert env.done == False
+    assert not env.done
     assert env.done_reason == ""
 
     # 3
@@ -75,7 +75,7 @@ def test_play_step():
     np.testing.assert_array_equal(env.state, [1, -1, 1, 0, 0, 0, 0, 0, 0])
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
-    assert env.done == False
+    assert not env.done
     assert env.done_reason == ""
 
     # 4
@@ -85,7 +85,7 @@ def test_play_step():
     np.testing.assert_array_equal(env.state, [1, -1, 1, -1, 0, 0, 0, 0, 0])
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2, 3])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
-    assert env.done == False
+    assert not env.done
     assert env.done_reason == ""
 
     # 5
@@ -95,7 +95,7 @@ def test_play_step():
     np.testing.assert_array_equal(env.state, [1, -1, 1, -1, 1, 0, 0, 0, 0])
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2, 3, 4])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
-    assert env.done == False
+    assert not env.done
     assert env.done_reason == ""
 
     # 6
@@ -105,7 +105,7 @@ def test_play_step():
     np.testing.assert_array_equal(env.state, [1, -1, 1, -1, 1, -1, 0, 0, 0])
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2, 3, 4, 5])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
-    assert env.done == False
+    assert not env.done
     assert env.done_reason == ""
 
     # 7
@@ -115,7 +115,7 @@ def test_play_step():
     np.testing.assert_array_equal(env.state, [1, -1, 1, -1, 1, -1, 0, 1, 0])
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2, 3, 4, 5, 7])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
-    assert env.done == False
+    assert not env.done
     assert env.done_reason == ""
 
     # 8
@@ -125,7 +125,7 @@ def test_play_step():
     np.testing.assert_array_equal(env.state, [1, -1, 1, -1, 1, -1, -1, 1, 0])
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2, 3, 4, 5, 6, 7])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
-    assert env.done == False
+    assert not env.done
     assert env.done_reason == ""
 
     # 9
@@ -135,5 +135,5 @@ def test_play_step():
     np.testing.assert_array_equal(env.state, [1, -1, 1, -1, 1, -1, -1, 1, 1])
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2, 3, 4, 5, 6, 7, 8])
     np.testing.assert_array_equal(env.step_rewards, [1, -1])
-    assert env.done == True
+    assert env.done
     assert env.done_reason == "env"

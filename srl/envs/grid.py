@@ -10,8 +10,8 @@ from srl.base.define import EnvObservationTypes, KeyBindType, RLObservationTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import SinglePlayEnv
-from srl.base.env.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 from srl.base.rl.processor import Processor
+from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
 

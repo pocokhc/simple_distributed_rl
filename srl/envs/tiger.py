@@ -8,7 +8,7 @@ from typing import Any, Tuple
 from srl.base.define import EnvObservationTypes
 from srl.base.env import registration
 from srl.base.env.genre import SinglePlayEnv
-from srl.base.env.spaces import DiscreteSpace
+from srl.base.spaces import DiscreteSpace
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from srl.base.define import RLActionTypes
-from srl.base.env.spaces import BoxSpace
+from srl.base.spaces import BoxSpace
 
 from .space_test import SpaceTest
 

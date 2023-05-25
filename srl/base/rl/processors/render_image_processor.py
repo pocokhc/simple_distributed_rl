@@ -4,8 +4,8 @@ from typing import Tuple
 
 from srl.base.define import EnvObservationType, EnvObservationTypes, RLObservationTypes
 from srl.base.env.base import EnvRun, SpaceBase
-from srl.base.env.spaces.box import BoxSpace
 from srl.base.rl.processor import Processor
+from srl.base.spaces.box import BoxSpace
 
 logger = logging.getLogger(__name__)
 

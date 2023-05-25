@@ -16,9 +16,9 @@ from srl.base.define import (
     PlayRenderModes,
 )
 from srl.base.env.config import EnvConfig
-from srl.base.env.spaces.discrete import DiscreteSpace
-from srl.base.env.spaces.space import SpaceBase
 from srl.base.render import IRender, Render
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.space import SpaceBase
 
 if TYPE_CHECKING:
     from srl.base.rl.worker import WorkerBase, WorkerRun

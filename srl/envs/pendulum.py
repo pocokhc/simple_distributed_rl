@@ -4,9 +4,9 @@ import numpy as np
 
 from srl.base.define import EnvObservationTypes, RLObservationTypes
 from srl.base.env.base import EnvRun
-from srl.base.env.spaces.box import BoxSpace
-from srl.base.env.spaces.space import SpaceBase
 from srl.base.rl.processor import Processor
+from srl.base.spaces import BoxSpace
+from srl.base.spaces.space import SpaceBase
 
 
 class LayerProcessor(Processor):

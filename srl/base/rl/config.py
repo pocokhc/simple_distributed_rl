@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, List, Optional, Tuple, Type
 
-from srl.base.define import EnvObservationTypes, RLActionTypes, RLObservationTypes
+from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.rl.processor import Processor
 from srl.base.spaces.box import BoxSpace
@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 class RLConfig(ABC):
     processors: List[Processor] = field(default_factory=list)
     override_env_observation_type: EnvObservationTypes = EnvObservationTypes.UNKNOWN
-    override_rl_action_type: RLActionTypes = RLActionTypes.ANY  # RL側がANYの場合のみ有効
+    override_rl_action_type: RLTypes = RLTypes.ANY  # RL側がANYの場合のみ有効
     action_division_num: int = 5
-    # observation_division_num: int = 10
+    observation_division_num: int = -1
     extend_worker: Optional[Type["ExtendWorker"]] = None
     window_length: int = 1
     dummy_state_val: float = 0.0
@@ -73,12 +73,12 @@ class RLConfig(ABC):
 
     @property
     @abstractmethod
-    def action_type(self) -> RLActionTypes:
+    def action_type(self) -> RLTypes:
         raise NotImplementedError()
 
     @property
     @abstractmethod
-    def observation_type(self) -> RLObservationTypes:
+    def observation_type(self) -> RLTypes:
         raise NotImplementedError()
 
     def set_config_by_env(
@@ -134,25 +134,20 @@ class RLConfig(ABC):
             )
 
         # window_length
-        self._one_observation_shape = env_observation_space.observation_shape
+        self._one_observation_shape = env_observation_space.shape
         if self.window_length > 1:
             env_observation_space = BoxSpace((self.window_length,) + self._one_observation_shape)
 
         self._env_observation_space = env_observation_space
         self._env_observation_type = env_observation_type
 
-        # action division
-        if isinstance(self._env_action_space, BoxSpace) and self.action_type == RLActionTypes.DISCRETE:
-            self._env_action_space.set_action_division(self.action_division_num)
-
-        # observation division
-        # 状態は分割せずに四捨五入
-        # if (
-        #    isinstance(self._env_observation_space, BoxSpace)
-        #    and self.observation_type == RLActionType.DISCRETE
-        #    and self.env_observation_type == EnvObservationType.CONTINUOUS
-        # ):
-        #    self._env_observation_space.set_division(self.observation_division_num)
+        # --- division
+        # RLが DISCRETE で Space が CONTINUOUS なら分割して DISCRETE にする
+        # 現状分割するSpaceはBoxSpaceしかない
+        if (self.action_type == RLTypes.DISCRETE) and (self._env_action_space.rl_type == RLTypes.CONTINUOUS):
+            self._env_action_space.create_division_tbl(self.action_division_num)
+        if (self.observation_type == RLTypes.DISCRETE) and (self._env_observation_space.rl_type == RLTypes.CONTINUOUS):
+            self._env_observation_space.create_division_tbl(self.observation_division_num)
 
         self.set_config_by_env(env, self._env_action_space, env_observation_space, env_observation_type)
         self._is_set_env_config = True
@@ -220,7 +215,7 @@ class RLConfig(ABC):
 
     @property
     def observation_shape(self) -> Tuple[int, ...]:
-        return self._env_observation_space.observation_shape
+        return self._env_observation_space.shape
 
     @property
     def env_observation_type(self) -> EnvObservationTypes:

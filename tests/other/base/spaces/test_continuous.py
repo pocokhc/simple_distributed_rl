@@ -1,119 +1,119 @@
 import numpy as np
 import pytest
 
-from srl.base.define import RLActionTypes
+from srl.base.define import RLTypes
 from srl.base.spaces import ContinuousSpace
-
-from .space_test import SpaceTest
-
-
-def _check_action(decode_action, true_action):
-    assert isinstance(decode_action, float)
-    if true_action is not None:
-        assert decode_action == true_action
 
 
 def test_space():
     space = ContinuousSpace(-1, 3)
-    tester = SpaceTest(space)
-    assert space.rl_action_type == RLActionTypes.CONTINUOUS
+    assert space.rl_type == RLTypes.CONTINUOUS
 
-    # sample
+    print(space)
+
+    # --- continuous list
+    assert space.list_size == 1
+    np.testing.assert_array_equal(space.list_low, [-1])
+    np.testing.assert_array_equal(space.list_high, [3])
+    de = space.decode_from_list_float([1.2])
+    assert isinstance(de, float)
+    assert de == 1.2
+    en = space.encode_to_list_float(1.2)
+    assert isinstance(en, list)
+    for n in en:
+        assert isinstance(n, float)
+    assert en[0] == 1.2
+
+    # --- continuous numpy
+    assert space.shape == (1,)
+    np.testing.assert_array_equal(space.low, [-1])
+    np.testing.assert_array_equal(space.high, [3])
+    de = space.decode_from_np(np.array([1.2]))
+    assert isinstance(de, float)
+    assert de == 1.2
+    en = space.encode_to_np(1.2)
+    np.testing.assert_array_equal(en, np.array([1.2], dtype=np.float32))
+
+    # --- sample
     for _ in range(100):
         action = space.sample()
-        _check_action(action, None)
+        assert isinstance(action, float)
         assert action >= -1
         assert action <= 3
 
-    # action discrete
-    space.set_action_division(5)
-    true_tbl = [
-        [-1],
-        [0],
-        [1],
-        [2],
-        [3],
-    ]
-    assert space.action_tbl is not None
-    np.testing.assert_array_equal(true_tbl[0], space.action_tbl[0])
-    decode_action = tester.check_action_discrete(
-        true_n=5,
-        action=3,
-    )
-    _check_action(decode_action, 2)
-    tester.check_action_encode(decode_action, 3)
-
-    # action_continuous
-    decode_action = tester.check_action_continuous(
-        true_n=1,
-        true_low=[-1],
-        true_high=[3],
-        action=[1.1],
-    )
-    _check_action(decode_action, 1.1)
-
-    # observation discrete
-    tester.check_observation_discrete(
-        true_shape=(1,),
-        state=1.1,
-        encode_state=[1],
-    )
-
-    # observation continuous
-    tester.check_observation_continuous(
-        true_shape=(1,),
-        state=1.1,
-        encode_state=np.array([1.1], dtype=np.float32),
-    )
-
-    # eq
+    # --- eq
     assert space == ContinuousSpace(-1, 3)
     assert space != ContinuousSpace(-1, 2)
 
 
+def test_discrete_no_division():
+    space = ContinuousSpace(-1, 3)
+
+    # --- discrete
+    with pytest.raises(AssertionError):
+        _ = space.n
+    with pytest.raises(AssertionError):
+        _ = space.encode_to_int(1.2)
+    de = space.decode_from_int(2)
+    assert de == 2.0
+
+    # --- discrete numpy
+    en = space.encode_to_int_np(1.2)
+    assert en.shape == (1,)
+    np.testing.assert_array_equal(en, np.array([1]))
+    de = space.decode_from_int_np(np.array([1.2]))
+    assert de == 1.2
+
+
+def test_discrete_division():
+    space = ContinuousSpace(-1, 3)
+
+    # action discrete
+    space.create_division_tbl(5)
+    assert space.division_tbl is not None
+    true_tbl = [
+        -1.0,
+        0.0,
+        1.0,
+        2.0,
+        3.0,
+    ]
+    np.testing.assert_array_equal(true_tbl, space.division_tbl)
+
+    # --- discrete
+    assert space.n == 5
+    en = space.encode_to_int(1.2)
+    assert en == 2
+    de = space.decode_from_int(2)
+    assert de == 1.0
+
+    # --- discrete numpy
+    en = space.encode_to_int_np(1.2)
+    assert en.shape == (1,)
+    assert en[0] == 2
+    de = space.decode_from_int_np(np.array([2]))
+    assert de == 1.0
+
+
 def test_inf():
     space = ContinuousSpace()
-    tester = SpaceTest(space)
 
     print(space)
 
     # sample
     for _ in range(100):
         action = space.sample()
-        _check_action(action, None)
+        assert isinstance(action, float)
 
-    # action discrete
-    space.set_action_division(5)
-    decode_action = tester.check_action_discrete(
-        true_n=0,
-        action=3,
-    )
-    _check_action(decode_action, 3)
-    with pytest.raises(NotImplementedError):
-        space.action_discrete_encode(decode_action)
+    # --- discrete
+    space.create_division_tbl(5)
+    with pytest.raises(AssertionError):
+        _ = space.encode_to_int(1.2)
 
-    # action_continuous
-    decode_action = tester.check_action_continuous(
-        true_n=1,
-        true_low=[-np.inf],
-        true_high=[np.inf],
-        action=[1.1],
-    )
-    _check_action(decode_action, 1.1)
-
-    # observation discrete
-    tester.check_observation_discrete(
-        true_shape=(1,),
-        state=1.1,
-        encode_state=[1],
-    )
-
-    # observation continuous
-    tester.check_observation_continuous(
-        true_shape=(1,),
-        state=1.1,
-        encode_state=np.array([1.1], dtype=np.float32),
-    )
+    # --- continuous list
+    assert space.list_size == 1
+    np.testing.assert_array_equal(space.list_low, [-np.inf])
+    np.testing.assert_array_equal(space.list_high, [np.inf])
 
 
 def test_convert():

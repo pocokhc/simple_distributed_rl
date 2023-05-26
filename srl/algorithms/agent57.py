@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLObservationTypes
+from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.memory import IPriorityMemoryConfig
@@ -184,8 +184,8 @@ class Config(DiscreteActionConfig):
         ]
 
     @property
-    def observation_type(self) -> RLObservationTypes:
-        return RLObservationTypes.CONTINUOUS
+    def observation_type(self) -> RLTypes:
+        return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "Agent57"

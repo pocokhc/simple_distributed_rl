@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLObservationTypes
+from srl.base.define import RLTypes
 from srl.base.env.base import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
@@ -99,8 +99,8 @@ class Config(DiscreteActionConfig):
         self.policy_block = MLPBlockConfig(layer_sizes=())
 
     @property
-    def observation_type(self) -> RLObservationTypes:
-        return RLObservationTypes.CONTINUOUS
+    def observation_type(self) -> RLTypes:
+        return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "AlphaZero"

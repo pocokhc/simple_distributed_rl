@@ -1,18 +1,11 @@
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Tuple
+from typing import List, Tuple
 
 import numpy as np
 
-from srl.base.define import (
-    ContinuousActionType,
-    EnvObservationTypes,
-    InfoType,
-    RLActionType,
-    RLActionTypes,
-    RLObservationType,
-)
+from srl.base.define import EnvObservationTypes, InfoType, RLActionType, RLObservationType, RLTypes
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.rl.config import RLConfig
 from srl.base.rl.worker import RLWorker, WorkerRun
@@ -23,8 +16,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ContinuousActionConfig(RLConfig):
     @property
-    def action_type(self) -> RLActionTypes:
-        return RLActionTypes.CONTINUOUS
+    def action_type(self) -> RLTypes:
+        return RLTypes.CONTINUOUS
 
     def set_config_by_env(
         self,
@@ -33,10 +26,9 @@ class ContinuousActionConfig(RLConfig):
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationTypes,
     ) -> None:
-        n, low, high = env_action_space.get_action_continuous_info()
-        self._action_num = n
-        self._action_low = low
-        self._action_high = high
+        self._action_num = env_action_space.list_size
+        self._action_low = np.array(env_action_space.list_low)
+        self._action_high = np.array(env_action_space.list_high)
 
     @property
     def action_num(self) -> int:
@@ -57,7 +49,7 @@ class ContinuousActionWorker(RLWorker):
         raise NotImplementedError()
 
     @abstractmethod
-    def call_policy(self, state: np.ndarray) -> Tuple[ContinuousActionType, InfoType]:
+    def call_policy(self, state: np.ndarray) -> Tuple[List[float], InfoType]:
         raise NotImplementedError()
 
     @abstractmethod

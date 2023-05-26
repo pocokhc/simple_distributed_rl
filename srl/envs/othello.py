@@ -6,7 +6,7 @@ from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, RLObservationTypes
+from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
@@ -485,7 +485,7 @@ class LayerProcessor(Processor):
         self,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationTypes,
-        rl_observation_type: RLObservationTypes,
+        rl_observation_type: RLTypes,
         env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationTypes]:
         _env = cast(Othello, env.get_original_env())

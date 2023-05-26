@@ -6,7 +6,7 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import RLObservationTypes
+from srl.base.define import RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.memory import IPriorityMemoryConfig
@@ -107,8 +107,8 @@ class Config(DiscreteActionConfig):
     q_init: str = ""
 
     @property
-    def observation_type(self) -> RLObservationTypes:
-        return RLObservationTypes.DISCRETE
+    def observation_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
 
     def getName(self) -> str:
         return "QL_Agent57"

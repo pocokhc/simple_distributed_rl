@@ -1,17 +1,10 @@
 import logging
 import random
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Tuple, Union, cast
 
 import numpy as np
 
-from srl.base.define import (
-    ContinuousActionType,
-    DiscreteActionType,
-    InvalidActionsType,
-    RLActionTypes,
-    RLObservationType,
-    RLObservationTypes,
-)
+from srl.base.define import InvalidActionsType, RLTypes
 
 from .space import SpaceBase
 
@@ -28,30 +21,18 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         self._size = size
         assert isinstance(size, int)
 
-        self._low = [low for _ in range(self.size)] if isinstance(low, int) else low
+        self._low = [low for _ in range(self._size)] if isinstance(low, int) else low
         assert len(self._low) == size
         self._low = [int(low) for low in self._low]
 
-        self._high = [high for _ in range(self.size)] if isinstance(high, int) else high
+        self._high = [high for _ in range(self._size)] if isinstance(high, int) else high
         assert len(self._high) == size
         self._high = [int(h) for h in self._high]
 
         self.decode_tbl = None
 
-    @property
-    def size(self) -> int:
-        return self._size
-
-    @property
-    def low(self) -> List[int]:
-        return self._low
-
-    @property
-    def high(self) -> List[int]:
-        return self._high
-
     def sample(self, invalid_actions: InvalidActionsType = []) -> List[int]:
-        self._create_action_tbl()
+        self._create_tbl()
         assert self.decode_tbl is not None
 
         valid_actions = []
@@ -68,17 +49,17 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
             return [int(np.round(v)) for v in val]
         elif isinstance(val, np.ndarray):
             return val.round().astype(int).tolist()
-        return [int(np.round(val)) for _ in range(self.size)]
+        return [int(np.round(val)) for _ in range(self._size)]
 
     def __str__(self) -> str:
-        return f"ArrayDiscrete({self.size}, range[{int(np.min(self.low))}, {int(np.max(self.high))}])"
+        return f"ArrayDiscrete({self._size}, range[{int(np.min(self.low))}, {int(np.max(self.high))}])"
 
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, list):
             return False
-        if len(val) != self.size:
+        if len(val) != self._size:
             return False
-        for i in range(self.size):
+        for i in range(self._size):
             if not isinstance(val[i], int):
                 return False
             if val[i] < self.low[i]:
@@ -88,18 +69,14 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         return True
 
     @property
-    def rl_action_type(self) -> RLActionTypes:
-        return RLActionTypes.DISCRETE
-
-    @property
-    def rl_observation_type(self) -> RLObservationTypes:
-        return RLObservationTypes.DISCRETE
+    def rl_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
 
     def get_default(self) -> List[int]:
-        return [0 for _ in range(self.size)]
+        return [0 for _ in range(self._size)]
 
     def __eq__(self, o: "ArrayDiscreteSpace") -> bool:
-        if self.size != o.size:
+        if self._size != o._size:
             return False
         if self.low is None:
             if o.low is not None:
@@ -107,7 +84,7 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         else:
             if o.low is None:
                 return False
-            for i in range(self.size):
+            for i in range(self._size):
                 if self.low[i] != o.low[i]:
                     return False
         if self.high is None:
@@ -116,65 +93,100 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         else:
             if o.high is None:
                 return False
-            for i in range(self.size):
+            for i in range(self._size):
                 if self.high[i] != o.high[i]:
                     return False
         return True
 
     # --- test
     def assert_params(self, true_size: int, true_low: List[int], true_high: List[int]):
-        assert self.size == true_size
-        assert self.low == true_low
-        assert self.high == true_high
+        assert self._size == true_size
+        assert self._low == true_low
+        assert self._high == true_high
 
-    # --- discrete
-    def _create_action_tbl(self) -> None:
+    # --------------------------------------
+    # create_division_tbl
+    # --------------------------------------
+    def _create_tbl(self) -> None:
         if self.decode_tbl is not None:
             return
         import itertools
 
-        if self.size > 10:
+        if self._size > 10:
             logger.warning("It may take some time.")
 
-        arr_list = [[a for a in range(self.low[i], self.high[i] + 1)] for i in range(self.size)]
+        arr_list = [[a for a in range(self.low[i], self.high[i] + 1)] for i in range(self._size)]
 
         self.decode_tbl = list(itertools.product(*arr_list))
         self.encode_tbl = {}
         for i, v in enumerate(self.decode_tbl):
             self.encode_tbl[v] = i
 
-    # --- action discrete
-    def get_action_discrete_info(self) -> int:
-        self._create_action_tbl()
+    # --------------------------------------
+    # discrete
+    # --------------------------------------
+    @property
+    def n(self) -> int:
+        self._create_tbl()
         assert self.decode_tbl is not None
         return len(self.decode_tbl)
 
-    def action_discrete_encode(self, val: List[int]) -> DiscreteActionType:
-        self._create_action_tbl()
+    def encode_to_int(self, val: List[int]) -> int:
+        self._create_tbl()
         return self.encode_tbl[tuple(val)]
 
-    def action_discrete_decode(self, val: DiscreteActionType) -> List[int]:
-        self._create_action_tbl()
+    def decode_from_int(self, val: int) -> List[int]:
+        self._create_tbl()
         assert self.decode_tbl is not None
         return list(self.decode_tbl[val])
 
-    # --- action continuous
-    def get_action_continuous_info(self) -> Tuple[int, np.ndarray, np.ndarray]:
-        return self.size, np.array(self.low), np.array(self.high)
+    # --------------------------------------
+    # discrete numpy
+    # --------------------------------------
+    def encode_to_int_np(self, val: List[int]) -> np.ndarray:
+        return np.array(val)
 
-    # def action_continuous_encode(self, val: List[int]) -> ContinuousAction:
-    #    return [float(v) for v in val]
+    def decode_from_int_np(self, val: np.ndarray) -> List[int]:
+        return np.round(val).tolist()
 
-    def action_continuous_decode(self, val: ContinuousActionType) -> List[int]:
-        return [int(np.round(v)) for v in val]
-
-    # --- observation
+    # --------------------------------------
+    # continuous list
+    # --------------------------------------
     @property
-    def observation_shape(self) -> Tuple[int, ...]:
-        return (self.size,)
+    def list_size(self) -> int:
+        return self._size
 
-    def observation_discrete_encode(self, val: List[int]) -> RLObservationType:
-        return np.array(val, dtype=int)
+    @property
+    def list_low(self) -> List[float]:
+        return cast(List[float], self._low)
 
-    def observation_continuous_encode(self, val: List[int]) -> RLObservationType:
+    @property
+    def list_high(self) -> List[float]:
+        return cast(List[float], self._high)
+
+    def encode_to_list_float(self, val: List[int]) -> List[float]:
+        return [float(v) for v in val]
+
+    def decode_from_list_float(self, val: List[float]) -> List[int]:
+        return [round(v) for v in val]
+
+    # --------------------------------------
+    # continuous numpy
+    # --------------------------------------
+    @property
+    def shape(self) -> Tuple[int, ...]:
+        return (self._size,)
+
+    @property
+    def low(self) -> np.ndarray:
+        return np.array(self._low)
+
+    @property
+    def high(self) -> np.ndarray:
+        return np.array(self._high)
+
+    def encode_to_np(self, val: List[int]) -> np.ndarray:
         return np.array(val, dtype=np.float32)
+
+    def decode_from_np(self, val: np.ndarray) -> List[int]:
+        return [round(v) for v in val]

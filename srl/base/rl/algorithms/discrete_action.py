@@ -5,14 +5,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from srl.base.define import (
-    DiscreteActionType,
-    EnvObservationTypes,
-    InfoType,
-    RLActionType,
-    RLActionTypes,
-    RLObservationType,
-)
+from srl.base.define import EnvObservationTypes, InfoType, RLActionType, RLObservationType, RLTypes
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.rl.base import RLConfig
 from srl.base.rl.worker import RLWorker, WorkerRun
@@ -23,8 +16,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DiscreteActionConfig(RLConfig):
     @property
-    def action_type(self) -> RLActionTypes:
-        return RLActionTypes.DISCRETE
+    def action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
 
     def set_config_by_env(
         self,
@@ -33,7 +26,7 @@ class DiscreteActionConfig(RLConfig):
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationTypes,
     ) -> None:
-        self._action_num = env_action_space.get_action_discrete_info()
+        self._action_num = env_action_space.n
 
     @property
     def action_num(self) -> int:
@@ -54,7 +47,7 @@ class DiscreteActionWorker(RLWorker):
         self,
         state: np.ndarray,
         invalid_actions: List[int],
-    ) -> Tuple[DiscreteActionType, InfoType]:
+    ) -> Tuple[int, InfoType]:
         raise NotImplementedError()
 
     @abstractmethod

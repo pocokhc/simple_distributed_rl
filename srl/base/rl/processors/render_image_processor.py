@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Tuple
 
-from srl.base.define import EnvObservationType, EnvObservationTypes, RLObservationTypes
+from srl.base.define import EnvObservationType, EnvObservationTypes, RLTypes
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.rl.processor import Processor
 from srl.base.spaces.box import BoxSpace
@@ -18,7 +18,7 @@ class RenderImageProcessor(Processor):
         self,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationTypes,
-        rl_observation_type: RLObservationTypes,
+        rl_observation_type: RLTypes,
         env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationTypes]:
         env.reset()

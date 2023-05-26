@@ -4,7 +4,7 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import InvalidActionsType, RLActionType, RLActionTypes, RLObservationTypes
+from srl.base.define import InvalidActionsType, RLActionType, RLTypes
 from srl.base.rl.algorithms.any_action import AnyActionConfig, AnyActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -21,8 +21,8 @@ class Config(AnyActionConfig):
     lr: float = 0.1
 
     @property
-    def observation_type(self) -> RLObservationTypes:
-        return RLObservationTypes.DISCRETE
+    def observation_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
 
     def getName(self) -> str:
         return "VanillaPolicy"
@@ -108,7 +108,7 @@ class Trainer(RLTrainer):
         if len(batchs) == 0:
             return {}
 
-        if self.config.env_action_type == RLActionTypes.DISCRETE:
+        if self.config.env_action_type == RLTypes.DISCRETE:
             return self._train_discrete(batchs)
         else:
             return self._train_continuous(batchs)
@@ -193,7 +193,7 @@ class Worker(AnyActionWorker):
         self.state = to_str_observation(state)
         self.invalid_actions = invalid_actions
 
-        if self.config.env_action_type == RLActionTypes.DISCRETE:
+        if self.config.env_action_type == RLTypes.DISCRETE:
             # --- 離散
             probs = self.parameter.get_probs(self.state, invalid_actions)
             action = np.random.choice([a for a in range(self.config.action_num)], p=probs)
@@ -220,7 +220,7 @@ class Worker(AnyActionWorker):
         next_state: np.ndarray,
         reward: float,
         done: bool,
-        next_invalid_actions: List[RLActionTypes],
+        next_invalid_actions: List[RLTypes],
     ) -> dict:
         if not self.training:
             return {}
@@ -248,7 +248,7 @@ class Worker(AnyActionWorker):
         return {}
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        if self.config.env_action_type == RLActionTypes.DISCRETE:
+        if self.config.env_action_type == RLTypes.DISCRETE:
             probs = self.parameter.get_probs(self.state, self.invalid_actions)
             vals = [0 if v is None else v for v in self.parameter.policy[self.state]]
             maxa = np.argmax(vals)

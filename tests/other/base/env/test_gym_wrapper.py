@@ -242,9 +242,9 @@ def test_space_discrete():
     print(flat_space.high)
     assert is_discrete
     assert isinstance(flat_space, ArrayDiscreteSpace)
-    assert flat_space.size == 12
-    assert flat_space.low == [0] * 12
-    assert flat_space.high == [
+    assert flat_space.list_size == 12
+    assert flat_space.list_low == [0] * 12
+    assert flat_space.list_high == [
         5,
         2,
         2,

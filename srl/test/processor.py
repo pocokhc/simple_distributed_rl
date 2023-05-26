@@ -2,7 +2,7 @@ import numpy as np
 
 import srl
 import srl.rl.dummy
-from srl.base.define import EnvObservationType, EnvObservationTypes, RLObservationTypes
+from srl.base.define import EnvObservationType, EnvObservationTypes, RLTypes
 from srl.base.env.base import EnvRun
 from srl.base.rl.processor import Processor
 from srl.base.spaces.space import SpaceBase
@@ -27,7 +27,7 @@ class TestProcessor:
         env_name: str,
         after_type: EnvObservationTypes,
         after_space: SpaceBase,
-        rl_observation_type: RLObservationTypes = RLObservationTypes.ANY,
+        rl_observation_type: RLTypes = RLTypes.ANY,
     ):
         env = srl.make_env(env_name)
 

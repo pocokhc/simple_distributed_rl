@@ -3,25 +3,26 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-# space type
-DiscreteSpaceType = Union[int, List[int]]
-ContinuousSpaceType = Union[float, List[float], np.ndarray]
+# --- space type
+# DiscreteType  : int, List[int]
+# ContinuousType: float, List[float], NDarray[np.float32]
 SpaceType = Union[int, List[int], float, List[float], np.ndarray]
 
-# action type
-DiscreteActionType = int
-ContinuousActionType = List[float]
+# --- action type
 EnvActionType = Union[SpaceType, None]
 RLActionType = Union[int, List[float], float]
 KeyBindType = Optional[Dict[Union[str, int, Tuple[Union[str, int], ...]], EnvActionType]]
 
+# --- InvalidActionType
 # int型の場合のみ対応（拡張はTODO）
 InvalidActionType = int
 InvalidActionsType = List[int]
 
-# other type
+# --- obs type
 EnvObservationType = SpaceType
 RLObservationType = np.ndarray
+
+# --- info type
 InfoType = Dict[str, Union[float, int, str]]
 
 
@@ -47,13 +48,7 @@ class EnvObservationTypes(enum.Enum):
         ]
 
 
-class RLObservationTypes(enum.Enum):
-    ANY = 0
-    DISCRETE = enum.auto()  # 離散
-    CONTINUOUS = enum.auto()  # 連続
-
-
-class RLActionTypes(enum.Enum):
+class RLTypes(enum.Enum):
     ANY = 0
     DISCRETE = enum.auto()  # 離散
     CONTINUOUS = enum.auto()  # 連続

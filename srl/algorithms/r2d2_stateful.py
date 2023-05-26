@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLObservationTypes
+from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
@@ -220,8 +220,8 @@ class Config(DiscreteActionConfig):
         ]
 
     @property
-    def observation_type(self) -> RLObservationTypes:
-        return RLObservationTypes.CONTINUOUS
+    def observation_type(self) -> RLTypes:
+        return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "R2D2_stateful"
@@ -554,7 +554,7 @@ class Trainer(RLTrainer):
         q = tf.stop_gradient(q).numpy()  # type:ignore , ignore check "None"
 
         if idx == 0 or self.config.enable_retrace:
-            td_error = target_q - q_onehot.numpy() + self.config.discount * retrace * n_td_error
+            td_error = target_q - q_onehot.numpy() + self.config.discount * retrace * n_td_error  # type: ignore
         else:
             td_error = 0
         return q, q_target, td_error, retrace, (loss.numpy() + n_loss) / 2

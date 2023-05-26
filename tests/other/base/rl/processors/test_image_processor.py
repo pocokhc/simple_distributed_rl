@@ -5,7 +5,7 @@ import pytest
 
 import srl
 import srl.envs.grid
-from srl.base.define import EnvObservationTypes, RLObservationTypes
+from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.spaces.box import BoxSpace
 from srl.test.processor import TestProcessor
 
@@ -48,7 +48,7 @@ def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val):
     new_space, new_type = processor.change_observation_info(
         space,
         env_img_type,
-        RLObservationTypes.ANY,
+        RLTypes.ANY,
         env,
     )
     assert new_type == img_type
@@ -108,9 +108,7 @@ def test_trimming():
     env = srl.make_env("Grid")
 
     # change info
-    new_space, new_type = processor.change_observation_info(
-        space, EnvObservationTypes.COLOR, RLObservationTypes.ANY, env
-    )
+    new_space, new_type = processor.change_observation_info(space, EnvObservationTypes.COLOR, RLTypes.ANY, env)
     assert new_type == EnvObservationTypes.GRAY_2ch
     assert isinstance(new_space, BoxSpace)
     new_space = cast(BoxSpace, new_space)

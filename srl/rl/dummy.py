@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Tuple
 
-from srl.base.define import EnvActionType, RLActionTypes, RLObservationTypes
+from srl.base.define import EnvActionType, RLTypes
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
 from srl.base.rl.base import RLConfig, RLParameter, RLTrainer
 from srl.base.rl.registration import register
@@ -14,12 +14,12 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Config(RLConfig):
     @property
-    def action_type(self) -> RLActionTypes:
-        return RLActionTypes.ANY
+    def action_type(self) -> RLTypes:
+        return RLTypes.ANY
 
     @property
-    def observation_type(self) -> RLObservationTypes:
-        return RLObservationTypes.ANY
+    def observation_type(self) -> RLTypes:
+        return RLTypes.ANY
 
     def getName(self) -> str:
         return "Dummy"

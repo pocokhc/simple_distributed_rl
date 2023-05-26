@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLObservationTypes
+from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
                                                     DiscreteActionWorker)
 from srl.base.rl.base import RLParameter, RLTrainer
@@ -302,8 +302,8 @@ class Config(DiscreteActionConfig):
         ]
 
     @property
-    def observation_type(self) -> RLObservationTypes:
-        return RLObservationTypes.CONTINUOUS
+    def observation_type(self) -> RLTypes:
+        return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "Agent57_stateful"
@@ -649,7 +649,7 @@ class Trainer(RLTrainer):
 
         # burnin (step, batch, 1, x)
         burnin_states = states_list[: self.config.burnin]
-        burnin_actions_onehot = actions_onehot_list[: self.config.burnin]
+        burnin_actions_onehot = actions_onehot_list[: self.config.burnin]  # type: ignore
         burnin_rewards_ext = rewards_ext_list[: self.config.burnin]
         burnin_rewards_int = rewards_int_list[: self.config.burnin]
 
@@ -661,11 +661,11 @@ class Trainer(RLTrainer):
         step_actions_list = np.squeeze(step_actions_list, axis=2)
 
         # step action onehot (step, batch, 1, x) -> (step, batch, x)
-        step_actions_onehot_list = actions_onehot_list[self.config.burnin :]
+        step_actions_onehot_list = actions_onehot_list[self.config.burnin :]  # type: ignore
         step_actions_onehot_list = np.squeeze(step_actions_onehot_list, axis=2)
 
         # UVFA (step, batch, 1, x)
-        prev_actions_onehot_list = actions_onehot_list[self.config.burnin - 1 :]
+        prev_actions_onehot_list = actions_onehot_list[self.config.burnin - 1 :]  # type: ignore
         prev_rewards_ext_list = rewards_ext_list[self.config.burnin - 1 :]
         prev_rewards_int_list = rewards_int_list[self.config.burnin - 1 :]
 
@@ -942,7 +942,7 @@ class Trainer(RLTrainer):
         q = tf.stop_gradient(q).numpy()  # type:ignore
 
         if idx == 0 or self.config.enable_retrace:
-            td_error = target_q - q_onehot.numpy() + discount_list * retrace * n_td_error
+            td_error = target_q - q_onehot.numpy() + discount_list * retrace * n_td_error  # type: ignore
         else:
             td_error = 0
         return q, q_target, td_error, retrace, (loss.numpy() + n_loss) / 2

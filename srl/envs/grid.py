@@ -6,7 +6,7 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, KeyBindType, RLObservationTypes
+from srl.base.define import EnvObservationTypes, KeyBindType, RLTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.env.genre import SinglePlayEnv
@@ -443,7 +443,7 @@ class LayerProcessor(Processor):
         self,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationTypes,
-        rl_observation_type: RLObservationTypes,
+        rl_observation_type: RLTypes,
         env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationTypes]:
         _env = cast(Grid, env.get_original_env())

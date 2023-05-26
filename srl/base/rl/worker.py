@@ -12,9 +12,8 @@ from srl.base.define import (
     InvalidActionType,
     PlayRenderModes,
     RLActionType,
-    RLActionTypes,
     RLObservationType,
-    RLObservationTypes,
+    RLTypes,
 )
 from srl.base.env.base import EnvRun
 from srl.base.render import IRender, Render
@@ -99,10 +98,10 @@ class RLWorker(WorkerBase):
         for processor in self.config.run_processors:
             state = processor.process_observation(state, env)
 
-        if self.config.observation_type == RLObservationTypes.DISCRETE:
-            state = self.config.observation_space.observation_discrete_encode(state)
-        elif self.config.observation_type == RLObservationTypes.CONTINUOUS:
-            state = self.config.observation_space.observation_continuous_encode(state)
+        if self.config.observation_type == RLTypes.DISCRETE:
+            state = self.config.observation_space.encode_to_int_np(state)
+        elif self.config.observation_type == RLTypes.CONTINUOUS:
+            state = self.config.observation_space.encode_to_np(state)
         else:
             state = np.asarray(state)
         if state.shape == ():
@@ -110,22 +109,26 @@ class RLWorker(WorkerBase):
         return state
 
     def action_encode(self, action: EnvActionType) -> RLActionType:
-        # discrete only
-        if self.config.action_type == RLActionTypes.DISCRETE:
-            action = self.config.action_space.action_discrete_encode(action)
+        if self.config.action_type == RLTypes.DISCRETE:
+            action = self.config.action_space.encode_to_int(action)
+        elif self.config.action_type == RLTypes.CONTINUOUS:
+            action = self.config.action_space.encode_to_list_float(action)
+        else:
+            pass  # do nothing
         return action  # type: ignore
 
     def action_decode(self, action: RLActionType) -> EnvActionType:
-        if self.config.action_type == RLActionTypes.DISCRETE:
+        if self.config.action_type == RLTypes.DISCRETE:
             assert not isinstance(action, list)
-            action = int(action)
-            action = self.config.action_space.action_discrete_decode(action)
-        elif self.config.action_type == RLActionTypes.CONTINUOUS:
+            action = self.config.action_space.decode_from_int(int(action))
+        elif self.config.action_type == RLTypes.CONTINUOUS:
             if isinstance(action, list):
                 action = [float(a) for a in action]
             else:
                 action = [float(action)]
-            action = self.config.action_space.action_continuous_decode(action)
+            action = self.config.action_space.decode_from_list_float(action)
+        else:
+            pass  # do nothing
         return action
 
     def reward_encode(self, reward: float, env: EnvRun) -> float:
@@ -235,7 +238,7 @@ class RLWorker(WorkerBase):
     # utils
     # ------------------------------------
     def get_invalid_actions(self, env=None) -> InvalidActionsType:
-        if self.config.action_type == RLActionTypes.DISCRETE:
+        if self.config.action_type == RLTypes.DISCRETE:
             if env is None:
                 env = self.__env
             return [cast(InvalidActionType, self.action_encode(a)) for a in env.get_invalid_actions(self.player_index)]
@@ -243,16 +246,16 @@ class RLWorker(WorkerBase):
             return []
 
     def get_valid_actions(self, env=None) -> InvalidActionsType:
-        if self.config.action_type == RLActionTypes.DISCRETE:
+        if self.config.action_type == RLTypes.DISCRETE:
             if env is None:
                 env = self.__env
             invalid_actions = self.get_invalid_actions(env)
-            return [a for a in range(env.action_space.get_action_discrete_info()) if a not in invalid_actions]
+            return [a for a in range(env.action_space.n) if a not in invalid_actions]
         else:
             return []
 
     def sample_action(self, env=None) -> RLActionType:
-        if self.config.action_type == RLActionTypes.DISCRETE:
+        if self.config.action_type == RLTypes.DISCRETE:
             action = np.random.choice(self.get_valid_actions(env))
         else:
             if env is None:

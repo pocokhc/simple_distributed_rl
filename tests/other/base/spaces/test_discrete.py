@@ -1,59 +1,62 @@
 import numpy as np
 
-from srl.base.define import RLActionTypes
+from srl.base.define import RLTypes
 from srl.base.spaces.discrete import DiscreteSpace
-
-from .space_test import SpaceTest
-
-
-def _check_action(decode_action, true_action):
-    assert isinstance(decode_action, int)
-    assert decode_action == true_action
 
 
 def test_space():
     space = DiscreteSpace(5)
-    assert space.rl_action_type == RLActionTypes.DISCRETE
-    assert space.n == 5
+    assert space.rl_type == RLTypes.DISCRETE
 
     print(space)
 
-    tester = SpaceTest(space)
+    # --- discrete
+    assert space.n == 5
+    de = space.decode_from_int(2)
+    assert isinstance(de, int)
+    assert de == 2
+    en = space.encode_to_int(3)
+    assert isinstance(en, int)
+    assert en == 3
 
-    # sample
+    # --- discrete numpy
+    de = space.decode_from_int_np(np.array([2]))
+    assert isinstance(de, int)
+    assert de == 2
+    en = space.encode_to_int_np(3)
+    assert isinstance(en, np.ndarray)
+    assert en.shape == (1,)
+    assert en[0] == 3
+
+    # --- continuous list
+    assert space.list_size == 1
+    np.testing.assert_array_equal(space.list_low, [0])
+    np.testing.assert_array_equal(space.list_high, [4])
+    de = space.decode_from_list_float([3.3, 1.2])
+    assert isinstance(de, int)
+    assert de == 3
+    en = space.encode_to_list_float(3)
+    assert isinstance(en, list)
+    for n in en:
+        assert isinstance(n, float)
+    assert en[0] == 3.0
+
+    # --- continuous numpy
+    assert space.shape == (1,)
+    np.testing.assert_array_equal(space.low, [0])
+    np.testing.assert_array_equal(space.high, [4])
+    de = space.decode_from_np(np.array([3.3, 1.2]))
+    assert isinstance(de, int)
+    assert de == 3
+    en = space.encode_to_np(3)
+    np.testing.assert_array_equal(en, [3.0])
+
+    # --- sample
     actions = [space.sample([3]) for _ in range(100)]
     actions = sorted(list(set(actions)))
     np.testing.assert_array_equal(actions, [0, 1, 2, 4])
 
-    # action discrete
-    decode_action = tester.check_action_discrete(5, action=2)
-    _check_action(decode_action, 2)
-    tester.check_action_encode(3, 3)
-
-    # action_continuous
-    decode_action = tester.check_action_continuous(
-        true_n=1,
-        true_low=[0],
-        true_high=[4],
-        action=[3.3],
-    )
-    _check_action(decode_action, 3)
-
-    # observation discrete
-    tester.check_observation_discrete(
-        true_shape=(1,),
-        state=2,
-        encode_state=[2],
-    )
-
-    # observation continuous
-    tester.check_observation_continuous(
-        true_shape=(1,),
-        state=2,
-        encode_state=[2.0],
-    )
-
-    # eq
+    # --- eq
     assert space == DiscreteSpace(5)
     assert space != DiscreteSpace(4)
 

@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Tuple
 
-from srl.base.define import EnvObservationType, EnvObservationTypes, RLObservationTypes
+from srl.base.define import EnvObservationType, EnvObservationTypes, RLTypes
 from srl.base.env.base import EnvRun, SpaceBase
 
 
@@ -14,7 +14,7 @@ class Processor(ABC):
         self,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationTypes,
-        rl_observation_type: RLObservationTypes,
+        rl_observation_type: RLTypes,
         env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationTypes]:
         return env_observation_space, env_observation_type

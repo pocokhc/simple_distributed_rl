@@ -1,110 +1,129 @@
 import numpy as np
 import pytest
 
-from srl.base.define import RLActionTypes
+from srl.base.define import RLTypes
 from srl.base.spaces import ArrayContinuousSpace
-
-from .space_test import SpaceTest
-
-
-def _check_action(decode_action, size, true_action):
-    assert isinstance(decode_action, list)
-    assert len(decode_action) == size
-    for a in decode_action:
-        assert isinstance(a, float)
-    if true_action is not None:
-        np.testing.assert_array_equal(decode_action, true_action)
 
 
 def test_space():
     space = ArrayContinuousSpace(3, -1, 3)
-    tester = SpaceTest(space)
-    assert space.rl_action_type == RLActionTypes.CONTINUOUS
+    assert space.rl_type == RLTypes.CONTINUOUS
 
     print(space)
 
-    # sample
+    # --- continuous list
+    assert space.list_size == 3
+    np.testing.assert_array_equal(space.list_low, [-1, -1, -1])
+    np.testing.assert_array_equal(space.list_high, [3, 3, 3])
+    de = space.decode_from_list_float([1.2, 1.2, 1.2])
+    assert isinstance(de, list)
+    for n in de:
+        assert isinstance(n, float)
+    np.testing.assert_array_equal(de, [1.2, 1.2, 1.2])
+    en = space.encode_to_list_float([1.2, 1.2, 1.2])
+    assert isinstance(en, list)
+    for n in en:
+        assert isinstance(n, float)
+    np.testing.assert_array_equal(en, [1.2, 1.2, 1.2])
+
+    # --- continuous numpy
+    assert space.shape == (3,)
+    np.testing.assert_array_equal(space.low, [-1, -1, -1])
+    np.testing.assert_array_equal(space.high, [3, 3, 3])
+    de = space.decode_from_np(np.array([1.2, 1.2, 1.2]))
+    assert isinstance(de, list)
+    for n in de:
+        assert isinstance(n, float)
+    np.testing.assert_array_equal(de, [1.2, 1.2, 1.2])
+    en = space.encode_to_np([1.2, 1.2, 1.2])
+    np.testing.assert_array_equal(en, np.array([1.2, 1.2, 1.2], dtype=np.float32))
+
+    # --- sample
     for _ in range(100):
         action = space.sample()
-        _check_action(action, 3, None)
+        assert isinstance(action, list)
+        assert len(action) == 3
+        for a in action:
+            assert isinstance(a, float)
         assert -1 <= action[0] <= 3
         assert -1 <= action[1] <= 3
         assert -1 <= action[2] <= 3
 
+    # --- eq
+    assert space == ArrayContinuousSpace(3, -1, 3)
+    assert space != ArrayContinuousSpace(3, -1, 2)
+
+
+def test_discrete_no_division():
+    space = ArrayContinuousSpace(3, -1, 3)
+
+    # --- discrete
+    with pytest.raises(AssertionError):
+        _ = space.n
+    with pytest.raises(AssertionError):
+        _ = space.encode_to_int([1.2, 1.2, 1.2])
+    de = space.decode_from_int(2)
+    np.testing.assert_array_equal(de, [2.0, 2.0, 2.0])
+
+    # --- discrete numpy
+    en = space.encode_to_int_np([1.2, 1.2, 1.2])
+    assert en.shape == (3,)
+    np.testing.assert_array_equal(en, np.array([1, 1, 1]))
+    de = space.decode_from_int_np(np.array([1, 1, 1]))
+    assert isinstance(de, list)
+    for n in de:
+        assert isinstance(n, float)
+    np.testing.assert_array_equal(de, [1.0, 1.0, 1.0])
+
+
+def test_discrete_division():
+    space = ArrayContinuousSpace(3, -1, 3)
+
     # action discrete
-    space.set_action_division(5)
-    decode_action = tester.check_action_discrete(
-        true_n=5**3,
-        action=3,
-    )
-    _check_action(decode_action, 3, [-1, -1, 2])
-    tester.check_action_encode(decode_action, 3)
+    space.create_division_tbl(5)
+    assert space.division_tbl is not None
 
-    # action_continuous
-    decode_action = tester.check_action_continuous(
-        true_n=3,
-        true_low=[-1] * 3,
-        true_high=[3] * 3,
-        action=[1.1, 0.1, 0.9],
-    )
-    _check_action(decode_action, 3, [1.1, 0.1, 0.9])
+    # --- discrete
+    assert space.n == 5**3
+    en = space.encode_to_int([-1, -1, 2])
+    assert en == 3
+    de = space.decode_from_int(2)
+    assert isinstance(de, list)
+    for n in de:
+        assert isinstance(n, float)
+    np.testing.assert_array_equal(de, [-1.0, -1.0, 1.0])
 
-    # observation discrete
-    tester.check_observation_discrete(
-        true_shape=(3,),
-        state=[1.1, 0.1, 0.9],
-        encode_state=[1, 0, 1],
-    )
-
-    # observation continuous
-    tester.check_observation_continuous(
-        true_shape=(3,),
-        state=[1.1, 0.1, 0.9],
-        encode_state=np.array([1.1, 0.1, 0.9], dtype=np.float32),
-    )
+    # --- discrete numpy
+    en = space.encode_to_int_np([-1, -1, 2])
+    assert en.shape == (1,)
+    assert en[0] == 3
+    de = space.decode_from_int_np(np.array([2]))
+    assert isinstance(de, list)
+    for n in de:
+        assert isinstance(n, float)
+    np.testing.assert_array_equal(de, [-1.0, -1.0, 1.0])
 
 
 def test_inf():
     space = ArrayContinuousSpace(3)
-    tester = SpaceTest(space)
 
     # sample
     for _ in range(100):
         action = space.sample()
-        _check_action(action, 3, None)
+        assert isinstance(action, list)
+        assert len(action) == 3
+        for a in action:
+            assert isinstance(a, float)
 
-    # action discrete
-    space.set_action_division(5)
-    decode_action = tester.check_action_discrete(
-        true_n=0,
-        action=3,
-    )
-    _check_action(decode_action, 3, [3, 3, 3])
-    with pytest.raises(NotImplementedError):
-        space.action_discrete_encode(decode_action)
+    # --- discrete
+    space.create_division_tbl(5)
+    with pytest.raises(AssertionError):
+        _ = space.encode_to_int([1.2, 1.2, 1.2])
 
-    # action_continuous
-    decode_action = tester.check_action_continuous(
-        true_n=3,
-        true_low=[-np.inf] * 3,
-        true_high=[np.inf] * 3,
-        action=[1.1, 0.1, 0.9],
-    )
-    _check_action(decode_action, 3, [1.1, 0.1, 0.9])
-
-    # observation discrete
-    tester.check_observation_discrete(
-        true_shape=(3,),
-        state=[1.1, 0.1, 0.9],
-        encode_state=[1, 0, 1],
-    )
-
-    # observation continuous
-    tester.check_observation_continuous(
-        true_shape=(3,),
-        state=[1.1, 0.1, 0.9],
-        encode_state=np.array([1.1, 0.1, 0.9], dtype=np.float32),
-    )
+    # --- continuous list
+    assert space.list_size == 3
+    np.testing.assert_array_equal(space.list_low, [-np.inf, -np.inf, -np.inf])
+    np.testing.assert_array_equal(space.list_high, [np.inf, np.inf, np.inf])
 
 
 def test_convert():

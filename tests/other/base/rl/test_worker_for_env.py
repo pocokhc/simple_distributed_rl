@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 import srl
-from srl.base.define import EnvObservationTypes, InfoType, RLActionType, RLActionTypes, RLObservationTypes
+from srl.base.define import EnvObservationTypes, InfoType, RLActionType, RLTypes
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.genre.singleplay import SinglePlayEnv
 from srl.base.env.registration import register as register_env
@@ -70,18 +70,18 @@ register_env(
 class StubRLConfig(RLConfig):
     def __init__(self) -> None:
         super().__init__()
-        self._action_type = RLActionTypes.ANY
-        self._observation_type = RLObservationTypes.ANY
+        self._action_type = RLTypes.ANY
+        self._observation_type = RLTypes.ANY
 
     def getName(self) -> str:
         return "Stub"
 
     @property
-    def action_type(self) -> RLActionTypes:
+    def action_type(self) -> RLTypes:
         return self._action_type
 
     @property
-    def observation_type(self) -> RLObservationTypes:
+    def observation_type(self) -> RLTypes:
         return self._observation_type
 
     def set_config_by_env(
@@ -153,7 +153,7 @@ def test_action(env_action_space, rl_action_type, rl_action, env_action):
 
     env_org._observation_space = DiscreteSpace(5)
     env_org._observation_type = EnvObservationTypes.DISCRETE
-    rl_config._observation_type = RLObservationTypes.DISCRETE
+    rl_config._observation_type = RLTypes.DISCRETE
 
     if env_action_space == "Dis":
         env_org._action_space = DiscreteSpace(5)
@@ -163,11 +163,11 @@ def test_action(env_action_space, rl_action_type, rl_action, env_action):
         env_org._action_space = BoxSpace(low=-1, high=3, shape=(2, 3))
 
     if rl_action_type == "Dis":
-        rl_config._action_type = RLActionTypes.DISCRETE
+        rl_config._action_type = RLTypes.DISCRETE
     elif rl_action_type == "Con":
-        rl_config._action_type = RLActionTypes.CONTINUOUS
+        rl_config._action_type = RLTypes.CONTINUOUS
     elif rl_action_type == "Any":
-        rl_config._action_type = RLActionTypes.ANY
+        rl_config._action_type = RLTypes.ANY
 
     env.reset()
     rl_config._is_set_env_config = False
@@ -219,7 +219,7 @@ def test_observation(env_action_space, rl_action_type, rl_state):
     rl_config.reset(env)
     worker_run = srl.make_worker(rl_config, env=env)
 
-    rl_config._action_type = RLActionTypes.DISCRETE
+    rl_config._action_type = RLTypes.DISCRETE
     rl_action = 1
     env_action = 1
 
@@ -240,11 +240,11 @@ def test_observation(env_action_space, rl_action_type, rl_state):
         env_state = np.array([[0.1, 0.2, 0.3], [0.7, 0.8, 0.9]])
 
     if rl_action_type == "Dis":
-        rl_config._observation_type = RLObservationTypes.DISCRETE
+        rl_config._observation_type = RLTypes.DISCRETE
     if rl_action_type == "Box":
-        rl_config._observation_type = RLObservationTypes.CONTINUOUS
+        rl_config._observation_type = RLTypes.CONTINUOUS
     if rl_action_type == "Any":
-        rl_config._observation_type = RLObservationTypes.ANY
+        rl_config._observation_type = RLTypes.ANY
 
     env.reset()
     rl_config._is_set_env_config = False

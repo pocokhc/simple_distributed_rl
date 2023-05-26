@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLObservationTypes
+from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
@@ -58,8 +58,8 @@ class Config(ContinuousActionConfig):
     memory_warmup_size: int = 1000
 
     @property
-    def observation_type(self) -> RLObservationTypes:
-        return RLObservationTypes.CONTINUOUS
+    def observation_type(self) -> RLTypes:
+        return RLTypes.CONTINUOUS
 
     def set_processor(self) -> List[Processor]:
         return [

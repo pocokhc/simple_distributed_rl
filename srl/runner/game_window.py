@@ -312,7 +312,7 @@ class PlayableGame(_GameWindow):
         if self.cursor_action >= len(self.valid_actions):
             self.cursor_action = len(self.valid_actions) - 1
             self.action = self.valid_actions[self.cursor_action]
-            self.action = self.env.action_space.action_discrete_decode(self.action)
+            self.action = self.env.action_space.decode_from_int(self.action)
 
         self._callback_info["action"] = action
         [c.on_game_step_end(self._callback_info) for c in self.callbacks]
@@ -374,13 +374,13 @@ class PlayableGame(_GameWindow):
                     if self.cursor_action < 0:
                         self.cursor_action = 0
                     self.action = self.valid_actions[self.cursor_action]
-                    self.action = self.env.action_space.action_discrete_decode(self.action)
+                    self.action = self.env.action_space.decode_from_int(self.action)
                 elif self.get_key(pygame.K_RIGHT) == KeyStatus.PRESSED:
                     self.cursor_action += 1
                     if self.cursor_action >= len(self.valid_actions):
                         self.cursor_action = len(self.valid_actions) - 1
                     self.action = self.valid_actions[self.cursor_action]
-                    self.action = self.env.action_space.action_discrete_decode(self.action)
+                    self.action = self.env.action_space.decode_from_int(self.action)
 
                 if self.mode == "Turn":
                     # key_bindがない、Turnはアクション決定で1frame進める
@@ -399,7 +399,7 @@ class PlayableGame(_GameWindow):
                     if is_step:
                         self._env_step(self.action)
                         self.action = self.valid_actions[self.cursor_action]
-                        self.action = self.env.action_space.action_discrete_decode(self.action)
+                        self.action = self.env.action_space.decode_from_int(self.action)
 
             elif self.mode == "Turn":
                 # keybindがあり、Turnの場合は押したら進める
@@ -471,18 +471,18 @@ class PlayableGame(_GameWindow):
         if self.scene == "RESET":
             self.scene = "RUNNING"
             if isinstance(self.env.action_space, BoxSpace):
-                self.env.action_space.set_action_division(self.action_division_num)
+                self.env.action_space.create_division_tbl(self.action_division_num)
             if self.noop is None:
-                self.noop = self.env.action_space.action_discrete_decode(0)
+                self.noop = self.env.action_space.decode_from_int(0)
             self.env.reset()
             self.set_image(self.env.render_rgb_array(), None)
-            self.action_size = self.env.action_space.get_action_discrete_info()
+            self.action_size = self.env.action_space.n
             invalid_actions = self.env.get_invalid_actions()
             self.valid_actions = [a for a in range(self.action_size) if a not in invalid_actions]
             if self.cursor_action >= len(self.valid_actions):
                 self.cursor_action = len(self.valid_actions) - 1
             self.action = self.valid_actions[self.cursor_action]
-            self.action = self.env.action_space.action_discrete_decode(self.action)
+            self.action = self.env.action_space.decode_from_int(self.action)
 
             self.step_t0 = time.time()
             if self.mode == "Turn":

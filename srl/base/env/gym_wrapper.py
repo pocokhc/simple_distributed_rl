@@ -1,11 +1,11 @@
 import logging
 import os
 import pickle
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union, cast
 
 import gym
 import numpy as np
-from gym import spaces
+from gym import spaces as gym_spaces
 from gym.spaces import flatten, flatten_space
 
 from srl.base.define import EnvActionType, EnvObservationTypes, InfoType, RenderModes
@@ -27,24 +27,24 @@ decodeもあるので順序を保持する
 
 
 def _gym_space_flatten_sub(gym_space) -> Tuple[List[float], List[float], bool]:
-    if isinstance(gym_space, spaces.Discrete):
+    if isinstance(gym_space, gym_spaces.Discrete):
         if hasattr(gym_space, "start"):
             return [gym_space.start], [gym_space.start + gym_space.n - 1], True
         else:
             return [0], [gym_space.n - 1], True
 
-    if isinstance(gym_space, spaces.MultiDiscrete):
+    if isinstance(gym_space, gym_spaces.MultiDiscrete):
         nvec = gym_space.nvec.flatten()
         return np.zeros(nvec.shape).tolist(), nvec.tolist(), True
 
-    if isinstance(gym_space, spaces.MultiBinary):
+    if isinstance(gym_space, gym_spaces.MultiBinary):
         shape = np.zeros(gym_space.shape).flatten().shape
         return np.zeros(shape).tolist(), np.ones(shape).tolist(), True
 
-    if isinstance(gym_space, spaces.Box):
+    if isinstance(gym_space, gym_spaces.Box):
         return gym_space.low.flatten().tolist(), gym_space.high.flatten().tolist(), False
 
-    if isinstance(gym_space, spaces.Tuple):
+    if isinstance(gym_space, gym_spaces.Tuple):
         low = []
         high = []
         is_discrete = True
@@ -56,7 +56,7 @@ def _gym_space_flatten_sub(gym_space) -> Tuple[List[float], List[float], bool]:
                 is_discrete = False
         return low, high, is_discrete
 
-    if isinstance(gym_space, spaces.Dict):
+    if isinstance(gym_space, gym_spaces.Dict):
         low = []
         high = []
         is_discrete = True
@@ -69,19 +69,19 @@ def _gym_space_flatten_sub(gym_space) -> Tuple[List[float], List[float], bool]:
                 is_discrete = False
         return low, high, is_discrete
 
-    if isinstance(gym_space, spaces.Graph):
+    if isinstance(gym_space, gym_spaces.Graph):
         pass  # TODO
 
-    if isinstance(gym_space, spaces.Text):
+    if isinstance(gym_space, gym_spaces.Text):
         shape = (gym_space.max_length,)
         return np.zeros(shape).tolist(), np.full(shape, len(gym_space.character_set)).tolist(), True
 
-    if isinstance(gym_space, spaces.Sequence):
+    if isinstance(gym_space, gym_spaces.Sequence):
         pass  # TODO
 
     # other space
     flat_space = flatten_space(gym_space)
-    if isinstance(flat_space, spaces.Box):
+    if isinstance(flat_space, gym_spaces.Box):
         return flat_space.low.tolist(), flat_space.high.tolist(), False
 
     raise NotImplementedError(f"not supported `{gym_space}`")
@@ -98,39 +98,39 @@ def gym_space_flatten(gym_space) -> Tuple[Union[BoxSpace, ArrayDiscreteSpace], b
 
 
 def _gym_space_flatten_encode_sub(gym_space, x):
-    if isinstance(gym_space, spaces.Discrete):
+    if isinstance(gym_space, gym_spaces.Discrete):
         return np.array([x])
 
-    if isinstance(gym_space, spaces.MultiDiscrete):
+    if isinstance(gym_space, gym_spaces.MultiDiscrete):
         return x.flatten()
 
-    if isinstance(gym_space, spaces.MultiBinary):
+    if isinstance(gym_space, gym_spaces.MultiBinary):
         return x.flatten()
 
-    if isinstance(gym_space, spaces.Box):
+    if isinstance(gym_space, gym_spaces.Box):
         return x.flatten()
 
-    if isinstance(gym_space, spaces.Tuple):
+    if isinstance(gym_space, gym_spaces.Tuple):
+        x = cast(Any, x)
+        s = cast(Any, gym_space.spaces)
         return np.concatenate(
-            [_gym_space_flatten_encode_sub(space, x_part) for space, x_part in zip(gym_space.spaces, x)],
+            [_gym_space_flatten_encode_sub(space, x_part) for space, x_part in zip(s, x)],
         )
 
-    if isinstance(gym_space, spaces.Dict):
+    if isinstance(gym_space, gym_spaces.Dict):
         keys = sorted(gym_space.spaces.keys())
-        return np.concatenate(
-            [_gym_space_flatten_encode_sub(gym_space.spaces[key], x[key]) for key in keys],
-        )
+        return np.concatenate([_gym_space_flatten_encode_sub(gym_space.spaces[key], x[key]) for key in keys])
 
-    if isinstance(gym_space, spaces.Graph):
+    if isinstance(gym_space, gym_spaces.Graph):
         pass  # TODO
 
-    if isinstance(gym_space, spaces.Text):
+    if isinstance(gym_space, gym_spaces.Text):
         arr = np.full(shape=(gym_space.max_length,), fill_value=len(gym_space.character_set), dtype=np.int32)
         for i, val in enumerate(x):
             arr[i] = gym_space.character_index(val)
         return arr
 
-    if isinstance(gym_space, spaces.Sequence):
+    if isinstance(gym_space, gym_spaces.Sequence):
         pass  # TODO
 
     # other space
@@ -146,21 +146,21 @@ def gym_space_flatten_encode(gym_space, val):
     return _gym_space_flatten_encode_sub(gym_space, val)
 
 
-def _gym_space_flatten_decode_sub(gym_space: spaces.Space, x, idx=0):
-    if isinstance(gym_space, spaces.Discrete):
+def _gym_space_flatten_decode_sub(gym_space, x, idx=0):
+    if isinstance(gym_space, gym_spaces.Discrete):
         return int(x[idx]), idx + 1
 
-    if isinstance(gym_space, spaces.MultiDiscrete):
+    if isinstance(gym_space, gym_spaces.MultiDiscrete):
         size = len(gym_space.nvec.flatten())
         arr = x[idx : idx + size]
         return np.asarray(arr).reshape(gym_space.shape).astype(gym_space.dtype), idx + size
 
-    if isinstance(gym_space, spaces.MultiBinary):
+    if isinstance(gym_space, gym_spaces.MultiBinary):
         size = len(np.zeros(gym_space.shape).flatten())
         arr = x[idx : idx + size]
         return np.asarray(arr).reshape(gym_space.shape).astype(gym_space.dtype), idx + size
 
-    if isinstance(gym_space, spaces.Box):
+    if isinstance(gym_space, gym_spaces.Box):
         if gym_space.shape == ():
             size = 1
             arr = x[idx : idx + size]
@@ -170,14 +170,14 @@ def _gym_space_flatten_decode_sub(gym_space: spaces.Space, x, idx=0):
             arr = x[idx : idx + size]
             return np.asarray(arr).reshape(gym_space.shape).astype(gym_space.dtype), idx + size
 
-    if isinstance(gym_space, spaces.Tuple):
+    if isinstance(gym_space, gym_spaces.Tuple):
         arr = []
         for space in gym_space.spaces:
             n, idx = _gym_space_flatten_decode_sub(space, x, idx)
             arr.append(n)
         return tuple(arr), idx
 
-    if isinstance(gym_space, spaces.Dict):
+    if isinstance(gym_space, gym_spaces.Dict):
         keys = sorted(gym_space.spaces.keys())
         dic = {}
         for key in keys:
@@ -185,19 +185,19 @@ def _gym_space_flatten_decode_sub(gym_space: spaces.Space, x, idx=0):
             dic[key] = n
         return dic, idx
 
-    if isinstance(gym_space, spaces.Graph):
+    if isinstance(gym_space, gym_spaces.Graph):
         pass  # TODO
 
-    if isinstance(gym_space, spaces.Text):
+    if isinstance(gym_space, gym_spaces.Text):
         pass  # TODO
 
-    if isinstance(gym_space, spaces.Sequence):
+    if isinstance(gym_space, gym_spaces.Sequence):
         pass  # TODO
 
     raise NotImplementedError(f"not supported `{gym_space}` `{x}`")
 
 
-def gym_space_flatten_decode(gym_space: spaces.Space, val) -> Any:
+def gym_space_flatten_decode(gym_space: gym_spaces.Space, val) -> Any:
     # 主にアクション
     if isinstance(val, tuple):
         val = list(val)
@@ -254,7 +254,7 @@ class GymWrapper(EnvBase):
         # --- space img
         self._observation_type = EnvObservationTypes.UNKNOWN
         if check_image:
-            if isinstance(self.env.observation_space, spaces.Box) and (
+            if isinstance(self.env.observation_space, gym_spaces.Box) and (
                 "uint" in str(self.env.observation_space.dtype)
             ):
                 if len(self.env.observation_space.shape) == 2:

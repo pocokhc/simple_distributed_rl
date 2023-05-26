@@ -23,7 +23,6 @@ from srl.base.spaces.space import SpaceBase
 if TYPE_CHECKING:
     from srl.base.rl.worker import WorkerBase, WorkerRun
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -316,7 +315,7 @@ class EnvRun:
 
         # action check
         if not self.done and len(invalid_actions) > 0:
-            assert len(invalid_actions) < self.action_space.get_action_discrete_info()
+            assert len(invalid_actions) < self.action_space.n
 
         # done step
         if self.done:

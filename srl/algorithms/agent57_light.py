@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLObservationTypes
+from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.memory import IPriorityMemoryConfig
@@ -172,8 +172,8 @@ class Config(DiscreteActionConfig):
         ]
 
     @property
-    def observation_type(self) -> RLObservationTypes:
-        return RLObservationTypes.CONTINUOUS
+    def observation_type(self) -> RLTypes:
+        return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "Agent57_light"
@@ -771,7 +771,7 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, model_q_online.trainable_variables)
         optimizer.apply_gradients(zip(grads, model_q_online.trainable_variables))
 
-        td_error = (target_q - q).numpy()
+        td_error = target_q - cast(Any, q).numpy()
         loss = loss.numpy()
 
         return td_error, loss
@@ -818,7 +818,7 @@ class Worker(DiscreteActionWorker):
         self.prev_reward_int = 0
 
         # Q値取得用
-        self.onehot_actor_idx = tf.one_hot(np.array(self.actor_index), self.config.actor_num)[np.newaxis, ...]
+        self.onehot_actor_idx = tf.expand_dims(tf.one_hot(np.array(self.actor_index), self.config.actor_num), axis=0)
 
         # sliding-window UCB 用に報酬を保存
         self.episode_reward = 0.0
@@ -870,7 +870,7 @@ class Worker(DiscreteActionWorker):
         self.state = state
         self.invalid_actions = invalid_actions
 
-        prev_onehot_action = tf.one_hot(np.array(self.prev_action), self.config.action_num)[np.newaxis, ...]
+        prev_onehot_action = tf.expand_dims(tf.one_hot(np.array(self.prev_action), self.config.action_num), axis=0)
         in_ = [
             state[np.newaxis, ...],
             np.array([[self.prev_reward_ext]], dtype=np.float32),

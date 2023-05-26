@@ -2,7 +2,7 @@ from typing import Tuple
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, RLObservationTypes
+from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.env.base import EnvRun
 from srl.base.rl.processor import Processor
 from srl.base.spaces import BoxSpace
@@ -14,7 +14,7 @@ class LayerProcessor(Processor):
         self,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationTypes,
-        rl_observation_type: RLObservationTypes,
+        rl_observation_type: RLTypes,
         env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationTypes]:
         observation_space = BoxSpace(

@@ -5,7 +5,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, InfoType, RLActionType, RLActionTypes, RLObservationType
+from srl.base.define import EnvObservationTypes, InfoType, RLActionType, RLObservationType, RLTypes
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.rl.base import RLConfig
 from srl.base.rl.worker import RLWorker, WorkerRun
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AnyActionConfig(RLConfig):
     @property
-    def action_type(self) -> RLActionTypes:
-        return RLActionTypes.ANY
+    def action_type(self) -> RLTypes:
+        return RLTypes.ANY
 
     def set_config_by_env(
         self,
@@ -26,18 +26,17 @@ class AnyActionConfig(RLConfig):
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationTypes,
     ) -> None:
-        if env_action_space.rl_action_type == RLActionTypes.DISCRETE:
-            self._action_num = env_action_space.get_action_discrete_info()
+        if env_action_space.rl_type == RLTypes.DISCRETE:
+            self._action_num = env_action_space.n
             self._action_low = np.ndarray(0)
             self._action_high = np.ndarray(self._action_num - 1)
-            self._env_action_type = RLActionTypes.DISCRETE
+            self._env_action_type = RLTypes.DISCRETE
         else:
             # ANYの場合もCONTINUOUS
-            n, low, high = env_action_space.get_action_continuous_info()
-            self._action_num = n
-            self._action_low = low
-            self._action_high = high
-            self._env_action_type = RLActionTypes.CONTINUOUS
+            self._action_num = env_action_space.list_size
+            self._action_low = np.array(env_action_space.list_low)
+            self._action_high = np.array(env_action_space.list_high)
+            self._env_action_type = RLTypes.CONTINUOUS
 
     @property
     def action_num(self) -> int:
@@ -52,7 +51,7 @@ class AnyActionConfig(RLConfig):
         return self._action_high
 
     @property
-    def env_action_type(self) -> RLActionTypes:
+    def env_action_type(self) -> RLTypes:
         return self._env_action_type
 
 

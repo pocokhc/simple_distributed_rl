@@ -5,7 +5,7 @@ from typing import List, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, RLObservationTypes
+from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter
 from srl.base.rl.memory import IPriorityMemoryConfig
@@ -111,8 +111,8 @@ class Config(DiscreteActionConfig):
         ]
 
     @property
-    def observation_type(self) -> RLObservationTypes:
-        return RLObservationTypes.CONTINUOUS
+    def observation_type(self) -> RLTypes:
+        return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
         framework = self.get_use_framework()

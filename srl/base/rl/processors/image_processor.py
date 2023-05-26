@@ -4,7 +4,7 @@ from typing import Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationType, EnvObservationTypes, RLObservationTypes
+from srl.base.define import EnvObservationType, EnvObservationTypes, RLTypes
 from srl.base.env.base import EnvRun, SpaceBase
 from srl.base.rl.processor import Processor
 from srl.base.spaces.box import BoxSpace
@@ -35,7 +35,7 @@ class ImageProcessor(Processor):
         self,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationTypes,
-        rl_observation_type: RLObservationTypes,
+        rl_observation_type: RLTypes,
         env: EnvRun,
     ) -> Tuple[SpaceBase, EnvObservationTypes]:
         self.before_observation_type = env_observation_type

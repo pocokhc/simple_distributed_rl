@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
@@ -132,7 +132,7 @@ class ProportionalMemory(IPriorityMemory):
             if self.max_priority < priorities[i]:
                 self.max_priority = priorities[i]
 
-    def sample(self, batch_size, step):
+    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         indices = []
         batchs = []
         weights = np.empty(batch_size, dtype=np.float32)

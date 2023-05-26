@@ -1,7 +1,7 @@
 import logging
 import random
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
@@ -36,7 +36,7 @@ class DemoMemory(IPriorityMemory):
         else:
             self._memory.add(batch, td_error)
 
-    def sample(self, batch_size, step):
+    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         self.demo_batch_size = sum([random.random() < self.ratio for _ in range(batch_size)])
         if len(self._demo_memory) < self.demo_batch_size:
             self.demo_batch_size = len(self._demo_memory)
@@ -57,7 +57,7 @@ class DemoMemory(IPriorityMemory):
             batchs.extend(b)
             weights.extend(w)
 
-        return indices, batchs, weights
+        return indices, batchs, np.asarray(weights)
 
     def update(self, indices: List[int], batchs: List[Any], td_errors: np.ndarray) -> None:
         # sample -> update の順番前提

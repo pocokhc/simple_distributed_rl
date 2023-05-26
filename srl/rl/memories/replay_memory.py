@@ -1,6 +1,8 @@
 import random
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, List, Tuple
+
+import numpy as np
 
 from srl.base.rl.memory import IPriorityMemory
 
@@ -25,13 +27,12 @@ class ReplayMemory(IPriorityMemory):
         if self.idx >= self.capacity:
             self.idx = 0
 
-    def update(self, indices, batchs, td_errors) -> None:
+    def update(self, indices: List[int], batchs: List[Any], td_errors: np.ndarray) -> None:
         pass
 
-    def sample(self, batch_size, step):
+    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         batchs = random.sample(self.memory, batch_size)
-        weights = [1 for _ in range(batch_size)]
-        return None, batchs, weights
+        return [], batchs, np.ones((batch_size,))
 
     def __len__(self) -> int:
         return len(self.memory)

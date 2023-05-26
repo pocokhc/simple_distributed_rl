@@ -2,7 +2,7 @@ import bisect
 import math
 import random
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
@@ -66,7 +66,7 @@ class RankBaseMemoryLinear(IPriorityMemory):
                 self.max_priority = priority
             bisect.insort(self.memory, _bisect_wrapper(priority, batchs[i]))
 
-    def sample(self, batch_size, step):
+    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         batchs = []
         weights = np.ones(batch_size, dtype=np.float32)
 

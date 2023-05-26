@@ -1,6 +1,6 @@
 import bisect
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
@@ -65,7 +65,7 @@ class RankBaseMemory(IPriorityMemory):
                 self.max_priority = priority
             bisect.insort(self.memory, _bisect_wrapper(priority, batchs[i]))
 
-    def sample(self, batch_size, step):
+    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         # βは最初は低く、学習終わりに1にする。
         beta = self.beta_initial + (1 - self.beta_initial) * step / self.beta_steps
         if beta > 1:
@@ -95,7 +95,7 @@ class RankBaseMemory(IPriorityMemory):
         # 最大値で正規化
         weights = weights / weights.max()
 
-        return None, batchs, weights
+        return [], batchs, weights
 
     def __len__(self):
         return len(self.memory)

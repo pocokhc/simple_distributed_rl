@@ -27,7 +27,7 @@ class PriorityExperienceReplay(RLRemoteMemory):
     def add(self, batch: Any, td_error: Optional[float] = None):
         self.memory.add(batch, td_error)
 
-    def sample(self, batch_size: int, step: int) -> Tuple[list, list, list]:
+    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         return self.memory.sample(batch_size, step)
 
     def update(self, indices: List[int], batchs: List[Any], td_errors: np.ndarray) -> None:

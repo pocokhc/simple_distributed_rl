@@ -131,8 +131,7 @@ class TestEnv:
         config = runner.Config(env_config, None)
 
         env = config.make_env()
-        config.players = [player] * env.player_num
-        config.players_kwargs = [player_kwargs for _ in range(env.player_num)]
+        config.players = [(player, player_kwargs) for _ in range(env.player_num)]
 
         runner.evaluate(config, None, max_episodes=3)
         return env

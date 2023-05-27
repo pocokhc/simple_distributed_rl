@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -21,8 +21,7 @@ class Evaluate(Callback):
     timeout: int = -1
     max_steps: int = -1
     # play config
-    players: List[Union[None, str, RLConfig]] = field(default_factory=list)
-    players_kwargs: List[dict] = field(default_factory=list)
+    players: List[Union[None, str, Tuple[str, dict], RLConfig]] = field(default_factory=list)
     shuffle_player: bool = False
     # tensorflow options
     device: str = "CPU"
@@ -44,7 +43,6 @@ class Evaluate(Callback):
         eval_config.device_main = self.device
         eval_config.tf_disable = self.tf_disable
         eval_config.players = self.players
-        eval_config.players_kwargs = self.players_kwargs
 
         self.eval_config = eval_config
 

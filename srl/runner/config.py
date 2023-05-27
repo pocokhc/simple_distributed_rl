@@ -13,13 +13,9 @@ from srl.base.env.base import EnvRun
 from srl.base.env.config import EnvConfig
 from srl.base.env.registration import make as srl_make_env
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
-from srl.base.rl.registration import (
-    make_parameter,
-    make_remote_memory,
-    make_trainer,
-    make_worker,
-    make_worker_rulebase,
-)
+from srl.base.rl.registration import (make_parameter, make_remote_memory,
+                                      make_trainer, make_worker,
+                                      make_worker_rulebase)
 from srl.base.rl.worker import RLWorker, WorkerRun
 from srl.runner.callback import Callback
 
@@ -31,16 +27,21 @@ class Config:
     env_config: Union[str, EnvConfig]  # type: ignore
     rl_config: Optional[RLConfig]  # type: ignore
 
-    # multi player option
-    # playersという変数名だけど、役割はworkersの方が正しい
-    players: List[Union[None, str, RLConfig]] = field(default_factory=list)
-    players_kwargs: List[dict] = field(default_factory=list)  # 一部のworkerでのオプション
+    players: List[Union[None, str, Tuple[str, dict], RLConfig]] = field(default_factory=list)
+    """ multi player option, playersという変数名だけど、役割はworkersの方が正しい
+    None             : use rl_config worker
+    str              : Registered RuleWorker
+    Tuple[str, dict] : Registered RuleWorker(Pass kwargs argument)
+    RLConfig         : use RLConfig worker
+    """
 
-    # mp options
+    # --- mp options
     actor_num: int = 1
     trainer_parameter_send_interval_by_train_count: int = 100
     actor_parameter_sync_interval_by_step: int = 100
 
+    # --- device option
+    device_main: str = "AUTO"
     """ device option
     "AUTO",""    : Automatic assignment.
     "CPU","CPU:0": Use CPU.
@@ -56,7 +57,6 @@ class Config:
         - trainer: GPU > CPU
         - actors : CPU
     """
-    device_main: str = "AUTO"
     device_mp_trainer: str = "AUTO"
     device_mp_actors: Union[str, List[str]] = "AUTO"  # ["CPU:0", "CPU:1"]
     on_device_init_function: Optional[Callable[["Config"], None]] = None
@@ -291,7 +291,7 @@ class Config:
         player: Union[None, str, RLConfig],
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
-        env_worker_kwargs={},
+        worker_kwargs={},
     ) -> WorkerRun:
         env = self.make_env()
 
@@ -307,7 +307,7 @@ class Config:
                 self.training,
                 self.distributed,
                 enable_raise=False,
-                env_worker_kwargs=env_worker_kwargs,
+                env_worker_kwargs=worker_kwargs,
             )
             if worker is not None:
                 return worker
@@ -315,6 +315,7 @@ class Config:
                 player,
                 self.training,
                 self.distributed,
+                worker_kwargs=worker_kwargs,
             )
             assert worker is not None, f"not registered: {player}"
             return worker
@@ -345,20 +346,27 @@ class Config:
 
         # 初期化されていない場合、一人目はNone、二人目以降はrandomにする
         if len(self.players) == 0:
-            players: List[Union[None, str, RLConfig]] = ["random" for _ in range(env.player_num)]
+            players: List[Union[None, str, Tuple[str, dict], RLConfig]] = ["random" for _ in range(env.player_num)]
             players[0] = None
         else:
             players = self.players
 
-        return [
-            self.make_worker_player(
-                players[i] if i < len(players) else None,
-                parameter,
-                remote_memory,
-                self.players_kwargs[i] if i < len(self.players_kwargs) else {},
+        workers = []
+        for i in range(env.player_num):
+            p = players[i] if i < len(players) else None
+            kwargs = {}
+            if isinstance(p, tuple) or isinstance(p, list):
+                kwargs = p[1]
+                p = p[0]
+            workers.append(
+                self.make_worker_player(
+                    p,
+                    parameter,
+                    remote_memory,
+                    kwargs,
+                )
             )
-            for i in range(env.player_num)
-        ]
+        return workers
 
     # ------------------------------
     # GPU

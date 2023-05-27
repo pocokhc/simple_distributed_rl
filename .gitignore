@@ -11,6 +11,9 @@ _*.*
 !__init__.py
 _*/
 
+# --- sphinx
+!docs/_sources/
+!docs/_static/
 
 
 #---------------------------

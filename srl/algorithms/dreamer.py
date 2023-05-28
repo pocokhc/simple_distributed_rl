@@ -7,7 +7,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLObservationTypes
+from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLRemoteMemory, RLTrainer
 from srl.base.rl.processor import Processor
@@ -75,8 +75,8 @@ class Config(DiscreteActionConfig):
         ]
 
     @property
-    def observation_type(self) -> RLObservationTypes:
-        return RLObservationTypes.CONTINUOUS
+    def observation_type(self) -> RLTypes:
+        return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
         return "Dreamer"
@@ -423,7 +423,7 @@ class Parameter(RLParameter):
         self.dynamics.set_weights(data[1])
         self.decode.set_weights(data[2])
         self.reward.set_weights(data[3])
-        self.value.set_weights(data[4])
+        # self.value.set_weights(data[4])
         # self.actor.set_weights(data[5])
 
     def call_backup(self, **kwargs) -> Any:
@@ -571,7 +571,7 @@ class Trainer(RLTrainer):
             info["reward_loss"] = -reward_loss.numpy()
             info["kl_loss"] = kl_loss.numpy()  # type:ignore , ignore check "None"
 
-        if (not self.config.enable_train_actor) and (self.config.enable_train_value):
+        if (not self.config.enable_train_actor) and (not self.config.enable_train_value):
             # WorldModelsのみ学習
             self.train_count += 1
             return info
@@ -599,20 +599,22 @@ class Trainer(RLTrainer):
                 returns = tf.constant([0] * self.config.batch_size * self.config.batch_length, dtype=tf.float32)
                 returns = tf.expand_dims(returns, axis=1)
                 for t in range(self.config.horizon):
-                    if self.config.value_estimation == "simple":
-                        reward = self.parameter.reward(horizon_feat).mode()
-                        value = self.parameter.value(horizon_feat).mode()
-                        # print(reward)
-                        # returns += reward * (self.config.discount**t)
-                        returns += (self.config.discount**t) * (reward + value) / 5
                     policy = self.parameter.actor(horizon_feat).sample()
                     horizon_deter, horizon_prior = self.parameter.dynamics.img_step(
                         horizon_stoch, horizon_deter, policy
                     )
                     horizon_stoch = horizon_prior["stoch"]
                     horizon_feat = tf.concat([horizon_stoch, horizon_deter], -1)
+
+                    if self.config.value_estimation == "simple":
+                        reward = self.parameter.reward(horizon_feat).mode()
+                        value = self.parameter.value(horizon_feat).mode()
+                        # print(reward)
+                        # returns += reward * (self.config.discount**t)
+                        returns += (self.config.discount**t) * (reward + value) / 2
+
                 act_loss = -tf.reduce_mean(returns) / self.config.horizon
-                act_loss /= 10
+                # act_loss /= 100
 
             grads = tape.gradient(act_loss, self.parameter.actor.trainable_variables)
             self._actor_opt.apply_gradients(zip(grads, self.parameter.actor.trainable_variables))
@@ -628,11 +630,12 @@ class Trainer(RLTrainer):
             horizon_feat = feats
             returns = tf.constant([0] * self.config.batch_size * self.config.batch_length, dtype=tf.float32)
             returns = tf.expand_dims(returns, axis=1)
-            for t in range(self.config.horizon):
-                if self.config.value_estimation == "simple":
-                    reward = self.parameter.reward(horizon_feat).mode()
-                    returns += reward
 
+            if self.config.value_estimation == "simple":
+                reward = self.parameter.reward(horizon_feat).mode()
+                returns += reward
+
+            for t in range(self.config.horizon):
                 # --- horizon policy
                 if True:
                     # random policy
@@ -645,6 +648,10 @@ class Trainer(RLTrainer):
                 horizon_deter, horizon_prior = self.parameter.dynamics.img_step(horizon_stoch, horizon_deter, policy)
                 horizon_stoch = horizon_prior["stoch"]
                 horizon_feat = tf.concat([horizon_stoch, horizon_deter], -1)
+
+                if self.config.value_estimation == "simple":
+                    reward = self.parameter.reward(horizon_feat).mode()
+                    returns += reward * (self.config.discount ** (t + 1))
 
             self.parameter.actor.trainable = False
             self.parameter.value.trainable = True
@@ -786,6 +793,7 @@ class Worker(DiscreteActionWorker):
         rmse = np.sqrt(np.mean((self.state - pred_state) ** 2))
 
         pred_reward = self.parameter.reward(self.feat).mode()[0][0].numpy()  # type:ignore , ignore check "None"
+        pred_value = self.parameter.value(self.feat).mode()[0][0].numpy()
         _, policy_logits = self.parameter.actor(self.feat, return_logits=True)  # type:ignore , ignore check "None"
         policy_logits = policy_logits[0].numpy()
 
@@ -797,7 +805,8 @@ class Worker(DiscreteActionWorker):
         pw.draw_text(self.screen, IMG_W + PADDING, 0, f"decode(RMSE: {rmse:.4f})", color=(255, 255, 255))
         pw.draw_image_rgb_array(self.screen, IMG_W + PADDING, STR_H, img2)
 
-        pw.draw_text(self.screen, IMG_W * 2 + PADDING + 10, 10, f"reward: {pred_reward:.4f})", color=(255, 255, 255))
+        pw.draw_text(self.screen, IMG_W * 2 + PADDING + 10, 10, f"reward: {pred_reward:.4f}", color=(255, 255, 255))
+        pw.draw_text(self.screen, IMG_W * 2 + PADDING + 10, 20, f"V     : {pred_value:.4f}", color=(255, 255, 255))
 
         # 横にアクション後の結果を表示
         for i, a in enumerate(self.get_valid_actions()):

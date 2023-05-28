@@ -12,8 +12,7 @@ _*.*
 _*/
 
 # --- sphinx
-!docs/_sources/
-!docs/_static/
+!docs/_*/
 
 
 #---------------------------

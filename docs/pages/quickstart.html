@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="ja" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2. Getting Started &mdash; SimpleDistributedRL v0.10.0 ドキュメント</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="../_static/translations.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../genindex.html" />
+    <link rel="search" title="検索" href="../search.html" />
+    <link rel="next" title="3. Create Original Environment" href="custom_env.html" />
+    <link rel="prev" title="1. Installation" href="install.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SimpleDistributedRL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="install.html">1. Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">2. Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#basic-run-of-study">2.1. Basic run of study</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#commonly-run-example">2.2. Commonly run Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#manual-play-of-environment-example">2.3. Manual play of environment Example</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">3. Create Original Environment</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SimpleDistributedRL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active"><span class="section-number">2. </span>Getting Started</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/pages/quickstart.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="getting-started">
+<span id="quickstart"></span><h1><span class="section-number">2. </span>Getting Started<a class="headerlink" href="#getting-started" title="この見出しへのパーマリンク"></a></h1>
+<section id="basic-run-of-study">
+<h2><span class="section-number">2.1. </span>Basic run of study<a class="headerlink" href="#basic-run-of-study" title="この見出しへのパーマリンク"></a></h2>
+<p>最もシンプルな学習は以下です。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
+
+<span class="c1"># --- env &amp; algorithm load</span>
+<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">grid</span>  <span class="c1"># isort: skip # noqa F401</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># isort: skip</span>
+
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="c1"># create config</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
+
+    <span class="c1"># train</span>
+    <span class="n">parameter</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+    <span class="c1"># evaluate</span>
+    <span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">max_episodes</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;evaluate episodes: </span><span class="si">{</span><span class="n">rewards</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="commonly-run-example">
+<h2><span class="section-number">2.2. </span>Commonly run Example<a class="headerlink" href="#commonly-run-example" title="この見出しへのパーマリンク"></a></h2>
+<p>学習と評価を別々で実行できる形式です。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
+
+<span class="c1"># --- use env &amp; algorithm load</span>
+<span class="c1"># (Run &quot;pip install gym pygame&quot; to use the gym environment)</span>
+<span class="kn">import</span> <span class="nn">gym</span>  <span class="c1"># isort: skip # noqa F401</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># isort: skip</span>
+
+<span class="c1"># --- save parameter path</span>
+<span class="n">_parameter_path</span> <span class="o">=</span> <span class="s2">&quot;_params.dat&quot;</span>
+
+
+<span class="c1"># --- sample config</span>
+<span class="c1"># For the parameters of Config, refer to the argument completion or the original code.</span>
+<span class="k">def</span> <span class="nf">_create_config</span><span class="p">():</span>
+    <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;FrozenLake-v1&quot;</span><span class="p">)</span>
+    <span class="n">rl_config</span> <span class="o">=</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">rl_config</span><span class="p">)</span>
+    <span class="n">parameter</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">make_parameter</span><span class="p">()</span>
+
+    <span class="c1"># --- Loads the file if it exists</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">_parameter_path</span><span class="p">):</span>
+        <span class="n">parameter</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">_parameter_path</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">config</span><span class="p">,</span> <span class="n">parameter</span>
+
+
+<span class="c1"># --- train sample</span>
+<span class="k">def</span> <span class="nf">train</span><span class="p">():</span>
+    <span class="n">config</span><span class="p">,</span> <span class="n">parameter</span> <span class="o">=</span> <span class="n">_create_config</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="c1"># sequence training</span>
+        <span class="n">parameter</span><span class="p">,</span> <span class="n">remote_memory</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="o">=</span><span class="n">parameter</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># distributed training</span>
+        <span class="n">parameter</span><span class="p">,</span> <span class="n">remote_memory</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train_mp</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="o">=</span><span class="n">parameter</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
+
+    <span class="c1"># save parameter</span>
+    <span class="n">parameter</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">_parameter_path</span><span class="p">)</span>
+
+
+<span class="c1"># --- evaluate sample</span>
+<span class="k">def</span> <span class="nf">evaluate</span><span class="p">():</span>
+    <span class="n">config</span><span class="p">,</span> <span class="n">parameter</span> <span class="o">=</span> <span class="n">_create_config</span><span class="p">()</span>
+    <span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">max_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average reward for 100 episodes: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rewards</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="c1"># --- render sample</span>
+<span class="c1"># You can watch the progress of 1 episode</span>
+<span class="k">def</span> <span class="nf">render</span><span class="p">():</span>
+    <span class="n">config</span><span class="p">,</span> <span class="n">parameter</span> <span class="o">=</span> <span class="n">_create_config</span><span class="p">()</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
+
+
+<span class="c1"># --- render window sample</span>
+<span class="c1">#  (Run &quot;pip install opencv-python pillow matplotlib pygame&quot; to use the animation)</span>
+<span class="k">def</span> <span class="nf">render_window</span><span class="p">():</span>
+    <span class="n">config</span><span class="p">,</span> <span class="n">parameter</span> <span class="o">=</span> <span class="n">_create_config</span><span class="p">()</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">render_window</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
+
+
+<span class="c1"># --- animation sample</span>
+<span class="c1">#  (Run &quot;pip install opencv-python pillow matplotlib pygame&quot; to use the animation)</span>
+<span class="k">def</span> <span class="nf">animation</span><span class="p">():</span>
+    <span class="n">config</span><span class="p">,</span> <span class="n">parameter</span> <span class="o">=</span> <span class="n">_create_config</span><span class="p">()</span>
+    <span class="n">render</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">animation</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
+    <span class="n">render</span><span class="o">.</span><span class="n">create_anime</span><span class="p">()</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;_FrozenLake.gif&quot;</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">train</span><span class="p">()</span>
+    <span class="n">evaluate</span><span class="p">()</span>
+    <span class="n">render</span><span class="p">()</span>
+    <span class="n">render_window</span><span class="p">()</span>
+    <span class="n">animation</span><span class="p">()</span>
+</pre></div>
+</div>
+<img alt="../_images/FrozenLake.gif" src="../_images/FrozenLake.gif" />
+</section>
+<section id="manual-play-of-environment-example">
+<h2><span class="section-number">2.3. </span>Manual play of environment Example<a class="headerlink" href="#manual-play-of-environment-example" title="この見出しへのパーマリンク"></a></h2>
+<p>環境を手動で遊ぶ例です。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
+<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">grid</span>  <span class="c1"># noqa F401</span>
+
+<span class="n">runner</span><span class="o">.</span><span class="n">play</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><cite>key_bind</cite> を設定すると入力方法をカスタマイズすることができます。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pygame</span>
+
+<span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
+
+<span class="c1"># --- use env load</span>
+<span class="c1"># (Run &quot;pip install gym[atari,accept-rom-license] pygame&quot;)</span>
+<span class="kn">import</span> <span class="nn">gym</span>  <span class="c1"># isort: skip # noqa F401</span>
+
+<span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span>
+    <span class="s2">&quot;ALE/Galaxian-v5&quot;</span><span class="p">,</span>
+    <span class="n">kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">full_action_space</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="n">key_bind</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">&quot;z&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">pygame</span><span class="o">.</span><span class="n">K_UP</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="n">pygame</span><span class="o">.</span><span class="n">K_RIGHT</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="n">pygame</span><span class="o">.</span><span class="n">K_LEFT</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="n">pygame</span><span class="o">.</span><span class="n">K_DOWN</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_UP</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_RIGHT</span><span class="p">):</span> <span class="mi">6</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_UP</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_LEFT</span><span class="p">):</span> <span class="mi">7</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_DOWN</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_RIGHT</span><span class="p">):</span> <span class="mi">8</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_DOWN</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_LEFT</span><span class="p">):</span> <span class="mi">9</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_UP</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_z</span><span class="p">):</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_RIGHT</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_z</span><span class="p">):</span> <span class="mi">11</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_LEFT</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_z</span><span class="p">):</span> <span class="mi">12</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_DOWN</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_z</span><span class="p">):</span> <span class="mi">13</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_UP</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_RIGHT</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_z</span><span class="p">):</span> <span class="mi">14</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_UP</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_LEFT</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_z</span><span class="p">):</span> <span class="mi">15</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_DOWN</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_RIGHT</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_z</span><span class="p">):</span> <span class="mi">16</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_DOWN</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_LEFT</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_z</span><span class="p">):</span> <span class="mi">17</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">play</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">key_bind</span><span class="o">=</span><span class="n">key_bind</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="install.html" class="btn btn-neutral float-left" title="1. Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="custom_env.html" class="btn btn-neutral float-right" title="3. Create Original Environment" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, poco_cpp.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

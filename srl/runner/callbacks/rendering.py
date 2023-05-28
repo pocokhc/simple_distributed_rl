@@ -166,7 +166,6 @@ class Rendering(Callback):
     # -----------------------------------------------
     def _create_image(self, frame):
         import cv2
-        from cv2 import Mat
 
         info_image = frame["info_image"]
         env_image = frame["env_image"]
@@ -200,7 +199,7 @@ class Rendering(Callback):
             rl_w = maxw - rl_image.shape[1]
             info_image = cv2.copyMakeBorder(info_image, 0, 0, 0, info_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
             rl_image = cv2.copyMakeBorder(rl_image, 0, 0, 0, rl_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
-            right_img = cv2.vconcat(cast(Mat, [info_image, rl_image]))  # 縦連結
+            right_img = cv2.vconcat([info_image, rl_image])  # 縦連結  # type: ignore , MAT
             right_maxh = self.info_maxh + self.rl_maxh + padding * 4
 
         # --- env + rl_state:
@@ -215,7 +214,7 @@ class Rendering(Callback):
             rl_state_image = cv2.copyMakeBorder(
                 rl_state_image, 0, 0, 0, rl_state_w, cv2.BORDER_CONSTANT, value=(255, 255, 255)
             )
-            left_img = cv2.vconcat(cast(Mat, [env_image, rl_state_image]))  # 縦連結
+            left_img = cv2.vconcat([env_image, rl_state_image])  # 縦連結  # type: ignore , MAT
             left_maxh = self.env_maxh + self.rl_state_maxh + padding * 4
 
         # --- left_img + right_img: 余白は下を埋める
@@ -224,7 +223,7 @@ class Rendering(Callback):
         right_h = maxh - right_img.shape[0]
         left_img = cv2.copyMakeBorder(left_img, 0, left_h, 0, 0, cv2.BORDER_CONSTANT, value=(255, 255, 255))
         right_img = cv2.copyMakeBorder(right_img, 0, right_h, 0, 0, cv2.BORDER_CONSTANT, value=(0, 0, 0))
-        img = cv2.hconcat(cast(Mat, [left_img, right_img]))  # 横連結
+        img = cv2.hconcat([left_img, right_img])  # 横連結  # type: ignore , MAT
 
         return img
 

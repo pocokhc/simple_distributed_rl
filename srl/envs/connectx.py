@@ -24,6 +24,15 @@ registration.register(
 )
 
 
+def board_reverse(board):
+    b = board[:]
+    for i in range(6):
+        b[i * 7 + 6], b[i * 7 + 0] = b[i * 7 + 0], b[i * 7 + 6]
+        b[i * 7 + 5], b[i * 7 + 1] = b[i * 7 + 1], b[i * 7 + 5]
+        b[i * 7 + 4], b[i * 7 + 2] = b[i * 7 + 2], b[i * 7 + 4]
+    return b
+
+
 class ConnectX(TurnBase2Player):
     def __init__(self):
         super().__init__()

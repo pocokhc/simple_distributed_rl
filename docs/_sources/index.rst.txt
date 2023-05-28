@@ -4,13 +4,14 @@ Welcome to SimpleDistributedRL's documentation!
 ===============================================
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Contents
    :numbered:
 
-   /pages/install
-   /pages/quickstart
-   /pages/custom_env
+   pages/install
+   pages/quickstart
+   pages/custom_env
+   pages/custom_algorithm
 
 
 Indices and tables

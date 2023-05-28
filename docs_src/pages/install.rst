@@ -6,6 +6,11 @@ Installation
 
 .. currentmodule:: srl
 
+numpyライブラリだけ必須になるので入れてください。
+
+.. code-block:: console
+
+    $ pip install numpy
 
 SRLはGitHubからインストールまたはダウンロードをして使うことができます。
 
@@ -37,6 +42,11 @@ Download(No install)
 
 srlディレクトリに実行パスが通っていればダウンロードだけでも使えます。
 
+.. code-block:: console
+
+    # Download srl files
+    $ git clone https://github.com/pocokhc/simple_distributed_rl.git
+
 .. code-block:: python
 
     import os
@@ -48,3 +58,34 @@ srlディレクトリに実行パスが通っていればダウンロードだ�
     import srl
     print(srl.__version__)
 
+
+Using library
+====================
+
+その他、機能によっては以下ライブラリが必要になります。
+
++ Tensorflow が必要なアルゴリズムを使う場合に必要
+   + tensorflow
+   + tensorflow-addons
+   + tensorflow-probability
++ Torch が必要なアルゴリズムを使う場合に必要
+   + <https://pytorch.org/get-started/locally/>
++ RGBの描画関係を使用する場合に必要
+   + matplotlib
+   + pillow
+   + opencv-python
+   + pygame
++ 統計情報を扱う場合に必要
+   + pandas
++ OpenAI Gym の環境を使う場合に必要
+   + gym
+   + pygame
++ Profile情報を表示する場合に必要
+   + psutil
+   + pynvml
+
+Tensorflow,Torchを除いたライブラリを一括でインストールするコマンドは以下です。
+
+.. code-block:: console
+
+    $ pip install matplotlib pillow opencv-python pygame pandas gym psutil pynvml

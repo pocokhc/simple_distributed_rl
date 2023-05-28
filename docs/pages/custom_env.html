@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="ja" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3. Create Original Environment &mdash; SimpleDistributedRL v0.10.0 ドキュメント</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="../_static/translations.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../genindex.html" />
+    <link rel="search" title="検索" href="../search.html" />
+    <link rel="prev" title="2. Getting Started" href="quickstart.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SimpleDistributedRL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="install.html">1. Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">2. Getting Started</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">3. Create Original Environment</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#id1">3.1. 実装クラス</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#gym">3.1.1. gym の環境を利用</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#envbase">3.1.2. EnvBaseクラスを利用する方法</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id2">3.1.3. 一人プレイ用のクラス</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id3">3.1.4. ターン制二人プレイ用のクラス</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id4">3.1.5. その他オプション</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#space">3.2. Spaceクラスについて</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id5">3.3. 自作環境の登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id6">3.4. 実装例</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id7">3.5. テスト</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#q">3.6. Q学習による学習</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SimpleDistributedRL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active"><span class="section-number">3. </span>Create Original Environment</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/pages/custom_env.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="create-original-environment">
+<span id="custom-env"></span><h1><span class="section-number">3. </span>Create Original Environment<a class="headerlink" href="#create-original-environment" title="この見出しへのパーマリンク"></a></h1>
+<p>ここでは本フレームワークでの自作環境を作成する方法を説明します。
+構成としては大きく以下です。</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>1.実装するクラスの説明</dt><dd><ul>
+<li><p>1-1.OpenAI gymクラス</p></li>
+<li><p>1-2.Baseクラス</p></li>
+<li><p>1-3.一人プレイ（singleplay）</p></li>
+<li><p>1-4.ターン制二人プレイ(turnbase2player)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>2.Spaceクラスの説明</p></li>
+<li><p>3.登録</p></li>
+<li><p>4.実装例(singleplay)</p></li>
+<li><p>5.テスト</p></li>
+<li><p>6.Q学習による学習</p></li>
+</ul>
+<section id="id1">
+<h2><span class="section-number">3.1. </span>実装クラス<a class="headerlink" href="#id1" title="この見出しへのパーマリンク"></a></h2>
+<p>自作環境を作成する方法は現在以下の二つがあります。</p>
+<ul class="simple">
+<li><p>(OpenAI gym)[<a class="reference external" href="https://github.com/openai/gym">https://github.com/openai/gym</a>]（以下gym）の環境を用意する</p></li>
+<li><p>本フレームワークで実装されている 'srl.base.env.EnvBase' を継承する</p></li>
+</ul>
+<p>それぞれについて説明します。</p>
+<section id="gym">
+<h3><span class="section-number">3.1.1. </span>gym の環境を利用<a class="headerlink" href="#gym" title="この見出しへのパーマリンク"></a></h3>
+<p>gym の環境を利用を利用する場合は別途 <cite>pip install gym</cite> が必要です。
+また、一部本フレームワークに特化した内容にはならない点があります。
+1-2で説明があるBaseクラスを見比べてもらえれば分かりますが、アルゴリズム向けに特化した情報が増えています。</p>
+<p>※gym側の更新等により不正確な情報になる可能性があります。より正確な情報は公式(&lt;<a class="reference external" href="https://github.com/openai/gym">https://github.com/openai/gym</a>&gt;)を見てください。</p>
+<p>具体的なコードは以下です。
+gym.Envを継承して作成します。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">gym</span>
+<span class="kn">from</span> <span class="nn">gym</span> <span class="kn">import</span> <span class="n">spaces</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="k">class</span> <span class="nc">MyGymEnv</span><span class="p">(</span><span class="n">gym</span><span class="o">.</span><span class="n">Env</span><span class="p">):</span>
+   <span class="c1"># 利用できるrender_modesを指定するようです</span>
+   <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;render_modes&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;ansi&quot;</span><span class="p">,</span> <span class="s2">&quot;rgb_array&quot;</span><span class="p">],</span> <span class="s2">&quot;render_fps&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">}</span>
+
+   <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">render_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">render_mode</span> <span class="o">=</span> <span class="n">render_mode</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">      initで以下2つの変数を定義する必要あり</span>
+<span class="sd">      spaces.Space型については省略します。</span>
+
+<span class="sd">      self.action_space      : アクションが取りうる範囲を指定</span>
+<span class="sd">      self.observation_space : 状態が取りうる範囲を指定</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+
+      <span class="bp">self</span><span class="o">.</span><span class="n">action_space</span><span class="p">:</span> <span class="n">spaces</span><span class="o">.</span><span class="n">Space</span> <span class="o">=</span> <span class="n">spaces</span><span class="o">.</span><span class="n">Discrete</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">observation_space</span><span class="p">:</span> <span class="n">spaces</span><span class="o">.</span><span class="n">Space</span> <span class="o">=</span> <span class="n">spaces</span><span class="o">.</span><span class="n">Box</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,))</span>
+
+   <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span><span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+      <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 1エピソードの最初に実行。（初期化処理を実装）</span>
+<span class="sd">      return 初期状態, 情報</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+      <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> <span class="p">{}</span>
+
+   <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; actionを元に1step進める処理を実装</span>
+<span class="sd">      return (</span>
+<span class="sd">            1step後の状態,</span>
+<span class="sd">            即時報酬,</span>
+<span class="sd">            予定通り終了したらTrue(terminated),</span>
+<span class="sd">            予想外で終了したらTrue(truncated),</span>
+<span class="sd">            情報(任意),</span>
+<span class="sd">      )</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+      <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="p">{}</span>
+
+   <span class="k">def</span> <span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">      描画処理を書きます。</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+      <span class="k">pass</span>
+</pre></div>
+</div>
+<p>環境クラスを作成したら登録します。
+登録時のid名は &quot;名前-vX&quot; という形式である必要があります。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">gym.envs.registration</span>
+
+<span class="n">gym</span><span class="o">.</span><span class="n">envs</span><span class="o">.</span><span class="n">registration</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+   <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;MyGymEnv-v0&quot;</span><span class="p">,</span>
+   <span class="n">entry_point</span><span class="o">=</span><span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;:MyGymEnv&quot;</span><span class="p">,</span>
+   <span class="n">max_episode_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>以下のように呼び出せます。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">gym</span>
+<span class="n">env</span> <span class="o">=</span> <span class="n">gym</span><span class="o">.</span><span class="n">make</span><span class="p">(</span><span class="s2">&quot;MyGymEnv-v0&quot;</span><span class="p">)</span>
+
+<span class="n">observation</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+   <span class="n">observation</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">terminated</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">action_space</span><span class="o">.</span><span class="n">sample</span><span class="p">())</span>
+   <span class="n">env</span><span class="o">.</span><span class="n">render</span><span class="p">()</span>
+
+   <span class="k">if</span> <span class="n">terminated</span> <span class="ow">or</span> <span class="n">truncated</span><span class="p">:</span>
+      <span class="n">observation</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+
+<span class="n">env</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="envbase">
+<h3><span class="section-number">3.1.2. </span>EnvBaseクラスを利用する方法<a class="headerlink" href="#envbase" title="この見出しへのパーマリンク"></a></h3>
+<p>本フレームワーク共通で使用する基底クラス(<cite>srl.base.env.EnvBase</cite>)の説明です。
+本フレームワークで環境を使う場合は、このクラスを継承している必要があります。</p>
+<p>ただ、EnvBaseは複数人のプレイ環境も実装できるようにいくつか余分な情報が入っています。
+これは作成する環境がどういったものかである程度決定できる情報があり、それに特化したクラスも用意しています。
+環境を作成する場合は、以下のクラスから選んで継承し作成してください。</p>
+<ul class="simple">
+<li><p>EnvBase         : 0から環境を作る場合に継承するクラス</p></li>
+<li><p>SinglePlayEnv   : 一人用の環境を作る場合に継承するクラス</p></li>
+<li><p>TurnBase2Player : 二人用ターン制の環境を作る場合に継承するクラス</p></li>
+</ul>
+<p>EnvBase を継承した後に実装が必要な関数・プロパティは以下です。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
+<span class="kn">from</span> <span class="nn">srl.base.env</span> <span class="kn">import</span> <span class="n">EnvBase</span>
+<span class="kn">from</span> <span class="nn">srl.base.spaces.space</span> <span class="kn">import</span> <span class="n">SpaceBase</span>
+<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">EnvActionType</span><span class="p">,</span> <span class="n">EnvObservationType</span><span class="p">,</span> <span class="n">EnvObservationTypes</span><span class="p">,</span> <span class="n">InfoType</span>
+
+
+<span class="k">class</span> <span class="nc">MyEnvBase</span><span class="p">(</span><span class="n">EnvBase</span><span class="p">):</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">action_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpaceBase</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; アクションの取りうる範囲を返します(SpaceBaseは後述) &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">observation_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpaceBase</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 状態の取りうる範囲を返します(SpaceBaseは後述) &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EnvObservationTypes</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 状態の種類を返します。</span>
+<span class="sd">      EnvObservationType は列挙型で以下です。</span>
+<span class="sd">      DISCRETE  : 離散</span>
+<span class="sd">      CONTINUOUS: 連続</span>
+<span class="sd">      GRAY_2ch  : グレー画像(2ch)</span>
+<span class="sd">      GRAY_3ch  : グレー画像(3ch)</span>
+<span class="sd">      COLOR     : カラー画像</span>
+<span class="sd">      SHAPE2    : 2次元空間</span>
+<span class="sd">      SHAPE3    : 3次元空間</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">max_episode_steps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 1エピソードの最大ステップ数 &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">player_num</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; プレイヤー人数 &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="n">InfoType</span><span class="p">]:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 1エピソードの最初に実行。（初期化処理を実装）</span>
+<span class="sd">      Returns: (</span>
+<span class="sd">            init_state : 初期状態</span>
+<span class="sd">            info       : 任意の情報</span>
+<span class="sd">      )</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">:</span> <span class="n">EnvActionType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">InfoType</span><span class="p">]:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; actionとplayerを元に1step進める処理を実装</span>
+
+<span class="sd">      Args:</span>
+<span class="sd">            action (EnvAction): player_index action</span>
+
+<span class="sd">      Returns: (</span>
+<span class="sd">            next_state : 1step後の状態</span>
+<span class="sd">            [</span>
+<span class="sd">               player1 reward,  : player1の報酬</span>
+<span class="sd">               player2 reward,  : player2の報酬</span>
+<span class="sd">               ...</span>
+<span class="sd">            ],</span>
+<span class="sd">            done,  : episodeが終了したか</span>
+<span class="sd">            info,  : 任意の情報</span>
+<span class="sd">      )</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">next_player_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 次のプレイヤーindex &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="c1"># backup/restore で現環境を復元できるように実装</span>
+   <span class="k">def</span> <span class="nf">backup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+   <span class="k">def</span> <span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="id2">
+<h3><span class="section-number">3.1.3. </span>一人プレイ用のクラス<a class="headerlink" href="#id2" title="この見出しへのパーマリンク"></a></h3>
+<p>一人プレイ用に特化した基底クラスの説明です。
+（<cite>srl.base.env.genre.singleplay.SinglePlayEnv</cite>）</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span> <span class="nn">srl.base.env.genre</span> <span class="kn">import</span> <span class="n">SinglePlayEnv</span>
+<span class="kn">from</span> <span class="nn">srl.base.spaces.space</span> <span class="kn">import</span> <span class="n">SpaceBase</span>
+<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">EnvObservationTypes</span><span class="p">,</span> <span class="n">InfoType</span>
+
+
+<span class="k">class</span> <span class="nc">MySinglePlayEnv</span><span class="p">(</span><span class="n">SinglePlayEnv</span><span class="p">):</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">action_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpaceBase</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; アクションの取りうる範囲を返します(SpaceBaseは後述) &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">observation_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpaceBase</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 状態の取りうる範囲を返します(SpaceBaseは後述) &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EnvObservationTypes</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 状態の種類を返します。</span>
+<span class="sd">      EnvObservationType は列挙型で以下です。</span>
+<span class="sd">      DISCRETE  : 離散</span>
+<span class="sd">      CONTINUOUS: 連続</span>
+<span class="sd">      GRAY_2ch  : グレー画像(2ch)</span>
+<span class="sd">      GRAY_3ch  : グレー画像(3ch)</span>
+<span class="sd">      COLOR     : カラー画像</span>
+<span class="sd">      SHAPE2    : 2次元空間</span>
+<span class="sd">      SHAPE3    : 3次元空間</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">max_episode_steps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 1エピソードの最大ステップ数 &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="k">def</span> <span class="nf">call_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="n">InfoType</span><span class="p">]:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 1エピソードの最初に実行。（初期化処理を実装）</span>
+<span class="sd">      Returns: (</span>
+<span class="sd">            EnvObservation (observation_spaceの型): 初期状態</span>
+<span class="sd">            Info                                 : 任意の情報</span>
+<span class="sd">      )</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="k">def</span> <span class="nf">call_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">InfoType</span><span class="p">]:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; actionを元に1step進める処理を実装</span>
+<span class="sd">      Returns: (</span>
+<span class="sd">            next_state : 1step後の状態</span>
+<span class="sd">            reward     : 即時報酬</span>
+<span class="sd">            done       : 終了したかどうか</span>
+<span class="sd">            info       : 任意の情報</span>
+<span class="sd">      )</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="c1"># backup/restore で現環境を復元できるように実装</span>
+   <span class="k">def</span> <span class="nf">backup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+   <span class="k">def</span> <span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="id3">
+<h3><span class="section-number">3.1.4. </span>ターン制二人プレイ用のクラス<a class="headerlink" href="#id3" title="この見出しへのパーマリンク"></a></h3>
+<p>ターン制二人プレイに特化した基底クラスの説明です。
+(<cite>srl.base.env.genre.turnbase2player.TurnBase2Player</cite>)</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span> <span class="nn">srl.base.env.genre</span> <span class="kn">import</span> <span class="n">TurnBase2Player</span>
+<span class="kn">from</span> <span class="nn">srl.base.spaces.space</span> <span class="kn">import</span> <span class="n">SpaceBase</span>
+<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">EnvObservationTypes</span><span class="p">,</span> <span class="n">InfoType</span>
+
+
+<span class="k">class</span> <span class="nc">MyTurnBase2Player</span><span class="p">(</span><span class="n">TurnBase2Player</span><span class="p">):</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">action_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpaceBase</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; アクションの取りうる範囲を返します(SpaceBaseは後述) &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">observation_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpaceBase</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 状態の取りうる範囲を返します(SpaceBaseは後述) &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EnvObservationTypes</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 状態の種類を返します。</span>
+<span class="sd">      EnvObservationType は列挙型で以下です。</span>
+<span class="sd">      DISCRETE  : 離散</span>
+<span class="sd">      CONTINUOUS: 連続</span>
+<span class="sd">      GRAY_2ch  : グレー画像(2ch)</span>
+<span class="sd">      GRAY_3ch  : グレー画像(3ch)</span>
+<span class="sd">      COLOR     : カラー画像</span>
+<span class="sd">      SHAPE2    : 2次元空間</span>
+<span class="sd">      SHAPE3    : 3次元空間</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">max_episode_steps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 1エピソードの最大ステップ数 &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">next_player_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 次ターンのプレイヤー番号を返す &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="k">def</span> <span class="nf">call_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="n">InfoType</span><span class="p">]:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 1エピソードの最初に実行。（初期化処理を実装）</span>
+<span class="sd">      Returns: (</span>
+<span class="sd">            EnvObservation (observation_spaceの型): 初期状態</span>
+<span class="sd">            Info                                 : 任意の情報</span>
+<span class="sd">      )</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+
+   <span class="k">def</span> <span class="nf">call_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">InfoType</span><span class="p">]:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; action を元に1step進める処理を実装</span>
+<span class="sd">      Returns: (</span>
+<span class="sd">            next_state     : 1step後の状態</span>
+<span class="sd">            player1 reward : player1の即時報酬</span>
+<span class="sd">            player2 reward : player2の即時報酬</span>
+<span class="sd">            done       : 終了したかどうか</span>
+<span class="sd">            info       : 情報(任意)</span>
+<span class="sd">      )</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="c1"># backup/restore で現環境を復元できるように実装</span>
+   <span class="k">def</span> <span class="nf">backup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+   <span class="k">def</span> <span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="id4">
+<h3><span class="section-number">3.1.5. </span>その他オプション<a class="headerlink" href="#id4" title="この見出しへのパーマリンク"></a></h3>
+<p>その他必須ではないですが、設定できる関数・プロパティとなります。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- 追加情報</span>
+<span class="nd">@property</span>
+<span class="k">def</span> <span class="nf">reward_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot; 報酬に関する情報を返す &quot;&quot;&quot;</span>
+   <span class="k">return</span> <span class="p">{</span>
+      <span class="s2">&quot;min&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+      <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+      <span class="s2">&quot;baseline&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+   <span class="p">}</span>
+
+<span class="c1"># --- 実行に関する関数</span>
+<span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot; 終了処理を実装 &quot;&quot;&quot;</span>
+   <span class="k">pass</span>
+
+<span class="k">def</span> <span class="nf">get_invalid_actions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">player_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot; 無効なアクションがある場合は配列で返す</span>
+<span class="sd">   （SinglePlayEnv では call_get_invalid_actions で設定）</span>
+<span class="sd">   &quot;&quot;&quot;</span>
+   <span class="k">return</span> <span class="p">[]</span>
+
+<span class="k">def</span> <span class="nf">set_seed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot; 乱数のseedを設定 &quot;&quot;&quot;</span>
+   <span class="k">pass</span>
+
+<span class="c1"># --- AI</span>
+<span class="k">def</span> <span class="nf">make_worker</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;srl.base.rl.base.WorkerBase&quot;</span><span class="p">]:</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot; 環境に特化したAIを返す &quot;&quot;&quot;</span>
+   <span class="k">return</span> <span class="kc">None</span>
+
+<span class="c1"># --- 描画に関する関数</span>
+<span class="k">def</span> <span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot; 現在の状況をprintで表示する用に実装 &quot;&quot;&quot;</span>
+   <span class="k">pass</span>
+
+<span class="k">def</span> <span class="nf">render_rgb_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot; 現在の状況を RGB の画像配列で返す &quot;&quot;&quot;</span>
+   <span class="k">return</span> <span class="kc">None</span>
+
+<span class="k">def</span> <span class="nf">action_to_str</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">EnvActionType</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot; アクションを文字列に変換する &quot;&quot;&quot;</span>
+   <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+
+<span class="nd">@property</span>
+<span class="k">def</span> <span class="nf">render_interval</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot; 描画速度を返す &quot;&quot;&quot;</span>
+   <span class="k">return</span> <span class="mi">1000</span> <span class="o">/</span> <span class="mi">60</span>
+
+<span class="c1"># --- プレイ時に関する関数</span>
+<span class="k">def</span> <span class="nf">get_key_bind</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KeyBindType</span><span class="p">:</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot; キー配置とアクションを紐づける &quot;&quot;&quot;</span>
+   <span class="k">return</span> <span class="kc">None</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="space">
+<h2><span class="section-number">3.2. </span>Spaceクラスについて<a class="headerlink" href="#space" title="この見出しへのパーマリンク"></a></h2>
+<p>Spaceクラスは、アクション・状態の取りうる範囲を決めるクラスとなります。
+現状5種類あり以下となります。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 8%" />
+<col style="width: 31%" />
+<col style="width: 62%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>SpaceClass</p></th>
+<th class="head"><p>型</p></th>
+<th class="head"><p>概要</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>DiscreteSpace</p></td>
+<td><p>int</p></td>
+<td><p>1つの整数を表します。
+例えば DiscreteSpace(5) とした場合、0～4 の値を取ります。</p></td>
+</tr>
+<tr class="row-odd"><td><p>ArrayDiscreteSpace</p></td>
+<td><p>list[int]</p></td>
+<td><p>整数の配列を取ります。
+例えば ArrayDiscreteSpace(3, low=-1, high=2) とした場合、[-1, 1, 0] や [2, 1, -1] 等の値を取ります。</p></td>
+</tr>
+<tr class="row-even"><td><p>ContinuousSpace</p></td>
+<td><p>float</p></td>
+<td><p>1つの小数を表します。
+例えば ContinuousSpace(low=-1, high=1) とした場合、-1～1 の値を取ります。</p></td>
+</tr>
+<tr class="row-odd"><td><p>ArrayContinuousSpace</p></td>
+<td><p>list[float]</p></td>
+<td><p>小数の配列を取ります。
+例えば ArrayContinuousSpace(3, low=-1, high=1) とした場合、[0.1, -0.5, 0.9] 等の値を取ります。</p></td>
+</tr>
+<tr class="row-even"><td><p>BoxSpace</p></td>
+<td><p>NDArray[np.float32]</p></td>
+<td><p>numpy配列を指定の範囲内で取り扱います。
+例えば BoxSpace(shape=(1, 2), low=-1, high=1) とした場合、[[-0.1, 1.0]] や [[0.1, 0.2] 等の値を取ります。</p></td>
+</tr>
+</tbody>
+</table>
+<p>詳細はコード(<cite>srl.base.env.spaces</cite>)を見てください。</p>
+</section>
+<section id="id5">
+<h2><span class="section-number">3.3. </span>自作環境の登録<a class="headerlink" href="#id5" title="この見出しへのパーマリンク"></a></h2>
+<p>作成した環境は以下で登録して使います。
+引数は以下です。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 8%" />
+<col style="width: 31%" />
+<col style="width: 62%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>引数</p></th>
+<th class="head"><p>説明</p></th>
+<th class="head"><p>備考</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>id</p></td>
+<td><p>ユニークな名前</p></td>
+<td><p>被らなければ特に制限はありません</p></td>
+</tr>
+<tr class="row-odd"><td><p>entry_point</p></td>
+<td><p><cite>モジュールパス + &quot;:&quot; + クラス名</cite></p></td>
+<td><p>モジュールパスは <cite>importlib.import_module</cite> で呼び出せる形式である必要があります</p></td>
+</tr>
+<tr class="row-even"><td><p>kwargs</p></td>
+<td><p>クラス生成時の引数</p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.env</span> <span class="kn">import</span> <span class="n">registration</span>
+
+<span class="n">registration</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+   <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;SampleEnv&quot;</span><span class="p">,</span>
+   <span class="n">entry_point</span><span class="o">=</span><span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;:SampleEnv&quot;</span><span class="p">,</span>
+   <span class="n">kwargs</span><span class="o">=</span><span class="p">{},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id6">
+<h2><span class="section-number">3.4. </span>実装例<a class="headerlink" href="#id6" title="この見出しへのパーマリンク"></a></h2>
+<p>左右に動け、左が穴で右がゴールなシンプルな環境を実装します。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">enum</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">EnvObservationTypes</span>
+<span class="kn">from</span> <span class="nn">srl.base.env</span> <span class="kn">import</span> <span class="n">registration</span>
+<span class="kn">from</span> <span class="nn">srl.base.env.genre.singleplay</span> <span class="kn">import</span> <span class="n">SinglePlayEnv</span>
+<span class="kn">from</span> <span class="nn">srl.base.spaces.discrete</span> <span class="kn">import</span> <span class="n">DiscreteSpace</span>
+
+<span class="n">registration</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+    <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;SampleEnv&quot;</span><span class="p">,</span>
+    <span class="n">entry_point</span><span class="o">=</span><span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;:SampleEnv&quot;</span><span class="p">,</span>
+    <span class="n">kwargs</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;move_reward&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mf">0.04</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">Action</span><span class="p">(</span><span class="n">enum</span><span class="o">.</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">LEFT</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">RIGHT</span> <span class="o">=</span> <span class="mi">1</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">SampleEnv</span><span class="p">(</span><span class="n">SinglePlayEnv</span><span class="p">):</span>
+    <span class="n">move_reward</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.04</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">field</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">action_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiscreteSpace</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">DiscreteSpace</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Action</span><span class="p">))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">observation_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiscreteSpace</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">DiscreteSpace</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EnvObservationTypes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">EnvObservationTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">max_episode_steps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">20</span>
+
+    <span class="k">def</span> <span class="nf">call_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span> <span class="o">=</span> <span class="mi">4</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span><span class="p">,</span> <span class="p">{}</span>
+
+    <span class="k">def</span> <span class="nf">call_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action_</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+        <span class="n">action</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span><span class="n">action_</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">action</span> <span class="o">==</span> <span class="n">Action</span><span class="o">.</span><span class="n">LEFT</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="k">elif</span> <span class="n">action</span> <span class="o">==</span> <span class="n">Action</span><span class="o">.</span><span class="n">RIGHT</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span><span class="p">]</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="p">{}</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">move_reward</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="p">{}</span>
+
+    <span class="k">def</span> <span class="nf">backup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span>
+
+    <span class="k">def</span> <span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span> <span class="o">=</span> <span class="n">data</span>
+
+    <span class="k">def</span> <span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">x</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;P&quot;</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;X&quot;</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;G&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;.&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">render_interval</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">1000</span> <span class="o">/</span> <span class="mi">1</span>
+</pre></div>
+</div>
+<p>実装した環境をとりあえず動かすコードは以下です。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">sample_env</span>  <span class="c1"># noqa F401  # 実装したEnvファイルをimport</span>
+
+<span class="n">env</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">make_env</span><span class="p">(</span><span class="s2">&quot;SampleEnv&quot;</span><span class="p">)</span>
+
+<span class="n">state</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">render_mode</span><span class="o">=</span><span class="s2">&quot;terminal&quot;</span><span class="p">)</span>
+<span class="n">total_reward</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">env</span><span class="o">.</span><span class="n">render</span><span class="p">()</span>
+
+<span class="k">while</span> <span class="ow">not</span> <span class="n">env</span><span class="o">.</span><span class="n">done</span><span class="p">:</span>
+    <span class="n">action</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>
+    <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+    <span class="n">total_reward</span> <span class="o">+=</span> <span class="n">env</span><span class="o">.</span><span class="n">reward</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;step </span><span class="si">{</span><span class="n">env</span><span class="o">.</span><span class="n">step_num</span><span class="si">}</span><span class="s2">, action </span><span class="si">{</span><span class="n">action</span><span class="si">}</span><span class="s2">, reward </span><span class="si">{</span><span class="n">env</span><span class="o">.</span><span class="n">reward</span><span class="si">}</span><span class="s2">, done </span><span class="si">{</span><span class="n">env</span><span class="o">.</span><span class="n">done</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">env</span><span class="o">.</span><span class="n">render</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">total_reward</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id7">
+<h2><span class="section-number">3.5. </span>テスト<a class="headerlink" href="#id7" title="この見出しへのパーマリンク"></a></h2>
+<p>最低限ですが、ちゃんと動くか以下でテストできます。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">sample_env</span>  <span class="c1"># noqa F401</span>
+<span class="kn">from</span> <span class="nn">srl.test</span> <span class="kn">import</span> <span class="n">TestEnv</span>
+
+<span class="n">tester</span> <span class="o">=</span> <span class="n">TestEnv</span><span class="p">()</span>
+<span class="n">tester</span><span class="o">.</span><span class="n">play_test</span><span class="p">(</span><span class="s2">&quot;SampleEnv&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="q">
+<h2><span class="section-number">3.6. </span>Q学習による学習<a class="headerlink" href="#q" title="この見出しへのパーマリンク"></a></h2>
+<p>以下のように学習できます。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
+<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">sample_env</span>  <span class="c1"># noqa F401</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span>
+    <span class="n">env_config</span><span class="o">=</span><span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;SampleEnv&quot;</span><span class="p">),</span>
+    <span class="n">rl_config</span><span class="o">=</span><span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">(),</span>  <span class="c1"># Q学習</span>
+<span class="p">)</span>
+
+<span class="n">parameter</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+<span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">max_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;100エピソードの平均結果&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rewards</span><span class="p">))</span>
+
+<span class="n">reward</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">reward</span><span class="p">)</span>
+
+<span class="n">render</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">animation</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
+<span class="n">render</span><span class="o">.</span><span class="n">create_anime</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;_SampleEnv.gif&quot;</span><span class="p">)</span>
+<span class="c1"># render.display(scale=3)  # for notebook</span>
+</pre></div>
+</div>
+<img alt="../_images/custom_env3.gif" src="../_images/custom_env3.gif" />
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="quickstart.html" class="btn btn-neutral float-left" title="2. Getting Started" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, poco_cpp.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

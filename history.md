@@ -4,7 +4,7 @@
 1. tensorboard
 1. (IMPALA)
 
-# v0.10.1
+# v0.11.0
 
 **MainUpdates**
 
@@ -19,9 +19,13 @@
    1. この修正に合わせて PriorityMemory を使っているアルゴリズムも修正
 1. VSCode上でpylanceによるエラーをなくすように修正
    1. define.py の型アノテーションを全部Typeで終わる名前に変更
+   1. algorithm配下はまだ保留（tensorflow関係のエラーが直しづらいため）
 1. remote（分散コンピューティングによる学習）をテスト導入
 1. spaces をリファクタリング
    1. "srl.base.env.spaces" を "srl.base.spaces" に移動
+   1. 関数名を変えて、encode/decodeを明確化
+   1. 合わせて関係あるdefineを整理、不要なものを削除
+1. Documentを作成
 
 **Algorims**
 

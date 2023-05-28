@@ -25,8 +25,7 @@ class EvalOption:
     timeout: int = -1
     max_steps: int = -1
     # play config
-    players: List[Union[None, str, RLConfig]] = field(default_factory=list)
-    players_kwargs: List[dict] = field(default_factory=list)
+    players: List[Union[None, str, Tuple[str, dict], RLConfig]] = field(default_factory=list)
     shuffle_player: bool = False
     # tensorflow options
     tf_disable: bool = True

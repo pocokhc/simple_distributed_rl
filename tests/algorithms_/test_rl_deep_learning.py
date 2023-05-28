@@ -184,17 +184,34 @@ class Test_r2d2(TestRL, unittest.TestCase):
         self.rl_config = r2d2.Config()
 
 
-class Test_rainbow(TestRL, unittest.TestCase):
+class Test_rainbow_tensorflow(TestRL, unittest.TestCase):
     def init_simple_check(self) -> None:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import rainbow
 
-        self.rl_config = rainbow.Config()
+        self.rl_config = rainbow.Config(framework="tensorflow")
 
     def test_simple_check_atari_config(self):
         pytest.importorskip("tensorflow")
         pytest.importorskip("tensorflow_addons")
+
+        self.init_simple_check()
+        self.rl_config.set_atari_config()
+        self.rl_config.memory_warmup_size = 1000
+        self.simple_check(self.rl_config)
+
+
+class Test_rainbow_torch(TestRL, unittest.TestCase):
+    def init_simple_check(self) -> None:
+        pytest.importorskip("torch")
+
+        from srl.algorithms import rainbow
+
+        self.rl_config = rainbow.Config(framework="torch")
+
+    def test_simple_check_atari_config(self):
+        pytest.importorskip("torch")
 
         self.init_simple_check()
         self.rl_config.set_atari_config()

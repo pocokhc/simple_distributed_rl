@@ -92,9 +92,9 @@ def test_train2():
     client = mp.Process(target=run_client)
 
     server.start()
-    time.sleep(30)
+    time.sleep(60)
     client.start()
-    time.sleep(10)
+    time.sleep(30)
 
     while True:
         time.sleep(1)  # polling time

@@ -171,7 +171,7 @@ class Trainer(RLTrainer):
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
 
         # --- update
-        td_errors = (target_q - q).numpy()
+        td_errors = target_q - cast(Any, q).numpy()
         self.remote_memory.update(indices, batchs, td_errors)
 
         # targetと同期

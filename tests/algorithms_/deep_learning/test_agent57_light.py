@@ -17,7 +17,7 @@ class _BaseCase(CommonBaseClass):
             target_model_update_interval=100,
             q_ext_lr=0.001,
             q_int_lr=0.001,
-            actor_num=4,
+            actor_num=1,
             input_ext_reward=False,
             input_int_reward=False,
             input_action=False,

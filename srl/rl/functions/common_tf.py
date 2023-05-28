@@ -25,6 +25,6 @@ def compute_logprob_sgp(mean, stddev, action):
 # 正規分布のKL divergence
 def gaussian_kl_divergence(mean1, log_stddev1, mean2, log_stddev2):
     x1 = log_stddev2 - log_stddev1
-    x2 = (tf.exp(log_stddev1) ** 2 + (mean1 - mean2) ** 2) / (2 * tf.exp(log_stddev2) ** 2)
+    x2 = (tf.exp(log_stddev1) ** 2 + (mean1 - mean2) ** 2) / (2 * tf.exp(log_stddev2) ** 2)  # type: ignore TODO
     x3 = -0.5
     return x1 + x2 + x3

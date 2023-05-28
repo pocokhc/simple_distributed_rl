@@ -17,11 +17,21 @@
 また本フレームワークの解説は[Qiita記事](https://qiita.com/pocokhc/items/a2f1ba993c79fdbd4b4d)にして記載しています。
 アルゴリズムの解説等をしているのでハイパーパラメータの設定等に迷ったりしたら見てみてください。
 
+その他ドキュメントはこちらです： <https://pocokhc.github.io/simple_distributed_rl/>
+
 # 1. Install/Download
+
+numpyライブラリだけ必須になるので入れてください。
+
+``` bash
+pip install numpy
+```
+
+本フレームワークはGitHubからインストールまたはダウンロードをして使うことができます。
 
 ## Install
 
-git clone または直接インストールする方法です。
+インストールするコマンド例は以下です。
 
 ``` bash
 pip install git+https://github.com/pocokhc/simple_distributed_rl
@@ -35,20 +45,9 @@ cd simple_distributed_rl
 pip install .
 ```
 
-``` bash
-# (option) packages to use in plot/animation
-pip install opencv-python pillow matplotlib pandas pygame
-
-# (option) use gym environment
-pip install gym pygame
-
-# --- run sample
-python examples/minimum_runner.py
-```
-
 ## Download (No install)
 
-srl に実行パスが通っていれば install しなくても使えます。
+srlディレクトリに実行パスが通っていればダウンロードだけでも使えます。
 
 ``` bash
 # Download srl files
@@ -64,34 +63,38 @@ assert os.path.isdir("./simple_distributed_rl/srl/")  # srlがここにある想
 sys.path.insert(0, "./simple_distributed_rl/")
 
 import srl
+print(srl.__version__)
 ```
 
-## Using library
+## Option library
 
-+ numpy
+その他、機能によっては以下ライブラリが必要になります。
 
-### Option library
-
-+ Tensorflowを使う場合
++ Tensorflow が必要なアルゴリズムを使う場合に必要
   + tensorflow
   + tensorflow-addons
   + tensorflow-probability
-+ Torchを使う場合
++ Torch が必要なアルゴリズムを使う場合に必要
   + <https://pytorch.org/get-started/locally/>
-+ 描画関係で使用
++ RGBの描画関係を使用する場合に必要
   + matplotlib
   + pillow
   + opencv-python
-  + pandas
   + pygame
-+ gym の環境を使う場合に必要
++ 統計情報を扱う場合に必要
+  + pandas
++ OpenAI Gym の環境を使う場合に必要
   + gym
   + pygame
-+ profile 情報を記録する場合に必要
++ Profile情報を表示する場合に必要
   + psutil
   + pynvml
-+ テスト用
-  + pytest
+
+Tensorflow,Torchを除いたライブラリを一括でインストールするコマンドは以下です。
+
+``` bash
+pip install matplotlib pillow opencv-python pygame pandas gym psutil pynvml
+```
 
 # 2. Usage
 
@@ -110,7 +113,7 @@ def main():
     config = runner.Config("Grid", ql.Config())
 
     # train
-    parameter, _, _ = runner.train(config, timeout=20)
+    parameter, _, _ = runner.train(config, timeout=10)
 
     # evaluate
     rewards = runner.evaluate(config, parameter, max_episodes=10)
@@ -127,7 +130,10 @@ if __name__ == "__main__":
 学習と評価を別々で実行できる形式です。
 
 ``` python
+import os
+
 import numpy as np
+
 import srl
 from srl import runner
 
@@ -146,142 +152,69 @@ def _create_config():
     env_config = srl.EnvConfig("FrozenLake-v1")
     rl_config = ql.Config()
     config = runner.Config(env_config, rl_config)
+    parameter = config.make_parameter()
 
-    # setting load parameter (Loads the file if it exists)
-    rl_config.parameter_path = _parameter_path
+    # --- Loads the file if it exists
+    if os.path.isfile(_parameter_path):
+        parameter.load(_parameter_path)
 
-    return config
+    return config, parameter
 
 
 # --- train sample
 def train():
-    config = _create_config()
+    config, parameter = _create_config()
 
-    if False:
+    if True:
         # sequence training
-        parameter, remote_memory, history = runner.train(config, timeout=60)
+        parameter, remote_memory, history = runner.train(config, parameter=parameter, timeout=60)
     else:
         # distributed training
-        parameter, remote_memory, history = runner.train_mp(config, timeout=60)
-    
+        parameter, remote_memory, history = runner.train_mp(config, parameter=parameter, timeout=60)
+
     # save parameter
     parameter.save(_parameter_path)
 
 
 # --- evaluate sample
 def evaluate():
-    config = _create_config()
-    rewards = runner.evaluate(config, max_episodes=100)
+    config, parameter = _create_config()
+    rewards = runner.evaluate(config, parameter, max_episodes=100)
     print(f"Average reward for 100 episodes: {np.mean(rewards)}")
 
 
 # --- render sample
 # You can watch the progress of 1 episode
 def render():
-    config = _create_config()
-    runner.render(config)
+    config, parameter = _create_config()
+    runner.render(config, parameter)
+
+
+# --- render window sample
+#  (Run "pip install opencv-python pillow matplotlib pygame" to use the animation)
+def render_window():
+    config, parameter = _create_config()
+    runner.render_window(config, parameter)
 
 
 # --- animation sample
 #  (Run "pip install opencv-python pillow matplotlib pygame" to use the animation)
 def animation():
-    config = _create_config()
-    render = runner.animation(config)
+    config, parameter = _create_config()
+    render = runner.animation(config, parameter)
     render.create_anime().save("_FrozenLake.gif")
-
-
-# --- test play sample
-#  (Run "pip install opencv-python pillow matplotlib pygame" to use the test_play)
-def test_play():
-    config = _create_config()
-    history = runner.test_play(config)
-
-    #
-    # (pygame のウィンドウが開き、1step毎に情報を確認できます。)
-    # (The pygame window will open, allowing you to see the information for each step.)
-    #
-    history.replay()
-
-
-# --- history sample
-def training_history():
-    #
-    # 'runner.train' を実行時に、enable_file_logger 引数を True にすると tmp 配下に log ディレクトリが生成されます。
-    # その log ディレクトリをロードすると学習過程を読み込むことができます。
-    # (不要な log ディレクトリは削除して問題ありません)
-    #
-    # --- English
-    # When 'runner.train' is executed, if the enable_file_logger argument is set to True, a log directory will be created under tmp.
-    # You can load the log directory to read the training process.
-    # (you can delete the log directory if you don't need it)
-    #
-    log_dir = "tmp/YYYYMMDD_HHMMSS_XXX_XXX"
-    history = runner.load_history(log_dir)
-    
-    # get raw data
-    logs = history.get_logs()
-
-    # get pandas DataFrame
-    # (Run "pip install pandas" to use the history.get_df())
-    df_logs = history.get_df()
-    print(df_logs)
-
-    # plot
-    # (Run "pip install matplotlib pandas" to use the history.plot())
-    history.plot()
 
 
 if __name__ == "__main__":
     train()
     evaluate()
     render()
+    render_window()
     animation()
-    test_play()
-    #training_history()
 
 ```
 
 ![FrozenLake.gif](FrozenLake.gif)
-
-## Manual play of environment Example
-
-環境を手動で遊ぶ例です。
-`key_bind=None` の場合は汎用的な入力となります。
-
-``` python
-import pygame
-import srl
-from srl import runner
-
-# --- use env & algorithm load
-# (Run "pip install gym[atari,accept-rom-license] pygame")
-import gym  # isort: skip # noqa F401
-
-env_config = srl.EnvConfig("ALE/Galaxian-v5", kwargs=dict(full_action_space=True))
-key_bind = {
-    "": 0,
-    "z": 1,
-    pygame.K_UP: 2,
-    pygame.K_RIGHT: 3,
-    pygame.K_LEFT: 4,
-    pygame.K_DOWN: 5,
-    (pygame.K_UP, pygame.K_RIGHT): 6,
-    (pygame.K_UP, pygame.K_LEFT): 7,
-    (pygame.K_DOWN, pygame.K_RIGHT): 8,
-    (pygame.K_DOWN, pygame.K_LEFT): 9,
-    (pygame.K_UP, pygame.K_z): 10,
-    (pygame.K_RIGHT, pygame.K_z): 11,
-    (pygame.K_LEFT, pygame.K_z): 12,
-    (pygame.K_DOWN, pygame.K_z): 13,
-    (pygame.K_UP, pygame.K_RIGHT, pygame.K_z): 14,
-    (pygame.K_UP, pygame.K_LEFT, pygame.K_z): 15,
-    (pygame.K_DOWN, pygame.K_RIGHT, pygame.K_z): 16,
-    (pygame.K_DOWN, pygame.K_LEFT, pygame.K_z): 17,
-}
-
-runner.env_play(env_config, key_bind=key_bind)
-
-```
 
 # 3. Framework Overview
 
@@ -320,18 +253,18 @@ while not env.done:
 
 ### ValueBase
 
-|Algorithm |Observation|Action  |Frameworks|ProgressRate||
+|Algorithm |Observation|Action  |Framework|ProgressRate||
 |----------|-----------|--------|----------|----|---|
 |QL        |Discrete   |Discrete|          |100%|Basic Q Learning|
 |DQN       |Continuous |Discrete|Tensorflow/Torch|100%||
 |C51       |Continuous |Discrete|Tensorflow| 99%|CategoricalDQN|
-|Rainbow   |Continuous |Discrete|Tensorflow,tensorflow-addons|100%||
+|Rainbow   |Continuous |Discrete|Tensorflow/Torch|100%||
 |R2D2      |Continuous |Discrete|Tensorflow|100%||
 |Agent57   |Continuous |Discrete|Tensorflow|100%||
 
 ### PolicyBase/ActorCritic
 
-|Algorithm              |Observation|Action    |Frameworks|ProgressRate|
+|Algorithm              |Observation|Action    |Framework|ProgressRate|
 |-----------------------|-----------|----------|----------|----|
 |VanillaPolicy          |Discrete   |Both      ||100%|
 |A3C/A2C                |           |          ||  0%|
@@ -342,7 +275,7 @@ while not env.done:
 
 ## AlphaSeries
 
-|Algorithm  |Observation|Action  |Frameworks|ProgressRate||
+|Algorithm  |Observation|Action  |Framework|ProgressRate||
 |-----------|-----------|--------|----------|----|---|
 |MCTS       |Discrete   |Discrete|          |100%|MDP base|
 |AlphaZero  |Image      |Discrete|Tensorflow|100%|MDP base|
@@ -351,13 +284,13 @@ while not env.done:
 
 ## ModelBase
 
-|Algorithm  |Observation|Action     |Frameworks|ProgressRate|
+|Algorithm  |Observation|Action     |Framework|ProgressRate|
 |-----------|-----------|-----------|----------|----|
 |DynaQ      |Discrete   |Discrete   | 10%|
 
 ### WorldModels
 
-|Algorithm  |Observation|Action     |Frameworks|ProgressRate|
+|Algorithm  |Observation|Action     |Framework|ProgressRate|
 |-----------|-----------|-----------|----------|----|
 |WorldModels|Continuous |Discrete   |Tensorflow|100%|
 |PlaNet     |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%|
@@ -366,13 +299,13 @@ while not env.done:
 
 ## Offline
 
-|Algorithm  |Observation|Action     |Frameworks|ProgressRate|
+|Algorithm  |Observation|Action     |Framework|ProgressRate|
 |-----------|-----------|-----------|----------|----|
 |CQL        |Discrete   |Discrete   ||  0%|
 
 ## その他(Original)
 
-|Algorithm    |Observation|Action  |Type     |Frameworks|ProgressRate||
+|Algorithm    |Observation|Action  |Type     |Framework|ProgressRate||
 |-------------|-----------|--------|---------|----------|----|---|
 |QL_agent57   |Discrete   |Discrete|ValueBase|          | 80%|QL + Agent57|
 |Agent57_light|Continuous |Discrete|ValueBase|Tensorflow|100%|Agent57 - (LSTM,MultiStep)|
@@ -380,10 +313,10 @@ while not env.done:
 
 # 5. Customize
 
-オリジナル環境とアルゴリズムの作成例は以下のファイルを参考にしてください。
+オリジナル環境とアルゴリズムの作成に関しては以下ドキュメントを参考にしてください。
 
-examples/custom_env.ipynb  
-examples/custom_rl.ipynb  
++ [Create Original Environment](https://pocokhc.github.io/simple_distributed_rl/pages/custom_env.html)
++ [Create Original Algorithm](https://pocokhc.github.io/simple_distributed_rl/pages/custom_algorithm.html)
 
 # 6. Detailed framework information
 
@@ -419,8 +352,8 @@ examples/custom_rl.ipynb
 
 + Env input/output type
 
-|   |           |Type|
-|---|-----------|------|
+|   |           |Type |
+|---|-----------|-----|
 |Env|action     |Space|
 |Env|observation|Space|
 
@@ -429,9 +362,9 @@ examples/custom_rl.ipynb
 |   |          |           |Type|
 |---|----------|-----------|------|
 |RL |Discrete  |action     |int|
-|RL |Discrete  |observation|np.ndarray(dtype=int)|
+|RL |Discrete  |observation|NDArray[int]|
 |RL |Continuous|action     |list[float]|
-|RL |Continuous|observation|np.ndarray(dtype=np.float32)|
+|RL |Continuous|observation|NDArray[np.float32]|
 
 + Space(srl.base.env.spaces)
 
@@ -441,7 +374,7 @@ examples/custom_rl.ipynb
 |ArrayDiscreteSpace  |list[int]  |
 |ContinuousSpace     |float      |
 |ArrayContinuousSpace|list[float]|
-|BoxSpace            |np.ndarray |
+|BoxSpace            |NDArray[np.float32]|
 
 # 7. Development environment
 

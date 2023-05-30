@@ -202,8 +202,8 @@ class EnvRun:
     def init(self):
         self._step_num = 0
         # self._state = None
-        self._episode_rewards = np.array(0)
-        self._step_rewards = np.array(0)
+        self._episode_rewards = np.array([0])
+        self._step_rewards = np.array([0])
         self._done = True
         self._done_reason = ""
         self._prev_player_index = 0

@@ -100,7 +100,7 @@ def play(
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
 ):  # 型アノテーションはimportしたくないので省略
-    if not config.distributed:
+    if not distributed:
         if train_only:
             disable_trainer = False
             training = True
@@ -532,3 +532,5 @@ def _play_train_only(
     _info["train_count"] = train_count
     _info["end_reason"] = end_reason
     [c.on_trainer_end(_info) for c in callbacks]
+
+    logger.info(f"training end({end_reason})")

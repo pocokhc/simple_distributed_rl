@@ -158,7 +158,6 @@ class Trainer(RLTrainer):
         else:
             target_q, states, onehot_actions = self.parameter.calc_target_q(batchs, training=True)
 
-        device = self.parameter.device
         states = torch.tensor(states).to(device)
         onehot_actions = torch.tensor(onehot_actions).to(device)
         weights = torch.tensor(weights).to(device)

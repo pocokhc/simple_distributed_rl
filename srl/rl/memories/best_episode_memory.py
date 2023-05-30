@@ -72,7 +72,7 @@ class BestEpisodeMemory(IPriorityMemory):
             batchs.extend(b)
             weights.extend(w)
 
-        return indices, batchs, np.asarray(weights)
+        return indices, batchs, np.asarray(weights, dtype=np.float32)
 
     def update(self, indices: List[int], batchs: List[Any], td_errors: np.ndarray) -> None:
         # sample -> update の順番前提

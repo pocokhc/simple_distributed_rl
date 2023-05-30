@@ -61,7 +61,11 @@ class BoxSpace(SpaceBase[np.ndarray]):
         return self.shape == o.shape and (self.low == o.low).all() and (self.high == o.high).all()
 
     def __str__(self) -> str:
-        return f"Box({self.shape}, range[{np.min(self.low)}, {np.max(self.high)}])"
+        if self.division_tbl is None:
+            s = ""
+        else:
+            s = f", division({self.n})"
+        return f"Box({self.shape}, range[{np.min(self.low)}, {np.max(self.high)}]){s}"
 
     # --- test
     def assert_params(self, true_shape: Tuple[int, ...], true_low: np.ndarray, true_high: np.ndarray):

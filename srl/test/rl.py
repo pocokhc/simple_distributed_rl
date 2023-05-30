@@ -8,7 +8,7 @@ from srl.base.env.config import EnvConfig
 from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.base.rl.config import RLConfig
 from srl.base.rl.worker import RLWorker
-from srl.envs import grid, igrid, oneroad, othello, ox, stone_taking, tiger  # noqa F401
+from srl.envs import grid, ox
 from srl.rl.functions.common import to_str_observation
 from srl.runner import Config
 from srl.runner.callbacks.history_viewer import HistoryViewer

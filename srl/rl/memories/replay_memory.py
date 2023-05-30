@@ -32,7 +32,7 @@ class ReplayMemory(IPriorityMemory):
 
     def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         batchs = random.sample(self.memory, batch_size)
-        return [], batchs, np.ones((batch_size,))
+        return [], batchs, np.ones((batch_size,), dtype=np.float32)
 
     def __len__(self) -> int:
         return len(self.memory)

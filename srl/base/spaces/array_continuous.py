@@ -71,7 +71,11 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
         return self._size == o._size and (self._low == o._low).all() and (self._high == o._high).all()
 
     def __str__(self) -> str:
-        return f"ArrayContinuous({self._size}, range[{np.min(self.low)}, {np.max(self.high)}])"
+        if self.division_tbl is None:
+            s = ""
+        else:
+            s = f", division({self.n})"
+        return f"ArrayContinuous({self._size}, range[{np.min(self.low)}, {np.max(self.high)}]){s}"
 
     # --- test
     def assert_params(self, true_size: int, true_low: np.ndarray, true_high: np.ndarray):

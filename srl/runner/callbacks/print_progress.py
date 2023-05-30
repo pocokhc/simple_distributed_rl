@@ -9,9 +9,17 @@ import numpy as np
 
 from srl.runner.callback import Callback
 from srl.runner.config import Config
-from srl.utils.common import listdictdict_to_dictlist, summarize_info_from_dictlist, to_str_time
+from srl.utils.common import listdictdict_to_dictlist, summarize_info_from_dictlist
 
 logger = logging.getLogger(__name__)
+
+
+def to_str_time(sec: float) -> str:
+    if sec == np.inf:
+        return "   inf"
+    if sec < 60:
+        return "{:5.2f}s".format(sec)
+    return "{:5.1f}m".format(sec / 60)
 
 
 # 進捗に対して表示、少しずつ間隔を長くする(上限あり)

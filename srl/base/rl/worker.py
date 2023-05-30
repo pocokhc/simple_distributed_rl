@@ -388,6 +388,9 @@ class WorkerRun:
     ):
         self.worker = worker
         self._render = Render(worker, font_name, font_size)
+        self._player_index = 0
+        self._info = None
+        self._step_reward = 0
 
     # ------------------------------------
     # episode functions

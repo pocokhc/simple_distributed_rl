@@ -161,7 +161,7 @@ class Trainer(RLTrainer):
             target_q, states, onehot_actions = self.parameter.calc_target_q(batchs, training=True)
 
         with tf.GradientTape() as tape:
-            q = self.parameter.q_online(states)
+            q = self.parameter.q_online(states, training=True)
             q = tf.reduce_sum(q * onehot_actions, axis=1)
 
             loss = self.loss_func(target_q * weights, q * weights)
@@ -174,7 +174,7 @@ class Trainer(RLTrainer):
         td_errors = target_q - cast(Any, q).numpy()
         self.remote_memory.update(indices, batchs, td_errors)
 
-        # targetと同期
+        # --- sync target
         if self.train_count % self.config.target_model_update_interval == 0:
             self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
             self.sync_count += 1

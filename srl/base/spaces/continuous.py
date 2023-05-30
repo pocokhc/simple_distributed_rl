@@ -60,7 +60,11 @@ class ContinuousSpace(SpaceBase[float]):
         return (self._low == o._low) and (self._high == o._high)
 
     def __str__(self) -> str:
-        return f"Continuous({self.low} - {self.high})"
+        if self.division_tbl is None:
+            s = ""
+        else:
+            s = f", division({self.n})"
+        return f"Continuous({self.low} - {self.high}){s}"
 
     # --------------------------------------
     # create_division_tbl

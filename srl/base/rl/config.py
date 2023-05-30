@@ -104,6 +104,12 @@ class RLConfig(ABC):
             return
         self._check_parameter = False
 
+        logger.info(f"max_episode_steps     : {env.max_episode_steps}")
+        logger.info(f"player_num            : {env.player_num}")
+        logger.info(f"action_space(env)     : {env.action_space}")
+        logger.info(f"observation_type(env) : {env.observation_type}")
+        logger.info(f"observation_space(env): {env.observation_space}")
+
         # env property
         self.env_max_episode_steps = env.max_episode_steps
         self.env_player_num = env.player_num
@@ -152,13 +158,8 @@ class RLConfig(ABC):
         self.set_config_by_env(env, self._env_action_space, env_observation_space, env_observation_type)
         self._is_set_env_config = True
 
-        logger.info(f"max_episode_steps     : {self.env_max_episode_steps}")
-        logger.info(f"player_num            : {self.env_player_num}")
-        logger.info(f"action_space(env)     : {env.action_space}")
         logger.info(f"action_space(rl)      : {self._env_action_space}")
-        logger.info(f"observation_type(env) : {env.observation_type}")
         logger.info(f"observation_type(rl)  : {self.env_observation_type}")
-        logger.info(f"observation_space(env): {env.observation_space}")
         logger.info(f"observation_space(rl) : {self._env_observation_space}")
 
     def __setattr__(self, name, value):

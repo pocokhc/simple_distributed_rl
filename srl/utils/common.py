@@ -176,14 +176,6 @@ def summarize_info_from_list(arr: List[Any]) -> Union[float, str, None]:
         return float(np.mean(vals))
 
 
-def to_str_time(sec: float) -> str:
-    if sec == np.inf:
-        return "   inf"
-    if sec < 60:
-        return "{:5.2f}s".format(sec)
-    return "{:5.1f}m".format(sec / 60)
-
-
 class JsonNumpyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer):

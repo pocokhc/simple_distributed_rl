@@ -4,8 +4,6 @@ from typing import List, Union
 
 import numpy as np
 
-from srl.base.env.base import EnvRun
-
 logger = logging.getLogger(__name__)
 
 
@@ -121,9 +119,8 @@ def to_str_observation(state: np.ndarray) -> str:
     return str(state.flatten().tolist()).replace(" ", "")[1:-1]
 
 
-def render_discrete_action(invalid_actions, maxa, env: EnvRun, func) -> None:
-    action_num = env.action_space.n
-
+def render_discrete_action(maxa, env, config, func) -> None:
+    action_num = config.action_num
     invalid_actions = env.get_invalid_actions()
     for action in range(action_num):
         if action in invalid_actions:

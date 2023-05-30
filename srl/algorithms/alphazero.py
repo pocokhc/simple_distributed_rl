@@ -540,4 +540,4 @@ class Worker(ModelBaseWorker):
             )
             return s
 
-        render_discrete_action(self.invalid_actions, maxa, env, _render_sub)
+        render_discrete_action(maxa, env, self.config, _render_sub)

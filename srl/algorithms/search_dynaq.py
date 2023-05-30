@@ -435,4 +435,4 @@ class Worker(DiscreteActionWorker):
             s = f"{q[a]:8.5f} = {q_ext[a]:8.5f}(ext) + {q_int[a]:8.5f}(int) ({self.config.test_search_rate:.2f})"
             return s
 
-        render_discrete_action(self.invalid_actions, maxa, env, _render_sub)
+        render_discrete_action(maxa, env, self.config, _render_sub)

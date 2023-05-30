@@ -256,7 +256,7 @@ class Worker(AnyActionWorker):
             def _render_sub(action: int) -> str:
                 return f"{probs[action]*100:5.1f}% ({vals[action]:.5f})"
 
-            render_discrete_action(self.invalid_actions, maxa, env, _render_sub)
+            render_discrete_action(maxa, env, self.config, _render_sub)
 
         else:
             mean, stddev = self.parameter.get_normal(self.state)

@@ -546,4 +546,4 @@ class Worker(DiscreteActionWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:8.5f} = {q_ext[a]:8.5f} + {self.beta:.3f} * {q_int[a]:8.5f}"
 
-        render_discrete_action(invalid_actions, maxa, env, _render_sub)
+        render_discrete_action(maxa, env, self.config, _render_sub)

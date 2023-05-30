@@ -184,4 +184,4 @@ class Worker(DiscreteActionWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        common.render_discrete_action(None, maxa, env, _render_sub)
+        common.render_discrete_action(maxa, env, self.config, _render_sub)

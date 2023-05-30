@@ -244,4 +244,4 @@ class Worker(ModelBaseWorker):
                 q /= c
             return f"{c:7d}(N), {q:9.4f}(Q), {uct_list[a]:.5f}(UCT)"
 
-        render_discrete_action(self.invalid_actions, maxa, env, _render_sub)
+        render_discrete_action(maxa, env, self.config, _render_sub)

@@ -1115,4 +1115,4 @@ class Worker(DiscreteActionWorker):
             s += f", {reward:9.5f}(reward)"
             return s
 
-        render_discrete_action(self.invalid_actions, maxa, env, _render_sub)
+        render_discrete_action(maxa, env, self.config, _render_sub)

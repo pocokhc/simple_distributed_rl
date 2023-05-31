@@ -1236,4 +1236,4 @@ class Worker(DiscreteActionWorker):
             s += f"{a:2d}: {q[a]:5.3f} = {q_ext[a]:5.3f} + {self.beta} * {q_int[a]:5.3f}"
             return s
 
-        render_discrete_action(invalid_actions, maxa, env, _render_sub)
+        render_discrete_action(maxa, env, self.config, _render_sub)

@@ -159,6 +159,17 @@ class CommonInterfaceParameter(RLParameter, ABC):
         onehot_actions = np.asarray(onehot_actions)
         rewards = np.array(rewards, dtype=np.float32)
         dones = np.array(dones)
+        """ invalid actions
+        next_invalid_actions    : invalid action list
+        next_invalid_actions_idx: batch index list
+        ex. [
+            [1, 2, 5],
+            [2],
+            [2, 3],
+        ]
+        next_invalid_actions     = [1, 2, 5, 2, 2, 3]
+        next_invalid_actions_idx = [0, 0, 0, 1, 2, 2]
+        """
         next_invalid_actions = [e for b in batchs for e in b[5]]
         next_invalid_actions_idx = [i for i, b in enumerate(batchs) for e in b[5]]
 

@@ -18,13 +18,23 @@ class Test_agent57(TestRL, unittest.TestCase):
         self.rl_config.memory_warmup_size = 100
 
 
-class Test_agent57_light(TestRL, unittest.TestCase):
+class Test_agent57_light_tf(TestRL, unittest.TestCase):
     def init_simple_check(self) -> None:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import agent57_light
 
-        self.rl_config = agent57_light.Config()
+        self.rl_config = agent57_light.Config(framework="tensorflow")
+        self.rl_config.memory_warmup_size = 100
+
+
+class Test_agent57_light_torch(TestRL, unittest.TestCase):
+    def init_simple_check(self) -> None:
+        pytest.importorskip("torch")
+
+        from srl.algorithms import agent57_light
+
+        self.rl_config = agent57_light.Config(framework="torch")
         self.rl_config.memory_warmup_size = 100
 
 

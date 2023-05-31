@@ -22,7 +22,7 @@ class _BaseCase(CommonBaseClass):
             input_int_reward=False,
             input_action=False,
             enable_intrinsic_reward=True,
-            # framework = framework, # TODO
+            framework=framework,
         )
 
     def test_Pendulum(self):
@@ -59,3 +59,19 @@ class TestTF_GPU(_BaseCase):
             pytest.skip()
 
         return "tensorflow", "GPU"
+
+
+class TestTorch_CPU(_BaseCase):
+    def return_params(self):
+        pytest.importorskip("torch")
+
+        return "torch", "CPU"
+
+
+class TestTorch_GPU(_BaseCase):
+    def return_params(self):
+        pytest.importorskip("torch")
+        if not common.is_available_gpu_tf():
+            pytest.skip()
+
+        return "torch", "GPU"

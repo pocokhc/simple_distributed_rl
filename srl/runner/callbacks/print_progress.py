@@ -48,9 +48,6 @@ class PrintProgress(Callback):
         self.history_episode = []
         self.history_episode_start_idx = 0
 
-        self.resent_step_time: deque = deque(maxlen=10)
-        self.resent_episode_time = deque(maxlen=10)
-        self.resent_train_time = deque(maxlen=10)
         self.last_episode_count = 0
         self.last_train_count = 0
         self.last_memory = 0
@@ -99,8 +96,15 @@ class PrintProgress(Callback):
                 )
             )
 
-        self.progress_t0 = self.t0 = time.time()
+        _time = time.time()
+        self.t0 = _time
+        self.progress_t0 = _time
         self.progress_history = []
+
+        self.t0_print_time = _time
+        self.t0_step_count = 0
+        self.t0_episode_count = 0
+        self.t0_train_count = 0
 
     def on_episodes_end(self, info):
         if self.config.actor_id >= self.max_actor:
@@ -129,15 +133,12 @@ class PrintProgress(Callback):
         }
         self.history_step.append(d)
 
-        self.resent_step_time.append(info["step_time"])
-
         remote_memory = info["remote_memory"]
         self.last_memory = remote_memory.length() if remote_memory is not None else 0
 
         trainer = info["trainer"]
         if trainer is not None:
             self.last_train_count = trainer.get_train_count()
-            self.resent_train_time.append(info["train_time"])
 
         if self._check_print_progress():
             self._print_actor()
@@ -145,9 +146,6 @@ class PrintProgress(Callback):
     def on_episode_end(self, info):
         if self.config.actor_id >= self.max_actor:
             return
-
-        self.resent_episode_time.append(info["episode_time"])
-
         if len(self.history_step) == 0:
             return
         player_idx = info["worker_indices"][self.print_worker]
@@ -178,7 +176,8 @@ class PrintProgress(Callback):
     # -----------------------------------------
 
     def _print_actor(self):
-        elapsed_time = time.time() - self.t0
+        _time = time.time()
+        elapsed_time = _time - self.t0
 
         # --- head
         # [TIME] [actor] [elapsed time]
@@ -188,11 +187,25 @@ class PrintProgress(Callback):
         s += f" {to_str_time(elapsed_time)}"
 
         # [remain]
-        step_time = np.mean(list(self.resent_step_time), dtype=float) if len(self.resent_step_time) > 0 else np.inf
-        episode_time = (
-            np.mean(list(self.resent_episode_time), dtype=float) if len(self.resent_episode_time) > 0 else np.inf
+        step_time = (
+            (_time - self.t0_print_time) / (self.step_count - self.t0_step_count)
+            if (self.step_count - self.t0_step_count) > 0
+            else np.inf
         )
-        train_time = np.mean(list(self.resent_train_time), dtype=float) if len(self.resent_train_time) > 0 else np.inf
+        episode_time = (
+            (_time - self.t0_print_time) / (self.last_episode_count - self.t0_episode_count)
+            if (self.last_episode_count - self.t0_episode_count) > 0
+            else np.inf
+        )
+        train_time = (
+            (_time - self.t0_print_time) / (self.last_train_count - self.t0_train_count)
+            if (self.last_train_count - self.t0_train_count) > 0
+            else np.inf
+        )
+        self.t0_print_time = _time
+        self.t0_step_count = self.step_count
+        self.t0_episode_count = self.last_episode_count
+        self.t0_train_count = self.last_train_count
         if (self.config.max_steps > 0) and (self.step_count > 0):
             if len(self.resent_train_time) > 0 and train_time > 0:
                 remain_step = (self.config.max_steps - self.step_count) * (step_time + train_time)

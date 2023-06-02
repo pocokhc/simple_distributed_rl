@@ -698,8 +698,9 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <p>実装が必要な関数は以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.algorithms.modelbase</span> <span class="kn">import</span> <span class="n">ModelBaseWorker</span>
 
-<span class="kn">from</span> <span class="nn">srl.base.env.base</span> <span class="kn">import</span> <span class="n">EnvRun</span>
-<span class="kn">from</span> <span class="nn">srl.base.rl.worker</span> <span class="kn">import</span> <span class="n">RLWorker</span><span class="p">,</span> <span class="n">WorkerRun</span>
+<span class="kn">from</span> <span class="nn">srl.base.env.env_run</span> <span class="kn">import</span> <span class="n">EnvRun</span>
+<span class="kn">from</span> <span class="nn">srl.base.rl.worker</span> <span class="kn">import</span> <span class="n">RLWorker</span>
+<span class="kn">from</span> <span class="nn">srl.base.rl.worker_run</span> <span class="kn">import</span> <span class="n">WorkerRun</span>
 
 <span class="k">class</span> <span class="nc">MyWorker</span><span class="p">(</span><span class="n">ModelBaseWorker</span><span class="p">):</span>
    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>

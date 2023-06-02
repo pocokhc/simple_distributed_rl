@@ -499,9 +499,10 @@ ModelBaseWorker は実行時のクラスである EnvRun、WorkerRun を直接�
 
    from srl.base.rl.algorithms.modelbase import ModelBaseWorker
 
-   from srl.base.env.base import EnvRun
-   from srl.base.rl.worker import RLWorker, WorkerRun
-
+   from srl.base.env.env_run import EnvRun
+   from srl.base.rl.worker import RLWorker
+   from srl.base.rl.worker_run import WorkerRun
+   
    class MyWorker(ModelBaseWorker):
       def __init__(self, *args):
          """ コントラクタの引数は親に渡してください """

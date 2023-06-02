@@ -2,7 +2,7 @@ import logging
 from typing import Tuple
 
 from srl.base.define import EnvActionType
-from srl.base.env.base import EnvRun
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.registration import register_worker
 from srl.base.rl.worker import RuleBaseWorker, WorkerRun
 

@@ -4,7 +4,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict
 
 if TYPE_CHECKING:
-    from srl.base.env.base import EnvBase, EnvRun
+    from srl.base.env.base import EnvBase
+    from srl.base.env.env_run import EnvRun
 
 
 logger = logging.getLogger(__name__)

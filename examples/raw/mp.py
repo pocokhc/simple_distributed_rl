@@ -4,7 +4,7 @@ from multiprocessing.managers import BaseManager
 from typing import Any, Optional, Type, cast
 
 import srl
-from srl.base.env.base import EnvRun
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer
 

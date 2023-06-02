@@ -7,7 +7,7 @@ import srl
 from srl import runner
 from srl.algorithms import dqn
 from srl.base.define import EnvActionType
-from srl.base.env.base import EnvRun
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.worker import ExtendWorker, WorkerRun
 from srl.envs import connectx
 

@@ -9,14 +9,12 @@ from typing import Callable, ClassVar, List, Optional, Tuple, Union
 import srl.rl.human  # reservation   # noqa F401
 import srl.rl.random_play  # reservation   # noqa F401
 from srl.base.define import EnvObservationType, RLObservationType
-from srl.base.env.base import EnvRun
 from srl.base.env.config import EnvConfig
+from srl.base.env.env_run import EnvRun
 from srl.base.env.registration import make as srl_make_env
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
-from srl.base.rl.registration import (make_parameter, make_remote_memory,
-                                      make_trainer, make_worker,
-                                      make_worker_rulebase)
-from srl.base.rl.worker import RLWorker, WorkerRun
+from srl.base.rl.worker import RLWorker
+from srl.base.rl.worker_run import WorkerRun
 from srl.runner.callback import Callback
 
 logger = logging.getLogger(__name__)

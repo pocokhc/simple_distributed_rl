@@ -7,7 +7,7 @@ import numpy as np
 
 from srl.base.define import EnvActionType, EnvObservationTypes, RLTypes
 from srl.base.env import registration
-from srl.base.env.base import EnvRun, SpaceBase
+from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.rl.processor import Processor
 from srl.base.rl.worker import RuleBaseWorker, WorkerRun

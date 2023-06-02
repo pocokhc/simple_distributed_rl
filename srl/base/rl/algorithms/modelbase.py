@@ -4,8 +4,9 @@ from typing import Tuple
 import numpy as np
 
 from srl.base.define import InfoType, RLActionType, RLObservationType
-from srl.base.env.base import EnvRun
-from srl.base.rl.worker import RLWorker, WorkerRun
+from srl.base.env.env_run import EnvRun
+from srl.base.rl.worker import RLWorker
+from srl.base.rl.worker_run import WorkerRun
 
 
 class ModelBaseWorker(RLWorker):

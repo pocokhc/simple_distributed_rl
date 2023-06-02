@@ -1,8 +1,8 @@
 import logging
 from typing import Dict, Union
 
-from srl.base.env.base import EnvRun
 from srl.base.env.config import EnvConfig
+from srl.base.env.env_run import EnvRun
 from srl.utils.common import is_package_installed, load_module
 
 logger = logging.getLogger(__name__)

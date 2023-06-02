@@ -2,9 +2,9 @@ import logging
 import os
 from typing import Optional
 
-from srl.base.env.base import EnvRun
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
-from srl.base.rl.worker import WorkerRun
+from srl.base.rl.worker_run import WorkerRun
 from srl.utils.common import load_module
 
 logger = logging.getLogger(__name__)

@@ -3,7 +3,7 @@ from typing import Tuple
 import numpy as np
 
 from srl.base.define import EnvObservationTypes, RLTypes
-from srl.base.env.base import EnvRun
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.processor import Processor
 from srl.base.spaces import BoxSpace
 from srl.base.spaces.space import SpaceBase

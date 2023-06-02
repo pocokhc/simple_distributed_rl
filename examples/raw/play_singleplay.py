@@ -1,7 +1,7 @@
 import numpy as np
 
 import srl
-from srl.base.env.base import EnvRun
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter
 
 # --- env & algorithm

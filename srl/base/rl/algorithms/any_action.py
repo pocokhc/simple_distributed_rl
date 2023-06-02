@@ -6,9 +6,10 @@ from typing import List, Tuple
 import numpy as np
 
 from srl.base.define import EnvObservationTypes, InfoType, RLActionType, RLObservationType, RLTypes
-from srl.base.env.base import EnvRun, SpaceBase
+from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.rl.base import RLConfig
-from srl.base.rl.worker import RLWorker, WorkerRun
+from srl.base.rl.worker import RLWorker
+from srl.base.rl.worker_run import WorkerRun
 
 logger = logging.getLogger(__name__)
 

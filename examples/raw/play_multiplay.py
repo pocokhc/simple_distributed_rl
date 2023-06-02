@@ -4,7 +4,7 @@ import numpy as np
 
 import srl
 import srl.rl.random_play
-from srl.base.env.base import EnvRun
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter
 from srl.base.rl.worker import WorkerRun
 

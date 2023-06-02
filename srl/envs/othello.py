@@ -7,7 +7,7 @@ from typing import Any, List, Optional, Tuple, cast
 import numpy as np
 
 from srl.base.define import EnvObservationTypes, RLTypes
-from srl.base.env.base import EnvRun, SpaceBase
+from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
 from srl.base.rl.processor import Processor

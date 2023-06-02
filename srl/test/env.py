@@ -1,7 +1,7 @@
 import srl
 from srl import runner
 from srl.base.define import PlayRenderModes
-from srl.base.env.base import EnvRun
+from srl.base.env.env_run import EnvRun
 from srl.utils.common import is_packages_installed
 
 

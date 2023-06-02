@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 import srl
-from srl.base.env.base import EnvRun
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.worker import WorkerRun
 from srl.runner.callback import Callback
 from srl.runner.config import Config

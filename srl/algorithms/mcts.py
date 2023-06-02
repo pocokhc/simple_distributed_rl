@@ -5,7 +5,7 @@ from typing import Any, Tuple, cast
 import numpy as np
 
 from srl.base.define import RLTypes
-from srl.base.env.base import EnvRun
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
 from srl.base.rl.algorithms.modelbase import ModelBaseWorker
 from srl.base.rl.base import RLParameter, RLTrainer

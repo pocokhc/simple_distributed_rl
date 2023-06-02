@@ -1,13 +1,14 @@
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Union, cast
+from typing import Union
 
 import numpy as np
 
 from srl.base.define import EnvObservationTypes, PlayRenderModes
-from srl.base.env.base import EnvRun
-from srl.base.rl.worker import RLWorker, WorkerRun
+from srl.base.env.env_run import EnvRun
+from srl.base.rl.worker import RLWorker
+from srl.base.rl.worker_run import WorkerRun
 from srl.runner.callback import Callback
 from srl.utils.render_functions import text_to_rgb_array
 

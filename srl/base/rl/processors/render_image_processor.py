@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Tuple
 
 from srl.base.define import EnvObservationType, EnvObservationTypes, RLTypes
-from srl.base.env.base import EnvRun, SpaceBase
+from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.rl.processor import Processor
 from srl.base.spaces.box import BoxSpace
 

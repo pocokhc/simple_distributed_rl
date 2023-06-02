@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, List, Optional, Tuple, Type
 
 from srl.base.define import EnvObservationTypes, RLTypes
-from srl.base.env.base import EnvRun, SpaceBase
+from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.rl.processor import Processor
 from srl.base.spaces.box import BoxSpace
 from srl.utils import common

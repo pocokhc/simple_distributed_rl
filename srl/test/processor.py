@@ -3,7 +3,7 @@ import numpy as np
 import srl
 import srl.rl.dummy
 from srl.base.define import EnvObservationType, EnvObservationTypes, RLTypes
-from srl.base.env.base import EnvRun
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.processor import Processor
 from srl.base.spaces.space import SpaceBase
 from srl.runner import sequence

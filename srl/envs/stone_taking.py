@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Optional, Tuple, cast
 
 from srl.base.define import EnvActionType, EnvObservationTypes
-from srl.base.env.base import EnvRun
+from srl.base.env.env_run import EnvRun
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
 from srl.base.rl.worker import RuleBaseWorker, WorkerRun

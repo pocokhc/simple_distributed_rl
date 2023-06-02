@@ -2,7 +2,7 @@ from multiprocessing.managers import BaseManager
 from typing import Any, Optional
 
 import srl
-from srl.base.env.base import EnvRun
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
 
 from srl.envs import grid  # isort: skip # noqa F401

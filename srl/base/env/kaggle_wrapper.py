@@ -7,7 +7,8 @@ from typing import Any, List, Tuple, Union, cast
 import kaggle_environments
 
 from srl.base.define import EnvActionType, EnvObservationType, InfoType
-from srl.base.env.base import EnvBase, EnvRun
+from srl.base.env.base import EnvBase
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.worker import RuleBaseWorker, WorkerRun
 
 logger = logging.getLogger(__name__)

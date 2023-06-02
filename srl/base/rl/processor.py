@@ -2,7 +2,7 @@ from abc import ABC
 from typing import Tuple
 
 from srl.base.define import EnvObservationType, EnvObservationTypes, RLTypes
-from srl.base.env.base import EnvRun, SpaceBase
+from srl.base.env.env_run import EnvRun, SpaceBase
 
 
 class Processor(ABC):

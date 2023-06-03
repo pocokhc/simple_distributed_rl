@@ -5,14 +5,11 @@ import pytest
 
 import srl
 import srl.envs.grid
-from srl.base.define import EnvObservationTypes, RLTypes
+import srl.rl.dummy
+from srl.base.define import EnvObservationTypes
 from srl.base.spaces.box import BoxSpace
+from srl.rl.processors.image_processor import ImageProcessor
 from srl.test.processor import TestProcessor
-
-try:
-    from srl.base.rl.processors import ImageProcessor
-except ModuleNotFoundError:
-    pass
 
 image_w = 32
 image_h = 64
@@ -45,11 +42,11 @@ def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val):
     env = srl.make_env("Grid")
 
     # change info
-    new_space, new_type = processor.change_observation_info(
+    new_space, new_type = processor.preprocess_observation_space(
         space,
         env_img_type,
-        RLTypes.ANY,
         env,
+        srl.rl.dummy.Config(),
     )
     assert new_type == img_type
     assert isinstance(new_space, BoxSpace)
@@ -61,7 +58,7 @@ def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val):
     # decode
     image = np.ones(env_img_shape).astype(np.float32)  # image
     true_state = np.ones(true_shape).astype(np.float32) / 255
-    new_obs = cast(np.ndarray, processor.process_observation(image, env))
+    new_obs = cast(np.ndarray, processor.preprocess_observation(image, env))
     assert true_state.shape == new_obs.shape
     if check_val:
         np.testing.assert_array_equal(true_state, new_obs)
@@ -82,13 +79,13 @@ def test_image_atari():
     out_image = np.ones((84, 84)).astype(np.float32) / 255
 
     tester.run(processor, env_name)
-    tester.change_observation_info(
+    tester.preprocess_observation_space(
         processor,
         env_name,
         EnvObservationTypes.GRAY_2ch,
         BoxSpace((84, 84), 0, 1),
     )
-    tester.observation_decode(
+    tester.preprocess_observation(
         processor,
         env_name,
         in_observation=in_image,
@@ -108,7 +105,12 @@ def test_trimming():
     env = srl.make_env("Grid")
 
     # change info
-    new_space, new_type = processor.change_observation_info(space, EnvObservationTypes.COLOR, RLTypes.ANY, env)
+    new_space, new_type = processor.preprocess_observation_space(
+        space,
+        EnvObservationTypes.COLOR,
+        env,
+        srl.rl.dummy.Config(),
+    )
     assert new_type == EnvObservationTypes.GRAY_2ch
     assert isinstance(new_space, BoxSpace)
     new_space = cast(BoxSpace, new_space)
@@ -119,5 +121,5 @@ def test_trimming():
     # decode
     image = np.ones((210, 160, 3)).astype(np.uint8)  # image
     true_state = np.ones((10, 10)).astype(np.float32) / 255
-    new_obs = cast(np.ndarray, processor.process_observation(image, env))
+    new_obs = cast(np.ndarray, processor.preprocess_observation(image, env))
     assert true_state.shape == new_obs.shape

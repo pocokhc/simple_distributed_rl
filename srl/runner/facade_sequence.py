@@ -225,6 +225,11 @@ def render_window(
     render_kwargs: dict = {},
     step_stop: bool = False,
     render_skip_step: bool = True,
+    # render option
+    render_interval: float = -1,  # ms
+    render_scale: float = 1.0,
+    font_name: str = "",
+    font_size: int = 12,
     # play config
     timeout: int = -1,
     max_steps: int = -1,
@@ -244,6 +249,10 @@ def render_window(
             kwargs=render_kwargs,
             step_stop=step_stop,
             render_skip_step=render_skip_step,
+            render_interval=render_interval,
+            render_scale=render_scale,
+            font_name=font_name,
+            font_size=font_size,
         )
     )
 

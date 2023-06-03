@@ -10,7 +10,7 @@ from srl.base.env.genre.singleplay import SinglePlayEnv
 from srl.base.env.registration import register as register_env
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register as register_rl
-from srl.base.rl.worker import RLWorker
+from srl.base.rl.worker_rl import RLWorker
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 from srl.test.env import TestEnv
 

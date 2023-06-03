@@ -4,7 +4,8 @@ from typing import Tuple
 from srl.base.define import EnvActionType
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.registration import register_worker
-from srl.base.rl.worker import RuleBaseWorker, WorkerRun
+from srl.base.rl.worker import RuleBaseWorker
+from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces import ContinuousSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)

@@ -5,7 +5,7 @@ import numpy as np
 
 from srl.base.define import InfoType, RLActionType, RLObservationType
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.worker import RLWorker
+from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 
 

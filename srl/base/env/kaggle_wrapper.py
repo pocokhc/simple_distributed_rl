@@ -9,7 +9,8 @@ import kaggle_environments
 from srl.base.define import EnvActionType, EnvObservationType, InfoType
 from srl.base.env.base import EnvBase
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.worker import RuleBaseWorker, WorkerRun
+from srl.base.rl.worker import RuleBaseWorker
+from srl.base.rl.worker_run import WorkerRun
 
 logger = logging.getLogger(__name__)
 

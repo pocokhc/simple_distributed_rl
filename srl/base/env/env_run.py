@@ -21,7 +21,7 @@ from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
 
 if TYPE_CHECKING:
-    from srl.base.rl.worker import WorkerRun
+    from srl.base.rl.worker_run import WorkerRun
 
 logger = logging.getLogger(__name__)
 

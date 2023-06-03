@@ -6,7 +6,7 @@ import srl
 import srl.rl.random_play
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter
-from srl.base.rl.worker import WorkerRun
+from srl.base.rl.worker_run import WorkerRun
 
 # --- env & algorithm load
 from srl.envs import ox  # isort: skip # noqa F401

@@ -7,7 +7,7 @@ from srl import runner
 from srl.base.env.config import EnvConfig
 from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.base.rl.config import RLConfig
-from srl.base.rl.worker import RLWorker
+from srl.base.rl.worker_rl import RLWorker
 from srl.envs import grid, ox
 from srl.rl.functions.common import to_str_observation
 from srl.runner import Config

@@ -7,7 +7,8 @@ from srl.base.define import EnvActionType, EnvObservationTypes
 from srl.base.env.env_run import EnvRun
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
-from srl.base.rl.worker import RuleBaseWorker, WorkerRun
+from srl.base.rl.worker import RuleBaseWorker
+from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces import DiscreteSpace
 
 logger = logging.getLogger(__name__)

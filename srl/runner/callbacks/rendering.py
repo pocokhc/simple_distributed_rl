@@ -7,7 +7,7 @@ import numpy as np
 
 from srl.base.define import EnvObservationTypes, PlayRenderModes
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.worker import RLWorker
+from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.runner.callback import Callback
 from srl.utils.render_functions import text_to_rgb_array
@@ -69,6 +69,8 @@ class Rendering(Callback):
     def on_episodes_end(self, info) -> None:
         if self.step_stop:
             input("Enter to continue:")
+
+    # -----------------------------------------------
 
     def _render_env(self, info, skip_step=False):
         env: EnvRun = info["env"]

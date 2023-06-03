@@ -19,9 +19,9 @@ def play(
 ) -> Optional[RLRemoteMemory]:
     from srl.utils.common import is_packages_installed
 
-    error_text = "To use play_game you need to install 'cv2', 'matplotlib', 'PIL', 'pygame'. "
-    error_text += "(pip install opencv-python matplotlib pillow pygame)"
-    assert is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]), error_text
+    error_text = "This run requires installation of 'PIL', 'pygame'. "
+    error_text += "(pip install pillow pygame)"
+    assert is_packages_installed(["PIL", "pygame"]), error_text
 
     from srl.runner.game_window import PlayableGame
 

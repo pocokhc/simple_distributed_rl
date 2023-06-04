@@ -11,12 +11,12 @@ from srl.base.rl.base import RLParameter
 from srl.base.rl.memory import IPriorityMemoryConfig
 from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
-from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
 from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
 from srl.rl.memories.config import ReplayMemoryConfig
 from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
 from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
+from srl.rl.processors.image_processor import ImageProcessor
 
 """
 Paper

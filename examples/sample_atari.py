@@ -3,10 +3,10 @@ import numpy as np
 import srl
 from srl import runner
 from srl.base.define import EnvObservationTypes
-from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.rl import memories
 from srl.rl.models import dqn as dqn_model
 from srl.rl.models import mlp
+from srl.rl.processors.image_processor import ImageProcessor
 from srl.utils import common
 
 # --- env & algorithm load

@@ -8,20 +8,24 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import EnvObservationTypes, RLTypes
-from srl.base.rl.algorithms.discrete_action import (DiscreteActionConfig,
-                                                    DiscreteActionWorker)
+from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.processor import Processor
-from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (calc_epsilon_greedy_probs,
-                                     create_beta_list, create_discount_list,
-                                     create_epsilon_list, inverse_rescaling,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
+from srl.rl.functions.common import (
+    calc_epsilon_greedy_probs,
+    create_beta_list,
+    create_discount_list,
+    create_epsilon_list,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
 from srl.rl.memories.config import ReplayMemoryConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
+from srl.rl.processors.image_processor import ImageProcessor
 
 kl = keras.layers
 

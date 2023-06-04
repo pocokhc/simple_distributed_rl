@@ -11,9 +11,9 @@ from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLRemoteMemory, RLTrainer
 from srl.base.rl.processor import Processor
-from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
+from srl.rl.processors.image_processor import ImageProcessor
 from srl.utils.common import compare_less_version
 
 kl = keras.layers
@@ -423,7 +423,7 @@ class Parameter(RLParameter):
         self.dynamics.set_weights(data[1])
         self.decode.set_weights(data[2])
         self.reward.set_weights(data[3])
-        # self.value.set_weights(data[4])
+        self.value.set_weights(data[4])
         # self.actor.set_weights(data[5])
 
     def call_backup(self, **kwargs) -> Any:
@@ -598,6 +598,7 @@ class Trainer(RLTrainer):
                 horizon_feat = feats
                 returns = tf.constant([0] * self.config.batch_size * self.config.batch_length, dtype=tf.float32)
                 returns = tf.expand_dims(returns, axis=1)
+
                 for t in range(self.config.horizon):
                     policy = self.parameter.actor(horizon_feat).sample()
                     horizon_deter, horizon_prior = self.parameter.dynamics.img_step(
@@ -611,7 +612,7 @@ class Trainer(RLTrainer):
                         value = self.parameter.value(horizon_feat).mode()
                         # print(reward)
                         # returns += reward * (self.config.discount**t)
-                        returns += (self.config.discount**t) * (reward + value) / 2
+                        returns += (self.config.discount ** (t + 1)) * (reward + value) / 2
 
                 act_loss = -tf.reduce_mean(returns) / self.config.horizon
                 # act_loss /= 100

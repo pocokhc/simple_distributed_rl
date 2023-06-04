@@ -13,12 +13,12 @@ from srl.base.rl.base import RLParameter
 from srl.base.rl.memory import IPriorityMemoryConfig
 from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
-from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions import common
 from srl.rl.memories.config import ProportionalMemoryConfig
 from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
 from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
+from srl.rl.processors.image_processor import ImageProcessor
 
 logger = logging.getLogger(__name__)
 

@@ -23,18 +23,26 @@ class RLConfig(ABC):
     override_env_observation_type: EnvObservationTypes = EnvObservationTypes.UNKNOWN
     override_rl_action_type: RLTypes = RLTypes.ANY  # RL側がANYの場合のみ有効
     action_division_num: int = 5
+    """
+    The number of divisions when converting from continuous to discrete values.
+    If -1, round by round transform.
+    """
+    # 連続値から離散値に変換する場合の分割数です。-1の場合round変換で丸めます。
     observation_division_num: int = -1
+    """
+    The number of divisions when converting from continuous to discrete values.
+    If -1, round by round transform.
+    """
+    # 連続値から離散値に変換する場合の分割数です。-1の場合round変換で丸めます。
     extend_worker: Optional[Type["ExtendWorker"]] = None
     window_length: int = 1
     dummy_state_val: float = 0.0
     parameter_path: str = ""
     remote_memory_path: str = ""
     use_rl_processor: bool = True  # RL側のprocessorを使用するか
-    change_observation_render_image: bool = False  # 状態の入力をrender_imageに変更
-
-    # render option
-    font_name: str = ""
-    font_size: int = 12
+    use_render_image_for_observation: bool = False
+    """ Change state input to render_image. Existing settings will be overwritten. """
+    # 状態の入力をrender_imageに変更。既存の設定は上書きされます。
 
     def __post_init__(self) -> None:
         self._is_set_env_config = False
@@ -121,35 +129,38 @@ class RLConfig(ABC):
         # observation_typeの上書き
         if self.override_env_observation_type != EnvObservationTypes.UNKNOWN:
             env_observation_type = self.override_env_observation_type
+            logger.info(f"override observation type: {env_observation_type}")
 
-        # processor
+        # --- processor
         self._run_processors = []
-        if self.change_observation_render_image:
-            from srl.base.rl.processors.render_image_processor import RenderImageProcessor
+        if self.use_render_image_for_observation:
+            from srl.rl.processors.render_image_processor import RenderImageProcessor
 
             self._run_processors.append(RenderImageProcessor())
         self._run_processors.extend(self.processors)
         if self.use_rl_processor:
             self._run_processors.extend(self.set_processor())
         for processor in self._run_processors:
-            env_observation_space, env_observation_type = processor.change_observation_info(
+            env_observation_space, env_observation_type = processor.preprocess_observation_space(
                 env_observation_space,
                 env_observation_type,
-                self.observation_type,
                 env,
+                self,
             )
+            logger.info(f"processor obs space: {env_observation_space}")
+            logger.info(f"processor obs type : {env_observation_type}")
 
-        # window_length
+        # --- window_length
         self._one_observation_shape = env_observation_space.shape
         if self.window_length > 1:
             env_observation_space = BoxSpace((self.window_length,) + self._one_observation_shape)
+            logger.info(f"window_length obs space: {env_observation_space}")
 
         self._env_observation_space = env_observation_space
         self._env_observation_type = env_observation_type
 
         # --- division
         # RLが DISCRETE で Space が CONTINUOUS なら分割して DISCRETE にする
-        # 現状分割するSpaceはBoxSpaceしかない
         if (self.action_type == RLTypes.DISCRETE) and (self._env_action_space.rl_type == RLTypes.CONTINUOUS):
             self._env_action_space.create_division_tbl(self.action_division_num)
         if (self.observation_type == RLTypes.DISCRETE) and (self._env_observation_space.rl_type == RLTypes.CONTINUOUS):

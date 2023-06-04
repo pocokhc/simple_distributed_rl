@@ -3,6 +3,7 @@ from typing import Tuple
 
 from srl.base.define import EnvObservationType, EnvObservationTypes, RLTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
+from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.spaces.box import BoxSpace
 
@@ -11,12 +12,12 @@ from srl.base.spaces.box import BoxSpace
 class RenderImageProcessor(Processor):
     render_kwargs: dict = field(default_factory=lambda: {})
 
-    def change_observation_info(
+    def preprocess_observation_space(
         self,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationTypes,
-        rl_observation_type: RLTypes,
         env: EnvRun,
+        rl_config: RLConfig,
     ) -> Tuple[SpaceBase, EnvObservationTypes]:
         env.reset()
         rgb_array = env.render_rgb_array(**self.render_kwargs)
@@ -25,7 +26,7 @@ class RenderImageProcessor(Processor):
         new_space = BoxSpace(self.shape, 0, 255)
         return new_space, EnvObservationTypes.COLOR
 
-    def process_observation(
+    def preprocess_observation(
         self,
         observation: EnvObservationType,
         env: EnvRun,

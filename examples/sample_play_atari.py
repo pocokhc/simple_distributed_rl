@@ -31,4 +31,4 @@ key_bind = {
     (pygame.K_DOWN, pygame.K_RIGHT, pygame.K_z): 16,
     (pygame.K_DOWN, pygame.K_LEFT, pygame.K_z): 17,
 }
-runner.play(env_config, key_bind=key_bind)
+runner.play_window(env_config, key_bind=key_bind)

@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass
 from typing import Tuple
 
@@ -7,8 +6,6 @@ from srl.base.rl.algorithms.modelbase import ModelBaseWorker
 from srl.base.rl.base import RLConfig, RLParameter, RLTrainer
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory.sequence_memory import SequenceRemoteMemory
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass

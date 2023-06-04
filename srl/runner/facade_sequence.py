@@ -2,7 +2,9 @@ import logging
 from typing import List, Optional, Tuple, Union, cast
 
 from srl.base.define import PlayRenderModes
+from srl.base.env.config import EnvConfig
 from srl.base.rl.base import RLParameter, RLRemoteMemory
+from srl.base.rl.config import RLConfig
 from srl.runner.callback import Callback
 from srl.runner.callbacks.history_viewer import HistoryViewer
 from srl.runner.config import Config
@@ -158,7 +160,7 @@ def evaluate(
         return episode_rewards
 
 
-def render(
+def render_terminal(
     config: Config,
     parameter: Optional[RLParameter] = None,
     # Rendering
@@ -341,7 +343,7 @@ def animation(
     return cast(Rendering, rendering)
 
 
-def replay(
+def replay_window(
     config: Config,
     parameter: Optional[RLParameter] = None,
     # play config
@@ -352,6 +354,7 @@ def replay(
     progress: Optional[ProgressOption] = ProgressOption(),
     # other
     callbacks: List[Callback] = [],
+    _is_test: bool = False,  # for test
 ):
     callbacks = callbacks[:]
 
@@ -385,5 +388,64 @@ def replay(
         callbacks=callbacks,
         parameter=parameter,
     )
-    history.replay()
+    history.replay(_is_test=_is_test)
     return history
+
+
+def play_terminal(
+    config: Union[str, EnvConfig, Config],
+    players: List[Union[None, str, Tuple[str, dict], RLConfig]] = ["human"],
+    # Rendering
+    mode: PlayRenderModes = PlayRenderModes.terminal,
+    render_kwargs: dict = {},
+    step_stop: bool = False,
+    render_skip_step: bool = True,
+    # play config
+    timeout: int = -1,
+    max_steps: int = -1,
+    # other
+    callbacks: List[Callback] = [],
+) -> List[float]:
+    callbacks = callbacks[:]
+
+    from srl.runner.callbacks.rendering import Rendering
+
+    callbacks.append(
+        Rendering(
+            mode=mode,
+            kwargs=render_kwargs,
+            step_stop=step_stop,
+            render_skip_step=render_skip_step,
+        )
+    )
+
+    if isinstance(config, Config):
+        config = config.env_config
+    config = Config(config, None)
+    config.players = players
+
+    episode_rewards, _, _, _ = play(
+        config,
+        # stop config
+        max_episodes=1,
+        timeout=timeout,
+        max_steps=max_steps,
+        max_train_count=-1,
+        # play config
+        train_only=False,
+        shuffle_player=False,
+        disable_trainer=True,
+        enable_profiling=False,
+        # play info
+        training=False,
+        distributed=False,
+        render_mode=mode,
+        # option
+        eval=None,
+        progress=None,
+        history=None,
+        checkpoint=None,
+        # other
+        callbacks=callbacks,
+    )
+    return episode_rewards[0]

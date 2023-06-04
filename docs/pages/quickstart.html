@@ -59,9 +59,8 @@
 <li class="toctree-l3"><a class="reference internal" href="#render-terminal">2.4.3. Render Terminal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#render-window">2.4.4. Render Window</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#animation">2.4.5. Animation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id1">2.4.6. Animation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#manual-play-terminal">2.4.7. Manual play Terminal</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#manual-play-window">2.4.8. Manual play Window</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#manual-play-terminal">2.4.6. Manual play Terminal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#manual-play-window">2.4.7. Manual play Window</a></li>
 </ul>
 </li>
 </ul>
@@ -366,27 +365,8 @@ pygameのwindowが表示できる環境である必要があります。</p>
 </pre></div>
 </div>
 </section>
-<section id="id1">
-<h3><span class="section-number">2.4.6. </span>Animation<a class="headerlink" href="#id1" title="この見出しへのパーマリンク"></a></h3>
-<p>映像として残せるようにRGBデータを保存しながらシミュレーションします。
-アニメーションは、'matplotlib.animation.ArtistAnimation' で作成されます。</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
-
-<span class="c1"># --- env &amp; algorithm load</span>
-<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">grid</span>  <span class="c1"># isort: skip # noqa F401</span>
-<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># isort: skip</span>
-
-
-<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
-<span class="n">parameter</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">make_parameter</span><span class="p">()</span>
-
-<span class="n">render</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">animation</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
-<span class="n">render</span><span class="o">.</span><span class="n">create_anime</span><span class="p">()</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;_Grid.gif&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
 <section id="manual-play-terminal">
-<h3><span class="section-number">2.4.7. </span>Manual play Terminal<a class="headerlink" href="#manual-play-terminal" title="この見出しへのパーマリンク"></a></h3>
+<h3><span class="section-number">2.4.6. </span>Manual play Terminal<a class="headerlink" href="#manual-play-terminal" title="この見出しへのパーマリンク"></a></h3>
 <p>Terminal上で手動プレイします。
 環境によっては動作しない場合があります。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
@@ -396,7 +376,7 @@ pygameのwindowが表示できる環境である必要があります。</p>
 </div>
 </section>
 <section id="manual-play-window">
-<h3><span class="section-number">2.4.8. </span>Manual play Window<a class="headerlink" href="#manual-play-window" title="この見出しへのパーマリンク"></a></h3>
+<h3><span class="section-number">2.4.7. </span>Manual play Window<a class="headerlink" href="#manual-play-window" title="この見出しへのパーマリンク"></a></h3>
 <p>pygame上で手動プレイします。
 環境によっては動作しない場合があります。</p>
 <p>'key_bind' は設定しなくても遊べますが、設定するとより環境にあった入力方法でプレイすることができます。</p>

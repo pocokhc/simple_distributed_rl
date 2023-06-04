@@ -89,16 +89,6 @@ Animation
 .. literalinclude:: quickstart_animation.py
 
 
-
-Animation
----------------------
-
-映像として残せるようにRGBデータを保存しながらシミュレーションします。
-アニメーションは、'matplotlib.animation.ArtistAnimation' で作成されます。
-
-.. literalinclude:: quickstart_animation.py
-
-
 Manual play Terminal
 ---------------------
 

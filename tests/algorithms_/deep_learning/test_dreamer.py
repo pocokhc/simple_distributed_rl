@@ -28,7 +28,7 @@ def test_Grid():
         print_ga_debug=False,
     )
     rl_config.memory_warmup_size = rl_config.batch_size + 1
-    rl_config.change_observation_render_image = True
+    rl_config.use_render_image_for_observation = True
     env_config = srl.EnvConfig("Grid")
     env_config.max_episode_steps = 10
     config = runner.Config(env_config, rl_config)

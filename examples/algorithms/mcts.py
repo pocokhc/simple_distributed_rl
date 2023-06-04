@@ -30,11 +30,11 @@ def main():
 
     # --- rendering
     config.players = [None, "cpu"]
-    runner.render(config, parameter)
+    runner.render_terminal(config, parameter)
 
     # --- 対戦
     config.players = [None, "human"]
-    runner.render(config, parameter)
+    runner.render_terminal(config, parameter)
 
 
 if __name__ == "__main__":

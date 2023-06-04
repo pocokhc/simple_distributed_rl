@@ -11,8 +11,12 @@ common.logger_print()
 @pytest.mark.parametrize("framework", ["tensorflow", "torch"])
 def test_imported_package(framework):
     # pytest.importorskip は内部でimportしてる可能性あるのでなし
+    
+    try:
+        config = runner.Config("Grid", dqn.Config(framework=framework))
+    except ModuleNotFoundError:
+        pytest.skip("ModuleNotFoundError")
 
-    config = runner.Config("Grid", dqn.Config(framework=framework))
     if framework == "tensorflow":
         assert config.use_tf
         assert not config.use_torch

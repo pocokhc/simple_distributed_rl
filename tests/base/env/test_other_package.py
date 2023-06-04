@@ -6,7 +6,7 @@ import srl
 def test_gym_retro():
     pytest.importorskip("retro")
 
-    import retro
+    import retro  # type: ignore  # pip install gym-retro
 
     env_config = srl.EnvConfig("Airstriker-Genesis", gym_make_func=retro.make)
 

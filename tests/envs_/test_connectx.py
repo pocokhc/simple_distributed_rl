@@ -4,18 +4,12 @@ import pytest
 import srl
 from srl.base.define import EnvObservationTypes
 from srl.base.spaces.box import BoxSpace
+from srl.envs import connectx  # noqa F401
 from srl.test import TestEnv
 from srl.test.processor import TestProcessor
 
-try:
-    from srl.envs import connectx  # noqa F401
-except ModuleNotFoundError as e:
-    print(e)
-
 
 def test_play():
-    pytest.importorskip("kaggle_environments")
-
     tester = TestEnv()
     env = tester.play_test("connectx")
 
@@ -77,15 +71,11 @@ def test_play():
     ],
 )
 def test_player(player):
-    pytest.importorskip("kaggle_environments")
-
     tester = TestEnv()
     tester.player_test("connectx", player)
 
 
 def test_processor():
-    pytest.importorskip("kaggle_environments")
-
     tester = TestProcessor()
     processor = connectx.LayerProcessor()
     env_name = "connectx"

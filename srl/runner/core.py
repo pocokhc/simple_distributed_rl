@@ -258,11 +258,13 @@ def _play_main(
                     logger.info(e)
 
     # --- random seed
-    set_seed(config.seed, config.seed_enable_gpu)
-    episode_seed = random.randint(0, 2**16)
-    if config.run_name == "main":
-        logger.info(f"set_seed({config.seed})")
-        logger.info(f"1st episode seed: {episode_seed}")
+    episode_seed = None
+    if config.seed is not None:
+        set_seed(config.seed, config.seed_enable_gpu)
+        episode_seed = random.randint(0, 2**16)
+        if config.run_name == "main":
+            logger.info(f"set_seed({config.seed})")
+            logger.info(f"1st episode seed: {episode_seed}")
 
     if config.training and not config.distributed:
         import pprint
@@ -314,7 +316,7 @@ def _play_run(
     remote_memory: RLRemoteMemory,
     render_mode: Union[str, PlayRenderModes],
     callbacks: List[Callback],
-    episode_seed: int,
+    episode_seed: Optional[int],
 ):
     # --- env/workers/trainer
     env = config.make_env()
@@ -376,7 +378,8 @@ def _play_run(
             # env reset
             episode_t0 = _time
             env.reset(render_mode=render_mode, seed=episode_seed)
-            episode_seed += 1
+            if episode_seed is not None:
+                episode_seed += 1
 
             # shuffle
             if config.shuffle_player:

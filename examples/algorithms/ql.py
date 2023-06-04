@@ -1,4 +1,5 @@
 import os
+
 import numpy as np
 
 import srl
@@ -22,7 +23,7 @@ def main():
     print(f"Average reward for 100 episodes: {np.mean(rewards)}")
 
     # --- render
-    rewards = runner.render(config, parameter)
+    runner.render_terminal(config, parameter)
 
     # --- animation
     render = runner.animation(config, parameter)

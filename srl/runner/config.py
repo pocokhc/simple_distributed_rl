@@ -6,13 +6,18 @@ import pickle
 from dataclasses import dataclass, field
 from typing import Callable, ClassVar, List, Optional, Tuple, Union
 
-import srl.rl.human  # reservation   # noqa F401
-import srl.rl.random_play  # reservation   # noqa F401
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.base.env.registration import make as srl_make_env
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
+from srl.base.rl.registration import (
+    make_parameter,
+    make_remote_memory,
+    make_trainer,
+    make_worker,
+    make_worker_rulebase,
+)
 from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.runner.callback import Callback
@@ -60,24 +65,24 @@ class Config:
     on_device_init_function: Optional[Callable[["Config"], None]] = None
     use_CUDA_VISIBLE_DEVICES: bool = True  # CPUの場合 CUDA_VISIBLE_DEVICES を-1にする
 
-    # remote options
+    # --- remote options
     remote_server_ip: str = "127.0.0.1"  # "0.0.0.0" for external publication
     remote_port: int = 50000
     remote_authkey: bytes = b"abracadabra"
 
-    # tensorflow options
+    # --- tensorflow options
     tf_disable: bool = False
     tf_enable_memory_growth: bool = True
 
-    # random
+    # --- random
     seed: Optional[int] = None
     seed_enable_gpu: bool = True  # 有効にならない場合あり、また速度が犠牲になる可能性あり
 
-    # other
+    # --- other
     # 基本となるディレクトリ、ファイル関係は、この配下に時刻でフォルダが作られ、その下が基準となる
     base_dir: str = "tmp"
 
-    # private
+    # --- private
     __is_init_device: ClassVar[bool] = False
 
     def __post_init__(self):

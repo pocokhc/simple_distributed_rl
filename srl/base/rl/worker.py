@@ -1,28 +1,14 @@
-import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Optional, Tuple
 
 import numpy as np
 
-from srl.base.define import (
-    EnvActionType,
-    EnvObservationType,
-    InfoType,
-    InvalidActionsType,
-    InvalidActionType,
-    RLActionType,
-    RLObservationType,
-    RLTypes,
-)
+from srl.base.define import EnvActionType, InfoType
 from srl.base.env.env_run import EnvRun
 from srl.base.render import IRender
-from srl.base.rl.base import RLParameter, RLRemoteMemory
-from srl.base.rl.config import RLConfig
 
 if TYPE_CHECKING:
     from srl.base.rl.worker_run import WorkerRun
-
-logger = logging.getLogger(__name__)
 
 
 class WorkerBase(ABC, IRender):

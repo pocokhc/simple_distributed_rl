@@ -30,6 +30,7 @@ class EnvRun:
     def __init__(self, env: EnvBase, config: EnvConfig) -> None:
         self.env = env
         self.config = config
+        config._update_env_info(env)  # config update
 
         self._render = Render(
             env,

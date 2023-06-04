@@ -3,23 +3,19 @@ import os
 import pickle
 from typing import Any, List, Optional, Tuple, Union, cast
 
-import gym
+import gymnasium
 import numpy as np
-from gym import spaces as gym_spaces
-from gym.spaces import flatten, flatten_space
+from gymnasium import spaces as gym_spaces
+from gymnasium.spaces import flatten, flatten_space
 
 from srl.base.define import EnvActionType, EnvObservationTypes, InfoType, RenderModes
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.config import EnvConfig
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
-from srl.utils.common import compare_less_version, is_package_installed
 
 logger = logging.getLogger(__name__)
 
-
-# v0.26.0 から大幅に変更
-# https://github.com/openai/gym/releases
 
 """
 ・gym_spaceを1次元にして管理する
@@ -237,28 +233,17 @@ def gym_space_flatten_decode(gym_space: gym_spaces.Space, val: Any) -> Any:
     return val
 
 
-class GymWrapper(EnvBase):
+class GymnasiumWrapper(EnvBase):
     def __init__(self, config: EnvConfig):
         self.config = config
 
         self.seed = None
         self.render_mode = RenderModes.NONE
-        self.v0260_older = compare_less_version(gym.__version__, "0.26.0")  # type: ignore
-        if False:
-            if is_package_installed("ale_py"):
-                import ale_py
 
-                if self.v0260_older:
-                    assert compare_less_version(ale_py.__version__, "0.8.0")
-                else:
-                    assert not compare_less_version(ale_py.__version__, "0.8.0")
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         logger.info("set SDL_VIDEODRIVER='dummy'")
 
-        if self.config.gym_make_func is None:
-            self.env: gym.Env = gym.make(config.name, **config.kwargs)
-        else:
-            self.env: gym.Env = self.config.gym_make_func(config.name, **config.kwargs)
+        self.env = self.make_gymnasium_env(**self.config.kwargs)
         logger.info(f"metadata    : {self.env.metadata}")
         logger.info(f"action_space: {self.env.action_space}")
         logger.info(f"obs_space   : {self.env.observation_space}")
@@ -268,16 +253,12 @@ class GymWrapper(EnvBase):
 
         # render_modes
         self.render_modes = ["ansi", "human", "rgb_array"]
-        if "render.modes" in self.env.metadata:
-            self.render_modes = self.env.metadata["render.modes"]
-        elif "render_modes" in self.env.metadata:
+        if "render_modes" in self.env.metadata:
             self.render_modes = self.env.metadata["render_modes"]
 
         _act_space = None
         _obs_type = EnvObservationTypes.UNKNOWN
         _obs_space = None
-        self.enable_flatten_action = False
-        self.enable_flatten_observation = False
 
         # --- wrapper
         for wrapper in config.gym_wrappers:
@@ -337,24 +318,23 @@ class GymWrapper(EnvBase):
         logger.info(f"action     : {self._action_space}")
         logger.info(f"flatten_act: {self.enable_flatten_action}")
 
+    def make_gymnasium_env(self, **kwargs) -> gymnasium.Env:
+        if self.config.gymnasium_make_func is None:
+            return gymnasium.make(self.config.name, **kwargs)
+        return self.config.gymnasium_make_func(self.config.name, **kwargs)
+
     def _pred_space_discrete(self):
         # 実際に値を取得して予測
         done = True
         for _ in range(self.config.gym_prediction_step):
             if done:
-                state = self.env.reset()
-                if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
-                    state, _ = state
+                state, _ = self.env.reset()
                 done = False
             else:
                 action = self.env.action_space.sample()
-                _t = self.env.step(action)
-                if len(_t) == 4:
-                    state, reward, done, info = _t  # type: ignore
-                else:
-                    state, reward, terminated, truncated, info = _t
-                    done = terminated or truncated
-            flat_state = flatten(self.env.observation_space, state)
+                state, reward, terminated, truncated, info = self.env.step(action)
+                done = terminated or truncated
+            flat_state = gym_space_flatten_encode(self.env.observation_space, state)
             if "int" not in str(np.asarray(flat_state).dtype):
                 return False
 
@@ -381,9 +361,8 @@ class GymWrapper(EnvBase):
         if hasattr(self.env, "_max_episode_steps"):
             return getattr(self.env, "_max_episode_steps")
         elif hasattr(self.env, "spec"):
-            if hasattr(self.env.spec, "max_episode_steps"):
-                if self.env.spec.max_episode_steps is not None:
-                    return self.env.spec.max_episode_steps
+            if self.env.spec is not None and self.env.spec.max_episode_steps is not None:
+                return self.env.spec.max_episode_steps
         return 99_999
 
     @property
@@ -396,18 +375,10 @@ class GymWrapper(EnvBase):
 
     def reset(self) -> Tuple[np.ndarray, dict]:
         if self.seed is None:
-            state = self.env.reset()
-            if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
-                state, info = state
-            else:
-                info = {}
+            state, info = self.env.reset()
         else:
             # seed を最初のみ設定
-            state = self.env.reset(seed=self.seed)
-            if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
-                state, info = state
-            else:
-                info = {}
+            state, info = self.env.reset(seed=self.seed)
             self.env.action_space.seed(self.seed)
             self.env.observation_space.seed(self.seed)
             self.seed = None
@@ -419,7 +390,7 @@ class GymWrapper(EnvBase):
         # flatten
         if self.enable_flatten_observation:
             state = gym_space_flatten_encode(self.env.observation_space, state)
-        return state, info  # type: ignore
+        return state, info
 
     def step(self, action: EnvActionType) -> Tuple[np.ndarray, List[float], bool, InfoType]:
         # wrapper
@@ -431,17 +402,13 @@ class GymWrapper(EnvBase):
             action = gym_space_flatten_decode(self.env.action_space, action)
 
         # step
-        _t = self.env.step(action)
-        if len(_t) == 4:
-            state, reward, done, info = _t  # type: ignore
-        else:
-            state, reward, terminated, truncated, info = _t
-            done = terminated or truncated
+        state, reward, terminated, truncated, info = self.env.step(action)
+        done = terminated or truncated
 
         # wrapper
         for w in self.config.gym_wrappers:
             state = w.observation(state, self.env)
-            reward = w.reward(reward, self.env)
+            reward = w.reward(cast(float, reward), self.env)
             done = w.done(done, self.env)
 
         # flatten
@@ -453,13 +420,10 @@ class GymWrapper(EnvBase):
         return pickle.dumps(self.env)
 
     def restore(self, data: Any) -> None:
-        self.env = pickle.loads(data)
+        self.env: gymnasium.Env = pickle.loads(data)
 
     def close(self) -> None:
         self.env.close()
-        # render 内で使われている pygame に対して close -> init をするとエラーになる
-        # Fatal Python error: (pygame parachute) Segmentation Fault
-        pass
 
     def get_original_env(self) -> object:
         return self.env
@@ -472,41 +436,21 @@ class GymWrapper(EnvBase):
         return 1000 / self.fps
 
     def set_render_mode(self, mode: RenderModes) -> None:
-        if self.v0260_older:
-            return
-
         # modeが違っていたら作り直す
-        _render_mode = ""
         if mode == RenderModes.Terminal:
             if self.render_mode != RenderModes.Terminal and "ansi" in self.render_modes:
-                _render_mode = "ansi"
+                self.env = self.make_gymnasium_env(render_mode="ansi", **self.config.kwargs)
                 self.render_mode = RenderModes.Terminal
         elif mode == RenderModes.RBG_array:
             if self.render_mode != RenderModes.RBG_array and "rgb_array" in self.render_modes:
-                _render_mode = "rgb_array"
+                self.env = self.make_gymnasium_env(render_mode="rgb_array", **self.config.kwargs)
                 self.render_mode = RenderModes.RBG_array
 
-        if _render_mode != "":
-            if self.config.gym_make_func is None:
-                self.env: gym.Env = gym.make(self.config.name, render_mode=_render_mode, **self.config.kwargs)
-            else:
-                self.env: gym.Env = self.config.gym_make_func(
-                    self.config.name, render_mode=_render_mode, **self.config.kwargs
-                )
-
     def render_terminal(self, **kwargs) -> None:
-        if self.v0260_older:
-            if "ansi" in self.render_modes:
-                print(self.env.render(mode="ansi", **kwargs))  # type: ignore
-        else:
-            if self.render_mode == RenderModes.Terminal:
-                print(self.env.render(**kwargs))
+        if self.render_mode == RenderModes.Terminal:
+            print(self.env.render(**kwargs))
 
     def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
-        if self.v0260_older:
-            if "rgb_array" in self.render_modes:
-                return np.asarray(self.env.render(mode="rgb_array", **kwargs))  # type: ignore
-        else:
-            if self.render_mode == RenderModes.RBG_array:
-                return np.asarray(self.env.render(**kwargs))
+        if self.render_mode == RenderModes.RBG_array:
+            return np.asarray(self.env.render(**kwargs))
         return None

@@ -28,7 +28,9 @@ class KeyStatus(enum.Enum):
 
 
 class _GameWindow(ABC):
-    def __init__(self) -> None:
+    def __init__(self, _is_test: bool = False) -> None:
+        self._is_test = _is_test  # for test
+
         self.title: str = ""
         self.padding: int = 4
         self.img_dir = os.path.join(os.path.dirname(__file__), "img")
@@ -183,6 +185,9 @@ class _GameWindow(ABC):
             if is_window_resize:
                 self.resize(self.scale)
 
+            if self._is_test:
+                pygame_done = True
+
     def set_image(self, env_image: np.ndarray, rl_image: Optional[np.ndarray]):
         if rl_image is None:
             rl_image = np.zeros((0, 0, 3))
@@ -208,6 +213,8 @@ class _GameWindow(ABC):
         window_w = self.env_w + self.padding + self.rl_w + self.padding + self.info_w
         window_h = max(max(self.env_h, self.rl_h), self.info_h) + self.padding * 2
 
+        window_w = min(window_w, 1900)
+        window_h = min(window_h, 1600)
         self.screen = pygame.display.set_mode((window_w, window_h))
 
     def draw_texts(
@@ -231,8 +238,9 @@ class PlayableGame(_GameWindow):
         rl_config: Optional[RLConfig] = None,
         rl_config_player: int = 0,  # rl_config_player が記録するプレイヤー
         callbacks: List[GameCallback] = [],
+        _is_test: bool = False,  # for test
     ) -> None:
-        super().__init__()
+        super().__init__(_is_test=_is_test)
         self.env = srl.make_env(env_config)
         self.action_division_num = action_division_num
         self.callbacks = callbacks[:]
@@ -268,7 +276,7 @@ class PlayableGame(_GameWindow):
 
         # --- reset
         self.env.reset(render_mode=PlayRenderModes.rgb_array)
-        self.env_interval = self.env.render_interval
+        self.env_interval = self.env.config.render_interval
         self.set_image(self.env.render_rgb_array(), None)
         if rl_config is not None:
             assert 0 <= rl_config_player < self.env.player_num
@@ -496,8 +504,8 @@ class PlayableGame(_GameWindow):
 
 
 class EpisodeReplay(_GameWindow):
-    def __init__(self, history: HistoryEpisode) -> None:
-        super().__init__()
+    def __init__(self, history: HistoryEpisode, _is_test: bool = False) -> None:
+        super().__init__(_is_test=_is_test)
 
         self.history = history
         self.episode = 0

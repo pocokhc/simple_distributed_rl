@@ -43,14 +43,19 @@ def evaluate():
     print(f"Average reward for 100 episodes: {np.mean(rewards, axis=0)}")
 
 
-def render():
+def render_terminal():
     config, parameter = _create_config(load_parameter=True)
-    runner.render(config, parameter)
+    runner.render_terminal(config, parameter)
 
 
 def render_window():
     config, parameter = _create_config(load_parameter=True)
     runner.render_window(config, parameter)
+
+
+def replay_window():
+    config, parameter = _create_config(load_parameter=True)
+    runner.replay_window(config, parameter)
 
 
 def animation():
@@ -62,6 +67,7 @@ def animation():
 if __name__ == "__main__":
     train()
     evaluate()
-    render()
+    render_terminal()
     render_window()
     animation()
+    replay_window()

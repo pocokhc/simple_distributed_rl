@@ -4,6 +4,48 @@
 1. tensorboard
 1. (IMPALA)
 
+# v0.11.1
+
+**MainUpdates**
+
+1. Env環境のロード方法を改善
+   1. gymnasiumに対応
+   1. gym/gymnasium に対応した環境を汎用的にロードできる仕組みを追加
+   1. gym/gymnasium の act/obs/reward/done に wrapper を適用できる仕組みを追加
+1. render_windowの描画方法をmatplotlibからpygameに変更
+1. runnerの変更
+   1. runnerに最低限の実行しかしないtrain_simpleを追加（テスト導入）
+   1. runner直下の実行方法を整理、以下の項目でまとめました
+      + 描画
+        + render_terminal
+        + render_window
+        + animation
+      + 後から内容を描画
+        + replay_window
+      + 手動プレイ
+        + play_terminal
+        + play_window
+1. 更新に合わせてドキュメントを更新
+
+**Algorims**
+
+1. Agent57_lightをtorchに対応
+
+**OtherUpdates**
+
+1. PreProcessorクラス周りをリファクタリング
+1. change_observation_render_imageをuse_render_image_for_observationに名前を変更
+1. SRLで実装されているenvはimportなしで読めるように修正
+1. render_discrete_actionを修正
+1. print_progressの残り時間の計算方法を改善
+1. いくつかのファイルを移動
+   1. EnvRunとWorkerRunを別ファイルに
+   1. RLWorkerを別ファイルに
+   1. runner直下の窓口ファイルのファイル名を facade_ に変更
+   1. processorの実装フォルダの場所をbaseからrlへ移動
+1. train_mpのデバッグ用にcore_mp_debugを追加
+1. 細かいbug fix
+
 # v0.11.0
 
 **MainUpdates**

@@ -31,7 +31,7 @@ def _create_config():
         batch_size=64,
         temperature=0.1,
     )
-    rl_config.change_observation_render_image = True
+    rl_config.use_render_image_for_observation = True
     rl_config.parameter_path = param_path
     rl_config.remote_memory_path = memory_path
     return runner.Config(env_config, rl_config), rl_config

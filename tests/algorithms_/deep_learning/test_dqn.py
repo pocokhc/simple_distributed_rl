@@ -63,7 +63,7 @@ class _BaseCase(CommonBaseClass):
 
         rl_config.image_block_config = R2D3ImageBlockConfig()
         rl_config.hidden_block_config = MLPBlockConfig(layer_sizes=(128, 16, 16))
-        rl_config.change_observation_render_image = True
+        rl_config.use_render_image_for_observation = True
 
         tester.train(config, 200 * 100)
 

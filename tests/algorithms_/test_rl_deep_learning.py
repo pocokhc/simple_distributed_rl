@@ -95,7 +95,7 @@ class Test_dqn_tensorflow(TestRL, unittest.TestCase):
 
     def test_simple_check_atari_config(self):
         self.init_simple_check()
-        self.rl_config.change_observation_render_image = True
+        self.rl_config.use_render_image_for_observation = True
         self.rl_config.set_atari_config()
         self.rl_config.memory_warmup_size = 1000
         self.simple_check(self.rl_config)
@@ -111,7 +111,7 @@ class Test_dqn_torch(TestRL, unittest.TestCase):
 
     def test_simple_check_atari_config(self):
         self.init_simple_check()
-        self.rl_config.change_observation_render_image = True
+        self.rl_config.use_render_image_for_observation = True
         self.rl_config.set_atari_config()
         self.rl_config.memory_warmup_size = 1000
         self.simple_check(self.rl_config)
@@ -133,7 +133,7 @@ class Test_dreamer(TestRL, unittest.TestCase):
             batch_size=4,
             batch_length=5,
         )
-        self.rl_config.change_observation_render_image = True
+        self.rl_config.use_render_image_for_observation = True
 
 
 class Test_muzero(TestRL, unittest.TestCase):
@@ -182,7 +182,7 @@ class Test_planet(TestRL, unittest.TestCase):
                 print_ga_debug=False,
             )
         )
-        self.rl_config.change_observation_render_image = True
+        self.rl_config.use_render_image_for_observation = True
 
 
 class Test_r2d2(TestRL, unittest.TestCase):

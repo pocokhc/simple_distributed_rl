@@ -188,7 +188,7 @@ class RLConfig(ABC):
             "override_env_observation_type",
             "action_division_num",
             "window_length",
-            "change_observation_render_image",
+            "use_render_image_for_observation",
             "use_rl_processor",
         ]:
             self._is_set_env_config = False

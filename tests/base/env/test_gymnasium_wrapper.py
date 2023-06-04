@@ -15,7 +15,7 @@ from srl.test import TestEnv
 
 
 def test_play_FrozenLake():
-    pytest.importorskip("gym")
+    pytest.importorskip("gymnasium")
 
     # observation_space: Discrete(16)
     # action_space     : Discrete(4)
@@ -29,7 +29,7 @@ def test_play_FrozenLake():
 
 
 def test_play_CartPole():
-    pytest.importorskip("gym")
+    pytest.importorskip("gymnasium")
 
     # observation_space: Box((4,))
     # action_space     : Discrete(2)
@@ -43,7 +43,7 @@ def test_play_CartPole():
 
 
 def test_play_Blackjack():
-    pytest.importorskip("gym")
+    pytest.importorskip("gymnasium")
 
     # observation_space: Tuple(Discrete(32), Discrete(11), Discrete(2))
     # action_space     : Discrete(2)
@@ -57,7 +57,7 @@ def test_play_Blackjack():
 
 
 def test_play_Pendulum():
-    pytest.importorskip("gym")
+    pytest.importorskip("gymnasium")
 
     # observation_space: Box([-1. -1. -8.], [1. 1. 8.], (3,), float32)
     # action_space     : Box(-2.0, 2.0, (1,), float32)
@@ -71,7 +71,7 @@ def test_play_Pendulum():
 
 
 def test_play_Tetris():
-    pytest.importorskip("gym")
+    pytest.importorskip("gymnasium")
     pytest.importorskip("ale_py")
 
     # Box(0, 255, (210, 160, 3), uint8)
@@ -86,7 +86,7 @@ def test_play_Tetris():
 
 
 def test_play_Tetris_ram():
-    pytest.importorskip("gym")
+    pytest.importorskip("gymnasium")
     pytest.importorskip("ale_py")
 
     # Box(0, 255, (128,), uint8)
@@ -127,7 +127,7 @@ def test_play_Tetris_ram():
 
 
 def test_space():
-    pytest.importorskip("gym")
+    pytest.importorskip("gymnasium")
 
     from gym import spaces
 
@@ -213,7 +213,7 @@ def test_space():
 
 
 def test_space_discrete():
-    pytest.importorskip("gym")
+    pytest.importorskip("gymnasium")
 
     from gym import spaces
 
@@ -282,15 +282,15 @@ def test_space_discrete():
 
 
 def test_original_space():
-    pytest.importorskip("gym")
+    pytest.importorskip("gymnasium")
 
-    from gym import spaces
+    from gymnasium import spaces
 
     class MyStrSpace(spaces.Space[str]):
         def sample(self, mask=None):
             return "a"
 
-    from srl.base.env.gym_wrapper import gym_space_flatten, gym_space_flatten_decode, gym_space_flatten_encode
+    from srl.base.env.gymnasium_wrapper import gym_space_flatten, gym_space_flatten_decode, gym_space_flatten_encode
 
     # --- fail pattern
     with pytest.raises(AssertionError):
@@ -327,7 +327,7 @@ def test_original_space():
 
 
 def test_random():
-    pytest.importorskip("gym")
+    pytest.importorskip("gymnasium")
 
     env = srl.make_env("Pendulum-v1")
 
@@ -356,35 +356,35 @@ def test_random():
 
 
 def test_wrapper():
-    pytest.importorskip("gym")
-    import gym
+    pytest.importorskip("gymnasium")
+    import gymnasium
 
     class MyWrapper(GymUserWrapper):
         def action_space(
             self,
             action_space: Optional[SpaceBase],
-            env: gym.Env,
+            env: gymnasium.Env,
         ) -> Optional[SpaceBase]:
             return DiscreteSpace(99)
 
-        def action(self, action: Any, env: gym.Env) -> Any:
+        def action(self, action: Any, env: gymnasium.Env) -> Any:
             return 0
 
         def observation_space(
             self,
             observation_type: EnvObservationTypes,
             observation_space: Optional[SpaceBase],
-            env: gym.Env,
+            env: gymnasium.Env,
         ) -> Tuple[EnvObservationTypes, Optional[SpaceBase]]:
             return EnvObservationTypes.DISCRETE, DiscreteSpace(99)
 
-        def observation(self, observation: Any, env: gym.Env) -> Any:
+        def observation(self, observation: Any, env: gymnasium.Env) -> Any:
             return 1
 
-        def reward(self, reward: float, env: gym.Env) -> float:
+        def reward(self, reward: float, env: gymnasium.Env) -> float:
             return 9
 
-        def done(self, done: bool, env: gym.Env) -> bool:
+        def done(self, done: bool, env: gymnasium.Env) -> bool:
             return True
 
     wrapper = MyWrapper()

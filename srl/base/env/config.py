@@ -1,11 +1,15 @@
 import copy
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
+    import gym
+    import gymnasium
+
     from srl.base.env.base import EnvBase
     from srl.base.env.env_run import EnvRun
+    from srl.base.env.gym_user_wrapper import GymUserWrapper
 
 
 logger = logging.getLogger(__name__)
@@ -16,21 +20,27 @@ class EnvConfig:
     name: str
     kwargs: Dict = field(default_factory=dict)
 
-    # episode option
+    # --- episode option
     max_episode_steps: int = -1
     episode_timeout: int = -1  # s
     frameskip: int = 0
 
-    # gym
+    # --- gym
+    gymnasium_make_func: Optional[Callable[..., "gymnasium.Env"]] = None
+    gym_make_func: Optional[Callable[..., "gym.Env"]] = None
     gym_check_image: bool = True
     gym_prediction_by_simulation: bool = True
     gym_prediction_step: int = 10
+    gym_wrappers: List["GymUserWrapper"] = field(default_factory=list)
 
-    # render option
+    # --- render option
+    render_interval: float = -1
+    """ ms. -1 is the interval set by Env.  """
+    render_scale: float = 1.0
     font_name: str = ""
     font_size: int = 12
 
-    # other
+    # --- other
     check_action: bool = True
     check_val: bool = True
 

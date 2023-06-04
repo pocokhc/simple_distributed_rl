@@ -22,7 +22,7 @@ class _BaseCase(CommonBaseClass):
     def test_Grid(self):
         config, rl_config, tester = self.create_config("Pendulum-v1")
 
-        rl_config.change_observation_render_image = True
+        rl_config.use_render_image_for_observation = True
         env_config = srl.EnvConfig("Grid")
         config = runner.Config(env_config, rl_config)
         config.rl_config.train_mode = 1

@@ -32,7 +32,7 @@ def _create_config():
         print_ga_debug=False,
         # action_algorithm="random",
     )
-    rl_config.change_observation_render_image = True
+    rl_config.use_render_image_for_observation = True
     rl_config.parameter_path = _parameter_path
     env_config = srl.EnvConfig("EasyGrid")
     env_config.max_episode_steps = 21

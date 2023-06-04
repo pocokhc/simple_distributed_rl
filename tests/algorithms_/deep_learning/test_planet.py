@@ -36,7 +36,7 @@ class _BaseCase(CommonBaseClass):
 
         config, rl_config, tester = self.create_config(env_config)
         rl_config.memory_warmup_size = rl_config.batch_size + 1
-        rl_config.change_observation_render_image = True
+        rl_config.use_render_image_for_observation = True
 
         # --- train
         _, memory, _ = runner.train(
@@ -79,7 +79,7 @@ class _BaseCase(CommonBaseClass):
             )
         )
         rl_config.memory_warmup_size = rl_config.batch_size + 1
-        rl_config.change_observation_render_image = True
+        rl_config.use_render_image_for_observation = True
 
         config = runner.Config(env_config, rl_config)
 
@@ -125,7 +125,7 @@ class _BaseCase(CommonBaseClass):
             )
         )
         rl_config.memory_warmup_size = rl_config.batch_size + 1
-        rl_config.change_observation_render_image = True
+        rl_config.use_render_image_for_observation = True
 
         config = runner.Config(env_config, rl_config)
 

@@ -32,24 +32,16 @@ class EnvRun:
         self.config = config
         config._update_env_info(env)  # config update
 
-        self._render = Render(
-            env,
-            config.interval,
-            config.font_name,
-            config.font_size,
-        )
-        self._t0 = 0
+        self._render = Render(self.env)
+        self.set_render_options()
 
-        self._step_num = 0
-        self._state = env.observation_space.get_default()
-        self._episode_rewards = np.array([0])
-        self._step_rewards = np.array([0])
-        self._done = True
-        self._done_reason = ""
-        self._prev_player_index = 0
-        self._invalid_actions_list = [[] for _ in range(self.env.player_num)]
-        self._info = {}
+        self._reset_vals()
         self._is_direct_step = False
+        self.init()
+
+    def init(self):
+        """reset前の状態を定義"""
+        self._done = True
 
     # --- with
     def __del__(self):
@@ -81,24 +73,32 @@ class EnvRun:
         self.env.set_seed(seed)
 
         # --- render
-        self._render.cache_reset()
-        self._render.reset(render_mode)
+        if render_mode != "":
+            self._render.cache_reset()
+            self._render.reset(render_mode)
 
         # --- env reset
+        self._reset_vals()
         self._state, self._info = self.env.reset()
+        self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
         if self.config.check_val:
             self._state = self.check_state(self._state, "state in env.reset may not be SpaceType.")
-        self._reset()
+            for i, invalid_actions in enumerate(self._invalid_actions_list):
+                self._invalid_actions_list[i] = self.check_invalid_actions(
+                    self._invalid_actions_list[i], "invalid_actions in env.reset may not be SpaceType."
+                )
 
-    def _reset(self):
+    def _reset_vals(self):
         self._step_num = 0
+        self._state = self.env.observation_space.get_default()
         self._done = False
         self._done_reason = ""
         self._prev_player_index = 0
         self._episode_rewards = np.zeros(self.player_num)
         self._step_rewards = np.zeros(self.player_num)
-        self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
+        self._invalid_actions_list = [[] for _ in range(self.env.player_num)]
         self._t0 = time.time()
+        self._info = {}
 
     def step(
         self,
@@ -109,6 +109,7 @@ class EnvRun:
         if self._is_direct_step:
             assert self.env.can_simulate_from_direct_step, "env does not support 'step' after 'direct_step'."
 
+        # --- env step
         if self.config.check_action:
             action = self.check_action(action, "The format of 'action' entered in 'env.direct' was wrong.")
         self._prev_player_index = self.env.next_player_index
@@ -121,7 +122,7 @@ class EnvRun:
         self._render.cache_reset()
         step_rewards = np.array(rewards, dtype=np.float32)
 
-        # skip frame の間は同じアクションを繰り返す
+        # --- skip frame
         for _ in range(self.config.frameskip):
             assert self.player_num == 1, "not support"
             state, rewards, done, info = self.env.step(action)
@@ -146,6 +147,10 @@ class EnvRun:
         self._info = info
 
         invalid_actions = self.env.get_invalid_actions(self.next_player_index)
+        if self.config.check_val:
+            invalid_actions = self.check_invalid_actions(
+                invalid_actions, "invalid_actions in env.reset may not be SpaceType."
+            )
         self._invalid_actions_list[self.next_player_index] = invalid_actions
         self._step_num += 1
         self._episode_rewards += self.step_rewards
@@ -243,10 +248,18 @@ class EnvRun:
             logger.error(f"{done}({type(done)}), {error_msg}, {e}")
         return False
 
+    def check_invalid_actions(self, invalid_actions: InvalidActionsType, error_msg: str = "") -> InvalidActionsType:
+        try:
+            for j, invalid_action in enumerate(invalid_actions):
+                invalid_actions[j] = int(invalid_action)
+            return invalid_actions
+        except Exception as e:
+            logger.error(f"{invalid_actions}, {error_msg}, {e}")
+        return []
+
     # ------------------------------------
     # No internal state change
     # ------------------------------------
-
     # implement properties
     @property
     def action_space(self) -> SpaceBase:
@@ -416,7 +429,7 @@ class EnvRun:
             state = self.check_state(state, "'state' in 'env.direct_step' may not be SpaceType.")
 
         if self.is_start_episode:
-            self._reset()
+            self._reset_vals()
         self._step(state, np.zeros((self.player_num,)), False, info)
 
     def decode_action(self, action: EnvActionType) -> Any:

@@ -12,14 +12,14 @@ from srl.envs import grid, ox
 from srl.rl.functions.common import to_str_observation
 from srl.runner import Config
 from srl.runner.callbacks.history_viewer import HistoryViewer
-from srl.utils.common import is_packages_installed
+from srl.utils.common import is_available_video_device, is_packages_installed
 
 BaseLineType = Union[float, List[Union[float, None]]]
 
 
 class TestRL:
     #
-    # ここは試行錯誤の末に、VSCodeで、pytestで継承先のみテストを表示し、
+    # ここはVSCodeでpytestで継承先のみテストを表示し、
     # 継承元のテストを非表示にするテクニックです。
     # __init__ があるとpytestはテストとして認識しません。
     # __init__の引数は unittest 用です。
@@ -121,8 +121,10 @@ class TestRL:
 
                 # --- check render
                 if check_render:
-                    runner.render(config, parameter, max_steps=10)
-                    if is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]):
+                    runner.render_terminal(config, parameter, max_steps=10)
+                    if is_packages_installed(["cv2", "PIL", "pygame"]):
+                        if is_available_video_device():
+                            render = runner.render_window(config, parameter, max_steps=10, render_interval=1)
                         render = runner.animation(config, parameter, max_steps=10)
                         render.create_anime()
 

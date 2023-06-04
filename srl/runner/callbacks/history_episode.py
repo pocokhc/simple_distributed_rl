@@ -171,7 +171,7 @@ class HistoryEpisode(Callback):
     # ---------------------------
     # replay
     # ---------------------------
-    def replay(self):
+    def replay(self, _is_test: bool = False):
         self.episode_files = glob.glob(os.path.join(self.episodes_dir, "episode*.txt"))
         self.episode_cache = {}
         self.config = self.read_config(os.path.join(self.save_dir, "config.json"))
@@ -179,7 +179,7 @@ class HistoryEpisode(Callback):
 
         from srl.runner.game_window import EpisodeReplay
 
-        EpisodeReplay(self).play()
+        EpisodeReplay(self, _is_test=_is_test).play()
 
     @property
     def episode_num(self) -> int:

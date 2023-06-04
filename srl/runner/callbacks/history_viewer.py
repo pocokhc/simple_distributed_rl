@@ -237,7 +237,7 @@ class HistoryViewer:
         if self.df is not None:
             return self.df
 
-        assert is_package_installed("pandas"), "To use viewer you need to install the 'pandas'. (pip install pandas)"
+        assert is_package_installed("pandas"), "This run requires installation of 'pandas'. (pip install pandas)"
         import pandas as pd
 
         if self.history_on_memory is not None:
@@ -259,7 +259,7 @@ class HistoryViewer:
         left_ymax: Optional[float] = None,
         right_ymin: Optional[float] = None,
         right_ymax: Optional[float] = None,
-        _no_plot: bool = False,
+        _no_plot: bool = False,  # for test
     ):
         plot_left = plot_left[:]
         plot_right = plot_right[:]

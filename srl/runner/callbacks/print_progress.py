@@ -2,7 +2,6 @@ import datetime as dt
 import logging
 import time
 import traceback
-from collections import deque
 from dataclasses import dataclass
 
 import numpy as np
@@ -47,10 +46,6 @@ class PrintProgress(Callback):
         self.history_step = []
         self.history_episode = []
         self.history_episode_start_idx = 0
-
-        self.last_episode_count = 0
-        self.last_train_count = 0
-        self.last_memory = 0
 
     def _check_print_progress(self):
         _time = time.time()
@@ -100,6 +95,10 @@ class PrintProgress(Callback):
         self.t0 = _time
         self.progress_t0 = _time
         self.progress_history = []
+
+        self.last_episode_count = 0
+        self.last_train_count = 0
+        self.last_memory = 0
 
         self.t0_print_time = _time
         self.t0_step_count = 0
@@ -207,10 +206,7 @@ class PrintProgress(Callback):
         self.t0_episode_count = self.last_episode_count
         self.t0_train_count = self.last_train_count
         if (self.config.max_steps > 0) and (self.step_count > 0):
-            if len(self.resent_train_time) > 0 and train_time > 0:
-                remain_step = (self.config.max_steps - self.step_count) * (step_time + train_time)
-            else:
-                remain_step = (self.config.max_steps - self.step_count) * step_time
+            remain_step = (self.config.max_steps - self.step_count) * step_time
         else:
             remain_step = np.inf
         if (self.config.max_episodes > 0) and (self.last_episode_count > 0):
@@ -403,18 +399,21 @@ class PrintProgress(Callback):
 
         self.enable_nvidia = self.config.enable_nvidia
 
-        self.progress_t0 = self.t0 = time.time()
+        _time = time.time()
+        self.t0 = _time
+        self.progress_t0 = _time
         self.progress_history = []
 
-        self.resent_train_time = deque(maxlen=10)
         self.last_train_count = 0
+
+        self.t0_train_time = _time
+        self.t0_train_count = 0
 
     def on_trainer_end(self, info) -> None:
         self.last_train_count: int = info["train_count"]
         self._print_trainer()
 
     def on_trainer_train(self, info) -> None:
-        self.resent_train_time.append(info["train_time"])
         self.last_train_count: int = info["train_count"]
 
         d = {
@@ -430,7 +429,8 @@ class PrintProgress(Callback):
             self._print_trainer()
 
     def _print_trainer(self):
-        elapsed_time = time.time() - self.t0
+        _time = time.time()
+        elapsed_time = _time - self.t0
 
         # --- head
         # [TIME] [trainer] [elapsed time] [train count]
@@ -440,8 +440,14 @@ class PrintProgress(Callback):
         s += f" {to_str_time(elapsed_time)}"
 
         # [remain]
-        train_time = np.mean(list(self.resent_train_time), dtype=float) if len(self.resent_train_time) > 0 else np.inf
-        if (self.config.max_train_count > 0) and (len(self.resent_train_time) > 0):
+        train_time = (
+            (_time - self.t0_train_time) / (self.last_train_count - self.t0_train_count)
+            if (self.last_train_count - self.t0_train_count) > 0
+            else np.inf
+        )
+        self.t0_train_time = _time
+        self.t0_train_count = self.last_train_count
+        if (self.config.max_train_count > 0) and (self.last_train_count > 0):
             remain_train = (self.config.max_train_count - self.last_train_count) * train_time
         else:
             remain_train = np.inf

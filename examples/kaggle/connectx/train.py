@@ -64,7 +64,7 @@ def view():
     parameter.load(path)
 
     config.players = [None, "human"]
-    runner.render(config, parameter=parameter)
+    runner.render_terminal(config, parameter=parameter)
 
 
 if __name__ == "__main__":

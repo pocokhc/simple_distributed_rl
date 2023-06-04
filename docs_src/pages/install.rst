@@ -71,14 +71,14 @@ Using library
 + Torch が必要なアルゴリズムを使う場合に必要
    + <https://pytorch.org/get-started/locally/>
 + RGBの描画関係を使用する場合に必要
-   + matplotlib
    + pillow
    + opencv-python
    + pygame
 + 統計情報を扱う場合に必要
    + pandas
+   + matplotlib
 + OpenAI Gym の環境を使う場合に必要
-   + gym
+   + gym or gymnasium
    + pygame
 + Profile情報を表示する場合に必要
    + psutil
@@ -88,4 +88,4 @@ Tensorflow,Torchを除いたライブラリを一括でインストールする�
 
 .. code-block:: console
 
-    $ pip install matplotlib pillow opencv-python pygame pandas gym psutil pynvml
+    $ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml

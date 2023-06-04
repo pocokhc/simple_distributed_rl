@@ -58,6 +58,7 @@ def _render(env: EnvRun, rl_config: RLConfig, parameter: RLParameter):
     worker = srl.make_worker(rl_config, parameter)
 
     # 1. reset
+    # (Do not set both render_mode to window mode)
     env.reset(render_mode="terminal")
     worker.on_reset(env, render_mode="terminal")
 

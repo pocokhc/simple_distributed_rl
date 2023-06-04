@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from srl.base.render import IRender, Render
+from srl.utils.common import is_available_video_device
 
 
 class StubRender(IRender):
@@ -35,10 +36,7 @@ def test_render_terminal():
     ],
 )
 def test_render_rgb_array(return_rgb):
-    pytest.importorskip("cv2")
-    pytest.importorskip("matplotlib")
     pytest.importorskip("PIL")
-    pytest.importorskip("pygame")
 
     render = Render(StubRender())
 
@@ -53,10 +51,10 @@ def test_render_rgb_array(return_rgb):
 
 
 def test_render_window():
-    pytest.importorskip("cv2")
-    pytest.importorskip("matplotlib")
     pytest.importorskip("PIL")
     pytest.importorskip("pygame")
+    if not is_available_video_device():
+        pytest.skip("pygame.error: No available video device")
 
     render = Render(StubRender())
 

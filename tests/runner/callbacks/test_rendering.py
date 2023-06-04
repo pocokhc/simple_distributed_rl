@@ -3,7 +3,6 @@ import pytest
 from srl import runner
 from srl.algorithms import ql
 from srl.base.define import PlayRenderModes
-from srl.envs import grid  # noqa F401
 from srl.runner.callbacks.rendering import Rendering
 from srl.runner.core import play
 from srl.utils import common
@@ -24,9 +23,10 @@ common.logger_print()
 def test_run(mode):
     if mode == PlayRenderModes.window or mode == PlayRenderModes.rgb_array:
         pytest.importorskip("cv2")
-        pytest.importorskip("matplotlib")
         pytest.importorskip("PIL")
         pytest.importorskip("pygame")
+    if mode == PlayRenderModes.window and not common.is_available_video_device():
+        pytest.skip("pygame.error: No available video device")
 
     config = runner.Config("Grid", ql.Config())
     callback = Rendering(mode)

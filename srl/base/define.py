@@ -55,6 +55,8 @@ class RLTypes(enum.Enum):
 
 
 class RenderModes(enum.Enum):
+    """IRender の set_render_mode でのみ使用"""
+
     NONE = 0
     Terminal = enum.auto()
     RBG_array = enum.auto()

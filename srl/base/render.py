@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from typing import Optional, Union
 
@@ -23,41 +24,28 @@ class IRender:
 
 
 class Render:
-    def __init__(
-        self,
-        render_obj: IRender,
-        font_name: str = "",
-        font_size: int = 12,
-    ) -> None:
+    def __init__(self, render_obj: IRender) -> None:
         self.render_obj = render_obj
-        self.font_name = font_name
-        self.font_size = font_size
-        self.interval = -1
         self.mode = PlayRenderModes.none
 
-        self.fig = None
-        self.ax = None
-        self.screen = None
+        self.interval: float = -1  # ms
+        self.scale: float = 1.0
+        self.font_name: str = ""
+        self.font_size: int = 12
 
         self.print_str = ""
         self.rgb_array = None
 
-    def reset(self, mode: Union[str, PlayRenderModes], interval: float = -1):
-        self.interval = interval
+        self.screen = None
+
+    def reset(self, mode: Union[str, PlayRenderModes]):
         self.mode = PlayRenderModes.from_str(mode)
 
         if self.mode in [PlayRenderModes.rgb_array, PlayRenderModes.window]:
             assert is_packages_installed(
-                [
-                    "cv2",
-                    "matplotlib",
-                    "PIL",
-                    "pygame",
-                ]
-            ), (
-                "To use animation you need to install 'cv2', 'matplotlib', 'PIL', 'pygame'."
-                "(pip install opencv-python matplotlib pillow pygame)"
-            )
+                ["PIL", "pygame"]
+            ), "This run requires installation of 'PIL', 'pygame'. (pip install pillow pygame)"
+            # PIL use 'text_to_rgb_array'
 
         self.render_obj.set_render_mode(PlayRenderModes.convert_render_mode(self.mode))
 
@@ -112,26 +100,36 @@ class Render:
     def render_window(self, **kwargs) -> np.ndarray:
         rgb_array = self.render_rgb_array(**kwargs)
 
-        """matplotlibを採用"""
-        if self.fig is None or self.ax is None:
-            import matplotlib.pyplot as plt
+        import pygame
 
-            plt.ion()  # インタラクティブモードをオン
-            self.fig, self.ax = plt.subplots()
-            self.ax.axis("off")
+        from srl.utils import pygame_wrapper as pw
 
-            if self.interval > 0:
-                self.t0 = time.time() - self.interval
+        if self.screen is None:
+            if "SDL_VIDEODRIVER" in os.environ:
+                pygame.display.quit()
+                del os.environ["SDL_VIDEODRIVER"]
 
-        # interval たっていない場合は待つ
-        if self.interval > 0:
-            elapsed_time = time.time() - self.t0
-            if elapsed_time < self.interval:
-                time.sleep((self.interval - elapsed_time) / 1000)
+            pygame.init()
+            w = int(rgb_array.shape[1] * self.scale)
+            h = int(rgb_array.shape[0] * self.scale)
+
+            w = min(w, 1900)
+            h = min(h, 1600)
+            self.screen = pygame.display.set_mode((w, h))
             self.t0 = time.time()
 
-        self.ax.imshow(rgb_array)
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
+        pw.draw_image_rgb_array(self.screen, 0, 0, rgb_array)
+        pygame.display.flip()
+
+        # --- interval loop
+        while True:
+            pygame.event.get()
+
+            if self.interval <= 0:
+                break
+            elapsed_time = time.time() - self.t0
+            if elapsed_time > self.interval / 1000:
+                break
+        self.t0 = time.time()
 
         return rgb_array

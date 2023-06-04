@@ -73,6 +73,7 @@ def _render(
     ]
 
     # 1. reset
+    # (Only one of the window mode)
     env.reset(render_mode="terminal")
     [w.on_reset(env, i, render_mode="terminal") for i, w in enumerate(workers)]
 

@@ -3,6 +3,7 @@ import os
 from typing import Optional
 
 from srl.base.env.env_run import EnvRun
+from srl.base.render import Render
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.utils.common import load_module
@@ -97,14 +98,12 @@ def make_worker(
         distributed,
         actor_id,
     )
-    worker = WorkerRun(worker, rl_config.font_name, rl_config.font_size)
 
     # ExtendWorker
     if rl_config.extend_worker is not None:
         worker = rl_config.extend_worker(worker, training, distributed)
-        worker = WorkerRun(worker, rl_config.font_name, rl_config.font_size)
 
-    return worker
+    return WorkerRun(worker, Render(worker))
 
 
 def make_worker_rulebase(
@@ -112,13 +111,16 @@ def make_worker_rulebase(
     training: bool = False,
     distributed: bool = False,
     worker_kwargs: dict = {},
-    font_name: str = "",
-    font_size: int = 12,
 ) -> WorkerRun:
+    # --- srl内はloadする
+    if name == "human":
+        import srl.rl.human  # noqa F401
+    elif name == "random":
+        import srl.rl.random_play  # noqa F401
+
     assert name in _registry_worker, f"{name} is not registered."
     worker = load_module(_registry_worker[name])(training, distributed, **worker_kwargs)
-    worker = WorkerRun(worker, font_name, font_size)
-    return worker
+    return WorkerRun(worker, Render(worker))
 
 
 def make_worker_env(
@@ -127,15 +129,11 @@ def make_worker_env(
     env_worker_kwargs: dict = {},
     training: bool = False,
     distributed: bool = False,
-    font_name: str = "",
-    font_size: int = 12,
 ) -> Optional[WorkerRun]:
     return env.make_worker(
         name,
         training,
         distributed,
-        font_name,
-        font_size,
         env_worker_kwargs=env_worker_kwargs,
     )
 

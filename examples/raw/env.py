@@ -12,7 +12,8 @@ def main(env_name):
     print(f"observation_space: {env.observation_space}")
     print(f"player_num       : {env.player_num}")
 
-    env.reset(render_mode="terminal")
+    env.set_render_options(interval=1000 / 10)
+    env.reset(render_mode="window")  # "terminal" or "rgb_array" or "window"
     env.render()
 
     while not env.done:

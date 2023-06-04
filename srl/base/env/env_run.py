@@ -346,8 +346,6 @@ class EnvRun:
         name: str,
         training: bool = False,
         distributed: bool = False,
-        font_name: str = "",
-        font_size: int = 12,
         enable_raise: bool = True,
         env_worker_kwargs: dict = {},
     ) -> Optional["WorkerRun"]:
@@ -360,9 +358,10 @@ class EnvRun:
                 raise ValueError(f"'{name}' worker is not found.")
             return None
 
-        from srl.base.rl.worker import WorkerRun
+        from srl.base.render import Render
+        from srl.base.rl.worker_run import WorkerRun
 
-        return WorkerRun(worker, font_name, font_size)
+        return WorkerRun(worker, Render(worker))
 
     def get_original_env(self) -> object:
         return self.env.get_original_env()
@@ -373,6 +372,26 @@ class EnvRun:
     # ------------------------------------
     # render
     # ------------------------------------
+    def set_render_options(
+        self,
+        interval: float = -1,  # ms
+        scale: float = 1.0,
+        font_name: str = "",
+        font_size: int = 12,
+    ) -> float:
+        if interval > 0:
+            pass
+        elif self.config.render_interval > 0:
+            interval = self.config.render_interval
+        else:
+            interval = self.env.render_interval
+
+        self._render.interval = interval
+        self._render.scale = scale
+        self._render.font_name = font_name
+        self._render.font_size = font_size
+        return interval
+
     def render(self, **kwargs) -> Union[None, str, np.ndarray]:
         return self._render.render(**kwargs)
 

@@ -12,14 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 class WorkerRun:
-    def __init__(
-        self,
-        worker: WorkerBase,
-        font_name: str = "",
-        font_size: int = 12,
-    ):
+    def __init__(self, worker: WorkerBase, render: Render):
         self.worker = worker
-        self._render = Render(worker, font_name, font_size)
+        self._render = render
         self._player_index = 0
         self._info = None
         self._step_reward = 0
@@ -60,7 +55,7 @@ class WorkerRun:
 
         # --- render
         self._render.cache_reset()
-        self._render.reset(render_mode, interval=-1)
+        self._render.reset(render_mode)
 
     def policy(self, env: EnvRun) -> Optional[EnvActionType]:
         # 初期化していないなら初期化する
@@ -96,6 +91,19 @@ class WorkerRun:
     # ------------------------------------
     # render functions
     # ------------------------------------
+    def set_render_options(
+        self,
+        interval: float = -1,  # ms
+        scale: float = 1.0,
+        font_name: str = "",
+        font_size: int = 12,
+    ) -> float:
+        self._render.interval = interval
+        self._render.scale = scale
+        self._render.font_name = font_name
+        self._render.font_size = font_size
+        return interval
+
     def render(self, env: EnvRun, **kwargs) -> Union[None, str, np.ndarray]:
         # 初期化前はskip
         if not self._is_reset:

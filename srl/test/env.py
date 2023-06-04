@@ -2,7 +2,7 @@ import srl
 from srl import runner
 from srl.base.define import PlayRenderModes
 from srl.base.env.env_run import EnvRun
-from srl.utils.common import is_packages_installed
+from srl.utils.common import is_packages_installed, is_available_video_device
 
 
 class TestEnv:
@@ -14,7 +14,11 @@ class TestEnv:
         max_step: int = 0,
         print_enable: bool = False,
     ) -> EnvRun:
-        env = srl.make_env(env_name)
+        env_config = srl.EnvConfig(
+            env_name,
+            render_interval=1,
+        )
+        env = srl.make_env(env_config)
         assert issubclass(env.__class__, EnvRun), "The way env is created is wrong. (Mainly due to framework side)"
 
         # --- make_worker test
@@ -28,7 +32,6 @@ class TestEnv:
             self._play_test(
                 env,
                 PlayRenderModes.none,
-                render_interval=-1,
                 check_restore=True,
                 max_step=max_step,
                 print_enable=print_enable,
@@ -37,16 +40,14 @@ class TestEnv:
             self._play_test(
                 env,
                 PlayRenderModes.terminal,
-                render_interval=1,
                 check_restore=False,
                 max_step=max_step,
                 print_enable=print_enable,
             )
-            if is_packages_installed(["cv2", "matplotlib", "PIL", "pygame"]):
+            if is_packages_installed(["cv2", "pygame"]) and is_available_video_device():
                 self._play_test(
                     env,
                     PlayRenderModes.window,
-                    render_interval=1,
                     check_restore=False,
                     max_step=max_step,
                     print_enable=print_enable,
@@ -59,7 +60,6 @@ class TestEnv:
         self,
         env: EnvRun,
         render_mode,
-        render_interval,
         check_restore,
         max_step,
         print_enable,
@@ -68,7 +68,7 @@ class TestEnv:
         assert player_num > 0, "player_num is greater than or equal to 1."
 
         # --- reset
-        env.reset(render_mode, render_interval)
+        env.reset(render_mode)
         assert env.observation_space.check_val(env.state), f"Checking observation_space failed. state={env.state}"
         assert (
             0 <= env.next_player_index < player_num

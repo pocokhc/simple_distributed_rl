@@ -1,7 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 import numpy as np
 
@@ -14,6 +14,9 @@ from srl.utils.render_functions import text_to_rgb_array
 
 logger = logging.getLogger(__name__)
 
+if TYPE_CHECKING:
+    from matplotlib.animation import ArtistAnimation
+
 
 @dataclass
 class Rendering(Callback):
@@ -21,6 +24,12 @@ class Rendering(Callback):
     kwargs: dict = field(default_factory=lambda: {})
     step_stop: bool = False
     render_skip_step: bool = True
+
+    # render option
+    render_interval: float = -1  # ms
+    render_scale: float = 1.0
+    font_name: str = ""
+    font_size: int = 12
 
     def __post_init__(self):
         self.frames = []
@@ -38,13 +47,18 @@ class Rendering(Callback):
         self.rl_text = ""
         self.rl_img = None
         self.rl_state_image = None
-        self.render_interval = -1
         self.font = None
 
         self.mode = PlayRenderModes.from_str(self.mode)
 
     def on_episodes_begin(self, info) -> None:
-        self.render_interval = info["env"].render_interval
+        env: EnvRun = info["env"]
+        self.render_interval = env.set_render_options(
+            self.render_interval,
+            self.render_scale,
+            self.font_name,
+            self.font_size,
+        )
 
     def on_step_action_before(self, info) -> None:
         self._render_env(info)
@@ -234,10 +248,10 @@ class Rendering(Callback):
 
     def create_anime(
         self,
-        scale: float = 1.0,
         interval: float = -1,  # ms
-        draw_info: bool = False,
-    ):
+        scale: float = 1.0,
+        draw_info: bool = True,
+    ) -> "ArtistAnimation":
         assert len(self.frames) > 0
 
         import matplotlib.pyplot as plt
@@ -268,7 +282,9 @@ class Rendering(Callback):
         # --- size (inch = pixel / dpi)
         fig_dpi = 100
         fig = plt.figure(
-            dpi=fig_dpi, figsize=(scale * maxw / fig_dpi, scale * maxh / fig_dpi), tight_layout=dict(pad=0)
+            dpi=fig_dpi,
+            figsize=(scale * maxw / fig_dpi, scale * maxh / fig_dpi),
+            tight_layout=dict(pad=0),
         )
 
         # --- animation
@@ -285,9 +301,9 @@ class Rendering(Callback):
 
     def display(
         self,
-        scale: float = 1.0,
         interval: float = -1,  # ms
-        draw_info: bool = False,
+        scale: float = 1.0,
+        draw_info: bool = True,
     ) -> None:
         if len(self.frames) == 0:
             return
@@ -295,6 +311,6 @@ class Rendering(Callback):
         from IPython import display  # type: ignore
 
         t0 = time.time()
-        anime = self.create_anime(scale, interval, draw_info)
+        anime = self.create_anime(interval=interval, scale=scale, draw_info=draw_info)
         display.display(display.HTML(data=anime.to_jshtml()))  # type: ignore
         logger.info("display created({:.1f}s)".format(time.time() - t0))

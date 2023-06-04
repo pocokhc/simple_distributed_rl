@@ -343,3 +343,29 @@ def is_available_gpu_torch() -> bool:
     import torch
 
     return torch.cuda.is_available()
+
+
+def is_available_video_device() -> bool:
+    if not is_package_installed("pygame"):
+        return False
+    
+    import pygame
+
+    SDL_VIDEODRIVER = os.environ.get("SDL_VIDEODRIVER", None)
+    if "SDL_VIDEODRIVER" in os.environ:
+        pygame.display.quit()
+        del os.environ["SDL_VIDEODRIVER"]
+
+    try:
+        pygame.display.init()
+        pygame.display.set_mode((1, 1))
+        flag = True
+    except pygame.error:
+        flag = False
+    finally:
+        pygame.display.quit()
+        if SDL_VIDEODRIVER is not None:
+            os.environ["SDL_VIDEODRIVER"] = SDL_VIDEODRIVER
+
+    return flag
+

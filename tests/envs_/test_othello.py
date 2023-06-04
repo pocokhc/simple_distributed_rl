@@ -54,13 +54,13 @@ def test_processor():
     out_state[1][0][1] = 1
 
     tester.run(processor, env_name)
-    tester.change_observation_info(
+    tester.preprocess_observation_space(
         processor,
         env_name,
         EnvObservationTypes.SHAPE3,
         BoxSpace((2, 8, 8), 0, 1),
     )
-    tester.observation_decode(
+    tester.preprocess_observation(
         processor,
         env_name,
         in_observation=in_state,

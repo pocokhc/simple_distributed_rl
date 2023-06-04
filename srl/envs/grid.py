@@ -6,10 +6,11 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, KeyBindType, RLTypes
+from srl.base.define import EnvObservationTypes, KeyBindType
 from srl.base.env import registration
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.genre import SinglePlayEnv
+from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
@@ -439,12 +440,12 @@ class Grid(SinglePlayEnv):
 
 
 class LayerProcessor(Processor):
-    def change_observation_info(
+    def preprocess_observation_space(
         self,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationTypes,
-        rl_observation_type: RLTypes,
         env: EnvRun,
+        rl_config: RLConfig,
     ) -> Tuple[SpaceBase, EnvObservationTypes]:
         _env = cast(Grid, env.get_original_env())
         observation_space = BoxSpace(
@@ -454,7 +455,7 @@ class LayerProcessor(Processor):
         )
         return observation_space, EnvObservationTypes.SHAPE3
 
-    def process_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
+    def preprocess_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
         _env = cast(Grid, env.get_original_env())
 
         px = _env.player_pos[0]

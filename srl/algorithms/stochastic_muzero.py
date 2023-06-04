@@ -13,7 +13,6 @@ from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.memory import IPriorityMemoryConfig
 from srl.base.rl.model import IAlphaZeroImageBlockConfig
 from srl.base.rl.processor import Processor
-from srl.base.rl.processors.image_processor import ImageProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
 from srl.rl.functions.common import (
@@ -28,6 +27,7 @@ from srl.rl.memories.config import ProportionalMemoryConfig
 from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
 from srl.rl.models.alphazero.tf.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.tf.input_block import InputBlock
+from srl.rl.processors.image_processor import ImageProcessor
 from srl.utils.common import compare_less_version
 
 kl = keras.layers

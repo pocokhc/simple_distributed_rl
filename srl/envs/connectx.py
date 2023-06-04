@@ -5,10 +5,11 @@ from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvActionType, EnvObservationTypes, RLTypes
+from srl.base.define import EnvActionType, EnvObservationTypes
 from srl.base.env import registration
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
+from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.worker import RuleBaseWorker
 from srl.base.rl.worker_run import WorkerRun
@@ -299,12 +300,12 @@ class AlphaBeta(RuleBaseWorker):
 
 
 class LayerProcessor(Processor):
-    def change_observation_info(
+    def preprocess_observation_space(
         self,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationTypes,
-        rl_observation_type: RLTypes,
         env: EnvRun,
+        rl_config: RLConfig,
     ) -> Tuple[SpaceBase, EnvObservationTypes]:
         _env = cast(ConnectX, env.env)
         observation_space = BoxSpace(
@@ -314,7 +315,7 @@ class LayerProcessor(Processor):
         )
         return observation_space, EnvObservationTypes.SHAPE3
 
-    def process_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
+    def preprocess_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
         _env = cast(ConnectX, env.env)
 
         # Layer0: my player field (0 or 1)

@@ -1,8 +1,12 @@
 from abc import ABC
-from typing import Tuple
+from typing import TYPE_CHECKING, Tuple
 
-from srl.base.define import EnvObservationType, EnvObservationTypes, RLTypes
-from srl.base.env.env_run import EnvRun, SpaceBase
+from srl.base.define import EnvObservationType, EnvObservationTypes
+from srl.base.env.env_run import SpaceBase
+
+if TYPE_CHECKING:
+    from srl.base.env.env_run import EnvRun
+    from srl.base.rl.config import RLConfig
 
 
 class Processor(ABC):
@@ -10,25 +14,25 @@ class Processor(ABC):
     Preprocess information about the environment. (for RL)
     """
 
-    def change_observation_info(
+    def preprocess_observation_space(
         self,
         env_observation_space: SpaceBase,
         env_observation_type: EnvObservationTypes,
-        rl_observation_type: RLTypes,
-        env: EnvRun,
+        env: "EnvRun",
+        rl_config: "RLConfig",
     ) -> Tuple[SpaceBase, EnvObservationTypes]:
         return env_observation_space, env_observation_type
 
-    def process_observation(
+    def preprocess_observation(
         self,
         observation: EnvObservationType,
-        env: EnvRun,
+        env: "EnvRun",
     ) -> EnvObservationType:
         return observation
 
-    def process_reward(
+    def preprocess_reward(
         self,
         reward: float,
-        env: EnvRun,
+        env: "EnvRun",
     ) -> float:
         return reward

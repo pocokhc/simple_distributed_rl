@@ -77,14 +77,14 @@ print(srl.__version__)
 + Torch が必要なアルゴリズムを使う場合に必要
   + <https://pytorch.org/get-started/locally/>
 + RGBの描画関係を使用する場合に必要
-  + matplotlib
   + pillow
   + opencv-python
   + pygame
 + 統計情報を扱う場合に必要
   + pandas
+  + matplotlib
 + OpenAI Gym の環境を使う場合に必要
-  + gym
+  + gym or gymnasium
   + pygame
 + Profile情報を表示する場合に必要
   + psutil
@@ -93,12 +93,12 @@ print(srl.__version__)
 Tensorflow,Torchを除いたライブラリを一括でインストールするコマンドは以下です。
 
 ``` bash
-pip install matplotlib pillow opencv-python pygame pandas gym psutil pynvml
+pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml
 ```
 
 # 2. Usage
 
-## Basic run of study
+簡単な使い方は以下です。
 
 ``` python
 from srl import runner
@@ -119,102 +119,22 @@ def main():
     rewards = runner.evaluate(config, parameter, max_episodes=10)
     print(f"evaluate episodes: {rewards}")
 
+    # --- animation sample
+    #  (Run "pip install opencv-python pillow matplotlib pygame" to use the animation)
+    render = runner.animation(config, parameter)
+    render.create_anime().save("Grid.gif")
+
 
 if __name__ == "__main__":
     main()
 
 ```
 
-## Commonly run Example
+![Grid.gif](Grid.gif)
 
-学習と評価を別々で実行できる形式です。
+その他、よくある使い方は以下ドキュメントを見てください。
 
-``` python
-import os
-
-import numpy as np
-
-import srl
-from srl import runner
-
-# --- use env & algorithm load
-# (Run "pip install gym pygame" to use the gym environment)
-import gym  # isort: skip # noqa F401
-from srl.algorithms import ql  # isort: skip
-
-# --- save parameter path
-_parameter_path = "_params.dat"
-
-
-# --- sample config
-# For the parameters of Config, refer to the argument completion or the original code.
-def _create_config():
-    env_config = srl.EnvConfig("FrozenLake-v1")
-    rl_config = ql.Config()
-    config = runner.Config(env_config, rl_config)
-    parameter = config.make_parameter()
-
-    # --- Loads the file if it exists
-    if os.path.isfile(_parameter_path):
-        parameter.load(_parameter_path)
-
-    return config, parameter
-
-
-# --- train sample
-def train():
-    config, parameter = _create_config()
-
-    if True:
-        # sequence training
-        parameter, remote_memory, history = runner.train(config, parameter=parameter, timeout=60)
-    else:
-        # distributed training
-        parameter, remote_memory, history = runner.train_mp(config, parameter=parameter, timeout=60)
-
-    # save parameter
-    parameter.save(_parameter_path)
-
-
-# --- evaluate sample
-def evaluate():
-    config, parameter = _create_config()
-    rewards = runner.evaluate(config, parameter, max_episodes=100)
-    print(f"Average reward for 100 episodes: {np.mean(rewards)}")
-
-
-# --- render sample
-# You can watch the progress of 1 episode
-def render():
-    config, parameter = _create_config()
-    runner.render(config, parameter)
-
-
-# --- render window sample
-#  (Run "pip install opencv-python pillow matplotlib pygame" to use the animation)
-def render_window():
-    config, parameter = _create_config()
-    runner.render_window(config, parameter)
-
-
-# --- animation sample
-#  (Run "pip install opencv-python pillow matplotlib pygame" to use the animation)
-def animation():
-    config, parameter = _create_config()
-    render = runner.animation(config, parameter)
-    render.create_anime().save("_FrozenLake.gif")
-
-
-if __name__ == "__main__":
-    train()
-    evaluate()
-    render()
-    render_window()
-    animation()
-
-```
-
-![FrozenLake.gif](FrozenLake.gif)
++ [SimpleDistributedRL Getting Started](https://pocokhc.github.io/simple_distributed_rl/pages/quickstart.html)
 
 # 3. Framework Overview
 

@@ -203,7 +203,7 @@ parameter, remote_memory, history = runner.train(config, timeout=20)
 rewards = runner.evaluate(config, parameter, max_episodes=100)
 print("100エピソードの平均結果", np.mean(rewards))
 
-reward = runner.render(config, parameter)
+reward = runner.render_terminal(config, parameter)
 print(reward)
 
 render = runner.animation(config, parameter)

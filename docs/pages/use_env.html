@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="ja" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How to use Gym/Gymnasium environment &mdash; SimpleDistributedRL v0.10.0 ドキュメント</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="../_static/translations.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../genindex.html" />
+    <link rel="search" title="検索" href="../search.html" />
+    <link rel="next" title="3. Create Original Environment" href="custom_env.html" />
+    <link rel="prev" title="2. Getting Started" href="quickstart.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SimpleDistributedRL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">1. Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">2. Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">3. Create Original Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">4. Create Original Algorithm</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SimpleDistributedRL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">How to use Gym/Gymnasium environment</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/pages/use_env.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="how-to-use-gym-gymnasium-environment">
+<span id="use-env"></span><h1>How to use Gym/Gymnasium environment<a class="headerlink" href="#how-to-use-gym-gymnasium-environment" title="この見出しへのパーマリンク"></a></h1>
+<p>本フレームワークは Gym/Gymnasium の環境に対応しています。
+ここでは Gym/Gymnasium で定義された環境を読み込む方法を説明します。</p>
+<p>Gym/Gymnasium のレポジトリは以下です。</p>
+<ul class="simple">
+<li><p>(OpenAI gym)[<a class="reference external" href="https://github.com/openai/gym">https://github.com/openai/gym</a>]</p></li>
+<li><p>(Gymnasium)[<a class="reference external" href="https://github.com/Farama-Foundation/Gymnasium">https://github.com/Farama-Foundation/Gymnasium</a>]</p></li>
+</ul>
+<section id="gym-gymnasium">
+<h2>Gym/Gymnasium 環境の読み込み<a class="headerlink" href="#gym-gymnasium" title="この見出しへのパーマリンク"></a></h2>
+<p>Gym/Gymnasium に登録されている環境ならそのまま読み込むことができます。
+フレームワーク内では 'gym.make' または 'gymnasium.make' が使われています。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># load algorithm</span>
+
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;FrozenLake-v1&quot;</span><span class="p">)</span>
+
+    <span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
+
+    <span class="n">runner</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="gymnasium-make">
+<h2>'gymnasium.make' 以外の関数で環境を読み込む方法<a class="headerlink" href="#gymnasium-make" title="この見出しへのパーマリンク"></a></h2>
+<p>'gymnasium.make' 以外で読み込む場合は、引数にその関数を指定してください。
+例は 'gym-retro' を読み込む例です。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># pip install gym-retro</span>
+<span class="c1"># gym-retro support python3.6 3.7 3.8 and gym&lt;=0.25.2</span>
+<span class="kn">import</span> <span class="nn">retro</span>
+
+<span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># load algorithm</span>
+
+<span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span>
+    <span class="s2">&quot;Airstriker-Genesis&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;Level1&quot;</span><span class="p">),</span>  <span class="c1"># make kwargs</span>
+    <span class="n">gym_make_func</span><span class="o">=</span><span class="n">retro</span><span class="o">.</span><span class="n">make</span><span class="p">,</span>  <span class="c1"># use gym</span>
+    <span class="c1"># gymnasium_make_func= ,   # use gymnasium</span>
+<span class="p">)</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
+
+<span class="n">runner</span><span class="o">.</span><span class="n">render_window</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="quickstart.html" class="btn btn-neutral float-left" title="2. Getting Started" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="custom_env.html" class="btn btn-neutral float-right" title="3. Create Original Environment" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, poco_cpp.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

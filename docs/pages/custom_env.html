@@ -735,7 +735,7 @@ gym.Envを継承して作成します。</p>
 <span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">max_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;100エピソードの平均結果&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rewards</span><span class="p">))</span>
 
-<span class="n">reward</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
+<span class="n">reward</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">reward</span><span class="p">)</span>
 
 <span class="n">render</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">animation</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>

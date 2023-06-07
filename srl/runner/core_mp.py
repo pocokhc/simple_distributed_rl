@@ -142,6 +142,16 @@ def __run_actor_main(
         if params is not None:
             parameter.restore(params)
 
+        callbacks = config.callbacks[:]
+        callbacks.append(
+            _ActorInterrupt(
+                remote_board,
+                parameter,
+                train_end_signal,
+                config,
+            )
+        )
+
         # --- play
         core.play(
             config,
@@ -164,14 +174,7 @@ def __run_actor_main(
             history=options.history,
             checkpoint=options.checkpoint,
             # other
-            callbacks=[
-                _ActorInterrupt(
-                    remote_board,
-                    parameter,
-                    train_end_signal,
-                    config,
-                )
-            ],
+            callbacks=callbacks,
             parameter=parameter,
             remote_memory=remote_memory,
         )
@@ -256,6 +259,16 @@ def __run_trainer_main(
         parameter.restore(params)
 
     try:
+        callbacks = config.callbacks[:]
+        callbacks.append(
+            _TrainerInterrupt(
+                remote_board,
+                parameter,
+                train_end_signal,
+                config,
+            )
+        )
+
         # --- train
         core.play(
             config,
@@ -278,14 +291,7 @@ def __run_trainer_main(
             history=options.history,
             checkpoint=options.checkpoint,
             # other
-            callbacks=[
-                _TrainerInterrupt(
-                    remote_board,
-                    parameter,
-                    train_end_signal,
-                    config,
-                )
-            ],
+            callbacks=callbacks,
             parameter=parameter,
             remote_memory=remote_memory,
         )

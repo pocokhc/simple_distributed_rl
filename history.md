@@ -8,7 +8,7 @@
 
 **Bug Fixes**
 
-1. runnerのmpでcallbacksがうまく伝わっていない不具合を修正
+1. runnerのmpでユーザ指定callbacksが伝わっていない不具合を修正
 # v0.11.1
 
 **MainUpdates**

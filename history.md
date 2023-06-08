@@ -9,6 +9,8 @@
 **Bug Fixes**
 
 1. runnerのmpでユーザ指定callbacksが伝わっていない不具合を修正
+1. fix[runner.core]: infoにactor_idを追加
+
 # v0.11.1
 
 **MainUpdates**

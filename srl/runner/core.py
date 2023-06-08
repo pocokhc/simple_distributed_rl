@@ -334,6 +334,7 @@ def _play_run(
         "remote_memory": remote_memory,
         "trainer": trainer,
         "workers": workers,
+        "actor_id": config.actor_id,
     }
     [c.on_episodes_begin(_info) for c in callbacks]
 

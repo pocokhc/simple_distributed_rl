@@ -28,6 +28,9 @@ def train(
     timeout: int = -1,
     max_steps: int = -1,
     max_train_count: int = -1,
+    # play config
+    shuffle_player: bool = False,
+    disable_trainer: bool = False,
     # progress
     print_interval_max_time: int = 60 * 10,
     print_start_time: int = 5,
@@ -51,6 +54,9 @@ def train(
     config._max_steps = max_steps
     config._max_train_count = max_train_count
     config._training = True
+    # play config
+    config._shuffle_player = shuffle_player
+    config._disable_trainer = disable_trainer
 
     # --- random seed
     episode_seed = None
@@ -68,8 +74,11 @@ def train(
 
     # --- env/workers/trainer
     env = config.make_env()
-    worker = config.make_worker(parameter, remote_memory)
-    trainer = config.make_trainer(parameter, remote_memory)
+    workers = config.make_players(parameter, remote_memory)
+    if config.disable_trainer:
+        trainer = None
+    else:
+        trainer = config.make_trainer(parameter, remote_memory)
 
     # --- progress
     print(
@@ -99,8 +108,8 @@ def train(
     total_step = 0
     elapsed_t0 = _time
     end_reason = ""
-
-    assert env.player_num == 1
+    worker_indices = [i for i in range(env.player_num)]
+    worker_idx = 0
 
     # --- loop
     while True:
@@ -132,7 +141,7 @@ def train(
                 reward,
                 episode_step,
                 env.info,
-                worker.info,
+                workers[worker_idx].info,
                 train_info,
                 print_env_info,
                 print_worker_info,
@@ -148,9 +157,10 @@ def train(
             end_reason = "max_steps over."
             break
 
-        if config.max_train_count > 0 and trainer.get_train_count() > config.max_train_count:
-            end_reason = "max_train_count over."
-            break
+        if trainer is not None:
+            if config.max_train_count > 0 and trainer.get_train_count() > config.max_train_count:
+                end_reason = "max_train_count over."
+                break
 
         # --- episode end / init
         if env.done:
@@ -168,16 +178,25 @@ def train(
             env.reset(seed=episode_seed)
             if episode_seed is not None:
                 episode_seed += 1
-            worker.on_reset(env)
+
+            # shuffle
+            if env.player_num > 1:
+                if config.shuffle_player:
+                    random.shuffle(worker_indices)
+                worker_idx = worker_indices[env.next_player_index]
+
+            # worker
+            [w.on_reset(env, worker_indices[i]) for i, w in enumerate(workers)]
 
         # --- step
-        action = worker.policy(env)
+        action = workers[worker_idx].policy(env)
         env.step(action)
-        worker.on_step(env)
+        [w.on_step(env) for w in workers]
         total_step += 1
 
         # --- train
-        train_info = trainer.train()
+        if trainer is not None:
+            train_info = trainer.train()
 
     _train_run_print(
         config,
@@ -192,7 +211,7 @@ def train(
         reward,
         episode_step,
         env.info,
-        worker.info,
+        workers[worker_idx].info,
         train_info,
         print_env_info,
         print_worker_info,
@@ -207,7 +226,7 @@ def train(
 
 def _train_run_print(
     config: Config,
-    trainer: RLTrainer,
+    trainer: Optional[RLTrainer],
     remote_memory: RLRemoteMemory,
     _time,
     elapsed_t0,
@@ -241,7 +260,7 @@ def _train_run_print(
         remain_time = config.timeout - (_time - elapsed_t0)
     else:
         remain_time = np.inf
-    if (config.max_train_count > 0) and (trainer.get_train_count() > 0):
+    if (trainer is not None) and (config.max_train_count > 0) and (trainer.get_train_count() > 0):
         remain_train = (config.max_train_count - trainer.get_train_count()) * step_time
     else:
         remain_train = np.inf
@@ -253,7 +272,8 @@ def _train_run_print(
 
     # [all step] [all episode] [train]
     s += f" {total_step:5d}st({episode_count:5d}ep)"
-    s += " {:5d}tr".format(trainer.get_train_count())
+    if trainer is not None:
+        s += " {:5d}tr".format(trainer.get_train_count())
 
     # [reward]
     s += f", {reward:.1f} re"
@@ -402,6 +422,7 @@ def train_only(
     )
 
     logger.info(f"training end({end_reason})")
+    return parameter, remote_memory
 
 
 def _train_only_print(

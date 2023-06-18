@@ -1,10 +1,22 @@
 # TODO list
 
-1. BizHawkのenv作成
 1. tensorboard
 1. (IMPALA)
+1. get_valid_actions
 
 # v0.11.2
+
+**MainUpdates**
+
+1. replay_windowを最初に全エピソード実行するのではなく、1エピソード毎に実行する方法に変更
+1. feat[algorithms.dreamer]: Dreamer追加
+
+**OtherUpdates**
+
+1. クラス図を最新の状況に合わせて更新
+1. feat[runner.core_simple]: multiplayerに対応
+1. test[runner_core_simple]:テスト追加
+1. update[algorithms.dqn]:tf.function追加
 
 **Bug Fixes**
 

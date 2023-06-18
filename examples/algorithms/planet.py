@@ -18,14 +18,14 @@ def _create_config():
         stoch_size=10,
         num_units=100,
         cnn_depth=32,
-        batch_size=8,
-        batch_length=20,
+        batch_size=16,
+        batch_length=11,
         lr=0.001,
-        free_nats=3.0,
+        free_nats=0.1,
         kl_scale=1.0,
         enable_overshooting_loss=False,
         # GA
-        pred_action_length=10,
+        pred_action_length=5,
         num_generation=20,
         num_individual=5,
         num_simulations=5,
@@ -35,7 +35,7 @@ def _create_config():
     rl_config.use_render_image_for_observation = True
     rl_config.parameter_path = _parameter_path
     env_config = srl.EnvConfig("EasyGrid")
-    env_config.max_episode_steps = 21
+    env_config.max_episode_steps = 10
     return runner.Config(env_config, rl_config), rl_config
 
 
@@ -53,7 +53,7 @@ def train():
     parameter, memory, history = runner.train_only(
         config,
         remote_memory=memory,
-        max_train_count=30_000,
+        max_train_count=2_000,
     )
     parameter.save(_parameter_path)
 
@@ -68,7 +68,7 @@ def evaluate():
 def animation():
     config, rl_config = _create_config()
     render = runner.animation(config)
-    render.create_anime(draw_info=True).save(os.path.join(os.path.dirname(__file__), "_planet.gif"))
+    render.create_anime().save(os.path.join(os.path.dirname(__file__), "_planet.gif"))
 
 
 if __name__ == "__main__":

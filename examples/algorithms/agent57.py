@@ -74,7 +74,7 @@ def main():
     plt.ylabel("reward")
     for name, h in results:
         df = h.get_df()
-        plt.plot(df["episode_count"], df["episode_reward0"].rolling(10).mean(), label=name)
+        plt.plot(df["actor0_episode"], df["actor0_episode_reward0"].rolling(10).mean(), label=name)
     plt.grid()
     plt.legend()
     plt.tight_layout()

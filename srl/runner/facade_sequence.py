@@ -343,6 +343,7 @@ def animation(
     return cast(Rendering, rendering)
 
 
+"""
 def replay_window(
     config: Config,
     parameter: Optional[RLParameter] = None,
@@ -390,6 +391,34 @@ def replay_window(
     )
     history.replay(_is_test=_is_test)
     return history
+"""
+
+
+def replay_window(
+    config: Config,
+    parameter: Optional[RLParameter] = None,
+    # play config
+    timeout: int = -1,
+    max_steps: int = -1,
+    # option
+    progress: Optional[ProgressOption] = ProgressOption(),
+    # other
+    callbacks: List[Callback] = [],
+    _is_test: bool = False,  # for test
+):
+    # 暫定導入、問題なければこっちに変更
+    from srl.runner.game_windows.replay_window import RePlayableGame
+
+    game = RePlayableGame(
+        config,
+        parameter,
+        timeout,
+        max_steps,
+        progress,
+        callbacks,
+        _is_test,
+    )
+    game.play()
 
 
 def play_terminal(

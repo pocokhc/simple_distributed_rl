@@ -59,6 +59,9 @@ class Config(DiscreteActionConfig):
     mutation: float = 0.1
     print_ga_debug: bool = True
 
+    # 経験取得方法
+    experience_acquisition_method: str = "episode"  # "episode" or "loop"
+
     # other
     clip_rewards: str = "none"  # "none" or "tanh"
     dummy_state_val: float = 0.0
@@ -565,10 +568,15 @@ class Worker(DiscreteActionWorker):
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.screen = None
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self._recent_states = []
         self._recent_actions = []
         self._recent_rewards = []
+
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+        if self.config.experience_acquisition_method != "loop":
+            self._recent_states = []
+            self._recent_actions = []
+            self._recent_rewards = []
 
         self.deter = self.parameter.dynamics.get_initial_state()
         self.stoch = tf.zeros((1, self.config.stoch_size), dtype=tf.float32)
@@ -706,24 +714,40 @@ class Worker(DiscreteActionWorker):
         clip_rewards_fn = dict(none=lambda x: x, tanh=tf.tanh)[self.config.clip_rewards]
         reward = clip_rewards_fn(reward)
 
-        if len(self._recent_states) < self.config.batch_length:
+        if self.config.experience_acquisition_method == "loop":
             self._recent_states.append(next_state)
             self._recent_actions.append(self.action)
             self._recent_rewards.append(reward)
+            if len(self._recent_states) == self.config.batch_length:
+                self.remote_memory.add(
+                    {
+                        "states": self._recent_states,
+                        "actions": self._recent_actions,
+                        "rewards": self._recent_rewards,
+                    }
+                )
+                self._recent_states = []
+                self._recent_actions = []
+                self._recent_rewards = []
+        else:
+            if len(self._recent_states) < self.config.batch_length:
+                self._recent_states.append(next_state)
+                self._recent_actions.append(self.action)
+                self._recent_rewards.append(reward)
 
-        if done:
-            for _ in range(self.config.batch_length - len(self._recent_states)):
-                self._recent_states.append(self.dummy_state)
-                self._recent_actions.append(random.randint(0, self.config.action_num - 1))
-                self._recent_rewards.append(0)
+            if done:
+                for _ in range(self.config.batch_length - len(self._recent_states)):
+                    self._recent_states.append(next_state)
+                    self._recent_actions.append(random.randint(0, self.config.action_num - 1))
+                    self._recent_rewards.append(reward)
 
-            self.remote_memory.add(
-                {
-                    "states": self._recent_states,
-                    "actions": self._recent_actions,
-                    "rewards": self._recent_rewards,
-                }
-            )
+                self.remote_memory.add(
+                    {
+                        "states": self._recent_states,
+                        "actions": self._recent_actions,
+                        "rewards": self._recent_rewards,
+                    }
+                )
 
         return {}
 

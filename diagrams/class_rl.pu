@@ -1,12 +1,6 @@
 @startuml class_rl
 
-enum RLActionType {
-    ANY
-    DISCRETE
-    CONTINUOUS
-}
-
-enum RLObservationType {
+enum RLTypes {
     ANY
     DISCRETE
     CONTINUOUS
@@ -17,9 +11,9 @@ class EnvRun {}
 
 
 class WorkerRun {
-    on_reset()
-    policy()
-    on_step()
+    on_reset(env, player_index, render_mode)
+    policy(env)
+    on_step(env)
     render()
 }
 
@@ -34,9 +28,9 @@ abstract WorkerBase {
     policy()
     on_step()
     render_terminal()
+    render_rgb_array()
 }
 WorkerBase -- WorkerRun
-
 
 
 abstract RuleBaseWorker {
@@ -55,7 +49,6 @@ abstract ExtendWorker {
 }
 
 ExtendWorker -- WorkerBase
-
 
 
 abstract RLWorker {
@@ -80,7 +73,7 @@ abstract RLTrainer {
     parameter : RLParameter
     remote_memory : RLRemoteMemory
     train()
-    get_train_count()
+    get_train_count() : int
 }
 
 abstract RLRemoteMemory {
@@ -91,18 +84,18 @@ abstract RLRemoteMemory {
 
 abstract RLParameter {
     config : RLConfig
+    length() : int
     restore()
     backup()
 }
 
-
 abstract RLConfig {
-    {static} getName() : str
-    action_type : RLActionType
-    observation_type : RLObservationType
+    getName() : str
+    action_type : RLTypes
+    observation_type : RLTypes
 }
-RLActionType .. RLConfig
-RLObservationType .. RLConfig
+
+RLTypes .. RLConfig
 
 RLConfig --- RLWorker
 RLConfig --- RLTrainer
@@ -113,6 +106,5 @@ RLParameter -- RLWorker
 RLParameter -- RLTrainer
 RLRemoteMemory -- RLWorker
 RLRemoteMemory -- RLTrainer
-
 
 @enduml

@@ -28,7 +28,7 @@ def play_window(
     if isinstance(config, RunnerConfig):
         config = config.env_config
 
-    from srl.runner.game_window import PlayableGame
+    from srl.runner.game_windows.playable_game import PlayableGame
 
     game = PlayableGame(
         config,

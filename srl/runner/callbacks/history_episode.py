@@ -95,7 +95,11 @@ class HistoryEpisode(Callback):
 
     def on_episode_end(self, info):
         if self.actor_id == 0:
+            # 描画用にpolicyを実行
+            info["workers"][info["worker_idx"]].policy(info["env"])
+
             self._tmp_step_env(info)
+            self._tmp_step_worker(info)
             self._write_step(is_skip_step=True)
         self.close()
 
@@ -177,7 +181,7 @@ class HistoryEpisode(Callback):
         self.config = self.read_config(os.path.join(self.save_dir, "config.json"))
         self.player_num = self.config["env_config"]["player_num"]
 
-        from srl.runner.game_window import EpisodeReplay
+        from srl.runner.game_windows.episode_replay import EpisodeReplay
 
         EpisodeReplay(self, _is_test=_is_test).play()
 

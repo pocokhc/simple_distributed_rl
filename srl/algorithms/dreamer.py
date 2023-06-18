@@ -36,7 +36,12 @@ class Config(DiscreteActionConfig):
     # Model
     deter_size: int = 200
     stoch_size: int = 30
-    num_units: int = 400
+    reward_num_units: int = 400
+    reward_layers: int = 2
+    value_num_units: int = 400
+    value_layers: int = 3
+    action_num_units: int = 400
+    action_layers: int = 4
     dense_act: Any = "elu"
     cnn_act: Any = "relu"
     cnn_depth: int = 32
@@ -55,11 +60,16 @@ class Config(DiscreteActionConfig):
 
     # Behavior
     discount: float = 0.99
+    disclam: float = 0.95
     horizon: int = 15
-    value_estimation: str = "simple"
+    value_estimation_method: str = "dreamer"  # "simple" or "dreamer"
 
-    training_action: str = "random"  # 'random' or 'actor'
-    test_action: str = "actor"  # 'random' or 'actor'
+    # action ε-greedy
+    epsilon: float = 0.5
+    test_epsilon: float = 0.0
+
+    # 経験取得方法
+    experience_acquisition_method: str = "episode"  # "episode" or "loop"
 
     # other
     clip_rewards: str = "none"
@@ -99,47 +109,12 @@ register(
 # ------------------------------------------------------
 # RemoteMemory
 # ------------------------------------------------------
-class RemoteMemory(RLRemoteMemory):
+class RemoteMemory(ExperienceReplayBuffer):
     def __init__(self, *args):
         super().__init__(*args)
         self.config = cast(Config, self.config)
 
-        self.dynamics_buffer = ExperienceReplayBuffer(self.config)
-        self.behavior_buffer = ExperienceReplayBuffer(self.config)
-        self.dynamics_buffer.init(self.config.capacity)
-        self.behavior_buffer.init(self.config.capacity)
-
-    def length(self) -> int:
-        return self.dynamics_buffer.length() + self.behavior_buffer.length()
-
-    def call_restore(self, data: Any, **kwargs) -> None:
-        self.dynamics_buffer.call_restore(data[0], **kwargs)
-        self.behavior_buffer.call_restore(data[1], **kwargs)
-
-    def call_backup(self, **kwargs):
-        return [
-            self.dynamics_buffer.call_backup(**kwargs),
-            self.behavior_buffer.call_backup(**kwargs),
-        ]
-
-    # ---------------------------
-    def dynamics_length(self) -> int:
-        return self.dynamics_buffer.length()
-
-    def dynamics_add(self, batch: Any):
-        self.dynamics_buffer.add(batch)
-
-    def dynamics_sample(self, batch_size: int) -> List[Any]:
-        return self.dynamics_buffer.sample(batch_size)
-
-    def behavior_length(self) -> int:
-        return self.behavior_buffer.length()
-
-    def behavior_add(self, batch: Any):
-        self.behavior_buffer.add(batch)
-
-    def behavior_sample(self, batch_size: int) -> List[Any]:
-        return self.behavior_buffer.sample(batch_size)
+        self.init(self.config.capacity)
 
 
 # ------------------------------------------------------
@@ -357,25 +332,119 @@ class OneHotDist:
         return tf.one_hot(indices, self._num_classes, dtype=self._dtype)
 
 
-class _ActionDecoder(keras.Model):
-    def __init__(self, action_num: int, layers: int, units: int, dist: str):
-        super().__init__()
-        self._dist = dist
+class TanhBijector(tfp.bijectors.Bijector):
+    def __init__(self, validate_args=False, name="tanh"):
+        super().__init__(forward_min_event_ndims=0, validate_args=validate_args, name=name)
 
+    def _forward(self, x):
+        return tf.nn.tanh(x)
+
+    def _inverse(self, y):
+        dtype = y.dtype
+        y = tf.cast(y, tf.float32)
+        y = tf.where(tf.less_equal(tf.abs(y), 1.0), tf.clip_by_value(y, -0.99999997, 0.99999997), y)
+        y = tf.atanh(y)
+        y = tf.cast(y, dtype)
+        return y
+
+    def _forward_log_det_jacobian(self, x):
+        log2 = tf.math.log(tf.constant(2.0, dtype=x.dtype))
+        return 2.0 * (log2 - x - tf.nn.softplus(-2.0 * x))
+
+
+class SampleDist:
+    def __init__(self, dist, samples=100):
+        self._dist = dist
+        self._samples = samples
+
+    @property
+    def name(self):
+        return "SampleDist"
+
+    def __getattr__(self, name):
+        return getattr(self._dist, name)
+
+    def mean(self):
+        samples = self._dist.sample(self._samples)
+        return tf.reduce_mean(samples, 0)
+
+    def mode(self):
+        sample = self._dist.sample(self._samples)
+        logprob = self._dist.log_prob(sample)
+        return tf.gather(sample, tf.argmax(logprob))[0]
+
+    def entropy(self):
+        sample = self._dist.sample(self._samples)
+        logprob = self.log_prob(sample)
+        return -tf.reduce_mean(logprob, 0)
+
+
+class _ActionDiscreteDecoder(keras.Model):
+    def __init__(
+        self,
+        action_num: int,
+        layers: int,
+        units: int,
+    ):
+        super().__init__()
         self.dense_layers = [kl.Dense(units, activation="elu") for i in range(layers)]
         self.out = kl.Dense(action_num)
 
     def call(self, x, return_logits: bool = False):
         for layer in self.dense_layers:
             x = layer(x)
-        if self._dist == "tanh_normal":
-            pass  # TODO
-            dist = 1
-        elif self._dist == "onehot":
-            x = self.out(x)
-            dist = OneHotDist(logits=x)
+        x = self.out(x)
+        dist = OneHotDist(logits=x)
+        if return_logits:
+            return dist, x
         else:
-            raise NotImplementedError(self._dist)
+            return dist
+
+    def build(self, input_shape):
+        self._input_shape = input_shape
+        super().build((1,) + self._input_shape)
+
+    def summary(self, name="", **kwargs):
+        x = in_x = kl.Input(shape=self._input_shape)
+        for layer in self.dense_layers:
+            x = layer(x)
+        x = self.out(x)
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=in_x, outputs=x, name=name)
+        return model.summary(**kwargs)
+
+
+class _ActionContinuousDecoder(keras.Model):
+    def __init__(
+        self,
+        action_num: int,
+        layers: int,
+        units: int,
+        min_std=1e-4,
+        init_std=5.0,
+        mean_scale=5.0,
+    ):
+        super().__init__()
+        self._min_std = min_std
+        self._mean_scale = mean_scale
+        self._raw_init_std = np.log(np.exp(init_std) - 1)
+
+        self.dense_layers = [kl.Dense(units, activation="elu") for i in range(layers)]
+        self.out = kl.Dense(action_num * 2)
+
+    def call(self, x, return_logits: bool = False):
+        for layer in self.dense_layers:
+            x = layer(x)
+
+        # tanh_normal
+        x = self.out(x)
+        mean, std = tf.split(x, 2, -1)
+        mean = self._mean_scale * tf.tanh(mean / self._mean_scale)
+        std = tf.nn.softplus(std + self._raw_init_std) + self._min_std
+        dist = tfd.Normal(mean, std)
+        dist = tfd.TransformedDistribution(dist, TanhBijector())
+        dist = tfd.Independent(dist, 1)
+        dist = SampleDist(dist)
         if return_logits:
             return dist, x
         else:
@@ -406,10 +475,23 @@ class Parameter(RLParameter):
         self.encode = _ConvEncoder(self.config.cnn_depth, self.config.cnn_act)
         self.dynamics = _RSSM(self.config.stoch_size, self.config.deter_size, self.config.deter_size)
         self.decode = _ConvDecoder(self.config.cnn_depth, self.config.cnn_act)
-        self.reward = _DenseDecoder((1,), 2, self.config.num_units, "normal", self.config.dense_act)
-        self.value = _DenseDecoder((1,), 3, self.config.num_units, "normal")
-        self.actor = _ActionDecoder(self.config.action_num, 2, 50, "onehot")
-        # self.actor = _ActionDecoder(self.config.action_num, 4, self.config.num_units, "onehot")
+        self.reward = _DenseDecoder(
+            (1,),
+            self.config.reward_layers,
+            self.config.reward_num_units,
+            "normal",
+            self.config.dense_act,
+        )
+        self.value = _DenseDecoder(
+            (1,),
+            self.config.value_layers,
+            self.config.value_num_units,
+            "normal",
+            self.config.dense_act,
+        )
+        self.actor = _ActionDiscreteDecoder(
+            self.config.action_num, self.config.action_layers, self.config.action_num_units
+        )
 
         self.encode.build(self.config.observation_shape)
         self.dynamics.build(self.config)
@@ -424,7 +506,7 @@ class Parameter(RLParameter):
         self.decode.set_weights(data[2])
         self.reward.set_weights(data[3])
         self.value.set_weights(data[4])
-        # self.actor.set_weights(data[5])
+        self.actor.set_weights(data[5])
 
     def call_backup(self, **kwargs) -> Any:
         return [
@@ -470,11 +552,11 @@ class Trainer(RLTrainer):
         return self.train_count
 
     def train(self):
-        if self.remote_memory.dynamics_length() < self.config.memory_warmup_size:
+        if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
         info = {}
 
-        batchs = self.remote_memory.dynamics_sample(self.config.batch_size)
+        batchs = self.remote_memory.sample(self.config.batch_size)
 
         states = np.asarray([b["states"] for b in batchs], dtype=np.float32)
         actions = [b["actions"] for b in batchs]
@@ -498,7 +580,7 @@ class Trainer(RLTrainer):
         self.parameter.value.trainable = False
         with tf.GradientTape() as tape:
             embed = self.parameter.encode(states, training=True)
-            embed_shape = embed.shape  # type:ignore , ignore check "None"
+            embed_shape = embed.shape
 
             # (batch * seq, shape) -> (batch, seq, shape)
             # (batch, seq, shape) -> (seq, batch, shape)
@@ -569,7 +651,7 @@ class Trainer(RLTrainer):
 
             info["img_loss"] = -image_loss.numpy() / (64 * 64 * 3)
             info["reward_loss"] = -reward_loss.numpy()
-            info["kl_loss"] = kl_loss.numpy()  # type:ignore , ignore check "None"
+            info["kl_loss"] = kl_loss.numpy()
 
         if (not self.config.enable_train_actor) and (not self.config.enable_train_value):
             # WorldModelsのみ学習
@@ -589,33 +671,17 @@ class Trainer(RLTrainer):
         # ------------------------
         # Actor
         # ------------------------
+        horizon_v = None
         if self.config.enable_train_actor:
             self.parameter.actor.trainable = True
             self.parameter.value.trainable = False
             with tf.GradientTape() as tape:
-                horizon_stoch = stochs
-                horizon_deter = deters
-                horizon_feat = feats
-                returns = tf.constant([0] * self.config.batch_size * self.config.batch_length, dtype=tf.float32)
-                returns = tf.expand_dims(returns, axis=1)
+                horizon_v, horizon_feats = self._compute_horizon_step(stochs, deters, feats)
 
-                for t in range(self.config.horizon):
-                    policy = self.parameter.actor(horizon_feat).sample()
-                    horizon_deter, horizon_prior = self.parameter.dynamics.img_step(
-                        horizon_stoch, horizon_deter, policy
-                    )
-                    horizon_stoch = horizon_prior["stoch"]
-                    horizon_feat = tf.concat([horizon_stoch, horizon_deter], -1)
-
-                    if self.config.value_estimation == "simple":
-                        reward = self.parameter.reward(horizon_feat).mode()
-                        value = self.parameter.value(horizon_feat).mode()
-                        # print(reward)
-                        # returns += reward * (self.config.discount**t)
-                        returns += (self.config.discount ** (t + 1)) * (reward + value) / 2
-
-                act_loss = -tf.reduce_mean(returns) / self.config.horizon
-                # act_loss /= 100
+                # (horizon, batch_size*batch_length, 1) -> (batch_size*batch_length, horizon, 1)
+                act_loss = tf.transpose(horizon_v, [1, 0, 2])
+                act_loss = tf.reduce_sum(act_loss, axis=1) / self.config.horizon
+                act_loss = -tf.reduce_mean(act_loss)
 
             grads = tape.gradient(act_loss, self.parameter.actor.trainable_variables)
             self._actor_opt.apply_gradients(zip(grads, self.parameter.actor.trainable_variables))
@@ -625,47 +691,95 @@ class Trainer(RLTrainer):
         # Value
         # ------------------------
         if self.config.enable_train_value:
-            # horizon step 進ませて報酬を計算
-            horizon_stoch = stochs
-            horizon_deter = deters
-            horizon_feat = feats
-            returns = tf.constant([0] * self.config.batch_size * self.config.batch_length, dtype=tf.float32)
-            returns = tf.expand_dims(returns, axis=1)
+            if horizon_v is None:
+                horizon_v, horizon_feats = self._compute_horizon_step(stochs, deters, feats)
 
-            if self.config.value_estimation == "simple":
-                reward = self.parameter.reward(horizon_feat).mode()
-                returns += reward
-
-            for t in range(self.config.horizon):
-                # --- horizon policy
-                if True:
-                    # random policy
-                    _a = [
-                        random.randint(0, self.config.action_num)
-                        for _ in range(self.config.batch_size * self.config.batch_length)
-                    ]
-                    policy = tf.one_hot(_a, self.config.action_num, axis=1)
-
-                horizon_deter, horizon_prior = self.parameter.dynamics.img_step(horizon_stoch, horizon_deter, policy)
-                horizon_stoch = horizon_prior["stoch"]
-                horizon_feat = tf.concat([horizon_stoch, horizon_deter], -1)
-
-                if self.config.value_estimation == "simple":
-                    reward = self.parameter.reward(horizon_feat).mode()
-                    returns += reward * (self.config.discount ** (t + 1))
+            # (horizon, batch_size*batch_length, feat) -> (horizon*batch_size*batch_length, feat)
+            horizon_feats = tf.stack(horizon_feats)
+            horizon_feats = tf.reshape(
+                horizon_feats, (horizon_feats.shape[0] * horizon_feats.shape[1], horizon_feats.shape[2])
+            )
+            horizon_v = tf.reshape(horizon_v, (horizon_v.shape[0] * horizon_v.shape[1], horizon_v.shape[2]))
 
             self.parameter.actor.trainable = False
             self.parameter.value.trainable = True
             with tf.GradientTape() as tape:
-                if self.config.value_estimation == "simple":
-                    value_pred = self.parameter.value(feats)
-                    val_loss = -tf.reduce_mean(value_pred.log_prob(returns))
+                value_pred = self.parameter.value(horizon_feats)
+                val_loss = -tf.reduce_mean(value_pred.log_prob(horizon_v))
             grads = tape.gradient(val_loss, self.parameter.value.trainable_variables)
             self._value_opt.apply_gradients(zip(grads, self.parameter.value.trainable_variables))
             info["val_loss"] = val_loss.numpy()
 
         self.train_count += 1
         return info
+
+    def _compute_horizon_step(
+        self,
+        stochs,
+        deters,
+        feats,
+    ):
+        if self.config.value_estimation_method == "simple":
+            horizon_feats = []
+            horizon_reward = []
+            for t in range(self.config.horizon):
+                stochs, deters, feats = self._horizon_step(stochs, deters, feats)
+                horizon_feats.append(feats)
+                horizon_reward.append(self.parameter.reward(feats).mode())
+
+            # 累積和の平均
+            horizon_v = tf.math.cumsum(horizon_reward, reverse=True)
+            weights = tf.reshape(1.0 / tf.range(len(horizon_v), 0, -1, dtype=tf.float32), (len(horizon_v), 1, 1))
+            weights = tf.tile(weights, (1, horizon_v.shape[1], horizon_v.shape[2]))
+            horizon_v *= weights
+
+            return horizon_v, horizon_feats
+
+        elif self.config.value_estimation_method == "dreamer":
+            horizon_feats = []
+            horizon_v = []
+            for t in range(self.config.horizon):
+                stochs, deters, feats = self._horizon_step(stochs, deters, feats)
+                horizon_feats.append(feats)
+                reward = self.parameter.reward(feats).mode()
+                v = self.parameter.value(feats).mode()
+                horizon_v.append(
+                    (self.config.discount**t) * reward + (self.config.discount ** (self.config.horizon - t)) * v
+                )
+
+            horizon_v = tf.math.cumsum(horizon_v, reverse=True)
+            weights = tf.reshape(1.0 / tf.range(len(horizon_v), 0, -1, dtype=tf.float32), (len(horizon_v), 1, 1))
+            weights = tf.tile(weights, (1, horizon_v.shape[1], horizon_v.shape[2]))
+            horizon_v *= weights
+
+            # EWA
+            v = (1 - self.config.disclam) * horizon_v[0]
+            horizon_v2 = [v]
+            for t in range(1, self.config.horizon):
+                v = self.config.disclam * v + (1 - self.config.disclam) * horizon_v[t]
+                horizon_v2.append(v)
+
+            horizon_v2 = tf.stack(horizon_v2)
+            return horizon_v2, horizon_feats
+
+        else:
+            raise ValueError(self.config.value_estimation_method)
+
+    def _horizon_step(
+        self,
+        stoch,
+        deter,
+        feat,
+    ):
+        # --- policy
+        policy = self.parameter.actor(feat).sample()
+
+        # --- step
+        deter, prior = self.parameter.dynamics.img_step(stoch, deter, policy)
+        stoch = prior["stoch"]
+        feat = tf.concat([stoch, deter], -1)
+
+        return stoch, deter, feat
 
 
 # ------------------------------------------------------
@@ -681,10 +795,15 @@ class Worker(DiscreteActionWorker):
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.screen = None
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self._recent_states = []
         self._recent_actions = []
         self._recent_rewards = []
+
+    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+        if self.config.experience_acquisition_method != "loop":
+            self._recent_states = []
+            self._recent_actions = []
+            self._recent_rewards = []
 
         self.deter = self.parameter.dynamics.get_initial_state()
         self.stoch = tf.zeros((1, self.config.stoch_size), dtype=tf.float32)
@@ -700,25 +819,20 @@ class Worker(DiscreteActionWorker):
         self.prev_action = self.action
 
         if self.training:
-            action_type = self.config.training_action
+            epsilon = self.config.epsilon
         else:
-            action_type = self.config.test_action
+            epsilon = self.config.test_epsilon
 
-        if action_type == "random":
+        if epsilon < 1.0:
+            # 少しでもactorでaction決定する可能性があれば、rssmを進める
+            self._rssm_step()
+
+        if random.random() < epsilon:
             self.action = cast(int, self.sample_action())
             return self.action, {}
 
-        # --- rssm step
-        self._rssm_step()
-
-        if action_type == "actor":
-            if self.training:
-                action = self.parameter.actor(self.feat).sample()  # type:ignore , ignore check "None"
-            else:
-                action = self.parameter.actor(self.feat).mode()  # type:ignore , ignore check "None"
-            self.action = np.argmax(action[0])
-        else:
-            raise NotImplementedError(action_type)
+        action = self.parameter.actor(self.feat).mode()
+        self.action = np.argmax(action[0])
 
         return self.action, {}
 
@@ -743,24 +857,40 @@ class Worker(DiscreteActionWorker):
         clip_rewards_fn = dict(none=lambda x: x, tanh=tf.tanh)[self.config.clip_rewards]
         reward = clip_rewards_fn(reward)
 
-        if len(self._recent_states) < self.config.batch_length:
+        if self.config.experience_acquisition_method == "loop":
             self._recent_states.append(next_state)
             self._recent_actions.append(self.action)
             self._recent_rewards.append(reward)
+            if len(self._recent_states) == self.config.batch_length:
+                self.remote_memory.add(
+                    {
+                        "states": self._recent_states,
+                        "actions": self._recent_actions,
+                        "rewards": self._recent_rewards,
+                    }
+                )
+                self._recent_states = []
+                self._recent_actions = []
+                self._recent_rewards = []
+        else:
+            if len(self._recent_states) < self.config.batch_length:
+                self._recent_states.append(next_state)
+                self._recent_actions.append(self.action)
+                self._recent_rewards.append(reward)
 
-        if done:
-            for _ in range(self.config.batch_length - len(self._recent_states)):
-                self._recent_states.append(self.dummy_state)
-                self._recent_actions.append(random.randint(0, self.config.action_num - 1))
-                self._recent_rewards.append(0)
+            if done:
+                for _ in range(self.config.batch_length - len(self._recent_states)):
+                    self._recent_states.append(next_state)
+                    self._recent_actions.append(random.randint(0, self.config.action_num - 1))
+                    self._recent_rewards.append(reward)
 
-            self.remote_memory.dynamics_add(
-                {
-                    "states": self._recent_states,
-                    "actions": self._recent_actions,
-                    "rewards": self._recent_rewards,
-                }
-            )
+                self.remote_memory.add(
+                    {
+                        "states": self._recent_states,
+                        "actions": self._recent_actions,
+                        "rewards": self._recent_rewards,
+                    }
+                )
 
         return {}
 
@@ -810,12 +940,14 @@ class Worker(DiscreteActionWorker):
         pw.draw_text(self.screen, IMG_W * 2 + PADDING + 10, 20, f"V     : {pred_value:.4f}", color=(255, 255, 255))
 
         # 横にアクション後の結果を表示
-        for i, a in enumerate(self.get_valid_actions()):
-            if i > _view_action:
+        for a in range(self.config.action_num):
+            if a in self.get_invalid_actions():
+                continue
+            if a > _view_action:
                 break
             pw.draw_text(
                 self.screen,
-                (IMG_W + PADDING) * i,
+                (IMG_W + PADDING) * a,
                 20 + IMG_H,
                 f"{env.action_to_str(a)}({policy_logits[a]:.2f})",
                 color=(255, 255, 255),
@@ -844,9 +976,9 @@ class Worker(DiscreteActionWorker):
                 reward = reward.numpy()[0][0]
                 value = value.numpy()[0][0]
 
-                x = (IMG_W + PADDING) * i
+                x = (IMG_W + PADDING) * a
                 y = 20 + IMG_H + STR_H + (IMG_H + PADDING + STR_H * 2) * j
-                pw.draw_text(self.screen, x, y, f"{reward:.3f}", color=(255, 255, 255))
+                pw.draw_text(self.screen, x, y, f"r={reward:.3f}", color=(255, 255, 255))
                 pw.draw_text(self.screen, x, y + STR_H, f"V={value:.3f}", color=(255, 255, 255))
                 pw.draw_image_rgb_array(self.screen, x, y + STR_H * 2, n_img)
 

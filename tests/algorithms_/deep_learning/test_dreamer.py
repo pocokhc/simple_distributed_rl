@@ -1,57 +1,94 @@
-import numpy as np
+from typing import cast
+
 import pytest
 
+import srl
+from srl import runner
 from srl.utils import common
 
 from .common_base_class import CommonBaseClass
 
 
-def test_Grid():
-    pytest.importorskip("tensorflow")
+class _BaseCase(CommonBaseClass):
+    def return_rl_config(self, framework):
+        from srl.algorithms import dreamer
 
-    from srl.algorithms import dreamer
+        return dreamer.Config(
+            deter_size=30,
+            stoch_size=20,
+            reward_num_units=30,
+            reward_layers=2,
+            value_num_units=50,
+            value_layers=2,
+            action_num_units=50,
+            action_layers=2,
+            cnn_depth=32,
+            batch_size=32,
+            batch_length=21,
+            free_nats=0.1,
+            kl_scale=1.0,
+            model_lr=0.001,
+            value_lr=0.0005,
+            actor_lr=0.0001,
+            memory_warmup_size=1000,
+            epsilon=1.0,
+            value_estimation_method="dreamer",  # "simple" or "dreamer"
+            horizon=20,
+        )
 
-    rl_config = dreamer.Config(
-        sequence_length=10,
-        z_size=2,
-        rnn_units=64,
-        batch_size=16,
-        lr=0.001,
-        hidden_block_kwargs={"hidden_layer_sizes": (8, 8)},
-        reward_block_kwargs={"hidden_layer_sizes": (16, 16)},
-        vae_beta=1000.0,
-        enable_overshooting_loss=False,
-        pred_action_length=3,
-        num_generation=20,
-        num_individual=5,
-        num_simulations=10,
-        print_ga_debug=False,
-    )
-    rl_config.memory_warmup_size = rl_config.batch_size + 1
-    rl_config.use_render_image_for_observation = True
-    env_config = srl.EnvConfig("Grid")
-    env_config.max_episode_steps = 10
-    config = runner.Config(env_config, rl_config)
+    def test_EasyGrid(self):
+        from srl.algorithms import dreamer
 
-    # train
-    _, memory, _ = runner.train(
-        config,
-        max_episodes=1000,
-        enable_file_logger=False,
-        disable_trainer=True,
-    )
-    parameter, _, _ = runner.train_only(
-        config,
-        remote_memory=memory,
-        max_train_count=50_000,
-        enable_evaluation=False,
-        enable_file_logger=False,
-        progress_max_time=60 * 2,
-    )
+        env_config = srl.EnvConfig("EasyGrid")
+        env_config.max_episode_steps = 20
+        env_config.check_action = False
+        env_config.check_val = False
 
-    # eval
-    rewards = runner.evaluate(config, parameter, max_episodes=5, print_progress=True)
-    true_reward = -0.1
-    s = f"{np.mean(rewards)} >= {true_reward}"
-    print(s)
-    assert np.mean(rewards) >= true_reward, s
+        config, rl_config, tester = self.create_config(env_config)
+        rl_config = cast(dreamer.Config, rl_config)
+        rl_config.use_render_image_for_observation = True
+
+        # --- train dynamics
+        rl_config.enable_train_model = True
+        rl_config.enable_train_actor = False
+        rl_config.enable_train_value = False
+        parameter, _ = runner.train_simple(config, max_train_count=10_000)
+
+        # --- train value
+        rl_config.enable_train_model = False
+        rl_config.enable_train_actor = False
+        rl_config.enable_train_value = True
+        parameter, _ = runner.train_simple(
+            config,
+            parameter=parameter,
+            max_train_count=1_000,
+        )
+
+        # --- train actor
+        rl_config.enable_train_model = False
+        rl_config.enable_train_actor = True
+        rl_config.enable_train_value = True
+        parameter, _ = runner.train_simple(
+            config,
+            parameter=parameter,
+            max_train_count=3_000,
+        )
+
+        # --- eval
+        tester.eval(config, parameter, episode=5, baseline=0.2)
+
+
+class TestTF_CPU(_BaseCase):
+    def return_params(self):
+        pytest.importorskip("tensorflow")
+
+        return "tensorflow", "CPU"
+
+
+class TestTF_GPU(_BaseCase):
+    def return_params(self):
+        pytest.importorskip("tensorflow")
+        if not common.is_available_gpu_tf():
+            pytest.skip()
+
+        return "tensorflow", "GPU"

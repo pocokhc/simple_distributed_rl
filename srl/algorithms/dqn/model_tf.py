@@ -42,6 +42,7 @@ class _QNetwork(keras.Model):
         # build
         self.build((None,) + config.observation_shape)
 
+    @tf.function
     def call(self, x, training=False):
         x = self.in_block(x, training=training)
         if self.in_block.use_image_layer:

@@ -13,11 +13,25 @@ enum EnvObservationType {
 
 abstract SpaceBase {
     sample()
-    action_discrete()
-    action_continuous()
-    observation_discrete()
-    observation_continuous()
+    get_default()
+    rl_type
+    n
+    encode_to_int()
+    decode_from_int()
+    encode_to_int_np()
+    decode_from_int_np()
+    list_size
+    list_low
+    list_high
+    encode_to_list_float()
+    decode_from_list_float()
+    shape
+    low
+    high
+    encode_to_np()
+    decode_from_np()
 }
+
 
 note as SpaceMemo
 - DiscreteSpace
@@ -37,45 +51,38 @@ abstract EnvBase {
     max_episode_steps : int
     player_num : int
     reset()
-    step(action, player_index)
+    step(action)
+    next_player_index: int
     backup()
     restore()
+    close()
+    get_invalid_actions()
     render_terminal()
     render_rgb_array()
-    get_invalid_actions(player_index)
 } 
 
 EnvBase .. EnvObservationType
 EnvBase -- SpaceBase
 
-
-abstract gym.Env {
-    action_space : gym.spaces.Space
-    observation_space : gym.spaces.Space
-    reset()
-    step(action)
-    render()
-}
+abstract gymnasium.Env {}
+abstract gym.Env {}
+class GymnasiumWrapper {}
 class GymWrapper {}
 
+GymnasiumWrapper o-- gymnasium.Env
 GymWrapper o-- gym.Env
+EnvBase -- GymnasiumWrapper
 EnvBase -- GymWrapper
-
-abstract SpaceBase {
-
-}
 
 
 class EnvRun {
-    state
-    rewards
-    done
-    reset()
+    reset(render_mode, seed)
     step(action)
     backup()
     restore()
     render()
     sample()
+    property_infos
 }
 EnvRun o-- EnvBase
 

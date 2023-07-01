@@ -44,6 +44,13 @@ class Config(RLConfig):
     def getName(self) -> str:
         return "Dyna-Q"
 
+    @property
+    def info_types(self) -> dict:
+        return {
+            "size": {"type": int, "data": "last"},
+            "td_error": {},
+        }
+
 
 register(
     Config(),
@@ -227,7 +234,7 @@ class Trainer(RLTrainer):
             td_error /= len(batchs)
 
         return {
-            "Q": len(self.parameter.Q),
+            "size": len(self.parameter.Q),
             "td_error": td_error,
         }
 

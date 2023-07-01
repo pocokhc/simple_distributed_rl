@@ -36,6 +36,10 @@ class Config(RLConfig):
     def getName(self) -> str:
         return "MCTS"
 
+    @property
+    def info_types(self) -> dict:
+        return {"size": {"type": int, "data": "last"}}
+
 
 register(
     Config(),

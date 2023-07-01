@@ -45,8 +45,13 @@ class Config(RLConfig):
     def getName(self) -> str:
         return "QL"
 
-    def assert_params(self) -> None:
-        super().assert_params()
+    @property
+    def info_types(self) -> dict:
+        return {
+            "size": {"type": int, "data": "last"},
+            "td_error": {},
+            "epsilon": {},
+        }
 
 
 register(

@@ -115,6 +115,14 @@ class Config(RLConfig):
         assert self.batch_size < self.memory_warmup_size
         assert self.lr_schedule[0]["train"] == 0
 
+    @property
+    def info_types(self) -> dict:
+        return {
+            "value_loss": {},
+            "policy_loss": {},
+            "lr": {"data": "last"},
+        }
+
 
 register(
     Config(),
@@ -324,7 +332,7 @@ class Trainer(RLTrainer):
             p_pred, v_pred = self.parameter.network(states)  # type:ignore , ignore check "None"
 
             # value: 状態に対する勝率(reward)を教師に学習(MSE)
-            value_loss = tf.square(rewards - v_pred)
+            value_loss: Any = tf.square(rewards - v_pred)
 
             # policy: 選んだアクション(MCTSの結果)を教師に学習(categorical cross entropy)
             p_pred = tf.clip_by_value(p_pred, 1e-6, p_pred)  # log(0)回避用
@@ -346,7 +354,7 @@ class Trainer(RLTrainer):
         self.parameter.reset_cache()
 
         return {
-            "value_loss": np.mean(value_loss.numpy()),  # type:ignore , ignore check "None"
+            "value_loss": np.mean(value_loss.numpy()),
             "policy_loss": np.mean(policy_loss.numpy()),
             "lr": self.optimizer.learning_rate.numpy(),
         }

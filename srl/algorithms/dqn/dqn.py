@@ -128,6 +128,14 @@ class Config(RLConfig):
         assert self.memory_warmup_size < self.memory.get_capacity()
         assert self.batch_size < self.memory_warmup_size
 
+    @property
+    def info_types(self) -> dict:
+        return {
+            "loss": {"data": "ave"},
+            "sync": {"type": int, "data": "last"},
+            "epsilon": {"data": "last"},
+        }
+
 
 # ------------------------------------------------------
 # RemoteMemory

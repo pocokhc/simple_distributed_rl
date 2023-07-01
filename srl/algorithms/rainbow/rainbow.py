@@ -178,6 +178,14 @@ class Config(RLConfig):
         assert len(self.hidden_layer_sizes) > 0
         assert self.multisteps > 0
 
+    @property
+    def info_types(self) -> dict:
+        return {
+            "loss": {},
+            "sync": {"type": int, "data": "last"},
+            "epsilon": {"data": "last"},
+        }
+
 
 # ------------------------------------------------------
 # RemoteMemory

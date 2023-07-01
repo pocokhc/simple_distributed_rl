@@ -123,6 +123,18 @@ class Config(RLConfig):
         assert self.multisteps >= 1
         assert self.memory_warmup_size < self.memory.get_capacity()
 
+    @property
+    def info_types(self) -> dict:
+        return {
+            "size": {"type": int, "data": "last"},
+            "ext_td_error": {},
+            "int_td_error": {},
+            "episodic_reward": {},
+            "lifelong_reward": {},
+            "int_reward": {},
+            "priority": {},
+        }
+
 
 register(
     Config(),
@@ -299,7 +311,7 @@ class Trainer(RLTrainer):
         self.remote_memory.update(indices, batchs, np.array(ext_td_errors))
 
         return {
-            "Q": len(self.parameter.Q_ext),
+            "size": len(self.parameter.Q_ext),
             "ext_td_error": np.mean(ext_td_errors),
             "int_td_error": np.mean(int_td_errors),
         }

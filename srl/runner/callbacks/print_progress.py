@@ -6,19 +6,14 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from srl.base.env.env_run import EnvRun
+from srl.base.rl.worker_run import WorkerRun
 from srl.runner.callback import Callback
 from srl.runner.config import Config
 from srl.utils.common import listdictdict_to_dictlist, summarize_info_from_dictlist
+from srl.utils.util_str import to_str_from_list_info, to_str_reward, to_str_time
 
 logger = logging.getLogger(__name__)
-
-
-def to_str_time(sec: float) -> str:
-    if sec == np.inf:
-        return "   inf"
-    if sec < 60:
-        return "{:5.2f}s".format(sec)
-    return "{:5.1f}m".format(sec / 60)
 
 
 # 進捗に対して表示、少しずつ間隔を長くする(上限あり)
@@ -112,7 +107,7 @@ class PrintProgress(Callback):
         self.last_episode_count = info["episode_count"]
         if info["trainer"] is not None:
             self.last_train_count = info["trainer"].get_train_count()
-        self._print_actor()
+        self._print_actor(info["env"], info["workers"][self.print_worker])
 
     def on_episode_begin(self, info):
         if self.config.actor_id >= self.max_actor:
@@ -126,6 +121,7 @@ class PrintProgress(Callback):
 
         self.step_count += 1
         d = {
+            "reward": info["env"].reward,
             "env_info": info["env"].info,
             "work_info": info["workers"][self.print_worker].info,
             "train_info": info["train_info"],
@@ -140,7 +136,7 @@ class PrintProgress(Callback):
             self.last_train_count = trainer.get_train_count()
 
         if self._check_print_progress():
-            self._print_actor()
+            self._print_actor(info["env"], info["workers"][self.print_worker])
 
     def on_episode_end(self, info):
         if self.config.actor_id >= self.max_actor:
@@ -174,7 +170,7 @@ class PrintProgress(Callback):
 
     # -----------------------------------------
 
-    def _print_actor(self):
+    def _print_actor(self, env: EnvRun, worker: WorkerRun):
         _time = time.time()
         elapsed_time = _time - self.t0
 
@@ -232,15 +228,25 @@ class PrintProgress(Callback):
         if self.config.training and not self.config.distributed:
             s += " {:5d}tr".format(self.last_train_count)
 
+        reward_type = env.reward_info.get("type", float)
+        info_types = worker.config.info_types
         if len(self.progress_history) == 0:
             if len(self.history_step) == 0:
-                # --- no info
+                # ---------------------------
+                # no info
+                # ---------------------------
                 s += "1 step is not over."
             else:
-                # --- steps info
+                # ---------------------------
+                # steps info
+                # ---------------------------
                 # [episode step] [step time]
                 s += f", {len(self.history_step):5d} step"
                 s += f", {step_time:.5f}s/step"
+
+                # [reward]
+                r = sum([d["reward"] for d in self.history_step])
+                s += f", {to_str_reward(r, reward_type)}"
 
                 # [train time]
                 if self.config.training and not self.config.distributed:
@@ -251,24 +257,28 @@ class PrintProgress(Callback):
 
                 # [info]
                 if self.print_env_info:
-                    s += self._info_str(self.history_step, "env_info")
+                    s += to_str_from_list_info([d.get("env_info", {}) for d in self.history_step], info_types)
                 if self.print_worker_info:
-                    s += self._info_str(self.history_step, "work_info")
+                    s += to_str_from_list_info([d.get("work_info", {}) for d in self.history_step], info_types)
                 if self.print_train_info:
-                    s += self._info_str(self.history_step, "train_info")
-
+                    s += to_str_from_list_info([d.get("train_info", {}) for d in self.history_step], info_types)
         else:
-            # --- episode info
-            # [reward] [eval reward] [episode step] [episode time] [train time] [sync] [memory] [info]
+            # ---------------------------
+            # episode info
+            # ---------------------------
+            # [reward]
             _r = [h["episode_reward"] for h in self.progress_history]
-            s += f", {min(_r):.1f} {np.mean(_r):.3f} {max(_r):.1f} re"
+            _r_min = to_str_reward(min(_r), reward_type)
+            _r_mid = to_str_reward(np.mean(_r), float)
+            _r_max = to_str_reward(max(_r), reward_type)
+            s += f",{_r_min} {_r_mid} {_r_max} re"
 
             # [eval reward]
             s += self._eval_reward_str(self.progress_history)
 
             # [episode step] [episode time]
             _s = [h["episode_step"] for h in self.progress_history]
-            s += f", {np.mean(_s):.1f} step"
+            s += f", {int(np.mean(_s)):3d}step"
             s += f", {episode_time:.2f}s/ep"
 
             # [train time]
@@ -278,18 +288,18 @@ class PrintProgress(Callback):
             # [sync]
             if "sync" in self.progress_history[0]:
                 sync = max([h["sync"] for h in self.progress_history])
-                s += f", {sync:3d} recv"
+                s += f", {sync:2d}recv"
 
             # [memory_system]
             s += self._memory_system_str(self.last_memory)
 
             # [info]
             if self.print_env_info:
-                s += self._info_str(self.progress_history, "env_info")
+                s += to_str_from_list_info([d.get("env_info", {}) for d in self.progress_history], info_types)
             if self.print_worker_info:
-                s += self._info_str(self.progress_history, "work_info")
+                s += to_str_from_list_info([d.get("work_info", {}) for d in self.progress_history], info_types)
             if self.print_train_info:
-                s += self._info_str(self.progress_history, "train_info")
+                s += to_str_from_list_info([d.get("train_info", {}) for d in self.progress_history], info_types)
 
         print(s)
         self.progress_history = []
@@ -302,7 +312,7 @@ class PrintProgress(Callback):
                 return ""
         _rewards = [h["eval_reward"] for h in arr if h["eval_reward"] is not None]
         if len(_rewards) > 0:
-            s = f"({np.mean(_rewards):.3f} eval)"
+            s = f"({to_str_reward(np.mean(_rewards), float)} eval)"
         elif self.config.distributed:
             s = " " * 12
         else:
@@ -325,7 +335,7 @@ class PrintProgress(Callback):
                     s += "[CPU Nan%]"
 
         else:
-            s = f", {memory_len:5d}mem"
+            s = f", {memory_len}mem"
 
             if self.enable_psutil:
                 try:
@@ -356,19 +366,6 @@ class PrintProgress(Callback):
                     logger.debug(traceback.format_exc())
                     s += ",GPU Nan%"
 
-        return s
-
-    def _info_str(self, arr_dict, key) -> str:
-        s = ""
-        d = listdictdict_to_dictlist(arr_dict, key)
-        d = summarize_info_from_dictlist(d)
-        for k, v in d.items():
-            if v is None:
-                s += f"|{k} None"
-            elif isinstance(v, float):
-                s += f"|{k} {v:.3f}"
-            else:
-                s += f"|{k} {v}"
         return s
 
     # ----------------------------------

@@ -83,6 +83,14 @@ class Othello(TurnBase2Player):
         return self.W * self.H
 
     @property
+    def reward_info(self) -> dict:
+        return {
+            "min": -1,
+            "max": 1,
+            "type": int,
+        }
+
+    @property
     def next_player_index(self) -> int:
         return self._next_player_index
 

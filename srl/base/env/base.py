@@ -57,6 +57,7 @@ class EnvBase(ABC, IRender):
             "min": None,
             "max": None,
             "baseline": None,
+            "type": float,
         }
 
     # --------------------------------

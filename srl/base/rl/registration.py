@@ -3,8 +3,8 @@ import os
 from typing import Optional
 
 from srl.base.env.env_run import EnvRun
-from srl.base.render import Render
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
+from srl.base.rl.config import DummyConfig
 from srl.base.rl.worker_run import WorkerRun
 from srl.utils.common import load_module
 
@@ -13,7 +13,20 @@ logger = logging.getLogger(__name__)
 _registry = {}
 _registry_worker = {}
 
-_ASSERT_MSG = "Run 'rl_config.reset(env)' first"
+
+def _check_rl_config(
+    rl_config: RLConfig,
+    env: Optional[EnvRun] = None,
+):
+    name = rl_config.getName()
+    assert name in _registry, f"{name} is not registered."
+
+    if env is None:
+        assert rl_config.is_set_env_config, "Run 'rl_config.reset(env)' first"
+    else:
+        rl_config.reset(env)
+    rl_config.assert_params()
+    return rl_config
 
 
 def make_remote_memory(
@@ -22,12 +35,10 @@ def make_remote_memory(
     return_class: bool = False,
     is_load: bool = True,
 ) -> RLRemoteMemory:
-    if env is None:
-        assert rl_config.is_set_env_config, _ASSERT_MSG
-    else:
-        rl_config.reset(env)
-    name = rl_config.getName()
-    _class = load_module(_registry[name][0])
+    rl_config = _check_rl_config(rl_config, env)
+
+    entry_point = _registry[rl_config.getName()][0]
+    _class = load_module(entry_point)
     if return_class:
         return _class
 
@@ -45,12 +56,10 @@ def make_parameter(
     env: Optional[EnvRun] = None,
     is_load: bool = True,
 ) -> RLParameter:
-    if env is None:
-        assert rl_config.is_set_env_config, _ASSERT_MSG
-    else:
-        rl_config.reset(env)
-    name = rl_config.getName()
-    parameter = load_module(_registry[name][1])(rl_config)
+    rl_config = _check_rl_config(rl_config, env)
+
+    entry_point = _registry[rl_config.getName()][1]
+    parameter = load_module(entry_point)(rl_config)
     if is_load and rl_config.parameter_path != "":
         if not os.path.isfile(rl_config.parameter_path):
             logger.info(f"The file was not found and was not loaded.({rl_config.parameter_path})")
@@ -65,52 +74,36 @@ def make_trainer(
     remote_memory: RLRemoteMemory,
     env: Optional[EnvRun] = None,
 ) -> RLTrainer:
-    if env is None:
-        assert rl_config.is_set_env_config, _ASSERT_MSG
-    else:
-        rl_config.reset(env)
-    name = rl_config.getName()
-    return load_module(_registry[name][2])(rl_config, parameter, remote_memory)
+    rl_config = _check_rl_config(rl_config, env)
+    entry_point = _registry[rl_config.getName()][2]
+    return load_module(entry_point)(rl_config, parameter, remote_memory)
 
 
 def make_worker(
     rl_config: RLConfig,
+    env: EnvRun,
     parameter: Optional[RLParameter] = None,
     remote_memory: Optional[RLRemoteMemory] = None,
-    env: Optional[EnvRun] = None,
-    training: bool = False,
     distributed: bool = False,
     actor_id: int = 0,
 ) -> WorkerRun:
-    if env is None:
-        assert rl_config.is_set_env_config, _ASSERT_MSG
-    else:
-        rl_config.reset(env)
-
-    rl_config.assert_params()
-
-    name = rl_config.getName()
-    worker = load_module(_registry[name][3])(
-        rl_config,
-        parameter,
-        remote_memory,
-        training,
-        distributed,
-        actor_id,
-    )
+    rl_config = _check_rl_config(rl_config, env)
+    entry_point = _registry[rl_config.getName()][3]
+    worker = load_module(entry_point)(rl_config, parameter, remote_memory)
 
     # ExtendWorker
     if rl_config.extend_worker is not None:
-        worker = rl_config.extend_worker(worker, training, distributed)
+        worker = rl_config.extend_worker(worker, rl_config, parameter, remote_memory)
 
-    return WorkerRun(worker, Render(worker))
+    return WorkerRun(worker, env, distributed, actor_id)
 
 
 def make_worker_rulebase(
     name: str,
-    training: bool = False,
+    env: EnvRun,
+    update_config_parameter: dict = {},
     distributed: bool = False,
-    worker_kwargs: dict = {},
+    actor_id: int = 0,
 ) -> WorkerRun:
     # --- srl内はloadする
     if name == "human":
@@ -118,24 +111,16 @@ def make_worker_rulebase(
     elif name == "random":
         import srl.rl.random_play  # noqa F401
 
+    rl_config = DummyConfig(name=name)
+    name = rl_config.getName()
+
+    # --- config update
+    for k, v in update_config_parameter.items():
+        setattr(rl_config, k, v)
+
     assert name in _registry_worker, f"{name} is not registered."
-    worker = load_module(_registry_worker[name])(training, distributed, **worker_kwargs)
-    return WorkerRun(worker, Render(worker))
-
-
-def make_worker_env(
-    env: EnvRun,
-    name: str,
-    env_worker_kwargs: dict = {},
-    training: bool = False,
-    distributed: bool = False,
-) -> Optional[WorkerRun]:
-    return env.make_worker(
-        name,
-        training,
-        distributed,
-        env_worker_kwargs=env_worker_kwargs,
-    )
+    worker = load_module(_registry_worker[name])(rl_config, None, None)
+    return WorkerRun(worker, env, distributed, actor_id)
 
 
 def register(
@@ -144,7 +129,7 @@ def register(
     parameter_entry_point: str,
     trainer_entry_point: str,
     worker_entry_point: str,
-):
+) -> None:
     global _registry
 
     name = config.getName()
@@ -157,10 +142,10 @@ def register(
     ]
 
 
-def register_worker(
+def register_rulebase(
     name: str,
     worker_entry_point: str,
-):
+) -> None:
     global _registry_worker
     assert name not in _registry_worker, f"{name} was already registered."
     _registry_worker[name] = worker_entry_point

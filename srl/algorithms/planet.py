@@ -9,8 +9,9 @@ import tensorflow_probability as tfp
 from tensorflow import keras
 
 from srl.base.define import EnvObservationTypes, RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import ExperienceReplayBuffer
@@ -31,7 +32,7 @@ ref: https://github.com/danijar/dreamer
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(DiscreteActionConfig):
+class Config(RLConfig):
     lr: float = 0.001
     batch_size: int = 50
     batch_length: int = 50
@@ -76,7 +77,11 @@ class Config(DiscreteActionConfig):
         ]
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
@@ -103,7 +108,7 @@ register(
 class RemoteMemory(ExperienceReplayBuffer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.init(self.config.capacity)
 
@@ -290,7 +295,7 @@ class _DenseDecoder(keras.Model):
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.encode = _ConvEncoder(self.config.cnn_depth, self.config.cnn_act)
         self.dynamics = _RSSM(self.config.stoch_size, self.config.deter_size, self.config.deter_size)
@@ -329,9 +334,9 @@ class Parameter(RLParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         if compare_less_version(tf.__version__, "2.11.0"):
             self.optimizer = keras.optimizers.Adam()
@@ -561,9 +566,9 @@ class Trainer(RLTrainer):
 class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.screen = None

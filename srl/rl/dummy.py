@@ -1,25 +1,18 @@
 from dataclasses import dataclass
 from typing import Tuple
 
-from srl.base.define import EnvActionType, RLTypes
-from srl.base.rl.algorithms.modelbase import ModelBaseWorker
-from srl.base.rl.base import RLConfig, RLParameter, RLTrainer
+from srl.base.define import RLActionType
+from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import DummyConfig
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory.sequence_memory import SequenceRemoteMemory
+from srl.base.rl.worker_rl import RLWorker
+from srl.base.rl.worker_run import WorkerRun
 
 
 @dataclass
-class Config(RLConfig):
-    @property
-    def action_type(self) -> RLTypes:
-        return RLTypes.ANY
-
-    @property
-    def observation_type(self) -> RLTypes:
-        return RLTypes.ANY
-
-    def getName(self) -> str:
-        return "Dummy"
+class Config(DummyConfig):
+    pass
 
 
 register(
@@ -59,15 +52,6 @@ class Trainer(RLTrainer):
         return {}
 
 
-class Worker(ModelBaseWorker):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-    def call_on_reset(self, state, env, worker) -> dict:
-        return {}
-
-    def call_policy(self, state, env, worker) -> Tuple[EnvActionType, dict]:
-        return env.sample(), {}
-
-    def call_on_step(self, next_state, reward: float, done: bool, env, worker):
-        return {}
+class Worker(RLWorker):
+    def call_policy(self, worker: WorkerRun) -> Tuple[RLActionType, dict]:
+        return worker.sample_action(), {}

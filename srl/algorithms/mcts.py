@@ -1,16 +1,17 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Tuple, cast
+from typing import Any, Tuple
 
 import numpy as np
 
 from srl.base.define import RLTypes
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
-from srl.base.rl.algorithms.modelbase import ModelBaseWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import SequenceRemoteMemory
+from srl.base.rl.worker_rl import RLWorker
+from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import render_discrete_action, to_str_observation
 
 
@@ -18,14 +19,18 @@ from srl.rl.functions.common import render_discrete_action, to_str_observation
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(DiscreteActionConfig):
+class Config(RLConfig):
     num_simulations: int = 10
     expansion_threshold: int = 5
     discount: float = 1.0
     uct_c: float = np.sqrt(2.0)
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
 
     def getName(self) -> str:
@@ -54,7 +59,7 @@ class RemoteMemory(SequenceRemoteMemory):
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.N = {}  # 訪問回数
         self.W = {}  # 累計報酬
@@ -86,9 +91,9 @@ class Parameter(RLParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.train_count = 0
 
@@ -112,26 +117,23 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(ModelBaseWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
-    def call_on_reset(self, state: np.ndarray, env: EnvRun, worker) -> dict:
-        return {}
-
-    def call_policy(self, _state: np.ndarray, env: EnvRun, worker) -> Tuple[int, dict]:
-        self.state = to_str_observation(_state)
-        self.invalid_actions = self.get_invalid_actions()
+    def call_policy(self, worker: WorkerRun) -> Tuple[int, dict]:
+        self.state = to_str_observation(worker.state, self.config.env_observation_type)
+        self.invalid_actions = worker.get_invalid_actions()
         self.parameter.init_state(self.state)
 
         if self.training:
-            dat = env.backup()
+            dat = worker.env.backup()
             for _ in range(self.config.num_simulations):
-                self._simulation(env, self.state)
-                env.restore(dat)
+                self._simulation(worker.env, self.state)
+                worker.env.restore(dat)
 
         # 試行回数のもっとも多いアクションを採用
         c = self.parameter.N[self.state]
@@ -144,21 +146,20 @@ class Worker(ModelBaseWorker):
         if depth >= env.max_episode_steps:  # for safety
             return 0
 
-        player_index = env.next_player_index
-
         # actionを選択
         uct_list = self._calc_uct(state, env.get_invalid_actions())
         action = np.random.choice(np.where(uct_list == np.max(uct_list))[0])
 
         if self.parameter.N[state][action] < self.config.expansion_threshold:
             # アクション回数がすくないのでロールアウト
-            reward = self._rollout(env, player_index)
+            reward = self._rollout(env)
         else:
             # 1step実行
-            n_state, rewards, done = self.env_step(env, action)
+            player_index = env.next_player_index
+            n_state, rewards = self.worker_run.env_step(env, action)
             reward = rewards[player_index]
 
-            if done:
+            if env.done:
                 pass  # 終了
             else:
                 n_state = to_str_observation(n_state)
@@ -210,11 +211,11 @@ class Worker(ModelBaseWorker):
         return uct_list
 
     # ロールアウト
-    def _rollout(self, env: EnvRun, player_index):
+    def _rollout(self, env: EnvRun):
         rewards = []
         while not env.done:
-            env.step(env.sample())
-            rewards.append(env.step_rewards[player_index])
+            env.step(env.sample_action())
+            rewards.append(env.reward)
 
         # 割引報酬
         reward = 0
@@ -222,17 +223,7 @@ class Worker(ModelBaseWorker):
             reward = r + self.config.discount * reward
         return reward
 
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward: float,
-        done: bool,
-        env: EnvRun,
-        worker,
-    ) -> dict:
-        return {}
-
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         self.parameter.init_state(self.state)
         maxa = np.argmax(self.parameter.N[self.state])
         uct_list = self._calc_uct(self.state, self.invalid_actions)
@@ -244,4 +235,4 @@ class Worker(ModelBaseWorker):
                 q /= c
             return f"{c:7d}(N), {q:9.4f}(Q), {uct_list[a]:.5f}(UCT)"
 
-        render_discrete_action(maxa, env, self.config, _render_sub)
+        render_discrete_action(maxa, worker.env, self.config, _render_sub)

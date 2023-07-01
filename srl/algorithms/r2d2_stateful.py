@@ -7,8 +7,9 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import EnvObservationTypes, RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
@@ -134,7 +135,7 @@ def create_input_layer_stateful_lstm(
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(DiscreteActionConfig):
+class Config(RLConfig):
     test_epsilon: float = 0
     epsilon: float = 0.1
     actor_epsilon: float = 0.4
@@ -220,7 +221,11 @@ class Config(DiscreteActionConfig):
         ]
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
@@ -250,7 +255,7 @@ register(
 class RemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
         self.init(ReplayMemoryConfig(self.config.capacity))
 
 
@@ -325,7 +330,7 @@ class _QNetwork(keras.Model):
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.q_online = _QNetwork(self.config)
         self.q_target = _QNetwork(self.config)
@@ -365,9 +370,9 @@ def _batch_dict_step_to_step_batch(batchs, key, in_step, is_list, to_np):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
         self.loss = keras.losses.Huber()
@@ -566,9 +571,9 @@ class Trainer(RLTrainer):
 class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
 
@@ -729,8 +734,7 @@ class Worker(DiscreteActionWorker):
             # 計算する必要がない場合はそのままメモリに送る
             self.remote_memory.add(batch, None)
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
-        invalid_actions = self.recent_invalid_actions[-1]
+    def render_terminal(self, worker, **kwargs) -> None:
         # パラメータを予測するとhidden_stateが変わってしまうの予測はしない
         q = self.q
         maxa = np.argmax(q)
@@ -740,4 +744,4 @@ class Worker(DiscreteActionWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        render_discrete_action(maxa, env, self.config, _render_sub)
+        render_discrete_action(maxa, worker.env, self.config, _render_sub)

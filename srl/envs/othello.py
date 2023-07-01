@@ -10,9 +10,9 @@ from srl.base.define import EnvObservationTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
+from srl.base.rl.algorithms.env_worker import EnvWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
-from srl.base.rl.worker import RuleBaseWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
@@ -363,16 +363,16 @@ class Othello(TurnBase2Player):
     def render_interval(self) -> float:
         return 1000 / 1
 
-    def make_worker(self, name: str, **kwargs) -> Optional[RuleBaseWorker]:
+    def make_worker(self, name: str, **kwargs) -> Optional[EnvWorker]:
         if name == "cpu":
             return Cpu(**kwargs)
         return None
 
 
-class Cpu(RuleBaseWorker):
+class Cpu(EnvWorker):
     cache = {}
 
-    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> dict:
+    def call_on_reset(self, env: EnvRun) -> dict:
         _env = cast(Othello, env.get_original_env())
         self.max_depth = 2
         self.eval_field = None
@@ -410,7 +410,7 @@ class Cpu(RuleBaseWorker):
 
         return {}
 
-    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[int, dict]:
+    def call_policy(self, env: EnvRun) -> Tuple[int, dict]:
         self._count = 0
         self.t0 = time.time()
         _env = cast(Othello, env.get_original_env())
@@ -465,9 +465,9 @@ class Cpu(RuleBaseWorker):
         Cpu.cache[key] = scores
         return scores
 
-    def render_terminal(self, env: EnvRun, worker: WorkerRun, **kwargs) -> None:
-        _env = cast(Othello, env.get_original_env())
-        valid_actions = env.get_valid_actions(_env._next_player_index)
+    def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
+        _env = cast(Othello, worker.env.get_original_env())
+        valid_actions = worker.env.get_valid_actions(_env._next_player_index)
 
         print(f"- MinMax count: {self._render_count}, {self._render_time:.3f}s -")
         for y in range(_env.H):

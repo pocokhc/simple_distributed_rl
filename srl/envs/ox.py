@@ -8,10 +8,9 @@ from srl.base.define import EnvObservationTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
+from srl.base.rl.algorithms.env_worker import EnvWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
-from srl.base.rl.worker import RuleBaseWorker
-from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
@@ -213,7 +212,7 @@ class OX(TurnBase2Player):
     def render_interval(self) -> float:
         return 1000 / 1
 
-    def make_worker(self, name: str, **kwargs) -> Optional[RuleBaseWorker]:
+    def make_worker(self, name: str, **kwargs):
         if name == "cpu":
             return Cpu(**kwargs)
         return None
@@ -255,13 +254,8 @@ class OX(TurnBase2Player):
         return scores
 
 
-class Cpu(RuleBaseWorker):
-    cache = {}
-
-    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> dict:
-        return {}
-
-    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[int, dict]:
+class Cpu(EnvWorker):
+    def call_policy(self, env: EnvRun) -> Tuple[int, dict]:
         _env = cast(OX, env.get_original_env())
         scores = _env.calc_scores()
         self._render_scores = scores
@@ -271,8 +265,8 @@ class Cpu(RuleBaseWorker):
         action = int(np.random.choice(np.where(scores == np.max(scores))[0]))
         return action, {}
 
-    def render_render(self, env: EnvRun, worker: WorkerRun, **kwargs) -> None:
-        _env = cast(OX, env.get_original_env())
+    def render_render(self, worker, **kwargs) -> None:
+        _env = cast(OX, worker.env.get_original_env())
 
         print(f"- alphabeta({self._render_count}, {self._render_time:.3f}s) -")
         print("-" * 10)

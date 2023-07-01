@@ -18,8 +18,8 @@ from srl.base.rl.registration import (
     make_worker,
     make_worker_rulebase,
 )
-from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
+from srl.rl import dummy
 from srl.runner.callback import Callback
 
 logger = logging.getLogger(__name__)
@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass()
 class Config:
-    env_config: Union[str, EnvConfig]  # type: ignore
-    rl_config: Optional[RLConfig]  # type: ignore
+    name_or_env_config: Union[str, EnvConfig]
+    rl_config: Optional[RLConfig]
 
     players: List[Union[None, str, Tuple[str, dict], RLConfig]] = field(default_factory=list)
     """ multi player option, playersという変数名だけど、役割はworkersの方が正しい
@@ -86,14 +86,13 @@ class Config:
     __is_init_device: ClassVar[bool] = False
 
     def __post_init__(self):
+        if isinstance(self.name_or_env_config, str):
+            self.env_config = EnvConfig(self.name_or_env_config)
+        else:
+            self.env_config: EnvConfig = self.name_or_env_config
         if self.rl_config is None:
-            import srl.rl.dummy
-
-            self.rl_config = srl.rl.dummy.Config()
-        if isinstance(self.env_config, str):
-            self.env_config = EnvConfig(self.env_config)
-        self.env_config: EnvConfig = self.env_config  # change type annotation
-        self.rl_config: RLConfig = self.rl_config  # change type annotation
+            self.rl_config = dummy.Config()
+        self.rl_config: RLConfig = self.rl_config
 
         # stop config
         self._max_episodes: int = -1
@@ -281,10 +280,9 @@ class Config:
     ) -> WorkerRun:
         return make_worker(
             self.rl_config,
+            self.make_env(),
             parameter,
             remote_memory,
-            self.env,
-            self.training,
             self.distributed,
             self.actor_id,
         )
@@ -300,14 +298,12 @@ class Config:
 
         # none はベース
         if player is None:
-            assert parameter is not None
             return self.make_worker(parameter, remote_memory)
 
         # 文字列はenv側またはルールベースのアルゴリズム
         if isinstance(player, str):
             worker = env.make_worker(
                 player,
-                self.training,
                 self.distributed,
                 enable_raise=False,
                 env_worker_kwargs=worker_kwargs,
@@ -316,9 +312,10 @@ class Config:
                 return worker
             worker = make_worker_rulebase(
                 player,
-                self.training,
-                self.distributed,
-                worker_kwargs=worker_kwargs,
+                env,
+                distributed=self.distributed,
+                actor_id=self.actor_id,
+                update_config_parameter=worker_kwargs,
             )
             assert worker is not None, f"not registered: {player}"
             return worker
@@ -329,10 +326,9 @@ class Config:
             remote_memory = make_remote_memory(self.rl_config)
             worker = make_worker(
                 player,
+                env,
                 parameter,
                 remote_memory,
-                env,
-                self.training,
                 self.distributed,
                 self.actor_id,
             )

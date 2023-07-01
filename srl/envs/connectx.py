@@ -9,9 +9,9 @@ from srl.base.define import EnvActionType, EnvObservationTypes
 from srl.base.env import registration
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
+from srl.base.rl.algorithms.env_worker import EnvWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
-from srl.base.rl.worker import RuleBaseWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
@@ -146,7 +146,7 @@ class ConnectX(TurnBase2Player):
         self.board = data[0][:]
         self._next_player_index = data[1]
 
-    def make_worker(self, name: str, **kwargs) -> Optional[RuleBaseWorker]:
+    def make_worker(self, name: str, **kwargs) -> Optional[EnvWorker]:
         for n in range(2, 12):
             if name == "alphabeta" + str(n):
                 return AlphaBeta(max_depth=n, **kwargs)
@@ -188,7 +188,7 @@ class ConnectX(TurnBase2Player):
         return True
 
 
-class AlphaBeta(RuleBaseWorker):
+class AlphaBeta(EnvWorker):
     def __init__(
         self,
         max_depth: int = 4,
@@ -201,16 +201,13 @@ class AlphaBeta(RuleBaseWorker):
         self.timeout = timeout
         self.equal_cut = equal_cut
 
-    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> dict:
-        return {}
-
-    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[EnvActionType, dict]:
+    def call_policy(self, env: EnvRun) -> Tuple[EnvActionType, dict]:
         self._count = 0
         self.t0 = time.time()
         scores, action = self._alphabeta(cast(ConnectX, cast(ConnectX, env.get_original_env()).copy()))
 
         scores = np.array(scores)
-        if worker.player_index == 1:
+        if self.player_index == 1:
             scores = -scores
 
         self._action = action

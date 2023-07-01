@@ -33,7 +33,7 @@ class _GetRGBCallback(Callback):
 
     def on_episode_end(self, info):
         # 描画用にpolicyを実行
-        info["workers"][info["worker_idx"]].policy(info["env"])
+        info["workers"][info["worker_idx"]].policy()
 
         self._tmp_step_env(info)
         self._tmp_step_worker(info)
@@ -65,11 +65,10 @@ class _GetRGBCallback(Callback):
         d = {
             "action": info["action"],
         }
-        env: EnvRun = info["env"]
         workers: List[WorkerRun] = info["workers"]
         for i, w in enumerate(workers):
             d[f"work{i}_info"] = w.info
-            d[f"work{i}_rgb_array"] = w.render_rgb_array(env)
+            d[f"work{i}_rgb_array"] = w.render_rgb_array()
 
         self.step_info_worker = d
 
@@ -103,7 +102,8 @@ class RePlayableGame(GameWindow):
         self.progress = progress
         self.callbacks = callbacks
 
-        self.interval = 200  # TODO
+        env = self.config.make_env()
+        self.interval = env.config.render_interval
 
         self.episodes_cache = {}
         self.episode = 0

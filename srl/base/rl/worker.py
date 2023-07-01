@@ -3,120 +3,99 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 import numpy as np
 
-from srl.base.define import EnvActionType, InfoType
-from srl.base.env.env_run import EnvRun
+from srl.base.define import InfoType, InvalidActionsType, RLActionType
 from srl.base.render import IRender
+from srl.base.rl.base import RLParameter, RLRemoteMemory
+from srl.base.rl.config import DummyConfig, RLConfig
 
 if TYPE_CHECKING:
     from srl.base.rl.worker_run import WorkerRun
 
 
 class WorkerBase(ABC, IRender):
-    def __init__(self, training: bool, distributed: bool):
-        self.__training = training
-        self.__distributed = distributed
+    def __init__(
+        self,
+        config: Optional[RLConfig] = None,
+        parameter: Optional[RLParameter] = None,
+        remote_memory: Optional[RLRemoteMemory] = None,
+    ) -> None:
+        if config is None:
+            config = DummyConfig()
+        self.config: RLConfig = config
+        self.parameter = parameter
+        self.remote_memory = remote_memory
+
+    def _set_worker_run(self, worker: "WorkerRun"):
+        """WorkerRunの初期化で呼ばれる"""
+        self.__worker_run = worker
 
     # ------------------------------
     # implement
     # ------------------------------
-    @property
     @abstractmethod
-    def player_index(self) -> int:
+    def on_reset(self, worker: "WorkerRun") -> InfoType:
         raise NotImplementedError()
 
     @abstractmethod
-    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
+    def policy(self, worker: "WorkerRun") -> Tuple[RLActionType, InfoType]:
         raise NotImplementedError()
 
     @abstractmethod
-    def policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvActionType, InfoType]:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def on_step(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
+    def on_step(self, worker: "WorkerRun") -> InfoType:
         raise NotImplementedError()
 
     # ------------------------------
     # implement(option)
     # ------------------------------
-    def render_terminal(self, env: EnvRun, worker: "WorkerRun", **kwargs) -> None:
+    def render_terminal(self, worker: "WorkerRun", **kwargs) -> None:
         pass
 
-    def render_rgb_array(self, env: EnvRun, worker: "WorkerRun", **kwargs) -> Optional[np.ndarray]:
+    def render_rgb_array(self, worker: "WorkerRun", **kwargs) -> Optional[np.ndarray]:
         return None
 
     # ------------------------------------
-    # run properties
+    # instance
+    # ------------------------------------
+    @property
+    def worker_run(self) -> "WorkerRun":
+        return self.__worker_run
+
+    # ------------------------------------
+    # worker info (shortcut properties)
     # ------------------------------------
     @property
     def training(self) -> bool:
-        return self.__training
+        return self.__worker_run.training
 
     @property
     def distributed(self) -> bool:
-        return self.__distributed
+        return self.__worker_run.distributed
 
-
-class RuleBaseWorker(WorkerBase):
-    def call_on_reset(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
-        return {}
-
-    @abstractmethod
-    def call_policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvActionType, InfoType]:
-        raise NotImplementedError()
-
-    def call_on_step(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
-        return {}  # do nothing
+    @property
+    def rendering(self) -> bool:
+        return self.__worker_run.rendering
 
     @property
     def player_index(self) -> int:
-        return self._player_index
+        return self.__worker_run.player_index
 
-    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
-        self._player_index = worker.player_index
-        return self.call_on_reset(env, worker)
+    def get_invalid_actions(self) -> InvalidActionsType:
+        return self.__worker_run.get_invalid_actions()
 
-    def policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvActionType, InfoType]:
-        return self.call_policy(env, worker)
+    def sample_action(self) -> RLActionType:
+        return self.__worker_run.sample_action()
 
-    def on_step(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
-        return self.call_on_step(env, worker)
-
-
-class ExtendWorker(WorkerBase):
-    def __init__(
-        self,
-        rl_worker: "WorkerRun",
-        training: bool,
-        distributed: bool,
-    ):
-        super().__init__(training, distributed)
-        self.rl_worker = rl_worker
-        self.worker = self.rl_worker.worker
-
-    @abstractmethod
-    def call_on_reset(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def call_policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvActionType, InfoType]:
-        raise NotImplementedError()
-
-    def call_on_step(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
-        return {}  # do nothing
+    # ------------------------------------
+    # env info (shortcut properties)
+    # ------------------------------------
+    @property
+    def max_episode_steps(self) -> int:
+        return self.__worker_run.env.max_episode_steps
 
     @property
-    def player_index(self) -> int:
-        return self._player_index
+    def player_num(self) -> int:
+        return self.__worker_run.env.player_num
 
-    def on_reset(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
-        self._player_index = worker.player_index
-        self.rl_worker.on_reset(env, worker.player_index)
-        return self.call_on_reset(env, worker)
-
-    def policy(self, env: EnvRun, worker: "WorkerRun") -> Tuple[EnvActionType, InfoType]:
-        return self.call_policy(env, worker)
-
-    def on_step(self, env: EnvRun, worker: "WorkerRun") -> InfoType:
-        self.rl_worker.on_step(env)
-        return self.call_on_step(env, worker)
+    @property
+    def step(self) -> int:
+        return self.__worker_run.env.step_num

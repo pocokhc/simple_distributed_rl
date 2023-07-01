@@ -1,5 +1,5 @@
 import logging
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import tensorflow as tf
@@ -277,7 +277,7 @@ class _LifelongNetwork(keras.Model):
 class Parameter(CommonInterfaceParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.q_ext_online = _QNetwork(self.config)
         self.q_ext_target = _QNetwork(self.config)
@@ -339,9 +339,9 @@ class Parameter(CommonInterfaceParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.q_ext_optimizer = keras.optimizers.Adam(learning_rate=self.config.q_ext_lr)
         self.q_int_optimizer = keras.optimizers.Adam(learning_rate=self.config.q_int_lr)

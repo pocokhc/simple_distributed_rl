@@ -1,14 +1,16 @@
 import json
 from dataclasses import dataclass
-from typing import Any, List, Tuple, cast
+from typing import Any, Tuple
 
 import numpy as np
 
-from srl.base.define import InvalidActionsType, RLActionType, RLTypes
-from srl.base.rl.algorithms.any_action import AnyActionConfig, AnyActionWorker
+from srl.base.define import RLActionType, RLTypes
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import SequenceRemoteMemory
+from srl.base.rl.worker_rl import RLWorker
+from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import render_discrete_action, to_str_observation
 
 
@@ -16,12 +18,16 @@ from srl.rl.functions.common import render_discrete_action, to_str_observation
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(AnyActionConfig):
+class Config(RLConfig):
     discount: float = 0.9
     lr: float = 0.1
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.ANY
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
 
     def getName(self) -> str:
@@ -50,7 +56,7 @@ class RemoteMemory(SequenceRemoteMemory):
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         # パラメータ
         self.policy = {}
@@ -94,9 +100,9 @@ class Parameter(RLParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.train_count = 0
 
@@ -108,7 +114,7 @@ class Trainer(RLTrainer):
         if len(batchs) == 0:
             return {}
 
-        if self.config.env_action_type == RLTypes.DISCRETE:
+        if self.config.action_type == RLTypes.DISCRETE:
             return self._train_discrete(batchs)
         else:
             return self._train_continuous(batchs)
@@ -175,27 +181,26 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(AnyActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: InvalidActionsType) -> dict:
-        self.state = to_str_observation(state)
-        self.invalid_actions = invalid_actions
+    def call_on_reset(self, worker: WorkerRun) -> dict:
+        self.state = to_str_observation(worker.state)
+        self.invalid_actions = worker.get_invalid_actions()
         self.history = []
-
         return {}
 
-    def call_policy(self, state: np.ndarray, invalid_actions: InvalidActionsType) -> Tuple[RLActionType, dict]:
-        self.state = to_str_observation(state)
-        self.invalid_actions = invalid_actions
+    def call_policy(self, worker: WorkerRun) -> Tuple[RLActionType, dict]:
+        self.state = to_str_observation(worker.state)
+        self.invalid_actions = worker.get_invalid_actions()
 
-        if self.config.env_action_type == RLTypes.DISCRETE:
+        if self.config.action_type == RLTypes.DISCRETE:
             # --- 離散
-            probs = self.parameter.get_probs(self.state, invalid_actions)
+            probs = self.parameter.get_probs(self.state, self.invalid_actions)
             action = np.random.choice([a for a in range(self.config.action_num)], p=probs)
             self.action = int(action)
             env_action = self.action
@@ -215,13 +220,7 @@ class Worker(AnyActionWorker):
 
         return env_action, {}
 
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward: float,
-        done: bool,
-        next_invalid_actions: List[RLTypes],
-    ) -> dict:
+    def call_on_step(self, worker: WorkerRun) -> dict:
         if not self.training:
             return {}
         self.history.append(
@@ -229,11 +228,11 @@ class Worker(AnyActionWorker):
                 self.state,
                 self.action,
                 self.invalid_actions,
-                reward,
+                worker.reward,
             ]
         )
 
-        if done:
+        if worker.done:
             reward = 0
             for h in reversed(self.history):
                 reward = h[3] + self.config.discount * reward
@@ -247,8 +246,8 @@ class Worker(AnyActionWorker):
 
         return {}
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
-        if self.config.env_action_type == RLTypes.DISCRETE:
+    def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
+        if self.config.action_type == RLTypes.DISCRETE:
             probs = self.parameter.get_probs(self.state, self.invalid_actions)
             vals = [0 if v is None else v for v in self.parameter.policy[self.state]]
             maxa = np.argmax(vals)
@@ -256,7 +255,7 @@ class Worker(AnyActionWorker):
             def _render_sub(action: int) -> str:
                 return f"{probs[action]*100:5.1f}% ({vals[action]:.5f})"
 
-            render_discrete_action(maxa, env, self.config, _render_sub)
+            render_discrete_action(maxa, worker.env, self.config, _render_sub)
 
         else:
             mean, stddev = self.parameter.get_normal(self.state)

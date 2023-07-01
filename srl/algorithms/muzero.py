@@ -1,15 +1,16 @@
 import logging
 import random
 from dataclasses import dataclass, field
-from typing import Any, List, Tuple, cast
+from typing import Any, List, Tuple
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import EnvObservationTypes, RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.memory import IPriorityMemoryConfig
 from srl.base.rl.model import IAlphaZeroImageBlockConfig
 from srl.base.rl.processor import Processor
@@ -47,7 +48,7 @@ https://arxiv.org/src/1911.08265v2/anc/pseudocode.py
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(DiscreteActionConfig):
+class Config(RLConfig):
     num_simulations: int = 20
     batch_size: int = 128
     memory_warmup_size: int = 1000
@@ -125,7 +126,11 @@ class Config(DiscreteActionConfig):
         ]
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
@@ -157,7 +162,7 @@ register(
 class RemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
         super().init(self.config.memory)
 
         self.q_min = np.inf
@@ -398,7 +403,7 @@ class _PredictionNetwork(keras.Model):
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.representation_network = _RepresentationNetwork(self.config)
         # 出力shapeを取得
@@ -463,9 +468,9 @@ def _scale_gradient(tensor, scale):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         if compare_less_version(tf.__version__, "2.11.0"):
             self.optimizer = keras.optimizers.Adam()
@@ -594,9 +599,9 @@ class Trainer(RLTrainer):
 class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.policy_tau_schedule = {}
         for tau_list in self.config.policy_tau_schedule:
@@ -838,7 +843,7 @@ class Worker(DiscreteActionWorker):
             "v_max": self._v_max,
         }
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         self._init_state(self.s0_str)
         self.parameter.pred_PV(self.s0, self.s0_str)
         puct = self._calc_puct(self.s0_str, self.invalid_actions, False)
@@ -878,4 +883,4 @@ class Worker(DiscreteActionWorker):
             )
             return s
 
-        render_discrete_action(maxa, env, self.config, _render_sub)
+        render_discrete_action(maxa, worker.env, self.config, _render_sub)

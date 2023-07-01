@@ -3,13 +3,14 @@ import logging
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Tuple, cast
+from typing import List, Tuple
 
 import numpy as np
 
 from srl.base.define import EnvObservationTypes, RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter
+from srl.base.rl.config import RLConfig
 from srl.base.rl.memory import IPriorityMemoryConfig
 from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
@@ -58,7 +59,7 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(DiscreteActionConfig):
+class Config(RLConfig):
     # test
     test_epsilon: float = 0
     test_beta: float = 0
@@ -161,7 +162,11 @@ class Config(DiscreteActionConfig):
         ]
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
@@ -181,7 +186,7 @@ class Config(DiscreteActionConfig):
 class RemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
         super().init(self.config.memory)
 
 
@@ -191,7 +196,7 @@ class RemoteMemory(PriorityExperienceReplay):
 class CommonInterfaceParameter(RLParameter, ABC):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
     @abstractmethod
     def predict_q_ext_online(self, x) -> np.ndarray:
@@ -310,9 +315,9 @@ class CommonInterfaceParameter(RLParameter, ABC):
 class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(CommonInterfaceParameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: CommonInterfaceParameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.discount = 0
@@ -583,7 +588,7 @@ class Worker(DiscreteActionWorker):
 
         return reward
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         if self.config.enable_rescale:
             q = common.inverse_rescaling(self.q)
             q_ext = common.inverse_rescaling(self.q_ext)
@@ -597,4 +602,4 @@ class Worker(DiscreteActionWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:6.3f} = {q_ext[a]:6.3f} + {self.beta:.3f} * {q_int[a]:6.3f}"
 
-        common.render_discrete_action(maxa, env, self.config, _render_sub)
+        common.render_discrete_action(maxa, worker.env, self.config, _render_sub)

@@ -2,13 +2,14 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
 from srl.base.define import RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import SequenceRemoteMemory
 from srl.rl.functions.common import render_discrete_action, to_str_observation
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(DiscreteActionConfig):
+class Config(RLConfig):
     test_search_rate: float = 0.0
     test_epsilon: float = 0.0
 
@@ -46,7 +47,11 @@ class Config(DiscreteActionConfig):
     q_init: str = ""
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
 
     def getName(self) -> str:
@@ -171,7 +176,7 @@ class _A_MDP:
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.Q_ext = {}
         self.Q_int = {}
@@ -216,9 +221,9 @@ class Parameter(RLParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.train_count = 0
 
@@ -331,9 +336,9 @@ class Trainer(RLTrainer):
 class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self.episodic_C = {}
@@ -419,7 +424,7 @@ class Worker(DiscreteActionWorker):
             self.parameter.lifelong_C[state] *= self.config.lifelong_decrement_rate
         return reward + 1.0
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         self.parameter.init_state(self.state, self.invalid_actions)
 
         s = f"int_reward {self.reward_int:.4f} = "
@@ -435,4 +440,4 @@ class Worker(DiscreteActionWorker):
             s = f"{q[a]:8.5f} = {q_ext[a]:8.5f}(ext) + {q_int[a]:8.5f}(int) ({self.config.test_search_rate:.2f})"
             return s
 
-        render_discrete_action(maxa, env, self.config, _render_sub)
+        render_discrete_action(maxa, worker.env, self.config, _render_sub)

@@ -2,13 +2,14 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, List, Tuple, cast
+from typing import Any, List, Tuple
 
 import numpy as np
 
 from srl.base.define import RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import SequenceRemoteMemory
 from srl.rl.functions import common
@@ -26,16 +27,19 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(DiscreteActionConfig):
+class Config(RLConfig):
     epsilon: float = 0.1
     test_epsilon: float = 0
     discount: float = 0.9
     lr: float = 0.1
 
-    q_init: str = ""
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
 
     def getName(self) -> str:
@@ -67,7 +71,7 @@ class RemoteMemory(SequenceRemoteMemory):
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.Q = {}
 
@@ -91,9 +95,9 @@ class Parameter(RLParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.train_count = 0
 
@@ -132,9 +136,9 @@ class Trainer(RLTrainer):
 class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         if self.training:
@@ -177,11 +181,11 @@ class Worker(DiscreteActionWorker):
         )
         return {}
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         q = self.parameter.get_action_values(self.state)
         maxa = np.argmax(q)
 
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        common.render_discrete_action(maxa, env, self.config, _render_sub)
+        common.render_discrete_action(maxa, worker.env, self.config, _render_sub)

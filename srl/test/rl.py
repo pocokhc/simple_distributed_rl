@@ -6,8 +6,7 @@ import srl
 from srl import runner
 from srl.base.env.config import EnvConfig
 from srl.base.rl.base import RLParameter, RLRemoteMemory
-from srl.base.rl.config import RLConfig
-from srl.base.rl.worker_rl import RLWorker
+from srl.base.rl.config import DummyConfig, RLConfig
 from srl.envs import grid, ox
 from srl.rl.functions.common import to_str_observation
 from srl.runner import Config
@@ -89,24 +88,23 @@ class TestRL:
         enable_gpu: bool = False,
     ):
         env_list = env_list.copy()
-        train_kwargs_ = dict(
+        train_kwargs_: dict = dict(
             eval=None,
             history=None,
         )
         train_kwargs_.update(train_kwargs)
-        train_kwargs = train_kwargs_
 
         for env_config in env_list:
+            rl_config2 = rl_config.copy(reset_env_config=True)
             env_config = srl.EnvConfig(env_config) if isinstance(env_config, str) else env_config.copy()
-            _rl_config = rl_config.copy(reset_env_config=True)
 
             if use_layer_processor:
                 if env_config.name == "Grid":
-                    _rl_config.processors.append(grid.LayerProcessor())
+                    rl_config2.processors.append(grid.LayerProcessor())
                 elif env_config.name == "OX":
-                    _rl_config.processors.append(ox.LayerProcessor())
+                    rl_config2.processors.append(ox.LayerProcessor())
 
-            config = runner.Config(env_config, _rl_config)
+            config = runner.Config(env_config, rl_config2)
             config.device_main = "CPU"
             config.device_mp_trainer = "CPU"
             config.device_mp_actors = "CPU"
@@ -117,7 +115,7 @@ class TestRL:
             if not is_mp:
                 # --- check sequence
                 print(f"--- {env_config.name} sequence check start ---")
-                parameter, _, _ = runner.train(config, **train_kwargs)
+                parameter, _, _ = runner.train(config, **train_kwargs_)
 
                 # --- check render
                 if check_render:
@@ -130,12 +128,12 @@ class TestRL:
 
                 # --- check raw
                 print(f"--- {env_config.name} raw check start ---")
-                self._check_play_raw(env_config, _rl_config, check_render)
+                self.simple_check_raw(env_config, rl_config, check_render)
 
             else:
                 print(f"--- {env_config.name} mp check start ---")
                 config.actor_num = 2
-                parameter, _, _ = runner.train_mp(config, **train_kwargs)
+                parameter, _, _ = runner.train_mp(config, **train_kwargs_)
 
             runner.evaluate(
                 config,
@@ -144,7 +142,12 @@ class TestRL:
                 max_steps=10,
             )
 
-    def _check_play_raw(self, env_config, rl_config, check_render):
+    def simple_check_raw(
+        self,
+        env_config: EnvConfig,
+        rl_config: RLConfig,
+        check_render: bool,
+    ):
         env = srl.make_env(env_config)
         rl_config = rl_config.copy(reset_env_config=True)
         rl_config.reset(env)
@@ -153,17 +156,21 @@ class TestRL:
         parameter = srl.make_parameter(rl_config)
         remote_memory = srl.make_remote_memory(rl_config)
         trainer = srl.make_trainer(rl_config, parameter, remote_memory)
-        workers = [srl.make_worker(rl_config, parameter, remote_memory, training=True) for _ in range(env.player_num)]
+        workers = [srl.make_worker(rl_config, env, parameter, remote_memory) for _ in range(env.player_num)]
 
         # --- episode
         for _ in range(3):
-            env.reset()
-            [w.on_reset(env, i) for i, w in enumerate(workers)]
+            if check_render:
+                env.reset()
+                [w.on_reset(i, training=True, render_mode="terminal") for i, w in enumerate(workers)]
+            else:
+                env.reset()
+                [w.on_reset(i, training=True) for i, w in enumerate(workers)]
 
             # --- step
             for step in range(5):
                 # policy
-                action = workers[env.next_player_index].policy(env)
+                action = workers[env.next_player_index].policy()
                 assert env.action_space.check_val(action), f"Checking action_space failed. action={action}"
 
                 for idx in range(env.player_num):
@@ -174,17 +181,21 @@ class TestRL:
                 # render
                 if check_render:
                     for w in workers:
-                        w.render(env)
+                        w.render()
 
                 # step
                 env.step(action)
-                [w.on_step(env) for w in workers]
+                [w.on_step() for w in workers]
 
                 if env.done:
                     for idx in range(env.player_num):
                         assert isinstance(
                             workers[idx].info, dict
                         ), f"unknown info type. worker{idx} info={workers[idx].info}"
+
+                    if check_render:
+                        for w in workers:
+                            w.render()
 
                 # train
                 train_info = trainer.train()
@@ -193,11 +204,80 @@ class TestRL:
                 if env.done:
                     break
 
+    def simple_check_rulebase(
+        self,
+        name: str,
+        env_list: List[Union[str, EnvConfig]] = ["Grid", "OX"],
+        is_mp: bool = False,
+        train_kwargs: dict = dict(
+            max_train_count=-1,
+            max_steps=10,
+            timeout=-1,
+        ),
+        use_layer_processor: bool = False,
+        check_render: bool = True,
+        enable_gpu: bool = False,
+    ):
+        env_list = env_list.copy()
+        train_kwargs_: dict = dict(
+            eval=None,
+            history=None,
+        )
+        train_kwargs_.update(train_kwargs)
+
+        for env_config in env_list:
+            env_config = srl.EnvConfig(env_config) if isinstance(env_config, str) else env_config.copy()
+            rl_config: RLConfig = DummyConfig(name=name)
+
+            if use_layer_processor:
+                if env_config.name == "Grid":
+                    rl_config.processors.append(grid.LayerProcessor())
+                elif env_config.name == "OX":
+                    rl_config.processors.append(ox.LayerProcessor())
+
+            config = runner.Config(env_config, rl_config)
+            config.device_main = "CPU"
+            config.device_mp_trainer = "CPU"
+            config.device_mp_actors = "CPU"
+            if enable_gpu:
+                config.device_main = "AUTO"
+                config.device_mp_trainer = "GPU"
+
+            if not is_mp:
+                # --- check sequence
+                print(f"--- {env_config.name} sequence check start ---")
+                parameter, _, _ = runner.train(config, **train_kwargs_)
+
+                # --- check render
+                if check_render:
+                    runner.render_terminal(config, parameter, max_steps=10)
+                    if is_packages_installed(["cv2", "PIL", "pygame"]):
+                        if is_available_video_device():
+                            render = runner.render_window(config, parameter, max_steps=10, render_interval=1)
+                        render = runner.animation(config, parameter, max_steps=10)
+                        render.create_anime()
+
+                # --- check raw
+                print(f"--- {env_config.name} raw check start ---")
+                self.simple_check_raw(env_config, rl_config, check_render)
+
+            else:
+                print(f"--- {env_config.name} mp check start ---")
+                config.actor_num = 2
+                parameter, _, _ = runner.train_mp(config, **train_kwargs_)
+
+            runner.evaluate(
+                config,
+                parameter,
+                max_episodes=2,
+                max_steps=10,
+            )
+
     # ----------------------------------------------
     def _check_baseline(self, config: Config, baseline: Optional[BaseLineType]) -> BaseLineType:
-        env = config.make_env()
-        if baseline is None:
-            baseline = env.reward_info.get("baseline", None)
+        # if baseline is None:
+        #    env = config.make_env()
+        #    baseline = env.reward_info.get("baseline", None)
         if baseline is None:
             if config.env_config.name in self.baseline:
                 baseline = self.baseline[config.env_config.name][1]
@@ -217,7 +297,8 @@ class TestRL:
         check_restore: bool = True,
     ) -> Tuple[RLParameter, RLRemoteMemory, HistoryViewer]:
         baseline = self._check_baseline(config, baseline)
-        assert config.env_config.player_num == 1, "For two or more players, use 'train' and 'eval'."
+        env = config.make_env()
+        assert env.player_num == 1, "For two or more players, use 'train' and 'eval'."
 
         parameter, memory, history = self.train(
             config,
@@ -292,12 +373,7 @@ class TestRL:
             max_episodes=episode,
         )
         _eval_kwargs.update(eval_kwargs)
-        config.players
-        episode_rewards = runner.evaluate(
-            config,
-            param,
-            **_eval_kwargs,
-        )
+        episode_rewards = runner.evaluate(config, param, **_eval_kwargs)
 
         # --- assert
         if not isinstance(baseline, list):
@@ -344,13 +420,12 @@ class TestRL:
         env = srl.make_env("Grid")
         env_org = cast(Grid, env.get_original_env())
 
-        worker = srl.make_worker(rl_config, parameter, env=env)
-        rl_worker = cast(RLWorker, worker.worker)
+        worker = srl.make_worker(rl_config, env, parameter)
 
         V, _Q = env_org.calc_action_values()
         Q = {}
         for k, v in _Q.items():
-            new_k = rl_worker.state_encode(k, env)
+            new_k = worker.state_encode(k, env, append_recent_state=False)
             new_k = to_str_observation(new_k)
             Q[new_k] = v
 
@@ -358,10 +433,10 @@ class TestRL:
         for _ in range(100):
             if env.done:
                 env.reset()
-                worker.on_reset(env)
+                worker.on_reset(0, training=False)
 
             # action
-            pred_a = worker.policy(env)
+            pred_a = worker.policy()
 
             # -----------
             # policyのアクションと最適アクションが等しいか確認
@@ -375,4 +450,4 @@ class TestRL:
             env.step(pred_a)
 
             # rl step
-            worker.on_step(env)
+            worker.on_step()

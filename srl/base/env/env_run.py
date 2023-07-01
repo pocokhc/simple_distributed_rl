@@ -357,24 +357,21 @@ class EnvRun:
     def make_worker(
         self,
         name: str,
-        training: bool = False,
         distributed: bool = False,
         enable_raise: bool = True,
         env_worker_kwargs: dict = {},
+        actor_id: int = 0,
     ) -> Optional["WorkerRun"]:
         env_worker_kwargs = env_worker_kwargs.copy()
-        env_worker_kwargs["training"] = training
-        env_worker_kwargs["distributed"] = distributed
         worker = self.env.make_worker(name, **env_worker_kwargs)
         if worker is None:
             if enable_raise:
                 raise ValueError(f"'{name}' worker is not found.")
             return None
 
-        from srl.base.render import Render
         from srl.base.rl.worker_run import WorkerRun
 
-        return WorkerRun(worker, Render(worker))
+        return WorkerRun(worker, self, distributed, actor_id)
 
     def get_original_env(self) -> object:
         return self.env.get_original_env()

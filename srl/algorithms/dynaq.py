@@ -2,13 +2,14 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
 from srl.base.define import RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory.sequence_memory import SequenceRemoteMemory
 from srl.rl.functions.common import render_discrete_action, to_str_observation
@@ -26,14 +27,18 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(DiscreteActionConfig):
+class Config(RLConfig):
     epsilon: float = 0.1
     test_epsilon: float = 0
     discount: float = 0.9
     lr: float = 0.1
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
 
     def getName(self) -> str:
@@ -142,7 +147,7 @@ class _A_MDP:
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.Q = {}
         self.model = _A_MDP()
@@ -166,9 +171,9 @@ class Parameter(RLParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.train_count = 0
 
@@ -233,9 +238,9 @@ class Trainer(RLTrainer):
 class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self.state = to_str_observation(state)
@@ -253,7 +258,7 @@ class Worker(DiscreteActionWorker):
         self.invalid_actions = invalid_actions
 
         if random.random() < self.epsilon:
-            self.action = cast(int, self.sample_action())
+            self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
             q = self.parameter.get_action_values(self.state, invalid_actions)
             q = np.asarray(q)
@@ -284,7 +289,7 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.add(batch)
         return {}
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         q = self.parameter.get_action_values(self.state, self.invalid_actions)
         model = self.parameter.model
         maxa = np.argmax(q)
@@ -294,10 +299,10 @@ class Worker(DiscreteActionWorker):
                 s = "*"
             else:
                 s = " "
-            s += f"{env.action_to_str(a)}: Q {q[a]:7.5f}"
+            s += f"{worker.env.action_to_str(a)}: Q {q[a]:7.5f}"
             s += f", n_s{model.sample_next_state(self.state, a)}"
             s += f", reward {model.sample_reward(self.state, a):.3f}"
             s += f", done {model.sample_done(self.state, a)}"
             return s
 
-        render_discrete_action(maxa, env, self.config, _render_sub)
+        render_discrete_action(maxa, worker.env, self.config, _render_sub)

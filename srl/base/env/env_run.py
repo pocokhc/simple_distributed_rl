@@ -111,7 +111,7 @@ class EnvRun:
 
         # --- env step
         if self.config.check_action:
-            action = self.check_action(action, "The format of 'action' entered in 'env.direct' was wrong.")
+            action = self.check_action(action, "The format of 'action' entered in 'env.step' was wrong.")
         self._prev_player_index = self.env.next_player_index
         state, rewards, done, info = self.env.step(action)
         if self.config.check_val:
@@ -327,6 +327,11 @@ class EnvRun:
         """直前のrewardを返す"""
         return self.step_rewards[self.prev_player_index]
 
+    @property
+    def invalid_actions(self) -> InvalidActionsType:
+        """現プレイヤーのinvalid actionsを返す"""
+        return self._invalid_actions_list[self.next_player_index]
+
     # invalid actions
     def get_invalid_actions(self, player_index: int = -1) -> InvalidActionsType:
         if isinstance(self.action_space, DiscreteSpace):
@@ -431,7 +436,7 @@ class EnvRun:
 
     def decode_action(self, action: EnvActionType) -> Any:
         if self.config.check_action:
-            action = self.check_action(action, "The format of 'action' entered in 'env.direct' was wrong.")
+            action = self.check_action(action, "The format of 'action' entered in 'env.decode_action' was wrong.")
         return self.env.decode_action(action)
 
     # ------------------------------------

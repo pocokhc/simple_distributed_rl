@@ -2,7 +2,7 @@ import enum
 from dataclasses import dataclass
 from typing import Any, Tuple
 
-from srl.base.define import EnvObservationTypes
+from srl.base.define import EnvObservationTypes, KeyBindType
 from srl.base.env import registration
 from srl.base.env.genre.singleplay import SinglePlayEnv
 from srl.base.spaces.discrete import DiscreteSpace
@@ -82,6 +82,20 @@ class SampleEnv(SinglePlayEnv):
             else:
                 s += "."
         print(s)
+
+    def action_to_str(self, action) -> str:
+        if Action.LEFT.value == action:
+            return "←"
+        if Action.RIGHT.value == action:
+            return "→"
+        return str(action)
+
+    def get_key_bind(self) -> KeyBindType:
+        return {
+            "": Action.LEFT.value,
+            "a": Action.LEFT.value,
+            "d": Action.RIGHT.value,
+        }
 
     @property
     def render_interval(self) -> float:

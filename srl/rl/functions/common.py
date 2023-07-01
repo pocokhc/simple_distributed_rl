@@ -1,10 +1,9 @@
-import logging
 import random
 from typing import List, Union
 
 import numpy as np
 
-logger = logging.getLogger(__name__)
+from srl.base.define import EnvObservationTypes
 
 
 def rescaling(x, eps=0.001):
@@ -115,7 +114,21 @@ def calc_epsilon_greedy_probs(q, invalid_actions, epsilon, action_num):
     return probs
 
 
-def to_str_observation(state: np.ndarray) -> str:
+def to_str_observation(state: np.ndarray, state_type: EnvObservationTypes = EnvObservationTypes.UNKNOWN) -> str:
+    if state_type == EnvObservationTypes.UNKNOWN:
+        pass
+    else:
+        state = state.astype(
+            {
+                EnvObservationTypes.DISCRETE: np.int32,
+                EnvObservationTypes.CONTINUOUS: np.float32,
+                EnvObservationTypes.GRAY_2ch: np.int32,
+                EnvObservationTypes.GRAY_3ch: np.int32,
+                EnvObservationTypes.COLOR: np.int32,
+                EnvObservationTypes.SHAPE2: np.int32,
+                EnvObservationTypes.SHAPE3: np.int32,
+            }[state_type]
+        )
     return str(state.flatten().tolist()).replace(" ", "")[1:-1]
 
 

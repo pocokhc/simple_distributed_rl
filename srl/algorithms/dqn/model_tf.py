@@ -44,6 +44,9 @@ class _QNetwork(keras.Model):
 
     @tf.function
     def call(self, x, training=False):
+        return self._call(x, training)
+
+    def _call(self, x, training=False):
         x = self.in_block(x, training=training)
         if self.in_block.use_image_layer:
             x = self.image_block(x, training=training)
@@ -66,7 +69,7 @@ class _QNetwork(keras.Model):
 
         x = kl.Input(shape=self.__input_shape[1:])
         name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
         model.summary(**kwargs)
 
 

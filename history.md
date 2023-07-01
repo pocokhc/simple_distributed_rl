@@ -3,6 +3,47 @@
 1. tensorboard
 1. (IMPALA)
 1. get_valid_actions
+1. 高速化
+
+# v0.12.0
+
+worker周りを大幅にリファクタリングしました。  
+これに伴い、rawでは大幅な変更がありますが、runnerを経由する場合はほぼ影響はありません。
+（一部Configや引数に影響があります）
+また、アルゴリズムを自作している場合はI/Fが変わっているので修正が必要です。
+
+**MainUpdates**
+
+1. Worker周りを大幅にリファクタリング
+   1. RLConfigのresetにて、space/type の決め方を改善  
+      以下はRLConfigから見たプロパティ
+      action_space     : RLから見たaction_space(実態はenv.action_spaceと同じ)
+      base_action_type : RLが想定するaction_type(RLTypes)
+      action_type      : RLの実際のaction_type(RLTypes)
+      observation_space    : RLから見たobservation_space
+      base_observation_type: RLが想定するobservation_type(RLTypes)
+      observation_type     : RLの実際のobservation_type(RLTypes)
+      env_observation_type : RLから見たenv側のobservation_type(EnvObservationTypes)
+   1. 上記に合わせてRLConfigのプロパティを'action_type''observation_type'を'base_action_type''base_observation_type'に変更
+   1. RLConfigのset_config_by_envの責務をRLConfig自体に実装し標準装備に。
+      代わりにset_config_by_envはオプションとして残す。(引数は変更)
+      またこれにより、RLConfigを分ける必要が実質なくなるので、'DiscreteActionConfig'等は不要（一応残しておきます）
+   1. 元RLWorkerで行っていたencoder/decoderをWorkerRunに移し、encode後の状態を保持する実装に変更。
+      これにより継承先の引数をまとめることができるので引数を WorkerRun のみに統一。
+      （この影響で一部の継承用Workerで引数が変更になっています）
+   1. WorkerBaseでRLConfig,RLParameter,RLRemoteMemoryを保持するように変更。
+      + RLConfigが指定されてない場合はDummyConfigを保持
+      + RLParameterとRLRemoteMemoryはNoneを許容
+      + これにより、ExtendWorkerとRuleBaseWorkerを区別なく扱えるようにしました
+   1. RuleBaseWorkerの命名をEnvWorkerに変更
+   1. 合わせてdocument周りを整理（diagrams,examples,docsを更新）
+1. print_progressを改善
+   1. info_types を追加
+1. env_runの'sample'を'sample_action'と'sample_observation'に変更
+
+**OtherUpdates**
+
+1. testsのalgorithms配下をリファクタリング、tfとtorchで分けるように変更
 
 # v0.11.2
 

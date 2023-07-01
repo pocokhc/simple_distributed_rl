@@ -66,7 +66,7 @@ class DiscreteSpace(SpaceBase[int]):
         return np.array([val])
 
     def decode_from_int_np(self, val: np.ndarray) -> int:
-        return round(val[0])
+        return int(round(val[0]))
 
     # --------------------------------------
     # continuous list
@@ -87,7 +87,7 @@ class DiscreteSpace(SpaceBase[int]):
         return [float(val)]
 
     def decode_from_list_float(self, val: List[float]) -> int:
-        return round(val[0])
+        return int(round(val[0]))
 
     # --------------------------------------
     # continuous numpy
@@ -108,4 +108,4 @@ class DiscreteSpace(SpaceBase[int]):
         return np.array([val], dtype=np.float32)
 
     def decode_from_np(self, val: np.ndarray) -> int:
-        return round(val[0])
+        return int(round(val[0]))

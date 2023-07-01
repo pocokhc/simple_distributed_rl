@@ -95,3 +95,7 @@ class PlayRenderModes(enum.Enum):
             PlayRenderModes.window: RenderModes.RBG_array,
             PlayRenderModes.rgb_array: RenderModes.RBG_array,
         }[mode]
+
+    @staticmethod
+    def is_rendering(mode: Union[str, "PlayRenderModes"]) -> bool:
+        return not (mode == "" or mode == PlayRenderModes.none)

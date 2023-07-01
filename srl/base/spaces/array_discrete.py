@@ -168,7 +168,7 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         return [float(v) for v in val]
 
     def decode_from_list_float(self, val: List[float]) -> List[int]:
-        return [round(v) for v in val]
+        return [int(round(v)) for v in val]
 
     # --------------------------------------
     # continuous numpy
@@ -189,4 +189,4 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         return np.array(val, dtype=np.float32)
 
     def decode_from_np(self, val: np.ndarray) -> List[int]:
-        return [round(v) for v in val]
+        return np.round(val).astype(np.int32).tolist()

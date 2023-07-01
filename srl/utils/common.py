@@ -348,7 +348,7 @@ def is_available_gpu_torch() -> bool:
 def is_available_video_device() -> bool:
     if not is_package_installed("pygame"):
         return False
-    
+
     import pygame
 
     SDL_VIDEODRIVER = os.environ.get("SDL_VIDEODRIVER", None)
@@ -368,4 +368,3 @@ def is_available_video_device() -> bool:
             os.environ["SDL_VIDEODRIVER"] = SDL_VIDEODRIVER
 
     return flag
-

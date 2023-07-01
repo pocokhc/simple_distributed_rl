@@ -33,6 +33,7 @@ class Config(RLConfig):
     discount: float = 0.9
     lr: float = 0.1
 
+    q_init: str = ""  # "" or "random" or "normal"
 
     @property
     def base_action_type(self) -> RLTypes:
@@ -88,9 +89,12 @@ class Parameter(RLParameter):
 
     def get_action_values(self, state: str) -> List[float]:
         if state not in self.Q:
-            self.Q[state] = [
-                np.random.normal() if self.config.q_init == "random" else 0.0 for a in range(self.config.action_num)
-            ]
+            if self.config.q_init == "random":
+                self.Q[state] = [random.random() for a in range(self.config.action_num)]
+            elif self.config.q_init == "normal":
+                self.Q[state] = [np.random.normal() for a in range(self.config.action_num)]
+            else:
+                self.Q[state] = [0.0 for a in range(self.config.action_num)]
         return self.Q[state]
 
 

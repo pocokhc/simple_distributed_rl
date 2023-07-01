@@ -124,6 +124,21 @@ class Config(RLConfig):
         assert self.v_min < self.v_max
         assert self.unroll_steps > 0
 
+    @property
+    def info_types(self) -> dict:
+        return {
+            "loss": {},
+            "v_loss": {},
+            "policy_loss": {},
+            "reward_loss": {},
+            "chance_loss": {},
+            "q_loss": {},
+            "vae_loss": {},
+            "lr": {"data": "last"},
+            "vmin": {"data": "last"},
+            "vmax": {"data": "last"},
+        }
+
 
 register(
     Config(),
@@ -140,7 +155,7 @@ register(
 class RemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
         super().init(self.config.memory)
 
         self.q_min = np.inf

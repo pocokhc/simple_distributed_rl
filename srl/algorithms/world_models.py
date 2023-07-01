@@ -84,6 +84,15 @@ class Config(RLConfig):
         assert self.batch_size < self.memory_warmup_size
         assert self.temperature >= 0
 
+    @property
+    def info_types(self) -> dict:
+        return {
+            "vae_loss": {},
+            "rc_loss": {},
+            "kl_loss": {},
+            "rnn_loss": {},
+        }
+
 
 register(
     Config(),

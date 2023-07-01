@@ -49,6 +49,15 @@ class OX(TurnBase2Player):
         return 10
 
     @property
+    def reward_info(self) -> dict:
+        return {
+            "min": -1,
+            "max": 1,
+            "baseline": (0, 0),
+            "type": int,
+        }
+
+    @property
     def next_player_index(self) -> int:
         return self._next_player_index
 

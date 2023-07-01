@@ -9,16 +9,9 @@ import numpy as np
 from srl.base.rl.base import RLParameter, RLRemoteMemory, RLTrainer
 from srl.runner.config import Config
 from srl.utils.common import set_seed
+from srl.utils.util_str import to_str_time
 
 logger = logging.getLogger(__name__)
-
-
-def to_str_time(sec: float) -> str:
-    if sec == np.inf:
-        return "   inf"
-    if sec < 60:
-        return "{:5.2f}s".format(sec)
-    return "{:5.1f}m".format(sec / 60)
 
 
 def train(

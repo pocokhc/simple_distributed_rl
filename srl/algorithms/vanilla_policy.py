@@ -33,6 +33,15 @@ class Config(RLConfig):
     def getName(self) -> str:
         return "VanillaPolicy"
 
+    @property
+    def info_types(self) -> dict:
+        return {
+            "size": {"type": int, "data": "last"},
+            "loss": {},
+            "loss_mean": {},
+            "loss_stddev": {},
+        }
+
 
 register(
     Config(),
@@ -141,7 +150,10 @@ class Trainer(RLTrainer):
 
             self.train_count += 1
 
-        return {"loss": np.mean(loss)}
+        return {
+            "size": len(self.parameter.policy),
+            "loss": np.mean(loss),
+        }
 
     def _train_continuous(self, batchs):
         loss_mean = []
@@ -173,6 +185,7 @@ class Trainer(RLTrainer):
             self.train_count += 1
 
         return {
+            "size": len(self.parameter.policy),
             "loss_mean": np.mean(loss_mean),
             "loss_stddev": np.mean(loss_stddev),
         }

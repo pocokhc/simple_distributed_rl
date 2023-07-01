@@ -2,7 +2,7 @@ import srl
 from srl import runner
 from srl.base.define import PlayRenderModes
 from srl.base.env.env_run import EnvRun
-from srl.utils.common import is_packages_installed, is_available_video_device
+from srl.utils.common import is_available_video_device, is_packages_installed
 
 
 class TestEnv:
@@ -88,7 +88,7 @@ class TestEnv:
 
         while not env.done:
             # --- sample
-            action = env.sample()
+            action = env.sample_action()
 
             # get_invalid_actions
             for idx in range(env.player_num):

@@ -7,8 +7,7 @@ from srl.base.define import EnvActionType, EnvObservationTypes
 from srl.base.env.env_run import EnvRun
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
-from srl.base.rl.worker import RuleBaseWorker
-from srl.base.rl.worker_run import WorkerRun
+from srl.base.rl.algorithms.env_worker import EnvWorker
 from srl.base.spaces import DiscreteSpace
 
 logger = logging.getLogger(__name__)
@@ -98,20 +97,14 @@ class StoneTaking(TurnBase2Player):
     def action_to_str(self, action: int) -> str:
         return str(action + 1)
 
-    def make_worker(self, name: str, **kwargs) -> Optional[RuleBaseWorker]:
+    def make_worker(self, name: str, **kwargs) -> Optional[EnvWorker]:
         if name == "cpu":
             return CPU(**kwargs)
         return None
 
 
-class CPU(RuleBaseWorker):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def call_on_reset(self, env: EnvRun, worker: WorkerRun) -> dict:
-        return {}
-
-    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[EnvActionType, dict]:
+class CPU(EnvWorker):
+    def call_policy(self, env: EnvRun) -> Tuple[EnvActionType, dict]:
         _env = cast(StoneTaking, env.get_original_env())
         if _env.field == 1:
             return 0, {}

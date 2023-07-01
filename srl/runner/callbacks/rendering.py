@@ -149,36 +149,33 @@ class Rendering(Callback):
             )
 
     def _render_worker(self, info):
-        env: EnvRun = info["env"]
         worker_idx: int = info["worker_idx"]
         worker: WorkerRun = info["workers"][worker_idx]
 
         # --- render_terminal
         if self.mode == PlayRenderModes.terminal:
-            worker.render_terminal(env, **self.kwargs)
+            worker.render_terminal(**self.kwargs)
 
         # --- rgb
         if self.mode == PlayRenderModes.rgb_array:
-            self.rl_img = worker.render_rgb_array(env, **self.kwargs)
+            self.rl_img = worker.render_rgb_array(**self.kwargs)
             self.rl_maxw = max(self.rl_maxw, self.rl_img.shape[1])
             self.rl_maxh = max(self.rl_maxh, self.rl_img.shape[0])
 
             # rlへの入力画像
-            if isinstance(worker.worker, RLWorker):
-                rl_worker: RLWorker = worker.worker
-                if EnvObservationTypes.is_image(rl_worker.config.env_observation_type):
-                    # COLOR画像に変換
-                    _img = rl_worker.recent_states[-1].copy()
-                    if _img.max() <= 1:
-                        _img *= 255
-                    if rl_worker.config.env_observation_type == EnvObservationTypes.GRAY_2ch:
-                        _img = _img[..., np.newaxis]
-                        _img = np.tile(_img, (1, 1, 3))
-                    elif rl_worker.config.env_observation_type == EnvObservationTypes.GRAY_3ch:
-                        _img = np.tile(_img, (1, 1, 3))
-                    self.rl_state_image = _img.astype(np.uint8)
-                    self.rl_state_maxw = max(self.rl_state_maxw, self.rl_state_image.shape[1])
-                    self.rl_state_maxh = max(self.rl_state_maxh, self.rl_state_image.shape[0])
+            if EnvObservationTypes.is_image(worker.config.env_observation_type):
+                # COLOR画像に変換
+                _img = worker.state.copy()
+                if _img.max() <= 1:
+                    _img *= 255
+                if worker.config.env_observation_type == EnvObservationTypes.GRAY_2ch:
+                    _img = _img[..., np.newaxis]
+                    _img = np.tile(_img, (1, 1, 3))
+                elif worker.config.env_observation_type == EnvObservationTypes.GRAY_3ch:
+                    _img = np.tile(_img, (1, 1, 3))
+                self.rl_state_image = _img.astype(np.uint8)
+                self.rl_state_maxw = max(self.rl_state_maxw, self.rl_state_image.shape[1])
+                self.rl_state_maxh = max(self.rl_state_maxh, self.rl_state_image.shape[0])
 
     # -----------------------------------------------
     def _create_image(self, frame):

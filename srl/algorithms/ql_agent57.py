@@ -2,13 +2,14 @@ import json
 import logging
 import random
 from dataclasses import dataclass, field
-from typing import Any, List, Tuple, cast
+from typing import Any, List, Tuple
 
 import numpy as np
 
 from srl.base.define import RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.memory import IPriorityMemoryConfig
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
@@ -64,8 +65,7 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(DiscreteActionConfig):
-    # ハイパーパラメータ
+class Config(RLConfig):
     test_epsilon: float = 0.0
     test_beta: float = 0.0
 
@@ -107,7 +107,11 @@ class Config(DiscreteActionConfig):
     q_init: str = ""
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
 
     def getName(self) -> str:
@@ -135,7 +139,7 @@ register(
 class RemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
         super().init(self.config.memory)
 
 
@@ -145,7 +149,7 @@ class RemoteMemory(PriorityExperienceReplay):
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.Q_ext = {}
         self.Q_int = {}
@@ -248,9 +252,9 @@ class Parameter(RLParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.train_count = 0
 
@@ -307,9 +311,9 @@ class Trainer(RLTrainer):
 class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.beta_list = create_beta_list(self.config.actor_num)
         self.discount_list = create_discount_list(self.config.actor_num)
@@ -525,7 +529,7 @@ class Worker(DiscreteActionWorker):
             self.parameter.lifelong_C[state] *= self.config.lifelong_decrement_rate
         return reward + 1.0
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         state = self._recent_states[-1]
         invalid_actions = self.recent_invalid_actions[-1]
         self.parameter.init_state(state, invalid_actions)
@@ -546,4 +550,4 @@ class Worker(DiscreteActionWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:8.5f} = {q_ext[a]:8.5f} + {self.beta:.3f} * {q_int[a]:8.5f}"
 
-        render_discrete_action(maxa, env, self.config, _render_sub)
+        render_discrete_action(maxa, worker.env, self.config, _render_sub)

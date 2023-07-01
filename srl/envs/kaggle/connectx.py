@@ -10,7 +10,6 @@ from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.kaggle_wrapper import KaggleWorker, KaggleWrapper
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
-from srl.base.rl.worker import RuleBaseWorker
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
@@ -87,7 +86,7 @@ class ConnectX(KaggleWrapper):
         invalid_actions = [a for a in range(self.action_space.n) if self.board[a] != 0]
         return invalid_actions
 
-    def make_worker(self, name: str, **kwargs) -> Optional[RuleBaseWorker]:
+    def make_worker(self, name: str, **kwargs) -> Optional[KaggleWorker]:
         if name == "negamax":
             return NegaMax(**kwargs)
         return None

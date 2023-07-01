@@ -1,5 +1,5 @@
 import random
-from typing import List, Tuple, cast
+from typing import List, Tuple
 
 import numpy as np
 
@@ -57,9 +57,9 @@ def calc_target_q(self: CommonInterfaceParameter, batchs, training: bool):
 class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(CommonInterfaceParameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: CommonInterfaceParameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         assert self.config.multisteps == 1
 
@@ -161,7 +161,7 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.on_step(reward, done)
         return {}
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         if self.q is None:
             q = self.parameter.predict_q(self.state[np.newaxis, ...])[0]
         else:
@@ -173,4 +173,4 @@ class Worker(DiscreteActionWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        render_discrete_action(maxa, env, self.config, _render_sub)
+        render_discrete_action(maxa, worker.env, self.config, _render_sub)

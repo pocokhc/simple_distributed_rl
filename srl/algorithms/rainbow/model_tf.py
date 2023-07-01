@@ -107,7 +107,7 @@ class _QNetwork(keras.Model):
 class Parameter(CommonInterfaceParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.q_online = _QNetwork(self.config, name="Q_online")
         self.q_target = _QNetwork(self.config, name="Q_target")
@@ -136,9 +136,9 @@ class Parameter(CommonInterfaceParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
         self.loss_func = keras.losses.Huber()

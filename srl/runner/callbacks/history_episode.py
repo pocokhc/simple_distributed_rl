@@ -96,7 +96,7 @@ class HistoryEpisode(Callback):
     def on_episode_end(self, info):
         if self.actor_id == 0:
             # 描画用にpolicyを実行
-            info["workers"][info["worker_idx"]].policy(info["env"])
+            info["workers"][info["worker_idx"]].policy()
 
             self._tmp_step_env(info)
             self._tmp_step_worker(info)
@@ -131,11 +131,10 @@ class HistoryEpisode(Callback):
         d = {
             "action": info["action"],
         }
-        env: EnvRun = info["env"]
         workers: List[WorkerRun] = info["workers"]
         for i, w in enumerate(workers):
             d[f"work{i}_info"] = w.info
-            d[f"work{i}_rgb_array"] = w.render_rgb_array(env)
+            d[f"work{i}_rgb_array"] = w.render_rgb_array()
 
         self.step_info_worker = d
 

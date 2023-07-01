@@ -1,13 +1,14 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple, Union, cast
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import EnvObservationTypes, RLTypes
-from srl.base.rl.algorithms.continuous_action import ContinuousActionConfig, ContinuousActionWorker
+from srl.base.rl.algorithms.continuous_action import ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
@@ -39,7 +40,7 @@ TD3
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(ContinuousActionConfig):
+class Config(RLConfig):
     # model
     image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
     policy_hidden_block: IMLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
@@ -69,7 +70,11 @@ class Config(ContinuousActionConfig):
         ]
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.CONTINUOUS
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
@@ -96,7 +101,7 @@ register(
 class RemoteMemory(ExperienceReplayBuffer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.init(self.config.capacity)
 
@@ -238,7 +243,7 @@ class _CriticNetwork(keras.Model):
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.actor_online = _ActorNetwork(self.config)
         self.actor_target = _ActorNetwork(self.config)
@@ -268,9 +273,9 @@ class Parameter(RLParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.train_count = 0
 
@@ -376,9 +381,9 @@ class Trainer(RLTrainer):
 class Worker(ContinuousActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
     def call_on_reset(self, state: np.ndarray) -> dict:
         self.state = state

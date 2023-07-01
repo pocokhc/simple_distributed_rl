@@ -9,10 +9,12 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import EnvObservationTypes, RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLRemoteMemory, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
+from srl.base.rl.worker_run import WorkerRun
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
 
@@ -28,7 +30,7 @@ ref: https://github.com/zacwellmer/WorldModels
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(DiscreteActionConfig):
+class Config(RLConfig):
     train_mode: int = 1
 
     lr: float = 0.001
@@ -66,7 +68,11 @@ class Config(DiscreteActionConfig):
         ]
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
@@ -94,7 +100,7 @@ register(
 class RemoteMemory(RLRemoteMemory):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.vae_buffer = collections.deque(maxlen=self.config.capacity)
         self.rnn_buffer = collections.deque(maxlen=self.config.capacity)
@@ -369,7 +375,7 @@ class _Controller(keras.Model):
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.vae = _VAE(self.config)
         self.rnn = _MDNRNN(self.config)
@@ -399,9 +405,9 @@ class Parameter(RLParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
         self.q_loss = keras.losses.Huber()
@@ -530,9 +536,9 @@ class Trainer(RLTrainer):
 class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.screen = None
@@ -680,13 +686,13 @@ class Worker(DiscreteActionWorker):
 
         self.elite_params = next_elite_params
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         # --- vae
         pred_state = self.parameter.vae.decode(self.z)[0].numpy()  # type:ignore , ignore check "None"
         rmse = np.sqrt(np.mean((self.state - pred_state) ** 2))
         print(f"VAE RMSE: {rmse:.5f}")
 
-    def render_rgb_array(self, env, worker, **kwargs) -> Optional[np.ndarray]:
+    def render_rgb_array(self, worker: WorkerRun, **kwargs) -> Optional[np.ndarray]:
         if self.config.env_observation_type != EnvObservationTypes.COLOR:
             return None
 
@@ -713,7 +719,10 @@ class Worker(DiscreteActionWorker):
         pw.draw_image_rgb_array(self.screen, IMG_W + PADDING, 15, img2)
 
         # 横にアクション後の結果を表示
-        for i, a in enumerate(self.get_valid_actions()):
+        invalid_actions = worker.get_invalid_actions()
+        for i, a in enumerate(range(self.config.action_num)):
+            if a in invalid_actions:
+                continue
             if i > _view_action:
                 break
 
@@ -721,7 +730,11 @@ class Worker(DiscreteActionWorker):
                 self.z, a, self.prev_hidden_state, return_rnn_only=False
             )  # type:ignore , ignore check "None"
             pw.draw_text(
-                self.screen, (IMG_W + PADDING) * i, 20 + IMG_H, f"action {env.action_to_str(a)}", color=(255, 255, 255)
+                self.screen,
+                (IMG_W + PADDING) * i,
+                20 + IMG_H,
+                f"action {worker.env.action_to_str(a)}",
+                color=(255, 255, 255),
             )
 
             # 縦にいくつかサンプルを表示

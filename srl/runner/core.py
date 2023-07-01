@@ -388,7 +388,7 @@ def _play_run(
             worker_idx = worker_indices[env.next_player_index]
 
             # worker reset
-            [w.on_reset(env, worker_indices[i], render_mode=render_mode) for i, w in enumerate(workers)]
+            [w.on_reset(worker_indices[i], config.training, render_mode) for i, w in enumerate(workers)]
 
             _info["episode_count"] = episode_count
             _info["worker_indices"] = worker_indices
@@ -406,7 +406,7 @@ def _play_run(
         [c.on_step_action_before(_info) for c in callbacks]
 
         # action
-        action = workers[worker_idx].policy(env)
+        action = workers[worker_idx].policy()
         _info["action"] = action
 
         [c.on_step_begin(_info) for c in callbacks]
@@ -423,7 +423,7 @@ def _play_run(
         worker_idx = worker_indices[env.next_player_index]
 
         # rl step
-        [w.on_step(env) for w in workers]
+        [w.on_step() for w in workers]
 
         # step update
         step_time = time.time() - _time

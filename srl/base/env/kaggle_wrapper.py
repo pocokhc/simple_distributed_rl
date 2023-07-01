@@ -1,5 +1,4 @@
 import copy
-import logging
 import pickle
 from abc import abstractmethod
 from typing import Any, List, Tuple, Union, cast
@@ -9,10 +8,7 @@ import kaggle_environments
 from srl.base.define import EnvActionType, EnvObservationType, InfoType
 from srl.base.env.base import EnvBase
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.worker import RuleBaseWorker
-from srl.base.rl.worker_run import WorkerRun
-
-logger = logging.getLogger(__name__)
+from srl.base.rl.algorithms.env_worker import EnvWorker
 
 
 class KaggleWrapper(EnvBase):
@@ -156,8 +152,8 @@ class KaggleWrapper(EnvBase):
         return 1000 / 1
 
 
-class KaggleWorker(RuleBaseWorker):
-    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[int, dict]:
+class KaggleWorker(EnvWorker):
+    def call_policy(self, env: EnvRun) -> Tuple[int, dict]:
         _env = cast(KaggleWrapper, env.env)
         return self.kaggle_policy(_env.obs, _env.config), {}
 

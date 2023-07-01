@@ -8,21 +8,17 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import EnvObservationTypes, RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (
-    calc_epsilon_greedy_probs,
-    create_beta_list,
-    create_discount_list,
-    create_epsilon_list,
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
+from srl.rl.functions.common import (calc_epsilon_greedy_probs,
+                                     create_beta_list, create_discount_list,
+                                     create_epsilon_list, inverse_rescaling,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling)
 from srl.rl.memories.config import ReplayMemoryConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.processors.image_processor import ImageProcessor
@@ -226,7 +222,7 @@ def create_input_layer_stateful_lstm(
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(DiscreteActionConfig):
+class Config(RLConfig):
     # test
     test_epsilon: float = 0
     test_beta: float = 0
@@ -306,7 +302,11 @@ class Config(DiscreteActionConfig):
         ]
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
@@ -339,7 +339,7 @@ register(
 class RemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
         self.init(ReplayMemoryConfig(self.config.capacity))
 
 
@@ -537,7 +537,7 @@ class _LifelongNetwork(keras.Model):
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.q_ext_online = _QNetwork(self.config)
         self.q_ext_target = _QNetwork(self.config)
@@ -595,9 +595,9 @@ def _batch_dict_step_to_step_batch(batchs, key, in_step, is_list, to_np):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.q_ext_optimizer = keras.optimizers.Adam(learning_rate=self.config.q_ext_lr)
         self.q_int_optimizer = keras.optimizers.Adam(learning_rate=self.config.q_int_lr)
@@ -958,9 +958,9 @@ class Trainer(RLTrainer):
 class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
 
@@ -1320,8 +1320,7 @@ class Worker(DiscreteActionWorker):
 
         return reward
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
-        invalid_actions = self.recent_invalid_actions[-1]
+    def render_terminal(self, worker, **kwargs) -> None:
         # パラメータを予測するとhidden_stateが変わってしまうの予測はしない
         q_ext = self.q_ext
         q_int = self.q_int
@@ -1338,4 +1337,4 @@ class Worker(DiscreteActionWorker):
             s += f"{a:2d}: {q[a]:5.3f} = {q_ext[a]:5.3f} + {self.beta} * {q_int[a]:5.3f}"
             return s
 
-        render_discrete_action(invalid_actions, maxa, env, _render_sub)
+        render_discrete_action(maxa, worker.env, self.config, _render_sub)

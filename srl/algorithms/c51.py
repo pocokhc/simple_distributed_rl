@@ -7,8 +7,9 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import EnvObservationTypes, RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
@@ -122,7 +123,7 @@ def create_input_layer(
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(DiscreteActionConfig):
+class Config(RLConfig):
     epsilon: float = 0.1
     test_epsilon: float = 0
     discount: float = 0.9
@@ -149,7 +150,11 @@ class Config(DiscreteActionConfig):
         ]
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
@@ -176,7 +181,7 @@ register(
 class RemoteMemory(ExperienceReplayBuffer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.init(self.config.capacity)
 
@@ -243,7 +248,7 @@ class _QNetwork(keras.Model):
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         in_state, c, use_image_head = create_input_layer(
             self.config.observation_shape,
@@ -279,9 +284,9 @@ class Parameter(RLParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
 
@@ -378,9 +383,9 @@ class Trainer(RLTrainer):
 class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.Z = np.linspace(
             self.config.categorical_v_min, self.config.categorical_v_max, self.config.categorical_num_atoms
@@ -439,7 +444,7 @@ class Worker(DiscreteActionWorker):
         self.remote_memory.add(batch)
         return {}
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         logits = self.parameter.Q(self.state[np.newaxis, ...])
         probs = tf.nn.softmax(logits, axis=2)
         q_means = tf.reduce_sum(probs * self.Z, axis=2, keepdims=True)
@@ -449,4 +454,4 @@ class Worker(DiscreteActionWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        render_discrete_action(maxa, env, self.config, _render_sub)
+        render_discrete_action(maxa, worker.env, self.config, _render_sub)

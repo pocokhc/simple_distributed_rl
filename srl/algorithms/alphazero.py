@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Tuple, cast
+from typing import Any, List, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -7,12 +7,13 @@ from tensorflow import keras
 
 from srl.base.define import RLTypes
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig
-from srl.base.rl.algorithms.modelbase import ModelBaseWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.model import IAlphaZeroImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
+from srl.base.rl.worker_rl import RLWorker
+from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
 from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
 from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
@@ -35,7 +36,7 @@ https://github.com/AppliedDataSciencePartners/DeepReinforcementLearning
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(DiscreteActionConfig):
+class Config(RLConfig):
     num_simulations: int = 100
     capacity: int = 10_000
     discount: float = 1.0  # 割引率
@@ -99,7 +100,11 @@ class Config(DiscreteActionConfig):
         self.policy_block = MLPBlockConfig(layer_sizes=())
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
     def getName(self) -> str:
@@ -126,7 +131,7 @@ register(
 class RemoteMemory(ExperienceReplayBuffer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.init(self.config.capacity)
 
@@ -246,7 +251,7 @@ class _Network(keras.Model):
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.network = _Network(self.config)
 
@@ -283,9 +288,9 @@ class Parameter(RLParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         # lr_schedule
         self.lr_schedule = {}
@@ -350,14 +355,14 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(ModelBaseWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
-    def call_on_reset(self, state: np.ndarray, env: EnvRun, worker) -> dict:
+    def call_on_reset(self, worker: WorkerRun) -> dict:
         self.sampling_step = 0
         self.history = []
 
@@ -371,17 +376,17 @@ class Worker(ModelBaseWorker):
             self.N[state_str] = [0 for _ in range(self.config.action_num)]
             self.W[state_str] = [0 for _ in range(self.config.action_num)]
 
-    def call_policy(self, state: np.ndarray, env: EnvRun, worker) -> Tuple[int, dict]:
-        self.state = state
-        self.state_str = to_str_observation(state)
-        self.invalid_actions = env.get_invalid_actions()
+    def call_policy(self, worker: WorkerRun) -> Tuple[int, dict]:
+        self.state = worker.state
+        self.state_str = to_str_observation(self.state, self.config.env_observation_type)
+        self.invalid_actions = worker.get_invalid_actions()
         self._init_state(self.state_str)
 
         # --- シミュレーションしてpolicyを作成
-        dat = env.backup()
+        dat = worker.env.backup()
         for _ in range(self.config.num_simulations):
-            self._simulation(env, state, self.state_str)
-            env.restore(dat)
+            self._simulation(worker.env, self.state, self.state_str)
+            worker.env.restore(dat)
 
         # --- (教師データ) 試行回数を元に確率を計算
         N = np.sum(self.N[self.state_str])
@@ -396,17 +401,9 @@ class Worker(ModelBaseWorker):
 
         return int(action), {}
 
-    def _simulation(
-        self,
-        env: EnvRun,
-        state: np.ndarray,
-        state_str: str,
-        depth: int = 0,
-    ):
+    def _simulation(self, env: EnvRun, state: np.ndarray, state_str: str, depth: int = 0):
         if depth >= env.max_episode_steps:  # for safety
             return 0
-
-        player_index = env.next_player_index
 
         # PVを予測
         self._init_state(state_str)
@@ -417,12 +414,13 @@ class Worker(ModelBaseWorker):
         action = int(np.random.choice(np.where(puct_list == np.max(puct_list))[0]))
 
         # 1step
-        n_state, rewards, done = self.env_step(env, action)
+        player_index = env.next_player_index
+        n_state, rewards = self.worker_run.env_step(env, action)
         reward = rewards[player_index]
         n_state_str = to_str_observation(n_state)
         enemy_turn = player_index != env.next_player_index
 
-        if done:
+        if env.done:
             n_value = 0
         elif self.N[state_str][action] == 0:
             # leaf node ならロールアウト
@@ -477,22 +475,15 @@ class Worker(ModelBaseWorker):
             scores[a] = score
         return scores
 
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward: float,
-        done: bool,
-        env: EnvRun,
-        worker,
-    ):
+    def call_on_step(self, worker: WorkerRun) -> dict:
         self.sampling_step += 1
 
         if not self.training:
             return {}
 
-        self.history.append([self.state, self.step_policy, reward])
+        self.history.append([self.state, self.step_policy, worker.reward])
 
-        if done:
+        if worker.done:
             # 報酬を逆伝搬
             reward = 0
             for state, step_policy, step_reward in reversed(self.history):
@@ -507,7 +498,7 @@ class Worker(ModelBaseWorker):
 
         return {}
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         self._init_state(self.state_str)
         self.parameter.pred_PV(self.state, self.state_str)
         puct = self._calc_puct(self.state_str, self.invalid_actions, False)
@@ -540,4 +531,4 @@ class Worker(ModelBaseWorker):
             )
             return s
 
-        render_discrete_action(maxa, env, self.config, _render_sub)
+        render_discrete_action(maxa, worker.env, self.config, _render_sub)

@@ -45,7 +45,7 @@ class _QNetwork(nn.Module):
 class Parameter(CommonInterfaceParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.device = torch.device(self.config.used_device_torch)
 
@@ -87,9 +87,9 @@ class Parameter(CommonInterfaceParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.optimizer = optim.Adam(self.parameter.q_online.parameters(), lr=self.config.lr)
         self.criterion = nn.HuberLoss()

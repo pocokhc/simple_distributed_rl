@@ -7,7 +7,6 @@ from kaggle_environments.envs.hungry_geese.hungry_geese import Action, greedy_ag
 from srl.base.define import EnvObservationTypes
 from srl.base.env import registration
 from srl.base.env.kaggle_wrapper import KaggleWorker, KaggleWrapper
-from srl.base.rl.worker import RuleBaseWorker
 from srl.base.spaces import ArrayDiscreteSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
@@ -120,7 +119,7 @@ class HungryGeese(KaggleWrapper):
             return [1]
         return []
 
-    def make_worker(self, name: str, **kwargs) -> Optional[RuleBaseWorker]:
+    def make_worker(self, name: str, **kwargs) -> Optional[KaggleWorker]:
         if name == "greedy":
             return Greedy(**kwargs)
         return None

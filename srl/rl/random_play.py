@@ -1,18 +1,17 @@
 import logging
 from typing import Tuple
 
-from srl.base.define import EnvActionType
-from srl.base.env.env_run import EnvRun
-from srl.base.rl.registration import register_worker
-from srl.base.rl.worker import RuleBaseWorker
+from srl.base.define import RLActionType
+from srl.base.rl.registration import register_rulebase
+from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 
 logger = logging.getLogger(__name__)
 
 
-register_worker("random", __name__ + ":Worker")
+register_rulebase("random", __name__ + ":Worker")
 
 
-class Worker(RuleBaseWorker):
-    def call_policy(self, env: EnvRun, worker: WorkerRun) -> Tuple[EnvActionType, dict]:
-        return env.sample(), {}
+class Worker(RLWorker):
+    def call_policy(self, worker: WorkerRun) -> Tuple[RLActionType, dict]:
+        return worker.sample_action(), {}

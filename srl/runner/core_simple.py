@@ -186,12 +186,12 @@ def train(
                 worker_idx = worker_indices[env.next_player_index]
 
             # worker
-            [w.on_reset(env, worker_indices[i]) for i, w in enumerate(workers)]
+            [w.on_reset(worker_indices[i], training=True) for i, w in enumerate(workers)]
 
         # --- step
-        action = workers[worker_idx].policy(env)
+        action = workers[worker_idx].policy()
         env.step(action)
-        [w.on_step(env) for w in workers]
+        [w.on_step() for w in workers]
         total_step += 1
 
         # --- train

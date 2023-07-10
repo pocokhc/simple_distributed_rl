@@ -1,13 +1,10 @@
-import pytest
-
 from srl.rl.memories.config import ReplayMemoryConfig
-from srl.utils import common
 
 from .common_base_class import CommonBaseClass
 
 
-class _BaseCase(CommonBaseClass):
-    def return_rl_config(self, framework):
+class BaseCase(CommonBaseClass):
+    def _create_rl_config(self):
         from srl.algorithms import stochastic_muzero
         from srl.rl.models.alphazero import AlphaZeroImageBlockConfig
 
@@ -31,22 +28,8 @@ class _BaseCase(CommonBaseClass):
     def test_Grid(self):
         from srl.envs import grid
 
-        config, rl_config, tester = self.create_config("Grid")
+        rl_config = self._create_rl_config()
         rl_config.processors = [grid.LayerProcessor()]
+
+        config, tester = self.create_config("Grid", rl_config)
         tester.train_eval(config, 10000)
-
-
-class TestTF_CPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-
-        return "tensorflow", "CPU"
-
-
-class TestTF_GPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-        if not common.is_available_gpu_tf():
-            pytest.skip()
-
-        return "tensorflow", "GPU"

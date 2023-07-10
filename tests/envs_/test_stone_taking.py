@@ -1,4 +1,3 @@
-from srl.envs import stone_taking  # noqa F401
 from srl.test import TestEnv
 
 

@@ -1,12 +1,8 @@
-import pytest
-
-from srl.utils import common
-
 from .common_base_class import CommonBaseClass
 
 
-class _BaseCase(CommonBaseClass):
-    def return_rl_config(self, framework):
+class BaseCase(CommonBaseClass):
+    def _create_rl_config(self):
         from srl.algorithms import alphazero
         from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
         from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
@@ -28,20 +24,22 @@ class _BaseCase(CommonBaseClass):
             value_block=MLPBlockConfig(
                 layer_sizes=(32,),
             ),
-            # "framework": framework, # TODO
         )
 
     def test_Grid(self):
         from srl.envs import grid
 
-        config, rl_config, tester = self.create_config("Grid")
+        rl_config = self._create_rl_config()
         rl_config.discount = 0.9
         rl_config.memory_warmup_size = 100
         rl_config.processors = [grid.LayerProcessor()]
+        config, tester = self.create_config("Grid", rl_config)
         tester.train_eval(config, 1000)
 
     def test_StoneTaking(self):
-        config, rl_config, tester = self.create_config("StoneTaking")
+        rl_config = self._create_rl_config()
+
+        config, tester = self.create_config("StoneTaking", rl_config)
         config.seed = 2
         parameter, _, _ = tester.train(config, 300)
 
@@ -51,7 +49,8 @@ class _BaseCase(CommonBaseClass):
         tester.eval(config, parameter, baseline=[None, 0.7])
 
     def test_OX(self):
-        config, rl_config, tester = self.create_config("OX")
+        rl_config = self._create_rl_config()
+        config, tester = self.create_config("OX", rl_config)
         parameter, _, _ = tester.train(config, 200)
 
         config.players = [None, "random"]
@@ -60,7 +59,8 @@ class _BaseCase(CommonBaseClass):
         tester.eval(config, parameter, baseline=[None, 0.6])
 
     def test_OX_mp(self):
-        config, rl_config, tester = self.create_config("OX")
+        rl_config = self._create_rl_config()
+        config, tester = self.create_config("OX", rl_config)
         config.seed = 2
         parameter, _, _ = tester.train(config, 200, is_mp=True)
 
@@ -74,7 +74,7 @@ class _BaseCase(CommonBaseClass):
         from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
         from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 
-        config, rl_config, tester = self.create_config("Othello4x4")
+        rl_config = self._create_rl_config()
         rl_config.batch_size = 32
         rl_config.memory_warmup_size = 500
         rl_config.lr_schedule = [
@@ -93,25 +93,10 @@ class _BaseCase(CommonBaseClass):
             layer_sizes=(32,),
         )
         rl_config.processors = [othello.LayerProcessor()]
+        config, tester = self.create_config("Othello4x4", rl_config)
         parameter, _, _ = tester.train(config, 20_000)
 
         config.players = [None, "random"]
         tester.eval(config, parameter, baseline=[0.1, None])
         config.players = ["random", None]
         tester.eval(config, parameter, baseline=[None, 0.5])
-
-
-class TestTF_CPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-
-        return "tensorflow", "CPU"
-
-
-class TestTF_GPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-        if not common.is_available_gpu_tf():
-            pytest.skip()
-
-        return "tensorflow", "GPU"

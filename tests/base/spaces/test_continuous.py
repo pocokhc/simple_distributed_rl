@@ -131,9 +131,18 @@ def test_convert():
     assert space.check_val(val)
     assert val == 1.0
 
-    val = space.convert(-2)
-    assert not space.check_val(val)
-
     assert not space.check_val(1)
     assert not space.check_val(3.1)
     assert not space.check_val(-1.1)
+
+
+def test_convert2():
+    space = ContinuousSpace(-1, 3)
+
+    val = space.convert([-2])
+    assert space.check_val(val)
+    assert val == -1
+
+    val = space.convert((6, 99))
+    assert space.check_val(val)
+    assert val == 3

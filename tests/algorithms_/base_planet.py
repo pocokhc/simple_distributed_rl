@@ -1,14 +1,11 @@
-import pytest
-
 import srl
 from srl import runner
-from srl.utils import common
 
 from .common_base_class import CommonBaseClass
 
 
-class _BaseCase(CommonBaseClass):
-    def return_rl_config(self, framework):
+class BaseCase(CommonBaseClass):
+    def _create_rl_config(self):
         from srl.algorithms import planet
 
         return planet.Config(
@@ -33,12 +30,12 @@ class _BaseCase(CommonBaseClass):
     def test_EasyGrid(self):
         env_config = srl.EnvConfig("EasyGrid")
         env_config.max_episode_steps = 20
-        env_config.check_action = False
-        env_config.check_val = False
 
-        config, rl_config, tester = self.create_config(env_config)
+        rl_config = self._create_rl_config()
         rl_config.memory_warmup_size = rl_config.batch_size + 1
         rl_config.use_render_image_for_observation = True
+
+        config, tester = self.create_config(env_config, rl_config)
 
         # --- train
         _, memory = runner.train_simple(
@@ -58,14 +55,12 @@ class _BaseCase(CommonBaseClass):
     def test_Grid(self):
         env_config = srl.EnvConfig("Grid")
         env_config.max_episode_steps = 20
-        env_config.check_action = False
-        env_config.check_val = False
 
-        config, rl_config, tester = self.create_config(env_config)
+        rl_config = self._create_rl_config()
         rl_config.memory_warmup_size = rl_config.batch_size + 1
         rl_config.use_render_image_for_observation = True
 
-        config = runner.Config(env_config, rl_config)
+        config, tester = self.create_config(env_config, rl_config)
 
         # train
         _, memory = runner.train_simple(
@@ -86,9 +81,8 @@ class _BaseCase(CommonBaseClass):
         env_config = srl.EnvConfig("EasyGrid")
         env_config.max_episode_steps = 10
 
-        config, rl_config, tester = self.create_config(env_config)
-
-        rl_config.set_params(
+        rl_config = self._create_rl_config()
+        rl_config.set_parameter(
             dict(
                 deter_size=50,
                 stoch_size=10,
@@ -111,7 +105,7 @@ class _BaseCase(CommonBaseClass):
         rl_config.memory_warmup_size = rl_config.batch_size + 1
         rl_config.use_render_image_for_observation = True
 
-        config = runner.Config(env_config, rl_config)
+        config, tester = self.create_config(env_config, rl_config)
 
         # train
         _, memory, _ = runner.train(
@@ -127,19 +121,3 @@ class _BaseCase(CommonBaseClass):
 
         # eval
         tester.eval(config, parameter, baseline=0.1)
-
-
-class TestTF_CPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-
-        return "tensorflow", "CPU"
-
-
-class TestTF_GPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-        if not common.is_available_gpu_tf():
-            pytest.skip()
-
-        return "tensorflow", "GPU"

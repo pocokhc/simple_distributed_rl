@@ -145,11 +145,16 @@ def test_convert():
     assert space.check_val(val)
     np.testing.assert_array_equal([1.2, 0.9, 0.8], val)
 
-    val = space.convert(5)
-    assert not space.check_val(val)
-
     assert not space.check_val(1)
     assert not space.check_val([1])
     assert not space.check_val([1.1, 1.1, 1])
     assert not space.check_val([-2.1, 1.1, 1.1])
     assert not space.check_val([5.1, 1.1, 1.1])
+
+
+def test_convert2():
+    space = ArrayContinuousSpace(3, -1, 3)
+
+    val = space.convert([-2, 6, 2])
+    assert space.check_val(val)
+    np.testing.assert_array_equal([-1, 3, 2], val)

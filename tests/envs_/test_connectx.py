@@ -110,13 +110,13 @@ def test_kaggle_connectx():
 
     env = srl.make_env("connectx")
     parameter = srl.make_parameter(rl_config, env)
-    worker = srl.make_worker(rl_config, parameter)
+    worker = srl.make_worker(rl_config, env, parameter)
 
     def agent(observation, configuration):
         env.direct_step(observation, configuration)
         if env.is_start_episode:
-            worker.on_reset(env, env.next_player_index)
-        action = worker.policy(env)
+            worker.on_reset(env.next_player_index, training=False)
+        action = worker.policy()
         return env.decode_action(action)
 
     kaggle_env = kaggle_environments.make("connectx", debug=True)
@@ -137,13 +137,13 @@ def test_kaggle_connectx_success():
 
     env = srl.make_env("connectx")
     parameter = srl.make_parameter(rl_config, env)
-    worker = srl.make_worker(rl_config, parameter, training=True)
+    worker = srl.make_worker(rl_config, env, parameter)
 
     def agent(observation, configuration):
         env.direct_step(observation, configuration)
         if env.is_start_episode:
-            worker.on_reset(env, env.next_player_index)
-        action = worker.policy(env)
+            worker.on_reset(env.next_player_index, training=False)
+        action = worker.policy()
         return env.decode_action(action)
 
     kaggle_env = kaggle_environments.make("connectx", debug=True)

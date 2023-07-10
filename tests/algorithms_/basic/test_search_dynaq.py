@@ -1,8 +1,15 @@
-import srl.envs.grid  # noqa F401
-import srl.envs.oneroad  # noqa F401
+import unittest
+
 from srl import runner
 from srl.algorithms import search_dynaq
 from srl.test import TestRL
+
+
+class Test_search_dynaq(TestRL, unittest.TestCase):
+    def init_simple_check(self) -> None:
+        from srl.algorithms import search_dynaq
+
+        self.rl_config = search_dynaq.Config()
 
 
 def test_Grid():

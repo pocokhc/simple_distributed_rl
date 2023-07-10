@@ -1,9 +1,19 @@
-import srl.envs.grid  # noqa F401
-import srl.envs.ox  # noqa F401
-import srl.envs.stone_taking  # noqa F401
+import unittest
+
 from srl import runner
 from srl.algorithms import mcts
 from srl.test import TestRL
+
+
+class Test_mcts(TestRL, unittest.TestCase):
+    def init_simple_check(self) -> None:
+        from srl.algorithms import mcts
+
+        self.rl_config = mcts.Config()
+        self.simple_check_kwargs = dict(
+            use_layer_processor=True,
+            train_kwargs=dict(max_steps=10),
+        )
 
 
 def test_StoneTaking():
@@ -18,7 +28,7 @@ def test_OX():
     tester = TestRL()
     rl_config = mcts.Config(num_simulations=10)
     config = runner.Config("OX", rl_config, seed=2)
-    parameter, _, _ = tester.train(config, train_steps=20000)
+    parameter, _, _ = tester.train(config, train_steps=30000)
     tester.eval_2player(config, parameter)
 
 

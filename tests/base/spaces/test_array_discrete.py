@@ -94,11 +94,16 @@ def test_convert():
     assert space.check_val(val)
     np.testing.assert_array_equal([1, 1, 1], val)
 
-    val = space.convert(10)
-    assert not space.check_val(val)
-
     assert not space.check_val(1)
     assert not space.check_val([1, 2])
     assert not space.check_val([1, 1, 1.1])
     assert not space.check_val([-1, 1, 1])
     assert not space.check_val([2, 5, 4])
+
+
+def test_convert2():
+    space = ArrayDiscreteSpace(3, 0, [2, 5, 3])
+
+    val = space.convert([-1, 6, 2])
+    assert space.check_val(val)
+    np.testing.assert_array_equal([0, 5, 2], val)

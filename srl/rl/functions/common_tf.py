@@ -2,29 +2,42 @@ import numpy as np
 import tensorflow as tf
 
 
-# 方策が正規分布時の log π(a|s)
-# @tf.function
-def compute_logprob(mean, stddev, action):
-    a1 = -0.5 * np.log(2 * np.pi)
-    stddev = tf.clip_by_value(stddev, 1e-6, stddev)  # log(0)回避用
-    a2 = -tf.math.log(stddev)  # type: ignore TODO
-    a3 = -0.5 * tf.square((action - mean) / stddev)  # type: ignore TODO
-    return a1 + a2 + a3
+@tf.function
+def compute_logprob(mean, stddev, action, epsilon: float = 1e-10):
+    """
+    log π(a|s) when the policy is normally distributed
+    https://ja.wolframalpha.com/input?i2d=true&i=Log%5BDivide%5B1%2C+%5C%2840%29Sqrt%5B2+*+Pi+*+%CF%83%5D%5C%2841%29%5D+*+Exp%5B-%5C%2840%29+Divide%5BPower%5B%5C%2840%29x+-+%CE%BC%5C%2841%29%2C2%5D%2C+2+*+%CF%83%5D%5C%2841%29%5D%5D
+    -0.5 * log(2 pi) - 0.5 * log(var^2) - (x - mean)^2 / (2 var^2)
+    """
+    stddev = tf.clip_by_value(stddev, epsilon, np.inf)  # log(0)回避用
+    return -0.5 * np.log(2 * np.pi) - 0.5 * tf.math.log(stddev) - tf.square(action - mean) / (2 * stddev)
 
 
-# Squashed Gaussian Policy の log π(a|s)
-# @tf.function
-def compute_logprob_sgp(mean, stddev, action):
-    logmu = compute_logprob(mean, stddev, action)
-    logpi = 1.0 - tf.tanh(action) ** 2  # type: ignore TODO
-    logpi = tf.clip_by_value(logpi, 1e-6, logpi)  # log(0)回避用
-    logpi = logmu - tf.math.log(logpi)
-    return logpi
+@tf.function
+def compute_logprob_sgp(mean, stddev, action, epsilon: float = 1e-10):
+    """
+    Squashed Gaussian Policy log π(a|s)
+    Paper: https://arxiv.org/abs/1801.01290
+    """
+    logmu = compute_logprob(mean, stddev, action, epsilon)
+    return logmu - tf.reduce_sum(tf.math.log(1.0 - tf.square(tf.tanh(action))), axis=-1, keepdims=True)
 
 
-# 正規分布のKL divergence
-def gaussian_kl_divergence(mean1, log_stddev1, mean2, log_stddev2):
-    x1 = log_stddev2 - log_stddev1
-    x2 = (tf.exp(log_stddev1) ** 2 + (mean1 - mean2) ** 2) / (2 * tf.exp(log_stddev2) ** 2)  # type: ignore TODO
-    x3 = -0.5
-    return x1 + x2 + x3
+@tf.function
+def compute_kl_divergence(probs1, probs2, epsilon: float = 1e-10):
+    """Kullback–Leibler divergence
+    https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
+    """
+    probs1 = tf.clip_by_value(probs1, epsilon, 1)
+    probs2 = tf.clip_by_value(probs2, epsilon, 1)
+    return tf.reduce_sum(probs1 * tf.math.log(probs1 / probs2), axis=1, keepdims=True)
+
+
+@tf.function
+def compute_kl_divergence_normal(mean1, stddev1, mean2, stddev2):
+    """Kullback–Leibler divergence from Normal distribution"""
+    import tensorflow_probability as tfp
+
+    p1 = tfp.distributions.Normal(loc=mean1, scale=stddev1)
+    p2 = tfp.distributions.Normal(loc=mean2, scale=stddev2)
+    return p1.kl_divergence(p2)

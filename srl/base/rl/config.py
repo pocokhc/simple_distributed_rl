@@ -55,6 +55,10 @@ class RLConfig(ABC):
     window_length: int = 1
     dummy_state_val: float = 0.0
 
+    # --- other
+    enable_sanitize_value: bool = True
+    enable_assertion_value: bool = False
+
     def __post_init__(self) -> None:
         self._is_set_env_config = False
         self._run_processors: List[Processor] = []

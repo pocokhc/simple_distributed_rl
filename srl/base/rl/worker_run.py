@@ -47,6 +47,7 @@ class WorkerRun:
         self._reward = 0
         self._step_reward = 0
         self._done = False
+        self._invalid_actions: InvalidActionsType = []
         self._render = Render(worker)
 
         if self._config.window_length > 1:
@@ -103,6 +104,10 @@ class WorkerRun:
     def done(self) -> bool:
         return self._done
 
+    @property
+    def invalid_actions(self) -> InvalidActionsType:
+        return self._invalid_actions
+
     def on_reset(
         self,
         player_index: int,
@@ -120,6 +125,7 @@ class WorkerRun:
         self._state = self._config.create_dummy_state()
         self._reward = 0
         self._done = False
+        self._invalid_actions = [self.action_encode(a) for a in self._env.get_invalid_actions(self.player_index)]
 
         if self._config.window_length > 1:
             self._recent_states: List[RLObservationType] = [
@@ -140,10 +146,12 @@ class WorkerRun:
             # 2週目以降は step -> policy
             self._on_step()
 
-        self._invalid_actions = self._env.get_invalid_actions()
-
         # worker policy
         action, info = self._worker.policy(self)
+        if self._config.enable_assertion_value:
+            self.assert_action(action)
+        elif self._config.enable_sanitize_value:
+            action = self.sanitize_action(action)
         action = self.action_decode(action)
         self._info.update(info)
 
@@ -172,6 +180,7 @@ class WorkerRun:
         self._done = self._env.done
         self._info = self._worker.on_step(self)
         self._step_reward = 0
+        self._invalid_actions = [self.action_encode(a) for a in self._env.get_invalid_actions(self.player_index)]
 
     # ------------------------------
     # encode/decode
@@ -241,20 +250,58 @@ class WorkerRun:
     # invalid
     # ------------------------------------
     def get_invalid_actions(self, env: Optional[EnvRun] = None) -> InvalidActionsType:
-        if self._config.action_type == RLTypes.DISCRETE:
-            if env is None:
-                env = self._env
-            if self._config.enable_action_decode:
-                return [
-                    cast(InvalidActionType, self.action_encode(a)) for a in env.get_invalid_actions(self.player_index)
-                ]
-            else:
-                return env.get_invalid_actions(self.player_index)
-        else:
-            return []
+        return self._invalid_actions
 
     # def get_valid_actions(self, env=None) -> InvalidActionsType:
     #    raise NotImplementedError()  # TODO: bugがあったのでいったん保留
+
+    def add_invalid_actions(self, invalid_actions: InvalidActionsType) -> None:
+        if self.config.action_type == RLTypes.DISCRETE:
+            self._invalid_actions += invalid_actions
+            self._invalid_actions = list(set(self._invalid_actions))
+        else:
+            assert False, "not support"
+
+    # ------------------------------------
+    # check
+    # ------------------------------------
+    def sanitize_action(self, action: RLActionType) -> RLActionType:
+        if self.config.action_type == RLTypes.DISCRETE:
+            try:
+                return int(action)
+            except Exception as e:
+                logger.error(f"{action}({type(action)}), {e}")
+            return 0
+        else:
+            try:
+                if isinstance(action, list):
+                    return [float(a) for a in action]
+                if isinstance(action, tuple):
+                    return [float(a) for a in action]
+                return float(action)
+            except Exception as e:
+                logger.error(f"{action}({type(action)}), {e}")
+            return 0.0
+
+    def assert_action(self, action: RLActionType):
+        if self.config.action_type == RLTypes.DISCRETE:
+            assert isinstance(action, int), f"The type of action is different. {action}({type(action)})"
+        elif self.config.action_type == RLTypes.CONTINUOUS:
+            assert isinstance(action, float) or isinstance(
+                action, list
+            ), f"The type of action is different. {action}({type(action)})"
+            if isinstance(action, list):
+                for a in action:
+                    assert isinstance(a, float), f"The type of action is different. {a}({type(a)})"
+        elif self.config.action_type == RLTypes.ANY:
+            assert (
+                isinstance(action, int) or isinstance(action, float) or isinstance(action, list)
+            ), f"The type of action is different. {action}({type(action)})"
+            if isinstance(action, list):
+                for a in action:
+                    assert isinstance(a, float), f"The type of action is different. {a}({type(a)})"
+        else:
+            raise ValueError(self.config.action_type)
 
     # ------------------------------------
     # render functions

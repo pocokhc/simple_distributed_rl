@@ -17,8 +17,8 @@ class ContinuousSpace(SpaceBase[float]):
         low: float = -np.inf,
         high: float = np.inf,
     ) -> None:
-        self._low = low
-        self._high = high
+        self._low = float(low)
+        self._high = float(high)
 
         assert self.low.shape == self.high.shape
         assert self.low < self.high
@@ -35,17 +35,23 @@ class ContinuousSpace(SpaceBase[float]):
 
     def convert(self, val: Any) -> float:
         if isinstance(val, list):
-            return float(val[0])
+            val = float(val[0])
         elif isinstance(val, tuple):
-            return float(val[0])
-        return float(val)
+            val = float(val[0])
+        else:
+            val = float(val)
+        if val < self._low:
+            val = self._low
+        elif val > self._high:
+            val = self._high
+        return val
 
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, float):
             return False
-        if val < self.low:
+        if val < self._low:
             return False
-        if val > self.high:
+        if val > self._high:
             return False
         return True
 

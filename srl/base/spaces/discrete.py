@@ -19,10 +19,16 @@ class DiscreteSpace(SpaceBase[int]):
 
     def convert(self, val: Any) -> int:
         if isinstance(val, list):
-            return round(val[0])
+            val = round(val[0])
         elif isinstance(val, tuple):
-            return round(val[0])
-        return round(val)
+            val = round(val[0])
+        else:
+            val = round(val)
+        if val < 0:
+            val = 0
+        elif val >= self.n:
+            val = self.n - 1
+        return val
 
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, int):

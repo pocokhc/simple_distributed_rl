@@ -128,7 +128,7 @@ class TestRL:
 
                 # --- check raw
                 print(f"--- {env_config.name} raw check start ---")
-                self.simple_check_raw(env_config, rl_config, check_render)
+                self.simple_check_raw(env_config, rl_config2, check_render)
 
             else:
                 print(f"--- {env_config.name} mp check start ---")
@@ -333,6 +333,7 @@ class TestRL:
             history=None,
             max_train_count=train_count,
             max_steps=train_steps,
+            enable_profiling=False,
         )
         _train_kwargs.update(train_kwargs)
         if is_mp:

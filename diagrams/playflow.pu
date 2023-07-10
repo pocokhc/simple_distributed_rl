@@ -21,7 +21,7 @@ User -> EnvRun: reset()
     return state, next_player_index
 return
 
-User -> WorkerRun: on_reset(env, player_index)
+User -> WorkerRun: on_reset(player_index)
     note right: init episode parameter
 return
 
@@ -32,46 +32,44 @@ return
 
 loop episode
 
-    User -> WorkerRun: policy(env)
+    User -> WorkerRun: policy()
         note right
-        if self.player_index != env.next_player_index:
-            return None
+        env.next_player_index policy
         end note
 
-        alt 1st week
-            WorkerRun -> Worker: on_reset(env)
+        alt 1st step
+            WorkerRun -> Worker: on_reset(WorkerRun)
                 note right
                 state = <color blue>encode(env.state)</color>
                 end note
-                Worker -> Worker: call_on_reset(state)
-                return
-            return
-        else After the 2nd week
-            WorkerRun -> Worker: on_step(env)
+                Worker -> Worker: call_on_reset(WorkerRun)
+                return info
+            return info
+        else After the 2nd step
+            WorkerRun -> Worker: on_step(WorkerRun)
                 note right
                 next_state = <color blue>encode(env.state)</color>
                 end note
-                Worker -> Worker: call_on_step(next_state, reward, done)
+                Worker -> Worker: call_on_step(WorkerRun)
                     Worker -> RemoteMemory: add batchs
                     return
-                return
+                return info
             return info
         end
 
-        WorkerRun -> Worker: policy(env)
-            note right
-            state = <color blue>encode(env.state)</color>
-            end note
-            Worker -> Worker: call_policy(state)
+        WorkerRun -> Worker: policy(WorkerRun)
+            Worker -> Worker: call_policy(WorkerRun)
+                Worker -> Parameter: get parameter
+                return
             return action
-            note right
-            action = <color red>decode(action)</color>
-            end note
         return action
+        note right
+        action = <color red>decode(action)</color>
+        end note
     return action
 
-    User -> WorkerRun: render(env)
-        WorkerRun -> Worker: render(env)
+    User -> WorkerRun: render()
+        WorkerRun -> Worker: rendering
         return
     return
     

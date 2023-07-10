@@ -1,65 +1,15 @@
 import ctypes
 import multiprocessing as mp
 from multiprocessing.managers import BaseManager
-from typing import Any, Optional, Type, cast
+from typing import Any, Type, cast
 
 import srl
-from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
+from srl.base.rl.base import RLRemoteMemory
 from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer
 
 # --- env & algorithm
 from srl.envs import grid  # isort: skip # noqa F401
 from srl.algorithms import ql  # isort: skip
-
-
-def _run_episode(
-    env: EnvRun,
-    rl_config: RLConfig,
-    parameter: RLParameter,
-    remote_memory: Optional[RLRemoteMemory],
-    training: bool,
-    distributed: bool,
-    rendering: bool = False,
-):
-    workers = [srl.make_worker(rl_config, parameter, remote_memory, training=training, distributed=distributed)]
-
-    if rendering:
-        render_mode = "terminal"
-    else:
-        render_mode = ""
-
-    # --- reset
-    env.reset(render_mode=render_mode)
-    [w.on_reset(env, i, render_mode=render_mode) for i, w in enumerate(workers)]
-
-    if rendering:
-        print("step 0")
-        env.render()
-
-    while not env.done:
-        # action
-        action = workers[env.next_player_index].policy(env)
-
-        if rendering:
-            print(f"player {env.next_player_index}")
-            workers[env.next_player_index].render(env)
-
-        # step
-        env.step(action)
-        [w.on_step(env) for w in workers]
-
-        # --- render
-        if rendering:
-            print(
-                "turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(
-                    env.step_num, action, env.step_rewards, env.done, env.next_player_index, env.info
-                )
-            )
-            print("player {} info: {}".format(env.next_player_index, workers[env.next_player_index].info))
-            env.render()
-
-    return env.step_num, env.episode_rewards
 
 
 class Board:
@@ -89,8 +39,10 @@ def _run_actor(
     rl_config = config["rl_config"]
     rl_config.set_config_by_actor(config["actor_num"], actor_id)
 
+    # make instance
     env = srl.make_env(env_config)
     parameter = make_parameter(rl_config)
+    workers = [srl.make_worker(rl_config, env, parameter, remote_memory, distributed=True, actor_id=actor_id)]
 
     prev_update_count = 0
     episode = 0
@@ -100,17 +52,22 @@ def _run_actor(
         if train_end_signal.value:
             break
 
-        step, reward = _run_episode(
-            env,
-            rl_config,
-            parameter,
-            remote_memory,
-            training=True,
-            distributed=True,
-        )
+        # --- 1 episode
+        # reset
+        env.reset()
+        [w.on_reset(i, training=True) for i, w in enumerate(workers)]
+
+        while not env.done:
+            # action
+            action = workers[env.next_player_index].policy()
+
+            # step
+            env.step(action)
+            [w.on_step() for w in workers]
+
         episode += 1
 
-        # sync parameter
+        # --- sync parameter
         update_count = remote_board.get_update_count()
         if update_count != prev_update_count:
             prev_update_count = update_count
@@ -119,7 +76,7 @@ def _run_actor(
                 parameter.restore(params)
 
         if episode % 1000 == 0:
-            print(f"{actor_id}: {episode} episode, {step} step, {reward} reward")
+            print(f"{actor_id}: {episode} episode, {env.step_num} step, {env.episode_rewards} reward")
 
 
 def _run_trainer(
@@ -230,17 +187,35 @@ def main():
         [p.terminate() for p in actors_ps_list]
         trainer_ps.terminate()
 
-    # --- rendering
-    step, reward = _run_episode(
-        env,
-        rl_config,
-        parameter,
-        None,
-        training=False,
-        distributed=False,
-        rendering=True,
-    )
-    print(f"step: {step}, reward: {reward}")
+    # --------------------
+    # rendering
+    # --------------------
+    workers = [srl.make_worker(rl_config, env, parameter)]
+
+    env.reset(render_mode="terminal")
+    [w.on_reset(i, training=False, render_mode="terminal") for i, w in enumerate(workers)]
+
+    print("step 0")
+    env.render()
+
+    while not env.done:
+        action = workers[env.next_player_index].policy()
+
+        print(f"player {env.next_player_index}")
+        workers[env.next_player_index].render()
+
+        env.step(action)
+        [w.on_step() for w in workers]
+
+        print(
+            "--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(
+                env.step_num, action, env.step_rewards, env.done, env.next_player_index, env.info
+            )
+        )
+        print("player {} info: {}".format(env.next_player_index, workers[env.next_player_index].info))
+        env.render()
+
+    print(f"step: {env.step_num}, reward: {env.episode_rewards}")
 
 
 if __name__ == "__main__":

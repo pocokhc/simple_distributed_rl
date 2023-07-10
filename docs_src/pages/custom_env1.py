@@ -8,7 +8,7 @@ total_reward = 0
 env.render()
 
 while not env.done:
-    action = env.sample()
+    action = env.sample_action()
     env.step(action)
     total_reward += env.reward
     print(f"step {env.step_num}, action {action}, reward {env.reward}, done {env.done}")

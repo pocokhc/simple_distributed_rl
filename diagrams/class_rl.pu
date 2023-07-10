@@ -11,20 +11,24 @@ class EnvRun {}
 
 
 class WorkerRun {
-    on_reset(env, player_index, render_mode)
-    policy(env)
-    on_step(env)
+    on_reset(env)
+    policy() : action
+    on_step()
     render()
+    state_encode(env_state) : rl_state
+    action_encode(env_action) : rl_action
 }
-
 WorkerRun - EnvRun
 
-note "Keeps run-time state." as WorkerRunMemo
+note "Keeps run-time state.\nAbsorbs the difference with the environment." as WorkerRunMemo
 WorkerRun . WorkerRunMemo
 
 
 abstract WorkerBase {
-    on_reset()
+    config : RLConfig
+    parameter : RLParameter
+    remote_memory : RLRemoteMemory
+    on_reset(worker_run, env_run)
     policy()
     on_step()
     render_terminal()
@@ -33,39 +37,20 @@ abstract WorkerBase {
 WorkerBase -- WorkerRun
 
 
-abstract RuleBaseWorker {
-    call_on_reset()
-    call_policy()
-    call_on_step()
-}
-
-RuleBaseWorker -- WorkerBase
-
-
-abstract ExtendWorker {
-    call_on_reset()
-    call_policy()
-    call_on_step()
-}
-
-ExtendWorker -- WorkerBase
-
-
 abstract RLWorker {
-    config : RLConfig
-    parameter : RLParameter
-    remote_memory : RLRemoteMemory
-    actor_id : int
     call_on_reset()
     call_policy()
     call_on_step()
 }
-
-
 RLWorker -- WorkerBase
 
-note "Absorbs the difference with \nthe environment.\n(action, observation)" as RLWorkerMemo
-RLWorker .. RLWorkerMemo
+note as RLWorkerMemo
+Arguments modified by implementation algorithm
+- DiscreteActionWorker
+- ContinuousActionWorker
+- etc..
+end note
+RLWorker <|- RLWorkerMemo
 
 
 abstract RLTrainer {
@@ -97,14 +82,14 @@ abstract RLConfig {
 
 RLTypes .. RLConfig
 
-RLConfig --- RLWorker
+RLConfig --- WorkerBase
 RLConfig --- RLTrainer
 RLConfig -- RLParameter
 RLConfig -- RLRemoteMemory
 
-RLParameter -- RLWorker
+RLParameter -- WorkerBase
 RLParameter -- RLTrainer
-RLRemoteMemory -- RLWorker
+RLRemoteMemory -- WorkerBase
 RLRemoteMemory -- RLTrainer
 
 @enduml

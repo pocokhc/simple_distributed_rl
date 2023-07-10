@@ -17,7 +17,7 @@ def main(env_name):
     env.render()
 
     while not env.done:
-        action = env.sample()
+        action = env.sample_action()
         env.step(action)
 
         print(f"action           : {action}")

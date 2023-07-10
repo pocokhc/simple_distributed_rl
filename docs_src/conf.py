@@ -6,10 +6,16 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import os
+
+# read version
+version_path = os.path.join(os.path.dirname(__file__), "../srl/version.py")
+exec(open(version_path).read())
+
 project = "SimpleDistributedRL"
 copyright = "2022, poco_cpp"
 author = "poco_cpp"
-release = "v0.10.0"
+release = VERSION  # type: ignore  # noqa
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

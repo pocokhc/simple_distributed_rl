@@ -95,6 +95,30 @@ def run_trainer(queue, train_config):
     manager.server_stop()
 
 
+def run_server(train_config, env_config, rl_config):
+    env = srl.make_env(env_config)
+    rl_config.reset(env)
+    server_state = ServerState()
+    board = Board()
+    remote_memory = srl.make_remote_memory(rl_config)
+    MPManager.register("get_train_config", callable=lambda: train_config)
+    MPManager.register("get_rl_config", callable=lambda: rl_config)
+    MPManager.register("get_env_config", callable=lambda: env_config)
+    MPManager.register("get_server_state", callable=lambda: server_state)
+    MPManager.register("RemoteMemory", callable=lambda: remote_memory)
+    MPManager.register("Board", callable=lambda: board)
+
+    manager = MPManager(address=("", 50000), authkey=b"abracadabra")
+    server: Any = manager.get_server()
+
+    # add server stop function
+    shutdown_timer = threading.Timer(1, lambda: server.stop_event.set())
+    MPManager.register("server_stop", callable=lambda: shutdown_timer.start())
+
+    print("--- server start ---")
+    server.serve_forever()
+
+
 def train(train_config, env_name, rl_config):
     env_config = srl.EnvConfig(env_name)
     env = srl.make_env(env_config)
@@ -122,42 +146,18 @@ def train(train_config, env_name, rl_config):
     return parameter
 
 
-def run_server(train_config, env_config, rl_config):
-    env = srl.make_env(env_config)
-    rl_config.reset(env)
-    server_state = ServerState()
-    board = Board()
-    remote_memory = srl.make_remote_memory(rl_config)
-    MPManager.register("get_train_config", callable=lambda: train_config)
-    MPManager.register("get_rl_config", callable=lambda: rl_config)
-    MPManager.register("get_env_config", callable=lambda: env_config)
-    MPManager.register("get_server_state", callable=lambda: server_state)
-    MPManager.register("RemoteMemory", callable=lambda: remote_memory)
-    MPManager.register("Board", callable=lambda: board)
-
-    manager = MPManager(address=("", 50000), authkey=b"abracadabra")
-    server: Any = manager.get_server()
-
-    # add server stop function
-    shutdown_timer = threading.Timer(1, lambda: server.stop_event.set())
-    MPManager.register("server_stop", callable=lambda: shutdown_timer.start())
-
-    print("--- server start ---")
-    server.serve_forever()
-
-
 def _run_episode(env_name: str, rl_config: RLConfig, parameter: RLParameter):
     env = srl.make_env(env_name)
     assert env.player_num == 1
-    worker = srl.make_worker(rl_config, parameter, env=env)
+    worker = srl.make_worker(rl_config, env, parameter)
 
     env.reset()
-    worker.on_reset(env)
+    worker.on_reset(0, training=True)
 
     while not env.done:
-        action = worker.policy(env)
+        action = worker.policy()
         env.step(action)
-        worker.on_step(env)
+        worker.on_step()
 
     return env.episode_rewards[0]
 

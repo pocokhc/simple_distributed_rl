@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import cast
 
 import numpy as np
 
@@ -20,18 +19,18 @@ class MyConfig(RLConfig):
         return "MyConfig"
 
     @property
-    def action_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
         return RLTypes.DISCRETE
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
 
 
 class MyRemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(MyConfig, self.config)
+        self.config: MyConfig = self.config
 
         # IPriorityMemoryConfig を init に渡す
         super().init(self.config.memory)

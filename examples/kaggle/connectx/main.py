@@ -30,8 +30,8 @@ def my_agent(observation, configuration):
     env.direct_step(observation, configuration)
 
     if env.is_start_episode:
-        worker.on_reset(env, env.next_player_index)
-    action = worker.policy(env)
+        worker.on_reset(env.next_player_index, training=False)
+    action = worker.policy()
 
     return env.decode_action(action)
 

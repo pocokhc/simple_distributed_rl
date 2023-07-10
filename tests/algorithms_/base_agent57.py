@@ -1,13 +1,10 @@
-import pytest
-
 from srl.rl.memories.config import ProportionalMemoryConfig, ReplayMemoryConfig
-from srl.utils import common
 
 from .common_base_class import CommonBaseClass
 
 
-class _BaseCase(CommonBaseClass):
-    def return_rl_config(self, framework):
+class BaseCase(CommonBaseClass):
+    def _create_rl_config(self):
         from srl.algorithms import agent57
 
         return agent57.Config(
@@ -28,51 +25,40 @@ class _BaseCase(CommonBaseClass):
             input_int_reward=False,
             input_action=False,
             enable_intrinsic_reward=True,
-            # "framework": framework, # TODO
         )
 
     def test_Pendulum(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
+        rl_config = self._create_rl_config()
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 70)
 
     def test_Pendulum_mp(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
+        rl_config = self._create_rl_config()
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 50, is_mp=True)
 
     def test_Pendulum_retrace(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
+        rl_config = self._create_rl_config()
         rl_config.enable_retrace = True
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 50)
 
     def test_Pendulum_uvfa(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
+        rl_config = self._create_rl_config()
         rl_config.input_ext_reward = True
         rl_config.input_int_reward = True
         rl_config.input_action = True
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 150)
 
     def test_Pendulum_memory(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
+        rl_config = self._create_rl_config()
         rl_config.memory = ProportionalMemoryConfig(beta_steps=200 * 30)
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 60)
 
     def test_Pendulum_dis_int(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
+        rl_config = self._create_rl_config()
         rl_config.enable_intrinsic_reward = False
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 50)
-
-
-class TestTF_CPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-
-        return "tensorflow", "CPU"
-
-
-class TestTF_GPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-        if not common.is_available_gpu_tf():
-            pytest.skip()
-
-        return "tensorflow", "GPU"

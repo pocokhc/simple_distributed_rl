@@ -159,16 +159,22 @@ def test_inf():
 
 
 def test_convert():
-    space = BoxSpace((2,), -1, 3)
+    space = BoxSpace((2, 1), -1, 3)
 
-    val = space.convert([1.2, 2])
+    val = space.convert([[1.2], [2]])
     assert space.check_val(val)
-    np.testing.assert_array_equal([1.2, 2.0], val)
+    np.testing.assert_array_equal(np.array([[1.2], [2.0]], dtype=np.float32), val)
 
-    val = space.convert([5, 2])
-    assert not space.check_val(val)
+    assert not space.check_val(np.array([1.2, 2.2], dtype=np.float32))
+    assert not space.check_val([[1.2], [2.2]])
+    assert not space.check_val(np.array([[1.2], [2.2], [2.2]], dtype=np.float32))
+    assert not space.check_val(np.array([[1.2], [-1.1]], dtype=np.float32))
+    assert not space.check_val(np.array([[1.2], [3.1]], dtype=np.float32))
 
-    assert not space.check_val([1.2, 2.2])
-    assert not space.check_val(np.array([1.2, 2.2, 2.2]))
-    assert not space.check_val(np.array([1.2, -1.1]))
-    assert not space.check_val(np.array([1.2, 3.1]))
+
+def test_convert2():
+    space = BoxSpace((2, 1), -1, 3)
+
+    val = space.convert([[-2], [6]])
+    assert space.check_val(val)
+    np.testing.assert_array_equal([[-1], [3]], val)

@@ -1,15 +1,10 @@
-import pytest
-
 from srl.rl.memories.config import ReplayMemoryConfig
-from srl.utils import common
 
 from .common_base_class import CommonBaseClass
 
-common.logger_print()
 
-
-class _BaseCase(CommonBaseClass):
-    def return_rl_config(self, framework):
+class BaseCase(CommonBaseClass):
+    def _create_rl_config(self):
         from srl.algorithms import muzero
 
         return muzero.Config(
@@ -21,7 +16,7 @@ class _BaseCase(CommonBaseClass):
         from srl.envs import grid
         from srl.rl.models.alphazero import AlphaZeroImageBlockConfig
 
-        config, rl_config, tester = self.create_config("EasyGrid")
+        rl_config = self._create_rl_config()
         rl_config.set_parameter(
             dict(
                 num_simulations=20,
@@ -41,13 +36,14 @@ class _BaseCase(CommonBaseClass):
             )
         )
         rl_config.processors = [grid.LayerProcessor()]
+        config, tester = self.create_config("EasyGrid", rl_config)
         tester.train_eval(config, 2000)
 
     def test_EasyGrid_PER(self):
         from srl.envs import grid
         from srl.rl.models.alphazero import AlphaZeroImageBlockConfig
 
-        config, rl_config, tester = self.create_config("EasyGrid")
+        rl_config = self._create_rl_config()
         rl_config.set_parameter(
             dict(
                 num_simulations=20,
@@ -66,20 +62,5 @@ class _BaseCase(CommonBaseClass):
             )
         )
         rl_config.processors = [grid.LayerProcessor()]
+        config, tester = self.create_config("EasyGrid", rl_config)
         tester.train_eval(config, 3000)
-
-
-class TestTF_CPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-
-        return "tensorflow", "CPU"
-
-
-class TestTF_GPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-        if not common.is_available_gpu_tf():
-            pytest.skip()
-
-        return "tensorflow", "GPU"

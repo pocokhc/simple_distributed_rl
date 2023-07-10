@@ -6,65 +6,72 @@ from srl.rl.memories.config import (
     RankBaseMemoryLinearConfig,
     ReplayMemoryConfig,
 )
-from srl.utils import common
 
 from .common_base_class import CommonBaseClass
 
 
-class _BaseCase(CommonBaseClass):
-    def return_rl_config(self, framework):
+class BaseCase(CommonBaseClass):
+    def _create_rl_config(self):
         from srl.algorithms import rainbow
 
         return rainbow.Config()
 
     def test_Pendulum(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
+        rl_config = self._create_rl_config()
         rl_config.hidden_layer_sizes = (64, 64)
         rl_config.multisteps = 3
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 70)
 
     def test_Pendulum_mp(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
+        rl_config = self._create_rl_config()
         rl_config.hidden_layer_sizes = (64, 64)
         rl_config.multisteps = 3
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 70, is_mp=True)
 
     def test_Pendulum_noisy(self):
         pytest.importorskip("tensorflow_addons", minversion="0.17.1")
 
-        config, rl_config, tester = self.create_config("Pendulum-v1")
+        rl_config = self._create_rl_config()
         rl_config.hidden_layer_sizes = (64, 64)
         rl_config.multisteps = 3
         rl_config.enable_noisy_dense = True
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 70)
 
     def test_Pendulum_no_multi(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
+        rl_config = self._create_rl_config()
         rl_config.hidden_layer_sizes = (64, 64)
         rl_config.multisteps = 1
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 70)
 
     def test_Pendulum_no_multi_mp(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
+        rl_config = self._create_rl_config()
         rl_config.hidden_layer_sizes = (64, 64)
         rl_config.multisteps = 1
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 70, is_mp=True)
 
     def test_Pendulum_no_multi_noisy(self):
         pytest.importorskip("tensorflow_addons", minversion="0.17.1")
 
-        config, rl_config, tester = self.create_config("Pendulum-v1")
+        rl_config = self._create_rl_config()
         rl_config.hidden_layer_sizes = (64, 64)
         rl_config.multisteps = 1
         rl_config.enable_noisy_dense = True
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 70)
 
     def test_OX(self):
         # invalid action test
-        config, rl_config, tester = self.create_config("OX")
+        rl_config = self._create_rl_config()
         rl_config.hidden_layer_sizes = (128,)
         rl_config.epsilon = 0.5
         rl_config.memory = ReplayMemoryConfig()
+
+        config, tester = self.create_config("OX", rl_config)
         config.players = [None, "random"]
         parameter, _, _ = tester.train(config, 10000)
 
@@ -73,7 +80,8 @@ class _BaseCase(CommonBaseClass):
         config.players = ["random", None]
         tester.eval(config, parameter, baseline=[None, 0.65])
 
-    def _set_pendulum_config(self, rl_config) -> None:
+    def _create_pendulum_config(self):
+        rl_config = self._create_rl_config()
         rl_config.epsilon = 0.1
         rl_config.discount = 0.9
         rl_config.lr = 0.001
@@ -86,95 +94,64 @@ class _BaseCase(CommonBaseClass):
         rl_config.memory = ReplayMemoryConfig()
         rl_config.enable_rescale = False
         rl_config.window_length = 1
+        return rl_config
 
     def test_Pendulum_naive(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
-        self._set_pendulum_config(rl_config)
+        rl_config = self._create_pendulum_config()
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 100)
 
     def test_Pendulum_window_length(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
-        self._set_pendulum_config(rl_config)
+        rl_config = self._create_pendulum_config()
         rl_config.window_length = 4
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 70)
 
     def test_Pendulum_ddqn(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
-        self._set_pendulum_config(rl_config)
+        rl_config = self._create_pendulum_config()
         rl_config.enable_double_dqn = True
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 80)
 
     def test_Pendulum_dueling(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
-        self._set_pendulum_config(rl_config)
+        rl_config = self._create_pendulum_config()
         rl_config.enable_dueling_network = True
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 70)
 
     def test_Pendulum_multistep(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
-        self._set_pendulum_config(rl_config)
+        rl_config = self._create_pendulum_config()
         rl_config.multisteps = 10
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 80)
 
     def test_Pendulum_proportional(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
-        self._set_pendulum_config(rl_config)
+        rl_config = self._create_pendulum_config()
         rl_config.memory = ProportionalMemoryConfig(alpha=1.0, beta_initial=1.0)
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 120)
 
     def test_Pendulum_rankbase(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
-        self._set_pendulum_config(rl_config)
+        rl_config = self._create_pendulum_config()
         rl_config.memory = RankBaseMemoryConfig(alpha=1.0, beta_initial=1.0)
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 120)
 
     def test_Pendulum_rankbaseLinear(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
-        self._set_pendulum_config(rl_config)
+        rl_config = self._create_pendulum_config()
         rl_config.memory = RankBaseMemoryLinearConfig(alpha=1.0, beta_initial=1.0)
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 120)
 
     def test_Pendulum_all(self):
         pytest.importorskip("tensorflow_addons", minversion="0.17.1")
 
-        config, rl_config, tester = self.create_config("Pendulum-v1")
-        self._set_pendulum_config(rl_config)
+        rl_config = self._create_pendulum_config()
         rl_config.enable_double_dqn = True
         rl_config.batch_size = 8
         rl_config.enable_dueling_network = True
         rl_config.enable_noisy_dense = True
         rl_config.multisteps = 5
         rl_config.memory = ProportionalMemoryConfig(alpha=1.0, beta_initial=1.0)
+        config, tester = self.create_config("Pendulum-v1", rl_config)
         tester.train_eval(config, 200 * 100)
-
-
-class TestTF_CPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-
-        return "tensorflow", "CPU"
-
-
-class TestTF_GPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-        if not common.is_available_gpu_tf():
-            pytest.skip()
-
-        return "tensorflow", "GPU"
-
-
-class TestTorch_CPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("torch")
-
-        return "torch", "CPU"
-
-
-class TestTorch_GPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("torch")
-        if not common.is_available_gpu_tf():
-            pytest.skip()
-
-        return "torch", "GPU"

@@ -1,7 +1,15 @@
-import srl.envs.grid  # noqa F401
+import unittest
+
 from srl import runner
 from srl.algorithms import dynaq
 from srl.test import TestRL
+
+
+class Test_dynaq(TestRL, unittest.TestCase):
+    def init_simple_check(self) -> None:
+        from srl.algorithms import dynaq
+
+        self.rl_config = dynaq.Config()
 
 
 def test_Grid():

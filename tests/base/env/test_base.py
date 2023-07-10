@@ -66,11 +66,11 @@ class StubEnv(EnvBase):
         print(self._step)
 
 
-registration.register(id="StubEnv", entry_point=__name__ + ":StubEnv")
+registration.register(id="base_StubEnv", entry_point=__name__ + ":StubEnv")
 
 
 def test_EnvRun():
-    env_config = srl.EnvConfig("StubEnv", frameskip=3)
+    env_config = srl.EnvConfig("base_StubEnv", frameskip=3)
     env = srl.make_env(env_config)
     env_org = cast(StubEnv, env.get_original_env())
 
@@ -85,14 +85,14 @@ def test_EnvRun():
     assert env_org._step == 4
     assert env.get_invalid_actions() == [1]
     assert env.get_valid_actions() == [0, 2, 3]
-    env2 = srl.make_env("StubEnv")
+    env2 = srl.make_env("base_StubEnv")
     env2.restore(env.backup())
     assert env2.step_num == 1
     assert cast(StubEnv, env2.get_original_env())._step == 4
 
 
 def test_EnvRun_max_steps():
-    env_config = srl.EnvConfig("StubEnv", max_episode_steps=10)
+    env_config = srl.EnvConfig("base_StubEnv", max_episode_steps=10)
     env = srl.make_env(env_config)
 
     env.reset()
@@ -108,7 +108,7 @@ def test_EnvRun_max_steps():
 
 
 def test_EnvRun_timeout():
-    env_config = srl.EnvConfig("StubEnv", episode_timeout=1)
+    env_config = srl.EnvConfig("base_StubEnv", episode_timeout=1)
     env = srl.make_env(env_config)
 
     env.reset()

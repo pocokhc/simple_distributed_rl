@@ -1,14 +1,11 @@
-import pytest
-
 import srl
 from srl import runner
-from srl.utils import common
 
 from .common_base_class import CommonBaseClass
 
 
-class _BaseCase(CommonBaseClass):
-    def return_rl_config(self, framework):
+class BaseCase(CommonBaseClass):
+    def _create_rl_config(self):
         from srl.algorithms import world_models
 
         return world_models.Config(
@@ -20,12 +17,13 @@ class _BaseCase(CommonBaseClass):
         )
 
     def test_Grid(self):
-        config, rl_config, tester = self.create_config("Pendulum-v1")
-
+        rl_config = self._create_rl_config()
         rl_config.use_render_image_for_observation = True
+
         env_config = srl.EnvConfig("Grid")
-        config = runner.Config(env_config, rl_config)
-        config.rl_config.train_mode = 1
+        config, tester = self.create_config(env_config, rl_config)
+
+        rl_config.train_mode = 1
         _, memory, _ = runner.train(
             config,
             max_episodes=100,
@@ -66,19 +64,3 @@ class _BaseCase(CommonBaseClass):
         )
 
         tester.eval(config, parameter, episode=200, baseline=0.3)
-
-
-class TestTF_CPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-
-        return "tensorflow", "CPU"
-
-
-class TestTF_GPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-        if not common.is_available_gpu_tf():
-            pytest.skip()
-
-        return "tensorflow", "GPU"

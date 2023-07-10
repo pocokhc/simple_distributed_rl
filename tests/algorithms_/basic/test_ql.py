@@ -1,6 +1,7 @@
-import srl.envs.grid  # noqa F401
-import srl.envs.ox  # noqa F401
-import srl.envs.tiger  # noqa F401
+import unittest
+
+import pytest
+
 from srl import runner
 from srl.algorithms import ql
 from srl.test import TestRL
@@ -9,7 +10,14 @@ from srl.utils import common
 common.logger_print()
 
 
-def test_Grid():
+class Test_ql(TestRL, unittest.TestCase):
+    def init_simple_check(self) -> None:
+        from srl.algorithms import ql
+
+        self.rl_config = ql.Config()
+
+
+def test_Grid_policy():
     tester = TestRL()
     rl_config = ql.Config(
         epsilon=0.5,
@@ -30,11 +38,12 @@ def test_Grid_mp():
     tester.train_eval(config, 200_000, is_mp=True, eval_episode=100)
 
 
-def test_Grid_random():
+@pytest.mark.parametrize("q_init", ["", "random", "normal"])
+def test_Grid(q_init):
     tester = TestRL()
     rl_config = ql.Config(
         epsilon=0.5,
-        q_init="random",
+        q_init=q_init,
     )
     config = runner.Config("Grid", rl_config, seed=2)
     tester.train_eval(config, 100_000, eval_episode=100)

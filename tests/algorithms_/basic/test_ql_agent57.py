@@ -1,8 +1,15 @@
-import srl.envs.grid  # noqa F401
-import srl.envs.oneroad  # noqa F401
+import unittest
+
 from srl import runner
 from srl.algorithms import ql_agent57
 from srl.test import TestRL
+
+
+class Test_ql_agent57(TestRL, unittest.TestCase):
+    def init_simple_check(self) -> None:
+        from srl.algorithms import ql_agent57
+
+        self.rl_config = ql_agent57.Config()
 
 
 def test_Grid():

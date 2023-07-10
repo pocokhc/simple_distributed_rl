@@ -1,16 +1,13 @@
 from typing import cast
 
-import pytest
-
 import srl
 from srl import runner
-from srl.utils import common
 
 from .common_base_class import CommonBaseClass
 
 
-class _BaseCase(CommonBaseClass):
-    def return_rl_config(self, framework):
+class BaseCase(CommonBaseClass):
+    def _create_rl_config(self):
         from srl.algorithms import dreamer
 
         return dreamer.Config(
@@ -41,10 +38,10 @@ class _BaseCase(CommonBaseClass):
 
         env_config = srl.EnvConfig("EasyGrid")
         env_config.max_episode_steps = 20
-        env_config.check_action = False
-        env_config.check_val = False
 
-        config, rl_config, tester = self.create_config(env_config)
+        rl_config = self._create_rl_config()
+
+        config, tester = self.create_config(env_config, rl_config)
         rl_config = cast(dreamer.Config, rl_config)
         rl_config.use_render_image_for_observation = True
 
@@ -76,19 +73,3 @@ class _BaseCase(CommonBaseClass):
 
         # --- eval
         tester.eval(config, parameter, episode=5, baseline=0.2)
-
-
-class TestTF_CPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-
-        return "tensorflow", "CPU"
-
-
-class TestTF_GPU(_BaseCase):
-    def return_params(self):
-        pytest.importorskip("tensorflow")
-        if not common.is_available_gpu_tf():
-            pytest.skip()
-
-        return "tensorflow", "GPU"

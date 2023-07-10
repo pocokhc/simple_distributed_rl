@@ -7,7 +7,6 @@ from srl.base.spaces.discrete import DiscreteSpace
 def test_space():
     space = DiscreteSpace(5)
     assert space.rl_type == RLTypes.DISCRETE
-
     print(space)
 
     # --- discrete
@@ -87,3 +86,15 @@ def test_convert():
     assert not space.check_val(1.1)
     assert not space.check_val(-1)
     assert not space.check_val(5)
+
+
+def test_convert2():
+    space = DiscreteSpace(5)
+
+    val = space.convert([-1])
+    assert space.check_val(val)
+    assert val == 0
+
+    val = space.convert((6, 99))
+    assert space.check_val(val)
+    assert val == 4

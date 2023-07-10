@@ -7,14 +7,10 @@ from srl.base.spaces.box import BoxSpace
 from srl.test import TestEnv
 from srl.test.processor import TestProcessor
 
-try:
-    from srl.envs.kaggle import connectx  # noqa F401
-except ModuleNotFoundError as e:
-    print(e)
-
 
 def test_play():
     pytest.importorskip("kaggle_environments")
+    from srl.envs.kaggle import connectx  # noqa F401
 
     tester = TestEnv()
     env = tester.play_test("connectx")
@@ -71,6 +67,7 @@ def test_play():
 @pytest.mark.parametrize("player", ["negamax"])
 def test_player(player):
     pytest.importorskip("kaggle_environments")
+    from srl.envs.kaggle import connectx  # noqa F401
 
     tester = TestEnv()
     tester.player_test("connectx", player)
@@ -78,6 +75,7 @@ def test_player(player):
 
 def test_processor():
     pytest.importorskip("kaggle_environments")
+    from srl.envs.kaggle import connectx  # noqa F401
 
     tester = TestProcessor()
     processor = connectx.LayerProcessor()
@@ -108,18 +106,20 @@ def test_kaggle_connectx():
     import kaggle_environments
 
     from srl.algorithms import ql
+    from srl.envs.kaggle import connectx  # noqa F401
 
     rl_config = ql.Config()
 
     env = srl.make_env("connectx")
     parameter = srl.make_parameter(rl_config, env)
-    worker = srl.make_worker(rl_config, parameter)
+    remote_memory = srl.make_remote_memory(rl_config, env)
+    worker = srl.make_worker(rl_config, env, parameter, remote_memory)
 
     def agent(observation, configuration):
         env.direct_step(observation, configuration)
         if env.is_start_episode:
-            worker.on_reset(env, env.next_player_index)
-        action = worker.policy(env)
+            worker.on_reset(env.next_player_index, training=True)
+        action = worker.policy()
         return env.decode_action(action)
 
     kaggle_env = kaggle_environments.make("connectx", debug=True)
@@ -135,18 +135,20 @@ def test_kaggle_connectx_fail():
     import kaggle_environments
 
     from srl.algorithms import mcts
+    from srl.envs.kaggle import connectx  # noqa F401
 
     rl_config = mcts.Config()
 
     env = srl.make_env("connectx")
     parameter = srl.make_parameter(rl_config, env)
-    worker = srl.make_worker(rl_config, parameter, training=True)
+    remote_memory = srl.make_remote_memory(rl_config, env)
+    worker = srl.make_worker(rl_config, env, parameter, remote_memory)
 
     def agent(observation, configuration):
         env.direct_step(observation, configuration)
         if env.is_start_episode:
-            worker.on_reset(env, env.next_player_index)
-        action = worker.policy(env)
+            worker.on_reset(env.next_player_index, training=True)
+        action = worker.policy()
         return env.decode_action(action)
 
     kaggle_env = kaggle_environments.make("connectx", debug=True)

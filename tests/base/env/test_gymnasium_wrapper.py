@@ -340,7 +340,7 @@ def test_random():
     reward = 0
     env.reset(seed=seed)
     for _ in range(10):
-        env.step(env.sample())
+        env.step(env.sample_action())
         reward += env.reward
     assert math.isclose(reward, true_reward)
 
@@ -350,7 +350,7 @@ def test_random():
     reward = 0
     env.reset(seed=seed)
     for _ in range(10):
-        env.step(env.sample())
+        env.step(env.sample_action())
         reward += env.reward
     assert math.isclose(reward, true_reward)
 

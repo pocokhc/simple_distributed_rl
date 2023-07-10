@@ -28,16 +28,6 @@ class Test_agent57_light_tf(TestRL, unittest.TestCase):
         self.rl_config.memory_warmup_size = 100
 
 
-class Test_agent57_light_torch(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
-        pytest.importorskip("torch")
-
-        from srl.algorithms import agent57_light
-
-        self.rl_config = agent57_light.Config(framework="torch")
-        self.rl_config.memory_warmup_size = 100
-
-
 class Test_agent57_stateful(TestRL, unittest.TestCase):
     def init_simple_check(self) -> None:
         pytest.importorskip("tensorflow")
@@ -85,29 +75,13 @@ class Test_ddpg(TestRL, unittest.TestCase):
         self.rl_config = ddpg.Config()
 
 
-class Test_dqn_tensorflow(TestRL, unittest.TestCase):
+class Test_dqn(TestRL, unittest.TestCase):
     def init_simple_check(self) -> None:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import dqn
 
         self.rl_config = dqn.Config(framework="tensorflow")
-
-    def test_simple_check_atari_config(self):
-        self.init_simple_check()
-        self.rl_config.use_render_image_for_observation = True
-        self.rl_config.set_atari_config()
-        self.rl_config.memory_warmup_size = 1000
-        self.simple_check(self.rl_config)
-
-
-class Test_dqn_torch(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
-        pytest.importorskip("torch")
-
-        from srl.algorithms import dqn
-
-        self.rl_config = dqn.Config(framework="torch")
 
     def test_simple_check_atari_config(self):
         self.init_simple_check()
@@ -143,13 +117,14 @@ class Test_muzero(TestRL, unittest.TestCase):
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import muzero
+        from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
 
-        self.rl_config = muzero.Config()
-        self.rl_config.set_parameter(
-            dict(
-                batch_size=4,
-                memory_warmup_size=20,
-            )
+        self.rl_config = muzero.Config(
+            batch_size=4,
+            num_simulations=3,
+            memory_warmup_size=10,
+            dynamics_blocks=1,
+            input_image_block=AlphaZeroImageBlockConfig(n_blocks=2, filters=8),
         )
         self.simple_check_kwargs = dict(
             use_layer_processor=True,
@@ -161,8 +136,9 @@ class Test_muzero(TestRL, unittest.TestCase):
 
         self.init_simple_check()
         self.rl_config.set_atari_config()
-        self.rl_config.memory_warmup_size = 20
-        self.rl_config.batch_size = 4
+        self.rl_config.memory_warmup_size = 5
+        self.rl_config.batch_size = 2
+        self.rl_config.num_simulations = 2
         self.simple_check(self.rl_config, env_list=["ALE/Pong-v5"], train_kwargs={"max_steps": 10})
 
 
@@ -214,23 +190,6 @@ class Test_rainbow_tensorflow(TestRL, unittest.TestCase):
         self.simple_check(self.rl_config)
 
 
-class Test_rainbow_torch(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
-        pytest.importorskip("torch")
-
-        from srl.algorithms import rainbow
-
-        self.rl_config = rainbow.Config(framework="torch")
-
-    def test_simple_check_atari_config(self):
-        pytest.importorskip("torch")
-
-        self.init_simple_check()
-        self.rl_config.set_atari_config()
-        self.rl_config.memory_warmup_size = 1000
-        self.simple_check(self.rl_config)
-
-
 class Test_sac(TestRL, unittest.TestCase):
     def init_simple_check(self) -> None:
         pytest.importorskip("tensorflow")
@@ -245,18 +204,14 @@ class Test_stochastic_muzero(TestRL, unittest.TestCase):
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import stochastic_muzero
+        from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
 
-        self.rl_config = stochastic_muzero.Config()
-        self.rl_config.set_parameter(
-            dict(
-                batch_size=4,
-                memory_warmup_size=20,
-                dynamics_blocks=1,
-                input_image_block_kwargs=dict(
-                    n_blocks=1,
-                    filters=64,
-                ),
-            )
+        self.rl_config = stochastic_muzero.Config(
+            num_simulations=3,
+            batch_size=2,
+            memory_warmup_size=5,
+            dynamics_blocks=1,
+            input_image_block=AlphaZeroImageBlockConfig(n_blocks=1, filters=8),
         )
         self.simple_check_kwargs = dict(
             use_layer_processor=True,

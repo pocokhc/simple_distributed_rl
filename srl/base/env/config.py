@@ -41,8 +41,8 @@ class EnvConfig:
     font_size: int = 12
 
     # --- other
-    check_action: bool = True
-    check_val: bool = True
+    enable_sanitize_value: bool = True
+    enable_assertion_value: bool = False
 
     def make_env(self) -> "EnvRun":
         from srl.base.env.registration import make

@@ -39,12 +39,19 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
 
     def convert(self, val: Any) -> List[float]:
         if isinstance(val, list):
-            return [float(v) for v in val]
+            val = [float(v) for v in val]
         elif isinstance(val, tuple):
-            return [float(v) for v in val]
+            val = [float(v) for v in val]
         elif isinstance(val, np.ndarray):
-            return val.tolist()
-        return [float(val) for _ in range(self._size)]
+            val = val.tolist()
+        else:
+            val = [float(val) for _ in range(self._size)]
+        for i in range(self._size):
+            if val[i] < self._low[i]:
+                val[i] = float(self._low[i])
+            elif val[i] > self._high[i]:
+                val[i] = float(self._high[i])
+        return val
 
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, list):

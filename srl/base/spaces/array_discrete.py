@@ -44,15 +44,19 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
 
     def convert(self, val: Any) -> List[int]:
         if isinstance(val, list):
-            return [int(np.round(v)) for v in val]
+            val = [int(np.round(v)) for v in val]
         elif isinstance(val, tuple):
-            return [int(np.round(v)) for v in val]
+            val = [int(np.round(v)) for v in val]
         elif isinstance(val, np.ndarray):
-            return val.round().astype(int).tolist()
-        return [int(np.round(val)) for _ in range(self._size)]
-
-    def __str__(self) -> str:
-        return f"ArrayDiscrete({self._size}, range[{int(np.min(self.low))}, {int(np.max(self.high))}])"
+            val = val.round().astype(int).tolist()
+        else:
+            val = [int(np.round(val)) for _ in range(self._size)]
+        for i in range(self._size):
+            if val[i] < self._low[i]:
+                val[i] = self._low[i]
+            elif val[i] > self._high[i]:
+                val[i] = self._high[i]
+        return val
 
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, list):
@@ -97,6 +101,9 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
                 if self.high[i] != o.high[i]:
                     return False
         return True
+
+    def __str__(self) -> str:
+        return f"ArrayDiscrete({self._size}, range[{int(np.min(self.low))}, {int(np.max(self.high))}])"
 
     # --- test
     def assert_params(self, true_size: int, true_low: List[int], true_high: List[int]):

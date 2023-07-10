@@ -1,10 +1,11 @@
 import logging
 import os
-from typing import Optional
+from typing import Optional, Type
 
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
 from srl.base.rl.config import DummyConfig
+from srl.base.rl.worker import WorkerBase
 from srl.base.rl.worker_run import WorkerRun
 from srl.utils.common import load_module
 
@@ -38,9 +39,9 @@ def make_remote_memory(
     rl_config = _check_rl_config(rl_config, env)
 
     entry_point = _registry[rl_config.getName()][0]
-    _class = load_module(entry_point)
+    _class: Type[RLRemoteMemory] = load_module(entry_point)
     if return_class:
-        return _class
+        return _class  # type: ignore , Type missing OK
 
     remote_memory = _class(rl_config)
     if is_load and rl_config.remote_memory_path != "":
@@ -59,7 +60,7 @@ def make_parameter(
     rl_config = _check_rl_config(rl_config, env)
 
     entry_point = _registry[rl_config.getName()][1]
-    parameter = load_module(entry_point)(rl_config)
+    parameter: RLParameter = load_module(entry_point)(rl_config)
     if is_load and rl_config.parameter_path != "":
         if not os.path.isfile(rl_config.parameter_path):
             logger.info(f"The file was not found and was not loaded.({rl_config.parameter_path})")
@@ -89,7 +90,7 @@ def make_worker(
 ) -> WorkerRun:
     rl_config = _check_rl_config(rl_config, env)
     entry_point = _registry[rl_config.getName()][3]
-    worker = load_module(entry_point)(rl_config, parameter, remote_memory)
+    worker: WorkerBase = load_module(entry_point)(rl_config, parameter, remote_memory)
 
     # ExtendWorker
     if rl_config.extend_worker is not None:

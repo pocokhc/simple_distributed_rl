@@ -44,6 +44,7 @@ worker周りを大幅にリファクタリングしました。
 **OtherUpdates**
 
 1. testsのalgorithms配下をリファクタリング、tfとtorchで分けるように変更
+1. 値のチェック機構を強化(EnvとRLのconfigにenable_sanitize_valueとenable_assertion_valueを追加)
 
 # v0.11.2
 

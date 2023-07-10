@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3. Create Original Environment &mdash; SimpleDistributedRL v0.10.0 ドキュメント</title>
+  <title>3. Create Original Environment &mdash; SimpleDistributedRL 0.11.2.2 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -598,7 +598,7 @@ gym.Envを継承して作成します。</p>
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Tuple</span>
 
-<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">EnvObservationTypes</span>
+<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">EnvObservationTypes</span><span class="p">,</span> <span class="n">KeyBindType</span>
 <span class="kn">from</span> <span class="nn">srl.base.env</span> <span class="kn">import</span> <span class="n">registration</span>
 <span class="kn">from</span> <span class="nn">srl.base.env.genre.singleplay</span> <span class="kn">import</span> <span class="n">SinglePlayEnv</span>
 <span class="kn">from</span> <span class="nn">srl.base.spaces.discrete</span> <span class="kn">import</span> <span class="n">DiscreteSpace</span>
@@ -679,6 +679,20 @@ gym.Envを継承して作成します。</p>
                 <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;.&quot;</span>
         <span class="nb">print</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
 
+    <span class="k">def</span> <span class="nf">action_to_str</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">Action</span><span class="o">.</span><span class="n">LEFT</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="n">action</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;←&quot;</span>
+        <span class="k">if</span> <span class="n">Action</span><span class="o">.</span><span class="n">RIGHT</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="n">action</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;→&quot;</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_key_bind</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KeyBindType</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;&quot;</span><span class="p">:</span> <span class="n">Action</span><span class="o">.</span><span class="n">LEFT</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+            <span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="n">Action</span><span class="o">.</span><span class="n">LEFT</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+            <span class="s2">&quot;d&quot;</span><span class="p">:</span> <span class="n">Action</span><span class="o">.</span><span class="n">RIGHT</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+        <span class="p">}</span>
+
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">render_interval</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
         <span class="k">return</span> <span class="mi">1000</span> <span class="o">/</span> <span class="mi">1</span>
@@ -695,7 +709,7 @@ gym.Envを継承して作成します。</p>
 <span class="n">env</span><span class="o">.</span><span class="n">render</span><span class="p">()</span>
 
 <span class="k">while</span> <span class="ow">not</span> <span class="n">env</span><span class="o">.</span><span class="n">done</span><span class="p">:</span>
-    <span class="n">action</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>
+    <span class="n">action</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">sample_action</span><span class="p">()</span>
     <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
     <span class="n">total_reward</span> <span class="o">+=</span> <span class="n">env</span><span class="o">.</span><span class="n">reward</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;step </span><span class="si">{</span><span class="n">env</span><span class="o">.</span><span class="n">step_num</span><span class="si">}</span><span class="s2">, action </span><span class="si">{</span><span class="n">action</span><span class="si">}</span><span class="s2">, reward </span><span class="si">{</span><span class="n">env</span><span class="o">.</span><span class="n">reward</span><span class="si">}</span><span class="s2">, done </span><span class="si">{</span><span class="n">env</span><span class="o">.</span><span class="n">done</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -725,19 +739,21 @@ gym.Envを継承して作成します。</p>
 <span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
 <span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">sample_env</span>  <span class="c1"># noqa F401</span>
 
-<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span>
-    <span class="n">env_config</span><span class="o">=</span><span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;SampleEnv&quot;</span><span class="p">),</span>
-    <span class="n">rl_config</span><span class="o">=</span><span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">(),</span>  <span class="c1"># Q学習</span>
-<span class="p">)</span>
+<span class="c1"># Q学習</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;SampleEnv&quot;</span><span class="p">),</span> <span class="n">rl_config</span><span class="o">=</span><span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
 
+<span class="c1"># 学習</span>
 <span class="n">parameter</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 
+<span class="c1"># 評価</span>
 <span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">max_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;100エピソードの平均結果&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rewards</span><span class="p">))</span>
 
+<span class="c1"># 可視化</span>
 <span class="n">reward</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">reward</span><span class="p">)</span>
 
+<span class="c1"># animation</span>
 <span class="n">render</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">animation</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
 <span class="n">render</span><span class="o">.</span><span class="n">create_anime</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;_SampleEnv.gif&quot;</span><span class="p">)</span>
 <span class="c1"># render.display(scale=3)  # for notebook</span>

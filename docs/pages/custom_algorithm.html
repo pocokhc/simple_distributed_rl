@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>4. Create Original Algorithm &mdash; SimpleDistributedRL v0.10.0 ドキュメント</title>
+  <title>4. Create Original Algorithm &mdash; SimpleDistributedRL 0.11.2.2 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -63,7 +63,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#worker">4.2.5. Worker</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#discreteactionworker">4.2.5.1. DiscreteActionWorker</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#continuousactionworker">4.2.5.2. ContinuousActionWorker</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#modelbaseworker">4.2.5.3. ModelBaseWorker</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#rlworker">4.2.5.3. RLWorker</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#id3">4.2.5.4. Worker共通のプロパティ・関数</a></li>
 </ul>
 </li>
@@ -181,32 +181,6 @@
 <h3><span class="section-number">4.2.1. </span>Config<a class="headerlink" href="#config" title="この見出しへのパーマリンク"></a></h3>
 <p>強化学習アルゴリズムの種類やハイパーパラメータ等を管理するクラスです。
 基底クラスは <cite>srl.base.rl.base.RLConfig</cite> でこれを継承して作成します。</p>
-<p>ただ、アルゴリズムに特化したインタフェースも用意しており、
-当てはまるアルゴリズムを作成する場合はそちらを継承したほうが作成が楽になります。</p>
-<p>現状あるクラスは以下です。</p>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 27%" />
-<col style="width: 55%" />
-<col style="width: 18%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>クラス名</p></th>
-<th class="head"><p>説明</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>DiscreteActionConfig</p></td>
-<td><p>モデルフリーでアクションが離散値のアルゴリズム</p></td>
-<td><p>Q学習,DQN等</p></td>
-</tr>
-<tr class="row-odd"><td><p>ContinuousActionConfig</p></td>
-<td><p>モデルフリーでアクションが連続値のアルゴリズム</p></td>
-<td><p>DDPG,SAC等</p></td>
-</tr>
-</tbody>
-</table>
 <p>RLConfig で実装が必要な関数・プロパティは以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLConfig</span>
@@ -222,7 +196,7 @@
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
    <span class="nd">@property</span>
-   <span class="k">def</span> <span class="nf">action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">      アルゴリズムが想定するアクションのタイプを返してください。</span>
 <span class="sd">      DISCRETE  : 離散値</span>
@@ -232,7 +206,7 @@
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
    <span class="nd">@property</span>
-   <span class="k">def</span> <span class="nf">observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">      アルゴリズムが想定する環境から受け取る状態のタイプを返してください。</span>
 <span class="sd">      DISCRETE  : 離散値</span>
@@ -258,8 +232,6 @@
       <span class="k">return</span> <span class="p">[]</span>
 </pre></div>
 </div>
-<p>DiscreteActionConfig では action_type の実装が不要になります。(DISCRETE固定)
-ContinuousActionConfig でも action_type の実装が不要になります。(CONTINUOUS固定)</p>
 </section>
 <section id="remotememory">
 <h3><span class="section-number">4.2.2. </span>RemoteMemory<a class="headerlink" href="#remotememory" title="この見出しへのパーマリンク"></a></h3>
@@ -288,7 +260,6 @@ ContinuousActionConfig でも action_type の実装が不要になります。(C
 <p>各クラスの定義方法は後述します。
 まずは基底クラスである <cite>RLRemoteMemory</cite> で定義する関数は以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLRemoteMemory</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">cast</span>
 
 <span class="k">class</span> <span class="nc">MyRemoteMemory</span><span class="p">(</span><span class="n">RLRemoteMemory</span><span class="p">):</span>
    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
@@ -296,7 +267,7 @@ ContinuousActionConfig でも action_type の実装が不要になります。(C
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
       <span class="c1"># self.config に上で定義した MyConfig が入ります</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyConfig</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
 
    <span class="k">def</span> <span class="nf">length</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; メモリに保存されている数を返します &quot;&quot;&quot;</span>
@@ -342,7 +313,6 @@ ContinuousActionConfig でも action_type の実装が不要になります。(C
 継承すると add 関数と sample 関数が追加されるのでそれを使います。</p>
 <p>ハイパーパラメータがあるのでRLConfigでハイパーパラメータの追加が必要です。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">cast</span>
 
 <span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLTypes</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLConfig</span>
@@ -358,18 +328,18 @@ ContinuousActionConfig でも action_type の実装が不要になります。(C
         <span class="k">return</span> <span class="s2">&quot;MyConfig&quot;</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RLTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RLTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
 
 <span class="k">class</span> <span class="nc">MyRemoteMemory</span><span class="p">(</span><span class="n">ExperienceReplayBuffer</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyConfig</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
 
         <span class="c1"># init を呼び出してメモリ容量をセットする。</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">capacity</span><span class="p">)</span>
@@ -393,7 +363,6 @@ ContinuousActionConfig でも action_type の実装が不要になります。(C
 （on_stepはworkerで使用）</p>
 <p>ハイパーパラメータもあり、少し複雑なのでコードで説明します。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">cast</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
@@ -414,18 +383,18 @@ ContinuousActionConfig でも action_type の実装が不要になります。(C
         <span class="k">return</span> <span class="s2">&quot;MyConfig&quot;</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RLTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RLTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
 
 <span class="k">class</span> <span class="nc">MyRemoteMemory</span><span class="p">(</span><span class="n">PriorityExperienceReplay</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyConfig</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
 
         <span class="c1"># IPriorityMemoryConfig を init に渡す</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">memory</span><span class="p">)</span>
@@ -486,7 +455,7 @@ ContinuousActionConfig でも action_type の実装が不要になります。(C
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
       <span class="c1"># self.config に上で定義した MyConfig が入ります</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyConfig</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span><span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
 
    <span class="c1"># call_restore/call_backupでパラメータが復元できるように作成</span>
    <span class="k">def</span> <span class="nf">call_restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -512,9 +481,9 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
       <span class="c1"># config,parameter,memory がそれぞれ入ります。</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyConfig</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyParameter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">)</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyRemoteMemory</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">)</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">:</span> <span class="n">MyRemoteMemory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span>
 
    <span class="k">def</span> <span class="nf">get_train_count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 学習回数を返します &quot;&quot;&quot;</span>
@@ -543,7 +512,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
    <span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>RLWorkerもアルゴリズムに合わせたインタフェースのクラスを用意しています。
+<p>RLWorkerはアルゴリズムに合わせたインタフェースのクラスを用意しています。
 基本はそちらを使用してください。
 現状あるクラスは以下です。</p>
 <table class="docutils align-default">
@@ -567,8 +536,16 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <td><p>モデルフリーでアクションが連続値のアルゴリズム</p></td>
 <td><p>DDPG,SAC等</p></td>
 </tr>
-<tr class="row-even"><td><p>ModelBaseWorker</p></td>
+<tr class="row-even"><td><p>RLWorker</p></td>
 <td><p>上記以外のアルゴリズム</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>EnvWorker</p></td>
+<td><p>Envと直接やり取りするアルゴリズム（ルールベース等）</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>ExtendWorker</p></td>
+<td><p>RLWorkerとルールベースを混ぜて使う用</p></td>
 <td></td>
 </tr>
 </tbody>
@@ -584,9 +561,9 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
       <span class="c1"># config,parameter,memory がそれぞれ入ります。</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyConfig</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyParameter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">)</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyRemoteMemory</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">)</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">:</span> <span class="n">MyRemoteMemory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span>
 
    <span class="k">def</span> <span class="nf">call_on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">invalid_actions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; エピソードの最初に呼ばれる関数</span>
@@ -647,9 +624,9 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
       <span class="c1"># config,parameter,memory がそれぞれ入ります。</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyConfig</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyParameter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">)</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyRemoteMemory</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">)</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">:</span> <span class="n">MyRemoteMemory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span>
 
    <span class="k">def</span> <span class="nf">call_on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Info</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; エピソードの最初に呼ばれる関数</span>
@@ -690,10 +667,9 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 </pre></div>
 </div>
 </section>
-<section id="modelbaseworker">
-<h4><span class="section-number">4.2.5.3. </span>ModelBaseWorker<a class="headerlink" href="#modelbaseworker" title="この見出しへのパーマリンク"></a></h4>
-<p>ModelBaseWorker は実行時のクラスである EnvRun、WorkerRun を直接操作して実装するクラスです。
-（直接環境を操作できます）
+<section id="rlworker">
+<h4><span class="section-number">4.2.5.3. </span>RLWorker<a class="headerlink" href="#rlworker" title="この見出しへのパーマリンク"></a></h4>
+<p>RLWorker は実行時のクラスである WorkerRun を直接操作して実装するクラスです。
 出来ることが多いのと、仕様が変わる可能性大きいので詳細は一旦保留します。(TODO)</p>
 <p>実装が必要な関数は以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.algorithms.modelbase</span> <span class="kn">import</span> <span class="n">ModelBaseWorker</span>
@@ -708,29 +684,26 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
       <span class="c1"># config,parameter,memory がそれぞれ入ります。</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyConfig</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyParameter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">)</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">MyRemoteMemory</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">)</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">:</span> <span class="n">MyRemoteMemory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span>
 
-   <span class="k">def</span> <span class="nf">call_on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">EnvRun</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">call_on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; エピソードの最初に呼ばれる関数</span>
 
 <span class="sd">      Args:</span>
-<span class="sd">            state (np.ndarray): 環境の初期状態</span>
-<span class="sd">            env: EnvRun</span>
 <span class="sd">            worker: WorkerRun</span>
 
 <span class="sd">      Returns:</span>
 <span class="sd">            Info: 任意の情報</span>
 <span class="sd">      &quot;&quot;&quot;</span>
+      <span class="n">state</span> <span class="o">=</span> <span class="n">worker</span><span class="o">.</span><span class="n">state</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span> <span class="nf">call_policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">EnvRun</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RLActionType</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+   <span class="k">def</span> <span class="nf">call_policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RLActionType</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; このターンで実行するアクションを返す関数</span>
 
 <span class="sd">      Args:</span>
-<span class="sd">            state (np.ndarray): 現在の状態</span>
-<span class="sd">            env: EnvRun</span>
 <span class="sd">            worker: WorkerRun</span>
 
 <span class="sd">      Returns: (</span>
@@ -740,26 +713,18 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span> <span class="nf">call_on_step</span><span class="p">(</span>
-      <span class="bp">self</span><span class="p">,</span>
-      <span class="n">next_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-      <span class="n">reward</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-      <span class="n">done</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
-      <span class="n">env</span><span class="p">:</span> <span class="n">EnvRun</span><span class="p">,</span>
-      <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">,</span>
-   <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">call_on_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; Envが1step実行した後に呼ばれる関数</span>
 
 <span class="sd">      Args:</span>
-<span class="sd">            next_state (np.ndarray): アクション実行後の状態</span>
-<span class="sd">            reward (float): アクション実行後の報酬</span>
-<span class="sd">            done (bool): アクション実行後の終了状態</span>
-<span class="sd">            env: EnvRun</span>
 <span class="sd">            worker: WorkerRun</span>
 
 <span class="sd">      Returns:</span>
 <span class="sd">            dict: 情報(任意)</span>
 <span class="sd">      &quot;&quot;&quot;</span>
+      <span class="n">next_state</span> <span class="o">=</span> <span class="n">worker</span><span class="o">.</span><span class="n">state</span>
+      <span class="n">reward</span> <span class="o">=</span> <span class="n">worker</span><span class="o">.</span><span class="n">reward</span>
+      <span class="n">done</span> <span class="o">=</span> <span class="n">worker</span><span class="o">.</span><span class="n">done</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -780,6 +745,11 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
    <span class="k">def</span> <span class="nf">distributed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 分散実行中かどうかを返します &quot;&quot;&quot;</span>
       <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_distributed</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">rendering</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; renderがあるエピソードかどうかを返します &quot;&quot;&quot;</span>
+      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rendering</span>
 
    <span class="k">def</span> <span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
@@ -804,13 +774,24 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 有効でないアクションを返します(離散限定) &quot;&quot;&quot;</span>
       <span class="k">return</span> <span class="n">invalid_actions</span>
 
-   <span class="k">def</span> <span class="nf">get_valid_actions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">RLAction</span><span class="p">]:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 有効なアクションを返します(離散限定) &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="n">valid_actions</span>
-
    <span class="k">def</span> <span class="nf">sample_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLAction</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; ランダムなアクションを返します &quot;&quot;&quot;</span>
       <span class="k">return</span> <span class="n">action</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">max_episode_steps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 最大steps数を返します &quot;&quot;&quot;</span>
+      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__worker_run</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">max_episode_steps</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">player_num</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; プレイヤー数を返します &quot;&quot;&quot;</span>
+      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__worker_run</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">player_num</span>
+
+   <span class="nd">@property</span>
+   <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 現在のstepを返します &quot;&quot;&quot;</span>
+      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__worker_run</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">step_num</span>
 </pre></div>
 </div>
 </section>
@@ -837,26 +818,30 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">cast</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLTypes</span>
-<span class="kn">from</span> <span class="nn">srl.base.rl.algorithms.discrete_action</span> <span class="kn">import</span> <span class="n">DiscreteActionConfig</span><span class="p">,</span> <span class="n">DiscreteActionWorker</span>
+<span class="kn">from</span> <span class="nn">srl.base.rl.algorithms.discrete_action</span> <span class="kn">import</span> <span class="n">DiscreteActionWorker</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLParameter</span><span class="p">,</span> <span class="n">RLTrainer</span>
+<span class="kn">from</span> <span class="nn">srl.base.rl.config</span> <span class="kn">import</span> <span class="n">RLConfig</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.registration</span> <span class="kn">import</span> <span class="n">register</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.remote_memory</span> <span class="kn">import</span> <span class="n">SequenceRemoteMemory</span>
 
 
 <span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">Config</span><span class="p">(</span><span class="n">DiscreteActionConfig</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">Config</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">):</span>
     <span class="n">epsilon</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span>
     <span class="n">test_epsilon</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">gamma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.9</span>
     <span class="n">lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">RLTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RLTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
     <span class="k">def</span> <span class="nf">getName</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -870,7 +855,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <span class="k">class</span> <span class="nc">Parameter</span><span class="p">(</span><span class="n">RLParameter</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">Config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">Q</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Q学習用のテーブル</span>
 
@@ -890,9 +875,9 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <span class="k">class</span> <span class="nc">Trainer</span><span class="p">(</span><span class="n">RLTrainer</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Parameter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">RemoteMemory</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">Config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">Parameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">:</span> <span class="n">RemoteMemory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">train_count</span> <span class="o">=</span> <span class="mi">0</span>
 
@@ -938,9 +923,9 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <span class="k">class</span> <span class="nc">Worker</span><span class="p">(</span><span class="n">DiscreteActionWorker</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Parameter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">RemoteMemory</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">Config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">Parameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">:</span> <span class="n">RemoteMemory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span>
 
     <span class="k">def</span> <span class="nf">call_on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">invalid_actions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
         <span class="k">return</span> <span class="p">{}</span>
@@ -1027,13 +1012,10 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
 <span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">grid</span>
 
-<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span>
-    <span class="n">env_config</span><span class="o">=</span><span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">),</span>
-    <span class="n">rl_config</span><span class="o">=</span><span class="n">Config</span><span class="p">(</span><span class="n">lr</span><span class="o">=</span><span class="mf">0.001</span><span class="p">),</span>
-<span class="p">)</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">),</span> <span class="n">Config</span><span class="p">(</span><span class="n">lr</span><span class="o">=</span><span class="mf">0.001</span><span class="p">))</span>
 
 <span class="c1"># --- train</span>
-<span class="n">parameter</span><span class="p">,</span> <span class="n">remote_memory</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">parameter</span><span class="p">,</span> <span class="n">remote_memory</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 
 <span class="c1"># --- test</span>
 <span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">max_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>

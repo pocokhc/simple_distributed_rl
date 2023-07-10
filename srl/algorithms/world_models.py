@@ -552,10 +552,10 @@ class Worker(DiscreteActionWorker):
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.screen = None
 
-        self.sample_collection = self.training and (self.config.train_mode == 1 or self.config.train_mode == 2)
+        self.sample_collection = self.config.train_mode == 1 or self.config.train_mode == 2
 
         # ----------- ES(GA)
-        if self.training and self.config.train_mode == 3:
+        if self.config.train_mode == 3:
             best_params = self.parameter.controller.get_flat_params()
             self.param_length = len(best_params)
 
@@ -568,7 +568,7 @@ class Worker(DiscreteActionWorker):
             self.params_idx = 0
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
-        if self.sample_collection:
+        if self.training and self.sample_collection:
             self.remote_memory.vae_add(state)
             self._recent_states = [state]
             self.recent_actions = []
@@ -587,7 +587,7 @@ class Worker(DiscreteActionWorker):
         self.state = state
         self.z = self.parameter.vae.encode(state[np.newaxis, ...])
 
-        if self.sample_collection:
+        if self.training and self.sample_collection:
             action = cast(int, self.sample_action())
             if len(self.recent_actions) < self.config.sequence_length:
                 self.recent_actions.append(action)

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>2. Getting Started &mdash; SimpleDistributedRL v0.10.0 ドキュメント</title>
+  <title>2. Getting Started &mdash; SimpleDistributedRL 0.11.2.2 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -304,7 +304,6 @@
 
 
 <span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
-
 <span class="n">parameter</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 
 <span class="n">runner</span><span class="o">.</span><span class="n">replay_window</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
@@ -340,7 +339,7 @@ pygameのwindowが表示できる環境である必要があります。</p>
 
 
 <span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
-<span class="n">parameter</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">make_parameter</span><span class="p">()</span>
+<span class="n">parameter</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 
 <span class="n">runner</span><span class="o">.</span><span class="n">render_window</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
 </pre></div>

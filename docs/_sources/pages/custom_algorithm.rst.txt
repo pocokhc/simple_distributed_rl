@@ -68,27 +68,8 @@ Config
 
 強化学習アルゴリズムの種類やハイパーパラメータ等を管理するクラスです。  
 基底クラスは `srl.base.rl.base.RLConfig` でこれを継承して作成します。  
-  
-ただ、アルゴリズムに特化したインタフェースも用意しており、  
-当てはまるアルゴリズムを作成する場合はそちらを継承したほうが作成が楽になります。  
 
-現状あるクラスは以下です。  
-
-.. list-table::
-   :widths: 15 30 10
-   :header-rows: 1
-
-   * - クラス名
-     - 説明
-     - 
-   * - DiscreteActionConfig
-     - モデルフリーでアクションが離散値のアルゴリズム
-     - Q学習,DQN等
-   * - ContinuousActionConfig
-     - モデルフリーでアクションが連続値のアルゴリズム
-     - DDPG,SAC等
-
-RLConfig で実装が必要な関数・プロパティは以下です。
+RLConfig で実装が必要な関数・プロパティは以下です。  
 
 .. code-block:: python
 
@@ -106,7 +87,7 @@ RLConfig で実装が必要な関数・プロパティは以下です。
          raise NotImplementedError()
 
       @property
-      def action_type(self) -> RLTypes:
+      def base_action_type(self) -> RLTypes:
          """
          アルゴリズムが想定するアクションのタイプを返してください。
          DISCRETE  : 離散値
@@ -116,7 +97,7 @@ RLConfig で実装が必要な関数・プロパティは以下です。
          raise NotImplementedError()
 
       @property
-      def observation_type(self) -> RLTypes:
+      def base_observation_type(self) -> RLTypes:
          """
          アルゴリズムが想定する環境から受け取る状態のタイプを返してください。
          DISCRETE  : 離散値
@@ -140,10 +121,6 @@ RLConfig で実装が必要な関数・プロパティは以下です。
       def set_processor(self, actor_num: int, actor_id: int) -> list[Processor]:
          """ 前処理を追加したい場合設定してください """
          return []
-
-
-DiscreteActionConfig では action_type の実装が不要になります。(DISCRETE固定)
-ContinuousActionConfig でも action_type の実装が不要になります。(CONTINUOUS固定)
 
 
 
@@ -174,7 +151,6 @@ Workerが取得したサンプル(batch)をTrainerに渡す役割を持ってい
 .. code-block:: python
 
    from srl.base.rl.base import RLRemoteMemory
-   from typing import cast
 
    class MyRemoteMemory(RLRemoteMemory):
       def __init__(self, *args):
@@ -182,7 +158,7 @@ Workerが取得したサンプル(batch)をTrainerに渡す役割を持ってい
          super().__init__(*args)
 
          # self.config に上で定義した MyConfig が入ります
-         self.config = cast(MyConfig, self.config)
+         self.config: MyConfig = self.config
 
       def length(self) -> int:
          """ メモリに保存されている数を返します """
@@ -275,7 +251,7 @@ Parameter
          super().__init__(*args)
 
          # self.config に上で定義した MyConfig が入ります
-         self.config = cast(MyConfig, self.config)
+         self.config:MyConfig = self.config
 
       # call_restore/call_backupでパラメータが復元できるように作成
       def call_restore(self, data, **kwargs) -> None:
@@ -306,9 +282,9 @@ RemoteMemory から経験を受け取ってParameterを更新します。
          super().__init__(*args)
 
          # config,parameter,memory がそれぞれ入ります。
-         self.config = cast(MyConfig, self.config)
-         self.parameter = cast(MyParameter, self.parameter)
-         self.remote_memory = cast(MyRemoteMemory, self.remote_memory)
+         self.config: MyConfig = self.config
+         self.parameter: MyParameter = self.parameter
+         self.remote_memory: MyRemoteMemory = self.remote_memory
 
       def get_train_count(self) -> int:
          """ 学習回数を返します """
@@ -341,7 +317,7 @@ RLWorkerとRLTrainerのフローをすごく簡単に書くと以下です。
       worker.on_step()
       trainer.train()
 
-RLWorkerもアルゴリズムに合わせたインタフェースのクラスを用意しています。  
+RLWorkerはアルゴリズムに合わせたインタフェースのクラスを用意しています。  
 基本はそちらを使用してください。
 現状あるクラスは以下です。
 
@@ -358,10 +334,15 @@ RLWorkerもアルゴリズムに合わせたインタフェースのクラスを
    * - ContinuousActionWorker
      - モデルフリーでアクションが連続値のアルゴリズム
      - DDPG,SAC等
-   * - ModelBaseWorker
+   * - RLWorker
      - 上記以外のアルゴリズム
      - 
-
+   * - EnvWorker
+     - Envと直接やり取りするアルゴリズム（ルールベース等）
+     - 
+   * - ExtendWorker
+     - RLWorkerとルールベースを混ぜて使う用
+     - 
 
 DiscreteActionWorker
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -378,9 +359,9 @@ DiscreteActionWorkerで実装が必要な関数は以下です。
          super().__init__(*args)
 
          # config,parameter,memory がそれぞれ入ります。
-         self.config = cast(MyConfig, self.config)
-         self.parameter = cast(MyParameter, self.parameter)
-         self.remote_memory = cast(MyRemoteMemory, self.remote_memory)
+         self.config: MyConfig = self.config
+         self.parameter: MyParameter = self.parameter
+         self.remote_memory: MyRemoteMemory = self.remote_memory
 
       def call_on_reset(self, state: np.ndarray, invalid_actions: list[int]) -> dict:
          """ エピソードの最初に呼ばれる関数
@@ -444,9 +425,9 @@ ContinuousActionWorkerで実装が必要な関数は以下です。
          super().__init__(*args)
 
          # config,parameter,memory がそれぞれ入ります。
-         self.config = cast(MyConfig, self.config)
-         self.parameter = cast(MyParameter, self.parameter)
-         self.remote_memory = cast(MyRemoteMemory, self.remote_memory)
+         self.config: MyConfig = self.config
+         self.parameter: MyParameter = self.parameter
+         self.remote_memory: MyRemoteMemory = self.remote_memory
 
       def call_on_reset(self, state: np.ndarray) -> Info:
          """ エピソードの最初に呼ばれる関数
@@ -486,11 +467,10 @@ ContinuousActionWorkerで実装が必要な関数は以下です。
          raise NotImplementedError()
 
 
-ModelBaseWorker
+RLWorker
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-ModelBaseWorker は実行時のクラスである EnvRun、WorkerRun を直接操作して実装するクラスです。  
-（直接環境を操作できます）  
+RLWorker は実行時のクラスである WorkerRun を直接操作して実装するクラスです。  
 出来ることが多いのと、仕様が変わる可能性大きいので詳細は一旦保留します。(TODO)
 
 実装が必要な関数は以下です。
@@ -509,29 +489,26 @@ ModelBaseWorker は実行時のクラスである EnvRun、WorkerRun を直接�
          super().__init__(*args)
 
          # config,parameter,memory がそれぞれ入ります。
-         self.config = cast(MyConfig, self.config)
-         self.parameter = cast(MyParameter, self.parameter)
-         self.remote_memory = cast(MyRemoteMemory, self.remote_memory)
+         self.config: MyConfig = self.config
+         self.parameter: MyParameter = self.parameter
+         self.remote_memory: MyRemoteMemory = self.remote_memory
 
-      def call_on_reset(self, state: np.ndarray, env: EnvRun, worker: WorkerRun) -> dict:
+      def call_on_reset(self, worker: WorkerRun) -> dict:
          """ エピソードの最初に呼ばれる関数
 
          Args:
-               state (np.ndarray): 環境の初期状態
-               env: EnvRun
                worker: WorkerRun
             
          Returns:
                Info: 任意の情報
          """
+         state = worker.state
          raise NotImplementedError()
 
-      def call_policy(self, state: np.ndarray, env: EnvRun, worker: WorkerRun) -> tuple[RLActionType, dict]:
+      def call_policy(self, worker: WorkerRun) -> tuple[RLActionType, dict]:
          """ このターンで実行するアクションを返す関数
 
          Args:
-               state (np.ndarray): 現在の状態
-               env: EnvRun
                worker: WorkerRun
 
          Returns: (
@@ -541,26 +518,18 @@ ModelBaseWorker は実行時のクラスである EnvRun、WorkerRun を直接�
          """
          raise NotImplementedError()
 
-      def call_on_step(
-         self,
-         next_state: np.ndarray,
-         reward: float,
-         done: bool,
-         env: EnvRun,
-         worker: WorkerRun,
-      ) -> dict:
+      def call_on_step(self, worker: WorkerRun) -> dict:
          """ Envが1step実行した後に呼ばれる関数
 
          Args:
-               next_state (np.ndarray): アクション実行後の状態
-               reward (float): アクション実行後の報酬
-               done (bool): アクション実行後の終了状態
-               env: EnvRun
                worker: WorkerRun
 
          Returns:
                dict: 情報(任意)
          """
+         next_state = worker.state
+         reward = worker.reward
+         done = worker.done
          raise NotImplementedError()
 
 
@@ -585,6 +554,11 @@ Workerで共通して持っているプロパティ・関数は以下となり�
          """ 分散実行中かどうかを返します """
          return self._distributed
 
+      @property
+      def rendering(self) -> bool:
+         """ renderがあるエピソードかどうかを返します """
+         return self._rendering
+
       def render_terminal(self, env, worker, **kwargs) -> None:
          """ 
          描画用の関数です。
@@ -607,14 +581,25 @@ Workerで共通して持っているプロパティ・関数は以下となり�
       def get_invalid_actions(self, env=None) -> List[RLAction]:
          """ 有効でないアクションを返します(離散限定) """
          return invalid_actions
-      
-      def get_valid_actions(self, env=None) -> List[RLAction]:
-         """ 有効なアクションを返します(離散限定) """
-         return valid_actions
-      
+
       def sample_action(self, env=None) -> RLAction:
          """ ランダムなアクションを返します """
          return action
+
+      @property
+      def max_episode_steps(self) -> int:
+         """ 最大steps数を返します """
+         return self.__worker_run.env.max_episode_steps
+
+      @property
+      def player_num(self) -> int:
+         """ プレイヤー数を返します """
+         return self.__worker_run.env.player_num
+
+      @property
+      def step(self) -> int:
+         """ 現在のstepを返します """
+         return self.__worker_run.env.step_num
 
 
 自作アルゴリズムの登録

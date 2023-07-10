@@ -6,39 +6,39 @@ import numpy as np
 import srl
 from srl import runner
 from srl.algorithms import dqn
-from srl.base.define import EnvActionType
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.worker import ExtendWorker, WorkerRun
+from srl.base.rl.algorithms.extend_worker import ExtendWorker
+from srl.base.rl.worker_run import WorkerRun
 from srl.envs import connectx
 
 
 class MyConnectXWorker(ExtendWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.worker = cast(dqn.dqn.Worker, self.worker)
+        self.base_worker = cast(dqn.dqn.Worker, self.base_worker)
 
         # rlのconfig
-        self.rl_config = cast(dqn.Config, self.worker.config)
+        self.rl_config = cast(dqn.Config, self.base_worker.config)
 
         # MinMaxの探索数
         self.max_depth = 3
 
-    def call_on_reset(self, env: EnvRun, worker_run: WorkerRun) -> dict:
-        self.action_num = cast(connectx.ConnectX, env.get_env_base()).action_space.n
+    def call_on_reset(self, worker: WorkerRun) -> dict:
+        self.action_num = cast(connectx.ConnectX, worker.env.get_env_base()).action_space.n
         self._is_rl = False
         self.scores = [0] * self.action_num
         self.minmax_time = 0
         self.minmax_count = 0
         return {}
 
-    def call_policy(self, env: EnvRun, worker_run: WorkerRun) -> Tuple[EnvActionType, dict]:
-        if env.step_num == 0:
+    def call_policy(self, worker: WorkerRun) -> Tuple[int, dict]:
+        if worker.env.step_num == 0:
             # --- 先行1ターン目
             # DQNの探索率を0.5にして実行
             self.rl_config.epsilon = 0.5
-            action = self.rl_worker.policy(env)
+            action, info = cast(int, self.base_worker.policy(worker))
             self._is_rl = True
-            return action, {}
+            return action, info
 
         # --- 2ターン目以降
         # DQNの探索率は0.1に戻す
@@ -47,7 +47,7 @@ class MyConnectXWorker(ExtendWorker):
         # MinMaxを実施、環境は壊さないようにcopyで渡す
         self.minmax_count = 0
         t0 = time.time()
-        self.scores = self._minmax(env.copy())
+        self.scores = self._minmax(self.worker_run.env.copy())
         self.minmax_time = time.time() - t0
 
         # 最大スコア
@@ -62,13 +62,13 @@ class MyConnectXWorker(ExtendWorker):
 
         # 最大値以外のアクションを選択しないようにする(invalid_actionsに追加)
         new_invalid_actions = [a for a in range(self.action_num) if self.scores[a] != max_score]
-        env.add_invalid_actions(new_invalid_actions, self.player_index)
+        worker.add_invalid_actions(new_invalid_actions)
 
         # rl実施
-        action = self.rl_worker.policy(env)
+        action, info = cast(int, self.base_worker.policy(worker))
         self._is_rl = True
 
-        return action, {}
+        return action, info
 
     # --- MinMax
     # 探索にbackup/restoreを使っているので重い
@@ -118,7 +118,7 @@ class MyConnectXWorker(ExtendWorker):
         return scores
 
     # 可視化用
-    def render_terminal(self, env: EnvRun, worker: WorkerRun, **kwargs) -> None:
+    def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
         print(f"- MinMax count: {self.minmax_count}, {self.minmax_time:.3f}s -")
         print("+---+---+---+---+---+---+---+")
         s = "|"
@@ -127,7 +127,7 @@ class MyConnectXWorker(ExtendWorker):
         print(s)
         print("+---+---+---+---+---+---+---+")
         if self._is_rl:
-            self.rl_worker.render_terminal(env)
+            self.base_worker.render_terminal(worker)
 
 
 def create_config():

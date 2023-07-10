@@ -15,15 +15,15 @@ def _run_episode(
     remote_memory: Optional[RLRemoteMemory],
 ):
     assert env.player_num == 1
-    worker = srl.make_worker(rl_config, parameter, remote_memory, training=True, distributed=True)
+    worker = srl.make_worker(rl_config, env, parameter, remote_memory, distributed=True)
 
     env.reset()
-    worker.on_reset(env)
+    worker.on_reset(0, training=True)
 
     while not env.done:
-        action = worker.policy(env)
+        action = worker.policy()
         env.step(action)
-        worker.on_step(env)
+        worker.on_step()
 
     return env.step_num, env.episode_rewards[0]
 

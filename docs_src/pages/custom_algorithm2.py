@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import cast
 
 from srl.base.define import RLTypes
 from srl.base.rl.base import RLConfig
@@ -15,18 +14,18 @@ class MyConfig(RLConfig):
         return "MyConfig"
 
     @property
-    def action_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
         return RLTypes.DISCRETE
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
 
 
 class MyRemoteMemory(ExperienceReplayBuffer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(MyConfig, self.config)
+        self.config: MyConfig = self.config
 
         # init を呼び出してメモリ容量をセットする。
         super().init(self.config.capacity)

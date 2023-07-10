@@ -6,6 +6,6 @@ from srl.algorithms import ql  # isort: skip
 
 
 config = runner.Config("Grid", ql.Config())
-parameter = config.make_parameter()
+parameter, _, _ = runner.train(config, timeout=10)
 
 runner.render_window(config, parameter)

@@ -1,26 +1,30 @@
 import json
 import random
 from dataclasses import dataclass
-from typing import cast
 
 import numpy as np
 
 from srl.base.define import RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionConfig, DiscreteActionWorker
+from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
 from srl.base.rl.remote_memory import SequenceRemoteMemory
 
 
 @dataclass
-class Config(DiscreteActionConfig):
+class Config(RLConfig):
     epsilon: float = 0.1
     test_epsilon: float = 0
     gamma: float = 0.9
     lr: float = 0.1
 
     @property
-    def observation_type(self) -> RLTypes:
+    def base_action_type(self) -> RLTypes:
+        return RLTypes.DISCRETE
+
+    @property
+    def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
 
     def getName(self) -> str:
@@ -34,7 +38,7 @@ class RemoteMemory(SequenceRemoteMemory):
 class Parameter(RLParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
+        self.config: Config = self.config
 
         self.Q = {}  # Q学習用のテーブル
 
@@ -54,9 +58,9 @@ class Parameter(RLParameter):
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.train_count = 0
 
@@ -102,9 +106,9 @@ class Trainer(RLTrainer):
 class Worker(DiscreteActionWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config = cast(Config, self.config)
-        self.parameter = cast(Parameter, self.parameter)
-        self.remote_memory = cast(RemoteMemory, self.remote_memory)
+        self.config: Config = self.config
+        self.parameter: Parameter = self.parameter
+        self.remote_memory: RemoteMemory = self.remote_memory
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: list[int]) -> dict:
         return {}
@@ -191,13 +195,10 @@ import srl
 from srl import runner
 from srl.envs import grid
 
-config = runner.Config(
-    env_config=srl.EnvConfig("Grid"),
-    rl_config=Config(lr=0.001),
-)
+config = runner.Config(srl.EnvConfig("Grid"), Config(lr=0.001))
 
 # --- train
-parameter, remote_memory, history = runner.train(config, timeout=20)
+parameter, remote_memory, history = runner.train(config, timeout=10)
 
 # --- test
 rewards = runner.evaluate(config, parameter, max_episodes=100)

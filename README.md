@@ -155,15 +155,15 @@ if __name__ == "__main__":
 ``` python
 # Initializing phase
 env.reset()
-worker.on_reset(env)
+worker.on_reset()
 env.render()
 
 # 1 episode loop
 while not env.done:
-    action = worker.policy(env)
-    worker.render(env)
+    action = worker.policy()
+    worker.render()
     env.step(action)
-    worker.on_step(env)
+    worker.on_step()
     env.render()
 ```
 
@@ -175,18 +175,22 @@ while not env.done:
 
 |Algorithm |Observation|Action  |Framework|ProgressRate||
 |----------|-----------|--------|----------|----|---|
-|QL        |Discrete   |Discrete|          |100%|Basic Q Learning|
-|DQN       |Continuous |Discrete|Tensorflow/Torch|100%||
+|QL        |Discrete   |Discrete|-         |100%|Basic Q Learning|
+|DQN       |Continuous |Discrete|Tensorflow|100%||
+|DQN       |Continuous |Discrete|Torch|100%||
 |C51       |Continuous |Discrete|Tensorflow| 99%|CategoricalDQN|
-|Rainbow   |Continuous |Discrete|Tensorflow/Torch|100%||
+|Rainbow   |Continuous |Discrete|Tensorflow|100%||
+|Rainbow   |Continuous |Discrete|Torch|90%||
 |R2D2      |Continuous |Discrete|Tensorflow|100%||
+|R2D2      |Continuous |Discrete|Torch|0%||
 |Agent57   |Continuous |Discrete|Tensorflow|100%||
+|Agent57   |Continuous |Discrete|Torch|0%||
 
 ### PolicyBase/ActorCritic
 
 |Algorithm              |Observation|Action    |Framework|ProgressRate|
 |-----------------------|-----------|----------|----------|----|
-|VanillaPolicy          |Discrete   |Both      ||100%|
+|VanillaPolicy          |Discrete   |Both      |-|100%|
 |A3C/A2C                |           |          ||  0%|
 |TRPO                   |Continuous |          ||   -|
 |PPO                    |Continuous |          ||  0%|

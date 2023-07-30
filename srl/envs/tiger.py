@@ -103,7 +103,7 @@ class Tiger(SinglePlayEnv):
         else:
             raise ValueError()
 
-        return self.state.value, reward, done, {}
+        return self.state.value, float(reward), done, {}
 
     def render_terminal(self):
         print(f"state: {self.state}, tiger: {self.tiger}")

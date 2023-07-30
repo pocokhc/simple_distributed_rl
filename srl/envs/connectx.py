@@ -78,17 +78,17 @@ class ConnectX(TurnBase2Player):
         # Check for a win.
         if self._is_win(column, row):
             if self.next_player_index == 0:
-                reward1 = 1
-                reward2 = -1
+                reward1 = 1.0
+                reward2 = -1.0
             else:
-                reward1 = -1
-                reward2 = 1
+                reward1 = -1.0
+                reward2 = 1.0
 
             return self.board, reward1, reward2, True, {}
 
         # Check for a tie.
         if all(mark != 0 for mark in self.board):
-            return self.board, 0, 0, True, {}
+            return self.board, 0.0, 0.0, True, {}
 
         # change player
         if self._next_player_index == 0:
@@ -96,7 +96,7 @@ class ConnectX(TurnBase2Player):
         else:
             self._next_player_index = 0
 
-        return self.board, 0, 0, False, {}
+        return self.board, 0.0, 0.0, False, {}
 
     def _is_win(self, column, row):
         inarow = 4 - 1

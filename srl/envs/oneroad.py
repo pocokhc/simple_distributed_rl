@@ -65,10 +65,10 @@ class OneRoad(SinglePlayEnv):
             self.player_pos = 0
 
         if self.player_pos == self.N:
-            reward = 1
+            reward = 1.0
             done = True
         else:
-            reward = 0
+            reward = 0.0
             done = False
 
         return self.player_pos, reward, done, {}

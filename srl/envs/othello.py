@@ -87,7 +87,6 @@ class Othello(TurnBase2Player):
         return {
             "min": -1,
             "max": 1,
-            "type": int,
         }
 
     @property
@@ -179,9 +178,9 @@ class Othello(TurnBase2Player):
         # --- error action
         if len(self.movable_dirs[self._next_player_index][action]) == 0:
             if self._next_player_index == 0:
-                return self.field, -1, 0, True, {}
+                return self.field, -1.0, 0.0, True, {}
             else:
-                return self.field, 0, -1, True, {}
+                return self.field, 0.0, -1.0, True, {}
 
         # --- step
         self._step(action)
@@ -196,22 +195,22 @@ class Othello(TurnBase2Player):
             p1_count = len([f for f in self.field if f == 1])
             p2_count = len([f for f in self.field if f == -1])
             if p1_count > p2_count:
-                r1 = 1
-                r2 = -1
+                r1 = 1.0
+                r2 = -1.0
             elif p1_count < p2_count:
-                r1 = -1
-                r2 = 1
+                r1 = -1.0
+                r2 = 1.0
             else:
-                r1 = r2 = 0
+                r1 = r2 = 0.0
             return self.field, r1, r2, True, {"P1": p1_count, "P2": p2_count}
 
         # 相手が置けないならpass
         if enemy_put_num == 0:
-            return self.field, 0, 0, False, {}
+            return self.field, 0.0, 0.0, False, {}
 
         # 手番交代
         self._next_player_index = enemy_player
-        return self.field, 0, 0, False, {}
+        return self.field, 0.0, 0.0, False, {}
 
     def _step(self, action):
         # --- update

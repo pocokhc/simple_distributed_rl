@@ -57,10 +57,10 @@ class SampleEnv(SinglePlayEnv):
             self.player_pos += 1
 
         if self.field[self.player_pos] == -1:
-            return self.player_pos, -1, True, {}
+            return self.player_pos, -1.0, True, {}
 
         if self.field[self.player_pos] == 1:
-            return self.player_pos, 1, True, {}
+            return self.player_pos, 1.0, True, {}
 
         return self.player_pos, self.move_reward, False, {}
 

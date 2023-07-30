@@ -119,7 +119,7 @@ class IGrid(SinglePlayEnv):
         x = self.player_pos[0]
         y = self.player_pos[1]
 
-        reward = 0
+        reward = 0.0
         done = False
         if self.field[y][x] == 2:
             self.field[0][0] = 4
@@ -128,10 +128,10 @@ class IGrid(SinglePlayEnv):
             self.field[0][0] = 5
             self.field[0][2] = 4
         elif self.field[y][x] == 4:
-            reward = 1
+            reward = 1.0
             done = True
         elif self.field[y][x] == 5:
-            reward = -1
+            reward = -1.0
             done = True
 
         return list(self.player_pos), reward, done, {}

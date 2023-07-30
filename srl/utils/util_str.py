@@ -1,6 +1,8 @@
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
+
+from srl.base.define import InfoType
 
 
 def to_str_time(sec: float) -> str:
@@ -11,8 +13,18 @@ def to_str_time(sec: float) -> str:
     return "{:5.1f}m".format(sec / 60)
 
 
-def to_str_reward(reward: Union[int, float], type_=float) -> str:
-    if type_ == int:
+def to_str_reward(reward: Union[int, float], check_skip: bool = False) -> str:
+    if check_skip:
+        is_int = False
+    else:
+        if isinstance(reward, int):
+            is_int = True
+        elif reward.is_integer():
+            is_int = True
+        else:
+            is_int = False
+
+    if is_int:
         return "{:2d}".format(int(reward))
     else:
         if -10 <= reward <= 10:
@@ -21,7 +33,46 @@ def to_str_reward(reward: Union[int, float], type_=float) -> str:
             return "{:6.1f}".format(float(reward))
 
 
-def to_str_from_list_info(infos: List[dict], types={}) -> str:
+def to_str_info(info: Optional[InfoType], types={}) -> str:
+    if info is None:
+        return ""
+
+    # check type
+    key_types = {}
+    for k, v in info.items():
+        t = types.get(k, {}).get("type", None)
+        if t is None:
+            # check
+            if isinstance(v, int):
+                t = int
+            elif isinstance(v, float):
+                t = float
+            elif isinstance(v, np.integer):
+                t = int
+            elif isinstance(v, np.floating):
+                t = float
+            elif isinstance(v, np.ndarray):
+                t = float
+        key_types[k] = t
+
+    s = ""
+    for k, v in info.items():
+        t = key_types[k]
+        if t == int:
+            s += f"|{k} {int(v):2d}"
+        elif t == float:
+            v = float(v)
+            if -10 <= v <= 10:
+                s += f"|{k} {v:.3f}"
+            else:
+                s += f"|{k} {v:.1f}"
+        else:
+            s += f"|{k} {str(v)}"
+
+    return s
+
+
+def to_str_from_list_info(infos: List[InfoType], types={}) -> str:
     info2 = {}
     for info in infos:
         if info is None:

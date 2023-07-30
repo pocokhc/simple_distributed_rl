@@ -4,7 +4,7 @@ from typing import Any, List, Tuple
 
 import numpy as np
 
-from srl.base.rl.memory import IPriorityMemory
+from .imemory import IPriorityMemory
 
 
 @dataclass

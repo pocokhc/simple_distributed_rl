@@ -1,21 +1,20 @@
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
-from srl.base.rl.memory import IPriorityMemory, IPriorityMemoryConfig
-from srl.rl.memories.config import ReplayMemoryConfig
+from .imemory import IPriorityMemory
 
 
 @dataclass
 class BestEpisodeMemory(IPriorityMemory):
+    main_memory: IPriorityMemory
+    best_memory: IPriorityMemory
     ratio: float = 1.0 / 256.0  # 混ぜる割合
     has_reward_equal: bool = True
-    memory: IPriorityMemoryConfig = field(default_factory=lambda: ReplayMemoryConfig())
 
     def __post_init__(self):
-        self.main_memory = self.memory.create_memory()
         self.best_reward = None
         self.best_batchs = []
         self.init()

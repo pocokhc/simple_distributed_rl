@@ -14,7 +14,7 @@ https://github.com/horoiwa/deep_reinforcement_learning_gallery
 class MuZeroAtariBlock(keras.Model):
     def __init__(
         self,
-        base_filters: int = 128,
+        filters: int = 128,
         kernel_size=(3, 3),
         l2: float = 0.0001,
         use_layer_normalization: bool = True,
@@ -23,7 +23,7 @@ class MuZeroAtariBlock(keras.Model):
         super().__init__(**kwargs)
 
         self.conv1 = kl.Conv2D(
-            base_filters,
+            filters,
             kernel_size=kernel_size,
             strides=2,
             padding="same",
@@ -32,10 +32,10 @@ class MuZeroAtariBlock(keras.Model):
             kernel_initializer="he_normal",
             kernel_regularizer=keras.regularizers.l2(l2),
         )
-        self.resblock1 = _ResidualBlock(base_filters, kernel_size, l2, use_layer_normalization)
-        self.resblock2 = _ResidualBlock(base_filters, kernel_size, l2, use_layer_normalization)
+        self.resblock1 = _ResidualBlock(filters, kernel_size, l2, use_layer_normalization)
+        self.resblock2 = _ResidualBlock(filters, kernel_size, l2, use_layer_normalization)
         self.conv2 = kl.Conv2D(
-            base_filters * 2,
+            filters * 2,
             kernel_size=kernel_size,
             strides=2,
             padding="same",
@@ -44,13 +44,13 @@ class MuZeroAtariBlock(keras.Model):
             kernel_initializer="he_normal",
             kernel_regularizer=keras.regularizers.l2(l2),
         )
-        self.resblock3 = _ResidualBlock(base_filters * 2, kernel_size, l2, use_layer_normalization)
-        self.resblock4 = _ResidualBlock(base_filters * 2, kernel_size, l2, use_layer_normalization)
-        self.resblock5 = _ResidualBlock(base_filters * 2, kernel_size, l2, use_layer_normalization)
+        self.resblock3 = _ResidualBlock(filters * 2, kernel_size, l2, use_layer_normalization)
+        self.resblock4 = _ResidualBlock(filters * 2, kernel_size, l2, use_layer_normalization)
+        self.resblock5 = _ResidualBlock(filters * 2, kernel_size, l2, use_layer_normalization)
         self.pool1 = kl.AveragePooling2D(pool_size=3, strides=2, padding="same")
-        self.resblock6 = _ResidualBlock(base_filters * 2, kernel_size, l2, use_layer_normalization)
-        self.resblock7 = _ResidualBlock(base_filters * 2, kernel_size, l2, use_layer_normalization)
-        self.resblock8 = _ResidualBlock(base_filters * 2, kernel_size, l2, use_layer_normalization)
+        self.resblock6 = _ResidualBlock(filters * 2, kernel_size, l2, use_layer_normalization)
+        self.resblock7 = _ResidualBlock(filters * 2, kernel_size, l2, use_layer_normalization)
+        self.resblock8 = _ResidualBlock(filters * 2, kernel_size, l2, use_layer_normalization)
         self.pool2 = kl.AveragePooling2D(pool_size=3, strides=2, padding="same")
 
     def call(self, x):

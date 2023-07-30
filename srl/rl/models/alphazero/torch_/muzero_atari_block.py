@@ -9,7 +9,7 @@ class MuZeroAtariBlock(nn.Module):
     def __init__(
         self,
         in_shape: Tuple[int, int, int],
-        base_filters: int = 128,
+        filters: int = 128,
         use_layer_normalization: bool = False,
         **kwargs,
     ):
@@ -18,31 +18,31 @@ class MuZeroAtariBlock(nn.Module):
         in_ch = in_shape[0]
         self.conv1 = nn.Conv2d(
             in_channels=in_ch,
-            out_channels=base_filters,
+            out_channels=filters,
             kernel_size=(3, 3),
             stride=2,
             padding=1,
             bias=False,
         )
         self.act1 = nn.ReLU(inplace=True)
-        self.resblock1 = _ResidualBlock(base_filters, use_layer_normalization)
-        self.resblock2 = _ResidualBlock(base_filters, use_layer_normalization)
+        self.resblock1 = _ResidualBlock(filters, use_layer_normalization)
+        self.resblock2 = _ResidualBlock(filters, use_layer_normalization)
         self.conv2 = nn.Conv2d(
-            in_channels=base_filters,
-            out_channels=base_filters * 2,
+            in_channels=filters,
+            out_channels=filters * 2,
             kernel_size=(3, 3),
             stride=2,
             padding=1,
             bias=False,
         )
         self.act2 = nn.ReLU(inplace=True)
-        self.resblock3 = _ResidualBlock(base_filters * 2, use_layer_normalization)
-        self.resblock4 = _ResidualBlock(base_filters * 2, use_layer_normalization)
-        self.resblock5 = _ResidualBlock(base_filters * 2, use_layer_normalization)
+        self.resblock3 = _ResidualBlock(filters * 2, use_layer_normalization)
+        self.resblock4 = _ResidualBlock(filters * 2, use_layer_normalization)
+        self.resblock5 = _ResidualBlock(filters * 2, use_layer_normalization)
         self.pool1 = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
-        self.resblock6 = _ResidualBlock(base_filters * 2, use_layer_normalization)
-        self.resblock7 = _ResidualBlock(base_filters * 2, use_layer_normalization)
-        self.resblock8 = _ResidualBlock(base_filters * 2, use_layer_normalization)
+        self.resblock6 = _ResidualBlock(filters * 2, use_layer_normalization)
+        self.resblock7 = _ResidualBlock(filters * 2, use_layer_normalization)
+        self.resblock8 = _ResidualBlock(filters * 2, use_layer_normalization)
         self.pool2 = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
 
         # --- out shape

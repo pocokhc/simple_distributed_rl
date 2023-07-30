@@ -1,8 +1,8 @@
 import srl
-from srl import runner
 from srl.base.define import PlayRenderModes
 from srl.base.env.env_run import EnvRun
-from srl.utils.common import is_available_video_device, is_packages_installed
+from srl.runner.runner import Runner
+from srl.utils.common import is_available_pygame_video_device, is_packages_installed
 
 
 class TestEnv:
@@ -17,6 +17,7 @@ class TestEnv:
         env_config = srl.EnvConfig(
             env_name,
             render_interval=1,
+            enable_assertion_value=True,
         )
         env = srl.make_env(env_config)
         assert issubclass(env.__class__, EnvRun), "The way env is created is wrong. (Mainly due to framework side)"
@@ -44,7 +45,7 @@ class TestEnv:
                 max_step=max_step,
                 print_enable=print_enable,
             )
-            if is_packages_installed(["cv2", "pygame"]) and is_available_video_device():
+            if is_packages_installed(["cv2", "pygame"]) and is_available_pygame_video_device():
                 self._play_test(
                     env,
                     PlayRenderModes.window,
@@ -128,10 +129,11 @@ class TestEnv:
 
     def player_test(self, env_name: str, player: str, player_kwargs: dict = {}) -> EnvRun:
         env_config = srl.EnvConfig(env_name)
-        config = runner.Config(env_config, None)
+        env_config.enable_assertion_value = True
+        runner = Runner(env_config, None)
 
-        env = config.make_env()
-        config.players = [(player, player_kwargs) for _ in range(env.player_num)]
+        env = runner.make_env()
+        runner.set_players([(player, player_kwargs) for _ in range(env.player_num)])
 
-        runner.evaluate(config, None, max_episodes=3)
+        runner.evaluate(max_episodes=3)
         return env

@@ -4,45 +4,38 @@ from typing import List, Optional
 
 import pygame
 
-from srl.base.define import PlayRenderModes
-from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import RLParameter
-from srl.base.rl.worker_run import WorkerRun
+from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.runner.callback import Callback
-from srl.runner.config import Config
-from srl.runner.core import ProgressOption, play
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
+from srl.runner.runner import Runner
 
 logger = logging.getLogger(__name__)
 
 
 class _GetRGBCallback(Callback):
-    def on_episode_begin(self, info):
+    def on_episode_begin(self, runner: Runner):
         self.steps = []
 
-    def on_step_action_before(self, info) -> None:
-        self._tmp_step_env(info)
+    def on_step_action_before(self, runner: Runner) -> None:
+        self._tmp_step_env(runner)
 
-    def on_step_begin(self, info) -> None:
-        self._tmp_step_worker(info)
+    def on_step_begin(self, runner: Runner) -> None:
+        self._tmp_step_worker(runner)
         self._add_step()
 
-    def on_skip_step(self, info) -> None:
-        self._tmp_step_env(info)
+    def on_skip_step(self, runner: Runner) -> None:
+        self._tmp_step_env(runner)
         self._add_step(is_skip_step=True)
 
-    def on_episode_end(self, info):
-        # 描画用にpolicyを実行
-        info["workers"][info["worker_idx"]].policy()
-
-        self._tmp_step_env(info)
-        self._tmp_step_worker(info)
+    def on_episode_end(self, runner: Runner):
+        self._tmp_step_env(runner)
+        self._tmp_step_worker(runner)
         self._add_step(is_skip_step=True)
 
     # ---------------------------------
 
-    def _tmp_step_env(self, info):
-        env: EnvRun = info["env"]
+    def _tmp_step_env(self, runner: Runner):
+        env = runner.env
         d = {
             "step": env.step_num,
             "next_player_index": env.next_player_index,
@@ -51,22 +44,18 @@ class _GetRGBCallback(Callback):
             "rewards": env.step_rewards,
             "done": env.done,
             "done_reason": env.done_reason,
-            "time": info.get("step_time", 0),
             "env_info": env.info,
-            "train_time": info.get("train_time", 0),
-            "train_info": info.get("train_info", None),
         }
         # --- render info
         d["env_rgb_array"] = env.render_rgb_array()
 
         self.step_info_env = d
 
-    def _tmp_step_worker(self, info):
+    def _tmp_step_worker(self, runner: Runner):
         d = {
-            "action": info["action"],
+            "action": runner.state.action,
         }
-        workers: List[WorkerRun] = info["workers"]
-        for i, w in enumerate(workers):
+        for i, w in enumerate(runner.state.workers):
             d[f"work{i}_info"] = w.info
             d[f"work{i}_rgb_array"] = w.render_rgb_array()
 
@@ -82,29 +71,22 @@ class _GetRGBCallback(Callback):
 class RePlayableGame(GameWindow):
     def __init__(
         self,
-        config: Config,
+        runner: Runner,
         parameter: Optional[RLParameter] = None,
-        # play config
-        timeout: int = -1,
-        max_steps: int = -1,
-        # option
-        progress: Optional[ProgressOption] = ProgressOption(),
-        # other
-        callbacks: List[Callback] = [],
+        remote_memory: Optional[RLRemoteMemory] = None,
         _is_test: bool = False,  # for test
     ) -> None:
         super().__init__(_is_test=_is_test)
 
-        self.config = config
+        self.runner = runner
         self.parameter = parameter
-        self.timeout = timeout
-        self.max_steps = max_steps
-        self.progress = progress
-        self.callbacks = callbacks
+        self.remote_memory = remote_memory
 
-        env = self.config.make_env()
-        self.interval = env.config.render_interval
+        # callback
+        self.history = _GetRGBCallback()
+        self.runner.context.callbacks.append(self.history)
 
+        self.interval = self.runner.env.config.render_interval
         self.episodes_cache = {}
         self.episode = 0
         self._init_episode()
@@ -118,37 +100,10 @@ class RePlayableGame(GameWindow):
             self.episode_info = cache[0]
             self.episode_data = cache[1]
         else:
-            callbacks = self.callbacks[:]
+            self.runner._play(self.parameter, self.remote_memory)
 
-            history = _GetRGBCallback()
-            callbacks.append(history)
-            play(
-                self.config,
-                # stop config
-                max_episodes=1,
-                timeout=self.timeout,
-                max_steps=self.max_steps,
-                max_train_count=-1,
-                # play config
-                train_only=False,
-                shuffle_player=False,
-                disable_trainer=True,
-                enable_profiling=False,
-                # play info
-                training=False,
-                distributed=False,
-                render_mode=PlayRenderModes.rgb_array,
-                # option
-                eval=None,
-                progress=self.progress,
-                history=None,
-                checkpoint=None,
-                # other
-                callbacks=callbacks,
-                parameter=self.parameter,
-            )
             self.episode_info = {"total_rewards": 0}
-            self.episode_data = history.steps
+            self.episode_data = self.history.steps
             self.episodes_cache[self.episode] = [
                 self.episode_info,
                 self.episode_data,
@@ -222,7 +177,6 @@ class RePlayableGame(GameWindow):
             "invalid_actions  : {}".format(step_data["invalid_actions"]),
             "rewards   : {}".format(step_data["rewards"]),
             "done      : {}".format(step_data["done"]),
-            "step time : {:.3f}s".format(step_data["time"]),
             "env_info  : {}".format(step_data["env_info"]),
         ]
         if "train_info" in step_data and step_data["train_info"] is not None:

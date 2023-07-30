@@ -6,10 +6,9 @@ from typing import TYPE_CHECKING, Union
 import numpy as np
 
 from srl.base.define import EnvObservationTypes, PlayRenderModes
-from srl.base.env.env_run import EnvRun
-from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.runner.callback import Callback
+from srl.runner.runner import Runner
 from srl.utils.render_functions import text_to_rgb_array
 
 logger = logging.getLogger(__name__)
@@ -51,49 +50,49 @@ class Rendering(Callback):
 
         self.mode = PlayRenderModes.from_str(self.mode)
 
-    def on_episodes_begin(self, info) -> None:
-        env: EnvRun = info["env"]
-        self.render_interval = env.set_render_options(
+    def on_episodes_begin(self, runner: Runner) -> None:
+        assert runner.state.env is not None
+        self.render_interval = runner.state.env.set_render_options(
             self.render_interval,
             self.render_scale,
             self.font_name,
             self.font_size,
         )
 
-    def on_step_action_before(self, info) -> None:
-        self._render_env(info)
+    def on_step_action_before(self, runner: Runner) -> None:
+        self._render_env(runner)
 
-    def on_step_begin(self, info) -> None:
-        self._render_worker(info)
+    def on_step_begin(self, runner: Runner) -> None:
+        self._render_worker(runner)
         self._add_image()
 
         if self.step_stop:
             input("Enter to continue:")
 
-    def on_skip_step(self, info):
+    def on_skip_step(self, runner: Runner):
         if not self.render_skip_step:
             return
-        self._render_env(info, True)
+        self._render_env(runner, True)
         self._add_image()
 
-    def on_episode_end(self, info) -> None:
-        self._render_env(info)
+    def on_episode_end(self, runner: Runner) -> None:
+        self._render_env(runner)
         self._add_image()
 
-    def on_episodes_end(self, info) -> None:
+    def on_episodes_end(self, runner: Runner) -> None:
         if self.step_stop:
             input("Enter to continue:")
 
     # -----------------------------------------------
 
-    def _render_env(self, info, skip_step=False):
-        env: EnvRun = info["env"]
+    def _render_env(self, runner: Runner, skip_step=False):
+        env = runner.state.env
+        assert env is not None
 
         # --- info text
-        action = info["action"] if "action" in info else "-"
-        step_time = info["step_time"] if "step_time" in info else None
-        worker_idx: int = info["worker_idx"]
-        worker: WorkerRun = info["workers"][worker_idx]
+        action = runner.state.action
+        worker_idx = runner.state.worker_idx
+        worker: WorkerRun = runner.state.workers[worker_idx]
         info_text = f"### {env.step_num}"
         if isinstance(action, float):
             a1 = f"{action:.3f}"
@@ -110,8 +109,6 @@ class Rendering(Callback):
             info_text += f", next {env.next_player_index}"
         if skip_step:
             info_text += "(skip frame)"
-        if step_time is not None:
-            info_text += f" ({step_time:.1f}s)"
         info_text += f"\nenv   {env.info}"
         info_text += f"\nwork{worker_idx: <2d}{worker.info}"
         self.info_text = info_text
@@ -148,9 +145,8 @@ class Rendering(Callback):
                 }
             )
 
-    def _render_worker(self, info):
-        worker_idx: int = info["worker_idx"]
-        worker: WorkerRun = info["workers"][worker_idx]
+    def _render_worker(self, runner: Runner):
+        worker = runner.state.workers[runner.state.worker_idx]
 
         # --- render_terminal
         if self.mode == PlayRenderModes.terminal:

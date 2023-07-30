@@ -4,43 +4,49 @@ import logging
 import os
 import time
 import traceback
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, cast
+from dataclasses import dataclass, field
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
 import srl
-from srl.runner.callback import Callback
-from srl.runner.config import Config
+from srl.base.rl.config import RLConfig
+from srl.runner.callback import Callback, CallbackType, TrainerCallback
+from srl.runner.runner import Runner
 from srl.utils.common import JsonNumpyEncoder, summarize_info_from_dictlist
 
 logger = logging.getLogger(__name__)
 
 """
 save_dir/
-   ├ train_log/
+   ├ log/
    │ ├ actorX.txt
-   │ ├ trainer.txt
-   │ └ system.txt
+   │ └ trainer.txt
    │
    ├ config.json
-   ├ system.json
+   ├ context.json
    └ version.txt
-
 """
 
 
 @dataclass
-class HistoryOnFile(Callback):
-    save_dir: str
-    log_interval: int = 1  # s
+class HistoryOnFile(Callback, TrainerCallback):
+    interval: int = 1  # s
+
+    enable_eval: bool = True
+    eval_env_sharing: bool = False
+    eval_episode: int = 10
+    eval_timeout: int = -1
+    eval_max_steps: int = -1
+    eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = field(default_factory=list)
+    eval_shuffle_player: bool = False
+    eval_seed: Optional[int] = None
+    eval_used_device_tf: str = "/CPU"
+    eval_used_device_torch: str = "cpu"
+    eval_callbacks: List[CallbackType] = field(default_factory=list)
 
     def __post_init__(self):
         self.fp_dict: dict[str, Optional[io.TextIOWrapper]] = {}
-
-        if not os.path.isdir(self.save_dir):
-            os.makedirs(self.save_dir, exist_ok=True)
-            logger.info(f"create dirs: {self.save_dir}")
 
     def __del__(self):
         self.close()
@@ -53,60 +59,35 @@ class HistoryOnFile(Callback):
 
     def _write_log(self, fp, d):
         fp.write(json.dumps(d, cls=JsonNumpyEncoder) + "\n")
-        fp.flush()
+        # fp.flush()
 
-    def _init(self, config: Config):
-        # --- create dir
-        self.param_dir = os.path.join(self.save_dir, "params")
-        os.makedirs(self.param_dir, exist_ok=True)
-        logger.info(f"create param_dir: {self.param_dir}")
+    def _init(self, runner: Runner):
+        self.save_dir = runner.context.save_dir
+        if not os.path.isdir(self.save_dir):
+            os.makedirs(self.save_dir, exist_ok=True)
+            logger.info(f"makedirs: {self.save_dir}")
 
-        self.train_log_dir = os.path.join(self.save_dir, "train_log")
-        os.makedirs(self.train_log_dir, exist_ok=True)
-        logger.info(f"create train_log_dir: {self.train_log_dir}")
+        self.log_dir = os.path.join(self.save_dir, "logs")
+        if not os.path.isdir(self.log_dir):
+            os.makedirs(self.log_dir, exist_ok=True)
+            logger.info(f"create log_dir: {self.log_dir}")
 
         # --- ver
-        with open(os.path.join(self.save_dir, "version.txt"), "w", encoding="utf-8") as f:
-            f.write(srl.__version__)
+        path_ver = os.path.join(self.save_dir, "version.txt")
+        if not os.path.isfile(path_ver):
+            with open(path_ver, "w", encoding="utf-8") as f:
+                f.write(srl.__version__)
 
         # --- config
-        with open(os.path.join(self.save_dir, "config.json"), "w", encoding="utf-8") as f:
-            json.dump(config.to_dict(), f, indent=2)
+        path_conf = os.path.join(self.save_dir, "config.json")
+        if not os.path.isfile(path_conf):
+            with open(path_conf, "w", encoding="utf-8") as f:
+                json.dump(runner.config.to_json_dict(), f, indent=2)
 
-        # --- system info
-        if False:
-            info = {}
-            if config.enable_psutil:
-                try:
-                    import psutil
-
-                    info["memory size"] = psutil.virtual_memory().total
-                    info["memory percent"] = psutil.virtual_memory().percent
-                    info["cpu count"] = os.cpu_count()
-                    info["cpu(MHz)"] = [c.max for c in psutil.cpu_freq(percpu=True)]
-                except Exception:
-                    logger.info(traceback.format_exc())
-
-            # GPU(nvidia) の計測をするかどうか
-            if config.enable_nvidia:
-                try:
-                    import pynvml
-
-                    info["nvidia driver version"] = str(pynvml.nvmlSystemGetDriverVersion())
-                    info["gpu"] = []
-                    for i in range(pynvml.nvmlDeviceGetCount()):
-                        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-                        info["gpu"].append(
-                            {
-                                "device": str(pynvml.nvmlDeviceGetName(handle)),
-                                "memory": pynvml.nvmlDeviceGetMemoryInfo(handle).total,
-                            }
-                        )
-                except Exception:
-                    logger.info(traceback.format_exc())
-
-            with open(os.path.join(self.save_dir, "system.json"), "w", encoding="utf-8") as f:
-                json.dump(info, f, indent=2)
+        path_cont = os.path.join(self.save_dir, "context.json")
+        if not os.path.isfile(path_cont):
+            with open(path_cont, "w", encoding="utf-8") as f:
+                json.dump(runner.context.to_json_dict(), f, indent=2)
 
     def _add_info(self, info, prefix, dict_):
         if dict_ is None:
@@ -119,160 +100,198 @@ class HistoryOnFile(Callback):
                 info[k].append(v)
 
     # ---------------------------
-    # trainer
+    # eval
     # ---------------------------
-    def on_trainer_start(self, info):
-        self._init(info["config"])
-        self.fp_dict["trainer"] = open(os.path.join(self.train_log_dir, "trainer.txt"), "w", encoding="utf-8")
-
-        self.history: Dict[str, list] = {"train_time": []}
-        self.t0 = time.time()
-        self.interval_t0 = self.t0
-
-    def on_trainer_end(self, info):
-        self._write_trainer_log(info)
-        self.close()
-
-    def on_trainer_train(self, info):
-        self.history["train_time"].append(info["train_time"])
-        self._add_info(self.history, "trainer", info["train_info"])
-
-        _time = time.time()
-        if _time - self.interval_t0 > self.log_interval:
-            self.interval_t0 = _time
-            self._write_trainer_log(info)
-
-    def _write_trainer_log(self, info):
-        if self.fp_dict["trainer"] is None:
+    def _create_eval_runner(self, runner: Runner):
+        if not self.enable_eval:
             return
-        if len(self.history) == 0:
-            return
+        self.eval_runner = runner.create_eval_runner(self.eval_env_sharing)
 
-        remote_memory = info["remote_memory"]
-        _time = time.time()
-        d = {
-            "index": round((_time - self.t0) / self.log_interval),
-            "time": _time - self.t0,
-            "train": info["train_count"],
-            "train_sync": info["sync"] if "sync" in info else 0,
-            "remote_memory": 0 if remote_memory is None else remote_memory.length(),
-        }
-        d.update(summarize_info_from_dictlist(self.history))
+        # config
+        self.eval_runner.config.players = self.eval_players
+        self.eval_runner.config.seed = self.eval_seed
+        self.eval_runner.context.used_device_tf = self.eval_used_device_tf
+        self.eval_runner.context.used_device_torch = self.eval_used_device_torch
 
-        self._write_log(self.fp_dict["trainer"], d)
-        self.history = {"train_time": []}
+        # context
+        self.eval_runner.context.max_episodes = self.eval_episode
+        self.eval_runner.context.timeout = self.eval_timeout
+        self.eval_runner.context.max_steps = self.eval_max_steps
+        self.eval_runner.context.shuffle_player = self.eval_shuffle_player
+        self.eval_runner.context.callbacks = self.eval_callbacks
+
+    def _eval(self, runner: Runner) -> str:
+        if not self.enable_eval:
+            return ""
+        self.eval_runner._play(runner.parameter, runner.remote_memory)
+        eval_rewards = self.eval_runner.state.episode_rewards_list
+        eval_rewards = np.mean(eval_rewards, axis=0)
+        return eval_rewards
 
     # ---------------------------
     # actor
     # ---------------------------
-    def on_episodes_begin(self, info):
-        self._init(info["config"])
+    def on_episodes_begin(self, runner: Runner):
+        self._init(runner)
 
-        self.player_num = info["env"].player_num
-        self.actor_id = info["config"].actor_id
+        self.actor_id = runner.context.actor_id
 
-        path = os.path.join(self.train_log_dir, f"actor{self.actor_id}.txt")
+        path = os.path.join(self.log_dir, f"actor{self.actor_id}.txt")
         self.fp_dict["actor"] = open(path, "w", encoding="utf-8")
-        if self.actor_id == 0:
-            self.fp_dict["system"] = open(os.path.join(self.train_log_dir, "system.txt"), "w", encoding="utf-8")
-        else:
-            self.fp_dict["system"] = None
 
-        self.last_episode_result = None
         self.t0 = time.time()
         self.interval_t0 = self.t0
+        self.last_episode_result = {}
+        self._create_eval_runner(runner)
 
-    def on_episodes_end(self, info):
-        self._write_actor_log(info)
+    def on_episodes_end(self, runner: Runner):
+        self._write_actor_log(runner)
         self.close()
 
-    def on_episode_begin(self, info):
-        self.step_infos = {}
-        self._add_info(self.step_infos, "env", info["env"].info)
+    def on_episode_begin(self, runner: Runner):
+        self.episode_infos = {}
+        self.t0_episode = time.time()
+        self.step_count = 0
 
-    def on_step_end(self, info):
-        self._add_info(self.step_infos, "env", info["env"].info)
-        self._add_info(self.step_infos, "trainer", info["train_info"])
-        [self._add_info(self.step_infos, f"worker{i}", w.info) for i, w in enumerate(info["workers"])]
+        if runner.state.env is not None:
+            self._add_info(self.episode_infos, "env", runner.state.env.info)
+
+    def on_step_end(self, runner: Runner):
+        self.step_count += 1
+
+        if runner.state.env is not None:
+            self._add_info(self.episode_infos, "env", runner.state.env.info)
+        self._add_info(self.episode_infos, "trainer", runner.state.train_info)
+        [self._add_info(self.episode_infos, f"worker{i}", w.info) for i, w in enumerate(runner.state.workers)]
 
         _time = time.time()
-        if _time - self.interval_t0 > self.log_interval:
+        if _time - self.interval_t0 > self.interval:
             self.interval_t0 = _time
-            self._write_actor_log(info)
-            self._write_system_log(info["config"])
+            self._write_actor_log(runner)
 
-    def on_episode_end(self, info):
-        d = summarize_info_from_dictlist(self.step_infos)
-        d["episode_time"] = info["episode_time"]
-        d["episode_step"] = info["episode_step"]
-        for i, r in enumerate(info["episode_rewards"]):
-            d[f"episode_reward{i}"] = r
-        if info.get("eval_rewards", None) is not None:
-            for i, r in enumerate(info["eval_rewards"]):
-                d[f"eval_reward{i}"] = r
+    def on_episode_end(self, runner: Runner):
+        d = {
+            "episode": runner.state.episode_count,
+            "episode_time": time.time() - self.t0_episode,
+            "episode_step": self.step_count,
+        }
+        if runner.state.env is not None:
+            for i, r in enumerate(runner.state.env.episode_rewards):
+                d[f"reward{i}"] = r
+
+        d.update(summarize_info_from_dictlist(self.episode_infos))
+
         self.last_episode_result = d
 
-    def _write_actor_log(self, info):
+    def _write_actor_log(self, runner: Runner):
         if self.fp_dict["actor"] is None:
             return
         if self.last_episode_result is None:
             return
 
-        remote_memory = info["remote_memory"]
-        trainer = info["trainer"]
-
         d = self.last_episode_result
         _time = time.time()
-        d["index"] = round((_time - self.t0) / self.log_interval)
+        d["name"] = f"actor{runner.context.actor_id}"
         d["time"] = _time - self.t0
-        d["episode"] = info["episode_count"]
-        d["sync"] = info["sync"] if "sync" in info else 0
+        d["sync"] = runner.state.sync_actor
+        trainer = runner.state.trainer
         if trainer is not None:
-            d["remote_memory"] = 0 if remote_memory is None else remote_memory.length()
             d["train"] = trainer.get_train_count()
+            remote_memory = runner.state.remote_memory
+            d["remote_memory"] = 0 if remote_memory is None else remote_memory.length()
+            if runner.state.train_info is not None:
+                for k, v in runner.state.train_info.items():
+                    d[f"trainer_{k}"] = v
+
+        if self.enable_eval:
+            eval_rewards = self._eval(runner)
+            for i, r in enumerate(eval_rewards):
+                d[f"eval_reward{i}"] = r
+
+        d.update(self._read_stats(runner))
 
         self._write_log(self.fp_dict["actor"], d)
         self.last_episode_result = None
 
-    def _write_system_log(self, config: Config):
-        if self.fp_dict["system"] is None:
-            return
+    def _read_stats(self, runner: Runner):
+        if not runner.config.enable_stats:
+            return {}
+
+        d = {}
+
+        if runner.context.used_psutil:
+            try:
+                memory_percent, cpu_percent = runner.read_psutil()
+                d["memory"] = memory_percent
+                d["cpu"] = cpu_percent
+            except Exception:
+                logger.debug(traceback.format_exc())
+
+        if runner.context.used_nvidia:
+            try:
+                gpus = runner.read_nvml()
+                # device_id, rate.gpu, rate.memory
+                for device_id, gpu, memory in gpus:
+                    d[f"gpu{device_id}"] = gpu
+                    d[f"gpu{device_id}_memory"] = memory
+            except Exception:
+                logger.debug(traceback.format_exc())
+
+        return d
+
+    # ---------------------------
+    # trainer
+    # ---------------------------
+    def on_trainer_start(self, runner: Runner):
+        self._init(runner)
+        self.fp_dict["trainer"] = open(os.path.join(self.log_dir, "trainer.txt"), "w", encoding="utf-8")
+
+        self.t0 = time.time()
+        self.t0_train = time.time()
+        self.t0_train_count = 0
+        self.interval_t0 = time.time()
+        self.train_infos = {}
+
+    def on_trainer_end(self, runner: Runner):
+        self._write_trainer_log(runner)
+        self.close()
+
+    def on_trainer_train(self, runner: Runner):
+        assert runner.state.trainer is not None
+        self._add_info(self.train_infos, "trainer", runner.state.train_info)
 
         _time = time.time()
-        d: Dict[str, Any] = {
-            "index": round((_time - self.t0) / self.log_interval),
-            "time": _time - self.t0,
+        if _time - self.interval_t0 > self.interval:
+            self._write_trainer_log(runner)
+            self.interval_t0 = _time
+
+    def _write_trainer_log(self, runner: Runner):
+        if self.fp_dict["trainer"] is None:
+            return
+        if self.train_infos == {}:
+            return
+        assert runner.state.trainer is not None
+
+        train_count = runner.state.trainer.get_train_count()
+        if train_count - self.t0_train_count > 0:
+            train_time = (time.time() - self.t0_train) / (train_count - self.t0_train_count)
+        else:
+            train_time = np.inf
+        d = {
+            "name": "trainer",
+            "time": time.time() - self.t0,
+            "train": train_count,
+            "train_time": train_time,
+            "sync": runner.state.sync_trainer,
         }
-        if config.enable_psutil:
-            try:
-                import psutil
+        remote_memory = runner.state.remote_memory
+        d["remote_memory"] = 0 if remote_memory is None else remote_memory.length()
 
-                d["memory"] = psutil.virtual_memory().percent
-                cpus = cast(List[float], psutil.cpu_percent(percpu=True))
-                for i, cpu in enumerate(cpus):
-                    d[f"cpu_{i}"] = cpu
-                d["cpu"] = np.mean(cpus)
-            except Exception:
-                logger.debug(traceback.format_exc())
+        d.update(summarize_info_from_dictlist(self.train_infos))
+        # d.update(self._read_stats(runner))
 
-        if config.enable_nvidia:
-            try:
-                import pynvml
+        self._write_log(self.fp_dict["trainer"], d)
 
-                gpu_num = pynvml.nvmlDeviceGetCount()
-                if gpu_num > 0:
-                    gpu = 0
-                    gpu_memory = 0
-                    for i in range(gpu_num):
-                        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-                        rate = pynvml.nvmlDeviceGetUtilizationRates(handle)
-                        d[f"gpu_{i}"] = rate.gpu
-                        d[f"gpu_{i}_memory"] = rate.memory
-                        gpu += float(rate.gpu)
-                        gpu_memory += float(rate.memory)
-                    d["gpu"] = gpu / gpu_num
-                    d["gpu_memory"] = gpu_memory / gpu_num
-            except Exception:
-                logger.debug(traceback.format_exc())
-
-        self._write_log(self.fp_dict["system"], d)
+        self.t0_train = time.time()
+        self.t0_train_count = runner.state.trainer.get_train_count()
+        self.train_infos = {}

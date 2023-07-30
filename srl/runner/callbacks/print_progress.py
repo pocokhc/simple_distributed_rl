@@ -1,39 +1,49 @@
-import datetime as dt
+import datetime
 import logging
 import time
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
-from srl.base.env.env_run import EnvRun
-from srl.base.rl.worker_run import WorkerRun
-from srl.runner.callback import Callback
-from srl.runner.config import Config
-from srl.utils.common import listdictdict_to_dictlist, summarize_info_from_dictlist
-from srl.utils.util_str import to_str_from_list_info, to_str_reward, to_str_time
+from srl.base.rl.config import RLConfig
+from srl.runner.callback import Callback, CallbackType, MPCallback, TrainerCallback
+from srl.runner.runner import Runner
+from srl.utils.util_str import to_str_info, to_str_reward, to_str_time
 
 logger = logging.getLogger(__name__)
 
 
 # 進捗に対して表示、少しずつ間隔を長くする(上限あり)
 @dataclass
-class PrintProgress(Callback):
-    interval_max_time: int = 60 * 10  # s
-    print_start_time: int = 5  # s
-    print_env_info: bool = False
-    print_worker_info: bool = True
-    print_train_info: bool = True
-    print_worker: int = 0
-
-    max_actor: int = 5
+class PrintProgress(Callback, MPCallback, TrainerCallback):
+    start_time: int = 1
+    interval_limit: int = 60 * 10
+    progress_env_info: bool = False
+    progress_train_info: bool = True
+    progress_worker_info: bool = True
+    progress_worker: int = 0
+    progress_max_actor: int = 5
+    enable_eval: bool = True
+    eval_env_sharing: bool = False
+    eval_episode: int = 10
+    eval_timeout: int = -1
+    eval_max_steps: int = -1
+    eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = field(default_factory=list)
+    eval_shuffle_player: bool = False
+    eval_seed: Optional[int] = None
+    eval_used_device_tf: str = "/CPU"
+    eval_used_device_torch: str = "cpu"
+    eval_callbacks: List[CallbackType] = field(default_factory=list)
 
     def __post_init__(self):
-        assert self.print_start_time > 0
-        if self.print_start_time > self.interval_max_time:
-            logger.info(f"change start_time: {self.print_start_time}s -> {self.interval_max_time}s")
-            self.print_start_time = self.interval_max_time
-        self.progress_timeout = self.print_start_time
+        assert self.start_time > 0
+        assert self.interval_limit > self.start_time
+        if self.start_time > self.interval_limit:
+            logger.info(f"change start_time: {self.start_time}s -> {self.interval_limit}s")
+            self.start_time = self.interval_limit
+
         self.progress_step_count = 0
         self.progress_episode_count = 0
         self.step_count = 0
@@ -49,174 +59,153 @@ class PrintProgress(Callback):
             return False
         self.progress_t0 = _time
 
-        # 表示間隔を増やす
-        self.progress_timeout *= 2
-        if self.progress_timeout > self.interval_max_time:
-            self.progress_timeout = self.interval_max_time
+        # 表示間隔を増やす、5s以下は5sに、それ以降は２倍
+        if self.progress_timeout < 5:
+            self.progress_timeout = 5
+        else:
+            self.progress_timeout *= 2
+            if self.progress_timeout > self.interval_limit:
+                self.progress_timeout = self.interval_limit
 
         return True
 
-    def on_episodes_begin(self, info):
-        self.config: Config = info["config"]
-
-        if self.config.actor_id >= self.max_actor:
+    def _create_eval_runner(self, runner: Runner):
+        if not self.enable_eval:
             return
+        self.eval_runner = runner.create_eval_runner(self.eval_env_sharing)
 
-        self.enable_psutil = False
-        try:
-            if self.config.enable_psutil:
-                import psutil
+        # config
+        self.eval_runner.config.players = self.eval_players
+        self.eval_runner.config.seed = self.eval_seed
+        # device
+        self.eval_runner.context.used_device_tf = self.eval_used_device_tf
+        self.eval_runner.context.used_device_torch = self.eval_used_device_torch
+        # context
+        self.eval_runner.context.max_episodes = self.eval_episode
+        self.eval_runner.context.timeout = self.eval_timeout
+        self.eval_runner.context.max_steps = self.eval_max_steps
+        self.eval_runner.context.shuffle_player = self.eval_shuffle_player
+        self.eval_runner.context.callbacks = self.eval_callbacks
 
-                self._process = psutil.Process()
-                self.enable_psutil = True
-        except Exception:
-            logger.info(traceback.format_exc())
+    def _eval_str(self, runner: Runner) -> str:
+        if not self.enable_eval:
+            return ""
+        self.eval_runner._play(runner.parameter, runner.remote_memory)
+        eval_rewards = self.eval_runner.state.episode_rewards_list
+        eval_rewards = np.mean(eval_rewards, axis=0)
+        return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
 
-        self.enable_nvidia = self.config.enable_nvidia
+    # -----------------------------------------------------
 
-        if not self.config.distributed:
+    def on_episodes_begin(self, runner: Runner):
+        if runner.context.actor_id >= self.progress_max_actor:
+            return
+        context = runner.context
+        self.progress_timeout = self.start_time
+
+        # 分散の場合はactor_id=0のみevalをする
+        if runner.context.distributed:
+            self.enable_eval = self.enable_eval and (context.actor_id == 0)
+
+        self._create_eval_runner(runner)
+
+        if not context.distributed:
             print(
                 "### env: {}, rl: {}, max episodes: {}, timeout: {}, max steps: {}, max train: {}".format(
-                    self.config.env_config.name,
-                    self.config.rl_config.getName(),
-                    self.config.max_episodes,
-                    to_str_time(self.config.timeout),
-                    self.config.max_steps,
-                    self.config.max_train_count,
+                    runner.config.env_config.name,
+                    runner.config.rl_config.getName(),
+                    context.max_episodes,
+                    to_str_time(context.timeout),
+                    context.max_steps,
+                    context.max_train_count,
                 )
             )
 
         _time = time.time()
-        self.t0 = _time
         self.progress_t0 = _time
         self.progress_history = []
-
-        self.last_episode_count = 0
-        self.last_train_count = 0
-        self.last_memory = 0
 
         self.t0_print_time = _time
         self.t0_step_count = 0
         self.t0_episode_count = 0
-        self.t0_train_count = 0
 
-    def on_episodes_end(self, info):
-        if self.config.actor_id >= self.max_actor:
+    def on_episodes_end(self, runner: Runner):
+        if runner.context.actor_id >= self.progress_max_actor:
             return
+        self._print_actor(runner)
 
-        self.last_episode_count = info["episode_count"]
-        if info["trainer"] is not None:
-            self.last_train_count = info["trainer"].get_train_count()
-        self._print_actor(info["env"], info["workers"][self.print_worker])
-
-    def on_episode_begin(self, info):
-        if self.config.actor_id >= self.max_actor:
+    def on_step_end(self, runner: Runner):
+        if runner.context.actor_id >= self.progress_max_actor:
             return
-        self.history_step = []
-        self.last_episode_count = info["episode_count"]
-
-    def on_step_end(self, info):
-        if self.config.actor_id >= self.max_actor:
-            return
-
-        self.step_count += 1
-        d = {
-            "reward": info["env"].reward,
-            "env_info": info["env"].info,
-            "work_info": info["workers"][self.print_worker].info,
-            "train_info": info["train_info"],
-        }
-        self.history_step.append(d)
-
-        remote_memory = info["remote_memory"]
-        self.last_memory = remote_memory.length() if remote_memory is not None else 0
-
-        trainer = info["trainer"]
-        if trainer is not None:
-            self.last_train_count = trainer.get_train_count()
-
         if self._check_print_progress():
-            self._print_actor(info["env"], info["workers"][self.print_worker])
+            self._print_actor(runner)
 
-    def on_episode_end(self, info):
-        if self.config.actor_id >= self.max_actor:
+    def on_episode_end(self, runner: Runner):
+        if runner.context.actor_id >= self.progress_max_actor:
             return
-        if len(self.history_step) == 0:
-            return
-        player_idx = info["worker_indices"][self.print_worker]
+        env = runner.state.env
+        assert env is not None
 
-        # 1エピソードの結果を平均でまとめる
-        env_info = listdictdict_to_dictlist(self.history_step, "env_info")
-        env_info = summarize_info_from_dictlist(env_info)
-        work_info = listdictdict_to_dictlist(self.history_step, "work_info")
-        work_info = summarize_info_from_dictlist(work_info)
+        # print_workerの報酬を記録する
+        player_idx = runner.state.worker_indices[self.progress_worker]
+        episode_reward = env.episode_rewards[player_idx]
 
         d = {
-            "episode_step": info["episode_step"],
-            "episode_reward": info["episode_rewards"][player_idx],
-            "eval_reward": None if info.get("eval_rewards", None) is None else info["eval_rewards"][self.print_worker],
-            "env_info": env_info,
-            "work_info": work_info,
+            "episode_step": env.step_num,
+            "episode_reward": episode_reward,
         }
-        if "sync" in info:
-            d["sync"] = info["sync"]
-
-        # train info
-        if self.history_step[0]["train_info"] is not None:
-            train_info = listdictdict_to_dictlist(self.history_step, "train_info")
-            d["train_info"] = summarize_info_from_dictlist(train_info)
-
         self.progress_history.append(d)
 
     # -----------------------------------------
 
-    def _print_actor(self, env: EnvRun, worker: WorkerRun):
-        _time = time.time()
-        elapsed_time = _time - self.t0
+    def _print_actor(self, runner: Runner):
+        context = runner.context
+        state = runner.state
+        assert state.env is not None
 
-        # --- head
+        _time = time.time()
+        elapsed_time = _time - state.elapsed_t0
+
         # [TIME] [actor] [elapsed time]
-        s = dt.datetime.now().strftime("%H:%M:%S")
-        if self.config.distributed:
-            s += f" actor{self.config.actor_id:2d}:"
+        s = datetime.datetime.now().strftime("%H:%M:%S")
+        if context.distributed:
+            s += f" actor{context.actor_id:2d}:"
         s += f" {to_str_time(elapsed_time)}"
 
-        # [remain]
-        step_time = (
-            (_time - self.t0_print_time) / (self.step_count - self.t0_step_count)
-            if (self.step_count - self.t0_step_count) > 0
-            else np.inf
-        )
-        episode_time = (
-            (_time - self.t0_print_time) / (self.last_episode_count - self.t0_episode_count)
-            if (self.last_episode_count - self.t0_episode_count) > 0
-            else np.inf
-        )
-        train_time = (
-            (_time - self.t0_print_time) / (self.last_train_count - self.t0_train_count)
-            if (self.last_train_count - self.t0_train_count) > 0
-            else np.inf
-        )
+        # calc time
+        diff_step = state.total_step - self.t0_step_count
+        if diff_step > 0:
+            step_time = (_time - self.t0_print_time) / diff_step
+        else:
+            step_time = np.inf
+        diff_episode = state.episode_count - self.t0_episode_count
+        if diff_episode:
+            episode_time = (_time - self.t0_print_time) / diff_episode
+        else:
+            episode_time = np.inf
+
         self.t0_print_time = _time
-        self.t0_step_count = self.step_count
-        self.t0_episode_count = self.last_episode_count
-        self.t0_train_count = self.last_train_count
-        if (self.config.max_steps > 0) and (self.step_count > 0):
-            remain_step = (self.config.max_steps - self.step_count) * step_time
+        self.t0_step_count = state.total_step
+        self.t0_episode_count = state.episode_count
+
+        # [remain]
+        if (context.max_steps > 0) and (state.total_step > 0):
+            remain_step = (context.max_steps - state.total_step) * step_time
         else:
             remain_step = np.inf
-        if (self.config.max_episodes > 0) and (self.last_episode_count > 0):
-            remain_episode = (self.config.max_episodes - self.last_episode_count) * episode_time
+        if (context.max_episodes > 0) and (state.episode_count > 0):
+            remain_episode = (context.max_episodes - state.episode_count) * episode_time
         else:
             remain_episode = np.inf
-        if self.config.timeout > 0:
-            remain_time = self.config.timeout - elapsed_time
+        if context.timeout > 0:
+            remain_time = context.timeout - elapsed_time
         else:
             remain_time = np.inf
-        if (self.config.max_train_count > 0) and (self.last_train_count > 0):
-            remain_train = (self.config.max_train_count - self.last_train_count) * train_time
-        else:
-            remain_train = np.inf
+        remain_train = np.inf
+        if state.trainer is not None:
+            train_count = state.trainer.get_train_count()
+            if (context.max_train_count > 0) and (train_count > 0):
+                remain_train = (context.max_train_count - train_count) * step_time
         remain = min(min(min(remain_step, remain_episode), remain_time), remain_train)
         if remain == np.inf:
             s += "(     - left)"
@@ -224,14 +213,16 @@ class PrintProgress(Callback):
             s += f"({to_str_time(remain)} left)"
 
         # [all step] [all episode] [train]
-        s += f" {self.step_count:5d}st({self.last_episode_count:5d}ep)"
-        if self.config.training and not self.config.distributed:
-            s += " {:5d}tr".format(self.last_train_count)
+        s += f" {state.total_step:7d}st({state.episode_count:6d}ep)"
+        if state.trainer is not None:
+            s += " {:5d}tr".format(state.trainer.get_train_count())
 
-        reward_type = env.reward_info.get("type", float)
-        info_types = worker.config.info_types
-        if len(self.progress_history) == 0:
-            if len(self.history_step) == 0:
+        # [sync]
+        if context.distributed:
+            s += f", {state.sync_actor:2d}recv"
+
+        if diff_episode == 0:
+            if diff_step == 0:
                 # ---------------------------
                 # no info
                 # ---------------------------
@@ -241,215 +232,157 @@ class PrintProgress(Callback):
                 # steps info
                 # ---------------------------
                 # [episode step] [step time]
-                s += f", {len(self.history_step):5d} step"
+                s += f", {diff_step:5d} step"
                 s += f", {step_time:.5f}s/step"
 
                 # [reward]
-                r = sum([d["reward"] for d in self.history_step])
-                s += f", {to_str_reward(r, reward_type)}"
+                s += f", {state.env.episode_rewards}"
 
-                # [train time]
-                if self.config.training and not self.config.distributed:
-                    s += f", {train_time:.5f}s/tr"
-
-                # [memory_system]
-                s += self._memory_system_str(self.last_memory)
-
-                # [info]
-                if self.print_env_info:
-                    s += to_str_from_list_info([d.get("env_info", {}) for d in self.history_step], info_types)
-                if self.print_worker_info:
-                    s += to_str_from_list_info([d.get("work_info", {}) for d in self.history_step], info_types)
-                if self.print_train_info:
-                    s += to_str_from_list_info([d.get("train_info", {}) for d in self.history_step], info_types)
         else:
             # ---------------------------
             # episode info
             # ---------------------------
             # [reward]
             _r = [h["episode_reward"] for h in self.progress_history]
-            _r_min = to_str_reward(min(_r), reward_type)
-            _r_mid = to_str_reward(np.mean(_r), float)
-            _r_max = to_str_reward(max(_r), reward_type)
+            _r_min = to_str_reward(min(_r))
+            _r_mid = to_str_reward(float(np.mean(_r)), check_skip=True)
+            _r_max = to_str_reward(max(_r))
             s += f",{_r_min} {_r_mid} {_r_max} re"
 
             # [eval reward]
-            s += self._eval_reward_str(self.progress_history)
+            if context.actor_id == 0:
+                s += self._eval_str(runner)
+            elif context.distributed:
+                s += " " * 12
 
-            # [episode step] [episode time]
+            # [mean episode step] [episode time]
             _s = [h["episode_step"] for h in self.progress_history]
             s += f", {int(np.mean(_s)):3d}step"
             s += f", {episode_time:.2f}s/ep"
 
-            # [train time]
-            if self.config.training and not self.config.distributed:
-                s += f", {train_time:.3f}s/tr"
+        # [memory]
+        if state.remote_memory is not None:
+            s += f", {state.remote_memory.length()}mem"
 
-            # [sync]
-            if "sync" in self.progress_history[0]:
-                sync = max([h["sync"] for h in self.progress_history])
-                s += f", {sync:2d}recv"
+        # [system]
+        s += self._stats_str(runner)
 
-            # [memory_system]
-            s += self._memory_system_str(self.last_memory)
-
-            # [info]
-            if self.print_env_info:
-                s += to_str_from_list_info([d.get("env_info", {}) for d in self.progress_history], info_types)
-            if self.print_worker_info:
-                s += to_str_from_list_info([d.get("work_info", {}) for d in self.progress_history], info_types)
-            if self.print_train_info:
-                s += to_str_from_list_info([d.get("train_info", {}) for d in self.progress_history], info_types)
+        # [info] , 速度優先して一番最新の状態をそのまま表示
+        env_types = state.env.info_types
+        rl_types = runner.config.rl_config.info_types
+        if self.progress_env_info:
+            s += to_str_info(state.env.info, env_types)
+        if self.progress_worker_info:
+            s += to_str_info(state.workers[self.progress_worker].info, rl_types)
+        if self.progress_train_info:
+            s += to_str_info(state.train_info, rl_types)
 
         print(s)
         self.progress_history = []
 
-    def _eval_reward_str(self, arr) -> str:
-        if arr is None or len(arr) == 0:
-            if self.config.distributed:
-                return " " * 12
-            else:
-                return ""
-        _rewards = [h["eval_reward"] for h in arr if h["eval_reward"] is not None]
-        if len(_rewards) > 0:
-            s = f"({to_str_reward(np.mean(_rewards), float)} eval)"
-        elif self.config.distributed:
-            s = " " * 12
-        else:
-            s = ""
-        return s
+    def _stats_str(self, runner: Runner) -> str:
+        if not runner.config.enable_stats:
+            return ""
 
-    def _memory_system_str(self, memory_len) -> str:
-        # , 1234567mem,CPU100% M100%,GPU0 100% M100%
+        # ,CPU100% M100%,GPU0 100% M100%
         s = ""
-        if self.config.actor_id != 0:
-            if self.enable_psutil:
+        if runner.context.actor_id == 0:
+            if runner.context.used_psutil:
                 try:
-                    import psutil
-
-                    cpu_percent = self._process.cpu_percent(None) / psutil.cpu_count()
-                    s += f"[CPU{cpu_percent:3.0f}%]"
-
-                except Exception:
-                    logger.debug(traceback.format_exc())
-                    s += "[CPU Nan%]"
-
-        else:
-            s = f", {memory_len}mem"
-
-            if self.enable_psutil:
-                try:
-                    import psutil
-
-                    # CPU,memory
-                    memory_percent = psutil.virtual_memory().percent
-                    cpu_percent = self._process.cpu_percent(None) / psutil.cpu_count()
+                    memory_percent, cpu_percent = runner.read_psutil()
                     s += f"[CPU{cpu_percent:3.0f}%,M{memory_percent:2.0f}%]"
-
                 except Exception:
                     logger.debug(traceback.format_exc())
                     s += "[CPU Nan%]"
 
-            if self.enable_nvidia:
+            if runner.context.used_nvidia:
                 try:
-                    import pynvml
-
-                    gpu_num = pynvml.nvmlDeviceGetCount()
-                    gpus = []
-                    for device_id in range(gpu_num):
-                        handle = pynvml.nvmlDeviceGetHandleByIndex(device_id)
-                        rate = pynvml.nvmlDeviceGetUtilizationRates(handle)
-                        gpus.append(f"[GPU{device_id} {rate.gpu:2.0f}%,M{rate.memory:2.0f}%]")
-                    s += "".join(gpus)
-
+                    gpus = runner.read_nvml()
+                    # device_id, rate.gpu, rate.memory
+                    s += "".join([f"[GPU{g[0]} {g[1]:2.0f}%,M{g[2]:2.0f}%]" for g in gpus])
                 except Exception:
                     logger.debug(traceback.format_exc())
                     s += ",GPU Nan%"
-
+        else:
+            if runner.context.used_psutil:
+                try:
+                    memory_percent, cpu_percent = runner.read_psutil()
+                    s += f"[CPU{cpu_percent:3.0f}%]"
+                except Exception:
+                    logger.debug(traceback.format_exc())
+                    s += "[CPU Nan%]"
         return s
 
     # ----------------------------------
     # trainer
     # ----------------------------------
-    def on_trainer_start(self, info) -> None:
-        self.config: Config = info["config"]
-        remote_memory = info["remote_memory"]
+    def on_trainer_start(self, runner: Runner) -> None:
+        # 分散の場合はevalをしない
+        if runner.context.distributed:
+            self.enable_eval = False
 
-        if not self.config.distributed:
+        self.progress_timeout = self.start_time
+
+        self._create_eval_runner(runner)
+
+        if not runner.context.distributed:
+            assert runner.state.remote_memory is not None
             print(
                 "### max train: {}, timeout: {}, memory len: {}".format(
-                    self.config.max_train_count,
-                    to_str_time(self.config.timeout),
-                    remote_memory.length(),
+                    runner.context.max_train_count,
+                    to_str_time(runner.context.timeout),
+                    runner.state.remote_memory.length(),
                 )
             )
 
-        self.enable_psutil = False
-        try:
-            if self.config.enable_psutil:
-                import psutil
-
-                self._process = psutil.Process()
-                self.enable_psutil = True
-        except Exception:
-            logger.info(traceback.format_exc())
-
-        self.enable_nvidia = self.config.enable_nvidia
-
+        # --- init
         _time = time.time()
-        self.t0 = _time
         self.progress_t0 = _time
         self.progress_history = []
-
-        self.last_train_count = 0
 
         self.t0_train_time = _time
         self.t0_train_count = 0
 
-    def on_trainer_end(self, info) -> None:
-        self.last_train_count: int = info["train_count"]
-        self._print_trainer()
+    def on_trainer_end(self, runner: Runner) -> None:
+        self._print_trainer(runner)
 
-    def on_trainer_train(self, info) -> None:
-        self.last_train_count: int = info["train_count"]
-
-        d = {
-            "train_info": info["train_info"],
-        }
-        if info.get("eval_rewards", None) is not None:
-            d["eval_reward"] = info["eval_rewards"][self.print_worker]
-        if "sync" in info:
-            d["sync"] = info["sync"]
-
-        self.progress_history.append(d)
+    def on_trainer_train(self, runner: Runner) -> None:
         if self._check_print_progress():
-            self._print_trainer()
+            self._print_trainer(runner)
 
-    def _print_trainer(self):
+    def _print_trainer(self, runner: Runner):
+        context = runner.context
+        state = runner.state
+        assert state.trainer is not None
+
         _time = time.time()
-        elapsed_time = _time - self.t0
+        elapsed_time = _time - state.elapsed_t0
 
         # --- head
-        # [TIME] [trainer] [elapsed time] [train count]
-        s = dt.datetime.now().strftime("%H:%M:%S")
-        if self.config.distributed:
+        # [TIME] [trainer] [elapsed time]
+        s = datetime.datetime.now().strftime("%H:%M:%S")
+        if context.distributed:
             s += " trainer:"
         s += f" {to_str_time(elapsed_time)}"
 
-        # [remain]
-        train_time = (
-            (_time - self.t0_train_time) / (self.last_train_count - self.t0_train_count)
-            if (self.last_train_count - self.t0_train_count) > 0
-            else np.inf
-        )
+        # calc time
+        train_count = state.trainer.get_train_count()
+        diff_count = train_count - self.t0_train_count
+        if diff_count > 0:
+            train_time = (_time - self.t0_train_time) / diff_count
+        else:
+            train_time = np.inf
+
         self.t0_train_time = _time
-        self.t0_train_count = self.last_train_count
-        if (self.config.max_train_count > 0) and (self.last_train_count > 0):
-            remain_train = (self.config.max_train_count - self.last_train_count) * train_time
+        self.t0_train_count = train_count
+
+        # [remain]
+        if (context.max_train_count > 0) and (train_count > 0):
+            remain_train = (context.max_train_count - train_count) * train_time
         else:
             remain_train = np.inf
-        if self.config.timeout > 0:
-            remain_time = self.config.timeout - elapsed_time
+        if context.timeout > 0:
+            remain_time = context.timeout - elapsed_time
         else:
             remain_time = np.inf
         remain = min(remain_train, remain_time)
@@ -459,80 +392,29 @@ class PrintProgress(Callback):
             s += f"({to_str_time(remain)} left)"
 
         # [train count]
-        s += " {:6d}tr".format(self.last_train_count)
+        s += " {:6d}tr".format(train_count)
 
-        if len(self.progress_history) == 0:
+        if train_count == 0:
             # --- no info
-            s += "1 train is not over."
+            s += " 1train is not over."
         else:
             # --- train info
-            # [train time] [eval] [sync] [info]
-            s += f", {train_time:.4f}s/tr"
+            # [train time]
+            s += f", {train_time:.3f}s/tr"
+
+            # [sync]
+            if context.distributed:
+                s += f", {state.sync_trainer:2d}send"
 
             # [eval]
-            if "eval_reward" in self.progress_history[0]:
-                eval_rewards = [h["eval_reward"] for h in self.progress_history]
-                if len(eval_rewards) > 0:
-                    s += f", {np.mean(eval_rewards):.3f} eval reward"
-            # [sync]
-            if "sync" in self.progress_history[0]:
-                sync = max([h["sync"] for h in self.progress_history])
-                s += f", {sync:3d} send "
+            s += self._eval_str(runner)
 
             # [system]
-            if self.config.distributed:
-                if self.enable_psutil:
-                    try:
-                        import psutil
+            s += self._stats_str(runner)
 
-                        cpu_percent = self._process.cpu_percent(None) / psutil.cpu_count()
-                        s += f"[CPU{cpu_percent:3.0f}%]"
-
-                    except Exception:
-                        logger.debug(traceback.format_exc())
-                        s += "[CPU Nan%]"
-
-            else:
-                if self.enable_psutil:
-                    try:
-                        import psutil
-
-                        # CPU,memory
-                        memory_percent = psutil.virtual_memory().percent
-                        cpu_percent = self._process.cpu_percent(None) / psutil.cpu_count()
-                        s += f"[CPU{cpu_percent:3.0f}%,M{memory_percent:2.0f}%]"
-
-                    except Exception:
-                        logger.debug(traceback.format_exc())
-                        s += "[CPU Nan%]"
-
-                if self.enable_nvidia:
-                    try:
-                        import pynvml
-
-                        gpu_num = pynvml.nvmlDeviceGetCount()
-                        gpus = []
-                        for device_id in range(gpu_num):
-                            handle = pynvml.nvmlDeviceGetHandleByIndex(device_id)
-                            rate = pynvml.nvmlDeviceGetUtilizationRates(handle)
-                            gpus.append(f"[GPU{device_id} {rate.gpu:2.0f}%,M{rate.memory:2.0f}%]")
-                        s += "".join(gpus)
-
-                    except Exception:
-                        logger.debug(traceback.format_exc())
-                        s += ",GPU Nan%"
-
-            # [train info]
-            if self.print_train_info:
-                d = listdictdict_to_dictlist(self.progress_history, "train_info")
-                d = summarize_info_from_dictlist(d)
-                for k, v in d.items():
-                    if v is None:
-                        s += f"|{k} None"
-                    elif isinstance(v, float):
-                        s += f"|{k} {v:.4f}"
-                    else:
-                        s += f"|{k} {v}"
+            # [info] , 速度優先して一番最新の状態をそのまま表示
+            if self.progress_train_info:
+                s += to_str_info(state.train_info, runner.rl_config.info_types)
 
         print(s)
         self.progress_history = []
@@ -540,14 +422,12 @@ class PrintProgress(Callback):
     # ----------------------------------
     # mp
     # ----------------------------------
-    def on_start(self, info):
-        config = info["config"]
-
+    def on_start(self, runner: Runner):
         print(
             "### env: {}, rl: {}, max train: {}, timeout: {}".format(
-                config.env_config.name,
-                config.rl_config.getName(),
-                config.max_train_count,
-                to_str_time(config.timeout),
+                runner.env_config.name,
+                runner.rl_config.getName(),
+                runner.context.max_train_count,
+                to_str_time(runner.context.timeout),
             )
         )

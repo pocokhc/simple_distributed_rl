@@ -300,7 +300,10 @@ class EnvRun:
     # ------------------------------------
     # No internal state change
     # ------------------------------------
-    # implement properties
+    @property
+    def name(self) -> str:
+        return self.config.name
+
     @property
     def action_space(self) -> SpaceBase:
         return self.env.action_space
@@ -324,6 +327,10 @@ class EnvRun:
     @property
     def reward_info(self) -> dict:
         return self.env.reward_info
+
+    @property
+    def info_types(self) -> dict:
+        return self.env.info_types
 
     # state properties
     @property

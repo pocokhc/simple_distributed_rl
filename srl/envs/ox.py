@@ -54,7 +54,6 @@ class OX(TurnBase2Player):
             "min": -1,
             "max": 1,
             "baseline": (0, 0),
-            "type": int,
         }
 
     @property
@@ -88,9 +87,9 @@ class OX(TurnBase2Player):
         # error action
         if self.field[action] != 0:
             if self._next_player_index == 0:
-                return -1, 0, True
+                return -1, 0.0, True
             else:
-                return 0, -1, True
+                return 0.0, -1.0, True
 
         # update
         if self._next_player_index == 0:
@@ -120,16 +119,16 @@ class OX(TurnBase2Player):
             if field[pos[0]] == field[pos[1]] and field[pos[1]] == field[pos[2]]:
                 if field[pos[0]] == 1:
                     # player1 win
-                    return 1, -1, True
+                    return 1.0, -1.0, True
                 if field[pos[0]] == -1:
                     # player2 win
-                    return -1, 1, True
+                    return -1.0, 1.0, True
 
         # 置く場所がなければdraw
         if sum([1 if v == 0 else 0 for v in field]) == 0:
-            return 0, 0, True
+            return 0.0, 0.0, True
 
-        return 0, 0, False
+        return 0.0, 0.0, False
 
     def get_invalid_actions(self, player_index: int = -1) -> List[int]:
         actions = []

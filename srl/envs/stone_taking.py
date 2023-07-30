@@ -74,14 +74,14 @@ class StoneTaking(TurnBase2Player):
     def _step(self, action):
         self.field -= action
         if self.field > 0:
-            return 0, 0, False
+            return 0.0, 0.0, False
         self.field = 0
 
         # 最後の石を取ったら負け
         if self._next_player_index == 0:
-            return -1, 1, True
+            return -1.0, 1.0, True
         else:
-            return 1, -1, True
+            return 1.0, -1.0, True
 
     def render_terminal(self):
         s = ""

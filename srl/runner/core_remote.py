@@ -12,11 +12,8 @@ import numpy as np
 
 from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.base.rl.registration import make_remote_memory
-from srl.runner import core
 from srl.runner.callback import Callback
 from srl.runner.callbacks.history_viewer import HistoryViewer
-from srl.runner.config import Config
-from srl.runner.core import CheckpointOption, EvalOption, HistoryOption, Options, ProgressOption
 from srl.utils.common import is_enable_tf_device_name
 
 logger = logging.getLogger(__name__)

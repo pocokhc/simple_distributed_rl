@@ -3,15 +3,13 @@ from typing import List, Optional, Tuple, Union, cast
 import numpy as np
 
 import srl
-from srl import runner
 from srl.base.env.config import EnvConfig
-from srl.base.rl.base import RLParameter, RLRemoteMemory
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.config import DummyConfig, RLConfig
 from srl.envs import grid, ox
 from srl.rl.functions.common import to_str_observation
-from srl.runner import Config
-from srl.runner.callbacks.history_viewer import HistoryViewer
-from srl.utils.common import is_available_video_device, is_packages_installed
+from srl.runner.runner import Runner
+from srl.utils.common import is_available_pygame_video_device, is_packages_installed
 
 BaseLineType = Union[float, List[Union[float, None]]]
 
@@ -30,7 +28,7 @@ class TestRL:
 
         self.rl_config = None
         self.simple_check_kwargs = {}
-        self.baseline = {
+        self.episode_baseline = {
             # (episode, baseline)
             # 1p
             "Grid": (200, 0.65),
@@ -85,14 +83,12 @@ class TestRL:
         ),
         use_layer_processor: bool = False,
         check_render: bool = True,
-        enable_gpu: bool = False,
     ):
         env_list = env_list.copy()
-        train_kwargs_: dict = dict(
-            eval=None,
-            history=None,
-        )
+        train_kwargs_ = {}
         train_kwargs_.update(train_kwargs)
+
+        rl_config.enable_assertion_value = True
 
         for env_config in env_list:
             rl_config2 = rl_config.copy(reset_env_config=True)
@@ -104,27 +100,25 @@ class TestRL:
                 elif env_config.name == "OX":
                     rl_config2.processors.append(ox.LayerProcessor())
 
-            config = runner.Config(env_config, rl_config2)
-            config.device_main = "CPU"
-            config.device_mp_trainer = "CPU"
-            config.device_mp_actors = "CPU"
-            if enable_gpu:
-                config.device_main = "AUTO"
-                config.device_mp_trainer = "GPU"
+            runner = Runner(env_config, rl_config2)
+            runner.set_device(
+                device_main="CPU",
+                device_mp_actors="CPU",
+                device_mp_trainer="CPU",
+            )
 
             if not is_mp:
                 # --- check sequence
                 print(f"--- {env_config.name} sequence check start ---")
-                parameter, _, _ = runner.train(config, **train_kwargs_)
+                runner.train(**train_kwargs_)
 
                 # --- check render
                 if check_render:
-                    runner.render_terminal(config, parameter, max_steps=10)
+                    runner.render_terminal(max_steps=10)
                     if is_packages_installed(["cv2", "PIL", "pygame"]):
-                        if is_available_video_device():
-                            render = runner.render_window(config, parameter, max_steps=10, render_interval=1)
-                        render = runner.animation(config, parameter, max_steps=10)
-                        render.create_anime()
+                        if is_available_pygame_video_device():
+                            runner.render_window(max_steps=10, render_interval=1)
+                        runner.animation_save_gif("_tmp.gif", max_steps=10)
 
                 # --- check raw
                 print(f"--- {env_config.name} raw check start ---")
@@ -132,15 +126,8 @@ class TestRL:
 
             else:
                 print(f"--- {env_config.name} mp check start ---")
-                config.actor_num = 2
-                parameter, _, _ = runner.train_mp(config, **train_kwargs_)
-
-            runner.evaluate(
-                config,
-                parameter,
-                max_episodes=2,
-                max_steps=10,
-            )
+                runner.train_mp(actor_num=2, **train_kwargs_)
+            runner.evaluate(max_episodes=2, max_steps=10)
 
     def simple_check_raw(
         self,
@@ -150,6 +137,7 @@ class TestRL:
     ):
         env = srl.make_env(env_config)
         rl_config = rl_config.copy(reset_env_config=True)
+        rl_config.enable_assertion_value = True
         rl_config.reset(env)
         rl_config.assert_params()
 
@@ -219,15 +207,13 @@ class TestRL:
         enable_gpu: bool = False,
     ):
         env_list = env_list.copy()
-        train_kwargs_: dict = dict(
-            eval=None,
-            history=None,
-        )
+        train_kwargs_ = {}
         train_kwargs_.update(train_kwargs)
 
         for env_config in env_list:
             env_config = srl.EnvConfig(env_config) if isinstance(env_config, str) else env_config.copy()
             rl_config: RLConfig = DummyConfig(name=name)
+            rl_config.enable_assertion_value = True
 
             if use_layer_processor:
                 if env_config.name == "Grid":
@@ -235,27 +221,30 @@ class TestRL:
                 elif env_config.name == "OX":
                     rl_config.processors.append(ox.LayerProcessor())
 
-            config = runner.Config(env_config, rl_config)
-            config.device_main = "CPU"
-            config.device_mp_trainer = "CPU"
-            config.device_mp_actors = "CPU"
+            runner = Runner(env_config, rl_config)
+            runner.set_device(
+                device_main="CPU",
+                device_mp_actors="CPU",
+                device_mp_trainer="CPU",
+            )
             if enable_gpu:
-                config.device_main = "AUTO"
-                config.device_mp_trainer = "GPU"
+                runner.set_device(
+                    device_main="AUTO",
+                    device_mp_trainer="AUTO",
+                )
 
             if not is_mp:
                 # --- check sequence
                 print(f"--- {env_config.name} sequence check start ---")
-                parameter, _, _ = runner.train(config, **train_kwargs_)
+                runner.train(**train_kwargs_)
 
                 # --- check render
                 if check_render:
-                    runner.render_terminal(config, parameter, max_steps=10)
+                    runner.render_terminal(max_steps=10)
                     if is_packages_installed(["cv2", "PIL", "pygame"]):
-                        if is_available_video_device():
-                            render = runner.render_window(config, parameter, max_steps=10, render_interval=1)
-                        render = runner.animation(config, parameter, max_steps=10)
-                        render.create_anime()
+                        if is_available_pygame_video_device():
+                            runner.render_window(max_steps=10, render_interval=1)
+                        runner.animation_save_gif("_tmp.gif", max_steps=10)
 
                 # --- check raw
                 print(f"--- {env_config.name} raw check start ---")
@@ -263,118 +252,53 @@ class TestRL:
 
             else:
                 print(f"--- {env_config.name} mp check start ---")
-                config.actor_num = 2
-                parameter, _, _ = runner.train_mp(config, **train_kwargs_)
+                runner.train_mp(actor_num=2, **train_kwargs_)
 
-            runner.evaluate(
-                config,
-                parameter,
-                max_episodes=2,
-                max_steps=10,
-            )
+            runner.evaluate(max_episodes=2, max_steps=10)
 
     # ----------------------------------------------
-    def _check_baseline(self, config: Config, baseline: Optional[BaseLineType]) -> BaseLineType:
-        # if baseline is None:
-        #    env = config.make_env()
-        #    baseline = env.reward_info.get("baseline", None)
+    def _check_baseline(
+        self,
+        env: EnvRun,
+        env_name: str,
+        episode: Optional[int],
+        baseline: Optional[BaseLineType],
+    ) -> Tuple[int, BaseLineType]:
         if baseline is None:
-            if config.env_config.name in self.baseline:
-                baseline = self.baseline[config.env_config.name][1]
+            baseline = env.reward_info.get("baseline", None)
+        if baseline is None:
+            if env.name in self.episode_baseline:
+                baseline = self.episode_baseline[env_name][1]
         assert baseline is not None, "Please specify a 'baseline'."
-        return baseline
+        if isinstance(baseline, tuple):
+            baseline = list(baseline)
 
-    def train_eval(
-        self,
-        config: runner.Config,
-        train_count: int = -1,
-        train_steps: int = -1,
-        train_kwargs: dict = {},
-        is_mp=False,
-        eval_episode: Optional[int] = None,
-        eval_kwargs: dict = {},
-        baseline: Optional[BaseLineType] = None,
-        check_restore: bool = True,
-    ) -> Tuple[RLParameter, RLRemoteMemory, HistoryViewer]:
-        baseline = self._check_baseline(config, baseline)
-        env = config.make_env()
-        assert env.player_num == 1, "For two or more players, use 'train' and 'eval'."
+        if episode is None:
+            if env_name in self.episode_baseline:
+                episode = self.episode_baseline[env_name][0]
+        if episode is None:
+            episode = 100
 
-        parameter, memory, history = self.train(
-            config,
-            train_count,
-            train_steps,
-            train_kwargs,
-            is_mp,
-        )
-        self.eval(
-            config,
-            parameter,
-            eval_episode,
-            eval_kwargs,
-            baseline,
-            check_restore,
-        )
-        return parameter, memory, history
-
-    def train(
-        self,
-        config: runner.Config,
-        train_count: int = -1,
-        train_steps: int = -1,
-        train_kwargs: dict = {},
-        is_mp=False,
-    ) -> Tuple[RLParameter, RLRemoteMemory, HistoryViewer]:
-        assert train_count != -1 or train_steps != -1, "Please specify 'train_count' or 'train_steps'."
-        config = config.copy(env_share=False)
-
-        _train_kwargs = dict(
-            eval=None,
-            history=None,
-            max_train_count=train_count,
-            max_steps=train_steps,
-            enable_profiling=False,
-        )
-        _train_kwargs.update(train_kwargs)
-        if is_mp:
-            parameter, memory, history = runner.train_mp(config, **_train_kwargs)
-        else:
-            parameter, memory, history = runner.train(config, **_train_kwargs)
-
-        return parameter, memory, history
+        return episode, baseline
 
     def eval(
         self,
-        config: runner.Config,
-        parameter: RLParameter,
+        runner: Runner,
         episode: Optional[int] = None,
         eval_kwargs: dict = {},
         baseline: Optional[BaseLineType] = None,
         check_restore: bool = True,
     ) -> Union[List[float], List[List[float]]]:  # single play , multi play
-        config = config.copy(env_share=False)
-
-        baseline = self._check_baseline(config, baseline)
-
-        if episode is None:
-            if config.env_config.name in self.baseline:
-                episode = self.baseline[config.env_config.name][0]
-        if episode is None:
-            episode = 10
+        env = runner.make_env()
+        episode, baseline = self._check_baseline(env, env.name, episode, baseline)
 
         # --- check restore
         if check_restore:
-            param = config.make_parameter()
-            param.restore(parameter.backup())
-        else:
-            param = parameter
+            parameter = runner.make_parameter()
+            parameter.restore(parameter.backup())
 
         # --- eval
-        _eval_kwargs = dict(
-            max_episodes=episode,
-        )
-        _eval_kwargs.update(eval_kwargs)
-        episode_rewards = runner.evaluate(config, param, **_eval_kwargs)
+        episode_rewards = runner.evaluate(max_episodes=episode, **eval_kwargs)
 
         # --- assert
         if not isinstance(baseline, list):
@@ -394,8 +318,7 @@ class TestRL:
 
     def eval_2player(
         self,
-        config: runner.Config,
-        parameter: RLParameter,
+        runner: Runner,
         episode: Optional[int] = None,
         eval_1p_players=[None, "random"],
         eval_2p_players=["random", None],
@@ -404,24 +327,25 @@ class TestRL:
         check_restore: bool = True,
     ):
         # --- baseline check
-        baseline = self._check_baseline(config, baseline)
+        env = runner.make_env()
+        episode, baseline = self._check_baseline(env, env.name, episode, baseline)
         assert isinstance(baseline, list)
 
-        config.players = eval_1p_players
-        self.eval(config, parameter, episode, eval_kwargs, [baseline[0], None], check_restore)
+        runner.set_players(eval_1p_players)
+        self.eval(runner, episode, eval_kwargs, [baseline[0], None], check_restore)
 
-        config.players = eval_2p_players
-        self.eval(config, parameter, episode, eval_kwargs, [None, baseline[1]], check_restore)
+        runner.set_players(eval_2p_players)
+        self.eval(runner, episode, eval_kwargs, [None, baseline[1]], check_restore)
 
     # ----------------------------------------------------
 
-    def verify_grid_policy(self, rl_config, parameter):
+    def verify_grid_policy(self, runner: Runner):
         from srl.envs.grid import Grid
 
         env = srl.make_env("Grid")
         env_org = cast(Grid, env.get_original_env())
 
-        worker = srl.make_worker(rl_config, env, parameter)
+        worker = srl.make_worker(runner.rl_config, env, runner.parameter)
 
         V, _Q = env_org.calc_action_values()
         Q = {}

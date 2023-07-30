@@ -1,67 +1,42 @@
 import json
 import logging
 import os
-from typing import List, Optional, cast
+from typing import List, Optional
 
+from srl.runner.runner import Runner
 from srl.utils.common import compare_equal_version, is_package_installed, is_packages_installed
 
 logger = logging.getLogger(__name__)
 
 """
-# sequence
 logs = [
     {
-        "index"    : index
+        "name" : trainer, actor0, actor1, ...
         "time" : 学習実行時からの経過時間
-        "train"         : 学習回数
-        "trainer_YYY"   : 学習情報
+
+        # --- episode関係
+        "episode"         : 総エピソード数
+        "episode_step"    : 1エピソードの総step
+        "episode_time"    : 1エピソードのtime
+        "rewardX" : 1エピソードの player の総報酬
+        "eval_rewardX"    : 評価してる場合はその報酬
+        "sync"    : mpの時の同期回数
+        "workerX_YYY"     : 学習情報
+
+        # --- remote_memory
         "remote_memory" : remote_memory に入っているbatch数
-        "actor0_episode"         : 総エピソード数
-        "actor0_episode_step"    : 1エピソードの総step
-        "actor0_episode_time"    : 1エピソードのtime
-        "actor0_episode_rewardX" : 1エピソードの player の総報酬
-        "actor0_eval_rewardX"    : 評価してる場合はその報酬
-        "actor0_workerX_YYY"     : 学習情報
-
-        # --- system関係
-        "memory" : メモリ使用率
-        "cpu"    : CPU使用率
-        "cpu_X"  : CPU使用率の詳細
-        "gpu"       : GPU使用率
-        "gpu_memory": GPUメモリの使用率
-    },
-    ...
-
-# distribute
-logs = [
-    {
-        "index"    : 各ファイルを紐づけるindex
-        "time_trainer" : 学習実行時からの経過時間
-        "time_actorX"  : 学習実行時からの経過時間
-        "time_system"  : 学習実行時からの経過時間
 
         # --- train関係
         "train"         : 学習回数
         "train_time"    : 区間内での学習時間の平均値
-        "train_sync"    : mpの時の同期回数
-        "remote_memory" : remote_memory に入っているbatch数
+        "sync"    : mpの時の同期回数
         "trainer_YYY"   : 学習情報
-
-        # --- actor関係
-        "actorX_episode"         : 総エピソード数
-        "actorX_episode_step"    : 1エピソードの総step
-        "actorX_episode_time"    : 1エピソードのtime
-        "actorX_episode_rewardX" : 1エピソードの player の総報酬
-        "actorX_eval_rewardX"    : 評価してる場合はその報酬
-        "actorX_workerX_YYY"     : 学習情報
-        "actorX_sync"         : mpの時の同期回数
 
         # --- system関係
         "memory" : メモリ使用率
         "cpu"    : CPU使用率
-        "cpu_X"  : CPU使用率の詳細
-        "gpu"       : GPU使用率
-        "gpu_memory": GPUメモリの使用率
+        "gpuX"       : GPU使用率
+        "gpuX_memory": GPUメモリの使用率
     },
     ...
 ]
@@ -71,34 +46,17 @@ logs = [
 class HistoryViewer:
     def __init__(self) -> None:
         self.df = None
-        self.log_dir = ""
-        self.train_log_dir = ""
-        self.param_dir = ""
-        self.history_on_memory = None
-
-        # config
-        self.player_num = 1
-        self.actor_num = 1
-        self.distributed = False
 
     # ------------------------------------
     # file
     # ------------------------------------
-    def set_dir(self, log_dir: str):
-        self.log_dir = log_dir
-
-    def load(self, log_dir: str):
-        import glob
-
-        if not os.path.isdir(log_dir):
-            logger.info(f"Log folder is not found.({log_dir})")
+    def load(self, dir_: str):
+        if not os.path.isdir(dir_):
+            logger.info(f"Log folder is not found.({dir_})")
             return
 
-        self.train_log_dir = os.path.join(log_dir, "train_log")
-        self.param_dir = os.path.join(log_dir, "params")
-
         # --- version
-        path = os.path.join(log_dir, "version.txt")
+        path = os.path.join(dir_, "version.txt")
         if os.path.isfile(path):
             with open(path) as f:
                 v = f.read()
@@ -109,88 +67,28 @@ class HistoryViewer:
                 logger.warning(f"log version is different({v} != {srl.__version__})")
 
         # --- config
-        path = os.path.join(log_dir, "config.json")
+        path = os.path.join(dir_, "config.json")
         if os.path.isfile(path):
             with open(path) as f:
-                d = json.load(f)
-            self.player_num = d["env_config"]["player_num"]
-            self.distributed = d["_distributed"]
-            self.actor_num = d.get("actor_num", 1)
+                self.config: dict = json.load(f)
 
-        # --- episode
-        self.episode_files = glob.glob(os.path.join(log_dir, "episode*.txt"))
-        self.episode_cache = {}
+        # --- context
+        path = os.path.join(dir_, "context.json")
+        if os.path.isfile(path):
+            with open(path) as f:
+                self.context: dict = json.load(f)
 
-        # --- load file df
-        import pandas as pd
+        # --- load file
+        self.logs = []
+        for i in range(self.config["actor_num"]):
+            lines = self._load_log_file(os.path.join(dir_, "logs", f"actor{i}.txt"))
+            self.logs.extend(lines)
 
-        if self.distributed:
-            # trainer
-            train_logs = self._load_log_file(os.path.join(self.train_log_dir, "trainer.txt"))
-            if len(train_logs) == 0:
-                return
-            df = pd.DataFrame(train_logs)
-            df.drop_duplicates(subset="index", keep="last", inplace=True)
-            df.rename(columns={"time": "time_trainer"}, inplace=True)
+        lines = self._load_log_file(os.path.join(dir_, "logs", "trainer.txt"))
+        self.logs.extend(lines)
 
-            # actor
-            for i in range(self.actor_num):
-                try:
-                    actor_logs = self._load_log_file(os.path.join(self.train_log_dir, f"actor{i}.txt"))
-                    if len(actor_logs) == 0:
-                        continue
-                    df_actor = pd.DataFrame(actor_logs)
-                    df_actor.drop_duplicates(subset="index", keep="last", inplace=True)
-                    rename = {}
-                    for k in df_actor.columns:
-                        if k in ["index", "time"]:
-                            continue
-                        rename[k] = f"actor{i}_{k}"
-                    df_actor.rename(columns=rename, inplace=True)
-                    df_actor.rename(columns={"time": f"time_actor{i}"}, inplace=True)
-                    if len(df) == 0:
-                        df = df_actor
-                    else:
-                        df = pd.merge(df, df_actor, on="index", how="outer")
-                except Exception:
-                    import traceback
-
-                    logger.info(traceback.format_exc())
-
-        else:
-            # 逐次
-            actor_logs = self._load_log_file(os.path.join(self.train_log_dir, "actor0.txt"))
-            df = pd.DataFrame(actor_logs)
-            rename = {}
-            for k in df.columns:
-                if "trainer_" in k:
-                    continue
-                if k in [
-                    "index",
-                    "time",
-                    "remote_memory",
-                    "sync",
-                    "train",
-                ]:
-                    continue
-                rename[k] = f"actor0_{k}"
-            df.rename(columns=rename, inplace=True)
-            df.drop_duplicates(subset="index", keep="last", inplace=True)
-
-        # system
-        try:
-            system_logs = self._load_log_file(os.path.join(self.train_log_dir, "system.txt"))
-            if len(system_logs) > 0:
-                df_system = pd.DataFrame(system_logs)
-                df_system.rename(columns={"time": "time_system"}, inplace=True)
-                df = pd.merge(df, df_system, on="index", how="outer")
-        except Exception:
-            import traceback
-
-            logger.info(traceback.format_exc())
-
-        self.df = df
-        return df
+        # sort
+        self.logs.sort(key=lambda x: x["time"])
 
     def _load_log_file(self, path: str) -> List[dict]:
         if not os.path.isfile(path):
@@ -210,25 +108,10 @@ class HistoryViewer:
     # ------------------------------------
     # memory
     # ------------------------------------
-    def set_memory(self, config, history_on_memory):
-        from srl.runner import Config
-        from srl.runner.callbacks.history_on_memory import HistoryOnMemory
-
-        config = cast(Config, config)
-        self.player_num = config.env_config.player_num
-        self.actor_num = config.actor_num
-        self.distributed = config.distributed
-
-        self.history_on_memory = cast(HistoryOnMemory, history_on_memory)
-
-    def _load_memory_df(self):
-        if self.history_on_memory is None:
-            return None
-
-        import pandas as pd
-
-        df = pd.DataFrame(self.history_on_memory.logs)
-        return df
+    def set_history_on_memory(self, runner: Runner):
+        self.config: dict = runner.config.to_json_dict()
+        self.context: dict = runner.context.to_json_dict()
+        self.logs = runner._history
 
     # ----------------------------------------
     # train logs
@@ -240,20 +123,14 @@ class HistoryViewer:
         assert is_package_installed("pandas"), "This run requires installation of 'pandas'. (pip install pandas)"
         import pandas as pd
 
-        if self.history_on_memory is not None:
-            self.df = self._load_memory_df()
-        if self.df is None:
-            self.df = self.load(self.log_dir)
-        if self.df is None:
-            return pd.DataFrame()
-        else:
-            return self.df
+        self.df = pd.DataFrame(self.logs)
+        return self.df
 
     def plot(
         self,
-        plot_left: List[str] = ["actor0_episode_reward0", "actor0_eval_reward0"],
-        plot_right: List[str] = [],
-        plot_type: str = "",
+        xlabel: str = "time",
+        ylabel_left: List[str] = ["reward0", "eval_reward0"],
+        ylabel_right: List[str] = [],
         aggregation_num: int = 50,
         left_ymin: Optional[float] = None,
         left_ymax: Optional[float] = None,
@@ -261,13 +138,13 @@ class HistoryViewer:
         right_ymax: Optional[float] = None,
         _no_plot: bool = False,  # for test
     ):
-        plot_left = plot_left[:]
-        plot_right = plot_right[:]
+        ylabel_left = ylabel_left[:]
+        ylabel_right = ylabel_right[:]
 
         assert is_packages_installed(
             ["matplotlib", "pandas"]
         ), "To use plot you need to install the 'matplotlib', 'pandas'. (pip install matplotlib pandas)"
-        assert len(plot_left) > 0
+        assert len(ylabel_left) > 0
 
         import matplotlib.pyplot as plt
 
@@ -276,36 +153,45 @@ class HistoryViewer:
             logger.info("DataFrame length is 0.")
             return
 
-        if plot_type == "":
-            if self.distributed:
-                plot_type = "timeline"
-            else:
-                plot_type = "episode"
+        if xlabel not in df:
+            logger.info(f"'{xlabel}' is not found.")
+            return
 
-        if plot_type == "timeline":
-            x = df["time_trainer"]
-            xlabel = "time"
-        else:
-            df = df.drop_duplicates(subset="actor0_episode")
-            x = df["actor0_episode"]
-            xlabel = "episode"
+        n = 0
+        for column in ylabel_left:
+            if column in df:
+                n += 1
+        for column in ylabel_right:
+            if column in df:
+                n += 1
+        if n == 0:
+            logger.info(f"'{ylabel_left}' '{ylabel_right}' is not found.")
+            return
 
-        if len(df) > aggregation_num * 2:
-            rolling_n = int(len(df) / aggregation_num)
-            xlabel = f"{xlabel} ({rolling_n}mean)"
+        _df = df[[xlabel] + ylabel_left + ylabel_right]
+        _df = _df.dropna()
+        if len(_df) == 0:
+            logger.info("DataFrame length is 0.")
+            return
+
+        if len(_df) > aggregation_num * 2:
+            rolling_n = int(len(_df) / aggregation_num)
+            xlabel_plot = f"{xlabel} ({rolling_n}mean)"
         else:
             rolling_n = 0
+            xlabel_plot = xlabel
 
+        x = _df[xlabel]
         fig, ax1 = plt.subplots()
         color_idx = 0
-        for column in plot_left:
-            if column not in df:
+        for column in ylabel_left:
+            if column not in _df:
                 continue
             if rolling_n > 0:
-                ax1.plot(x, df[column].rolling(rolling_n).mean(), f"C{color_idx}", label=column)
-                ax1.plot(x, df[column], f"C{color_idx}", alpha=0.1)
+                ax1.plot(x, _df[column].rolling(rolling_n).mean(), f"C{color_idx}", label=column)
+                ax1.plot(x, _df[column], f"C{color_idx}", alpha=0.1)
             else:
-                ax1.plot(x, df[column], f"C{color_idx}", label=column)
+                ax1.plot(x, _df[column], f"C{color_idx}", label=column)
             color_idx += 1
         ax1.legend(loc="upper left")
         if left_ymin is not None:
@@ -313,16 +199,16 @@ class HistoryViewer:
         if left_ymax is not None:
             ax1.set_ylim(top=left_ymax)
 
-        if len(plot_right) > 0:
+        if len(ylabel_right) > 0:
             ax2 = ax1.twinx()
-            for column in plot_right:
-                if column not in df:
+            for column in ylabel_right:
+                if column not in _df:
                     continue
                 if rolling_n > 0:
-                    ax2.plot(x, df[column].rolling(rolling_n).mean(), f"C{color_idx}", label=column)
-                    ax2.plot(x, df[column], f"C{color_idx}", alpha=0.1)
+                    ax2.plot(x, _df[column].rolling(rolling_n).mean(), f"C{color_idx}", label=column)
+                    ax2.plot(x, _df[column], f"C{color_idx}", alpha=0.1)
                 else:
-                    ax2.plot(x, df[column], f"C{color_idx}", label=column)
+                    ax2.plot(x, _df[column], f"C{color_idx}", label=column)
                 color_idx += 1
             ax2.legend(loc="upper right")
             if right_ymin is not None:
@@ -330,7 +216,7 @@ class HistoryViewer:
             if right_ymax is not None:
                 ax1.set_ylim(top=right_ymax)
 
-        ax1.set_xlabel(xlabel)
+        ax1.set_xlabel(xlabel_plot)
         plt.grid()
         plt.tight_layout()
         if not _no_plot:

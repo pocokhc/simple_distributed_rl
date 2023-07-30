@@ -345,7 +345,7 @@ def is_available_gpu_torch() -> bool:
     return torch.cuda.is_available()
 
 
-def is_available_video_device() -> bool:
+def is_available_pygame_video_device() -> bool:
     if not is_package_installed("pygame"):
         return False
 

@@ -266,6 +266,7 @@ class GymnasiumWrapper(EnvBase):
             _obs_type, _obs_space = wrapper.observation_space(_obs_type, _obs_space, self.env)
 
         # --- space img
+        self.enable_flatten_observation = False
         if _obs_space is None:
             if config.gym_check_image:
                 if isinstance(self.env.observation_space, gym_spaces.Box) and (
@@ -306,6 +307,8 @@ class GymnasiumWrapper(EnvBase):
         if _act_space is None:
             self.enable_flatten_action = True
             _act_space, _ = gym_space_flatten(self.env.action_space)
+        else:
+            self.enable_flatten_action = False
 
         assert _obs_space is not None
         self._action_space: SpaceBase = _act_space
@@ -390,6 +393,8 @@ class GymnasiumWrapper(EnvBase):
         # flatten
         if self.enable_flatten_observation:
             state = gym_space_flatten_encode(self.env.observation_space, state)
+
+        state = self.observation_space.convert(state)
         return state, info
 
     def step(self, action: EnvActionType) -> Tuple[np.ndarray, List[float], bool, InfoType]:
@@ -414,6 +419,8 @@ class GymnasiumWrapper(EnvBase):
         # flatten
         if self.enable_flatten_observation:
             state = gym_space_flatten_encode(self.env.observation_space, state)
+
+        state = self.observation_space.convert(state)
         return state, [float(reward)], done, info
 
     def backup(self) -> Any:

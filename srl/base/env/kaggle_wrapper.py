@@ -51,7 +51,7 @@ class KaggleWrapper(EnvBase):
         return self.__state, self.__info
 
     def __set_rewards(self, obs):
-        self.__rewards = [0.0 if o.reward is None else o.reward for o in obs]
+        self.__rewards = [0.0 if o.reward is None else float(o.reward) for o in obs]
 
     def __set_player(self, obs):
         # ACTIVEのユーザのみ予想する

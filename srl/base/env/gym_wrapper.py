@@ -419,7 +419,9 @@ class GymWrapper(EnvBase):
         # flatten
         if self.enable_flatten_observation:
             state = gym_space_flatten_encode(self.env.observation_space, state)
-        return state, info  # type: ignore
+
+        state = self.observation_space.convert(state)
+        return state, info
 
     def step(self, action: EnvActionType) -> Tuple[np.ndarray, List[float], bool, InfoType]:
         # wrapper
@@ -447,6 +449,8 @@ class GymWrapper(EnvBase):
         # flatten
         if self.enable_flatten_observation:
             state = gym_space_flatten_encode(self.env.observation_space, state)
+
+        state = self.observation_space.convert(state)
         return state, [float(reward)], done, info
 
     def backup(self) -> Any:

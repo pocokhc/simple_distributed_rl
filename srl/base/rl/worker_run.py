@@ -8,7 +8,6 @@ from srl.base.define import (
     EnvObservationType,
     InfoType,
     InvalidActionsType,
-    InvalidActionType,
     PlayRenderModes,
     RLActionType,
     RLObservationType,
@@ -29,8 +28,9 @@ class WorkerRun:
         env: EnvRun,
         distributed: bool = False,
         actor_id: int = 0,
+        is_reset_logger: bool = True,
     ):
-        worker.config.reset(env)
+        worker.config.reset(env, is_logger=is_reset_logger)
         worker._set_worker_run(self)
 
         self._worker = worker
@@ -139,6 +139,7 @@ class WorkerRun:
     def policy(self) -> EnvActionType:
         if not self._is_reset:
             # 1週目は reset -> policy
+            self._invalid_actions = [self.action_encode(a) for a in self._env.get_invalid_actions(self.player_index)]
             self._state = self.state_encode(self.env.state, self._env, append_recent_state=True)
             self._info = self._worker.on_reset(self)
             self._is_reset = True

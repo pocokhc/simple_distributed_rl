@@ -1,3 +1,6 @@
+import copy
+import dataclasses
+import enum
 import logging
 import pickle
 from abc import ABC, abstractmethod
@@ -10,7 +13,6 @@ from srl.base.define import EnvObservationTypes, RLObservationType, RLTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.rl.processor import Processor
 from srl.base.spaces.box import BoxSpace
-from srl.utils import common
 
 if TYPE_CHECKING:
     from srl.base.rl.algorithms.extend_worker import ExtendWorker
@@ -60,8 +62,9 @@ class RLConfig(ABC):
     enable_assertion_value: bool = False
 
     def __post_init__(self) -> None:
-        self._is_set_env_config = False
+        self._is_reset = False
         self._run_processors: List[Processor] = []
+        self._rl_action_type = self.override_action_type
 
         # The device used by the framework.
         self._used_device_tf: str = "/CPU"
@@ -72,20 +75,24 @@ class RLConfig(ABC):
     def assert_params(self) -> None:
         assert self.window_length > 0
 
-    def get_use_framework(self) -> Optional[str]:
-        if not hasattr(self, "framework"):
-            return None
-        framework = getattr(self, "framework")
-        if framework == "tf":
-            return "tensorflow"
-        if framework == "":
-            if common.is_package_installed("tensorflow"):
-                framework = "tensorflow"
-        if framework == "":
-            if common.is_package_installed("torch"):
-                framework = "torch"
-        assert framework != "", "'tensorflow' or 'torch' could not be found."
-        return framework
+    def to_json_dict(self) -> dict:
+        d = {}
+        for k, v in self.__dict__.items():
+            if k.startswith("_"):
+                continue
+            if v is None or type(v) in [int, float, bool, str]:
+                d[k] = v
+            elif type(v) in [list, dict, tuple]:
+                d[k] = copy.deepcopy(v)
+            elif isinstance(v, bytes):
+                d[k] = str(v)
+            elif issubclass(type(v), enum.Enum):
+                d[k] = v.name
+            elif dataclasses.is_dataclass(v):
+                d[k] = dataclasses.asdict(v)
+            else:
+                d[k] = str(v)
+        return d
 
     # ----------------------------
     # RL config
@@ -135,16 +142,17 @@ class RLConfig(ABC):
     # ----------------------------
     # reset config
     # ----------------------------
-    def reset(self, env: EnvRun) -> None:
-        if self._is_set_env_config:
+    def reset(self, env: EnvRun, is_logger: bool = True) -> None:
+        if self._is_reset:
             return
         self._check_parameter = False
 
-        logger.info(f"--- {self.getName()}")
-        logger.info(f"max_episode_steps     : {env.max_episode_steps}")
-        logger.info(f"player_num            : {env.player_num}")
-        logger.info(f"observation_type(env) : {env.observation_type}")
-        logger.info(f"observation_space(env): {env.observation_space}")
+        if is_logger:
+            logger.info(f"--- {self.getName()}")
+            logger.info(f"max_episode_steps     : {env.max_episode_steps}")
+            logger.info(f"player_num            : {env.player_num}")
+            logger.info(f"observation_type(env) : {env.observation_type}")
+            logger.info(f"observation_space(env): {env.observation_space}")
 
         # env property
         self.env_max_episode_steps = env.max_episode_steps
@@ -161,7 +169,8 @@ class RLConfig(ABC):
         # --- observation_typeの上書き
         if self.override_env_observation_type != EnvObservationTypes.UNKNOWN:
             rl_env_observation_type = self.override_env_observation_type
-            logger.info(f"override observation type: {rl_env_observation_type}")
+            if is_logger:
+                logger.info(f"override observation type: {rl_env_observation_type}")
 
         self._run_processors = []
         if self.enable_state_encode:
@@ -182,8 +191,9 @@ class RLConfig(ABC):
                     env,
                     self,
                 )
-                logger.info(f"processor obs space: {rl_observation_space}")
-                logger.info(f"processor obs type : {rl_env_observation_type}")
+                if is_logger:
+                    logger.info(f"processor obs space: {rl_observation_space}")
+                    logger.info(f"processor obs type : {rl_env_observation_type}")
 
         # --- window_length
         self._one_observation = rl_observation_space
@@ -193,7 +203,8 @@ class RLConfig(ABC):
                 np.min(self._one_observation.low),
                 np.max(self._one_observation.high),
             )
-            logger.info(f"window_length obs space: {rl_observation_space}")
+            if is_logger:
+                logger.info(f"window_length obs space: {rl_observation_space}")
 
         self._rl_observation_space = rl_observation_space
         self._rl_env_observation_type = rl_env_observation_type
@@ -217,7 +228,8 @@ class RLConfig(ABC):
             ]:
                 _f = True
         if _f:
-            logger.warning(f"EnvType and RLType do not match. {rl_env_observation_type} != {rl_obs_type}")
+            if is_logger:
+                logger.warning(f"EnvType and RLType do not match. {rl_env_observation_type} != {rl_obs_type}")
 
         # -----------------------
         #  action type
@@ -259,15 +271,16 @@ class RLConfig(ABC):
         # --- option
         self.set_config_by_env(env)
 
-        self._is_set_env_config = True
-        logger.info(f"action_space(env)       : {self._env_action_space}")
-        logger.info(f"action_type(rl)         : {self._rl_action_type}")
-        logger.info(f"observation_env_type(rl): {self._rl_env_observation_type}")
-        logger.info(f"observation_type(rl)    : {self._rl_observation_type}")
-        logger.info(f"observation_space(rl)   : {self._rl_observation_space}")
+        self._is_reset = True
+        if is_logger:
+            logger.info(f"action_space(env)       : {self._env_action_space}")
+            logger.info(f"action_type(rl)         : {self._rl_action_type}")
+            logger.info(f"observation_env_type(rl): {self._rl_env_observation_type}")
+            logger.info(f"observation_type(rl)    : {self._rl_observation_type}")
+            logger.info(f"observation_space(rl)   : {self._rl_observation_space}")
 
     def __setattr__(self, name, value):
-        if name == "_is_set_env_config":
+        if name == "_is_reset":
             object.__setattr__(self, name, value)
             return
 
@@ -287,7 +300,7 @@ class RLConfig(ABC):
             "enable_action_decode",
             "window_length",
         ]:
-            self._is_set_env_config = False
+            self._is_reset = False
         object.__setattr__(self, name, value)
 
     # ----------------------------
@@ -298,8 +311,8 @@ class RLConfig(ABC):
         return self.getName()
 
     @property
-    def is_set_env_config(self) -> bool:
-        return self._is_set_env_config
+    def is_reset(self) -> bool:
+        return self._is_reset
 
     @property
     def run_processors(self) -> List[Processor]:
@@ -350,14 +363,10 @@ class RLConfig(ABC):
                 logger.warning(f"'{k}' copy fail.({e})")
 
         if reset_env_config:
-            config._is_set_env_config = False
+            config._is_reset = False
         else:
-            config._is_set_env_config = self._is_set_env_config
+            config._is_reset = self._is_reset
         return config
-
-    def set_parameter(self, update_params: dict) -> None:
-        self._check_parameter = True
-        self.__dict__.update(update_params)
 
     def create_dummy_state(self, is_one: bool = False) -> RLObservationType:
         if is_one:

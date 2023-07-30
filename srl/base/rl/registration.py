@@ -23,7 +23,7 @@ def _check_rl_config(
     assert name in _registry, f"{name} is not registered."
 
     if env is None:
-        assert rl_config.is_set_env_config, "Run 'rl_config.reset(env)' first"
+        assert rl_config.is_reset, "Run 'rl_config.reset(env)' first"
     else:
         rl_config.reset(env)
     rl_config.assert_params()
@@ -105,6 +105,7 @@ def make_worker_rulebase(
     update_config_parameter: dict = {},
     distributed: bool = False,
     actor_id: int = 0,
+    is_reset_logger: bool = True,
 ) -> WorkerRun:
     # --- srl内はloadする
     if name == "human":
@@ -121,7 +122,7 @@ def make_worker_rulebase(
 
     assert name in _registry_worker, f"{name} is not registered."
     worker = load_module(_registry_worker[name])(rl_config, None, None)
-    return WorkerRun(worker, env, distributed, actor_id)
+    return WorkerRun(worker, env, distributed, actor_id, is_reset_logger=is_reset_logger)
 
 
 def register(

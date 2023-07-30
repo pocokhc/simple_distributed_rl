@@ -1,32 +1,29 @@
 import logging
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
-from srl.base.rl.memory import IPriorityMemory, IPriorityMemoryConfig
-from srl.rl.memories.config import ReplayMemoryConfig
+from .imemory import IPriorityMemory
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class DemoMemory(IPriorityMemory):
+    main_memory: IPriorityMemory
+    demo_memory: IPriorityMemory
     playing: bool = False
     ratio: float = 1.0 / 256.0  # 混ぜる割合
-    memory: IPriorityMemoryConfig = field(default_factory=lambda: ReplayMemoryConfig())
-    demo_memory: IPriorityMemoryConfig = field(default_factory=lambda: ReplayMemoryConfig())
 
     def __post_init__(self):
-        self._memory = self.memory.create_memory()
-        self._demo_memory = self.demo_memory.create_memory()
-        self._demo_memory.init()
+        self.demo_memory.init()
         self.best_batchs = []
         self.init()
 
     def init(self) -> None:
-        self._memory.init()
+        self.main_memory.init()
         if self.playing:
             self.best_batchs = []
 
@@ -34,12 +31,12 @@ class DemoMemory(IPriorityMemory):
         if self.playing:
             self.best_batchs.append(batch)
         else:
-            self._memory.add(batch, td_error)
+            self.main_memory.add(batch, td_error)
 
     def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         self.demo_batch_size = sum([random.random() < self.ratio for _ in range(batch_size)])
-        if len(self._demo_memory) < self.demo_batch_size:
-            self.demo_batch_size = len(self._demo_memory)
+        if len(self.demo_memory) < self.demo_batch_size:
+            self.demo_batch_size = len(self.demo_memory)
         main_batch_size = batch_size - self.demo_batch_size
 
         # 比率に基づき batch を作成
@@ -47,12 +44,12 @@ class DemoMemory(IPriorityMemory):
         batchs = []
         weights = []
         if self.demo_batch_size > 0:
-            (i, b, w) = self._demo_memory.sample(self.demo_batch_size, step)
+            (i, b, w) = self.demo_memory.sample(self.demo_batch_size, step)
             indices.extend(i)
             batchs.extend(b)
             weights.extend(w)
         if main_batch_size > 0:
-            (i, b, w) = self._memory.sample(main_batch_size, step)
+            (i, b, w) = self.main_memory.sample(main_batch_size, step)
             indices.extend(i)
             batchs.extend(b)
             weights.extend(w)
@@ -64,15 +61,15 @@ class DemoMemory(IPriorityMemory):
         demo_indices = indices[: self.demo_batch_size]
         demo_batchs = batchs[: self.demo_batch_size]
         demo_td_errors = td_errors[: self.demo_batch_size]
-        self._demo_memory.update(demo_indices, demo_batchs, demo_td_errors)
+        self.demo_memory.update(demo_indices, demo_batchs, demo_td_errors)
 
         main_indices = indices[self.demo_batch_size :]
         main_batchs = batchs[self.demo_batch_size :]
         main_td_errors = td_errors[self.demo_batch_size :]
-        self._memory.update(main_indices, main_batchs, main_td_errors)
+        self.main_memory.update(main_indices, main_batchs, main_td_errors)
 
     def __len__(self) -> int:
-        return len(self._demo_memory) + len(self._memory)
+        return len(self.demo_memory) + len(self.main_memory)
 
     def backup(self):
         if self.playing:
@@ -81,12 +78,12 @@ class DemoMemory(IPriorityMemory):
         else:
             return [
                 self.best_batchs,
-                self._memory.backup(),
+                self.main_memory.backup(),
             ]
 
     def restore(self, data):
         # self.best_batchs = data[0]
         for b in data[0]:
-            self._demo_memory.add(b)
+            self.demo_memory.add(b)
         if len(data) == 2:
-            self._memory.restore(data[1])
+            self.main_memory.restore(data[1])

@@ -6,7 +6,7 @@ from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
-from srl.base.rl.memory import IPriorityMemory
+from .imemory import IPriorityMemory
 
 
 def rank_sum(k, a):

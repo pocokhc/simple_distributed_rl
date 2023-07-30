@@ -9,16 +9,16 @@ class R2D3ImageBlock(nn.Module):
     def __init__(
         self,
         in_shape: Tuple[int, ...],
+        filters: int = 16,
         enable_time_distributed_layer: bool = False,
-        **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__()
         self.enable_time_distributed_layer = enable_time_distributed_layer
 
         in_ch = in_shape[-3]
-        self.res1 = _ResBlock(in_ch, 16)
-        self.res2 = _ResBlock(16, 32)
-        self.res3 = _ResBlock(32, 32)
+        self.res1 = _ResBlock(in_ch, filters)
+        self.res2 = _ResBlock(filters, filters * 2)
+        self.res3 = _ResBlock(filters * 2, filters * 2)
         self.relu = nn.ReLU(inplace=True)
 
         # --- out shape
@@ -51,19 +51,19 @@ class R2D3ImageBlock(nn.Module):
 
 
 class _ResBlock(nn.Module):
-    def __init__(self, in_ch, n_filter):
+    def __init__(self, in_ch, filters):
         super().__init__()
 
         self.conv = nn.Conv2d(
             in_channels=in_ch,
-            out_channels=n_filter,
+            out_channels=filters,
             kernel_size=(3, 3),
             stride=(1, 1),
             padding=(1, 1),
         )
         self.pool = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
-        self.res1 = _ResidualBlock(n_filter)
-        self.res2 = _ResidualBlock(n_filter)
+        self.res1 = _ResidualBlock(filters)
+        self.res2 = _ResidualBlock(filters)
 
     def forward(self, x):
         x = self.conv(x)
@@ -74,20 +74,20 @@ class _ResBlock(nn.Module):
 
 
 class _ResidualBlock(nn.Module):
-    def __init__(self, n_filter):
+    def __init__(self, filters):
         super().__init__()
         self.relu1 = nn.ReLU()
         self.conv1 = nn.Conv2d(
-            in_channels=n_filter,
-            out_channels=n_filter,
+            in_channels=filters,
+            out_channels=filters,
             kernel_size=(3, 3),
             stride=(1, 1),
             padding=(1, 1),
         )
         self.relu2 = nn.ReLU()
         self.conv2 = nn.Conv2d(
-            in_channels=n_filter,
-            out_channels=n_filter,
+            in_channels=filters,
+            out_channels=filters,
             kernel_size=(3, 3),
             stride=(1, 1),
             padding=(1, 1),

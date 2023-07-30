@@ -5,9 +5,9 @@ from srl.base.define import RLActionType
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import DummyConfig
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.sequence_memory import SequenceRemoteMemory
 from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
+from srl.rl.memories.sequence_memory import SequenceRemoteMemory
 
 
 @dataclass

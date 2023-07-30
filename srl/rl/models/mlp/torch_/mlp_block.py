@@ -9,9 +9,8 @@ class MLPBlock(nn.Module):
         in_size: int,
         layer_sizes: Tuple[int, ...] = (512,),
         activation="ReLU",
-        **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__()
 
         if isinstance(activation, str):
             activation = getattr(nn, activation)

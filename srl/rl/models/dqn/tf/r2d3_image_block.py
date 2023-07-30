@@ -9,12 +9,12 @@ https://arxiv.org/abs/1909.01387
 
 
 class R2D3ImageBlock(keras.Model):
-    def __init__(self, enable_time_distributed_layer: bool = False, **kwargs):
+    def __init__(self, filters: int = 16, enable_time_distributed_layer: bool = False, **kwargs):
         super().__init__(**kwargs)
 
-        self.res1 = _ResBlock(16, enable_time_distributed_layer)
-        self.res2 = _ResBlock(32, enable_time_distributed_layer)
-        self.res3 = _ResBlock(32, enable_time_distributed_layer)
+        self.res1 = _ResBlock(filters, enable_time_distributed_layer)
+        self.res2 = _ResBlock(filters * 2, enable_time_distributed_layer)
+        self.res3 = _ResBlock(filters * 2, enable_time_distributed_layer)
         self.relu = kl.Activation("relu")
 
     def call(self, x):
@@ -39,13 +39,13 @@ class R2D3ImageBlock(keras.Model):
 
 
 class _ResBlock(keras.Model):
-    def __init__(self, n_filter, enable_time_distributed_layer, **kwargs):
+    def __init__(self, filters, enable_time_distributed_layer, **kwargs):
         super().__init__(**kwargs)
 
-        self.conv = kl.Conv2D(n_filter, (3, 3), strides=(1, 1), padding="same")
+        self.conv = kl.Conv2D(filters, (3, 3), strides=(1, 1), padding="same")
         self.pool = kl.MaxPooling2D((3, 3), strides=(2, 2), padding="same")
-        self.res1 = _ResidualBlock(n_filter, enable_time_distributed_layer)
-        self.res2 = _ResidualBlock(n_filter, enable_time_distributed_layer)
+        self.res1 = _ResidualBlock(filters, enable_time_distributed_layer)
+        self.res2 = _ResidualBlock(filters, enable_time_distributed_layer)
 
         if enable_time_distributed_layer:
             self.conv = kl.TimeDistributed(self.conv)

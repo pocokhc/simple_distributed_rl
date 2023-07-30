@@ -9,12 +9,11 @@ class DQNImageBlock(nn.Module):
     def __init__(
         self,
         in_shape: Tuple[int, ...],
-        filter: int = 32,
+        filters: int = 32,
         activation="ReLU",
         enable_time_distributed_layer: bool = False,
-        **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__()
         self.enable_time_distributed_layer = enable_time_distributed_layer
 
         if isinstance(activation, str):
@@ -30,7 +29,7 @@ class DQNImageBlock(nn.Module):
             [
                 nn.Conv2d(
                     in_ch,
-                    filter,
+                    filters,
                     kernel_size=8,
                     stride=4,
                     padding=3,
@@ -38,8 +37,8 @@ class DQNImageBlock(nn.Module):
                 ),
                 activation(inplace=True),
                 nn.Conv2d(
-                    filter,
-                    filter * 2,
+                    filters,
+                    filters * 2,
                     kernel_size=4,
                     stride=2,
                     padding=2,
@@ -47,8 +46,8 @@ class DQNImageBlock(nn.Module):
                 ),
                 activation(inplace=True),
                 nn.Conv2d(
-                    filter * 2,
-                    filter * 2,
+                    filters * 2,
+                    filters * 2,
                     kernel_size=3,
                     stride=1,
                     padding=1,

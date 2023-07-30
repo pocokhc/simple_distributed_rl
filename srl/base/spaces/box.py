@@ -37,7 +37,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
         return self.low + r * (self.high - self.low)
 
     def convert(self, val: Any) -> np.ndarray:
-        return np.clip(val, self._low, self._high, dtype=np.float32)
+        return np.clip(val, self._low, self._high).astype(np.float32)
 
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, np.ndarray):

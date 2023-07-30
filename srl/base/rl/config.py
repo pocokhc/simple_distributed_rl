@@ -104,6 +104,10 @@ class RLConfig(ABC):
     def base_observation_type(self) -> RLTypes:
         raise NotImplementedError()
 
+    @abstractmethod
+    def get_use_framework(self) -> str:
+        raise NotImplementedError()
+
     def set_config_by_env(self, env: EnvRun) -> None:
         pass  # NotImplemented
 
@@ -388,6 +392,9 @@ class DummyConfig(RLConfig):
     @property
     def base_observation_type(self) -> RLTypes:
         return RLTypes.ANY
+
+    def get_use_framework(self) -> str:
+        return ""
 
     def getName(self) -> str:
         return self.name

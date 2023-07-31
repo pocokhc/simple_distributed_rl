@@ -1,3 +1,4 @@
-from srl import runner
+import srl
 
-runner.play_terminal("Grid")
+runner = srl.Runner("Grid", rl_config=None)
+runner.play_terminal()

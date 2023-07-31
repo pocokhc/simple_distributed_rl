@@ -3,12 +3,7 @@ import os
 import matplotlib.pyplot as plt
 
 import srl
-from srl import runner
 from srl.algorithms import r2d2
-
-# --- env & algorithm load
-import gym  # isort: skip # noqa F401
-from srl.rl import memories  # isort: skip
 
 
 def main():
@@ -16,45 +11,40 @@ def main():
     rl_configs = []
 
     # ハイパーパラメータ
-    r2d2_base = dict(
+    r2d2_base = r2d2.Config(
         lstm_units=64,
         hidden_layer_sizes=(64,),
         enable_dueling_network=False,
-        memory=memories.ReplayMemoryConfig(100_000),
         target_model_update_interval=100,
         enable_rescale=False,
         burnin=5,
         sequence_length=5,
         enable_retrace=False,
     )
+    r2d2_base.memory.capacity = 100_000
 
     # no retrace
-    rl_configs.append(("no retrace", r2d2.Config(**r2d2_base)))
+    rl_configs.append(("no retrace", r2d2_base.copy()))
 
     # retrace
-    rl_config = r2d2.Config(**r2d2_base)
-    rl_config.enable_retrace = True
-    rl_configs.append(("retrace", rl_config))
+    _c = r2d2_base.copy()
+    _c.enable_retrace = True
+    rl_configs.append(("retrace", _c))
 
     # train
     results = []
     for name, rl_config in rl_configs:
         print(name)
-        config = runner.Config(env_config, rl_config)
-        _, _, history = runner.train(
-            config,
-            max_episodes=50,
-            history=runner.HistoryOption(),
-            eval=runner.EvalOption(),
-        )
-        results.append((name, history))
+        runner = srl.Runner(env_config, rl_config)
+        runner.set_history()
+        runner.train(max_episodes=50)
+        results.append((name, runner.get_history().get_df()))
 
     # plot
     plt.figure(figsize=(8, 4))
     plt.xlabel("episode")
     plt.ylabel("reward")
-    for name, h in results:
-        df = h.get_df()
+    for name, df in results:
         plt.plot(df["actor0_episode"], df["actor0_eval_reward0"].rolling(10).mean(), label=name)
     plt.grid()
     plt.legend()

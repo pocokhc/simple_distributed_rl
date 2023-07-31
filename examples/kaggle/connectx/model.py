@@ -4,7 +4,6 @@ from typing import Tuple, cast
 import numpy as np
 
 import srl
-from srl import runner
 from srl.algorithms import dqn
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.algorithms.extend_worker import ExtendWorker
@@ -130,7 +129,7 @@ class MyConnectXWorker(ExtendWorker):
             self.base_worker.render_terminal(worker)
 
 
-def create_config():
+def create_runner():
     env_config = srl.EnvConfig("connectx")
 
     rl_config = dqn.Config()
@@ -139,4 +138,4 @@ def create_config():
     # extend_workerに自作したクラスをいれます
     rl_config.extend_worker = MyConnectXWorker
 
-    return runner.Config(env_config, rl_config)
+    return srl.Runner(env_config, rl_config)

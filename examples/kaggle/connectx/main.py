@@ -6,7 +6,7 @@ https://www.kaggle.com/code/ngfkf1vv5ot6/connectx-alphazero-ab
 
 import os
 
-from model import create_config
+from model import create_runner
 
 # --- ディレクトリがあるかないかで kaggle 環境かローカルかを調べる
 KAGGLE_PATH = "/kaggle_simulations/agent/"
@@ -18,11 +18,11 @@ else:
     path = os.path.join(os.path.dirname(__file__), "parameter.dat")
 
 # --- make
-config = create_config()
-env = config.make_env()
-parameter = config.make_parameter()
-parameter.load(path)
-worker = config.make_worker(parameter)
+runner = create_runner()
+runner.load_parameter(path)
+
+env = runner.make_env()
+worker = runner.make_worker()
 
 
 # --- agent
@@ -44,8 +44,6 @@ if is_local:
 
     import kaggle_environments
     import numpy as np
-
-    config.model_summary()
 
     # kaggleのライブラリで動作するか検証
     kaggle_env = kaggle_environments.make("connectx", debug=True)

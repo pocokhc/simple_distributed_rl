@@ -1,18 +1,15 @@
 import os
+from typing import cast
 
 import numpy as np
 
 import srl
-from srl import runner
-
-# --- env & algorithm load
-from srl.envs import grid  # isort: skip # noqa F401
-from srl.algorithms import planet  # isort: skip
+from srl.algorithms import planet
 
 _parameter_path = os.path.join(os.path.dirname(__file__), "_planet_param.dat")
 
 
-def _create_config():
+def _create_runner():
     rl_config = planet.Config(
         deter_size=50,
         stoch_size=10,
@@ -36,39 +33,36 @@ def _create_config():
     rl_config.parameter_path = _parameter_path
     env_config = srl.EnvConfig("EasyGrid")
     env_config.max_episode_steps = 10
-    return runner.Config(env_config, rl_config), rl_config
+    return srl.Runner(env_config, rl_config)
 
 
 def train():
-    config, rl_config = _create_config()
-    config.model_summary()
+    runner = _create_runner()
+    rl_config = cast(planet.Config, runner.rl_config)
+
+    runner.model_summary()
 
     # train
-    _, memory, _ = runner.train(
-        config,
-        max_episodes=1000,
-        disable_trainer=True,
-    )
+    runner.train(max_episodes=1000, disable_trainer=True)
+
     rl_config.memory_warmup_size = rl_config.batch_size + 1
-    parameter, memory, history = runner.train_only(
-        config,
-        remote_memory=memory,
-        max_train_count=2_000,
-    )
-    parameter.save(_parameter_path)
+    runner.train_only(max_train_count=2_000)
+
+    runner.save(_parameter_path)
 
 
 def evaluate():
-    config, rl_config = _create_config()
-    rewards = runner.evaluate(config, max_episodes=10)
+    runner = _create_runner()
+    rewards = runner.evaluate(max_episodes=10)
     print(rewards)
     print("mean", np.mean(rewards))
 
 
 def animation():
-    config, rl_config = _create_config()
-    render = runner.animation(config)
-    render.create_anime().save(os.path.join(os.path.dirname(__file__), "_planet.gif"))
+    runner = _create_runner()
+
+    path = os.path.join(os.path.dirname(__file__), "_planet.gif")
+    runner.animation_save_gif(path)
 
 
 if __name__ == "__main__":

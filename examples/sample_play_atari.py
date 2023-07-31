@@ -1,16 +1,15 @@
 import pygame
 
 import srl
-from srl import runner
 
-# --- use env load
-# (Run "pip install gym[atari,accept-rom-license] pygame")
-import gym  # isort: skip # noqa F401
-
+# --- Atari env
+# Run "pip install gymnasium pygame" and also see the URL below.
+# https://gymnasium.farama.org/environments/atari/
 env_config = srl.EnvConfig(
     "ALE/Galaxian-v5",
     kwargs=dict(full_action_space=True),
 )
+
 key_bind = {
     "": 0,
     "z": 1,
@@ -31,4 +30,5 @@ key_bind = {
     (pygame.K_DOWN, pygame.K_RIGHT, pygame.K_z): 16,
     (pygame.K_DOWN, pygame.K_LEFT, pygame.K_z): 17,
 }
-runner.play_window(env_config, key_bind=key_bind)
+runner = srl.Runner(env_config, rl_config=None)
+runner.play_window(key_bind=key_bind)

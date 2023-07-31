@@ -3,23 +3,15 @@ import os
 import numpy as np
 
 import srl
-from srl import runner
-from srl.rl.models import alphazero as alphazero_model
-from srl.rl.models import mlp
+from srl.algorithms import alphazero
+from srl.envs import othello
 from srl.utils import common
-
-# --- env & algorithm load
-from srl.envs import othello  # isort: skip # noqa F401
-from srl.algorithms import alphazero  # isort: skip
 
 common.logger_print()
 
 
 def main():
     rl_config = alphazero.Config(
-        input_image_block=alphazero_model.AlphaZeroImageBlockConfig(n_blocks=9, filters=64),
-        value_block=mlp.MLPBlockConfig((128,)),
-        policy_block=mlp.MLPBlockConfig((128,)),
         num_simulations=100,
         sampling_steps=1,
         lr_schedule=[
@@ -29,8 +21,11 @@ def main():
         ],
         batch_size=128,
         memory_warmup_size=500,
-        capacity=100_000,
     )
+    rl_config.memory.capacity = 100_000
+    rl_config.input_image_block.set_alphazero_block(9, 64)
+    rl_config.value_block.set_mlp((128,))
+    rl_config.policy_block.set_mlp((128,))
 
     env_config = srl.EnvConfig("Othello4x4")
 
@@ -40,11 +35,11 @@ def main():
     """
     rl_config.processors = [othello.LayerProcessor()]
 
-    config = runner.Config(env_config, rl_config)
+    runner = srl.Runner(env_config, rl_config)
 
     # --- train
-    config.players = [None, None]
-    parameter, _, _ = runner.train(config, max_episodes=2000)
+    runner.set_players([None, None])  # self play
+    runner.train(max_episodes=2000)
 
     # --- evaluate
     for players in [
@@ -55,18 +50,18 @@ def main():
         ["random", "cpu"],
         ["cpu", "random"],
     ]:
-        config.players = players
-        rewards = runner.evaluate(config, parameter, max_episodes=100)
+        runner.set_players(players)
+        rewards = runner.evaluate(max_episodes=10)
         print(f"Average reward for 100 episodes: {np.mean(rewards, axis=0)}, {players}")
 
     # --- rendering
-    config.players = [None, "cpu"]
-    render = runner.animation(config, parameter)
-    render.create_anime(draw_info=True).save(os.path.join(os.path.dirname(__file__), "_alphazero.gif"))
+    runner.set_players([None, "cpu"])
+    path = os.path.join(os.path.dirname(__file__), "_alphazero.gif")
+    runner.animation_save_gif(path)
 
     # --- 対戦
-    config.players = [None, "human"]
-    runner.render(config, parameter)
+    runner.set_players([None, "human"])
+    runner.render_terminal()
 
 
 if __name__ == "__main__":

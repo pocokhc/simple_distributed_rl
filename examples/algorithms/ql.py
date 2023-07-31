@@ -3,31 +3,27 @@ import os
 import numpy as np
 
 import srl
-from srl import runner
-
-# --- env & algorithm load
-from srl.envs import grid  # isort: skip # noqa F401
-from srl.algorithms import ql  # isort: skip
+from srl.algorithms import ql
 
 
 def main():
     env_config = srl.EnvConfig("Grid")
     rl_config = ql.Config()
+    runner = srl.Runner(env_config, rl_config)
 
     # --- train
-    config = runner.Config(env_config, rl_config)
-    parameter, remote_memory, history = runner.train(config, timeout=10)
+    runner.train(timeout=10)
 
     # --- evaluate
-    rewards = runner.evaluate(config, parameter, max_episodes=100)
+    rewards = runner.evaluate(max_episodes=100)
     print(f"Average reward for 100 episodes: {np.mean(rewards)}")
 
     # --- render
-    runner.render_terminal(config, parameter)
+    runner.render_terminal()
 
     # --- animation
-    render = runner.animation(config, parameter)
-    render.create_anime().save(os.path.join(os.path.dirname(__file__), "_ql.gif"))
+    path = os.path.join(os.path.dirname(__file__), "_ql.gif")
+    runner.animation_save_gif(path)
 
 
 if __name__ == "__main__":

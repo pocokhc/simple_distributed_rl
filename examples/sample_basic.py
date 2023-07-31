@@ -1,19 +1,16 @@
-from srl import runner
-
-# --- env & algorithm load
-from srl.envs import grid  # isort: skip # noqa F401
-from srl.algorithms import ql  # isort: skip
+import srl
+from srl.algorithms import ql  # algorithm load
 
 
 def main():
-    # create config
-    config = runner.Config("Grid", ql.Config())
+    # create Runner
+    runner = srl.Runner("Grid", ql.Config())
 
     # train
-    parameter, _, _ = runner.train(config, timeout=20)
+    runner.train(timeout=10)
 
     # evaluate
-    rewards = runner.evaluate(config, parameter, max_episodes=10)
+    rewards = runner.evaluate()
     print(f"evaluate episodes: {rewards}")
 
 

@@ -11,8 +11,8 @@ from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.sequence_memory import SequenceRemoteMemory
 from srl.rl.functions.common import render_discrete_action, to_str_observation
+from srl.rl.memories.sequence_memory import SequenceRemoteMemory
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,9 @@ class Config(RLConfig):
     @property
     def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
+
+    def get_use_framework(self) -> str:
+        return ""
 
     def getName(self) -> str:
         return "Dyna-Q"
@@ -272,7 +275,7 @@ class Worker(DiscreteActionWorker):
             q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)]
             self.action = np.random.choice(np.where(q == np.max(q))[0])
 
-        return self.action, {}
+        return int(self.action), {}
 
     def call_on_step(
         self,

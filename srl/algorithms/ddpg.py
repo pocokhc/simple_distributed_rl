@@ -9,12 +9,11 @@ from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.continuous_action import ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
-from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory import ExperienceReplayBuffer
-from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
-from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
+from srl.rl.models.image_block import ImageBlockConfig
+from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
 
@@ -40,11 +39,11 @@ TD3
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, ExperienceReplayBufferConfig):
     # model
-    image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
-    policy_hidden_block: IMLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
-    q_hidden_block: IMLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
+    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
+    policy_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    q_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     discount: float = 0.9  # 割引率
     lr: float = 0.005  # 学習率
@@ -52,7 +51,6 @@ class Config(RLConfig):
     hard_target_update_interval: int = 100
 
     batch_size: int = 32
-    capacity: int = 100_000
     memory_warmup_size: int = 1000
 
     noise_stdev: float = 0.2  # ノイズ用の標準偏差
@@ -77,12 +75,15 @@ class Config(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
+    def get_use_framework(self) -> str:
+        return "tensorflow"
+
     def getName(self) -> str:
         return "DDPG"
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size < self.capacity
+        assert self.memory_warmup_size < self.memory.capacity
         assert self.batch_size < self.memory_warmup_size
 
 
@@ -99,11 +100,7 @@ register(
 # RemoteMemory
 # ------------------------------------------------------
 class RemoteMemory(ExperienceReplayBuffer):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
-        self.init(self.config.capacity)
+    pass
 
 
 # ------------------------------------------------------
@@ -118,7 +115,7 @@ class _ActorNetwork(keras.Model):
 
         # image
         if self.in_block.use_image_layer:
-            self.image_block = config.image_block_config.create_block_tf()
+            self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=False)
             self.image_flatten = kl.Flatten()
 
         # --- hidden block
@@ -166,7 +163,7 @@ class _CriticNetwork(keras.Model):
 
         # image
         if self.in_block.use_image_layer:
-            self.image_block = config.image_block_config.create_block_tf()
+            self.image_block = config.image_block.create_block_tf(False)
             self.image_flatten = kl.Flatten()
 
         # q1
@@ -401,7 +398,7 @@ class Worker(ContinuousActionWorker):
         # (-1, 1) -> (action range)
         env_action = (self.action + 1) / 2
         env_action = self.config.action_low + env_action * (self.config.action_high - self.config.action_low)
-        return env_action, {}
+        return env_action.tolist(), {}
 
     def call_on_step(
         self,

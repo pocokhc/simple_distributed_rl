@@ -13,13 +13,17 @@ from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory import PriorityExperienceReplay
-from srl.rl.functions.common import (calc_epsilon_greedy_probs,
-                                     create_beta_list, create_discount_list,
-                                     create_epsilon_list, inverse_rescaling,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
-from srl.rl.memories.config import ReplayMemoryConfig
+from srl.rl.functions.common import (
+    calc_epsilon_greedy_probs,
+    create_beta_list,
+    create_discount_list,
+    create_epsilon_list,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
+from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.processors.image_processor import ImageProcessor
 
@@ -222,7 +226,7 @@ def create_input_layer_stateful_lstm(
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, PriorityExperienceReplayConfig):
     # test
     test_epsilon: float = 0
     test_beta: float = 0
@@ -256,7 +260,6 @@ class Config(RLConfig):
     dueling_network_type: str = "average"
 
     # Priority Experience Replay
-    capacity: int = 100_000
     memory_warmup_size: int = 1000
 
     # ucb(160,0.5 or 3600,0.01)
@@ -309,6 +312,9 @@ class Config(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
+    def get_use_framework(self) -> str:
+        return "tensorflow"
+
     def getName(self) -> str:
         return "Agent57_stateful"
 
@@ -316,8 +322,8 @@ class Config(RLConfig):
         super().assert_params()
         assert self.burnin >= 0
         assert self.sequence_length >= 1
-        assert self.memory_warmup_size < self.capacity
-        assert self.batch_size < self.memory_warmup_size
+        assert self.memory_warmup_size <= self.memory.capacity
+        assert self.batch_size <= self.memory_warmup_size
         assert len(self.hidden_layer_sizes) > 0
         assert len(self.episodic_hidden_layer_sizes1) > 0
         assert len(self.episodic_hidden_layer_sizes2) > 0
@@ -337,10 +343,7 @@ register(
 # RemoteMemory
 # ------------------------------------------------------
 class RemoteMemory(PriorityExperienceReplay):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.init(ReplayMemoryConfig(self.config.capacity))
+    pass
 
 
 # ------------------------------------------------------

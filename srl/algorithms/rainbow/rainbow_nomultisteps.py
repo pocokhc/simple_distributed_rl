@@ -148,7 +148,7 @@ class Worker(DiscreteActionWorker):
 
         if not self.distributed:
             td_error = None
-        elif self.config.memory.is_replay_memory():
+        elif not self.config.memory.requires_priority():
             td_error = None
         else:
             if self.q is None:

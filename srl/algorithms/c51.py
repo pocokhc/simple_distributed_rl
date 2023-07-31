@@ -10,13 +10,12 @@ from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
-from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common import render_discrete_action
-from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
-from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
+from srl.rl.models.image_block import ImageBlockConfig
+from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
 
@@ -123,18 +122,17 @@ def create_input_layer(
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, ExperienceReplayBufferConfig):
     epsilon: float = 0.1
     test_epsilon: float = 0
     discount: float = 0.9
     lr: float = 0.001
     batch_size: int = 16
     memory_warmup_size: int = 1000
-    capacity: int = 100_000
 
     # model
-    image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
-    hidden_block: IMLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
+    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
+    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     categorical_num_atoms: int = 51
     categorical_v_min: float = -10
@@ -157,13 +155,16 @@ class Config(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
+    def get_use_framework(self) -> str:
+        return "tensorflow"
+
     def getName(self) -> str:
         return "C51"
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size < self.capacity
-        assert self.batch_size < self.memory_warmup_size
+        assert self.memory_warmup_size <= self.memory.capacity
+        assert self.batch_size <= self.memory_warmup_size
 
 
 register(
@@ -179,11 +180,7 @@ register(
 # RemoteMemory
 # ------------------------------------------------------
 class RemoteMemory(ExperienceReplayBuffer):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
-        self.init(self.config.capacity)
+    pass
 
 
 # ------------------------------------------------------
@@ -198,7 +195,7 @@ class _QNetwork(keras.Model):
 
         # image
         if self.in_block.use_image_layer:
-            self.image_block = config.image_block_config.create_block_tf()
+            self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=False)
             self.image_flatten = kl.Flatten()
 
         # hidden
@@ -422,7 +419,7 @@ class Worker(DiscreteActionWorker):
             action = np.random.choice(np.where(q == q.max())[0])
 
         self.action = action
-        return action, {}
+        return int(action), {}
 
     def call_on_step(
         self,

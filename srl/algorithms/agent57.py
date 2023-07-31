@@ -11,11 +11,8 @@ from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
-from srl.base.rl.memory import IPriorityMemoryConfig
-from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions.common import (
     calc_epsilon_greedy_probs,
     create_beta_list,
@@ -26,9 +23,9 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
-from srl.rl.memories.config import ProportionalMemoryConfig
-from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
-from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
+from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.models.image_block import ImageBlockConfig
+from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
@@ -73,14 +70,14 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, PriorityExperienceReplayConfig):
     # test
     test_epsilon: float = 0
     test_beta: float = 0
 
     # model
     lstm_units: int = 512
-    image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
+    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
 
@@ -108,9 +105,6 @@ class Config(RLConfig):
     enable_dueling_network: bool = True
     dueling_network_type: str = "average"
 
-    # memory
-    memory: IPriorityMemoryConfig = field(default_factory=lambda: ProportionalMemoryConfig())
-
     # ucb(160,0.5 or 3600,0.01)
     actor_num: int = 32
     ucb_window_size: int = 3600  # UCB上限
@@ -127,44 +121,13 @@ class Config(RLConfig):
     episodic_cluster_distance: float = 0.008
     episodic_memory_capacity: int = 30000
     episodic_pseudo_counts: float = 0.1  # 疑似カウント定数
-    episodic_hidden_block1: IMLPBlockConfig = field(
-        default_factory=lambda: MLPBlockConfig(
-            layer_sizes=(32,),
-            # TODO、指定方法が複雑
-            kwargs={
-                "activation": "relu",
-                "kernel_initializer": "he_normal",
-                # "dense_kwargs": {
-                #    "bias_initializer": keras.initializers.constant(0.001),
-                # },
-            },
-        )
-    )
-    episodic_hidden_block2: IMLPBlockConfig = field(
-        default_factory=lambda: MLPBlockConfig(
-            layer_sizes=(128,),
-            kwargs={
-                "activation": "relu",
-                "kernel_initializer": "he_normal",
-            },
-        )
-    )
+    episodic_emb_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    episodic_out_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     # lifelong
     lifelong_lr: float = 0.00001
     lifelong_max: float = 5.0  # L
-    lifelong_hidden_block: IMLPBlockConfig = field(
-        default_factory=lambda: MLPBlockConfig(
-            layer_sizes=(128,),
-            kwargs={
-                "activation": "relu",
-                "kernel_initializer": "he_normal",
-                "dense_kwargs": {
-                    "bias_initializer": "he_normal",
-                },
-            },
-        )
-    )
+    lifelong_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     # UVFA
     input_ext_reward: bool = True
@@ -174,6 +137,18 @@ class Config(RLConfig):
     # other
     disable_int_priority: bool = False  # Not use internal rewards to calculate priority
     dummy_state_val: float = 0.0
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.episodic_emb_block.set_mlp(
+            (32,),
+            activation="relu",
+            kernel_initializer="he_normal",
+            # dense_kwargs={"bias_initializer": keras.initializers.constant(0.001)},
+        )
+        self.episodic_out_block.set_mlp((128,))
+        self.lifelong_hidden_block.set_mlp((128,))
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -192,6 +167,9 @@ class Config(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
+    def get_use_framework(self) -> str:
+        return "tensorflow"
+
     def getName(self) -> str:
         return "Agent57"
 
@@ -199,8 +177,8 @@ class Config(RLConfig):
         super().assert_params()
         assert self.burnin >= 0
         assert self.sequence_length >= 1
-        assert self.memory_warmup_size < self.memory.get_capacity()
-        assert self.batch_size < self.memory_warmup_size
+        assert self.memory_warmup_size <= self.memory.capacity
+        assert self.batch_size <= self.memory_warmup_size
         assert len(self.hidden_layer_sizes) > 0
 
 
@@ -217,10 +195,7 @@ register(
 # RemoteMemory
 # ------------------------------------------------------
 class RemoteMemory(PriorityExperienceReplay):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        super().init(self.config.memory)
+    pass
 
 
 # ------------------------------------------------------
@@ -245,7 +220,7 @@ class _QNetwork(keras.Model):
 
         # image
         if self.use_image_layer:
-            self.image_block = config.image_block_config.create_block_tf(enable_time_distributed_layer=True)
+            self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=True)
             self.image_flatten = kl.TimeDistributed(kl.Flatten())
 
         # --- lstm
@@ -397,40 +372,39 @@ class _EmbeddingNetwork(keras.Model):
 
         # image
         if self.in_block.use_image_layer:
-            self.image_block = config.image_block_config.create_block_tf()
+            self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=False)
             self.image_flatten = kl.Flatten()
 
-        # predict hidden
-        self.hidden_block1 = config.episodic_hidden_block1.create_block_tf()
+        # emb_block
+        self.emb_block = config.episodic_emb_block.create_block_tf()
 
-        # --- action model
-        self.hidden_block2 = config.episodic_hidden_block2.create_block_tf()
-        self.hidden_block2_normalize = kl.LayerNormalization()
-        self.hidden_block2_out = kl.Dense(config.action_num, activation="softmax")
+        # out_block
+        self.out_block = config.episodic_out_block.create_block_tf()
+        self.out_block_normalize = kl.LayerNormalization()
+        self.out_block_out = kl.Dense(config.action_num, activation="softmax")
 
         # build
         self.build((None,) + config.observation_shape)
 
-    def _image_call(self, state, training=False):
+    def _emb_block_call(self, state, training=False):
         x = self.in_block(state, training=training)
         if self.in_block.use_image_layer:
             x = self.image_block(x, training=training)
             x = self.image_flatten(x)
-        x = self.hidden_block1(x, training=training)
-        return x
+        return self.emb_block(x, training=training)
 
     def call(self, x, training=False):
-        x1 = self._image_call(x[0], training=training)
-        x2 = self._image_call(x[1], training=training)
+        x1 = self._emb_block_call(x[0], training=training)
+        x2 = self._emb_block_call(x[1], training=training)
 
         x = tf.concat([x1, x2], axis=1)
-        x = self.hidden_block2(x, training=training)
-        x = self.hidden_block2_normalize(x, training=training)
-        x = self.hidden_block2_out(x, training=training)
+        x = self.out_block(x, training=training)
+        x = self.out_block_normalize(x, training=training)
+        x = self.out_block_out(x, training=training)
         return x
 
     def predict(self, state):
-        return self._image_call(state)
+        return self._emb_block_call(state)
 
     def build(self, input_shape):
         self.__input_shape = input_shape
@@ -441,10 +415,10 @@ class _EmbeddingNetwork(keras.Model):
             self.in_block.init_model_graph()
         if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
             self.image_block.init_model_graph()
-        if hasattr(self.hidden_block1, "init_model_graph"):
-            self.hidden_block1.init_model_graph()
-        if hasattr(self.hidden_block2, "init_model_graph"):
-            self.hidden_block2.init_model_graph()
+        if hasattr(self.emb_block, "init_model_graph"):
+            self.emb_block.init_model_graph()
+        if hasattr(self.out_block, "init_model_graph"):
+            self.out_block.init_model_graph()
 
         x = [
             kl.Input(shape=self.__input_shape[1:]),
@@ -467,7 +441,7 @@ class _LifelongNetwork(keras.Model):
 
         # image
         if self.in_block.use_image_layer:
-            self.image_block = config.image_block_config.create_block_tf()
+            self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=False)
             self.image_flatten = kl.Flatten()
 
         # hidden
@@ -922,9 +896,9 @@ class Worker(DiscreteActionWorker):
         self.recent_invalid_actions.append(invalid_actions)
 
         # TD誤差を計算するか
-        if self.config.memory.is_replay_memory():
+        if not self.distributed:
             self._calc_td_error = False
-        elif not self.distributed:
+        elif not self.config.memory.requires_priority():
             self._calc_td_error = False
         else:
             self._calc_td_error = True

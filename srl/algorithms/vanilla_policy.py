@@ -8,10 +8,10 @@ from srl.base.define import RLActionType, RLTypes
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory import SequenceRemoteMemory
 from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import render_discrete_action, to_str_observation
+from srl.rl.memories.sequence_memory import SequenceRemoteMemory
 
 
 # ------------------------------------------------------
@@ -29,6 +29,9 @@ class Config(RLConfig):
     @property
     def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
+
+    def get_use_framework(self) -> str:
+        return ""
 
     def getName(self) -> str:
         return "VanillaPolicy"

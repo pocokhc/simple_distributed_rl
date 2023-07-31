@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import torch
@@ -20,14 +20,17 @@ class _QNetwork(nn.Module):
 
         self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
         if self.in_block.use_image_layer:
-            self.image_block = config.image_block_config.create_block_torch(self.in_block.out_shape)
+            self.image_block = config.image_block.create_block_torch(
+                self.in_block.out_shape,
+                enable_time_distributed_layer=False,
+            )
             self.flatten = nn.Flatten()
             in_size = self.image_block.out_shape[0] * self.image_block.out_shape[1] * self.image_block.out_shape[2]
         else:
             flat_shape = np.zeros(config.observation_shape).flatten().shape
             in_size = flat_shape[0]
 
-        self.hidden_block = config.hidden_block_config.create_block_torch(in_size)
+        self.hidden_block = config.hidden_block.create_block_torch(in_size)
         self.out_layer = nn.Linear(self.hidden_block.out_shape[0], config.action_num)
 
     def forward(self, x):

@@ -75,6 +75,9 @@ class Config(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
+    def get_use_framework(self) -> str:
+        return "tensorflow"
+
     def getName(self) -> str:
         return "WorldModels"
 

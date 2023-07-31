@@ -9,13 +9,12 @@ from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.continuous_action import ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
-from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory import ExperienceReplayBuffer
 from srl.rl.functions.common_tf import compute_logprob_sgp
-from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
-from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
+from srl.rl.models.image_block import ImageBlockConfig
+from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
 
@@ -43,11 +42,11 @@ SAC
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, ExperienceReplayBufferConfig):
     # model
-    image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
-    policy_hidden_block: IMLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
-    q_hidden_block: IMLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
+    image_block: ImageBlockConfig = field(default_factory=lambda: ImageBlockConfig())
+    policy_hidden_block: MLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
+    q_hidden_block: MLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
 
     discount: float = 0.9  # 割引率
     lr: float = 0.005  # 学習率
@@ -55,7 +54,6 @@ class Config(RLConfig):
     hard_target_update_interval: int = 100
 
     batch_size: int = 32
-    capacity: int = 100_000
     memory_warmup_size: int = 1000
 
     @property
@@ -65,6 +63,9 @@ class Config(RLConfig):
     @property
     def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
+
+    def get_use_framework(self) -> str:
+        return "tensorflow"
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -80,8 +81,8 @@ class Config(RLConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size < self.capacity
-        assert self.batch_size < self.memory_warmup_size
+        assert self.memory_warmup_size <= self.memory.capacity
+        assert self.batch_size <= self.memory_warmup_size
 
 
 register(
@@ -97,11 +98,7 @@ register(
 # RemoteMemory
 # ------------------------------------------------------
 class RemoteMemory(ExperienceReplayBuffer):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
-        self.init(self.config.capacity)
+    pass
 
 
 # ------------------------------------------------------
@@ -457,7 +454,7 @@ class Worker(ContinuousActionWorker):
         self.mean = mean.numpy()[0]  # type:ignore , ignore check "None"
         self.stddev = stddev.numpy()[0]
         self.action = action
-        return env_action, {}
+        return env_action.tolist(), {}
 
     def call_on_step(
         self,

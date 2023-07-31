@@ -11,11 +11,8 @@ from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
-from srl.base.rl.memory import IPriorityMemoryConfig
-from srl.base.rl.model import IAlphaZeroImageBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
 from srl.rl.functions.common import (
     float_category_decode,
     float_category_encode,
@@ -24,10 +21,9 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
-from srl.rl.memories.config import ProportionalMemoryConfig
-from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
-from srl.rl.models.alphazero.muzero_atari_block_config import MuzeroAtariBlockConfig
+from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
 from srl.rl.models.alphazero.tf.alphazero_image_block import AlphaZeroImageBlock
+from srl.rl.models.alphazero_block import AlphaZeroBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.utils.common import compare_less_version
@@ -48,7 +44,7 @@ https://arxiv.org/src/1911.08265v2/anc/pseudocode.py
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, PriorityExperienceReplayConfig):
     num_simulations: int = 20
     batch_size: int = 128
     memory_warmup_size: int = 1000
@@ -83,11 +79,8 @@ class Config(RLConfig):
     c_base: float = 19652
     c_init: float = 1.25
 
-    # memory
-    memory: IPriorityMemoryConfig = field(default_factory=lambda: ProportionalMemoryConfig())
-
     # model
-    input_image_block: IAlphaZeroImageBlockConfig = field(default_factory=lambda: AlphaZeroImageBlockConfig())
+    input_image_block: AlphaZeroBlockConfig = field(init=False, default_factory=lambda: AlphaZeroBlockConfig())
     dynamics_blocks: int = 15
     reward_dense_units: int = 0
     weight_decay: float = 0.0001
@@ -111,7 +104,7 @@ class Config(RLConfig):
             {"step": 500_000, "tau": 0.5},
             {"step": 750_000, "tau": 0.25},
         ]
-        self.input_image_block = MuzeroAtariBlockConfig(base_filters=128)
+        self.input_image_block.set_muzero_atari_block(filters=128)
         self.dynamics_blocks = 15
         self.weight_decay = 0.0001
         self.enable_rescale = True
@@ -133,13 +126,16 @@ class Config(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
+    def get_use_framework(self) -> str:
+        return "tensorflow"
+
     def getName(self) -> str:
         return "MuZero"
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size < self.memory.get_capacity()
-        assert self.batch_size < self.memory_warmup_size
+        assert self.memory_warmup_size <= self.memory.capacity
+        assert self.batch_size <= self.memory_warmup_size
         assert self.policy_tau_schedule[0]["step"] == 0
         for tau in self.policy_tau_schedule:
             assert tau["tau"] >= 0
@@ -162,8 +158,6 @@ register(
 class RemoteMemory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        super().init(self.config.memory)
 
         self.q_min = np.inf
         self.q_max = -np.inf

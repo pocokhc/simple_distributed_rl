@@ -5,7 +5,7 @@ import logging
 import pickle
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Type
 
 import numpy as np
 
@@ -350,7 +350,7 @@ class RLConfig(ABC):
     def env_observation_type(self) -> EnvObservationTypes:
         return self._rl_env_observation_type
 
-    def copy(self, reset_env_config: bool = False) -> "RLConfig":
+    def copy(self, reset_env_config: bool = False) -> Any:
         config = self.__class__()
         config._check_parameter = False
 

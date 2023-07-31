@@ -59,7 +59,7 @@ class HistoryOnFile(Callback, TrainerCallback):
 
     def _write_log(self, fp, d):
         fp.write(json.dumps(d, cls=JsonNumpyEncoder) + "\n")
-        # fp.flush()
+        fp.flush()
 
     def _init(self, runner: Runner):
         self.save_dir = runner.context.save_dir

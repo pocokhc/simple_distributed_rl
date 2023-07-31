@@ -25,11 +25,11 @@ class _QNetwork(keras.Model):
 
         # image
         if self.in_block.use_image_layer:
-            self.image_block = config.image_block_config.create_block_tf()
+            self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=False)
             self.image_flatten = kl.Flatten()
 
         # hidden
-        self.hidden_block = config.hidden_block_config.create_block_tf()
+        self.hidden_block = config.hidden_block.create_block_tf()
 
         # out layer
         self.out_layer = kl.Dense(

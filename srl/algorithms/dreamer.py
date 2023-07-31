@@ -13,7 +13,7 @@ from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory import ExperienceReplayBuffer
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.utils.common import compare_less_version
 
@@ -30,7 +30,7 @@ ref: https://github.com/danijar/dreamer
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, ExperienceReplayBufferConfig):
     capacity: int = 100_000
     memory_warmup_size: int = 1000
 
@@ -93,6 +93,9 @@ class Config(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
+    def get_use_framework(self) -> str:
+        return "tensorflow"
+
     def getName(self) -> str:
         return "Dreamer"
 
@@ -115,11 +118,7 @@ register(
 # RemoteMemory
 # ------------------------------------------------------
 class RemoteMemory(ExperienceReplayBuffer):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
-        self.init(self.config.capacity)
+    pass
 
 
 # ------------------------------------------------------

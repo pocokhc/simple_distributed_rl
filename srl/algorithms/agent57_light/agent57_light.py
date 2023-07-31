@@ -11,15 +11,13 @@ from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter
 from srl.base.rl.config import RLConfig
-from srl.base.rl.memory import IPriorityMemoryConfig
-from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
-from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions import common
-from srl.rl.memories.config import ProportionalMemoryConfig
-from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
-from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
+from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.models.image_block import ImageBlockConfig
+from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.utils.common import is_package_installed
 
 logger = logging.getLogger(__name__)
 
@@ -59,14 +57,14 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, PriorityExperienceReplayConfig):
     # test
     test_epsilon: float = 0
     test_beta: float = 0
 
     # --- model
     framework: str = ""
-    image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
+    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
     batch_size: int = 64
@@ -85,9 +83,6 @@ class Config(RLConfig):
     enable_dueling_network: bool = True
     dueling_network_type: str = "average"
 
-    # memory
-    memory: IPriorityMemoryConfig = field(default_factory=lambda: ProportionalMemoryConfig())
-
     # ucb(160,0.5 or 3600,0.01)
     actor_num: int = 32
     ucb_window_size: int = 3600  # UCB上限
@@ -104,44 +99,13 @@ class Config(RLConfig):
     episodic_cluster_distance: float = 0.008
     episodic_memory_capacity: int = 30000
     episodic_pseudo_counts: float = 0.1  # 疑似カウント定数
-    episodic_emb_block: IMLPBlockConfig = field(
-        default_factory=lambda: MLPBlockConfig(
-            layer_sizes=(32,),
-            # TODO、指定方法が複雑
-            # kwargs={
-            #    "activation": "relu",
-            #    "kernel_initializer": "he_normal",
-            #    # "dense_kwargs": {
-            #    #    "bias_initializer": keras.initializers.constant(0.001),
-            #    # },
-            # },
-        )
-    )
-    episodic_out_block: IMLPBlockConfig = field(
-        default_factory=lambda: MLPBlockConfig(
-            layer_sizes=(128,),
-            # kwargs={
-            #    "activation": "relu",
-            #    "kernel_initializer": "he_normal",
-            # },
-        )
-    )
+    episodic_emb_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    episodic_out_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     # lifelong
     lifelong_lr: float = 0.00001
     lifelong_max: float = 5.0  # L
-    lifelong_hidden_block: IMLPBlockConfig = field(
-        default_factory=lambda: MLPBlockConfig(
-            layer_sizes=(128,),
-            # kwargs={
-            #    "activation": "relu",
-            #    "kernel_initializer": "he_normal",
-            #    "dense_kwargs": {
-            #        "bias_initializer": "he_normal",
-            #    },
-            # },
-        )
-    )
+    lifelong_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     # UVFA
     input_ext_reward: bool = False
@@ -151,6 +115,18 @@ class Config(RLConfig):
     # other
     disable_int_priority: bool = False  # Not use internal rewards to calculate priority
     dummy_state_val: float = 0.0
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.episodic_emb_block.set_mlp(
+            (32,),
+            activation="relu",
+            kernel_initializer="he_normal",
+            # dense_kwargs={"bias_initializer": keras.initializers.constant(0.001)},
+        )
+        self.episodic_out_block.set_mlp((128,))
+        self.lifelong_hidden_block.set_mlp((128,))
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -169,14 +145,28 @@ class Config(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
+    def get_use_framework(self) -> str:
+        if self.framework == "tf" or self.framework == "tensorflow":
+            return "tensorflow"
+        if self.framework == "torch":
+            return "torch"
+        if is_package_installed("tensorflow"):
+            framework = "tensorflow"
+        elif is_package_installed("torch"):
+            framework = "torch"
+        else:
+            framework = ""
+        assert framework != "", "'tensorflow' or 'torch' could not be found."
+        return framework
+
     def getName(self) -> str:
         framework = self.get_use_framework()
         return f"Agent57_light:{framework}"
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size < self.memory.get_capacity()
-        assert self.batch_size < self.memory_warmup_size
+        assert self.memory_warmup_size <= self.memory.capacity
+        assert self.batch_size <= self.memory_warmup_size
         assert len(self.hidden_layer_sizes) > 0
 
 
@@ -184,10 +174,7 @@ class Config(RLConfig):
 # RemoteMemory
 # ------------------------------------------------------
 class RemoteMemory(PriorityExperienceReplay):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        super().init(self.config.memory)
+    pass
 
 
 # ------------------------------------------------------
@@ -492,7 +479,7 @@ class Worker(DiscreteActionWorker):
 
         if not self.distributed:
             td_error = None
-        elif self.config.memory.is_replay_memory():
+        elif not self.config.memory.requires_priority():
             td_error = None
         else:
             next_invalid_actions_idx = [0 for _ in next_invalid_actions]

@@ -1,7 +1,7 @@
 import json
 import logging
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, List, Tuple
 
 import numpy as np
@@ -10,9 +10,7 @@ from srl.base.define import RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
-from srl.base.rl.memory import IPriorityMemoryConfig
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions.common import (
     calc_epsilon_greedy_probs,
     create_beta_list,
@@ -24,7 +22,7 @@ from srl.rl.functions.common import (
     rescaling,
     to_str_observation,
 )
-from srl.rl.memories.config import ProportionalMemoryConfig
+from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +63,7 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, PriorityExperienceReplayConfig):
     test_epsilon: float = 0.0
     test_beta: float = 0.0
 
@@ -73,7 +71,6 @@ class Config(RLConfig):
     enable_rescale: bool = False
 
     # memory
-    memory: IPriorityMemoryConfig = field(default_factory=lambda: ProportionalMemoryConfig())
     memory_warmup_size: int = 10
 
     # retrace
@@ -114,6 +111,9 @@ class Config(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
 
+    def get_use_framework(self) -> str:
+        return ""
+
     def getName(self) -> str:
         return "QL_Agent57"
 
@@ -121,7 +121,8 @@ class Config(RLConfig):
         super().assert_params()
         assert self.actor_num > 0
         assert self.multisteps >= 1
-        assert self.memory_warmup_size < self.memory.get_capacity()
+        assert self.memory_warmup_size <= self.memory.capacity
+        assert self.batch_size <= self.memory_warmup_size
 
     @property
     def info_types(self) -> dict:
@@ -149,10 +150,7 @@ register(
 # RemoteMemory
 # ------------------------------------------------------
 class RemoteMemory(PriorityExperienceReplay):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        super().init(self.config.memory)
+    pass
 
 
 # ------------------------------------------------------
@@ -502,9 +500,9 @@ class Worker(DiscreteActionWorker):
         }
 
         # priority
-        if self.config.memory.is_replay_memory():
+        if not self.distributed:
             priority = 0
-        elif not self.distributed:
+        elif not self.config.memory.requires_priority():
             priority = 0
         else:
             td_error = self.parameter.calc_td_error(

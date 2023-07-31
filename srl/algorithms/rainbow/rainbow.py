@@ -9,14 +9,12 @@ from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter
 from srl.base.rl.config import RLConfig
-from srl.base.rl.memory import IPriorityMemoryConfig
-from srl.base.rl.model import IImageBlockConfig
 from srl.base.rl.processor import Processor
-from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
-from srl.rl.memories.config import ProportionalMemoryConfig
-from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
+from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.utils import common
 
 """
 ・Paper
@@ -57,7 +55,7 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, PriorityExperienceReplayConfig):
     test_epsilon: float = 0
 
     epsilon: float = 0.1
@@ -71,9 +69,8 @@ class Config(RLConfig):
 
     # --- model
     framework: str = ""
-    image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
+    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
     hidden_layer_sizes: Tuple[int, ...] = (512,)
-    # activation: str = "relu"  TODO
 
     discount: float = 0.99  # 割引率
     lr: float = 0.001  # 学習率
@@ -84,9 +81,6 @@ class Config(RLConfig):
 
     # double dqn
     enable_double_dqn: bool = True
-
-    # memory
-    memory: IPriorityMemoryConfig = field(default_factory=lambda: ProportionalMemoryConfig())
 
     # DuelingNetwork
     enable_dueling_network: bool = True
@@ -102,6 +96,11 @@ class Config(RLConfig):
     # other
     enable_rescale: bool = False
 
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.memory.set_proportional_memory()
+
     def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
         self.epsilon = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
 
@@ -112,9 +111,8 @@ class Config(RLConfig):
         self.final_epsilon = 0.1
         self.exploration_steps = 1_000_000
         # model
-        self.cnn_block = DQNImageBlockConfig()
+        self.image_block.set_dqn_image()
         self.hidden_layer_sizes = (512,)
-        self.activation = "relu"
 
         self.discount = 0.99
         self.lr = 0.0000625
@@ -126,8 +124,8 @@ class Config(RLConfig):
         self.enable_double_dqn = True
 
         # memory
-        self.memory = ProportionalMemoryConfig(
-            capacity=1_000_000,
+        self.memory.capacity = 1_000_000
+        self.memory.set_proportional_memory(
             alpha=0.5,
             beta_initial=0.4,
             beta_steps=1_000_000,
@@ -164,6 +162,20 @@ class Config(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
+    def get_use_framework(self) -> str:
+        if self.framework == "tf" or self.framework == "tensorflow":
+            return "tensorflow"
+        if self.framework == "torch":
+            return "torch"
+        if common.is_package_installed("tensorflow"):
+            framework = "tensorflow"
+        elif common.is_package_installed("torch"):
+            framework = "torch"
+        else:
+            framework = ""
+        assert framework != "", "'tensorflow' or 'torch' could not be found."
+        return framework
+
     def getName(self) -> str:
         framework = self.get_use_framework()
         if self.multisteps == 1:
@@ -173,8 +185,8 @@ class Config(RLConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size < self.memory.get_capacity()
-        assert self.batch_size < self.memory_warmup_size
+        assert self.memory_warmup_size <= self.memory.capacity
+        assert self.batch_size <= self.memory_warmup_size
         assert len(self.hidden_layer_sizes) > 0
         assert self.multisteps > 0
 
@@ -191,10 +203,7 @@ class Config(RLConfig):
 # RemoteMemory
 # ------------------------------------------------------
 class RemoteMemory(PriorityExperienceReplay):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        super().init(self.config.memory)
+    pass
 
 
 # ------------------------------------------------------
@@ -471,7 +480,7 @@ class Worker(DiscreteActionWorker):
         if td_error is None:
             if not self.distributed:
                 td_error = None
-            elif self.config.memory.is_replay_memory():
+            elif not self.config.memory.requires_priority():
                 td_error = None
             else:
                 if self.q is None:

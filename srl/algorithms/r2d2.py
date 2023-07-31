@@ -10,11 +10,8 @@ from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
-from srl.base.rl.memory import IPriorityMemoryConfig
-from srl.base.rl.model import IImageBlockConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory import PriorityExperienceReplay
 from srl.rl.functions.common import (
     calc_epsilon_greedy_probs,
     create_epsilon_list,
@@ -23,8 +20,8 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
-from srl.rl.memories.config import ProportionalMemoryConfig
-from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
+from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
@@ -66,14 +63,14 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, PriorityExperienceReplayConfig):
     test_epsilon: float = 0
     epsilon: float = 0.1
     actor_epsilon: float = 0.4
     actor_alpha: float = 7.0
 
     # model
-    image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
+    image_block_config: ImageBlockConfig = field(default_factory=lambda: ImageBlockConfig())
     lstm_units: int = 512
     hidden_layer_sizes: Tuple[int, ...] = (512,)
     activation: str = "relu"
@@ -102,9 +99,6 @@ class Config(RLConfig):
     enable_dueling_network: bool = True
     dueling_network_type: str = "average"
 
-    # memory
-    memory: IPriorityMemoryConfig = field(default_factory=lambda: ProportionalMemoryConfig())
-
     # other
     dummy_state_val: float = 0.0
 
@@ -131,8 +125,8 @@ class Config(RLConfig):
         self.enable_rescale = True
         self.enable_retrace = False
 
-        self.memory = ProportionalMemoryConfig(
-            capacity=1_000_000,
+        self.memory.capacity = 1_000_000
+        self.memory.set_proportional_memory(
             alpha=0.9,
             beta_initial=0.6,
             beta_steps=1_000_000,
@@ -155,6 +149,9 @@ class Config(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
+    def get_use_framework(self) -> str:
+        return "tensorflow"
+
     def getName(self) -> str:
         return "R2D2"
 
@@ -162,8 +159,8 @@ class Config(RLConfig):
         super().assert_params()
         assert self.burnin >= 0
         assert self.sequence_length >= 1
-        assert self.memory_warmup_size < self.memory.get_capacity()
-        assert self.batch_size < self.memory_warmup_size
+        assert self.memory_warmup_size <= self.memory.capacity
+        assert self.batch_size <= self.memory_warmup_size
         assert len(self.hidden_layer_sizes) > 0
 
 
@@ -180,10 +177,7 @@ register(
 # RemoteMemory
 # ------------------------------------------------------
 class RemoteMemory(PriorityExperienceReplay):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        super().init(self.config.memory)
+    pass
 
 
 # ------------------------------------------------------
@@ -508,9 +502,9 @@ class Worker(DiscreteActionWorker):
         self.recent_invalid_actions.append(invalid_actions)
 
         # TD誤差を計算するか
-        if self.config.memory.is_replay_memory():
+        if not self.distributed:
             self._calc_td_error = False
-        elif not self.distributed:
+        elif not self.config.memory.requires_priority():
             self._calc_td_error = False
         else:
             self._calc_td_error = True

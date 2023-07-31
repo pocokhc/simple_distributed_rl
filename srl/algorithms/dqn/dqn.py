@@ -9,15 +9,13 @@ from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter
 from srl.base.rl.config import RLConfig
-from srl.base.rl.memory import IPriorityMemoryConfig
-from srl.base.rl.model import IImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.processor import Processor
-from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
 from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
-from srl.rl.memories.config import ReplayMemoryConfig
-from srl.rl.models.dqn.dqn_image_block_config import DQNImageBlockConfig
-from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
+from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.models.image_block import ImageBlockConfig
+from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.utils import common
 
 """
 Paper
@@ -49,7 +47,7 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, PriorityExperienceReplayConfig):
     test_epsilon: float = 0
 
     epsilon: float = 0.1
@@ -68,17 +66,14 @@ class Config(RLConfig):
     target_model_update_interval: int = 1000
     enable_reward_clip: bool = False
 
-    # memory
-    memory: IPriorityMemoryConfig = field(default_factory=lambda: ReplayMemoryConfig())
-
     # other
     enable_double_dqn: bool = True
     enable_rescale: bool = False
 
     # --- model
     framework: str = ""
-    image_block_config: IImageBlockConfig = field(default_factory=lambda: DQNImageBlockConfig())
-    hidden_block_config: IMLPBlockConfig = field(default_factory=lambda: MLPBlockConfig(layer_sizes=(512,)))
+    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
+    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
         self.epsilon = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
@@ -86,9 +81,10 @@ class Config(RLConfig):
     # 論文のハイパーパラメーター
     def set_atari_config(self):
         self.batch_size = 32
-        self.memory = ReplayMemoryConfig(1_000_000)
-        self.image_block_config = DQNImageBlockConfig()
-        self.hidden_block_config = MLPBlockConfig(layer_sizes=(512,))
+        self.memory.capacity = 1_000_000
+        self.memory.set_replay_memory()
+        self.image_block.set_dqn_image()
+        self.hidden_block.layer_sizes = (512,)
         self.target_model_update_interval = 10000
         self.discount = 0.99
         self.lr = 0.00025
@@ -119,14 +115,28 @@ class Config(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
+    def get_use_framework(self) -> str:
+        if self.framework == "tf" or self.framework == "tensorflow":
+            return "tensorflow"
+        if self.framework == "torch":
+            return "torch"
+        if common.is_package_installed("tensorflow"):
+            framework = "tensorflow"
+        elif common.is_package_installed("torch"):
+            framework = "torch"
+        else:
+            framework = ""
+        assert framework != "", "'tensorflow' or 'torch' could not be found."
+        return framework
+
     def getName(self) -> str:
         framework = self.get_use_framework()
         return f"DQN:{framework}"
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size < self.memory.get_capacity()
-        assert self.batch_size < self.memory_warmup_size
+        assert self.memory_warmup_size <= self.memory.capacity
+        assert self.batch_size <= self.memory_warmup_size
 
     @property
     def info_types(self) -> dict:
@@ -141,10 +151,7 @@ class Config(RLConfig):
 # RemoteMemory
 # ------------------------------------------------------
 class RemoteMemory(PriorityExperienceReplay):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        super().init(self.config.memory)
+    pass
 
 
 # ------------------------------------------------------
@@ -303,7 +310,7 @@ class Worker(DiscreteActionWorker):
 
         if not self.distributed:
             td_error = None
-        elif self.config.memory.is_replay_memory():
+        elif not self.config.memory.requires_priority():
             td_error = None
         else:
             if self.q is None:

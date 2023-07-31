@@ -14,7 +14,8 @@ from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory import ExperienceReplayBuffer
+from srl.base.rl.worker_run import WorkerRun
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.utils.common import compare_less_version
 
@@ -32,11 +33,10 @@ ref: https://github.com/danijar/dreamer
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, ExperienceReplayBufferConfig):
     lr: float = 0.001
     batch_size: int = 50
     batch_length: int = 50
-    capacity: int = 100_000
     memory_warmup_size: int = 1000
 
     # Model
@@ -84,6 +84,9 @@ class Config(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
+    def get_use_framework(self) -> str:
+        return "tensorflow"
+
     def getName(self) -> str:
         return "PlaNet"
 
@@ -106,11 +109,7 @@ register(
 # RemoteMemory
 # ------------------------------------------------------
 class RemoteMemory(ExperienceReplayBuffer):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
-        self.init(self.config.capacity)
+    pass
 
 
 # ------------------------------------------------------
@@ -756,10 +755,10 @@ class Worker(DiscreteActionWorker):
 
         return {}
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
         pass
 
-    def render_rgb_array(self, env, worker, **kwargs) -> Optional[np.ndarray]:
+    def render_rgb_array(self, worker: WorkerRun, **kwargs) -> Optional[np.ndarray]:
         if self.config.env_observation_type != EnvObservationTypes.COLOR:
             return None
         from srl.utils import pygame_wrapper as pw
@@ -794,13 +793,17 @@ class Worker(DiscreteActionWorker):
         pw.draw_text(self.screen, IMG_W * 2 + PADDING + 10, 10, f"reward: {pred_reward:.4f})", color=(255, 255, 255))
 
         # 横にアクション後の結果を表示
-        for i, a in enumerate(self.get_valid_actions()):
+        invalid_actions = worker.get_invalid_actions()
+        i = -1
+        for a in range(self.config.action_num):
+            if a in invalid_actions:
+                continue
+            i += 1
             if i > _view_action:
                 break
 
-            pw.draw_text(
-                self.screen, (IMG_W + PADDING) * i, 20 + IMG_H, f"action {env.action_to_str(a)}", color=(255, 255, 255)
-            )
+            a_str = worker.env.action_to_str(a)
+            pw.draw_text(self.screen, (IMG_W + PADDING) * i, 20 + IMG_H, f"action {a_str}", color=(255, 255, 255))
 
             action = tf.one_hot([a], self.config.action_num, axis=1)
             deter, prior = self.parameter.dynamics.img_step(self.stoch, self.deter, action)

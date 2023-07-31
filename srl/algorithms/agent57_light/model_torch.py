@@ -28,7 +28,9 @@ class _QNetwork(nn.Module):
         # --- in block
         self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
         if self.in_block.use_image_layer:
-            self.image_block = config.image_block_config.create_block_torch(self.in_block.out_shape)
+            self.image_block = config.image_block.create_block_torch(
+                self.in_block.out_shape, enable_time_distributed_layer=False
+            )
             self.image_flatten = nn.Flatten()
             in_size = self.image_block.out_shape[0] * self.image_block.out_shape[1] * self.image_block.out_shape[2]
         else:
@@ -124,7 +126,10 @@ class _EmbeddingNetwork(nn.Module):
         # --- in block
         self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
         if self.in_block.use_image_layer:
-            self.image_block = config.image_block_config.create_block_torch(self.in_block.out_shape)
+            self.image_block = config.image_block.create_block_torch(
+                self.in_block.out_shape,
+                enable_time_distributed_layer=False,
+            )
             self.image_flatten = nn.Flatten()
             in_size = self.image_block.out_shape[0] * self.image_block.out_shape[1] * self.image_block.out_shape[2]
         else:
@@ -172,7 +177,10 @@ class _LifelongNetwork(nn.Module):
         # --- in block
         self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
         if self.in_block.use_image_layer:
-            self.image_block = config.image_block_config.create_block_torch(self.in_block.out_shape)
+            self.image_block = config.image_block.create_block_torch(
+                self.in_block.out_shape,
+                enable_time_distributed_layer=False,
+            )
             self.image_flatten = nn.Flatten()
             in_size = self.image_block.out_shape[0] * self.image_block.out_shape[1] * self.image_block.out_shape[2]
         else:

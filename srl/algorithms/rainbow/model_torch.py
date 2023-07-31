@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import torch
@@ -13,6 +13,34 @@ from .rainbow import CommonInterfaceParameter, Config, RemoteMemory
 from .rainbow_nomultisteps import calc_target_q
 
 
+class GaussianNoise(nn.Module):
+    """Gaussian noise regularizer.
+
+    Args:
+        sigma (float, optional): relative standard deviation used to generate the
+            noise. Relative means that it will be multiplied by the magnitude of
+            the value your are adding the noise to. This means that sigma can be
+            the same regardless of the scale of the vector.
+        is_relative_detach (bool, optional): whether to detach the variable before
+            computing the scale of the noise. If `False` then the scale of the noise
+            won't be seen as a constant but something to optimize: this will bias the
+            network to generate vectors with smaller values.
+    """
+
+    def __init__(self, sigma=0.1, is_relative_detach=True):
+        super().__init__()
+        self.sigma = sigma
+        self.is_relative_detach = is_relative_detach
+        self.noise = torch.tensor(0).to("cpu")
+
+    def forward(self, x):
+        if self.training and self.sigma != 0:
+            scale = self.sigma * x.detach() if self.is_relative_detach else self.sigma * x
+            sampled_noise = self.noise.repeat(*x.size()).normal_() * scale
+            x = x + sampled_noise
+        return x
+
+
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
@@ -22,28 +50,28 @@ class _QNetwork(nn.Module):
 
         self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
         if self.in_block.use_image_layer:
-            self.image_block = config.image_block_config.create_block_torch(self.in_block.out_shape)
+            self.image_block = config.image_block.create_block_torch(
+                self.in_block.out_shape,
+                enable_time_distributed_layer=False,
+            )
             self.image_flatten = nn.Flatten()
             in_size = self.image_block.out_shape[0] * self.image_block.out_shape[1] * self.image_block.out_shape[2]
         else:
             flat_shape = np.zeros(config.observation_shape).flatten().shape
             in_size = flat_shape[0]
 
-        if config.enable_noisy_dense:
-            raise NotImplementedError("TODO")
-        else:
-            _Dense = nn.Linear
-
         # hidden
         self.hidden_layers = nn.ModuleList()
         if len(config.hidden_layer_sizes) > 1:
             for i in range(len(config.hidden_layer_sizes) - 1):
                 self.hidden_layers.append(
-                    _Dense(
+                    nn.Linear(
                         in_size,
                         config.hidden_layer_sizes[i],
                     )
                 )
+                if config.enable_noisy_dense:
+                    self.hidden_layers.append(GaussianNoise())
                 self.hidden_layers.append(nn.ReLU())
                 in_size = config.hidden_layer_sizes[i]
 
@@ -61,11 +89,13 @@ class _QNetwork(nn.Module):
         else:
             self.out_layers = nn.ModuleList(
                 [
-                    _Dense(in_size, config.hidden_layer_sizes[-1]),
+                    nn.Linear(in_size, config.hidden_layer_sizes[-1]),
                     nn.ReLU(),
-                    _Dense(config.hidden_layer_sizes[-1], config.action_num),
+                    nn.Linear(config.hidden_layer_sizes[-1], config.action_num),
                 ]
             )
+            if config.enable_noisy_dense:
+                self.out_layers.append(GaussianNoise())
 
     def forward(self, x):
         x = self.in_block(x)

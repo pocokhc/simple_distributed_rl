@@ -9,14 +9,13 @@ from srl.base.define import RLTypes
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
-from srl.base.rl.model import IAlphaZeroImageBlockConfig, IMLPBlockConfig
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
 from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
-from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
-from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
+from srl.rl.models.alphazero_block import AlphaZeroBlockConfig
+from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
 
 kl = keras.layers
@@ -36,9 +35,8 @@ https://github.com/AppliedDataSciencePartners/DeepReinforcementLearning
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, ExperienceReplayBufferConfig):
     num_simulations: int = 100
-    capacity: int = 10_000
     discount: float = 1.0  # 割引率
 
     sampling_steps: int = 1
@@ -63,22 +61,16 @@ class Config(RLConfig):
     c_init: float = 1.25
 
     # model
-    input_image_block: IAlphaZeroImageBlockConfig = field(
-        default_factory=lambda: AlphaZeroImageBlockConfig(
-            n_blocks=3,
-            filters=64,
-        )
-    )
-    value_block: IMLPBlockConfig = field(
-        default_factory=lambda: MLPBlockConfig(
-            layer_sizes=(64,),
-        )
-    )
-    policy_block: IMLPBlockConfig = field(
-        default_factory=lambda: MLPBlockConfig(
-            layer_sizes=(),
-        )
-    )
+    input_image_block: AlphaZeroBlockConfig = field(init=False, default_factory=lambda: AlphaZeroBlockConfig())
+    value_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.input_image_block.set_alphazero_block(3, 64)
+        self.value_block.set_mlp((64,))
+        self.policy_block.set_mlp(())
 
     def set_go_config(self):
         self.num_simulations = 800
@@ -94,10 +86,9 @@ class Config(RLConfig):
             {"train": 300_000, "lr": 0.002},
             {"train": 500_000, "lr": 0.0002},
         ]
-
-        self.input_image_block = AlphaZeroImageBlockConfig(n_blocks=19, filters=256)
-        self.value_block = MLPBlockConfig(layer_sizes=(256,))
-        self.policy_block = MLPBlockConfig(layer_sizes=())
+        self.input_image_block.set_alphazero_block(19, 256)
+        self.value_block.set_mlp((256,))
+        self.policy_block.set_mlp(())
 
     @property
     def base_action_type(self) -> RLTypes:
@@ -107,12 +98,15 @@ class Config(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.CONTINUOUS
 
+    def get_use_framework(self) -> str:
+        return "tensorflow"
+
     def getName(self) -> str:
         return "AlphaZero"
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.batch_size < self.memory_warmup_size
+        assert self.batch_size <= self.memory_warmup_size
         assert self.lr_schedule[0]["train"] == 0
 
     @property
@@ -137,11 +131,7 @@ register(
 # RemoteMemory
 # ------------------------------------------------------
 class RemoteMemory(ExperienceReplayBuffer):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
-        self.init(self.config.capacity)
+    pass
 
 
 # ------------------------------------------------------

@@ -11,18 +11,15 @@ from typing import Any, List, Optional, Tuple, Union, cast
 
 import numpy as np
 
-from srl.base.define import EnvActionType, EnvObservationType, InfoType, PlayRenderModes, RLObservationType
+from srl.base.define import (EnvActionType, EnvObservationType, InfoType,
+                             PlayRenderModes, RLObservationType)
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.base.env.registration import make as make_env
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
-from srl.base.rl.registration import (
-    make_parameter,
-    make_remote_memory,
-    make_trainer,
-    make_worker,
-    make_worker_rulebase,
-)
+from srl.base.rl.registration import (make_parameter, make_remote_memory,
+                                      make_trainer, make_worker,
+                                      make_worker_rulebase)
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl import dummy
 from srl.runner.callback import CallbackType, GameCallback
@@ -882,7 +879,8 @@ class Runner:
         self._history_on_file_callback = None
         if enable_history:
             if write_memory:
-                from srl.runner.callbacks.history_on_memory import HistoryOnMemory
+                from srl.runner.callbacks.history_on_memory import \
+                    HistoryOnMemory
 
                 self._history_on_memory_callback = HistoryOnMemory(
                     interval=interval,
@@ -974,7 +972,7 @@ class Runner:
         # --- eval
         enable_eval: bool = True,
         eval_env_sharing: bool = False,
-        eval_episode: int = 10,
+        eval_episode: int = 1,
         eval_timeout: int = -1,
         eval_max_steps: int = -1,
         eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
@@ -1085,7 +1083,7 @@ class Runner:
         progress_worker: int = 0,
         # --- eval
         enable_eval: bool = False,
-        eval_episode: int = 10,
+        eval_episode: int = 1,
         eval_timeout: int = -1,
         eval_max_steps: int = -1,
         eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
@@ -1202,7 +1200,7 @@ class Runner:
         # --- eval
         enable_eval: bool = True,
         eval_env_sharing: bool = False,
-        eval_episode: int = 10,
+        eval_episode: int = 1,
         eval_timeout: int = -1,
         eval_max_steps: int = -1,
         eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],

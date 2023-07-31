@@ -236,7 +236,8 @@ class PrintProgress(Callback, MPCallback, TrainerCallback):
                 s += f", {step_time:.5f}s/step"
 
                 # [reward]
-                s += f", {state.env.episode_rewards}"
+                r_list = [to_str_reward(r) for r in state.env.episode_rewards]
+                s += " [" + ",".join(r_list) + "]"
 
         else:
             # ---------------------------
@@ -387,7 +388,7 @@ class PrintProgress(Callback, MPCallback, TrainerCallback):
             remain_time = np.inf
         remain = min(remain_train, remain_time)
         if remain == np.inf:
-            s += "(      - left)"
+            s += "(     - left)"
         else:
             s += f"({to_str_time(remain)} left)"
 

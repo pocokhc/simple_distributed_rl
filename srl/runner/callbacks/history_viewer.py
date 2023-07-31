@@ -116,7 +116,7 @@ class HistoryViewer:
     # ----------------------------------------
     # train logs
     # ----------------------------------------
-    def get_df(self):
+    def get_df(self, is_preprocess: bool = True):
         if self.df is not None:
             return self.df
 
@@ -124,6 +124,19 @@ class HistoryViewer:
         import pandas as pd
 
         self.df = pd.DataFrame(self.logs)
+
+        if is_preprocess:
+            # いくつかの値は間を埋める
+            if "episode" in self.df:
+                self.df["episode"] = self.df["episode"].interpolate(limit_direction="both")
+                self.df["episode"] = self.df["episode"].astype(int)
+            if "train" in self.df:
+                self.df["train"] = self.df["train"].interpolate(limit_direction="both")
+                self.df["train"] = self.df["train"].astype(int)
+            if "remote_memory" in self.df:
+                self.df["remote_memory"] = self.df["remote_memory"].interpolate(limit_direction="both")
+                self.df["remote_memory"] = self.df["remote_memory"].astype(int)
+
         return self.df
 
     def plot(

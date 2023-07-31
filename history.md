@@ -3,18 +3,126 @@
 1. tensorboard
 1. (IMPALA)
 1. get_valid_actions
-1. 高速化
+1. lr
+1. tf/torchの互換パラメータの作成
+1. remote
 
 # v0.12.0
 
-worker周りを大幅にリファクタリングしました。  
-これに伴い、rawでは大幅な変更がありますが、runnerを経由する場合はほぼ影響はありません。
-（一部Configや引数に影響があります）
-また、アルゴリズムを自作している場合はI/Fが変わっているので修正が必要です。
+RunnerとWorkerを大きく変更しました。
+これにより実行方法とアルゴリズムの実装方法に大きな変更があります。
+
+・実行方法の変更
+
+``` python
+from srl import runner
+from srl.algorithms import ql
+
+config = runner.Config("Grid", ql.Config())
+
+# train
+parameter, _, _ = runner.train(config, timeout=10)
+
+# evaluate
+rewards = runner.evaluate(config, parameter, max_episodes=10)
+print(f"evaluate episodes: {rewards}")
+```
+
+↓
+
+``` python
+import srl
+from srl.algorithms import ql
+
+runner = srl.Runner("Grid", ql.Config())
+
+# train
+runner.train(timeout=10)
+
+# evaluate
+rewards = runner.evaluate(max_episodes=10)
+print(f"evaluate episodes: {rewards}")
+```
+
+ParameterやRemoteMemory等をRUnnerクラス内で管理するようにしました。  
+  
+・RLConfigの実装の変更
+action_type,observation_type の名前の変更と、新しく get_use_framework の実装が必要になりました。
+
+``` python
+@dataclass
+class RLConfig(ABC):
+   # change name: action_type -> base_action_type
+   @property
+   @abstractmethod
+   def action_type(self) -> RLTypes:
+      raise NotImplementedError()
+
+   # change name: observation_type -> base_observation_type
+   @property
+   @abstractmethod
+   def base_observation_type(self) -> RLTypes:
+      raise NotImplementedError()
+
+   # new abstractmethod
+   @abstractmethod
+   def get_use_framework(self) -> str:
+      raise NotImplementedError()
+```
+
+・memory/NNのハイパーパラメータの指定方法の変更（及び実装方法の変更）
+実装方法は各algorithmのコードを見てください。
+
+DQNの例は以下です。
+
+``` python
+from srl.algorithms import dqn
+from srl.rl import memories
+from srl.rl.models import dqn as dqn_model
+from srl.rl.models import mlp
+
+rl_config = dqn.Config(
+   memory=memories.ProportionalMemoryConfig(capacity=10_000, beta_steps=10000),
+   image_block_config=dqn_model.R2D3ImageBlockConfig(),
+   hidden_block_config=mlp.MLPBlockConfig(layer_sizes=(512,)),
+)
+```
+
+↓
+
+``` python
+from srl.algorithms import dqn
+# import が不要になりました
+
+rl_config = dqn.Config()
+# 関数を呼び出す形で指定
+rl_config.memory.capacity = 10_000  # capacityのみ特別で直接代入(もしかしたら今後関数に変更するかも)
+rl_config.memory.set_proportional_memory(beta_steps=10000)
+rl_config.image_block.set_r2d3_image()
+rl_config.hidden_block.set_mlp(layer_sizes=(512,))
+```
 
 **MainUpdates**
 
+1. Runnerのクラス化
+   1. パラメータや状態をクラス化し、Runnerクラス内部で管理
+      - Config  : 実行前に設定されるパラメータをまとめたクラス
+      - Context : 実行直前に決定されるパラメータをまとめたクラス
+      - State   : 実行中に変動する変数をまとめたクラス
+   1. callbackをTrainer,MP,Gameで分割
+   1. callbackの引数をRunnerクラスに統一
+   1. 実行方法が変わったので関係ある場所を全体的に見直し
+   1. GPUの動作を安定させるため、RLConfigに "get_use_framework" を追加
+1. RLConfigのパラメータ指定方法を改善
+   1. base.remote_memory,base.modelを削除し、rl.memories,rl.modelsにこれ関係の実装を集約
+   1. memoryのアルゴリズム実装側はRLConfigに継承させる形で実装
+      継承したRLRemoteMemoryからConfigが参照できるようにし、実装側のコードを削減（基本passだけでよくなった）
+   1. NNのアルゴリズム実装側はインスタンスとして生成し、関数でパラメータを指定できるように変更
 1. Worker周りを大幅にリファクタリング
+　主な変更は以下です。
+　・space/typeの指定方法の改善
+　・RLWorkerのencoder/decoderの処理をWorkerRunに変更し、状態をWorkerRunに集約
+　・WorkerBaseでRLConfig,RLParameter,RLRemoteMemoryを保持するように変更し、Workerの区別をしなくなるように変更
    1. RLConfigのresetにて、space/type の決め方を改善  
       以下はRLConfigから見たプロパティ
       action_space     : RLから見たaction_space(実態はenv.action_spaceと同じ)
@@ -32,17 +140,20 @@ worker周りを大幅にリファクタリングしました。
       これにより継承先の引数をまとめることができるので引数を WorkerRun のみに統一。
       （この影響で一部の継承用Workerで引数が変更になっています）
    1. WorkerBaseでRLConfig,RLParameter,RLRemoteMemoryを保持するように変更。
-      + RLConfigが指定されてない場合はDummyConfigを保持
-      + RLParameterとRLRemoteMemoryはNoneを許容
-      + これにより、ExtendWorkerとRuleBaseWorkerを区別なく扱えるようにしました
+      - RLConfigが指定されてない場合はDummyConfigを保持
+      - RLParameterとRLRemoteMemoryはNoneを許容
+      - これにより、ExtendWorkerとRuleBaseWorkerを区別なく扱えるようにしました
    1. RuleBaseWorkerの命名をEnvWorkerに変更
    1. 合わせてdocument周りを整理（diagrams,examples,docsを更新）
-1. print_progressを改善
-   1. info_types を追加
-1. env_runの'sample'を'sample_action'と'sample_observation'に変更
 
 **OtherUpdates**
 
+1. print_progressを改善
+   1. info_types を追加し、表示方法を指定できるようにして文字を削減（例えばintなら小数以下は表示しない）
+   1. evalのタイミングを表示のタイミングのみにし高速化
+   1. 出来る限り状態を保持しないアルゴリズムに変更し高速化
+1. rl_configのlogの出力をOn/Offできるように変更
+1. env_runの'sample'を'sample_action'と'sample_observation'に変更
 1. testsのalgorithms配下をリファクタリング、tfとtorchで分けるように変更
 1. 値のチェック機構を強化(EnvとRLのconfigにenable_sanitize_valueとenable_assertion_valueを追加)
 
@@ -77,15 +188,15 @@ worker周りを大幅にリファクタリングしました。
 1. runnerの変更
    1. runnerに最低限の実行しかしないtrain_simpleを追加（テスト導入）
    1. runner直下の実行方法を整理、以下の項目でまとめました
-      + 描画
-        + render_terminal
-        + render_window
-        + animation
-      + 後から内容を描画
-        + replay_window
-      + 手動プレイ
-        + play_terminal
-        + play_window
+      - 描画
+        - render_terminal
+        - render_window
+        - animation
+      - 後から内容を描画
+        - replay_window
+      - 手動プレイ
+        - play_terminal
+        - play_window
 1. 更新に合わせてドキュメントを更新
 
 **Algorims**
@@ -250,8 +361,8 @@ Env を手動操作のみで実行できる env_play の追加と、実行結果
    1. env_play を追加
 1. RL
    1. RLConfigをdataclass化
-      + 継承していたRLConfigで__init__を予備必要があったが、逆に呼んではダメになりました
-      + これによりRLConfigインスタンス時に継承元のハイパーパラメータも（VSCode上で）候補一覧に表示されるようになりました
+      - 継承していたRLConfigで__init__を予備必要があったが、逆に呼んではダメになりました
+      - これによりRLConfigインスタンス時に継承元のハイパーパラメータも（VSCode上で）候補一覧に表示されるようになりました
 1. Docker環境を追加
 
 **OtherUpdates**
@@ -262,9 +373,9 @@ Env を手動操作のみで実行できる env_play の追加と、実行結果
    1. env_play用に、get_key_bind を追加（暫定導入）
 1. RL
    1. RL側でdiscreteとcontinuousの両方に対応できる場合の書き方を整理
-      + base.Space に rl_action_type を追加
-      + rl.algorithms に any_action.py を作成
-      + サンプルとして、vanilla_policy_discrete.py と vanilla_policy_continuous.py をvanilla_policy.py に統合
+      - base.Space に rl_action_type を追加
+      - rl.algorithms に any_action.py を作成
+      - サンプルとして、vanilla_policy_discrete.py と vanilla_policy_continuous.py をvanilla_policy.py に統合
 1. Callbacks
    1. 問題なさそうだったので Callback と TrainerCallback を統合
    1. GPU使用率を print_progress に追加
@@ -322,7 +433,7 @@ Env を手動操作のみで実行できる env_play の追加と、実行結果
 **Bug Fixes**
 
 1. ExperienceReplayBufferをmp環境で実行するとmemory上限を認識しない不具合修正
-   + ExperienceReplayBuffer/ReplayMemoryのrestore/backupにて、下位versionと互換がありません
+   - ExperienceReplayBuffer/ReplayMemoryのrestore/backupにて、下位versionと互換がありません
 
 # v0.8.0
 

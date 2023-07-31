@@ -101,28 +101,24 @@ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvm
 簡単な使い方は以下です。
 
 ``` python
-from srl import runner
-
-# --- env & algorithm load
-from srl.envs import grid  # isort: skip # noqa F401
-from srl.algorithms import ql  # isort: skip
+import srl
+from srl.algorithms import ql  # algorithm load
 
 
 def main():
-    # create config
-    config = runner.Config("Grid", ql.Config())
+    # create runner
+    runner = srl.Runner("Grid", ql.Config())
 
     # train
-    parameter, _, _ = runner.train(config, timeout=10)
+    runner.train(timeout=10)
 
     # evaluate
-    rewards = runner.evaluate(config, parameter, max_episodes=10)
+    rewards = runner.evaluate()
     print(f"evaluate episodes: {rewards}")
 
     # --- animation sample
     #  (Run "pip install opencv-python pillow matplotlib pygame" to use the animation)
-    render = runner.animation(config, parameter)
-    render.create_anime().save("Grid.gif")
+    runner.animation_save_gif("Grid.gif")
 
 
 if __name__ == "__main__":

@@ -3,23 +3,17 @@ import os
 import numpy as np
 
 import srl
-from srl import runner
+from srl.algorithms import dreamer
 from srl.utils import common
-
-# --- load algorithm
-from srl.algorithms import dreamer  # isort: skip
-
 
 common.logger_print()
 
 _parameter_path = os.path.join(os.path.dirname(__file__), "_dreamer_param.dat")
 
 
-def create_config():
+def create_runner():
     env_config = srl.EnvConfig("EasyGrid")
     env_config.max_episode_steps = 20
-    env_config.check_action = False
-    env_config.check_val = False
 
     rl_config = dreamer.Config(
         deter_size=30,
@@ -44,61 +38,58 @@ def create_config():
         horizon=20,
     )
 
-    config = runner.Config(env_config, rl_config)
     rl_config.use_render_image_for_observation = True
+    runner = srl.Runner(env_config, rl_config)
 
-    return config, rl_config
+    return runner, rl_config
 
 
 def train_dynamics():
-    config, rl_config = create_config()
+    runner, rl_config = create_runner()
 
     rl_config.enable_train_model = True
     rl_config.enable_train_actor = False
     rl_config.enable_train_value = False
-    parameter, _, _ = runner.train(config, max_train_count=10_000)
-    parameter.save(_parameter_path)
+    runner.train(max_train_count=10_000)
+    runner.save_parameter(_parameter_path)
 
 
 def train_value():
-    config, rl_config = create_config()
+    runner, rl_config = create_runner()
 
-    parameter = config.make_parameter()
-    parameter.load(_parameter_path)
+    runner.load_parameter(_parameter_path)
 
     rl_config.enable_train_model = False
     rl_config.enable_train_actor = False
     rl_config.enable_train_value = True
-    parameter, _, _ = runner.train(config, parameter=parameter, max_train_count=1_000)
-    parameter.save(_parameter_path)
+    runner.train(max_train_count=1_000)
+    runner.save_parameter(_parameter_path)
 
 
 def train_actor():
-    config, rl_config = create_config()
+    runner, rl_config = create_runner()
 
-    parameter = config.make_parameter()
-    parameter.load(_parameter_path)
+    runner.load_parameter(_parameter_path)
 
     rl_config.enable_train_model = False
     rl_config.enable_train_actor = True
     rl_config.enable_train_value = True
-    parameter, _, _ = runner.train(config, parameter=parameter, max_train_count=2_000)
-    parameter.save(_parameter_path)
+    runner.train(max_train_count=2_000)
+    runner.save_parameter(_parameter_path)
 
 
 def eval():
-    config, rl_config = create_config()
+    runner, rl_config = create_runner()
 
-    parameter = config.make_parameter()
-    parameter.load(_parameter_path)
+    runner.load_parameter(_parameter_path)
 
     # --- evaluate
-    rewards = runner.evaluate(config, parameter, max_episodes=10)
+    rewards = runner.evaluate(max_episodes=10)
     print(f"Average reward for 10 episodes: {np.mean(rewards)}")
 
     # --- animation
-    render = runner.animation(config, parameter)
-    render.create_anime().save(os.path.join(os.path.dirname(__file__), "_dreamer.gif"))
+    path = os.path.join(os.path.dirname(__file__), "_dreamer.gif")
+    runner.animation_save_gif(path)
 
 
 if __name__ == "__main__":

@@ -3,13 +3,8 @@ import os
 import matplotlib.pyplot as plt
 
 import srl
-from srl import runner
-from srl.rl import memories
+from srl.algorithms import agent57
 from srl.utils import common
-
-# --- env & algorithm load
-import gym  # isort: skip # noqa F401
-from srl.algorithms import agent57  # isort: skip
 
 common.logger_print()
 
@@ -18,11 +13,10 @@ def main():
     env_config = srl.EnvConfig("Pendulum-v1")
     rl_configs = []
 
-    base_config = dict(
+    base_config = agent57.Config(
         lstm_units=128,
         hidden_layer_sizes=(64, 64),
         enable_dueling_network=False,
-        memory=memories.ReplayMemoryConfig(100_000),
         target_model_update_interval=100,
         enable_rescale=False,
         burnin=5,
@@ -34,47 +28,50 @@ def main():
         input_int_reward=False,
         input_action=False,
     )
+    base_config.memory.capacity = 100_000
 
     # base
-    rl_configs.append(("base", agent57.Config(**base_config)))
+    rl_configs.append(("base", base_config.copy()))
 
     # intrinsic_reward
-    rl_config = agent57.Config(**base_config)
-    rl_config.enable_intrinsic_reward = True
-    rl_configs.append(("intrinsic_reward", rl_config))
+    _c = base_config.copy()
+    _c.enable_intrinsic_reward = True
+    rl_configs.append(("intrinsic_reward", _c))
 
     # retrace
-    rl_config = agent57.Config(**base_config)
-    rl_config.enable_retrace = True
-    rl_configs.append(("retrace", rl_config))
+    _c = base_config.copy()
+    _c.enable_retrace = True
+    rl_configs.append(("retrace", _c))
 
     # actor
-    rl_config = agent57.Config(**base_config)
-    rl_config.actor_num = 16
-    rl_configs.append(("actor_16", rl_config))
+    _c = base_config.copy()
+    _c.actor_num = 16
+    rl_configs.append(("actor_16", _c))
 
     # UVFA
-    rl_config = agent57.Config(**base_config)
-    rl_config.input_ext_reward = True
-    rl_config.input_int_reward = True
-    rl_config.input_action = True
-    rl_configs.append(("UVFA", rl_config))
+    _c = base_config.copy()
+    _c.input_ext_reward = True
+    _c.input_int_reward = True
+    _c.input_action = True
+    rl_configs.append(("UVFA", _c))
 
     # train
     results = []
     for name, rl_config in rl_configs:
         print(name)
-        config = runner.Config(env_config, rl_config)
-        _, _, history = runner.train(config, max_episodes=200, history=runner.HistoryOption())
-        results.append((name, history))
+        runner = srl.Runner(env_config, rl_config)
+        runner.set_history(write_file=True)
+        runner.train_mp(max_train_count=200 * 100)
+        df = runner.get_history().get_df()
+        results.append((name, df))
 
     # plot
     plt.figure(figsize=(12, 6))
     plt.xlabel("episode")
     plt.ylabel("reward")
-    for name, h in results:
-        df = h.get_df()
-        plt.plot(df["actor0_episode"], df["actor0_episode_reward0"].rolling(10).mean(), label=name)
+    for name, df in results:
+        df = df[df["name"] == "actor0"]
+        plt.plot(df["episode"], df["reward0"].rolling(10).mean(), label=name)
     plt.grid()
     plt.legend()
     plt.tight_layout()

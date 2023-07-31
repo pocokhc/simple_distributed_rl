@@ -1,13 +1,8 @@
 import numpy as np
 
 import srl
-from srl import runner
-from srl.rl import memories
+from srl.algorithms import agent57_light
 from srl.utils import common
-
-# --- env & algorithm load
-import gym  # isort: skip # noqa F401
-from srl.algorithms import agent57_light  # isort: skip
 
 common.logger_print()
 
@@ -21,7 +16,6 @@ def main():
         #
         enable_double_dqn=True,
         enable_dueling_network=True,
-        memory=memories.ReplayMemoryConfig(100_000),
         #
         actor_num=4,
         enable_intrinsic_reward=True,
@@ -29,15 +23,16 @@ def main():
         input_int_reward=False,
         input_action=False,
     )
-
-    config = runner.Config(env_config, rl_config)
-    config.model_summary()
+    rl_config.memory.capacity = 100_000
+    rl_config.memory.set_replay_memory()
+    runner = srl.Runner(env_config, rl_config)
+    runner.model_summary()
 
     # --- train
-    parameter, remote_memory, history = runner.train(config, max_episodes=200)
+    runner.train(max_episodes=200)
 
     # --- evaluate
-    rewards = runner.evaluate(config, parameter)
+    rewards = runner.evaluate()
     print(f"Average reward for 20 episodes: {np.mean(rewards)}")
 
 

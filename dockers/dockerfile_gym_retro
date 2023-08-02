@@ -1,0 +1,10 @@
+# syntax=docker/dockerfile:1
+FROM python:3.8-slim
+WORKDIR /code
+
+RUN apt-get update
+RUN apt-get install -y python3-opencv
+
+ENV PYTHONPATH="/code"
+COPY ./requirements_gym_retro.txt requirements.txt
+RUN pip install -U -r requirements.txt

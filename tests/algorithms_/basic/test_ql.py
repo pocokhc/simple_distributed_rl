@@ -2,8 +2,8 @@ import unittest
 
 import pytest
 
-from srl import runner
 from srl.algorithms import ql
+from srl.runner.runner import Runner
 from srl.test import TestRL
 from srl.utils import common
 
@@ -23,9 +23,11 @@ def test_Grid_policy():
         epsilon=0.5,
         lr=0.01,
     )
-    config = runner.Config("Grid", rl_config, seed=2)
-    parameter, _, _ = tester.train_eval(config, 100_000, eval_episode=100)
-    tester.verify_grid_policy(rl_config, parameter)
+    runner = Runner("Grid", rl_config)
+    runner.set_seed(2)
+    runner.train(max_train_count=100_000)
+    tester.eval(runner, episode=100)
+    tester.verify_grid_policy(runner)
 
 
 def test_Grid_mp():
@@ -34,8 +36,10 @@ def test_Grid_mp():
         epsilon=0.5,
         lr=0.01,
     )
-    config = runner.Config("Grid", rl_config)
-    tester.train_eval(config, 200_000, is_mp=True, eval_episode=100)
+    runner = Runner("Grid", rl_config)
+    runner.set_seed(2)
+    runner.train_mp(max_train_count=200_000)
+    tester.eval(runner, episode=100)
 
 
 @pytest.mark.parametrize("q_init", ["", "random", "normal"])
@@ -45,8 +49,10 @@ def test_Grid(q_init):
         epsilon=0.5,
         q_init=q_init,
     )
-    config = runner.Config("Grid", rl_config, seed=2)
-    tester.train_eval(config, 100_000, eval_episode=100)
+    runner = Runner("Grid", rl_config)
+    runner.set_seed(2)
+    runner.train(max_train_count=100_000)
+    tester.eval(runner, episode=100)
 
 
 def test_OX():
@@ -55,14 +61,17 @@ def test_OX():
         epsilon=0.5,
         lr=0.1,
     )
-    config = runner.Config("OX", rl_config, seed=1)
-    parameter, _, _ = tester.train(config, 100_000)
-    tester.eval_2player(config, parameter)
+    runner = Runner("OX", rl_config)
+    runner.set_seed(1)
+    runner.train(max_train_count=100_000)
+    tester.eval_2player(runner)
 
 
 def test_Tiger():
     tester = TestRL()
     rl_config = ql.Config()
     rl_config.window_length = 10
-    config = runner.Config("Tiger", rl_config, seed=2)
-    tester.train_eval(config, 500_000)
+    runner = Runner("Tiger", rl_config)
+    runner.set_seed(2)
+    runner.train(max_train_count=500_000)
+    tester.eval(runner)

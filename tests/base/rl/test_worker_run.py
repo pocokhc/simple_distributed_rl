@@ -25,7 +25,7 @@ class StubEnv(SinglePlayEnv):
         self._observation_type = EnvObservationTypes.UNKNOWN
 
         self.s_state: Any = 0
-        self.s_reward = 0
+        self.s_reward = 0.0
         self.s_done = True
         self.s_info = {}
         self.s_action = 0
@@ -86,6 +86,9 @@ class StubRLConfig(RLConfig):
     @property
     def base_observation_type(self) -> RLTypes:
         return self._observation_type
+
+    def get_use_framework(self) -> str:
+        return ""
 
 
 class StubRLWorker(RLWorker):

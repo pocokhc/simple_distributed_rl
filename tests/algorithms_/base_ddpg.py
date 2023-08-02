@@ -8,11 +8,15 @@ class BaseCase(CommonBaseClass):
         return ddpg.Config()
 
     def test_Pendulum(self):
+        self.check_skip()
         rl_config = self._create_rl_config()
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 25)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_steps=200 * 50)
+        tester.eval(runner)
 
     def test_Pendulum_mp(self):
+        self.check_skip()
         rl_config = self._create_rl_config()
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 25, is_mp=True)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train_mp(max_train_count=200 * 50)
+        tester.eval(runner)

@@ -13,5 +13,5 @@ def test_gym_retro():
     env = srl.make_env(env_config)
     env.reset()
     while not env.done:
-        env.step(env.sample())
+        env.step(env.sample_action())
     env.close()

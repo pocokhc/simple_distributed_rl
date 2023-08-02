@@ -4,10 +4,10 @@ import time
 import numpy as np
 from tqdm import tqdm
 
-from srl.rl.memories.proportional_memory import ProportionalMemory
-from srl.rl.memories.rankbase_memory import RankBaseMemory
-from srl.rl.memories.rankbase_memory_linear import RankBaseMemoryLinear
-from srl.rl.memories.replay_memory import ReplayMemory
+from srl.rl.memories.priority_memories.proportional_memory import ProportionalMemory
+from srl.rl.memories.priority_memories.rankbase_memory import RankBaseMemory
+from srl.rl.memories.priority_memories.rankbase_memory_linear import RankBaseMemoryLinear
+from srl.rl.memories.priority_memories.replay_memory import ReplayMemory
 
 
 def speed_test():

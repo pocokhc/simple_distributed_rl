@@ -129,9 +129,9 @@ def test_play_Tetris_ram():
 def test_space():
     pytest.importorskip("gymnasium")
 
-    from gym import spaces
+    from gymnasium import spaces
 
-    from srl.base.env.gym_wrapper import gym_space_flatten, gym_space_flatten_decode, gym_space_flatten_encode
+    from srl.base.env.gymnasium_wrapper import gym_space_flatten, gym_space_flatten_decode, gym_space_flatten_encode
 
     space = spaces.Dict(
         {
@@ -215,9 +215,9 @@ def test_space():
 def test_space_discrete():
     pytest.importorskip("gymnasium")
 
-    from gym import spaces
+    from gymnasium import spaces
 
-    from srl.base.env.gym_wrapper import gym_space_flatten, gym_space_flatten_decode, gym_space_flatten_encode
+    from srl.base.env.gymnasium_wrapper import gym_space_flatten, gym_space_flatten_decode, gym_space_flatten_encode
 
     space = spaces.Dict(
         {

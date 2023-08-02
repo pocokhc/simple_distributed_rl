@@ -1,12 +1,5 @@
 import pytest
 
-from srl.rl.memories.config import (
-    ProportionalMemoryConfig,
-    RankBaseMemoryConfig,
-    RankBaseMemoryLinearConfig,
-    ReplayMemoryConfig,
-)
-
 from .common_base_class import CommonBaseClass
 
 
@@ -17,68 +10,81 @@ class BaseCase(CommonBaseClass):
         return rainbow.Config()
 
     def test_Pendulum(self):
+        self.check_skip()
         rl_config = self._create_rl_config()
         rl_config.hidden_layer_sizes = (64, 64)
         rl_config.multisteps = 3
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 70)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=200 * 70)
+        tester.eval(runner)
 
     def test_Pendulum_mp(self):
+        self.check_skip()
         rl_config = self._create_rl_config()
         rl_config.hidden_layer_sizes = (64, 64)
         rl_config.multisteps = 3
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 70, is_mp=True)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train_mp(max_train_count=200 * 70)
+        tester.eval(runner)
 
     def test_Pendulum_noisy(self):
+        self.check_skip()
         pytest.importorskip("tensorflow_addons", minversion="0.17.1")
 
         rl_config = self._create_rl_config()
         rl_config.hidden_layer_sizes = (64, 64)
         rl_config.multisteps = 3
         rl_config.enable_noisy_dense = True
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 70)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=200 * 70)
+        tester.eval(runner)
 
     def test_Pendulum_no_multi(self):
+        self.check_skip()
         rl_config = self._create_rl_config()
         rl_config.hidden_layer_sizes = (64, 64)
         rl_config.multisteps = 1
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 70)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=200 * 70)
+        tester.eval(runner)
 
     def test_Pendulum_no_multi_mp(self):
+        self.check_skip()
         rl_config = self._create_rl_config()
         rl_config.hidden_layer_sizes = (64, 64)
         rl_config.multisteps = 1
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 70, is_mp=True)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train_mp(max_train_count=200 * 70)
+        tester.eval(runner)
 
     def test_Pendulum_no_multi_noisy(self):
+        self.check_skip()
         pytest.importorskip("tensorflow_addons", minversion="0.17.1")
 
         rl_config = self._create_rl_config()
         rl_config.hidden_layer_sizes = (64, 64)
         rl_config.multisteps = 1
         rl_config.enable_noisy_dense = True
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 70)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=200 * 70)
+        tester.eval(runner)
 
     def test_OX(self):
+        self.check_skip()
         # invalid action test
         rl_config = self._create_rl_config()
         rl_config.hidden_layer_sizes = (128,)
         rl_config.epsilon = 0.5
-        rl_config.memory = ReplayMemoryConfig()
+        rl_config.memory.set_replay_memory()
 
-        config, tester = self.create_config("OX", rl_config)
-        config.players = [None, "random"]
-        parameter, _, _ = tester.train(config, 10000)
+        runner, tester = self.create_runner("OX", rl_config)
+        runner.set_players([None, "random"])
+        runner.train(max_train_count=10000)
 
-        config.players = [None, "random"]
-        tester.eval(config, parameter, baseline=[0.8, None])
-        config.players = ["random", None]
-        tester.eval(config, parameter, baseline=[None, 0.65])
+        runner.set_players([None, "random"])
+        tester.eval(runner, baseline=[0.8, None])
+        runner.set_players(["random", None])
+        tester.eval(runner, baseline=[None, 0.65])
 
     def _create_pendulum_config(self):
         rl_config = self._create_rl_config()
@@ -91,59 +97,76 @@ class BaseCase(CommonBaseClass):
         rl_config.enable_dueling_network = False
         rl_config.enable_noisy_dense = False
         rl_config.multisteps = 1
-        rl_config.memory = ReplayMemoryConfig()
+        rl_config.memory.set_replay_memory()
         rl_config.enable_rescale = False
         rl_config.window_length = 1
         return rl_config
 
     def test_Pendulum_naive(self):
+        self.check_skip()
         rl_config = self._create_pendulum_config()
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 100)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=200 * 100)
+        tester.eval(runner)
 
     def test_Pendulum_window_length(self):
+        self.check_skip()
         rl_config = self._create_pendulum_config()
         rl_config.window_length = 4
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 70)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=200 * 70)
+        tester.eval(runner)
 
     def test_Pendulum_ddqn(self):
+        self.check_skip()
         rl_config = self._create_pendulum_config()
         rl_config.enable_double_dqn = True
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 80)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=200 * 80)
+        tester.eval(runner)
 
     def test_Pendulum_dueling(self):
+        self.check_skip()
         rl_config = self._create_pendulum_config()
         rl_config.enable_dueling_network = True
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 70)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=200 * 70)
+        tester.eval(runner)
 
     def test_Pendulum_multistep(self):
+        self.check_skip()
         rl_config = self._create_pendulum_config()
         rl_config.multisteps = 10
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 80)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=200 * 80)
+        tester.eval(runner)
 
     def test_Pendulum_proportional(self):
+        self.check_skip()
         rl_config = self._create_pendulum_config()
-        rl_config.memory = ProportionalMemoryConfig(alpha=1.0, beta_initial=1.0)
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 120)
+        rl_config.memory.set_proportional_memory(alpha=1.0, beta_initial=1.0)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=200 * 120)
+        tester.eval(runner)
 
     def test_Pendulum_rankbase(self):
+        self.check_skip()
         rl_config = self._create_pendulum_config()
-        rl_config.memory = RankBaseMemoryConfig(alpha=1.0, beta_initial=1.0)
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 120)
+        rl_config.memory.set_rankbase_memory(alpha=1.0, beta_initial=1.0)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=200 * 120)
+        tester.eval(runner)
 
     def test_Pendulum_rankbaseLinear(self):
+        self.check_skip()
         rl_config = self._create_pendulum_config()
-        rl_config.memory = RankBaseMemoryLinearConfig(alpha=1.0, beta_initial=1.0)
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 120)
+        rl_config.memory.set_rankbase_memory_linear(alpha=1.0, beta_initial=1.0)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=200 * 120)
+        tester.eval(runner)
 
     def test_Pendulum_all(self):
+        self.check_skip()
         pytest.importorskip("tensorflow_addons", minversion="0.17.1")
 
         rl_config = self._create_pendulum_config()
@@ -152,6 +175,7 @@ class BaseCase(CommonBaseClass):
         rl_config.enable_dueling_network = True
         rl_config.enable_noisy_dense = True
         rl_config.multisteps = 5
-        rl_config.memory = ProportionalMemoryConfig(alpha=1.0, beta_initial=1.0)
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 100)
+        rl_config.memory.set_proportional_memory(alpha=1.0, beta_initial=1.0)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=200 * 100)
+        tester.eval(runner)

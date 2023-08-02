@@ -1,56 +1,38 @@
 import numpy as np
 
-from srl import runner
 from srl.algorithms import ql, ql_agent57
-from srl.envs import grid, ox
-from srl.rl import memories  # noqa F401
+from srl.runner.runner import Runner
+from srl.utils import common
+
+common.logger_print()
 
 
 def test_train():
-    config = runner.Config("Grid", ql.Config(), base_dir="tmp_test", actor_num=2)
-    parameter, _, _ = runner.train_mp(
-        config,
-        max_train_count=10_000,
-        eval=runner.EvalOption(),
-        progress=runner.ProgressOption(),
-        history=runner.HistoryOption(write_memory=True, write_file=True),
-        checkpoint=runner.CheckpointOption(
-            checkpoint_interval=1,
-            eval=runner.EvalOption(),
-        ),
-    )
+    runner = Runner("Grid", ql.Config())
+    runner.train_mp(actor_num=5, max_train_count=10_000)
 
     # eval
-    rewards = runner.evaluate(config, parameter, max_episodes=100)
+    rewards = runner.evaluate(max_episodes=100)
     rewards = np.mean(rewards)
     print(rewards)
     assert rewards > 0.5
 
 
 def test_train2():
-    config = runner.Config("Grid", ql_agent57.Config(memory=memories.ReplayMemoryConfig(capacity=1000)))
-    parameter, memory, _ = runner.train(config, max_episodes=5000)
+    rl_config = ql_agent57.Config()
+    rl_config.memory.capacity = 1000
+    rl_config.memory.set_replay_memory()
+    runner = Runner("Grid", rl_config)
+    runner.train(max_episodes=5000)
 
-    memory_len = memory.length()
-    config.rl_config.memory = memories.ReplayMemoryConfig(capacity=1100)
+    memory_len = runner.remote_memory.length()
+    rl_config.memory.capacity = 1100
 
-    parameter2, memory2, _ = runner.train_mp(
-        config,
-        max_train_count=10_000,
-        eval=runner.EvalOption(),
-        progress=runner.ProgressOption(),
-        history=runner.HistoryOption(write_memory=True, write_file=True),
-        checkpoint=runner.CheckpointOption(
-            checkpoint_interval=1,
-            eval=runner.EvalOption(),
-        ),
-        parameter=parameter,
-        remote_memory=memory,
-        return_remote_memory=True,
-    )
+    runner.train_mp(max_episodes=10, return_remote_memory=True)
+    memory2 = runner.remote_memory
 
     # eval
-    rewards = runner.evaluate(config, parameter2, max_episodes=100)
+    rewards = runner.evaluate(max_episodes=100)
     rewards = np.mean(rewards)
     print(rewards)
     assert rewards > 0.5

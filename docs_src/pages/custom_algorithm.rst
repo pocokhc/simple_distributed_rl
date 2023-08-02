@@ -81,6 +81,8 @@ RLConfig で実装が必要な関数・プロパティは以下です。
    # 必ず dataclass で書いてください
    @dataclass
    class MyConfig(RLConfig):
+
+      # コンストラクタで使うハイパーパラメータを定義する
       
       def getName(self) -> str:
          """ ユニークな名前を返す """
@@ -103,6 +105,15 @@ RLConfig で実装が必要な関数・プロパティは以下です。
          DISCRETE  : 離散値
          CONTINUOUS: 連続値
          ANY       : どちらでも
+         """
+         raise NotImplementedError()
+
+      def get_use_framework(self) -> str:
+         """
+         使うフレームワークを指定してください。
+         return ""           : 何もなし
+         return "tensorflow" : Tensorflow
+         return "torch"      : Torch
          """
          raise NotImplementedError()
 
@@ -205,7 +216,7 @@ PriorityExperienceReplay
 継承すると add,sample,update,on_step関数が追加されます。
 （on_stepはworkerで使用）
 
-ハイパーパラメータもあり、少し複雑なのでコードで説明します。
+実装コード例は以下です。
 
 .. literalinclude:: custom_algorithm3.py
 

@@ -1,14 +1,9 @@
-from srl import runner
+import srl
+from srl.algorithms import ql
 
-# --- env & algorithm load
-from srl.envs import grid  # isort: skip # noqa F401
-from srl.algorithms import ql  # isort: skip
+runner = srl.Runner("Grid", ql.Config())
 
-
-config = runner.Config("Grid", ql.Config())
-parameter = config.make_parameter()
-
-rewards = runner.evaluate(config, parameter, max_episodes=5)
+rewards = runner.evaluate(max_episodes=5)
 print(f"evaluate episodes: {rewards}")
 """
 evaluate episodes: [

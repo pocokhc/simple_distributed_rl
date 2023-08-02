@@ -1,4 +1,4 @@
-from srl.base.rl.remote_memory import SequenceRemoteMemory
+from srl.rl.memories.sequence_memory import SequenceRemoteMemory
 
 
 class MyRemoteMemory(SequenceRemoteMemory):

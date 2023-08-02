@@ -3,8 +3,7 @@
 import retro
 
 import srl
-from srl import runner
-from srl.algorithms import ql  # load algorithm
+from srl.algorithms import ql
 
 env_config = srl.EnvConfig(
     "Airstriker-Genesis",
@@ -13,6 +12,6 @@ env_config = srl.EnvConfig(
     # gymnasium_make_func= ,   # use gymnasium
 )
 
-config = runner.Config(env_config, ql.Config())
+runner = srl.Runner(env_config, ql.Config())
 
-runner.render_window(config)
+runner.render_window()

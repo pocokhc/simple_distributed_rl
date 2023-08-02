@@ -2,13 +2,13 @@ from dataclasses import dataclass
 
 from srl.base.define import RLTypes
 from srl.base.rl.base import RLConfig
-from srl.base.rl.remote_memory import ExperienceReplayBuffer
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
 
 
 @dataclass
-class MyConfig(RLConfig):
-    # memoryの最大サイズ
-    capacity: int = 1000
+class MyConfig(RLConfig, ExperienceReplayBufferConfig):
+    # RLConfig に加え、ExperienceReplayBufferConfig も継承する
+    # (順番は RLConfig -> ExperienceReplayBufferConfig )
 
     def getName(self) -> str:
         return "MyConfig"
@@ -21,14 +21,12 @@ class MyConfig(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
 
+    def get_use_framework(self) -> str:
+        return ""
+
 
 class MyRemoteMemory(ExperienceReplayBuffer):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: MyConfig = self.config
-
-        # init を呼び出してメモリ容量をセットする。
-        super().init(self.config.capacity)
+    pass
 
 
 # 実行例

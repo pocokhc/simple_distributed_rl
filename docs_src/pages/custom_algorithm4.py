@@ -9,7 +9,7 @@ from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
-from srl.base.rl.remote_memory import SequenceRemoteMemory
+from srl.rl.memories.sequence_memory import SequenceRemoteMemory
 
 
 @dataclass
@@ -26,6 +26,9 @@ class Config(RLConfig):
     @property
     def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
+
+    def get_use_framework(self) -> str:
+        return ""
 
     def getName(self) -> str:
         return "MyRL"
@@ -132,7 +135,7 @@ class Worker(DiscreteActionWorker):
             # 最大値を選ぶ（複数あればランダム）
             self.action = np.random.choice(np.where(q == q.max())[0])
 
-        return self.action, {}
+        return int(self.action), {}
 
     def call_on_step(
         self,
@@ -192,21 +195,16 @@ tester.simple_check(Config())
 # Grid環境の学習
 # ---------------------------------
 import srl
-from srl import runner
-from srl.envs import grid
 
-config = runner.Config(srl.EnvConfig("Grid"), Config(lr=0.001))
+runner = srl.Runner(srl.EnvConfig("Grid"), Config(lr=0.001))
 
 # --- train
-parameter, remote_memory, history = runner.train(config, timeout=10)
+runner.train(timeout=10)
 
 # --- test
-rewards = runner.evaluate(config, parameter, max_episodes=100)
+rewards = runner.evaluate(max_episodes=100)
 print("100エピソードの平均結果", np.mean(rewards))
 
-reward = runner.render_terminal(config, parameter)
-print(reward)
+runner.render_terminal()
 
-render = runner.animation(config, parameter)
-render.create_anime(scale=2).save("MyRL-Grid.gif")
-# render.display(scale=2)  # for notebook
+runner.animation_save_gif("MyRL-Grid.gif", render_scale=2)

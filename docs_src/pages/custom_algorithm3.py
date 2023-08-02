@@ -1,19 +1,16 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
 from srl.base.define import RLTypes
 from srl.base.rl.base import RLConfig
-from srl.base.rl.memory import IPriorityMemoryConfig
-from srl.base.rl.remote_memory.priority_experience_replay import PriorityExperienceReplay
-from srl.rl.memories.config import ReplayMemoryConfig
+from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
 
 
 @dataclass
-class MyConfig(RLConfig):
-    # PriorityExperienceReplay用のパラメータ
-    # 型は IPriorityMemoryConfig を取る(IPriorityMemoryConfigは後述)
-    memory: IPriorityMemoryConfig = field(default_factory=lambda: ReplayMemoryConfig())
+class MyConfig(RLConfig, PriorityExperienceReplayConfig):
+    # RLConfig PriorityExperienceReplayConfig も継承する
+    # (順番は RLConfig -> PriorityExperienceReplayConfig )
 
     def getName(self) -> str:
         return "MyConfig"
@@ -26,14 +23,12 @@ class MyConfig(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return RLTypes.DISCRETE
 
+    def get_use_framework(self) -> str:
+        return ""
+
 
 class MyRemoteMemory(PriorityExperienceReplay):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: MyConfig = self.config
-
-        # IPriorityMemoryConfig を init に渡す
-        super().init(self.config.memory)
+    pass
 
 
 # 実行例

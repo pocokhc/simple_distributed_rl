@@ -1,5 +1,7 @@
 import srl
-from srl.envs import sample_env  # noqa F401  # 実装したEnvファイルをimport
+
+# 実装したEnvファイルをimportし、registerに登録
+from srl.envs import sample_env  # noqa F401
 
 env = srl.make_env("SampleEnv")
 

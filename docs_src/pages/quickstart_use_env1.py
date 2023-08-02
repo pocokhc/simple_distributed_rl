@@ -1,14 +1,13 @@
 import srl
-from srl import runner
-from srl.algorithms import ql  # load algorithm
+from srl.algorithms import ql
 
 
 def main():
     env_config = srl.EnvConfig("FrozenLake-v1")
 
-    config = runner.Config(env_config, ql.Config())
+    runner = srl.Runner(env_config, ql.Config())
 
-    runner.render_terminal(config)
+    runner.render_terminal()
 
 
 if __name__ == "__main__":

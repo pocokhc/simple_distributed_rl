@@ -25,7 +25,7 @@ Create Original Environment
 
 自作環境を作成する方法は現在以下の二つがあります。
 
-+ (OpenAI gym)[https://github.com/openai/gym]（以下gym）の環境を用意する
++ `Gym <https://github.com/openai/gym>`_ または `Gymnasium <https://github.com/Farama-Foundation/Gymnasium>`_ （以下gym）の環境を用意する
 + 本フレームワークで実装されている 'srl.base.env.EnvBase' を継承する
 
 それぞれについて説明します。
@@ -38,7 +38,7 @@ gym の環境を利用を利用する場合は別途 `pip install gym` が必要
 また、一部本フレームワークに特化した内容にはならない点があります。  
 1-2で説明があるBaseクラスを見比べてもらえれば分かりますが、アルゴリズム向けに特化した情報が増えています。  
 
-※gym側の更新等により不正確な情報になる可能性があります。より正確な情報は公式(<https://github.com/openai/gym>)を見てください。
+※gym側の更新等により不正確な情報になる可能性があります。より正確な情報は公式(https://github.com/openai/gym)を見てください。
 
 具体的なコードは以下です。
 gym.Envを継承して作成します。

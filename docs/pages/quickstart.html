@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>2. Getting Started &mdash; SimpleDistributedRL 0.11.2.2 ドキュメント</title>
+  <title>2. Getting Started &mdash; SimpleDistributedRL 0.12.0 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -98,22 +98,19 @@
 <section id="basic-run-of-study">
 <h2><span class="section-number">2.1. </span>Basic run of study<a class="headerlink" href="#basic-run-of-study" title="この見出しへのパーマリンク"></a></h2>
 <p>最もシンプルな学習は以下です。</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
-
-<span class="c1"># --- env &amp; algorithm load</span>
-<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">grid</span>  <span class="c1"># isort: skip # noqa F401</span>
-<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># isort: skip</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
 
 
 <span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
-    <span class="c1"># create config</span>
-    <span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
+    <span class="c1"># create runner</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
 
     <span class="c1"># train</span>
-    <span class="n">parameter</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 
     <span class="c1"># evaluate</span>
-    <span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">max_episodes</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+    <span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">()</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;evaluate episodes: </span><span class="si">{</span><span class="n">rewards</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 
@@ -128,12 +125,7 @@
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="kn">import</span> <span class="nn">srl</span>
-<span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
-
-<span class="c1"># --- env &amp; algorithm load</span>
-<span class="c1"># (Run &quot;pip install gymnasium pygame&quot; to use the gymnasium environment)</span>
-<span class="kn">import</span> <span class="nn">gymnasium</span>  <span class="c1"># isort: skip # noqa F401</span>
-<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># isort: skip</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># algorithm load</span>
 
 <span class="c1"># --- save parameter path</span>
 <span class="n">_parameter_path</span> <span class="o">=</span> <span class="s2">&quot;_params.dat&quot;</span>
@@ -141,67 +133,66 @@
 
 <span class="c1"># --- sample config</span>
 <span class="c1"># For the parameters of Config, refer to the argument completion or the original code.</span>
-<span class="k">def</span> <span class="nf">_create_config</span><span class="p">(</span><span class="n">load_parameter</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_create_runner</span><span class="p">(</span><span class="n">load_parameter</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>
+    <span class="c1"># (Run &quot;pip install gymnasium pygame&quot; to use the gymnasium environment)</span>
     <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;FrozenLake-v1&quot;</span><span class="p">)</span>
+
     <span class="n">rl_config</span> <span class="o">=</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
-    <span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">rl_config</span><span class="p">)</span>
-    <span class="n">parameter</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">make_parameter</span><span class="p">()</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">rl_config</span><span class="p">)</span>
 
-    <span class="c1"># --- Loads the file</span>
+    <span class="c1"># --- load parameter</span>
     <span class="k">if</span> <span class="n">load_parameter</span><span class="p">:</span>
-        <span class="n">parameter</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">_parameter_path</span><span class="p">)</span>
+        <span class="n">runner</span><span class="o">.</span><span class="n">load_parameter</span><span class="p">(</span><span class="n">_parameter_path</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">config</span><span class="p">,</span> <span class="n">parameter</span>
+    <span class="k">return</span> <span class="n">runner</span>
 
 
 <span class="c1"># --- train sample</span>
 <span class="k">def</span> <span class="nf">train</span><span class="p">():</span>
-    <span class="n">config</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_create_config</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">_create_runner</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="kc">True</span><span class="p">:</span>
-        <span class="c1"># sequence training</span>
-        <span class="n">parameter</span><span class="p">,</span> <span class="n">remote_memory</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="c1"># distributed training</span>
-        <span class="n">parameter</span><span class="p">,</span> <span class="n">remote_memory</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train_mp</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+    <span class="c1"># sequence training</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+    <span class="c1"># distributed training</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">train_mp</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 
     <span class="c1"># save parameter</span>
-    <span class="n">parameter</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">_parameter_path</span><span class="p">)</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">save_parameter</span><span class="p">(</span><span class="n">_parameter_path</span><span class="p">)</span>
 
 
 <span class="c1"># --- evaluate sample</span>
 <span class="k">def</span> <span class="nf">evaluate</span><span class="p">():</span>
-    <span class="n">config</span><span class="p">,</span> <span class="n">parameter</span> <span class="o">=</span> <span class="n">_create_config</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">max_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">_create_runner</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">max_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average reward for 100 episodes: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rewards</span><span class="p">,</span><span class="w"> </span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 
 <span class="c1"># --- render terminal sample</span>
 <span class="k">def</span> <span class="nf">render_terminal</span><span class="p">():</span>
-    <span class="n">config</span><span class="p">,</span> <span class="n">parameter</span> <span class="o">=</span> <span class="n">_create_config</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">_create_runner</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">()</span>
 
 
 <span class="c1"># --- render window sample</span>
 <span class="c1">#  (Run &quot;pip install pillow pygame&quot; to use the render_window)</span>
 <span class="k">def</span> <span class="nf">render_window</span><span class="p">():</span>
-    <span class="n">config</span><span class="p">,</span> <span class="n">parameter</span> <span class="o">=</span> <span class="n">_create_config</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">runner</span><span class="o">.</span><span class="n">render_window</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">_create_runner</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">render_window</span><span class="p">()</span>
 
 
 <span class="c1"># --- animation sample</span>
 <span class="c1">#  (Run &quot;pip install opencv-python pillow pygame&quot; to use the animation)</span>
 <span class="k">def</span> <span class="nf">animation</span><span class="p">():</span>
-    <span class="n">config</span><span class="p">,</span> <span class="n">parameter</span> <span class="o">=</span> <span class="n">_create_config</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">render</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">animation</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
-    <span class="n">render</span><span class="o">.</span><span class="n">create_anime</span><span class="p">()</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;_FrozenLake.gif&quot;</span><span class="p">)</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">_create_runner</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">animation_save_gif</span><span class="p">(</span><span class="s2">&quot;_FrozenLake.gif&quot;</span><span class="p">)</span>
 
 
 <span class="c1"># --- replay window sample</span>
 <span class="c1">#  (Run &quot;pip install opencv-python pillow pygame&quot; to use the replay_window)</span>
 <span class="k">def</span> <span class="nf">replay_window</span><span class="p">():</span>
-    <span class="n">config</span><span class="p">,</span> <span class="n">parameter</span> <span class="o">=</span> <span class="n">_create_config</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">runner</span><span class="o">.</span><span class="n">replay_window</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">_create_runner</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">replay_window</span><span class="p">()</span>
 
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
@@ -221,16 +212,15 @@
 <p>Gym/Gymnasium に登録されている環境ならそのまま読み込むことが出来ます。
 （フレームワーク内では 'gym.make' または 'gymnasium.make' で読み込んでいます）</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
-<span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
-<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># load algorithm</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
 
 
 <span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
     <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;FrozenLake-v1&quot;</span><span class="p">)</span>
 
-    <span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
 
-    <span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">()</span>
 
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
@@ -246,8 +236,7 @@
 <span class="kn">import</span> <span class="nn">retro</span>
 
 <span class="kn">import</span> <span class="nn">srl</span>
-<span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
-<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># load algorithm</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
 
 <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span>
     <span class="s2">&quot;Airstriker-Genesis&quot;</span><span class="p">,</span>
@@ -256,9 +245,9 @@
     <span class="c1"># gymnasium_make_func= ,   # use gymnasium</span>
 <span class="p">)</span>
 
-<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
 
-<span class="n">runner</span><span class="o">.</span><span class="n">render_window</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">render_window</span><span class="p">()</span>
 </pre></div>
 </div>
 </section>
@@ -268,17 +257,12 @@
 <section id="evaluate">
 <h3><span class="section-number">2.4.1. </span>Evaluate<a class="headerlink" href="#evaluate" title="この見出しへのパーマリンク"></a></h3>
 <p>学習せずにシミュレーションし、報酬を返します。</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
 
-<span class="c1"># --- env &amp; algorithm load</span>
-<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">grid</span>  <span class="c1"># isort: skip # noqa F401</span>
-<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># isort: skip</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
 
-
-<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
-<span class="n">parameter</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">make_parameter</span><span class="p">()</span>
-
-<span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">max_episodes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">max_episodes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;evaluate episodes: </span><span class="si">{</span><span class="n">rewards</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">evaluate episodes: [</span>
@@ -294,36 +278,102 @@
 </section>
 <section id="replay-window">
 <h3><span class="section-number">2.4.2. </span>Replay Window<a class="headerlink" href="#replay-window" title="この見出しへのパーマリンク"></a></h3>
-<p>シミュレーションした結果を後から見返す機能です。
-1step毎の様子を見返すことができます。</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
+<p>シミュレーションして、その結果を見返す機能です。
+1step毎の様子を見ることができます。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
 
-<span class="c1"># --- env &amp; algorithm load</span>
-<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">grid</span>  <span class="c1"># isort: skip # noqa F401</span>
-<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># isort: skip</span>
-
-
-<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
-<span class="n">parameter</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
-
-<span class="n">runner</span><span class="o">.</span><span class="n">replay_window</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">replay_window</span><span class="p">()</span>
 </pre></div>
 </div>
 </section>
 <section id="render-terminal">
 <h3><span class="section-number">2.4.3. </span>Render Terminal<a class="headerlink" href="#render-terminal" title="この見出しへのパーマリンク"></a></h3>
 <p>print出力の形式で1エピソードシミュレーションします。</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
 
-<span class="c1"># --- env &amp; algorithm load</span>
-<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">grid</span>  <span class="c1"># isort: skip # noqa F401</span>
-<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># isort: skip</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 
+<span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">()</span>
 
-<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
-<span class="n">parameter</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">make_parameter</span><span class="p">()</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">### 0, action 0(←), rewards[0.000]</span>
+<span class="sd">env   {}</span>
+<span class="sd">work0 {}</span>
+<span class="sd">......</span>
+<span class="sd">.   G.</span>
+<span class="sd">. . X.</span>
+<span class="sd">.P   .</span>
+<span class="sd">......</span>
 
-<span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
+<span class="sd"> ←  : 0.26995</span>
+<span class="sd"> ↓  : 0.27021</span>
+<span class="sd"> →  : 0.22059</span>
+<span class="sd">*↑  : 0.35530</span>
+<span class="sd">### 1, action 3(↑), rewards[-0.040]</span>
+<span class="sd">env   {}</span>
+<span class="sd">work0 {&#39;epsilon&#39;: 0}</span>
+<span class="sd">......</span>
+<span class="sd">.   G.</span>
+<span class="sd">.P. X.</span>
+<span class="sd">.    .</span>
+<span class="sd">......</span>
+
+<span class="sd"> ←  : 0.37256</span>
+<span class="sd"> ↓  : 0.30609</span>
+<span class="sd"> →  : 0.36743</span>
+<span class="sd">*↑  : 0.46822</span>
+<span class="sd">### 2, action 3(↑), rewards[-0.040]</span>
+<span class="sd">env   {}</span>
+<span class="sd">work0 {&#39;epsilon&#39;: 0}</span>
+<span class="sd">......</span>
+<span class="sd">.P  G.</span>
+<span class="sd">. . X.</span>
+<span class="sd">.    .</span>
+<span class="sd">......</span>
+
+<span class="sd"> ←  : 0.47177</span>
+<span class="sd"> ↓  : 0.42313</span>
+<span class="sd">*→  : 0.59930</span>
+<span class="sd"> ↑  : 0.51255</span>
+<span class="sd">### 3, action 2(→), rewards[-0.040]</span>
+<span class="sd">env   {}</span>
+<span class="sd">work0 {&#39;epsilon&#39;: 0}</span>
+<span class="sd">......</span>
+<span class="sd">. P G.</span>
+<span class="sd">. . X.</span>
+<span class="sd">.    .</span>
+<span class="sd">......</span>
+
+<span class="sd"> ←  : 0.51241</span>
+<span class="sd"> ↓  : 0.64351</span>
+<span class="sd">*→  : 0.76673</span>
+<span class="sd"> ↑  : 0.59747</span>
+<span class="sd">### 4, action 2(→), rewards[-0.040]</span>
+<span class="sd">env   {}</span>
+<span class="sd">work0 {&#39;epsilon&#39;: 0}</span>
+<span class="sd">......</span>
+<span class="sd">.  PG.</span>
+<span class="sd">. . X.</span>
+<span class="sd">.    .</span>
+<span class="sd">......</span>
+
+<span class="sd"> ←  : 0.60441</span>
+<span class="sd"> ↓  : 0.30192</span>
+<span class="sd">*→  : 0.93905</span>
+<span class="sd"> ↑  : 0.71430</span>
+<span class="sd">### 5, action 2(→), rewards[1.000], done(env)</span>
+<span class="sd">env   {}</span>
+<span class="sd">work0 {}</span>
+<span class="sd">......</span>
+<span class="sd">.   P.</span>
+<span class="sd">. . X.</span>
+<span class="sd">.    .</span>
+<span class="sd">......</span>
+<span class="sd">&quot;&quot;&quot;</span>
 </pre></div>
 </div>
 </section>
@@ -331,17 +381,13 @@
 <h3><span class="section-number">2.4.4. </span>Render Window<a class="headerlink" href="#render-window" title="この見出しへのパーマリンク"></a></h3>
 <p>pygameにて1エピソードを描画します。
 pygameのwindowが表示できる環境である必要があります。</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
 
-<span class="c1"># --- env &amp; algorithm load</span>
-<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">grid</span>  <span class="c1"># isort: skip # noqa F401</span>
-<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># isort: skip</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 
-
-<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
-<span class="n">parameter</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
-
-<span class="n">runner</span><span class="o">.</span><span class="n">render_window</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">render_window</span><span class="p">()</span>
 </pre></div>
 </div>
 </section>
@@ -349,18 +395,13 @@ pygameのwindowが表示できる環境である必要があります。</p>
 <h3><span class="section-number">2.4.5. </span>Animation<a class="headerlink" href="#animation" title="この見出しへのパーマリンク"></a></h3>
 <p>映像として残せるようにRGBデータを保存しながらシミュレーションします。
 アニメーションは、'matplotlib.animation.ArtistAnimation' で作成されます。</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
 
-<span class="c1"># --- env &amp; algorithm load</span>
-<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">grid</span>  <span class="c1"># isort: skip # noqa F401</span>
-<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># isort: skip</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
 
-
-<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
-<span class="n">parameter</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">make_parameter</span><span class="p">()</span>
-
-<span class="n">render</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">animation</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
-<span class="n">render</span><span class="o">.</span><span class="n">create_anime</span><span class="p">()</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;_Grid.gif&quot;</span><span class="p">)</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">animation_save_gif</span><span class="p">(</span><span class="s2">&quot;_Grid.gif&quot;</span><span class="p">)</span>
+<span class="c1"># runner.animation_display()  # for notebook</span>
 </pre></div>
 </div>
 </section>
@@ -368,9 +409,10 @@ pygameのwindowが表示できる環境である必要があります。</p>
 <h3><span class="section-number">2.4.6. </span>Manual play Terminal<a class="headerlink" href="#manual-play-terminal" title="この見出しへのパーマリンク"></a></h3>
 <p>Terminal上で手動プレイします。
 環境によっては動作しない場合があります。</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 
-<span class="n">runner</span><span class="o">.</span><span class="n">play_terminal</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">)</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">rl_config</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">play_terminal</span><span class="p">()</span>
 </pre></div>
 </div>
 </section>
@@ -382,16 +424,15 @@ pygameのwindowが表示できる環境である必要があります。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pygame</span>
 
 <span class="kn">import</span> <span class="nn">srl</span>
-<span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
 
-<span class="c1"># --- use env load</span>
-<span class="c1"># (Run &quot;pip install gym[atari,accept-rom-license] pygame&quot;)</span>
-<span class="kn">import</span> <span class="nn">gym</span>  <span class="c1"># isort: skip # noqa F401</span>
-
+<span class="c1"># --- Atari env</span>
+<span class="c1"># Run &quot;pip install gymnasium pygame&quot; and also see the URL below.</span>
+<span class="c1"># https://gymnasium.farama.org/environments/atari/</span>
 <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span>
     <span class="s2">&quot;ALE/Galaxian-v5&quot;</span><span class="p">,</span>
     <span class="n">kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">full_action_space</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
 <span class="p">)</span>
+
 <span class="n">key_bind</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
     <span class="s2">&quot;z&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
@@ -412,7 +453,8 @@ pygameのwindowが表示できる環境である必要があります。</p>
     <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_DOWN</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_RIGHT</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_z</span><span class="p">):</span> <span class="mi">16</span><span class="p">,</span>
     <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_DOWN</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_LEFT</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_z</span><span class="p">):</span> <span class="mi">17</span><span class="p">,</span>
 <span class="p">}</span>
-<span class="n">runner</span><span class="o">.</span><span class="n">play_window</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">key_bind</span><span class="o">=</span><span class="n">key_bind</span><span class="p">)</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">rl_config</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">play_window</span><span class="p">(</span><span class="n">key_bind</span><span class="o">=</span><span class="n">key_bind</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>

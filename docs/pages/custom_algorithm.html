@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>4. Create Original Algorithm &mdash; SimpleDistributedRL 0.11.2.2 ドキュメント</title>
+  <title>4. Create Original Algorithm &mdash; SimpleDistributedRL 0.12.0 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -191,6 +191,8 @@
 <span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">MyConfig</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">):</span>
 
+   <span class="c1"># コンストラクタで使うハイパーパラメータを定義する</span>
+
    <span class="k">def</span> <span class="nf">getName</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; ユニークな名前を返す &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
@@ -212,6 +214,15 @@
 <span class="sd">      DISCRETE  : 離散値</span>
 <span class="sd">      CONTINUOUS: 連続値</span>
 <span class="sd">      ANY       : どちらでも</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="k">def</span> <span class="nf">get_use_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">      使うフレームワークを指定してください。</span>
+<span class="sd">      return &quot;&quot;           : 何もなし</span>
+<span class="sd">      return &quot;tensorflow&quot; : Tensorflow</span>
+<span class="sd">      return &quot;torch&quot;      : Torch</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
@@ -290,7 +301,7 @@
 サンプルは取り出すとなくなります。</p>
 <p>ハイパーパラメータは特にないので継承するだけで実装できます。
 継承すると add 関数と sample 関数が追加されるのでそれを使います。</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.remote_memory</span> <span class="kn">import</span> <span class="n">SequenceRemoteMemory</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.rl.memories.sequence_memory</span> <span class="kn">import</span> <span class="n">SequenceRemoteMemory</span>
 
 
 <span class="k">class</span> <span class="nc">MyRemoteMemory</span><span class="p">(</span><span class="n">SequenceRemoteMemory</span><span class="p">):</span>
@@ -316,13 +327,13 @@
 
 <span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLTypes</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLConfig</span>
-<span class="kn">from</span> <span class="nn">srl.base.rl.remote_memory</span> <span class="kn">import</span> <span class="n">ExperienceReplayBuffer</span>
+<span class="kn">from</span> <span class="nn">srl.rl.memories.experience_replay_buffer</span> <span class="kn">import</span> <span class="n">ExperienceReplayBuffer</span><span class="p">,</span> <span class="n">ExperienceReplayBufferConfig</span>
 
 
 <span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">MyConfig</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">):</span>
-    <span class="c1"># memoryの最大サイズ</span>
-    <span class="n">capacity</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="k">class</span> <span class="nc">MyConfig</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">,</span> <span class="n">ExperienceReplayBufferConfig</span><span class="p">):</span>
+    <span class="c1"># RLConfig に加え、ExperienceReplayBufferConfig も継承する</span>
+    <span class="c1"># (順番は RLConfig -&gt; ExperienceReplayBufferConfig )</span>
 
     <span class="k">def</span> <span class="nf">getName</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;MyConfig&quot;</span>
@@ -335,14 +346,12 @@
     <span class="k">def</span> <span class="nf">base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RLTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
+    <span class="k">def</span> <span class="nf">get_use_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+
 
 <span class="k">class</span> <span class="nc">MyRemoteMemory</span><span class="p">(</span><span class="n">ExperienceReplayBuffer</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
-
-        <span class="c1"># init を呼び出してメモリ容量をセットする。</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">capacity</span><span class="p">)</span>
+    <span class="k">pass</span>
 
 
 <span class="c1"># 実行例</span>
@@ -361,23 +370,20 @@
 <p>優先順位に従ってサンプルを取り出すRemoteMemoryです。
 継承すると add,sample,update,on_step関数が追加されます。
 （on_stepはworkerで使用）</p>
-<p>ハイパーパラメータもあり、少し複雑なのでコードで説明します。</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<p>実装コード例は以下です。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLTypes</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLConfig</span>
-<span class="kn">from</span> <span class="nn">srl.base.rl.memory</span> <span class="kn">import</span> <span class="n">IPriorityMemoryConfig</span>
-<span class="kn">from</span> <span class="nn">srl.base.rl.remote_memory.priority_experience_replay</span> <span class="kn">import</span> <span class="n">PriorityExperienceReplay</span>
-<span class="kn">from</span> <span class="nn">srl.rl.memories.config</span> <span class="kn">import</span> <span class="n">ReplayMemoryConfig</span>
+<span class="kn">from</span> <span class="nn">srl.rl.memories.priority_experience_replay</span> <span class="kn">import</span> <span class="n">PriorityExperienceReplay</span><span class="p">,</span> <span class="n">PriorityExperienceReplayConfig</span>
 
 
 <span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">MyConfig</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">):</span>
-    <span class="c1"># PriorityExperienceReplay用のパラメータ</span>
-    <span class="c1"># 型は IPriorityMemoryConfig を取る(IPriorityMemoryConfigは後述)</span>
-    <span class="n">memory</span><span class="p">:</span> <span class="n">IPriorityMemoryConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">ReplayMemoryConfig</span><span class="p">())</span>
+<span class="k">class</span> <span class="nc">MyConfig</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">,</span> <span class="n">PriorityExperienceReplayConfig</span><span class="p">):</span>
+    <span class="c1"># RLConfig PriorityExperienceReplayConfig も継承する</span>
+    <span class="c1"># (順番は RLConfig -&gt; PriorityExperienceReplayConfig )</span>
 
     <span class="k">def</span> <span class="nf">getName</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;MyConfig&quot;</span>
@@ -390,14 +396,12 @@
     <span class="k">def</span> <span class="nf">base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RLTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
+    <span class="k">def</span> <span class="nf">get_use_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+
 
 <span class="k">class</span> <span class="nc">MyRemoteMemory</span><span class="p">(</span><span class="n">PriorityExperienceReplay</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
-
-        <span class="c1"># IPriorityMemoryConfig を init に渡す</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">memory</span><span class="p">)</span>
+    <span class="k">pass</span>
 
 
 <span class="c1"># 実行例</span>
@@ -826,7 +830,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLParameter</span><span class="p">,</span> <span class="n">RLTrainer</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.config</span> <span class="kn">import</span> <span class="n">RLConfig</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.registration</span> <span class="kn">import</span> <span class="n">register</span>
-<span class="kn">from</span> <span class="nn">srl.base.rl.remote_memory</span> <span class="kn">import</span> <span class="n">SequenceRemoteMemory</span>
+<span class="kn">from</span> <span class="nn">srl.rl.memories.sequence_memory</span> <span class="kn">import</span> <span class="n">SequenceRemoteMemory</span>
 
 
 <span class="nd">@dataclass</span>
@@ -843,6 +847,9 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLTypes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RLTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
+
+    <span class="k">def</span> <span class="nf">get_use_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">getName</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;MyRL&quot;</span>
@@ -949,7 +956,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
             <span class="c1"># 最大値を選ぶ（複数あればランダム）</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">action</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q</span> <span class="o">==</span> <span class="n">q</span><span class="o">.</span><span class="n">max</span><span class="p">())[</span><span class="mi">0</span><span class="p">])</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">action</span><span class="p">,</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">action</span><span class="p">),</span> <span class="p">{}</span>
 
     <span class="k">def</span> <span class="nf">call_on_step</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1009,24 +1016,19 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <span class="c1"># Grid環境の学習</span>
 <span class="c1"># ---------------------------------</span>
 <span class="kn">import</span> <span class="nn">srl</span>
-<span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
-<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">grid</span>
 
-<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">),</span> <span class="n">Config</span><span class="p">(</span><span class="n">lr</span><span class="o">=</span><span class="mf">0.001</span><span class="p">))</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">),</span> <span class="n">Config</span><span class="p">(</span><span class="n">lr</span><span class="o">=</span><span class="mf">0.001</span><span class="p">))</span>
 
 <span class="c1"># --- train</span>
-<span class="n">parameter</span><span class="p">,</span> <span class="n">remote_memory</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 
 <span class="c1"># --- test</span>
-<span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">max_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">max_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;100エピソードの平均結果&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rewards</span><span class="p">))</span>
 
-<span class="n">reward</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">reward</span><span class="p">)</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">()</span>
 
-<span class="n">render</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">animation</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
-<span class="n">render</span><span class="o">.</span><span class="n">create_anime</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;MyRL-Grid.gif&quot;</span><span class="p">)</span>
-<span class="c1"># render.display(scale=2)  # for notebook</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">animation_save_gif</span><span class="p">(</span><span class="s2">&quot;MyRL-Grid.gif&quot;</span><span class="p">,</span> <span class="n">render_scale</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>renderの表示例</p>

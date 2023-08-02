@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3. Create Original Environment &mdash; SimpleDistributedRL 0.11.2.2 ドキュメント</title>
+  <title>3. Create Original Environment &mdash; SimpleDistributedRL 0.12.0 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -49,17 +49,17 @@
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">2. Getting Started</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">3. Create Original Environment</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#id1">3.1. 実装クラス</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#gym">3.1.1. gym の環境を利用</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id2">3.1.1. gym の環境を利用</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#envbase">3.1.2. EnvBaseクラスを利用する方法</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id2">3.1.3. 一人プレイ用のクラス</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id3">3.1.4. ターン制二人プレイ用のクラス</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id4">3.1.5. その他オプション</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id3">3.1.3. 一人プレイ用のクラス</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id4">3.1.4. ターン制二人プレイ用のクラス</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id5">3.1.5. その他オプション</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#space">3.2. Spaceクラスについて</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id5">3.3. 自作環境の登録</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id6">3.4. 実装例</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id7">3.5. テスト</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id6">3.3. 自作環境の登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id7">3.4. 実装例</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id8">3.5. テスト</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#q">3.6. Q学習による学習</a></li>
 </ul>
 </li>
@@ -115,16 +115,16 @@
 <h2><span class="section-number">3.1. </span>実装クラス<a class="headerlink" href="#id1" title="この見出しへのパーマリンク"></a></h2>
 <p>自作環境を作成する方法は現在以下の二つがあります。</p>
 <ul class="simple">
-<li><p>(OpenAI gym)[<a class="reference external" href="https://github.com/openai/gym">https://github.com/openai/gym</a>]（以下gym）の環境を用意する</p></li>
+<li><p><a class="reference external" href="https://github.com/openai/gym">Gym</a> または <a class="reference external" href="https://github.com/Farama-Foundation/Gymnasium">Gymnasium</a> （以下gym）の環境を用意する</p></li>
 <li><p>本フレームワークで実装されている 'srl.base.env.EnvBase' を継承する</p></li>
 </ul>
 <p>それぞれについて説明します。</p>
-<section id="gym">
-<h3><span class="section-number">3.1.1. </span>gym の環境を利用<a class="headerlink" href="#gym" title="この見出しへのパーマリンク"></a></h3>
+<section id="id2">
+<h3><span class="section-number">3.1.1. </span>gym の環境を利用<a class="headerlink" href="#id2" title="この見出しへのパーマリンク"></a></h3>
 <p>gym の環境を利用を利用する場合は別途 <cite>pip install gym</cite> が必要です。
 また、一部本フレームワークに特化した内容にはならない点があります。
 1-2で説明があるBaseクラスを見比べてもらえれば分かりますが、アルゴリズム向けに特化した情報が増えています。</p>
-<p>※gym側の更新等により不正確な情報になる可能性があります。より正確な情報は公式(&lt;<a class="reference external" href="https://github.com/openai/gym">https://github.com/openai/gym</a>&gt;)を見てください。</p>
+<p>※gym側の更新等により不正確な情報になる可能性があります。より正確な情報は公式(<a class="reference external" href="https://github.com/openai/gym">https://github.com/openai/gym</a>)を見てください。</p>
 <p>具体的なコードは以下です。
 gym.Envを継承して作成します。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">gym</span>
@@ -298,8 +298,8 @@ gym.Envを継承して作成します。</p>
 </pre></div>
 </div>
 </section>
-<section id="id2">
-<h3><span class="section-number">3.1.3. </span>一人プレイ用のクラス<a class="headerlink" href="#id2" title="この見出しへのパーマリンク"></a></h3>
+<section id="id3">
+<h3><span class="section-number">3.1.3. </span>一人プレイ用のクラス<a class="headerlink" href="#id3" title="この見出しへのパーマリンク"></a></h3>
 <p>一人プレイ用に特化した基底クラスの説明です。
 （<cite>srl.base.env.genre.singleplay.SinglePlayEnv</cite>）</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
@@ -368,8 +368,8 @@ gym.Envを継承して作成します。</p>
 </pre></div>
 </div>
 </section>
-<section id="id3">
-<h3><span class="section-number">3.1.4. </span>ターン制二人プレイ用のクラス<a class="headerlink" href="#id3" title="この見出しへのパーマリンク"></a></h3>
+<section id="id4">
+<h3><span class="section-number">3.1.4. </span>ターン制二人プレイ用のクラス<a class="headerlink" href="#id4" title="この見出しへのパーマリンク"></a></h3>
 <p>ターン制二人プレイに特化した基底クラスの説明です。
 (<cite>srl.base.env.genre.turnbase2player.TurnBase2Player</cite>)</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
@@ -445,8 +445,8 @@ gym.Envを継承して作成します。</p>
 </pre></div>
 </div>
 </section>
-<section id="id4">
-<h3><span class="section-number">3.1.5. </span>その他オプション<a class="headerlink" href="#id4" title="この見出しへのパーマリンク"></a></h3>
+<section id="id5">
+<h3><span class="section-number">3.1.5. </span>その他オプション<a class="headerlink" href="#id5" title="この見出しへのパーマリンク"></a></h3>
 <p>その他必須ではないですが、設定できる関数・プロパティとなります。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- 追加情報</span>
 <span class="nd">@property</span>
@@ -550,8 +550,8 @@ gym.Envを継承して作成します。</p>
 </table>
 <p>詳細はコード(<cite>srl.base.env.spaces</cite>)を見てください。</p>
 </section>
-<section id="id5">
-<h2><span class="section-number">3.3. </span>自作環境の登録<a class="headerlink" href="#id5" title="この見出しへのパーマリンク"></a></h2>
+<section id="id6">
+<h2><span class="section-number">3.3. </span>自作環境の登録<a class="headerlink" href="#id6" title="この見出しへのパーマリンク"></a></h2>
 <p>作成した環境は以下で登録して使います。
 引数は以下です。</p>
 <table class="docutils align-default">
@@ -591,8 +591,8 @@ gym.Envを継承して作成します。</p>
 </pre></div>
 </div>
 </section>
-<section id="id6">
-<h2><span class="section-number">3.4. </span>実装例<a class="headerlink" href="#id6" title="この見出しへのパーマリンク"></a></h2>
+<section id="id7">
+<h2><span class="section-number">3.4. </span>実装例<a class="headerlink" href="#id7" title="この見出しへのパーマリンク"></a></h2>
 <p>左右に動け、左が穴で右がゴールなシンプルな環境を実装します。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">enum</span>
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
@@ -653,10 +653,10 @@ gym.Envを継承して作成します。</p>
             <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span> <span class="o">+=</span> <span class="mi">1</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span><span class="p">]</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="p">{}</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="p">{}</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="p">{}</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="p">{}</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">player_pos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">move_reward</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="p">{}</span>
 
@@ -700,7 +700,9 @@ gym.Envを継承して作成します。</p>
 </div>
 <p>実装した環境をとりあえず動かすコードは以下です。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
-<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">sample_env</span>  <span class="c1"># noqa F401  # 実装したEnvファイルをimport</span>
+
+<span class="c1"># 実装したEnvファイルをimportし、registerに登録</span>
+<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">sample_env</span>  <span class="c1"># noqa F401</span>
 
 <span class="n">env</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">make_env</span><span class="p">(</span><span class="s2">&quot;SampleEnv&quot;</span><span class="p">)</span>
 
@@ -718,10 +720,11 @@ gym.Envを継承して作成します。</p>
 </pre></div>
 </div>
 </section>
-<section id="id7">
-<h2><span class="section-number">3.5. </span>テスト<a class="headerlink" href="#id7" title="この見出しへのパーマリンク"></a></h2>
+<section id="id8">
+<h2><span class="section-number">3.5. </span>テスト<a class="headerlink" href="#id8" title="この見出しへのパーマリンク"></a></h2>
 <p>最低限ですが、ちゃんと動くか以下でテストできます。</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">sample_env</span>  <span class="c1"># noqa F401</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># 実装したEnvファイルをimportし、registerに登録</span>
+<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">sample_env</span>  <span class="c1"># noqa F401</span>
 <span class="kn">from</span> <span class="nn">srl.test</span> <span class="kn">import</span> <span class="n">TestEnv</span>
 
 <span class="n">tester</span> <span class="o">=</span> <span class="n">TestEnv</span><span class="p">()</span>
@@ -735,28 +738,26 @@ gym.Envを継承して作成します。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="kn">import</span> <span class="nn">srl</span>
-<span class="kn">from</span> <span class="nn">srl</span> <span class="kn">import</span> <span class="n">runner</span>
 <span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
+
+<span class="c1"># 実装したEnvファイルをimportし、registerに登録</span>
 <span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">sample_env</span>  <span class="c1"># noqa F401</span>
 
 <span class="c1"># Q学習</span>
-<span class="n">config</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;SampleEnv&quot;</span><span class="p">),</span> <span class="n">rl_config</span><span class="o">=</span><span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;SampleEnv&quot;</span><span class="p">),</span> <span class="n">rl_config</span><span class="o">=</span><span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
 
 <span class="c1"># 学習</span>
-<span class="n">parameter</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 
 <span class="c1"># 評価</span>
-<span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">max_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">max_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;100エピソードの平均結果&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rewards</span><span class="p">))</span>
 
 <span class="c1"># 可視化</span>
-<span class="n">reward</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">reward</span><span class="p">)</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">()</span>
 
 <span class="c1"># animation</span>
-<span class="n">render</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">animation</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span>
-<span class="n">render</span><span class="o">.</span><span class="n">create_anime</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;_SampleEnv.gif&quot;</span><span class="p">)</span>
-<span class="c1"># render.display(scale=3)  # for notebook</span>
+<span class="n">render</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">animation_save_gif</span><span class="p">(</span><span class="s2">&quot;_SampleEnv.gif&quot;</span><span class="p">,</span> <span class="n">render_scale</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 </pre></div>
 </div>
 <img alt="../_images/custom_env3.gif" src="../_images/custom_env3.gif" />

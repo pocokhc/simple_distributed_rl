@@ -57,8 +57,8 @@ Evaluate
 Replay Window
 ---------------------
 
-シミュレーションした結果を後から見返す機能です。
-1step毎の様子を見返すことができます。
+シミュレーションして、その結果を見返す機能です。
+1step毎の様子を見ることができます。
 
 .. literalinclude:: quickstart_replay_window.py
 

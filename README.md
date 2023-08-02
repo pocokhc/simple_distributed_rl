@@ -142,10 +142,6 @@ if __name__ == "__main__":
 
 ![overview-distributed.drawio.png](diagrams/overview-distributed.drawio.png)
 
-+ Runner
-
-![overview-runner.drawio.png](diagrams/overview-runner.drawio.png)
-
 + Simplified pseudo code
 
 ``` python
@@ -267,6 +263,8 @@ while not env.done:
 ![class_rl.png](diagrams/class_rl.png)
 
 ![class_env.png](diagrams/class_env.png)
+
+![class_runner.png](diagrams/class_runner.png)
 
 ## Interface
 

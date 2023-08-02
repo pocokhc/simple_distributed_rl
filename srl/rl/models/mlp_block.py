@@ -4,7 +4,7 @@ from typing import Any, Dict, Tuple
 
 @dataclass
 class MLPBlockConfig:
-    _kwargs: Dict[str, Any] = field(init=False, default_factory=lambda: {})
+    _kwargs: Dict[str, Any] = field(init=False, default_factory=lambda: {"layer_sizes": (512,)})
 
     def set_mlp(
         self,
@@ -19,6 +19,9 @@ class MLPBlockConfig:
             kernel_initializer=kernel_initializer,
             dense_kwargs=dense_kwargs,
         )
+
+    def set_original_block(self):
+        raise NotImplementedError("TODO")
 
     # ---------------------
 

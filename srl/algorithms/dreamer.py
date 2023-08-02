@@ -838,7 +838,7 @@ class Worker(DiscreteActionWorker):
         action = self.parameter.actor(self.feat).mode()
         self.action = np.argmax(action[0])
 
-        return self.action, {}
+        return int(self.action), {}
 
     def _rssm_step(self):
         embed = self.parameter.encode(self.state[np.newaxis, ...])

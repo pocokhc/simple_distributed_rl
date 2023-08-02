@@ -84,7 +84,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         self.memory.capacity = 1_000_000
         self.memory.set_replay_memory()
         self.image_block.set_dqn_image()
-        self.hidden_block.layer_sizes = (512,)
+        self.hidden_block.set_mlp((512,))
         self.target_model_update_interval = 10000
         self.discount = 0.99
         self.lr = 0.00025

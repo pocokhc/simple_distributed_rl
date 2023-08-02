@@ -199,15 +199,15 @@ class _CriticNetwork(keras.Model):
         x = self.in_block(state, training=training)
         if self.in_block.use_image_layer:
             x = self.image_block(x, training=training)
-            x = self.image_flatten(x)
+            x = self.image_flatten(x, training=training)
         x = tf.concat([x, action], axis=1)
 
         # q1
-        q1 = self.q1_block(x)
-        q1 = self.q1_output(q1)
+        q1 = self.q1_block(x, training=training)
+        q1 = self.q1_output(q1, training=training)
         # q2
-        q2 = self.q2_block(x)
-        q2 = self.q2_output(q1)
+        q2 = self.q2_block(x, training=training)
+        q2 = self.q2_output(q2, training=training)
 
         return q1, q2
 
@@ -309,7 +309,7 @@ class Trainer(RLTrainer):
 
         # Target Actionのノイズ
         clipped_noise = np.clip(
-            np.random.normal(0, self.config.target_policy_noise_stddev, size=n_actions.shape),  # type:ignore
+            np.random.normal(0, self.config.target_policy_noise_stddev, size=n_actions.shape),
             -self.config.target_policy_clip_range,
             self.config.target_policy_clip_range,
         )
@@ -317,29 +317,28 @@ class Trainer(RLTrainer):
 
         # 2つのQ値から小さいほうを採用(Clipped Double Q learning)して、
         # Q値を計算 : reward if done else (reward + discount * n_qval) - (alpha * H)
-        n_q1, n_q2 = self.parameter.critic_target([n_states, n_actions])  # type:ignore
-        q_vals = rewards + (1 - dones) * self.config.discount * tf.minimum(n_q1, n_q2)  # type:ignore
+        n_q1, n_q2 = self.parameter.critic_target([n_states, n_actions])
+        q_vals = rewards + (1 - dones) * self.config.discount * tf.minimum(n_q1, n_q2)
 
         # --- ポリシーの学習
         # Actorの学習は少し減らす
+        _info = {}
         if self.train_count % self.config.actor_update_interval == 0:
             with tf.GradientTape() as tape:
                 # アクションを出力
-                actor_actions = self.parameter.actor_online(states)
-                q, _ = self.parameter.critic_online([states, actor_actions])  # type:ignore
+                actor_actions = self.parameter.actor_online(states, training=True)
+                q, _ = self.parameter.critic_online([states, actor_actions], training=True)
                 actor_loss = -tf.reduce_mean(q)  # 最大化
                 actor_loss += tf.reduce_sum(self.parameter.actor_online.losses)
 
             grads = tape.gradient(actor_loss, self.parameter.actor_online.trainable_variables)
             self.actor_optimizer.apply_gradients(zip(grads, self.parameter.actor_online.trainable_variables))
 
-            actor_loss = actor_loss.numpy()
-        else:
-            actor_loss = None
+            _info["actor_loss"] = actor_loss.numpy()
 
         # --- Qモデルの学習
         with tf.GradientTape() as tape:
-            q1, q2 = self.parameter.critic_online([states, actions])  # type:ignore
+            q1, q2 = self.parameter.critic_online([states, actions], training=True)
             loss1 = tf.reduce_mean(tf.square(q_vals - q1))
             loss2 = tf.reduce_mean(tf.square(q_vals - q2))
             critic_loss = (loss1 + loss2) / 2
@@ -347,6 +346,8 @@ class Trainer(RLTrainer):
 
         grads = tape.gradient(critic_loss, self.parameter.critic_online.trainable_variables)
         self.critic_optimizer.apply_gradients(zip(grads, self.parameter.critic_online.trainable_variables))
+
+        _info["critic_loss"] = critic_loss.numpy()
 
         # --- soft target update
         self.parameter.actor_target.set_weights(
@@ -366,10 +367,7 @@ class Trainer(RLTrainer):
             self.parameter.critic_target.set_weights(self.parameter.critic_online.get_weights())
 
         self.train_count += 1
-        return {
-            "critic_loss": critic_loss.numpy(),
-            "actor_loss": actor_loss,
-        }
+        return _info
 
 
 # ------------------------------------------------------

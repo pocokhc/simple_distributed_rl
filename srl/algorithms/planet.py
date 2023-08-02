@@ -92,7 +92,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size < self.capacity
+        assert self.memory_warmup_size < self.memory.capacity
         assert self.batch_size < self.memory_warmup_size
 
 
@@ -611,7 +611,7 @@ class Worker(DiscreteActionWorker):
         else:
             raise NotImplementedError(self.config.action_algorithm)
 
-        return self.action, {}
+        return int(self.action), {}
 
     def _ga_policy(self, deter, stoch):
         # --- 初期個体

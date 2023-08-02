@@ -27,6 +27,9 @@ class ImageBlockConfig:
             filters=filters,
         )
 
+    def set_original_block(self):
+        raise NotImplementedError("TODO")
+
     # ---------------------
 
     def create_block_tf(self, enable_time_distributed_layer: bool):

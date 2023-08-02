@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  tf-gpu:
+  tf210-gpu:
     build:
       dockerfile: ./dockerfile_tf210_gpu
     volumes:

@@ -5,4 +5,3 @@ WORKDIR /code
 ENV PYTHONPATH="/code"
 COPY ./requirements_min.txt requirements.txt
 RUN pip install -U -r requirements.txt
-RUN pip install pytest==7.3.1 black==23.3.0 flake8==5.0.4

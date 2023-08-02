@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  tf-cpu:
+  tf210-cpu:
     build:
       dockerfile: ./dockerfile_tf210_cpu
     volumes:

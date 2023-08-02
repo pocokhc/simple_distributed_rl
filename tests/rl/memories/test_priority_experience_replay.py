@@ -1,12 +1,15 @@
-from srl.base.rl.remote_memory.experience_replay_buffer import ExperienceReplayBuffer
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
 
 
 def test_memory():
     capacity = 10
 
-    memory = ExperienceReplayBuffer(None)
-    memory.init(capacity)
+    config = ExperienceReplayBufferConfig()
+    config.memory.capacity = capacity
 
+    # ---
+
+    memory = ExperienceReplayBuffer(config)
     assert memory.length() == 0
 
     # add
@@ -24,14 +27,13 @@ def test_memory():
 
     # restore/backup
     dat = memory.backup(compress=True)
-    memory2 = ExperienceReplayBuffer(None)
-    memory2.init(capacity)
+    memory2 = ExperienceReplayBuffer(config)
     memory2.restore(dat)
     assert memory2.length() == 10
 
     # restore over
-    memory2 = ExperienceReplayBuffer(None)
-    memory2.init(20)
+    config.memory.capacity = 20
+    memory2 = ExperienceReplayBuffer(config)
     memory2.restore(dat)
     assert memory2.length() == 10
     memory2.add((11, 11, 11, 11))
@@ -39,8 +41,8 @@ def test_memory():
     assert memory2.memory[10] == (11, 11, 11, 11)
 
     # restore min
-    memory2 = ExperienceReplayBuffer(None)
-    memory2.init(5)
+    config.memory.capacity = 5
+    memory2 = ExperienceReplayBuffer(config)
     memory2.restore(dat)
     assert memory2.length() == 5
     assert memory2.memory[4] == (99, 99, 99, 99)

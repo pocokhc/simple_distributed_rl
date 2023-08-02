@@ -4,68 +4,72 @@ from .common_base_class import CommonBaseClass
 class BaseCase(CommonBaseClass):
     def _create_rl_config(self):
         from srl.algorithms import dqn
-        from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
 
-        return dqn.Config(
-            hidden_block_config=MLPBlockConfig(layer_sizes=(64, 64)),
+        rl_config = dqn.Config(
             enable_double_dqn=False,
             framework=self.get_framework(),
         )
+        rl_config.hidden_block.set_mlp((64, 64))
+        return rl_config
 
     def test_Pendulum(self):
+        self.check_skip()
         rl_config = self._create_rl_config()
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 100)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_steps=200 * 100)
+        tester.eval(runner)
 
     def test_Pendulum_mp(self):
-        from srl.rl import memories
-
+        self.check_skip()
         rl_config = self._create_rl_config()
-        rl_config.memory = memories.ProportionalMemoryConfig()
+        rl_config.memory.set_proportional_memory()
 
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train_eval(config, 200 * 100, is_mp=True)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train_mp(max_train_count=200 * 100)
+        tester.eval(runner)
 
     def test_Pendulum_DDQN(self):
+        self.check_skip()
         rl_config = self._create_rl_config()
         rl_config.enable_double_dqn = True
 
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train(config, 200 * 70)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_steps=200 * 70)
+        tester.eval(runner)
 
     def test_Pendulum_window(self):
+        self.check_skip()
         rl_config = self._create_rl_config()
         rl_config.window_length = 4
 
-        config, tester = self.create_config("Pendulum-v1", rl_config)
-        tester.train(config, 200 * 70)
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_steps=200 * 70)
+        tester.eval(runner)
 
-        config.model_summary()
+        runner.model_summary()
 
     def test_OX(self):
-        from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
-
+        self.check_skip()
         rl_config = self._create_rl_config()
-        rl_config.hidden_block_config = MLPBlockConfig(layer_sizes=(128,))
+        rl_config.hidden_block.set_mlp((64, 32, 16))
         rl_config.epsilon = 0.5
 
-        config, tester = self.create_config("OX", rl_config)
-        config.seed = 2
-        parameter, _, _ = tester.train(config, 10000)
+        runner, tester = self.create_runner("OX", rl_config)
+        runner.set_seed(2)
+        runner.train(max_train_count=30_000)
 
-        config.players = [None, "random"]
-        tester.eval(config, parameter, baseline=[0.8, None])
-        config.players = ["random", None]
-        tester.eval(config, parameter, baseline=[None, 0.65])
+        runner.set_players([None, "random"])
+        tester.eval(runner, baseline=[0.3, None])
+        runner.set_players(["random", None])
+        tester.eval(runner, baseline=[None, 0.1])
 
     def case_image_r2d3(self):
-        from srl.rl.models.dqn.r2d3_image_block_config import R2D3ImageBlockConfig
-        from srl.rl.models.mlp.mlp_block_config import MLPBlockConfig
-
+        self.check_skip()
         rl_config = self._create_rl_config()
-        rl_config.image_block_config = R2D3ImageBlockConfig()
-        rl_config.hidden_block_config = MLPBlockConfig(layer_sizes=(128, 16, 16))
+        rl_config.image_block.set_r2d3_image()
+        rl_config.hidden_block.set_mlp((128, 16, 16))
         rl_config.use_render_image_for_observation = True
 
-        config, tester = self.create_config("Grid", rl_config)
-        tester.train(config, 200 * 100)
+        runner, tester = self.create_runner("Grid", rl_config)
+        runner.train(max_train_count=200 * 150)
+        tester.eval(runner)

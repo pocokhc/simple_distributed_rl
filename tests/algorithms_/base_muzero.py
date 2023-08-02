@@ -1,5 +1,3 @@
-from srl.rl.memories.config import ReplayMemoryConfig
-
 from .common_base_class import CommonBaseClass
 
 
@@ -13,54 +11,52 @@ class BaseCase(CommonBaseClass):
         )
 
     def test_EasyGrid(self):
+        self.check_skip()
         from srl.envs import grid
-        from srl.rl.models.alphazero import AlphaZeroImageBlockConfig
 
         rl_config = self._create_rl_config()
-        rl_config.set_parameter(
-            dict(
-                num_simulations=20,
-                discount=0.9,
-                batch_size=16,
-                memory_warmup_size=200,
-                memory=ReplayMemoryConfig(),
-                lr_init=0.002,
-                lr_decay_steps=10_000,
-                v_min=-2,
-                v_max=2,
-                unroll_steps=1,
-                input_image_block=AlphaZeroImageBlockConfig(n_blocks=1, filters=16),
-                dynamics_blocks=1,
-                enable_rescale=False,
-                weight_decay=0,
-            )
+        rl_config.__init__(
+            num_simulations=20,
+            discount=0.9,
+            batch_size=16,
+            memory_warmup_size=200,
+            lr_init=0.002,
+            lr_decay_steps=10_000,
+            v_min=-2,
+            v_max=2,
+            unroll_steps=1,
+            dynamics_blocks=1,
+            enable_rescale=False,
+            weight_decay=0,
         )
+        rl_config.input_image_block.set_alphazero_block(1, 16)
+        rl_config.memory.set_replay_memory()
         rl_config.processors = [grid.LayerProcessor()]
-        config, tester = self.create_config("EasyGrid", rl_config)
-        tester.train_eval(config, 2000)
+        runner, tester = self.create_runner("EasyGrid", rl_config)
+        runner.train(max_train_count=2000)
+        tester.eval(runner)
 
     def test_EasyGrid_PER(self):
+        self.check_skip()
         from srl.envs import grid
-        from srl.rl.models.alphazero import AlphaZeroImageBlockConfig
 
         rl_config = self._create_rl_config()
-        rl_config.set_parameter(
-            dict(
-                num_simulations=20,
-                discount=0.9,
-                batch_size=16,
-                memory_warmup_size=200,
-                lr_init=0.002,
-                lr_decay_steps=10_000,
-                v_min=-2,
-                v_max=2,
-                unroll_steps=1,
-                input_image_block=AlphaZeroImageBlockConfig(n_blocks=1, filters=16),
-                dynamics_blocks=1,
-                enable_rescale=False,
-                weight_decay=0,
-            )
+        rl_config.__init__(
+            num_simulations=20,
+            discount=0.9,
+            batch_size=16,
+            memory_warmup_size=200,
+            lr_init=0.002,
+            lr_decay_steps=10_000,
+            v_min=-2,
+            v_max=2,
+            unroll_steps=1,
+            dynamics_blocks=1,
+            enable_rescale=False,
+            weight_decay=0,
         )
+        rl_config.input_image_block.set_alphazero_block(1, 16)
         rl_config.processors = [grid.LayerProcessor()]
-        config, tester = self.create_config("EasyGrid", rl_config)
-        tester.train_eval(config, 3000)
+        runner, tester = self.create_runner("EasyGrid", rl_config)
+        runner.train(max_train_count=3000)
+        tester.eval(runner)

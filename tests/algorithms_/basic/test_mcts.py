@@ -1,7 +1,7 @@
 import unittest
 
-from srl import runner
 from srl.algorithms import mcts
+from srl.runner.runner import Runner
 from srl.test import TestRL
 
 
@@ -19,21 +19,25 @@ class Test_mcts(TestRL, unittest.TestCase):
 def test_StoneTaking():
     tester = TestRL()
     rl_config = mcts.Config(num_simulations=10)
-    config = runner.Config("StoneTaking", rl_config, seed=1)
-    parameter, _, _ = tester.train(config, train_steps=1000)
-    tester.eval_2player(config, parameter)
+    runner = Runner("StoneTaking", rl_config)
+    runner.set_seed(1)
+    runner.train(max_steps=1000)
+    tester.eval_2player(runner)
 
 
 def test_OX():
     tester = TestRL()
     rl_config = mcts.Config(num_simulations=10)
-    config = runner.Config("OX", rl_config, seed=2)
-    parameter, _, _ = tester.train(config, train_steps=30000)
-    tester.eval_2player(config, parameter)
+    runner = Runner("OX", rl_config)
+    runner.set_seed(2)
+    runner.train(max_steps=30000)
+    tester.eval_2player(runner)
 
 
 def test_Grid():
     tester = TestRL()
     rl_config = mcts.Config(num_simulations=10, discount=0.9)
-    config = runner.Config("Grid", rl_config, seed=2)
-    tester.train_eval(config, train_steps=50000)
+    runner = Runner("Grid", rl_config)
+    runner.set_seed(2)
+    runner.train(max_steps=50000)
+    tester.eval(runner)

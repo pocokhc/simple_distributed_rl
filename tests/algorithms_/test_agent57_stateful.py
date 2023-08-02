@@ -1,6 +1,6 @@
 import pytest
 
-from srl import runner
+import srl
 from srl.test import TestRL
 
 
@@ -27,5 +27,7 @@ def test_Pendulum():
         input_action=False,
         enable_intrinsic_reward=True,
     )
-    config = runner.Config("Pendulum-v1", rl_config, seed=1, seed_enable_gpu=True)
-    tester.train_eval(config, 200 * 40)
+    runner = srl.Runner("Pendulum-v1", rl_config)
+    runner.set_seed(1)
+    runner.train(max_train_count=200 * 40)
+    tester.eval(runner)

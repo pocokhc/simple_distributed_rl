@@ -52,8 +52,8 @@ class Test_alphazero(TestRL, unittest.TestCase):
         self.init_simple_check()
         self.rl_config.set_go_config()
         self.rl_config.memory_warmup_size = 100
-        self.rl_config.batch_size = 32
-        self.rl_config.num_simulations = 50
+        self.rl_config.batch_size = 8
+        self.rl_config.num_simulations = 5
         self.simple_check(self.rl_config)
 
 
@@ -117,15 +117,14 @@ class Test_muzero(TestRL, unittest.TestCase):
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import muzero
-        from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
 
         self.rl_config = muzero.Config(
             batch_size=4,
             num_simulations=3,
             memory_warmup_size=10,
             dynamics_blocks=1,
-            input_image_block=AlphaZeroImageBlockConfig(n_blocks=2, filters=8),
         )
+        self.rl_config.input_image_block.set_alphazero_block(2, 4)
         self.simple_check_kwargs = dict(
             use_layer_processor=True,
         )
@@ -149,16 +148,13 @@ class Test_planet(TestRL, unittest.TestCase):
 
         from srl.algorithms import planet
 
-        self.rl_config = planet.Config()
-        self.rl_config.set_parameter(
-            dict(
-                batch_size=4,
-                batch_length=5,
-                memory_warmup_size=100,
-                num_generation=2,
-                num_simulations=2,
-                print_ga_debug=False,
-            )
+        self.rl_config = planet.Config(
+            batch_size=4,
+            batch_length=5,
+            memory_warmup_size=100,
+            num_generation=2,
+            num_simulations=2,
+            print_ga_debug=False,
         )
         self.rl_config.use_render_image_for_observation = True
 
@@ -204,15 +200,14 @@ class Test_stochastic_muzero(TestRL, unittest.TestCase):
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import stochastic_muzero
-        from srl.rl.models.alphazero.alphazero_image_block_config import AlphaZeroImageBlockConfig
 
         self.rl_config = stochastic_muzero.Config(
             num_simulations=3,
             batch_size=2,
             memory_warmup_size=5,
             dynamics_blocks=1,
-            input_image_block=AlphaZeroImageBlockConfig(n_blocks=1, filters=8),
         )
+        self.rl_config.input_image_block.set_alphazero_block(1, 8)
         self.simple_check_kwargs = dict(
             use_layer_processor=True,
         )

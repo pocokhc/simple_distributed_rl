@@ -1,36 +1,51 @@
 import os
-import shutil
+import pickle
 
-from srl import runner
-from srl.algorithms import ql_agent57
-from srl.envs import grid  # noqa F401
+from srl.algorithms import ql, ql_agent57
 from srl.runner.callbacks.checkpoint import Checkpoint
-from srl.runner.core import EvalOption, play
+from srl.runner.runner import Runner
 from srl.utils import common
 
 common.logger_print()
 
 
-def test_run():
-    dir_name = "tmp_test"
-    if os.path.isdir(dir_name):
-        shutil.rmtree(dir_name)
+def test_pickle():
+    pickle.loads(pickle.dumps(Checkpoint()))
 
-    config = runner.Config("Grid", ql_agent57.Config())
-    callback = Checkpoint(
-        save_dir=dir_name,
-        checkpoint_interval=1,
-        eval=EvalOption(),
-    )
-    play(
-        config,
-        timeout=3,
-        train_only=False,
-        enable_profiling=False,
-        training=True,
-        eval=None,
-        history=None,
-        checkpoint=None,
-        callbacks=[callback],
-    )
-    assert len(os.listdir(dir_name)) > 0
+
+def test_train():
+    rl_config = ql_agent57.Config(memory_warmup_size=10, batch_size=2)
+    runner = Runner("OX", rl_config)
+
+    runner.set_save_dir("tmp_test")
+    runner.set_checkpoint(interval=1)
+    runner.train(timeout=3)
+
+    path = os.path.join(runner.context.save_dir, "checkpoints")
+    assert len(os.listdir(path)) > 0
+
+
+def test_train_only():
+    rl_config = ql_agent57.Config(memory_warmup_size=10, batch_size=2)
+    runner = Runner("Grid", rl_config)
+
+    runner.train(timeout=1, disable_trainer=True)
+    assert runner.remote_memory.length() > rl_config.memory_warmup_size
+
+    runner.set_save_dir("tmp_test")
+    runner.set_checkpoint(interval=1)
+    runner.train_only(timeout=3)
+
+    path = os.path.join(runner.context.save_dir, "checkpoints")
+    assert len(os.listdir(path)) > 0
+
+
+def test_mp():
+    runner = Runner("Grid", ql.Config())
+
+    runner.set_save_dir("tmp_test")
+    runner.set_checkpoint(interval=1)
+    runner.train_mp(timeout=3)
+
+    path = os.path.join(runner.context.save_dir, "checkpoints")
+    assert len(os.listdir(path)) > 0

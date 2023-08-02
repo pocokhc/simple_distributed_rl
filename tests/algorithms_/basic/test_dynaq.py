@@ -1,7 +1,7 @@
 import unittest
 
-from srl import runner
 from srl.algorithms import dynaq
+from srl.runner.runner import Runner
 from srl.test import TestRL
 
 
@@ -15,13 +15,17 @@ class Test_dynaq(TestRL, unittest.TestCase):
 def test_Grid():
     tester = TestRL()
     rl_config = dynaq.Config()
-    config = runner.Config("Grid", rl_config, seed=5)
-    parameter, _, _ = tester.train_eval(config, 50_000)
-    tester.verify_grid_policy(rl_config, parameter)
+    runner = Runner("Grid", rl_config)
+    runner.set_seed(5)
+    runner.train(max_train_count=50_000)
+    tester.eval(runner)
+    tester.verify_grid_policy(runner)
 
 
 def test_Grid_mp():
     tester = TestRL()
     rl_config = dynaq.Config()
-    config = runner.Config("Grid", rl_config, seed=1)
-    tester.train_eval(config, 50_000, is_mp=True)
+    runner = Runner("Grid", rl_config)
+    runner.set_seed(5)
+    runner.train_mp(max_train_count=50_000)
+    tester.eval(runner)

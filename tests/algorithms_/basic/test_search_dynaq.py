@@ -1,7 +1,7 @@
 import unittest
 
-from srl import runner
 from srl.algorithms import search_dynaq
+from srl.runner.runner import Runner
 from srl.test import TestRL
 
 
@@ -16,21 +16,27 @@ def test_Grid():
     tester = TestRL()
     rl_config = search_dynaq.Config()
     rl_config.ext_lr = 0.01
-    config = runner.Config("Grid", rl_config, seed=1)
-    parameter, _, _ = tester.train_eval(config, 10_000, eval_episode=100)
-    tester.verify_grid_policy(rl_config, parameter)
+    runner = Runner("Grid", rl_config)
+    runner.set_seed(1)
+    runner.train(max_train_count=10_000)
+    tester.eval(runner)
+    tester.verify_grid_policy(runner)
 
 
 def test_Grid_mp():
     tester = TestRL()
     rl_config = search_dynaq.Config()
     rl_config.ext_lr = 0.01
-    config = runner.Config("Grid", rl_config, seed=1)
-    tester.train_eval(config, 10_000, is_mp=True, eval_episode=100)
+    runner = Runner("Grid", rl_config)
+    runner.set_seed(1)
+    runner.train_mp(max_train_count=10_000)
+    tester.eval(runner)
 
 
 def test_OneRoad():
     tester = TestRL()
     rl_config = search_dynaq.Config()
-    config = runner.Config("OneRoad", rl_config, seed=4)
-    tester.train_eval(config, 2_000)
+    runner = Runner("OneRoad", rl_config)
+    runner.set_seed(4)
+    runner.train(max_train_count=2_000)
+    tester.eval(runner)

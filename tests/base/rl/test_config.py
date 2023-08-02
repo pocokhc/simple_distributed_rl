@@ -81,6 +81,9 @@ class TestConfig(RLConfig):
     def base_observation_type(self) -> RLTypes:
         return self.set_base_observation_type
 
+    def get_use_framework(self) -> str:
+        return ""
+
 
 _EUNK = EnvObservationTypes.UNKNOWN
 _EDIS = EnvObservationTypes.DISCRETE
@@ -171,15 +174,15 @@ def test_reset(
 def test_copy():
     config = TestConfig()
 
-    assert not config._is_set_env_config
+    assert not config.is_reset
     config.reset(srl.make_env("Grid"))
-    assert config._is_set_env_config
+    assert config.is_reset
     config.window_length = 2
-    assert not config._is_set_env_config
+    assert not config.is_reset
     config.reset(srl.make_env("Grid"))
-    assert config._is_set_env_config
+    assert config.is_reset
 
     config2 = config.copy()
-    assert config._is_set_env_config
+    assert config.is_reset
     assert config.window_length == 2
     assert config2.name == "test"

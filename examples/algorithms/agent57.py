@@ -1,7 +1,6 @@
 import os
 
 import matplotlib.pyplot as plt
-
 import srl
 from srl.algorithms import agent57
 from srl.utils import common
@@ -61,7 +60,7 @@ def main():
         print(name)
         runner = srl.Runner(env_config, rl_config)
         runner.set_history(write_file=True)
-        runner.train_mp(max_train_count=200 * 100)
+        runner.train_mp(max_train_count=200 * 200)
         df = runner.get_history().get_df()
         results.append((name, df))
 

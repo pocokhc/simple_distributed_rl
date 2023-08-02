@@ -7,7 +7,7 @@ import os
 import pickle
 import re
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union, cast
 
 import numpy as np
 
@@ -22,8 +22,11 @@ from srl.base.rl.registration import (make_parameter, make_remote_memory,
                                       make_worker_rulebase)
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl import dummy
-from srl.runner.callback import CallbackType, GameCallback
+from srl.runner.callback import CallbackType
 from srl.utils import common
+
+if TYPE_CHECKING:
+    import psutil
 
 logger = logging.getLogger(__name__)
 
@@ -156,10 +159,10 @@ class Context:
     def __post_init__(self):
         self._is_init = False
 
-    def init(
-        self,
-        runner: "Runner",
-    ):
+    def init(self, runner: "Runner"):
+        if self._is_init:
+            return
+
         # --- check stop config ---
         if self.train_only and (not self.distributed):
             self.disable_trainer = False
@@ -179,14 +182,27 @@ class Context:
         self.render_mode = PlayRenderModes.from_str(self.render_mode)
 
         # main のみ更新
-        if self.run_name == "main":
-            self.start_date = datetime.datetime.now()
+        self.start_date = datetime.datetime.now()
 
-            # "YYYYMMDD_HHMMSS_EnvName_RLName"
-            dir_name = self.start_date.strftime("%Y%m%d_%H%M%S")
-            dir_name += f"_{runner.config.env_config.name}_{runner.config.rl_config.getName()}"
-            dir_name = re.sub(r'[\\/:?."<>\|]', "_", dir_name)
-            self.save_dir = os.path.join(runner.config.base_dir, dir_name)
+        # "YYYYMMDD_HHMMSS_EnvName_RLName"
+        dir_name = self.start_date.strftime("%Y%m%d_%H%M%S")
+        dir_name += f"_{runner.config.env_config.name}_{runner.config.rl_config.getName()}"
+        dir_name = re.sub(r'[\\/:?."<>\|]', "_", dir_name)
+        self.save_dir = os.path.join(runner.config.base_dir, dir_name)
+
+        # psutil
+        if runner.config.enable_stats:
+            if common.is_package_installed("psutil"):
+                try:
+                    import psutil
+
+                    runner._psutil_process = psutil.Process()
+                    self.used_psutil = True
+                except Exception as e:
+                    import traceback
+
+                    logger.debug(traceback.format_exc())
+                    logger.info(e)
 
         self._is_init = True
 
@@ -223,7 +239,7 @@ class Context:
 
 
 @dataclass
-class PlayState:
+class State:
     """
     実行中に変動する変数をまとめたクラス
     Class that summarizes variables that change during execution
@@ -275,8 +291,11 @@ class Runner:
     # --- private(static class instance)
     # multiprocessing("spawn")ではプロセス毎に初期化される想定
     # pynvmlはプロセス毎に管理
-    __is_init_device = False
-    __enabled_nvidia = False
+    __is_init_process = False
+    __framework = ""
+    __used_device_tf = "/CPU"
+    __used_device_torch = "cpu"
+    __used_nvidia = False
 
     def __post_init__(self):
         if isinstance(self.name_or_env_config, str):
@@ -290,7 +309,7 @@ class Runner:
         # --------------------------------------------
         self.config = Config(env_config, self.rl_config)
         self.context = Context()
-        self.state = PlayState()
+        self.state = State()
 
         self._env = None
         self._parameter = None
@@ -301,6 +320,7 @@ class Runner:
         self._history_on_memory_callback = None
         self._history_on_file_callback = None
         self._checkpoint_callback = None
+        self._psutil_process: Optional["psutil.Process"] = None
 
     @property
     def env_config(self) -> EnvConfig:
@@ -393,6 +413,7 @@ class Runner:
     def make_env(self, is_init: bool = False) -> EnvRun:
         if self._env is None:
             self._env = make_env(self.env_config)
+            logger.info(f"make env: {self._env.name}")
         if is_init:
             self._env.init()
         return self._env
@@ -403,6 +424,7 @@ class Runner:
             if not self.rl_config.is_reset:
                 self.rl_config.reset(self.make_env())
             self._parameter = make_parameter(self.rl_config, is_load=is_load)
+            logger.info(f"make parameter: {self._parameter}")
         return self._parameter
 
     def make_remote_memory(self, is_load: bool = True) -> RLRemoteMemory:
@@ -411,6 +433,7 @@ class Runner:
             if not self.rl_config.is_reset:
                 self.rl_config.reset(self.make_env())
             self._remote_memory = make_remote_memory(self.rl_config, is_load=is_load)
+            logger.info(f"make remote_memory: {self._remote_memory}")
         return self._remote_memory
 
     def make_trainer(
@@ -524,32 +547,33 @@ class Runner:
     # process
     # ------------------------------
     def _init_process(self):
-        self._init_nvidia()
-        self._init_device()
+        if Runner.__is_init_process:
+            # 一度決定した値を使う
+            self.context.framework = Runner.__framework
+            self.context.used_device_tf = Runner.__used_device_tf
+            self.context.used_device_torch = Runner.__used_device_torch
+            self.rl_config._used_device_tf = self.context.used_device_tf
+            self.rl_config._used_device_torch = self.context.used_device_torch
+            self.context.used_nvidia = Runner.__used_nvidia
+            # assert self.context.framework == framework, 別のframeworkを併用する場合の動作は未定義
+            return
+
+        self.__init_nvidia()
+        self.__init_device()
+
+        Runner.__framework = self.context.framework
+        Runner.__used_device_tf = self.context.used_device_tf
+        Runner.__used_device_torch = self.context.used_device_torch
+        Runner.__used_nvidia = self.context.used_nvidia
+        Runner.__is_init_process = True
 
     # --- system profile
     def set_stats(self, enable_stats: bool = True):
         self.config.enable_stats = enable_stats
 
-    def _init_nvidia(self):
-        if Runner.__enabled_nvidia:
-            return
-
+    def __init_nvidia(self):
         if not self.config.enable_stats:
             return
-
-        self.context.used_psutil = False
-        if common.is_package_installed("psutil"):
-            try:
-                import psutil
-
-                self._psutil_process = psutil.Process()
-                self.context.used_psutil = True
-            except Exception as e:
-                import traceback
-
-                logger.debug(traceback.format_exc())
-                logger.info(e)
 
         self.context.used_nvidia = False
         if common.is_package_installed("pynvml"):
@@ -558,7 +582,7 @@ class Runner:
 
                 pynvml.nvmlInit()
                 self.context.used_nvidia = True
-                Runner.__enabled_nvidia = True
+
             except Exception as e:
                 import traceback
 
@@ -566,8 +590,9 @@ class Runner:
                 logger.info(e)
 
     def close_nvidia(self):
-        if Runner.__enabled_nvidia:
-            Runner.__enabled_nvidia = False
+        if Runner.__used_nvidia:
+            Runner.__used_nvidia = False
+            self.context.used_nvidia = False
             try:
                 import pynvml
 
@@ -578,15 +603,16 @@ class Runner:
                 logger.info(traceback.format_exc())
 
     def read_psutil(self) -> Tuple[float, float]:
-        if self.context.used_psutil:
-            import psutil
+        if self._psutil_process is None:
+            return np.NaN, np.NaN
 
-            # CPU,memory
-            memory_percent = psutil.virtual_memory().percent
-            cpu_percent = self._psutil_process.cpu_percent(None) / psutil.cpu_count()
+        import psutil
 
-            return memory_percent, cpu_percent
-        return np.NaN, np.NaN
+        # CPU,memory
+        memory_percent = psutil.virtual_memory().percent
+        cpu_percent = self._psutil_process.cpu_percent(None) / psutil.cpu_count()
+
+        return memory_percent, cpu_percent
 
     def read_nvml(self) -> List[Tuple[int, float, float]]:
         if self.context.used_nvidia:
@@ -626,7 +652,7 @@ class Runner:
             - trainer: GPU > CPU
             - actors : CPU
         """
-        if Runner.__is_init_device:
+        if Runner.__is_init_process:
             logger.warning("Device cannot be changed after initialization.")
             return
 
@@ -641,10 +667,7 @@ class Runner:
         self.config.tf_device_disable = tf_device_disable
         self.config.tf_enable_memory_growth = tf_enable_memory_growth
 
-    def _init_device(self):
-        if Runner.__is_init_device:
-            return
-
+    def __init_device(self):
         # frameworkは "" の場合何もしない(フラグも立てない)
         framework = self.rl_config.get_use_framework()
         if framework == "":
@@ -777,7 +800,6 @@ class Runner:
 
         self.rl_config._used_device_tf = self.context.used_device_tf
         self.rl_config._used_device_torch = self.context.used_device_torch
-        Runner.__is_init_device = True
         logger.info(f"[{run_name}] Initialized device.")
 
     # ------------------------------
@@ -838,8 +860,8 @@ class Runner:
     # ------------------------------
     # run
     # ------------------------------
-    def _create_play_state(self) -> PlayState:
-        self.state = PlayState()
+    def _create_play_state(self) -> State:
+        self.state = State()
         return self.state
 
     def _play(
@@ -848,8 +870,6 @@ class Runner:
         remote_memory: Optional[RLRemoteMemory] = None,
     ):
         from .core import play
-
-        self.context.init(self)
 
         if parameter is None:
             parameter = self.make_parameter()
@@ -863,7 +883,7 @@ class Runner:
         write_memory: bool = True,
         write_file: bool = False,
         interval: int = 1,
-        enable_eval: bool = True,
+        enable_eval: bool = False,
         eval_env_sharing: bool = False,
         eval_episode: int = 1,
         eval_timeout: int = -1,
@@ -970,7 +990,7 @@ class Runner:
         progress_worker_info: bool = True,
         progress_worker: int = 0,
         # --- eval
-        enable_eval: bool = True,
+        enable_eval: bool = False,
         eval_env_sharing: bool = False,
         eval_episode: int = 1,
         eval_timeout: int = -1,
@@ -1198,7 +1218,7 @@ class Runner:
         progress_worker: int = 0,
         progress_max_actor: int = 5,
         # --- eval
-        enable_eval: bool = True,
+        enable_eval: bool = False,
         eval_env_sharing: bool = False,
         eval_episode: int = 1,
         eval_timeout: int = -1,
@@ -1822,11 +1842,35 @@ class Runner:
     def play_window(
         self,
         key_bind: Any = None,
-        action_division_num: int = 5,
+        enable_remote_memory: bool = False,
+        # --- stop config
+        timeout: int = -1,
+        max_steps: int = -1,
         # other
-        callbacks: List[GameCallback] = [],
+        callbacks: List[CallbackType] = [],
         _is_test: bool = False,  # for test
     ):
+        self.context.callbacks = callbacks[:]
+
+        mode = PlayRenderModes.rgb_array
+
+        # --- set context
+        self.context.run_name = "main"
+        self.context.distributed = False
+        # stop config
+        self.context.max_episodes = 1
+        self.context.timeout = timeout
+        self.context.max_steps = max_steps
+        # play config
+        self.context.train_only = False
+        self.context.shuffle_player = False
+        # play info
+        self.context.training = enable_remote_memory
+        self.context.render_mode = mode
+
+        # init
+        self.context.init(self)
+
         from srl.utils.common import is_packages_installed
 
         error_text = "This run requires installation of 'PIL', 'pygame'. "
@@ -1836,13 +1880,9 @@ class Runner:
         from srl.runner.game_windows.playable_game import PlayableGame
 
         game = PlayableGame(
-            self.env_config,
+            self,
             key_bind,
-            action_division_num,
-            None,  # TODO self.rl_config,
-            callbacks=callbacks,
+            enable_remote_memory=enable_remote_memory,
             _is_test=_is_test,
         )
         game.play()
-
-        return game.remote_memory

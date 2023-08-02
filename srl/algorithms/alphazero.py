@@ -319,7 +319,7 @@ class Trainer(RLTrainer):
         rewards = np.asarray(rewards)
 
         with tf.GradientTape() as tape:
-            p_pred, v_pred = self.parameter.network(states)  # type:ignore , ignore check "None"
+            p_pred, v_pred = self.parameter.network(states, training=True)  # type:ignore , ignore check "None"
 
             # value: 状態に対する勝率(reward)を教師に学習(MSE)
             value_loss: Any = tf.square(rewards - v_pred)

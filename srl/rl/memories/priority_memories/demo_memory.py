@@ -18,26 +18,31 @@ class DemoMemory(IPriorityMemory):
     ratio: float = 1.0 / 256.0  # 混ぜる割合
 
     def __post_init__(self):
-        self.demo_memory.init()
-        self.best_batchs = []
         self.init()
 
     def init(self) -> None:
         self.main_memory.init()
         if self.playing:
-            self.best_batchs = []
+            self.demo_memory.init()
 
     def add(self, batch: Any, td_error: Optional[float] = None):
         if self.playing:
-            self.best_batchs.append(batch)
+            self.demo_memory.add(batch, td_error)
         else:
             self.main_memory.add(batch, td_error)
 
     def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
-        self.demo_batch_size = sum([random.random() < self.ratio for _ in range(batch_size)])
-        if len(self.demo_memory) < self.demo_batch_size:
-            self.demo_batch_size = len(self.demo_memory)
-        main_batch_size = batch_size - self.demo_batch_size
+        if len(self.demo_memory) == 0:
+            self.demo_batch_size = 0
+            main_batch_size = batch_size
+        elif len(self.main_memory) == 0:
+            self.demo_batch_size = batch_size
+            main_batch_size = 0
+        else:
+            self.demo_batch_size = sum([random.random() < self.ratio for _ in range(batch_size)])
+            if len(self.demo_memory) < self.demo_batch_size:
+                self.demo_batch_size = len(self.demo_memory)
+            main_batch_size = batch_size - self.demo_batch_size
 
         # 比率に基づき batch を作成
         indices = []
@@ -73,17 +78,14 @@ class DemoMemory(IPriorityMemory):
 
     def backup(self):
         if self.playing:
-            logger.info(f"batch size: {len(self.best_batchs)}")
-            return [self.best_batchs]
+            return [self.demo_memory.backup()]
         else:
             return [
-                self.best_batchs,
+                self.demo_memory.backup(),
                 self.main_memory.backup(),
             ]
 
     def restore(self, data):
-        # self.best_batchs = data[0]
-        for b in data[0]:
-            self.demo_memory.add(b)
+        self.demo_memory.restore(data[0])
         if len(data) == 2:
             self.main_memory.restore(data[1])

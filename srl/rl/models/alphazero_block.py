@@ -29,6 +29,9 @@ class AlphaZeroBlockConfig:
             use_layer_normalization=use_layer_normalization,
         )
 
+    def set_original_block(self):
+        raise NotImplementedError("TODO")
+
     # ---------------------
 
     def create_block_tf(self):

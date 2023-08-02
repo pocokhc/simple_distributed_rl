@@ -77,5 +77,8 @@ class GameCallback(ABC):
     def on_game_step_end(self, runner: "Runner") -> None:
         pass  # do nothing
 
+    def on_skip_step(self, runner: "Runner") -> None:
+        pass  # do nothing
+
 
 CallbackType = Union[Callback, TrainerCallback, MPCallback, GameCallback]

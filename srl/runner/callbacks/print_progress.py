@@ -87,6 +87,8 @@ class PrintProgress(Callback, MPCallback, TrainerCallback):
         self.eval_runner.context.shuffle_player = self.eval_shuffle_player
         self.eval_runner.context.callbacks = self.eval_callbacks
 
+        self.eval_runner.context.init(self.eval_runner)
+
     def _eval_str(self, runner: Runner) -> str:
         if not self.enable_eval:
             return ""

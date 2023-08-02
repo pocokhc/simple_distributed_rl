@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  srl-gym-retro:
+    build:
+      dockerfile: ./dockerfile_gym_retro
+    volumes:
+      - ../:/code/
+    command: /bin/bash
+    tty: true

@@ -1,0 +1,48 @@
+@startuml class_runner
+
+abstract EnvConfig {}
+abstract RLConfig {}
+
+class Config {
+    env_config : EnvConfig
+    rl_config : RLConfig
+    Other config variables
+}
+class Context {
+    run_name : str
+    training: bool
+    training: bool
+    Other runtime variables
+}
+class State {
+    env: EnvRun
+    trainer: RLTrainer
+    remote_memory: RLRemoteMemory
+    parameter: RLParameter
+    Other running variables
+}
+
+class Runner {
+    config : Config
+    context : Context
+    state : State
+    make()
+    play()
+}
+Runner -- Config
+Runner -- Context
+Runner -- State
+
+EnvConfig -- Runner
+RLConfig -- Runner
+
+
+note as RunnerMemo
+- facade of play
+- Retention of information about play
+- Generate instance for play such as Trainer
+end note
+Runner <|- RunnerMemo
+
+
+@enduml

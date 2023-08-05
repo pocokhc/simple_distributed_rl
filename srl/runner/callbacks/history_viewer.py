@@ -142,7 +142,7 @@ class HistoryViewer:
     def plot(
         self,
         xlabel: str = "time",
-        ylabel_left: List[str] = ["reward0", "eval_reward0"],
+        ylabel_left: List[str] = ["reward0"],
         ylabel_right: List[str] = [],
         aggregation_num: int = 50,
         left_ymin: Optional[float] = None,

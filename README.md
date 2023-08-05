@@ -180,14 +180,14 @@ while not env.done:
 
 ### PolicyBase/ActorCritic
 
-|Algorithm              |Observation|Action    |Framework|ProgressRate|
-|-----------------------|-----------|----------|----------|----|
-|VanillaPolicy          |Discrete   |Both      |-|100%|
-|A3C/A2C                |           |          ||  0%|
-|TRPO                   |Continuous |          ||   -|
-|PPO                    |Continuous |          ||  0%|
-|DDPG/TD3               |Continuous |Continuous|Tensorflow|100%|
-|SAC                    |Continuous |Continuous|Tensorflow|100%|
+|Algorithm              |Observation|Action    |Framework|ProgressRate||
+|-----------------------|-----------|----------|----------|----|---|
+|VanillaPolicy          |Discrete   |Both      |-|100%||
+|A3C/A2C                |           |          ||  0%||
+|TRPO                   |Continuous |          ||   -||
+|PPO                    |Continuous |Both      |Tensorflow|100%|ContinuousAction is unstable.|
+|DDPG/TD3               |Continuous |Continuous|Tensorflow|100%||
+|SAC                    |Continuous |Continuous|Tensorflow|100%||
 
 ## AlphaSeries
 

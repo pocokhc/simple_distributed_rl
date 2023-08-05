@@ -50,9 +50,9 @@ Other
 class Config(RLConfig, ExperienceReplayBufferConfig):
     # model
     image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
-    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig(layer_sizes=(64, 64)))
-    value_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig(layer_sizes=(64,)))
-    policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig(layer_sizes=(64,)))
+    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    value_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     experience_collection_method: str = "MC"  # "" or "MC" or "GAE"
     gae_discount: float = 0.9  # GAEの割引率
@@ -85,7 +85,11 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     def __post_init__(self):
         super().__post_init__()
-        self.capacity = 2000
+
+        self.memory.capacity = 2000
+        self.hidden_block.set_mlp((64, 64))
+        self.value_block.set_mlp((64,))
+        self.policy_block.set_mlp((64,))
 
     @property
     def base_action_type(self) -> RLTypes:
@@ -112,7 +116,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size <= self.capacity
+        assert self.memory_warmup_size <= self.memory.capacity
         assert self.batch_size < self.memory_warmup_size
 
     @property

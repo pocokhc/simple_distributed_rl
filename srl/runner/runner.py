@@ -11,15 +11,18 @@ from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union, cast
 
 import numpy as np
 
-from srl.base.define import (EnvActionType, EnvObservationType, InfoType,
-                             PlayRenderModes, RLObservationType)
+from srl.base.define import EnvActionType, EnvObservationType, InfoType, PlayRenderModes, RLObservationType
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.base.env.registration import make as make_env
 from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
-from srl.base.rl.registration import (make_parameter, make_remote_memory,
-                                      make_trainer, make_worker,
-                                      make_worker_rulebase)
+from srl.base.rl.registration import (
+    make_parameter,
+    make_remote_memory,
+    make_trainer,
+    make_worker,
+    make_worker_rulebase,
+)
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl import dummy
 from srl.runner.callback import CallbackType
@@ -190,20 +193,6 @@ class Context:
         dir_name = re.sub(r'[\\/:?."<>\|]', "_", dir_name)
         self.save_dir = os.path.join(runner.config.base_dir, dir_name)
 
-        # psutil
-        if runner.config.enable_stats:
-            if common.is_package_installed("psutil"):
-                try:
-                    import psutil
-
-                    runner._psutil_process = psutil.Process()
-                    self.used_psutil = True
-                except Exception as e:
-                    import traceback
-
-                    logger.debug(traceback.format_exc())
-                    logger.info(e)
-
         self._is_init = True
 
     def to_json_dict(self) -> dict:
@@ -296,6 +285,7 @@ class Runner:
     __used_device_tf = "/CPU"
     __used_device_torch = "cpu"
     __used_nvidia = False
+    __used_psutil = False
 
     def __post_init__(self):
         if isinstance(self.name_or_env_config, str):
@@ -555,16 +545,19 @@ class Runner:
             self.rl_config._used_device_tf = self.context.used_device_tf
             self.rl_config._used_device_torch = self.context.used_device_torch
             self.context.used_nvidia = Runner.__used_nvidia
+            self.context.used_psutil = Runner.__used_psutil
             # assert self.context.framework == framework, 別のframeworkを併用する場合の動作は未定義
             return
 
         self.__init_nvidia()
+        self.__init_psutil()
         self.__init_device()
 
         Runner.__framework = self.context.framework
         Runner.__used_device_tf = self.context.used_device_tf
         Runner.__used_device_torch = self.context.used_device_torch
         Runner.__used_nvidia = self.context.used_nvidia
+        Runner.__used_psutil = self.context.used_psutil
         Runner.__is_init_process = True
 
     # --- system profile
@@ -602,18 +595,6 @@ class Runner:
 
                 logger.info(traceback.format_exc())
 
-    def read_psutil(self) -> Tuple[float, float]:
-        if self._psutil_process is None:
-            return np.NaN, np.NaN
-
-        import psutil
-
-        # CPU,memory
-        memory_percent = psutil.virtual_memory().percent
-        cpu_percent = self._psutil_process.cpu_percent(None) / psutil.cpu_count()
-
-        return memory_percent, cpu_percent
-
     def read_nvml(self) -> List[Tuple[int, float, float]]:
         if self.context.used_nvidia:
             import pynvml
@@ -626,6 +607,35 @@ class Runner:
                 gpus.append((device_id, float(rate.gpu), float(rate.memory)))
             return gpus
         return []
+
+    def __init_psutil(self):
+        if not self.config.enable_stats:
+            return
+
+        self.context.used_psutil = False
+        if common.is_package_installed("psutil"):
+            try:
+                import psutil
+
+                self._psutil_process = psutil.Process()
+                self.context.used_psutil = True
+            except Exception as e:
+                import traceback
+
+                logger.debug(traceback.format_exc())
+                logger.info(e)
+
+    def read_psutil(self) -> Tuple[float, float]:
+        if self._psutil_process is None:
+            return np.NaN, np.NaN
+
+        import psutil
+
+        # CPU,memory
+        memory_percent = psutil.virtual_memory().percent
+        cpu_percent = self._psutil_process.cpu_percent(None) / psutil.cpu_count()
+
+        return memory_percent, cpu_percent
 
     # --- device
     def set_device(
@@ -899,8 +909,7 @@ class Runner:
         self._history_on_file_callback = None
         if enable_history:
             if write_memory:
-                from srl.runner.callbacks.history_on_memory import \
-                    HistoryOnMemory
+                from srl.runner.callbacks.history_on_memory import HistoryOnMemory
 
                 self._history_on_memory_callback = HistoryOnMemory(
                     interval=interval,

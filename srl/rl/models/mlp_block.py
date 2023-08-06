@@ -26,7 +26,7 @@ class MLPBlockConfig:
     # ---------------------
 
     def create_block_tf(self):
-        from .mlp.tf import mlp_block
+        from .tf import mlp_block
 
         return mlp_block.MLPBlock(
             **self._kwargs,
@@ -34,7 +34,7 @@ class MLPBlockConfig:
         )
 
     def create_block_torch(self, in_size: int):
-        from .mlp.torch_ import mlp_block
+        from .torch_ import mlp_block
 
         return mlp_block.MLPBlock(
             in_size,

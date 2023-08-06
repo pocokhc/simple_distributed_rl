@@ -34,14 +34,14 @@ class ImageBlockConfig:
 
     def create_block_tf(self, enable_time_distributed_layer: bool):
         if self._name == "DQN":
-            from .dqn.tf import dqn_image_block
+            from .tf import dqn_image_block
 
             return dqn_image_block.DQNImageBlock(
                 enable_time_distributed_layer=enable_time_distributed_layer,
                 **self._kwargs,
             )
         elif self._name == "R2D3":
-            from .dqn.tf import r2d3_image_block
+            from .tf import r2d3_image_block
 
             return r2d3_image_block.R2D3ImageBlock(
                 enable_time_distributed_layer=enable_time_distributed_layer,
@@ -56,7 +56,7 @@ class ImageBlockConfig:
         enable_time_distributed_layer: bool,
     ):
         if self._name == "DQN":
-            from .dqn.torch_ import dqn_image_block
+            from .torch_ import dqn_image_block
 
             return dqn_image_block.DQNImageBlock(
                 in_shape,
@@ -64,7 +64,7 @@ class ImageBlockConfig:
                 filters=self._kwargs["filters"],
             )
         elif self._name == "R2D3":
-            from .dqn.torch_ import r2d3_image_block
+            from .torch_ import r2d3_image_block
 
             return r2d3_image_block.R2D3ImageBlock(
                 in_shape,

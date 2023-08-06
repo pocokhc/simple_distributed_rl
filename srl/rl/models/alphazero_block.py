@@ -36,11 +36,11 @@ class AlphaZeroBlockConfig:
 
     def create_block_tf(self):
         if self._name == "AlphaZero":
-            from .alphazero.tf.alphazero_image_block import AlphaZeroImageBlock
+            from .tf.alphazero_image_block import AlphaZeroImageBlock
 
             return AlphaZeroImageBlock(**self._kwargs)
         elif self._name == "MuzeroAtari":
-            from .alphazero.tf.muzero_atari_block import MuZeroAtariBlock
+            from .tf.muzero_atari_block import MuZeroAtariBlock
 
             return MuZeroAtariBlock(**self._kwargs)
         else:
@@ -48,11 +48,11 @@ class AlphaZeroBlockConfig:
 
     def create_block_torch(self, in_shape: Tuple[int, ...]):
         if self._name == "AlphaZero":
-            from .alphazero.torch_.alphazero_image_block import AlphaZeroImageBlock
+            from .torch_.alphazero_image_block import AlphaZeroImageBlock
 
             return AlphaZeroImageBlock(in_shape, **self._kwargs)
         elif self._name == "MuzeroAtari":
-            from .alphazero.torch_.muzero_atari_block import MuZeroAtariBlock
+            from .torch_.muzero_atari_block import MuZeroAtariBlock
 
             return MuZeroAtariBlock(in_shape, **self._kwargs)
         else:

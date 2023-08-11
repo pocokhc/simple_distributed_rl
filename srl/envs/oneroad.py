@@ -14,11 +14,13 @@ registration.register(
     id="OneRoad",
     entry_point=__name__ + ":OneRoad",
     kwargs={"N": 10, "action": 2},  # 0.0009765625%
+    enable_assert=False,
 )
 registration.register(
     id="OneRoad-hard",
     entry_point=__name__ + ":OneRoad",
     kwargs={"N": 20, "action": 16},
+    enable_assert=False,
 )
 
 

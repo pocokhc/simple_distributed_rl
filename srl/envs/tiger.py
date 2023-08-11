@@ -17,6 +17,7 @@ registration.register(
     id="Tiger",
     entry_point=__name__ + ":Tiger",
     kwargs={},
+    enable_assert=False,
 )
 
 

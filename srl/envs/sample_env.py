@@ -13,6 +13,7 @@ registration.register(
     kwargs={
         "move_reward": -0.04,
     },
+    enable_assert=False,
 )
 
 

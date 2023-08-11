@@ -22,16 +22,19 @@ register(
     id="Othello",
     entry_point=__name__ + ":Othello",
     kwargs={"W": 8, "H": 8},
+    enable_assert=False,
 )
 register(
     id="Othello6x6",
     entry_point=__name__ + ":Othello",
     kwargs={"W": 6, "H": 6},
+    enable_assert=False,
 )
 register(
     id="Othello4x4",
     entry_point=__name__ + ":Othello",
     kwargs={"W": 4, "H": 4},
+    enable_assert=False,
 )
 
 

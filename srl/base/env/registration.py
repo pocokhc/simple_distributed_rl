@@ -21,8 +21,8 @@ def make(config: Union[str, EnvConfig]) -> EnvRun:
         import srl.envs.grid  # noqa F401
     elif env_name == "IGrid":
         import srl.envs.igrid  # noqa F401
-    # elif env_name == "connectx":
-    #    import srl.envs.connectx  # noqa F401
+    elif env_name == "connectx":
+        import srl.envs.connectx  # noqa F401
     elif env_name in ["OneRoad", "OneRoad-hard"]:
         import srl.envs.oneroad  # noqa F401
     elif env_name in ["Othello", "Othello6x6", "Othello4x4"]:
@@ -70,11 +70,16 @@ def make(config: Union[str, EnvConfig]) -> EnvRun:
     return EnvRun(env, config)
 
 
-def register(id: str, entry_point: str, kwargs: Dict = {}) -> None:
+def register(id: str, entry_point: str, kwargs: Dict = {}, enable_assert: bool = True) -> None:
     global _registry
 
-    if id in _registry:
-        logger.warn(f"{id} was already registered. It will be overwritten.")
+    if enable_assert:
+        assert id not in _registry, f"{id} was already registered. entry_point={entry_point}"
+    else:
+        if id in _registry:
+            logger.warn(f"{id} was already registered. Not registered. entry_point={entry_point}")
+            return
+
     _registry[id] = {
         "entry_point": entry_point,
         "kwargs": kwargs,

@@ -131,11 +131,18 @@ def register(
     parameter_entry_point: str,
     trainer_entry_point: str,
     worker_entry_point: str,
+    enable_assert: bool = True,
 ) -> None:
     global _registry
 
     name = config.getName()
-    assert name not in _registry, f"{name} was already registered."
+    if enable_assert:
+        assert name not in _registry, f"{name} was already registered."
+    else:
+        if name in _registry:
+            logger.warn(f"{name} was already registered. Not registered. entry_point={worker_entry_point}")
+            return
+
     _registry[name] = [
         memory_entry_point,
         parameter_entry_point,
@@ -147,7 +154,15 @@ def register(
 def register_rulebase(
     name: str,
     worker_entry_point: str,
+    enable_assert: bool = True,
 ) -> None:
     global _registry_worker
-    assert name not in _registry_worker, f"{name} was already registered."
+
+    if enable_assert:
+        assert name not in _registry, f"{name} was already registered."
+    else:
+        if name in _registry:
+            logger.warn(f"{name} was already registered. Not registered. entry_point={worker_entry_point}")
+            return
+
     _registry_worker[name] = worker_entry_point

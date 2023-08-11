@@ -19,6 +19,7 @@ register(
     id="OX",
     entry_point=__name__ + ":OX",
     kwargs={},
+    enable_assert=False,
 )
 
 

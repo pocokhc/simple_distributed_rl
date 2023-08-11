@@ -25,6 +25,7 @@ registration.register(
         "move_prob": 0.8,
         "reward_baseline": 0.65,  # # 0.7318 ぐらい
     },
+    enable_assert=False,
 )
 
 registration.register(
@@ -35,6 +36,7 @@ registration.register(
         "move_prob": 1.0,
         "reward_baseline": 0.9,
     },
+    enable_assert=False,
 )
 
 

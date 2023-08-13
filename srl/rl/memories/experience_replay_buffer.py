@@ -15,6 +15,19 @@ class _ExperienceReplayBufferConfig:
 
 @dataclass
 class ExperienceReplayBufferConfig:
+    """ExperienceReplayBuffer
+
+    これを実装しているアルゴリズムはmemoryを持ちます。
+
+    Parameter:
+       capacity(int): メモリに保存できる最大サイズ. default is 100_000
+
+    Examples:
+       >>> from srl.algorithms import alphazero
+       >>> rl_config = alphazero.Config()
+       >>> rl_config.memory.capacity = 1000
+    """
+
     memory: _ExperienceReplayBufferConfig = field(init=False, default_factory=lambda: _ExperienceReplayBufferConfig())
 
 

@@ -23,42 +23,61 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RLConfig(ABC):
-    processors: List[Processor] = field(default_factory=list)
+    """RLConfig はアルゴリズムの動作を定義します。
+    アルゴリズム毎に別々のハイパーパラメータがありますが、ここはアルゴリズム共通のパラメータの定義となります。
+    """
+
+    #: env_observation_type を上書きできます。
+    #: 例えばgymの自動判定で想定外のTypeになった場合、ここで上書きできます。
     override_env_observation_type: EnvObservationTypes = EnvObservationTypes.UNKNOWN
-    override_action_type: RLTypes = RLTypes.ANY  # RL側がANYの場合のみ有効
+    #: action_type を上書きできます。
+    #: これはアルゴリズム側の base_action_type がANY(Discrete/Continuousどちらも対応できるアルゴリズム)の場合のみ有効になります。
+    override_action_type: RLTypes = RLTypes.ANY
 
+    #: 連続値から離散値に変換する場合の分割数です。-1の場合round変換で丸めます。
+    #: The number of divisions when converting from continuous to discrete values.
+    #: If -1, round by round transform.
     action_division_num: int = 5
-    """
-    The number of divisions when converting from continuous to discrete values.
-    If -1, round by round transform.
-    """
-    # 連続値から離散値に変換する場合の分割数です。-1の場合round変換で丸めます。
 
+    #: 連続値から離散値に変換する場合の分割数です。-1の場合round変換で丸めます。
+    #: The number of divisions when converting from continuous to discrete values.
+    #: If -1, round by round transform.
     observation_division_num: int = -1
-    """
-    The number of divisions when converting from continuous to discrete values.
-    If -1, round by round transform.
-    """
-    # 連続値から離散値に変換する場合の分割数です。-1の場合round変換で丸めます。
 
+    #: ExtendWorkerを使う場合に指定
     extend_worker: Optional[Type["ExtendWorker"]] = None
+    #: 指定されていた場合、Parameter生成時にpathファイルをロードします
     parameter_path: str = ""
+    #: 指定されていた場合、RemoteMemory生成時にpathファイルをロードします
     remote_memory_path: str = ""
-    use_rl_processor: bool = True  # RL側のprocessorを使用するか
+    #: Trueの場合、アルゴリズム側で指定されたprocessorを使用します
+    use_rl_processor: bool = True
 
+    #: 状態の入力をrender_imageに変更します。環境からの状態は画像に上書きされます。
+    #: Change state input to render_image. Existing settings will be overwritten.
     use_render_image_for_observation: bool = False
-    """ Change state input to render_image. Existing settings will be overwritten. """
-    # 状態の入力をrender_imageに変更。既存の設定は上書きされます。
+
+    #: Processorを使う場合、定義したProcessorのリスト
+    processors: List[Processor] = field(default_factory=list)
 
     # --- Worker Config
+    #: state_encodeを有効にするか
     enable_state_encode: bool = True
+    #: action_decodeを有効にするか
     enable_action_decode: bool = True
+    #: reward_encodeを有効にするか
     enable_reward_encode: bool = True
+    #: 過去Nステップをまとめて状態とします
     window_length: int = 1
+    #: window_length指定時の存在しないstepでの状態の値
     dummy_state_val: float = 0.0
 
     # --- other
+    #: action/observationの値をエラーが出ないように可能な限り変換します。
+    #: ※エラー終了の可能性は減りますが、値の変換等による予期しない動作を引き起こす可能性が高くなります
     enable_sanitize_value: bool = True
+    #: action/observationの値を厳密にチェックし、おかしい場合は例外を出力します。
+    #: enable_assertion_valueが有効な場合は、enable_sanitize_valueは無効です。
     enable_assertion_value: bool = False
 
     def __post_init__(self) -> None:
@@ -124,19 +143,18 @@ class RLConfig(ABC):
     def set_processor(self) -> List[Processor]:
         return []  # NotImplemented
 
+    # infoの情報のタイプを指定、出力形式等で使用を想定
+    # 各行の句は省略可能
+    # name : {
+    #   "type": 型を指定(None, int, float, str)
+    #   "data": 以下のデータ形式を指定
+    #   "ave" : 平均値を使用(default)
+    #   "last": 最後のデータを使用
+    #   "min" : 最小値
+    #   "max" : 最大値
+    # }
     @property
     def info_types(self) -> dict:
-        """infoの情報のタイプを指定、出力形式等で使用を想定
-        各行の句は省略可能
-        name : {
-            "type": 型を指定(None, int, float, str)
-            "data": 以下のデータ形式を指定
-                "ave" : 平均値を使用(default)
-                "last": 最後のデータを使用
-                "min" : 最小値
-                "max" : 最大値
-        }
-        """
         return {}  # NotImplemented
 
     # ----------------------------

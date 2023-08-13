@@ -162,6 +162,21 @@ class _PriorityExperienceReplayConfig:
 
 @dataclass
 class PriorityExperienceReplayConfig:
+    """PriorityExperienceReplay
+
+    これを実装しているアルゴリズムはmemoryを持ちます。
+    memoryから任意の関数を呼ぶことで各memoryを設定できます。
+    ただ、capacityだけは例外で直接指定できます。
+
+    Examples:
+       >>> from srl.algorithms import dqn
+       >>> rl_config = dqn.Config()
+       >>> # capacityの設定例
+       >>> rl_config.memory.capacity = 10000
+       >>> # ProportionalMemory を設定
+       >>> rl_config.memory.set_proportional_memory()
+    """
+
     memory: _PriorityExperienceReplayConfig = field(
         init=False, default_factory=lambda: _PriorityExperienceReplayConfig()
     )

@@ -4,6 +4,12 @@ from srl.base.rl.base import RLRemoteMemory
 
 
 class SequenceRemoteMemory(RLRemoteMemory):
+    """SequenceRemoteMemory
+
+    FIFO形式でやりとりするシンプルなメモリです。
+    パラメータは特にありません。
+    """
+
     def __init__(self, *args):
         super().__init__(*args)
         self.buffer = []

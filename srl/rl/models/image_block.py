@@ -12,6 +12,12 @@ class ImageBlockConfig:
         filters: int = 32,
         activation="relu",
     ):
+        """画像の入力に対してDQNで採用されたLayersを使用します。
+
+        Args:
+            filters (int, optional): 基準となるfilterの数です. Defaults to 32.
+            activation (str, optional): activation function. Defaults to "relu".
+        """
         self._name = "DQN"
         self._kwargs = dict(
             filters=filters,
@@ -22,12 +28,19 @@ class ImageBlockConfig:
         self,
         filters: int = 16,
     ):
+        """画像の入力に対してR2D3で採用されたLayersを使用します。
+
+        Args:
+            filters (int, optional): 基準となるfilterの数です. Defaults to 32.
+            activation (str, optional): activation function. Defaults to "relu".
+        """
         self._name = "R2D3"
         self._kwargs = dict(
             filters=filters,
         )
 
-    def set_original_block(self):
+    def set_custom_block(self, **kwargs):
+        """TODO"""
         raise NotImplementedError("TODO")
 
     # ---------------------

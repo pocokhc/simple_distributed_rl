@@ -12,10 +12,10 @@ from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
 from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.models.dueling_network import DuelingNetworkConfig
 from srl.rl.models.framework_config import FrameworkConfig
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.processors.image_processor import ImageProcessor
-from srl.utils import common
 
 """
 ・Paper
@@ -71,7 +71,6 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     # --- model
     framework: FrameworkConfig = field(init=False, default_factory=lambda: FrameworkConfig())
     image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
-    hidden_layer_sizes: Tuple[int, ...] = (512,)
 
     discount: float = 0.99  # 割引率
     lr: float = 0.001  # 学習率
@@ -84,8 +83,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     enable_double_dqn: bool = True
 
     # DuelingNetwork
-    enable_dueling_network: bool = True
-    dueling_network_type: str = "average"
+    dueling_network: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 
     # Multi-step learning
     multisteps: int = 3
@@ -101,6 +99,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         super().__post_init__()
 
         self.memory.set_proportional_memory()
+        self.dueling_network.set((512,), True)
 
     def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
         self.epsilon = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
@@ -113,7 +112,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         self.exploration_steps = 1_000_000
         # model
         self.image_block.set_dqn_image()
-        self.hidden_layer_sizes = (512,)
+        self.dueling_network.set((512,), True, "average")
 
         self.discount = 0.99
         self.lr = 0.0000625
@@ -131,10 +130,6 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
             beta_initial=0.4,
             beta_steps=1_000_000,
         )
-
-        # DuelingNetwork
-        self.enable_dueling_network = True
-        self.dueling_network_type = "average"
 
         # Multi-step learning
         self.multisteps = 3
@@ -176,7 +171,6 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         super().assert_params()
         assert self.memory_warmup_size <= self.memory.capacity
         assert self.batch_size <= self.memory_warmup_size
-        assert len(self.hidden_layer_sizes) > 0
         assert self.multisteps > 0
 
     @property

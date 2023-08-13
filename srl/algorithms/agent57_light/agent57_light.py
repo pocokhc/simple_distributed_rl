@@ -14,6 +14,7 @@ from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.rl.functions import common
 from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.models.dueling_network import DuelingNetworkConfig
 from srl.rl.models.framework_config import FrameworkConfig
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
@@ -78,8 +79,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     enable_double_dqn: bool = True
 
     # DuelingNetwork
-    enable_dueling_network: bool = True
-    dueling_network_type: str = "average"
+    dueling_network: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 
     # ucb(160,0.5 or 3600,0.01)
     actor_num: int = 32
@@ -117,10 +117,11 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     def __post_init__(self):
         super().__post_init__()
 
+        self.dueling_network.set((512,), True)
         self.episodic_emb_block.set_mlp(
             (32,),
             activation="relu",
-            kernel_initializer="he_normal",
+            # kernel_initializer="he_normal",
             # dense_kwargs={"bias_initializer": keras.initializers.constant(0.001)},
         )
         self.episodic_out_block.set_mlp((128,))
@@ -153,7 +154,6 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         super().assert_params()
         assert self.memory_warmup_size <= self.memory.capacity
         assert self.batch_size <= self.memory_warmup_size
-        assert len(self.hidden_layer_sizes) > 0
 
 
 # ------------------------------------------------------

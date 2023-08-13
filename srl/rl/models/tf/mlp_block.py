@@ -3,6 +3,7 @@ from typing import Any, Dict, Tuple
 from tensorflow import keras
 
 from srl.rl.models.converter import convert_activation_tf
+from srl.rl.models.tf.noisy_dense import NoisyDense
 
 kl = keras.layers
 
@@ -23,11 +24,7 @@ class MLPBlock(keras.Model):
         activation = convert_activation_tf(activation)
 
         if enable_noisy_dense:
-            # TensorFlow Addons Wind Down : https://github.com/tensorflow/addons/issues/2807
-            # if common.compare_less_package_version("tensorflow_addons", "2.11.0"):
-            import tensorflow_addons as tfa
-
-            _Dense = tfa.layers.NoisyDense
+            _Dense = NoisyDense
         else:
             _Dense = kl.Dense
 

@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.rl.models.converter import convert_activation_tf
+from srl.rl.models.tf.noisy_dense import NoisyDense
 
 kl = keras.layers
 
@@ -25,9 +26,7 @@ class DuelingNetworkBlock(keras.Model):
         activation = convert_activation_tf(activation)
 
         if enable_noisy_dense:
-            import tensorflow_addons as tfa
-
-            _Dense = tfa.layers.NoisyDense
+            _Dense = NoisyDense
         else:
             _Dense = kl.Dense
 

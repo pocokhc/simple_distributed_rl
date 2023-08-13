@@ -66,7 +66,6 @@ Using library
 
 + Tensorflow が必要なアルゴリズムを使う場合に必要
    + tensorflow
-   + tensorflow-addons
    + tensorflow-probability
 + Torch が必要なアルゴリズムを使う場合に必要
    + <https://pytorch.org/get-started/locally/>

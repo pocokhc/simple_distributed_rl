@@ -12,6 +12,7 @@ from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
 from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.models.framework_config import FrameworkConfig
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.utils import common
@@ -68,7 +69,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     exploration_steps: int = 0  # 0 : no Annealing
 
     # --- model
-    framework: str = ""
+    framework: FrameworkConfig = field(init=False, default_factory=lambda: FrameworkConfig())
     image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
     hidden_layer_sizes: Tuple[int, ...] = (512,)
 
@@ -163,25 +164,13 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         return RLTypes.CONTINUOUS
 
     def get_use_framework(self) -> str:
-        if self.framework == "tf" or self.framework == "tensorflow":
-            return "tensorflow"
-        if self.framework == "torch":
-            return "torch"
-        if common.is_package_installed("tensorflow"):
-            framework = "tensorflow"
-        elif common.is_package_installed("torch"):
-            framework = "torch"
-        else:
-            framework = ""
-        assert framework != "", "'tensorflow' or 'torch' could not be found."
-        return framework
+        return self.framework.get_use_framework()
 
     def getName(self) -> str:
-        framework = self.get_use_framework()
         if self.multisteps == 1:
-            return f"Rainbow_no_multisteps:{framework}"
+            return f"Rainbow_no_multisteps:{self.get_use_framework()}"
         else:
-            return f"Rainbow:{framework}"
+            return f"Rainbow:{self.get_use_framework()}"
 
     def assert_params(self) -> None:
         super().assert_params()

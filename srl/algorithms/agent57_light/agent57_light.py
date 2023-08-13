@@ -14,10 +14,10 @@ from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.rl.functions import common
 from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.models.framework_config import FrameworkConfig
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.processors.image_processor import ImageProcessor
-from srl.utils.common import is_package_installed
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +63,8 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     test_beta: float = 0
 
     # --- model
-    framework: str = ""
+    framework: FrameworkConfig = field(init=False, default_factory=lambda: FrameworkConfig())
     image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
-    hidden_layer_sizes: Tuple[int, ...] = (512,)
-    activation: str = "relu"
     batch_size: int = 64
     memory_warmup_size: int = 1000
     q_ext_lr: float = 0.0001
@@ -146,22 +144,10 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         return RLTypes.CONTINUOUS
 
     def get_use_framework(self) -> str:
-        if self.framework == "tf" or self.framework == "tensorflow":
-            return "tensorflow"
-        if self.framework == "torch":
-            return "torch"
-        if is_package_installed("tensorflow"):
-            framework = "tensorflow"
-        elif is_package_installed("torch"):
-            framework = "torch"
-        else:
-            framework = ""
-        assert framework != "", "'tensorflow' or 'torch' could not be found."
-        return framework
+        return self.framework.get_use_framework()
 
     def getName(self) -> str:
-        framework = self.get_use_framework()
-        return f"Agent57_light:{framework}"
+        return f"Agent57_light:{self.get_use_framework()}"
 
     def assert_params(self) -> None:
         super().assert_params()

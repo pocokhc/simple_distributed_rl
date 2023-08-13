@@ -8,7 +8,6 @@ import torch.optim as optim
 
 from srl.base.rl.base import RLTrainer
 from srl.rl.functions import common
-from srl.rl.models.torch_.dueling_network import DuelingNetworkBlock
 from srl.rl.models.torch_.input_block import InputBlock
 
 from .agent57_light import CommonInterfaceParameter, Config, RemoteMemory
@@ -46,37 +45,8 @@ class _QNetwork(nn.Module):
             in_size += config.action_num
         in_size += config.actor_num
 
-        # --- hidden
-        self.hidden_layers = nn.ModuleList()
-        if len(config.hidden_layer_sizes) > 1:
-            for i in range(len(config.hidden_layer_sizes) - 1):
-                self.hidden_layers.append(
-                    nn.Linear(
-                        in_size,
-                        config.hidden_layer_sizes[i],
-                    )
-                )
-                self.hidden_layers.append(nn.ReLU())
-                in_size = config.hidden_layer_sizes[i]
-
-        # --- out
-        self.enable_dueling_network = config.enable_dueling_network
-        if config.enable_dueling_network:
-            self.dueling_block = DuelingNetworkBlock(
-                in_size,
-                config.action_num,
-                config.hidden_layer_sizes[-1],
-                config.dueling_network_type,
-                activation="ReLU",
-            )
-        else:
-            self.out_layers = nn.ModuleList(
-                [
-                    nn.Linear(in_size, config.hidden_layer_sizes[-1]),
-                    nn.ReLU(),
-                    nn.Linear(config.hidden_layer_sizes[-1], config.action_num),
-                ]
-            )
+        # out
+        self.dueling_block = config.dueling_network.create_block_torch(in_size, config.action_num)
 
     def forward(self, inputs):
         state = inputs[0]
@@ -102,17 +72,7 @@ class _QNetwork(nn.Module):
         uvfa_list.append(onehot_actor)
         x = torch.cat(uvfa_list, dim=1)
 
-        # hidden
-        for layer in self.hidden_layers:
-            x = layer(x)
-
-        # out
-        if self.enable_dueling_network:
-            x = self.dueling_block(x)
-        else:
-            for layer in self.out_layers:
-                x = layer(x)
-
+        x = self.dueling_block(x)
         return x
 
 
@@ -140,9 +100,9 @@ class _EmbeddingNetwork(nn.Module):
         self.emb_block = config.episodic_emb_block.create_block_torch(in_size)
 
         # --- out
-        self.out_block = config.episodic_out_block.create_block_torch(self.emb_block.out_shape[0] * 2)
-        self.out_block_normalize = nn.LayerNorm(self.out_block.out_shape[0])
-        self.out_block_out1 = nn.Linear(self.out_block.out_shape[0], config.action_num)
+        self.out_block = config.episodic_out_block.create_block_torch(self.emb_block.out_size * 2)
+        self.out_block_normalize = nn.LayerNorm(self.out_block.out_size)
+        self.out_block_out1 = nn.Linear(self.out_block.out_size, config.action_num)
         self.out_block_out2 = nn.Softmax(dim=1)
 
     def _image_call(self, state):
@@ -189,7 +149,7 @@ class _LifelongNetwork(nn.Module):
 
         # hidden
         self.hidden_block = config.lifelong_hidden_block.create_block_torch(in_size)
-        self.hidden_normalize = nn.LayerNorm(self.hidden_block.out_shape[0])
+        self.hidden_normalize = nn.LayerNorm(self.hidden_block.out_size)
 
     def forward(self, x):
         x = self.in_block(x)

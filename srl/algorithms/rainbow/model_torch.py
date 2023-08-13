@@ -6,39 +6,10 @@ import torch.nn as nn
 import torch.optim as optim
 
 from srl.base.rl.base import RLTrainer
-from srl.rl.models.torch_.dueling_network import DuelingNetworkBlock
 from srl.rl.models.torch_.input_block import InputBlock
 
 from .rainbow import CommonInterfaceParameter, Config, RemoteMemory
 from .rainbow_nomultisteps import calc_target_q
-
-
-class GaussianNoise(nn.Module):
-    """Gaussian noise regularizer.
-
-    Args:
-        sigma (float, optional): relative standard deviation used to generate the
-            noise. Relative means that it will be multiplied by the magnitude of
-            the value your are adding the noise to. This means that sigma can be
-            the same regardless of the scale of the vector.
-        is_relative_detach (bool, optional): whether to detach the variable before
-            computing the scale of the noise. If `False` then the scale of the noise
-            won't be seen as a constant but something to optimize: this will bias the
-            network to generate vectors with smaller values.
-    """
-
-    def __init__(self, sigma=0.1, is_relative_detach=True):
-        super().__init__()
-        self.sigma = sigma
-        self.is_relative_detach = is_relative_detach
-        self.noise = torch.tensor(0).to("cpu")
-
-    def forward(self, x):
-        if self.training and self.sigma != 0:
-            scale = self.sigma * x.detach() if self.is_relative_detach else self.sigma * x
-            sampled_noise = self.noise.repeat(*x.size()).normal_() * scale
-            x = x + sampled_noise
-        return x
 
 
 # ------------------------------------------------------
@@ -60,55 +31,19 @@ class _QNetwork(nn.Module):
             flat_shape = np.zeros(config.observation_shape).flatten().shape
             in_size = flat_shape[0]
 
-        # hidden
-        self.hidden_layers = nn.ModuleList()
-        if len(config.hidden_layer_sizes) > 1:
-            for i in range(len(config.hidden_layer_sizes) - 1):
-                self.hidden_layers.append(
-                    nn.Linear(
-                        in_size,
-                        config.hidden_layer_sizes[i],
-                    )
-                )
-                if config.enable_noisy_dense:
-                    self.hidden_layers.append(GaussianNoise())
-                self.hidden_layers.append(nn.ReLU())
-                in_size = config.hidden_layer_sizes[i]
-
         # out
-        self.enable_dueling_network = config.enable_dueling_network
-        if config.enable_dueling_network:
-            self.dueling_block = DuelingNetworkBlock(
-                in_size,
-                config.action_num,
-                config.hidden_layer_sizes[-1],
-                config.dueling_network_type,
-                activation="ReLU",
-                enable_noisy_dense=config.enable_noisy_dense,
-            )
-        else:
-            self.out_layers = nn.ModuleList(
-                [
-                    nn.Linear(in_size, config.hidden_layer_sizes[-1]),
-                    nn.ReLU(),
-                    nn.Linear(config.hidden_layer_sizes[-1], config.action_num),
-                ]
-            )
-            if config.enable_noisy_dense:
-                self.out_layers.append(GaussianNoise())
+        self.dueling_block = config.dueling_network.create_block_torch(
+            in_size,
+            config.action_num,
+            enable_noisy_dense=config.enable_noisy_dense,
+        )
 
     def forward(self, x):
         x = self.in_block(x)
         if self.in_block.use_image_layer:
             x = self.image_block(x)
             x = self.image_flatten(x)
-        for layer in self.hidden_layers:
-            x = layer(x)
-        if self.enable_dueling_network:
-            x = self.dueling_block(x)
-        else:
-            for layer in self.out_layers:
-                x = layer(x)
+        x = self.dueling_block(x)
         return x
 
 

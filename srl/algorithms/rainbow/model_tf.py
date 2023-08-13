@@ -5,7 +5,6 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.rl.base import RLTrainer
-from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_block import InputBlock
 
 from .rainbow import CommonInterfaceParameter, Config, RemoteMemory
@@ -29,58 +28,25 @@ class _QNetwork(keras.Model):
             self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=False)
             self.image_flatten = kl.Flatten()
 
-        if config.enable_noisy_dense:
-            # TensorFlow Addons Wind Down : https://github.com/tensorflow/addons/issues/2807
-            # if common.compare_less_package_version("tensorflow_addons", "2.11.0"):
-
-            import tensorflow_addons as tfa
-
-            _Dense = tfa.layers.NoisyDense
-        else:
-            _Dense = kl.Dense
-
-        # hidden
-        self.hidden_layers = []
-        for i in range(len(config.hidden_layer_sizes) - 1):
-            self.hidden_layers.append(
-                _Dense(
-                    config.hidden_layer_sizes[i],
-                    activation="relu",
-                    kernel_initializer="he_normal",
-                )
-            )
-
         # out
-        self.enable_dueling_network = config.enable_dueling_network
-        if config.enable_dueling_network:
-            self.dueling_block = DuelingNetworkBlock(
-                config.action_num,
-                config.hidden_layer_sizes[-1],
-                config.dueling_network_type,
-                activation="relu",
-                enable_noisy_dense=config.enable_noisy_dense,
-            )
-        else:
-            self.out_layers = [
-                _Dense(config.hidden_layer_sizes[-1], activation="relu", kernel_initializer="he_normal"),
-                _Dense(config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"),
-            ]
+        self.dueling_block = config.dueling_network.create_block_tf(
+            config.action_num,
+            enable_noisy_dense=config.enable_noisy_dense,
+        )
 
         # build
         self.build((None,) + config.observation_shape)
 
+    @tf.function
     def call(self, x, training=False):
+        return self._call(x, training)
+
+    def _call(self, x, training=False):
         x = self.in_block(x, training=training)
         if self.in_block.use_image_layer:
             x = self.image_block(x, training=training)
             x = self.image_flatten(x)
-        for layer in self.hidden_layers:
-            x = layer(x, training=training)
-        if self.enable_dueling_network:
-            x = self.dueling_block(x, training=training)
-        else:
-            for layer in self.out_layers:
-                x = layer(x, training=training)
+        x = self.dueling_block(x, training=training)
         return x
 
     def build(self, input_shape):
@@ -88,16 +54,14 @@ class _QNetwork(keras.Model):
         super().build(self.__input_shape)
 
     def summary(self, name="", **kwargs):
-        if hasattr(self.in_block, "init_model_graph"):
-            self.in_block.init_model_graph()
-        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
+        self.in_block.init_model_graph()
+        if self.in_block.use_image_layer:
             self.image_block.init_model_graph()
-        if self.enable_dueling_network and hasattr(self.dueling_block, "init_model_graph"):
-            self.dueling_block.init_model_graph()
+        self.dueling_block.init_model_graph()
 
         x = kl.Input(shape=self.__input_shape[1:])
         name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
         model.summary(**kwargs)
 
 

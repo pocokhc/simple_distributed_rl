@@ -7,7 +7,6 @@ from tensorflow import keras
 
 from srl.base.rl.base import RLTrainer
 from srl.rl.functions import common
-from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_block import InputBlock
 
 from .agent57_light import CommonInterfaceParameter, Config, RemoteMemory
@@ -34,39 +33,8 @@ class _QNetwork(keras.Model):
             self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=False)
             self.image_flatten = kl.Flatten()
 
-        # hidden
-        self.hidden_layers = []
-        for i in range(len(config.hidden_layer_sizes) - 1):
-            self.hidden_layers.append(
-                kl.Dense(
-                    config.hidden_layer_sizes[i],
-                    activation=config.activation,
-                    kernel_initializer="he_normal",
-                )
-            )
-
         # out
-        self.enable_dueling_network = config.enable_dueling_network
-        if config.enable_dueling_network:
-            self.dueling_block = DuelingNetworkBlock(
-                config.action_num,
-                config.hidden_layer_sizes[-1],
-                config.dueling_network_type,
-                activation=config.activation,
-            )
-        else:
-            self.out_layers = [
-                kl.Dense(
-                    config.hidden_layer_sizes[-1],
-                    activation=config.activation,
-                    kernel_initializer="he_normal",
-                ),
-                kl.Dense(
-                    config.action_num,
-                    kernel_initializer="truncated_normal",
-                    bias_initializer="truncated_normal",
-                ),
-            ]
+        self.dueling_block = config.dueling_network.create_block_tf(config.action_num)
 
         # build
         self.build(
@@ -76,7 +44,11 @@ class _QNetwork(keras.Model):
             (None, config.actor_num),
         )
 
-    def call(self, inputs, training=False):
+    @tf.function
+    def call(self, x, training=False):
+        return self._call(x, training)
+
+    def _call(self, inputs, training=False):
         state = inputs[0]
         reward_ext = inputs[1]
         reward_int = inputs[2]
@@ -100,17 +72,7 @@ class _QNetwork(keras.Model):
         uvfa_list.append(onehot_actor)
         x = tf.concat(uvfa_list, axis=1)
 
-        # hidden
-        for layer in self.hidden_layers:
-            x = layer(x, training=training)
-
-        # out
-        if self.enable_dueling_network:
-            x = self.dueling_block(x, training=training)
-        else:
-            for layer in self.out_layers:
-                x = layer(x, training=training)
-
+        x = self.dueling_block(x, training=training)
         return x
 
     def build(
@@ -139,8 +101,7 @@ class _QNetwork(keras.Model):
             self.in_block.init_model_graph()
         if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
             self.image_block.init_model_graph()
-        if self.enable_dueling_network and hasattr(self.dueling_block, "init_model_graph"):
-            self.dueling_block.init_model_graph()
+        self.dueling_block.init_model_graph()
         x = [
             kl.Input(self.__in_state_shape[1:], name="state"),
             kl.Input(self.__in_reward_shape[1:], name="reward_ext"),
@@ -149,7 +110,7 @@ class _QNetwork(keras.Model):
             kl.Input(self.__in_actor_shape[1:], name="actor"),
         ]
         name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
         model.summary(**kwargs)
 
 
@@ -186,7 +147,11 @@ class _EmbeddingNetwork(keras.Model):
             x = self.image_flatten(x)
         return self.emb_block(x, training=training)
 
+    @tf.function
     def call(self, x, training=False):
+        return self._call(x, training)
+
+    def _call(self, x, training=False):
         x1 = self._emb_block_call(x[0], training=training)
         x2 = self._emb_block_call(x[1], training=training)
 
@@ -204,21 +169,18 @@ class _EmbeddingNetwork(keras.Model):
         super().build([self.__input_shape, self.__input_shape])
 
     def summary(self, name: str = "", **kwargs):
-        if hasattr(self.in_block, "init_model_graph"):
-            self.in_block.init_model_graph()
-        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
+        self.in_block.init_model_graph()
+        if self.in_block.use_image_layer:
             self.image_block.init_model_graph()
-        if hasattr(self.emb_block, "init_model_graph"):
-            self.emb_block.init_model_graph()
-        if hasattr(self.out_block, "init_model_graph"):
-            self.out_block.init_model_graph()
+        self.emb_block.init_model_graph()
+        self.out_block.init_model_graph()
 
         x = [
             kl.Input(shape=self.__input_shape[1:]),
             kl.Input(shape=self.__input_shape[1:]),
         ]
         name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
         model.summary(**kwargs)
 
 
@@ -244,7 +206,11 @@ class _LifelongNetwork(keras.Model):
         # build
         self.build((None,) + config.observation_shape)
 
+    @tf.function
     def call(self, x, training=False):
+        return self._call(x, training)
+
+    def _call(self, x, training=False):
         x = self.in_block(x, training=training)
         if self.in_block.use_image_layer:
             x = self.image_block(x, training=training)
@@ -258,16 +224,14 @@ class _LifelongNetwork(keras.Model):
         super().build(self.__input_shape)
 
     def summary(self, name: str = "", **kwargs):
-        if hasattr(self.in_block, "init_model_graph"):
-            self.in_block.init_model_graph()
-        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
+        self.in_block.init_model_graph()
+        if self.in_block.use_image_layer:
             self.image_block.init_model_graph()
-        if hasattr(self.hidden_block, "init_model_graph"):
-            self.hidden_block.init_model_graph()
+        self.hidden_block.init_model_graph()
 
         x = kl.Input(shape=self.__input_shape[1:])
         name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
         model.summary(**kwargs)
 
 

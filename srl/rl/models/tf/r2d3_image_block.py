@@ -1,5 +1,7 @@
 from tensorflow import keras
 
+from srl.rl.models.converter import convert_activation_tf
+
 kl = keras.layers
 
 """
@@ -9,19 +11,27 @@ https://arxiv.org/abs/1909.01387
 
 
 class R2D3ImageBlock(keras.Model):
-    def __init__(self, filters: int = 16, enable_time_distributed_layer: bool = False, **kwargs):
+    def __init__(
+        self,
+        filters: int = 16,
+        activation: str = "relu",
+        enable_time_distributed_layer: bool = False,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
 
-        self.res1 = _ResBlock(filters, enable_time_distributed_layer)
-        self.res2 = _ResBlock(filters * 2, enable_time_distributed_layer)
-        self.res3 = _ResBlock(filters * 2, enable_time_distributed_layer)
-        self.relu = kl.Activation("relu")
+        activation = convert_activation_tf(activation)
+
+        self.res1 = _ResBlock(filters, activation, enable_time_distributed_layer)
+        self.res2 = _ResBlock(filters * 2, activation, enable_time_distributed_layer)
+        self.res3 = _ResBlock(filters * 2, activation, enable_time_distributed_layer)
+        self.act = kl.Activation(activation)
 
     def call(self, x):
         x = self.res1(x)
         x = self.res2(x)
         x = self.res3(x)
-        x = self.relu(x)
+        x = self.act(x)
         return x
 
     def build(self, input_shape):
@@ -39,13 +49,19 @@ class R2D3ImageBlock(keras.Model):
 
 
 class _ResBlock(keras.Model):
-    def __init__(self, filters, enable_time_distributed_layer, **kwargs):
+    def __init__(
+        self,
+        filters,
+        activation,
+        enable_time_distributed_layer,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
 
         self.conv = kl.Conv2D(filters, (3, 3), strides=(1, 1), padding="same")
         self.pool = kl.MaxPooling2D((3, 3), strides=(2, 2), padding="same")
-        self.res1 = _ResidualBlock(filters, enable_time_distributed_layer)
-        self.res2 = _ResidualBlock(filters, enable_time_distributed_layer)
+        self.res1 = _ResidualBlock(filters, activation, enable_time_distributed_layer)
+        self.res2 = _ResidualBlock(filters, activation, enable_time_distributed_layer)
 
         if enable_time_distributed_layer:
             self.conv = kl.TimeDistributed(self.conv)
@@ -72,12 +88,18 @@ class _ResBlock(keras.Model):
 
 
 class _ResidualBlock(keras.Model):
-    def __init__(self, n_filter, enable_time_distributed_layer, **kwargs):
+    def __init__(
+        self,
+        n_filter,
+        activation,
+        enable_time_distributed_layer,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
 
-        self.relu1 = kl.Activation("relu")
+        self.act1 = kl.Activation(activation)
         self.conv1 = kl.Conv2D(n_filter, (3, 3), strides=(1, 1), padding="same")
-        self.relu2 = kl.Activation("relu")
+        self.act2 = kl.Activation(activation)
         self.conv2 = kl.Conv2D(n_filter, (3, 3), strides=(1, 1), padding="same")
         self.add = kl.Add()
 
@@ -86,9 +108,9 @@ class _ResidualBlock(keras.Model):
             self.conv2 = kl.TimeDistributed(self.conv2)
 
     def call(self, x):
-        x1 = self.relu1(x)
+        x1 = self.act1(x)
         x1 = self.conv1(x1)
-        x1 = self.relu2(x1)
+        x1 = self.act2(x1)
         x1 = self.conv2(x1)
         return self.add([x, x1])
 

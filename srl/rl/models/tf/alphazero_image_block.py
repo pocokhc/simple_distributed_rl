@@ -1,5 +1,7 @@
 from tensorflow import keras
 
+from srl.rl.models.converter import convert_activation_tf
+
 kl = keras.layers
 
 """
@@ -18,9 +20,12 @@ class AlphaZeroImageBlock(keras.Model):
         self,
         n_blocks: int = 19,
         filters: int = 256,
+        activation: str = "relu",
         **kwargs,
     ):
         super().__init__(**kwargs)
+
+        activation = convert_activation_tf(activation)
 
         self.input_layers = [
             kl.BatchNormalization(),
@@ -29,12 +34,12 @@ class AlphaZeroImageBlock(keras.Model):
                 kernel_size=(3, 3),
                 strides=1,
                 padding="same",
+                activation=activation,
             ),
-            kl.ReLU(),
             kl.BatchNormalization(),
         ]
 
-        self.resblocks = [_ResidualBlock(filters) for _ in range(n_blocks)]
+        self.resblocks = [_ResidualBlock(filters, activation) for _ in range(n_blocks)]
 
     def call(self, x):
         for layer in self.input_layers:
@@ -59,6 +64,7 @@ class _ResidualBlock(keras.Model):
     def __init__(
         self,
         filters: int,
+        activation,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -69,8 +75,8 @@ class _ResidualBlock(keras.Model):
                 kernel_size=(3, 3),
                 strides=1,
                 padding="same",
+                activation=activation,
             ),
-            kl.ReLU(),
             kl.BatchNormalization(),
             kl.Conv2D(
                 filters=filters,
@@ -80,7 +86,7 @@ class _ResidualBlock(keras.Model):
             ),
             kl.BatchNormalization(),
         ]
-        self.act2 = kl.ReLU()
+        self.act2 = kl.Activation(activation)
 
     def call(self, x):
         x1 = x

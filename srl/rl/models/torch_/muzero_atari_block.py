@@ -4,16 +4,21 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from srl.rl.models.converter import convert_activation_torch
+
 
 class MuZeroAtariBlock(nn.Module):
     def __init__(
         self,
         in_shape: Tuple[int, int, int],
         filters: int = 128,
+        activation: str = "ReLU",
         use_layer_normalization: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
+
+        activation = convert_activation_torch(activation)
 
         in_ch = in_shape[0]
         self.conv1 = nn.Conv2d(
@@ -24,9 +29,9 @@ class MuZeroAtariBlock(nn.Module):
             padding=1,
             bias=False,
         )
-        self.act1 = nn.ReLU(inplace=True)
-        self.resblock1 = _ResidualBlock(filters, use_layer_normalization)
-        self.resblock2 = _ResidualBlock(filters, use_layer_normalization)
+        self.act1 = activation(inplace=True)
+        self.resblock1 = _ResidualBlock(filters, activation, use_layer_normalization)
+        self.resblock2 = _ResidualBlock(filters, activation, use_layer_normalization)
         self.conv2 = nn.Conv2d(
             in_channels=filters,
             out_channels=filters * 2,
@@ -35,14 +40,14 @@ class MuZeroAtariBlock(nn.Module):
             padding=1,
             bias=False,
         )
-        self.act2 = nn.ReLU(inplace=True)
-        self.resblock3 = _ResidualBlock(filters * 2, use_layer_normalization)
-        self.resblock4 = _ResidualBlock(filters * 2, use_layer_normalization)
-        self.resblock5 = _ResidualBlock(filters * 2, use_layer_normalization)
+        self.act2 = activation(inplace=True)
+        self.resblock3 = _ResidualBlock(filters * 2, activation, use_layer_normalization)
+        self.resblock4 = _ResidualBlock(filters * 2, activation, use_layer_normalization)
+        self.resblock5 = _ResidualBlock(filters * 2, activation, use_layer_normalization)
         self.pool1 = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
-        self.resblock6 = _ResidualBlock(filters * 2, use_layer_normalization)
-        self.resblock7 = _ResidualBlock(filters * 2, use_layer_normalization)
-        self.resblock8 = _ResidualBlock(filters * 2, use_layer_normalization)
+        self.resblock6 = _ResidualBlock(filters * 2, activation, use_layer_normalization)
+        self.resblock7 = _ResidualBlock(filters * 2, activation, use_layer_normalization)
+        self.resblock8 = _ResidualBlock(filters * 2, activation, use_layer_normalization)
         self.pool2 = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
 
         # --- out shape
@@ -72,7 +77,8 @@ class _ResidualBlock(nn.Module):
     def __init__(
         self,
         filters: int,
-        use_layer_normalization: bool = False,
+        activation,
+        use_layer_normalization: bool,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -88,7 +94,7 @@ class _ResidualBlock(nn.Module):
             self.bn1 = nn.LayerNorm(filters)
         else:
             self.bn1 = nn.BatchNorm2d(filters)
-        self.act1 = nn.ReLU(inplace=True)
+        self.act1 = activation(inplace=True)
         self.conv2 = nn.Conv2d(
             in_channels=filters,
             out_channels=filters,
@@ -100,7 +106,7 @@ class _ResidualBlock(nn.Module):
             self.bn2 = nn.LayerNorm(filters)
         else:
             self.bn2 = nn.BatchNorm2d(filters)
-        self.act2 = nn.ReLU(inplace=True)
+        self.act2 = activation(inplace=True)
 
     def forward(self, x):
         identity = x

@@ -4,22 +4,27 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from srl.rl.models.converter import convert_activation_torch
+
 
 class R2D3ImageBlock(nn.Module):
     def __init__(
         self,
         in_shape: Tuple[int, ...],
         filters: int = 16,
+        activation: str = "ReLU",
         enable_time_distributed_layer: bool = False,
     ):
         super().__init__()
         self.enable_time_distributed_layer = enable_time_distributed_layer
 
+        activation = convert_activation_torch(activation)
+
         in_ch = in_shape[-3]
-        self.res1 = _ResBlock(in_ch, filters)
-        self.res2 = _ResBlock(filters, filters * 2)
-        self.res3 = _ResBlock(filters * 2, filters * 2)
-        self.relu = nn.ReLU(inplace=True)
+        self.res1 = _ResBlock(in_ch, filters, activation)
+        self.res2 = _ResBlock(filters, filters * 2, activation)
+        self.res3 = _ResBlock(filters * 2, filters * 2, activation)
+        self.act = activation(inplace=True)
 
         # --- out shape
         x = np.ones((1,) + in_shape, dtype=np.float32)
@@ -35,7 +40,7 @@ class R2D3ImageBlock(nn.Module):
             x = self.res1(x)
             x = self.res2(x)
             x = self.res3(x)
-            x = self.relu(x)
+            x = self.act(x)
 
             # (batch*seq, c, h, w) -> (batch, seq, c, h, w)
             _, channels, height, width = x.size()
@@ -45,13 +50,13 @@ class R2D3ImageBlock(nn.Module):
             x = self.res1(x)
             x = self.res2(x)
             x = self.res3(x)
-            x = self.relu(x)
+            x = self.act(x)
 
         return x
 
 
 class _ResBlock(nn.Module):
-    def __init__(self, in_ch, filters):
+    def __init__(self, in_ch, filters, activation):
         super().__init__()
 
         self.conv = nn.Conv2d(
@@ -62,8 +67,8 @@ class _ResBlock(nn.Module):
             padding=(1, 1),
         )
         self.pool = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
-        self.res1 = _ResidualBlock(filters)
-        self.res2 = _ResidualBlock(filters)
+        self.res1 = _ResidualBlock(filters, activation)
+        self.res2 = _ResidualBlock(filters, activation)
 
     def forward(self, x):
         x = self.conv(x)
@@ -74,9 +79,9 @@ class _ResBlock(nn.Module):
 
 
 class _ResidualBlock(nn.Module):
-    def __init__(self, filters):
+    def __init__(self, filters, activation):
         super().__init__()
-        self.relu1 = nn.ReLU()
+        self.act1 = activation(inplace=True)
         self.conv1 = nn.Conv2d(
             in_channels=filters,
             out_channels=filters,
@@ -84,7 +89,7 @@ class _ResidualBlock(nn.Module):
             stride=(1, 1),
             padding=(1, 1),
         )
-        self.relu2 = nn.ReLU()
+        self.act2 = activation(inplace=True)
         self.conv2 = nn.Conv2d(
             in_channels=filters,
             out_channels=filters,
@@ -95,9 +100,9 @@ class _ResidualBlock(nn.Module):
         self.add = nn.Identity()
 
     def forward(self, x):
-        x1 = self.relu1(x)
+        x1 = self.act1(x)
         x1 = self.conv1(x1)
-        x1 = self.relu2(x1)
+        x1 = self.act2(x1)
         x1 = self.conv2(x1)
         return self.add(x) + x1
 

@@ -1,6 +1,8 @@
 import tensorflow as tf
 from tensorflow import keras
 
+from srl.rl.models.converter import convert_activation_tf
+
 kl = keras.layers
 
 
@@ -17,6 +19,10 @@ class DuelingNetworkBlock(keras.Model):
     ):
         super().__init__(**kwargs)
         self.dueling_type = dueling_type
+
+        assert len(layer_sizes) > 0
+
+        activation = convert_activation_tf(activation)
 
         if enable_noisy_dense:
             import tensorflow_addons as tfa

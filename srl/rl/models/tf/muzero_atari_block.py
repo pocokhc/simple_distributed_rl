@@ -1,5 +1,7 @@
 from tensorflow import keras
 
+from srl.rl.models.converter import convert_activation_tf
+
 kl = keras.layers
 
 """
@@ -17,40 +19,43 @@ class MuZeroAtariBlock(keras.Model):
         filters: int = 128,
         kernel_size=(3, 3),
         l2: float = 0.0001,
+        activation: str = "relu",
         use_layer_normalization: bool = True,
         **kwargs,
     ):
         super().__init__(**kwargs)
+
+        activation = convert_activation_tf(activation)
 
         self.conv1 = kl.Conv2D(
             filters,
             kernel_size=kernel_size,
             strides=2,
             padding="same",
-            activation="relu",
+            activation=activation,
             use_bias=False,
             kernel_initializer="he_normal",
             kernel_regularizer=keras.regularizers.l2(l2),
         )
-        self.resblock1 = _ResidualBlock(filters, kernel_size, l2, use_layer_normalization)
-        self.resblock2 = _ResidualBlock(filters, kernel_size, l2, use_layer_normalization)
+        self.resblock1 = _ResidualBlock(filters, kernel_size, l2, activation, use_layer_normalization)
+        self.resblock2 = _ResidualBlock(filters, kernel_size, l2, activation, use_layer_normalization)
         self.conv2 = kl.Conv2D(
             filters * 2,
             kernel_size=kernel_size,
             strides=2,
             padding="same",
-            activation="relu",
+            activation=activation,
             use_bias=False,
             kernel_initializer="he_normal",
             kernel_regularizer=keras.regularizers.l2(l2),
         )
-        self.resblock3 = _ResidualBlock(filters * 2, kernel_size, l2, use_layer_normalization)
-        self.resblock4 = _ResidualBlock(filters * 2, kernel_size, l2, use_layer_normalization)
-        self.resblock5 = _ResidualBlock(filters * 2, kernel_size, l2, use_layer_normalization)
+        self.resblock3 = _ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
+        self.resblock4 = _ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
+        self.resblock5 = _ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
         self.pool1 = kl.AveragePooling2D(pool_size=3, strides=2, padding="same")
-        self.resblock6 = _ResidualBlock(filters * 2, kernel_size, l2, use_layer_normalization)
-        self.resblock7 = _ResidualBlock(filters * 2, kernel_size, l2, use_layer_normalization)
-        self.resblock8 = _ResidualBlock(filters * 2, kernel_size, l2, use_layer_normalization)
+        self.resblock6 = _ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
+        self.resblock7 = _ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
+        self.resblock8 = _ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
         self.pool2 = kl.AveragePooling2D(pool_size=3, strides=2, padding="same")
 
     def call(self, x):
@@ -75,7 +80,8 @@ class _ResidualBlock(keras.Model):
         filters,
         kernel_size,
         l2,
-        use_layer_normalization: bool = True,
+        activation,
+        use_layer_normalization: bool,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -92,7 +98,7 @@ class _ResidualBlock(keras.Model):
             self.bn1 = kl.LayerNormalization()
         else:
             self.bn1 = kl.BatchNormalization()
-        self.relu1 = kl.ReLU()
+        self.act1 = kl.Activation(activation)
         self.conv2 = kl.Conv2D(
             filters=filters,
             kernel_size=kernel_size,
@@ -105,14 +111,14 @@ class _ResidualBlock(keras.Model):
             self.bn2 = kl.LayerNormalization()
         else:
             self.bn2 = kl.BatchNormalization()
-        self.relu2 = kl.ReLU()
+        self.act2 = kl.Activation(activation)
 
     def call(self, x):
         x1 = self.conv1(x)
         x1 = self.bn1(x1)
-        x1 = self.relu1(x1)
+        x1 = self.act1(x1)
         x1 = self.conv2(x1)
         x1 = self.bn2(x1)
         x = x + x1
-        x = self.relu2(x)
+        x = self.act2(x)
         return x

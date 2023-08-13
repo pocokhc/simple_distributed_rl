@@ -11,6 +11,7 @@ class AlphaZeroBlockConfig:
         self,
         n_blocks: int = 19,
         filters: int = 256,
+        activation: str = "relu",
     ):
         """Alphaシリーズの画像レイヤーで使用する層を指定します。
         AlphaZeroで採用されている層です。
@@ -24,11 +25,13 @@ class AlphaZeroBlockConfig:
         self._kwargs = dict(
             n_blocks=n_blocks,
             filters=filters,
+            activation=activation,
         )
 
     def set_muzero_atari_block(
         self,
         filters: int = 128,
+        activation: str = "relu",
         use_layer_normalization: bool = False,
     ):
         """Alphaシリーズの画像レイヤーで使用する層を指定します。
@@ -42,6 +45,7 @@ class AlphaZeroBlockConfig:
         self._name = "MuzeroAtari"
         self._kwargs = dict(
             filters=filters,
+            activation=activation,
             use_layer_normalization=use_layer_normalization,
         )
 

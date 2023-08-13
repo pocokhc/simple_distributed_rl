@@ -12,6 +12,14 @@ class AlphaZeroBlockConfig:
         n_blocks: int = 19,
         filters: int = 256,
     ):
+        """Alphaシリーズの画像レイヤーで使用する層を指定します。
+        AlphaZeroで採用されている層です。
+
+        Args:
+            n_blocks (int, optional): ブロック数. Defaults to 19.
+            filters (int, optional): フィルター数. Defaults to 256.
+            activation (str, optional): activation function. Defaults to "relu".
+        """
         self._name = "AlphaZero"
         self._kwargs = dict(
             n_blocks=n_blocks,
@@ -23,6 +31,14 @@ class AlphaZeroBlockConfig:
         filters: int = 128,
         use_layer_normalization: bool = False,
     ):
+        """Alphaシリーズの画像レイヤーで使用する層を指定します。
+        MuZeroのAtari環境で採用されている層です。
+
+        Args:
+            filters (int, optional): フィルター数. Defaults to 128.
+            activation (str, optional): activation function. Defaults to "relu".
+            use_layer_normalization (str, optional): use_layer_normalization. Defaults to True.
+        """
         self._name = "MuzeroAtari"
         self._kwargs = dict(
             filters=filters,
@@ -30,6 +46,7 @@ class AlphaZeroBlockConfig:
         )
 
     def set_original_block(self):
+        """TODO"""
         raise NotImplementedError("TODO")
 
     # ---------------------

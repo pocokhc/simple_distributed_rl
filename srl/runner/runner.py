@@ -274,7 +274,12 @@ class State:
 
 @dataclass()
 class Runner:
+    """実行環境を提供"""
+
+    #: EnvConfigを指定（文字列のみのIDでも可能）
     name_or_env_config: Union[str, EnvConfig]
+    #: RLConfigを指定
+    #: Noneの場合、dummyアルゴリズムが使われます
     rl_config: Optional[RLConfig] = None  # type: ignore
 
     # --- private(static class instance)
@@ -336,15 +341,28 @@ class Runner:
     # set config
     # ------------------------------
     def set_players(self, players: List[Union[None, str, Tuple[str, dict], RLConfig]] = []):
-        """multi player option, playersという変数名だけど、役割はworkersの方が正しい
+        """multi player option
+        マルチプレイヤーゲームでのプレイヤーを指定します。
+
         None             : use rl_config worker
         str              : Registered RuleWorker
         Tuple[str, dict] : Registered RuleWorker(Pass kwargs argument)
         RLConfig         : use RLConfig worker
+
+        Args:
+            players: マルチプレイヤーゲームにおけるプレイヤーを表した配列
+
         """
+        # playersという変数名だけど、役割はworkersの方が正しい
         self.config.players = players
 
     def set_save_dir(self, save_dir: str):
+        """ディレクトリへの保存が必要な場合、そのディレクトリを指定します。
+        ディレクトリへの保存は、historyやcheckpointがあります。
+
+        Args:
+            save_dir (str): 保存ディレクトリのパス。 Defaults to "tmp".
+        """
         self.config.base_dir = save_dir
 
     def set_mp(
@@ -352,6 +370,12 @@ class Runner:
         trainer_parameter_send_interval_by_train_count: int = 100,
         actor_parameter_sync_interval_by_step: int = 100,
     ):
+        """分散学習時の設定を指定します。
+
+        Args:
+            trainer_parameter_send_interval_by_train_count (int, optional): Trainerがパラメターを同期する間隔. Defaults to 100.
+            actor_parameter_sync_interval_by_step (int, optional): Actorがパラメータを同期する間隔. Defaults to 100.
+        """
         self.config.trainer_parameter_send_interval_by_train_count = trainer_parameter_send_interval_by_train_count
         self.config.actor_parameter_sync_interval_by_step = actor_parameter_sync_interval_by_step
 
@@ -361,7 +385,16 @@ class Runner:
         remote_port: int = 50000,
         remote_authkey: bytes = b"abracadabra",
     ):
-        """ "0.0.0.0" for external publication"""
+        """分散コンピューティングによる学習の設定を指定します。
+        （こちらの機能はまだ開発中）
+
+        "0.0.0.0" for external publication
+
+        Args:
+            remote_server_ip (str, optional): ホストのIPアドレス. Defaults to "127.0.0.1".
+            remote_port (int, optional): ホストのポート. Defaults to 50000.
+            remote_authkey (bytes, optional): 接続に使う認証キー. Defaults to b"abracadabra".
+        """
         self.config.remote_server_ip = remote_server_ip
         self.config.remote_port = remote_port
         self.config.remote_authkey = remote_authkey
@@ -371,6 +404,12 @@ class Runner:
         seed: Optional[int] = None,
         seed_enable_gpu: bool = True,
     ):
+        """set random seed.
+
+        Args:
+            seed (Optional[int], optional): random seed. Defaults to None.
+            seed_enable_gpu (bool, optional): set GPU seed(実行速度が遅くなる場合があります). Defaults to True.
+        """
         self.config.seed = seed
         self.config.seed_enable_gpu = seed_enable_gpu
 
@@ -378,6 +417,14 @@ class Runner:
     # model summary
     # ------------------------------
     def model_summary(self, **kwargs) -> RLParameter:
+        """modelの概要を返します。これは以下と同じです。
+
+        >>> parameter = runner.make_parameter()
+        >>> parameter.summary()
+
+        Returns:
+            RLParameter: RLParameter
+        """
         parameter = self.make_parameter()
         parameter.summary(**kwargs)
         return parameter
@@ -386,15 +433,24 @@ class Runner:
     # save/load
     # ------------------------------
     def save_parameter(self, path: str):
+        """save parameter"""
         self.make_parameter().save(path)
 
     def load_parameter(self, path: str):
+        """load parameter"""
         self.make_parameter().load(path)
 
     def save_remote_memory(self, path: str, compress: bool = True, **kwargs):
+        """save remote memory
+
+        Args:
+            path (str): save path
+            compress (bool, optional): 圧縮するかどうか。圧縮はlzma形式です. Defaults to True.
+        """
         self.make_remote_memory().save(path, compress, **kwargs)
 
     def load_remote_memory(self, path: str, **kwargs):
+        """load remote memory"""
         self.make_remote_memory().load(path, **kwargs)
 
     # ------------------------------
@@ -562,6 +618,11 @@ class Runner:
 
     # --- system profile
     def set_stats(self, enable_stats: bool = True):
+        """ハードウェアの統計情報に関する設定を指定します。
+
+        Args:
+            enable_stats (bool, optional): 統計情報の取得をするかどうか. Defaults to True.
+        """
         self.config.enable_stats = enable_stats
 
     def __init_nvidia(self):
@@ -643,24 +704,33 @@ class Runner:
         device_main: str = "AUTO",
         device_mp_trainer: str = "AUTO",
         device_mp_actors: Union[str, List[str]] = "AUTO",  # ["CPU:0", "CPU:1"]
-        use_CUDA_VISIBLE_DEVICES: bool = True,  # CPUの場合 CUDA_VISIBLE_DEVICES を-1にする
+        use_CUDA_VISIBLE_DEVICES: bool = True,
         tf_device_disable: bool = False,
         tf_enable_memory_growth: bool = True,
     ):
-        """device option
+        """set device.
+
         "AUTO",""    : Automatic assignment.
         "CPU","CPU:0": Use CPU.
         "GPU","GPU:0": Use GPU.
 
         AUTO assign
-        - sequence
-            - main   : GPU > CPU
-            - trainer: not use
-            - actors : not use
-        - distribute
-            - main   : CPU
-            - trainer: GPU > CPU
-            - actors : CPU
+          sequence
+            main   : GPU -> CPU
+            trainer: not use
+            actors : not use
+          distribute
+            main   : CPU
+            trainer: GPU -> CPU
+            actors : CPU
+
+        Args:
+            device_main (str, optional): mainのdeviceを指定します。分散学習を用いない場合、これだけが使用されます. Defaults to "AUTO".
+            device_mp_trainer (str, optional): 分散学習時のtrainerが使うdeviceを指定します. Defaults to "AUTO".
+            device_mp_actors (Union[str, List[str]], optional): 分散学習時のactorが使うdeviceを指定します. Defaults to "AUTO".
+            use_CUDA_VISIBLE_DEVICES (bool, optional): CPUの場合 CUDA_VISIBLE_DEVICES を-1にする. Defaults to True.
+            tf_device_disable (bool, optional): tensorflowにて、 'with tf.device()' を使用する. Defaults to True.
+            tf_enable_memory_growth (bool, optional): tensorflowにて、'set_memory_growth(True)' を実行する. Defaults to True.
         """
         if Runner.__is_init_process:
             logger.warning("Device cannot be changed after initialization.")
@@ -900,16 +970,34 @@ class Runner:
         eval_max_steps: int = -1,
         eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
         eval_shuffle_player: bool = False,
-        eval_seed: Optional[int] = None,
         eval_used_device_tf: str = "/CPU",
         eval_used_device_torch: str = "cpu",
         eval_callbacks: List[CallbackType] = [],
     ):
+        """学習履歴を保存する設定を指定します。
+
+        Args:
+            enable_history (bool, optional): 学習履歴の保存を有効にします. Defaults to True.
+            write_memory (bool, optional): 学習履歴をメモリに保存します。これは分散学習では無効になります. Defaults to True.
+            write_file (bool, optional): 学習履歴をディスクに保存します。 Defaults to False.
+            interval (int, optional): 学習履歴を保存する間隔(秒). Defaults to 1.
+            enable_eval (bool, optional): 学習履歴の保存時に評価用のシミュレーションを実行します. Defaults to False.
+            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
+            eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
+            eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
+            eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
+            eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
+            eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
+            eval_used_device_tf (str, optional): 評価時のdevice. Defaults to "/CPU".
+            eval_used_device_torch (str, optional): 評価時のdevice. Defaults to "cpu".
+            eval_callbacks (List[CallbackType], optional): 評価時のcallbacks. Defaults to [].
+        """
         self._history_on_memory_callback = None
         self._history_on_file_callback = None
         if enable_history:
             if write_memory:
-                from srl.runner.callbacks.history_on_memory import HistoryOnMemory
+                from srl.runner.callbacks.history_on_memory import \
+                    HistoryOnMemory
 
                 self._history_on_memory_callback = HistoryOnMemory(
                     interval=interval,
@@ -920,7 +1008,6 @@ class Runner:
                     eval_max_steps=eval_max_steps,
                     eval_players=eval_players,
                     eval_shuffle_player=eval_shuffle_player,
-                    eval_seed=eval_seed,
                     eval_used_device_tf=eval_used_device_tf,
                     eval_used_device_torch=eval_used_device_torch,
                     eval_callbacks=eval_callbacks,
@@ -937,7 +1024,6 @@ class Runner:
                     eval_max_steps=eval_max_steps,
                     eval_players=eval_players,
                     eval_shuffle_player=eval_shuffle_player,
-                    eval_seed=eval_seed,
                     eval_used_device_tf=eval_used_device_tf,
                     eval_used_device_torch=eval_used_device_torch,
                     eval_callbacks=eval_callbacks,
@@ -954,11 +1040,26 @@ class Runner:
         eval_max_steps: int = -1,
         eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
         eval_shuffle_player: bool = False,
-        eval_seed: Optional[int] = None,
         eval_used_device_tf: str = "/CPU",
         eval_used_device_torch: str = "cpu",
         eval_callbacks: List[CallbackType] = [],
     ):
+        """一定間隔でモデルを保存します。
+
+        Args:
+            enable_checkpoint (bool, optional): checkpointを有効にします。 Defaults to True.
+            interval (int, optional): 保存する間隔（秒）. Defaults to 60*20.
+            enable_eval (bool, optional): モデル保存時に評価用のシミュレーションを実行します. Defaults to False.
+            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
+            eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
+            eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
+            eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
+            eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
+            eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
+            eval_used_device_tf (str, optional): 評価時のdevice. Defaults to "/CPU".
+            eval_used_device_torch (str, optional): 評価時のdevice. Defaults to "cpu".
+            eval_callbacks (List[CallbackType], optional): 評価時のcallbacks. Defaults to [].
+        """
         if not enable_checkpoint:
             self._checkpoint_callback = None
             return
@@ -974,7 +1075,6 @@ class Runner:
             eval_max_steps=eval_max_steps,
             eval_players=eval_players,
             eval_shuffle_player=eval_shuffle_player,
-            eval_seed=eval_seed,
             eval_used_device_tf=eval_used_device_tf,
             eval_used_device_torch=eval_used_device_torch,
             eval_callbacks=eval_callbacks,
@@ -1006,7 +1106,6 @@ class Runner:
         eval_max_steps: int = -1,
         eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
         eval_shuffle_player: bool = False,
-        eval_seed: Optional[int] = None,
         eval_used_device_tf: str = "/CPU",
         eval_used_device_torch: str = "cpu",
         eval_callbacks: List[CallbackType] = [],
@@ -1015,6 +1114,37 @@ class Runner:
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
     ):
+        """train
+
+        Args:
+            max_episodes (int, optional): 終了するまでのエピソード数. Defaults to -1.
+            timeout (int, optional): 終了するまでの時間（秒）. Defaults to -1.
+            max_steps (int, optional): 終了するまでの総ステップ. Defaults to -1.
+            max_train_count (int, optional): 終了するまでの学習回数. Defaults to -1.
+            shuffle_player (bool, optional): playersをシャッフルするかどうか. Defaults to True.
+            disable_trainer (bool, optional): Trainerを無効にするか。主に経験の実集めたい場合に使用。 Defaults to False.
+            enable_progress (bool, optional): 進捗を表示するか. Defaults to True.
+            progress_start_time (int, optional): 最初に進捗を表示する秒数. Defaults to 1.
+            progress_interval_limit (int, optional): 進捗を表示する最大の間隔（秒）. Defaults to 60*10.
+            progress_env_info (bool, optional): 進捗表示にenv infoを表示するか. Defaults to False.
+            progress_train_info (bool, optional): 進捗表示にtrain infoを表示するか. Defaults to True.
+            progress_worker_info (bool, optional): 進捗表示にworker infoを表示するか. Defaults to True.
+            progress_worker (int, optional): 進捗表示に表示するworker index. Defaults to 0.
+            enable_eval (bool, optional): 評価用のシミュレーションを実行します. Defaults to False.
+            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
+            eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
+            eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
+            eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
+            eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
+            eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
+            eval_used_device_tf (str, optional): 評価時のdevice. Defaults to "/CPU".
+            eval_used_device_torch (str, optional): 評価時のdevice. Defaults to "cpu".
+            eval_callbacks (List[CallbackType], optional): 評価時のcallbacks. Defaults to [].
+            callbacks (List[CallbackType], optional): callbacks. Defaults to [].
+            parameter (Optional[RLParameter], optional): 任意のParameter. Defaults to None.
+            remote_memory (Optional[RLRemoteMemory], optional): 任意のRemoteMemory. Defaults to None.
+        """
+
         self.context.callbacks = callbacks[:]
 
         # --- set context
@@ -1056,7 +1186,6 @@ class Runner:
                     eval_max_steps=eval_max_steps,
                     eval_players=eval_players,
                     eval_shuffle_player=eval_shuffle_player,
-                    eval_seed=eval_seed,
                     eval_used_device_tf=eval_used_device_tf,
                     eval_used_device_torch=eval_used_device_torch,
                     eval_callbacks=eval_callbacks,
@@ -1106,10 +1235,7 @@ class Runner:
         enable_progress: bool = True,
         progress_start_time: int = 1,
         progress_interval_limit: int = 60 * 10,
-        progress_env_info: bool = False,
         progress_train_info: bool = True,
-        progress_worker_info: bool = True,
-        progress_worker: int = 0,
         # --- eval
         enable_eval: bool = False,
         eval_episode: int = 1,
@@ -1117,7 +1243,6 @@ class Runner:
         eval_max_steps: int = -1,
         eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
         eval_shuffle_player: bool = False,
-        eval_seed: Optional[int] = None,
         eval_used_device_tf: str = "/CPU",
         eval_used_device_torch: str = "cpu",
         eval_callbacks: List[CallbackType] = [],
@@ -1126,6 +1251,28 @@ class Runner:
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
     ):
+        """Trainerが学習するだけでWorkerによるシミュレーションはありません。
+
+        Args:
+            max_episodes (int, optional): 終了するまでのエピソード数. Defaults to -1.
+            max_train_count (int, optional): 終了するまでの学習回数. Defaults to -1.
+            enable_progress (bool, optional): 進捗を表示するか. Defaults to True.
+            progress_start_time (int, optional): 最初に進捗を表示する秒数. Defaults to 1.
+            progress_interval_limit (int, optional): 進捗を表示する最大の間隔（秒）. Defaults to 60*10.
+            progress_train_info (bool, optional): _description_. Defaults to True.
+            enable_eval (bool, optional): 評価用のシミュレーションを実行します. Defaults to False.
+            eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
+            eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
+            eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
+            eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
+            eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
+            eval_used_device_tf (str, optional): 評価時のdevice. Defaults to "/CPU".
+            eval_used_device_torch (str, optional): 評価時のdevice. Defaults to "cpu".
+            eval_callbacks (List[CallbackType], optional): 評価時のcallbacks. Defaults to [].
+            callbacks (List[CallbackType], optional): callbacks. Defaults to [].
+            parameter (Optional[RLParameter], optional): 任意のParameter. Defaults to None.
+            remote_memory (Optional[RLRemoteMemory], optional): 任意のRemoteMemory. Defaults to None.
+        """
         self.context.callbacks = callbacks[:]
 
         # --- set context
@@ -1152,10 +1299,7 @@ class Runner:
                 PrintProgress(
                     start_time=progress_start_time,
                     interval_limit=progress_interval_limit,
-                    progress_env_info=progress_env_info,
                     progress_train_info=progress_train_info,
-                    progress_worker_info=progress_worker_info,
-                    progress_worker=progress_worker,
                     progress_max_actor=5,
                     enable_eval=enable_eval,
                     eval_env_sharing=True,
@@ -1164,7 +1308,6 @@ class Runner:
                     eval_max_steps=eval_max_steps,
                     eval_players=eval_players,
                     eval_shuffle_player=eval_shuffle_player,
-                    eval_seed=eval_seed,
                     eval_used_device_tf=eval_used_device_tf,
                     eval_used_device_torch=eval_used_device_torch,
                     eval_callbacks=eval_callbacks,
@@ -1234,7 +1377,6 @@ class Runner:
         eval_max_steps: int = -1,
         eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
         eval_shuffle_player: bool = False,
-        eval_seed: Optional[int] = None,
         eval_used_device_tf: str = "/CPU",
         eval_used_device_torch: str = "cpu",
         eval_callbacks: List[CallbackType] = [],
@@ -1243,6 +1385,38 @@ class Runner:
         save_remote_memory: str = "",
         return_remote_memory: bool = False,
     ):
+        """分散学習による学習を実施します。
+
+        Args:
+            actor_num (int, optional): actor数を指定. Defaults to 1.
+            max_episodes (int, optional): 終了するまでのエピソード数. Defaults to -1.
+            timeout (int, optional): 終了するまでの時間（秒）. Defaults to -1.
+            max_steps (int, optional): 終了するまでの総ステップ. Defaults to -1.
+            max_train_count (int, optional): 終了するまでの学習回数. Defaults to -1.
+            shuffle_player (bool, optional): playersをシャッフルするかどうか. Defaults to True.
+            disable_trainer (bool, optional): Trainerを無効にするか。主に経験の実集めたい場合に使用。 Defaults to False.
+            enable_progress (bool, optional): 進捗を表示するか. Defaults to True.
+            progress_start_time (int, optional): 最初に進捗を表示する秒数. Defaults to 1.
+            progress_interval_limit (int, optional): 進捗を表示する最大の間隔（秒）. Defaults to 60*10.
+            progress_env_info (bool, optional): 進捗表示にenv infoを表示するか. Defaults to False.
+            progress_train_info (bool, optional): 進捗表示にtrain infoを表示するか. Defaults to True.
+            progress_worker_info (bool, optional): 進捗表示にworker infoを表示するか. Defaults to True.
+            progress_worker (int, optional): 進捗表示に表示するworker index. Defaults to 0.
+            progress_max_actor (int, optional): 表示する最大actor数. Defaults to 5.
+            enable_eval (bool, optional): 評価用のシミュレーションを実行します. Defaults to False.
+            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
+            eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
+            eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
+            eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
+            eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
+            eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
+            eval_used_device_tf (str, optional): 評価時のdevice. Defaults to "/CPU".
+            eval_used_device_torch (str, optional): 評価時のdevice. Defaults to "cpu".
+            eval_callbacks (List[CallbackType], optional): 評価時のcallbacks. Defaults to [].
+            callbacks (List[CallbackType], optional): callbacks. Defaults to [].
+            parameter (Optional[RLParameter], optional): 任意のParameter. Defaults to None.
+            remote_memory (Optional[RLRemoteMemory], optional): 任意のRemoteMemory. Defaults to None.
+        """
         self.context.callbacks = callbacks[:]
         self.config.actor_num = actor_num
 
@@ -1285,7 +1459,6 @@ class Runner:
                     eval_max_steps=eval_max_steps,
                     eval_players=eval_players,
                     eval_shuffle_player=eval_shuffle_player,
-                    eval_seed=eval_seed,
                     eval_used_device_tf=eval_used_device_tf,
                     eval_used_device_torch=eval_used_device_torch,
                     eval_callbacks=eval_callbacks,
@@ -1335,6 +1508,26 @@ class Runner:
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
     ) -> Union[List[float], List[List[float]]]:  # single play , multi play
+        """シミュレーションし、報酬を返します。
+
+        Args:
+            max_episodes (int, optional): 終了するまでのエピソード数. Defaults to 10.
+            timeout (int, optional): 終了するまでの時間（秒）. Defaults to -1.
+            max_steps (int, optional): 終了するまでの総ステップ. Defaults to -1.
+            shuffle_player (bool, optional): playersをシャッフルするかどうか. Defaults to True.
+            enable_progress (bool, optional): 進捗を表示するか. Defaults to True.
+            progress_start_time (int, optional):  最初に進捗を表示する秒数. Defaults to 1.
+            progress_interval_limit (int, optional): 進捗を表示する最大の間隔（秒）. Defaults to 60*10.
+            progress_env_info (bool, optional): 進捗表示にenv infoを表示するか. Defaults to False.
+            progress_worker_info (bool, optional): 進捗表示にworker infoを表示するか. Defaults to True.
+            progress_worker (int, optional): 進捗表示に表示するworker index. Defaults to 0.
+            callbacks (List[CallbackType], optional): callbacks. Defaults to [].
+            parameter (Optional[RLParameter], optional): 任意のParameter. Defaults to None.
+            remote_memory (Optional[RLRemoteMemory], optional): 任意のRemoteMemory. Defaults to None.
+
+        Returns:
+            Union[List[float], List[List[float]]]: プレイヤー数が1人なら Lost[float]、複数なら List[List[float]]] を返します。
+        """
         self.context.callbacks = callbacks[:]
 
         # --- set context
@@ -1400,6 +1593,7 @@ class Runner:
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
     ):
+        """TODO"""
         self.context.callbacks = callbacks[:]
 
         mode = PlayRenderModes.terminal
@@ -1470,6 +1664,8 @@ class Runner:
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
     ):
+        """TODO"""
+
         self.context.callbacks = callbacks[:]
 
         mode = PlayRenderModes.window
@@ -1565,6 +1761,8 @@ class Runner:
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
     ):
+        """TODO"""
+
         self.context.callbacks = callbacks[:]
 
         mode = PlayRenderModes.rgb_array
@@ -1660,6 +1858,8 @@ class Runner:
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
     ):
+        """TODO"""
+
         self.context.callbacks = callbacks[:]
 
         mode = PlayRenderModes.rgb_array
@@ -1745,6 +1945,8 @@ class Runner:
         remote_memory: Optional[RLRemoteMemory] = None,
         _is_test: bool = False,  # for test
     ):
+        """ TODO """
+
         self.context.callbacks = callbacks[:]
 
         mode = PlayRenderModes.rgb_array
@@ -1804,6 +2006,8 @@ class Runner:
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
     ):
+        """ TODO """
+
         self.context.callbacks = callbacks[:]
         self.config.players = players
 
@@ -1859,6 +2063,8 @@ class Runner:
         callbacks: List[CallbackType] = [],
         _is_test: bool = False,  # for test
     ):
+        """ TODO """
+
         self.context.callbacks = callbacks[:]
 
         mode = PlayRenderModes.rgb_array

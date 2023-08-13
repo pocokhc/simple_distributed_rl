@@ -13,6 +13,16 @@ class MLPBlockConfig:
         kernel_initializer="he_normal",
         dense_kwargs: Dict[str, Any] = {},
     ):
+        """Multi-layer Perceptron Block
+
+        Args:
+            layer_sizes (Tuple[int, ...], optional): 各レイヤーのユニット数. Defaults to (512,).
+            activation (str, optional): Activation function. Defaults to "relu".
+
+        Examples:
+            >>> mlp_conf = MLPBlockConfig()
+            >>> mlp_conf.set_mlp((128, 64, 32))
+        """
         self._kwargs = dict(
             layer_sizes=layer_sizes,
             activation=activation,
@@ -20,7 +30,8 @@ class MLPBlockConfig:
             dense_kwargs=dense_kwargs,
         )
 
-    def set_original_block(self):
+    def set_custom_block(self):
+        """TODO"""
         raise NotImplementedError("TODO")
 
     # ---------------------

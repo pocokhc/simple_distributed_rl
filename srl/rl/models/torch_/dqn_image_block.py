@@ -4,20 +4,21 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from srl.rl.models.converter import convert_activation_torch
+
 
 class DQNImageBlock(nn.Module):
     def __init__(
         self,
         in_shape: Tuple[int, ...],
         filters: int = 32,
-        activation="ReLU",
+        activation: str = "ReLU",
         enable_time_distributed_layer: bool = False,
     ):
         super().__init__()
         self.enable_time_distributed_layer = enable_time_distributed_layer
 
-        if isinstance(activation, str):
-            activation = getattr(nn, activation)
+        activation = convert_activation_torch(activation)
 
         in_ch = in_shape[-3]
 

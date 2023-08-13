@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from srl.rl.models.converter import convert_activation_torch
 
 
 class DuelingNetworkBlock(nn.Module):
@@ -17,8 +18,9 @@ class DuelingNetworkBlock(nn.Module):
         super().__init__(**kwargs)
         self.dueling_type = dueling_type
 
-        if isinstance(activation, str):
-            activation = getattr(nn, activation)
+        assert len(layer_sizes) > 0
+
+        activation = convert_activation_torch(activation)
 
         if enable_noisy_dense:
             raise NotImplementedError("TODO")

@@ -4,6 +4,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from srl.rl.models.converter import convert_activation_torch
+
 
 class AlphaZeroImageBlock(nn.Module):
     def __init__(
@@ -11,9 +13,12 @@ class AlphaZeroImageBlock(nn.Module):
         in_shape: Tuple[int, int, int],
         n_blocks: int = 19,
         filters: int = 256,
+        activation: str = "ReLU",
         **kwargs,
     ):
         super().__init__(**kwargs)
+
+        activation = convert_activation_torch(activation)
 
         in_ch = in_shape[0]
         self.conv1 = nn.Conv2d(
@@ -24,9 +29,9 @@ class AlphaZeroImageBlock(nn.Module):
             bias=False,
         )
         self.bn1 = nn.BatchNorm2d(filters)
-        self.act1 = nn.ReLU(inplace=True)
+        self.act1 = activation(inplace=True)
 
-        self.resblocks = nn.ModuleList([_ResidualBlock(filters, filters) for _ in range(n_blocks)])
+        self.resblocks = nn.ModuleList([_ResidualBlock(filters, filters, activation) for _ in range(n_blocks)])
 
         # --- out shape
         x = np.ones((1,) + in_shape, dtype=np.float32)
@@ -47,6 +52,7 @@ class _ResidualBlock(nn.Module):
         self,
         in_ch: int,
         filters: int,
+        activation,
         kernel_size=(3, 3),
         **kwargs,
     ):
@@ -60,7 +66,7 @@ class _ResidualBlock(nn.Module):
             bias=False,
         )
         self.bn1 = nn.BatchNorm2d(filters)
-        self.act1 = nn.ReLU(inplace=True)
+        self.act1 = activation(inplace=True)
         self.conv2 = nn.Conv2d(
             in_channels=filters,
             out_channels=filters,
@@ -69,7 +75,7 @@ class _ResidualBlock(nn.Module):
             bias=False,
         )
         self.bn2 = nn.BatchNorm2d(filters)
-        self.act2 = nn.ReLU(inplace=True)
+        self.act2 = activation(inplace=True)
 
     def forward(self, x):
         identity = x

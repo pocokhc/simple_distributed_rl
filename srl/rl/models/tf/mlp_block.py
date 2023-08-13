@@ -2,6 +2,8 @@ from typing import Any, Dict, Tuple
 
 from tensorflow import keras
 
+from srl.rl.models.converter import convert_activation_tf
+
 kl = keras.layers
 
 
@@ -9,18 +11,30 @@ class MLPBlock(keras.Model):
     def __init__(
         self,
         layer_sizes: Tuple[int, ...] = (512,),
-        activation="relu",
-        kernel_initializer="he_normal",
+        activation: str = "relu",
+        kernel_initializer: str = "he_normal",
         dense_kwargs: Dict[str, Any] = {},
         enable_time_distributed_layer: bool = False,
+        enable_noisy_dense: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
 
+        activation = convert_activation_tf(activation)
+
+        if enable_noisy_dense:
+            # TensorFlow Addons Wind Down : https://github.com/tensorflow/addons/issues/2807
+            # if common.compare_less_package_version("tensorflow_addons", "2.11.0"):
+            import tensorflow_addons as tfa
+
+            _Dense = tfa.layers.NoisyDense
+        else:
+            _Dense = kl.Dense
+
         self.hidden_layers = []
         for h in layer_sizes:
             self.hidden_layers.append(
-                kl.Dense(
+                _Dense(
                     h,
                     activation=activation,
                     kernel_initializer=kernel_initializer,

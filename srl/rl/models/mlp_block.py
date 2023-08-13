@@ -9,9 +9,8 @@ class MLPBlockConfig:
     def set_mlp(
         self,
         layer_sizes: Tuple[int, ...] = (512,),
-        activation="relu",
-        kernel_initializer="he_normal",
-        dense_kwargs: Dict[str, Any] = {},
+        activation: str = "relu",
+        # kernel_initializer="he_normal", TODO
     ):
         """Multi-layer Perceptron Block
 
@@ -25,9 +24,8 @@ class MLPBlockConfig:
         """
         self._kwargs = dict(
             layer_sizes=layer_sizes,
-            activation=activation,
-            kernel_initializer=kernel_initializer,
-            dense_kwargs=dense_kwargs,
+            activation=activation.lower(),
+            # kernel_initializer=kernel_initializer,
         )
 
     def set_custom_block(self):
@@ -36,19 +34,21 @@ class MLPBlockConfig:
 
     # ---------------------
 
-    def create_block_tf(self):
+    def create_block_tf(self, enable_noisy_dense: bool = False):
         from .tf import mlp_block
 
         return mlp_block.MLPBlock(
             **self._kwargs,
             enable_time_distributed_layer=False,
+            enable_noisy_dense=enable_noisy_dense,
         )
 
-    def create_block_torch(self, in_size: int):
+    def create_block_torch(self, in_size: int, enable_noisy_dense: bool = False):
         from .torch_ import mlp_block
 
         return mlp_block.MLPBlock(
             in_size,
             self._kwargs["layer_sizes"],
-            # **self._kwargs,  TODO 互換パラメータの作成
+            # TODO 互換パラメータ
+            enable_noisy_dense=enable_noisy_dense,
         )

@@ -10,7 +10,7 @@ class ImageBlockConfig:
     def set_dqn_image(
         self,
         filters: int = 32,
-        activation="relu",
+        activation: str = "relu",
     ):
         """画像の入力に対してDQNで採用されたLayersを使用します。
 
@@ -27,6 +27,7 @@ class ImageBlockConfig:
     def set_r2d3_image(
         self,
         filters: int = 16,
+        activation: str = "relu",
     ):
         """画像の入力に対してR2D3で採用されたLayersを使用します。
 
@@ -37,6 +38,7 @@ class ImageBlockConfig:
         self._name = "R2D3"
         self._kwargs = dict(
             filters=filters,
+            activation=activation,
         )
 
     def set_custom_block(self, **kwargs):
@@ -74,7 +76,7 @@ class ImageBlockConfig:
             return dqn_image_block.DQNImageBlock(
                 in_shape,
                 enable_time_distributed_layer=enable_time_distributed_layer,
-                filters=self._kwargs["filters"],
+                **self._kwargs,
             )
         elif self._name == "R2D3":
             from .torch_ import r2d3_image_block

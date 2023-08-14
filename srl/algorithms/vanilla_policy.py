@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Tuple
+from typing import Any, Tuple, cast
 
 import numpy as np
 
@@ -12,6 +12,7 @@ from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import render_discrete_action, to_str_observation
 from srl.rl.memories.sequence_memory import SequenceRemoteMemory
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 
 # ------------------------------------------------------
@@ -20,7 +21,11 @@ from srl.rl.memories.sequence_memory import SequenceRemoteMemory
 @dataclass
 class Config(RLConfig):
     discount: float = 0.9
-    lr: float = 0.1
+    lr: float = 0.1  # type: ignore , type OK
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
 
     @property
     def base_action_type(self) -> RLTypes:
@@ -116,6 +121,8 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
+        self.lr_sch = self.config.lr.create_schedulers()
+
         self.train_count = 0
 
     def get_train_count(self):
@@ -133,6 +140,7 @@ class Trainer(RLTrainer):
 
     def _train_discrete(self, batchs):
         loss = []
+        lr = 0
         for batch in batchs:
             state = batch["state"]
             action = batch["action"]
@@ -148,7 +156,8 @@ class Trainer(RLTrainer):
             diff_j = diff_logpi * reward
 
             # ポリシー更新
-            self.parameter.policy[state][action] += self.config.lr * diff_j
+            lr = self.lr_sch.get_rate(self.train_count)
+            self.parameter.policy[state][action] += lr * diff_j
             loss.append(abs(diff_j))
 
             self.train_count += 1
@@ -156,6 +165,7 @@ class Trainer(RLTrainer):
         return {
             "size": len(self.parameter.policy),
             "loss": np.mean(loss),
+            "lr": lr,
         }
 
     def _train_continuous(self, batchs):

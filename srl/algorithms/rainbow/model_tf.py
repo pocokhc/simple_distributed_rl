@@ -104,7 +104,9 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
+        self.lr_sch = self.config.lr.create_schedulers()
+
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
         self.loss_func = keras.losses.Huber()
 
         self.train_count = 0
@@ -134,6 +136,9 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
 
+        lr = self.lr_sch.get_rate(self.train_count)
+        self.optimizer.learning_rate = lr
+
         # --- update
         td_errors = target_q - cast(Any, q).numpy()
         self.remote_memory.update(indices, batchs, td_errors)
@@ -144,4 +149,8 @@ class Trainer(RLTrainer):
             self.sync_count += 1
 
         self.train_count += 1
-        return {"loss": loss.numpy(), "sync": self.sync_count}
+        return {
+            "loss": loss.numpy(),
+            "sync": self.sync_count,
+            "lr": lr,
+        }

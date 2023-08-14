@@ -2,7 +2,7 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 
@@ -13,6 +13,7 @@ from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
 from srl.rl.functions.common import render_discrete_action, to_str_observation
 from srl.rl.memories.sequence_memory import SequenceRemoteMemory
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +27,14 @@ class Config(RLConfig):
     test_epsilon: float = 0.0
 
     search_rate: float = 0.9
-    epsilon: float = 0.01
+    epsilon: float = 0.01  # type: ignore , type OK
 
     num_q_train: int = 10
 
     # model params
-    ext_lr: float = 0.1
+    ext_lr: float = 0.1  # type: ignore , type OK
     ext_discount: float = 0.9
-    int_lr: float = 0.1
+    int_lr: float = 0.1  # type: ignore , type OK
     int_discount: float = 0.9
 
     # episodic
@@ -45,6 +46,13 @@ class Config(RLConfig):
 
     # other
     q_init: str = ""
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.epsilon: SchedulerConfig = SchedulerConfig(cast(float, self.epsilon))
+        self.ext_lr: SchedulerConfig = SchedulerConfig(cast(float, self.ext_lr))
+        self.int_lr: SchedulerConfig = SchedulerConfig(cast(float, self.int_lr))
 
     @property
     def base_action_type(self) -> RLTypes:
@@ -228,6 +236,9 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
+        self.ext_lr_sch = self.config.ext_lr.create_schedulers()
+        self.int_lr_sch = self.config.int_lr.create_schedulers()
+
         self.train_count = 0
 
     def get_train_count(self):
@@ -242,6 +253,7 @@ class Trainer(RLTrainer):
         # ---------------------
         # 近似モデルの学習
         # ---------------------
+        int_lr = self.int_lr_sch.get_rate(self.train_count)
         td_error_mean = 0
         batchs = self.remote_memory.sample()
         for batch in batchs:
@@ -282,7 +294,7 @@ class Trainer(RLTrainer):
                 target_q = reward_int + self.config.int_discount * maxq
 
             td_error = target_q - q[action]
-            self.parameter.Q_int[state][action] += self.config.int_lr * td_error
+            self.parameter.Q_int[state][action] += int_lr * td_error
             self.parameter.Q_C[state] += 1
 
             td_error_mean += td_error
@@ -292,11 +304,13 @@ class Trainer(RLTrainer):
         _info = {
             "Q_int": len(self.parameter.Q_int),
             "td_error_int": td_error_mean,
+            "lr_int": int_lr,
         }
 
         # ---------------------
         # q ext
         # ---------------------
+        ext_lr = self.ext_lr_sch.get_rate(self.train_count)
         td_error_mean = 0
         for _ in range(self.config.num_q_train):
             batch = model.sample()
@@ -322,7 +336,7 @@ class Trainer(RLTrainer):
                 target_q = reward + self.config.ext_discount * max(n_q)
 
             td_error = target_q - q[action]
-            self.parameter.Q_ext[state][action] += self.config.ext_lr * td_error
+            self.parameter.Q_ext[state][action] += ext_lr * td_error
 
             td_error_mean += td_error
             self.train_count += 1
@@ -330,6 +344,7 @@ class Trainer(RLTrainer):
             td_error_mean /= len(batchs)
 
         _info["td_error_ext"] = td_error_mean
+        _info["lr_ext"] = ext_lr
         return _info
 
 
@@ -342,6 +357,8 @@ class Worker(DiscreteActionWorker):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
+
+        self.epsilon_sch = self.config.epsilon.create_schedulers()
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self.episodic_C = {}
@@ -358,7 +375,7 @@ class Worker(DiscreteActionWorker):
         self.parameter.init_state(self.state, self.invalid_actions)
 
         if self.training:
-            epsilon = self.config.epsilon
+            epsilon = self.epsilon_sch.get_rate(self.total_step)
             search_rate = self.config.search_rate
         else:
             epsilon = self.config.test_epsilon

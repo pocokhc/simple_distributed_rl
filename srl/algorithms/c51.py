@@ -16,8 +16,8 @@ from srl.rl.functions.common import render_discrete_action
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
-from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
 
@@ -123,10 +123,12 @@ def create_input_layer(
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig, ExperienceReplayBufferConfig):
-    epsilon: float = 0.1
     test_epsilon: float = 0
+
+    epsilon: float = 0.1  # type: ignore , type OK
+    lr: float = 0.001  # type: ignore , type OK
+
     discount: float = 0.9
-    lr: float = 0.001
     batch_size: int = 16
     memory_warmup_size: int = 1000
 
@@ -137,6 +139,12 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     categorical_num_atoms: int = 51
     categorical_v_min: float = -10
     categorical_v_max: float = 10
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.epsilon: SchedulerConfig = SchedulerConfig(cast(float, self.epsilon))
+        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -181,62 +189,6 @@ register(
 # ------------------------------------------------------
 class RemoteMemory(ExperienceReplayBuffer):
     pass
-
-
-# ------------------------------------------------------
-# network
-# ------------------------------------------------------
-class _QNetwork(keras.Model):
-    def __init__(self, config: Config):
-        super().__init__()
-
-        # input
-        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
-
-        # image
-        if self.in_block.use_image_layer:
-            self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=False)
-            self.image_flatten = kl.Flatten()
-
-        # hidden
-        self.hidden_block = config.hidden_block.create_block_tf()
-
-        # out
-        self.out_layers = [
-            kl.Dense(
-                self.config.action_num * self.config.categorical_num_atoms,
-                activation="linear",
-            ),
-            kl.Reshape((self.config.action_num, self.config.categorical_num_atoms)),
-        ]
-
-        # build
-        self.build((None,) + config.observation_shape)
-
-    def call(self, x, training=False):
-        x = self.in_block(x, training=training)
-        if self.in_block.use_image_layer:
-            x = self.image_block(x, training=training)
-            x = self.image_flatten(x)
-        x = self.hidden_block(x, training=training)
-        for layer in self.out_layers:
-            x = layer(x, training=training)
-        return x
-
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
-    def summary(self, name="", **kwargs):
-        if hasattr(self.in_block, "init_model_graph"):
-            self.in_block.init_model_graph()
-        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
-            self.image_block.init_model_graph()
-
-        x = kl.Input(shape=self.__input_shape[1:])
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        model.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -285,7 +237,9 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
+        self.lr_sch = self.config.lr.create_schedulers()
+
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
 
         self.train_count = 0
 
@@ -370,8 +324,11 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, self.parameter.Q.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.Q.trainable_variables))
 
+        lr = self.lr_sch.get_rate(self.train_count)
+        self.optimizer.learning_rate = lr
+
         self.train_count += 1
-        return {"loss": loss.numpy()}
+        return {"loss": loss.numpy(), "lr": lr}
 
 
 # ------------------------------------------------------
@@ -384,6 +341,8 @@ class Worker(DiscreteActionWorker):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
+        self.epsilon_sch = self.config.epsilon.create_schedulers()
+
         self.Z = np.linspace(
             self.config.categorical_v_min, self.config.categorical_v_max, self.config.categorical_num_atoms
         )
@@ -392,18 +351,18 @@ class Worker(DiscreteActionWorker):
         self.state = state
         self.invalid_actions = invalid_actions
 
-        if self.training:
-            self.epsilon = self.config.epsilon
-        else:
-            self.epsilon = self.config.test_epsilon
-
         return {}
 
     def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
         self.state = state
         self.invalid_actions = invalid_actions
 
-        if random.random() < self.epsilon:
+        if self.training:
+            epsilon = self.epsilon_sch.get_rate(self.total_step)
+        else:
+            epsilon = self.config.test_epsilon
+
+        if random.random() < epsilon:
             # epsilonより低いならランダム
             action = np.random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
@@ -419,7 +378,7 @@ class Worker(DiscreteActionWorker):
             action = np.random.choice(np.where(q == q.max())[0])
 
         self.action = action
-        return int(action), {}
+        return int(action), {"epsilon": epsilon}
 
     def call_on_step(
         self,

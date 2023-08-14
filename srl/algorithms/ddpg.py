@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union, cast
 
 import numpy as np
 import tensorflow as tf
@@ -16,6 +16,7 @@ from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
 
@@ -45,8 +46,8 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     policy_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
     q_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
-    discount: float = 0.9  # 割引率
-    lr: float = 0.005  # 学習率
+    lr: float = 0.005  # type: ignore , type OK
+    discount: float = 0.9
     soft_target_update_tau: float = 0.02
     hard_target_update_interval: int = 100
 
@@ -57,6 +58,10 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     target_policy_noise_stddev: float = 0.2  # Target policy ノイズの標準偏差
     target_policy_clip_range: float = 0.5  # Target policy ノイズのclip範囲
     actor_update_interval: int = 2
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -276,8 +281,11 @@ class Trainer(RLTrainer):
 
         self.train_count = 0
 
-        self.actor_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
-        self.critic_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
+        self.lr_sch = self.config.lr.create_schedulers()
+        lr = self.lr_sch.get_rate(0)
+
+        self.actor_optimizer = keras.optimizers.Adam(learning_rate=lr)
+        self.critic_optimizer = keras.optimizers.Adam(learning_rate=lr)
 
     def get_train_count(self):
         return self.train_count
@@ -348,6 +356,12 @@ class Trainer(RLTrainer):
         self.critic_optimizer.apply_gradients(zip(grads, self.parameter.critic_online.trainable_variables))
 
         _info["critic_loss"] = critic_loss.numpy()
+
+        # lr
+        lr = self.lr_sch.get_rate(self.train_count)
+        self.actor_optimizer.learning_rate = lr
+        self.critic_optimizer.learning_rate = lr
+        _info["lr"] = lr
 
         # --- soft target update
         self.parameter.actor_target.set_weights(

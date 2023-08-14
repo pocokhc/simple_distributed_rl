@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -21,10 +21,12 @@ from srl.rl.functions.common import (
     rescaling,
 )
 from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.models.dueling_network import DuelingNetworkConfig
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
 
@@ -65,22 +67,21 @@ Other
 @dataclass
 class Config(RLConfig, PriorityExperienceReplayConfig):
     test_epsilon: float = 0
-    epsilon: float = 0.1
+    epsilon: float = 0.1  # type: ignore , type OK
     actor_epsilon: float = 0.4
     actor_alpha: float = 7.0
 
     # model
     image_block_config: ImageBlockConfig = field(default_factory=lambda: ImageBlockConfig())
     lstm_units: int = 512
-    hidden_layer_sizes: Tuple[int, ...] = (512,)
-    activation: str = "relu"
+    dueling_network: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 
     # lstm
     burnin: int = 5
     sequence_length: int = 5
 
     discount: float = 0.997
-    lr: float = 0.001
+    lr: float = 0.001  # type: ignore , type OK
     batch_size: int = 32
     memory_warmup_size: int = 1000
     target_model_update_interval: int = 1000
@@ -95,33 +96,36 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     enable_retrace: bool = True
     retrace_h: float = 1.0
 
-    # DuelingNetwork
-    enable_dueling_network: bool = True
-    dueling_network_type: str = "average"
-
     # other
     dummy_state_val: float = 0.0
 
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.epsilon: SchedulerConfig = SchedulerConfig(cast(float, self.epsilon))
+        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
+        self.dueling_network.set((512,), True)
+
     def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
-        self.epsilon = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
+        e = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
+        self.epsilon.set_constant(e)
 
     # 論文のハイパーパラメーター
     def set_atari_config(self):
         # model
         self.lstm_units = 512
-        self.hidden_layer_sizes = (512,)
+        self.dueling_network.set((512,), True)
 
         # lstm
         self.burnin = 40
         self.sequence_length = 80
 
         self.discount = 0.997
-        self.lr = 0.0001
+        self.lr.set_constant(0.0001)
         self.batch_size = 64
         self.target_model_update_interval = 2500
 
         self.enable_double_dqn = True
-        self.enable_dueling_network = True
         self.enable_rescale = True
         self.enable_retrace = False
 
@@ -161,7 +165,6 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         assert self.sequence_length >= 1
         assert self.memory_warmup_size <= self.memory.capacity
         assert self.batch_size <= self.memory_warmup_size
-        assert len(self.hidden_layer_sizes) > 0
 
 
 register(
@@ -203,68 +206,29 @@ class _QNetwork(keras.Model):
         # --- lstm
         self.lstm_layer = kl.LSTM(config.lstm_units, return_sequences=True, return_state=True)
 
-        # hidden
-        self.hidden_layers = []
-        for i in range(len(config.hidden_layer_sizes) - 1):
-            self.hidden_layers.append(
-                kl.TimeDistributed(
-                    kl.Dense(
-                        config.hidden_layer_sizes[i],
-                        activation=config.activation,
-                        kernel_initializer="he_normal",
-                    )
-                )
-            )
-
         # out
-        self.enable_dueling_network = config.enable_dueling_network
-        if config.enable_dueling_network:
-            self.dueling_block = DuelingNetworkBlock(
-                config.action_num,
-                config.hidden_layer_sizes[-1],
-                config.dueling_network_type,
-                activation=config.activation,
-                enable_time_distributed_layer=True,
-            )
-        else:
-            self.out_layers = [
-                kl.TimeDistributed(
-                    kl.Dense(
-                        config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal"
-                    )
-                ),
-                kl.TimeDistributed(
-                    kl.Dense(
-                        config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
-                    )
-                ),
-            ]
+        self.dueling_block = config.dueling_network.create_block_tf(
+            config.action_num,
+            enable_time_distributed_layer=True,
+        )
 
         # build
         self.build((None, config.sequence_length) + config.observation_shape)
 
-    def call(self, state, hidden_state=None, training=False):
+    @tf.function()
+    def call(self, x, hidden_states=None, training=False):
+        return self._call(x, hidden_states, training)
+
+    def _call(self, state, hidden_state=None, training=False):
         x = self.in_block(state, training=training)
         if self.use_image_layer:
             x = self.image_block(x, training=training)
             x = self.image_flatten(x)
 
         # lstm
-        x, h, c = self.lstm_layer(
-            x, initial_state=hidden_state, training=training
-        )  # type:ignore , ignore check "None"
+        x, h, c = self.lstm_layer(x, initial_state=hidden_state, training=training)
 
-        # hidden
-        for layer in self.hidden_layers:
-            x = layer(x, training=training)
-
-        # out
-        if self.enable_dueling_network:
-            x = self.dueling_block(x, training=training)
-        else:
-            for layer in self.out_layers:
-                x = layer(x, training=training)
-
+        x = self.dueling_block(x, training=training)
         return x, [h, c]
 
     def init_hidden_state(self):
@@ -275,16 +239,14 @@ class _QNetwork(keras.Model):
         super().build(self.__input_shape)
 
     def summary(self, name="", **kwargs):
-        if hasattr(self.in_block, "init_model_graph"):
-            self.in_block.init_model_graph()
-        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
+        self.in_block.init_model_graph()
+        if self.in_block.use_image_layer:
             self.image_block.init_model_graph()
-        if self.enable_dueling_network and hasattr(self.dueling_block, "init_model_graph"):
-            self.dueling_block.init_model_graph()
+        self.dueling_block.init_model_graph()
 
         x = kl.Input(self.__input_shape[1:])
         name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
         model.summary(**kwargs)
 
 
@@ -320,7 +282,9 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
+        self.lr_sch = self.config.lr.create_schedulers()
+
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
         self.loss = keras.losses.Huber()
 
         self.train_count = 0
@@ -334,7 +298,7 @@ class Trainer(RLTrainer):
             return {}
 
         indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
-        td_errors, loss = self._train_on_batchs(batchs, np.array(weights).reshape(-1, 1))
+        td_errors, loss, lr = self._train_on_batchs(batchs, np.array(weights).reshape(-1, 1))
         self.remote_memory.update(indices, batchs, np.array(td_errors))
 
         # targetと同期
@@ -343,7 +307,7 @@ class Trainer(RLTrainer):
             self.sync_count += 1
 
         self.train_count += 1
-        return {"loss": loss, "sync": self.sync_count}
+        return {"loss": loss, "sync": self.sync_count, "lr": lr}
 
     def _train_on_batchs(self, batchs, weights):
         # (batch, dict[x], step) -> (batch, step, x)
@@ -457,7 +421,10 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
 
-        return td_errors_list, loss.numpy()
+        lr = self.lr_sch.get_rate(self.train_count)
+        self.optimizer.learning_rate = lr
+
+        return td_errors_list, loss.numpy(), lr
 
 
 # ------------------------------------------------------
@@ -471,6 +438,8 @@ class Worker(DiscreteActionWorker):
         self.remote_memory: RemoteMemory = self.remote_memory
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
+
+        self.epsilon_sch = self.config.epsilon.create_schedulers()
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         # states : burnin + sequence_length + next_state
@@ -518,7 +487,7 @@ class Worker(DiscreteActionWorker):
         q = q[0][0].numpy()  # (batch, time step, action_num)
 
         if self.training:
-            epsilon = self.config.epsilon
+            epsilon = self.epsilon_sch.get_rate(self.total_step)
         else:
             epsilon = self.config.test_epsilon
 

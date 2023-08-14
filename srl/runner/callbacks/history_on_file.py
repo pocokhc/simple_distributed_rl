@@ -40,7 +40,6 @@ class HistoryOnFile(Callback, TrainerCallback):
     eval_max_steps: int = -1
     eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = field(default_factory=list)
     eval_shuffle_player: bool = False
-    eval_seed: Optional[int] = None
     eval_used_device_tf: str = "/CPU"
     eval_used_device_torch: str = "cpu"
     eval_callbacks: List[CallbackType] = field(default_factory=list)
@@ -109,7 +108,7 @@ class HistoryOnFile(Callback, TrainerCallback):
 
         # config
         self.eval_runner.config.players = self.eval_players
-        self.eval_runner.config.seed = self.eval_seed
+        self.eval_runner.config.seed = None
         self.eval_runner.context.used_device_tf = self.eval_used_device_tf
         self.eval_runner.context.used_device_torch = self.eval_used_device_torch
 

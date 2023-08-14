@@ -265,11 +265,11 @@ class CommonInterfaceParameter(RLParameter, ABC):
         if self.config.enable_double_dqn:
             q_online[idx1, idx2, idx3] = -np.inf
             n_act_idx = np.argmax(q_online, axis=2)
-            maxq = np.take_along_axis(q_target, np.expand_dims(n_act_idx, axis=2), axis=2)
-            maxq = np.squeeze(maxq, axis=2)
         else:
             q_target[idx1, idx2, idx3] = -np.inf
-            maxq = np.max(q_target, axis=2)
+            n_act_idx = np.argmax(q_target, axis=2)
+        maxq = np.take_along_axis(q_target, np.expand_dims(n_act_idx, axis=2), axis=2)
+        maxq = np.squeeze(maxq, axis=2)
 
         if self.config.enable_rescale:
             maxq = inverse_rescaling(maxq)
@@ -283,18 +283,17 @@ class CommonInterfaceParameter(RLParameter, ABC):
 
         # --- calc retrace
         # 各batchで最大のアクションを選んでるかどうか
-        # greedyな方策なので、最大アクションなら確率1.0
-        pi_probs = np.argmax(n_onehot_actions, axis=2) == np.argmax(
-            q_online[:, : self.config.multisteps - 1, :], axis=2
-        )
+        # greedyな方策なので、最大アクションなら確率1.0 #[1]
+        pi_probs = np.argmax(n_onehot_actions, axis=2) == n_act_idx[:, 1:]
 
         #  (batch, multistep, shape) -> (multistep, batch, shape)
-        # mu_probs = np.transpose(mu_probs, (1, 0))
+        # mu_probs = np.transpose(mu_probs, (1, 0)) #[1]
         pi_probs = np.transpose(pi_probs, (1, 0))
 
         retrace_list = [np.ones((batch_size,))]  # 0stepはretraceなし
         retrace = np.ones((batch_size,))
         for n in range(self.config.multisteps - 1):
+            # #[1]
             # pi_probs は 0 or 1 で mu_probs は1以下なので必ず 0 or 1 になる
             # retrace *= self.config.retrace_h * np.minimum(1, pi_probs[n] / mu_probs[n])
             retrace *= self.config.retrace_h * pi_probs[n]
@@ -331,7 +330,7 @@ class Worker(DiscreteActionWorker):
         self._recent_actions = [
             self.onehot_arr[random.randint(0, self.config.action_num - 1)] for _ in range(self.config.multisteps)
         ]
-        # self._recent_probs = [1.0 / self.config.action_num for _ in range(self.config.multisteps)]
+        # self._recent_probs = [1.0 / self.config.action_num for _ in range(self.config.multisteps)] #[1]
         self._recent_rewards = [0.0 for _ in range(self.config.multisteps)]
         self._recent_done = [1 for _ in range(self.config.multisteps)]
         self._recent_invalid_actions = [[] for _ in range(self.config.multisteps)]
@@ -348,7 +347,7 @@ class Worker(DiscreteActionWorker):
             self.q = self.parameter.predict_q(state[np.newaxis, ...])[0]
             self.q[invalid_actions] = -np.inf
             self.action = int(np.argmax(self.q))
-            # self.prob = 1.0
+            # self.prob = 1.0 #[1]
             return self.action, {}
 
         if self.training:
@@ -360,14 +359,14 @@ class Worker(DiscreteActionWorker):
         if random.random() < epsilon:
             self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
             self.q = None
-            # self.prob = epsilon / valid_action_num
+            # self.prob = epsilon / valid_action_num #[1]
         else:
             self.q = self.parameter.predict_q(state[np.newaxis, ...])[0]
             self.q[invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないとして無視）
             self.action = int(np.argmax(self.q))
-            # self.prob = epsilon / valid_action_num + (1 - epsilon)
+            # self.prob = epsilon / valid_action_num + (1 - epsilon) #[1]
 
         return self.action, {"epsilon": epsilon}
 
@@ -396,7 +395,7 @@ class Worker(DiscreteActionWorker):
         self._recent_actions.pop(0)
         self._recent_actions.append(self.onehot_arr[self.action])
         # self._recent_probs.pop(0)
-        # self._recent_probs.append(self.prob)
+        # self._recent_probs.append(self.prob) #[1]
         self._recent_rewards.pop(0)
         self._recent_rewards.append(reward)
         self._recent_done.pop(0)
@@ -413,7 +412,7 @@ class Worker(DiscreteActionWorker):
                 self._recent_actions.pop(0)
                 self._recent_actions.append(self.onehot_arr[random.randint(0, self.config.action_num - 1)])
                 # self._recent_probs.pop(0)
-                # self._recent_probs.append(1.0)
+                # self._recent_probs.append(1.0) #[1]
                 self._recent_rewards.pop(0)
                 self._recent_rewards.append(0.0)
                 self._recent_done.pop(0)
@@ -430,7 +429,7 @@ class Worker(DiscreteActionWorker):
         [
             states,
             onehot_actions,
-            probs,
+            # probs,
             rewards,
             dones,
             invalid_actions,
@@ -439,7 +438,7 @@ class Worker(DiscreteActionWorker):
         batch = [
             self._recent_states[:],
             self._recent_actions[:],
-            # self._recent_probs[:],
+            # self._recent_probs[:], #[1]
             self._recent_rewards[:],
             self._recent_done[:],
             self._recent_invalid_actions[:],

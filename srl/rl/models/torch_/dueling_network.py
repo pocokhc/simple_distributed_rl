@@ -21,6 +21,7 @@ class DuelingNetworkBlock(nn.Module):
     ):
         super().__init__(**kwargs)
         self.dueling_type = dueling_type
+        self.enable_time_distributed_layer = enable_time_distributed_layer
 
         assert len(layer_sizes) > 0
 
@@ -51,10 +52,12 @@ class DuelingNetworkBlock(nn.Module):
         self.adv_layers.append(activation(inplace=True))
         self.adv_layers.append(_Linear(layer_sizes[-1], action_num))
 
-        if enable_time_distributed_layer:
-            raise NotImplementedError("TODO")
-
     def forward(self, x):
+        if self.enable_time_distributed_layer:
+            # (batch, seq, units) -> (batch*seq, units)
+            batch_size, seq, units = x.size()
+            x = x.reshape((batch_size * seq, units))
+
         for layer in self.hidden_layers:
             x = layer(x)
 
@@ -77,6 +80,11 @@ class DuelingNetworkBlock(nn.Module):
         else:
             raise ValueError("dueling_network_type is undefined")
 
+        if self.enable_time_distributed_layer:
+            # (batch*seq, units) -> (batch, seq, units)
+            _, units = x.size()
+            x = x.view(batch_size, seq, units)
+
         return x
 
 
@@ -92,6 +100,7 @@ class NormalBlock(nn.Module):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self.enable_time_distributed_layer = enable_time_distributed_layer
 
         assert len(layer_sizes) > 0
 
@@ -102,23 +111,34 @@ class NormalBlock(nn.Module):
         else:
             _Linear = nn.Linear
 
-        self.layers = nn.ModuleList()
+        self.hidden_layers = nn.ModuleList()
         if len(layer_sizes) > 1:
             for i in range(len(layer_sizes) - 1):
-                self.layers.append(_Linear(in_size, layer_sizes[i]))
-                self.layers.append(activation(inplace=True))
+                self.hidden_layers.append(_Linear(in_size, layer_sizes[i]))
+                self.hidden_layers.append(activation(inplace=True))
                 in_size = layer_sizes[i]
 
-        self.layers.append(_Linear(in_size, layer_sizes[-1]))
-        self.layers.append(activation(inplace=True))
-        self.layers.append(_Linear(layer_sizes[-1], action_num))
-
-        if enable_time_distributed_layer:
-            raise NotImplementedError("TODO")
+        self.hidden_layers.append(_Linear(in_size, layer_sizes[-1]))
+        self.hidden_layers.append(activation(inplace=True))
+        self.hidden_layers.append(_Linear(layer_sizes[-1], action_num))
 
     def forward(self, x):
-        for layer in self.layers:
-            x = layer(x)
+        if self.enable_time_distributed_layer:
+            # (batch, seq, units) -> (batch*seq, units)
+            batch_size, seq, units = x.size()
+            x = x.reshape((batch_size * seq, units))
+
+            for layer in self.hidden_layers:
+                x = layer(x)
+
+            # (batch*seq, units) -> (batch, seq, units)
+            _, units = x.size()
+            x = x.view(batch_size, seq, units)
+
+        else:
+            for layer in self.hidden_layers:
+                x = layer(x)
+
         return x
 
 

@@ -49,9 +49,12 @@ class AlphaZeroBlockConfig:
             use_layer_normalization=use_layer_normalization,
         )
 
-    def set_original_block(self):
-        """TODO"""
-        raise NotImplementedError("TODO")
+    def set_custom_block(self, entry_point: str, kwargs: dict):
+        self._name = "custom"
+        self._kwargs = dict(
+            entry_point=entry_point,
+            kwargs=kwargs,
+        )
 
     # ---------------------
 
@@ -60,21 +63,31 @@ class AlphaZeroBlockConfig:
             from .tf.alphazero_image_block import AlphaZeroImageBlock
 
             return AlphaZeroImageBlock(**self._kwargs)
-        elif self._name == "MuzeroAtari":
+        if self._name == "MuzeroAtari":
             from .tf.muzero_atari_block import MuZeroAtariBlock
 
             return MuZeroAtariBlock(**self._kwargs)
-        else:
-            raise ValueError(self._name)
+
+        if self._name == "custom":
+            from srl.utils.common import load_module
+
+            return load_module(self._kwargs["entry_point"])(**self._kwargs["kwargs"])
+
+        raise ValueError(self._name)
 
     def create_block_torch(self, in_shape: Tuple[int, ...]):
         if self._name == "AlphaZero":
             from .torch_.alphazero_image_block import AlphaZeroImageBlock
 
             return AlphaZeroImageBlock(in_shape, **self._kwargs)
-        elif self._name == "MuzeroAtari":
+        if self._name == "MuzeroAtari":
             from .torch_.muzero_atari_block import MuZeroAtariBlock
 
             return MuZeroAtariBlock(in_shape, **self._kwargs)
-        else:
-            raise ValueError(self._name)
+
+        if self._name == "custom":
+            from srl.utils.common import load_module
+
+            return load_module(self._kwargs["entry_point"])(**self._kwargs["kwargs"])
+
+        raise ValueError(self._name)

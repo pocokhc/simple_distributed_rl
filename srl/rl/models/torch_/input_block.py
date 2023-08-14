@@ -52,7 +52,7 @@ class InputBlock(nn.Module):
             batch_size = size[0]
             seq = size[1]
             shape = size[2:]
-            x = x.view(batch_size * seq, *shape)
+            x = x.reshape((batch_size * seq, *shape))
 
         if not self.use_image_layer:
             # --- value head

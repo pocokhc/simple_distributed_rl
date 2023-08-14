@@ -255,10 +255,6 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     # double dqn
     enable_double_dqn: bool = True
 
-    # DuelingNetwork
-    enable_dueling_network: bool = True
-    dueling_network_type: str = "average"
-
     # Priority Experience Replay
     memory_warmup_size: int = 1000
 
@@ -393,20 +389,9 @@ class _QNetwork(keras.Model):
                 kernel_initializer="he_normal",
             )(c)
 
-        if config.enable_dueling_network:
-            c = DuelingNetworkBlock(
-                config.action_num,
-                config.hidden_layer_sizes[-1],
-                config.dueling_network_type,
-                activation=config.activation,
-            )(c)
-        else:
-            c = kl.Dense(config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal")(
-                c
-            )
-            c = kl.Dense(
-                config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal"
-            )(c)
+        # out
+        c = kl.Dense(config.hidden_layer_sizes[-1], activation=config.activation, kernel_initializer="he_normal")(c)
+        c = kl.Dense(config.action_num, kernel_initializer="truncated_normal", bias_initializer="truncated_normal")(c)
 
         self.model = keras.Model([in_state] + input_list, c, name="QNetwork")
         self.lstm_layer: kl.LSTM = self.model.get_layer("lstm")

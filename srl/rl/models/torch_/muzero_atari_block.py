@@ -12,7 +12,7 @@ class MuZeroAtariBlock(nn.Module):
         self,
         in_shape: Tuple[int, int, int],
         filters: int = 128,
-        activation: str = "ReLU",
+        activation="ReLU",
         use_layer_normalization: bool = False,
         **kwargs,
     ):

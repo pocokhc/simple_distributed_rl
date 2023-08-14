@@ -13,7 +13,7 @@ class AlphaZeroImageBlock(nn.Module):
         in_shape: Tuple[int, int, int],
         n_blocks: int = 19,
         filters: int = 256,
-        activation: str = "ReLU",
+        activation="ReLU",
         **kwargs,
     ):
         super().__init__(**kwargs)

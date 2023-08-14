@@ -3,7 +3,7 @@ from typing import Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationType, EnvObservationTypes, RLTypes
+from srl.base.define import EnvObservationType, EnvObservationTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor

@@ -177,15 +177,17 @@ class Trainer(RLTrainer):
             reward = batch["reward"]
             mean, stddev = self.parameter.get_normal(state)
 
+            lr = self.lr_sch.get_rate(self.train_count)
+
             # 平均
             mean_diff_logpi = (action - mean) / (stddev**2)
             mean_diff_j = mean_diff_logpi * reward
-            new_mean = self.parameter.policy[state]["mean"] + self.config.lr * mean_diff_j
+            new_mean = self.parameter.policy[state]["mean"] + lr * mean_diff_j
 
             # 分散
             stddev_diff_logpi = (((action - mean) ** 2) - (stddev**2)) / (stddev**3)
             stddev_diff_j = stddev_diff_logpi * reward
-            new_stddev = self.parameter.policy[state]["stddev_logits"] + self.config.lr * stddev_diff_j
+            new_stddev = self.parameter.policy[state]["stddev_logits"] + lr * stddev_diff_j
 
             # 更新幅が大きすぎる場合は更新しない
             if abs(mean_diff_j) < 1 and abs(stddev_diff_j) < 5:

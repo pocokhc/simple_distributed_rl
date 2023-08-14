@@ -12,7 +12,7 @@ class DQNImageBlock(nn.Module):
         self,
         in_shape: Tuple[int, ...],
         filters: int = 32,
-        activation: str = "ReLU",
+        activation="ReLU",
         enable_time_distributed_layer: bool = False,
     ):
         super().__init__()
@@ -67,7 +67,7 @@ class DQNImageBlock(nn.Module):
         if self.enable_time_distributed_layer:
             # (batch, seq, c, h, w) -> (batch*seq, c, h, w)
             batch_size, seq, channels, height, width = x.size()
-            x = x.view(batch_size * seq, channels, height, width)
+            x = x.reshape((batch_size * seq, channels, height, width))
 
             for layer in self.image_layers:
                 x = layer(x)

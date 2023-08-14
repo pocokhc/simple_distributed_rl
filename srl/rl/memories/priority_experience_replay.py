@@ -98,8 +98,12 @@ class _PriorityExperienceReplayConfig:
         self.demo_memory_playing = playing
         self.demo_memory_ratio = ratio
 
-    def set_original_memory(self):
-        raise NotImplementedError("TODO")
+    def set_custom_memory(self, entry_point: str, kwargs: dict):
+        self._name = "custom"
+        self._kwargs = dict(
+            entry_point=entry_point,
+            kwargs=kwargs,
+        )
 
     # ---------------------------
 
@@ -122,6 +126,10 @@ class _PriorityExperienceReplayConfig:
             from .priority_memories.rankbase_memory_linear import RankBaseMemoryLinear
 
             memory = RankBaseMemoryLinear(self.capacity, **self._kwargs)
+        elif self._name == "custom":
+            from srl.utils.common import load_module
+
+            return load_module(self._kwargs["entry_point"])(**self._kwargs["kwargs"])
         else:
             raise ValueError(self._name)
 

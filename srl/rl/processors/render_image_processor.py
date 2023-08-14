@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Tuple
 
-from srl.base.define import EnvObservationType, EnvObservationTypes, RLTypes
+from srl.base.define import EnvObservationType, EnvObservationTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor

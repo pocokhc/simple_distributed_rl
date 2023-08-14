@@ -3,8 +3,7 @@ from typing import Tuple
 import torch.nn as nn
 
 from srl.rl.models.converter import convert_activation_torch
-
-from .noisy_dense import GaussianNoise
+from srl.rl.models.torch_.noisy_linear import NoisyLinear
 
 
 class MLPBlock(nn.Module):
@@ -12,33 +11,28 @@ class MLPBlock(nn.Module):
         self,
         in_size: int,
         layer_sizes: Tuple[int, ...] = (512,),
-        activation: str = "ReLU",
+        activation="ReLU",
         enable_noisy_dense: bool = False,
     ):
         super().__init__()
 
         activation = convert_activation_torch(activation)
 
-        self.layers = nn.ModuleList()
-        for i, h in enumerate(layer_sizes):
-            self.layers.append(
-                nn.Linear(
-                    in_features=layer_sizes[i - 1] if i > 0 else in_size,
-                    out_features=h,
-                    bias=True,
-                )
-            )
-            if enable_noisy_dense:
-                self.layers.append(GaussianNoise())
-            self.layers.append(activation(inplace=True))
+        if enable_noisy_dense:
+            _Linear = NoisyLinear
+        else:
+            _Linear = nn.Linear
+
+        self.hidden_layers = nn.ModuleList()
+        for i in range(len(layer_sizes)):
+            self.hidden_layers.append(_Linear(in_size, layer_sizes[i]))
+            self.hidden_layers.append(activation(inplace=True))
+            in_size = layer_sizes[i]
 
         # --- out shape
-        if len(layer_sizes) == 0:
-            self.out_size = in_size
-        else:
-            self.out_size = layer_sizes[-1]
+        self.out_size = in_size
 
     def forward(self, x):
-        for layer in self.layers:
+        for layer in self.hidden_layers:
             x = layer(x)
         return x

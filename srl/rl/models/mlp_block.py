@@ -4,6 +4,7 @@ from typing import Any, Dict, Tuple
 
 @dataclass
 class MLPBlockConfig:
+    _name: str = field(init=False, default="mlp")
     _kwargs: Dict[str, Any] = field(init=False, default_factory=lambda: {"layer_sizes": (512,)})
 
     def set_mlp(
@@ -22,33 +23,52 @@ class MLPBlockConfig:
             >>> mlp_conf = MLPBlockConfig()
             >>> mlp_conf.set_mlp((128, 64, 32))
         """
+        self._name = "mlp"
         self._kwargs = dict(
             layer_sizes=layer_sizes,
             activation=activation.lower(),
             # kernel_initializer=kernel_initializer,
         )
 
-    def set_custom_block(self):
-        """TODO"""
-        raise NotImplementedError("TODO")
+    def set_custom_block(self, entry_point: str, kwargs: dict):
+        self._name = "custom"
+        self._kwargs = dict(
+            entry_point=entry_point,
+            kwargs=kwargs,
+        )
 
     # ---------------------
 
     def create_block_tf(self, enable_noisy_dense: bool = False):
-        from .tf import mlp_block
+        if self._name == "mlp":
+            from .tf import mlp_block
 
-        return mlp_block.MLPBlock(
-            **self._kwargs,
-            enable_time_distributed_layer=False,
-            enable_noisy_dense=enable_noisy_dense,
-        )
+            return mlp_block.MLPBlock(
+                **self._kwargs,
+                enable_time_distributed_layer=False,
+                enable_noisy_dense=enable_noisy_dense,
+            )
+
+        if self._name == "custom":
+            from srl.utils.common import load_module
+
+            return load_module(self._kwargs["entry_point"])(**self._kwargs["kwargs"])
+
+        raise ValueError(self._name)
 
     def create_block_torch(self, in_size: int, enable_noisy_dense: bool = False):
-        from .torch_ import mlp_block
+        if self._name == "mlp":
+            from .torch_ import mlp_block
 
-        return mlp_block.MLPBlock(
-            in_size,
-            self._kwargs["layer_sizes"],
-            # TODO 互換パラメータ
-            enable_noisy_dense=enable_noisy_dense,
-        )
+            return mlp_block.MLPBlock(
+                in_size,
+                **self._kwargs,
+                enable_noisy_dense=enable_noisy_dense,
+            )
+
+        if self._name == "custom":
+            from srl.utils.common import load_module
+
+            return load_module(self._kwargs["entry_point"])(**self._kwargs["kwargs"])
+
+        raise ValueError(self._name)

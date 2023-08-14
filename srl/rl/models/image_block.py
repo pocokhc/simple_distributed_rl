@@ -41,13 +41,16 @@ class ImageBlockConfig:
             activation=activation,
         )
 
-    def set_custom_block(self, **kwargs):
-        """TODO"""
-        raise NotImplementedError("TODO")
+    def set_custom_block(self, entry_point: str, kwargs: dict):
+        self._name = "custom"
+        self._kwargs = dict(
+            entry_point=entry_point,
+            kwargs=kwargs,
+        )
 
     # ---------------------
 
-    def create_block_tf(self, enable_time_distributed_layer: bool):
+    def create_block_tf(self, enable_time_distributed_layer: bool = False):
         if self._name == "DQN":
             from .tf import dqn_image_block
 
@@ -55,20 +58,25 @@ class ImageBlockConfig:
                 enable_time_distributed_layer=enable_time_distributed_layer,
                 **self._kwargs,
             )
-        elif self._name == "R2D3":
+        if self._name == "R2D3":
             from .tf import r2d3_image_block
 
             return r2d3_image_block.R2D3ImageBlock(
                 enable_time_distributed_layer=enable_time_distributed_layer,
                 **self._kwargs,
             )
-        else:
-            raise ValueError(self._name)
+
+        if self._name == "custom":
+            from srl.utils.common import load_module
+
+            return load_module(self._kwargs["entry_point"])(**self._kwargs["kwargs"])
+
+        raise ValueError(self._name)
 
     def create_block_torch(
         self,
         in_shape: Tuple[int, ...],
-        enable_time_distributed_layer: bool,
+        enable_time_distributed_layer: bool = False,
     ):
         if self._name == "DQN":
             from .torch_ import dqn_image_block
@@ -78,7 +86,7 @@ class ImageBlockConfig:
                 enable_time_distributed_layer=enable_time_distributed_layer,
                 **self._kwargs,
             )
-        elif self._name == "R2D3":
+        if self._name == "R2D3":
             from .torch_ import r2d3_image_block
 
             return r2d3_image_block.R2D3ImageBlock(
@@ -86,5 +94,10 @@ class ImageBlockConfig:
                 enable_time_distributed_layer=enable_time_distributed_layer,
                 **self._kwargs,
             )
-        else:
-            raise ValueError(self._name)
+
+        if self._name == "custom":
+            from srl.utils.common import load_module
+
+            return load_module(self._kwargs["entry_point"])(**self._kwargs["kwargs"])
+
+        raise ValueError(self._name)

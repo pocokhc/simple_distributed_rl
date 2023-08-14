@@ -996,8 +996,7 @@ class Runner:
         self._history_on_file_callback = None
         if enable_history:
             if write_memory:
-                from srl.runner.callbacks.history_on_memory import \
-                    HistoryOnMemory
+                from srl.runner.callbacks.history_on_memory import HistoryOnMemory
 
                 self._history_on_memory_callback = HistoryOnMemory(
                     interval=interval,
@@ -1945,7 +1944,7 @@ class Runner:
         remote_memory: Optional[RLRemoteMemory] = None,
         _is_test: bool = False,  # for test
     ):
-        """ TODO """
+        """TODO"""
 
         self.context.callbacks = callbacks[:]
 
@@ -2006,7 +2005,7 @@ class Runner:
         parameter: Optional[RLParameter] = None,
         remote_memory: Optional[RLRemoteMemory] = None,
     ):
-        """ TODO """
+        """TODO"""
 
         self.context.callbacks = callbacks[:]
         self.config.players = players
@@ -2063,7 +2062,7 @@ class Runner:
         callbacks: List[CallbackType] = [],
         _is_test: bool = False,  # for test
     ):
-        """ TODO """
+        """TODO"""
 
         self.context.callbacks = callbacks[:]
 

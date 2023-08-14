@@ -1,5 +1,5 @@
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
@@ -15,6 +15,7 @@ from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.utils.common import compare_less_version
 
 kl = keras.layers
@@ -55,9 +56,9 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     enable_train_value: bool = True
     batch_size: int = 50
     batch_length: int = 50
-    model_lr: float = 6e-4
-    value_lr: float = 8e-5
-    actor_lr: float = 8e-5
+    lr_model: float = 6e-4  # type: ignore , type OK
+    lr_value: float = 8e-5  # type: ignore , type OK
+    lr_actor: float = 8e-5  # type: ignore , type OK
 
     # Behavior
     discount: float = 0.99
@@ -66,7 +67,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     value_estimation_method: str = "dreamer"  # "simple" or "dreamer"
 
     # action ε-greedy
-    epsilon: float = 0.5
+    epsilon: float = 0.5  # type: ignore , type OK
     test_epsilon: float = 0.0
 
     # 経験取得方法
@@ -75,6 +76,14 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     # other
     clip_rewards: str = "none"
     dummy_state_val: float = 0.0
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.epsilon: SchedulerConfig = SchedulerConfig(cast(float, self.epsilon))
+        self.lr_model: SchedulerConfig = SchedulerConfig(cast(float, self.lr_model))
+        self.lr_value: SchedulerConfig = SchedulerConfig(cast(float, self.lr_value))
+        self.lr_actor: SchedulerConfig = SchedulerConfig(cast(float, self.lr_actor))
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -541,14 +550,18 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
+        self.lr_sch_model = self.config.lr_model.create_schedulers()
+        self.lr_sch_value = self.config.lr_value.create_schedulers()
+        self.lr_sch_actor = self.config.lr_actor.create_schedulers()
+
         if compare_less_version(tf.__version__, "2.11.0"):
-            self._model_opt = keras.optimizers.Adam(learning_rate=self.config.model_lr)
-            self._value_opt = keras.optimizers.Adam(learning_rate=self.config.value_lr)
-            self._actor_opt = keras.optimizers.Adam(learning_rate=self.config.actor_lr)
+            self._model_opt = keras.optimizers.Adam(learning_rate=self.lr_sch_model.get_rate(0))
+            self._value_opt = keras.optimizers.Adam(learning_rate=self.lr_sch_value.get_rate(0))
+            self._actor_opt = keras.optimizers.Adam(learning_rate=self.lr_sch_actor.get_rate(0))
         else:
-            self._model_opt = keras.optimizers.legacy.Adam(learning_rate=self.config.model_lr)
-            self._value_opt = keras.optimizers.legacy.Adam(learning_rate=self.config.value_lr)
-            self._actor_opt = keras.optimizers.legacy.Adam(learning_rate=self.config.actor_lr)
+            self._model_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_model.get_rate(0))
+            self._value_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_value.get_rate(0))
+            self._actor_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_actor.get_rate(0))
 
         self.train_count = 0
 
@@ -653,9 +666,13 @@ class Trainer(RLTrainer):
             for i in range(len(variables)):
                 self._model_opt.apply_gradients(zip(grads[i], variables[i]))
 
+            lr = self.lr_sch_model.get_rate(self.train_count)
+            self._model_opt.learning_rate = lr
+
             info["img_loss"] = -image_loss.numpy() / (64 * 64 * 3)
             info["reward_loss"] = -reward_loss.numpy()
             info["kl_loss"] = kl_loss.numpy()
+            info["model_lr"] = lr
 
         if (not self.config.enable_train_actor) and (not self.config.enable_train_value):
             # WorldModelsのみ学習
@@ -691,6 +708,10 @@ class Trainer(RLTrainer):
             self._actor_opt.apply_gradients(zip(grads, self.parameter.actor.trainable_variables))
             info["act_loss"] = act_loss.numpy()
 
+            lr = self.lr_sch_actor.get_rate(self.train_count)
+            self._actor_opt.learning_rate = lr
+            info["act_lr"] = lr
+
         # ------------------------
         # Value
         # ------------------------
@@ -713,6 +734,10 @@ class Trainer(RLTrainer):
             grads = tape.gradient(val_loss, self.parameter.value.trainable_variables)
             self._value_opt.apply_gradients(zip(grads, self.parameter.value.trainable_variables))
             info["val_loss"] = val_loss.numpy()
+
+            lr = self.lr_sch_value.get_rate(self.train_count)
+            self._value_opt.learning_rate = lr
+            info["val_lr"] = lr
 
         self.train_count += 1
         return info
@@ -799,6 +824,8 @@ class Worker(DiscreteActionWorker):
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.screen = None
 
+        self.epsilon_sch = self.config.epsilon.create_schedulers()
+
         self._recent_states = []
         self._recent_actions = []
         self._recent_rewards = []
@@ -823,7 +850,7 @@ class Worker(DiscreteActionWorker):
         self.prev_action = self.action
 
         if self.training:
-            epsilon = self.config.epsilon
+            epsilon = self.epsilon_sch.get_rate(self.total_step)
         else:
             epsilon = self.config.test_epsilon
 

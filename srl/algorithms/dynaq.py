@@ -2,7 +2,7 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, cast
 
 import numpy as np
 
@@ -13,6 +13,7 @@ from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
 from srl.rl.functions.common import render_discrete_action, to_str_observation
 from srl.rl.memories.sequence_memory import SequenceRemoteMemory
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +29,16 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig):
-    epsilon: float = 0.1
+    epsilon: float = 0.1  # type: ignore , type OK
     test_epsilon: float = 0
     discount: float = 0.9
-    lr: float = 0.1
+    lr: float = 0.1  # type: ignore , type OK
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.epsilon: SchedulerConfig = SchedulerConfig(cast(float, self.epsilon))
+        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
 
     @property
     def base_action_type(self) -> RLTypes:
@@ -185,6 +192,8 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
+        self.lr_sch = self.config.lr.create_schedulers()
+
         self.train_count = 0
 
     def get_train_count(self):
@@ -207,6 +216,7 @@ class Trainer(RLTrainer):
             model.train(state, action, n_state, reward, done)
 
         td_error = 0
+        lr = self.lr_sch.get_rate(self.train_count)
 
         # --- 近似モデルからランダムにサンプリング
         for batch in model.sample(10):
@@ -228,7 +238,7 @@ class Trainer(RLTrainer):
                 target_q = reward + self.config.discount * max(n_q)
 
             td_error = target_q - q[action]
-            q[action] += self.config.lr * td_error
+            q[action] += lr * td_error
 
             td_error += td_error
             self.train_count += 1
@@ -252,14 +262,11 @@ class Worker(DiscreteActionWorker):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
+        self.epsilon_sch = self.config.epsilon.create_schedulers()
+
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self.state = to_str_observation(state)
         self.invalid_actions = invalid_actions
-
-        if self.training:
-            self.epsilon = self.config.epsilon
-        else:
-            self.epsilon = self.config.test_epsilon
 
         return {}
 
@@ -267,7 +274,12 @@ class Worker(DiscreteActionWorker):
         self.state = to_str_observation(state)
         self.invalid_actions = invalid_actions
 
-        if random.random() < self.epsilon:
+        if self.training:
+            epsilon = self.epsilon_sch.get_rate(self.total_step)
+        else:
+            epsilon = self.config.test_epsilon
+
+        if random.random() < epsilon:
             self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
             q = self.parameter.get_action_values(self.state, invalid_actions)

@@ -19,6 +19,7 @@ from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
 
@@ -65,9 +66,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     batch_size: int = 32
     memory_warmup_size: int = 1000
     discount: float = 0.9  # 割引率
-    optimizer_initial_lr: float = 0.02  # 初期学習率
-    optimizer_final_lr: float = 0.01  # 終了学習率
-    optimizer_lr_step: float = 200 * 10  # 終了学習率になるまでの更新回数
+    lr: SchedulerConfig = field(init=False, default_factory=lambda: SchedulerConfig())
     value_loss_weight: float = 1.0  # 状態価値の反映率
     entropy_weight: float = 0.1  # エントロピーの反映率
 
@@ -86,6 +85,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     def __post_init__(self):
         super().__post_init__()
 
+        self.lr.set_linear(2000, 0.02, 0.01)
         self.memory.capacity = 2000
         self.hidden_block.set_mlp((64, 64))
         self.value_block.set_mlp((64,))
@@ -313,9 +313,11 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
-        self.train_count = 0
+        self.lr_sch = self.config.lr.create_schedulers()
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.config.optimizer_initial_lr)
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
+
+        self.train_count = 0
 
     def get_train_count(self):
         return self.train_count
@@ -450,14 +452,9 @@ class Trainer(RLTrainer):
             info["kl_beta"] = self.parameter.adaptive_kl_beta
             # nanになる場合は adaptive_kl_target が小さすぎる可能性あり
 
-        # 学習率を減少
-        if self.train_count > self.config.optimizer_lr_step:
-            lr = self.config.optimizer_final_lr
-        else:
-            lr = self.config.optimizer_initial_lr - (
-                self.config.optimizer_initial_lr - self.config.optimizer_final_lr
-            ) * (self.train_count / self.config.optimizer_lr_step)
-        self.optimizer.lr = lr
+        # lr_schedule
+        lr = self.lr_sch.get_rate(self.train_count)
+        self.optimizer.learning_rate = lr
         info["lr"] = lr
 
         self.train_count += 1

@@ -3,7 +3,7 @@ import logging
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import List, Tuple, cast
 
 import numpy as np
 
@@ -19,6 +19,7 @@ from srl.rl.models.framework_config import FrameworkConfig
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -66,10 +67,10 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     # --- model
     framework: FrameworkConfig = field(init=False, default_factory=lambda: FrameworkConfig())
     image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
+    lr_ext: float = 0.0001  # type: ignore , type OK
+    lr_int: float = 0.0001  # type: ignore , type OK
     batch_size: int = 64
     memory_warmup_size: int = 1000
-    q_ext_lr: float = 0.0001
-    q_int_lr: float = 0.0001
     target_model_update_interval: int = 1500
 
     # rescale
@@ -91,7 +92,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     enable_intrinsic_reward: bool = True
 
     # episodic
-    episodic_lr: float = 0.0005
+    episodic_lr: float = 0.0005  # type: ignore , type OK
     episodic_count_max: int = 10  # k
     episodic_epsilon: float = 0.001
     episodic_cluster_distance: float = 0.008
@@ -101,7 +102,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     episodic_out_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     # lifelong
-    lifelong_lr: float = 0.00001
+    lifelong_lr: float = 0.00001  # type: ignore , type OK
     lifelong_max: float = 5.0  # L
     lifelong_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
@@ -116,6 +117,11 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
     def __post_init__(self):
         super().__post_init__()
+
+        self.lr_ext: SchedulerConfig = SchedulerConfig(cast(float, self.lr_ext))
+        self.lr_int: SchedulerConfig = SchedulerConfig(cast(float, self.lr_int))
+        self.episodic_lr: SchedulerConfig = SchedulerConfig(cast(float, self.episodic_lr))
+        self.lifelong_lr: SchedulerConfig = SchedulerConfig(cast(float, self.lifelong_lr))
 
         self.dueling_network.set((512,), True)
         self.episodic_emb_block.set_mlp(

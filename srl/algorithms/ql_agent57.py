@@ -1,8 +1,8 @@
 import json
 import logging
 import random
-from dataclasses import dataclass
-from typing import Any, List, Tuple
+from dataclasses import dataclass, field
+from typing import Any, List, Tuple, cast
 
 import numpy as np
 
@@ -11,18 +11,15 @@ from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
-from srl.rl.functions.common import (
-    calc_epsilon_greedy_probs,
-    create_beta_list,
-    create_discount_list,
-    create_epsilon_list,
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-    to_str_observation,
-)
-from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.functions.common import (calc_epsilon_greedy_probs,
+                                     create_beta_list, create_discount_list,
+                                     create_epsilon_list, inverse_rescaling,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling,
+                                     to_str_observation)
+from srl.rl.memories.priority_experience_replay import (
+    PriorityExperienceReplay, PriorityExperienceReplayConfig)
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -67,10 +64,9 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     test_epsilon: float = 0.0
     test_beta: float = 0.0
 
-    ext_lr: float = 0.01
+    lr_ext: float = 0.01  # type: ignore , type OK
     enable_rescale: bool = False
 
-    # memory
     memory_warmup_size: int = 10
 
     # retrace
@@ -84,13 +80,13 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     ucb_epsilon: float = 0.5  # UCBを使う確率
     ucb_beta: float = 1  # UCBのβ
     # actorを使わない場合の設定
-    epsilon: float = 0.1
+    epsilon: float = 0.1  # type: ignore , type OK
     discount: float = 0.9
     beta: float = 0.1
 
     # intrinsic_reward
     enable_intrinsic_reward: bool = True  # 内部報酬を使うか
-    int_lr: float = 0.01  # 学習率
+    lr_int: float = 0.01  # type: ignore , type OK
 
     # episodic
     episodic_memory_capacity: int = 30000
@@ -102,6 +98,13 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     # other
     batch_size: int = 4
     q_init: str = ""
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.lr_ext: SchedulerConfig = SchedulerConfig(cast(float, self.lr_ext))
+        self.lr_int: SchedulerConfig = SchedulerConfig(cast(float, self.lr_int))
+        self.epsilon: SchedulerConfig = SchedulerConfig(cast(float, self.epsilon))
 
     @property
     def base_action_type(self) -> RLTypes:
@@ -134,6 +137,9 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
             "lifelong_reward": {},
             "int_reward": {},
             "priority": {},
+            "lr_ext": {"data": "last"},
+            "lr_int": {"data": "last"},
+            "epsilon": {"data": "last"},
         }
 
 
@@ -267,6 +273,8 @@ class Trainer(RLTrainer):
         self.remote_memory: RemoteMemory = self.remote_memory
 
         self.train_count = 0
+        self.lr_ext_sch = self.config.lr_ext.create_schedulers()
+        self.lr_int_sch = self.config.lr_int.create_schedulers()
 
     def get_train_count(self):
         return self.train_count
@@ -276,6 +284,8 @@ class Trainer(RLTrainer):
             return {}
 
         indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
+        lr_ext = self.lr_ext_sch.get_rate(self.train_count)
+        lr_int = self.lr_int_sch.get_rate(self.train_count)
         ext_td_errors = []
         int_td_errors = []
         for i in range(self.config.batch_size):
@@ -286,7 +296,7 @@ class Trainer(RLTrainer):
                 self.parameter.Q_ext,
                 batchs[i]["ext_rewards"],
             )
-            self.parameter.Q_ext[state][action] += self.config.ext_lr * ext_td_error * weights[i]
+            self.parameter.Q_ext[state][action] += lr_ext * ext_td_error * weights[i]
             ext_td_errors.append(ext_td_error)
 
             if self.config.enable_intrinsic_reward:
@@ -296,7 +306,7 @@ class Trainer(RLTrainer):
                     batchs[i]["int_rewards"],
                     enable_norm=True,
                 )
-                self.parameter.Q_int[state][action] += self.config.int_lr * int_td_error * weights[i]
+                self.parameter.Q_int[state][action] += lr_int * int_td_error * weights[i]
                 self.parameter.Q_C[state] += 1
             else:
                 int_td_error = 0
@@ -312,6 +322,8 @@ class Trainer(RLTrainer):
             "size": len(self.parameter.Q_ext),
             "ext_td_error": np.mean(ext_td_errors),
             "int_td_error": np.mean(int_td_errors),
+            "lr_ext": lr_ext,
+            "lr_int": lr_int,
         }
 
 
@@ -328,6 +340,8 @@ class Worker(DiscreteActionWorker):
         self.beta_list = create_beta_list(self.config.actor_num)
         self.discount_list = create_discount_list(self.config.actor_num)
         self.epsilon_list = create_epsilon_list(self.config.actor_num)
+
+        self.epsilon_scheduler = self.config.epsilon.create_schedulers()
 
         # ucb
         self.actor_index = -1
@@ -346,7 +360,7 @@ class Worker(DiscreteActionWorker):
                 self.discount = self.discount_list[self.actor_index]
                 self.beta = self.beta_list[self.actor_index]
             else:
-                self.epsilon = self.config.epsilon
+                self.epsilon = self.epsilon_scheduler.get_rate(self.total_step)
                 self.discount = self.config.discount
                 self.beta = self.config.beta
         else:

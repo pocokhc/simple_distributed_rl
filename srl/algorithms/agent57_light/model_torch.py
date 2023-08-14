@@ -302,14 +302,19 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
-        self.q_ext_optimizer = optim.Adam(self.parameter.q_ext_online.parameters(), lr=self.config.q_ext_lr)
-        self.q_int_optimizer = optim.Adam(self.parameter.q_int_online.parameters(), lr=self.config.q_int_lr)
+        self.lr_sch_ext = self.config.lr_ext.create_schedulers()
+        self.lr_sch_int = self.config.lr_int.create_schedulers()
+        self.lr_sch_emb = self.config.episodic_lr.create_schedulers()
+        self.lr_sch_ll = self.config.lifelong_lr.create_schedulers()
+
+        self.q_ext_optimizer = optim.Adam(self.parameter.q_ext_online.parameters(), lr=self.lr_sch_ext.get_rate(0))
+        self.q_int_optimizer = optim.Adam(self.parameter.q_int_online.parameters(), lr=self.lr_sch_int.get_rate(0))
         self.q_criterion = nn.HuberLoss()
 
-        self.emb_optimizer = optim.Adam(self.parameter.emb_network.parameters(), lr=self.config.episodic_lr)
+        self.emb_optimizer = optim.Adam(self.parameter.emb_network.parameters(), lr=self.lr_sch_emb.get_rate(0))
         self.emb_criterion = nn.MSELoss()
 
-        self.lifelong_optimizer = optim.Adam(self.parameter.lifelong_train.parameters(), lr=self.config.lifelong_lr)
+        self.lifelong_optimizer = optim.Adam(self.parameter.lifelong_train.parameters(), lr=self.lr_sch_ll.get_rate(0))
         self.lifelong_criterion = nn.MSELoss()
 
         self.beta_list = common.create_beta_list(self.config.actor_num)
@@ -325,7 +330,7 @@ class Trainer(RLTrainer):
         if self.remote_memory.length() < self.config.memory_warmup_size:
             return {}
         indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
-        info = {}
+        _info = {}
 
         device = self.parameter.device
 
@@ -374,26 +379,31 @@ class Trainer(RLTrainer):
         # --- update ext q
         self.parameter.q_ext_online.to(device)
         self.parameter.q_ext_target.to(device)
-        td_errors_ext, loss_ext = self._update_q(
+        td_errors_ext, _loss, _lr = self._update_q(
             True,
             self.parameter.q_ext_online,
             self.q_ext_optimizer,
+            self.lr_sch_ext,
             rewards_ext,
             *_params,
         )
-        info["loss_ext"] = loss_ext
+        _info["ext_loss"] = _loss
+        _info["ext_lr"] = _lr
 
         # --- intrinsic reward
         if self.config.enable_intrinsic_reward:
             self.parameter.q_int_online.to(device)
             self.parameter.q_int_target.to(device)
-            td_errors_int, loss_int = self._update_q(
+            td_errors_int, _loss, _lr = self._update_q(
                 False,
                 self.parameter.q_int_online,
                 self.q_int_optimizer,
+                self.lr_sch_int,
                 rewards_int,
                 *_params,
             )
+            _info["int_loss"] = _loss
+            _info["int_lr"] = _lr
 
             # ----------------------------------------
             # embedding network
@@ -405,6 +415,12 @@ class Trainer(RLTrainer):
             self.emb_optimizer.zero_grad()
             emb_loss.backward()
             self.emb_optimizer.step()
+            _info["emb_loss"] = emb_loss.item()
+
+            lr = self.lr_sch_emb.get_rate(self.train_count)
+            for param_group in self.emb_optimizer.param_groups:
+                param_group["lr"] = lr
+            _info["emb_lr"] = lr
 
             # ----------------------------------------
             # lifelong network
@@ -418,10 +434,13 @@ class Trainer(RLTrainer):
             self.lifelong_optimizer.zero_grad()
             lifelong_loss.backward()
             self.lifelong_optimizer.step()
+            _info["lifelong_loss"] = lifelong_loss.item()
 
-            info["loss_int"] = loss_int
-            info["emb_loss"] = emb_loss.item()
-            info["lifelong_loss"] = lifelong_loss.item()
+            lr = self.lr_sch_ll.get_rate(self.train_count)
+            for param_group in self.lifelong_optimizer.param_groups:
+                param_group["lr"] = lr
+            _info["lifelong_lr"] = lr
+
         else:
             td_errors_int = 0.0
 
@@ -440,14 +459,15 @@ class Trainer(RLTrainer):
             self.sync_count += 1
 
         self.train_count += 1
-        info["sync"] = self.sync_count
-        return info
+        _info["sync"] = self.sync_count
+        return _info
 
     def _update_q(
         self,
         is_ext: bool,
         model_q_online,
         optimizer,
+        lr_sch,
         rewards,  # (batch, 1)
         #
         n_states,
@@ -501,5 +521,9 @@ class Trainer(RLTrainer):
         loss.backward()
         optimizer.step()
 
+        lr = lr_sch.get_rate(self.train_count)
+        for param_group in optimizer.param_groups:
+            param_group["lr"] = lr
+
         td_errors = (target_q - q).to("cpu").detach().numpy()
-        return td_errors, loss.item()
+        return td_errors, loss.item(), lr

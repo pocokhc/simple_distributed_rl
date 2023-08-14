@@ -17,6 +17,7 @@ from srl.base.rl.registration import register
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
 
@@ -33,7 +34,7 @@ ref: https://github.com/zacwellmer/WorldModels
 class Config(RLConfig):
     train_mode: int = 1
 
-    lr: float = 0.001
+    lr: float = 0.001  # type: ignore , type OK
     batch_size: int = 32
     capacity: int = 100_000
     memory_warmup_size: int = 100
@@ -57,6 +58,10 @@ class Config(RLConfig):
 
     # other
     dummy_state_val: float = 0.0
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -83,8 +88,8 @@ class Config(RLConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size < self.capacity
-        assert self.batch_size < self.memory_warmup_size
+        assert self.memory_warmup_size <= self.capacity
+        assert self.batch_size <= self.memory_warmup_size
         assert self.temperature >= 0
 
     @property
@@ -421,7 +426,9 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
+        self.lr_sch = self.config.lr.create_schedulers()
+
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
         self.q_loss = keras.losses.Huber()
 
         self.c_score = -np.inf
@@ -493,10 +500,14 @@ class Trainer(RLTrainer):
         grads = tape.gradient(vae_loss, self.parameter.vae.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.vae.trainable_variables))
 
+        lr = self.lr_sch.get_rate(self.train_count)
+        self.optimizer.learning_rate = lr
+
         return {
             "vae_loss": vae_loss.numpy() - (self.config.kl_tolerance * self.config.z_size),
             "rc_loss": rc_loss.numpy(),
             "kl_loss": kl_loss.numpy() - (self.config.kl_tolerance * self.config.z_size),
+            "lr": lr,
         }
 
     def _train_rnn(self):

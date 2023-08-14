@@ -60,12 +60,10 @@ class _QNetwork(keras.Model):
         super().build(self.__input_shape)
 
     def summary(self, name="", **kwargs):
-        if hasattr(self.in_block, "init_model_graph"):
-            self.in_block.init_model_graph()
-        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
+        self.in_block.init_model_graph()
+        if self.in_block.use_image_layer:
             self.image_block.init_model_graph()
-        if hasattr(self.hidden_block, "init_model_graph"):
-            self.hidden_block.init_model_graph()
+        self.hidden_block.init_model_graph()
 
         x = kl.Input(shape=self.__input_shape[1:])
         name = self.__class__.__name__ if name == "" else name
@@ -113,8 +111,10 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
-        self.loss_func = keras.losses.Huber()
+        self.lr_sch = self.config.lr.create_schedulers()
+
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
+        self.loss_func = keras.losses.Huber(reduction=tf.keras.losses.Reduction.NONE)
 
         self.train_count = 0
         self.sync_count = 0
@@ -134,10 +134,13 @@ class Trainer(RLTrainer):
             q = tf.reduce_sum(q * onehot_actions, axis=1)
 
             loss = self.loss_func(target_q * weights, q * weights)
-            loss += tf.reduce_sum(self.parameter.q_online.losses)
+            loss += tf.nn.scale_regularization_loss(self.parameter.q_online.losses)
 
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
+
+        lr = self.lr_sch.get_rate(self.train_count)
+        self.optimizer.learning_rate = lr
 
         # --- update
         td_errors = target_q - cast(Any, q).numpy()
@@ -149,4 +152,8 @@ class Trainer(RLTrainer):
             self.sync_count += 1
 
         self.train_count += 1
-        return {"loss": loss.numpy(), "sync": self.sync_count}
+        return {
+            "loss": loss.numpy(),
+            "sync": self.sync_count,
+            "lr": lr,
+        }

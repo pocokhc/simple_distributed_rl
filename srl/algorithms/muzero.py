@@ -22,10 +22,11 @@ from srl.rl.functions.common import (
     rescaling,
 )
 from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
-from srl.rl.models.alphazero.tf.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.alphazero_block import AlphaZeroBlockConfig
+from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.utils.common import compare_less_version
 
 kl = keras.layers
@@ -50,23 +51,14 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     memory_warmup_size: int = 1000
     discount: float = 0.99
 
-    # 学習率
-    lr_init: float = 0.001
-    lr_decay_rate: float = 0.1
-    lr_decay_steps: int = 100_000
+    lr: SchedulerConfig = field(init=False, default_factory=lambda: SchedulerConfig())
 
     # カテゴリ化する範囲
     v_min: int = -10
     v_max: int = 10
 
     # policyの温度パラメータのリスト
-    policy_tau_schedule: List[dict] = field(
-        default_factory=lambda: [
-            {"step": 0, "tau": 1.0},
-            {"step": 50_000, "tau": 0.5},
-            {"step": 75_000, "tau": 0.25},
-        ]
-    )
+    policy_tau: SchedulerConfig = field(init=False, default_factory=lambda: SchedulerConfig())
 
     # td_steps: int = 5  # multisteps
     unroll_steps: int = 3  # unroll_steps
@@ -88,22 +80,28 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     # rescale
     enable_rescale: bool = True
 
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.lr.set_linear(100_000, 0.001, 0.0001)
+        self.policy_tau.clear()
+        self.policy_tau.add_constant(50_000, 1.0)
+        self.policy_tau.add_constant(25_000, 0.5)
+        self.policy_tau.add_constant(1, 0.25)
+
     def set_atari_config(self):
         self.num_simulations = 50
         self.batch_size = 1024
         self.discount = 0.997
-        self.lr_init = 0.05
-        self.lr_decay_rate = 0.1
-        self.lr_decay_steps = 350_000
+        self.lr.set_linear(350_000, 0.05, 0.005)
         self.v_min = -300
         self.v_max = 300
         # self.td_steps = 10
         self.unroll_steps = 5
-        self.policy_tau_schedule = [
-            {"step": 0, "tau": 1.0},
-            {"step": 500_000, "tau": 0.5},
-            {"step": 750_000, "tau": 0.25},
-        ]
+        self.policy_tau.clear()
+        self.policy_tau.add_constant(500_000, 1.0)
+        self.policy_tau.add_constant(250_000, 0.5)
+        self.policy_tau.add_constant(1, 0.25)
         self.input_image_block.set_muzero_atari_block(filters=128)
         self.dynamics_blocks = 15
         self.weight_decay = 0.0001
@@ -136,9 +134,6 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         super().assert_params()
         assert self.memory_warmup_size <= self.memory.capacity
         assert self.batch_size <= self.memory_warmup_size
-        assert self.policy_tau_schedule[0]["step"] == 0
-        for tau in self.policy_tau_schedule:
-            assert tau["tau"] >= 0
         assert self.v_min < self.v_max
         assert self.unroll_steps > 0
 
@@ -466,10 +461,12 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
+        self.lr_sch = self.config.lr.create_schedulers()
+
         if compare_less_version(tf.__version__, "2.11.0"):
-            self.optimizer = keras.optimizers.Adam()
+            self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
         else:
-            self.optimizer = keras.optimizers.legacy.Adam()
+            self.optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch.get_rate(0))
 
         self.train_count = 0
 
@@ -552,8 +549,8 @@ class Trainer(RLTrainer):
 
         priorities = value_loss.numpy()
 
-        # lr
-        lr = self.config.lr_init * self.config.lr_decay_rate ** (self.train_count / self.config.lr_decay_steps)
+        # lr_schedule
+        lr = self.lr_sch.get_rate(self.train_count)
         self.optimizer.learning_rate = lr
 
         variables = [
@@ -583,7 +580,7 @@ class Trainer(RLTrainer):
             "policy_loss": np.mean(policy_loss),
             "reward_loss": np.mean(reward_loss),
             "loss": loss.numpy(),
-            "lr": self.optimizer.learning_rate.numpy(),
+            "lr": lr,
         }
 
 
@@ -597,11 +594,7 @@ class Worker(DiscreteActionWorker):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
-        self.policy_tau_schedule = {}
-        for tau_list in self.config.policy_tau_schedule:
-            self.policy_tau_schedule[tau_list["step"]] = tau_list["tau"]
-        self.policy_tau = self.policy_tau_schedule[0]
-        self.total_step = 0
+        self.policy_tau_sch = self.config.policy_tau.create_schedulers()
 
         self._v_min = np.inf
         self._v_max = -np.inf
@@ -639,27 +632,24 @@ class Worker(DiscreteActionWorker):
 
         # --- 確率に比例したアクションを選択
         if not self.training:
-            self.policy_tau = 0  # 評価時は決定的に
-        if self.policy_tau == 0:
+            policy_tau = 0  # 評価時は決定的に
+        else:
+            policy_tau = self.policy_tau_sch.get_rate(self.total_step)
+
+        if policy_tau == 0:
             counts = np.asarray(self.N[self.s0_str])
             action = np.random.choice(np.where(counts == counts.max())[0])
         else:
-            step_policy = np.array(
-                [self.N[self.s0_str][a] ** (1 / self.policy_tau) for a in range(self.config.action_num)]
-            )
+            step_policy = np.array([self.N[self.s0_str][a] ** (1 / policy_tau) for a in range(self.config.action_num)])
             step_policy /= step_policy.sum()
             action = random_choice_by_probs(step_policy)
-
-        # schedule check
-        if self.total_step in self.policy_tau_schedule:
-            self.policy_tau = self.policy_tau_schedule[self.total_step]
 
         # 学習用のpolicyはtau=1
         N = sum(self.N[self.s0_str])
         self.step_policy = [self.N[self.s0_str][a] / N for a in range(self.config.action_num)]
 
         self.action = int(action)
-        return self.action, {}
+        return self.action, {"policy_tau": policy_tau}
 
     def _simulation(self, state, state_str, invalid_actions, depth: int = 0):
         if depth >= 99999:  # for safety
@@ -751,8 +741,6 @@ class Worker(DiscreteActionWorker):
         done: bool,
         next_invalid_actions: List[int],
     ):
-        self.total_step += 1
-
         if not self.training:
             return {}
 

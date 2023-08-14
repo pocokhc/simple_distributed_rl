@@ -1,7 +1,7 @@
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import List, Tuple, cast
 
 import numpy as np
 
@@ -16,6 +16,7 @@ from srl.rl.models.dueling_network import DuelingNetworkConfig
 from srl.rl.models.framework_config import FrameworkConfig
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 """
 ・Paper
@@ -59,21 +60,16 @@ Other
 class Config(RLConfig, PriorityExperienceReplayConfig):
     test_epsilon: float = 0
 
-    epsilon: float = 0.1
     actor_epsilon: float = 0.4
     actor_alpha: float = 7.0
 
-    # Annealing e-greedy
-    initial_epsilon: float = 1.0
-    final_epsilon: float = 0.01
-    exploration_steps: int = 0  # 0 : no Annealing
+    epsilon: float = 0.1  # type: ignore , type OK
+    lr: float = 0.001  # type: ignore , type OK
 
     # --- model
     framework: FrameworkConfig = field(init=False, default_factory=lambda: FrameworkConfig())
     image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
-
-    discount: float = 0.99  # 割引率
-    lr: float = 0.001  # 学習率
+    discount: float = 0.99
     batch_size: int = 32
     memory_warmup_size: int = 1000
     target_model_update_interval: int = 1000
@@ -98,24 +94,26 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     def __post_init__(self):
         super().__post_init__()
 
+        self.epsilon: SchedulerConfig = SchedulerConfig(cast(float, self.epsilon))
+        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
+
         self.memory.set_proportional_memory()
         self.dueling_network.set((512,), True)
 
     def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
-        self.epsilon = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
+        e = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
+        self.epsilon.set_constant(e)
 
     # 論文のハイパーパラメーター
     def set_atari_config(self):
         # Annealing e-greedy
-        self.initial_epsilon = 1.0
-        self.final_epsilon = 0.1
-        self.exploration_steps = 1_000_000
+        self.epsilon.set_linear(1_000_000, 1.0, 0.1)
         # model
         self.image_block.set_dqn_image()
         self.dueling_network.set((512,), True, "average")
 
         self.discount = 0.99
-        self.lr = 0.0000625
+        self.lr.set_constant(0.0000625)
         self.batch_size = 32
         self.memory_warmup_size: int = 80_000
         self.target_model_update_interval = 32000
@@ -179,6 +177,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
             "loss": {},
             "sync": {"type": int, "data": "last"},
             "epsilon": {"data": "last"},
+            "lr": {"data": "last"},
         }
 
 
@@ -325,14 +324,7 @@ class Worker(DiscreteActionWorker):
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.onehot_arr = np.identity(self.config.action_num, dtype=int)
 
-        self.step_epsilon = 0
-
-        if self.config.exploration_steps > 0:
-            self.initial_epsilon = self.config.initial_epsilon
-            self.epsilon_step = (
-                self.config.initial_epsilon - self.config.final_epsilon
-            ) / self.config.exploration_steps
-            self.final_epsilon = self.config.final_epsilon
+        self.epsilon_sch = self.config.epsilon.create_schedulers()
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self._recent_states = [self.dummy_state for _ in range(self.config.multisteps + 1)]
@@ -360,13 +352,7 @@ class Worker(DiscreteActionWorker):
             return self.action, {}
 
         if self.training:
-            if self.config.exploration_steps > 0:
-                # Annealing ε-greedy
-                epsilon = self.initial_epsilon - self.step_epsilon * self.epsilon_step
-                if epsilon < self.final_epsilon:
-                    epsilon = self.final_epsilon
-            else:
-                epsilon = self.config.epsilon
+            epsilon = self.epsilon_sch.get_rate(self.total_step)
         else:
             epsilon = self.config.test_epsilon
 
@@ -397,7 +383,6 @@ class Worker(DiscreteActionWorker):
 
         if not self.training:
             return {}
-        self.step_epsilon += 1
 
         # reward clip
         if self.config.enable_reward_clip:

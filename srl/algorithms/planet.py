@@ -17,6 +17,7 @@ from srl.base.rl.registration import register
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.utils.common import compare_less_version
 
 kl = keras.layers
@@ -34,7 +35,7 @@ ref: https://github.com/danijar/dreamer
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig, ExperienceReplayBufferConfig):
-    lr: float = 0.001
+    lr: float = 0.001  # type: ignore , type OK
     batch_size: int = 50
     batch_length: int = 50
     memory_warmup_size: int = 1000
@@ -66,6 +67,10 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     # other
     clip_rewards: str = "none"  # "none" or "tanh"
     dummy_state_val: float = 0.0
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -337,10 +342,12 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
+        self.lr_sch = self.config.lr.create_schedulers()
+
         if compare_less_version(tf.__version__, "2.11.0"):
-            self.optimizer = keras.optimizers.Adam()
+            self.optimizer = keras.optimizers.Adam(self.lr_sch.get_rate(0))
         else:
-            self.optimizer = keras.optimizers.legacy.Adam()
+            self.optimizer = keras.optimizers.legacy.Adam(self.lr_sch.get_rate(0))
 
         self.train_count = 0
 
@@ -446,6 +453,9 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, variables)
         for i in range(len(variables)):
             self.optimizer.apply_gradients(zip(grads[i], variables[i]))
+
+        lr = self.lr_sch.get_rate(self.train_count)
+        self.optimizer.learning_rate = lr
 
         self.train_count += 1
         return {

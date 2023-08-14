@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -17,6 +17,7 @@ from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
 
@@ -48,13 +49,18 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     policy_hidden_block: MLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
     q_hidden_block: MLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
 
-    discount: float = 0.9  # 割引率
-    lr: float = 0.005  # 学習率
+    discount: float = 0.9
+    lr: float = 0.005  # type: ignore , type OK
     soft_target_update_tau: float = 0.02
     hard_target_update_interval: int = 100
 
     batch_size: int = 32
     memory_warmup_size: int = 1000
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
 
     @property
     def base_action_type(self) -> RLTypes:
@@ -113,7 +119,7 @@ class _PolicyNetwork(keras.Model):
 
         # image
         if self.in_block.use_image_layer:
-            self.image_block = config.image_block_config.create_block_tf()
+            self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=False)
             self.image_flatten = kl.Flatten()
 
         # --- hidden block
@@ -137,7 +143,11 @@ class _PolicyNetwork(keras.Model):
         # build
         self.build((None,) + config.observation_shape)
 
-    def call(self, state, training=False):
+    # @tf.function
+    def call(self, x, training=False):
+        return self._call(x, training)
+
+    def _call(self, state, training=False):
         x = self.in_block(state, training=training)
         if self.in_block.use_image_layer:
             x = self.image_block(x, training=training)
@@ -176,7 +186,7 @@ class _PolicyNetwork(keras.Model):
 
         x = kl.Input(shape=self.__input_shape[1:])
         name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
         model.summary(**kwargs)
 
 
@@ -189,7 +199,7 @@ class _DualQNetwork(keras.Model):
 
         # image
         if self.in_block.use_image_layer:
-            self.image_block = config.image_block_config.create_block_tf()
+            self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=False)
             self.image_flatten = kl.Flatten()
 
         # q1
@@ -224,7 +234,11 @@ class _DualQNetwork(keras.Model):
             ]
         )
 
-    def call(self, inputs, training=False):
+    @tf.function
+    def call(self, x, training=False):
+        return self._call(x, training)
+
+    def _call(self, inputs, training=False):
         state = inputs[0]
         action = inputs[1]
 
@@ -264,7 +278,7 @@ class _DualQNetwork(keras.Model):
             kl.Input(shape=self.__input_shape[1][1:]),
         ]
         name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
         model.summary(**kwargs)
 
 
@@ -306,11 +320,13 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
+        self.lr_sch = self.config.lr.create_schedulers()
+
         self.train_count = 0
 
-        self.q_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
-        self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
-        self.alpha_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr)
+        self.q_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
+        self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
+        self.alpha_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
 
         # エントロピーαの目標値、-1×アクション数が良いらしい
         self.target_entropy = -1 * self.config.action_num
@@ -414,11 +430,17 @@ class Trainer(RLTrainer):
         if self.train_count % self.config.hard_target_update_interval == 0:
             self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
 
+        lr = self.lr_sch.get_rate(self.train_count)
+        self.q_optimizer.learning_rate = lr
+        self.policy_optimizer.learning_rate = lr
+        self.alpha_optimizer.learning_rate = lr
+
         self.train_count += 1
         return {
             "q_loss": q_loss.numpy(),
             "policy_loss": policy_loss.numpy(),
             "alpha_loss": log_alpha_loss.numpy(),
+            "lr": lr,
         }
 
 

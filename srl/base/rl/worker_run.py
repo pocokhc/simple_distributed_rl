@@ -50,6 +50,8 @@ class WorkerRun:
         self._invalid_actions: InvalidActionsType = []
         self._render = Render(worker)
 
+        self._total_step = 0
+
         if self._config.window_length > 1:
             self._dummy_state = self._config.create_dummy_state(is_one=True)
 
@@ -108,6 +110,10 @@ class WorkerRun:
     def invalid_actions(self) -> InvalidActionsType:
         return self._invalid_actions
 
+    @property
+    def total_step(self) -> int:
+        return self._total_step
+
     def on_reset(
         self,
         player_index: int,
@@ -165,6 +171,7 @@ class WorkerRun:
         # 初期化前はskip
         if not self._is_reset:
             return
+        self._total_step += 1
 
         # 相手の番のrewardも加算
         self._step_reward += self._env.step_rewards[self.player_index]

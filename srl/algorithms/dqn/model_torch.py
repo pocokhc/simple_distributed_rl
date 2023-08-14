@@ -31,7 +31,7 @@ class _QNetwork(nn.Module):
             in_size = flat_shape[0]
 
         self.hidden_block = config.hidden_block.create_block_torch(in_size)
-        self.out_layer = nn.Linear(self.hidden_block.out_shape[0], config.action_num)
+        self.out_layer = nn.Linear(self.hidden_block.out_size, config.action_num)
 
     def forward(self, x):
         x = self.in_block(x)
@@ -94,7 +94,9 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
-        self.optimizer = optim.Adam(self.parameter.q_online.parameters(), lr=self.config.lr)
+        self.lr_sch = self.config.lr.create_schedulers()
+
+        self.optimizer = optim.Adam(self.parameter.q_online.parameters(), lr=self.lr_sch.get_rate(0))
         self.criterion = nn.HuberLoss()
 
         self.train_count = 0
@@ -131,6 +133,10 @@ class Trainer(RLTrainer):
         loss.backward()
         self.optimizer.step()
 
+        lr = self.lr_sch.get_rate(self.train_count)
+        for param_group in self.optimizer.param_groups:
+            param_group["lr"] = lr
+
         # --- update
         td_errors = (target_q - q).to("cpu").detach().numpy()
         self.remote_memory.update(indices, batchs, td_errors)
@@ -141,4 +147,8 @@ class Trainer(RLTrainer):
             self.sync_count += 1
 
         self.train_count += 1
-        return {"loss": loss.item(), "sync": self.sync_count}
+        return {
+            "loss": loss.item(),
+            "sync": self.sync_count,
+            "lr": lr,
+        }

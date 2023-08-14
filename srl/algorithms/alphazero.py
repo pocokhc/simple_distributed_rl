@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Tuple
+from typing import Any, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -17,6 +17,7 @@ from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, Exp
 from srl.rl.models.alphazero_block import AlphaZeroBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
 
@@ -37,20 +38,14 @@ https://github.com/AppliedDataSciencePartners/DeepReinforcementLearning
 @dataclass
 class Config(RLConfig, ExperienceReplayBufferConfig):
     num_simulations: int = 100
-    discount: float = 1.0  # 割引率
+    discount: float = 1.0
 
     sampling_steps: int = 1
     batch_size: int = 128
     memory_warmup_size: int = 1000
 
     # 学習率
-    lr_schedule: List[dict] = field(
-        default_factory=lambda: [
-            {"train": 0, "lr": 0.02},
-            {"train": 100, "lr": 0.002},
-            {"train": 1000, "lr": 0.0002},
-        ]
-    )
+    lr: SchedulerConfig = field(init=False, default_factory=lambda: SchedulerConfig())
 
     # Root prior exploration noise.
     root_dirichlet_alpha: float = 0.3
@@ -68,6 +63,11 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     def __post_init__(self):
         super().__post_init__()
 
+        self.lr.clear()
+        self.lr.add_constant(100, 0.02)
+        self.lr.add_constant(1000, 0.002)
+        self.lr.add_constant(1, 0.0002)
+
         self.input_image_block.set_alphazero_block(3, 64)
         self.value_block.set_mlp((64,))
         self.policy_block.set_mlp(())
@@ -81,11 +81,10 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         self.root_exploration_fraction = 0.25
         self.batch_size = 4096
         self.memory_warmup_size = 10000
-        self.lr_schedule = [
-            {"train": 0, "lr": 0.02},
-            {"train": 300_000, "lr": 0.002},
-            {"train": 500_000, "lr": 0.0002},
-        ]
+        self.lr.clear()
+        self.lr.add_constant(300_000, 0.02)
+        self.lr.add_constant(200_000, 0.002)
+        self.lr.add_constant(1, 0.0002)
         self.input_image_block.set_alphazero_block(19, 256)
         self.value_block.set_mlp((256,))
         self.policy_block.set_mlp(())
@@ -107,7 +106,6 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     def assert_params(self) -> None:
         super().assert_params()
         assert self.batch_size <= self.memory_warmup_size
-        assert self.lr_schedule[0]["train"] == 0
 
     @property
     def info_types(self) -> dict:
@@ -290,12 +288,9 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
-        # lr_schedule
-        self.lr_schedule = {}
-        for lr_list in self.config.lr_schedule:
-            self.lr_schedule[lr_list["train"]] = lr_list["lr"]
+        self.lr_sch = self.config.lr.create_schedulers()
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_schedule[0])
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
 
         self.train_count = 0
 
@@ -334,19 +329,18 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, self.parameter.network.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.network.trainable_variables))
 
-        self.train_count += 1
-
         # lr_schedule
-        if self.train_count in self.lr_schedule:
-            self.optimizer.learning_rate = self.lr_schedule[self.train_count]
+        lr = self.lr_sch.get_rate(self.train_count)
+        self.optimizer.learning_rate = lr
 
         # 学習したらキャッシュは削除
         self.parameter.reset_cache()
 
+        self.train_count += 1
         return {
             "value_loss": np.mean(value_loss.numpy()),
             "policy_loss": np.mean(policy_loss.numpy()),
-            "lr": self.optimizer.learning_rate.numpy(),
+            "lr": lr,
         }
 
 

@@ -79,6 +79,10 @@ class WorkerBase(ABC, IRender):
     def player_index(self) -> int:
         return self.__worker_run.player_index
 
+    @property
+    def total_step(self) -> int:
+        return self.__worker_run.total_step
+
     def get_invalid_actions(self) -> InvalidActionsType:
         return self.__worker_run.get_invalid_actions()
 

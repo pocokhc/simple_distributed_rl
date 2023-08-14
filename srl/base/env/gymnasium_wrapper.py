@@ -296,7 +296,7 @@ class GymnasiumWrapper(EnvBase):
                 self.enable_flatten_observation = True
                 _obs_space, is_discrete = gym_space_flatten(self.env.observation_space)
                 if not is_discrete:
-                    if self._pred_space_discrete():
+                    if self.config.gym_prediction_by_simulation and self._pred_space_discrete():
                         _obs_type = EnvObservationTypes.DISCRETE
                     else:
                         _obs_type = EnvObservationTypes.CONTINUOUS

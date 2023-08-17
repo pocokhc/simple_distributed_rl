@@ -3,8 +3,7 @@ from typing import Tuple
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.rl.models.converter import convert_activation_tf
-from srl.rl.models.tf.noisy_dense import NoisyDense
+from srl.rl.models.tf.layers.noisy_dense import NoisyDense
 
 kl = keras.layers
 
@@ -24,8 +23,6 @@ class DuelingNetworkBlock(keras.Model):
         self.dueling_type = dueling_type
 
         assert len(layer_sizes) > 0
-
-        activation = convert_activation_tf(activation)
 
         if enable_noisy_dense:
             _Dense = NoisyDense
@@ -134,8 +131,6 @@ class NormalBlock(keras.Model):
         super().__init__(**kwargs)
 
         assert len(layer_sizes) > 0
-
-        activation = convert_activation_tf(activation)
 
         if enable_noisy_dense:
             _Dense = NoisyDense

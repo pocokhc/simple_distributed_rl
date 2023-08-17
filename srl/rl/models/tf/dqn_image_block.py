@@ -1,7 +1,5 @@
 from tensorflow import keras
 
-from srl.rl.models.converter import convert_activation_tf
-
 kl = keras.layers
 
 
@@ -14,8 +12,6 @@ class DQNImageBlock(keras.Model):
         **kwargs,
     ):
         super().__init__(**kwargs)
-
-        activation = convert_activation_tf(activation)
 
         self.image_layers = [
             kl.Conv2D(filters, (8, 8), strides=(4, 4), padding="same", activation=activation),

@@ -3,8 +3,8 @@ from typing import Tuple
 import torch
 import torch.nn as nn
 
-from srl.rl.models.converter import convert_activation_torch
-from srl.rl.models.torch_.noisy_linear import NoisyLinear
+from srl.rl.models.torch_.converter import convert_activation_torch
+from srl.rl.models.torch_.modules.noisy_linear import NoisyLinear
 
 
 class DuelingNetworkBlock(nn.Module):

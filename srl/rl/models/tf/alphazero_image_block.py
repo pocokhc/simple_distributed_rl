@@ -1,7 +1,5 @@
 from tensorflow import keras
 
-from srl.rl.models.converter import convert_activation_tf
-
 kl = keras.layers
 
 """
@@ -24,8 +22,6 @@ class AlphaZeroImageBlock(keras.Model):
         **kwargs,
     ):
         super().__init__(**kwargs)
-
-        activation = convert_activation_tf(activation)
 
         self.input_layers = [
             kl.BatchNormalization(),

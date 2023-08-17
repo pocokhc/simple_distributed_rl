@@ -1,9 +1,6 @@
-from typing import Any, Dict, Tuple
+from typing import Tuple
 
 from tensorflow import keras
-
-from srl.rl.models.converter import convert_activation_tf
-from srl.rl.models.tf.noisy_dense import NoisyDense
 
 kl = keras.layers
 
@@ -13,29 +10,33 @@ class MLPBlock(keras.Model):
         self,
         layer_sizes: Tuple[int, ...] = (512,),
         activation: str = "relu",
-        kernel_initializer: str = "he_normal",
-        dense_kwargs: Dict[str, Any] = {},
+        use_bias=True,
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        kernel_regularizer=None,
+        bias_regularizer=None,
+        activity_regularizer=None,
+        kernel_constraint=None,
+        bias_constraint=None,
         enable_time_distributed_layer: bool = False,
-        enable_noisy_dense: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
 
-        activation = convert_activation_tf(activation)
-
-        if enable_noisy_dense:
-            _Dense = NoisyDense
-        else:
-            _Dense = kl.Dense
-
         self.hidden_layers = []
         for h in layer_sizes:
             self.hidden_layers.append(
-                _Dense(
+                kl.Dense(
                     h,
                     activation=activation,
+                    use_bias=use_bias,
                     kernel_initializer=kernel_initializer,
-                    **dense_kwargs,
+                    bias_initializer=bias_initializer,
+                    kernel_regularizer=kernel_regularizer,
+                    bias_regularizer=bias_regularizer,
+                    activity_regularizer=activity_regularizer,
+                    kernel_constraint=kernel_constraint,
+                    bias_constraint=bias_constraint,
                 )
             )
 

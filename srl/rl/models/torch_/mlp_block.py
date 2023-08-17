@@ -2,8 +2,7 @@ from typing import Tuple
 
 import torch.nn as nn
 
-from srl.rl.models.converter import convert_activation_torch
-from srl.rl.models.torch_.noisy_linear import NoisyLinear
+from srl.rl.models.torch_.converter import convert_activation_torch, set_initializer_torch
 
 
 class MLPBlock(nn.Module):
@@ -12,20 +11,22 @@ class MLPBlock(nn.Module):
         in_size: int,
         layer_sizes: Tuple[int, ...] = (512,),
         activation="ReLU",
-        enable_noisy_dense: bool = False,
+        use_bias=True,
+        kernel_initializer: str = "he_normal",
+        bias_initializer="zeros",
     ):
         super().__init__()
 
         activation = convert_activation_torch(activation)
 
-        if enable_noisy_dense:
-            _Linear = NoisyLinear
-        else:
-            _Linear = nn.Linear
-
         self.hidden_layers = nn.ModuleList()
         for i in range(len(layer_sizes)):
-            self.hidden_layers.append(_Linear(in_size, layer_sizes[i]))
+            m = nn.Linear(in_size, layer_sizes[i], bias=use_bias)
+            if kernel_initializer != "":
+                set_initializer_torch(m.weight, kernel_initializer)
+            if use_bias and bias_initializer != "":
+                set_initializer_torch(m.bias, bias_initializer)
+            self.hidden_layers.append(m)
             self.hidden_layers.append(activation(inplace=True))
             in_size = layer_sizes[i]
 

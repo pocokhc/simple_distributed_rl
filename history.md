@@ -3,9 +3,31 @@
 1. tensorboard
 1. (IMPALA)
 1. get_valid_actions
-1. lr
 1. tf/torchの互換パラメータの作成
 1. remote
+1. train_countをparameter
+
+# v0.12.1
+
+**MainUpdates**
+
+1. [rl.schedulers] new: schedulersを作成
+1. [rl.algorithms] update: agent57を改善し、torchにも対応
+1. [runner] fix: psutilがmpでNanになるバグ修正
+1. [rl.models] move: ファイルの場所を整理
+1. [rl.models] update: activateをtf/torchで共通に
+1. [rl.models] update: mlp_blockの一部パラメータをtf/torchで共通に
+1. [rl.models] update: frameworkパラメータをクラス化
+1. [rl.models] refactor: DuelingNetworkをMLPと統合し、ハイパーパラメータから指定しやすく変更
+1. [rl.models] refactor: NoisyDenseを実装し、tensorflow_addonsを使用しないように変更
+1. [rl.models] update: torchのNoisyDenseを実装
+1. [register] change: envのIDが被ると上書きされる動作から例外を出す動作に変更
+1. [doc] big update: documentを大幅に見直して説明を追加
+
+**OtherUpdates**
+
+1. [env.gym_wrapper] fix: gym_prediction_by_simulationが反映されていない不具合修正
+1. [runner.callbacks.eval] fix: evalでseedを変えると上書きされるので無効に変更
 
 # v0.12.0
 

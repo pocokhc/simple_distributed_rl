@@ -1,7 +1,5 @@
 from tensorflow import keras
 
-from srl.rl.models.converter import convert_activation_tf
-
 kl = keras.layers
 
 """
@@ -19,8 +17,6 @@ class R2D3ImageBlock(keras.Model):
         **kwargs,
     ):
         super().__init__(**kwargs)
-
-        activation = convert_activation_tf(activation)
 
         self.res1 = _ResBlock(filters, activation, enable_time_distributed_layer)
         self.res2 = _ResBlock(filters * 2, activation, enable_time_distributed_layer)

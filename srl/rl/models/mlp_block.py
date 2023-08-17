@@ -11,7 +11,14 @@ class MLPBlockConfig:
         self,
         layer_sizes: Tuple[int, ...] = (512,),
         activation: str = "relu",
-        # kernel_initializer="he_normal", TODO
+        use_bias=True,
+        kernel_initializer="he_normal",
+        bias_initializer="zeros",
+        # kernel_regularizer=None,
+        # bias_regularizer=None,
+        # activity_regularizer=None,
+        # kernel_constraint=None,
+        # bias_constraint=None,
     ):
         """Multi-layer Perceptron Block
 
@@ -27,7 +34,9 @@ class MLPBlockConfig:
         self._kwargs = dict(
             layer_sizes=layer_sizes,
             activation=activation.lower(),
-            # kernel_initializer=kernel_initializer,
+            use_bias=use_bias,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
         )
 
     def set_custom_block(self, entry_point: str, kwargs: dict):
@@ -39,14 +48,13 @@ class MLPBlockConfig:
 
     # ---------------------
 
-    def create_block_tf(self, enable_noisy_dense: bool = False):
+    def create_block_tf(self):
         if self._name == "mlp":
             from .tf import mlp_block
 
             return mlp_block.MLPBlock(
                 **self._kwargs,
                 enable_time_distributed_layer=False,
-                enable_noisy_dense=enable_noisy_dense,
             )
 
         if self._name == "custom":
@@ -56,14 +64,13 @@ class MLPBlockConfig:
 
         raise ValueError(self._name)
 
-    def create_block_torch(self, in_size: int, enable_noisy_dense: bool = False):
+    def create_block_torch(self, in_size: int):
         if self._name == "mlp":
             from .torch_ import mlp_block
 
             return mlp_block.MLPBlock(
                 in_size,
                 **self._kwargs,
-                enable_noisy_dense=enable_noisy_dense,
             )
 
         if self._name == "custom":

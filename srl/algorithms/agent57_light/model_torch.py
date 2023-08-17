@@ -183,6 +183,13 @@ class Parameter(CommonInterfaceParameter):
         self.lifelong_target.eval()
 
     def call_restore(self, data: Any, **kwargs) -> None:
+        self.q_ext_online.to("cpu")
+        self.q_ext_target.to("cpu")
+        self.q_int_online.to("cpu")
+        self.q_int_target.to("cpu")
+        self.emb_network.to("cpu")
+        self.lifelong_target.to("cpu")
+        self.lifelong_train.to("cpu")
         self.q_ext_online.load_state_dict(data[0])
         self.q_ext_target.load_state_dict(data[0])
         self.q_int_online.load_state_dict(data[1])
@@ -206,6 +213,11 @@ class Parameter(CommonInterfaceParameter):
             self.lifelong_target.to("cpu").state_dict(),
             self.lifelong_train.to("cpu").state_dict(),
         ]
+        self.q_ext_online.to(self.device)
+        self.q_int_online.to(self.device)
+        self.emb_network.to(self.device)
+        self.lifelong_target.to(self.device)
+        self.lifelong_train.to(self.device)
         return d
 
     def summary(self, **kwargs):

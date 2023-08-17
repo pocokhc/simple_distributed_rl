@@ -61,7 +61,7 @@ class _QNetwork(nn.Module):
             enable_time_distributed_layer=True,
         )
 
-    def forward(self, inputs, hidden_states=None):
+    def forward(self, inputs, hidden_states):
         state = inputs[0]
         reward_ext = inputs[1]
         reward_int = inputs[2]
@@ -217,6 +217,13 @@ class Parameter(CommonInterfaceParameter):
         self.lifelong_target.eval()
 
     def call_restore(self, data: Any, **kwargs) -> None:
+        self.q_ext_online.to("cpu")
+        self.q_ext_target.to("cpu")
+        self.q_int_online.to("cpu")
+        self.q_int_target.to("cpu")
+        self.emb_network.to("cpu")
+        self.lifelong_target.to("cpu")
+        self.lifelong_train.to("cpu")
         self.q_ext_online.load_state_dict(data[0])
         self.q_ext_target.load_state_dict(data[0])
         self.q_int_online.load_state_dict(data[1])
@@ -240,6 +247,11 @@ class Parameter(CommonInterfaceParameter):
             self.lifelong_target.to("cpu").state_dict(),
             self.lifelong_train.to("cpu").state_dict(),
         ]
+        self.q_ext_online.to(self.device)
+        self.q_int_online.to(self.device)
+        self.emb_network.to(self.device)
+        self.lifelong_target.to(self.device)
+        self.lifelong_train.to(self.device)
         return d
 
     def summary(self, **kwargs):
@@ -306,6 +318,12 @@ class Parameter(CommonInterfaceParameter):
             q = self.lifelong_train(torch.tensor(x).to(self.device))
             q = q.to("cpu").detach().numpy()
         return q
+
+    def convert_numpy_from_hidden_state(self, h):
+        return [
+            h[0][0].to("cpu").detach().numpy(),
+            h[1][0].to("cpu").detach().numpy(),
+        ]
 
 
 # ------------------------------------------------------
@@ -390,17 +408,17 @@ class Trainer(RLTrainer):
         device = self.parameter.device
 
         # hidden_states
-        states_h_ext = torch.stack([h[0] for h in hidden_states_ext]).to(device)
-        states_c_ext = torch.stack([h[1] for h in hidden_states_ext]).to(device)
-        states_h_int = torch.stack([h[0] for h in hidden_states_int]).to(device)
-        states_c_int = torch.stack([h[1] for h in hidden_states_int]).to(device)
+        states_h_ext = np.stack([h[0] for h in hidden_states_ext])
+        states_c_ext = np.stack([h[1] for h in hidden_states_ext])
+        states_h_int = np.stack([h[0] for h in hidden_states_int])
+        states_c_int = np.stack([h[1] for h in hidden_states_int])
         # (batch, seq, h) -> (seq, batch, h)
-        states_h_ext = torch.permute(states_h_ext, (1, 0, 2))
-        states_c_ext = torch.permute(states_c_ext, (1, 0, 2))
-        states_h_int = torch.permute(states_h_int, (1, 0, 2))
-        states_c_int = torch.permute(states_c_int, (1, 0, 2))
-        hidden_states_ext = (states_h_ext, states_c_ext)
-        hidden_states_int = (states_h_int, states_c_int)
+        states_h_ext = np.transpose(states_h_ext, axes=(1, 0, 2))
+        states_c_ext = np.transpose(states_c_ext, axes=(1, 0, 2))
+        states_h_int = np.transpose(states_h_int, axes=(1, 0, 2))
+        states_c_int = np.transpose(states_c_int, axes=(1, 0, 2))
+        hidden_states_ext = (torch.from_numpy(states_h_ext).to(device), torch.from_numpy(states_c_ext).to(device))
+        hidden_states_int = (torch.from_numpy(states_h_int).to(device), torch.from_numpy(states_c_int).to(device))
         hidden_states_ext_t = hidden_states_ext
         hidden_states_int_t = hidden_states_int
 

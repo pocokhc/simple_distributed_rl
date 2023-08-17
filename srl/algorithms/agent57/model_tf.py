@@ -320,6 +320,9 @@ class Parameter(CommonInterfaceParameter):
     def predict_lifelong_train(self, x) -> np.ndarray:
         return self.lifelong_train(x).numpy()
 
+    def convert_numpy_from_hidden_state(self, h):
+        return [h[0][0], h[1][0]]
+
 
 # ------------------------------------------------------
 # Trainer

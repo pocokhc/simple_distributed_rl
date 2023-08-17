@@ -62,13 +62,17 @@ class Parameter(CommonInterfaceParameter):
         self.q_target.eval()
 
     def call_restore(self, data: Any, **kwargs) -> None:
+        self.q_online.to("cpu")
+        self.q_target.to("cpu")
         self.q_online.load_state_dict(data)
         self.q_target.load_state_dict(data)
         self.q_online.to(self.device)
         self.q_target.to(self.device)
 
     def call_backup(self, **kwargs) -> Any:
-        return self.q_online.to("cpu").state_dict()
+        d = self.q_online.to("cpu").state_dict()
+        self.q_online.to(self.device)
+        return d
 
     def summary(self, **kwargs):
         print(self.q_online)

@@ -226,6 +226,10 @@ class CommonInterfaceParameter(RLParameter, ABC):
     def predict_lifelong_train(self, x) -> np.ndarray:
         raise NotImplementedError()
 
+    @abstractmethod
+    def convert_numpy_from_hidden_state(self, h):
+        raise NotImplementedError()
+
     def change_batchs_format(self, batchs, weights):
         (
             states,
@@ -440,11 +444,11 @@ class Worker(DiscreteActionWorker):
         self.hidden_state_ext = self.parameter.get_initial_hidden_state_q_ext()
         self.hidden_state_int = self.parameter.get_initial_hidden_state_q_int()
         self.recent_hidden_states_ext = [
-            [self.hidden_state_ext[0][0], self.hidden_state_ext[1][0]]
+            self.parameter.convert_numpy_from_hidden_state(self.hidden_state_ext)
             for _ in range(self.config.burnin + self.config.sequence_length + 1)
         ]
         self.recent_hidden_states_int = [
-            [self.hidden_state_int[0][0], self.hidden_state_int[1][0]]
+            self.parameter.convert_numpy_from_hidden_state(self.hidden_state_int)
             for _ in range(self.config.burnin + self.config.sequence_length + 1)
         ]
 
@@ -590,19 +594,9 @@ class Worker(DiscreteActionWorker):
         self.recent_next_invalid_actions.pop(0)
         self.recent_next_invalid_actions.append(next_invalid_actions)
         self.recent_hidden_states_ext.pop(0)
-        self.recent_hidden_states_ext.append(
-            [
-                self.hidden_state_ext[0][0],
-                self.hidden_state_ext[1][0],
-            ]
-        )
+        self.recent_hidden_states_ext.append(self.parameter.convert_numpy_from_hidden_state(self.hidden_state_ext))
         self.recent_hidden_states_int.pop(0)
-        self.recent_hidden_states_int.append(
-            [
-                self.hidden_state_int[0][0],
-                self.hidden_state_int[1][0],
-            ]
-        )
+        self.recent_hidden_states_int.append(self.parameter.convert_numpy_from_hidden_state(self.hidden_state_int))
 
         if not self.training:
             return _info

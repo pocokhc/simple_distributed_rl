@@ -65,12 +65,7 @@ class Worker(DiscreteActionWorker):
 
         self.step_epsilon = 0
 
-        if self.config.exploration_steps > 0:
-            self.initial_epsilon = self.config.initial_epsilon
-            self.epsilon_step = (
-                self.config.initial_epsilon - self.config.final_epsilon
-            ) / self.config.exploration_steps
-            self.final_epsilon = self.config.final_epsilon
+        self.epsilon_sch = self.config.epsilon.create_schedulers()
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         return {}
@@ -85,13 +80,7 @@ class Worker(DiscreteActionWorker):
             return self.action, {}
 
         if self.training:
-            if self.config.exploration_steps > 0:
-                # Annealing ε-greedy
-                epsilon = self.initial_epsilon - self.step_epsilon * self.epsilon_step
-                if epsilon < self.final_epsilon:
-                    epsilon = self.final_epsilon
-            else:
-                epsilon = self.config.epsilon
+            epsilon = self.epsilon_sch.get_rate(self.total_step)
         else:
             epsilon = self.config.test_epsilon
 

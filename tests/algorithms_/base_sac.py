@@ -5,7 +5,12 @@ class BaseCase(CommonBaseClass):
     def _create_rl_config(self):
         from srl.algorithms import sac
 
-        return sac.Config()
+        rl_config = sac.Config(
+            lr_policy=0.003,
+            lr_q=0.003,
+            lr_alpha=0.001,
+        )
+        return rl_config
 
     def test_Pendulum(self):
         self.check_skip()

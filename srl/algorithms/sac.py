@@ -18,6 +18,7 @@ from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.utils.common import compare_less_version
 
 kl = keras.layers
 
@@ -45,22 +46,37 @@ SAC
 @dataclass
 class Config(RLConfig, ExperienceReplayBufferConfig):
     # model
-    image_block: ImageBlockConfig = field(default_factory=lambda: ImageBlockConfig())
-    policy_hidden_block: MLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
-    q_hidden_block: MLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
+    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
+    policy_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    q_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     discount: float = 0.9
-    lr: float = 0.005  # type: ignore , type OK
+    lr_policy: float = 0.001  # type: ignore , type OK
+    lr_q: float = 0.001  # type: ignore , type OK
+    lr_alpha: float = 0.0001  # type: ignore , type OK
     soft_target_update_tau: float = 0.02
     hard_target_update_interval: int = 100
 
     batch_size: int = 32
-    memory_warmup_size: int = 1000
+    memory_warmup_size: int = 500
+
+    enable_alpha_train: bool = True
+    alpha_no_learning: float = 0.1  # 学習しない場合のalpha値
+
+    #: 勾配爆発の対策, 平均、分散、ランダムアクションで大きい値を出さないようにclipする
+    enable_stable_gradients: bool = True  # 勾配爆発の対策
+    stable_gradients_max_stddev: float = 1
+    stable_gradients_normal_max_action: float = 1
 
     def __post_init__(self):
         super().__post_init__()
 
-        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
+        self.memory.capacity = 1000
+        self.lr_policy: SchedulerConfig = SchedulerConfig(cast(float, self.lr_policy))
+        self.lr_q: SchedulerConfig = SchedulerConfig(cast(float, self.lr_q))
+        self.lr_alpha: SchedulerConfig = SchedulerConfig(cast(float, self.lr_alpha))
+        self.policy_hidden_block.set_mlp((64, 64, 64))
+        self.q_hidden_block.set_mlp((128, 128, 128))
 
     @property
     def base_action_type(self) -> RLTypes:
@@ -113,6 +129,7 @@ class RemoteMemory(ExperienceReplayBuffer):
 class _PolicyNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
+        self.config = config
 
         # input
         self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
@@ -124,53 +141,55 @@ class _PolicyNetwork(keras.Model):
 
         # --- hidden block
         self.hidden_block = config.policy_hidden_block.create_block_tf()
-        self.hidden_layer = kl.LayerNormalization()  # 勾配爆発抑制用?
 
         # --- out layer
-        self.pi_mean_layer = kl.Dense(
+        self.mean_layer = kl.Dense(
             config.action_num,
             activation="linear",
-            kernel_initializer="truncated_normal",
-            bias_initializer="truncated_normal",
         )
-        self.pi_stddev_layer = kl.Dense(
+        # 分散が大きいとinfになるので0-1あたりに抑える
+        self.stddev_layer = kl.Dense(
             config.action_num,
             activation="linear",
-            kernel_initializer="truncated_normal",
-            bias_initializer="truncated_normal",
+            kernel_initializer=tf.keras.initializers.TruncatedNormal(mean=0.0, stddev=0.5),
+            bias_initializer="zeros",
         )
 
         # build
         self.build((None,) + config.observation_shape)
 
-    # @tf.function
-    def call(self, x, training=False):
-        return self._call(x, training)
-
-    def _call(self, state, training=False):
+    def call(self, state, training=False):
         x = self.in_block(state, training=training)
         if self.in_block.use_image_layer:
             x = self.image_block(x, training=training)
             x = self.image_flatten(x)
         x = self.hidden_block(x, training=training)
-        x = self.hidden_layer(x, training=training)
-        mean = self.pi_mean_layer(x)
-        stddev = self.pi_stddev_layer(x)
+        mean = self.mean_layer(x)
+        stddev = self.stddev_layer(x)
 
         # σ > 0
         stddev = tf.exp(stddev)
 
-        if mean.shape[0] is None:  # type:ignore , ignore check "None"
+        if self.config.enable_stable_gradients:
+            stddev = tf.clip_by_value(stddev, 0, self.config.stable_gradients_max_stddev)
+
+        if mean.shape[0] is None:
             return mean, stddev
 
         # Reparameterization trick
-        normal_random = tf.random.normal(mean.shape, mean=0.0, stddev=1.0)  # type:ignore , ignore check "None"
-        action_org = mean + stddev * normal_random
+        normal_random = tf.random.normal(mean.shape, mean=0.0, stddev=1.0)
+        if self.config.enable_stable_gradients:
+            normal_random = tf.clip_by_value(
+                normal_random,
+                -self.config.stable_gradients_normal_max_action,
+                self.config.stable_gradients_normal_max_action,
+            )
+        action = mean + stddev * normal_random
 
         # Squashed Gaussian Policy
-        action = tf.tanh(action_org)
+        sgp_action = tf.tanh(action)
 
-        return action, mean, stddev, action_org
+        return sgp_action, mean, stddev, action
 
     def build(self, input_shape):
         self.__input_shape = input_shape
@@ -186,7 +205,7 @@ class _PolicyNetwork(keras.Model):
 
         x = kl.Input(shape=self.__input_shape[1:])
         name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
         model.summary(**kwargs)
 
 
@@ -204,27 +223,11 @@ class _DualQNetwork(keras.Model):
 
         # q1
         self.q1_block = config.q_hidden_block.create_block_tf()
-        self.q1_layers = [
-            kl.LayerNormalization(),
-            kl.Dense(
-                1,
-                activation="linear",
-                kernel_initializer="truncated_normal",
-                bias_initializer="truncated_normal",
-            ),
-        ]
+        self.q1_out_layer = kl.Dense(1)
 
         # q2
         self.q2_block = config.q_hidden_block.create_block_tf()
-        self.q2_layers = [
-            kl.LayerNormalization(),
-            kl.Dense(
-                1,
-                activation="linear",
-                kernel_initializer="truncated_normal",
-                bias_initializer="truncated_normal",
-            ),
-        ]
+        self.q2_out_layer = kl.Dense(1)
 
         # build
         self.build(
@@ -249,13 +252,12 @@ class _DualQNetwork(keras.Model):
         x = tf.concat([x, action], axis=1)
 
         # q1
-        q1 = self.q1_block(x)
-        for layer in self.q1_layers:
-            q1 = layer(q1)
+        q1 = self.q1_block(x, training=training)
+        q1 = self.q1_out_layer(q1, training=training)
+
         # q2
-        q2 = self.q2_block(x)
-        for layer in self.q2_layers:
-            q2 = layer(q2)
+        q2 = self.q2_block(x, training=training)
+        q2 = self.q2_out_layer(q2, training=training)
 
         return q1, q2
 
@@ -320,13 +322,20 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.remote_memory: RemoteMemory = self.remote_memory
 
-        self.lr_sch = self.config.lr.create_schedulers()
+        self.lr_policy_sch = self.config.lr_policy.create_schedulers()
+        self.lr_q_sch = self.config.lr_q.create_schedulers()
+        self.lr_alpha_sch = self.config.lr_alpha.create_schedulers()
 
         self.train_count = 0
 
-        self.q_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
-        self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
-        self.alpha_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
+        if compare_less_version(tf.__version__, "2.11.0"):
+            self.q_optimizer = keras.optimizers.Adam(learning_rate=self.lr_policy_sch.get_rate(0))
+            self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.lr_q_sch.get_rate(0))
+            self.alpha_optimizer = keras.optimizers.Adam(learning_rate=self.lr_alpha_sch.get_rate(0))
+        else:
+            self.q_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_policy_sch.get_rate(0))
+            self.policy_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_q_sch.get_rate(0))
+            self.alpha_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_alpha_sch.get_rate(0))
 
         # エントロピーαの目標値、-1×アクション数が良いらしい
         self.target_entropy = -1 * self.config.action_num
@@ -360,24 +369,25 @@ class Trainer(RLTrainer):
         rewards = np.asarray(rewards).reshape((-1, 1))
 
         # 方策エントロピーの反映率αを計算
-        alpha = tf.math.exp(self.log_alpha)
+        if self.config.enable_alpha_train:
+            alpha = tf.math.exp(self.log_alpha)
+        else:
+            alpha = self.config.alpha_no_learning
 
         # ポリシーより次の状態のアクションを取得
-        n_actions, n_means, n_stddevs, n_action_orgs = self.parameter.policy(
-            n_states
-        )  # type:ignore , ignore check "None"
-        # 次の状態のアクションのlogpiを取得(Squashed Gaussian Policy時)
+        n_actions, n_means, n_stddevs, n_action_orgs = self.parameter.policy(n_states)
+        # 次の状態のアクションのlogpiを取得
         n_logpi = compute_logprob_sgp(n_means, n_stddevs, n_action_orgs)
 
         # 2つのQ値から小さいほうを採用(Clipped Double Q learning)して、
         # Q値を計算 : reward if done else (reward + discount * n_qval) - (alpha * H)
-        n_q1, n_q2 = self.parameter.q_target([n_states, n_actions])  # type:ignore , ignore check "None"
-        n_qval = self.config.discount * tf.minimum(n_q1, n_q2)  # type:ignore , ignore check "None"
+        n_q1, n_q2 = self.parameter.q_target([n_states, n_actions])
+        n_qval = self.config.discount * tf.minimum(n_q1, n_q2)
         q_vals = rewards + (1 - dones) * n_qval - (alpha * n_logpi)
 
         # --- Qモデルの学習
         with tf.GradientTape() as tape:
-            q1, q2 = self.parameter.q_online([states, actions], training=True)  # type:ignore , ignore check "None"
+            q1, q2 = self.parameter.q_online([states, actions], training=True)
             loss1 = tf.reduce_mean(tf.square(q_vals - q1))
             loss2 = tf.reduce_mean(tf.square(q_vals - q2))
             q_loss = (loss1 + loss2) / 2
@@ -389,36 +399,34 @@ class Trainer(RLTrainer):
         # --- ポリシーの学習
         with tf.GradientTape() as tape:
             # アクションを出力
-            selected_actions, means, stddevs, action_orgs = self.parameter.policy(
-                states, training=True
-            )  # type:ignore , ignore check "None"
+            selected_actions, means, stddevs, action_orgs = self.parameter.policy(states, training=True)
 
-            # logπ(a|s) (Squashed Gaussian Policy)
+            # logπ(a|s)
             logpi = compute_logprob_sgp(means, stddevs, action_orgs)
 
             # Q値を出力、小さいほうを使う
-            q1, q2 = self.parameter.q_online([states, selected_actions])  # type:ignore , ignore check "None"
+            q1, q2 = self.parameter.q_online([states, selected_actions], training=True)
             q_min = tf.minimum(q1, q2)
 
             # alphaは定数扱いなので勾配が流れないようにする
             policy_loss = q_min - (tf.stop_gradient(alpha) * logpi)
-
-            policy_loss = -tf.reduce_mean(policy_loss)  # 最大化
+            policy_loss = -tf.reduce_mean(policy_loss)
             policy_loss += tf.reduce_sum(self.parameter.policy.losses)  # 正則化項
 
         grads = tape.gradient(policy_loss, self.parameter.policy.trainable_variables)
         self.policy_optimizer.apply_gradients(zip(grads, self.parameter.policy.trainable_variables))
 
         # --- 方策エントロピーαの自動調整
-        _, means, stddevs, action_orgs = self.parameter.policy(states)  # type:ignore , ignore check "None"
-        logpi = compute_logprob_sgp(means, stddevs, action_orgs)
+        if self.config.enable_alpha_train:
+            _, means, stddevs, action_orgs = self.parameter.policy(states)
+            logpi = compute_logprob_sgp(means, stddevs, action_orgs)
 
-        with tf.GradientTape() as tape:
-            entropy_diff = -logpi - self.target_entropy
-            log_alpha_loss = tf.reduce_mean(tf.exp(self.log_alpha) * entropy_diff)
+            with tf.GradientTape() as tape:
+                entropy_diff = logpi + self.target_entropy
+                log_alpha_loss = tf.reduce_mean(-tf.exp(self.log_alpha) * entropy_diff)
 
-        grad = tape.gradient(log_alpha_loss, self.log_alpha)
-        self.alpha_optimizer.apply_gradients([(grad, self.log_alpha)])
+            grad = tape.gradient(log_alpha_loss, self.log_alpha)
+            self.alpha_optimizer.apply_gradients([(grad, self.log_alpha)])
 
         # --- soft target update
         self.parameter.q_target.set_weights(
@@ -430,17 +438,15 @@ class Trainer(RLTrainer):
         if self.train_count % self.config.hard_target_update_interval == 0:
             self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
 
-        lr = self.lr_sch.get_rate(self.train_count)
-        self.q_optimizer.learning_rate = lr
-        self.policy_optimizer.learning_rate = lr
-        self.alpha_optimizer.learning_rate = lr
+        self.q_optimizer.learning_rate = self.lr_q_sch.get_rate(self.train_count)
+        self.policy_optimizer.learning_rate = self.lr_policy_sch.get_rate(self.train_count)
+        self.alpha_optimizer.learning_rate = self.lr_alpha_sch.get_rate(self.train_count)
 
         self.train_count += 1
         return {
             "q_loss": q_loss.numpy(),
             "policy_loss": policy_loss.numpy(),
             "alpha_loss": log_alpha_loss.numpy(),
-            "lr": lr,
         }
 
 
@@ -467,13 +473,13 @@ class Worker(ContinuousActionWorker):
         else:
             # テスト時は平均を使う
             mean = tf.tanh(mean)
-            action = mean.numpy()[0]  # type:ignore , ignore check "None"
+            action = mean.numpy()[0]
 
         # Squashed Gaussian Policy (-1, 1) -> (action range)
         env_action = (action + 1) / 2
         env_action = self.config.action_low + env_action * (self.config.action_high - self.config.action_low)
 
-        self.mean = mean.numpy()[0]  # type:ignore , ignore check "None"
+        self.mean = mean.numpy()[0]
         self.stddev = stddev.numpy()[0]
         self.action = action
         return env_action.tolist(), {}
@@ -499,9 +505,7 @@ class Worker(ContinuousActionWorker):
         return {}
 
     def render_terminal(self, env, worker, **kwargs) -> None:
-        q1, q2 = self.parameter.q_online(
-            [self.state.reshape(1, -1), np.asarray([self.action])]
-        )  # type:ignore , ignore check "None"
+        q1, q2 = self.parameter.q_online([self.state.reshape(1, -1), np.asarray([self.action])])
         q1 = q1.numpy()[0][0]
         q2 = q2.numpy()[0][0]
 

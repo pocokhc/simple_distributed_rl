@@ -11,22 +11,28 @@
 
 **MainUpdates**
 
-1. [rl.schedulers] new: schedulersを作成
-1. [rl.algorithms] update: agent57を改善し、torchにも対応
-1. [runner] fix: psutilがmpでNanになるバグ修正
-1. [rl.models] move: ファイルの場所を整理
-1. [rl.models] update: activateをtf/torchで共通に
-1. [rl.models] update: mlp_blockの一部パラメータをtf/torchで共通に
-1. [rl.models] update: frameworkパラメータをクラス化
-1. [rl.models] refactor: DuelingNetworkをMLPと統合し、ハイパーパラメータから指定しやすく変更
-1. [rl.models] refactor: NoisyDenseを実装し、tensorflow_addonsを使用しないように変更
-1. [rl.models] update: torchのNoisyDenseを実装
-1. [register] change: envのIDが被ると上書きされる動作から例外を出す動作に変更
-1. [doc] big update: documentを大幅に見直して説明を追加
+1. [rl.schedulers] new: 特定のハイパーパラメータを動的に変更できる schedulers 機能を追加しました。
+1. [rl.algorithms] update: agent57を改善し、torch にも対応できるように大幅に修正しました。
+1. [rl.algorithms] update: sacの動作を修正し、いくつかのバグを修正しました。
+1. [rl.algorithms] update: ppoも合わせて修正しました。
+1. [rl.models]
+   1. move: ファイルの場所を見直し、いくつかのファイルを移動しました。
+   1. new: activateをtf/torchで共通にし、区別なく使えるようにしました。
+   1. new: mlp_blockの一部パラメータをtf/torchで共通に
+   1. change: tf/torchを決めるパラメータ'framework'をクラスに変更
+   1. change: DuelingNetworkをMLPと統合し、ハイパーパラメータから指定しやすくなるように変更
+   1. change: NoisyDenseを実装し、tensorflow_addonsを使用しないように変更
+   1. update: torchのNoisyDenseを実装
+1. [doc] big update: 構成を見直して大幅に更新。また、docstringを追加して説明を追加。
 
 **OtherUpdates**
 
+1. [rl.common_tf] fix: compute_logprobの計算方法が間違っていたので修正
+1. [register] change: envのIDが被ると上書きされる動作から例外を出す動作に変更
 1. [env.gym_wrapper] fix: gym_prediction_by_simulationが反映されていない不具合修正
+1. [docker] update: latestを最新に更新
+1. [runner] fix: psutilがmpでNanになるバグ修正
+1. [runner] delete: remote学習はいったん整理するために一時的に削除
 1. [runner.callbacks.eval] fix: evalでseedを変えると上書きされるので無効に変更
 
 # v0.12.0

@@ -13,14 +13,13 @@ class BaseCase(CommonBaseClass):
             batch_size=128,
             memory_warmup_size=1000,
             discount=0.9,
-            optimizer_initial_lr=0.01,
-            optimizer_final_lr=0.01,
             surrogate_type="clip",
             baseline_type="normal",
             experience_collection_method="MC",
             enable_value_clip=False,
             enable_state_normalized=False,
         )
+        rl_config.lr.set_linear(1000, 0.01, 0.001)
         rl_config.hidden_block.set_mlp((32, 32))
         rl_config.memory.capacity = 1000
         return rl_config
@@ -57,12 +56,16 @@ class BaseCase(CommonBaseClass):
         runner.train(max_train_count=10000)
         tester.eval(runner)
 
-    def test_EasyGrid_Continuous(self):
+    def test_Pendulum(self):
         self.check_skip()
-        # 学習できない… TODO
+        # うまく学習できない... TODO
         rl_config = self._create_rl_config()
         rl_config.override_action_type = RLTypes.CONTINUOUS
-        rl_config.hidden_block.set_mlp((64, 64, 64))
-        runner, tester = self.create_runner("EasyGrid", rl_config)
-        runner.train(max_train_count=100_000)
+        rl_config.lr.set_constant(0.0001)
+        rl_config.value_loss_weight = 0.5
+        rl_config.entropy_weight = 0.0001
+        rl_config.hidden_block.set_mlp((128,))
+        rl_config.policy_block.set_mlp((128, 128))
+        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=200 * 500)
         tester.eval(runner)

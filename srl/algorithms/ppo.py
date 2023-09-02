@@ -78,9 +78,10 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     state_clip: Optional[Tuple[float, float]] = None  # 状態のclip(Noneで無効、(-10,10)で指定)
     reward_clip: Optional[Tuple[float, float]] = None  # 報酬のclip(Noneで無効、(-10,10)で指定)
 
+    #: 勾配爆発の対策, 平均、分散、ランダムアクションで大きい値を出さないようにclipする
     enable_stable_gradients: bool = True  # 勾配爆発の対策
-    """ 勾配爆発の対策, 平均、分散、ランダムアクションで大きい値を出さないようにclipする """
-    stable_gradients_max_stddev: float = 2
+    stable_gradients_max_stddev: float = 1
+    stable_gradients_normal_max_action: float = 1
 
     def __post_init__(self):
         super().__post_init__()
@@ -157,12 +158,10 @@ class _ActorCriticNetwork(keras.Model):
             if config.enable_action_normalization:
                 self.mean_low = -1
                 self.mean_high = 1
-                self.action_range = 2
             else:
                 # mean の範囲はactionの取りうる範囲
                 self.mean_low = config.action_low
                 self.mean_high = config.action_high
-                self.action_range = config.action_high - config.action_low
 
         # Orthogonal initialization and layer scaling
         kernel_initializer = "orthogonal"
@@ -196,11 +195,11 @@ class _ActorCriticNetwork(keras.Model):
             self.pi_stddev_layer = kl.Dense(
                 config.action_num,
                 activation="linear",
-                kernel_initializer=kernel_initializer,
-                bias_initializer="truncated_normal",
+                kernel_initializer=tf.keras.initializers.TruncatedNormal(mean=0.0, stddev=0.5),
+                bias_initializer="zeros",
             )
         else:
-            raise ValueError(self.action_type)
+            raise ValueError(self.config.action_type)
 
         # build
         self.build((None,) + config.observation_shape)
@@ -242,14 +241,14 @@ class _ActorCriticNetwork(keras.Model):
             v, mean, stddev = self(state.reshape((1, -1)))
 
             # ガウス分布に従った乱数をだす
-            action = tf.random.normal(mean.shape, mean=mean, stddev=stddev)
-
+            normal_random = tf.random.normal(mean.shape, mean=0.0, stddev=1.0)
             if self.config.enable_stable_gradients:
-                action = tf.clip_by_value(
-                    action,
-                    mean - self.action_range,
-                    mean + self.action_range,
+                normal_random = tf.clip_by_value(
+                    normal_random,
+                    -self.config.stable_gradients_normal_max_action,
+                    self.config.stable_gradients_normal_max_action,
                 )
+            action = mean + stddev * normal_random
 
             return (
                 v.numpy()[0],

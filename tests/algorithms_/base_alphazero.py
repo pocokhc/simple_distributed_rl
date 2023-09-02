@@ -10,12 +10,11 @@ class BaseCase(CommonBaseClass):
             sampling_steps=1,
             batch_size=32,
             discount=1.0,
-            lr_schedule=[
-                {"train": 0, "lr": 0.02},
-                {"train": 100, "lr": 0.002},
-                {"train": 1000, "lr": 0.0002},
-            ],
         )
+        rl_config.lr.clear()
+        rl_config.lr.add_constant(100, 0.02)
+        rl_config.lr.add_constant(1000, 0.002)
+        rl_config.lr.add_constant(1, 0.0002)
         rl_config.input_image_block.set_alphazero_block(1, 32)
         rl_config.value_block.set_mlp((32,))
         return rl_config
@@ -81,6 +80,10 @@ class BaseCase(CommonBaseClass):
             {"train": 1000, "lr": 0.0005},
             {"train": 5000, "lr": 0.0002},
         ]
+        rl_config.lr.clear()
+        rl_config.lr.add_constant(1000, 0.001)
+        rl_config.lr.add_constant(5000, 0.0005)
+        rl_config.lr.add_constant(1, 0.0002)
         rl_config.input_image_block.set_alphazero_block(9, 32)
         rl_config.value_block.set_mlp((16, 16))
         rl_config.policy_block.set_mlp((32,))

@@ -23,4 +23,4 @@ def test_torch_mlp():
     y = y.detach().numpy()
 
     assert y.shape == (batch_size, 32)
-    assert block.out_shape == (32,)
+    assert block.out_size == 32

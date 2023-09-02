@@ -35,6 +35,6 @@ def test_Grid_continuous():
     rl_config = vanilla_policy.Config()
     rl_config.override_action_type = RLTypes.CONTINUOUS
     runner = Runner("Grid", rl_config)
-    runner.set_seed(2)
+    runner.set_seed(1)
     runner.train(max_train_count=100_000)
     tester.eval(runner)

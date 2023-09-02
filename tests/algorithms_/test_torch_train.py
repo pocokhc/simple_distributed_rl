@@ -1,8 +1,24 @@
 from srl.utils import common
 
-from . import base_agent57_light, base_dqn, base_rainbow
+from . import base_agent57, base_agent57_light, base_dqn, base_rainbow
 
 common.logger_print()
+
+
+class Test_agent57_CPU(base_agent57.BaseCase):
+    def get_framework(self) -> str:
+        return "torch"
+
+    def get_device(self) -> str:
+        return "CPU"
+
+
+class Test_agent57_GPU(base_agent57.BaseCase):
+    def get_framework(self) -> str:
+        return "torch"
+
+    def get_device(self) -> str:
+        return "GPU"
 
 
 class Test_agent57_light_CPU(base_agent57_light.BaseCase):

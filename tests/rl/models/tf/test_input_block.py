@@ -23,37 +23,6 @@ def call_block_tf(
     return y, block.use_image_layer, None
 
 
-def call_block_torch(
-    obs_shape,
-    obs_type,
-    x,
-    enable_time_distributed_layer=False,
-):
-    import torch
-
-    from srl.rl.models.torch_.input_block import InputBlock
-
-    block = InputBlock(
-        obs_shape,
-        obs_type,
-        enable_time_distributed_layer=enable_time_distributed_layer,
-    )
-    y = block(torch.tensor(x))
-    out_shape = block.out_shape
-
-    if len(y.shape) == 4:
-        # (batch, ch, h, w) -> (batch, h, w, ch)
-        y = y.permute((0, 2, 3, 1))
-        out_shape = (out_shape[1], out_shape[2], out_shape[0])
-    if len(y.shape) == 5:
-        # (batch, len, ch, h, w) -> (batch, len, h, w, ch)
-        y = y.permute((0, 1, 3, 4, 2))
-        out_shape = (out_shape[1], out_shape[2], out_shape[0])
-
-    y = y.detach().numpy()
-    return y, block.use_image_layer, out_shape
-
-
 pattern0 = [
     ((2, 4, 8), EnvObservationTypes.UNKNOWN, (2 * 4 * 8,), False),
     ((2, 4, 8), EnvObservationTypes.DISCRETE, (2 * 4 * 8,), False),
@@ -70,12 +39,6 @@ pattern0 = [
 def test_window_0_tf(obs_shape, obs_type, true_shape, true_image):
     pytest.importorskip("tensorflow")
     _window_0(call_block_tf, obs_shape, obs_type, true_shape, true_image)
-
-
-@pytest.mark.parametrize("obs_shape, obs_type, true_shape, true_image", pattern0)
-def test_window_0_torch(obs_shape, obs_type, true_shape, true_image):
-    pytest.importorskip("torch")
-    _window_0(call_block_torch, obs_shape, obs_type, true_shape, true_image)
 
 
 def _window_0(call_block, obs_shape, obs_type, true_shape, true_image):
@@ -105,12 +68,6 @@ pattern10 = [
 def test_window_10_tf(obs_shape, obs_type, true_shape, true_image, is_throw):
     pytest.importorskip("tensorflow")
     _window_10(call_block_tf, obs_shape, obs_type, true_shape, true_image, is_throw)
-
-
-@pytest.mark.parametrize("obs_shape, obs_type, true_shape, true_image, is_throw", pattern10)
-def test_window_10_torch(obs_shape, obs_type, true_shape, true_image, is_throw):
-    pytest.importorskip("torch")
-    _window_10(call_block_torch, obs_shape, obs_type, true_shape, true_image, is_throw)
 
 
 def _window_10(call_block, obs_shape, obs_type, true_shape, true_image, is_throw):
@@ -144,12 +101,6 @@ pattern_time = [
 def test_time_layer_tf(obs_shape, obs_type, true_shape, true_image):
     pytest.importorskip("tensorflow")
     _time_layer(call_block_tf, obs_shape, obs_type, true_shape, true_image)
-
-
-@pytest.mark.parametrize("obs_shape, obs_type, true_shape, true_image", pattern_time)
-def test_time_layer_torch(obs_shape, obs_type, true_shape, true_image):
-    pytest.importorskip("torch")
-    _time_layer(call_block_torch, obs_shape, obs_type, true_shape, true_image)
 
 
 def _time_layer(call_block, obs_shape, obs_type, true_shape, true_image):

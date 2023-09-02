@@ -8,13 +8,25 @@ from srl.utils import common
 common.logger_print()
 
 
+class Test_agent57(TestRL, unittest.TestCase):
+    def init_simple_check(self) -> None:
+        pytest.importorskip("torch")
+
+        from srl.algorithms import agent57
+
+        self.rl_config = agent57.Config()
+        self.rl_config.framework.set_torch()
+        self.rl_config.memory_warmup_size = 100
+
+
 class Test_agent57_light(TestRL, unittest.TestCase):
     def init_simple_check(self) -> None:
         pytest.importorskip("torch")
 
         from srl.algorithms import agent57_light
 
-        self.rl_config = agent57_light.Config(framework="torch")
+        self.rl_config = agent57_light.Config()
+        self.rl_config.framework.set_torch()
         self.rl_config.memory_warmup_size = 100
 
 
@@ -24,7 +36,8 @@ class Test_dqn(TestRL, unittest.TestCase):
 
         from srl.algorithms import dqn
 
-        self.rl_config = dqn.Config(framework="torch")
+        self.rl_config = dqn.Config()
+        self.rl_config.framework.set_torch()
 
     def test_simple_check_atari_config(self):
         self.init_simple_check()
@@ -40,7 +53,8 @@ class Test_rainbow(TestRL, unittest.TestCase):
 
         from srl.algorithms import rainbow
 
-        self.rl_config = rainbow.Config(framework="torch")
+        self.rl_config = rainbow.Config()
+        self.rl_config.framework.set_torch()
 
     def test_simple_check_atari_config(self):
         pytest.importorskip("torch")

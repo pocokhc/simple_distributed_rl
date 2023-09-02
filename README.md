@@ -21,7 +21,8 @@
 
 # 1. Install/Download
 
-numpyライブラリだけ必須になるので入れてください。
+必須ライブラリはnumpyだけです。  
+ただ使う機能によっては他のライブラリをインストール必要があります。（後述）  
 
 ``` bash
 pip install numpy

@@ -6,7 +6,8 @@ Installation
 
 .. currentmodule:: srl
 
-numpyライブラリだけ必須になるので入れてください。
+必須ライブラリはnumpyだけです。
+ただ使う機能によっては他のライブラリをインストール必要があります。（後述）
 
 .. code-block:: console
 
@@ -32,10 +33,6 @@ GitHubから直接インストールするコマンドは以下です。
     $ cd simple_distributed_rl
     $ pip install .
 
-動作確認用のサンプルコードは以下です。
-
-.. literalinclude:: ../../examples/sample_basic.py
-
 
 Download(No install)
 ====================
@@ -57,6 +54,15 @@ srlディレクトリに実行パスが通っていればダウンロードだ�
 
     import srl
     print(srl.__version__)
+
+
+Sample code
+====================
+
+動作確認用のサンプルコードは以下です。
+
+.. literalinclude:: ../../examples/sample_basic.py
+
 
 
 Using library

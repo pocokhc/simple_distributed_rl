@@ -23,7 +23,6 @@ from srl.rl.functions.common import (
 from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
 from srl.rl.models.dueling_network import DuelingNetworkConfig
 from srl.rl.models.image_block import ImageBlockConfig
-from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
@@ -72,7 +71,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     actor_alpha: float = 7.0
 
     # model
-    image_block_config: ImageBlockConfig = field(default_factory=lambda: ImageBlockConfig())
+    image_block_config: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
     lstm_units: int = 512
     dueling_network: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 

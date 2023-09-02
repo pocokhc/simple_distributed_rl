@@ -162,6 +162,15 @@ class Test_planet(TestRL, unittest.TestCase):
         self.rl_config.use_render_image_for_observation = True
 
 
+class Test_ppo(TestRL, unittest.TestCase):
+    def init_simple_check(self) -> None:
+        pytest.importorskip("tensorflow")
+
+        from srl.algorithms import ppo
+
+        self.rl_config = ppo.Config()
+
+
 class Test_r2d2(TestRL, unittest.TestCase):
     def init_simple_check(self) -> None:
         pytest.importorskip("tensorflow")

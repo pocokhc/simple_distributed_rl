@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to SimpleDistributedRL&#39;s documentation! &mdash; SimpleDistributedRL 0.12.0 ドキュメント</title>
+  <title>Welcome to SimpleDistributedRL&#39;s documentation! &mdash; SimpleDistributedRL 0.12.1 ドキュメント</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -20,7 +20,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="索引" href="genindex.html" />
     <link rel="search" title="検索" href="search.html" />
-    <link rel="next" title="1. Installation" href="pages/install.html" /> 
+    <link rel="next" title="Installation" href="pages/install.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -44,10 +44,21 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="pages/install.html">1. Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/quickstart.html">2. Getting Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/custom_env.html">3. Create Original Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/custom_algorithm.html">4. Create Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/quickstart.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/howtouse.html">How To Use</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Custom</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/custom_env.html">Create Original Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/custom_algorithm.html">Create Original Algorithm</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/env_config.html">EnvConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config.html">RLConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_tree.html">RLConfig Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html">Runner</a></li>
 </ul>
 
         </div>
@@ -79,33 +90,66 @@
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="pages/install.html">1. Installation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="pages/install.html#id1">1.1. Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/install.html#download-no-install">1.2. Download(No install)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/install.html#using-library">1.3. Using library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/install.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/install.html#id1">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/install.html#download-no-install">Download(No install)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/install.html#sample-code">Sample code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/install.html#using-library">Using library</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="pages/quickstart.html">2. Getting Started</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="pages/quickstart.html#basic-run-of-study">2.1. Basic run of study</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/quickstart.html#commonly-run-example">2.2. Commonly run Example</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/quickstart.html#how-to-load-external-environment">2.3. How to load external environment</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/quickstart.html#other-run-methods">2.4. Other Run Methods</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/quickstart.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/quickstart.html#basic-run-of-study">Basic run of study</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/quickstart.html#how-to-load-external-environment">How to load external environment</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="pages/custom_env.html">3. Create Original Environment</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id1">3.1. 実装クラス</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#space">3.2. Spaceクラスについて</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id6">3.3. 自作環境の登録</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id7">3.4. 実装例</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id8">3.5. テスト</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#q">3.6. Q学習による学習</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/howtouse.html">How To Use</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/howtouse.html#envconfig">EnvConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/howtouse.html#rlconfig">RLConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/howtouse.html#runner">Runner</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="pages/custom_algorithm.html">4. Create Original Algorithm</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id1">4.1. 概要</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id2">4.2. 実装する各クラスの説明</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id4">4.3. 自作アルゴリズムの登録</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#q">4.4. 実装例(Q学習)</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Custom</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/custom_env.html">Create Original Environment</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id1">実装クラス</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#space">Spaceクラスについて</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id6">自作環境の登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id7">実装例</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id8">テスト</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#q">Q学習による学習</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/custom_algorithm.html">Create Original Algorithm</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id1">概要</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id2">実装する各クラスの説明</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id4">自作アルゴリズムの登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#q">実装例(Q学習)</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/env_config.html">EnvConfig</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/env_config.html#srl.base.env.config.EnvConfig"><code class="docutils literal notranslate"><span class="pre">EnvConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config.html">RLConfig</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config.html#srl.base.rl.config.RLConfig"><code class="docutils literal notranslate"><span class="pre">RLConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_tree.html">RLConfig Parameters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_memory.html">Memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html">Model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_scheduler.html">Scheduler</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html">Runner</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/runner.html#srl.runner.runner.Runner"><code class="docutils literal notranslate"><span class="pre">Runner</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -124,7 +168,7 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="pages/install.html" class="btn btn-neutral float-right" title="1. Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="pages/install.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

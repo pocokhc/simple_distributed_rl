@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>4. Create Original Algorithm &mdash; SimpleDistributedRL 0.12.0 ドキュメント</title>
+  <title>Create Original Algorithm &mdash; SimpleDistributedRL 0.12.1 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -20,7 +20,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
-    <link rel="prev" title="3. Create Original Environment" href="custom_env.html" /> 
+    <link rel="next" title="EnvConfig" href="env_config.html" />
+    <link rel="prev" title="Create Original Environment" href="custom_env.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -43,36 +44,47 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="install.html">1. Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="quickstart.html">2. Getting Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="custom_env.html">3. Create Original Environment</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">4. Create Original Algorithm</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#id1">4.1. 概要</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id2">4.2. 実装する各クラスの説明</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#config">4.2.1. Config</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#remotememory">4.2.2. RemoteMemory</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#sequenceremotememory">4.2.2.1. SequenceRemoteMemory</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#experiencereplaybuffer">4.2.2.2. ExperienceReplayBuffer</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#priorityexperiencereplay">4.2.2.3. PriorityExperienceReplay</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#iprioritymemoryconfig">4.2.2.4. IPriorityMemoryConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Create Original Environment</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Create Original Algorithm</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#id1">概要</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id2">実装する各クラスの説明</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#config">Config</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#remotememory">RemoteMemory</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sequenceremotememory">SequenceRemoteMemory</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#experiencereplaybuffer">ExperienceReplayBuffer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#priorityexperiencereplay">PriorityExperienceReplay</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#iprioritymemoryconfig">IPriorityMemoryConfig</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#parameter">4.2.3. Parameter</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#trainer">4.2.4. Trainer</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#worker">4.2.5. Worker</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#discreteactionworker">4.2.5.1. DiscreteActionWorker</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#continuousactionworker">4.2.5.2. ContinuousActionWorker</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#rlworker">4.2.5.3. RLWorker</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id3">4.2.5.4. Worker共通のプロパティ・関数</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter">Parameter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#trainer">Trainer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#worker">Worker</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#discreteactionworker">DiscreteActionWorker</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#continuousactionworker">ContinuousActionWorker</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#rlworker">RLWorker</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id3">Worker共通のプロパティ・関数</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#id4">4.3. 自作アルゴリズムの登録</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#q">4.4. 実装例(Q学習)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id4">自作アルゴリズムの登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#q">実装例(Q学習)</a></li>
 </ul>
 </li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="env_config.html">EnvConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner</a></li>
 </ul>
 
         </div>
@@ -89,7 +101,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active"><span class="section-number">4. </span>Create Original Algorithm</li>
+      <li class="breadcrumb-item active">Create Original Algorithm</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/pages/custom_algorithm.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -100,7 +112,7 @@
            <div itemprop="articleBody">
              
   <section id="create-original-algorithm">
-<span id="custom-algorithm"></span><h1><span class="section-number">4. </span>Create Original Algorithm<a class="headerlink" href="#create-original-algorithm" title="この見出しへのパーマリンク"></a></h1>
+<span id="custom-algorithm"></span><h1>Create Original Algorithm<a class="headerlink" href="#create-original-algorithm" title="この見出しへのパーマリンク"></a></h1>
 <p>ここでは本フレームワークでの自作アルゴリズムを作成する方法を説明します。
 構成としては大きく以下です。</p>
 <ol class="arabic simple">
@@ -120,7 +132,7 @@
 <li><p>Q学習実装例</p></li>
 </ol>
 <section id="id1">
-<h2><span class="section-number">4.1. </span>概要<a class="headerlink" href="#id1" title="この見出しへのパーマリンク"></a></h2>
+<h2>概要<a class="headerlink" href="#id1" title="この見出しへのパーマリンク"></a></h2>
 <p>自作アルゴリズムでは5つクラスを定義する必要があり、以下のように連携して動作します。</p>
 <img alt="../_images/overview-sequence.drawio.png" src="../_images/overview-sequence.drawio.png" />
 <p>図では現れていませんが、5つ目としてハイパーパーパラメータを管理するConfigクラスがいます。
@@ -176,9 +188,9 @@
 <p>各クラスの実装の仕方を見ていきます。</p>
 </section>
 <section id="id2">
-<h2><span class="section-number">4.2. </span>実装する各クラスの説明<a class="headerlink" href="#id2" title="この見出しへのパーマリンク"></a></h2>
+<h2>実装する各クラスの説明<a class="headerlink" href="#id2" title="この見出しへのパーマリンク"></a></h2>
 <section id="config">
-<h3><span class="section-number">4.2.1. </span>Config<a class="headerlink" href="#config" title="この見出しへのパーマリンク"></a></h3>
+<h3>Config<a class="headerlink" href="#config" title="この見出しへのパーマリンク"></a></h3>
 <p>強化学習アルゴリズムの種類やハイパーパラメータ等を管理するクラスです。
 基底クラスは <cite>srl.base.rl.base.RLConfig</cite> でこれを継承して作成します。</p>
 <p>RLConfig で実装が必要な関数・プロパティは以下です。</p>
@@ -245,7 +257,7 @@
 </div>
 </section>
 <section id="remotememory">
-<h3><span class="section-number">4.2.2. </span>RemoteMemory<a class="headerlink" href="#remotememory" title="この見出しへのパーマリンク"></a></h3>
+<h3>RemoteMemory<a class="headerlink" href="#remotememory" title="この見出しへのパーマリンク"></a></h3>
 <p>Workerが取得したサンプル(batch)をTrainerに渡す役割を持っているクラスです。
 分散学習では multiprocessing のサーバプロセス(Manager)になります。
 ですので、変数へのアクセスができなくなる点だけ制約があります。
@@ -296,7 +308,7 @@
 </pre></div>
 </div>
 <section id="sequenceremotememory">
-<h4><span class="section-number">4.2.2.1. </span>SequenceRemoteMemory<a class="headerlink" href="#sequenceremotememory" title="この見出しへのパーマリンク"></a></h4>
+<h4>SequenceRemoteMemory<a class="headerlink" href="#sequenceremotememory" title="この見出しへのパーマリンク"></a></h4>
 <p>順番通りにサンプルを取り出します RemoteMemory です。
 サンプルは取り出すとなくなります。</p>
 <p>ハイパーパラメータは特にないので継承するだけで実装できます。
@@ -319,7 +331,7 @@
 </div>
 </section>
 <section id="experiencereplaybuffer">
-<h4><span class="section-number">4.2.2.2. </span>ExperienceReplayBuffer<a class="headerlink" href="#experiencereplaybuffer" title="この見出しへのパーマリンク"></a></h4>
+<h4>ExperienceReplayBuffer<a class="headerlink" href="#experiencereplaybuffer" title="この見出しへのパーマリンク"></a></h4>
 <p>ランダムにサンプルを取り出すRemoteMemoryです。
 継承すると add 関数と sample 関数が追加されるのでそれを使います。</p>
 <p>ハイパーパラメータがあるのでRLConfigでハイパーパラメータの追加が必要です。</p>
@@ -366,7 +378,7 @@
 </div>
 </section>
 <section id="priorityexperiencereplay">
-<h4><span class="section-number">4.2.2.3. </span>PriorityExperienceReplay<a class="headerlink" href="#priorityexperiencereplay" title="この見出しへのパーマリンク"></a></h4>
+<h4>PriorityExperienceReplay<a class="headerlink" href="#priorityexperiencereplay" title="この見出しへのパーマリンク"></a></h4>
 <p>優先順位に従ってサンプルを取り出すRemoteMemoryです。
 継承すると add,sample,update,on_step関数が追加されます。
 （on_stepはworkerで使用）</p>
@@ -417,7 +429,7 @@
 </div>
 </section>
 <section id="iprioritymemoryconfig">
-<h4><span class="section-number">4.2.2.4. </span>IPriorityMemoryConfig<a class="headerlink" href="#iprioritymemoryconfig" title="この見出しへのパーマリンク"></a></h4>
+<h4>IPriorityMemoryConfig<a class="headerlink" href="#iprioritymemoryconfig" title="この見出しへのパーマリンク"></a></h4>
 <p>PriorityExperienceReplayはアルゴリズムがいくつかあるので、IPriorityMemoryConfig で切り替えれるようにしています。
 具体的なアルゴリズムは以下です。</p>
 <table class="docutils align-default">
@@ -445,7 +457,7 @@
 </section>
 </section>
 <section id="parameter">
-<h3><span class="section-number">4.2.3. </span>Parameter<a class="headerlink" href="#parameter" title="この見出しへのパーマリンク"></a></h3>
+<h3>Parameter<a class="headerlink" href="#parameter" title="この見出しへのパーマリンク"></a></h3>
 <p>パラメータを管理するクラスです。
 深層学習の場合はここにニューラルネットワークを定義することを想定しています。</p>
 <p>実装が必要な関数は以下です。</p>
@@ -473,7 +485,7 @@
 </div>
 </section>
 <section id="trainer">
-<h3><span class="section-number">4.2.4. </span>Trainer<a class="headerlink" href="#trainer" title="この見出しへのパーマリンク"></a></h3>
+<h3>Trainer<a class="headerlink" href="#trainer" title="この見出しへのパーマリンク"></a></h3>
 <p>学習を定義する部分です。
 RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <p>実装が必要な関数は以下です。</p>
@@ -503,7 +515,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 </div>
 </section>
 <section id="worker">
-<h3><span class="section-number">4.2.5. </span>Worker<a class="headerlink" href="#worker" title="この見出しへのパーマリンク"></a></h3>
+<h3>Worker<a class="headerlink" href="#worker" title="この見出しへのパーマリンク"></a></h3>
 <p>実際に環境と連携して経験を収集するクラスです。
 役割は、Parameterを参照してアクションを決める事と、サンプルをRemoteMemoryに送信する事です。</p>
 <p>RLWorkerとRLTrainerのフローをすごく簡単に書くと以下です。</p>
@@ -555,7 +567,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 </tbody>
 </table>
 <section id="discreteactionworker">
-<h4><span class="section-number">4.2.5.1. </span>DiscreteActionWorker<a class="headerlink" href="#discreteactionworker" title="この見出しへのパーマリンク"></a></h4>
+<h4>DiscreteActionWorker<a class="headerlink" href="#discreteactionworker" title="この見出しへのパーマリンク"></a></h4>
 <p>DiscreteActionWorkerで実装が必要な関数は以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.algorithms.discrete_action</span> <span class="kn">import</span> <span class="n">DiscreteActionWorker</span>
 
@@ -618,7 +630,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 </div>
 </section>
 <section id="continuousactionworker">
-<h4><span class="section-number">4.2.5.2. </span>ContinuousActionWorker<a class="headerlink" href="#continuousactionworker" title="この見出しへのパーマリンク"></a></h4>
+<h4>ContinuousActionWorker<a class="headerlink" href="#continuousactionworker" title="この見出しへのパーマリンク"></a></h4>
 <p>ContinuousActionWorkerで実装が必要な関数は以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.algorithms.continuous_action</span> <span class="kn">import</span> <span class="n">ContinuousActionWorker</span>
 
@@ -672,7 +684,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 </div>
 </section>
 <section id="rlworker">
-<h4><span class="section-number">4.2.5.3. </span>RLWorker<a class="headerlink" href="#rlworker" title="この見出しへのパーマリンク"></a></h4>
+<h4>RLWorker<a class="headerlink" href="#rlworker" title="この見出しへのパーマリンク"></a></h4>
 <p>RLWorker は実行時のクラスである WorkerRun を直接操作して実装するクラスです。
 出来ることが多いのと、仕様が変わる可能性大きいので詳細は一旦保留します。(TODO)</p>
 <p>実装が必要な関数は以下です。</p>
@@ -734,7 +746,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 </div>
 </section>
 <section id="id3">
-<h4><span class="section-number">4.2.5.4. </span>Worker共通のプロパティ・関数<a class="headerlink" href="#id3" title="この見出しへのパーマリンク"></a></h4>
+<h4>Worker共通のプロパティ・関数<a class="headerlink" href="#id3" title="この見出しへのパーマリンク"></a></h4>
 <p>Workerで共通して持っているプロパティ・関数は以下となります。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
 <span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLAction</span>
@@ -802,7 +814,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 </section>
 </section>
 <section id="id4">
-<h2><span class="section-number">4.3. </span>自作アルゴリズムの登録<a class="headerlink" href="#id4" title="この見出しへのパーマリンク"></a></h2>
+<h2>自作アルゴリズムの登録<a class="headerlink" href="#id4" title="この見出しへのパーマリンク"></a></h2>
 <p>以下で登録します。
 第2引数以降の entry_point は、<cite>モジュールパス + &quot;:&quot; + クラス名`で、
 モジュールパスは `importlib.import_module</cite> で呼び出せる形式である必要があります。</p>
@@ -818,7 +830,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 </div>
 </section>
 <section id="q">
-<h2><span class="section-number">4.4. </span>実装例(Q学習)<a class="headerlink" href="#q" title="この見出しへのパーマリンク"></a></h2>
+<h2>実装例(Q学習)<a class="headerlink" href="#q" title="この見出しへのパーマリンク"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
@@ -1143,7 +1155,8 @@ work0 {}
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="custom_env.html" class="btn btn-neutral float-left" title="3. Create Original Environment" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="custom_env.html" class="btn btn-neutral float-left" title="Create Original Environment" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="env_config.html" class="btn btn-neutral float-right" title="EnvConfig" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

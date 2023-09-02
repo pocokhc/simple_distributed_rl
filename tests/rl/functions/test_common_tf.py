@@ -4,14 +4,13 @@ import numpy as np
 import pytest
 
 
-def _normal(x, mean, stddev, epsilon=1e-10):
+def _normal(mean, stddev, x, epsilon=1e-10):
     x = np.array(x, dtype=np.float32)
     mean = np.array(mean, dtype=np.float32)
     stddev = np.array(stddev, dtype=np.float32)
     stddev = np.clip(stddev, epsilon, None)
-    a1 = np.exp(-((x - mean) ** 2 / (2 * stddev)))
-    a2 = np.sqrt(2 * np.pi * stddev)
-    return a1 / a2
+    y = (1 / (stddev * np.sqrt(2 * np.pi))) * np.exp(-((x - mean) ** 2) / (2 * stddev**2))
+    return np.array(y, dtype=np.float32)
 
 
 @pytest.mark.parametrize(
@@ -32,8 +31,8 @@ def test_compute_logprob(action, mean, stddev):
 
     epsilon = 1e-10
 
-    np_pi = _normal(action, mean, stddev, epsilon)
-    np_logpi = np.log(np_pi)
+    np_pi = _normal(mean, stddev, action, epsilon)
+    np_logpi = np.log(np_pi).astype(np.float32)
 
     logpi = compute_logprob(
         tf.constant([mean], dtype=np.float32),
@@ -49,7 +48,7 @@ def test_compute_logprob(action, mean, stddev):
     print(pi)
     print(np_logpi)
     print(logpi)
-    assert math.isclose(np_pi, pi, rel_tol=0.1)
+    assert math.isclose(np_pi, pi, rel_tol=0.00001)
     assert math.isclose(np_logpi, logpi, rel_tol=0.000001)
 
 
@@ -70,7 +69,7 @@ def test_compute_logprob_sgp(action, mean, stddev):
 
     epsilon = 1e-10
 
-    np_mu = _normal(action, mean, stddev, epsilon)
+    np_mu = _normal(mean, stddev, action, epsilon)
     np_logmu = np.log(np_mu)
     np_logpi = np_logmu - np.log(1 - np.tanh(action) ** 2)
     np_pi = np.exp(np_logpi)

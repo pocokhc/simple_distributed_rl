@@ -50,7 +50,7 @@ class BaseCase(CommonBaseClass):
         rl_config.input_int_reward = True
         rl_config.input_action = True
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
-        runner.train(max_train_count=200 * 50, enable_eval=False)
+        runner.train(max_train_count=200 * 70, enable_eval=False)
         tester.eval(runner)
 
     def test_Pendulum_memory(self):
@@ -74,10 +74,10 @@ class BaseCase(CommonBaseClass):
         rl_config = self._create_rl_config()
         rl_config.burnin = 3
         rl_config.sequence_length = 3
-        rl_config.dueling_network.set((32, 32, 16), False)
+        rl_config.dueling_network.set((64, 32, 16), False)
 
         runner, tester = self.create_runner("OX", rl_config)
-        runner.train(max_train_count=6_000)
+        runner.train(max_train_count=10_000)
 
         runner.set_players([None, "random"])
         tester.eval(runner, baseline=[0.4, None])

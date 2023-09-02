@@ -19,10 +19,9 @@ class Test_ql(TestRL, unittest.TestCase):
 
 def test_Grid_policy():
     tester = TestRL()
-    rl_config = ql.Config(
-        epsilon=0.5,
-        lr=0.01,
-    )
+    rl_config = ql.Config()
+    rl_config.epsilon.set_constant(0.5)
+    rl_config.lr.set_constant(0.01)
     runner = Runner("Grid", rl_config)
     runner.set_seed(2)
     runner.train(max_train_count=100_000)
@@ -32,10 +31,9 @@ def test_Grid_policy():
 
 def test_Grid_mp():
     tester = TestRL()
-    rl_config = ql.Config(
-        epsilon=0.5,
-        lr=0.01,
-    )
+    rl_config = ql.Config()
+    rl_config.epsilon.set_constant(0.5)
+    rl_config.lr.set_constant(0.01)
     runner = Runner("Grid", rl_config)
     runner.set_seed(2)
     runner.train_mp(max_train_count=200_000)
@@ -45,10 +43,8 @@ def test_Grid_mp():
 @pytest.mark.parametrize("q_init", ["", "random", "normal"])
 def test_Grid(q_init):
     tester = TestRL()
-    rl_config = ql.Config(
-        epsilon=0.5,
-        q_init=q_init,
-    )
+    rl_config = ql.Config(q_init=q_init)
+    rl_config.epsilon.set_constant(0.5)
     runner = Runner("Grid", rl_config)
     runner.set_seed(2)
     runner.train(max_train_count=100_000)
@@ -57,10 +53,9 @@ def test_Grid(q_init):
 
 def test_OX():
     tester = TestRL()
-    rl_config = ql.Config(
-        epsilon=0.5,
-        lr=0.1,
-    )
+    rl_config = ql.Config()
+    rl_config.epsilon.set_constant(0.5)
+    rl_config.lr.set_constant(0.1)
     runner = Runner("OX", rl_config)
     runner.set_seed(1)
     runner.train(max_train_count=100_000)

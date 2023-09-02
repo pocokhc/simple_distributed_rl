@@ -12,7 +12,6 @@ def test_Pendulum():
     rl_config = agent57_stateful.Config(
         lstm_units=128,
         hidden_layer_sizes=(128,),
-        enable_dueling_network=False,
         target_model_update_interval=100,
         enable_rescale=True,
         q_ext_lr=0.001,

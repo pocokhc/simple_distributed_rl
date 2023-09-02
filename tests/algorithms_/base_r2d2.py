@@ -7,14 +7,13 @@ class BaseCase(CommonBaseClass):
 
         rl_config = r2d2.Config(
             lstm_units=32,
-            hidden_layer_sizes=(16, 16),
-            enable_dueling_network=False,
             target_model_update_interval=100,
             enable_rescale=True,
             burnin=5,
             sequence_length=5,
             enable_retrace=False,
         )
+        rl_config.dueling_network.set((16, 16), False)
         rl_config.memory.set_replay_memory()
         return rl_config
 

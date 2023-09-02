@@ -23,10 +23,14 @@ def _main_init_device(
 ):
     if framework == "tensorflow":
         pytest.importorskip("tensorflow")
-        runner = Runner("Grid", dqn.Config(framework="tensorflow"))
+        rl_config = dqn.Config()
+        rl_config.framework.set_tensorflow()
+        runner = Runner("Grid", rl_config)
     elif framework == "torch":
         pytest.importorskip("torch")
-        runner = Runner("Grid", dqn.Config(framework="torch"))
+        rl_config = dqn.Config()
+        rl_config.framework.set_torch()
+        runner = Runner("Grid", rl_config)
     else:
         runner = Runner("Grid", ql.Config())
 
@@ -242,7 +246,8 @@ def test_play2_tf():
     if not common.is_available_gpu_tf():
         pytest.skip()
 
-    rl_config = dqn.Config(framework="tensorflow")
+    rl_config = dqn.Config()
+    rl_config.framework.set_tensorflow()
 
     runner = Runner("Grid", rl_config)
     runner.train(max_episodes=1)
@@ -257,7 +262,8 @@ def test_play2_torch():
     if not common.is_available_gpu_torch():
         pytest.skip()
 
-    rl_config = dqn.Config(framework="torch")
+    rl_config = dqn.Config()
+    rl_config.framework.set_torch()
 
     runner = Runner("Grid", rl_config)
     runner.train(max_episodes=1)

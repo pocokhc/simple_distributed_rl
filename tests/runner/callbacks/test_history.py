@@ -1,11 +1,9 @@
-import os
 import pickle
-import shutil
 from pprint import pprint
 
 import pytest
 
-from srl.algorithms import dqn, ql, ql_agent57
+from srl.algorithms import ql, ql_agent57
 from srl.runner.callbacks.history_on_file import HistoryOnFile
 from srl.runner.callbacks.history_on_memory import HistoryOnMemory
 from srl.runner.callbacks.history_viewer import HistoryViewer
@@ -143,7 +141,6 @@ def test_on_file_train():
         assert h["eval_reward1"] > -2
         assert h["remote_memory"] >= 0
         assert h["episode"] > 0
-
 
 
 def test_on_file_train_plot():

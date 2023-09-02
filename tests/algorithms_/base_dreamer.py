@@ -7,7 +7,7 @@ class BaseCase(CommonBaseClass):
     def _create_rl_config(self):
         from srl.algorithms import dreamer
 
-        return dreamer.Config(
+        rl_config = dreamer.Config(
             deter_size=30,
             stoch_size=20,
             reward_num_units=30,
@@ -21,14 +21,15 @@ class BaseCase(CommonBaseClass):
             batch_length=21,
             free_nats=0.1,
             kl_scale=1.0,
-            model_lr=0.001,
-            value_lr=0.0005,
-            actor_lr=0.0001,
+            lr_model=0.001,
+            lr_value=0.0005,
+            lr_actor=0.0001,
             memory_warmup_size=1000,
             epsilon=1.0,
             value_estimation_method="dreamer",  # "simple" or "dreamer"
             horizon=20,
         )
+        return rl_config
 
     def test_EasyGrid(self):
         self.check_skip()

@@ -20,8 +20,6 @@ class BaseCase(CommonBaseClass):
             discount=0.9,
             batch_size=16,
             memory_warmup_size=200,
-            lr_init=0.002,
-            lr_decay_steps=10_000,
             v_min=-2,
             v_max=2,
             unroll_steps=1,
@@ -29,11 +27,12 @@ class BaseCase(CommonBaseClass):
             enable_rescale=False,
             weight_decay=0,
         )
+        rl_config.lr.set_constant(0.001)
         rl_config.input_image_block.set_alphazero_block(1, 16)
         rl_config.memory.set_replay_memory()
         rl_config.processors = [grid.LayerProcessor()]
         runner, tester = self.create_runner("EasyGrid", rl_config)
-        runner.train(max_train_count=2000)
+        runner.train(max_train_count=3000)
         tester.eval(runner)
 
     def test_EasyGrid_PER(self):
@@ -46,8 +45,6 @@ class BaseCase(CommonBaseClass):
             discount=0.9,
             batch_size=16,
             memory_warmup_size=200,
-            lr_init=0.002,
-            lr_decay_steps=10_000,
             v_min=-2,
             v_max=2,
             unroll_steps=1,
@@ -55,6 +52,7 @@ class BaseCase(CommonBaseClass):
             enable_rescale=False,
             weight_decay=0,
         )
+        rl_config.lr.set_linear(10_000, 0.002, 0.0001)
         rl_config.input_image_block.set_alphazero_block(1, 16)
         rl_config.processors = [grid.LayerProcessor()]
         runner, tester = self.create_runner("EasyGrid", rl_config)

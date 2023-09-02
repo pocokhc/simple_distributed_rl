@@ -6,12 +6,9 @@ from typing import Any
 import numpy as np
 
 import srl
+from srl.algorithms import ql
 from srl.base.rl.base import RLParameter
 from srl.base.rl.config import RLConfig
-
-# --- env & algorithm
-from srl.envs import grid  # isort: skip # noqa F401
-from srl.algorithms import ql  # isort: skip
 
 
 class Board:
@@ -152,7 +149,7 @@ def _run_episode(env_name: str, rl_config: RLConfig, parameter: RLParameter):
     worker = srl.make_worker(rl_config, env, parameter)
 
     env.reset()
-    worker.on_reset(0, training=True)
+    worker.on_reset(0, training=False)
 
     while not env.done:
         action = worker.policy()

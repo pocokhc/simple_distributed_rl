@@ -109,8 +109,8 @@ class HistoryViewer:
     # memory
     # ------------------------------------
     def set_history_on_memory(self, runner: Runner):
-        self.config: dict = runner.config.to_json_dict()
-        self.context: dict = runner.context.to_json_dict()
+        self.config: dict = runner.config.to_dict()
+        self.context: dict = runner.context.to_dict()
         self.logs = runner._history
 
     # ----------------------------------------

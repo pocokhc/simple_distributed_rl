@@ -1,5 +1,4 @@
 import importlib
-import json
 import logging
 import os
 import random
@@ -174,18 +173,6 @@ def summarize_info_from_list(arr: List[Any]) -> Union[float, str, None]:
             return last_str
     else:
         return float(np.mean(vals))
-
-
-class JsonNumpyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.integer):
-            return int(obj)
-        elif isinstance(obj, np.floating):
-            return float(obj)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-        else:
-            return super(JsonNumpyEncoder, self).default(obj)
 
 
 def load_module(entry_point: str):

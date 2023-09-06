@@ -28,9 +28,9 @@ def play(runner: Runner, parameter: RLParameter, remote_memory: RLRemoteMemory):
         import pprint
 
         if not context.distributed:
-            logger.info(f"Config\n{pprint.pformat(config.to_json_dict())}")
+            logger.info(f"Config\n{pprint.pformat(config.to_dict())}")
         if context.actor_id == 0:
-            logger.info(f"Context\n{pprint.pformat(context.to_json_dict())}")
+            logger.info(f"Context\n{pprint.pformat(context.to_dict())}")
     # -------------------
 
     # --- play(+tf) ----

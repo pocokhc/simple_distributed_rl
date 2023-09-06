@@ -12,7 +12,12 @@ from srl.utils import common
 common.logger_print()
 
 
-def test_config_to_json():
+class NotJsonClass:
+    def __init__(self):
+        self.a = 1
+
+
+def test_config_to_dict():
     runner = Runner("Grid", ql.Config())
 
     runner.config.players = [
@@ -26,18 +31,19 @@ def test_config_to_json():
         return 1
 
     runner.config.env_config.gym_make_func = _dummy  # type: ignore
+    runner.config.env_config.kwargs = {"a": 1, "not_json_class": NotJsonClass()}
 
     c1 = runner.config
-    json_dict = c1.to_json_dict()
+    json_dict = c1.to_dict()
     pprint(json_dict)
     json.dumps(json_dict)
 
 
-def test_context_to_json():
+def test_context_to_dict():
     runner = Runner("Grid", ql.Config())
     c1 = runner.context
 
-    json_dict = c1.to_json_dict()
+    json_dict = c1.to_dict()
     pprint(json_dict)
     json.dumps(json_dict)
 

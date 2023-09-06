@@ -238,8 +238,8 @@ def train(
 ):
     global __is_set_start_method
 
-    logger.info(f"Config\n{pprint.pformat(runner.config.to_json_dict())}")
-    logger.info(f"Context\n{pprint.pformat(runner.context.to_json_dict())}")
+    logger.info(f"Config\n{pprint.pformat(runner.config.to_dict())}")
+    logger.info(f"Context\n{pprint.pformat(runner.context.to_dict())}")
 
     remote_memory_class = cast(
         Type[RLRemoteMemory],

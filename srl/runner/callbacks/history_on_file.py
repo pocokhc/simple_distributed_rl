@@ -13,7 +13,8 @@ import srl
 from srl.base.rl.config import RLConfig
 from srl.runner.callback import Callback, CallbackType, TrainerCallback
 from srl.runner.runner import Runner
-from srl.utils.common import JsonNumpyEncoder, summarize_info_from_dictlist
+from srl.utils.common import summarize_info_from_dictlist
+from srl.utils.serialize import JsonNumpyEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -81,12 +82,12 @@ class HistoryOnFile(Callback, TrainerCallback):
         path_conf = os.path.join(self.save_dir, "config.json")
         if not os.path.isfile(path_conf):
             with open(path_conf, "w", encoding="utf-8") as f:
-                json.dump(runner.config.to_json_dict(), f, indent=2)
+                json.dump(runner.config.to_dict(), f, indent=2)
 
         path_cont = os.path.join(self.save_dir, "context.json")
         if not os.path.isfile(path_cont):
             with open(path_cont, "w", encoding="utf-8") as f:
-                json.dump(runner.context.to_json_dict(), f, indent=2)
+                json.dump(runner.context.to_dict(), f, indent=2)
 
     def _add_info(self, info, prefix, dict_):
         if dict_ is None:

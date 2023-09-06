@@ -1,6 +1,4 @@
 import copy
-import dataclasses
-import enum
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional
@@ -94,25 +92,6 @@ class EnvConfig:
         if self.max_episode_steps <= 0:
             self.max_episode_steps = env.max_episode_steps
         self.player_num = env.player_num
-
-    def to_json_dict(self) -> dict:
-        d = {}
-        for k, v in self.__dict__.items():
-            if k.startswith("_"):
-                continue
-            if v is None or type(v) in [int, float, bool, str]:
-                d[k] = v
-            elif type(v) in [list, dict, tuple]:
-                d[k] = copy.deepcopy(v)
-            elif isinstance(v, bytes):
-                d[k] = str(v)
-            elif issubclass(type(v), enum.Enum):
-                d[k] = v.name
-            elif dataclasses.is_dataclass(v):
-                d[k] = dataclasses.asdict(v)
-            else:
-                d[k] = str(v)
-        return d
 
     def copy(self) -> "EnvConfig":
         config = EnvConfig(self.name)

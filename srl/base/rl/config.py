@@ -1,6 +1,3 @@
-import copy
-import dataclasses
-import enum
 import logging
 import pickle
 from abc import ABC, abstractmethod
@@ -93,25 +90,6 @@ class RLConfig(ABC):
 
     def assert_params(self) -> None:
         assert self.window_length > 0
-
-    def to_json_dict(self) -> dict:
-        d = {}
-        for k, v in self.__dict__.items():
-            if k.startswith("_"):
-                continue
-            if v is None or type(v) in [int, float, bool, str]:
-                d[k] = v
-            elif type(v) in [list, dict, tuple]:
-                d[k] = copy.deepcopy(v)
-            elif isinstance(v, bytes):
-                d[k] = str(v)
-            elif issubclass(type(v), enum.Enum):
-                d[k] = v.name
-            elif dataclasses.is_dataclass(v):
-                d[k] = dataclasses.asdict(v)
-            else:
-                d[k] = str(v)
-        return d
 
     # ----------------------------
     # RL config

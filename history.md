@@ -7,6 +7,12 @@
 1. remote
 1. train_countをparameter
 
+# v0.12.2
+
+**MainUpdates**
+
+1. [utils.serialize] new: runner.Config, runner.Context, RLConfig, EnvConfigにてjsonに変換できるdictを生成する to_json_dict を utils.serialize.py にまとめてリファクタリング
+
 # v0.12.1
 
 **MainUpdates**

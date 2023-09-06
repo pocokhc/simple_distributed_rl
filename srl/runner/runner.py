@@ -1,13 +1,11 @@
 import copy
-import dataclasses
 import datetime
-import enum
 import logging
 import os
 import pickle
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -27,6 +25,7 @@ from srl.base.rl.worker_run import WorkerRun
 from srl.rl import dummy
 from srl.runner.callback import CallbackType
 from srl.utils import common
+from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
     import psutil
@@ -78,41 +77,11 @@ class Config:
     tf_device_disable: bool = False
     tf_enable_memory_growth: bool = True
 
-    def to_json_dict(self, mask: bool = True) -> dict:
-        d = {}
-        for k, v in self.__dict__.items():
-            if k in ["env_config", "rl_config", "players"]:
-                continue
-            if v is None or type(v) in [int, float, bool, str]:
-                d[k] = v
-            elif type(v) in [list, dict, tuple]:
-                d[k] = copy.deepcopy(v)
-            elif isinstance(v, bytes):
-                d[k] = str(v)
-            elif issubclass(type(v), enum.Enum):
-                d[k] = v.name
-            elif dataclasses.is_dataclass(v):
-                d[k] = dataclasses.asdict(v)
-            else:
-                d[k] = str(v)
-
-        d["env_config"] = self.env_config.to_json_dict()
-        d["rl_config"] = self.rl_config.to_json_dict()
-
-        players = []
-        for p in self.players:
-            if p is None:
-                players.append(None)
-            elif issubclass(type(p), RLConfig):
-                p = cast(RLConfig, p)
-                players.append(p.to_json_dict())
-            else:
-                players.append(copy.deepcopy(p))
-        d["players"] = players
-
+    def to_dict(self, mask: bool = True) -> dict:
+        dat: dict = convert_for_json(self.__dict__)
         if mask:
-            d["remote_authkey"] = "mask"
-        return d
+            dat["remote_authkey"] = "mask"
+        return dat
 
     def copy(self) -> "Config":
         return copy.deepcopy(self)
@@ -195,33 +164,9 @@ class Context:
 
         self._is_init = True
 
-    def to_json_dict(self) -> dict:
-        d = {}
-        for k, v in self.__dict__.items():
-            if k in ["callbacks"]:
-                continue
-            if v is None or type(v) in [int, float, bool, str]:
-                d[k] = v
-            elif type(v) in [list, dict, tuple]:
-                d[k] = copy.deepcopy(v)
-            elif isinstance(v, bytes):
-                d[k] = str(v)
-            elif issubclass(type(v), enum.Enum):
-                d[k] = v.name
-            elif dataclasses.is_dataclass(v):
-                d[k] = dataclasses.asdict(v)
-            else:
-                d[k] = str(v)
-
-        callbacks = []
-        for c in self.callbacks:
-            if dataclasses.is_dataclass(c):
-                callbacks.append(dataclasses.asdict(c))
-            else:
-                callbacks.append(str(c))
-
-        d["callbacks"] = callbacks
-        return d
+    def to_dict(self) -> dict:
+        dat: dict = convert_for_json(self.__dict__)
+        return dat
 
     def copy(self) -> "Context":
         return copy.deepcopy(self)
@@ -270,6 +215,12 @@ class State:
 
     def get_user_val(self, key: str):
         return self.user_data[key]
+
+    # ------------
+
+    def to_dict(self) -> dict:
+        dat: dict = convert_for_json(self.__dict__)
+        return dat
 
 
 @dataclass()

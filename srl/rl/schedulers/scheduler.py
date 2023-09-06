@@ -282,6 +282,9 @@ class SchedulerConfig:
         if not _no_plot:
             plt.show()
 
+    def to_dict(self) -> dict:
+        return {"schedulers": self._schedulers}
+
 
 class ListScheduler(BaseScheduler):
     def __init__(self, config: SchedulerConfig, schedulers):

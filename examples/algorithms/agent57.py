@@ -1,6 +1,7 @@
 import os
 
 import matplotlib.pyplot as plt
+
 import srl
 from srl.algorithms import agent57
 from srl.utils import common
@@ -14,19 +15,20 @@ def main():
 
     base_config = agent57.Config(
         lstm_units=128,
-        hidden_layer_sizes=(64, 64),
-        enable_dueling_network=False,
+        batch_size=64,
+        lr_ext=0.001,
+        lr_int=0.001,
         target_model_update_interval=100,
         enable_rescale=False,
         burnin=5,
         sequence_length=5,
-        enable_retrace=False,
         enable_intrinsic_reward=False,
         actor_num=1,
         input_ext_reward=False,
         input_int_reward=False,
         input_action=False,
     )
+    base_config.dueling_network.set((64, 64), enable=False)
     base_config.memory.capacity = 100_000
 
     # base
@@ -36,11 +38,6 @@ def main():
     _c = base_config.copy()
     _c.enable_intrinsic_reward = True
     rl_configs.append(("intrinsic_reward", _c))
-
-    # retrace
-    _c = base_config.copy()
-    _c.enable_retrace = True
-    rl_configs.append(("retrace", _c))
 
     # actor
     _c = base_config.copy()
@@ -60,7 +57,7 @@ def main():
         print(name)
         runner = srl.Runner(env_config, rl_config)
         runner.set_history(write_file=True)
-        runner.train_mp(max_train_count=200 * 200)
+        runner.train_mp(max_train_count=200 * 100)
         df = runner.get_history().get_df()
         results.append((name, df))
 

@@ -1,7 +1,6 @@
 import os
 
 import matplotlib.pyplot as plt
-
 import srl
 from srl.algorithms import dqn, rainbow
 
@@ -20,13 +19,12 @@ def main():
 
     rainbow_base_config = rainbow.Config(
         lr=0.0005,
-        hidden_layer_sizes=(64, 64),
         enable_double_dqn=False,
-        enable_dueling_network=False,
         enable_noisy_dense=False,
         multisteps=1,
         enable_rescale=False,
     )
+    rainbow_base_config.dueling_network.set((64, 64), enable=False)
     rainbow_base_config.memory.set_replay_memory()
 
     rl_configs.append(("base", rainbow_base_config.copy()))
@@ -65,7 +63,7 @@ def main():
         print(name)
 
         # --- train
-        runner.set_history()
+        runner.set_history(enable_eval=True)
         runner.train(max_episodes=200)
         results.append((name, runner.get_history().get_df()))
 

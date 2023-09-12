@@ -29,9 +29,9 @@ def create_runner():
         batch_length=21,
         free_nats=0.1,
         kl_scale=1.0,
-        model_lr=0.001,
-        value_lr=0.0005,
-        actor_lr=0.0001,
+        lr_model=0.001,
+        lr_value=0.0005,
+        lr_actor=0.0001,
         memory_warmup_size=1000,
         epsilon=1.0,
         value_estimation_method="dreamer",  # "simple" or "dreamer"

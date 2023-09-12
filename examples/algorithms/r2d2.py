@@ -13,14 +13,13 @@ def main():
     # ハイパーパラメータ
     r2d2_base = r2d2.Config(
         lstm_units=64,
-        hidden_layer_sizes=(64,),
-        enable_dueling_network=False,
         target_model_update_interval=100,
         enable_rescale=False,
         burnin=5,
         sequence_length=5,
         enable_retrace=False,
     )
+    r2d2_base.dueling_network.set((64,), enable=False)
     r2d2_base.memory.capacity = 100_000
 
     # no retrace
@@ -36,7 +35,7 @@ def main():
     for name, rl_config in rl_configs:
         print(name)
         runner = srl.Runner(env_config, rl_config)
-        runner.set_history()
+        runner.set_history(enable_eval=True)
         runner.train(max_episodes=50)
         results.append((name, runner.get_history().get_df()))
 
@@ -45,7 +44,7 @@ def main():
     plt.xlabel("episode")
     plt.ylabel("reward")
     for name, df in results:
-        plt.plot(df["actor0_episode"], df["actor0_eval_reward0"].rolling(10).mean(), label=name)
+        plt.plot(df["episode"], df["eval_reward0"].rolling(10).mean(), label=name)
     plt.grid()
     plt.legend()
     plt.tight_layout()

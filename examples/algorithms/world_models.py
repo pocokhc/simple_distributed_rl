@@ -3,7 +3,6 @@ from typing import cast
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 import srl
 from srl.algorithms import world_models
 from srl.utils import common
@@ -48,7 +47,7 @@ def s1_collect_sample():
 def s2_train_vae():
     runner, rl_config = _create_runner()
     rl_config.train_mode = 1
-    rl_config.lr = 0.001
+    rl_config.lr.set_constant(0.001)
     rl_config.kl_tolerance = 4.0
     runner.train_only(max_train_count=20_000)
     runner.save_parameter(param_path)
@@ -58,7 +57,7 @@ def s2_train_vae():
 def s3_train_rnn():
     runner, rl_config = _create_runner()
     rl_config.train_mode = 2
-    rl_config.lr = 0.001
+    rl_config.lr.set_constant(0.001)
     rl_config.memory_warmup_size = 100
     runner.train_only(max_train_count=50_000)
     runner.save_parameter(param_path)

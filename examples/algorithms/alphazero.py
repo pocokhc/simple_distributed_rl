@@ -14,14 +14,13 @@ def main():
     rl_config = alphazero.Config(
         num_simulations=100,
         sampling_steps=1,
-        lr_schedule=[
-            {"train": 0, "lr": 0.001},
-            {"train": 1000, "lr": 0.0005},
-            {"train": 5000, "lr": 0.0002},
-        ],
         batch_size=128,
         memory_warmup_size=500,
     )
+    rl_config.lr.clear()
+    rl_config.lr.add_constant(1000, 0.001)
+    rl_config.lr.add_constant(4000, 0.0005)
+    rl_config.lr.add_constant(1, 0.0002)
     rl_config.memory.capacity = 100_000
     rl_config.input_image_block.set_alphazero_block(9, 64)
     rl_config.value_block.set_mlp((128,))

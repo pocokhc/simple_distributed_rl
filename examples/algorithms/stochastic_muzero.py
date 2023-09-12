@@ -13,8 +13,6 @@ def main():
         discount=0.9,
         batch_size=16,
         memory_warmup_size=200,
-        lr_init=0.01,
-        lr_decay_steps=10_000,
         v_min=-2,
         v_max=2,
         unroll_steps=1,
@@ -22,6 +20,7 @@ def main():
         enable_rescale=False,
         codebook_size=4,
     )
+    rl_config.lr.set_linear(10_000, 0.01, 0.001)
     rl_config.memory.capacity = 100_000
     rl_config.input_image_block.set_alphazero_block(1, 16)
 

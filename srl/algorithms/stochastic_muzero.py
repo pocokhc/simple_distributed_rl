@@ -58,7 +58,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     policy_tau: SchedulerConfig = field(init=False, default_factory=lambda: SchedulerConfig())
 
     # td_steps: int = 5      # multisteps
-    unroll_steps: int = 3  # unroll_steps
+    unroll_steps: int = 5  # unroll_steps
     codebook_size: int = 32  # codebook
 
     # Root prior exploration noise.
@@ -71,7 +71,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     c_init: float = 1.25
 
     # model
-    input_image_block: AlphaZeroBlockConfig = field(default_factory=lambda: AlphaZeroBlockConfig())
+    input_image_block: AlphaZeroBlockConfig = field(init=False, default_factory=lambda: AlphaZeroBlockConfig())
     dynamics_blocks: int = 15
     commitment_cost: float = 0.25  # VQ_VAEのβ
     weight_decay: float = 0.0001
@@ -657,6 +657,11 @@ class Parameter(RLParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
+def _scale_gradient(tensor, scale):
+    """muzeroより流用"""
+    return tensor * scale + tf.stop_gradient(tensor) * (1 - scale)
+
+
 class Trainer(RLTrainer):
     def __init__(self, *args):
         super().__init__(*args)
@@ -677,6 +682,9 @@ class Trainer(RLTrainer):
         y_pred = tf.clip_by_value(y_pred, 1e-6, y_pred)  # log(0)回避用
         loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=1)
         return loss
+
+    def _mse_loss(self, y_true, y_pred):
+        return tf.reduce_mean(tf.square(y_true - y_pred))
 
     def get_train_count(self):
         return self.train_count
@@ -714,10 +722,7 @@ class Trainer(RLTrainer):
         with tf.GradientTape() as tape:
             # --- 1st step
             hidden_states = self.parameter.representation_network(states_list[0], training=True)
-            p_pred, v_pred = self.parameter.prediction_network(
-                hidden_states,
-                training=True,
-            )  # type:ignore , ignore check "None"
+            p_pred, v_pred = self.parameter.prediction_network(hidden_states, training=True)
 
             # loss
             policy_loss = self._cross_entropy_loss(policies_list[0], p_pred)
@@ -728,29 +733,31 @@ class Trainer(RLTrainer):
             vae_loss = tf.constant([0] * self.config.batch_size, dtype=tf.float32)
 
             # --- unroll steps
+            gradient_scale = 1 / self.config.unroll_steps
             for t in range(self.config.unroll_steps):
                 after_states = self.parameter.afterstate_dynamics_network.predict(
                     hidden_states, actions_list[t], training=True
                 )
-                chance_pred, q_pred = self.parameter.afterstate_prediction_network(
-                    after_states, training=True
-                )  # type:ignore , ignore check "None"
-                chance_code, chance_vae_pred = self.parameter.vq_vae(
-                    states_list[t + 1], training=True
-                )  # type:ignore , ignore check "None"
+                chance_pred, q_pred = self.parameter.afterstate_prediction_network(after_states, training=True)
+                chance_code, chance_vae_pred = self.parameter.vq_vae(states_list[t + 1], training=True)
 
-                chance_loss += self._cross_entropy_loss(chance_code, chance_pred)
-                q_loss += self._cross_entropy_loss(values_list[t], q_pred)
-                vae_loss += tf.reduce_mean(tf.square(chance_code - chance_vae_pred), axis=1)  # MSE
+                chance_loss += _scale_gradient(self._cross_entropy_loss(chance_code, chance_pred), gradient_scale)
+                q_loss += _scale_gradient(self._cross_entropy_loss(values_list[t], q_pred), gradient_scale)
+                vae_loss += _scale_gradient(
+                    tf.reduce_mean(tf.square(chance_code - chance_vae_pred), axis=1), gradient_scale
+                )
 
                 hidden_states, rewards_pred = self.parameter.dynamics_network.predict(
                     after_states, chance_code, training=True
                 )
-                p_pred, v_pred = self.parameter.prediction_network(hidden_states)  # type:ignore , ignore check "None"
+                p_pred, v_pred = self.parameter.prediction_network(hidden_states)
 
-                policy_loss += self._cross_entropy_loss(policies_list[t + 1], p_pred)
-                v_loss += self._cross_entropy_loss(values_list[t + 1], v_pred)
-                reward_loss += self._cross_entropy_loss(rewards_list[t], rewards_pred)
+                # 安定しなかったのでMSEに変更
+                policy_loss += _scale_gradient(self._mse_loss(policies_list[t + 1], p_pred), gradient_scale)
+                v_loss += _scale_gradient(self._mse_loss(values_list[t + 1], v_pred), gradient_scale)
+                reward_loss += _scale_gradient(self._cross_entropy_loss(rewards_list[t], rewards_pred), gradient_scale)
+
+                hidden_states = _scale_gradient(hidden_states, 0.5)
 
             loss = v_loss + policy_loss + reward_loss + chance_loss + q_loss + self.config.commitment_cost * vae_loss
             loss = tf.reduce_mean(loss * weights)
@@ -899,14 +906,10 @@ class Worker(DiscreteActionWorker):
 
             # 次の状態を取得
             n_state, reward_category = self.parameter.dynamics_network.predict(state, c)
-            reward = float_category_decode(
-                reward_category.numpy()[0],  # type:ignore , ignore check "None"
-                self.config.v_min,
-                self.config.v_max,
-            )
+            reward = float_category_decode(reward_category.numpy()[0], self.config.v_min, self.config.v_max)
             is_afterstate = False
 
-        n_state_str = n_state.ref()  # type:ignore , ignore check "None"
+        n_state_str = n_state.ref()
         enemy_turn = self.config.env_player_num > 1  # 2player以上は相手番と決め打ち
 
         if self.N[state_str][action] == 0:
@@ -917,6 +920,7 @@ class Worker(DiscreteActionWorker):
             else:
                 self.parameter.prediction(n_state, n_state_str)
                 n_value = self.parameter.V[n_state_str]
+
         else:
             # 子ノードに降りる(展開)
             n_value = self._simulation(n_state, n_state_str, [], is_afterstate, depth + 1)
@@ -974,9 +978,18 @@ class Worker(DiscreteActionWorker):
                     q = (q - self.parameter.q_min) / (self.parameter.q_max - self.parameter.q_min)
 
                 score = q + u
-            if np.isnan(score):
-                logger.warning(f"puct score is nan.(action={a}, scores={scores})")
-                score = -np.inf
+                if np.isnan(score):
+                    logger.warning(
+                        "puct score is nan. action={}, score={}, q={}, u={}, Q={}, P={}".format(
+                            a,
+                            score,
+                            q,
+                            u,
+                            self.Q[state_str],
+                            self.parameter.P[state_str],
+                        )
+                    )
+                    score = -np.inf
 
             scores[a] = score
         return scores

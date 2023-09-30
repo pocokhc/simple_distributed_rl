@@ -13,15 +13,12 @@ from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.rl.functions.common import (
-    float_category_decode,
-    float_category_encode,
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
-from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.functions.common import (float_category_decode,
+                                     float_category_encode, inverse_rescaling,
+                                     random_choice_by_probs,
+                                     render_discrete_action, rescaling)
+from srl.rl.memories.priority_experience_replay import (
+    PriorityExperienceReplay, PriorityExperienceReplayConfig)
 from srl.rl.models.alphazero_block import AlphaZeroBlockConfig
 from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.tf.input_block import InputBlock
@@ -92,6 +89,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     def set_atari_config(self):
         self.num_simulations = 50
         self.batch_size = 1024
+        self.memory_warmup_size = 10_000
         self.discount = 0.997
         self.lr.set_linear(350_000, 0.05, 0.005)
         self.v_min = -300
@@ -513,10 +511,7 @@ class Trainer(RLTrainer):
         with tf.GradientTape() as tape:
             # --- 1st step
             hidden_states = self.parameter.representation_network(states, training=True)
-            p_pred, v_pred = self.parameter.prediction_network(
-                hidden_states, training=True
-            )  # type:ignore , ignore check "None"
-
+            p_pred, v_pred = self.parameter.prediction_network(hidden_states, training=True)
             # loss
             policy_loss = _scale_gradient(self._cross_entropy_loss(policies_list[0], p_pred), 1.0)
             value_loss = _scale_gradient(self._cross_entropy_loss(values_list[0], v_pred), 1.0)
@@ -529,9 +524,7 @@ class Trainer(RLTrainer):
                 hidden_states, p_rewards = self.parameter.dynamics_network.predict(
                     hidden_states, actions_list[t], training=True
                 )
-                p_pred, v_pred = self.parameter.prediction_network(
-                    hidden_states, training=True
-                )  # type:ignore , ignore check "None"
+                p_pred, v_pred = self.parameter.prediction_network(hidden_states, training=True)
 
                 # loss
                 policy_loss += _scale_gradient(self._cross_entropy_loss(policies_list[t + 1], p_pred), gradient_scale)
@@ -731,6 +724,20 @@ class Worker(DiscreteActionWorker):
                     q = (q - self.parameter.q_min) / (self.parameter.q_max - self.parameter.q_min)
 
                 score = q + u
+
+                if np.isnan(score):
+                    logger.warning(
+                        "puct score is nan. action={}, score={}, q={}, u={}, Q={}, P={}".format(
+                            a,
+                            score,
+                            q,
+                            u,
+                            self.Q[state_str],
+                            self.parameter.P[state_str],
+                        )
+                    )
+                    score = -np.inf
+
             scores[a] = score
         return scores
 

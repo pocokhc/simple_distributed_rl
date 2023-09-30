@@ -68,7 +68,6 @@ class _ActorInterrupt(Callback):
 
         self.step = 0
         self.prev_update_count = 0
-        self.sync_count = 0
 
     def on_episodes_begin(self, runner: Runner):
         runner.state.sync_actor = 0
@@ -88,9 +87,7 @@ class _ActorInterrupt(Callback):
         runner.state.sync_actor += 1
 
     def intermediate_stop(self, runner: Runner) -> bool:
-        if self.train_end_signal.value:
-            return True
-        return False
+        return self.train_end_signal.value
 
 
 def __run_actor(
@@ -107,6 +104,7 @@ def __run_actor(
         runner = Runner(config.env_config, config.rl_config)
         runner.config = config
         runner.context = context
+        logger.info(f"actor{actor_id} start.")
 
         # --- set_config_by_actor
         runner.config.rl_config.set_config_by_actor(
@@ -115,7 +113,7 @@ def __run_actor(
         )
 
         # --- parameter
-        parameter = runner.make_parameter()
+        parameter = runner.make_parameter(is_load=False)
         params = remote_board.read()
         if params is not None:
             parameter.restore(params)
@@ -172,9 +170,7 @@ class _TrainerInterrupt(TrainerCallback):
             runner.state.sync_trainer += 1
 
     def intermediate_stop(self, runner: Runner) -> bool:
-        if self.train_end_signal.value:
-            return True
-        return False
+        return self.train_end_signal.value
 
 
 def __run_trainer(
@@ -190,6 +186,7 @@ def __run_trainer(
         runner = Runner(config.env_config, config.rl_config)
         runner.config = config
         runner.context = context
+        logger.info("trainer start.")
 
         # --- parameter
         parameter = runner.make_parameter(is_load=False)

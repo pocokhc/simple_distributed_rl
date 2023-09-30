@@ -1437,6 +1437,121 @@ class Runner:
             self.history_viewer.load(self.context.save_dir)
         # ----------------
 
+    def train_mp_debug(
+        self,
+        # mp
+        actor_num: int = 1,
+        # --- stop config
+        max_episodes: int = -1,
+        timeout: int = -1,
+        max_steps: int = -1,
+        max_train_count: int = -1,
+        # --- play config
+        shuffle_player: bool = True,
+        disable_trainer: bool = False,
+        # --- progress
+        enable_progress: bool = True,
+        progress_start_time: int = 1,
+        progress_interval_limit: int = 60 * 10,
+        progress_env_info: bool = False,
+        progress_train_info: bool = True,
+        progress_worker_info: bool = True,
+        progress_worker: int = 0,
+        progress_max_actor: int = 5,
+        # --- eval
+        enable_eval: bool = False,
+        eval_env_sharing: bool = False,
+        eval_episode: int = 1,
+        eval_timeout: int = -1,
+        eval_max_steps: int = -1,
+        eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
+        eval_shuffle_player: bool = False,
+        eval_used_device_tf: str = "/CPU",
+        eval_used_device_torch: str = "cpu",
+        eval_callbacks: List[CallbackType] = [],
+        # --- other
+        callbacks: List[CallbackType] = [],
+        save_remote_memory: str = "",
+        return_remote_memory: bool = False,
+        # --- debug option
+        choice_method: str = "random",
+    ):
+        """multiprocessingの分散学習と出来る限り似た学習を、single processで実施します。
+        ほとんどの引数は train_mp と同じなのです。
+
+        Args:
+            choice_method(str, optional): 各actorとtrainerの採用方法を指定します. Defaults to 'random'.
+        """
+        self.context.callbacks = callbacks[:]
+        self.config.actor_num = actor_num
+
+        # --- set context
+        self.context.run_name = "main"
+        self.context.distributed = True
+        # stop config
+        self.context.max_episodes = max_episodes
+        self.context.timeout = timeout
+        self.context.max_steps = max_steps
+        self.context.max_train_count = max_train_count
+        # play config
+        self.context.train_only = False
+        self.context.shuffle_player = shuffle_player
+        self.context.disable_trainer = disable_trainer
+        # play info
+        self.context.training = True
+        self.context.render_mode = PlayRenderModes.none
+
+        # init
+        self.context.init(self)
+
+        # --- progress ---
+        if enable_progress:
+            from srl.runner.callbacks.print_progress import PrintProgress
+
+            self.context.callbacks.append(
+                PrintProgress(
+                    start_time=progress_start_time,
+                    interval_limit=progress_interval_limit,
+                    progress_env_info=progress_env_info,
+                    progress_train_info=progress_train_info,
+                    progress_worker_info=progress_worker_info,
+                    progress_worker=progress_worker,
+                    progress_max_actor=progress_max_actor,
+                    enable_eval=enable_eval,
+                    eval_env_sharing=eval_env_sharing,
+                    eval_episode=eval_episode,
+                    eval_timeout=eval_timeout,
+                    eval_max_steps=eval_max_steps,
+                    eval_players=eval_players,
+                    eval_shuffle_player=eval_shuffle_player,
+                    eval_used_device_tf=eval_used_device_tf,
+                    eval_used_device_torch=eval_used_device_torch,
+                    eval_callbacks=eval_callbacks,
+                )
+            )
+        # ----------------
+
+        # --- checkpoint ---
+        if self._checkpoint_callback is not None:
+            self.context.callbacks.append(self._checkpoint_callback)
+        # ------------------
+
+        # --- history ---
+        if self._history_on_file_callback is not None:
+            self.context.callbacks.append(self._history_on_file_callback)
+        # ----------------
+
+        from .core_mp_debug import train
+
+        train(self, save_remote_memory, return_remote_memory, choice_method)
+
+        # --- history ---
+        if self._history_on_file_callback is not None:
+            from srl.runner.callbacks.history_viewer import HistoryViewer
+
+            self.history_viewer = HistoryViewer()
+            self.history_viewer.load(self.context.save_dir)
+        # ----------------
 
     def train_remote(
         self,

@@ -52,7 +52,6 @@ class Config:
     actor_num: int = 1
 
     # --- remote
-    remote_server_ip: str = "127.0.0.1"
     remote_port: int = 50000
     remote_authkey: bytes = b"abracadabra"
 
@@ -1335,7 +1334,7 @@ class Runner:
         save_remote_memory: str = "",
         return_remote_memory: bool = False,
     ):
-        """分散学習による学習を実施します。
+        """multiprocessingを使用した分散学習による学習を実施します。
 
         Args:
             actor_num (int, optional): actor数を指定. Defaults to 1.
@@ -1437,6 +1436,152 @@ class Runner:
             self.history_viewer = HistoryViewer()
             self.history_viewer.load(self.context.save_dir)
         # ----------------
+
+
+    def train_remote(
+        self,
+        actor_num: int = 1,
+        # --- stop config
+        max_episodes: int = -1,
+        timeout: int = -1,
+        max_steps: int = -1,
+        max_train_count: int = -1,
+        # --- play config
+        shuffle_player: bool = True,
+        disable_trainer: bool = False,
+        # --- progress
+        enable_progress: bool = True,
+        progress_start_time: int = 1,
+        progress_interval_limit: int = 60 * 10,
+        progress_env_info: bool = False,
+        progress_train_info: bool = True,
+        progress_worker_info: bool = True,
+        progress_worker: int = 0,
+        progress_max_actor: int = 5,
+        # --- eval
+        enable_eval: bool = False,
+        eval_env_sharing: bool = False,
+        eval_episode: int = 1,
+        eval_timeout: int = -1,
+        eval_max_steps: int = -1,
+        eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
+        eval_shuffle_player: bool = False,
+        eval_used_device_tf: str = "/CPU",
+        eval_used_device_torch: str = "cpu",
+        eval_callbacks: List[CallbackType] = [],
+        # --- other
+        callbacks: List[CallbackType] = [],
+    ):
+        """
+        Args:
+            max_episodes (int, optional): 終了するまでのエピソード数. Defaults to -1.
+            timeout (int, optional): 終了するまでの時間（秒）. Defaults to -1.
+            max_steps (int, optional): 終了するまでの総ステップ. Defaults to -1.
+            max_train_count (int, optional): 終了するまでの学習回数. Defaults to -1.
+            shuffle_player (bool, optional): playersをシャッフルするかどうか. Defaults to True.
+            disable_trainer (bool, optional): Trainerを無効にするか。主に経験の実集めたい場合に使用。 Defaults to False.
+            enable_progress (bool, optional): 進捗を表示するか. Defaults to True.
+            progress_start_time (int, optional): 最初に進捗を表示する秒数. Defaults to 1.
+            progress_interval_limit (int, optional): 進捗を表示する最大の間隔（秒）. Defaults to 60*10.
+            progress_env_info (bool, optional): 進捗表示にenv infoを表示するか. Defaults to False.
+            progress_train_info (bool, optional): 進捗表示にtrain infoを表示するか. Defaults to True.
+            progress_worker_info (bool, optional): 進捗表示にworker infoを表示するか. Defaults to True.
+            progress_worker (int, optional): 進捗表示に表示するworker index. Defaults to 0.
+            progress_max_actor (int, optional): 表示する最大actor数. Defaults to 5.
+            enable_eval (bool, optional): 評価用のシミュレーションを実行します. Defaults to False.
+            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
+            eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
+            eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
+            eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
+            eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
+            eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
+            eval_used_device_tf (str, optional): 評価時のdevice. Defaults to "/CPU".
+            eval_used_device_torch (str, optional): 評価時のdevice. Defaults to "cpu".
+            eval_callbacks (List[CallbackType], optional): 評価時のcallbacks. Defaults to [].
+            callbacks (List[CallbackType], optional): callbacks. Defaults to [].
+        """
+        self.context.callbacks = callbacks[:]
+        self.config.actor_num = actor_num
+
+        # --- set context
+        self.context.run_name = "main"
+        self.context.distributed = True
+        # stop config
+        self.context.max_episodes = max_episodes
+        self.context.timeout = timeout
+        self.context.max_steps = max_steps
+        self.context.max_train_count = max_train_count
+        # play config
+        self.context.train_only = False
+        self.context.shuffle_player = shuffle_player
+        self.context.disable_trainer = disable_trainer
+        # play info
+        self.context.training = True
+        self.context.render_mode = PlayRenderModes.none
+
+        # init
+        self.context.init(self)
+
+        # --- progress ---
+        if enable_progress:
+            from srl.runner.callbacks.print_progress import PrintProgress
+
+            self.context.callbacks.append(
+                PrintProgress(
+                    start_time=progress_start_time,
+                    interval_limit=progress_interval_limit,
+                    progress_env_info=progress_env_info,
+                    progress_train_info=progress_train_info,
+                    progress_worker_info=progress_worker_info,
+                    progress_worker=progress_worker,
+                    progress_max_actor=progress_max_actor,
+                    enable_eval=enable_eval,
+                    eval_env_sharing=eval_env_sharing,
+                    eval_episode=eval_episode,
+                    eval_timeout=eval_timeout,
+                    eval_max_steps=eval_max_steps,
+                    eval_players=eval_players,
+                    eval_shuffle_player=eval_shuffle_player,
+                    eval_used_device_tf=eval_used_device_tf,
+                    eval_used_device_torch=eval_used_device_torch,
+                    eval_callbacks=eval_callbacks,
+                )
+            )
+        # ----------------
+
+        # --- checkpoint ---
+        if self._checkpoint_callback is not None:
+            self.context.callbacks.append(self._checkpoint_callback)
+        # ------------------
+
+        # --- history ---
+        if self._history_on_file_callback is not None:
+            self.context.callbacks.append(self._history_on_file_callback)
+        # ----------------
+
+        from .core_remote import train
+
+        train(self)
+
+        # --- history ---
+        if self._history_on_file_callback is not None:
+            from srl.runner.callbacks.history_viewer import HistoryViewer
+
+            self.history_viewer = HistoryViewer()
+            self.history_viewer.load(self.context.save_dir)
+        # ----------------
+
+    @staticmethod
+    def run_actor(
+        server_ip: str,
+        port: int,
+        authkey: bytes = b"abracadabra",
+        actor_id: Optional[int] = None,
+        verbose: bool = True,
+    ):
+        from .core_remote import run_actor
+
+        run_actor(server_ip, port, authkey, actor_id, verbose)
 
     def evaluate(
         self,

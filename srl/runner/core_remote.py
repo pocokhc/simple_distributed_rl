@@ -2,19 +2,19 @@ import logging
 import multiprocessing as mp
 import os
 import pprint
+import socket
 import threading
 import time
 import traceback
 from multiprocessing.managers import BaseManager
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, cast
 
 import numpy as np
 
-from srl.base.rl.base import RLParameter, RLRemoteMemory
+from srl.base.rl.base import RLParameter
 from srl.base.rl.registration import make_remote_memory
-from srl.runner.callback import Callback
-from srl.runner.callbacks.history_viewer import HistoryViewer
-from srl.utils.common import is_enable_tf_device_name
+from srl.runner.callback import Callback, MPCallback
+from srl.runner.runner import Config, Context, Runner
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ class MPManager(BaseManager):
 # --------------------
 # actor
 # --------------------
-class __ActorInterrupt(Callback):
+class _ActorInterrupt(Callback):
     def __init__(
         self,
         remote_board: Board,
@@ -99,12 +99,11 @@ class __ActorInterrupt(Callback):
 
         self.step = 0
         self.prev_update_count = 0
-        self.sync_count = 0
 
-    def on_episodes_begin(self, info):
-        info["sync"] = 0
+    def on_episodes_begin(self, runner: Runner):
+        runner.state.sync_actor = 0
 
-    def on_step_end(self, info):
+    def on_step_end(self, runner: Runner):
         self.step += 1
         if self.step % self.actor_parameter_sync_interval_by_step != 0:
             return
@@ -116,10 +115,9 @@ class __ActorInterrupt(Callback):
         if params is None:
             return
         self.parameter.restore(params)
-        self.sync_count += 1
-        info["sync"] = self.sync_count
+        runner.state.sync_actor += 1
 
-    def intermediate_stop(self, info) -> bool:
+    def intermediate_stop(self, runner: Runner) -> bool:
         return self.server_manager.is_end()
 
 
@@ -131,7 +129,7 @@ def run_actor(
     verbose: bool = True,
 ):
     MPManager.register("get_config")
-    MPManager.register("get_options")
+    MPManager.register("get_context")
     MPManager.register("ServerManager")
     MPManager.register("RemoteMemory")
     MPManager.register("Board")
@@ -144,16 +142,21 @@ def run_actor(
     manager.connect()
 
     config: Config = manager.get_config().copy()
-    options: Options = manager.get_options().copy()
+    context: Context = manager.get_context().copy()
     server_manager: ServerManager = manager.ServerManager()
-    remote_board: Board = manager.Board()
     remote_memory = manager.RemoteMemory()
+    remote_board: Board = manager.Board()
 
     logger.info(f"Config\n{pprint.pformat(config.to_dict())}")
+    logger.info(f"Context\n{pprint.pformat(context.to_dict())}")
+
+    runner = Runner(config.env_config, config.rl_config)
+    runner.config = config
+    runner.context = context
 
     # --- env check
     try:
-        config.make_env()
+        runner.make_env()
     except Exception as e:
         logger.debug(traceback.format_exc())
         s = f"Environment '{config.env_config.name}' could not be loaded.(System: {e})"
@@ -165,35 +168,32 @@ def run_actor(
     # --- join server
     actor_id = server_manager.join_actor()
     try:
-        config._run_name = f"actor{actor_id}"
-        config._actor_id = actor_id
-        config.init_process()
+        context.run_name = f"actor{actor_id}"
+        context.actor_id = actor_id
 
         s = f"Joined server(Your actor index is {actor_id})"
         logger.info(s)
         if verbose:
             print(s)
 
-        # --- config
-        config._disable_trainer = True
-        config._timeout = -1
+        # --- set_config_by_actor
         config.rl_config.set_config_by_actor(config.actor_num, actor_id)
 
         # --- parameter
-        parameter = config.make_parameter(is_load=False)
+        parameter = runner.make_parameter(is_load=False)
         params = remote_board.read()
         if params is not None:
             parameter.restore(params)
 
         # --- callbacks
-        callbacks: List[Callback] = [
-            __ActorInterrupt(
+        runner.context.callbacks.append(
+            _ActorInterrupt(
                 remote_board,
                 parameter,
                 server_manager,
                 config,
             )
-        ]
+        )
 
         # --- wait
         print("Waiting for server to start...")
@@ -203,60 +203,20 @@ def run_actor(
             time.sleep(1)  # polling
 
         # --- play
-        allocate = config.used_device_tf
-        if (not config.tf_disable) and is_enable_tf_device_name(allocate):
-            import tensorflow as tf
-
-            logger.info(f"actor{actor_id} start(allocate={allocate})")
-            with tf.device(allocate):  # type: ignore
-                __run_actor_main(config, options, parameter, remote_memory, callbacks)
-
-        else:
-            logger.info(f"actor{actor_id} start.")
-            __run_actor_main(config, options, parameter, remote_memory, callbacks)
+        context.train_only = False
+        context.disable_trainer = True
+        context.training = True
+        runner._play(parameter, remote_memory)
 
     finally:
         server_manager.disconnected(actor_id)
-
-
-def __run_actor_main(
-    config: Config,
-    options: Options,
-    parameter: RLParameter,
-    remote_memory: RLRemoteMemory,
-    callbacks: List[Callback],
-):
-    core.play(
-        config,
-        # stop config
-        max_episodes=config.max_episodes,
-        timeout=config.timeout,
-        max_steps=config.max_steps,
-        max_train_count=config.max_train_count,
-        # play config
-        train_only=False,
-        shuffle_player=config.shuffle_player,
-        disable_trainer=True,
-        enable_profiling=config.enable_profiling,
-        # play info
-        training=True,
-        distributed=True,
-        # option
-        eval=options.eval,
-        progress=options.progress,
-        history=options.history,
-        checkpoint=options.checkpoint,
-        # other
-        callbacks=callbacks,
-        parameter=parameter,
-        remote_memory=remote_memory,
-    )
+        logger.info(f"actor{context.actor_id} end")
 
 
 # --------------------
 # trainer
 # --------------------
-class __TrainerInterrupt(Callback):
+class _TrainerInterrupt(Callback):
     def __init__(
         self,
         remote_board: Board,
@@ -267,38 +227,37 @@ class __TrainerInterrupt(Callback):
         self.remote_board = remote_board
         self.parameter = parameter
         self.server_manager = server_manager
-        self.config = config
+        self.trainer_parameter_send_interval_by_train_count = config.trainer_parameter_send_interval_by_train_count
 
-        self.sync_count = 0
+    def on_trainer_start(self, runner: Runner):
+        runner.state.sync_trainer = 0
 
-    def on_trainer_start(self, info):
-        info["sync"] = 0
-
-    def on_trainer_train(self, info):
-        train_count = info["train_count"]
+    def on_trainer_train(self, runner: Runner):
+        train_count = runner.state.trainer.get_train_count()  # type:ignore , trainer is not None
 
         if train_count == 0:
             time.sleep(1)
             return
 
-        if train_count % self.config.trainer_parameter_send_interval_by_train_count == 0:
+        if train_count % self.trainer_parameter_send_interval_by_train_count == 0:
             self.remote_board.write(self.parameter.backup())
-            self.sync_count += 1
-            info["sync"] = self.sync_count
+            runner.state.sync_trainer += 1
 
     def intermediate_stop(self, info) -> bool:
         return self.server_manager.is_end()
 
 
 def __run_trainer(
+    config: Config,
+    context: Context,
     last_param_queue: mp.Queue,
     last_remote_memory_queue: mp.Queue,
-    config: Config,
-    options: Options,
-    save_remote_memory: bool,
 ):
-    config._run_name = "trainer"
-    config.init_process()
+    context.run_name = "trainer"
+    runner = Runner(config.env_config, config.rl_config)
+    runner.config = config
+    runner.context = context
+    logger.info("trainer start.")
 
     MPManager.register("ServerManager")
     MPManager.register("RemoteMemory")
@@ -307,38 +266,34 @@ def __run_trainer(
     manager: Any = MPManager(address=("127.0.0.1", config.remote_port), authkey=config.remote_authkey)
     manager.connect()
     server_manager: ServerManager = manager.ServerManager()
+
     parameter = None
     remote_memory = None
     try:
-        remote_board: Board = manager.Board()
         remote_memory = manager.RemoteMemory()
+        remote_board: Board = manager.Board()
 
-        parameter = config.make_parameter(is_load=False)
+        # --- parameter
+        parameter = runner.make_parameter(is_load=False)
         params = remote_board.read()
         if params is not None:
             parameter.restore(params)
 
         # --- callbacks
-        callbacks: List[Callback] = [
-            __TrainerInterrupt(
+        runner.context.callbacks.append(
+            _TrainerInterrupt(
                 remote_board,
                 parameter,
                 server_manager,
                 config,
             )
-        ]
+        )
 
         # --- play
-        allocate = config.used_device_tf
-        if (not config.tf_disable) and is_enable_tf_device_name(allocate):
-            import tensorflow as tf
-
-            logger.info(f"trainer start(allocate={allocate})")
-            with tf.device(allocate):  # type: ignore
-                __run_trainer_main(config, options, parameter, remote_memory, callbacks)
-        else:
-            logger.info("trainer start.")
-            __run_trainer_main(config, options, parameter, remote_memory, callbacks)
+        context.train_only = True
+        context.disable_trainer = False
+        context.training = True
+        runner._play(parameter, remote_memory)
 
     finally:
         try:
@@ -352,8 +307,8 @@ def __run_trainer(
                 logger.info(f"send parameter time: {time.time() - t0:.1f}s")
 
             # --- memory
-            if remote_memory is not None and save_remote_memory != "":
-                remote_memory.save(save_remote_memory, compress=True)
+            # if remote_memory is not None and save_remote_memory != "":
+            #    remote_memory.save(save_remote_memory, compress=True)
 
             # --- send last memory
             if remote_memory is not None:
@@ -362,49 +317,10 @@ def __run_trainer(
                 logger.info(f"send remote_memory time: {time.time() - t0:.1f}s)")
 
 
-def __run_trainer_main(
-    config: Config,
-    options: Options,
-    parameter: RLParameter,
-    remote_memory: RLRemoteMemory,
-    callbacks: List[Callback],
-):
-    core.play(
-        config,
-        # stop config
-        max_episodes=-1,
-        timeout=config.timeout,
-        max_steps=-1,
-        max_train_count=config.max_train_count,
-        #  play config
-        train_only=True,
-        shuffle_player=False,
-        disable_trainer=False,
-        enable_profiling=config.enable_profiling,
-        # play info
-        training=True,
-        distributed=True,
-        # option
-        eval=options.eval,
-        progress=options.progress,
-        history=options.history,
-        checkpoint=options.checkpoint,
-        # other
-        callbacks=callbacks,
-        parameter=parameter,
-        remote_memory=remote_memory,
-    )
-
-
 # --------------------
 # server
 # --------------------
-def __run_server(
-    config: Config,
-    options: Options,
-    init_parameter: RLParameter,
-    init_remote_memory: RLRemoteMemory,
-):
+def __run_server(config: Config, context: Context):
     # とりあえずCPUにしておく
     if config.use_CUDA_VISIBLE_DEVICES:
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -412,30 +328,23 @@ def __run_server(
 
     server_manager = ServerManager()
     board = Board()
-    remote_memory = make_remote_memory(config.rl_config)
-
-    # 初期パラメータ
-    if init_parameter is not None:
-        logger.info("init parameter set")
-        board.write(init_parameter.backup())
-    if init_remote_memory is not None:
-        remote_memory.restore(init_remote_memory.backup())
-        logger.info(f"init remote_memory set(len={remote_memory.length()})")
+    remote_memory = make_remote_memory(config.rl_config, is_load=True)
 
     MPManager.register("get_config", callable=lambda: config)
-    MPManager.register("get_options", callable=lambda: options)
+    MPManager.register("get_context", callable=lambda: context)
     MPManager.register("ServerManager", callable=lambda: server_manager)
     MPManager.register("RemoteMemory", callable=lambda: remote_memory)
     MPManager.register("Board", callable=lambda: board)
 
-    manager = MPManager(address=(config.remote_server_ip, config.remote_port), authkey=config.remote_authkey)
+    manager = MPManager(address=("", config.remote_port), authkey=config.remote_authkey)
     server: Any = manager.get_server()
 
     # add server stop function
     shutdown_timer = threading.Timer(1, lambda: server.stop_event.set())
     MPManager.register("server_stop", callable=lambda: shutdown_timer.start())
 
-    logger.info(f"--- server start({config.remote_server_ip}:{config.remote_port}) ---")
+    ip = socket.gethostbyname(socket.gethostname())
+    logger.info(f"--- server start({ip}:{config.remote_port}) ---")
     server.serve_forever()
 
 
@@ -447,62 +356,16 @@ __is_set_start_method = False
 
 
 def train(
-    config: Config,
-    # stop config
-    max_episodes: int = -1,
-    timeout: int = -1,
-    max_steps: int = -1,
-    max_train_count: int = -1,
-    # play config
-    shuffle_player: bool = True,
-    enable_profiling: bool = True,
-    # options
-    eval: Optional[EvalOption] = None,
-    progress: Optional[ProgressOption] = ProgressOption(),
-    history: Optional[HistoryOption] = None,
-    checkpoint: Optional[CheckpointOption] = None,
-    # other
-    callbacks: List[Callback] = [],
-    parameter: Optional[RLParameter] = None,
-    remote_memory: Optional[RLRemoteMemory] = None,
-    return_remote_memory: bool = False,
-    save_remote_memory: str = "",
+    runner: Runner,
     queue_timeout: int = 60 * 10,
-) -> Tuple[RLParameter, RLRemoteMemory, HistoryViewer]:
+):
     global __is_set_start_method
 
-    assert timeout != -1 or max_train_count != -1, "Please specify 'timeout' or 'max_train_count'."
+    config = runner.config
+    context = runner.context
 
-    config.init_play()
-    config = config.copy(env_share=False)
-
-    # stop config
-    config._max_episodes = max_episodes
-    config._timeout = timeout
-    config._max_steps = max_steps
-    config._max_train_count = max_train_count
-    # play config
-    config._shuffle_player = shuffle_player
-    config._disable_trainer = False
-    config._enable_profiling = enable_profiling
-    # callbacks
-    config._callbacks = callbacks[:]
-    # play info
-    config._training = True
-    config._distributed = True
-
-    options = Options()
-    options.eval = eval
-    options.progress = progress
-    options.history = history
-    options.checkpoint = checkpoint
-
-    # ----------------------------------------------------------------
-    # ----------------------------------------------------------------
-    # ----------------------------------------------------------------
-
-    logger.info(f"Training Config\n{pprint.pformat(config.to_dict())}")
-    config.assert_params()
+    logger.info(f"Config\n{pprint.pformat(config.to_dict())}")
+    logger.info(f"Context\n{pprint.pformat(context.to_dict())}")
 
     if not __is_set_start_method:
         if mp.get_start_method() != "spawn":
@@ -510,14 +373,12 @@ def train(
             __is_set_start_method = True
 
     # callbacks
-    _info = {
-        "config": config,
-    }
-    [c.on_init(_info) for c in config.callbacks]
+    _callbacks = cast(List[MPCallback], [c for c in context.callbacks if issubclass(c.__class__, MPCallback)])
+    [c.on_init(runner) for c in _callbacks]
 
-    # --- last params (errorチェックのため先に作っておく)
-    last_parameter = config.make_parameter()
-    last_remote_memory = config.make_remote_memory()
+    # --- last
+    last_parameter = runner.make_parameter()
+    last_remote_memory = runner.make_remote_memory()
 
     # --- create process
     last_param_queue = mp.Queue()
@@ -525,20 +386,17 @@ def train(
     ps_trainer = mp.Process(
         target=__run_trainer,
         args=(
+            config,
+            context,
             last_param_queue,
             last_remote_memory_queue,
-            config,
-            options,
-            save_remote_memory,
         ),
     )
     ps_server = mp.Process(
         target=__run_server,
         args=(
             config,
-            options,
-            parameter,
-            remote_memory,
+            context,
         ),
     )
 
@@ -571,7 +429,7 @@ def train(
     ps_trainer.start()
 
     # callbacks
-    [c.on_start(_info) for c in config.callbacks]
+    [c.on_start(runner) for c in _callbacks]
 
     # --- wait loop
     t0 = time.time()
@@ -593,7 +451,7 @@ def train(
             break
 
         # callbacks
-        [c.on_polling(_info) for c in config.callbacks]
+        [c.on_polling(runner) for c in _callbacks]
 
         if server_manager.is_end():
             break
@@ -610,15 +468,16 @@ def train(
         logger.warning(traceback.format_exc())
 
     # --- last memory
-    try:
-        if return_remote_memory:
-            t0 = time.time()
-            dat = last_remote_memory_queue.get(timeout=queue_timeout)
-            if dat is not None:
-                last_remote_memory.restore(dat)
-            logger.info(f"recv remote_memory time: {time.time() - t0:.1f}s")
-    except Exception:
-        logger.warning(traceback.format_exc())
+    if False:  # TODO
+        try:
+            if return_remote_memory:
+                t0 = time.time()
+                dat = last_remote_memory_queue.get(timeout=queue_timeout)
+                if dat is not None:
+                    last_remote_memory.restore(dat)
+                logger.info(f"recv remote_memory time: {time.time() - t0:.1f}s")
+        except Exception:
+            logger.warning(traceback.format_exc())
 
     # --- server プロセスを終了させる
     manager.server_stop()
@@ -646,18 +505,5 @@ def train(
     if ps_trainer is not None and ps_trainer.exitcode != 0:
         raise RuntimeError(f"An exception has occurred in trainer process.(exitcode: {ps_trainer.exitcode})")
 
-    # --- callbacks
-    try:
-        [c.on_end(_info) for c in config.callbacks]
-    except Exception:
-        logger.warning(traceback.format_exc())
-
-    # --- history
-    return_history = HistoryViewer()
-    try:
-        if history is not None:
-            return_history.load(config.save_dir)
-    except Exception:
-        logger.info(traceback.format_exc())
-
-    return last_parameter, last_remote_memory, return_history
+    # callbacks
+    [c.on_end(runner) for c in _callbacks]

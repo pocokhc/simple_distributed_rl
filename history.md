@@ -11,7 +11,17 @@
 
 **MainUpdates**
 
+1. [runner.remote] new: 複数PCの分散学習をとりあえず実装(multiprocessingによるIP通信)
 1. [utils.serialize] new: runner.Config, runner.Context, RLConfig, EnvConfigにてjsonに変換できるdictを生成する to_json_dict を utils.serialize.py にまとめてリファクタリング
+
+**OtherUpdates**
+
+1. [runner.mp_debug] new: mpのdebug用に逐次でmpと似た動作をするmp_debugを追加（テスト導入）
+
+**Bug Fixes**
+
+1. [algorithms] fix: target_modelを使うアルゴリズムで初回にonline側とweightsを同期していなかった不具合を修正
+1. [algorithms.stochastic_muzero] fix: 学習が安定しない場合があったので一部lossの計算をcross_entropy_lossからmse_lossに変更
 
 # v0.12.1
 

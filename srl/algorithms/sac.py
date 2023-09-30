@@ -295,6 +295,7 @@ class Parameter(RLParameter):
         self.policy = _PolicyNetwork(self.config)
         self.q_online = _DualQNetwork(self.config)
         self.q_target = _DualQNetwork(self.config)
+        self.q_target.set_weights(self.q_online.get_weights())
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.policy.set_weights(data[0])

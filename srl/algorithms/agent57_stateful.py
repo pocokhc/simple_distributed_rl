@@ -24,7 +24,6 @@ from srl.rl.functions.common import (
     rescaling,
 )
 from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
-from srl.rl.models.tf.dueling_network import DuelingNetworkBlock
 from srl.rl.processors.image_processor import ImageProcessor
 
 kl = keras.layers

@@ -59,7 +59,7 @@ class _QNetwork(keras.Model):
             (None, config.sequence_length, config.actor_num),
         )
 
-    # @tf.function()
+    @tf.function()
     def call(self, x, hidden_states=None, training=False):
         return self._call(x, hidden_states, training)
 
@@ -270,6 +270,9 @@ class Parameter(CommonInterfaceParameter):
         self.emb_network = _EmbeddingNetwork(self.config)
         self.lifelong_target = _LifelongNetwork(self.config)
         self.lifelong_train = _LifelongNetwork(self.config)
+
+        self.q_ext_target.set_weights(self.q_ext_online.get_weights())
+        self.q_int_target.set_weights(self.q_int_online.get_weights())
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.q_ext_online.set_weights(data[0])

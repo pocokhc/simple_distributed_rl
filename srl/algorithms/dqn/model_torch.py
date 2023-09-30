@@ -52,9 +52,12 @@ class Parameter(CommonInterfaceParameter):
 
         self.device = torch.device(self.config.used_device_torch)
 
-        self.q_online = _QNetwork(self.config).to(self.device)
-        self.q_target = _QNetwork(self.config).to(self.device)
+        self.q_online = _QNetwork(self.config).to("cpu")
+        self.q_target = _QNetwork(self.config).to("cpu")
         self.q_target.eval()
+        self.q_target.load_state_dict(self.q_online.state_dict())
+        self.q_online.to(self.device)
+        self.q_target.to(self.device)
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.q_online.to("cpu")

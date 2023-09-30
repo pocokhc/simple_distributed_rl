@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Tuple
 
@@ -20,6 +21,7 @@ from srl.rl.models.tf.input_block import InputBlock
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
+logger = logging.getLogger(__name__)
 
 """
 Paper
@@ -464,6 +466,19 @@ class Worker(RLWorker):
                 u = c * P * (np.sqrt(N) / (1 + n))
                 q = 0 if n == 0 else self.W[state_str][a] / n
                 score = q + u
+
+                if np.isnan(score):
+                    logger.warning(
+                        "puct score is nan. action={}, score={}, q={}, u={}, P={}".format(
+                            a,
+                            score,
+                            q,
+                            u,
+                            self.parameter.P[state_str],
+                        )
+                    )
+                    score = -np.inf
+
             scores[a] = score
         return scores
 

@@ -205,15 +205,22 @@ class Parameter(CommonInterfaceParameter):
 
         self.device = torch.device(self.config.used_device_torch)
 
-        self.q_ext_online = _QNetwork(self.config).to(self.device)
-        self.q_ext_target = _QNetwork(self.config).to(self.device)
-        self.q_int_online = _QNetwork(self.config).to(self.device)
-        self.q_int_target = _QNetwork(self.config).to(self.device)
+        self.q_ext_online = _QNetwork(self.config).to("cpu")
+        self.q_ext_target = _QNetwork(self.config).to("cpu")
+        self.q_int_online = _QNetwork(self.config).to("cpu")
+        self.q_int_target = _QNetwork(self.config).to("cpu")
+        self.q_ext_target.eval()
+        self.q_int_target.eval()
+        self.q_ext_target.load_state_dict(self.q_ext_online.state_dict())
+        self.q_int_target.load_state_dict(self.q_int_online.state_dict())
+        self.q_ext_online.to(self.device)
+        self.q_ext_target.to(self.device)
+        self.q_int_online.to(self.device)
+        self.q_int_target.to(self.device)
+
         self.emb_network = _EmbeddingNetwork(self.config).to(self.device)
         self.lifelong_target = _LifelongNetwork(self.config).to(self.device)
         self.lifelong_train = _LifelongNetwork(self.config).to(self.device)
-        self.q_ext_target.eval()
-        self.q_int_target.eval()
         self.lifelong_target.eval()
 
     def call_restore(self, data: Any, **kwargs) -> None:

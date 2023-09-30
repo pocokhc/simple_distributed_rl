@@ -251,6 +251,9 @@ class Parameter(CommonInterfaceParameter):
         self.lifelong_target = _LifelongNetwork(self.config)
         self.lifelong_train = _LifelongNetwork(self.config)
 
+        self.q_ext_target.set_weights(self.q_ext_online.get_weights())
+        self.q_int_target.set_weights(self.q_int_online.get_weights())
+
     def call_restore(self, data: Any, **kwargs) -> None:
         self.q_ext_online.set_weights(data[0])
         self.q_ext_target.set_weights(data[0])

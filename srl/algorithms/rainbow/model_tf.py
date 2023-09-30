@@ -75,6 +75,7 @@ class Parameter(CommonInterfaceParameter):
 
         self.q_online = _QNetwork(self.config, name="Q_online")
         self.q_target = _QNetwork(self.config, name="Q_target")
+        self.q_target.set_weights(self.q_online.get_weights())
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.q_online.set_weights(data)

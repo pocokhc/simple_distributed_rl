@@ -176,7 +176,7 @@ while not env.done:
 |R2D2      |Continuous |Discrete|Tensorflow|100%||
 |R2D2      |Continuous |Discrete|Torch|0%||
 |Agent57   |Continuous |Discrete|Tensorflow|100%||
-|Agent57   |Continuous |Discrete|Torch|0%||
+|Agent57   |Continuous |Discrete|Torch|100%||
 
 ### PolicyBase/ActorCritic
 

@@ -1,15 +1,15 @@
-import unittest
+from typing import Tuple
 
 from srl.algorithms import ql_agent57
+from srl.base.rl.config import RLConfig
 from srl.runner.runner import Runner
 from srl.test import TestRL
+from tests.algorithms_.common_base_class import CommonBaseSimpleTest
 
 
-class Test_ql_agent57(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
-        from srl.algorithms import ql_agent57
-
-        self.rl_config = ql_agent57.Config()
+class Test_ql_agent57(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
+        return ql_agent57.Config(), {}
 
 
 def test_Grid():

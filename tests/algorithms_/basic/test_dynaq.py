@@ -1,15 +1,15 @@
-import unittest
+from typing import Tuple
 
 from srl.algorithms import dynaq
+from srl.base.rl.config import RLConfig
 from srl.runner.runner import Runner
 from srl.test import TestRL
+from tests.algorithms_.common_base_class import CommonBaseSimpleTest
 
 
-class Test_dynaq(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
-        from srl.algorithms import dynaq
-
-        self.rl_config = dynaq.Config()
+class Test_dynaq(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
+        return dynaq.Config(), {}
 
 
 def test_Grid():

@@ -15,17 +15,7 @@ BaseLineType = Union[float, List[Union[float, None]]]
 
 
 class TestRL:
-    #
-    # ここはVSCodeでpytestで継承先のみテストを表示し、
-    # 継承元のテストを非表示にするテクニックです。
-    # __init__ があるとpytestはテストとして認識しません。
-    # __init__の引数は unittest 用です。
-    # 継承先は class A(TestRL, unittest.TestCase): と継承します。
-    # TestRL -> TestCase の順である必要があります。
-    #
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+    def __init__(self):
         self.rl_config = None
         self.simple_check_kwargs = {}
         self.episode_baseline = {
@@ -43,33 +33,6 @@ class TestRL:
             "OX": (200, [0.8, 0.65]),  # [0.987, 0.813] ぐらい
             "Othello4x4": (50, [0.1, 0.5]),  # [0.3, 0.9] ぐらい
         }
-
-    def init_simple_check(self) -> Tuple[RLConfig, dict]:
-        raise NotImplementedError()
-
-    def test_simple_check(self):
-        self.init_simple_check()
-        assert self.rl_config is not None, "Define `rl_config` with `init_simple_check`."
-        self.simple_check(self.rl_config, **self.simple_check_kwargs)
-
-    def test_simple_check_mp(self):
-        self.init_simple_check()
-        assert self.rl_config is not None, "Define `rl_config` with `init_simple_check`."
-
-        self.simple_check(self.rl_config, is_mp=True, **self.simple_check_kwargs)
-
-    def test_summary(self):
-        self.init_simple_check()
-        assert self.rl_config is not None, "Define `rl_config` with `init_simple_check`."
-        _rl_config = self.rl_config.copy(reset_env_config=True)
-
-        env = srl.make_env("Grid")
-        if self.simple_check_kwargs.get("use_layer_processor", False):
-            _rl_config.processors.append(grid.LayerProcessor())
-        parameter = srl.make_parameter(_rl_config, env)
-        parameter.summary()
-
-    # -----------------------------------
 
     def simple_check(
         self,

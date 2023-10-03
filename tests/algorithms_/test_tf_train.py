@@ -1,4 +1,5 @@
 from srl.utils import common
+from tests.algorithms_ import base_dreamer_v2
 
 from . import (
     base_agent57,
@@ -121,6 +122,22 @@ class Test_dqn_GPU(base_dqn.BaseCase):
 
 
 class Test_dreamer_CPU(base_dreamer.BaseCase):
+    def get_framework(self) -> str:
+        return "tensorflow"
+
+    def get_device(self) -> str:
+        return "CPU"
+
+
+class Test_dreamer_v2_GPU(base_dreamer_v2.BaseCase):
+    def get_framework(self) -> str:
+        return "tensorflow"
+
+    def get_device(self) -> str:
+        return "GPU"
+
+
+class Test_dreamer_v2_CPU(base_dreamer_v2.BaseCase):
     def get_framework(self) -> str:
         return "tensorflow"
 

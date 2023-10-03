@@ -211,7 +211,7 @@ while not env.done:
 |WorldModels|Continuous |Discrete   |Tensorflow|100%|
 |PlaNet     |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%|
 |Dreamer    |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%|
-|DreamerV2  |           |           ||  0%|
+|DreamerV2  |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%|
 
 ## Offline
 

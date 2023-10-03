@@ -1,157 +1,224 @@
-import unittest
+from typing import Tuple
 
 import pytest
 
-from srl.test import TestRL
-from srl.utils import common
+from srl.base.rl.config import RLConfig
+from srl.test.rl import TestRL
+from tests.algorithms_.common_base_class import CommonBaseSimpleTest
 
-common.logger_print()
 
-
-class Test_agent57(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_agent57(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import agent57
 
-        self.rl_config = agent57.Config()
-        self.rl_config.framework.set_tensorflow()
-        self.rl_config.memory_warmup_size = 100
+        rl_config = agent57.Config()
+        rl_config.framework.set_tensorflow()
+        rl_config.memory_warmup_size = 100
+        return rl_config, {}
 
 
-class Test_agent57_light(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_agent57_light(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import agent57_light
 
-        self.rl_config = agent57_light.Config()
-        self.rl_config.framework.set_tensorflow()
-        self.rl_config.memory_warmup_size = 100
+        rl_config = agent57_light.Config()
+        rl_config.framework.set_tensorflow()
+        rl_config.memory_warmup_size = 100
+        return rl_config, {}
 
 
-class Test_agent57_stateful(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_agent57_stateful(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import agent57_stateful
 
-        self.rl_config = agent57_stateful.Config()
-        self.rl_config.memory_warmup_size = 100
+        rl_config = agent57_stateful.Config()
+        rl_config.memory_warmup_size = 100
+        return rl_config, {}
 
 
-class Test_alphazero(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_alphazero(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import alphazero
 
-        self.rl_config = alphazero.Config()
+        rl_config = alphazero.Config()
+        return rl_config, {}
 
     def test_simple_check_go_config(self):
         pytest.importorskip("tensorflow")
+        from srl.algorithms import alphazero
 
-        self.init_simple_check()
-        self.rl_config.set_go_config()
-        self.rl_config.memory_warmup_size = 100
-        self.rl_config.batch_size = 8
-        self.rl_config.num_simulations = 5
-        self.simple_check(self.rl_config)
+        rl_config = alphazero.Config()
+        rl_config.set_go_config()
+        rl_config.memory_warmup_size = 100
+        rl_config.batch_size = 8
+        rl_config.num_simulations = 5
+
+        tester = TestRL()
+        tester.simple_check(rl_config)
 
 
-class Test_c51(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_c51(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import c51
 
-        self.rl_config = c51.Config()
+        rl_config = c51.Config()
+        return rl_config, {}
 
 
-class Test_ddpg(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_ddpg(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import ddpg
 
-        self.rl_config = ddpg.Config()
+        rl_config = ddpg.Config()
+        return rl_config, {}
 
 
-class Test_dqn(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_dqn(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import dqn
 
-        self.rl_config = dqn.Config()
-        self.rl_config.framework.set_tensorflow()
+        rl_config = dqn.Config()
+        rl_config.framework.set_tensorflow()
+        return rl_config, {}
 
     def test_simple_check_atari_config(self):
-        self.init_simple_check()
-        self.rl_config.use_render_image_for_observation = True
-        self.rl_config.set_atari_config()
-        self.rl_config.memory_warmup_size = 1000
-        self.simple_check(self.rl_config)
+        pytest.importorskip("tensorflow")
+
+        from srl.algorithms import dqn
+
+        rl_config = dqn.Config()
+        rl_config.framework.set_tensorflow()
+        rl_config.use_render_image_for_observation = True
+        rl_config.set_atari_config()
+        rl_config.memory_warmup_size = 1000
+
+        tester = TestRL()
+        tester.simple_check(rl_config)
 
 
-class Test_dreamer(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_dreamer(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
         pytest.importorskip("tensorflow_probability")
 
         from srl.algorithms import dreamer
 
-        self.rl_config = dreamer.Config(
-            memory_warmup_size=100,
+        rl_config = dreamer.Config(
+            memory_warmup_size=10,
             deter_size=10,
             stoch_size=5,
-            reward_num_units=10,
-            value_num_units=10,
-            action_num_units=10,
-            cnn_depth=4,
-            batch_size=4,
+            reward_layer_sizes=(10, 10),
+            critic_layer_sizes=(10, 10),
+            actor_layer_sizes=(10, 10),
+            cnn_depth=2,
+            batch_size=2,
             batch_length=5,
         )
-        self.rl_config.use_render_image_for_observation = True
+        rl_config.use_render_image_for_observation = True
+        return rl_config, {}
 
 
-class Test_muzero(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_dreamer_v2(CommonBaseSimpleTest):
+    @pytest.fixture(params=["simple", "dreamer", "dreamer_v2"])
+    def critic_estimation_method(self, request):
+        return request.param
+
+    @pytest.fixture(params=["episode", "loop", "episode_steps"])
+    def experience_acquisition_method(self, request):
+        return request.param
+
+    @pytest.fixture()
+    def rl_param(self, critic_estimation_method, experience_acquisition_method):
+        return [critic_estimation_method, experience_acquisition_method]
+
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
+        pytest.importorskip("tensorflow")
+        pytest.importorskip("tensorflow_probability")
+
+        from srl.algorithms import dreamer_v2
+
+        rl_config = dreamer_v2.Config(
+            memory_warmup_size=10,
+            deter_size=10,
+            stoch_size=5,
+            reward_layer_sizes=(5, 5),
+            discount_layer_sizes=(5, 5),
+            critic_layer_sizes=(5, 5),
+            actor_layer_sizes=(5, 5),
+            cnn_depth=2,
+            batch_size=2,
+            batch_length=5,
+            critic_estimation_method=rl_param[0],
+            experience_acquisition_method=rl_param[1],
+        )
+        rl_config.use_render_image_for_observation = True
+        return rl_config, {}
+
+
+class Test_muzero(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import muzero
 
-        self.rl_config = muzero.Config(
+        rl_config = muzero.Config(
             batch_size=4,
             num_simulations=3,
             memory_warmup_size=10,
             dynamics_blocks=1,
         )
-        self.rl_config.input_image_block.set_alphazero_block(2, 4)
-        self.simple_check_kwargs = dict(
-            use_layer_processor=True,
-        )
+        rl_config.input_image_block.set_alphazero_block(2, 4)
+        return rl_config, dict(use_layer_processor=True)
 
     def test_simple_check_atari_config(self):
         pytest.importorskip("tensorflow")
         pytest.importorskip("ale_py")
 
-        self.init_simple_check()
-        self.rl_config.set_atari_config()
-        self.rl_config.memory_warmup_size = 5
-        self.rl_config.batch_size = 2
-        self.rl_config.num_simulations = 2
-        self.simple_check(self.rl_config, env_list=["ALE/Pong-v5"], train_kwargs={"max_steps": 10})
+        from srl.algorithms import muzero
+
+        rl_config = muzero.Config(
+            batch_size=4,
+            num_simulations=3,
+            memory_warmup_size=10,
+            dynamics_blocks=1,
+        )
+        rl_config.input_image_block.set_alphazero_block(2, 4)
+        rl_config.set_atari_config()
+        rl_config.memory_warmup_size = 5
+        rl_config.batch_size = 2
+        rl_config.num_simulations = 2
+
+        tester = TestRL()
+        tester.simple_check(
+            rl_config,
+            env_list=["ALE/Pong-v5"],
+            train_kwargs={"max_steps": 10},
+            use_layer_processor=True,
+        )
 
 
-class Test_planet(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_planet(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
         pytest.importorskip("tensorflow_probability")
 
         from srl.algorithms import planet
 
-        self.rl_config = planet.Config(
+        rl_config = planet.Config(
             batch_size=4,
             batch_length=5,
             memory_warmup_size=100,
@@ -159,76 +226,85 @@ class Test_planet(TestRL, unittest.TestCase):
             num_simulations=2,
             print_ga_debug=False,
         )
-        self.rl_config.use_render_image_for_observation = True
+        rl_config.use_render_image_for_observation = True
+        return rl_config, {}
 
 
-class Test_ppo(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_ppo(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import ppo
 
-        self.rl_config = ppo.Config()
+        rl_config = ppo.Config()
+        return rl_config, {}
 
 
-class Test_r2d2(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_r2d2(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import r2d2
 
-        self.rl_config = r2d2.Config()
+        rl_config = r2d2.Config()
+        return rl_config, {}
 
 
-class Test_rainbow(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_rainbow(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import rainbow
 
-        self.rl_config = rainbow.Config()
-        self.rl_config.framework.set_tensorflow()
+        rl_config = rainbow.Config()
+        rl_config.framework.set_tensorflow()
+        return rl_config, {}
 
     def test_simple_check_atari_config(self):
         pytest.importorskip("tensorflow")
 
-        self.init_simple_check()
-        self.rl_config.set_atari_config()
-        self.rl_config.memory_warmup_size = 1000
-        self.simple_check(self.rl_config)
+        from srl.algorithms import rainbow
+
+        rl_config = rainbow.Config()
+        rl_config.framework.set_tensorflow()
+        rl_config.set_atari_config()
+        rl_config.memory_warmup_size = 1000
+
+        tester = TestRL()
+        tester.simple_check(rl_config)
 
 
-class Test_sac(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_sac(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import sac
 
-        self.rl_config = sac.Config()
+        rl_config = sac.Config()
+        return rl_config, {}
 
 
-class Test_stochastic_muzero(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_stochastic_muzero(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import stochastic_muzero
 
-        self.rl_config = stochastic_muzero.Config(
+        rl_config = stochastic_muzero.Config(
             num_simulations=3,
             batch_size=2,
             memory_warmup_size=5,
             dynamics_blocks=1,
         )
-        self.rl_config.input_image_block.set_alphazero_block(1, 8)
-        self.simple_check_kwargs = dict(
-            use_layer_processor=True,
-        )
+        rl_config.input_image_block.set_alphazero_block(1, 8)
+        return rl_config, dict(use_layer_processor=True)
 
 
-class Test_world_models(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
+class Test_world_models(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
         from srl.algorithms import world_models
 
-        self.rl_config = world_models.Config()
+        rl_config = world_models.Config()
+        return rl_config, {}

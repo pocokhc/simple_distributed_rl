@@ -1,16 +1,15 @@
-import unittest
+from typing import Tuple
 
 from srl.algorithms import mcts
+from srl.base.rl.config import RLConfig
 from srl.runner.runner import Runner
 from srl.test import TestRL
+from tests.algorithms_.common_base_class import CommonBaseSimpleTest
 
 
-class Test_mcts(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
-        from srl.algorithms import mcts
-
-        self.rl_config = mcts.Config()
-        self.simple_check_kwargs = dict(
+class Test_mcts(CommonBaseSimpleTest):
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
+        return mcts.Config(), dict(
             use_layer_processor=True,
             train_kwargs=dict(max_steps=10),
         )

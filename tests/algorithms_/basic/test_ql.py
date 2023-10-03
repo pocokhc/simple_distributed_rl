@@ -1,20 +1,21 @@
-import unittest
+from typing import Tuple
 
 import pytest
 
 from srl.algorithms import ql
+from srl.base.rl.config import RLConfig
 from srl.runner.runner import Runner
 from srl.test import TestRL
-from srl.utils import common
-
-common.logger_print()
+from tests.algorithms_.common_base_class import CommonBaseSimpleTest
 
 
-class Test_ql(TestRL, unittest.TestCase):
-    def init_simple_check(self) -> None:
-        from srl.algorithms import ql
+class Test_ql(CommonBaseSimpleTest):
+    @pytest.fixture(params=["", "random", "normal"])
+    def rl_param(self, request):
+        return request.param
 
-        self.rl_config = ql.Config()
+    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
+        return ql.Config(q_init=rl_param), {}
 
 
 def test_Grid_policy():

@@ -26,8 +26,8 @@ tfd = tfp.distributions
 logger = logging.getLogger(__name__)
 
 """
-paper: https://arxiv.org/abs/1912.01603
-ref: https://github.com/danijar/dreamer
+paper: https://arxiv.org/abs/2010.02193
+ref: https://github.com/danijar/dreamerv2/tree/07d906e9c4322c6fc2cd6ed23e247ccd6b7c8c41
 """
 
 
@@ -40,10 +40,11 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     memory_warmup_size: int = 1000
 
     # Model
-    deter_size: int = 200
-    stoch_size: int = 30
-    reward_layer_sizes: Tuple[int, ...] = (400, 400)
-    critic_layer_sizes: Tuple[int, ...] = (400, 400, 400)
+    deter_size: int = 600
+    stoch_size: int = 32
+    reward_layer_sizes: Tuple[int, ...] = (400, 400, 400, 400)
+    discount_layer_sizes: Tuple[int, ...] = (400, 400, 400, 400)
+    critic_layer_sizes: Tuple[int, ...] = (400, 400, 400, 400)
     actor_layer_sizes: Tuple[int, ...] = (400, 400, 400, 400)
     dense_act: Any = "elu"
     cnn_act: Any = "relu"
@@ -51,6 +52,9 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     free_nats: float = 3.0
     kl_scale: float = 0.1
     fixed_variance: bool = False
+    vae_discrete: bool = True
+    kl_balancing_rate: float = 0.8
+    h_target: float = 0.95
 
     # Training
     enable_train_model: bool = True
@@ -61,19 +65,23 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     lr_model: float = 6e-4  # type: ignore , type OK
     lr_critic: float = 8e-5  # type: ignore , type OK
     lr_actor: float = 8e-5  # type: ignore , type OK
+    target_critic_update_interval: int = 100
+    reinforce_rate: float = 0.5  # type: ignore , type OK
+    entropy_rate: float = 0.001  # type: ignore , type OK
+    reinforce_baseline: str = "v"  # "v"
 
     # Behavior
-    discount: float = 0.99
+    discount: float = 0.999
     disclam: float = 0.95
     horizon: int = 15
-    critic_estimation_method: str = "dreamer"  # "simple" or "dreamer"
+    critic_estimation_method: str = "dreamer_v2"  # "simple" or "dreamer" or "dreamer_v2"
 
-    # actor ε-greedy
+    # action ε-greedy
     epsilon: float = 0.5  # type: ignore , type OK
     test_epsilon: float = 0.0
 
     # 経験取得方法
-    experience_acquisition_method: str = "episode"  # "episode" or "loop" or "episode_steps"
+    experience_acquisition_method: str = "episode_steps"  # "episode" or "loop" or "episode_steps"
 
     # other
     clip_rewards: str = "none"
@@ -86,6 +94,8 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         self.lr_model: SchedulerConfig = SchedulerConfig(cast(float, self.lr_model))
         self.lr_critic: SchedulerConfig = SchedulerConfig(cast(float, self.lr_critic))
         self.lr_actor: SchedulerConfig = SchedulerConfig(cast(float, self.lr_actor))
+        self.reinforce_rate: SchedulerConfig = SchedulerConfig(cast(float, self.reinforce_rate))
+        self.entropy_rate: SchedulerConfig = SchedulerConfig(cast(float, self.entropy_rate))
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -108,7 +118,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         return "tensorflow"
 
     def getName(self) -> str:
-        return "Dreamer"
+        return "DreamerV2"
 
     def assert_params(self) -> None:
         super().assert_params()
@@ -142,47 +152,100 @@ class RemoteMemory(ExperienceReplayBuffer):
 # network
 # ------------------------------------------------------
 class _RSSM(keras.Model):
-    def __init__(self, stoch=30, deter=200, hidden=200, act=tf.nn.elu):
+    def __init__(
+        self,
+        stoch=30,
+        deter=200,
+        hidden=200,
+        act=tf.nn.elu,
+        use_norm_layers: bool = True,
+        vae_discrete: bool = True,
+    ):
         super().__init__()
 
+        self.vae_discrete = vae_discrete
+
         self.rnn_cell = kl.GRUCell(deter)
-        self.obs1 = kl.Dense(hidden, activation=act)
-        self.obs_mean = kl.Dense(stoch, activation=None)
-        self.obs_std = kl.Dense(stoch, activation=None)
-        self.img1 = kl.Dense(hidden, activation=act)
-        self.img2 = kl.Dense(hidden, activation=act)
-        self.img_mean = kl.Dense(stoch, activation=None)
-        self.img_std = kl.Dense(stoch, activation=None)
+
+        self.obs_layers = [kl.Dense(hidden, activation=act)]
+        self.img_layers1 = [kl.Dense(hidden, activation=act)]
+        self.img_layers2 = [kl.Dense(hidden, activation=act)]
+        if use_norm_layers:
+            self.obs_layers.append(kl.LayerNormalization())
+            self.img_layers1.append(kl.LayerNormalization())
+            self.img_layers2.append(kl.LayerNormalization())
+
+        if self.vae_discrete:
+            self.obs_discrete_dense = kl.Dense(stoch, activation=None)
+            self.img_discrete_dense = kl.Dense(stoch, activation=None)
+        else:
+            self.obs_mean = kl.Dense(stoch, activation=None)
+            self.obs_std = kl.Dense(stoch, activation=None)
+            self.img_mean = kl.Dense(stoch, activation=None)
+            self.img_std = kl.Dense(stoch, activation=None)
 
     # @tf.function
-    def obs_step(self, prev_stoch, prev_deter, prev_action, embed, training=False, _summary: bool = False):
-        deter, prior = self.img_step(prev_stoch, prev_deter, prev_action, training=training, _summary=_summary)
-        x = tf.concat([deter, embed], -1)
-        x = self.obs1(x, training=training)
-        mean = self.obs_mean(x, training=training)
-        std = self.obs_std(x, training=training)
-        std = tf.nn.softplus(std) + 0.1
-        if _summary:
-            return [mean, std, prior["mean"], prior["std"]]
-        stoch = tfd.MultivariateNormalDiag(mean, std).sample()
-        post = {"mean": mean, "std": std, "stoch": stoch}
-        return post, deter, prior
-
-    # @tf.function
-    def img_step(self, prev_stoch, prev_deter, prev_action, training=False, _summary: bool = False):
+    def img_step(
+        self,
+        prev_stoch,
+        prev_deter,
+        prev_action,
+        sample: bool = True,
+        training: bool = False,
+        _summary: bool = False,
+    ):
         x = tf.concat([prev_stoch, prev_action], -1)
-        x = self.img1(x, training=training)
-        x, deter = self.rnn_cell(x, [prev_deter], training=training)  # type:ignore , ignore check "None"
+        for layer in self.img_layers1:
+            x = layer(x, training=training)
+        x, deter = self.rnn_cell(x, [prev_deter], training=training)
         deter = deter[0]
-        x = self.img2(x, training=training)
-        mean = self.img_mean(x, training=training)
-        std = self.img_std(x, training=training)
-        std = tf.nn.softplus(std) + 0.1
-        if _summary:
-            return deter, {"mean": mean, "std": std}
-        stoch = tfd.MultivariateNormalDiag(mean, std).sample()
-        prior = {"mean": mean, "std": std, "stoch": stoch}
+        for layer in self.img_layers2:
+            x = layer(x, training=training)
+        if self.vae_discrete:
+            x = self.obs_discrete_dense(x)
+            if _summary:
+                return deter, {"logits": x}
+            dist = tfd.Independent(tfd.OneHotCategorical(x), reinterpreted_batch_ndims=1)
+            prior = {"logits": x}
+        else:
+            mean = self.img_mean(x)
+            std = self.img_std(x)
+            std = tf.nn.softplus(std) + 0.1
+            if _summary:
+                return deter, {"mean": mean, "std": std}
+            dist = tfd.MultivariateNormalDiag(mean, std)
+            prior = {"mean": mean, "std": std}
+        prior["stoch"] = tf.cast(dist.sample() if sample else dist.mode(), tf.float32)
         return deter, prior
+
+    # @tf.function
+    def obs_step(
+        self,
+        deter,
+        embed,
+        sample: bool = True,
+        training=False,
+        _summary: bool = False,
+    ):
+        x = tf.concat([deter, embed], -1)
+        for layer in self.obs_layers:
+            x = layer(x, training=training)
+        if self.vae_discrete:
+            x = self.img_discrete_dense(x, training=training)
+            if _summary:
+                return {"logits": x}
+            dist = tfd.Independent(tfd.OneHotCategorical(x), reinterpreted_batch_ndims=1)
+            post = {"logits": x}
+        else:
+            mean = self.obs_mean(x)
+            std = self.obs_std(x)
+            std = tf.nn.softplus(std) + 0.1
+            if _summary:
+                return {"mean": mean, "std": std}
+            dist = tfd.MultivariateNormalDiag(mean, std)
+            post = {"mean": mean, "std": std}
+        post["stoch"] = tf.cast(dist.sample() if sample else dist.mode(), tf.float32)
+        return post
 
     def get_initial_state(self, batch_size: int = 1):
         return self.rnn_cell.get_initial_state(None, batch_size, dtype=tf.float32)
@@ -192,7 +255,8 @@ class _RSSM(keras.Model):
         in_deter = self.get_initial_state()
         in_action = np.zeros((1, config.action_num), dtype=np.float32)
         in_embed = np.zeros((1, 32 * config.cnn_depth), dtype=np.float32)
-        self.obs_step(in_stoch, in_deter, in_action, in_embed)
+        deter, prior = self.img_step(in_stoch, in_deter, in_action)
+        self.obs_step(deter, in_embed)
         self.built = True
 
     def summary(self, config, **kwargs):
@@ -201,15 +265,17 @@ class _RSSM(keras.Model):
         in_action = kl.Input((config.action_num,))
         in_embed = kl.Input((32 * config.cnn_depth,))
 
+        deter, prior = self.img_step(in_stoch, in_deter, in_action, _summary=True)
+        post = self.obs_step(deter, in_embed, _summary=True)
         model = keras.Model(
             inputs=[in_stoch, in_deter, in_action, in_embed],
-            outputs=self.obs_step(in_stoch, in_deter, in_action, in_embed, _summary=True),
+            outputs=post,
             name="RSSM",
         )
         return model.summary(**kwargs)
 
 
-class _ConvEncoder(keras.Model):
+class _Encoder(keras.Model):
     def __init__(self, depth: int = 32, act=tf.nn.relu):
         super().__init__()
 
@@ -238,7 +304,7 @@ class _ConvEncoder(keras.Model):
         return model.summary(**kwargs)
 
 
-class _ConvDecoder(keras.Model):
+class _Decoder(keras.Model):
     def __init__(self, depth: int = 32, act=tf.nn.relu, fixed_variance: bool = False):
         super().__init__()
         self.fixed_variance = fixed_variance
@@ -252,7 +318,7 @@ class _ConvDecoder(keras.Model):
         if not fixed_variance:
             self.c4_std = kl.Conv2DTranspose(3, 6, 2)
 
-    def call(self, x, _summary=False):
+    def call(self, x, _summary: bool = False):
         x = self.in_layer(x)
         x = self.reshape(x)
         x = self.c1(x)
@@ -345,7 +411,10 @@ class _BernoulliDecoder(keras.Model):
         x = tf.reshape(x, (-1,) + self._out_shape)
         if _summary:
             return x
-        return tfd.Independent(tfd.Bernoulli(x), reinterpreted_batch_ndims=len(self._out_shape))
+        return tfd.Independent(
+            tfd.Bernoulli(logits=x, dtype=tf.float32),
+            reinterpreted_batch_ndims=len(self._out_shape),
+        )
 
     def build(self, input_shape):
         self._input_shape = input_shape
@@ -362,7 +431,6 @@ class _OneHotDist:
     def __init__(self, logits=None, probs=None):
         self._dist = tfd.Categorical(logits=logits, probs=probs)
         self._num_classes = self.mean().shape[-1]
-        self._dtype = tf.float32
 
     @property
     def name(self):
@@ -390,11 +458,11 @@ class _OneHotDist:
         indices = self._dist.sample(*amount)
         sample = self._one_hot(indices)
         probs = self._dist.probs_parameter()
-        sample += tf.cast(probs - tf.stop_gradient(probs), self._dtype)
+        sample += probs - tf.stop_gradient(probs)
         return sample
 
     def _one_hot(self, indices):
-        return tf.one_hot(indices, self._num_classes, dtype=self._dtype)
+        return tf.one_hot(indices, self._num_classes, dtype=tf.float32)
 
 
 class _TanhBijector(tfp.bijectors.Bijector):
@@ -407,7 +475,7 @@ class _TanhBijector(tfp.bijectors.Bijector):
     def _inverse(self, y):
         dtype = y.dtype
         y = tf.cast(y, tf.float32)
-        y = tf.where(tf.less_equal(tf.abs(y), 1.0), tf.clip_by_critic(y, -0.99999997, 0.99999997), y)
+        y = tf.where(tf.less_equal(tf.abs(y), 1.0), tf.clip_by_value(y, -0.99999997, 0.99999997), y)
         y = tf.atanh(y)
         y = tf.cast(y, dtype)
         return y
@@ -482,8 +550,7 @@ class _ActorContinuousDecoder(keras.Model):
     def __init__(
         self,
         action_num: int,
-        layers: int,
-        units: int,
+        layer_sizes: Tuple[int, ...],
         min_std=1e-4,
         init_std=5.0,
         mean_scale=5.0,
@@ -493,7 +560,7 @@ class _ActorContinuousDecoder(keras.Model):
         self._mean_scale = mean_scale
         self._raw_init_std = np.log(np.exp(init_std) - 1)
 
-        self.dense_layers = [kl.Dense(units, activation="elu") for i in range(layers)]
+        self.dense_layers = [kl.Dense(units, activation="elu") for units in layer_sizes]
         self.out = kl.Dense(action_num * 2)
 
     def call(self, x, return_logits: bool = False):
@@ -536,16 +603,27 @@ class Parameter(RLParameter):
         super().__init__(*args)
         self.config: Config = self.config
 
-        self.encode = _ConvEncoder(self.config.cnn_depth, self.config.cnn_act)
+        self.encode = _Encoder(self.config.cnn_depth, self.config.cnn_act)
         self.dynamics = _RSSM(self.config.stoch_size, self.config.deter_size, self.config.deter_size)
-        self.decode = _ConvDecoder(self.config.cnn_depth, self.config.cnn_act)
+        self.decode = _Decoder(self.config.cnn_depth, self.config.cnn_act)
         self.reward = _NormalDecoder(
             (1,),
             self.config.reward_layer_sizes,
             self.config.dense_act,
             self.config.fixed_variance,
         )
+        self.discount = _BernoulliDecoder(
+            (1,),
+            self.config.discount_layer_sizes,
+            self.config.dense_act,
+        )
         self.critic = _NormalDecoder(
+            (1,),
+            self.config.critic_layer_sizes,
+            self.config.dense_act,
+            self.config.fixed_variance,
+        )
+        self.critic_target = _NormalDecoder(
             (1,),
             self.config.critic_layer_sizes,
             self.config.dense_act,
@@ -560,16 +638,22 @@ class Parameter(RLParameter):
         self.dynamics.build(self.config)
         self.decode.build((self.config.deter_size + self.config.stoch_size,))
         self.reward.build((self.config.deter_size + self.config.stoch_size,))
+        self.discount.build((self.config.deter_size + self.config.stoch_size,))
         self.critic.build((self.config.deter_size + self.config.stoch_size,))
+        self.critic_target.build((self.config.deter_size + self.config.stoch_size,))
         self.actor.build((self.config.deter_size + self.config.stoch_size,))
+
+        self.critic_target.set_weights(self.critic.get_weights())
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.encode.set_weights(data[0])
         self.dynamics.set_weights(data[1])
         self.decode.set_weights(data[2])
         self.reward.set_weights(data[3])
-        self.critic.set_weights(data[4])
-        self.actor.set_weights(data[5])
+        self.discount.set_weights(data[4])
+        self.critic.set_weights(data[5])
+        self.critic_target.set_weights(data[5])
+        self.actor.set_weights(data[6])
 
     def call_backup(self, **kwargs) -> Any:
         return [
@@ -577,6 +661,7 @@ class Parameter(RLParameter):
             self.dynamics.get_weights(),
             self.decode.get_weights(),
             self.reward.get_weights(),
+            self.discount.get_weights(),
             self.critic.get_weights(),
             self.actor.get_weights(),
         ]
@@ -586,6 +671,7 @@ class Parameter(RLParameter):
         self.dynamics.summary(self.config, **kwargs)
         self.decode.summary("Decoder", **kwargs)
         self.reward.summary("Reward", **kwargs)
+        self.discount.summary("Discount", **kwargs)
         self.critic.summary("Critic", **kwargs)
         self.actor.summary("Actor", **kwargs)
 
@@ -603,6 +689,8 @@ class Trainer(RLTrainer):
         self.lr_sch_model = self.config.lr_model.create_schedulers()
         self.lr_sch_critic = self.config.lr_critic.create_schedulers()
         self.lr_sch_actor = self.config.lr_actor.create_schedulers()
+        self.reinforce_rate_sch = self.config.reinforce_rate.create_schedulers()
+        self.entropy_rate_sch = self.config.entropy_rate.create_schedulers()
 
         if compare_less_version(tf.__version__, "2.11.0"):
             self._model_opt = keras.optimizers.Adam(learning_rate=self.lr_sch_model.get_rate(0))
@@ -614,6 +702,7 @@ class Trainer(RLTrainer):
             self._actor_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_actor.get_rate(0))
 
         self.train_count = 0
+        self.sync_count = 0
 
     def get_train_count(self):
         return self.train_count
@@ -628,13 +717,15 @@ class Trainer(RLTrainer):
         states = np.asarray([b["states"] for b in batchs], dtype=np.float32)
         actions = [b["actions"] for b in batchs]
         rewards = np.asarray([b["rewards"] for b in batchs], dtype=np.float32)[..., np.newaxis]
+        discounts = np.asarray([b["discounts"] for b in batchs], dtype=np.float32)[..., np.newaxis]
 
-        # onehot actions
+        # onehot action
         actions = tf.one_hot(actions, self.config.action_num, axis=2)
 
         # (batch, seq, shape) -> (batch * seq, shape)
         states = tf.reshape(states, (self.config.batch_size * self.config.batch_length,) + states.shape[2:])
         rewards = tf.reshape(rewards, (self.config.batch_size * self.config.batch_length,) + rewards.shape[2:])
+        discounts = tf.reshape(discounts, (self.config.batch_size * self.config.batch_length,) + discounts.shape[2:])
 
         # ------------------------
         # RSSM
@@ -660,50 +751,75 @@ class Trainer(RLTrainer):
             deters = []
             stoch = tf.zeros([self.config.batch_size, self.config.stoch_size], dtype=tf.float32)
             deter = self.parameter.dynamics.get_initial_state(self.config.batch_size)
-            post_mean = []
-            post_std = []
-            prior_mean = []
-            prior_std = []
+            if self.config.vae_discrete:
+                post_logits = []
+                prior_logits = []
+            else:
+                post_mean = []
+                post_std = []
+                prior_mean = []
+                prior_std = []
             for i in range(self.config.batch_length):
-                post, deter, prior = self.parameter.dynamics.obs_step(
-                    stoch, deter, actions[i], embed[i], training=True
-                )
-                stoch = post["stoch"]
-                stochs.append(stoch)
+                deter, prior = self.parameter.dynamics.img_step(stoch, deter, actions[i], training=True)
+                post = self.parameter.dynamics.obs_step(deter, embed[i], training=True)
+                stochs.append(post["stoch"])
                 deters.append(deter)
-                post_mean.append(post["mean"])
-                post_std.append(post["std"])
-                prior_mean.append(prior["mean"])
-                prior_std.append(prior["std"])
+                if self.config.vae_discrete:
+                    post_logits.append(post["logits"])
+                    prior_logits.append(prior["logits"])
+                else:
+                    post_mean.append(post["mean"])
+                    post_std.append(post["std"])
+                    prior_mean.append(prior["mean"])
+                    prior_std.append(prior["std"])
             stochs = tf.stack(stochs, axis=0)
             deters = tf.stack(deters, axis=0)
-            post_mean = tf.stack(post_mean, axis=0)
-            post_std = tf.stack(post_std, axis=0)
-            prior_mean = tf.stack(prior_mean, axis=0)
-            prior_std = tf.stack(prior_std, axis=0)
 
             # (seq, batch, shape) -> (batch, seq, shape)
             stochs = tf.transpose(stochs, [1, 0, 2])
             deters = tf.transpose(deters, [1, 0, 2])
-            post_mean = tf.transpose(post_mean, [1, 0, 2])
-            post_std = tf.transpose(post_std, [1, 0, 2])
-            prior_mean = tf.transpose(prior_mean, [1, 0, 2])
-            prior_std = tf.transpose(prior_std, [1, 0, 2])
 
             feat = tf.concat([stochs, deters], -1)
             feat = tf.reshape(feat, (self.config.batch_size * self.config.batch_length,) + feat.shape[2:])
             image_pred = self.parameter.decode(feat)
             reward_pred = self.parameter.reward(feat)
+            discount_pred = self.parameter.discount(feat)
 
-            image_loss = tf.reduce_mean(image_pred.log_prob(states))
-            reward_loss = tf.reduce_mean(reward_pred.log_prob(rewards))
+            image_loss = image_pred.log_prob(states)
+            reward_loss = reward_pred.log_prob(rewards)
+            discount_loss = discount_pred.log_prob(discounts)
 
-            prior_dist = tfd.MultivariateNormalDiag(prior_mean, prior_std)
-            post_dist = tfd.MultivariateNormalDiag(post_mean, post_std)
+            if self.config.vae_discrete:
+                post_logits = tf.stack(post_logits, axis=0)
+                prior_logits = tf.stack(prior_logits, axis=0)
 
-            kl_loss = tf.reduce_mean(tfd.kl_divergence(post_dist, prior_dist))
+                # (seq, batch, shape) -> (batch, seq, shape)
+                post_logits = tf.transpose(post_logits, [1, 0, 2])
+                prior_logits = tf.transpose(prior_logits, [1, 0, 2])
+
+                prior_dist = tfd.Independent(tfd.OneHotCategorical(post_logits), reinterpreted_batch_ndims=1)
+                post_dist = tfd.Independent(tfd.OneHotCategorical(prior_logits), reinterpreted_batch_ndims=1)
+
+            else:
+                post_mean = tf.stack(post_mean, axis=0)
+                post_std = tf.stack(post_std, axis=0)
+                prior_mean = tf.stack(prior_mean, axis=0)
+                prior_std = tf.stack(prior_std, axis=0)
+
+                # (seq, batch, shape) -> (batch, seq, shape)
+                post_mean = tf.transpose(post_mean, [1, 0, 2])
+                post_std = tf.transpose(post_std, [1, 0, 2])
+                prior_mean = tf.transpose(prior_mean, [1, 0, 2])
+                prior_std = tf.transpose(prior_std, [1, 0, 2])
+
+                prior_dist = tfd.MultivariateNormalDiag(prior_mean, prior_std)
+                post_dist = tfd.MultivariateNormalDiag(post_mean, post_std)
+
+            kl_loss = self.config.kl_balancing_rate * tfd.kl_divergence(tf.stop_gradient(post_dist), prior_dist)
+            kl_loss += (1 - self.config.kl_balancing_rate) * tfd.kl_divergence(post_dist, tf.stop_gradient(prior_dist))
+            kl_loss = tf.reduce_mean(kl_loss)
             kl_loss = tf.maximum(kl_loss, self.config.free_nats)
-            loss = self.config.kl_scale * kl_loss - image_loss - reward_loss
+            loss = self.config.kl_scale * kl_loss - tf.reduce_mean(image_loss + reward_loss + discount_loss)
 
         if self.config.enable_train_model:
             variables = [
@@ -719,8 +835,9 @@ class Trainer(RLTrainer):
             lr = self.lr_sch_model.get_rate(self.train_count)
             self._model_opt.learning_rate = lr
 
-            info["img_loss"] = -image_loss.numpy() / (64 * 64 * 3)
-            info["reward_loss"] = -reward_loss.numpy()
+            info["img_loss"] = -np.mean(image_loss.numpy()) / (64 * 64 * 3)
+            info["reward_loss"] = -np.mean(reward_loss.numpy())
+            info["discount_loss"] = -np.mean(discount_loss.numpy())
             info["kl_loss"] = kl_loss.numpy()
             info["model_lr"] = lr
 
@@ -740,22 +857,42 @@ class Trainer(RLTrainer):
         feats = tf.concat([stochs, deters], -1)
 
         # ------------------------
-        # actor
+        # Actor
         # ------------------------
-        horizon_v = None
+        horizon_feats = None
         if self.config.enable_train_actor:
             self.parameter.actor.trainable = True
             self.parameter.critic.trainable = False
+            reinforce_rate = self.reinforce_rate_sch.get_rate(self.train_count)
+            entropy_rate = self.entropy_rate_sch.get_rate(self.train_count)
             with tf.GradientTape() as tape:
-                horizon_v, horizon_feats = self._compute_horizon_step(stochs, deters, feats)
+                horizon_feats, horizon_log_pi, horizon_v, horizon_V = self._compute_horizon_step(stochs, deters, feats)
+                # (horizon, batch_size*batch_length, 1)
 
-                # (horizon, batch_size*batch_length, 1) -> (batch_size*batch_length, horizon, 1)
-                act_loss = tf.transpose(horizon_v, [1, 0, 2])
-                act_loss = tf.reduce_sum(act_loss, axis=1) / self.config.horizon
-                act_loss = -tf.reduce_mean(act_loss)
+                # reinforce
+                if self.config.reinforce_baseline == "v":
+                    adv = tf.stop_gradient(horizon_V - horizon_v)
+                else:
+                    adv = tf.stop_gradient(horizon_V)
+                reinforce_loss = -horizon_log_pi * adv
+
+                # dynamics backprop
+                dynamics_loss = -horizon_V
+
+                # entropy
+                entropy_loss = -horizon_log_pi
+
+                act_loss = tf.reduce_mean(
+                    reinforce_rate * reinforce_loss
+                    + (1 - reinforce_rate) * dynamics_loss
+                    + entropy_rate * entropy_loss
+                )
 
             grads = tape.gradient(act_loss, self.parameter.actor.trainable_variables)
             self._actor_opt.apply_gradients(zip(grads, self.parameter.actor.trainable_variables))
+            info["reinforce_loss"] = np.mean(reinforce_loss)
+            info["dynamics_loss"] = np.mean(dynamics_loss)
+            info["entropy_loss"] = np.mean(entropy_loss)
             info["act_loss"] = act_loss.numpy()
 
             lr = self.lr_sch_actor.get_rate(self.train_count)
@@ -766,28 +903,37 @@ class Trainer(RLTrainer):
         # critic
         # ------------------------
         if self.config.enable_train_critic:
-            if horizon_v is None:
-                horizon_v, horizon_feats = self._compute_horizon_step(stochs, deters, feats)
+            if horizon_feats is None:
+                horizon_feats, horizon_log_pi, horizon_v, horizon_V = self._compute_horizon_step(stochs, deters, feats)
 
             # (horizon, batch_size*batch_length, feat) -> (horizon*batch_size*batch_length, feat)
-            horizon_feats = tf.stack(horizon_feats)
             horizon_feats = tf.reshape(
-                horizon_feats, (horizon_feats.shape[0] * horizon_feats.shape[1], horizon_feats.shape[2])
+                horizon_feats,
+                (horizon_feats.shape[0] * horizon_feats.shape[1], horizon_feats.shape[2]),
             )
-            horizon_v = tf.reshape(horizon_v, (horizon_v.shape[0] * horizon_v.shape[1], horizon_v.shape[2]))
+            horizon_V = tf.reshape(
+                horizon_V,
+                (horizon_V.shape[0] * horizon_V.shape[1], horizon_V.shape[2]),
+            )
 
             self.parameter.actor.trainable = False
             self.parameter.critic.trainable = True
             with tf.GradientTape() as tape:
                 critic_pred = self.parameter.critic(horizon_feats)
-                val_loss = -tf.reduce_mean(critic_pred.log_prob(horizon_v))
-            grads = tape.gradient(val_loss, self.parameter.critic.trainable_variables)
+                critic_loss = -tf.reduce_mean(critic_pred.log_prob(horizon_V))
+            grads = tape.gradient(critic_loss, self.parameter.critic.trainable_variables)
             self._critic_opt.apply_gradients(zip(grads, self.parameter.critic.trainable_variables))
-            info["val_loss"] = val_loss.numpy()
+            info["critic_loss"] = critic_loss.numpy()
 
             lr = self.lr_sch_critic.get_rate(self.train_count)
             self._critic_opt.learning_rate = lr
-            info["val_lr"] = lr
+            info["critic_lr"] = lr
+
+            # --- targetと同期
+            if self.train_count % self.config.target_critic_update_interval == 0:
+                self.parameter.critic_target.set_weights(self.parameter.critic.get_weights())
+                self.sync_count += 1
+            info["critic_sync"] = self.sync_count
 
         self.train_count += 1
         return info
@@ -798,67 +944,103 @@ class Trainer(RLTrainer):
         deters,
         feats,
     ):
+        horizon_feats = []
+        horizon_log_pi = []
+        horizon_v = []
+
         if self.config.critic_estimation_method == "simple":
-            horizon_feats = []
-            horizon_reward = []
+            _horizon_reward = []
             for t in range(self.config.horizon):
-                stochs, deters, feats = self._horizon_step(stochs, deters, feats)
+                stochs, deters, feats, log_pi = self._horizon_step(stochs, deters, feats)
                 horizon_feats.append(feats)
-                horizon_reward.append(self.parameter.reward(feats).mode())
+                horizon_log_pi.append(log_pi)
+                horizon_v.append(self.parameter.critic_target(feats).mode())
+                _horizon_reward.append(self.parameter.reward(feats).mode())
 
             # 累積和の平均
-            horizon_v = tf.math.cumsum(horizon_reward, reverse=True)
-            weights = tf.reshape(1.0 / tf.range(len(horizon_v), 0, -1, dtype=tf.float32), (len(horizon_v), 1, 1))
-            weights = tf.tile(weights, (1, horizon_v.shape[1], horizon_v.shape[2]))
-            horizon_v *= weights
-
-            return horizon_v, horizon_feats
+            horizon_V = tf.math.cumsum(_horizon_reward, reverse=True)
+            weights = tf.reshape(
+                1.0 / tf.range(len(horizon_V), 0, -1, dtype=tf.float32),
+                (len(horizon_V), 1, 1),
+            )
+            weights = tf.tile(weights, (1, horizon_V.shape[1], horizon_V.shape[2]))
+            horizon_V *= weights
 
         elif self.config.critic_estimation_method == "dreamer":
-            horizon_feats = []
-            horizon_v = []
+            _horizon_V = []
             for t in range(self.config.horizon):
-                stochs, deters, feats = self._horizon_step(stochs, deters, feats)
+                stochs, deters, feats, log_pi = self._horizon_step(stochs, deters, feats)
                 horizon_feats.append(feats)
+                horizon_log_pi.append(log_pi)
                 reward = self.parameter.reward(feats).mode()
-                v = self.parameter.critic(feats).mode()
-                horizon_v.append(
-                    (self.config.discount**t) * reward + (self.config.discount ** (self.config.horizon - t)) * v
-                )
+                v = self.parameter.critic_target(feats).mode()
+                discount = self.parameter.discount(feats).mode()
+                horizon_v.append(v)
+                _horizon_V.append((discount**t) * reward + (discount ** (self.config.horizon - t)) * v)
 
-            horizon_v = tf.math.cumsum(horizon_v, reverse=True)
-            weights = tf.reshape(1.0 / tf.range(len(horizon_v), 0, -1, dtype=tf.float32), (len(horizon_v), 1, 1))
-            weights = tf.tile(weights, (1, horizon_v.shape[1], horizon_v.shape[2]))
-            horizon_v *= weights
+            _horizon_V = tf.math.cumsum(_horizon_V, reverse=True)
+            weights = tf.reshape(
+                1.0 / tf.range(len(_horizon_V), 0, -1, dtype=tf.float32),
+                (len(_horizon_V), 1, 1),
+            )
+            weights = tf.tile(weights, (1, _horizon_V.shape[1], _horizon_V.shape[2]))
+            _horizon_V *= weights
 
             # EWA
-            v = (1 - self.config.disclam) * horizon_v[0]
-            horizon_v2 = [v]
+            v = (1 - self.config.disclam) * _horizon_V[0]
+            horizon_V = [v]
             for t in range(1, self.config.horizon):
-                v = self.config.disclam * v + (1 - self.config.disclam) * horizon_v[t]
-                horizon_v2.append(v)
+                v = self.config.disclam * v + (1 - self.config.disclam) * _horizon_V[t]
+                horizon_V.append(v)
+            horizon_V = tf.stack(horizon_V)
 
-            horizon_v2 = tf.stack(horizon_v2)
-            return horizon_v2, horizon_feats
+        elif self.config.critic_estimation_method == "dreamer_v2":
+            _horizons = []
+            for t in range(self.config.horizon):
+                stochs, deters, feats, log_pi = self._horizon_step(stochs, deters, feats)
+                horizon_feats.append(feats)
+                horizon_log_pi.append(log_pi)
+                reward = self.parameter.reward(feats).mode()
+                discount = self.parameter.discount(feats).mean()
+                v = self.parameter.critic_target(feats).mode()
+                horizon_v.append(v)
+                _horizons.append([reward, discount, v])
+
+            horizon_V = []
+            V = None
+            for reward, discount, v in reversed(_horizons):
+                if V is None:
+                    V = reward + discount * v
+                else:
+                    gain = (1 - self.config.h_target) * v + self.config.h_target * V
+                    V = reward + discount * gain
+                horizon_V.append(V)
+            horizon_V = tf.stack(horizon_V)
+
+            weights = tf.reshape(
+                1.0 / tf.range(len(horizon_V), 0, -1, dtype=tf.float32),
+                (len(horizon_V), 1, 1),
+            )
+            weights = tf.tile(weights, (1, horizon_V.shape[1], horizon_V.shape[2]))
+            horizon_V *= weights
 
         else:
             raise ValueError(self.config.critic_estimation_method)
 
-    def _horizon_step(
-        self,
-        stoch,
-        deter,
-        feat,
-    ):
-        # --- policy
-        policy = self.parameter.actor(feat).sample()
+        horizon_feats = tf.stack(horizon_feats)
+        horizon_log_pi = tf.expand_dims(tf.stack(horizon_log_pi), axis=-1)
+        horizon_v = tf.stack(horizon_v)
+        return horizon_feats, horizon_log_pi, horizon_v, horizon_V
 
-        # --- step
-        deter, prior = self.parameter.dynamics.img_step(stoch, deter, policy)
+    def _horizon_step(self, stoch, deter, feat):
+        dist = self.parameter.actor(feat)
+        action = dist.sample()
+        log_pi = dist.log_prob(action)
+        deter, prior = self.parameter.dynamics.img_step(stoch, deter, action)
         stoch = prior["stoch"]
         feat = tf.concat([stoch, deter], -1)
 
-        return stoch, deter, feat
+        return stoch, deter, feat, log_pi
 
 
 # ------------------------------------------------------
@@ -879,12 +1061,14 @@ class Worker(DiscreteActionWorker):
         self._recent_states = []
         self._recent_actions = []
         self._recent_rewards = []
+        self._recent_discounts = []
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
-        if self.config.experience_acquisition_method != "loop":
+        if self.config.experience_acquisition_method in ["episode", "episode_steps"]:
             self._recent_states = []
             self._recent_actions = []
             self._recent_rewards = []
+            self._recent_discounts = []
 
         self.deter = self.parameter.dynamics.get_initial_state()
         self.stoch = tf.zeros((1, self.config.stoch_size), dtype=tf.float32)
@@ -905,7 +1089,7 @@ class Worker(DiscreteActionWorker):
             epsilon = self.config.test_epsilon
 
         if epsilon < 1.0:
-            # 少しでもactorで決定する可能性があれば、rssmを進める
+            # 少しでもactorでaction決定する可能性があれば、rssmを進める
             self._rssm_step()
 
         if random.random() < epsilon:
@@ -920,10 +1104,11 @@ class Worker(DiscreteActionWorker):
     def _rssm_step(self):
         embed = self.parameter.encode(self.state[np.newaxis, ...])
         prev_action = tf.one_hot([self.prev_action], self.config.action_num, axis=1)
-        latent, deter, _ = self.parameter.dynamics.obs_step(self.stoch, self.deter, prev_action, embed)
-        self.feat = tf.concat([latent["stoch"], deter], axis=1)
+        deter, prior = self.parameter.dynamics.img_step(self.stoch, self.deter, prev_action, sample=self.training)
+        post = self.parameter.dynamics.obs_step(deter, embed, sample=self.training)
+        self.feat = tf.concat([post["stoch"], deter], axis=1)
         self.deter = deter
-        self.stoch = latent["stoch"]
+        self.stoch = post["stoch"]
 
     def call_on_step(
         self,
@@ -943,17 +1128,20 @@ class Worker(DiscreteActionWorker):
             self._recent_states.append(next_state)
             self._recent_actions.append(self.action)
             self._recent_rewards.append(reward)
+            self._recent_discounts.append(0 if done else self.config.discount)
             if len(self._recent_states) == self.config.batch_length:
                 self.remote_memory.add(
                     {
                         "states": self._recent_states,
                         "actions": self._recent_actions,
                         "rewards": self._recent_rewards,
+                        "discounts": self._recent_discounts,
                     }
                 )
                 self._recent_states = []
                 self._recent_actions = []
                 self._recent_rewards = []
+                self._recent_discounts = []
         elif self.config.experience_acquisition_method == "episode":
             # 1エピソードの0stepからbatch_lengthをバッチとする
             # batch_length以降のstepは無視
@@ -961,6 +1149,7 @@ class Worker(DiscreteActionWorker):
                 self._recent_states.append(next_state)
                 self._recent_actions.append(self.action)
                 self._recent_rewards.append(reward)
+                self._recent_discounts.append(0 if done else self.config.discount)
 
             if done:
                 # 足りない分はダミーデータで補完
@@ -968,37 +1157,44 @@ class Worker(DiscreteActionWorker):
                     self._recent_states.append(next_state)
                     self._recent_actions.append(random.randint(0, self.config.action_num - 1))
                     self._recent_rewards.append(reward)
+                    self._recent_discounts.append(0)
 
                 self.remote_memory.add(
                     {
                         "states": self._recent_states,
                         "actions": self._recent_actions,
                         "rewards": self._recent_rewards,
+                        "discounts": self._recent_discounts,
                     }
                 )
+
         else:
             # 1エピソードにて、毎stepからbatch_length分をバッチとする
             self._recent_states.append(next_state)
             self._recent_actions.append(self.action)
             self._recent_rewards.append(reward)
+            self._recent_discounts.append(0 if done else self.config.discount)
 
             if done:
                 for i in range(len(self._recent_rewards)):
-                    batch_state = self._recent_states[i : i + self.config.batch_length]
-                    batch_action = self._recent_actions[i : i + self.config.batch_length]
-                    batch_reward = self._recent_rewards[i : i + self.config.batch_length]
+                    batch_states = self._recent_states[i : i + self.config.batch_length]
+                    batch_actions = self._recent_actions[i : i + self.config.batch_length]
+                    batch_rewards = self._recent_rewards[i : i + self.config.batch_length]
+                    batch_discounts = self._recent_discounts[i : i + self.config.batch_length]
 
                     # 足りない分はダミーデータで補完
-                    for _ in range(self.config.batch_length - len(batch_reward)):
-                        batch_state.append(next_state)
-                        batch_action.append(random.randint(0, self.config.action_num - 1))
-                        batch_reward.append(reward)
+                    for _ in range(self.config.batch_length - len(batch_rewards)):
+                        batch_states.append(next_state)
+                        batch_actions.append(random.randint(0, self.config.action_num - 1))
+                        batch_rewards.append(reward)
+                        batch_discounts.append(0)
 
                     self.remote_memory.add(
                         {
-                            "states": batch_state,
-                            "actions": batch_action,
-                            "rewards": batch_reward,
+                            "states": batch_states,
+                            "actions": batch_actions,
+                            "rewards": batch_rewards,
+                            "discounts": batch_discounts,
                         }
                     )
 
@@ -1020,7 +1216,7 @@ class Worker(DiscreteActionWorker):
         STR_H = 15
         PADDING = 4
         WIDTH = (IMG_W + PADDING) * _view_action + 5
-        HEIGHT = (IMG_H + PADDING + STR_H * 2) * (_view_sample + 1) + 5
+        HEIGHT = (IMG_H + PADDING + STR_H * 3) * (_view_sample + 1) + 5
 
         if self.screen is None:
             self.screen = pw.create_surface(WIDTH, HEIGHT)
@@ -1034,7 +1230,8 @@ class Worker(DiscreteActionWorker):
         rmse = np.sqrt(np.mean((self.state - pred_state) ** 2))
 
         pred_reward = self.parameter.reward(self.feat).mode()[0][0].numpy()  # type:ignore , ignore check "None"
-        pred_critic = self.parameter.critic(self.feat).mode()[0][0].numpy()
+        pred_value = self.parameter.critic(self.feat).mode()[0][0].numpy()
+        pred_discount = self.parameter.discount(self.feat).mode()[0][0].numpy()
         _, policy_logits = self.parameter.actor(self.feat, return_logits=True)  # type:ignore , ignore check "None"
         policy_logits = policy_logits[0].numpy()
 
@@ -1047,7 +1244,8 @@ class Worker(DiscreteActionWorker):
         pw.draw_image_rgb_array(self.screen, IMG_W + PADDING, STR_H, img2)
 
         pw.draw_text(self.screen, IMG_W * 2 + PADDING + 10, 10, f"reward: {pred_reward:.4f}", color=(255, 255, 255))
-        pw.draw_text(self.screen, IMG_W * 2 + PADDING + 10, 20, f"V     : {pred_critic:.4f}", color=(255, 255, 255))
+        pw.draw_text(self.screen, IMG_W * 2 + PADDING + 10, 20, f"V     : {pred_value:.4f}", color=(255, 255, 255))
+        pw.draw_text(self.screen, IMG_W * 2 + PADDING + 10, 30, f"dis   : {pred_discount:.4f}", color=(255, 255, 255))
 
         # 横にアクション後の結果を表示
         for a in range(self.config.action_num):
@@ -1070,26 +1268,31 @@ class Worker(DiscreteActionWorker):
             next_state_dist = self.parameter.decode(feat)
             reward_dist = self.parameter.reward(feat)
             critic_dist = self.parameter.critic(feat)
+            discount_dist = self.parameter.discount(feat)
 
             # 縦にいくつかサンプルを表示
             for j in range(_view_sample):
                 if j == 0:
-                    next_state = next_state_dist.mode()  # type:ignore , ignore check "None"
-                    reward = reward_dist.mode()  # type:ignore , ignore check "None"
-                    critic = critic_dist.mode()  # type:ignore , ignore check "None"
+                    next_state = next_state_dist.mode()
+                    reward = reward_dist.mode()
+                    value = critic_dist.mode()
+                    discount = discount_dist.mode()
                 else:
-                    next_state = next_state_dist.sample()  # type:ignore , ignore check "None"
-                    reward = reward_dist.sample()  # type:ignore , ignore check "None"
-                    critic = critic_dist.sample()  # type:ignore , ignore check "None"
+                    next_state = next_state_dist.sample()
+                    reward = reward_dist.sample()
+                    value = critic_dist.sample()
+                    discount = discount_dist.sample()
 
                 n_img = next_state[0].numpy() * 255
                 reward = reward.numpy()[0][0]
-                critic = critic.numpy()[0][0]
+                value = value.numpy()[0][0]
+                discount = discount.numpy()[0][0]
 
                 x = (IMG_W + PADDING) * a
-                y = 20 + IMG_H + STR_H + (IMG_H + PADDING + STR_H * 2) * j
-                pw.draw_text(self.screen, x, y, f"r={reward:.3f}", color=(255, 255, 255))
-                pw.draw_text(self.screen, x, y + STR_H, f"V={critic:.3f}", color=(255, 255, 255))
-                pw.draw_image_rgb_array(self.screen, x, y + STR_H * 2, n_img)
+                y = 20 + IMG_H + STR_H + (IMG_H + PADDING + STR_H * 3) * j
+                pw.draw_text(self.screen, x, y + STR_H * 0, f"r={reward:.3f}", color=(255, 255, 255))
+                pw.draw_text(self.screen, x, y + STR_H * 1, f"V={value:.3f}", color=(255, 255, 255))
+                pw.draw_text(self.screen, x, y + STR_H * 2, f"d={discount:.3f}", color=(255, 255, 255))
+                pw.draw_image_rgb_array(self.screen, x, y + STR_H * 3, n_img)
 
         return pw.get_rgb_array(self.screen)

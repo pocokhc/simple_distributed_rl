@@ -1,47 +1,26 @@
 {
-    "extensions.ignoreRecommendations": false,  // 推奨拡張機能を表示
-    "python.envFile": "${workspaceFolder}/.env",  // 環境変数設定
+    "python.envFile": "${workspaceFolder}/.env",
     
-    // --- リンター
-    "python.linting.enabled": true,  // リンターの有効化
-    "python.linting.pylintEnabled": false,  // defaultではpylintが有効なので無効化
-    "python.linting.flake8Enabled": true,  // flake8を有効化
-    "python.linting.lintOnSave": true,  // ファイル保存時にリンター実行
-    "python.linting.flake8Args": [
-        "--max-line-length=119",  // defaultは79、119はgit向け
-        "--ignore=E203",  // E203 whitespace before ':'
+    // --- python
+    // lint
+    "flake8.args": [
+        "--max-line-length=119",
+        "--ignore=E203"  // E203 whitespace before ':'
     ],
-
-    // --- フォーマッタ(Python)
-    "python.formatting.provider": "black",
+    // format
     "[python]": {
-        "editor.formatOnSave": true,  // ファイル保存時にフォーマッタ実行
+        "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
             "source.organizeImports": true
-        }
+        },
+        "editor.defaultFormatter": "ms-python.black-formatter"
     },
-    "python.formatting.blackArgs": [
-        "--line-length=119",  // defaultは79、119はgit向け
+    "black-formatter.args": [
+        "--line-length=119"
     ],
-
-    // --- フォーマッタ
-    "[lua]": {
-        "editor.formatOnSave": true
-    },
-    "[markdown]": {
-        "editor.formatOnSave": true
-    },
-    "[yaml]": {
-        "editor.formatOnSave": true,
-        "editor.insertSpaces": true,
-        "editor.tabSize": 2,
-        "editor.autoIndent": "advanced"
-    },
-
-    // --- 型アノテーション(Pylance)
+    // type annotation 
     "python.analysis.typeCheckingMode": "basic",
-    
-    // --- テスト
+    // test
     "python.testing.pytestArgs": [
         "tests"
     ],
@@ -53,8 +32,4 @@
     "plantuml.exportOutDir": ".",
     "plantuml.exportSubFolder": false,
 
-    // --- docker
-    "files.associations": {
-        "dockerfile*": "dockerfile"
-    }
 }

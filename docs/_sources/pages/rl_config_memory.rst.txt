@@ -9,12 +9,16 @@ Memory
    :members:
    :show-inheritance:
 
+
+.. _PriorityExperienceReplay:
+
+PriorityExperienceReplay
+----------------------------------
+
 .. autoclass:: srl.rl.memories.priority_experience_replay.PriorityExperienceReplayConfig
    :members:
    :show-inheritance:
 
-PriorityExperienceReplay
-----------------------------------
 
 .. autoclass:: srl.rl.memories.priority_memories.replay_memory.ReplayMemory
    :members:

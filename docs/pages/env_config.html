@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EnvConfig &mdash; SimpleDistributedRL 0.12.1 ドキュメント</title>
+  <title>EnvConfig &mdash; SimpleDistributedRL 0.12.1.3 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -76,7 +76,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.enable_sanitize_value"><code class="docutils literal notranslate"><span class="pre">EnvConfig.enable_sanitize_value</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.enable_assertion_value"><code class="docutils literal notranslate"><span class="pre">EnvConfig.enable_assertion_value</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.make_env"><code class="docutils literal notranslate"><span class="pre">EnvConfig.make_env()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.to_json_dict"><code class="docutils literal notranslate"><span class="pre">EnvConfig.to_json_dict()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.copy"><code class="docutils literal notranslate"><span class="pre">EnvConfig.copy()</span></code></a></li>
 </ul>
 </li>
@@ -85,6 +84,11 @@
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html">Runner</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
 </ul>
 
         </div>
@@ -241,11 +245,6 @@ enable_assertion_valueが有効な場合は、enable_sanitize_valueは無効で�
 <span class="sig-name descname"><span class="pre">make_env</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">EnvRun</span></span></span><a class="headerlink" href="#srl.base.env.config.EnvConfig.make_env" title="この定義へのパーマリンク"></a></dt>
 <dd><p>環境を生成します。 srl.make_env(env_config) と同じ動作です。</p>
 </dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.to_json_dict">
-<span class="sig-name descname"><span class="pre">to_json_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#srl.base.env.config.EnvConfig.to_json_dict" title="この定義へのパーマリンク"></a></dt>
-<dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.copy">

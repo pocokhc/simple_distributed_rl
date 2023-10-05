@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RLConfig Parameters &mdash; SimpleDistributedRL 0.12.1 ドキュメント</title>
+  <title>RLConfig Parameters &mdash; SimpleDistributedRL 0.12.1.3 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -60,11 +60,20 @@
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">RLConfig Parameters</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html">Memory</a></li>
-<li class="toctree-l2"><a class="reference internal" href="rl_config_model.html">Model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rl_config_model.html">Framework</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#mlpblock">MLPBlock</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#duelingnetwork">DuelingNetwork</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#imageblock">ImageBlock</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#alphazeroblock">AlphaZeroBlock</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_scheduler.html">Scheduler</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html">Runner</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
 </ul>
 
         </div>
@@ -99,8 +108,8 @@
 <li class="toctree-l1"><a class="reference internal" href="rl_config_memory.html">Memory</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.sequence_memory.SequenceRemoteMemory"><code class="docutils literal notranslate"><span class="pre">SequenceRemoteMemory</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.experience_replay_buffer.ExperienceReplayBufferConfig"><code class="docutils literal notranslate"><span class="pre">ExperienceReplayBufferConfig</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_experience_replay.PriorityExperienceReplayConfig"><code class="docutils literal notranslate"><span class="pre">PriorityExperienceReplayConfig</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html#priorityexperiencereplay">PriorityExperienceReplay</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_experience_replay.PriorityExperienceReplayConfig"><code class="docutils literal notranslate"><span class="pre">PriorityExperienceReplayConfig</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.replay_memory.ReplayMemory"><code class="docutils literal notranslate"><span class="pre">ReplayMemory</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory"><code class="docutils literal notranslate"><span class="pre">RankBaseMemory</span></code></a></li>
@@ -111,26 +120,38 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html">Model</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html">Framework</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#srl.rl.models.framework_config.FrameworkConfig"><code class="docutils literal notranslate"><span class="pre">FrameworkConfig</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_model.html#srl.rl.models.framework_config.FrameworkConfig.set_tensorflow"><code class="docutils literal notranslate"><span class="pre">FrameworkConfig.set_tensorflow()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_model.html#srl.rl.models.framework_config.FrameworkConfig.set_torch"><code class="docutils literal notranslate"><span class="pre">FrameworkConfig.set_torch()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_model.html#srl.rl.models.framework_config.FrameworkConfig.set_auto"><code class="docutils literal notranslate"><span class="pre">FrameworkConfig.set_auto()</span></code></a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#mlpblock">MLPBlock</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#srl.rl.models.mlp_block.MLPBlockConfig"><code class="docutils literal notranslate"><span class="pre">MLPBlockConfig</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_model.html#srl.rl.models.mlp_block.MLPBlockConfig.set_mlp"><code class="docutils literal notranslate"><span class="pre">MLPBlockConfig.set_mlp()</span></code></a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#duelingnetwork">DuelingNetwork</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#srl.rl.models.dueling_network.DuelingNetworkConfig"><code class="docutils literal notranslate"><span class="pre">DuelingNetworkConfig</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_model.html#srl.rl.models.dueling_network.DuelingNetworkConfig.set"><code class="docutils literal notranslate"><span class="pre">DuelingNetworkConfig.set()</span></code></a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#imageblock">ImageBlock</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#srl.rl.models.image_block.ImageBlockConfig"><code class="docutils literal notranslate"><span class="pre">ImageBlockConfig</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_model.html#srl.rl.models.image_block.ImageBlockConfig.set_dqn_image"><code class="docutils literal notranslate"><span class="pre">ImageBlockConfig.set_dqn_image()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_model.html#srl.rl.models.image_block.ImageBlockConfig.set_r2d3_image"><code class="docutils literal notranslate"><span class="pre">ImageBlockConfig.set_r2d3_image()</span></code></a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#alphazeroblock">AlphaZeroBlock</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#srl.rl.models.alphazero_block.AlphaZeroBlockConfig"><code class="docutils literal notranslate"><span class="pre">AlphaZeroBlockConfig</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_model.html#srl.rl.models.alphazero_block.AlphaZeroBlockConfig.set_alphazero_block"><code class="docutils literal notranslate"><span class="pre">AlphaZeroBlockConfig.set_alphazero_block()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_model.html#srl.rl.models.alphazero_block.AlphaZeroBlockConfig.set_muzero_atari_block"><code class="docutils literal notranslate"><span class="pre">AlphaZeroBlockConfig.set_muzero_atari_block()</span></code></a></li>

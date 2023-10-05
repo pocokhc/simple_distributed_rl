@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Model &mdash; SimpleDistributedRL 0.12.1 ドキュメント</title>
+  <title>Framework &mdash; SimpleDistributedRL 0.12.1.3 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -60,26 +60,38 @@
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html">Memory</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Model</a><ul>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Framework</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#srl.rl.models.framework_config.FrameworkConfig"><code class="docutils literal notranslate"><span class="pre">FrameworkConfig</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.framework_config.FrameworkConfig.set_tensorflow"><code class="docutils literal notranslate"><span class="pre">FrameworkConfig.set_tensorflow()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.framework_config.FrameworkConfig.set_torch"><code class="docutils literal notranslate"><span class="pre">FrameworkConfig.set_torch()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.framework_config.FrameworkConfig.set_auto"><code class="docutils literal notranslate"><span class="pre">FrameworkConfig.set_auto()</span></code></a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mlpblock">MLPBlock</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#srl.rl.models.mlp_block.MLPBlockConfig"><code class="docutils literal notranslate"><span class="pre">MLPBlockConfig</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.mlp_block.MLPBlockConfig.set_mlp"><code class="docutils literal notranslate"><span class="pre">MLPBlockConfig.set_mlp()</span></code></a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#duelingnetwork">DuelingNetwork</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#srl.rl.models.dueling_network.DuelingNetworkConfig"><code class="docutils literal notranslate"><span class="pre">DuelingNetworkConfig</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.dueling_network.DuelingNetworkConfig.set"><code class="docutils literal notranslate"><span class="pre">DuelingNetworkConfig.set()</span></code></a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#imageblock">ImageBlock</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#srl.rl.models.image_block.ImageBlockConfig"><code class="docutils literal notranslate"><span class="pre">ImageBlockConfig</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.image_block.ImageBlockConfig.set_dqn_image"><code class="docutils literal notranslate"><span class="pre">ImageBlockConfig.set_dqn_image()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.image_block.ImageBlockConfig.set_r2d3_image"><code class="docutils literal notranslate"><span class="pre">ImageBlockConfig.set_r2d3_image()</span></code></a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#alphazeroblock">AlphaZeroBlock</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#srl.rl.models.alphazero_block.AlphaZeroBlockConfig"><code class="docutils literal notranslate"><span class="pre">AlphaZeroBlockConfig</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.alphazero_block.AlphaZeroBlockConfig.set_alphazero_block"><code class="docutils literal notranslate"><span class="pre">AlphaZeroBlockConfig.set_alphazero_block()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.alphazero_block.AlphaZeroBlockConfig.set_muzero_atari_block"><code class="docutils literal notranslate"><span class="pre">AlphaZeroBlockConfig.set_muzero_atari_block()</span></code></a></li>
@@ -91,6 +103,11 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html">Runner</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
 </ul>
 
         </div>
@@ -108,7 +125,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="rl_config_tree.html">RLConfig Parameters</a></li>
-      <li class="breadcrumb-item active">Model</li>
+      <li class="breadcrumb-item active">Framework</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/pages/rl_config_model.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -118,8 +135,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="model">
-<h1>Model<a class="headerlink" href="#model" title="この見出しへのパーマリンク"></a></h1>
+  <section id="framework">
+<span id="id1"></span><h1>Framework<a class="headerlink" href="#framework" title="この見出しへのパーマリンク"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.models.framework_config.FrameworkConfig">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.models.framework_config.</span></span><span class="sig-name descname"><span class="pre">FrameworkConfig</span></span><a class="headerlink" href="#srl.rl.models.framework_config.FrameworkConfig" title="この定義へのパーマリンク"></a></dt>
@@ -146,6 +163,9 @@
 
 </dd></dl>
 
+</section>
+<section id="mlpblock">
+<span id="id2"></span><h1>MLPBlock<a class="headerlink" href="#mlpblock" title="この見出しへのパーマリンク"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.models.mlp_block.MLPBlockConfig">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.models.mlp_block.</span></span><span class="sig-name descname"><span class="pre">MLPBlockConfig</span></span><a class="headerlink" href="#srl.rl.models.mlp_block.MLPBlockConfig" title="この定義へのパーマリンク"></a></dt>
@@ -171,6 +191,9 @@
 
 </dd></dl>
 
+</section>
+<section id="duelingnetwork">
+<span id="id3"></span><h1>DuelingNetwork<a class="headerlink" href="#duelingnetwork" title="この見出しへのパーマリンク"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.models.dueling_network.DuelingNetworkConfig">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.models.dueling_network.</span></span><span class="sig-name descname"><span class="pre">DuelingNetworkConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_enable</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.models.dueling_network.DuelingNetworkConfig" title="この定義へのパーマリンク"></a></dt>
@@ -193,6 +216,9 @@
 
 </dd></dl>
 
+</section>
+<section id="imageblock">
+<span id="id4"></span><h1>ImageBlock<a class="headerlink" href="#imageblock" title="この見出しへのパーマリンク"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.models.image_block.ImageBlockConfig">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.models.image_block.</span></span><span class="sig-name descname"><span class="pre">ImageBlockConfig</span></span><a class="headerlink" href="#srl.rl.models.image_block.ImageBlockConfig" title="この定義へのパーマリンク"></a></dt>
@@ -227,6 +253,9 @@
 
 </dd></dl>
 
+</section>
+<section id="alphazeroblock">
+<span id="id5"></span><h1>AlphaZeroBlock<a class="headerlink" href="#alphazeroblock" title="この見出しへのパーマリンク"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.models.alphazero_block.AlphaZeroBlockConfig">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.models.alphazero_block.</span></span><span class="sig-name descname"><span class="pre">AlphaZeroBlockConfig</span></span><a class="headerlink" href="#srl.rl.models.alphazero_block.AlphaZeroBlockConfig" title="この定義へのパーマリンク"></a></dt>

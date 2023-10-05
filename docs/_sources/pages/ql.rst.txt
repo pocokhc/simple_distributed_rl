@@ -1,0 +1,6 @@
+
+Q-Learning
+===============
+.. autoclass:: srl.algorithms.ql
+   :members:
+   :show-inheritance:

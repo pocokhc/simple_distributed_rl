@@ -6,5 +6,4 @@ RLConfig
 
 .. autoclass:: srl.base.rl.config.RLConfig
    :members:
-   :show-inheritance:
 

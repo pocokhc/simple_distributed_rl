@@ -27,6 +27,13 @@ Welcome to SimpleDistributedRL's documentation!
    pages/rl_config_tree
    pages/runner
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Algorithms
+
+   pages/algorithms/ql
+   pages/algorithms/dqn
+
 
 Indices and tables
 ==================

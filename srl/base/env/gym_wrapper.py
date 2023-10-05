@@ -83,15 +83,15 @@ def _gym_space_flatten_sub(
                     is_discrete = False
         return low, high, is_discrete
 
-    if isinstance(gym_space, gym_spaces.Graph):
-        pass  # TODO
+    # if isinstance(gym_space, gym_spaces.Graph):
+    #    pass  # TODO
 
-    if isinstance(gym_space, gym_spaces.Text):
+    if hasattr(gym_spaces, "Text") and isinstance(gym_space, gym_spaces.Text):
         shape = (gym_space.max_length,)
         return np.zeros(shape).tolist(), np.full(shape, len(gym_space.character_set)).tolist(), True
 
-    if isinstance(gym_space, gym_spaces.Sequence):
-        pass  # TODO
+    # if isinstance(gym_space, gym_spaces.Sequence):
+    #    pass  # TODO
 
     # ---- other space
     try:
@@ -140,17 +140,17 @@ def _gym_space_flatten_encode_sub(gym_space: gym_spaces.Space, x: Any):
         x = [_gym_space_flatten_encode_sub(gym_space.spaces[key], x[key]) for key in keys]
         return np.concatenate([x for x in x if x is not None])
 
-    if isinstance(gym_space, gym_spaces.Graph):
-        pass  # TODO
+    # if isinstance(gym_space, gym_spaces.Graph):
+    #    pass  # TODO
 
-    if isinstance(gym_space, gym_spaces.Text):
+    if hasattr(gym_spaces, "Text") and isinstance(gym_space, gym_spaces.Text):
         arr = np.full(shape=(gym_space.max_length,), fill_value=len(gym_space.character_set), dtype=np.int32)
         for i, val in enumerate(x):
             arr[i] = gym_space.character_index(val)
         return arr
 
-    if isinstance(gym_space, gym_spaces.Sequence):
-        pass  # TODO
+    # if isinstance(gym_space, gym_spaces.Sequence):
+    #    pass  # TODO
 
     # ---- other space
     try:
@@ -208,14 +208,14 @@ def _gym_space_flatten_decode_sub(gym_space: gym_spaces.Space, x: Any, idx: int 
             dic[key] = n
         return dic, idx
 
-    if isinstance(gym_space, gym_spaces.Graph):
-        pass  # TODO
+    # if isinstance(gym_space, gym_spaces.Graph):
+    #    pass  # TODO
 
-    if isinstance(gym_space, gym_spaces.Text):
-        pass  # TODO
+    # if isinstance(gym_space, gym_spaces.Text):
+    #    pass  # TODO
 
-    if isinstance(gym_space, gym_spaces.Sequence):
-        pass  # TODO
+    # if isinstance(gym_space, gym_spaces.Sequence):
+    #    pass  # TODO
 
     # 不明なのはsampleがあればそれを適用、なければNone
     if hasattr(gym_space, "sample"):

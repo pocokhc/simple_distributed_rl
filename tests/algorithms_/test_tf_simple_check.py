@@ -97,6 +97,7 @@ class Test_dqn(CommonBaseSimpleTest):
 
     def test_simple_check_atari_config(self):
         pytest.importorskip("tensorflow")
+        pytest.importorskip("pygame")
 
         from srl.algorithms import dqn
 
@@ -114,6 +115,7 @@ class Test_dreamer(CommonBaseSimpleTest):
     def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
         pytest.importorskip("tensorflow_probability")
+        pytest.importorskip("pygame")
 
         from srl.algorithms import dreamer
 
@@ -148,6 +150,7 @@ class Test_dreamer_v2(CommonBaseSimpleTest):
     def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
         pytest.importorskip("tensorflow_probability")
+        pytest.importorskip("pygame")
 
         from srl.algorithms import dreamer_v2
 
@@ -215,6 +218,7 @@ class Test_planet(CommonBaseSimpleTest):
     def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
         pytest.importorskip("tensorflow_probability")
+        pytest.importorskip("pygame")
 
         from srl.algorithms import planet
 

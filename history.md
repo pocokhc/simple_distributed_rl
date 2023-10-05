@@ -1,11 +1,11 @@
 # TODO list
 
 1. tensorboard
-1. (IMPALA)
 1. get_valid_actions
 1. tf/torchの互換パラメータの作成
-1. remote
 1. train_countをparameter
+1. kubernetes
+1. (SEED RL)
 
 # v0.12.2
 
@@ -13,10 +13,15 @@
 
 1. [runner.remote] new: 複数PCの分散学習をとりあえず実装(multiprocessingによるIP通信)
 1. [utils.serialize] new: runner.Config, runner.Context, RLConfig, EnvConfigにてjsonに変換できるdictを生成する to_json_dict を utils.serialize.py にまとめてリファクタリング
+1. [algorithms] new: DreamerV2を追加
+1. [docs] new: 各アルゴリズムのハイパーパラメータの説明を追加（テスト導入）（とりあえずql,dqn）
 
 **OtherUpdates**
 
 1. [runner.mp_debug] new: mpのdebug用に逐次でmpと似た動作をするmp_debugを追加（テスト導入）
+1. [tests] change: simple_checkをpytestだけにし、またパラメータ指定もできるようにリファクタ
+1. [vscode] dev: VSCodeの最新の状態に見直し
+1. [docker] update: versionを最新の状態に更新
 
 **Bug Fixes**
 

@@ -29,11 +29,21 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig):
+    #: ε-greedy parameter for Test
     test_epsilon: float = 0
+    #: <:ref:`scheduler`> ε-greedy parameter for Train
     epsilon: float = 0.1  # type: ignore , type OK
+    #: <:ref:`scheduler`> Learning rate
     lr: float = 0.1  # type: ignore , type OK
+    #: Discount rate
     discount: float = 0.9
-    q_init: str = ""  # "" or "random" or "normal"
+    #: How to initialize Q table
+    #:
+    #: Parameters:
+    #:   "": 0
+    #:   "random": random.random()
+    #:   "normal": np.random.normal()
+    q_init: str = ""
 
     def __post_init__(self):
         super().__post_init__()

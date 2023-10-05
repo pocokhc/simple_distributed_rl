@@ -49,27 +49,43 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig, PriorityExperienceReplayConfig):
+    """<:ref:`PriorityExperienceReplay`>"""
+
+    #: ε-greedy parameter for Test
     test_epsilon: float = 0
 
+    #:
     actor_epsilon: float = 0.4
+    #: Learning rate during distributed learning
+    #: :math:`\epsilon_i = \epsilon^{1 + \frac{i}{N-1} \alpha}`
     actor_alpha: float = 7.0
 
+    #: <:ref:`scheduler`> ε-greedy parameter for Train
     epsilon: float = 0.1  # type: ignore , type OK
+    #: <:ref:`scheduler`> Learning rate
     lr: float = 0.001  # type: ignore , type OK
 
+    #: Discount rate
     discount: float = 0.99
+    #: Batch size
     batch_size: int = 32
+    #: Initial memory size (does not learn until experience accumulates to this size)
     memory_warmup_size: int = 1000
+    #: Synchronization interval to Target network
     target_model_update_interval: int = 1000
+    #: If True, clip the reward to three types [-1,0,1]
     enable_reward_clip: bool = False
 
-    # other
+    #: enable DoubleDQN
     enable_double_dqn: bool = True
+    #: enable rescaling
     enable_rescale: bool = False
 
-    # --- model
+    #: <:ref:`Framework`>
     framework: FrameworkConfig = field(init=False, default_factory=lambda: FrameworkConfig())
+    #: <:ref:`ImageBlock`> This layer is only used when the input is an image.
     image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
+    #: <:ref:`MLPBlock`> hidden layer
     hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     def __post_init__(self):
@@ -82,8 +98,8 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         e = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
         self.epsilon.set_constant(e)
 
-    # 論文のハイパーパラメーター
     def set_atari_config(self):
+        """Set the Atari parameters written in the paper."""
         self.batch_size = 32
         self.memory.capacity = 1_000_000
         self.memory.set_replay_memory()

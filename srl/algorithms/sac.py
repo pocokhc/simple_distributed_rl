@@ -109,7 +109,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
 register(
     Config(),
-    __name__ + ":RemoteMemory",
+    __name__ + ":Memory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
     __name__ + ":Worker",
@@ -117,9 +117,9 @@ register(
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(ExperienceReplayBuffer):
+class Memory(ExperienceReplayBuffer):
     pass
 
 
@@ -501,7 +501,7 @@ class Worker(ContinuousActionWorker):
             "reward": reward,
             "done": done,
         }
-        self.remote_memory.add(batch)
+        self.memory.add(batch)
 
         return {}
 

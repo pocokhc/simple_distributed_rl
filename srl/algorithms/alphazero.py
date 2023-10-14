@@ -120,7 +120,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
 register(
     Config(),
-    __name__ + ":RemoteMemory",
+    __name__ + ":Memory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
     __name__ + ":Worker",
@@ -128,9 +128,9 @@ register(
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(ExperienceReplayBuffer):
+class Memory(ExperienceReplayBuffer):
     pass
 
 
@@ -495,7 +495,7 @@ class Worker(RLWorker):
             reward = 0
             for state, step_policy, step_reward in reversed(self.history):
                 reward = step_reward + self.config.discount * reward
-                self.remote_memory.add(
+                self.memory.add(
                     {
                         "state": state,
                         "policy": step_policy,

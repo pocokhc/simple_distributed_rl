@@ -137,7 +137,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
 register(
     Config(),
-    __name__ + ":RemoteMemory",
+    __name__ + ":Memory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
     __name__ + ":Worker",
@@ -145,9 +145,9 @@ register(
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(PriorityExperienceReplay):
+class Memory(PriorityExperienceReplay):
     def __init__(self, *args):
         super().__init__(*args)
 
@@ -855,7 +855,7 @@ class Worker(DiscreteActionWorker):
             self._simulation(self.s0, self.s0_str, invalid_actions, is_afterstate=False)
 
         # 正規化用Qを保存できるように送信(remote_memory -> trainer -> parameter)
-        self.remote_memory.update_q(self.parameter.q_min, self.parameter.q_max)
+        self.memory.add("q", self.parameter.q_min, self.parameter.q_max)
 
         # V
         self.state_v = self.parameter.V[self.s0_str]
@@ -1076,7 +1076,8 @@ class Worker(DiscreteActionWorker):
                     self._v_max = max(self._v_max, r)
                     rewards[i] = float_category_encode(r, self.config.v_min, self.config.v_max)
 
-                self.remote_memory.add(
+                self.memory.add(
+                    "memory",
                     {
                         "states": states,
                         "actions": actions,
@@ -1087,7 +1088,6 @@ class Worker(DiscreteActionWorker):
                     priority,
                 )
 
-        self.remote_memory.on_step(reward, done)
         return {
             "v_min": self._v_min,
             "v_max": self._v_max,

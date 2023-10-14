@@ -104,7 +104,7 @@ class Config(RLConfig):
 
 register(
     Config(),
-    __name__ + ":RemoteMemory",
+    __name__ + ":Memory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
     __name__ + ":Worker",
@@ -112,9 +112,9 @@ register(
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(RLRemoteMemory):
+class Memory(RLMemory):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -583,7 +583,7 @@ class Worker(DiscreteActionWorker):
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         if self.training and self.sample_collection:
-            self.remote_memory.vae_add(state)
+            self.memory.add("vae", state)
             self._recent_states = [state]
             self.recent_actions = []
 
@@ -627,7 +627,7 @@ class Worker(DiscreteActionWorker):
             return {}
 
         if self.sample_collection:
-            self.remote_memory.vae_add(self.state)
+            self.memory.add("vae", self.state)
 
             if len(self._recent_states) < self.config.sequence_length + 1:
                 self._recent_states.append(next_state)
@@ -638,11 +638,12 @@ class Worker(DiscreteActionWorker):
                 for _ in range(self.config.sequence_length - len(self.recent_actions)):
                     self._recent_states.append(self.dummy_state)
                     self.recent_actions.append(random.randint(0, self.config.action_num - 1))
-                self.remote_memory.rnn_add(
+                self.memory.add(
+                    "rnn",
                     {
                         "states": self._recent_states,
                         "actions": self.recent_actions,
-                    }
+                    },
                 )
 
         if self.config.train_mode == 3:
@@ -672,7 +673,7 @@ class Worker(DiscreteActionWorker):
         next_elite_params.append(best_params)
 
         # send parameter
-        self.remote_memory.c_update(best_params, elite_rewards[best_idx])
+        self.memory.add("c", (best_params, elite_rewards[best_idx]))
 
         weights = elite_rewards - elite_rewards.min()
         if weights.sum() == 0:

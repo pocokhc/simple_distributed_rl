@@ -124,7 +124,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
 register(
     Config(),
-    __name__ + ":RemoteMemory",
+    __name__ + ":Memory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
     __name__ + ":Worker",
@@ -132,9 +132,9 @@ register(
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(ExperienceReplayBuffer):
+class Memory(ExperienceReplayBuffer):
     pass
 
 
@@ -944,7 +944,7 @@ class Worker(DiscreteActionWorker):
             self._recent_actions.append(self.action)
             self._recent_rewards.append(reward)
             if len(self._recent_states) == self.config.batch_length:
-                self.remote_memory.add(
+                self.memory.add(
                     {
                         "states": self._recent_states,
                         "actions": self._recent_actions,
@@ -969,7 +969,7 @@ class Worker(DiscreteActionWorker):
                     self._recent_actions.append(random.randint(0, self.config.action_num - 1))
                     self._recent_rewards.append(reward)
 
-                self.remote_memory.add(
+                self.memory.add(
                     {
                         "states": self._recent_states,
                         "actions": self._recent_actions,
@@ -994,7 +994,7 @@ class Worker(DiscreteActionWorker):
                         batch_action.append(random.randint(0, self.config.action_num - 1))
                         batch_reward.append(reward)
 
-                    self.remote_memory.add(
+                    self.memory.add(
                         {
                             "states": batch_state,
                             "actions": batch_action,

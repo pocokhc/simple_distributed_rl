@@ -132,7 +132,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
 register(
     Config(),
-    __name__ + ":RemoteMemory",
+    __name__ + ":Memory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
     __name__ + ":Worker",
@@ -140,9 +140,9 @@ register(
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(ExperienceReplayBuffer):
+class Memory(ExperienceReplayBuffer):
     pass
 
 
@@ -552,7 +552,7 @@ class Worker(RLWorker):
 
                     batch = self.recent_batch[i]
                     batch["discounted_reward"] = mc_r
-                    self.remote_memory.add(batch)
+                    self.memory.add(batch)
 
             elif self.config.experience_collection_method == "GAE":
                 if self.config.action_type == RLTypes.DISCRETE:
@@ -573,7 +573,7 @@ class Worker(RLWorker):
                         delta = self.recent_rewards[i] + self.config.discount * n_v[i] - v[i]
                     gae = delta + self.config.discount * self.config.gae_discount * gae
                     batch["discounted_reward"] = gae
-                    self.remote_memory.add(batch)
+                    self.memory.add(batch)
 
             else:
                 raise ValueError(self.config.experience_collection_method)

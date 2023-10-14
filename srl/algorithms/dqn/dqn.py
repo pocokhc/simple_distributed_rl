@@ -156,9 +156,9 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(PriorityExperienceReplay):
+class Memory(PriorityExperienceReplay):
     pass
 
 
@@ -313,8 +313,7 @@ class Worker(DiscreteActionWorker):
             target_q = self.parameter.calc_target_q([batch], training=False)[0]
             td_error = target_q - select_q
 
-        self.remote_memory.add(batch, td_error)
-        self.remote_memory.on_step(reward, done)
+        self.memory.add(batch, priority)
         return {}
 
     def render_terminal(self, worker, **kwargs) -> None:

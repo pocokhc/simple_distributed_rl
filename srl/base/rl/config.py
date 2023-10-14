@@ -45,8 +45,8 @@ class RLConfig(ABC):
     extend_worker: Optional[Type["ExtendWorker"]] = None
     #: 指定されていた場合、Parameter生成時にpathファイルをロードします
     parameter_path: str = ""
-    #: 指定されていた場合、RemoteMemory生成時にpathファイルをロードします
-    remote_memory_path: str = ""
+    #: 指定されていた場合、Memory生成時にpathファイルをロードします
+    memory_path: str = ""
     #: Trueの場合、アルゴリズム側で指定されたprocessorを使用します
     use_rl_processor: bool = True
 

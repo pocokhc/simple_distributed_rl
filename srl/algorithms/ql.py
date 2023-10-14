@@ -12,7 +12,7 @@ from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
 from srl.rl.functions import common
-from srl.rl.memories.sequence_memory import SequenceRemoteMemory
+from srl.rl.memories.sequence_memory import SequenceMemory
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ class Config(RLConfig):
 
 register(
     Config(),
-    __name__ + ":RemoteMemory",
+    __name__ + ":Memory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
     __name__ + ":Worker",
@@ -84,9 +84,9 @@ register(
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(SequenceRemoteMemory):
+class Memory(SequenceMemory):
     pass
 
 
@@ -205,7 +205,7 @@ class Worker(DiscreteActionWorker):
         if not self.training:
             return {}
 
-        self.remote_memory.add(
+        self.memory.add(
             [
                 self.state,
                 common.to_str_observation(next_state),

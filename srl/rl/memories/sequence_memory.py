@@ -1,10 +1,10 @@
 from typing import Any, List
 
-from srl.base.rl.base import RLRemoteMemory
+from srl.base.rl.base import RLMemory
 
 
-class SequenceRemoteMemory(RLRemoteMemory):
-    """SequenceRemoteMemory
+class SequenceMemory(RLMemory):
+    """SequenceMemory
 
     FIFO形式でやりとりするシンプルなメモリです。
     パラメータは特にありません。

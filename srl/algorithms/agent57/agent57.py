@@ -175,14 +175,12 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         super().assert_params()
         assert self.burnin >= 0
         assert self.sequence_length >= 1
-        assert self.memory_warmup_size <= self.memory.capacity
-        assert self.batch_size <= self.memory_warmup_size
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(PriorityExperienceReplay):
+class Memory(PriorityExperienceReplay):
     pass
 
 
@@ -700,7 +698,7 @@ class Worker(DiscreteActionWorker):
             self._history_batch.append([batch, calc_info])
         else:
             # 計算する必要がない場合はそのままメモリに送る
-            self.remote_memory.add(batch, None)
+            self.memory.add(batch, None)
 
     def _calc_episodic_reward(self, state):
         k = self.config.episodic_count_max

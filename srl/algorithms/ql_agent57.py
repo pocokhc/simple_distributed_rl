@@ -149,7 +149,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
 register(
     Config(),
-    __name__ + ":RemoteMemory",
+    __name__ + ":Memory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
     __name__ + ":Worker",
@@ -157,9 +157,9 @@ register(
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(PriorityExperienceReplay):
+class Memory(PriorityExperienceReplay):
     pass
 
 
@@ -530,7 +530,7 @@ class Worker(DiscreteActionWorker):
             )
             priority = abs(td_error) + 0.0001
 
-        self.remote_memory.add(batch, priority)
+        self.memory.add(batch, priority)
         return priority
 
     def _calc_episodic_reward(self, state, update: bool = True):

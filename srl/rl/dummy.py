@@ -7,7 +7,7 @@ from srl.base.rl.config import DummyConfig
 from srl.base.rl.registration import register
 from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
-from srl.rl.memories.sequence_memory import SequenceRemoteMemory
+from srl.rl.memories.sequence_memory import SequenceMemory
 
 
 @dataclass
@@ -24,7 +24,7 @@ register(
 )
 
 
-class RemoteMemory(SequenceRemoteMemory):
+class Memory(SequenceMemory):
     pass
 
 

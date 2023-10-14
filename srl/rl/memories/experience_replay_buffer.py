@@ -3,7 +3,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Any, List
 
-from srl.base.rl.base import RLRemoteMemory
+from srl.base.rl.base import RLMemory
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class ExperienceReplayBufferConfig:
     memory: _ExperienceReplayBufferConfig = field(init=False, default_factory=lambda: _ExperienceReplayBufferConfig())
 
 
-class ExperienceReplayBuffer(RLRemoteMemory):
+class ExperienceReplayBuffer(RLMemory):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: ExperienceReplayBufferConfig = self.config

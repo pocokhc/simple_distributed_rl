@@ -12,7 +12,7 @@ from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
 from srl.rl.functions.common import render_discrete_action, to_str_observation
-from srl.rl.memories.sequence_memory import SequenceRemoteMemory
+from srl.rl.memories.sequence_memory import SequenceMemory
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ class Config(RLConfig):
 
 register(
     Config(),
-    __name__ + ":RemoteMemory",
+    __name__ + ":Memory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
     __name__ + ":Worker",
@@ -82,9 +82,9 @@ register(
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(SequenceRemoteMemory):
+class Memory(SequenceMemory):
     pass
 
 
@@ -418,7 +418,7 @@ class Worker(DiscreteActionWorker):
             "invalid_actions": self.invalid_actions,
             "next_invalid_actions": next_invalid_actions,
         }
-        self.remote_memory.add(batch)
+        self.memory.add(batch)
         return {}
 
     def _calc_episodic_reward(self, state, update: bool = True):

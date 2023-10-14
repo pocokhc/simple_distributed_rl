@@ -11,7 +11,7 @@ from srl.base.rl.registration import register
 from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import render_discrete_action, to_str_observation
-from srl.rl.memories.sequence_memory import SequenceRemoteMemory
+from srl.rl.memories.sequence_memory import SequenceMemory
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 
@@ -53,7 +53,7 @@ class Config(RLConfig):
 
 register(
     Config(),
-    __name__ + ":RemoteMemory",
+    __name__ + ":Memory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
     __name__ + ":Worker",
@@ -61,9 +61,9 @@ register(
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(SequenceRemoteMemory):
+class Memory(SequenceMemory):
     pass
 
 
@@ -270,7 +270,7 @@ class Worker(RLWorker):
                     "invalid_actions": h[2],
                     "reward": reward,
                 }
-                self.remote_memory.add(batch)
+                self.memory.add(batch)
 
         return {}
 

@@ -168,7 +168,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
 register(
     Config(),
-    __name__ + ":RemoteMemory",
+    __name__ + ":Memory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
     __name__ + ":Worker",
@@ -176,9 +176,9 @@ register(
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(PriorityExperienceReplay):
+class Memory(PriorityExperienceReplay):
     pass
 
 
@@ -576,7 +576,7 @@ class Worker(DiscreteActionWorker):
                             reward = rescaling(reward)
 
                         td_error = reward - info["q"]
-                        self.remote_memory.add(batch, td_error)
+                        self.memory.add(batch, priority)
 
         self.remote_memory.on_step(reward, done)
         return {}
@@ -597,7 +597,7 @@ class Worker(DiscreteActionWorker):
             self._history_batch.append([batch, calc_info])
         else:
             # 計算する必要がない場合はそのままメモリに送る
-            self.remote_memory.add(batch, None)
+            self.memory.add(batch, None)
 
     def render_terminal(self, worker, **kwargs) -> None:
         # パラメータを予測するとhidden_stateが変わってしまうの予測はしない

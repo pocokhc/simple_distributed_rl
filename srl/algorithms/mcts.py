@@ -12,7 +12,7 @@ from srl.base.rl.registration import register
 from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import render_discrete_action, to_str_observation
-from srl.rl.memories.sequence_memory import SequenceRemoteMemory
+from srl.rl.memories.sequence_memory import SequenceMemory
 
 
 # ------------------------------------------------------
@@ -46,7 +46,7 @@ class Config(RLConfig):
 
 register(
     Config(),
-    __name__ + ":RemoteMemory",
+    __name__ + ":Memory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
     __name__ + ":Worker",
@@ -54,9 +54,9 @@ register(
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(SequenceRemoteMemory):
+class Memory(SequenceMemory):
     pass
 
 
@@ -187,7 +187,7 @@ class Worker(RLWorker):
         self.parameter.W[state][action] += reward
 
         if self.distributed:
-            self.remote_memory.add(
+            self.memory.add(
                 {
                     "state": state,
                     "action": action,

@@ -163,9 +163,9 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
 
 # ------------------------------------------------------
-# RemoteMemory
+# Memory
 # ------------------------------------------------------
-class RemoteMemory(PriorityExperienceReplay):
+class Memory(PriorityExperienceReplay):
     pass
 
 
@@ -505,8 +505,7 @@ class Worker(DiscreteActionWorker):
 
                 td_error = (target_q_ext + self.beta * target_q_int) - self.q[self.action]
 
-        self.remote_memory.add(batch, td_error)
-        self.remote_memory.on_step(reward_ext, done)
+        self.memory.add(batch, priority)
         return _info
 
     def _calc_episodic_reward(self, state):

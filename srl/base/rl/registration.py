@@ -30,26 +30,26 @@ def _check_rl_config(
     return rl_config
 
 
-def make_remote_memory(
+def make_memory(
     rl_config: RLConfig,
     env: Optional[EnvRun] = None,
     return_class: bool = False,
     is_load: bool = True,
-) -> RLRemoteMemory:
+) -> RLMemory:
     rl_config = _check_rl_config(rl_config, env)
 
     entry_point = _registry[rl_config.getName()][0]
-    _class: Type[RLRemoteMemory] = load_module(entry_point)
+    _class: Type[RLMemory] = load_module(entry_point)
     if return_class:
         return _class  # type: ignore , Type missing OK
 
-    remote_memory = _class(rl_config)
-    if is_load and rl_config.remote_memory_path != "":
-        if not os.path.isfile(rl_config.remote_memory_path):
-            logger.info(f"The file was not found and was not loaded.({rl_config.remote_memory_path})")
+    memory = _class(rl_config)
+    if is_load and rl_config.memory_path != "":
+        if not os.path.isfile(rl_config.memory_path):
+            logger.info(f"The file was not found and was not loaded.({rl_config.memory_path})")
         else:
-            remote_memory.load(rl_config.remote_memory_path)
-    return remote_memory
+            memory.load(rl_config.memory_path)
+    return memory
 
 
 def make_parameter(
@@ -72,25 +72,25 @@ def make_parameter(
 def make_trainer(
     rl_config: RLConfig,
     parameter: RLParameter,
-    remote_memory: RLRemoteMemory,
+    memory: RLMemory,
     env: Optional[EnvRun] = None,
 ) -> RLTrainer:
     rl_config = _check_rl_config(rl_config, env)
     entry_point = _registry[rl_config.getName()][2]
-    return load_module(entry_point)(rl_config, parameter, remote_memory)
+    return load_module(entry_point)(rl_config, parameter, memory)
 
 
 def make_worker(
     rl_config: RLConfig,
     env: EnvRun,
     parameter: Optional[RLParameter] = None,
-    remote_memory: Optional[RLRemoteMemory] = None,
+    memory: Optional[IRLMemoryWorker] = None,
     distributed: bool = False,
     actor_id: int = 0,
 ) -> WorkerRun:
     rl_config = _check_rl_config(rl_config, env)
     entry_point = _registry[rl_config.getName()][3]
-    worker: WorkerBase = load_module(entry_point)(rl_config, parameter, remote_memory)
+    worker: WorkerBase = load_module(entry_point)(rl_config, parameter, memory)
 
     # ExtendWorker
     if rl_config.extend_worker is not None:

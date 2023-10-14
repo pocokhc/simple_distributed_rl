@@ -3,9 +3,7 @@ from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
-from srl.base.rl.base import RLRemoteMemory
-
-from .priority_memories.imemory import IPriorityMemory
+from srl.base.rl.base import RLMemory
 
 
 @dataclass

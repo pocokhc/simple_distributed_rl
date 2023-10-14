@@ -13,17 +13,10 @@ if TYPE_CHECKING:
 
 
 class WorkerBase(ABC, IRender):
-    def __init__(
-        self,
-        config: Optional[RLConfig] = None,
-        parameter: Optional[RLParameter] = None,
-        remote_memory: Optional[RLRemoteMemory] = None,
-    ) -> None:
-        if config is None:
-            config = DummyConfig()
+    def __init__(self, config: RLConfig, parameter: RLParameter, memory: IRLMemoryWorker) -> None:
         self.config: RLConfig = config
         self.parameter = parameter
-        self.remote_memory = remote_memory
+        self.memory = memory
 
     def _set_worker_run(self, worker: "WorkerRun"):
         """WorkerRunの初期化で呼ばれる"""

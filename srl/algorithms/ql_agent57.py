@@ -274,20 +274,13 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
-        self.train_count = 0
         self.lr_ext_sch = self.config.lr_ext.create_schedulers()
         self.lr_int_sch = self.config.lr_int.create_schedulers()
 
-    def get_train_count(self):
-        return self.train_count
+    def train_on_batchs(self, memory_sample_return) -> None:
+        indices, batchs, weights = memory_sample_return
 
-    def train(self):
-        if self.remote_memory.length() < self.config.memory_warmup_size:
-            return {}
-
-        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
         lr_ext = self.lr_ext_sch.get_rate(self.train_count)
         lr_int = self.lr_int_sch.get_rate(self.train_count)
         ext_td_errors = []
@@ -322,7 +315,8 @@ class Trainer(RLTrainer):
         # priority = abs(ext_td_error) + batch["beta"] * abs(int_td_error)
         self.remote_memory.update(indices, batchs, np.array(ext_td_errors))
 
-        return {
+        self.train_count += 1
+        self.train_info = {
             "size": len(self.parameter.Q_ext),
             "ext_td_error": np.mean(ext_td_errors),
             "int_td_error": np.mean(int_td_errors),

@@ -103,24 +103,16 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.lr_sch = self.config.lr.create_schedulers()
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
         self.loss_func = keras.losses.Huber()
 
-        self.train_count = 0
         self.sync_count = 0
 
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
-        if self.remote_memory.length() < self.config.memory_warmup_size:
-            return {}
-
-        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
+    def train_batchs(self, memory_sample_return) -> None:
+        indices, batchs, weights = memory_sample_return
 
         if self.config.multisteps == 1:
             target_q, states, onehot_actions = calc_target_q(self.parameter, batchs, training=True)
@@ -150,7 +142,7 @@ class Trainer(RLTrainer):
             self.sync_count += 1
 
         self.train_count += 1
-        return {
+        self.train_info = {
             "loss": loss.numpy(),
             "sync": self.sync_count,
             "lr": lr,

@@ -125,18 +125,13 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
-
-        self.train_count = 0
         self.lr_scheduler = self.config.lr.create_schedulers()
 
-    def get_train_count(self) -> int:
-        return self.train_count
+    def train_on_batchs(self, memory_sample_return) -> None:
+        batchs = memory_sample_return
 
-    def train(self) -> dict:
-        batchs = self.remote_memory.sample()
         td_error = 0
-        lr = 0
+        lr = self.lr_scheduler.get_rate(self.train_count)
         for batch in batchs:
             state = batch[0]
             n_state = batch[1]
@@ -150,12 +145,10 @@ class Trainer(RLTrainer):
                 target_q += self.config.discount * max(n_q)
 
             td_error = target_q - self.parameter.get_action_values(state)[action]
-            lr = self.lr_scheduler.get_rate(self.train_count)
             self.parameter.Q[state][action] += lr * td_error
-
             self.train_count += 1
 
-        return {
+        self.train_info = {
             "size": len(self.parameter.Q),
             "td_error": td_error,
             "lr": lr,

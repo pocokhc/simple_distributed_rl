@@ -190,19 +190,14 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.lr_sch = self.config.lr.create_schedulers()
 
-        self.train_count = 0
+    def train_on_batchs(self, memory_sample_return) -> None:
+        batchs = memory_sample_return
 
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
         # --- 近似モデルの学習
         model = self.parameter.model
-        batchs = self.remote_memory.sample()
         for batch in batchs:
             # データ形式を変形
             state = batch["state"]
@@ -246,7 +241,7 @@ class Trainer(RLTrainer):
         if len(batchs) > 0:
             td_error /= len(batchs)
 
-        return {
+        self.train_info = {
             "size": len(self.parameter.Q),
             "td_error": td_error,
         }

@@ -99,28 +99,21 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.lr_sch = self.config.lr.create_schedulers()
 
         self.optimizer = optim.Adam(self.parameter.q_online.parameters(), lr=self.lr_sch.get_rate(0))
         self.criterion = nn.HuberLoss()
 
-        self.train_count = 0
         self.sync_count = 0
 
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
-        if self.remote_memory.length() < self.config.memory_warmup_size:
-            return {}
+    def train_on_batchs(self, memory_sample_return) -> None:
+        indices, batchs, weights = memory_sample_return
 
         device = self.parameter.device
         self.parameter.q_online.to(device)
         self.parameter.q_target.to(device)
 
-        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
         target_q, states, onehot_actions = self.parameter.calc_target_q(batchs, training=True)
 
         states = torch.tensor(states).to(device)
@@ -153,9 +146,9 @@ class Trainer(RLTrainer):
             self.parameter.q_target.load_state_dict(self.parameter.q_online.state_dict())
             self.sync_count += 1
 
-        self.train_count += 1
-        return {
+        self.train_info = {
             "loss": loss.item(),
             "sync": self.sync_count,
             "lr": lr,
         }
+        self.train_count += 1

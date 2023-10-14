@@ -684,7 +684,6 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.lr_sch_model = self.config.lr_model.create_schedulers()
         self.lr_sch_critic = self.config.lr_critic.create_schedulers()
@@ -701,18 +700,11 @@ class Trainer(RLTrainer):
             self._critic_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_critic.get_rate(0))
             self._actor_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_actor.get_rate(0))
 
-        self.train_count = 0
         self.sync_count = 0
 
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
-        if self.remote_memory.length() < self.config.memory_warmup_size:
-            return {}
+    def train_on_batchs(self, memory_sample_return) -> None:
+        batchs = memory_sample_return
         info = {}
-
-        batchs = self.remote_memory.sample(self.config.batch_size)
 
         states = np.asarray([b["states"] for b in batchs], dtype=np.float32)
         actions = [b["actions"] for b in batchs]
@@ -844,7 +836,8 @@ class Trainer(RLTrainer):
         if (not self.config.enable_train_actor) and (not self.config.enable_train_critic):
             # WorldModelsのみ学習
             self.train_count += 1
-            return info
+            self.train_info = info
+            return
 
         self.parameter.encode.trainable = False
         self.parameter.decode.trainable = False
@@ -936,7 +929,7 @@ class Trainer(RLTrainer):
             info["critic_sync"] = self.sync_count
 
         self.train_count += 1
-        return info
+        self.train_info = info
 
     def _compute_horizon_step(
         self,

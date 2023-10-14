@@ -10,7 +10,7 @@ from tensorflow import keras
 
 from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
-from srl.base.rl.base import RLParameter, RLRemoteMemory, RLTrainer
+from srl.base.rl.base import RLMemory, RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
@@ -424,7 +424,7 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
+        self.memory = cast(Memory, self.memory)
 
         self.lr_sch = self.config.lr.create_schedulers()
 
@@ -433,33 +433,28 @@ class Trainer(RLTrainer):
 
         self.c_score = -np.inf
 
-        self.train_count = 0
         self.sync_count = 0
 
-    def get_train_count(self):
-        return self.train_count
+    def train_on_batchs(self, memory_sample_return) -> None:
+        batchs = memory_sample_return
 
-    def train(self):
         _info = {}
 
         if self.config.train_mode == 1:
-            _info.update(self._train_vae())
+            _info.update(self._train_vae(batchs))
             self.train_count += 1
         elif self.config.train_mode == 2:
-            _info.update(self._train_rnn())
+            _info.update(self._train_rnn(batchs))
             self.train_count += 1
         elif self.config.train_mode == 3:
-            params, score = self.remote_memory.c_get()
+            params, score = self.memory.c_get()
             if params is not None and self.c_score < score:
                 self.c_score = score
                 self.parameter.controller.set_flat_params(params)
 
-        return _info
+        self.train_info = _info
 
-    def _train_vae(self):
-        if self.remote_memory.vae_length() < self.config.memory_warmup_size:
-            return {}
-        states = self.remote_memory.vae_sample(self.config.batch_size)
+    def _train_vae(self, states):
         x = np.asarray(states)
 
         # --- VAE
@@ -510,11 +505,7 @@ class Trainer(RLTrainer):
             "lr": lr,
         }
 
-    def _train_rnn(self):
-        if self.remote_memory.rnn_length() < self.config.memory_warmup_size:
-            return {}
-        batchs = self.remote_memory.rnn_sample(self.config.batch_size)
-
+    def _train_rnn(self, batchs):
         states = np.asarray([b["states"] for b in batchs])
         actions = [b["actions"] for b in batchs]
         onehot_actions = tf.one_hot(actions, self.config.action_num, axis=2)

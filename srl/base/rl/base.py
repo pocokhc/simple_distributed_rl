@@ -128,15 +128,28 @@ class RLRemoteMemory(ABC):
 
 
 class RLTrainer(ABC):
-    def __init__(self, config: RLConfig, parameter: RLParameter, remote_memory: RLRemoteMemory):
+    def __init__(self, config: RLConfig, parameter: RLParameter, memory: RLMemory):
         self.config = config
         self.parameter = parameter
-        self.remote_memory = remote_memory
+        self.memory = memory
 
-    @abstractmethod
+        self.batch_size: int = getattr(self.config, "batch_size", -1)
+
+        self.train_count: int = 0
+        self.train_info: InfoType = {}
+
     def get_train_count(self) -> int:
-        raise NotImplementedError()
+        return self.train_count
+
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
+            return
+        memory_sample_return = self.memory.sample(self.batch_size, self.train_count)
+        self.train_on_batchs(memory_sample_return)
+
+    def memory_update(self, memory_update_args):
+        self.memory.update(memory_update_args)
 
     @abstractmethod
-    def train(self) -> InfoType:
+    def train_on_batchs(self, memory_sample_return) -> None:
         raise NotImplementedError()

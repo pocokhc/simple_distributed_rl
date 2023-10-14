@@ -319,7 +319,6 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.lr_sch_ext = self.config.lr_ext.create_schedulers()
         self.lr_sch_int = self.config.lr_int.create_schedulers()
@@ -339,18 +338,11 @@ class Trainer(RLTrainer):
         self.beta_list = common.create_beta_list(self.config.actor_num)
         self.discount_list = common.create_discount_list(self.config.actor_num)
 
-        self.train_count = 0
         self.sync_count = 0
 
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
-        if self.remote_memory.length() < self.config.memory_warmup_size:
-            return {}
-        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
+    def train_batchs(self, memory_sample_return) -> None:
+        indices, batchs, weights = memory_sample_return
         _info = {}
-
         device = self.parameter.device
 
         (
@@ -476,10 +468,10 @@ class Trainer(RLTrainer):
             self.parameter.q_ext_target.load_state_dict(self.parameter.q_ext_online.state_dict())
             self.parameter.q_int_target.load_state_dict(self.parameter.q_int_online.state_dict())
             self.sync_count += 1
-
-        self.train_count += 1
         _info["sync"] = self.sync_count
-        return _info
+
+        self.train_info = _info
+        self.train_count += 1
 
     def _update_q(
         self,

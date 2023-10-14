@@ -234,19 +234,12 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.ext_lr_sch = self.config.ext_lr.create_schedulers()
         self.int_lr_sch = self.config.int_lr.create_schedulers()
 
-        self.train_count = 0
-
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
-        if self.remote_memory.length() == 0:
-            return {}
+    def train_on_batchs(self, memory_sample_return) -> None:
+        batchs = memory_sample_return
 
         model = self.parameter.model
 
@@ -255,7 +248,6 @@ class Trainer(RLTrainer):
         # ---------------------
         int_lr = self.int_lr_sch.get_rate(self.train_count)
         td_error_mean = 0
-        batchs = self.remote_memory.sample()
         for batch in batchs:
             state = batch["state"]
             n_state = batch["next_state"]
@@ -345,7 +337,7 @@ class Trainer(RLTrainer):
 
         _info["td_error_ext"] = td_error_mean
         _info["lr_ext"] = ext_lr
-        return _info
+        self.train_info = _info
 
 
 # ------------------------------------------------------

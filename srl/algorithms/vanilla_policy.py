@@ -119,24 +119,17 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.lr_sch = self.config.lr.create_schedulers()
 
-        self.train_count = 0
-
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
-        batchs = self.remote_memory.sample()
-        if len(batchs) == 0:
-            return {}
+    def train_batchs(self, memory_sample_return) -> None:
+        batchs = memory_sample_return
 
         if self.config.action_type == RLTypes.DISCRETE:
-            return self._train_discrete(batchs)
+            self.train_info = self._train_discrete(batchs)
         else:
-            return self._train_continuous(batchs)
+            self.train_info = self._train_continuous(batchs)
+        self.train_count += len(batchs)
 
     def _train_discrete(self, batchs):
         loss = []
@@ -159,8 +152,6 @@ class Trainer(RLTrainer):
             lr = self.lr_sch.get_rate(self.train_count)
             self.parameter.policy[state][action] += lr * diff_j
             loss.append(abs(diff_j))
-
-            self.train_count += 1
 
         return {
             "size": len(self.parameter.policy),
@@ -196,8 +187,6 @@ class Trainer(RLTrainer):
 
             loss_mean.append(mean_diff_j)
             loss_stddev.append(stddev_diff_j)
-
-            self.train_count += 1
 
         return {
             "size": len(self.parameter.policy),

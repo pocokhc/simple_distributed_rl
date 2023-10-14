@@ -667,7 +667,7 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
+        self.memory: Memory = self.memory
 
         self.lr_sch = self.config.lr.create_schedulers()
 
@@ -675,8 +675,6 @@ class Trainer(RLTrainer):
             self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
         else:
             self.optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch.get_rate(0))
-
-        self.train_count = 0
 
     def _cross_entropy_loss(self, y_true, y_pred):
         y_pred = tf.clip_by_value(y_pred, 1e-6, y_pred)  # log(0)回避用
@@ -686,13 +684,8 @@ class Trainer(RLTrainer):
     def _mse_loss(self, y_true, y_pred):
         return tf.reduce_mean(tf.square(y_true - y_pred))
 
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
-        if self.remote_memory.length() < self.config.memory_warmup_size:
-            return {}
-        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
+    def train_on_batchs(self, memory_sample_return) -> None:
+        indices, batchs, weights = memory_sample_return
 
         # (batch, dict, steps, val) -> (steps, batch, val)
         states_list = []
@@ -797,11 +790,12 @@ class Trainer(RLTrainer):
         self.parameter.reset_cache()
 
         # --- 正規化用Qを保存できるように送信(remote_memory -> trainer -> parameter)
-        q_min, q_max = self.remote_memory.get_q()
+        q_min, q_max = self.memory.get_q()
         self.parameter.q_min = q_min
         self.parameter.q_max = q_max
 
-        return {
+        self.train_count += 1
+        self.train_info = {
             "loss": loss.numpy(),
             "v_loss": np.mean(v_loss.numpy()),
             "policy_loss": np.mean(policy_loss.numpy()),

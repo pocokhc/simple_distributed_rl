@@ -340,7 +340,6 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.lr_sch = self.config.lr.create_schedulers()
 
@@ -349,22 +348,17 @@ class Trainer(RLTrainer):
         else:
             self.optimizer = keras.optimizers.legacy.Adam(self.lr_sch.get_rate(0))
 
-        self.train_count = 0
+    def train_on_batchs(self, memory_sample_return) -> None:
+        batchs = memory_sample_return
 
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
         if self.config.enable_overshooting_loss:
-            return self._train_latent_overshooting_loss()
+            self.train_info = self._train_latent_overshooting_loss(batchs)
         else:
-            return self._train()
+            self.train_info = self._train(batchs)
 
-    def _train(self):
-        if self.remote_memory.length() < self.config.memory_warmup_size:
-            return {}
-        batchs = self.remote_memory.sample(self.config.batch_size)
+        self.train_count += 1
 
+    def _train(self, batchs):
         states = np.asarray([b["states"] for b in batchs], dtype=np.float32)
         actions = [b["actions"] for b in batchs]
         rewards = np.asarray([b["rewards"] for b in batchs], dtype=np.float32)[..., np.newaxis]
@@ -457,18 +451,13 @@ class Trainer(RLTrainer):
         lr = self.lr_sch.get_rate(self.train_count)
         self.optimizer.learning_rate = lr
 
-        self.train_count += 1
         return {
             "img_loss": -image_loss.numpy() / (64 * 64 * 3),
             "reward_loss": -reward_loss.numpy(),
             "kl_loss": kl_loss.numpy(),  # type:ignore , ignore check "None"
         }
 
-    def _train_latent_overshooting_loss(self):
-        if self.remote_memory.length() < self.config.memory_warmup_size:
-            return {}
-        batchs = self.remote_memory.sample(self.config.batch_size)
-
+    def _train_latent_overshooting_loss(self, batchs):
         states = np.asarray([b["states"] for b in batchs], dtype=np.float32)
         actions = [b["actions"] for b in batchs]
         rewards = np.asarray([b["rewards"] for b in batchs], dtype=np.float32)[..., np.newaxis]
@@ -561,7 +550,6 @@ class Trainer(RLTrainer):
         for i in range(len(variables)):
             self.optimizer.apply_gradients(zip(grads[i], variables[i]))
 
-        self.train_count += 1
         return {
             "img_loss": -image_loss.numpy() / (64 * 64 * 3),
             "reward_loss": -reward_loss.numpy(),

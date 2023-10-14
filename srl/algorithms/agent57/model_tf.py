@@ -355,32 +355,11 @@ class Trainer(RLTrainer):
         self.beta_list = create_beta_list(self.config.actor_num)
         self.discount_list = create_discount_list(self.config.actor_num)
 
-        self.train_count = 0
         self.sync_count = 0
 
-    def get_train_count(self):
-        return self.train_count
+    def train_on_batchs(self, memory_sample_return) -> None:
+        indices, batchs, weights = memory_sample_return
 
-    def train(self):
-        if self.remote_memory.length() < self.config.memory_warmup_size:
-            return {}
-
-        # --- train & update memory
-        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
-        td_errors, info = self._train_on_batchs(batchs, weights)
-        self.remote_memory.update(indices, batchs, td_errors)
-
-        # --- sync target
-        if self.train_count % self.config.target_model_update_interval == 0:
-            self.parameter.q_ext_target.set_weights(self.parameter.q_ext_online.get_weights())
-            self.parameter.q_int_target.set_weights(self.parameter.q_int_online.get_weights())
-            self.sync_count += 1
-
-        self.train_count += 1
-        info["sync"] = self.sync_count
-        return info
-
-    def _train_on_batchs(self, batchs, weights):
         (
             burnin_states,
             burnin_rewards_ext,
@@ -509,7 +488,16 @@ class Trainer(RLTrainer):
         else:
             td_errors = td_error_ext + beta_list * td_error_int
 
-        return td_errors, _info
+
+        # --- sync target
+        if self.train_count % self.config.target_model_update_interval == 0:
+            self.parameter.q_ext_target.set_weights(self.parameter.q_ext_online.get_weights())
+            self.parameter.q_int_target.set_weights(self.parameter.q_int_online.get_weights())
+            self.sync_count += 1
+
+        _info["sync"] = self.sync_count
+        self.train_count += 1
+        self.train_info = _info
 
     def _train_q(
         self,

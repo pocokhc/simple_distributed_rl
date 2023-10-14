@@ -280,26 +280,19 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.lr_sch = self.config.lr.create_schedulers()
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
         self.loss = keras.losses.Huber()
 
-        self.train_count = 0
         self.sync_count = 0
 
-    def get_train_count(self):
-        return self.train_count
+    def train_on_batchs(self, memory_sample_return) -> None:
+        indices, batchs, weights = memory_sample_return
 
-    def train(self):
-        if self.remote_memory.length() < self.config.memory_warmup_size:
-            return {}
-
-        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
         td_errors, loss, lr = self._train_on_batchs(batchs, np.array(weights).reshape(-1, 1))
-        self.remote_memory.update(indices, batchs, np.array(td_errors))
+        self.memory_update((indices, batchs, np.array(td_errors)))
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
@@ -307,7 +300,7 @@ class Trainer(RLTrainer):
             self.sync_count += 1
 
         self.train_count += 1
-        return {"loss": loss, "sync": self.sync_count, "lr": lr}
+        self.train_info = {"loss": loss, "sync": self.sync_count, "lr": lr}
 
     def _train_on_batchs(self, batchs, weights):
         # (batch, dict[x], step) -> (batch, step, x)

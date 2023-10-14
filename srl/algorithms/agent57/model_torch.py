@@ -341,7 +341,6 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.lr_sch_ext = self.config.lr_ext.create_schedulers()
         self.lr_sch_int = self.config.lr_int.create_schedulers()
@@ -361,32 +360,9 @@ class Trainer(RLTrainer):
         self.beta_list = create_beta_list(self.config.actor_num)
         self.discount_list = create_discount_list(self.config.actor_num)
 
-        self.train_count = 0
         self.sync_count = 0
 
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
-        if self.remote_memory.length() < self.config.memory_warmup_size:
-            return {}
-
-        # --- train & update memory
-        indices, batchs, weights = self.remote_memory.sample(self.config.batch_size, self.train_count)
-        td_errors, info = self._train_on_batchs(batchs, weights)
-        self.remote_memory.update(indices, batchs, td_errors)
-
-        # --- sync target
-        if self.train_count % self.config.target_model_update_interval == 0:
-            self.parameter.q_ext_target.load_state_dict(self.parameter.q_ext_online.state_dict())
-            self.parameter.q_int_target.load_state_dict(self.parameter.q_int_online.state_dict())
-            self.sync_count += 1
-
-        self.train_count += 1
-        info["sync"] = self.sync_count
-        return info
-
-    def _train_on_batchs(self, batchs, weights):
+    def train_on_batchs(self, indices, batchs, weights) -> Tuple[dict, Any]:
         (
             burnin_states,
             burnin_rewards_ext,
@@ -543,7 +519,16 @@ class Trainer(RLTrainer):
         else:
             td_errors = td_error_ext + beta_list * td_error_int
 
-        return td_errors, _info
+
+        # --- sync target
+        if self.train_count % self.config.target_model_update_interval == 0:
+            self.parameter.q_ext_target.load_state_dict(self.parameter.q_ext_online.state_dict())
+            self.parameter.q_int_target.load_state_dict(self.parameter.q_int_online.state_dict())
+            self.sync_count += 1
+
+        _info["sync"] = self.sync_count
+        self.train_count += 1
+        self.train_info = _info
 
     def _train_q(
         self,

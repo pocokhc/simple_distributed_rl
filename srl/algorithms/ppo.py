@@ -310,21 +310,13 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.lr_sch = self.config.lr.create_schedulers()
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
 
-        self.train_count = 0
-
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
-        if self.remote_memory.length() < self.config.memory_warmup_size:
-            return {}
-        batchs = self.remote_memory.sample(self.config.batch_size)
+    def train_on_batchs(self, memory_sample_return) -> None:
+        batchs = memory_sample_return
 
         states = np.asarray([e["state"] for e in batchs])
         advantage = np.asarray([e["discounted_reward"] for e in batchs]).reshape((-1, 1))
@@ -457,7 +449,7 @@ class Trainer(RLTrainer):
         info["lr"] = lr
 
         self.train_count += 1
-        return info
+        self.train_info = info
 
 
 # ------------------------------------------------------

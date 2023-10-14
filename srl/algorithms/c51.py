@@ -235,13 +235,10 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.lr_sch = self.config.lr.create_schedulers()
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
-
-        self.train_count = 0
 
         self.n_atoms = self.config.categorical_num_atoms
         self.v_min = self.config.categorical_v_min
@@ -249,14 +246,8 @@ class Trainer(RLTrainer):
         self.Z = np.linspace(self.v_min, self.v_max, self.n_atoms)
         self.delta_z = (self.v_max - self.v_min) / (self.n_atoms - 1)
 
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
-        if self.remote_memory.length() < self.config.memory_warmup_size:
-            return {}
-
-        batchs = self.remote_memory.sample(self.config.batch_size)
+    def train_on_batchs(self, memory_sample_return) -> None:
+        batchs = memory_sample_return
 
         states = []
         actions = []
@@ -328,7 +319,7 @@ class Trainer(RLTrainer):
         self.optimizer.learning_rate = lr
 
         self.train_count += 1
-        return {"loss": loss.numpy(), "lr": lr}
+        self.train_info = {"loss": loss.numpy(), "lr": lr}
 
 
 # ------------------------------------------------------

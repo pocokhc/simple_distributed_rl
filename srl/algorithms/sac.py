@@ -321,13 +321,10 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.lr_policy_sch = self.config.lr_policy.create_schedulers()
         self.lr_q_sch = self.config.lr_q.create_schedulers()
         self.lr_alpha_sch = self.config.lr_alpha.create_schedulers()
-
-        self.train_count = 0
 
         if compare_less_version(tf.__version__, "2.11.0"):
             self.q_optimizer = keras.optimizers.Adam(learning_rate=self.lr_policy_sch.get_rate(0))
@@ -344,13 +341,8 @@ class Trainer(RLTrainer):
         # エントロピーα自動調整用
         self.log_alpha = tf.Variable(0.5, dtype=tf.float32)
 
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
-        if self.remote_memory.length() < self.config.memory_warmup_size:
-            return {}
-        batchs = self.remote_memory.sample(self.config.batch_size)
+    def train_on_batchs(self, memory_sample_return) -> None:
+        batchs = memory_sample_return
 
         states = []
         actions = []
@@ -444,7 +436,7 @@ class Trainer(RLTrainer):
         self.alpha_optimizer.learning_rate = self.lr_alpha_sch.get_rate(self.train_count)
 
         self.train_count += 1
-        return {
+        self.train_info = {
             "q_loss": q_loss.numpy(),
             "policy_loss": policy_loss.numpy(),
             "alpha_loss": log_alpha_loss.numpy(),

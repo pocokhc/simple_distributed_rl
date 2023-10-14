@@ -100,15 +100,10 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
-        self.train_count = 0
+    def train_on_batchs(self, memory_sample_return) -> None:
+        batchs = memory_sample_return
 
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
-        batchs = self.remote_memory.sample()
         for batch in batchs:
             state = batch["state"]
             action = batch["action"]
@@ -117,8 +112,10 @@ class Trainer(RLTrainer):
 
             self.parameter.N[state][action] += 1
             self.parameter.W[state][action] += reward
+
             self.train_count += 1
-        return {"size": len(self.parameter.N)}
+
+        self.train_info = {"size": len(self.parameter.N)}
 
 
 # ------------------------------------------------------

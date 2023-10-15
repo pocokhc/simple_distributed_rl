@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import tensorflow as tf
@@ -7,7 +7,7 @@ from tensorflow import keras
 from srl.base.rl.base import RLTrainer
 from srl.rl.models.tf.input_block import InputBlock
 
-from .dqn import CommonInterfaceParameter, Config, RemoteMemory
+from .dqn import CommonInterfaceParameter, Config
 
 kl = keras.layers
 
@@ -137,8 +137,8 @@ class Trainer(RLTrainer):
         self.optimizer.learning_rate = lr
 
         # --- update
-        td_errors = target_q - cast(Any, q).numpy()
-        self.remote_memory.update(indices, batchs, td_errors)
+        priorities = np.abs(target_q - q)
+        self.memory_update((indices, batchs, priorities))
 
         # --- targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:

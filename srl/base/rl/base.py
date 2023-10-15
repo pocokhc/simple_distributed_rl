@@ -52,29 +52,41 @@ class RLParameter(ABC):
         pass  # NotImplemented
 
 
-class RLRemoteMemory(ABC):
-    def __init__(self, config: RLConfig):
-        self.config = config
+
+class IRLMemoryWorker(ABC):
+    @abstractmethod
+    def add(self, *args) -> None:
+        raise NotImplementedError()
 
     @abstractmethod
     def length(self) -> int:
         raise NotImplementedError()
 
+
+class RLMemory(IRLMemoryWorker):
+    def __init__(self, config: RLConfig):
+        self.config = config
+
+    # --- trainer interface
     @abstractmethod
-    def call_restore(self, data: Any, **kwargs) -> None:
+    def is_warmup_needed(self) -> bool:
         raise NotImplementedError()
 
+    @abstractmethod
+    def sample(self, batch_size: int, step: int) -> Any:
+        raise NotImplementedError()
+
+    def update(self, memory_update_args: Any) -> None:
+        raise NotImplementedError()
+
+    # --- other
     @abstractmethod
     def call_backup(self, **kwargs) -> Any:
         raise NotImplementedError()
 
-    def restore(self, dat: Any, **kwargs) -> None:
-        if isinstance(dat, tuple):
-            import lzma
-
-            dat = lzma.decompress(dat[0])
-            dat = pickle.loads(dat)
-        self.call_restore(dat, **kwargs)
+    @abstractmethod
+    def call_restore(self, data: Any, **kwargs) -> None:
+        raise NotImplementedError()
 
     def backup(self, compress: bool = False, **kwargs) -> Any:
         dat = self.call_backup(**kwargs)
@@ -85,6 +97,14 @@ class RLRemoteMemory(ABC):
             dat = lzma.compress(dat)
             dat = (dat, True)
         return dat
+
+    def restore(self, dat: Any, **kwargs) -> None:
+        if isinstance(dat, tuple):
+            import lzma
+
+            dat = lzma.decompress(dat[0])
+            dat = pickle.loads(dat)
+        self.call_restore(dat, **kwargs)
 
     def save(self, path: str, compress: bool = True, **kwargs) -> None:
         logger.debug(f"memory save (size: {self.length()}): {path}")

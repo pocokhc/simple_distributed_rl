@@ -34,14 +34,14 @@ class Config(RLConfig):
     # model params
     ext_lr: float = 0.1  # type: ignore , type OK
     ext_discount: float = 0.9
-    int_lr: float = 0.1  # type: ignore , type OK
-    int_discount: float = 0.9
+    int_lr: float = 0.5  # type: ignore , type OK
+    int_discount: float = 0.1
 
     # episodic
     episodic_memory_capacity: int = 30000
 
     # lifelong
-    lifelong_decrement_rate: float = 0.999  # 減少割合
+    lifelong_decrement_rate: float = 0.99  # 減少割合
     lifelong_reward_L: float = 5.0
 
     # other
@@ -201,8 +201,7 @@ class Parameter(RLParameter):
         self.Q_ext = d[0]
         self.Q_int = d[1]
         self.lifelong_C = d[2]
-        self.Q_C = d[3]
-        # self.model = d[4] TODO
+        # self.model = d[3] TODO
 
     def call_backup(self, **kwargs):
         return json.dumps(
@@ -210,7 +209,6 @@ class Parameter(RLParameter):
                 self.Q_ext,
                 self.Q_int,
                 self.lifelong_C,
-                self.Q_C,
                 # self.model, TODO
             ]
         )
@@ -279,15 +277,10 @@ class Trainer(RLTrainer):
                 target_q = reward_int
             else:
                 maxq = max(n_q)
-                # --- original code
-                if self.parameter.Q_C[n_state] > 1:
-                    maxq = maxq / self.parameter.Q_C[n_state]
-                # ---
                 target_q = reward_int + self.config.int_discount * maxq
 
             td_error = target_q - q[action]
             self.parameter.Q_int[state][action] += int_lr * td_error
-            self.parameter.Q_C[state] += 1
 
             td_error_mean += td_error
         if len(batchs) > 0:
@@ -348,7 +341,6 @@ class Worker(DiscreteActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.epsilon_sch = self.config.epsilon.create_schedulers()
 

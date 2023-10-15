@@ -9,7 +9,7 @@ from srl.base.rl.base import RLTrainer
 from srl.rl.functions.common import create_beta_list, create_discount_list
 from srl.rl.models.torch_.input_block import InputBlock
 
-from .agent57 import CommonInterfaceParameter, Config, RemoteMemory
+from .agent57 import CommonInterfaceParameter, Config
 
 
 # ------------------------------------------------------
@@ -362,7 +362,9 @@ class Trainer(RLTrainer):
 
         self.sync_count = 0
 
-    def train_on_batchs(self, indices, batchs, weights) -> Tuple[dict, Any]:
+    def train_on_batchs(self, memory_sample_return) -> None:
+        indices, batchs, weights = memory_sample_return
+
         (
             burnin_states,
             burnin_rewards_ext,
@@ -515,10 +517,11 @@ class Trainer(RLTrainer):
             td_error_int = 0
 
         if self.config.disable_int_priority:
-            td_errors = td_error_ext
+            priorities = np.abs(td_error_ext)
         else:
-            td_errors = td_error_ext + beta_list * td_error_int
+            priorities = np.abs(td_error_ext + beta_list * td_error_int)
 
+        self.memory_update((indices, batchs, priorities))
 
         # --- sync target
         if self.train_count % self.config.target_model_update_interval == 0:

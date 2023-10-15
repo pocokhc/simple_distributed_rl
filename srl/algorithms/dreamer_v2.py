@@ -36,9 +36,6 @@ ref: https://github.com/danijar/dreamerv2/tree/07d906e9c4322c6fc2cd6ed23e247ccd6
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig, ExperienceReplayBufferConfig):
-    capacity: int = 100_000
-    memory_warmup_size: int = 1000
-
     # Model
     deter_size: int = 600
     stoch_size: int = 32
@@ -60,7 +57,6 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     enable_train_model: bool = True
     enable_train_actor: bool = True
     enable_train_critic: bool = True
-    batch_size: int = 50
     batch_length: int = 50
     lr_model: float = 6e-4  # type: ignore , type OK
     lr_critic: float = 8e-5  # type: ignore , type OK
@@ -122,8 +118,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size < self.capacity
-        assert self.batch_size < self.memory_warmup_size
+        self.assert_params_memory()
 
     def set_config_by_env(self, env: EnvRun) -> None:
         if self.experience_acquisition_method == "episode" and self.batch_length < env.max_episode_steps:
@@ -1044,7 +1039,6 @@ class Worker(DiscreteActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.screen = None
@@ -1193,10 +1187,10 @@ class Worker(DiscreteActionWorker):
 
         return {}
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         pass
 
-    def render_rgb_array(self, env, worker, **kwargs) -> Optional[np.ndarray]:
+    def render_rgb_array(self, worker, **kwargs) -> Optional[np.ndarray]:
         if self.config.env_observation_type != EnvObservationTypes.COLOR:
             return None
 
@@ -1250,7 +1244,7 @@ class Worker(DiscreteActionWorker):
                 self.screen,
                 (IMG_W + PADDING) * a,
                 20 + IMG_H,
-                f"{env.action_to_str(a)}({policy_logits[a]:.2f})",
+                f"{worker.env.action_to_str(a)}({policy_logits[a]:.2f})",
                 color=(255, 255, 255),
             )
 

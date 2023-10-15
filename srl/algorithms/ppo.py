@@ -63,8 +63,6 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     clip_range: float = 0.2  # 状態価値のクリップ範囲
     adaptive_kl_target: float = 0.01  # Adaptive KLペナルティ内の定数
 
-    batch_size: int = 32
-    memory_warmup_size: int = 1000
     discount: float = 0.9  # 割引率
     lr: SchedulerConfig = field(init=False, default_factory=lambda: SchedulerConfig())
     value_loss_weight: float = 1.0  # 状態価値の反映率
@@ -117,8 +115,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size <= self.memory.capacity
-        assert self.batch_size < self.memory_warmup_size
+        self.assert_params_memory()
 
     @property
     def info_types(self) -> dict:
@@ -460,7 +457,6 @@ class Worker(RLWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         if self.config.enable_action_normalization:
             self.action_center = (self.config.action_space.high + self.config.action_space.low) / 2

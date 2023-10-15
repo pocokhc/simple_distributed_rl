@@ -40,33 +40,27 @@ class RankBaseMemoryLinear(IPriorityMemory):
     beta_steps: int = 1_000_000
 
     def __post_init__(self):
-        self.init()
+        self.clear()
 
-    def init(self):
+    def clear(self):
         self.memory = []
-        self.max_priority = 1
+        self.max_priority: float = 1.0
 
-    def add(self, batch, td_error: Optional[float] = None):
-        if td_error is None:
+    def length(self) -> int:
+        return len(self.memory)
+
+    def add(self, batch, priority: Optional[float] = None):
+        if priority is None:
             priority = self.max_priority
-        else:
-            priority = float(abs(td_error))
-            if self.max_priority < priority:
-                self.max_priority = priority
+        if self.max_priority < priority:
+            self.max_priority = priority
 
         if len(self.memory) >= self.capacity:
             self.memory.pop(0)
 
         bisect.insort(self.memory, _bisect_wrapper(priority, batch))
 
-    def update(self, indices: List[int], batchs: List[Any], td_errors: np.ndarray) -> None:
-        for i in range(len(batchs)):
-            priority = float(abs(td_errors[i]))
-            if self.max_priority < priority:
-                self.max_priority = priority
-            bisect.insort(self.memory, _bisect_wrapper(priority, batchs[i]))
-
-    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
+    def sample(self, step: int, batch_size: int) -> Tuple[List[int], List[Any], np.ndarray]:
         batchs = []
         weights = np.ones(batch_size, dtype=np.float32)
 
@@ -105,8 +99,12 @@ class RankBaseMemoryLinear(IPriorityMemory):
 
         return index_list, batchs, weights
 
-    def __len__(self):
-        return len(self.memory)
+    def update(self, indices: List[int], batchs: List[Any], priorities: np.ndarray) -> None:
+        for i in range(len(batchs)):
+            priority = float(priorities[i])
+            if self.max_priority < priority:
+                self.max_priority = priority
+            bisect.insort(self.memory, _bisect_wrapper(priority, batchs[i]))
 
     def backup(self):
         return [

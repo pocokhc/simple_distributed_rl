@@ -57,9 +57,6 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     soft_target_update_tau: float = 0.02
     hard_target_update_interval: int = 100
 
-    batch_size: int = 32
-    memory_warmup_size: int = 500
-
     enable_alpha_train: bool = True
     alpha_no_learning: float = 0.1  # 学習しない場合のalpha値
 
@@ -103,8 +100,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size <= self.memory.capacity
-        assert self.batch_size <= self.memory_warmup_size
+        self.assert_params_memory()
 
 
 register(
@@ -451,7 +447,6 @@ class Worker(ContinuousActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
     def call_on_reset(self, state: np.ndarray) -> dict:
         self.state = state
@@ -497,7 +492,7 @@ class Worker(ContinuousActionWorker):
 
         return {}
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         q1, q2 = self.parameter.q_online([self.state.reshape(1, -1), np.asarray([self.action])])
         q1 = q1.numpy()[0][0]
         q2 = q2.numpy()[0][0]

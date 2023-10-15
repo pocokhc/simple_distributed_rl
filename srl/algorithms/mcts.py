@@ -126,7 +126,6 @@ class Worker(RLWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
     def call_policy(self, worker: WorkerRun) -> Tuple[int, dict]:
         self.state = to_str_observation(worker.state, self.config.env_observation_type)

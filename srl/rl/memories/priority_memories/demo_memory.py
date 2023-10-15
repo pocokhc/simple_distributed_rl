@@ -18,30 +18,30 @@ class DemoMemory(IPriorityMemory):
     ratio: float = 1.0 / 256.0  # 混ぜる割合
 
     def __post_init__(self):
-        self.init()
+        self.clear()
 
-    def init(self) -> None:
-        self.main_memory.init()
+    def clear(self) -> None:
+        self.main_memory.clear()
         if self.playing:
-            self.demo_memory.init()
+            self.demo_memory.clear()
 
-    def add(self, batch: Any, td_error: Optional[float] = None):
+    def add(self, batch: Any, priority: Optional[float] = None):
         if self.playing:
-            self.demo_memory.add(batch, td_error)
+            self.demo_memory.add(batch, priority)
         else:
-            self.main_memory.add(batch, td_error)
+            self.main_memory.add(batch, priority)
 
-    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
-        if len(self.demo_memory) == 0:
+    def sample(self, step: int, batch_size: int) -> Tuple[List[int], List[Any], np.ndarray]:
+        if self.demo_memory.length() == 0:
             self.demo_batch_size = 0
             main_batch_size = batch_size
-        elif len(self.main_memory) == 0:
+        elif self.main_memory.length() == 0:
             self.demo_batch_size = batch_size
             main_batch_size = 0
         else:
             self.demo_batch_size = sum([random.random() < self.ratio for _ in range(batch_size)])
-            if len(self.demo_memory) < self.demo_batch_size:
-                self.demo_batch_size = len(self.demo_memory)
+            if self.demo_memory.length() < self.demo_batch_size:
+                self.demo_batch_size = self.demo_memory.length()
             main_batch_size = batch_size - self.demo_batch_size
 
         # 比率に基づき batch を作成
@@ -49,32 +49,32 @@ class DemoMemory(IPriorityMemory):
         batchs = []
         weights = []
         if self.demo_batch_size > 0:
-            (i, b, w) = self.demo_memory.sample(self.demo_batch_size, step)
+            (i, b, w) = self.demo_memory.sample(step, self.demo_batch_size)
             indices.extend(i)
             batchs.extend(b)
             weights.extend(w)
         if main_batch_size > 0:
-            (i, b, w) = self.main_memory.sample(main_batch_size, step)
+            (i, b, w) = self.main_memory.sample(step, main_batch_size)
             indices.extend(i)
             batchs.extend(b)
             weights.extend(w)
 
         return indices, batchs, np.asarray(weights, dtype=np.float32)
 
-    def update(self, indices: List[int], batchs: List[Any], td_errors: np.ndarray) -> None:
+    def update(self, indices: List[int], batchs: List[Any], priorities: np.ndarray) -> None:
         # sample -> update の順番前提
         demo_indices = indices[: self.demo_batch_size]
         demo_batchs = batchs[: self.demo_batch_size]
-        demo_td_errors = td_errors[: self.demo_batch_size]
-        self.demo_memory.update(demo_indices, demo_batchs, demo_td_errors)
+        demo_priorities = priorities[: self.demo_batch_size]
+        self.demo_memory.update(demo_indices, demo_batchs, demo_priorities)
 
         main_indices = indices[self.demo_batch_size :]
         main_batchs = batchs[self.demo_batch_size :]
-        main_td_errors = td_errors[self.demo_batch_size :]
-        self.main_memory.update(main_indices, main_batchs, main_td_errors)
+        main_priorities = priorities[self.demo_batch_size :]
+        self.main_memory.update(main_indices, main_batchs, main_priorities)
 
-    def __len__(self) -> int:
-        return len(self.demo_memory) + len(self.main_memory)
+    def length(self) -> int:
+        return self.demo_memory.length() + self.main_memory.length()
 
     def backup(self):
         if self.playing:

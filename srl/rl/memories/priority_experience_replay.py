@@ -4,11 +4,13 @@ from typing import Any, List, Optional, Tuple
 import numpy as np
 
 from srl.base.rl.base import RLMemory
+from srl.rl.memories.priority_memories.imemory import IPriorityMemory
 
 
 @dataclass
 class _PriorityExperienceReplayConfig:
     capacity: int = 100_000
+    warmup_size: int = 1_000
     _name: str = field(init=False, default="ReplayMemory")
     _kwargs: dict = field(init=False, default_factory=dict)
 
@@ -68,19 +70,20 @@ class _PriorityExperienceReplayConfig:
             beta_steps=beta_steps,
         )
 
-    def set_best_episode_memory(
-        self,
-        enable_best_episode_memory: bool = True,
-        ratio: float = 1.0 / 256.0,  # 混ぜる割合
-        has_reward_equal: bool = True,
-    ):
-        self.enable_best_episode_memory = enable_best_episode_memory
-        if not enable_best_episode_memory:
-            self.best_episode_memory = None
-            return
-        self.best_episode_memory = _PriorityExperienceReplayConfig()
-        self.best_episode_ratio = ratio
-        self.best_episode_has_reward_equal = has_reward_equal
+    # TODO
+    # def set_best_episode_memory(
+    #    self,
+    #    enable_best_episode_memory: bool = True,
+    #    ratio: float = 1.0 / 256.0,  # 混ぜる割合
+    #    has_reward_equal: bool = True,
+    # ):
+    #    self.enable_best_episode_memory = enable_best_episode_memory
+    #    if not enable_best_episode_memory:
+    #        self.best_episode_memory = None
+    #        return
+    #    self.best_episode_memory = _PriorityExperienceReplayConfig()
+    #    self.best_episode_ratio = ratio
+    #    self.best_episode_has_reward_equal = has_reward_equal
 
     def set_demo_memory(
         self,
@@ -170,49 +173,58 @@ class _PriorityExperienceReplayConfig:
 class PriorityExperienceReplayConfig:
     """PriorityExperienceReplay
 
-    これを実装しているアルゴリズムはmemoryを持ちます。
-    memoryから任意の関数を呼ぶことで各memoryを設定できます。
-    ただ、capacityだけは例外で直接指定できます。
+    これを継承しているアルゴリズムはbatch_size変数とmemory変数を持ちます。
+    memory変数から関数を呼ぶことで各memoryを設定できます。
+    また、memory変数から任意のパラメータを設定できます。
 
     Examples:
        >>> from srl.algorithms import dqn
        >>> rl_config = dqn.Config()
-       >>> # capacityの設定例
+       >>>
+       >>> # 各パラメータの設定例
+       >>> rl_config.batch_size = 64
        >>> rl_config.memory.capacity = 10000
-       >>> # ProportionalMemory を設定
+       >>> rl_config.memory.warmup_size = 10
+       >>>
+       >>> # ProportionalMemory の設定例
        >>> rl_config.memory.set_proportional_memory()
     """
 
+    batch_size: int = 32
     memory: _PriorityExperienceReplayConfig = field(
         init=False, default_factory=lambda: _PriorityExperienceReplayConfig()
     )
 
+    def assert_params_memory(self):
+        assert self.batch_size > 0
+        assert self.memory.warmup_size <= self.memory.capacity
+        assert self.batch_size <= self.memory.warmup_size
 
-class PriorityExperienceReplay(RLRemoteMemory):
+
+class PriorityExperienceReplay(RLMemory):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: PriorityExperienceReplayConfig = self.config
+        self.batch_size = self.config.batch_size
         self.memory = self.config.memory.create_memory()
 
     def length(self) -> int:
-        return len(self.memory)
+        return self.memory.length()
 
-    def call_restore(self, data: Any, **kwargs) -> None:
-        self.memory.restore(data)
+    def is_warmup_needed(self) -> bool:
+        return self.memory.length() < self.config.memory.warmup_size
 
-    def call_backup(self, **kwargs):
-        return self.memory.backup()
-
-    # ---------------------------
-
-    def add(self, batch: Any, td_error: Optional[float] = None):
-        self.memory.add(batch, td_error)
+    def add(self, batch: Any, priority: Optional[float] = None):
+        self.memory.add(batch, priority)
 
     def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         return self.memory.sample(batch_size, step)
 
-    def update(self, indices: List[int], batchs: List[Any], td_errors: np.ndarray) -> None:
-        self.memory.update(indices, batchs, td_errors)
+    def update(self, memory_update_args: Tuple[List[int], List[Any], np.ndarray]) -> None:
+        self.memory.update(*memory_update_args)
 
-    def on_step(self, reward: float, done: bool) -> None:
-        self.memory.on_step(reward, done)
+    def call_backup(self, **kwargs):
+        return self.memory.backup()
+
+    def call_restore(self, data: Any, **kwargs) -> None:
+        self.memory.restore(data)

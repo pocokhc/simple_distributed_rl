@@ -129,8 +129,6 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     lr: float = 0.001  # type: ignore , type OK
 
     discount: float = 0.9
-    batch_size: int = 16
-    memory_warmup_size: int = 1000
 
     # model
     image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
@@ -171,8 +169,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size <= self.memory.capacity
-        assert self.batch_size <= self.memory_warmup_size
+        self.assert_params_memory()
 
 
 register(
@@ -330,7 +327,6 @@ class Worker(DiscreteActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.epsilon_sch = self.config.epsilon.create_schedulers()
 

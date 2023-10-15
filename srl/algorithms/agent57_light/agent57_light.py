@@ -60,7 +60,8 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig, PriorityExperienceReplayConfig):
-    # test
+    """<:ref:`PriorityExperienceReplay`>"""
+
     test_epsilon: float = 0
     test_beta: float = 0
 
@@ -69,8 +70,6 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
     lr_ext: float = 0.0001  # type: ignore , type OK
     lr_int: float = 0.0001  # type: ignore , type OK
-    batch_size: int = 64
-    memory_warmup_size: int = 1000
     target_model_update_interval: int = 1500
 
     # rescale
@@ -122,6 +121,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         self.lr_int: SchedulerConfig = SchedulerConfig(cast(float, self.lr_int))
         self.episodic_lr: SchedulerConfig = SchedulerConfig(cast(float, self.episodic_lr))
         self.lifelong_lr: SchedulerConfig = SchedulerConfig(cast(float, self.lifelong_lr))
+        self.memory.set_proportional_memory()
 
         self.dueling_network.set((512,), True)
         self.episodic_emb_block.set_mlp(
@@ -158,8 +158,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size <= self.memory.capacity
-        assert self.batch_size <= self.memory_warmup_size
+        self.assert_params_memory()
 
 
 # ------------------------------------------------------
@@ -296,7 +295,6 @@ class Worker(DiscreteActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: CommonInterfaceParameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.discount = 0
@@ -470,9 +468,9 @@ class Worker(DiscreteActionWorker):
         ]
 
         if not self.distributed:
-            td_error = None
+            priority = None
         elif not self.config.memory.requires_priority():
-            td_error = None
+            priority = None
         else:
             next_invalid_actions_idx = [0 for _ in next_invalid_actions]
             _params = [
@@ -493,9 +491,9 @@ class Worker(DiscreteActionWorker):
             )[0]
 
             if self.config.disable_int_priority or not self.config.enable_intrinsic_reward:
-                td_error = target_q_ext - self.q_ext[self.action]
+                priority = abs(target_q_ext - self.q_ext[self.action])
             elif self.beta == 0:
-                td_error = target_q_ext - self.q_ext[self.action]
+                priority = abs(target_q_ext - self.q_ext[self.action])
             else:
                 target_q_int = self.parameter.calc_target_q(
                     False,
@@ -503,7 +501,7 @@ class Worker(DiscreteActionWorker):
                     *_params,
                 )[0]
 
-                td_error = (target_q_ext + self.beta * target_q_int) - self.q[self.action]
+                priority = abs((target_q_ext + self.beta * target_q_int) - self.q[self.action])
 
         self.memory.add(batch, priority)
         return _info

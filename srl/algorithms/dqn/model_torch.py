@@ -8,7 +8,7 @@ import torch.optim as optim
 from srl.base.rl.base import RLTrainer
 from srl.rl.models.torch_.input_block import InputBlock
 
-from .dqn import CommonInterfaceParameter, Config, RemoteMemory
+from .dqn import CommonInterfaceParameter, Config
 
 
 # ------------------------------------------------------
@@ -138,8 +138,8 @@ class Trainer(RLTrainer):
             param_group["lr"] = lr
 
         # --- update
-        td_errors = (target_q - q).to("cpu").detach().numpy()
-        self.remote_memory.update(indices, batchs, td_errors)
+        priorities = np.abs((target_q - q).to("cpu").detach().numpy())
+        self.memory_update((indices, batchs, priorities))
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:

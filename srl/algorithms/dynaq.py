@@ -33,6 +33,7 @@ class Config(RLConfig):
     test_epsilon: float = 0
     discount: float = 0.9
     lr: float = 0.1  # type: ignore , type OK
+    batch_size: int = 10
 
     def __post_init__(self):
         super().__post_init__()
@@ -214,7 +215,7 @@ class Trainer(RLTrainer):
         lr = self.lr_sch.get_rate(self.train_count)
 
         # --- 近似モデルからランダムにサンプリング
-        for batch in model.sample(10):
+        for batch in model.sample(self.config.batch_size):
             # データ形式を変形
             s = batch["state"]
             n_s = batch["next_state"]
@@ -255,7 +256,6 @@ class Worker(DiscreteActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.epsilon_sch = self.config.epsilon.create_schedulers()
 

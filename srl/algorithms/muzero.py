@@ -1,7 +1,7 @@
 import logging
 import random
 from dataclasses import dataclass, field
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -13,12 +13,15 @@ from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.rl.functions.common import (float_category_decode,
-                                     float_category_encode, inverse_rescaling,
-                                     random_choice_by_probs,
-                                     render_discrete_action, rescaling)
-from srl.rl.memories.priority_experience_replay import (
-    PriorityExperienceReplay, PriorityExperienceReplayConfig)
+from srl.rl.functions.common import (
+    float_category_decode,
+    float_category_encode,
+    inverse_rescaling,
+    random_choice_by_probs,
+    render_discrete_action,
+    rescaling,
+)
+from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
 from srl.rl.models.alphazero_block import AlphaZeroBlockConfig
 from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.tf.input_block import InputBlock
@@ -44,8 +47,6 @@ https://arxiv.org/src/1911.08265v2/anc/pseudocode.py
 @dataclass
 class Config(RLConfig, PriorityExperienceReplayConfig):
     num_simulations: int = 20
-    batch_size: int = 128
-    memory_warmup_size: int = 1000
     discount: float = 0.99
 
     lr: SchedulerConfig = field(init=False, default_factory=lambda: SchedulerConfig())
@@ -130,8 +131,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size <= self.memory.capacity
-        assert self.batch_size <= self.memory_warmup_size
+        self.assert_params_memory()
         assert self.v_min < self.v_max
         assert self.unroll_steps > 0
 
@@ -155,9 +155,15 @@ class Memory(PriorityExperienceReplay):
         self.q_min = np.inf
         self.q_max = -np.inf
 
-    def update_q(self, q_min, q_max):
-        self.q_min = min(self.q_min, q_min)
-        self.q_max = max(self.q_max, q_max)
+    def add(self, key, batch: Any, priority: Optional[float] = None):
+        if key == "memory":
+            self.memory.add(batch, priority)
+        else:
+            q_min, q_max = batch
+            self.q_min = min(self.q_min, q_min)
+            self.q_max = max(self.q_max, q_max)
+
+    # ---------------------------------------
 
     def get_q(self):
         return self.q_min, self.q_max
@@ -533,7 +539,7 @@ class Trainer(RLTrainer):
             loss += tf.reduce_sum(self.parameter.prediction_network.losses)
             loss += tf.reduce_sum(self.parameter.dynamics_network.losses)
 
-        priorities = value_loss.numpy()
+        priorities = np.abs(value_loss.numpy())
 
         # lr_schedule
         lr = self.lr_sch.get_rate(self.train_count)
@@ -555,7 +561,7 @@ class Trainer(RLTrainer):
         self.parameter.reset_cache()
 
         # --- 正規化用Qを保存できるように送信(remote_memory -> trainer -> parameter)
-        q_min, q_max = self.remote_memory.get_q()
+        q_min, q_max = self.memory.get_q()
         self.parameter.q_min = q_min
         self.parameter.q_max = q_max
 
@@ -577,7 +583,6 @@ class Worker(DiscreteActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.policy_tau_sch = self.config.policy_tau.create_schedulers()
 

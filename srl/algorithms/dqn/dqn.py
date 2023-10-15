@@ -54,10 +54,10 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     #: ε-greedy parameter for Test
     test_epsilon: float = 0
 
-    #:
-    actor_epsilon: float = 0.4
     #: Learning rate during distributed learning
     #: :math:`\epsilon_i = \epsilon^{1 + \frac{i}{N-1} \alpha}`
+    actor_epsilon: float = 0.4
+    #: Look actor_epsilon
     actor_alpha: float = 7.0
 
     #: <:ref:`scheduler`> ε-greedy parameter for Train
@@ -67,10 +67,6 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
     #: Discount rate
     discount: float = 0.99
-    #: Batch size
-    batch_size: int = 32
-    #: Initial memory size (does not learn until experience accumulates to this size)
-    memory_warmup_size: int = 1000
     #: Synchronization interval to Target network
     target_model_update_interval: int = 1000
     #: If True, clip the reward to three types [-1,0,1]
@@ -101,8 +97,9 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     def set_atari_config(self):
         """Set the Atari parameters written in the paper."""
         self.batch_size = 32
-        self.memory.capacity = 1_000_000
         self.memory.set_replay_memory()
+        self.memory.capacity = 1_000_000
+        self.memory.warmup_size = 50_000
         self.image_block.set_dqn_image()
         self.hidden_block.set_mlp((512,))
         self.target_model_update_interval = 10000
@@ -110,7 +107,6 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         self.lr.set_constant(0.00025)
         self.epsilon.set_linear(1_000_000, 1.0, 0.1)
 
-        self.memory_warmup_size = 50_000
         self.enable_reward_clip = True
         self.enable_double_dqn = False
         self.enable_rescale = False
@@ -142,8 +138,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size <= self.memory.capacity
-        assert self.batch_size <= self.memory_warmup_size
+        self.assert_params_memory()
 
     @property
     def info_types(self) -> dict:
@@ -236,7 +231,6 @@ class Worker(DiscreteActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: CommonInterfaceParameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.epsilon_sch = self.config.epsilon.create_schedulers()
 
@@ -303,15 +297,15 @@ class Worker(DiscreteActionWorker):
         ]
 
         if not self.distributed:
-            td_error = None
+            priority = None
         elif not self.config.memory.requires_priority():
-            td_error = None
+            priority = None
         else:
             if self.q is None:
                 self.q = self.parameter.predict_q(self.state[np.newaxis, ...])[0]
             select_q = self.q[self.action]
             target_q = self.parameter.calc_target_q([batch], training=False)[0]
-            td_error = target_q - select_q
+            priority = abs(target_q - select_q)
 
         self.memory.add(batch, priority)
         return {}

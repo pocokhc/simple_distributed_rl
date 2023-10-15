@@ -9,7 +9,7 @@ from srl.base.rl.base import RLTrainer
 from srl.rl.functions import common
 from srl.rl.models.tf.input_block import InputBlock
 
-from .agent57_light import CommonInterfaceParameter, Config, RemoteMemory
+from .agent57_light import CommonInterfaceParameter, Config
 
 kl = keras.layers
 logger = logging.getLogger(__name__)
@@ -329,7 +329,7 @@ class Trainer(RLTrainer):
 
         self.sync_count = 0
 
-    def train_batchs(self, memory_sample_return) -> None:
+    def train_on_batchs(self, memory_sample_return) -> None:
         indices, batchs, weights = memory_sample_return
 
         _info = {}
@@ -431,11 +431,11 @@ class Trainer(RLTrainer):
 
         # --- update memory
         if self.config.disable_int_priority:
-            td_errors = td_errors_ext
+            priorities = np.abs(td_errors_ext)
         else:
             batch_beta = np.array([self.beta_list[a] for a in actor_idx], np.float32)
-            td_errors = td_errors_ext + batch_beta * td_errors_int
-        self.remote_memory.update(indices, batchs, td_errors)
+            priorities = np.abs(td_errors_ext + batch_beta * td_errors_int)
+        self.memory_update((indices, batchs, priorities))
 
         # --- sync target
         if self.train_count % self.config.target_model_update_interval == 0:

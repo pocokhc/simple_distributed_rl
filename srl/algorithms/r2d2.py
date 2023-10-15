@@ -81,8 +81,6 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
     discount: float = 0.997
     lr: float = 0.001  # type: ignore , type OK
-    batch_size: int = 32
-    memory_warmup_size: int = 1000
     target_model_update_interval: int = 1000
 
     # double dqn
@@ -162,8 +160,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         super().assert_params()
         assert self.burnin >= 0
         assert self.sequence_length >= 1
-        assert self.memory_warmup_size <= self.memory.capacity
-        assert self.batch_size <= self.memory_warmup_size
+        self.assert_params_memory()
 
 
 register(
@@ -428,7 +425,6 @@ class Worker(DiscreteActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
 
@@ -568,10 +564,9 @@ class Worker(DiscreteActionWorker):
                         if self.config.enable_rescale:
                             reward = rescaling(reward)
 
-                        td_error = reward - info["q"]
+                        priority = abs(reward - info["q"])
                         self.memory.add(batch, priority)
 
-        self.remote_memory.on_step(reward, done)
         return {}
 
     def _add_memory(self, calc_info):

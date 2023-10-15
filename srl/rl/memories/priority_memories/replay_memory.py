@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
@@ -9,16 +9,19 @@ from .imemory import IPriorityMemory
 
 @dataclass
 class ReplayMemory(IPriorityMemory):
-    capacity: int = 100_000
+    capacity: int
 
     def __post_init__(self):
-        self.init()
+        self.clear()
 
-    def init(self):
+    def clear(self):
         self.memory = []
         self.idx = 0
 
-    def add(self, batch: Any, priority=None):
+    def length(self) -> int:
+        return len(self.memory)
+
+    def add(self, batch: Any, priority: Optional[float] = None):
         if len(self.memory) < self.capacity:
             self.memory.append(batch)
         else:
@@ -27,15 +30,12 @@ class ReplayMemory(IPriorityMemory):
         if self.idx >= self.capacity:
             self.idx = 0
 
-    def update(self, indices: List[int], batchs: List[Any], td_errors: np.ndarray) -> None:
-        pass
-
     def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         batchs = random.sample(self.memory, batch_size)
         return [], batchs, np.ones((batch_size,), dtype=np.float32)
 
-    def __len__(self) -> int:
-        return len(self.memory)
+    def update(self, indices: List[int], batchs: List[Any], priorities: np.ndarray) -> None:
+        pass
 
     def backup(self):
         return [

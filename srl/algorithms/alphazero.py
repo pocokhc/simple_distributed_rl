@@ -39,12 +39,12 @@ https://github.com/AppliedDataSciencePartners/DeepReinforcementLearning
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig, ExperienceReplayBufferConfig):
+    """<:ref:`ExperienceReplayBuffer`>"""
+
     num_simulations: int = 100
     discount: float = 1.0
 
     sampling_steps: int = 1
-    batch_size: int = 128
-    memory_warmup_size: int = 1000
 
     # 学習率
     lr: SchedulerConfig = field(init=False, default_factory=lambda: SchedulerConfig())
@@ -107,7 +107,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.batch_size <= self.memory_warmup_size
+        self.assert_params_memory()
 
     @property
     def info_types(self) -> dict:
@@ -346,7 +346,6 @@ class Worker(RLWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
     def call_on_reset(self, worker: WorkerRun) -> dict:
         self.sampling_step = 0

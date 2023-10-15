@@ -17,18 +17,19 @@ class SequenceMemory(RLMemory):
     def length(self) -> int:
         return len(self.buffer)
 
-    def call_restore(self, data: Any, **kwargs) -> None:
-        self.buffer = data
-
-    def call_backup(self, **kwargs):
-        return self.buffer
-
-    # --------------------
+    def is_warmup_needed(self) -> bool:
+        return len(self.buffer) == 0
 
     def add(self, batch: Any) -> None:
         self.buffer.append(batch)
 
-    def sample(self) -> List[Any]:
+    def sample(self, step: int = 0, batch_size: int = -1) -> List[Any]:
         buffer = self.buffer
         self.buffer = []
         return buffer
+
+    def call_backup(self, **kwargs):
+        return self.buffer
+
+    def call_restore(self, data: Any, **kwargs) -> None:
+        self.buffer = data

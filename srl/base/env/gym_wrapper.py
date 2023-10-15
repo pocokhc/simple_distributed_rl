@@ -242,7 +242,7 @@ class GymWrapper(EnvBase):
         self.config = config
 
         self.seed = None
-        self.render_mode = RenderModes.NONE
+        self.render_mode = RenderModes.none
         self.v0260_older = compare_less_version(gym.__version__, "0.26.0")  # type: ignore
         if False:
             if is_package_installed("ale_py"):
@@ -255,10 +255,7 @@ class GymWrapper(EnvBase):
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         logger.info("set SDL_VIDEODRIVER='dummy'")
 
-        if self.config.gym_make_func is None:
-            self.env: gym.Env = gym.make(config.name, **config.kwargs)
-        else:
-            self.env: gym.Env = self.config.gym_make_func(config.name, **config.kwargs)
+        self.env = self.make_gym_env()
         logger.info(f"metadata    : {self.env.metadata}")
         logger.info(f"action_space: {self.env.action_space}")
         logger.info(f"obs_space   : {self.env.observation_space}")
@@ -336,6 +333,11 @@ class GymWrapper(EnvBase):
         logger.info(f"flatten_obs: {self.enable_flatten_observation}")
         logger.info(f"action     : {self._action_space}")
         logger.info(f"flatten_act: {self.enable_flatten_action}")
+
+    def make_gym_env(self, **kwargs) -> gym.Env:
+        if self.config.gym_make_func is None:
+            return gym.make(self.config.name, **self.config.kwargs, **kwargs)
+        return self.config.gym_make_func(self.config.name, **self.config.kwargs, **kwargs)
 
     def _pred_space_discrete(self):
         # 実際に値を取得して予測
@@ -475,35 +477,30 @@ class GymWrapper(EnvBase):
     def render_interval(self) -> float:
         return 1000 / self.fps
 
-    def set_render_mode(self, mode: RenderModes) -> None:
+    def set_render_terminal_mode(self) -> None:
         if self.v0260_older:
             return
 
         # modeが違っていたら作り直す
-        _render_mode = ""
-        if mode == RenderModes.Terminal:
-            if self.render_mode != RenderModes.Terminal and "ansi" in self.render_modes:
-                _render_mode = "ansi"
-                self.render_mode = RenderModes.Terminal
-        elif mode == RenderModes.RBG_array:
-            if self.render_mode != RenderModes.RBG_array and "rgb_array" in self.render_modes:
-                _render_mode = "rgb_array"
-                self.render_mode = RenderModes.RBG_array
+        if self.render_mode != RenderModes.terminal and "ansi" in self.render_modes:
+            self.env = self.make_gym_env(render_mode="ansi")
+            self.render_mode = RenderModes.terminal
 
-        if _render_mode != "":
-            if self.config.gym_make_func is None:
-                self.env: gym.Env = gym.make(self.config.name, render_mode=_render_mode, **self.config.kwargs)
-            else:
-                self.env: gym.Env = self.config.gym_make_func(
-                    self.config.name, render_mode=_render_mode, **self.config.kwargs
-                )
+    def set_render_rgb_mode(self) -> None:
+        if self.v0260_older:
+            return
+
+        # modeが違っていたら作り直す
+        if self.render_mode != RenderModes.rgb_array and "rgb_array" in self.render_modes:
+            self.env = self.make_gym_env(render_mode="rgb_array")
+            self.render_mode = RenderModes.rgb_array
 
     def render_terminal(self, **kwargs) -> None:
         if self.v0260_older:
             if "ansi" in self.render_modes:
                 print(self.env.render(mode="ansi", **kwargs))  # type: ignore
         else:
-            if self.render_mode == RenderModes.Terminal:
+            if self.render_mode == RenderModes.terminal:
                 print(self.env.render(**kwargs))
 
     def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
@@ -511,6 +508,6 @@ class GymWrapper(EnvBase):
             if "rgb_array" in self.render_modes:
                 return np.asarray(self.env.render(mode="rgb_array", **kwargs))  # type: ignore
         else:
-            if self.render_mode == RenderModes.RBG_array:
+            if self.render_mode == RenderModes.rgb_array:
                 return np.asarray(self.env.render(**kwargs))
         return None

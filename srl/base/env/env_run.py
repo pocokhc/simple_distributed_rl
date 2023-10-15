@@ -12,7 +12,7 @@ from srl.base.define import (
     InfoType,
     InvalidActionsType,
     KeyBindType,
-    PlayRenderModes,
+    RenderModes,
 )
 from srl.base.env.base import EnvBase
 from srl.base.env.config import EnvConfig
@@ -66,16 +66,14 @@ class EnvRun:
     # ------------------------------------
     def reset(
         self,
-        render_mode: Union[str, PlayRenderModes] = "",
+        render_mode: Union[str, RenderModes] = "",
         seed: Optional[int] = None,
     ) -> None:
         # --- seed
         self.env.set_seed(seed)
 
         # --- render
-        if render_mode != "":
-            self._render.cache_reset()
-            self._render.reset(render_mode)
+        self._render.reset(render_mode)
 
         # --- env reset
         self._reset_vals()
@@ -106,7 +104,7 @@ class EnvRun:
     def step(
         self,
         action: EnvActionType,
-        skip_function: Optional[Callable[[], None]] = None,
+        frameskip_function: Optional[Callable[[], None]] = None,
     ) -> None:
         assert not self.done, "It is in the done state. Please execute reset()."
         if self._is_direct_step:
@@ -149,8 +147,8 @@ class EnvRun:
             if done:
                 break
 
-            if skip_function is not None:
-                skip_function()
+            if frameskip_function is not None:
+                frameskip_function()
 
         return self._step(state, step_rewards, done, info)
 
@@ -458,23 +456,17 @@ class EnvRun:
         else:
             interval = self.env.render_interval
 
-        self._render.interval = interval
-        self._render.scale = scale
-        self._render.font_name = font_name
-        self._render.font_size = font_size
+        self._render.set_render_options(interval, scale, font_name, font_size)
         return interval
 
-    def render(self, **kwargs) -> Union[None, str, np.ndarray]:
-        return self._render.render(**kwargs)
+    def render(self, **kwargs):
+        self._render.render(render_window=True, **kwargs)
 
-    def render_terminal(self, return_text: bool = False, **kwargs) -> Union[None, str]:
-        return self._render.render_terminal(return_text, **kwargs)
+    def render_ansi(self, **kwargs) -> str:
+        return self._render.render_ansi(**kwargs)
 
     def render_rgb_array(self, **kwargs) -> np.ndarray:
         return self._render.render_rgb_array(**kwargs)
-
-    def render_window(self, **kwargs) -> np.ndarray:
-        return self._render.render_window(**kwargs)
 
     # ------------------------------------
     # direct

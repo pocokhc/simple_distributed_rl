@@ -238,12 +238,12 @@ class GymnasiumWrapper(EnvBase):
         self.config = config
 
         self.seed = None
-        self.render_mode = RenderModes.NONE
+        self.render_mode = RenderModes.none
 
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         logger.info("set SDL_VIDEODRIVER='dummy'")
 
-        self.env = self.make_gymnasium_env(**self.config.kwargs)
+        self.env = self.make_gymnasium_env()
         logger.info(f"metadata    : {self.env.metadata}")
         logger.info(f"action_space: {self.env.action_space}")
         logger.info(f"obs_space   : {self.env.observation_space}")
@@ -323,8 +323,8 @@ class GymnasiumWrapper(EnvBase):
 
     def make_gymnasium_env(self, **kwargs) -> gymnasium.Env:
         if self.config.gymnasium_make_func is None:
-            return gymnasium.make(self.config.name, **kwargs)
-        return self.config.gymnasium_make_func(self.config.name, **kwargs)
+            return gymnasium.make(self.config.name, **self.config.kwargs, **kwargs)
+        return self.config.gymnasium_make_func(self.config.name, **self.config.kwargs, **kwargs)
 
     def _pred_space_discrete(self):
         # 実際に値を取得して予測
@@ -442,22 +442,23 @@ class GymnasiumWrapper(EnvBase):
     def render_interval(self) -> float:
         return 1000 / self.fps
 
-    def set_render_mode(self, mode: RenderModes) -> None:
+    def set_render_terminal_mode(self) -> None:
         # modeが違っていたら作り直す
-        if mode == RenderModes.Terminal:
-            if self.render_mode != RenderModes.Terminal and "ansi" in self.render_modes:
-                self.env = self.make_gymnasium_env(render_mode="ansi", **self.config.kwargs)
-                self.render_mode = RenderModes.Terminal
-        elif mode == RenderModes.RBG_array:
-            if self.render_mode != RenderModes.RBG_array and "rgb_array" in self.render_modes:
-                self.env = self.make_gymnasium_env(render_mode="rgb_array", **self.config.kwargs)
-                self.render_mode = RenderModes.RBG_array
+        if self.render_mode != RenderModes.terminal and "ansi" in self.render_modes:
+            self.env = self.make_gymnasium_env(render_mode="ansi")
+            self.render_mode = RenderModes.terminal
+
+    def set_render_rgb_mode(self) -> None:
+        # modeが違っていたら作り直す
+        if self.render_mode != RenderModes.rgb_array and "rgb_array" in self.render_modes:
+            self.env = self.make_gymnasium_env(render_mode="rgb_array")
+            self.render_mode = RenderModes.rgb_array
 
     def render_terminal(self, **kwargs) -> None:
-        if self.render_mode == RenderModes.Terminal:
+        if self.render_mode == RenderModes.terminal:
             print(self.env.render(**kwargs))
 
     def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
-        if self.render_mode == RenderModes.RBG_array:
+        if self.render_mode == RenderModes.rgb_array:
             return np.asarray(self.env.render(**kwargs))
         return None

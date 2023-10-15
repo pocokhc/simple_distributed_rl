@@ -8,7 +8,7 @@ from srl.base.define import (
     EnvObservationType,
     InfoType,
     InvalidActionsType,
-    PlayRenderModes,
+    RenderModes,
     RLActionType,
     RLObservationType,
     RLTypes,
@@ -118,11 +118,11 @@ class WorkerRun:
         self,
         player_index: int,
         training: bool,
-        render_mode: Union[str, PlayRenderModes] = "",
+        render_mode: Union[str, RenderModes] = "",
     ) -> None:
         self._player_index = player_index
         self._training = training
-        self._rendering = PlayRenderModes.is_rendering(render_mode)
+        self._rendering = RenderModes.is_rendering(render_mode)
 
         self._is_reset = False
         self._step_reward = 0
@@ -138,9 +138,7 @@ class WorkerRun:
                 self._dummy_state for _ in range(self._config.window_length)
             ]
 
-        if self._rendering:
-            self._render.cache_reset()
-            self._render.reset(render_mode)
+        self._render.reset(render_mode)
 
     def policy(self) -> EnvActionType:
         if not self._is_reset:
@@ -320,42 +318,24 @@ class WorkerRun:
         scale: float = 1.0,
         font_name: str = "",
         font_size: int = 12,
-    ) -> float:
-        self._render.interval = interval
-        self._render.scale = scale
-        self._render.font_name = font_name
-        self._render.font_size = font_size
-        return interval
+    ):
+        self._render.set_render_options(interval, scale, font_name, font_size)
 
-    def render(self, **kwargs) -> Union[None, str, np.ndarray]:
-        # 初期化前はskip
+    def render(self, **kwargs):
         if not self._is_reset:
-            return self._render.get_dummy()
-
-        return self._render.render(env=self.env, worker=self, **kwargs)
-
-    def render_terminal(self, return_text: bool = False, **kwargs):
-        # 初期化前はskip
-        if not self._is_reset:
-            if return_text:
-                return ""
             return
+        # workerはterminalのみ表示
+        self._render.render(render_window=False, worker=self, **kwargs)
 
-        return self._render.render_terminal(return_text, env=self.env, worker=self, **kwargs)
+    def render_ansi(self, **kwargs) -> str:
+        if not self._is_reset:
+            return ""  # dummy
+        return self._render.render_ansi(worker=self, **kwargs)
 
     def render_rgb_array(self, **kwargs) -> np.ndarray:
-        # 初期化前はskip
         if not self._is_reset:
-            return np.zeros((4, 4, 3), dtype=np.uint8)  # dummy image
-
-        return self._render.render_rgb_array(env=self.env, worker=self, **kwargs)
-
-    def render_window(self, **kwargs) -> np.ndarray:
-        # 初期化前はskip
-        if not self._is_reset:
-            return np.zeros((4, 4, 3), dtype=np.uint8)  # dummy image
-
-        return self._render.render_window(env=self.env, worker=self, **kwargs)
+            return np.zeros((4, 4, 3), dtype=np.uint8)  # dummy
+        return self._render.render_rgb_array(worker=self, **kwargs)
 
     # ------------------------------------
     # utils

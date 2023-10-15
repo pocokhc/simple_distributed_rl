@@ -55,47 +55,29 @@ class RLTypes(enum.Enum):
 
 
 class RenderModes(enum.Enum):
-    """IRender の set_render_mode でのみ使用"""
-
-    NONE = 0
-    Terminal = enum.auto()
-    RBG_array = enum.auto()
-
-
-class PlayRenderModes(enum.Enum):
     none = 0
     terminal = enum.auto()
-    ansi = enum.auto()
+    ansi = enum.auto()  # hidden mode
     window = enum.auto()
-    rgb_array = enum.auto()
+    rgb_array = enum.auto()  # hidden mode
 
     @staticmethod
     def get_names() -> List[str]:
-        return [i.name for i in PlayRenderModes]
+        return [i.name for i in RenderModes]
 
     @staticmethod
-    def from_str(mode: Union[str, "PlayRenderModes"]) -> "PlayRenderModes":
+    def from_str(mode: Union[str, "RenderModes"]) -> "RenderModes":
         if isinstance(mode, str):
             if mode == "":
                 mode = "none"
-            names = PlayRenderModes.get_names()
+            names = RenderModes.get_names()
             assert mode in names, "Unknown mode '{}'. mode list is [{}].".format(
                 mode,
                 ",".join(names),
             )
-            mode = PlayRenderModes[mode]
+            mode = RenderModes[mode]
         return mode
 
     @staticmethod
-    def convert_render_mode(mode: "PlayRenderModes") -> RenderModes:
-        return {
-            PlayRenderModes.none: RenderModes.NONE,
-            PlayRenderModes.terminal: RenderModes.Terminal,
-            PlayRenderModes.ansi: RenderModes.Terminal,
-            PlayRenderModes.window: RenderModes.RBG_array,
-            PlayRenderModes.rgb_array: RenderModes.RBG_array,
-        }[mode]
-
-    @staticmethod
-    def is_rendering(mode: Union[str, "PlayRenderModes"]) -> bool:
-        return not (mode == "" or mode == PlayRenderModes.none)
+    def is_rendering(mode: Union[str, "RenderModes"]) -> bool:
+        return not (mode == "" or mode == RenderModes.none)

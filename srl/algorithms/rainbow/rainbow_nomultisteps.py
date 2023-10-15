@@ -6,7 +6,7 @@ import numpy as np
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.rl.functions.common import inverse_rescaling, render_discrete_action, rescaling
 
-from .rainbow import CommonInterfaceParameter, Config, RemoteMemory
+from .rainbow import CommonInterfaceParameter, Config
 
 
 # ------------------------------------------------------
@@ -59,7 +59,6 @@ class Worker(DiscreteActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: CommonInterfaceParameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         assert self.config.multisteps == 1
 
@@ -136,15 +135,15 @@ class Worker(DiscreteActionWorker):
         ]
 
         if not self.distributed:
-            td_error = None
+            priority = None
         elif not self.config.memory.requires_priority():
-            td_error = None
+            priority = None
         else:
             if self.q is None:
                 self.q = self.parameter.predict_q(self.state[np.newaxis, ...])[0]
             select_q = self.q[self.action]
             target_q = calc_target_q(self.parameter, [batch], training=False)[0]
-            td_error = target_q - select_q
+            priority = abs(target_q - select_q)
 
         self.memory.add(batch, priority)
         return {}

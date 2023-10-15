@@ -17,15 +17,15 @@ class BestEpisodeMemory(IPriorityMemory):
     def __post_init__(self):
         self.best_reward = None
         self.best_batchs = []
-        self.init()
+        self.clear()
 
-    def init(self) -> None:
-        self.main_memory.init()
+    def clear(self) -> None:
+        self.main_memory.clear()
         self.episode_batchs = []
         self.episode_reward = 0
 
-    def add(self, batch: Any, td_error: Optional[float] = None):
-        self.main_memory.add(batch, td_error)
+    def add(self, batch: Any, priority: Optional[float] = None):
+        self.main_memory.add(batch, priority)
         self.episode_batchs.append(batch)
 
     def on_step(self, reward: float, done: bool) -> None:
@@ -48,7 +48,7 @@ class BestEpisodeMemory(IPriorityMemory):
             self.episode_batchs = []
             self.episode_reward = 0
 
-    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
+    def sample(self, step: int, batch_size: int) -> Tuple[List[int], List[Any], np.ndarray]:
         self.best_batch_size = sum([random.random() < self.ratio for _ in range(batch_size)])
         if len(self.best_batchs) < self.best_batch_size:
             self.best_batch_size = len(self.best_batchs)
@@ -66,22 +66,22 @@ class BestEpisodeMemory(IPriorityMemory):
             batchs.extend(b)
             weights.extend(w)
         if main_batch_size > 0:
-            (i, b, w) = self.main_memory.sample(main_batch_size, step)
+            (i, b, w) = self.main_memory.sample(step, main_batch_size)
             indices.extend(i)
             batchs.extend(b)
             weights.extend(w)
 
         return indices, batchs, np.asarray(weights, dtype=np.float32)
 
-    def update(self, indices: List[int], batchs: List[Any], td_errors: np.ndarray) -> None:
+    def update(self, indices: List[int], batchs: List[Any], priorities: np.ndarray) -> None:
         # sample -> update の順番前提
         main_indices = indices[self.best_batch_size :]
         main_batchs = batchs[self.best_batch_size :]
-        main_td_errors = td_errors[self.best_batch_size :]
-        self.main_memory.update(main_indices, main_batchs, main_td_errors)
+        main_priorities = priorities[self.best_batch_size :]
+        self.main_memory.update(main_indices, main_batchs, main_priorities)
 
-    def __len__(self):
-        return self.main_memory.__len__()
+    def length(self):
+        return self.main_memory.length()
 
     def backup(self):
         return [self.best_batchs, self.best_reward, self.main_memory.backup()]

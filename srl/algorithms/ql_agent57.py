@@ -56,7 +56,7 @@ Agent57
     Meta controller(sliding-window UCB) : o
     Intrinsic Reward split              : o
 Other
-    invalid_actions : TODO
+    invalid_actions : o
 """
 
 
@@ -65,13 +65,12 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig, PriorityExperienceReplayConfig):
+    #: ε-greedy parameter for Test
     test_epsilon: float = 0.0
     test_beta: float = 0.0
 
     lr_ext: float = 0.01  # type: ignore , type OK
     enable_rescale: bool = False
-
-    memory_warmup_size: int = 10
 
     # retrace
     multisteps: int = 1
@@ -99,8 +98,11 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     lifelong_decrement_rate: float = 0.999  # 減少割合
     lifelong_reward_L: float = 5.0
 
-    # other
-    batch_size: int = 4
+    #: How to initialize Q table
+    #:
+    #: Parameters:
+    #:   "": 0
+    #:   "random": np.random.normal()
     q_init: str = ""
 
     def __post_init__(self):
@@ -109,6 +111,8 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         self.lr_ext: SchedulerConfig = SchedulerConfig(cast(float, self.lr_ext))
         self.lr_int: SchedulerConfig = SchedulerConfig(cast(float, self.lr_int))
         self.epsilon: SchedulerConfig = SchedulerConfig(cast(float, self.epsilon))
+        self.memory.warmup_size = 10
+        self.batch_size = 4
 
     @property
     def base_action_type(self) -> RLTypes:
@@ -126,10 +130,9 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
+        self.assert_params_memory()
         assert self.actor_num > 0
         assert self.multisteps >= 1
-        assert self.memory_warmup_size <= self.memory.capacity
-        assert self.batch_size <= self.memory_warmup_size
 
     @property
     def info_types(self) -> dict:
@@ -313,7 +316,7 @@ class Trainer(RLTrainer):
 
         # 外部Qを優先
         # priority = abs(ext_td_error) + batch["beta"] * abs(int_td_error)
-        self.remote_memory.update(indices, batchs, np.array(ext_td_errors))
+        self.memory_update((indices, batchs, np.abs(ext_td_errors)))
 
         self.train_count += 1
         self.train_info = {
@@ -333,7 +336,6 @@ class Worker(DiscreteActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.beta_list = create_beta_list(self.config.actor_num)
         self.discount_list = create_discount_list(self.config.actor_num)
@@ -488,7 +490,6 @@ class Worker(DiscreteActionWorker):
 
                 self._add_memory(done)
 
-        self.remote_memory.on_step(reward, done)
         return {
             "episodic_reward": episodic_reward,
             "lifelong_reward": lifelong_reward,
@@ -522,7 +523,7 @@ class Worker(DiscreteActionWorker):
                 self.parameter.Q_ext,
                 self.recent_ext_rewards,
             )
-            priority = abs(td_error) + 0.0001
+            priority = abs(td_error)
 
         self.memory.add(batch, priority)
         return priority

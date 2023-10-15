@@ -70,7 +70,7 @@ class SumTree:
     def total(self):
         return self.tree[0]
 
-    def add(self, priority, data):
+    def add(self, priority: float, data):
         tree_idx = self.write + self.capacity - 1
 
         self.data[self.write] = data
@@ -80,9 +80,8 @@ class SumTree:
         if self.write >= self.capacity:
             self.write = 0
 
-    def update(self, tree_idx: int, priority):
+    def update(self, tree_idx: int, priority: float):
         # numpyよりプリミティブ型の方が早い、再帰されるので無視できないレベルで違いが出る
-        priority = float(priority)
         change = priority - self.tree[tree_idx]
 
         self.tree[tree_idx] = priority
@@ -97,40 +96,39 @@ class SumTree:
 
 @dataclass
 class ProportionalMemory(IPriorityMemory):
-    capacity: int = 100_000
+    capacity: int
+    #: priorityの反映度、0の場合は完全ランダム、1に近づくほどpriorityによるランダム度になります。
     alpha: float = 0.6
+    #: βはISを反映させる割合。ただβは少しずつ増やし、最後に1(完全反映)にします。そのβの初期値です。
     beta_initial: float = 0.4
+    #: βを何stepで1にするか
     beta_steps: int = 1_000_000
+    #: sample時に重複をきょかするか
     has_duplicate: bool = True
+    #: priorityを0にしないための小さい値
     epsilon: float = 0.0001
 
     def __post_init__(self):
-        self.init()
+        self.clear()
 
-    def init(self):
+    def clear(self):
         self.tree = SumTree(self.capacity)
-        self.max_priority = 1.0
+        self.max_priority: float = 1.0
         self.size = 0
 
-    def add(self, batch: Any, td_error: Optional[float] = None, _restore_skip: bool = False):
-        if _restore_skip:
-            priority = td_error
-        elif td_error is None:
+    def length(self) -> int:
+        return self.size
+
+    def add(self, batch: Any, priority: Optional[float] = None, _restore_skip: bool = False):
+        if priority is None:
             priority = self.max_priority
-        else:
-            priority = (abs(td_error) + self.epsilon) ** self.alpha
+        elif not _restore_skip:
+            priority = (abs(priority) + self.epsilon) ** self.alpha
 
         self.tree.add(priority, batch)
         self.size += 1
         if self.size > self.capacity:
             self.size = self.capacity
-
-    def update(self, indices: List[int], batchs: List[Any], td_errors: np.ndarray) -> None:
-        priorities = (np.abs(td_errors) + self.epsilon) ** self.alpha
-        for i in range(len(batchs)):
-            self.tree.update(indices[i], priorities[i])
-            if self.max_priority < priorities[i]:
-                self.max_priority = priorities[i]
 
     def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         indices = []
@@ -168,8 +166,13 @@ class ProportionalMemory(IPriorityMemory):
 
         return indices, batchs, weights
 
-    def __len__(self):
-        return self.size
+    def update(self, indices: List[int], batchs: List[Any], priorities: np.ndarray) -> None:
+        priorities = (np.abs(priorities) + self.epsilon) ** self.alpha
+        for i in range(len(batchs)):
+            priority = float(priorities[i])
+            self.tree.update(indices[i], priority)
+            if self.max_priority < priority:
+                self.max_priority = priority
 
     def backup(self):
         data = []
@@ -180,6 +183,6 @@ class ProportionalMemory(IPriorityMemory):
         return data
 
     def restore(self, data):
-        self.init()
+        self.clear()
         for d in data:
             self.add(d[0], d[1], _restore_skip=True)

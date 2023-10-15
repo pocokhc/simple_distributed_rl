@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import tensorflow as tf
@@ -7,7 +7,7 @@ from tensorflow import keras
 from srl.base.rl.base import RLTrainer
 from srl.rl.models.tf.input_block import InputBlock
 
-from .rainbow import CommonInterfaceParameter, Config, RemoteMemory
+from .rainbow import CommonInterfaceParameter, Config
 from .rainbow_nomultisteps import calc_target_q
 
 kl = keras.layers
@@ -111,7 +111,7 @@ class Trainer(RLTrainer):
 
         self.sync_count = 0
 
-    def train_batchs(self, memory_sample_return) -> None:
+    def train_on_batchs(self, memory_sample_return) -> None:
         indices, batchs, weights = memory_sample_return
 
         if self.config.multisteps == 1:
@@ -133,8 +133,8 @@ class Trainer(RLTrainer):
         self.optimizer.learning_rate = lr
 
         # --- update
-        td_errors = target_q - cast(Any, q).numpy()
-        self.remote_memory.update(indices, batchs, td_errors)
+        priorities = np.abs(target_q - q)
+        self.memory_update((indices, batchs, priorities))
 
         # --- sync target
         if self.train_count % self.config.target_model_update_interval == 0:

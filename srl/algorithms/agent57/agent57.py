@@ -68,45 +68,54 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig, PriorityExperienceReplayConfig):
-    # test
+    """<:ref:`PriorityExperienceReplay`>"""
+
+    #: ε-greedy parameter for Test
     test_epsilon: float = 0
+    #: intrinsic reward rate for Test
     test_beta: float = 0
 
-    # model
+    #: <:ref:`Framework`>
     framework: FrameworkConfig = field(init=False, default_factory=lambda: FrameworkConfig())
-    lstm_units: int = 512
+    #: <:ref:`ImageBlock`> This layer is only used when the input is an image.
     image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
+    #:  Lstm units
+    lstm_units: int = 512
+    #: <:ref:`DuelingNetwork`> hidden layer
     dueling_network: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 
+    #: <:ref:`scheduler`> Learning rate
     lr_ext: float = 0.0001  # type: ignore , type OK
+    #: <:ref:`scheduler`> Intrinsic network Learning rate
     lr_int: float = 0.0001  # type: ignore , type OK
-    batch_size: int = 64
-    memory_warmup_size: int = 1000
+    #: Synchronization interval to Target network
     target_model_update_interval: int = 1500
 
-    # lstm
+    #: Burn-in steps
     burnin: int = 5
+    #: LSTM input length
     sequence_length: int = 5
-
-    # rescale
-    enable_rescale: bool = False
-
-    # retrace
+    #: retrace parameter h
     retrace_h: float = 1.0
 
-    # double dqn
+    #: enable DoubleDQN
     enable_double_dqn: bool = True
+    #: enable rescaling
+    enable_rescale: bool = False
 
-    # ucb(160,0.5 or 3600,0.01)
+    #: [sliding-window UCB] actor num
     actor_num: int = 32
-    ucb_window_size: int = 3600  # UCB上限
-    ucb_epsilon: float = 0.01  # UCBを使う確率
-    ucb_beta: float = 1  # UCBのβ
+    #: [sliding-window UCB] UCBで使う直近のエピソード数
+    ucb_window_size: int = 3600
+    #: [sliding-window UCB] UCBを使う確率
+    ucb_epsilon: float = 0.01
+    #: [sliding-window UCB] UCB β
+    ucb_beta: float = 1
 
-    # intrinsic reward
+    #: enable intrinsic reward
     enable_intrinsic_reward: bool = True
 
-    # episodic
+    #: <:ref:`scheduler`> Episodic Learning rate
     episodic_lr: float = 0.0005  # type: ignore , type OK
     episodic_count_max: int = 10  # k
     episodic_epsilon: float = 0.001
@@ -116,8 +125,8 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     episodic_emb_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
     episodic_out_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
-    # lifelong
-    lifelong_lr: float = 0.00001  # type: ignore , type OK
+    #: <:ref:`scheduler`> Lifelong Learning rate
+    lifelong_lr: float = 0.0005  # type: ignore , type OK
     lifelong_max: float = 5.0  # L
     lifelong_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
@@ -137,6 +146,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         self.lr_int: SchedulerConfig = SchedulerConfig(cast(float, self.lr_int))
         self.episodic_lr: SchedulerConfig = SchedulerConfig(cast(float, self.episodic_lr))
         self.lifelong_lr: SchedulerConfig = SchedulerConfig(cast(float, self.lifelong_lr))
+        self.memory.set_proportional_memory()
 
         self.dueling_network.set((512,), True)
         self.episodic_emb_block.set_mlp(
@@ -147,6 +157,31 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         )
         self.episodic_out_block.set_mlp((128,))
         self.lifelong_hidden_block.set_mlp((128,))
+
+    def set_atari_config(self):
+        """Set the Atari parameters written in the paper."""
+        self.lr_ext.set_constant(0.0001)
+        self.lr_int.set_constant(0.0001)
+        self.lifelong_lr.set_constant(0.0005)
+        self.episodic_lr.set_constant(0.0005)
+        self.batch_size = 64
+        self.lstm_units = 512
+        self.image_block.set_dqn_image()
+        self.dueling_network.set((512,), enable=True)
+        self.discount = 0.99
+
+        self.burnin = 40
+        self.sequence_length = 80
+        self.retrace_h = 0.95
+
+        self.episodic_memory_capacity = 30_000
+
+        self.memory.set_replay_memory()
+        self.memory.capacity = 100_000
+        self.memory.warmup_size = 6250
+        self.image_block.set_dqn_image()
+
+        self.target_model_update_interval = 1500
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -173,6 +208,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
+        self.assert_params_memory()
         assert self.burnin >= 0
         assert self.sequence_length >= 1
 
@@ -396,7 +432,6 @@ class Worker(DiscreteActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: CommonInterfaceParameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.act_onehot_arr = np.identity(self.config.action_num, dtype=int)
@@ -657,12 +692,11 @@ class Worker(DiscreteActionWorker):
                             reward_int = rescaling(reward_int)
 
                         if self.config.disable_int_priority:
-                            td_error = reward_ext - info["q"]
+                            priority = abs(reward_ext - info["q"])
                         else:
-                            td_error = (reward_ext + self.beta * reward_int) - info["q"]
-                        self.remote_memory.add(batch, td_error)
+                            priority = abs((reward_ext + self.beta * reward_int) - info["q"])
+                        self.memory.add(batch, priority)
 
-        self.remote_memory.on_step(reward_ext, done)
         return _info
 
     def _add_memory(self, calc_info):

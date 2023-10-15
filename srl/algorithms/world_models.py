@@ -122,45 +122,62 @@ class Memory(RLMemory):
         self.vae_buffer = collections.deque(maxlen=self.config.capacity)
         self.rnn_buffer = collections.deque(maxlen=self.config.capacity)
 
-        self.c_params = None
         self.c_score = -np.inf
+        self.c_params = None
 
     def length(self) -> int:
+        if self.config.train_mode == 1:
+            return len(self.vae_buffer)
+        elif self.config.train_mode == 2:
+            return len(self.rnn_buffer)
         return len(self.vae_buffer) + len(self.rnn_buffer)
+
+    def add(self, type_: str, batch: Any) -> None:
+        if type_ == "vae":
+            self.vae_buffer.append(batch)
+        elif type_ == "rnn":
+            self.rnn_buffer.append(batch)
+        elif type_ == "c":
+            params, score = batch
+            if self.c_score < score:
+                self.c_score = score
+                self.c_params = params
+        else:
+            raise ValueError(type_)
+
+    def is_warmup_needed(self) -> bool:
+        if self.config.train_mode == 1:
+            return len(self.vae_buffer) < self.config.memory_warmup_size
+        elif self.config.train_mode == 2:
+            return len(self.rnn_buffer) < self.config.memory_warmup_size
+        else:
+            return False
+
+    def sample(self, batch_size: int, step: int) -> Any:
+        if batch_size < 0:
+            batch_size = self.config.batch_size
+        if self.config.train_mode == 1:
+            return random.sample(self.vae_buffer, batch_size)
+        elif self.config.train_mode == 2:
+            return random.sample(self.rnn_buffer, batch_size)
+        else:
+            return []
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.vae_buffer = data[0]
         self.rnn_buffer = data[1]
+        self.c_score = data[2]
+        self.c_params = data[3]
 
     def call_backup(self, **kwargs):
         return [
             self.vae_buffer,
             self.rnn_buffer,
+            self.c_score,
+            self.c_params,
         ]
 
     # ---------------------------
-    def vae_length(self) -> int:
-        return len(self.vae_buffer)
-
-    def vae_add(self, batch: Any):
-        self.vae_buffer.append(batch)
-
-    def vae_sample(self, batch_size: int) -> List[Any]:
-        return random.sample(self.vae_buffer, batch_size)
-
-    def rnn_length(self) -> int:
-        return len(self.rnn_buffer)
-
-    def rnn_add(self, batch: Any):
-        self.rnn_buffer.append(batch)
-
-    def rnn_sample(self, batch_size: int) -> List[Any]:
-        return random.sample(self.rnn_buffer, batch_size)
-
-    def c_update(self, params, score):
-        if self.c_score < score:
-            self.c_score = score
-            self.c_params = params
 
     def c_get(self):
         return self.c_params, self.c_score
@@ -552,7 +569,6 @@ class Worker(DiscreteActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.screen = None

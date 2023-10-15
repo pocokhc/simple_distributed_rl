@@ -11,7 +11,8 @@ from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
+from srl.rl.memories.experience_replay_buffer import (
+    ExperienceReplayBuffer, ExperienceReplayBufferConfig)
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
@@ -51,9 +52,6 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     soft_target_update_tau: float = 0.02
     hard_target_update_interval: int = 100
 
-    batch_size: int = 32
-    memory_warmup_size: int = 1000
-
     noise_stdev: float = 0.2  # ノイズ用の標準偏差
     target_policy_noise_stddev: float = 0.2  # Target policy ノイズの標準偏差
     target_policy_clip_range: float = 0.5  # Target policy ノイズのclip範囲
@@ -88,8 +86,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size < self.memory.capacity
-        assert self.batch_size < self.memory_warmup_size
+        self.assert_params_memory()
 
 
 register(
@@ -387,7 +384,6 @@ class Worker(ContinuousActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
     def call_on_reset(self, state: np.ndarray) -> dict:
         self.state = state
@@ -427,7 +423,7 @@ class Worker(ContinuousActionWorker):
 
         return {}
 
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         state = self.state.reshape(1, -1)
         action = self.parameter.actor_online(state)
         q1, q2 = self.parameter.critic_online([state, action])  # type:ignore

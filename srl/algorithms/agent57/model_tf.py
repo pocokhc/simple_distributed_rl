@@ -8,7 +8,7 @@ from srl.base.rl.base import RLTrainer
 from srl.rl.functions.common import create_beta_list, create_discount_list
 from srl.rl.models.tf.input_block import InputBlock
 
-from .agent57 import CommonInterfaceParameter, Config, RemoteMemory
+from .agent57 import CommonInterfaceParameter, Config
 
 kl = keras.layers
 
@@ -335,7 +335,6 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.lr_sch_ext = self.config.lr_ext.create_schedulers()
         self.lr_sch_int = self.config.lr_int.create_schedulers()
@@ -484,10 +483,11 @@ class Trainer(RLTrainer):
             td_error_int = 0
 
         if self.config.disable_int_priority:
-            td_errors = td_error_ext
+            priorities = np.abs(td_error_ext)
         else:
-            td_errors = td_error_ext + beta_list * td_error_int
+            priorities = np.abs(td_error_ext + beta_list * td_error_int)
 
+        self.memory_update((indices, batchs, priorities))
 
         # --- sync target
         if self.train_count % self.config.target_model_update_interval == 0:

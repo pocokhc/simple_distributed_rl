@@ -11,37 +11,70 @@ logger = logging.getLogger(__name__)
 @dataclass
 class _ExperienceReplayBufferConfig:
     capacity: int = 100_000
+    warmup_size: int = 1_000
 
 
 @dataclass
 class ExperienceReplayBufferConfig:
     """ExperienceReplayBuffer
 
-    これを実装しているアルゴリズムはmemoryを持ちます。
+    これを継承しているアルゴリズムはbatch_size変数とmemory変数を持ちます。
+    memory変数からパラメータを設定できます。
 
     Parameter:
        capacity(int): メモリに保存できる最大サイズ. default is 100_000
+       warmup_size(int): warmup size. default is 1_000
+       batch_size(int): Batch size. default is 32
 
     Examples:
        >>> from srl.algorithms import alphazero
        >>> rl_config = alphazero.Config()
+       >>> rl_config.batch_size = 64
        >>> rl_config.memory.capacity = 1000
+       >>> rl_config.memory.warmup_size = 1000
     """
 
+    batch_size: int = 32
     memory: _ExperienceReplayBufferConfig = field(init=False, default_factory=lambda: _ExperienceReplayBufferConfig())
+
+    def assert_params_memory(self):
+        assert self.batch_size > 0
+        assert self.memory.warmup_size <= self.memory.capacity
+        assert self.batch_size <= self.memory.warmup_size
 
 
 class ExperienceReplayBuffer(RLMemory):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: ExperienceReplayBufferConfig = self.config
-
+        self.batch_size = self.config.batch_size
         self.capacity = self.config.memory.capacity
         self.memory = []
         self.idx = 0
 
     def length(self) -> int:
         return len(self.memory)
+
+    def is_warmup_needed(self) -> bool:
+        return len(self.memory) < self.config.memory.warmup_size
+
+    def add(self, batch: Any) -> None:
+        if len(self.memory) < self.capacity:
+            self.memory.append(batch)
+        else:
+            self.memory[self.idx] = batch
+        self.idx += 1
+        if self.idx >= self.capacity:
+            self.idx = 0
+
+    def sample(self, batch_size: int, step: int) -> List[Any]:
+        return random.sample(self.memory, batch_size if batch_size > 0 else self.batch_size)
+
+    def call_backup(self, **kwargs):
+        return [
+            self.memory,
+            self.idx,
+        ]
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.memory = data[0]
@@ -53,28 +86,3 @@ class ExperienceReplayBuffer(RLMemory):
             self.memory = self.memory[-self.capacity :]
         if self.idx >= self.capacity:
             self.idx = 0
-
-    def call_backup(self, **kwargs):
-        return [
-            self.memory,
-            self.idx,
-        ]
-
-    # ---------------------------
-    def add(self, batch: Any):
-        if len(self.memory) < self.capacity:
-            self.memory.append(batch)
-        else:
-            self.memory[self.idx] = batch
-        self.idx += 1
-        if self.idx >= self.capacity:
-            self.idx = 0
-
-    def sample(self, batch_size: int) -> List[Any]:
-        if len(self.memory) < batch_size:
-            logger.warning(f"memory size: {len(self.memory)} < batch size: {batch_size}")
-            batch_size = len(self.memory)
-        return random.sample(self.memory, batch_size)
-
-    def clear(self) -> None:
-        self.memory.clear()

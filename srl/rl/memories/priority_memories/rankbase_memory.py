@@ -19,29 +19,32 @@ class _bisect_wrapper:
 @dataclass
 class RankBaseMemory(IPriorityMemory):
     capacity: int = 100_000
+    #: priorityの反映度、0の場合は完全ランダム、1に近づくほどpriorityによるランダム度になります。
     alpha: float = 0.6
+    #: βはISを反映させる割合。ただβは少しずつ増やし、最後に1(完全反映)にします。そのβの初期値です。
     beta_initial: float = 0.4
+    #: βを何stepで1にするか
     beta_steps: int = 1_000_000
 
     def __post_init__(self):
-        self.init()
+        self.clear()
 
-    def init(self):
+    def clear(self):
         self.memory = []
-        self.max_priority = 1.0
+        self.max_priority: float = 1.0
         self.total = 0.0
         self.probs = np.array([])
         self.is_full = False
-
         self.total_probs = []
 
-    def add(self, batch, td_error: Optional[float] = None):
-        if td_error is None:
+    def length(self) -> int:
+        return len(self.memory)
+
+    def add(self, batch, priority: Optional[float] = None):
+        if priority is None:
             priority = self.max_priority
-        else:
-            priority = float(abs(td_error))
-            if self.max_priority < priority:
-                self.max_priority = priority
+        if self.max_priority < priority:
+            self.max_priority = priority
 
         bisect.insort(self.memory, _bisect_wrapper(priority, batch))
 
@@ -58,14 +61,7 @@ class RankBaseMemory(IPriorityMemory):
         elif len(self.memory) > self.capacity:
             self.memory.pop(0)
 
-    def update(self, indices: List[int], batchs: List[Any], td_errors: np.ndarray) -> None:
-        for i in range(len(batchs)):
-            priority = float(abs(td_errors[i]))
-            if self.max_priority < priority:
-                self.max_priority = priority
-            bisect.insort(self.memory, _bisect_wrapper(priority, batchs[i]))
-
-    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
+    def sample(self, step: int, batch_size: int) -> Tuple[List[int], List[Any], np.ndarray]:
         # βは最初は低く、学習終わりに1にする。
         beta = self.beta_initial + (1 - self.beta_initial) * step / self.beta_steps
         if beta > 1:
@@ -97,8 +93,12 @@ class RankBaseMemory(IPriorityMemory):
 
         return [], batchs, weights
 
-    def __len__(self):
-        return len(self.memory)
+    def update(self, indices: List[int], batchs: List[Any], priorities: np.ndarray) -> None:
+        for i in range(len(batchs)):
+            priority = float(priorities[i])
+            if self.max_priority < priority:
+                self.max_priority = priority
+            bisect.insort(self.memory, _bisect_wrapper(priority, batchs[i]))
 
     def backup(self):
         return [
@@ -110,7 +110,7 @@ class RankBaseMemory(IPriorityMemory):
         ]
 
     def restore(self, data):
-        self.init()
+        self.clear()
         for d in data[0]:
             self.memory.append(_bisect_wrapper(d[0], d[1]))
         self.max_priority = data[1]

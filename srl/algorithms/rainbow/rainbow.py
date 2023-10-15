@@ -58,6 +58,8 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig, PriorityExperienceReplayConfig):
+    """<:ref:`PriorityExperienceReplay`>"""
+
     test_epsilon: float = 0
 
     actor_epsilon: float = 0.4
@@ -70,8 +72,6 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     framework: FrameworkConfig = field(init=False, default_factory=lambda: FrameworkConfig())
     image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
     discount: float = 0.99
-    batch_size: int = 32
-    memory_warmup_size: int = 1000
     target_model_update_interval: int = 1000
     enable_reward_clip: bool = False
 
@@ -167,8 +167,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
     def assert_params(self) -> None:
         super().assert_params()
-        assert self.memory_warmup_size <= self.memory.capacity
-        assert self.batch_size <= self.memory_warmup_size
+        self.assert_params_memory()
         assert self.multisteps > 0
 
     @property
@@ -318,7 +317,6 @@ class Worker(DiscreteActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: CommonInterfaceParameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.onehot_arr = np.identity(self.config.action_num, dtype=int)
@@ -402,7 +400,7 @@ class Worker(DiscreteActionWorker):
         self._recent_done.append(int(not done))
         self._recent_invalid_actions.pop(0)
         self._recent_invalid_actions.append(next_invalid_actions)
-        td_error = self._add_memory(None)
+        priority = self._add_memory(None)
 
         if done:
             # 残りstepも追加
@@ -419,12 +417,11 @@ class Worker(DiscreteActionWorker):
                 self._recent_done.append(0)
                 self._recent_invalid_actions.pop(0)
                 self._recent_invalid_actions.append([])
-                self._add_memory(td_error)
+                self._add_memory(priority)
 
-        self.remote_memory.on_step(reward, done)
         return {}
 
-    def _add_memory(self, td_error):
+    def _add_memory(self, priority):
         """
         [
             states,
@@ -444,20 +441,20 @@ class Worker(DiscreteActionWorker):
             self._recent_invalid_actions[:],
         ]
 
-        if td_error is None:
+        if priority is None:
             if not self.distributed:
-                td_error = None
+                priority = None
             elif not self.config.memory.requires_priority():
-                td_error = None
+                priority = None
             else:
                 if self.q is None:
                     self.q = self.parameter.predict_q(self.state[np.newaxis, ...])[0]
                 select_q = self.q[self.action]
                 target_q = self.parameter.calc_target_q([batch], training=False)[0]
-                td_error = target_q - select_q
+                priority = abs(target_q - select_q)
 
         self.memory.add(batch, priority)
-        return td_error
+        return priority
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.q is None:

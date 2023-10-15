@@ -8,7 +8,7 @@ import torch.optim as optim
 from srl.base.rl.base import RLTrainer
 from srl.rl.models.torch_.input_block import InputBlock
 
-from .rainbow import CommonInterfaceParameter, Config, RemoteMemory
+from .rainbow import CommonInterfaceParameter, Config
 from .rainbow_nomultisteps import calc_target_q
 
 
@@ -112,7 +112,7 @@ class Trainer(RLTrainer):
 
         self.sync_count = 0
 
-    def train_batchs(self, memory_sample_return) -> None:
+    def train_on_batchs(self, memory_sample_return) -> None:
         indices, batchs, weights = memory_sample_return
 
         device = self.parameter.device
@@ -144,8 +144,8 @@ class Trainer(RLTrainer):
             param_group["lr"] = lr
 
         # --- update
-        td_errors = (target_q - q).to("cpu").detach().numpy()
-        self.remote_memory.update(indices, batchs, td_errors)
+        priorities = np.abs((target_q - q).to("cpu").detach().numpy())
+        self.memory_update((indices, batchs, priorities))
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:

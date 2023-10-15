@@ -3,8 +3,16 @@ import os
 from typing import Optional, Type
 
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory, RLTrainer
-from srl.base.rl.config import DummyConfig
+from srl.base.rl.base import (
+    DummyRLMemoryWorker,
+    DummyRLParameter,
+    IRLMemoryWorker,
+    RLConfig,
+    RLMemory,
+    RLParameter,
+    RLTrainer,
+)
+from srl.base.rl.config import DummyRLConfig
 from srl.base.rl.worker import WorkerBase
 from srl.base.rl.worker_run import WorkerRun
 from srl.utils.common import load_module
@@ -89,12 +97,17 @@ def make_worker(
     actor_id: int = 0,
 ) -> WorkerRun:
     rl_config = _check_rl_config(rl_config, env)
+    if parameter is None:
+        parameter = DummyRLParameter(rl_config)
+    if memory is None:
+        memory = DummyRLMemoryWorker()
+
     entry_point = _registry[rl_config.getName()][3]
     worker: WorkerBase = load_module(entry_point)(rl_config, parameter, memory)
 
     # ExtendWorker
     if rl_config.extend_worker is not None:
-        worker = rl_config.extend_worker(worker, rl_config, parameter, remote_memory)
+        worker = rl_config.extend_worker(worker, rl_config, parameter, memory)
 
     return WorkerRun(worker, env, distributed, actor_id)
 
@@ -113,7 +126,7 @@ def make_worker_rulebase(
     elif name == "random":
         import srl.rl.random_play  # noqa F401
 
-    rl_config = DummyConfig(name=name)
+    rl_config = DummyRLConfig(name=name)
     name = rl_config.getName()
 
     # --- config update
@@ -121,7 +134,7 @@ def make_worker_rulebase(
         setattr(rl_config, k, v)
 
     assert name in _registry_worker, f"{name} is not registered."
-    worker = load_module(_registry_worker[name])(rl_config, None, None)
+    worker = load_module(_registry_worker[name])(rl_config, DummyRLParameter(rl_config), DummyRLMemoryWorker())
     return WorkerRun(worker, env, distributed, actor_id, is_reset_logger=is_reset_logger)
 
 

@@ -387,7 +387,7 @@ class RLConfig(ABC):
 
 
 @dataclass
-class DummyConfig(RLConfig):
+class DummyRLConfig(RLConfig):
     name: str = "dummy"
 
     @property

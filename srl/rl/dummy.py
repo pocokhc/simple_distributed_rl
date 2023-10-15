@@ -3,7 +3,7 @@ from typing import Tuple
 
 from srl.base.define import RLActionType
 from srl.base.rl.base import RLParameter, RLTrainer
-from srl.base.rl.config import DummyConfig
+from srl.base.rl.config import DummyRLConfig
 from srl.base.rl.registration import register
 from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
@@ -11,13 +11,13 @@ from srl.rl.memories.sequence_memory import SequenceMemory
 
 
 @dataclass
-class Config(DummyConfig):
+class Config(DummyRLConfig):
     pass
 
 
 register(
     Config(),
-    __name__ + ":RemoteMemory",
+    __name__ + ":Memory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
     __name__ + ":Worker",
@@ -40,16 +40,8 @@ class Parameter(RLParameter):
 
 
 class Trainer(RLTrainer):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.train_count = 0
-
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
+    def train_on_batchs(self, memory_sample_return) -> None:
         self.train_count += 1
-        return {}
 
 
 class Worker(RLWorker):

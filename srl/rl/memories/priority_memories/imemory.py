@@ -18,7 +18,7 @@ class IPriorityMemory(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def sample(self, step: int, batch_size: int) -> Tuple[List[int], List[Any], np.ndarray]:
+    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         raise NotImplementedError()  # return (indices, batchs, weights)
 
     @abstractmethod

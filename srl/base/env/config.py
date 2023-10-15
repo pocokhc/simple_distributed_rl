@@ -3,6 +3,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
+from srl.utils.serialize import convert_for_json
+
 if TYPE_CHECKING:
     import gym
     import gymnasium
@@ -92,6 +94,10 @@ class EnvConfig:
         if self.max_episode_steps <= 0:
             self.max_episode_steps = env.max_episode_steps
         self.player_num = env.player_num
+
+    def to_dict(self) -> dict:
+        dat: dict = convert_for_json(self.__dict__)
+        return dat
 
     def copy(self) -> "EnvConfig":
         config = EnvConfig(self.name)

@@ -42,7 +42,7 @@ class TrainerCallback(CoreTrainerCallback):
     def on_trainer_start(self, runner: "Runner") -> None:
         pass  # do nothing
 
-    def on_trainer_train(self, runner: "Runner") -> None:
+    def on_trainer_train_end(self, runner: "Runner") -> None:
         pass  # do nothing
 
     def on_trainer_end(self, runner: "Runner") -> None:

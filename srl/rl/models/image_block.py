@@ -4,7 +4,7 @@ from typing import Any, Dict, Tuple
 
 @dataclass
 class ImageBlockConfig:
-    _name: str = field(init=False, default_factory=str)
+    _name: str = field(init=False, default="DQN")
     _kwargs: Dict[str, Any] = field(init=False, default_factory=lambda: {})
 
     def set_dqn_image(

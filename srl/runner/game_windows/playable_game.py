@@ -5,7 +5,8 @@ from typing import Dict, List, Optional, Tuple, cast
 
 import pygame
 
-from srl.base.define import EnvActionType, KeyBindType, PlayRenderModes
+from srl.base.define import EnvActionType, KeyBindType, RenderModes
+from srl.base.run.data import RunState
 from srl.runner.callback import GameCallback
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
 from srl.runner.runner import Runner
@@ -34,15 +35,13 @@ class PlayableGame(GameWindow):
         self.enable_remote_memory = enable_remote_memory
 
         # --- env/workers/trainer ---
-        self.config = runner.config
-        self.context = runner.context
-        assert self.context._is_init
-        self.state = runner._create_play_state()
+        assert runner.context._is_setup
+        self.state = RunState()
         self.state.env = runner.make_env(is_init=True)
         if self.enable_remote_memory:
             self.state.workers = runner.make_players()
             self.state.parameter = runner.make_parameter()
-            self.state.remote_memory = runner.make_remote_memory()
+            self.state.memory = runner.make_memory()
         # ---------------------------
 
         # --- key bind (扱いやすいように変形) ---
@@ -77,7 +76,7 @@ class PlayableGame(GameWindow):
         # -------------------
 
         # --- reset ---
-        self.state.env.reset(render_mode=PlayRenderModes.rgb_array, seed=self.state.episode_seed)
+        self.state.env.reset(render_mode=RenderModes.rgb_array, seed=self.state.episode_seed)
         if self.state.episode_seed is not None:
             self.state.episode_seed += 1
         self.env_interval = self.state.env.config.render_interval
@@ -85,7 +84,7 @@ class PlayableGame(GameWindow):
         if self.enable_remote_memory:
             self.state.worker_idx = self.state.env.next_player_index
             [
-                w.on_reset(i, training=self.context.training, render_mode=self.context.render_mode)
+                w.on_reset(i, training=self.runner.context.training, render_mode=self.runner.context.render_mode)
                 for i, w in enumerate(self.state.workers)
             ]
         else:
@@ -111,7 +110,7 @@ class PlayableGame(GameWindow):
 
         # --- env.step
         self.state.action = action
-        if self.config.env_config.frameskip == 0:
+        if self.runner.env_config.frameskip == 0:
             self.state.env.step(action)
         else:
 

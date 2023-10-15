@@ -55,7 +55,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     value_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
     policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
-    experience_collection_method: str = "MC"  # "" or "MC" or "GAE"
+    experience_collection_method: str = "MC"  # "MC" or "GAE"
     gae_discount: float = 0.9  # GAEの割引率
 
     baseline_type: str = "ave"  # "" or "ave" or "std" or "normal" or "advantage"

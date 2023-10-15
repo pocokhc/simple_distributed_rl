@@ -97,7 +97,7 @@ def run_server(train_config, env_config, rl_config):
     rl_config.reset(env)
     server_state = ServerState()
     board = Board()
-    remote_memory = srl.make_remote_memory(rl_config)
+    remote_memory = srl.make_memory(rl_config)
     MPManager.register("get_train_config", callable=lambda: train_config)
     MPManager.register("get_rl_config", callable=lambda: rl_config)
     MPManager.register("get_env_config", callable=lambda: env_config)

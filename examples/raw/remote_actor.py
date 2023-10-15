@@ -3,14 +3,14 @@ from typing import Any, Optional
 
 import srl
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import RLConfig, RLParameter, RLRemoteMemory
+from srl.base.rl.base import RLConfig, RLMemory, RLParameter
 
 
 def _run_episode(
     env: EnvRun,
     rl_config: RLConfig,
     parameter: RLParameter,
-    remote_memory: Optional[RLRemoteMemory],
+    remote_memory: Optional[RLMemory],
 ):
     assert env.player_num == 1
     worker = srl.make_worker(rl_config, env, parameter, remote_memory, distributed=True)

@@ -10,6 +10,7 @@ from srl.base.define import EnvObservationTypes, RLObservationType, RLTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.rl.processor import Processor
 from srl.base.spaces.box import BoxSpace
+from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
     from srl.base.rl.algorithms.extend_worker import ExtendWorker
@@ -345,6 +346,10 @@ class RLConfig(ABC):
     @property
     def env_observation_type(self) -> EnvObservationTypes:
         return self._rl_env_observation_type
+
+    def to_dict(self) -> dict:
+        dat: dict = convert_for_json(self.__dict__)
+        return dat
 
     def copy(self, reset_env_config: bool = False) -> Any:
         config = self.__class__()

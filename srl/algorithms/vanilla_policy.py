@@ -122,7 +122,7 @@ class Trainer(RLTrainer):
 
         self.lr_sch = self.config.lr.create_schedulers()
 
-    def train_batchs(self, memory_sample_return) -> None:
+    def train_on_batchs(self, memory_sample_return) -> None:
         batchs = memory_sample_return
 
         if self.config.action_type == RLTypes.DISCRETE:

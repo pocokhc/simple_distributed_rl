@@ -83,11 +83,7 @@ class DummyRLMemoryWorker(IRLMemoryWorker):
         return -1
 
 
-class RLMemory(IRLMemoryWorker):
-    def __init__(self, config: RLConfig):
-        self.config = config
-
-    # --- trainer interface
+class IRLMemoryTrainer(ABC):
     @abstractmethod
     def is_warmup_needed(self) -> bool:
         raise NotImplementedError()
@@ -99,7 +95,19 @@ class RLMemory(IRLMemoryWorker):
     def update(self, memory_update_args: Any) -> None:
         raise NotImplementedError()
 
-    # --- other
+
+class DummyRLMemoryTrainer(IRLMemoryTrainer):
+    def is_warmup_needed(self) -> bool:
+        return True
+
+    def sample(self, batch_size: int, step: int) -> Any:
+        return None
+
+
+class RLMemory(IRLMemoryWorker, IRLMemoryTrainer):
+    def __init__(self, config: RLConfig):
+        self.config = config
+
     @abstractmethod
     def call_backup(self, **kwargs) -> Any:
         raise NotImplementedError()
@@ -168,7 +176,7 @@ class RLMemory(IRLMemoryWorker):
 
 
 class RLTrainer(ABC):
-    def __init__(self, config: RLConfig, parameter: RLParameter, memory: RLMemory):
+    def __init__(self, config: RLConfig, parameter: RLParameter, memory: IRLMemoryTrainer):
         self.config = config
         self.parameter = parameter
         self.memory = memory

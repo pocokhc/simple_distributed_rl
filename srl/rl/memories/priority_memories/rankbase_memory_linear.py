@@ -60,7 +60,7 @@ class RankBaseMemoryLinear(IPriorityMemory):
 
         bisect.insort(self.memory, _bisect_wrapper(priority, batch))
 
-    def sample(self, step: int, batch_size: int) -> Tuple[List[int], List[Any], np.ndarray]:
+    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         batchs = []
         weights = np.ones(batch_size, dtype=np.float32)
 

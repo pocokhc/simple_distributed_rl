@@ -10,7 +10,7 @@ from typing import Any, List, cast
 
 import srl
 from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter, RLTrainer
-from srl.base.run.data import RunNameTypes, RunState
+from srl.base.run.data import RunNameTypes
 from srl.runner.callback import Callback, MPCallback, TrainerCallback
 from srl.runner.runner import RunnerMPData
 

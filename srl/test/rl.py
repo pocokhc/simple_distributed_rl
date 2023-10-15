@@ -5,10 +5,9 @@ import numpy as np
 import srl
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.config import DummyConfig, RLConfig
+from srl.base.rl.config import DummyRLConfig, RLConfig
 from srl.envs import grid, ox
 from srl.rl.functions.common import to_str_observation
-from srl.runner.runner import Runner
 from srl.utils.common import is_available_pygame_video_device, is_packages_installed
 
 BaseLineType = Union[float, List[Union[float, None]]]
@@ -40,7 +39,7 @@ class TestRL:
         env_list: List[Union[str, EnvConfig]] = ["Grid", "OX"],
         is_mp: bool = False,
         train_kwargs: dict = dict(
-            max_train_count=10,
+            max_train_count=2,
             max_steps=-1,
             timeout=-1,
         ),
@@ -63,17 +62,16 @@ class TestRL:
                 elif env_config.name == "OX":
                     rl_config2.processors.append(ox.LayerProcessor())
 
-            runner = Runner(env_config, rl_config2)
-            runner.set_device(
-                device_main="CPU",
-                device_mp_actors="CPU",
-                device_mp_trainer="CPU",
-            )
+            runner = srl.Runner(env_config, rl_config2)
+            runner.set_device(device_trainer="CPU", device_actors="CPU")
 
             if not is_mp:
                 # --- check sequence
                 print(f"--- {env_config.name} sequence check start ---")
                 runner.train(**train_kwargs_)
+                assert runner.state.trainer is not None
+                if train_kwargs_.get("max_train_count", 0) > 0:
+                    assert runner.state.trainer.get_train_count() > 0
 
                 # --- check render
                 if check_render:
@@ -105,18 +103,15 @@ class TestRL:
         rl_config.assert_params()
 
         parameter = srl.make_parameter(rl_config)
-        remote_memory = srl.make_remote_memory(rl_config)
+        remote_memory = srl.make_memory(rl_config)
         trainer = srl.make_trainer(rl_config, parameter, remote_memory)
         workers = [srl.make_worker(rl_config, env, parameter, remote_memory) for _ in range(env.player_num)]
 
         # --- episode
         for _ in range(3):
-            if check_render:
-                env.reset()
-                [w.on_reset(i, training=True, render_mode="terminal") for i, w in enumerate(workers)]
-            else:
-                env.reset()
-                [w.on_reset(i, training=True) for i, w in enumerate(workers)]
+            env.reset()
+            render_mode = "terminal" if check_render else ""
+            [w.on_reset(i, training=True, render_mode=render_mode) for i, w in enumerate(workers)]
 
             # --- step
             for step in range(5):
@@ -149,8 +144,8 @@ class TestRL:
                             w.render()
 
                 # train
-                train_info = trainer.train()
-                assert isinstance(train_info, dict), f"unknown info type. train info={train_info}"
+                trainer.train()
+                assert isinstance(trainer.train_info, dict), f"unknown info type. train info={trainer.train_info}"
 
                 if env.done:
                     break
@@ -175,7 +170,7 @@ class TestRL:
 
         for env_config in env_list:
             env_config = srl.EnvConfig(env_config) if isinstance(env_config, str) else env_config.copy()
-            rl_config: RLConfig = DummyConfig(name=name)
+            rl_config: RLConfig = DummyRLConfig(name=name)
             rl_config.enable_assertion_value = True
 
             if use_layer_processor:
@@ -184,17 +179,10 @@ class TestRL:
                 elif env_config.name == "OX":
                     rl_config.processors.append(ox.LayerProcessor())
 
-            runner = Runner(env_config, rl_config)
-            runner.set_device(
-                device_main="CPU",
-                device_mp_actors="CPU",
-                device_mp_trainer="CPU",
-            )
+            runner = srl.Runner(env_config, rl_config)
+            runner.set_device(device_trainer="CPU", device_actors="CPU")
             if enable_gpu:
-                runner.set_device(
-                    device_main="AUTO",
-                    device_mp_trainer="AUTO",
-                )
+                runner.set_device(device_trainer="AUTO", device_actors="AUTO")
 
             if not is_mp:
                 # --- check sequence
@@ -246,7 +234,7 @@ class TestRL:
 
     def eval(
         self,
-        runner: Runner,
+        runner: srl.Runner,
         episode: Optional[int] = None,
         eval_kwargs: dict = {},
         baseline: Optional[BaseLineType] = None,
@@ -281,7 +269,7 @@ class TestRL:
 
     def eval_2player(
         self,
-        runner: Runner,
+        runner: srl.Runner,
         episode: Optional[int] = None,
         eval_1p_players=[None, "random"],
         eval_2p_players=["random", None],
@@ -302,13 +290,12 @@ class TestRL:
 
     # ----------------------------------------------------
 
-    def verify_grid_policy(self, runner: Runner):
+    def verify_grid_policy(self, runner: srl.Runner):
         from srl.envs.grid import Grid
 
         env = srl.make_env("Grid")
         env_org = cast(Grid, env.get_original_env())
-
-        worker = srl.make_worker(runner.rl_config, env, runner.parameter)
+        worker = runner.make_worker()
 
         V, _Q = env_org.calc_action_values()
         Q = {}

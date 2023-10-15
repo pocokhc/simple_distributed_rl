@@ -115,13 +115,13 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         self.discount = 0.99
         self.lr.set_constant(0.0000625)
         self.batch_size = 32
-        self.memory_warmup_size: int = 80_000
         self.target_model_update_interval = 32000
         self.enable_reward_clip = True
 
         self.enable_double_dqn = True
 
         # memory
+        self.memory.warmup_size = 80_000
         self.memory.capacity = 1_000_000
         self.memory.set_proportional_memory(
             alpha=0.5,

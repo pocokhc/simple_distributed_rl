@@ -1,10 +1,9 @@
 import logging
 import time
-from typing import List, Optional
+from typing import List
 
 import pygame
 
-from srl.base.rl.base import RLParameter, RLRemoteMemory
 from srl.runner.callback import Callback
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
 from srl.runner.runner import Runner
@@ -72,15 +71,10 @@ class RePlayableGame(GameWindow):
     def __init__(
         self,
         runner: Runner,
-        parameter: Optional[RLParameter] = None,
-        remote_memory: Optional[RLRemoteMemory] = None,
         _is_test: bool = False,  # for test
     ) -> None:
         super().__init__(_is_test=_is_test)
-
         self.runner = runner
-        self.parameter = parameter
-        self.remote_memory = remote_memory
 
         # callback
         self.history = _GetRGBCallback()
@@ -100,7 +94,8 @@ class RePlayableGame(GameWindow):
             self.episode_info = cache[0]
             self.episode_data = cache[1]
         else:
-            self.runner._play(self.parameter, self.remote_memory)
+            self.runner.context.disable_trainer = True
+            self.runner.core_play(trainer_only=False)
 
             self.episode_info = {"total_rewards": 0}
             self.episode_data = self.history.steps

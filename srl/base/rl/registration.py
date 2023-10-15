@@ -6,6 +6,7 @@ from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import (
     DummyRLMemoryWorker,
     DummyRLParameter,
+    IRLMemoryTrainer,
     IRLMemoryWorker,
     RLConfig,
     RLMemory,
@@ -80,7 +81,7 @@ def make_parameter(
 def make_trainer(
     rl_config: RLConfig,
     parameter: RLParameter,
-    memory: RLMemory,
+    memory: IRLMemoryTrainer,
     env: Optional[EnvRun] = None,
 ) -> RLTrainer:
     rl_config = _check_rl_config(rl_config, env)

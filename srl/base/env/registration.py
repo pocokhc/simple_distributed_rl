@@ -16,25 +16,26 @@ def make(config: Union[str, EnvConfig]) -> EnvRun:
 
     env_name = config.name
 
-    # --- srl内のenvはloadする
-    if env_name in ["Grid", "EasyGrid"]:
-        import srl.envs.grid  # noqa F401
-    elif env_name == "IGrid":
-        import srl.envs.igrid  # noqa F401
-    elif env_name == "connectx":
-        import srl.envs.connectx  # noqa F401
-    elif env_name in ["OneRoad", "OneRoad-hard"]:
-        import srl.envs.oneroad  # noqa F401
-    elif env_name in ["Othello", "Othello6x6", "Othello4x4"]:
-        import srl.envs.othello  # noqa F401
-    elif env_name == "OX":
-        import srl.envs.ox  # noqa F401
-    elif env_name == "SampleEnv":
-        import srl.envs.sample_env  # noqa F401
-    elif env_name == "StoneTaking":
-        import srl.envs.stone_taking  # noqa F401
-    elif env_name == "Tiger":
-        import srl.envs.tiger  # noqa F401
+    if env_name not in _registry:
+        # --- srl内のenvはloadする
+        if env_name in ["Grid", "EasyGrid"]:
+            import srl.envs.grid  # noqa F401
+        elif env_name == "IGrid":
+            import srl.envs.igrid  # noqa F401
+        elif env_name == "connectx":
+            import srl.envs.connectx  # noqa F401
+        elif env_name in ["OneRoad", "OneRoad-hard"]:
+            import srl.envs.oneroad  # noqa F401
+        elif env_name in ["Othello", "Othello6x6", "Othello4x4"]:
+            import srl.envs.othello  # noqa F401
+        elif env_name == "OX":
+            import srl.envs.ox  # noqa F401
+        elif env_name == "SampleEnv":
+            import srl.envs.sample_env  # noqa F401
+        elif env_name == "StoneTaking":
+            import srl.envs.stone_taking  # noqa F401
+        elif env_name == "Tiger":
+            import srl.envs.tiger  # noqa F401
 
     env = None
 

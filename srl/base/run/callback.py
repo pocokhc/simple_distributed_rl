@@ -45,7 +45,7 @@ class TrainerCallback(ABC):
     def on_trainer_start(self, dat: CallbackData) -> None:
         pass  # do nothing
 
-    def on_trainer_train(self, dat: CallbackData) -> None:
+    def on_trainer_train_end(self, dat: CallbackData) -> None:
         pass  # do nothing
 
     def on_trainer_end(self, dat: CallbackData) -> None:

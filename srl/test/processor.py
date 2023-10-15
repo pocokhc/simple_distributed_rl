@@ -7,7 +7,6 @@ from srl.base.env.env_run import EnvRun
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.spaces.space import SpaceBase
-from srl.runner.runner import Runner
 
 
 class TestProcessor:
@@ -16,7 +15,7 @@ class TestProcessor:
         rl_config = srl.rl.dummy.Config()
         rl_config.processors = [processor]
 
-        runner = Runner(env_config, rl_config)
+        runner = srl.Runner(env_config, rl_config)
         env = runner.make_env()
 
         runner.train(max_episodes=10)

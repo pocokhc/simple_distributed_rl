@@ -90,7 +90,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     def set_atari_config(self):
         self.num_simulations = 50
         self.batch_size = 1024
-        self.memory_warmup_size = 10_000
+        self.memory.warmup_size = 10_000
         self.discount = 0.997
         self.lr.set_linear(350_000, 0.05, 0.005)
         self.v_min = -300

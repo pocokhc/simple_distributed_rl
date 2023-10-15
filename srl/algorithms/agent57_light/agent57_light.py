@@ -475,8 +475,8 @@ class Worker(DiscreteActionWorker):
             next_invalid_actions_idx = [0 for _ in next_invalid_actions]
             _params = [
                 next_state[np.newaxis, ...],
-                np.array([prev_reward_ext], dtype=np.float32),
-                np.array([prev_reward_int], dtype=np.float32),
+                np.array([[prev_reward_ext]], dtype=np.float32),
+                np.array([[prev_reward_int]], dtype=np.float32),
                 self.prev_onehot_action[np.newaxis, ...],
                 self.onehot_actor_idx,
                 next_invalid_actions_idx,

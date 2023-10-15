@@ -247,7 +247,7 @@ def _play_trainer_only(
         state.trainer.train()
 
         # callbacks
-        [c.on_trainer_train(callback_data) for c in _callbacks]
+        [c.on_trainer_train_end(callback_data) for c in _callbacks]
 
         # callback end
         if True in [c.intermediate_stop(callback_data) for c in _callbacks]:

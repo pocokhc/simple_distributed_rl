@@ -29,8 +29,6 @@ class Config(RLConfig):
     search_rate: float = 0.9
     epsilon: float = 0.01  # type: ignore , type OK
 
-    num_q_train: int = 10
-
     # model params
     ext_lr: float = 0.1  # type: ignore , type OK
     ext_discount: float = 0.9
@@ -282,6 +280,7 @@ class Trainer(RLTrainer):
             td_error = target_q - q[action]
             self.parameter.Q_int[state][action] += int_lr * td_error
 
+            self.train_count += 1
             td_error_mean += td_error
         if len(batchs) > 0:
             td_error_mean /= len(batchs)
@@ -297,7 +296,7 @@ class Trainer(RLTrainer):
         # ---------------------
         ext_lr = self.ext_lr_sch.get_rate(self.train_count)
         td_error_mean = 0
-        for _ in range(self.config.num_q_train):
+        for _ in range(len(batchs) * 2):
             batch = model.sample()
             if batch is None:
                 continue
@@ -324,7 +323,7 @@ class Trainer(RLTrainer):
             self.parameter.Q_ext[state][action] += ext_lr * td_error
 
             td_error_mean += td_error
-            self.train_count += 1
+
         if len(batchs) > 0:
             td_error_mean /= len(batchs)
 

@@ -104,6 +104,7 @@ def set_logger(
         # ライブラリ別にログレベルを調整
         logging.getLogger("matplotlib").setLevel(logging.INFO)
         logging.getLogger("PIL").setLevel(logging.INFO)
+        logging.getLogger("pika").setLevel(logging.WARNING)
 
         # TF log
         # os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"

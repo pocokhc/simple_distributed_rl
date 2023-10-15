@@ -66,13 +66,17 @@ class HistoryViewer:
             if not compare_equal_version(v, srl.__version__):
                 logger.warning(f"log version is different({v} != {srl.__version__})")
 
-        # --- config
-        path = os.path.join(dir_, "config.json")
+        # --- file
+        path = os.path.join(dir_, "env_config.json")
         if os.path.isfile(path):
             with open(path) as f:
-                self.config: dict = json.load(f)
+                self.env_config: dict = json.load(f)
 
-        # --- context
+        path = os.path.join(dir_, "rl_config.json")
+        if os.path.isfile(path):
+            with open(path) as f:
+                self.rl_config: dict = json.load(f)
+
         path = os.path.join(dir_, "context.json")
         if os.path.isfile(path):
             with open(path) as f:
@@ -80,7 +84,7 @@ class HistoryViewer:
 
         # --- load file
         self.logs = []
-        for i in range(self.config["actor_num"]):
+        for i in range(self.context["actor_num"]):
             lines = self._load_log_file(os.path.join(dir_, "logs", f"actor{i}.txt"))
             self.logs.extend(lines)
 
@@ -109,7 +113,8 @@ class HistoryViewer:
     # memory
     # ------------------------------------
     def set_history_on_memory(self, runner: Runner):
-        self.config: dict = runner.config.to_dict()
+        self.env_config: dict = runner.env_config.to_dict()
+        self.rl_config: dict = runner.rl_config.to_dict()
         self.context: dict = runner.context.to_dict()
         self.logs = runner._history
 

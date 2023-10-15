@@ -61,7 +61,7 @@ class RankBaseMemory(IPriorityMemory):
         elif len(self.memory) > self.capacity:
             self.memory.pop(0)
 
-    def sample(self, step: int, batch_size: int) -> Tuple[List[int], List[Any], np.ndarray]:
+    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         # βは最初は低く、学習終わりに1にする。
         beta = self.beta_initial + (1 - self.beta_initial) * step / self.beta_steps
         if beta > 1:

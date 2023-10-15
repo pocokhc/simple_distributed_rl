@@ -3,10 +3,10 @@ import os
 import pickle
 import time
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Optional
 
 from srl.base.define import InfoType
-from srl.base.rl.config import RLConfig
+from srl.base.rl.config import DummyRLConfig, RLConfig
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,18 @@ class RLParameter(ABC):
         pass  # NotImplemented
 
 
+class DummyRLParameter(RLParameter):
+    def __init__(self, config: Optional[RLConfig] = None):
+        if config is None:
+            config = DummyRLConfig()
+        super().__init__(config)
+
+    def call_restore(self, data: Any, **kwargs) -> None:
+        pass
+
+    def call_backup(self, **kwargs) -> Any:
+        return None
+
 
 class IRLMemoryWorker(ABC):
     @abstractmethod
@@ -61,6 +73,14 @@ class IRLMemoryWorker(ABC):
     @abstractmethod
     def length(self) -> int:
         raise NotImplementedError()
+
+
+class DummyRLMemoryWorker(IRLMemoryWorker):
+    def add(self, *args) -> None:
+        pass
+
+    def length(self) -> int:
+        return -1
 
 
 class RLMemory(IRLMemoryWorker):

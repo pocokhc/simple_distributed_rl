@@ -4,8 +4,8 @@ from multiprocessing.managers import BaseManager
 from typing import Any, Type, cast
 
 import srl
-from srl.base.rl.base import RLRemoteMemory
-from srl.base.rl.registration import make_parameter, make_remote_memory, make_trainer
+from srl.base.rl.base import RLMemory
+from srl.base.rl.registration import make_memory, make_parameter, make_trainer
 
 # --- env & algorithm
 from srl.envs import grid  # isort: skip # noqa F401
@@ -30,7 +30,7 @@ class Board:
 
 def _run_actor(
     config,
-    remote_memory: RLRemoteMemory,
+    remote_memory: RLMemory,
     remote_board: Board,
     actor_id: int,
     train_end_signal: ctypes.c_bool,
@@ -81,7 +81,7 @@ def _run_actor(
 
 def _run_trainer(
     config,
-    remote_memory: RLRemoteMemory,
+    remote_memory: RLMemory,
     remote_board: Board,
     train_end_signal: ctypes.c_bool,
 ):
@@ -139,7 +139,7 @@ def main():
     mp.set_start_method("spawn")
 
     # --- async
-    MPManager.register("RemoteMemory", cast(Type[RLRemoteMemory], make_remote_memory(rl_config, return_class=True)))
+    MPManager.register("RemoteMemory", cast(Type[RLMemory], make_memory(rl_config, return_class=True)))
     MPManager.register("Board", Board)
 
     with MPManager() as manager:

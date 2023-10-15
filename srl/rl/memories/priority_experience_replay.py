@@ -14,16 +14,6 @@ class _PriorityExperienceReplayConfig:
     _name: str = field(init=False, default="ReplayMemory")
     _kwargs: dict = field(init=False, default_factory=dict)
 
-    enable_best_episode_memory: bool = field(init=False, default=False)
-    best_episode_memory: Optional["_PriorityExperienceReplayConfig"] = field(init=False, default=None)
-    best_episode_ratio: float = 1.0 / 256.0
-    best_episode_has_reward_equal: bool = True
-
-    enable_demo_memory: bool = field(init=False, default=False)
-    demo_memory: Optional["_PriorityExperienceReplayConfig"] = field(init=False, default=None)
-    demo_memory_playing: bool = True
-    demo_memory_ratio: float = 1.0 / 256.0
-
     def set_replay_memory(self):
         self._name = "ReplayMemory"
 
@@ -70,35 +60,6 @@ class _PriorityExperienceReplayConfig:
             beta_steps=beta_steps,
         )
 
-    # TODO
-    # def set_best_episode_memory(
-    #    self,
-    #    enable_best_episode_memory: bool = True,
-    #    ratio: float = 1.0 / 256.0,  # 混ぜる割合
-    #    has_reward_equal: bool = True,
-    # ):
-    #    self.enable_best_episode_memory = enable_best_episode_memory
-    #    if not enable_best_episode_memory:
-    #        self.best_episode_memory = None
-    #        return
-    #    self.best_episode_memory = _PriorityExperienceReplayConfig()
-    #    self.best_episode_ratio = ratio
-    #    self.best_episode_has_reward_equal = has_reward_equal
-
-    def set_demo_memory(
-        self,
-        enable_demo_memory: bool = True,
-        playing: bool = False,
-        ratio: float = 1.0 / 256.0,  # 混ぜる割合
-    ):
-        self.enable_demo_memory = enable_demo_memory
-        if not enable_demo_memory:
-            self.demo_memory = None
-            return
-        self.demo_memory = _PriorityExperienceReplayConfig()
-        self.demo_memory_playing = playing
-        self.demo_memory_ratio = ratio
-
     def set_custom_memory(self, entry_point: str, kwargs: dict):
         self._name = "custom"
         self._kwargs = dict(
@@ -133,27 +94,6 @@ class _PriorityExperienceReplayConfig:
             return load_module(self._kwargs["entry_point"])(**self._kwargs["kwargs"])
         else:
             raise ValueError(self._name)
-
-        if self.enable_demo_memory:
-            assert self.demo_memory is not None
-            from .priority_memories.demo_memory import DemoMemory
-
-            memory = DemoMemory(
-                main_memory=memory,
-                demo_memory=self.demo_memory.create_memory(),
-                playing=self.demo_memory_playing,
-                ratio=self.demo_memory_ratio,
-            )
-        elif self.enable_best_episode_memory:
-            assert self.best_episode_memory is not None
-            from .priority_memories.best_episode_memory import BestEpisodeMemory
-
-            memory = BestEpisodeMemory(
-                main_memory=memory,
-                best_memory=self.best_episode_memory.create_memory(),
-                ratio=self.best_episode_ratio,
-                has_reward_equal=self.best_episode_has_reward_equal,
-            )
 
         return memory
 

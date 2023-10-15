@@ -5,8 +5,8 @@ import numpy as np
 
 from srl.base.define import InfoType, InvalidActionsType, RLActionType
 from srl.base.render import IRender
-from srl.base.rl.base import RLParameter, RLRemoteMemory
-from srl.base.rl.config import DummyConfig, RLConfig
+from srl.base.rl.base import IRLMemoryWorker, RLParameter
+from srl.base.rl.config import RLConfig
 
 if TYPE_CHECKING:
     from srl.base.rl.worker_run import WorkerRun
@@ -38,7 +38,7 @@ class WorkerBase(ABC, IRender):
         raise NotImplementedError()
 
     # ------------------------------
-    # implement(option)
+    # IRender
     # ------------------------------
     def render_terminal(self, worker: "WorkerRun", **kwargs) -> None:
         pass

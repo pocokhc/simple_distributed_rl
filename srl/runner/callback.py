@@ -1,11 +1,14 @@
 from abc import ABC
 from typing import TYPE_CHECKING, Union
 
+from srl.base.run.callback import Callback as CoreCallback
+from srl.base.run.callback import TrainerCallback as CoreTrainerCallback
+
 if TYPE_CHECKING:
     from .runner import Runner
 
 
-class Callback(ABC):
+class Callback(CoreCallback):
     def on_episodes_begin(self, runner: "Runner") -> None:
         pass  # do nothing
 
@@ -35,7 +38,7 @@ class Callback(ABC):
         return False
 
 
-class TrainerCallback(ABC):
+class TrainerCallback(CoreTrainerCallback):
     def on_trainer_start(self, runner: "Runner") -> None:
         pass  # do nothing
 
@@ -55,9 +58,6 @@ class MPCallback(ABC):
         pass  # do nothing
 
     def on_start(self, runner: "Runner") -> None:
-        pass  # do nothing
-
-    def on_polling(self, runner: "Runner") -> None:
         pass  # do nothing
 
     def on_end(self, runner: "Runner") -> None:

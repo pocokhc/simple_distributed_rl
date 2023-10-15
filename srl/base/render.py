@@ -5,7 +5,7 @@ from typing import Optional, Union
 
 import numpy as np
 
-from srl.base.define import PlayRenderModes, RenderModes
+from srl.base.define import RenderModes
 from srl.utils.common import is_packages_installed
 from srl.utils.render_functions import print_to_text, text_to_rgb_array
 
@@ -13,7 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 class IRender:
-    def set_render_mode(self, mode: RenderModes) -> None:
+    def set_render_terminal_mode(self) -> None:
+        pass
+
+    def set_render_rgb_mode(self) -> None:
         pass
 
     def render_terminal(self, **kwargs) -> None:
@@ -25,29 +28,30 @@ class IRender:
 
 class Render:
     def __init__(self, render_obj: IRender) -> None:
-        self.render_obj = render_obj
-        self.mode = PlayRenderModes.none
+        self._render_obj = render_obj
+        self._mode = RenderModes.none
 
-        self.interval: float = -1  # ms
-        self.scale: float = 1.0
-        self.font_name: str = ""
-        self.font_size: int = 12
+        self._cache_ansi = ""
+        self._cache_rgb_array = None
 
-        self.print_str = ""
-        self.rgb_array = None
+        self._screen = None
 
-        self.screen = None
+        self.set_render_options()
 
-    def reset(self, mode: Union[str, PlayRenderModes]):
-        self.mode = PlayRenderModes.from_str(mode)
+    def reset(self, mode: Union[str, RenderModes]):
+        self.cache_reset()
+        self._mode = RenderModes.from_str(mode)
 
-        if self.mode in [PlayRenderModes.rgb_array, PlayRenderModes.window]:
+        if self._mode in [RenderModes.rgb_array, RenderModes.window]:
             assert is_packages_installed(
                 ["PIL", "pygame"]
             ), "This run requires installation of 'PIL', 'pygame'. (pip install pillow pygame)"
             # PIL use 'text_to_rgb_array'
 
-        self.render_obj.set_render_mode(PlayRenderModes.convert_render_mode(self.mode))
+            self._render_obj.set_render_rgb_mode()
+
+        if self._mode in [RenderModes.terminal, RenderModes.ansi]:
+            self._render_obj.set_render_terminal_mode()
 
     def cache_reset(self):
         self.print_str = ""
@@ -55,56 +59,47 @@ class Render:
 
     # ----------------------------
 
-    def get_dummy(self) -> Union[None, str, np.ndarray]:
-        if self.mode == PlayRenderModes.none:
-            return
-        elif self.mode == PlayRenderModes.terminal:
-            return
-        elif self.mode == PlayRenderModes.ansi:
-            return ""
-        elif self.mode == PlayRenderModes.rgb_array:
-            return np.zeros((4, 4, 3), dtype=np.uint8)
-        elif self.mode == PlayRenderModes.window:
-            return
+    def set_render_options(
+        self,
+        interval: float = -1,  # ms
+        scale: float = 1.0,
+        font_name: str = "",
+        font_size: int = 12,
+    ):
+        self.interval = interval
+        self.scale = scale
+        self.font_name = font_name
+        self.font_size = font_size
 
-    def render(self, **kwargs) -> Union[None, str, np.ndarray]:
-        if self.mode == PlayRenderModes.none:
-            return
-        elif self.mode == PlayRenderModes.terminal:
-            return self.render_terminal(**kwargs)
-        elif self.mode == PlayRenderModes.ansi:
-            return self.render_terminal(return_text=True, **kwargs)
-        elif self.mode == PlayRenderModes.rgb_array:
-            return self.render_rgb_array(**kwargs)
-        elif self.mode == PlayRenderModes.window:
-            return self.render_window(**kwargs)
+    def render(self, render_window: bool = True, **kwargs) -> None:
+        if self._mode == RenderModes.terminal:
+            self._render_obj.render_terminal(**kwargs)
+        elif render_window and self._mode == RenderModes.window:
+            self._render_window(**kwargs)
 
-    def render_terminal(self, return_text: bool = False, **kwargs) -> Union[None, str]:
-        if return_text:
-            if self.print_str == "":
-                self.print_str = print_to_text(lambda: self.render_obj.render_terminal(**kwargs))
-            return self.print_str
-        else:
-            self.render_obj.render_terminal(**kwargs)
+    def render_ansi(self, **kwargs) -> str:
+        if self.print_str == "":
+            self.print_str = print_to_text(lambda: self._render_obj.render_terminal(**kwargs))
+        return self.print_str
 
     def render_rgb_array(self, **kwargs) -> np.ndarray:
         if self.rgb_array is None:
-            self.rgb_array = self.render_obj.render_rgb_array(**kwargs)
+            self.rgb_array = self._render_obj.render_rgb_array(**kwargs)
         if self.rgb_array is None:
-            text = print_to_text(lambda: self.render_obj.render_terminal(**kwargs))
+            text = self.render_ansi(**kwargs)
             if text == "":
                 return np.zeros((4, 4, 3), dtype=np.uint8)  # dummy
             self.rgb_array = text_to_rgb_array(text, self.font_name, self.font_size)
         return self.rgb_array.astype(np.uint8)
 
-    def render_window(self, **kwargs) -> np.ndarray:
+    def _render_window(self, **kwargs) -> np.ndarray:
         rgb_array = self.render_rgb_array(**kwargs)
 
         import pygame
 
         from srl.utils import pygame_wrapper as pw
 
-        if self.screen is None:
+        if self._screen is None:
             if "SDL_VIDEODRIVER" in os.environ:
                 pygame.display.quit()
                 del os.environ["SDL_VIDEODRIVER"]
@@ -115,10 +110,11 @@ class Render:
 
             w = min(w, 1900)
             h = min(h, 1600)
-            self.screen = pygame.display.set_mode((w, h))
-            self.t0 = time.time()
+            logger.info(f"create pygame({w},{h}), interval {self.interval}ms")
+            self._screen = pygame.display.set_mode((w, h))
+            self._t0 = time.time()
 
-        pw.draw_image_rgb_array(self.screen, 0, 0, rgb_array)
+        pw.draw_image_rgb_array(self._screen, 0, 0, rgb_array)
         pygame.display.flip()
 
         # --- interval loop
@@ -127,9 +123,9 @@ class Render:
 
             if self.interval <= 0:
                 break
-            elapsed_time = time.time() - self.t0
+            elapsed_time = time.time() - self._t0
             if elapsed_time > self.interval / 1000:
                 break
-        self.t0 = time.time()
+        self._t0 = time.time()
 
         return rgb_array

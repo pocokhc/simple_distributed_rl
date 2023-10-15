@@ -1,7 +1,6 @@
 import srl
-from srl.base.define import PlayRenderModes
+from srl.base.define import RenderModes
 from srl.base.env.env_run import EnvRun
-from srl.runner.runner import Runner
 from srl.utils.common import is_available_pygame_video_device, is_packages_installed
 
 
@@ -32,7 +31,7 @@ class TestEnv:
         if check_restore:
             self._play_test(
                 env,
-                PlayRenderModes.none,
+                RenderModes.none,
                 check_restore=True,
                 max_step=max_step,
                 print_enable=print_enable,
@@ -40,7 +39,7 @@ class TestEnv:
         if check_render:
             self._play_test(
                 env,
-                PlayRenderModes.terminal,
+                RenderModes.terminal,
                 check_restore=False,
                 max_step=max_step,
                 print_enable=print_enable,
@@ -48,7 +47,7 @@ class TestEnv:
             if is_packages_installed(["cv2", "pygame"]) and is_available_pygame_video_device():
                 self._play_test(
                     env,
-                    PlayRenderModes.window,
+                    RenderModes.window,
                     check_restore=False,
                     max_step=max_step,
                     print_enable=print_enable,
@@ -130,7 +129,7 @@ class TestEnv:
     def player_test(self, env_name: str, player: str, player_kwargs: dict = {}) -> EnvRun:
         env_config = srl.EnvConfig(env_name)
         env_config.enable_assertion_value = True
-        runner = Runner(env_config, None)
+        runner = srl.Runner(env_config, None)
 
         env = runner.make_env()
         runner.set_players([(player, player_kwargs) for _ in range(env.player_num)])

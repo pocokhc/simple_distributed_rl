@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Union
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, PlayRenderModes
+from srl.base.define import EnvObservationTypes, RenderModes
 from srl.base.rl.worker_run import WorkerRun
 from srl.runner.callback import Callback
 from srl.runner.runner import Runner
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class Rendering(Callback):
-    mode: Union[str, PlayRenderModes] = PlayRenderModes.none
+    mode: Union[str, RenderModes] = RenderModes.none
     kwargs: dict = field(default_factory=lambda: {})
     step_stop: bool = False
     render_skip_step: bool = True
@@ -48,7 +48,7 @@ class Rendering(Callback):
         self.rl_state_image = None
         self.font = None
 
-        self.mode = PlayRenderModes.from_str(self.mode)
+        self.mode = RenderModes.from_str(self.mode)
 
     def on_episodes_begin(self, runner: Runner) -> None:
         assert runner.state.env is not None
@@ -114,24 +114,17 @@ class Rendering(Callback):
         self.info_text = info_text
 
         # --- render_terminal
-        if self.mode == PlayRenderModes.terminal:
+        if self.mode == RenderModes.terminal:
             print(info_text)
 
-            # --- env text
-            env.render_terminal(**self.kwargs)
-
-        # --- render window
-        if self.mode == PlayRenderModes.window:
-            env.render_window(**self.kwargs)
-
-        if self.mode == PlayRenderModes.rgb_array:
+        if self.mode == RenderModes.rgb_array:
             self.env_img = env.render_rgb_array(**self.kwargs)
             self.env_maxw = max(self.env_maxw, self.env_img.shape[1])
             self.env_maxh = max(self.env_maxh, self.env_img.shape[0])
 
     def _add_image(self):
         # --- rgb
-        if self.mode == PlayRenderModes.rgb_array:
+        if self.mode == RenderModes.rgb_array:
             info_img = text_to_rgb_array(self.info_text)
             self.info_maxw = max(self.info_maxw, info_img.shape[1])
             self.info_maxh = max(self.info_maxh, info_img.shape[0])
@@ -148,12 +141,8 @@ class Rendering(Callback):
     def _render_worker(self, runner: Runner):
         worker = runner.state.workers[runner.state.worker_idx]
 
-        # --- render_terminal
-        if self.mode == PlayRenderModes.terminal:
-            worker.render_terminal(**self.kwargs)
-
         # --- rgb
-        if self.mode == PlayRenderModes.rgb_array:
+        if self.mode == RenderModes.rgb_array:
             self.rl_img = worker.render_rgb_array(**self.kwargs)
             self.rl_maxw = max(self.rl_maxw, self.rl_img.shape[1])
             self.rl_maxh = max(self.rl_maxh, self.rl_img.shape[0])

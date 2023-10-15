@@ -1,37 +1,30 @@
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Tuple
 
 import numpy as np
 
-from .imemory import IPriorityMemory
+from srl.base.rl.base import RLMemory
 
 logger = logging.getLogger(__name__)
 
+# TODO
+
 
 @dataclass
-class DemoMemory(IPriorityMemory):
-    main_memory: IPriorityMemory
-    demo_memory: IPriorityMemory
-    playing: bool = False
+class DemoMemory(RLMemory):
+    main_memory: RLMemory
+    demo_memory: RLMemory
     ratio: float = 1.0 / 256.0  # 混ぜる割合
 
-    def __post_init__(self):
-        self.clear()
+    def add(self, *args) -> None:
+        raise NotImplementedError("not implement")
 
-    def clear(self) -> None:
-        self.main_memory.clear()
-        if self.playing:
-            self.demo_memory.clear()
+    def length(self) -> int:
+        return self.demo_memory.length() + self.main_memory.length()
 
-    def add(self, batch: Any, priority: Optional[float] = None):
-        if self.playing:
-            self.demo_memory.add(batch, priority)
-        else:
-            self.main_memory.add(batch, priority)
-
-    def sample(self, step: int, batch_size: int) -> Tuple[List[int], List[Any], np.ndarray]:
+    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         if self.demo_memory.length() == 0:
             self.demo_batch_size = 0
             main_batch_size = batch_size
@@ -66,26 +59,20 @@ class DemoMemory(IPriorityMemory):
         demo_indices = indices[: self.demo_batch_size]
         demo_batchs = batchs[: self.demo_batch_size]
         demo_priorities = priorities[: self.demo_batch_size]
-        self.demo_memory.update(demo_indices, demo_batchs, demo_priorities)
+        self.demo_memory.update((demo_indices, demo_batchs, demo_priorities))
 
         main_indices = indices[self.demo_batch_size :]
         main_batchs = batchs[self.demo_batch_size :]
         main_priorities = priorities[self.demo_batch_size :]
-        self.main_memory.update(main_indices, main_batchs, main_priorities)
+        self.main_memory.update((main_indices, main_batchs, main_priorities))
 
-    def length(self) -> int:
-        return self.demo_memory.length() + self.main_memory.length()
+    def call_backup(self):
+        return [
+            self.demo_memory.backup(),
+            self.main_memory.backup(),
+        ]
 
-    def backup(self):
-        if self.playing:
-            return [self.demo_memory.backup()]
-        else:
-            return [
-                self.demo_memory.backup(),
-                self.main_memory.backup(),
-            ]
-
-    def restore(self, data):
+    def call_restore(self, data):
         self.demo_memory.restore(data[0])
         if len(data) == 2:
             self.main_memory.restore(data[1])

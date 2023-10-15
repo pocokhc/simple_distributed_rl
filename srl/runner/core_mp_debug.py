@@ -1,19 +1,20 @@
 import logging
 import pickle
-import pprint
 import random
 import time
-from typing import List, Type, cast
+from queue import Queue
+from typing import List, cast
 
-from srl.base.rl.base import RLRemoteMemory
-from srl.base.rl.registration import make_remote_memory
+import srl
+from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter
+from srl.base.run.data import RunNameTypes, RunState
 from srl.runner.callback import Callback, MPCallback, TrainerCallback
-from srl.runner.runner import Config, Context, Runner
+from srl.runner.runner import RunnerMPData
 
 logger = logging.getLogger(__name__)
 
 
-class ShareBool:
+class _ShareBool:
     def __init__(self) -> None:
         self.val = False
 
@@ -27,7 +28,7 @@ class ShareBool:
 # --------------------
 # board
 # --------------------
-class Board:
+class _Board:
     def __init__(self):
         self.params = None
         self.update_count = 0
@@ -46,50 +47,66 @@ class Board:
 # --------------------
 # actor
 # --------------------
-def __run_actor(
-    config: Config,
-    context: Context,
-    remote_memory: RLRemoteMemory,
-    remote_board: Board,
+class _RLMemory(IRLMemoryWorker):
+    def __init__(self, memory_queue: Queue):
+        self.queue = memory_queue
+
+    def add(self, *args) -> None:
+        self.queue.put(args)
+
+    def length(self) -> int:
+        return -1
+
+
+def _run_actor(
+    mp_data: RunnerMPData,
+    memory_queue: Queue,
+    remote_board: _Board,
     actor_id: int,
-    train_end_signal: ShareBool,
+    train_end_signal: _ShareBool,
 ):
     # --- 関数をまたぐと yield を引き継ぐ必要があるので train を実装する必要あり
     try:
-        context.run_name = f"actor{actor_id}"
-        context.actor_id = actor_id
-        runner = Runner(config.env_config, config.rl_config)
-        runner.config = config
-        runner.context = context
         logger.info(f"actor{actor_id} start.")
+        context = mp_data.context
+        context.run_name = RunNameTypes.actor
+        context.actor_id = actor_id
 
         # --- set_config_by_actor
-        config.rl_config.set_config_by_actor(
-            config.actor_num,
-            context.actor_id,
+        mp_data.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
+
+        # --- memory
+        memory = cast(RLMemory, _RLMemory(memory_queue))
+
+        # --- runner
+        runner = srl.Runner(
+            mp_data.env_config,
+            mp_data.rl_config,
+            mp_data.config,
+            context,
+            memory=memory,
         )
 
         # --- parameter
-        parameter = runner.make_parameter()
+        parameter = runner.make_parameter(is_load=False)
         params = remote_board.read()
         if params is not None:
             parameter.restore(params)
 
         # --- train
-        context.train_only = False
-        context.disable_trainer = True
-        context.training = True
+        runner.context.training = True
+        runner.context.disable_trainer = True
 
         # -------------------------
         # yield にて制御する
         # -------------------------
-        state = runner._create_play_state()
-        state.remote_memory = remote_memory
+        runner.state = state = RunState()
+        state.memory = memory
         state.parameter = parameter
 
         # --- env/workers/trainer
         state.env = runner.make_env(is_init=True)
-        state.workers = runner.make_players(parameter, remote_memory)
+        state.workers = runner.make_players(parameter, memory)
 
         # --- callbacks
         _callbacks = cast(List[Callback], [c for c in context.callbacks if issubclass(c.__class__, Callback)])
@@ -100,6 +117,9 @@ def __run_actor(
         state.worker_indices = [i for i in range(state.env.player_num)]
         state.sync_actor = 0
         prev_update_count = 0
+
+        def __skip_func():
+            [c.on_skip_step(runner) for c in _callbacks]
 
         # --- loop
         while True:
@@ -145,20 +165,13 @@ def __run_actor(
             [c.on_step_begin(runner) for c in _callbacks]
 
             # env step
-            if config.env_config.frameskip == 0:
-                state.env.step(state.action)
-            else:
-
-                def __f():
-                    [c.on_skip_step(runner) for c in _callbacks]
-
-                state.env.step(state.action, __f)
+            state.env.step(state.action, __skip_func)
             worker_idx = state.worker_indices[state.env.next_player_index]
             [w.on_step() for w in state.workers]
             state.total_step += 1
 
             # --- ActorInterrupt ---
-            if state.total_step % config.actor_parameter_sync_interval_by_step == 0:
+            if state.total_step % mp_data.context.actor_parameter_sync_interval_by_step == 0:
                 update_count = remote_board.get_update_count()
                 if update_count != prev_update_count:
                     prev_update_count = update_count
@@ -207,21 +220,29 @@ def __run_actor(
 # --------------------
 # trainer
 # --------------------
-def __run_trainer(
-    config: Config,
-    context: Context,
-    remote_memory: RLRemoteMemory,
-    remote_board: Board,
-    train_end_signal: ShareBool,
+def _run_trainer(
+    mp_data: RunnerMPData,
+    parameter: RLParameter,
+    memory: RLMemory,
+    remote_board: _Board,
+    train_end_signal: _ShareBool,
 ):
     # --- 関数をまたぐと yield を引き継ぐ必要があるので train を実装する必要あり
-    parameter = None
     try:
-        context.run_name = "trainer"
-        runner = Runner(config.env_config, config.rl_config)
-        runner.config = config
-        runner.context = context
         logger.info("trainer start.")
+
+        # --- runner
+        runner = srl.Runner(
+            mp_data.env_config,
+            mp_data.rl_config,
+            mp_data.config,
+            mp_data.context,
+            parameter,
+            memory,
+        )
+
+        # --- trainer
+        trainer = runner.make_trainer()
 
         # --- parameter
         parameter = runner.make_parameter(is_load=False)
@@ -230,18 +251,18 @@ def __run_trainer(
             parameter.restore(params)
 
         # --- train
-        context.train_only = True
-        context.disable_trainer = False
+        context = runner.context
         context.training = True
 
         # -------------------------
         # yield にて制御する
         # -------------------------
-        state = runner._create_play_state()
-        state.remote_memory = remote_memory
+        state = RunState()
+        state.memory = memory
         state.parameter = parameter
+        state.trainer = trainer
+        runner.state = state
 
-        state.trainer = runner.make_trainer(parameter, remote_memory)
         _callbacks = cast(
             List[TrainerCallback], [c for c in context.callbacks if issubclass(c.__class__, TrainerCallback)]
         )
@@ -249,6 +270,7 @@ def __run_trainer(
 
         # --- init
         state.elapsed_t0 = time.time()
+        count_for_sync = 0
 
         while True:
             yield
@@ -263,14 +285,16 @@ def __run_trainer(
                 break
 
             # --- train
-            state.train_info = state.trainer.train()
-            [c.on_trainer_train(runner) for c in _callbacks]
+            state.trainer.train()
+            [c.on_trainer_train_end(runner) for c in _callbacks]
 
             # --- TrainerInterrupt ---
-            train_count = state.trainer.get_train_count()
-            if train_count % config.trainer_parameter_send_interval_by_train_count == 0:
+            count_for_sync += 1
+            if count_for_sync > mp_data.context.trainer_parameter_send_interval_by_train_count:
+                count_for_sync = 0
                 remote_board.write(parameter.backup())
                 runner.state.sync_trainer += 1
+
             if train_end_signal.get():
                 state.end_reason = "train_end_signal"
                 break
@@ -287,55 +311,51 @@ def __run_trainer(
             logger.info(f"trainer end.(send parameter time: {time.time() - t0:.1f}s)")
 
 
+# --------------------
+# memory
+# --------------------
+def _run_memory(
+    memory: RLMemory,
+    memory_queue: Queue,
+    train_end_signal: _ShareBool,
+):
+    while not train_end_signal.get():
+        yield
+        if not memory_queue.empty():
+            batch = memory_queue.get()
+            memory.add(*batch)
+
+
 # ----------------------------
 # 学習
 # ----------------------------
-def train(
-    runner: Runner,
-    save_remote_memory: str,
-    return_remote_memory: bool,
-    #
-    choice_method: str = "random",
-):
-    logger.info(f"Config\n{pprint.pformat(runner.config.to_dict())}")
-    logger.info(f"Context\n{pprint.pformat(runner.context.to_dict())}")
+def train(runner: srl.Runner, choice_method: str = "random"):
+    mp_data = runner.create_mp_data()
 
-    logger.info("MPManager start")
-    _train(runner, return_remote_memory, save_remote_memory, choice_method)
-    logger.info("MPManager end")
-
-
-def _train(
-    runner: Runner,
-    return_remote_memory: bool,
-    save_remote_memory: str,
-    choice_method: str,
-):
-    config = runner.config
     context = runner.context
+    runner.make_env()
 
     # callbacks
     _callbacks = cast(List[MPCallback], [c for c in context.callbacks if issubclass(c.__class__, MPCallback)])
     [c.on_init(runner) for c in _callbacks]
 
     # --- share values
-    train_end_signal = ShareBool()
-    remote_memory_class = cast(Type[RLRemoteMemory], make_remote_memory(config.rl_config, return_class=True))
-    remote_memory = remote_memory_class(config.rl_config)
-    remote_board = Board()
+    train_end_signal = _ShareBool()
+    memory_queue: Queue = Queue()
+    remote_board = _Board()
 
     # --- init remote_memory/parameter
-    remote_memory.restore(runner.make_remote_memory().backup())
-    remote_board.write(runner.make_parameter().backup())
+    parameter = runner.make_parameter()
+    memory = runner.make_memory()
+    remote_board.write(parameter.backup())
 
     # --- actor
     actors_gen_list = []
-    for actor_id in range(config.actor_num):
+    for actor_id in range(context.actor_num):
         actors_gen_list.append(
-            __run_actor(
-                pickle.loads(pickle.dumps(config)),
-                pickle.loads(pickle.dumps(context)),
-                remote_memory,
+            _run_actor(
+                pickle.loads(pickle.dumps(mp_data)),
+                memory_queue,
                 remote_board,
                 pickle.loads(pickle.dumps(actor_id)),
                 train_end_signal,
@@ -343,16 +363,16 @@ def _train(
         )
 
     # --- trainer
-    if context.disable_trainer:
-        trainer_gen = None
-    else:
-        trainer_gen = __run_trainer(
-            pickle.loads(pickle.dumps(config)),
-            pickle.loads(pickle.dumps(context)),
-            remote_memory,
-            remote_board,
-            train_end_signal,
-        )
+    trainer_gen = _run_trainer(
+        pickle.loads(pickle.dumps(mp_data)),
+        parameter,
+        memory,
+        remote_board,
+        train_end_signal,
+    )
+
+    # --- memory
+    memory_gen = _run_memory(memory, memory_queue, train_end_signal)
 
     # --- start
     logger.debug("process start")
@@ -362,7 +382,10 @@ def _train(
 
     while True:
         if choice_method == "random":
-            if random.random() < 0.8:
+            r = random.random()
+            if r < 0.5:
+                next(memory_gen)
+            elif r < 0.9:
                 gen = random.choice(actors_gen_list)
                 try:
                     next(gen)
@@ -379,9 +402,6 @@ def _train(
         else:
             raise ValueError(choice_method)
 
-        # callbacks
-        [c.on_polling(runner) for c in _callbacks]
-
         if train_end_signal.get():
             break
     logger.info("wait loop end.")
@@ -390,18 +410,9 @@ def _train(
     t0 = time.time()
     params = remote_board.read()
     if params is not None:
-        runner._parameter = None
+        runner.parameter = None
         runner.make_parameter().restore(params)
     logger.info(f"recv parameter time: {time.time() - t0:.1f}s")
-
-    # --- last memory
-    if save_remote_memory != "":
-        remote_memory.save(save_remote_memory, compress=True)
-    if return_remote_memory:
-        runner._remote_memory = None
-        t0 = time.time()
-        runner.make_remote_memory().restore(remote_memory.backup())
-        logger.info(f"recv remote_memory time: {time.time() - t0:.1f}s, len {runner.remote_memory.length()}")
 
     # callbacks
     [c.on_end(runner) for c in _callbacks]

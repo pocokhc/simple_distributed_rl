@@ -1,15 +1,18 @@
 import ctypes
 import logging
 import multiprocessing as mp
-import pprint
+import threading
 import time
+import traceback
 from multiprocessing.managers import BaseManager
-from typing import Any, List, Type, cast
+from queue import Queue
+from typing import Any, List, cast
 
-from srl.base.rl.base import RLParameter, RLRemoteMemory
-from srl.base.rl.registration import make_remote_memory
+import srl
+from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter, RLTrainer
+from srl.base.run.data import RunNameTypes, RunState
 from srl.runner.callback import Callback, MPCallback, TrainerCallback
-from srl.runner.runner import Config, Context, Runner
+from srl.runner.runner import RunnerMPData
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,7 @@ RuntimeError:
 # --------------------
 # board
 # --------------------
-class Board:
+class _Board:
     def __init__(self):
         self.params = None
         self.update_count = 0
@@ -53,26 +56,37 @@ class Board:
 # --------------------
 # actor
 # --------------------
+class _RLMemory(IRLMemoryWorker):
+    def __init__(self, memory_queue: Queue):
+        self.queue = memory_queue
+
+    def add(self, *args) -> None:
+        self.queue.put(args)
+
+    def length(self) -> int:
+        return -1
+
+
 class _ActorInterrupt(Callback):
     def __init__(
         self,
-        remote_board: Board,
+        remote_board: _Board,
         parameter: RLParameter,
         train_end_signal: ctypes.c_bool,
-        config: Config,
+        actor_parameter_sync_interval_by_step: int,
     ) -> None:
         self.remote_board = remote_board
         self.parameter = parameter
         self.train_end_signal = train_end_signal
-        self.actor_parameter_sync_interval_by_step = config.actor_parameter_sync_interval_by_step
+        self.actor_parameter_sync_interval_by_step = actor_parameter_sync_interval_by_step
 
         self.step = 0
         self.prev_update_count = 0
 
-    def on_episodes_begin(self, runner: Runner):
+    def on_episodes_begin(self, runner: srl.Runner):
         runner.state.sync_actor = 0
 
-    def on_step_end(self, runner: Runner):
+    def on_step_end(self, runner: srl.Runner):
         self.step += 1
         if self.step % self.actor_parameter_sync_interval_by_step != 0:
             return
@@ -86,30 +100,36 @@ class _ActorInterrupt(Callback):
         self.parameter.restore(params)
         runner.state.sync_actor += 1
 
-    def intermediate_stop(self, runner: Runner) -> bool:
+    def intermediate_stop(self, runner: srl.Runner) -> bool:
         return self.train_end_signal.value
 
 
-def __run_actor(
-    config: Config,
-    context: Context,
-    remote_memory: RLRemoteMemory,
-    remote_board: Board,
+def _run_actor(
+    mp_data: RunnerMPData,
+    memory_queue: Queue,
+    remote_board: _Board,
     actor_id: int,
     train_end_signal: ctypes.c_bool,
 ):
     try:
-        context.run_name = f"actor{actor_id}"
-        context.actor_id = actor_id
-        runner = Runner(config.env_config, config.rl_config)
-        runner.config = config
-        runner.context = context
         logger.info(f"actor{actor_id} start.")
+        context = mp_data.context
+        context.run_name = RunNameTypes.actor
+        context.actor_id = actor_id
 
         # --- set_config_by_actor
-        runner.config.rl_config.set_config_by_actor(
-            runner.config.actor_num,
-            runner.context.actor_id,
+        mp_data.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
+
+        # --- memory
+        memory = cast(RLMemory, _RLMemory(memory_queue))
+
+        # --- runner
+        runner = srl.Runner(
+            mp_data.env_config,
+            mp_data.rl_config,
+            mp_data.config,
+            context,
+            memory=memory,
         )
 
         # --- parameter
@@ -118,104 +138,131 @@ def __run_actor(
         if params is not None:
             parameter.restore(params)
 
-        # --- callbacks
+        # --- callback
         runner.context.callbacks.append(
             _ActorInterrupt(
                 remote_board,
                 parameter,
                 train_end_signal,
-                config,
+                context.actor_parameter_sync_interval_by_step,
             )
         )
-
-        # --- train
-        context.train_only = False
-        context.disable_trainer = True
-        context.training = True
-        runner._play(parameter, remote_memory)
+        runner.context.training = True
+        runner.context.disable_trainer = True
+        runner.core_play(trainer_only=False)
 
     finally:
         train_end_signal.value = True
-        logger.info(f"actor{context.actor_id} end")
+        logger.info(f"actor{actor_id} end")
 
 
 # --------------------
 # trainer
 # --------------------
-class _TrainerInterrupt(TrainerCallback):
+class _RLTrainer(RLTrainer):
     def __init__(
         self,
-        remote_board: Board,
+        base_trainer: RLTrainer,
         parameter: RLParameter,
-        train_end_signal: ctypes.c_bool,
-        config: Config,
-    ) -> None:
-        self.remote_board = remote_board
+        remote_board: _Board,
+        trainer_parameter_send_interval_by_train_count: int,
+    ):
+        super().__init__(base_trainer.config, base_trainer.parameter, base_trainer.memory)
+        self.base_trainer = base_trainer
         self.parameter = parameter
-        self.train_end_signal = train_end_signal
-        self.trainer_parameter_send_interval_by_train_count = config.trainer_parameter_send_interval_by_train_count
+        self.remote_board = remote_board
+        self.trainer_parameter_send_interval_by_train_count = trainer_parameter_send_interval_by_train_count
+        self.sync_count = 0
+        self.count_for_sync = 0
 
-    def on_trainer_start(self, runner: Runner):
-        runner.state.sync_trainer = 0
-
-    def on_trainer_train(self, runner: Runner):
-        train_count = runner.state.trainer.get_train_count()  # type:ignore , trainer is not None
-
-        if train_count == 0:
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
             time.sleep(1)
             return
+        memory_sample_return = self.memory.sample(self.base_trainer.batch_size, self.train_count)
+        _prev_train_count = self.base_trainer.train_count
+        self.base_trainer.train_on_batchs(memory_sample_return)
+        self.count_for_sync += self.base_trainer.train_count - _prev_train_count
 
-        if train_count % self.trainer_parameter_send_interval_by_train_count == 0:
+        # --- sync parameter
+        if self.count_for_sync > self.trainer_parameter_send_interval_by_train_count:
+            self.count_for_sync = 0
             self.remote_board.write(self.parameter.backup())
-            runner.state.sync_trainer += 1
+            self.sync_count += 1
 
-    def intermediate_stop(self, runner: Runner) -> bool:
+        # --- infos
+        self.train_count = self.base_trainer.train_count
+        self.train_info = self.base_trainer.train_info
+
+    def train_on_batchs(self, memory_sample_return) -> None:
+        raise NotImplementedError("not used")
+
+
+class _TrainerInterrupt(TrainerCallback):
+    def __init__(self, train_end_signal: ctypes.c_bool, trainer: _RLTrainer) -> None:
+        self.train_end_signal = train_end_signal
+        self.trainer = trainer
+
+    def on_trainer_train_end(self, runner: srl.Runner) -> None:
+        runner.state.sync_trainer = self.trainer.sync_count
+
+    def intermediate_stop(self, runner: srl.Runner) -> bool:
         return self.train_end_signal.value
 
 
-def __run_trainer(
-    config: Config,
-    context: Context,
-    remote_memory: RLRemoteMemory,
-    remote_board: Board,
+def _memory_mp(memory: RLMemory, memory_queue: Queue, exit_event: threading.Event):
+    try:
+        while not exit_event.is_set():
+            # --- add memory
+            batch = memory_queue.get()
+            memory.add(*batch)
+    except Exception:
+        logger.warning(traceback.format_exc())
+
+
+def _run_trainer(
+    mp_data: RunnerMPData,
+    parameter: RLParameter,
+    memory: RLMemory,
+    memory_queue: Queue,
+    remote_board: _Board,
     train_end_signal: ctypes.c_bool,
 ):
-    parameter = None
-    try:
-        context.run_name = "trainer"
-        runner = Runner(config.env_config, config.rl_config)
-        runner.config = config
-        runner.context = context
-        logger.info("trainer start.")
+    logger.info("trainer start.")
 
-        # --- parameter
-        parameter = runner.make_parameter(is_load=False)
-        params = remote_board.read()
-        if params is not None:
-            parameter.restore(params)
+    # --- runner
+    runner = srl.Runner(
+        mp_data.env_config,
+        mp_data.rl_config,
+        mp_data.config,
+        mp_data.context,
+        parameter,
+        memory,
+    )
 
-        # --- callbacks
-        runner.context.callbacks.append(
-            _TrainerInterrupt(
-                remote_board,
-                parameter,
-                train_end_signal,
-                config,
-            )
-        )
+    # --- trainer
+    trainer = _RLTrainer(
+        runner.make_trainer(),
+        parameter,
+        remote_board,
+        mp_data.context.trainer_parameter_send_interval_by_train_count,
+    )
 
-        # --- train
-        context.train_only = True
-        context.disable_trainer = False
-        context.training = True
-        runner._play(parameter, remote_memory)
+    # --- memory
+    exit_event = threading.Event()
+    memory_ps = threading.Thread(target=_memory_mp, args=(memory, memory_queue, exit_event))
+    memory_ps.start()
 
-    finally:
-        train_end_signal.value = True
-        if parameter is not None:
-            t0 = time.time()
-            remote_board.write(parameter.backup())
-            logger.info(f"trainer end.(send parameter time: {time.time() - t0:.1f}s)")
+    # --- train
+    print(runner.context.callbacks)
+    runner.context.callbacks.insert(0, _TrainerInterrupt(train_end_signal, trainer))
+    runner.context.training = True
+    runner.core_play(trainer=trainer, trainer_only=True)
+    train_end_signal.value = True
+
+    # thread end
+    exit_event.set()
+    memory_ps.join(timeout=10)
 
 
 # ----------------------------
@@ -228,24 +275,8 @@ class MPManager(BaseManager):
 __is_set_start_method = False
 
 
-def train(
-    runner: Runner,
-    save_remote_memory: str,
-    return_remote_memory: bool,
-):
+def train(runner: srl.Runner):
     global __is_set_start_method
-
-    logger.info(f"Config\n{pprint.pformat(runner.config.to_dict())}")
-    logger.info(f"Context\n{pprint.pformat(runner.context.to_dict())}")
-
-    remote_memory_class = cast(
-        Type[RLRemoteMemory],
-        make_remote_memory(
-            runner.rl_config,
-            runner.make_env(),
-            return_class=True,
-        ),
-    )
 
     # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような
     # if is_env_notebook() and "__main__" in str(remote_memory_class):
@@ -274,96 +305,61 @@ def train(
             mp.set_start_method("spawn", force=True)
             __is_set_start_method = True
 
-    MPManager.register("RemoteMemory", remote_memory_class)
-    MPManager.register("Board", Board)
+    MPManager.register("Queue", Queue)
+    MPManager.register("Board", _Board)
 
     logger.info("MPManager start")
     with MPManager() as manager:
-        _train(runner, manager, save_remote_memory, return_remote_memory)
+        _train(runner, manager)
     logger.info("MPManager end")
 
 
-def _train(
-    runner: Runner,
-    manager: Any,
-    save_remote_memory: str,
-    return_remote_memory: bool,
-):
-    config = runner.config
-    context = runner.context
+def _train(runner: srl.Runner, manager: Any):
+    mp_data = runner.create_mp_data()
 
     # callbacks
-    _callbacks = cast(List[MPCallback], [c for c in context.callbacks if issubclass(c.__class__, MPCallback)])
+    _callbacks = cast(List[MPCallback], [c for c in mp_data.context.callbacks if issubclass(c.__class__, MPCallback)])
     [c.on_init(runner) for c in _callbacks]
 
     # --- share values
     train_end_signal = cast(ctypes.c_bool, mp.Value(ctypes.c_bool, False))
-    remote_memory: RLRemoteMemory = manager.RemoteMemory(config.rl_config)
-    remote_board: Board = manager.Board()
+    memory_queue: Queue = manager.Queue()
+    remote_board: _Board = manager.Board()
 
     # --- init remote_memory/parameter
-    remote_memory.restore(runner.make_remote_memory().backup())
-    remote_board.write(runner.make_parameter().backup())
+    parameter = runner.make_parameter()
+    memory = runner.make_memory()
+    remote_board.write(parameter.backup())
 
     # --- actor
     actors_ps_list: List[mp.Process] = []
-    for actor_id in range(config.actor_num):
+    for actor_id in range(mp_data.context.actor_num):
         params = (
-            config,
-            context,
-            remote_memory,
+            mp_data,
+            memory_queue,
             remote_board,
             actor_id,
             train_end_signal,
         )
-        ps = mp.Process(target=__run_actor, args=params)
+        ps = mp.Process(target=_run_actor, args=params)
         actors_ps_list.append(ps)
-
-    # --- trainer
-    if context.disable_trainer:
-        trainer_ps = None
-    else:
-        params = (
-            config,
-            context,
-            remote_memory,
-            remote_board,
-            train_end_signal,
-        )
-        trainer_ps = mp.Process(target=__run_trainer, args=params)
 
     # --- start
     logger.debug("process start")
     [p.start() for p in actors_ps_list]
-    if trainer_ps is not None:
-        trainer_ps.start()
 
     # callbacks
     [c.on_start(runner) for c in _callbacks]
 
-    # --- wait loop
-    t0 = time.time()
-    while True:
-        time.sleep(1)  # polling time
-
-        # プロセスが落ちたら終了
-        if trainer_ps is not None:
-            if not trainer_ps.is_alive():
-                train_end_signal.value = True
-                logger.info("train end(trainer process dead)")
-                break
-        for i, w in enumerate(actors_ps_list):
-            if not w.is_alive():
-                train_end_signal.value = True
-                logger.info(f"train end(actor {i} process dead)")
-                break
-
-        # callbacks
-        [c.on_polling(runner) for c in _callbacks]
-
-        if train_end_signal.value:
-            break
-    logger.info(f"loop end.(run time: {(time.time() - t0)/60:.2f}m)")
+    # train
+    _run_trainer(
+        mp_data,
+        parameter,
+        memory,
+        memory_queue,
+        remote_board,
+        train_end_signal,
+    )
 
     # --- プロセスの終了を待つ
     for w in actors_ps_list:
@@ -374,39 +370,12 @@ def _train(
                 break
         else:
             w.terminate()
-    if trainer_ps is not None:
-        for _ in range(60 * 10):
-            if trainer_ps.is_alive():
-                time.sleep(1)
-            else:
-                break
-        else:
-            trainer_ps.terminate()
 
     # 子プロセスが正常終了していなければ例外を出す
     # exitcode: 0 正常, 1 例外, 負 シグナル
-    if trainer_ps is not None and trainer_ps.exitcode != 0:
-        raise RuntimeError(f"An exception has occurred in trainer process.(exitcode: {trainer_ps.exitcode})")
     for i, w in enumerate(actors_ps_list):
         if w.exitcode != 0 and w.exitcode is not None:
             raise RuntimeError(f"An exception has occurred in actor {i} process.(exitcode: {w.exitcode})")
-
-    # --- last parameter
-    t0 = time.time()
-    params = remote_board.read()
-    if params is not None:
-        runner._parameter = None
-        runner.make_parameter().restore(params)
-    logger.info(f"recv parameter time: {time.time() - t0:.1f}s")
-
-    # --- last memory
-    if save_remote_memory != "":
-        remote_memory.save(save_remote_memory, compress=True)
-    if return_remote_memory:
-        runner._remote_memory = None
-        t0 = time.time()
-        runner.make_remote_memory().restore(remote_memory.backup())
-        logger.info(f"recv remote_memory time: {time.time() - t0:.1f}s, len {runner.remote_memory.length()}")
 
     # callbacks
     [c.on_end(runner) for c in _callbacks]

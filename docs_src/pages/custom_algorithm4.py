@@ -9,7 +9,7 @@ from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
-from srl.rl.memories.sequence_memory import SequenceRemoteMemory
+from srl.rl.memories.sequence_memory import SequenceMemory
 
 
 @dataclass
@@ -34,7 +34,7 @@ class Config(RLConfig):
         return "MyRL"
 
 
-class RemoteMemory(SequenceRemoteMemory):
+class Memory(SequenceMemory):
     pass
 
 
@@ -63,16 +63,10 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
-        self.train_count = 0
+    def train_on_batchs(self, memory_sample_return) -> None:
+        batchs = memory_sample_return
 
-    def get_train_count(self):
-        return self.train_count
-
-    def train(self):
-        # memoryから経験を取得する
-        batchs = self.remote_memory.sample()
         td_error = 0
         for batch in batchs:
             # 各batch毎にQテーブルを更新する
@@ -94,13 +88,13 @@ class Trainer(RLTrainer):
             q[action] += self.config.lr * td_error
 
             td_error += td_error
-            self.train_count += 1
+            self.train_count += 1  # 学習回数
 
         if len(batchs) > 0:
             td_error /= len(batchs)
 
-        # 学習結果の情報を返す(任意)
-        return {
+        # 学習結果(任意)
+        self.train_info = {
             "Q": len(self.parameter.Q),
             "td_error": td_error,
         }
@@ -111,7 +105,6 @@ class Worker(DiscreteActionWorker):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
-        self.remote_memory: RemoteMemory = self.remote_memory
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: list[int]) -> dict:
         return {}
@@ -154,11 +147,11 @@ class Worker(DiscreteActionWorker):
             "reward": reward,
             "done": done,
         }
-        self.remote_memory.add(batch)
+        self.memory.add(batch)  # memoryはaddのみ
         return {}
 
     # 強化学習の可視化用、今回ですとQテーブルを表示しています。
-    def render_terminal(self, env, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         q = self.parameter.get_action_values(self.state)
         maxa = np.argmax(q)
         for a in range(self.config.action_num):
@@ -166,7 +159,7 @@ class Worker(DiscreteActionWorker):
                 s = "*"
             else:
                 s = " "
-            s += f"{env.action_to_str(a)}: {q[a]:7.5f}"
+            s += f"{worker.env.action_to_str(a)}: {q[a]:7.5f}"
             print(s)
 
 
@@ -175,7 +168,7 @@ class Worker(DiscreteActionWorker):
 # ---------------------------------
 register(
     Config(),
-    __name__ + ":RemoteMemory",
+    __name__ + ":Memory",
     __name__ + ":Parameter",
     __name__ + ":Trainer",
     __name__ + ":Worker",
@@ -207,4 +200,4 @@ print("100エピソードの平均結果", np.mean(rewards))
 
 runner.render_terminal()
 
-runner.animation_save_gif("MyRL-Grid.gif", render_scale=2)
+runner.animation_save_gif("_MyRL-Grid.gif", render_scale=2)

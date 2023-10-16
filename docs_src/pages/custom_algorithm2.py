@@ -35,5 +35,5 @@ memory.add(1)
 memory.add(2)
 memory.add(3)
 memory.add(4)
-dat = memory.sample(2)
+dat = memory.sample(batch_size=2, step=0)
 print(dat)  # [3, 2]

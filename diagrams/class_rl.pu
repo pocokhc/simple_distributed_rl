@@ -7,10 +7,8 @@ enum RLTypes {
 }
 
 
-class EnvRun {}
-
-
 class WorkerRun {
+    env : EnvRun
     on_reset(env)
     policy() : action
     on_step()
@@ -18,8 +16,6 @@ class WorkerRun {
     state_encode(env_state) : rl_state
     action_encode(env_action) : rl_action
 }
-WorkerRun - EnvRun
-
 note "Keeps run-time state.\nAbsorbs the difference with the environment." as WorkerRunMemo
 WorkerRun . WorkerRunMemo
 
@@ -27,7 +23,7 @@ WorkerRun . WorkerRunMemo
 abstract WorkerBase {
     config : RLConfig
     parameter : RLParameter
-    remote_memory : RLRemoteMemory
+    memory : <color red>IRLMemoryWorker</color>
     on_reset(worker_run, env_run)
     policy()
     on_step()
@@ -44,6 +40,7 @@ abstract RLWorker {
 }
 RLWorker -- WorkerBase
 
+
 note as RLWorkerMemo
 Arguments modified by implementation algorithm
 - DiscreteActionWorker
@@ -56,16 +53,30 @@ RLWorker <|- RLWorkerMemo
 abstract RLTrainer {
     config : RLConfig
     parameter : RLParameter
-    remote_memory : RLRemoteMemory
+    memory : <color red>IRLMemoryTrainer</color>
     train()
-    get_train_count() : int
+    train_on_batchs()
 }
+note as RLTrainerMemo
+Use memory only for train,
+implement train_on_batchs for other processes
+end note
+RLTrainer <|-- RLTrainerMemo
 
-abstract RLRemoteMemory {
+
+abstract RLMemory {
     config : RLConfig
+    .. <color red>IRLMemoryWorker</color> ..
+    add()
+    .. <color red>IRLMemoryTrainer</color> ..
+    is_warmup_needed()
+    sample()
+    update()
+    .. other ..
     backup()
     restore()
 }
+
 
 abstract RLParameter {
     config : RLConfig
@@ -74,22 +85,25 @@ abstract RLParameter {
     backup()
 }
 
+
 abstract RLConfig {
     getName() : str
-    action_type : RLTypes
-    observation_type : RLTypes
+    get_use_framework() : str
+    base_action_type : RLTypes
+    base_observation_type : RLTypes
 }
+
 
 RLTypes .. RLConfig
 
 RLConfig --- WorkerBase
 RLConfig --- RLTrainer
 RLConfig -- RLParameter
-RLConfig -- RLRemoteMemory
+RLConfig -- RLMemory
 
 RLParameter -- WorkerBase
 RLParameter -- RLTrainer
-RLRemoteMemory -- WorkerBase
-RLRemoteMemory -- RLTrainer
+RLMemory -- WorkerBase
+RLMemory -- RLTrainer
 
 @enduml

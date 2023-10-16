@@ -3,7 +3,7 @@
 
 # Simple Distributed Reinforcement Learning (シンプルな分散強化学習)
 
-シンプルな分散強化学習フレームワークを目指して作成しました。  
+シンプルな分散強化学習フレームワークを目指して作成しています。  
 どちらかというと学習用フレームワークに近いかもしれません。  
 以下の特徴があります。  
 
@@ -14,10 +14,10 @@
 + 有名な強化学習アルゴリズムの提供
 + （新しいアルゴリズムへの対応）
 
-また本フレームワークの解説は[Qiita記事](https://qiita.com/pocokhc/items/a2f1ba993c79fdbd4b4d)にして記載しています。
-アルゴリズムの解説等をしているのでハイパーパラメータの設定等に迷ったりしたら見てみてください。
+本フレームワークに関するドキュメントは以下です。
 
-その他ドキュメントはこちらです： <https://pocokhc.github.io/simple_distributed_rl/>
+・ドキュメント：<https://pocokhc.github.io/simple_distributed_rl/>
+・Qiita記事（アルゴリズムに関する解説）：<https://qiita.com/pocokhc/items/a2f1ba993c79fdbd4b4d>
 
 # 1. Install/Download
 
@@ -31,8 +31,6 @@ pip install numpy
 本フレームワークはGitHubからインストールまたはダウンロードをして使うことができます。
 
 ## Install
-
-インストールするコマンド例は以下です。
 
 ``` bash
 pip install git+https://github.com/pocokhc/simple_distributed_rl
@@ -56,11 +54,11 @@ git clone https://github.com/pocokhc/simple_distributed_rl.git
 ```
 
 ``` python
-# srl までのパスを通してimportする例
+# Example import srl
 import os
 import sys
 
-assert os.path.isdir("./simple_distributed_rl/srl/")  # srlがここにある想定です
+assert os.path.isdir("./simple_distributed_rl/srl/")  # Location of srl
 sys.path.insert(0, "./simple_distributed_rl/")
 
 import srl
@@ -69,31 +67,33 @@ print(srl.__version__)
 
 ## Option library
 
-その他、機能によっては以下ライブラリが必要になります。
+使う機能によって以下ライブラリが必要になります。
 
-+ Tensorflow が必要なアルゴリズムを使う場合に必要
++ Tensorflow が必要なアルゴリズムを使う場合
   + tensorflow
   + tensorflow-probability
-+ Torch が必要なアルゴリズムを使う場合に必要
++ Torch が必要なアルゴリズムを使う場合
   + <https://pytorch.org/get-started/locally/>
-+ RGBの描画関係を使用する場合に必要
++ 主にRGBの描画関係を使用する場合
   + pillow
   + opencv-python
   + pygame
-+ 統計情報を扱う場合に必要
++ 主にhistoryによる統計情報を扱う場合
   + pandas
   + matplotlib
-+ OpenAI Gym の環境を使う場合に必要
++ OpenAI Gym の環境を使う場合
   + gym or gymnasium
   + pygame
-+ Profile情報を表示する場合に必要
++ ハードウェアの統計情報を表示する場合
   + psutil
   + pynvml
++ RabbitMQによる分散学習を使う場合
+  + pika
 
 Tensorflow,Torchを除いたライブラリを一括でインストールするコマンドは以下です。
 
 ``` bash
-pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml
+pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml pika
 ```
 
 # 2. Usage
@@ -118,7 +118,8 @@ def main():
 
     # --- animation sample
     #  (Run "pip install opencv-python pillow matplotlib pygame" to use the animation)
-    runner.animation_save_gif("Grid.gif")
+    runner.render_window()
+    # runner.animation_save_gif("Grid.gif")  # save image
 
 
 if __name__ == "__main__":
@@ -128,9 +129,17 @@ if __name__ == "__main__":
 
 ![Grid.gif](Grid.gif)
 
-その他、よくある使い方は以下ドキュメントを見てください。
+その他の使い方は以下ドキュメントを見てください。
 
 + [SimpleDistributedRL Getting Started](https://pocokhc.github.io/simple_distributed_rl/pages/quickstart.html)
+
+
+## Distributed Learning (Multiple PCs)
+
+ネットワーク経由での分散学習は以下のドキュメントを参照してください。
+
++ [Distributed Learning (Multiple PCs)]()
+
 
 # 3. Framework Overview
 
@@ -142,7 +151,25 @@ if __name__ == "__main__":
 
 ![overview-distributed.drawio.png](diagrams/overview-distributed.drawio.png)
 
-+ Simplified pseudo code
++ Simplified pseudo code(train)
+
+``` python
+# Initializing phase
+env.reset()
+worker.on_reset()
+
+# 1 episode loop
+while not env.done:
+    action = worker.policy()  # parameter reference
+    env.step(action)
+    worker.on_step()
+
+    # Train phase
+    baths = memory.sample()
+    trainer.train(baths)  # parameter update
+```
+
++ Simplified pseudo code(not train)
 
 ``` python
 # Initializing phase
@@ -152,7 +179,7 @@ env.render()
 
 # 1 episode loop
 while not env.done:
-    action = worker.policy()
+    action = worker.policy()  # parameter reference
     worker.render()
     env.step(action)
     worker.on_step()
@@ -212,12 +239,13 @@ while not env.done:
 |PlaNet     |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%|
 |Dreamer    |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%|
 |DreamerV2  |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%|
+|DreamerV3  |Continuous |Discrete   |Tensorflow,tensorflow-probability|0%|
 
 ## Offline
 
 |Algorithm  |Observation|Action     |Framework|ProgressRate|
 |-----------|-----------|-----------|----------|----|
-|CQL        |Discrete   |Discrete   ||  0%|
+|CQL        |Discrete   |Discrete   |          |  0%|
 
 ## その他(Original)
 
@@ -231,32 +259,22 @@ while not env.done:
 
 オリジナル環境とアルゴリズムの作成に関しては以下ドキュメントを参考にしてください。
 
-+ [Create Original Environment](https://pocokhc.github.io/simple_distributed_rl/pages/custom_env.html)
-+ [Create Original Algorithm](https://pocokhc.github.io/simple_distributed_rl/pages/custom_algorithm.html)
++ [Make Original Environment](https://pocokhc.github.io/simple_distributed_rl/pages/custom_env.html)
++ [Make Original Algorithm](https://pocokhc.github.io/simple_distributed_rl/pages/custom_algorithm.html)
 
 # 6. Detailed framework information
-
-## Multiplay flow
-
-![overview-multiplay.drawio.png](diagrams/overview-multiplay.drawio.png)
 
 ## Play flow
 
 ![playflow.png](diagrams/playflow.png)
 
+## Multiplay flow
+
+![overview-multiplay.drawio.png](diagrams/overview-multiplay.drawio.png)
+
 ## Distribute flow
 
-+ **main**
-
-![runner_mp_flow.png](diagrams/runner_mp_flow.png)
-
-+ **Trainer**
-
-![runner_mp_flow_trainer.png](diagrams/runner_mp_flow_trainer.png)
-
-+ **Workers**
-
-![runner_mp_flow_worker.png](diagrams/runner_mp_flow_worker.png)
+![runner_distributed_flow.png](diagrams/runner_distributed_flow.png)
 
 ## Class diagram
 

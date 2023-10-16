@@ -10,6 +10,7 @@ Welcome to SimpleDistributedRL's documentation!
    pages/install
    pages/quickstart
    pages/howtouse
+   pages/distributed
 
 .. toctree::
    :maxdepth: 2

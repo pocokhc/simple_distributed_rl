@@ -1,7 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, List, Union
 
 import numpy as np
 
@@ -150,7 +150,10 @@ class Rendering(Callback):
             # rlへの入力画像
             if EnvObservationTypes.is_image(worker.config.env_observation_type):
                 # COLOR画像に変換
-                _img = worker.state.copy()
+                if worker.config.window_length > 1:
+                    _img = worker._recent_states[-1].copy()
+                else:
+                    _img = worker.state.copy()
                 if _img.max() <= 1:
                     _img *= 255
                 if worker.config.env_observation_type == EnvObservationTypes.GRAY_2ch:
@@ -198,7 +201,7 @@ class Rendering(Callback):
             rl_w = maxw - rl_image.shape[1]
             info_image = cv2.copyMakeBorder(info_image, 0, 0, 0, info_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
             rl_image = cv2.copyMakeBorder(rl_image, 0, 0, 0, rl_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
-            right_img = cv2.vconcat([info_image, rl_image])  # 縦連結  # type: ignore , MAT
+            right_img = cv2.vconcat([info_image, rl_image])  # 縦連結
             right_maxh = self.info_maxh + self.rl_maxh + padding * 4
 
         # --- env + rl_state:
@@ -206,14 +209,38 @@ class Rendering(Callback):
             left_img = env_image
             left_maxh = self.env_maxh + padding * 2
         else:
+            # worker input image
             maxw = max(self.env_maxw + padding * 2, self.rl_state_maxw + padding * 2)
             env_w = maxw - env_image.shape[1]
             rl_state_w = maxw - rl_state_image.shape[1]
-            env_image = cv2.copyMakeBorder(env_image, 0, 0, 0, env_w, cv2.BORDER_CONSTANT, value=(255, 255, 255))
+            env_image = cv2.copyMakeBorder(env_image, 0, 0, 0, env_w, cv2.BORDER_CONSTANT, value=(0, 0, 0))
             rl_state_image = cv2.copyMakeBorder(
-                rl_state_image, 0, 0, 0, rl_state_w, cv2.BORDER_CONSTANT, value=(255, 255, 255)
+                rl_state_image, 0, 0, 0, rl_state_w, cv2.BORDER_CONSTANT, value=(0, 0, 0)
             )
-            left_img = cv2.vconcat([env_image, rl_state_image])  # 縦連結  # type: ignore , MAT
+            text = "RL"
+            org = (0, 12)
+            fontFace = cv2.FONT_HERSHEY_SIMPLEX
+            fontScale = 0.5
+            rl_state_image = cv2.putText(
+                rl_state_image,
+                text,
+                org,
+                fontFace,
+                fontScale,
+                color=(0, 0, 0),
+                thickness=3,
+            )
+            rl_state_image = cv2.putText(
+                rl_state_image,
+                text,
+                org,
+                fontFace,
+                fontScale,
+                color=(255, 255, 255),
+                thickness=1,
+            )
+
+            left_img = cv2.vconcat([env_image, rl_state_image])  # 縦連結
             left_maxh = self.env_maxh + self.rl_state_maxh + padding * 4
 
         # --- left_img + right_img: 余白は下を埋める
@@ -228,6 +255,36 @@ class Rendering(Callback):
 
     # -----------------------------------------------
 
+    def create_images(self, draw_info: bool = True) -> List[np.ndarray]:
+        import cv2
+
+        assert len(self.frames) > 0
+        t0 = time.time()
+
+        # 最大サイズを探す
+        maxw = 0
+        maxh = 0
+        images: List[np.ndarray] = []
+        for f in self.frames:
+            if draw_info:
+                img = self._create_image(f)
+            else:
+                img = f["env_image"]
+            if img is None:
+                continue
+            images.append(img)
+            maxw = max(maxw, img.shape[1])
+            maxh = max(maxh, img.shape[0])
+
+        # サイズを合わせる
+        for i in range(len(images)):
+            right = maxw - images[i].shape[1]
+            bottom = maxh - images[i].shape[0]
+            images[i] = cv2.copyMakeBorder(images[i], 0, bottom, 0, right, cv2.BORDER_REPLICATE)
+
+        logger.info(f"image created(frames: {len(self.frames)}, create time {time.time() - t0:.1f}s)")
+        return images
+
     def create_anime(
         self,
         interval: float = -1,  # ms
@@ -239,21 +296,11 @@ class Rendering(Callback):
         import matplotlib.pyplot as plt
         from matplotlib.animation import ArtistAnimation
 
-        t0 = time.time()
+        images = self.create_images(draw_info)
+        maxw = images[0].shape[1]
+        maxh = images[0].shape[0]
 
-        maxw = 0
-        maxh = 0
-        images = []
-        for f in self.frames:
-            if draw_info:
-                img = self._create_image(f)
-            else:
-                img = f["env_image"]
-            if img is None:
-                continue
-            images.append(img)
-            maxw = max(maxw, img.shape[1])
-            maxh = max(maxh, img.shape[0])
+        t0 = time.time()
 
         # --- interval
         if interval <= 0:
@@ -276,10 +323,30 @@ class Rendering(Callback):
         anime = ArtistAnimation(fig, images, interval=interval, repeat=False)
         # plt.close(fig)  # notebook で画像が残るので出来ればcloseしたいけど、closeするとgym側でバグる
 
-        logger.info(
-            f"animation created(frames: {len(self.frames)}, interval: {interval:.1f}ms, time {time.time() - t0:.1f}s)"
-        )
+        logger.info(f"animation created(interval: {interval:.1f}ms, create time {time.time() - t0:.1f}s)")
         return anime
+
+    def save_gif(
+        self,
+        path: str,
+        interval: float = -1,  # ms
+        draw_info: bool = True,
+    ):
+        from PIL import Image
+
+        t0 = time.time()
+
+        # --- interval
+        if interval <= 0:
+            interval = self.render_interval
+        if interval <= 0:
+            interval = 1000 / 60
+
+        images = self.create_images(draw_info)
+        image = [Image.fromarray(img_array) for img_array in images]
+
+        image[0].save(path, save_all=True, append_images=image[1:], optimize=False, duration=interval, loop=0)
+        logger.info(f"save gif(interval: {interval:.1f}ms, save time {time.time() - t0:.1f}s) {path}")
 
     def display(
         self,

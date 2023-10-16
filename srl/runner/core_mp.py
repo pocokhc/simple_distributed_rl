@@ -1,15 +1,15 @@
 import ctypes
 import logging
 import multiprocessing as mp
+import queue
 import threading
 import time
 import traceback
 from multiprocessing.managers import BaseManager
-from queue import Queue
 from typing import Any, List, cast
 
 import srl
-from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter, RLTrainer
+from srl.base.rl.base import IRLMemoryTrainer, IRLMemoryWorker, RLMemory, RLParameter, RLTrainer
 from srl.base.run.data import RunNameTypes
 from srl.runner.callback import Callback, MPCallback, TrainerCallback
 from srl.runner.runner import RunnerMPData
@@ -56,8 +56,8 @@ class _Board:
 # --------------------
 # actor
 # --------------------
-class _RLMemory(IRLMemoryWorker):
-    def __init__(self, memory_queue: Queue):
+class _ActorRLMemory(IRLMemoryWorker):
+    def __init__(self, memory_queue: queue.Queue):
         self.queue = memory_queue
 
     def add(self, *args) -> None:
@@ -106,7 +106,7 @@ class _ActorInterrupt(Callback):
 
 def _run_actor(
     mp_data: RunnerMPData,
-    memory_queue: Queue,
+    memory_queue: queue.Queue,
     remote_board: _Board,
     actor_id: int,
     train_end_signal: ctypes.c_bool,
@@ -121,7 +121,7 @@ def _run_actor(
         mp_data.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
 
         # --- memory
-        memory = cast(RLMemory, _RLMemory(memory_queue))
+        memory = cast(RLMemory, _ActorRLMemory(memory_queue))
 
         # --- runner
         runner = srl.Runner(
@@ -210,12 +210,53 @@ class _TrainerInterrupt(TrainerCallback):
         return self.train_end_signal.value
 
 
-def _memory_mp(memory: RLMemory, memory_queue: Queue, exit_event: threading.Event):
+class _TrainerRLMemory(IRLMemoryTrainer):
+    def __init__(self, base_memory: RLMemory):
+        self.base_memory = base_memory
+        self.q_batch = queue.Queue()
+        self.q_update = queue.Queue()
+        self.trainer: RLTrainer
+
+    def add(self, *args) -> None:
+        self.base_memory.add(*args)
+
+    def loop_update(self):
+        if not self.base_memory.is_warmup_needed():
+            if self.q_batch.qsize() < 5:
+                self.q_batch.put(self.base_memory.sample(self.trainer.batch_size, self.trainer.train_count))
+        if not self.q_update.empty():
+            self.base_memory.update(self.q_update.get())
+
+    def length(self) -> int:
+        return self.base_memory.length()
+
+    def is_warmup_needed(self) -> bool:
+        return self.q_batch.empty()
+
+    def sample(self, batch_size: int, step: int) -> Any:
+        return self.q_batch.get()
+
+    def update(self, memory_update_args: Any) -> None:
+        self.q_update.put(memory_update_args)
+
+
+def _memory_mp(
+    memory: _TrainerRLMemory,
+    memory_queue: queue.Queue,
+    exit_event: threading.Event,
+    enable_prepare_batch: bool,
+):
     try:
         while not exit_event.is_set():
             # --- add memory
-            batch = memory_queue.get()
-            memory.add(*batch)
+            try:
+                batch = memory_queue.get(timeout=1)
+                memory.add(*batch)
+            except queue.Empty:
+                time.sleep(1)
+            if enable_prepare_batch:
+                memory.loop_update()
+
     except Exception:
         logger.warning(traceback.format_exc())
 
@@ -224,11 +265,15 @@ def _run_trainer(
     mp_data: RunnerMPData,
     parameter: RLParameter,
     memory: RLMemory,
-    memory_queue: Queue,
+    memory_queue: queue.Queue,
     remote_board: _Board,
     train_end_signal: ctypes.c_bool,
 ):
     logger.info("trainer start.")
+
+    # --- memory
+    if mp_data.context.enable_prepare_batch:
+        memory = cast(RLMemory, _TrainerRLMemory(memory))
 
     # --- runner
     runner = srl.Runner(
@@ -247,10 +292,14 @@ def _run_trainer(
         remote_board,
         mp_data.context.trainer_parameter_send_interval_by_train_count,
     )
+    if mp_data.context.enable_prepare_batch:
+        memory.trainer = trainer  # type: ignore
 
     # --- memory
     exit_event = threading.Event()
-    memory_ps = threading.Thread(target=_memory_mp, args=(memory, memory_queue, exit_event))
+    memory_ps = threading.Thread(
+        target=_memory_mp, args=(memory, memory_queue, exit_event, mp_data.context.enable_prepare_batch)
+    )
     memory_ps.start()
 
     # --- train
@@ -305,7 +354,7 @@ def train(runner: srl.Runner):
             mp.set_start_method("spawn", force=True)
             __is_set_start_method = True
 
-    MPManager.register("Queue", Queue)
+    MPManager.register("Queue", queue.Queue)
     MPManager.register("Board", _Board)
 
     logger.info("MPManager start")
@@ -323,7 +372,7 @@ def _train(runner: srl.Runner, manager: Any):
 
     # --- share values
     train_end_signal = cast(ctypes.c_bool, mp.Value(ctypes.c_bool, False))
-    memory_queue: Queue = manager.Queue()
+    memory_queue: queue.Queue = manager.Queue()
     remote_board: _Board = manager.Board()
 
     # --- init remote_memory/parameter

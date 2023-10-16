@@ -235,7 +235,7 @@ class Trainer(RLTrainer):
 
         self.lr_sch = self.config.lr.create_schedulers()
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
 
         self.n_atoms = self.config.categorical_num_atoms
         self.v_min = self.config.categorical_v_min
@@ -312,11 +312,13 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, self.parameter.Q.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.Q.trainable_variables))
 
-        lr = self.lr_sch.get_rate(self.train_count)
-        self.optimizer.learning_rate = lr
-
         self.train_count += 1
-        self.train_info = {"loss": loss.numpy(), "lr": lr}
+        self.train_info = {"loss": loss.numpy()}
+
+        if self.lr_sch.update(self.train_count):
+            lr = self.lr_sch.get_rate()
+            self.optimizer.learning_rate = lr
+            self.train_info["lr"] = lr
 
 
 # ------------------------------------------------------
@@ -345,7 +347,7 @@ class Worker(DiscreteActionWorker):
         self.invalid_actions = invalid_actions
 
         if self.training:
-            epsilon = self.epsilon_sch.get_rate(self.total_step)
+            epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
         else:
             epsilon = self.config.test_epsilon
 

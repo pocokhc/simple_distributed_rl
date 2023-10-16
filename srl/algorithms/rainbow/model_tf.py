@@ -106,7 +106,7 @@ class Trainer(RLTrainer):
 
         self.lr_sch = self.config.lr.create_schedulers()
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
         self.loss_func = keras.losses.Huber()
 
         self.sync_count = 0
@@ -129,8 +129,8 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
 
-        lr = self.lr_sch.get_rate(self.train_count)
-        self.optimizer.learning_rate = lr
+        if self.lr_sch.update(self.train_count):
+            self.optimizer.learning_rate = self.lr_sch.get_rate()
 
         # --- update
         priorities = np.abs(target_q - q)
@@ -145,5 +145,4 @@ class Trainer(RLTrainer):
         self.train_info = {
             "loss": loss.numpy(),
             "sync": self.sync_count,
-            "lr": lr,
         }

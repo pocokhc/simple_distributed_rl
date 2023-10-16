@@ -310,7 +310,7 @@ class Trainer(RLTrainer):
 
         self.lr_sch = self.config.lr.create_schedulers()
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
 
     def train_on_batchs(self, memory_sample_return) -> None:
         batchs = memory_sample_return
@@ -440,13 +440,14 @@ class Trainer(RLTrainer):
             info["kl_beta"] = self.parameter.adaptive_kl_beta
             # nanになる場合は adaptive_kl_target が小さすぎる可能性あり
 
-        # lr_schedule
-        lr = self.lr_sch.get_rate(self.train_count)
-        self.optimizer.learning_rate = lr
-        info["lr"] = lr
-
         self.train_count += 1
         self.train_info = info
+
+        # lr_schedule
+        if self.lr_sch.update(self.train_count):
+            lr = self.lr_sch.get_rate()
+            self.optimizer.learning_rate = lr
+            self.train_info["lr"] = lr
 
 
 # ------------------------------------------------------

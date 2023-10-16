@@ -291,7 +291,7 @@ class Trainer(RLTrainer):
 
         self.lr_sch = self.config.lr.create_schedulers()
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
 
     def train_on_batchs(self, memory_sample_return) -> None:
         batchs = memory_sample_return
@@ -323,19 +323,20 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, self.parameter.network.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.network.trainable_variables))
 
-        # lr_schedule
-        lr = self.lr_sch.get_rate(self.train_count)
-        self.optimizer.learning_rate = lr
-
-        # 学習したらキャッシュは削除
-        self.parameter.reset_cache()
-
         self.train_count += 1
         self.train_info = {
             "value_loss": np.mean(value_loss.numpy()),
             "policy_loss": np.mean(policy_loss.numpy()),
-            "lr": lr,
         }
+
+        # lr_schedule
+        if self.lr_sch.update(self.train_count):
+            lr = self.lr_sch.get_rate()
+            self.optimizer.learning_rate = lr
+            self.train_info["lr"] = lr
+
+        # 学習したらキャッシュは削除
+        self.parameter.reset_cache()
 
 
 # ------------------------------------------------------

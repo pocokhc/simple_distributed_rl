@@ -131,7 +131,7 @@ class Trainer(RLTrainer):
         batchs = memory_sample_return
 
         td_error = 0
-        lr = self.lr_scheduler.get_rate(self.train_count)
+        lr = self.lr_scheduler.get_and_update_rate(self.train_count)
         for batch in batchs:
             state = batch[0]
             n_state = batch[1]
@@ -173,7 +173,7 @@ class Worker(DiscreteActionWorker):
         self.state = common.to_str_observation(state)
 
         if self.training:
-            epsilon = self.epsilon_scheduler.get_rate(self.total_step)
+            epsilon = self.epsilon_scheduler.get_and_update_rate(self.total_step)
         else:
             epsilon = self.config.test_epsilon
 

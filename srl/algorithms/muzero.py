@@ -468,9 +468,9 @@ class Trainer(RLTrainer):
         self.lr_sch = self.config.lr.create_schedulers()
 
         if compare_less_version(tf.__version__, "2.11.0"):
-            self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
+            self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
         else:
-            self.optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch.get_rate(0))
+            self.optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch.get_rate())
 
     def _cross_entropy_loss(self, y_true, y_pred):
         y_pred = tf.clip_by_value(y_pred, 1e-6, y_pred)  # log(0)回避用
@@ -541,9 +541,19 @@ class Trainer(RLTrainer):
 
         priorities = np.abs(value_loss.numpy())
 
+        self.train_count += 1
+        self.train_info = {
+            "value_loss": np.mean(value_loss),
+            "policy_loss": np.mean(policy_loss),
+            "reward_loss": np.mean(reward_loss),
+            "loss": loss.numpy(),
+        }
+
         # lr_schedule
-        lr = self.lr_sch.get_rate(self.train_count)
-        self.optimizer.learning_rate = lr
+        if self.lr_sch.update(self.train_count):
+            lr = self.lr_sch.get_rate()
+            self.optimizer.learning_rate = lr
+            self.train_info["lr"] = lr
 
         variables = [
             self.parameter.representation_network.trainable_variables,
@@ -564,15 +574,6 @@ class Trainer(RLTrainer):
         q_min, q_max = self.memory.get_q()
         self.parameter.q_min = q_min
         self.parameter.q_max = q_max
-
-        self.train_count += 1
-        self.train_info = {
-            "value_loss": np.mean(value_loss),
-            "policy_loss": np.mean(policy_loss),
-            "reward_loss": np.mean(reward_loss),
-            "loss": loss.numpy(),
-            "lr": lr,
-        }
 
 
 # ------------------------------------------------------
@@ -624,7 +625,7 @@ class Worker(DiscreteActionWorker):
         if not self.training:
             policy_tau = 0  # 評価時は決定的に
         else:
-            policy_tau = self.policy_tau_sch.get_rate(self.total_step)
+            policy_tau = self.policy_tau_sch.get_and_update_rate(self.total_step)
 
         if policy_tau == 0:
             counts = np.asarray(self.N[self.s0_str])

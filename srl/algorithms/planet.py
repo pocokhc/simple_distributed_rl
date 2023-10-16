@@ -341,9 +341,9 @@ class Trainer(RLTrainer):
         self.lr_sch = self.config.lr.create_schedulers()
 
         if compare_less_version(tf.__version__, "2.11.0"):
-            self.optimizer = keras.optimizers.Adam(self.lr_sch.get_rate(0))
+            self.optimizer = keras.optimizers.Adam(self.lr_sch.get_rate())
         else:
-            self.optimizer = keras.optimizers.legacy.Adam(self.lr_sch.get_rate(0))
+            self.optimizer = keras.optimizers.legacy.Adam(self.lr_sch.get_rate())
 
     def train_on_batchs(self, memory_sample_return) -> None:
         batchs = memory_sample_return
@@ -445,8 +445,9 @@ class Trainer(RLTrainer):
         for i in range(len(variables)):
             self.optimizer.apply_gradients(zip(grads[i], variables[i]))
 
-        lr = self.lr_sch.get_rate(self.train_count)
-        self.optimizer.learning_rate = lr
+        if self.lr_sch.update(self.train_count):
+            lr = self.lr_sch.get_rate()
+            self.optimizer.learning_rate = lr
 
         return {
             "img_loss": -image_loss.numpy() / (64 * 64 * 3),

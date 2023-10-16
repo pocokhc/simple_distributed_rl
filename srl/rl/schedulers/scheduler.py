@@ -272,7 +272,7 @@ class SchedulerConfig:
         line_step = max_steps
         max_steps = int(max_steps * 1.1)
 
-        y_arr = [sch.get_rate(i) for i in range(max_steps)]
+        y_arr = [sch.get_and_update_rate(i) for i in range(max_steps)]
         plt.plot(y_arr)
         plt.vlines(x=line_step, ymin=min(y_arr), ymax=max(y_arr), color="r", linestyles="dotted")
         plt.ylabel("rate")
@@ -297,12 +297,20 @@ class ListScheduler(BaseScheduler):
 
         self.current_step = 0
         self.current_sch: BaseScheduler = self.schedulers_idx[0]
+        self.prev_rate = 0.0
+        self.update(0)
 
-    def get_rate(self, step: int) -> float:
-        rate = self.current_sch.get_rate(step - self.current_step)
+    def update(self, step: int) -> bool:
+        self.current_sch.update(step - self.current_step)
+        rate = self.current_sch.get_rate()
 
         if step in self.schedulers_idx:
             self.current_step = step
             self.current_sch = self.schedulers_idx[step]
 
-        return rate
+        is_update = self.prev_rate != rate
+        self.prev_rate = rate
+        return is_update
+
+    def get_rate(self) -> float:
+        return self.prev_rate

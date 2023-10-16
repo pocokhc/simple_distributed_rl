@@ -12,8 +12,17 @@ class Polynomial(BaseScheduler):
     def __post_init__(self):
         assert self.start_rate > 0
         assert self.power > 0
+        self.prev_rate = 0.0
+        self.update(0)
 
-    def get_rate(self, step: int) -> float:
+    def update(self, step: int) -> bool:
         if step >= self.phase_steps:
-            return 0.0
-        return self.start_rate * (1 - (step / float(self.phase_steps))) ** self.power
+            rate = 0.0
+        else:
+            rate = self.start_rate * (1 - (step / float(self.phase_steps))) ** self.power
+        is_update = self.prev_rate != rate
+        self.prev_rate = rate
+        return is_update
+
+    def get_rate(self) -> float:
+        return self.prev_rate

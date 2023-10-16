@@ -314,14 +314,14 @@ class Trainer(RLTrainer):
         self.lr_sch_emb = self.config.episodic_lr.create_schedulers()
         self.lr_sch_ll = self.config.lifelong_lr.create_schedulers()
 
-        self.q_ext_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch_ext.get_rate(0))
-        self.q_int_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch_int.get_rate(0))
+        self.q_ext_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch_ext.get_rate())
+        self.q_int_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch_int.get_rate())
         self.q_loss = keras.losses.Huber()
 
-        self.emb_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch_emb.get_rate(0))
+        self.emb_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch_emb.get_rate())
         self.emb_loss = keras.losses.MeanSquaredError()
 
-        self.lifelong_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch_ll.get_rate(0))
+        self.lifelong_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch_ll.get_rate())
         self.lifelong_loss = keras.losses.MeanSquaredError()
 
         self.beta_list = common.create_beta_list(self.config.actor_num)
@@ -371,7 +371,7 @@ class Trainer(RLTrainer):
         ]
 
         # --- update ext q
-        td_errors_ext, _loss, _lr = self._update_q(
+        td_errors_ext, _loss = self._update_q(
             True,
             self.parameter.q_ext_online,
             self.q_ext_optimizer,
@@ -380,11 +380,10 @@ class Trainer(RLTrainer):
             *_params,
         )
         _info["ext_loss"] = _loss
-        _info["ext_lr"] = _lr
 
         # --- intrinsic reward
         if self.config.enable_intrinsic_reward:
-            td_errors_int, _loss, _lr = self._update_q(
+            td_errors_int, _loss = self._update_q(
                 False,
                 self.parameter.q_int_online,
                 self.q_int_optimizer,
@@ -393,7 +392,6 @@ class Trainer(RLTrainer):
                 *_params,
             )
             _info["int_loss"] = _loss
-            _info["int_lr"] = _lr
 
             # ----------------------------------------
             # embedding network
@@ -406,9 +404,9 @@ class Trainer(RLTrainer):
             grads = tape.gradient(emb_loss, self.parameter.emb_network.trainable_variables)
             self.emb_optimizer.apply_gradients(zip(grads, self.parameter.emb_network.trainable_variables))
             _info["emb_loss"] = emb_loss.numpy()
-            lr = self.lr_sch_emb.get_rate(self.train_count)
-            self.emb_optimizer.learning_rate = lr
-            _info["emb_lr"] = lr
+
+            if self.lr_sch_emb.update(self.train_count):
+                self.emb_optimizer.learning_rate = self.lr_sch_emb.get_rate()
 
             # ----------------------------------------
             # lifelong network
@@ -422,9 +420,9 @@ class Trainer(RLTrainer):
             grads = tape.gradient(lifelong_loss, self.parameter.lifelong_train.trainable_variables)
             self.lifelong_optimizer.apply_gradients(zip(grads, self.parameter.lifelong_train.trainable_variables))
             _info["lifelong_loss"] = lifelong_loss.numpy()
-            lr = self.lr_sch_ll.get_rate(self.train_count)
-            self.lifelong_optimizer.learning_rate = lr
-            _info["lifelong_lr"] = lr
+
+            if self.lr_sch_ll.update(self.train_count):
+                self.lifelong_optimizer.learning_rate = self.lr_sch_ll.get_rate()
 
         else:
             td_errors_int = 0.0
@@ -503,9 +501,10 @@ class Trainer(RLTrainer):
 
         grads = tape.gradient(loss, model_q_online.trainable_variables)
         optimizer.apply_gradients(zip(grads, model_q_online.trainable_variables))
-        lr = lr_sch.get_rate(self.train_count)
-        optimizer.learning_rate = lr
+
+        if lr_sch.update(self.train_count):
+            optimizer.learning_rate = lr_sch.get_rate()
 
         td_errors = target_q - q.numpy()
 
-        return td_errors, loss.numpy(), lr
+        return td_errors, loss.numpy()

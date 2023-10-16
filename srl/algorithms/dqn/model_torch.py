@@ -102,7 +102,7 @@ class Trainer(RLTrainer):
 
         self.lr_sch = self.config.lr.create_schedulers()
 
-        self.optimizer = optim.Adam(self.parameter.q_online.parameters(), lr=self.lr_sch.get_rate(0))
+        self.optimizer = optim.Adam(self.parameter.q_online.parameters(), lr=self.lr_sch.get_rate())
         self.criterion = nn.HuberLoss()
 
         self.sync_count = 0
@@ -133,9 +133,10 @@ class Trainer(RLTrainer):
         loss.backward()
         self.optimizer.step()
 
-        lr = self.lr_sch.get_rate(self.train_count)
-        for param_group in self.optimizer.param_groups:
-            param_group["lr"] = lr
+        if self.lr_sch.update(self.train_count):
+            lr = self.lr_sch.get_rate()
+            for param_group in self.optimizer.param_groups:
+                param_group["lr"] = lr
 
         # --- update
         priorities = np.abs((target_q - q).to("cpu").detach().numpy())
@@ -149,6 +150,5 @@ class Trainer(RLTrainer):
         self.train_info = {
             "loss": loss.item(),
             "sync": self.sync_count,
-            "lr": lr,
         }
         self.train_count += 1

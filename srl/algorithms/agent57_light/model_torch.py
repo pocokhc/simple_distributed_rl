@@ -325,14 +325,14 @@ class Trainer(RLTrainer):
         self.lr_sch_emb = self.config.episodic_lr.create_schedulers()
         self.lr_sch_ll = self.config.lifelong_lr.create_schedulers()
 
-        self.q_ext_optimizer = optim.Adam(self.parameter.q_ext_online.parameters(), lr=self.lr_sch_ext.get_rate(0))
-        self.q_int_optimizer = optim.Adam(self.parameter.q_int_online.parameters(), lr=self.lr_sch_int.get_rate(0))
+        self.q_ext_optimizer = optim.Adam(self.parameter.q_ext_online.parameters(), lr=self.lr_sch_ext.get_rate())
+        self.q_int_optimizer = optim.Adam(self.parameter.q_int_online.parameters(), lr=self.lr_sch_int.get_rate())
         self.q_criterion = nn.HuberLoss()
 
-        self.emb_optimizer = optim.Adam(self.parameter.emb_network.parameters(), lr=self.lr_sch_emb.get_rate(0))
+        self.emb_optimizer = optim.Adam(self.parameter.emb_network.parameters(), lr=self.lr_sch_emb.get_rate())
         self.emb_criterion = nn.MSELoss()
 
-        self.lifelong_optimizer = optim.Adam(self.parameter.lifelong_train.parameters(), lr=self.lr_sch_ll.get_rate(0))
+        self.lifelong_optimizer = optim.Adam(self.parameter.lifelong_train.parameters(), lr=self.lr_sch_ll.get_rate())
         self.lifelong_criterion = nn.MSELoss()
 
         self.beta_list = common.create_beta_list(self.config.actor_num)
@@ -390,7 +390,7 @@ class Trainer(RLTrainer):
         # --- update ext q
         self.parameter.q_ext_online.to(device)
         self.parameter.q_ext_target.to(device)
-        td_errors_ext, _loss, _lr = self._update_q(
+        td_errors_ext, _loss = self._update_q(
             True,
             self.parameter.q_ext_online,
             self.q_ext_optimizer,
@@ -399,13 +399,12 @@ class Trainer(RLTrainer):
             *_params,
         )
         _info["ext_loss"] = _loss
-        _info["ext_lr"] = _lr
 
         # --- intrinsic reward
         if self.config.enable_intrinsic_reward:
             self.parameter.q_int_online.to(device)
             self.parameter.q_int_target.to(device)
-            td_errors_int, _loss, _lr = self._update_q(
+            td_errors_int, _loss = self._update_q(
                 False,
                 self.parameter.q_int_online,
                 self.q_int_optimizer,
@@ -414,7 +413,6 @@ class Trainer(RLTrainer):
                 *_params,
             )
             _info["int_loss"] = _loss
-            _info["int_lr"] = _lr
 
             # ----------------------------------------
             # embedding network
@@ -428,10 +426,10 @@ class Trainer(RLTrainer):
             self.emb_optimizer.step()
             _info["emb_loss"] = emb_loss.item()
 
-            lr = self.lr_sch_emb.get_rate(self.train_count)
-            for param_group in self.emb_optimizer.param_groups:
-                param_group["lr"] = lr
-            _info["emb_lr"] = lr
+            if self.lr_sch_emb.update(self.train_count):
+                lr = self.lr_sch_emb.get_rate()
+                for param_group in self.emb_optimizer.param_groups:
+                    param_group["lr"] = lr
 
             # ----------------------------------------
             # lifelong network
@@ -447,10 +445,10 @@ class Trainer(RLTrainer):
             self.lifelong_optimizer.step()
             _info["lifelong_loss"] = lifelong_loss.item()
 
-            lr = self.lr_sch_ll.get_rate(self.train_count)
-            for param_group in self.lifelong_optimizer.param_groups:
-                param_group["lr"] = lr
-            _info["lifelong_lr"] = lr
+            if self.lr_sch_ll.update(self.train_count):
+                lr = self.lr_sch_ll.get_rate()
+                for param_group in self.lifelong_optimizer.param_groups:
+                    param_group["lr"] = lr
 
         else:
             td_errors_int = 0.0
@@ -532,9 +530,10 @@ class Trainer(RLTrainer):
         loss.backward()
         optimizer.step()
 
-        lr = lr_sch.get_rate(self.train_count)
-        for param_group in optimizer.param_groups:
-            param_group["lr"] = lr
+        if lr_sch.update(self.train_count):
+            lr = lr_sch.get_rate()
+            for param_group in optimizer.param_groups:
+                param_group["lr"] = lr
 
         td_errors = (target_q - q).to("cpu").detach().numpy()
-        return td_errors, loss.item(), lr
+        return td_errors, loss.item()

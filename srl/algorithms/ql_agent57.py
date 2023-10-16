@@ -284,8 +284,8 @@ class Trainer(RLTrainer):
     def train_on_batchs(self, memory_sample_return) -> None:
         indices, batchs, weights = memory_sample_return
 
-        lr_ext = self.lr_ext_sch.get_rate(self.train_count)
-        lr_int = self.lr_int_sch.get_rate(self.train_count)
+        lr_ext = self.lr_ext_sch.get_and_update_rate(self.train_count)
+        lr_int = self.lr_int_sch.get_and_update_rate(self.train_count)
         ext_td_errors = []
         int_td_errors = []
         for i in range(self.config.batch_size):
@@ -360,7 +360,7 @@ class Worker(DiscreteActionWorker):
                 self.discount = self.discount_list[self.actor_index]
                 self.beta = self.beta_list[self.actor_index]
             else:
-                self.epsilon = self.epsilon_scheduler.get_rate(self.total_step)
+                self.epsilon = self.epsilon_scheduler.get_and_update_rate(self.total_step)
                 self.discount = self.config.discount
                 self.beta = self.config.beta
         else:

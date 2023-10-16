@@ -473,6 +473,7 @@ class RunnerFacade(Runner):
         actor_num: int = 1,
         trainer_parameter_send_interval_by_train_count: int = 100,
         actor_parameter_sync_interval_by_step: int = 100,
+        enable_prepare_batch: bool = False,
         # --- stop config
         max_episodes: int = -1,
         timeout: int = -1,
@@ -512,6 +513,7 @@ class RunnerFacade(Runner):
         self.context.actor_num = actor_num
         self.context.actor_parameter_sync_interval_by_step = actor_parameter_sync_interval_by_step
         self.context.trainer_parameter_send_interval_by_train_count = trainer_parameter_send_interval_by_train_count
+        self.context.enable_prepare_batch = enable_prepare_batch
 
         # --- set context
         self.context.run_name = RunNameTypes.main
@@ -587,6 +589,7 @@ class RunnerFacade(Runner):
         actor_num: int = 1,
         trainer_parameter_send_interval_by_train_count: int = 100,
         actor_parameter_sync_interval_by_step: int = 100,
+        enable_prepare_batch: bool = False,
         # --- stop config
         max_episodes: int = -1,
         timeout: int = -1,
@@ -634,6 +637,7 @@ class RunnerFacade(Runner):
         self.context.actor_num = actor_num
         self.context.actor_parameter_sync_interval_by_step = actor_parameter_sync_interval_by_step
         self.context.trainer_parameter_send_interval_by_train_count = trainer_parameter_send_interval_by_train_count
+        self.context.enable_prepare_batch = enable_prepare_batch
 
         # --- set context
         self.context.run_name = RunNameTypes.main
@@ -710,6 +714,7 @@ class RunnerFacade(Runner):
         actor_num: int = 1,
         trainer_parameter_send_interval_by_train_count: int = 100,
         actor_parameter_sync_interval_by_step: int = 100,
+        enable_prepare_batch: bool = False,
         # --- stop config
         max_episodes: int = -1,
         timeout: int = -1,
@@ -747,6 +752,7 @@ class RunnerFacade(Runner):
         self.context.actor_num = actor_num
         self.context.actor_parameter_sync_interval_by_step = actor_parameter_sync_interval_by_step
         self.context.trainer_parameter_send_interval_by_train_count = trainer_parameter_send_interval_by_train_count
+        self.context.enable_prepare_batch = enable_prepare_batch
 
         # --- set context
         self.context.run_name = RunNameTypes.main

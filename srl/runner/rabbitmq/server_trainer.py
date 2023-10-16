@@ -1,14 +1,16 @@
 import logging
 import pickle
+import queue
 import threading
 import time
 import traceback
+from typing import Any, cast
 
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
 
 import srl
-from srl.base.rl.base import RLMemory, RLParameter, RLTrainer
+from srl.base.rl.base import IRLMemoryTrainer, RLMemory, RLParameter, RLTrainer
 from srl.base.run.data import RunNameTypes
 from srl.runner.callback import TrainerCallback
 from srl.runner.runner import RunnerMPData
@@ -42,12 +44,43 @@ class _RLTrainer(RLTrainer):
         raise NotImplementedError("not used")
 
 
+class _TrainerRLMemory(IRLMemoryTrainer):
+    def __init__(self, base_memory: RLMemory):
+        self.base_memory = base_memory
+        self.q_batch = queue.Queue()
+        self.q_update = queue.Queue()
+        self.trainer: RLTrainer
+
+    def add(self, *args) -> None:
+        self.base_memory.add(*args)
+
+    def loop_update(self):
+        if not self.base_memory.is_warmup_needed():
+            if self.q_batch.qsize() < 5:
+                self.q_batch.put(self.base_memory.sample(self.trainer.batch_size, self.trainer.train_count))
+        if not self.q_update.empty():
+            self.base_memory.update(self.q_update.get())
+
+    def length(self) -> int:
+        return self.base_memory.length()
+
+    def is_warmup_needed(self) -> bool:
+        return self.q_batch.empty()
+
+    def sample(self, batch_size: int, step: int) -> Any:
+        return self.q_batch.get()
+
+    def update(self, memory_update_args: Any) -> None:
+        self.q_update.put(memory_update_args)
+
+
 def _connect_mq(
     pika_params,
-    memory: RLMemory,
+    memory: _TrainerRLMemory,
     parameter: RLParameter,
     trainer: _RLTrainer,
     trainer_parameter_send_interval_by_train_count: int,
+    enable_prepare_batch: bool,
 ):
     try:
         with pika.BlockingConnection(pika_params) as connection:
@@ -62,6 +95,8 @@ def _connect_mq(
                 if body is not None:
                     args = pickle.loads(body)
                     memory.add(*args)
+                if enable_prepare_batch:
+                    memory.loop_update()
 
                 # --- sync parameter
                 if trainer.count_for_sync > trainer_parameter_send_interval_by_train_count:
@@ -93,12 +128,18 @@ class _TrainerInterrupt(TrainerCallback):
 def _run_trainer(channel: BlockingChannel, mp_data: RunnerMPData, pika_params):
     mp_data.context.run_name = RunNameTypes.main
 
+    # --- memory
+    memory = srl.make_memory(mp_data.rl_config)
+    if mp_data.context.enable_prepare_batch:
+        memory = cast(RLMemory, _TrainerRLMemory(memory))
+
     # --- runner
-    runner = srl.Runner(mp_data.env_config, mp_data.rl_config, mp_data.config, mp_data.context)
+    runner = srl.Runner(mp_data.env_config, mp_data.rl_config, mp_data.config, mp_data.context, memory=memory)
     parameter = runner.make_parameter(is_load=False)
-    memory = runner.make_memory()
     try:
         trainer = _RLTrainer(runner.make_trainer())
+        if mp_data.context.enable_prepare_batch:
+            memory.trainer = trainer  # type: ignore
 
         # --- connect
         mq_ps = threading.Thread(
@@ -109,6 +150,7 @@ def _run_trainer(channel: BlockingChannel, mp_data: RunnerMPData, pika_params):
                 parameter,
                 trainer,
                 mp_data.context.trainer_parameter_send_interval_by_train_count,
+                mp_data.context.enable_prepare_batch,
             ),
         )
         mq_ps.start()

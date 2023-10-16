@@ -17,7 +17,7 @@ from srl.runner.runner import RunnerMPData
 logger = logging.getLogger(__name__)
 
 
-class _RLMemory(IRLMemoryWorker):
+class _ActorRLMemory(IRLMemoryWorker):
     def __init__(self, channel):
         self.channel = channel
         self.count = 0
@@ -92,7 +92,7 @@ def _run_actor(channel: BlockingChannel, mp_data: RunnerMPData, uid: uuid.UUID):
     runner = srl.Runner(mp_data.env_config, mp_data.rl_config, mp_data.config, mp_data.context)
 
     # --- memory
-    memory = _RLMemory(channel)
+    memory = _ActorRLMemory(channel)
 
     # --- play
     runner.context.callbacks.append(

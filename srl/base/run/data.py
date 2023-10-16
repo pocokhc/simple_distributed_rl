@@ -41,6 +41,7 @@ class RunContext:
     actor_num: int = 1
     trainer_parameter_send_interval_by_train_count: int = 100
     actor_parameter_sync_interval_by_step: int = 100
+    enable_prepare_batch: bool = False
 
     # --- play context
     # stop config

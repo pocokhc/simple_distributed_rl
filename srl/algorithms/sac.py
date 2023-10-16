@@ -323,13 +323,13 @@ class Trainer(RLTrainer):
         self.lr_alpha_sch = self.config.lr_alpha.create_schedulers()
 
         if compare_less_version(tf.__version__, "2.11.0"):
-            self.q_optimizer = keras.optimizers.Adam(learning_rate=self.lr_policy_sch.get_rate(0))
-            self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.lr_q_sch.get_rate(0))
-            self.alpha_optimizer = keras.optimizers.Adam(learning_rate=self.lr_alpha_sch.get_rate(0))
+            self.q_optimizer = keras.optimizers.Adam(learning_rate=self.lr_policy_sch.get_rate())
+            self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.lr_q_sch.get_rate())
+            self.alpha_optimizer = keras.optimizers.Adam(learning_rate=self.lr_alpha_sch.get_rate())
         else:
-            self.q_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_policy_sch.get_rate(0))
-            self.policy_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_q_sch.get_rate(0))
-            self.alpha_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_alpha_sch.get_rate(0))
+            self.q_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_policy_sch.get_rate())
+            self.policy_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_q_sch.get_rate())
+            self.alpha_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_alpha_sch.get_rate())
 
         # エントロピーαの目標値、-1×アクション数が良いらしい
         self.target_entropy = -1 * self.config.action_num
@@ -427,9 +427,13 @@ class Trainer(RLTrainer):
         if self.train_count % self.config.hard_target_update_interval == 0:
             self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
 
-        self.q_optimizer.learning_rate = self.lr_q_sch.get_rate(self.train_count)
-        self.policy_optimizer.learning_rate = self.lr_policy_sch.get_rate(self.train_count)
-        self.alpha_optimizer.learning_rate = self.lr_alpha_sch.get_rate(self.train_count)
+        # lr_schedule
+        if self.lr_q_sch.update(self.train_count):
+            self.q_optimizer.learning_rate = self.lr_q_sch.get_rate()
+        if self.lr_policy_sch.update(self.train_count):
+            self.policy_optimizer.learning_rate = self.lr_policy_sch.get_rate()
+        if self.lr_alpha_sch.update(self.train_count):
+            self.alpha_optimizer.learning_rate = self.lr_alpha_sch.get_rate()
 
         self.train_count += 1
         self.train_info = {

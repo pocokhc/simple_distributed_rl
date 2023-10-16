@@ -212,7 +212,7 @@ class Trainer(RLTrainer):
             self.train_count += 1
 
         td_error = 0
-        lr = self.lr_sch.get_rate(self.train_count)
+        lr = self.lr_sch.get_and_update_rate(self.train_count)
 
         # --- 近似モデルからランダムにサンプリング
         for batch in model.sample(len(batchs) * 2):
@@ -269,7 +269,7 @@ class Worker(DiscreteActionWorker):
         self.invalid_actions = invalid_actions
 
         if self.training:
-            epsilon = self.epsilon_sch.get_rate(self.total_step)
+            epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
         else:
             epsilon = self.config.test_epsilon
 

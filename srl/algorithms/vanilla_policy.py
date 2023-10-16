@@ -149,7 +149,7 @@ class Trainer(RLTrainer):
             diff_j = diff_logpi * reward
 
             # ポリシー更新
-            lr = self.lr_sch.get_rate(self.train_count)
+            lr = self.lr_sch.get_and_update_rate(self.train_count)
             self.parameter.policy[state][action] += lr * diff_j
             loss.append(abs(diff_j))
 
@@ -168,7 +168,7 @@ class Trainer(RLTrainer):
             reward = batch["reward"]
             mean, stddev = self.parameter.get_normal(state)
 
-            lr = self.lr_sch.get_rate(self.train_count)
+            lr = self.lr_sch.get_and_update_rate(self.train_count)
 
             # 平均
             mean_diff_logpi = (action - mean) / (stddev**2)

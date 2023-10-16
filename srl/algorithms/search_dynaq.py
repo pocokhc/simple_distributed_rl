@@ -242,7 +242,7 @@ class Trainer(RLTrainer):
         # ---------------------
         # 近似モデルの学習
         # ---------------------
-        int_lr = self.int_lr_sch.get_rate(self.train_count)
+        int_lr = self.int_lr_sch.get_and_update_rate(self.train_count)
         td_error_mean = 0
         for batch in batchs:
             state = batch["state"]
@@ -294,7 +294,7 @@ class Trainer(RLTrainer):
         # ---------------------
         # q ext
         # ---------------------
-        ext_lr = self.ext_lr_sch.get_rate(self.train_count)
+        ext_lr = self.ext_lr_sch.get_and_update_rate(self.train_count)
         td_error_mean = 0
         for _ in range(len(batchs) * 2):
             batch = model.sample()
@@ -358,7 +358,7 @@ class Worker(DiscreteActionWorker):
         self.parameter.init_state(self.state, self.invalid_actions)
 
         if self.training:
-            epsilon = self.epsilon_sch.get_rate(self.total_step)
+            epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
             search_rate = self.config.search_rate
         else:
             epsilon = self.config.test_epsilon

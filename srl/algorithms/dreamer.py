@@ -599,13 +599,13 @@ class Trainer(RLTrainer):
         self.lr_sch_actor = self.config.lr_actor.create_schedulers()
 
         if compare_less_version(tf.__version__, "2.11.0"):
-            self._model_opt = keras.optimizers.Adam(learning_rate=self.lr_sch_model.get_rate(0))
-            self._critic_opt = keras.optimizers.Adam(learning_rate=self.lr_sch_critic.get_rate(0))
-            self._actor_opt = keras.optimizers.Adam(learning_rate=self.lr_sch_actor.get_rate(0))
+            self._model_opt = keras.optimizers.Adam(learning_rate=self.lr_sch_model.get_rate())
+            self._critic_opt = keras.optimizers.Adam(learning_rate=self.lr_sch_critic.get_rate())
+            self._actor_opt = keras.optimizers.Adam(learning_rate=self.lr_sch_actor.get_rate())
         else:
-            self._model_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_model.get_rate(0))
-            self._critic_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_critic.get_rate(0))
-            self._actor_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_actor.get_rate(0))
+            self._model_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_model.get_rate())
+            self._critic_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_critic.get_rate())
+            self._actor_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_actor.get_rate())
 
     def train_on_batchs(self, memory_sample_return) -> None:
         batchs = memory_sample_return
@@ -702,13 +702,12 @@ class Trainer(RLTrainer):
             for i in range(len(variables)):
                 self._model_opt.apply_gradients(zip(grads[i], variables[i]))
 
-            lr = self.lr_sch_model.get_rate(self.train_count)
-            self._model_opt.learning_rate = lr
+            if self.lr_sch_model.update(self.train_count):
+                self._model_opt.learning_rate = self.lr_sch_model.get_rate()
 
             info["img_loss"] = -image_loss.numpy() / (64 * 64 * 3)
             info["reward_loss"] = -reward_loss.numpy()
             info["kl_loss"] = kl_loss.numpy()
-            info["model_lr"] = lr
 
         if (not self.config.enable_train_actor) and (not self.config.enable_train_critic):
             # WorldModelsのみ学習
@@ -745,9 +744,8 @@ class Trainer(RLTrainer):
             self._actor_opt.apply_gradients(zip(grads, self.parameter.actor.trainable_variables))
             info["act_loss"] = act_loss.numpy()
 
-            lr = self.lr_sch_actor.get_rate(self.train_count)
-            self._actor_opt.learning_rate = lr
-            info["act_lr"] = lr
+            if self.lr_sch_actor.update(self.train_count):
+                self._actor_opt.learning_rate = self.lr_sch_actor.get_rate()
 
         # ------------------------
         # critic
@@ -772,9 +770,8 @@ class Trainer(RLTrainer):
             self._critic_opt.apply_gradients(zip(grads, self.parameter.critic.trainable_variables))
             info["val_loss"] = val_loss.numpy()
 
-            lr = self.lr_sch_critic.get_rate(self.train_count)
-            self._critic_opt.learning_rate = lr
-            info["val_lr"] = lr
+            if self.lr_sch_critic.update(self.train_count):
+                self._critic_opt.learning_rate = self.lr_sch_critic.get_rate()
 
         self.train_count += 1
         self.train_info = info
@@ -886,7 +883,7 @@ class Worker(DiscreteActionWorker):
         self.prev_action = self.action
 
         if self.training:
-            epsilon = self.epsilon_sch.get_rate(self.total_step)
+            epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
         else:
             epsilon = self.config.test_epsilon
 

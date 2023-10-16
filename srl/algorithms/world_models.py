@@ -445,7 +445,7 @@ class Trainer(RLTrainer):
 
         self.lr_sch = self.config.lr.create_schedulers()
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
         self.q_loss = keras.losses.Huber()
 
         self.c_score = -np.inf
@@ -512,14 +512,14 @@ class Trainer(RLTrainer):
         grads = tape.gradient(vae_loss, self.parameter.vae.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.vae.trainable_variables))
 
-        lr = self.lr_sch.get_rate(self.train_count)
-        self.optimizer.learning_rate = lr
+        # lr_schedule
+        if self.lr_sch.update(self.train_count):
+            self.optimizer.learning_rate = self.lr_sch.get_rate()
 
         return {
             "vae_loss": vae_loss.numpy() - (self.config.kl_tolerance * self.config.z_size),
             "rc_loss": rc_loss.numpy(),
             "kl_loss": kl_loss.numpy() - (self.config.kl_tolerance * self.config.z_size),
-            "lr": lr,
         }
 
     def _train_rnn(self, batchs):

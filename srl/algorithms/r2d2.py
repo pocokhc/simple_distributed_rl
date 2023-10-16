@@ -280,7 +280,7 @@ class Trainer(RLTrainer):
 
         self.lr_sch = self.config.lr.create_schedulers()
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate(0))
+        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
         self.loss = keras.losses.Huber()
 
         self.sync_count = 0
@@ -288,7 +288,7 @@ class Trainer(RLTrainer):
     def train_on_batchs(self, memory_sample_return) -> None:
         indices, batchs, weights = memory_sample_return
 
-        td_errors, loss, lr = self._train_on_batchs(batchs, np.array(weights).reshape(-1, 1))
+        td_errors, loss = self._train_on_batchs(batchs, np.array(weights).reshape(-1, 1))
         self.memory_update((indices, batchs, np.array(td_errors)))
 
         # targetと同期
@@ -297,7 +297,7 @@ class Trainer(RLTrainer):
             self.sync_count += 1
 
         self.train_count += 1
-        self.train_info = {"loss": loss, "sync": self.sync_count, "lr": lr}
+        self.train_info = {"loss": loss, "sync": self.sync_count}
 
     def _train_on_batchs(self, batchs, weights):
         # (batch, dict[x], step) -> (batch, step, x)
@@ -411,10 +411,11 @@ class Trainer(RLTrainer):
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
 
-        lr = self.lr_sch.get_rate(self.train_count)
-        self.optimizer.learning_rate = lr
+        # lr_schedule
+        if self.lr_sch.update(self.train_count):
+            self.optimizer.learning_rate = self.lr_sch.get_rate()
 
-        return td_errors_list, loss.numpy(), lr
+        return td_errors_list, loss.numpy()
 
 
 # ------------------------------------------------------
@@ -476,7 +477,7 @@ class Worker(DiscreteActionWorker):
         q = q[0][0].numpy()  # (batch, time step, action_num)
 
         if self.training:
-            epsilon = self.epsilon_sch.get_rate(self.total_step)
+            epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
         else:
             epsilon = self.config.test_epsilon
 

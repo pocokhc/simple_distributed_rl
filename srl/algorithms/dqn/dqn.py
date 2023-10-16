@@ -241,7 +241,7 @@ class Worker(DiscreteActionWorker):
         self.state = state
 
         if self.training:
-            epsilon = self.epsilon_sch.get_rate(self.total_step)
+            epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
         else:
             epsilon = self.config.test_epsilon
 

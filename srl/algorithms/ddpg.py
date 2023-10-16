@@ -11,8 +11,7 @@ from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.rl.memories.experience_replay_buffer import (
-    ExperienceReplayBuffer, ExperienceReplayBufferConfig)
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.input_block import InputBlock
@@ -279,7 +278,7 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
 
         self.lr_sch = self.config.lr.create_schedulers()
-        lr = self.lr_sch.get_rate(0)
+        lr = self.lr_sch.get_rate()
 
         self.actor_optimizer = keras.optimizers.Adam(learning_rate=lr)
         self.critic_optimizer = keras.optimizers.Adam(learning_rate=lr)
@@ -349,11 +348,12 @@ class Trainer(RLTrainer):
 
         _info["critic_loss"] = critic_loss.numpy()
 
-        # lr
-        lr = self.lr_sch.get_rate(self.train_count)
-        self.actor_optimizer.learning_rate = lr
-        self.critic_optimizer.learning_rate = lr
-        _info["lr"] = lr
+        # lr_schedule
+        if self.lr_sch.update(self.train_count):
+            lr = self.lr_sch.get_rate()
+            self.actor_optimizer.learning_rate = lr
+            self.critic_optimizer.learning_rate = lr
+            _info["lr"] = lr
 
         # --- soft target update
         self.parameter.actor_target.set_weights(

@@ -15,8 +15,10 @@ class Linear(BaseScheduler):
             self.step_rate = (self.end_rate - self.start_rate) / self.phase_steps
         else:
             self.step_rate = (self.start_rate - self.end_rate) / self.phase_steps
+        self.prev_rate = 0.0
+        self.update(0)
 
-    def get_rate(self, step: int) -> float:
+    def update(self, step: int) -> bool:
         if self.is_up:
             rate = self.start_rate + self.step_rate * step
             if rate > self.end_rate:
@@ -25,4 +27,9 @@ class Linear(BaseScheduler):
             rate = self.start_rate - self.step_rate * step
             if rate < self.end_rate:
                 rate = self.end_rate
-        return rate
+        is_update = self.prev_rate != rate
+        self.prev_rate = rate
+        return is_update
+
+    def get_rate(self) -> float:
+        return self.prev_rate

@@ -31,12 +31,18 @@ class MyRemoteMemory(PriorityExperienceReplay):
     pass
 
 
-# 実行例
-memory = MyRemoteMemory(MyConfig())
-memory.add(1, 1)
-memory.add(2, 2)
-memory.add(3, 3)
-memory.add(4, 4)
-indices, batchs, weights = memory.sample(batch_size=1, step=5)
+# --- select memory
+config = MyConfig()
+# config.memory.set_replay_memory()
+config.memory.set_proportional_memory()
+# config.memory.set_rankbase_memory()
+
+# --- run memory
+memory = MyRemoteMemory(config)
+memory.add(1, priority=1)
+memory.add(2, priority=2)
+memory.add(3, priority=3)
+memory.add(4, priority=4)
+indices, batchs, weights = memory.sample(batch_size=1, step=0)
 print(batchs)  # [2]
-memory.update(indices, batchs, np.array([5, 10, 15, 20, 11]))
+memory.update((indices, batchs, np.array([5, 10, 15, 20, 11])))

@@ -49,7 +49,7 @@ srlディレクトリに実行パスが通っていればダウンロードだ�
     import os
     import sys
 
-    assert os.path.isdir("./simple_distributed_rl/srl/")  # srlがここにある想定です
+    assert os.path.isdir("./simple_distributed_rl/srl/")  # Location of srl
     sys.path.insert(0, "./simple_distributed_rl/")
 
     import srl
@@ -68,29 +68,31 @@ Sample code
 Using library
 ====================
 
-その他、機能によっては以下ライブラリが必要になります。
+使う機能によって以下ライブラリが必要になります。
 
-+ Tensorflow が必要なアルゴリズムを使う場合に必要
++ Tensorflow が必要なアルゴリズムを使う場合
    + tensorflow
    + tensorflow-probability
-+ Torch が必要なアルゴリズムを使う場合に必要
-   + <https://pytorch.org/get-started/locally/>
-+ RGBの描画関係を使用する場合に必要
++ Torch が必要なアルゴリズムを使う場合
+   + https://pytorch.org/get-started/locally/
++ 主にRGBの描画関係を使用する場合
    + pillow
    + opencv-python
    + pygame
-+ 統計情報を扱う場合に必要
++ 主にhistoryによる統計情報を扱う場合
    + pandas
    + matplotlib
-+ OpenAI Gym の環境を使う場合に必要
++ OpenAI Gym の環境を使う場合
    + gym or gymnasium
    + pygame
-+ Profile情報を表示する場合に必要
-   + psutil
-   + pynvml
++ ハードウェアの統計情報を表示する場合
+  + psutil
+  + pynvml
++ RabbitMQによる分散学習を使う場合
+  + pika
 
 Tensorflow,Torchを除いたライブラリを一括でインストールするコマンドは以下です。
 
 .. code-block:: console
 
-    $ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml
+    $ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml pika

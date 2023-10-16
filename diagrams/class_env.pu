@@ -97,8 +97,4 @@ class EnvConfig {
 EnvRun -- EnvConfig
 
 
-class WorkerRun {}
-WorkerRun - EnvRun
-
-
 @enduml

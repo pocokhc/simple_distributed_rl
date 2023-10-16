@@ -1,48 +1,76 @@
 @startuml class_runner
 
-abstract EnvConfig {}
-abstract RLConfig {}
-
-class Config {
-    env_config : EnvConfig
-    rl_config : RLConfig
-    Other config variables
-}
-class Context {
+abstract base.EnvConfig {}
+abstract base.RLConfig {}
+class base.RunContext {
     run_name : str
-    training: bool
-    training: bool
-    Other runtime variables
+    Other run context variables
 }
-class State {
+class base.RunState {
     env: EnvRun
+    workers: RLWorker
     trainer: RLTrainer
-    remote_memory: RLRemoteMemory
-    parameter: RLParameter
-    Other running variables
+    Other running state variables
 }
+
+
+' --- registration
+
+base.EnvConfig -- base.registration
+base.RLConfig -- base.registration
+
+interface base.registration {
+    make_env()
+    make_memory()
+    make_parameter()
+    make_trainer()
+    make_worker()
+}
+
+
+' --- run
+
+base.RunContext -- base.run
+base.RunState -- base.run
+
+interface base.run {
+    context : RunContext
+    state : RunState
+    play(context, env, workers, trainer)
+    play_trainer_only(context, trainer)
+}
+note as base.BaseRunMemo
+Play according to RunContext
+end note
+base.run <|- base.BaseRunMemo
+
+base.registration .> base.run : Run with the maked one. >
+
+' --- Runner
 
 class Runner {
-    config : Config
-    context : Context
-    state : State
-    make()
-    play()
+    .. play info ..
+    env_config : EnvConfig
+    rl_config : RLConfig
+    context : RunContext
+    .. keep instance ..
+    env : EnvRyn
+    parameter : RLParameter
+    memory : RLMemory
+    .. facade ..
+    core_play()
 }
-Runner -- Config
-Runner -- Context
-Runner -- State
-
-EnvConfig -- Runner
-RLConfig -- Runner
-
+base.registration <.. Runner : call <
+base.run <.. Runner : call <
 
 note as RunnerMemo
 - facade of play
-- Retention of information about play
-- Generate instance for play such as Trainer
+- keep instance
 end note
 Runner <|- RunnerMemo
 
+
+circle User
+User -> Runner : Used >
 
 @enduml

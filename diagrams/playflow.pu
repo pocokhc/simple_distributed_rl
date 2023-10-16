@@ -11,7 +11,7 @@ participant Worker
 
 participant Trainer
 participant Parameter
-participant RemoteMemory
+participant Memory
 
 
 activate User
@@ -51,7 +51,7 @@ loop episode
                 next_state = <color blue>encode(env.state)</color>
                 end note
                 Worker -> Worker: call_on_step(WorkerRun)
-                    Worker -> RemoteMemory: add batchs
+                    Worker -> Memory: add(batch)
                     return
                 return info
             return info
@@ -89,7 +89,7 @@ loop episode
     return
 
     User -> Trainer: train
-        Trainer -> RemoteMemory: samples
+        Trainer -> Memory: sample()
         return batchs
         Trainer -> Parameter: update parameter
         return

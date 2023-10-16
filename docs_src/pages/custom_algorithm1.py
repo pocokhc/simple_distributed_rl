@@ -1,7 +1,7 @@
-from srl.rl.memories.sequence_memory import SequenceRemoteMemory
+from srl.rl.memories.sequence_memory import SequenceMemory
 
 
-class MyRemoteMemory(SequenceRemoteMemory):
+class MyRemoteMemory(SequenceMemory):
     pass
 
 

@@ -207,12 +207,17 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
 
                 # [reward]
                 r_list = [to_str_reward(r) for r in state.env.episode_rewards]
-                s += " [" + ",".join(r_list) + "]"
+                s += " [" + ",".join(r_list) + "]reward"
 
         else:
             # ---------------------------
             # episode info
             # ---------------------------
+            # [mean episode step] [episode time]
+            _s = [h["episode_step"] for h in self.progress_history]
+            s += f", {int(np.mean(_s)):3d}step"
+            s += f", {episode_time:.2f}s/ep"
+
             # [reward]
             _r = [h["episode_reward"] for h in self.progress_history]
             _r_min = to_str_reward(min(_r))
@@ -225,11 +230,6 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
                 s += self._eval_str(runner)
             elif context.distributed:
                 s += " " * 12
-
-            # [mean episode step] [episode time]
-            _s = [h["episode_step"] for h in self.progress_history]
-            s += f", {int(np.mean(_s)):3d}step"
-            s += f", {episode_time:.2f}s/ep"
 
         # [memory]
         if state.memory is not None:

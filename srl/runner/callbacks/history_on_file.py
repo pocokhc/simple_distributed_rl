@@ -189,7 +189,7 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
         if runner.config.used_psutil:
             try:
                 memory_percent, cpu_percent = runner.read_psutil()
-                d["memory"] = memory_percent
+                d["system_memory"] = memory_percent
                 d["cpu"] = cpu_percent
             except Exception:
                 logger.debug(traceback.format_exc())

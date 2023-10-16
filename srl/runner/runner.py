@@ -38,9 +38,6 @@ class RunnerConfig:
     # --- stats
     enable_stats: bool = True
 
-    # --- print config
-    enable_log_config: bool = True
-
     # --- random
     seed: Optional[int] = None
     seed_enable_gpu: bool = True
@@ -145,14 +142,17 @@ class Runner(CallbackData):
         # playersという変数名だけど、役割はworkersの方が正しい
         self.config.players = players
 
-    def set_save_dir(self, save_dir: str):
+    def set_save_dir(self, save_dir: str, setup_context: bool = False):
         """ディレクトリへの保存が必要な場合、そのディレクトリを指定します。
         ディレクトリへの保存は、historyやcheckpointがあります。
 
         Args:
             save_dir (str): 保存ディレクトリのパス。 Defaults to "tmp".
+            setup_context (bool): contextも合わせてsetupします。 Defaults to False.
         """
         self.config.base_dir = save_dir
+        if setup_context:
+            self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
 
     def set_seed(
         self,
@@ -175,12 +175,6 @@ class Runner(CallbackData):
             enable_stats (bool, optional): 統計情報の取得をするかどうか. Defaults to True.
         """
         self.config.enable_stats = enable_stats
-
-    def disable_log_config(self):
-        self.config.enable_log_config = False
-
-    def enable_log_config(self):
-        self.config.enable_log_config = True
 
     # ------------------------------
     # model summary
@@ -670,6 +664,13 @@ class Runner(CallbackData):
     def create_mp_data(self) -> RunnerMPData:
         return RunnerMPData(self.env_config, self.rl_config, self.config, self.context)
 
+    def print_config(self):
+        import pprint
+
+        print(f"env\n{pprint.pformat(self.env_config.to_dict())}")
+        print(f"rl\n{pprint.pformat(self.rl_config.to_dict())}")
+        print(f"context\n{pprint.pformat(self.context.to_dict())}")
+
     # ------------------------------
     # eval
     # ------------------------------
@@ -728,15 +729,6 @@ class Runner(CallbackData):
         memory: Optional[RLMemory] = None,
         trainer: Optional[RLTrainer] = None,
     ) -> RunState:
-        # --- log context ---
-        if self.config.enable_log_config:
-            import pprint
-
-            logger.info(f"env\n{pprint.pformat(self.env_config.to_dict())}")
-            logger.info(f"rl\n{pprint.pformat(self.rl_config.to_dict())}")
-            logger.info(f"context\n{pprint.pformat(self.context.to_dict())}")
-        # -------------------
-
         # --- random ---
         if self.config.seed is not None:
             common.set_seed(self.config.seed, self.config.seed_enable_gpu)

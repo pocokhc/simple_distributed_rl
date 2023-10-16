@@ -1,4 +1,5 @@
 import logging
+import traceback
 from typing import Dict, Union
 
 from srl.base.env.config import EnvConfig
@@ -54,6 +55,7 @@ def make(config: Union[str, EnvConfig]) -> EnvRun:
 
             env = GymnasiumWrapper(config)
         except Exception as e:
+            logger.info(traceback.format_exc())
             logger.warning(f"Gymnasium failed to load. '{e}'")
 
     # --- load gym
@@ -63,6 +65,7 @@ def make(config: Union[str, EnvConfig]) -> EnvRun:
 
             env = GymWrapper(config)
         except Exception as e:
+            logger.info(traceback.format_exc())
             logger.warning(f"Gym failed to load. '{e}'")
 
     if env is None:

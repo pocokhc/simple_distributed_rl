@@ -1046,7 +1046,6 @@ class RunnerFacade(Runner):
         render_skip_step: bool = True,
         # render option
         render_interval: float = -1,  # ms
-        render_scale: float = 1.0,
         font_name: str = "",
         font_size: int = 12,
         #
@@ -1121,7 +1120,7 @@ class RunnerFacade(Runner):
 
         state = self.core_play(trainer_only=False)
 
-        rendering.create_anime(render_interval, render_scale, draw_info).save(path)
+        rendering.save_gif(path, render_interval, draw_info)
 
         return state.episode_rewards_list[0]
 

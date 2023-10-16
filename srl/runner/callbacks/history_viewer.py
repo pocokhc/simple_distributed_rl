@@ -23,8 +23,8 @@ logs = [
         "sync"    : mpの時の同期回数
         "workerX_YYY"     : 学習情報
 
-        # --- remote_memory
-        "remote_memory" : remote_memory に入っているbatch数
+        # --- memory
+        "memory" : memory に入っているbatch数
 
         # --- train関係
         "train"         : 学習回数
@@ -33,7 +33,7 @@ logs = [
         "trainer_YYY"   : 学習情報
 
         # --- system関係
-        "memory" : メモリ使用率
+        "system_memory" : メモリ使用率
         "cpu"    : CPU使用率
         "gpuX"       : GPU使用率
         "gpuX_memory": GPUメモリの使用率
@@ -138,9 +138,9 @@ class HistoryViewer:
             if "train" in self.df:
                 self.df["train"] = self.df["train"].interpolate(limit_direction="both")
                 self.df["train"] = self.df["train"].astype(int)
-            if "remote_memory" in self.df:
-                self.df["remote_memory"] = self.df["remote_memory"].interpolate(limit_direction="both")
-                self.df["remote_memory"] = self.df["remote_memory"].astype(int)
+            if "memory" in self.df:
+                self.df["memory"] = self.df["memory"].interpolate(limit_direction="both")
+                self.df["memory"] = self.df["memory"].astype(int)
 
         return self.df
 

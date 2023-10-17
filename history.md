@@ -3,10 +3,10 @@
 1. tensorboard
 1. get_valid_actions
 1. tf/torchの互換パラメータの作成
-1. train_countをparameter
-1. kubernetes
 1. (SEED RL)
-
+・長時間学習モード
+・rabbitmq
+1. MARL
 
 # v0.13.0
 
@@ -24,19 +24,22 @@
       1. capacity,memory.warmup_size,batch_size等をmemoryのハイパーパラメータとして実装
       1. is_memory_warmup_needed等train側の処理で必要になる関数を定義
       1. [base] update: Worker側のRLMemoryはIRLMemoryWorkerに変更（addのみを実行）
-   1. [core] update: WorkerBaseが必ずparameterかmemoryを持つように変更(ない場合はNoneではなくdummyクラスに)
-   1. [core] update: runner.coreの一部をbase.runに移動し、base内で動作に関してもある程度保証
+   1. [base] update: RLWorker周りを見直してアップデート（大きくWorkerBaseをなくしてRLWorkerに統合しました）
+   1. [base] update: runner.coreの一部をbase.runに移動し、base内で動作に関してもある程度保証
       1. コードが長いので、runnerの窓口関数たちをrunner_facade.pyに移動
       1. 終了条件にmax_memoryを追加
       1. [base.render] update: render関係を見直して更新
 1. [runner.rabbitmq] new: mqによる分散学習を追加
 1. [runner.mp] update: プロセスによる通信ではなくスレッドによる通信に変更
+1. [docs] update: 更新に合わせてドキュメントを全体的に見直し
 
 **OtherUpdates**
 1. [algorithm] del: agent57_stateful, r2d2_statefulを削除(メンテをしていないので)
 1. [runner.remote] del: rabbitmqに置き換えるので削除
 1. [rl.memory] del: best_episode_memory,demo_memoryが実装と相性が悪いので削除(将来的に再実装する可能性はあり)
 1. [callbacks] change: TrainerCallbackのon_trainer_train->on_trainer_train_endに変更
+1. [rl.scheduler] new: updateを追加し、更新があるか分かるように変更
+1. [render] update: gifの生成をArtistAnimationからPIL.imageに変更
 
 
 

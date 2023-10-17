@@ -269,72 +269,22 @@ class Runner(CallbackData):
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ) -> WorkerRun:
+        env = self.make_env()
+        self.rl_config.setup(env)
         if parameter is None:
             parameter = self.make_parameter()
         if memory is None:
             memory = self.make_memory()
-        if not self.rl_config.is_reset:
-            self.rl_config.reset(self.make_env())
         return make_worker(
             self.rl_config,
-            self.make_env(),
+            env,
             parameter,
             memory,
             self.context.distributed,
             self.context.actor_id,
         )
 
-    def make_player(
-        self,
-        player: Union[None, str, RLConfig],
-        worker_kwargs={},
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
-    ) -> WorkerRun:
-        env = self.make_env()
-
-        # none はベース
-        if player is None:
-            return self.make_worker(parameter, memory)
-
-        # 文字列はenv側またはルールベースのアルゴリズム
-        if isinstance(player, str):
-            worker = env.make_worker(
-                player,
-                self.context.distributed,
-                enable_raise=False,
-                env_worker_kwargs=worker_kwargs,
-            )
-            if worker is not None:
-                return worker
-            worker = make_worker_rulebase(
-                player,
-                env,
-                update_config_parameter=worker_kwargs,
-                distributed=self.context.distributed,
-                actor_id=self.context.actor_id,
-                is_reset_logger=False,
-            )
-            assert worker is not None, f"not registered: {player}"
-            return worker
-
-        # RLConfigは専用のWorkerを作成
-        if isinstance(player, object) and issubclass(player.__class__, RLConfig):
-            parameter = make_parameter(self.rl_config)
-            memory = make_memory(self.rl_config)
-            worker = make_worker(
-                player,
-                env,
-                parameter,
-                memory,
-                self.context.distributed,
-                self.context.actor_id,
-            )
-            return worker
-
-        raise ValueError(f"unknown worker: {player}")
-
-    def make_players(
+    def make_workers(
         self,
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
@@ -343,23 +293,11 @@ class Runner(CallbackData):
         if use_cache and self._workers is not None:
             return self._workers
 
-        env = self.make_env()
-
-        # 初期化されていない場合、一人目はNone、二人目以降はrandomにする
-        if len(self.config.players) == 0:
-            players: List[Union[None, str, Tuple[str, dict], RLConfig]] = ["random" for _ in range(env.player_num)]
-            players[0] = None
-        else:
-            players = self.config.players
-
-        workers = []
-        for i in range(env.player_num):
-            p = players[i] if i < len(players) else None
-            kwargs = {}
-            if isinstance(p, tuple) or isinstance(p, list):
-                kwargs = p[1]
-                p = p[0]
-            workers.append(self.make_player(p, kwargs, parameter, memory))
+        if parameter is None:
+            parameter = self.make_parameter()
+        if memory is None:
+            memory = self.make_memory()
+        workers = self.context_controller.make_workers(self.make_env(), parameter, memory)
 
         if use_cache:
             self._workers = workers

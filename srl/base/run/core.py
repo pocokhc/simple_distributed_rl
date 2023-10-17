@@ -1,42 +1,68 @@
 import logging
 import random
 import time
-from typing import List, Optional, cast
+from dataclasses import dataclass, field
+from typing import List, Optional, Union, cast
 
+from srl.base.define import EnvActionType
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import RLTrainer
+from srl.base.rl.base import IRLMemoryTrainer, IRLMemoryWorker, RLMemory, RLParameter, RLTrainer
+from srl.base.rl.registration import make_trainer
 from srl.base.rl.worker_run import WorkerRun
+from srl.base.run.context import RunContext
 from srl.utils import common
+from srl.utils.serialize import convert_for_json
 
 from .callback import Callback, CallbackData, TrainerCallback
-from .data import RunContext, RunState
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RunState:
+    """
+    実行中に変動する変数をまとめたクラス
+    Class that summarizes variables that change during execution
+    """
+
+    env: Optional[EnvRun] = None
+    workers: List[WorkerRun] = field(default_factory=list)
+    trainer: Optional[RLTrainer] = None
+    memory: Optional[Union[IRLMemoryWorker, IRLMemoryTrainer]] = None
+    parameter: Optional[RLParameter] = None
+
+    # episodes init
+    elapsed_t0: float = 0
+    worker_indices: List[int] = field(default_factory=list)
+
+    # episode state
+    episode_rewards_list: List[List[float]] = field(default_factory=list)
+    episode_count: int = -1
+    total_step: int = 0
+    end_reason: str = ""
+    worker_idx: int = 0
+    episode_seed: Optional[int] = None
+    action: EnvActionType = 0
+
+    # other
+    sync_actor: int = 0
+    sync_trainer: int = 0
+
+    # ------------
+
+    def to_dict(self) -> dict:
+        dat: dict = convert_for_json(self.__dict__)
+        return dat
 
 
 def play(
     context: RunContext,
     env: EnvRun,
-    workers: List[WorkerRun],
-    trainer: RLTrainer,
+    parameter: RLParameter,
+    memory: RLMemory,
+    workers: Optional[List[WorkerRun]] = None,
+    trainer: Optional[RLTrainer] = None,
     callback_data: Optional[CallbackData] = None,
-) -> RunState:
-    if context.enable_tf_device and context.framework == "tensorflow":
-        if common.is_enable_tf_device_name(context.used_device_tf):
-            import tensorflow as tf
-
-            logger.info(f"tf.device({context.used_device_tf})")
-            with tf.device(context.used_device_tf):  # type: ignore
-                return _play(context, env, workers, trainer, callback_data)
-    return _play(context, env, workers, trainer, callback_data)
-
-
-def _play(
-    context: RunContext,
-    env: EnvRun,
-    workers: List[WorkerRun],
-    trainer: RLTrainer,
-    callback_data: Optional[CallbackData] = None,  # type: ignore , retype
 ) -> RunState:
     assert context._is_setup
     assert (
@@ -46,19 +72,47 @@ def _play(
         or context.max_train_count > 0
         or context.max_memory > 0
     ), "Please specify 'max_episodes', 'timeout' , 'max_steps' or 'max_train_count' or 'max_memory'."
+
+    # --- make instance
+    if context.disable_trainer:
+        trainer = None
+    else:
+        if trainer is None:
+            trainer = make_trainer(context.rl_config, parameter, memory)
+    if workers is None:
+        controller = context.create_controller()
+        workers = controller.make_workers(env, parameter, memory)
+
+    # --- play tf
+    if context.enable_tf_device and context.framework == "tensorflow":
+        if common.is_enable_tf_device_name(context.used_device_tf):
+            import tensorflow as tf
+
+            logger.info(f"tf.device({context.used_device_tf})")
+            with tf.device(context.used_device_tf):  # type: ignore
+                return _play(context, env, parameter, memory, workers, trainer, callback_data)
+    return _play(context, env, parameter, memory, workers, trainer, callback_data)
+
+
+def _play(
+    context: RunContext,
+    env: EnvRun,
+    parameter: RLParameter,
+    memory: RLMemory,
+    workers: List[WorkerRun],
+    trainer: Optional[RLTrainer],
+    callback_data: Optional[CallbackData] = None,
+) -> RunState:
     assert env.player_num == len(workers)
 
     state = RunState()
     state.env = env
+    state.parameter = parameter
+    state.memory = memory
     state.workers = workers
-    state.memory = trainer.memory
-    state.parameter = trainer.parameter
-    if context.disable_trainer:
-        state.trainer = None
-    else:
-        state.trainer = trainer
+    state.trainer = trainer
     if callback_data is None:
-        callback_data: CallbackData = CallbackData()
+        callback_data = CallbackData()
     callback_data.set_data(context, state)
 
     # --- random
@@ -75,7 +129,7 @@ def _play(
     state.worker_indices = [i for i in range(state.env.player_num)]
 
     def __skip_func():
-        [c.on_skip_step(callback_data) for c in _callbacks]
+        [c.on_skip_step(callback_data) for c in _callbacks]  # type: ignore , type OK
 
     # --- loop
     logger.info(f"[{context.run_name}] loop start")
@@ -193,6 +247,11 @@ def play_trainer_only(
     trainer: RLTrainer,
     callback_data: Optional[CallbackData] = None,
 ) -> RunState:
+    assert context._is_setup
+    assert context.training
+    assert context.max_train_count > 0 or context.timeout > 0, "Please specify 'max_train_count' or 'timeout'."
+
+    # --- play tf
     if context.enable_tf_device and context.framework == "tensorflow":
         if common.is_enable_tf_device_name(context.used_device_tf):
             import tensorflow as tf
@@ -208,14 +267,10 @@ def _play_trainer_only(
     trainer: RLTrainer,
     callback_data: Optional[CallbackData] = None,
 ):
-    assert context._is_setup
-    assert context.training
-    assert context.max_train_count > 0 or context.timeout > 0, "Please specify 'max_train_count' or 'timeout'."
-
     state = RunState()
     state.trainer = trainer
-    state.memory = trainer.memory
     state.parameter = trainer.parameter
+    state.memory = trainer.memory
     if callback_data is None:
         callback_data = CallbackData()
     callback_data.set_data(context, state)

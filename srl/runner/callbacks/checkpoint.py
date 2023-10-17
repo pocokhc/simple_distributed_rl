@@ -18,12 +18,12 @@ class Checkpoint(Callback, TrainerCallback, Evaluate):
         self.env = None
 
     def _init(self, runner: Runner):
-        self.save_dir = os.path.join(runner.context.save_dir, "checkpoints")
+        self.save_dir = os.path.join(runner.context.wkdir, "checkpoints")
         if not os.path.isdir(self.save_dir):
             os.makedirs(self.save_dir, exist_ok=True)
             logger.info(f"makedirs: {self.save_dir}")
 
-        self.create_eval_runner(runner)
+        self.setup_eval_runner(runner)
 
     # ---------------------------
     # actor
@@ -73,12 +73,12 @@ class Checkpoint(Callback, TrainerCallback, Evaluate):
         if train_count <= 0:
             logger.info("parameter save skip. (train count 0)")
             return
-        assert runner.parameter is not None
+        assert runner.state.parameter is not None
 
-        eval_rewards = self.run_eval(runner)
-        if eval_rewards is None:
-            fn = f"{train_count}.pickle"
-        else:
+        if self.enable_eval:
+            eval_rewards = self.run_eval(runner.state.parameter)
             fn = f"{train_count}_{eval_rewards}.pickle"
+        else:
+            fn = f"{train_count}.pickle"
 
-        runner.parameter.save(os.path.join(self.save_dir, fn))
+        runner.state.parameter.save(os.path.join(self.save_dir, fn))

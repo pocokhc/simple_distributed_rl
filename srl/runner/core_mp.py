@@ -1,6 +1,7 @@
 import ctypes
 import logging
 import multiprocessing as mp
+import pickle
 import queue
 import threading
 import time
@@ -10,7 +11,7 @@ from typing import Any, List, cast
 
 import srl
 from srl.base.rl.base import IRLMemoryTrainer, IRLMemoryWorker, RLMemory, RLParameter, RLTrainer
-from srl.base.run.data import RunNameTypes
+from srl.base.run.context import RunNameTypes
 from srl.runner.callback import Callback, MPCallback, TrainerCallback
 from srl.runner.runner import RunnerMPData
 
@@ -118,15 +119,15 @@ def _run_actor(
         context.actor_id = actor_id
 
         # --- set_config_by_actor
-        mp_data.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
+        context.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
 
         # --- memory
         memory = cast(RLMemory, _ActorRLMemory(memory_queue))
 
         # --- runner
         runner = srl.Runner(
-            mp_data.env_config,
-            mp_data.rl_config,
+            context.env_config,
+            context.rl_config,
             mp_data.config,
             context,
             memory=memory,
@@ -270,6 +271,7 @@ def _run_trainer(
     train_end_signal: ctypes.c_bool,
 ):
     logger.info("trainer start.")
+    mp_data.context.run_name = RunNameTypes.trainer
 
     # --- memory
     if mp_data.context.enable_prepare_batch:
@@ -277,8 +279,8 @@ def _run_trainer(
 
     # --- runner
     runner = srl.Runner(
-        mp_data.env_config,
-        mp_data.rl_config,
+        mp_data.context.env_config,
+        mp_data.context.rl_config,
         mp_data.config,
         mp_data.context,
         parameter,
@@ -303,7 +305,6 @@ def _run_trainer(
     memory_ps.start()
 
     # --- train
-    print(runner.context.callbacks)
     runner.context.callbacks.insert(0, _TrainerInterrupt(train_end_signal, trainer))
     runner.context.training = True
     runner.core_play(trainer=trainer, trainer_only=True)

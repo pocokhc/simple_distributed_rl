@@ -35,10 +35,8 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         self._create_tbl()
         assert self.decode_tbl is not None
 
-        valid_actions = []
-        for a in self.decode_tbl:  # decode_tbl is all action
-            if a not in invalid_actions:
-                valid_actions.append(a)
+        # decode_tbl is all action
+        valid_actions = [a for a in self.decode_tbl if a not in invalid_actions]
 
         return list(random.choice(valid_actions))
 

@@ -99,7 +99,7 @@ class TestRL:
         env = srl.make_env(env_config)
         rl_config = rl_config.copy(reset_env_config=True)
         rl_config.enable_assertion_value = True
-        rl_config.reset(env)
+        rl_config.setup(env)
         rl_config.assert_params()
 
         parameter = srl.make_parameter(rl_config)

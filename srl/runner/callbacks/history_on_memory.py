@@ -61,7 +61,7 @@ class HistoryOnMemory(Callback, TrainerCallback, Evaluate):
         assert not runner.context.distributed
 
         self.t0 = time.time()
-        self.create_eval_runner(runner)
+        self.setup_eval_runner(runner)
 
     def on_episode_begin(self, runner: Runner):
         self.episode_infos = {}
@@ -102,8 +102,8 @@ class HistoryOnMemory(Callback, TrainerCallback, Evaluate):
                 for k, v in runner.state.trainer.train_info.items():
                     d[f"trainer_{k}"] = v
 
-        eval_rewards = self.run_eval(runner)
-        if eval_rewards is not None:
+        if self.enable_eval:
+            eval_rewards = self.run_eval(runner.state.parameter)
             for i, r in enumerate(eval_rewards):
                 d[f"eval_reward{i}"] = r
 

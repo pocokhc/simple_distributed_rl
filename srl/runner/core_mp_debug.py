@@ -7,7 +7,8 @@ from typing import List, cast
 
 import srl
 from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter
-from srl.base.run.data import RunNameTypes, RunState
+from srl.base.run.context import RunNameTypes
+from srl.base.run.core import RunState
 from srl.runner.callback import Callback, MPCallback, TrainerCallback
 from srl.runner.runner import RunnerMPData
 
@@ -73,15 +74,15 @@ def _run_actor(
         context.actor_id = actor_id
 
         # --- set_config_by_actor
-        mp_data.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
+        mp_data.context.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
 
         # --- memory
         memory = cast(RLMemory, _RLMemory(memory_queue))
 
         # --- runner
         runner = srl.Runner(
-            mp_data.env_config,
-            mp_data.rl_config,
+            mp_data.context.env_config,
+            mp_data.context.rl_config,
             mp_data.config,
             context,
             memory=memory,
@@ -106,7 +107,7 @@ def _run_actor(
 
         # --- env/workers/trainer
         state.env = runner.make_env(is_init=True)
-        state.workers = runner.make_players(parameter, memory)
+        state.workers = runner.make_workers(parameter, memory)
 
         # --- callbacks
         _callbacks = cast(List[Callback], [c for c in context.callbacks if issubclass(c.__class__, Callback)])
@@ -233,8 +234,8 @@ def _run_trainer(
 
         # --- runner
         runner = srl.Runner(
-            mp_data.env_config,
-            mp_data.rl_config,
+            mp_data.context.env_config,
+            mp_data.context.rl_config,
             mp_data.config,
             mp_data.context,
             parameter,

@@ -445,7 +445,7 @@ class Trainer(RLTrainer):
             weights,
             device,
         ]
-        td_error_ext, _loss, _lr = self._train_q(
+        td_error_ext, _loss = self._train_q(
             self.parameter.q_ext_online,
             self.parameter.q_ext_target,
             self.q_ext_optimizer,
@@ -457,10 +457,9 @@ class Trainer(RLTrainer):
         )
         _info = {}
         _info["ext_loss"] = _loss
-        _info["ext_lr"] = _lr
 
         if self.config.enable_intrinsic_reward:
-            td_error_int, _loss, _lr = self._train_q(
+            td_error_int, _loss = self._train_q(
                 self.parameter.q_int_online,
                 self.parameter.q_int_target,
                 self.q_int_optimizer,
@@ -471,7 +470,6 @@ class Trainer(RLTrainer):
                 *_params,
             )
             _info["int_loss"] = _loss
-            _info["int_lr"] = _lr
 
             # embedding lifelong (batch, seq_len, x) -> (batch, x)
             one_states = instep_states[:, 0, ...]

@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Union
 
 from srl.base.define import RenderModes
-from srl.base.rl.base import RLConfig, RLMemory, RLParameter, RLTrainer
-from srl.base.run.data import RunNameTypes
+from srl.base.rl.base import RLMemory, RLParameter, RLTrainer
+from srl.base.run.context import RLWorkerType, RunNameTypes, StrWorkerType
 from srl.runner.callback import CallbackType
 from srl.runner.runner import Runner
 
@@ -25,7 +25,7 @@ class RunnerFacade(Runner):
         eval_episode: int = 1,
         eval_timeout: int = -1,
         eval_max_steps: int = -1,
-        eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
+        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
         eval_used_device_tf: str = "/CPU",
         eval_used_device_torch: str = "cpu",
@@ -49,6 +49,8 @@ class RunnerFacade(Runner):
             eval_used_device_torch (str, optional): 評価時のdevice. Defaults to "cpu".
             eval_callbacks (List[CallbackType], optional): 評価時のcallbacks. Defaults to [].
         """
+        self.context_controller.setup(self.config.training_mode, self.config.wkdir)
+
         self._history_on_memory_callback = None
         self._history_on_file_callback = None
         if enable_history:
@@ -94,7 +96,7 @@ class RunnerFacade(Runner):
         eval_episode: int = 1,
         eval_timeout: int = -1,
         eval_max_steps: int = -1,
-        eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
+        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
         eval_used_device_tf: str = "/CPU",
         eval_used_device_torch: str = "cpu",
@@ -119,6 +121,7 @@ class RunnerFacade(Runner):
         if not enable_checkpoint:
             self._checkpoint_callback = None
             return
+        self.context_controller.setup(self.config.training_mode, self.config.wkdir)
 
         from srl.runner.callbacks.checkpoint import Checkpoint
 
@@ -161,7 +164,7 @@ class RunnerFacade(Runner):
         eval_episode: int = 1,
         eval_timeout: int = -1,
         eval_max_steps: int = -1,
-        eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
+        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
         eval_enable_tf_device: bool = True,
         eval_used_device_tf: str = "/CPU",
@@ -218,9 +221,6 @@ class RunnerFacade(Runner):
         # play info
         self.context.training = True
         self.context.render_mode = RenderModes.none
-
-        # init
-        self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
 
         # --- progress ---
         if enable_progress:
@@ -279,7 +279,7 @@ class RunnerFacade(Runner):
             from srl.runner.callbacks.history_viewer import HistoryViewer
 
             self.history_viewer = HistoryViewer()
-            self.history_viewer.load(self.context.save_dir)
+            self.history_viewer.load(self.context.wkdir)
         # ----------------
 
     def rollout(
@@ -323,9 +323,6 @@ class RunnerFacade(Runner):
         self.context.training = True
         self.context.render_mode = RenderModes.none
 
-        # init
-        self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
-
         # --- progress ---
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
@@ -363,7 +360,7 @@ class RunnerFacade(Runner):
             from srl.runner.callbacks.history_viewer import HistoryViewer
 
             self.history_viewer = HistoryViewer()
-            self.history_viewer.load(self.context.save_dir)
+            self.history_viewer.load(self.context.wkdir)
         # ----------------
 
     def train_only(
@@ -381,7 +378,7 @@ class RunnerFacade(Runner):
         eval_episode: int = 1,
         eval_timeout: int = -1,
         eval_max_steps: int = -1,
-        eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
+        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
         eval_enable_tf_device: bool = True,
         eval_used_device_tf: str = "/CPU",
@@ -406,9 +403,6 @@ class RunnerFacade(Runner):
         # play info
         self.context.training = True
         self.context.render_mode = RenderModes.none
-
-        # init
-        self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
 
         # --- progress ---
         if enable_progress:
@@ -464,7 +458,7 @@ class RunnerFacade(Runner):
             from srl.runner.callbacks.history_viewer import HistoryViewer
 
             self.history_viewer = HistoryViewer()
-            self.history_viewer.load(self.context.save_dir)
+            self.history_viewer.load(self.context.wkdir)
         # ----------------
 
     def train_mp(
@@ -497,7 +491,7 @@ class RunnerFacade(Runner):
         eval_episode: int = 1,
         eval_timeout: int = -1,
         eval_max_steps: int = -1,
-        eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
+        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
         eval_enable_tf_device: bool = True,
         eval_used_device_tf: str = "/CPU",
@@ -529,9 +523,6 @@ class RunnerFacade(Runner):
         # play info
         self.context.training = True
         self.context.render_mode = RenderModes.none
-
-        # init
-        self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
 
         # --- progress ---
         if enable_progress:
@@ -580,7 +571,7 @@ class RunnerFacade(Runner):
             from srl.runner.callbacks.history_viewer import HistoryViewer
 
             self.history_viewer = HistoryViewer()
-            self.history_viewer.load(self.context.save_dir)
+            self.history_viewer.load(self.context.wkdir)
         # ----------------
 
     def train_mp_debug(
@@ -613,7 +604,7 @@ class RunnerFacade(Runner):
         eval_episode: int = 1,
         eval_timeout: int = -1,
         eval_max_steps: int = -1,
-        eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
+        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
         eval_enable_tf_device: bool = True,
         eval_used_device_tf: str = "/CPU",
@@ -653,9 +644,6 @@ class RunnerFacade(Runner):
         # play info
         self.context.training = True
         self.context.render_mode = RenderModes.none
-
-        # init
-        self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
 
         # --- progress ---
         if enable_progress:
@@ -702,7 +690,7 @@ class RunnerFacade(Runner):
             from srl.runner.callbacks.history_viewer import HistoryViewer
 
             self.history_viewer = HistoryViewer()
-            self.history_viewer.load(self.context.save_dir)
+            self.history_viewer.load(self.context.wkdir)
         # ----------------
 
     def train_rabbitmq(
@@ -738,7 +726,7 @@ class RunnerFacade(Runner):
         eval_episode: int = 1,
         eval_timeout: int = -1,
         eval_max_steps: int = -1,
-        eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]] = [],
+        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
         eval_enable_tf_device: bool = True,
         eval_used_device_tf: str = "/CPU",
@@ -768,9 +756,6 @@ class RunnerFacade(Runner):
         # play info
         self.context.training = True
         self.context.render_mode = RenderModes.none
-
-        # init
-        self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
 
         # --- progress ---
         if enable_progress:
@@ -819,7 +804,7 @@ class RunnerFacade(Runner):
             from srl.runner.callbacks.history_viewer import HistoryViewer
 
             self.history_viewer = HistoryViewer()
-            self.history_viewer.load(self.context.save_dir)
+            self.history_viewer.load(self.context.wkdir)
         # ----------------
 
     def evaluate(
@@ -875,9 +860,6 @@ class RunnerFacade(Runner):
         self.context.training = False
         self.context.render_mode = RenderModes.none
 
-        # init
-        self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
-
         # --- progress ---
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
@@ -932,9 +914,6 @@ class RunnerFacade(Runner):
         # play info
         self.context.training = False
         self.context.render_mode = mode
-
-        # init
-        self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -994,9 +973,6 @@ class RunnerFacade(Runner):
         # play info
         self.context.training = False
         self.context.render_mode = mode
-
-        # init
-        self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -1080,9 +1056,6 @@ class RunnerFacade(Runner):
         # play info
         self.context.training = False
         self.context.render_mode = mode
-
-        # init
-        self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -1168,9 +1141,6 @@ class RunnerFacade(Runner):
         self.context.training = False
         self.context.render_mode = mode
 
-        # init
-        self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
-
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
 
@@ -1245,9 +1215,6 @@ class RunnerFacade(Runner):
         self.context.training = False
         self.context.render_mode = mode
 
-        # init
-        self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
-
         # --- progress ---
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
@@ -1273,7 +1240,7 @@ class RunnerFacade(Runner):
 
     def play_terminal(
         self,
-        players: List[Union[None, str, Tuple[str, dict], RLConfig]] = ["human"],
+        players: List[Union[None, StrWorkerType, RLWorkerType]] = ["human"],
         # Rendering
         render_kwargs: dict = {},
         step_stop: bool = False,
@@ -1285,7 +1252,7 @@ class RunnerFacade(Runner):
         callbacks: List[CallbackType] = [],
     ):
         self.context.callbacks = callbacks[:]  # type: ignore , type ok
-        self.config.players = players
+        self.context.players = players
 
         mode = RenderModes.terminal
 
@@ -1302,9 +1269,6 @@ class RunnerFacade(Runner):
         # play info
         self.context.training = False
         self.context.render_mode = mode
-
-        # init
-        self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -1351,8 +1315,7 @@ class RunnerFacade(Runner):
         self.context.training = enable_remote_memory
         self.context.render_mode = mode
 
-        # init
-        self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
+        self.context_controller.setup(self.config.training_mode, self.config.wkdir)
 
         from srl.utils.common import is_packages_installed
 

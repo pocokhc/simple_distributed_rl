@@ -52,7 +52,7 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
         fp.flush()
 
     def _init(self, runner: Runner):
-        self.save_dir = runner.context.save_dir
+        self.save_dir = runner.context.wkdir
         if not os.path.isdir(self.save_dir):
             os.makedirs(self.save_dir, exist_ok=True)
             logger.info(f"makedirs: {self.save_dir}")
@@ -82,7 +82,7 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
         path = os.path.join(self.save_dir, "context.json")
         if not os.path.isfile(path):
             with open(path, "w", encoding="utf-8") as f:
-                json.dump(runner.context.to_dict(), f, indent=2)
+                json.dump(runner.context_controller.to_dict(), f, indent=2)
 
     def _add_info(self, info, prefix, dict_):
         if dict_ is None:
@@ -108,7 +108,7 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
         self.t0 = time.time()
         self.interval_t0 = self.t0
         self.last_episode_result = {}
-        self.create_eval_runner(runner)
+        self.setup_eval_runner(runner)
 
     def on_episodes_end(self, runner: Runner):
         self._write_actor_log(runner)
@@ -170,8 +170,8 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
                 for k, v in runner.state.trainer.train_info.items():
                     d[f"trainer_{k}"] = v
 
-        eval_rewards = self.run_eval(runner)
-        if eval_rewards is not None:
+        if self.enable_eval:
+            eval_rewards = self.run_eval(runner.state.parameter)
             for i, r in enumerate(eval_rewards):
                 d[f"eval_reward{i}"] = r
 

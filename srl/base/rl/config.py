@@ -79,7 +79,7 @@ class RLConfig(ABC):
     enable_assertion_value: bool = False
 
     def __post_init__(self) -> None:
-        self._is_reset = False
+        self._is_setup = False
         self._run_processors: List[Processor] = []
         self._rl_action_type = self.override_action_type
 
@@ -137,14 +137,14 @@ class RLConfig(ABC):
         return {}  # NotImplemented
 
     # ----------------------------
-    # reset config
+    # setup
     # ----------------------------
-    def reset(self, env: EnvRun, is_logger: bool = True) -> None:
-        if self._is_reset:
+    def setup(self, env: EnvRun, enable_log: bool = True) -> None:
+        if self._is_setup:
             return
         self._check_parameter = False
 
-        if is_logger:
+        if enable_log:
             logger.info(f"--- {self.getName()}")
             logger.info(f"max_episode_steps     : {env.max_episode_steps}")
             logger.info(f"player_num            : {env.player_num}")
@@ -166,7 +166,7 @@ class RLConfig(ABC):
         # --- observation_typeの上書き
         if self.override_env_observation_type != EnvObservationTypes.UNKNOWN:
             rl_env_observation_type = self.override_env_observation_type
-            if is_logger:
+            if enable_log:
                 logger.info(f"override observation type: {rl_env_observation_type}")
 
         self._run_processors = []
@@ -188,7 +188,7 @@ class RLConfig(ABC):
                     env,
                     self,
                 )
-                if is_logger:
+                if enable_log:
                     logger.info(f"processor obs space: {rl_observation_space}")
                     logger.info(f"processor obs type : {rl_env_observation_type}")
 
@@ -200,7 +200,7 @@ class RLConfig(ABC):
                 np.min(self._one_observation.low),
                 np.max(self._one_observation.high),
             )
-            if is_logger:
+            if enable_log:
                 logger.info(f"window_length obs space: {rl_observation_space}")
 
         self._rl_observation_space = rl_observation_space
@@ -225,7 +225,7 @@ class RLConfig(ABC):
             ]:
                 _f = True
         if _f:
-            if is_logger:
+            if enable_log:
                 logger.warning(f"EnvType and RLType do not match. {rl_env_observation_type} != {rl_obs_type}")
 
         # -----------------------
@@ -268,8 +268,8 @@ class RLConfig(ABC):
         # --- option
         self.set_config_by_env(env)
 
-        self._is_reset = True
-        if is_logger:
+        self._is_setup = True
+        if enable_log:
             logger.info(f"action_space(env)       : {self._env_action_space}")
             logger.info(f"action_type(rl)         : {self._rl_action_type}")
             logger.info(f"observation_env_type(rl): {self._rl_env_observation_type}")
@@ -277,7 +277,7 @@ class RLConfig(ABC):
             logger.info(f"observation_space(rl)   : {self._rl_observation_space}")
 
     def __setattr__(self, name, value):
-        if name == "_is_reset":
+        if name == "_is_setup":
             object.__setattr__(self, name, value)
             return
 
@@ -297,7 +297,7 @@ class RLConfig(ABC):
             "enable_action_decode",
             "window_length",
         ]:
-            self._is_reset = False
+            self._is_setup = False
         object.__setattr__(self, name, value)
 
     # ----------------------------
@@ -308,8 +308,8 @@ class RLConfig(ABC):
         return self.getName()
 
     @property
-    def is_reset(self) -> bool:
-        return self._is_reset
+    def is_setup(self) -> bool:
+        return self._is_setup
 
     @property
     def run_processors(self) -> List[Processor]:
@@ -364,9 +364,9 @@ class RLConfig(ABC):
                 logger.warning(f"'{k}' copy fail.({e})")
 
         if reset_env_config:
-            config._is_reset = False
+            config._is_setup = False
         else:
-            config._is_reset = self._is_reset
+            config._is_setup = self._is_setup
         return config
 
     def create_dummy_state(self, is_one: bool = False) -> RLObservationType:

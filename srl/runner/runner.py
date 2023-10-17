@@ -1,7 +1,7 @@
 import copy
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 import numpy as np
@@ -11,11 +11,11 @@ from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.base.env.registration import make as make_env
 from srl.base.rl.base import RLConfig, RLMemory, RLParameter, RLTrainer
-from srl.base.rl.registration import make_memory, make_parameter, make_trainer, make_worker, make_worker_rulebase
+from srl.base.rl.registration import make_memory, make_parameter, make_trainer, make_worker
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run import core as core_run
 from srl.base.run.callback import CallbackData
-from srl.base.run.data import RunContext, RunNameTypes, RunState
+from srl.base.run.context import RLWorkerType, RunContext, RunNameTypes, StrWorkerType, TrainingModeTypes
 from srl.rl import dummy
 from srl.runner.callback import CallbackType
 from srl.utils import common
@@ -29,11 +29,11 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RunnerConfig:
-    players: List[Union[None, str, Tuple[str, dict], RLConfig]] = field(default_factory=list)
-
     # --- dir
     # 基本となるディレクトリ、ファイル関係は、この配下に時刻でフォルダが作られ、その下が基準となる
-    base_dir: str = "tmp"
+    wkdir: str = "tmp"
+
+    training_mode: TrainingModeTypes = TrainingModeTypes.short
 
     # --- stats
     enable_stats: bool = True
@@ -65,9 +65,7 @@ class RunnerConfig:
 
 @dataclass
 class RunnerMPData:
-    env_config: EnvConfig
-    rl_config: RLConfig
-    config: RunnerConfig
+    config: RunnerConfig  # 将来的にはこちらもbaseに統合したい
     context: RunContext
 
 
@@ -106,7 +104,8 @@ class Runner(CallbackData):
         if self.config is None:
             self.config: RunnerConfig = RunnerConfig()
         if self.context is None:
-            self.context: RunContext = RunContext()
+            self.context: RunContext = RunContext(self.env_config, self.rl_config)
+        self.context_controller = self.context.create_controller()
 
         self._env: Optional[EnvRun] = None
         self._trainer: Optional[RLTrainer] = None
@@ -126,33 +125,30 @@ class Runner(CallbackData):
     # ------------------------------
     # set config
     # ------------------------------
-    def set_players(self, players: List[Union[None, str, Tuple[str, dict], RLConfig]] = []):
+    def set_players(self, players: List[Union[None, StrWorkerType, RLWorkerType]] = []):
         """multi player option
         マルチプレイヤーゲームでのプレイヤーを指定します。
 
-        None             : use rl_config worker
-        str              : Registered RuleWorker
-        Tuple[str, dict] : Registered RuleWorker(Pass kwargs argument)
-        RLConfig         : use RLConfig worker
+        None                : use rl_config worker
+        str                 : Registered RuleWorker
+        Tuple[str, dict]    : Registered RuleWorker(Pass kwargs argument)
+        RLConfig            : use RLConfig worker
+        Tuple[RLConfig, Any]: use RLConfig worker(Parameter)
 
         Args:
             players: マルチプレイヤーゲームにおけるプレイヤーを表した配列
 
         """
-        # playersという変数名だけど、役割はworkersの方が正しい
-        self.config.players = players
+        self.context.players = players
 
-    def set_save_dir(self, save_dir: str, setup_context: bool = False):
+    def set_wkdir(self, wkdir: str = "tmp"):
         """ディレクトリへの保存が必要な場合、そのディレクトリを指定します。
         ディレクトリへの保存は、historyやcheckpointがあります。
 
         Args:
-            save_dir (str): 保存ディレクトリのパス。 Defaults to "tmp".
-            setup_context (bool): contextも合わせてsetupします。 Defaults to False.
+            wkdir (str): ディレクトリのパス。 Defaults to "tmp".
         """
-        self.config.base_dir = save_dir
-        if setup_context:
-            self.context.setup(self.env_config, self.rl_config, self.config.base_dir)
+        self.config.wkdir = wkdir
 
     def set_seed(
         self,
@@ -230,8 +226,8 @@ class Runner(CallbackData):
     def make_parameter(self, is_load: bool = True) -> RLParameter:
         self._init_process()
         if self.parameter is None:
-            if not self.rl_config.is_reset:
-                self.rl_config.reset(self.make_env())
+            if not self.rl_config._is_setup:
+                self.rl_config.setup(self.make_env())
             self.parameter = make_parameter(self.rl_config, is_load=is_load)
             logger.info(f"make parameter: {self.parameter}")
         return self.parameter
@@ -239,8 +235,8 @@ class Runner(CallbackData):
     def make_memory(self, is_load: bool = True) -> RLMemory:
         self._init_process()
         if self.memory is None:
-            if not self.rl_config.is_reset:
-                self.rl_config.reset(self.make_env())
+            if not self.rl_config._is_setup:
+                self.rl_config.setup(self.make_env())
             self.memory = make_memory(self.rl_config, is_load=is_load)
             logger.info(f"make memory: {self.memory}")
         return self.memory
@@ -257,8 +253,8 @@ class Runner(CallbackData):
             parameter = self.make_parameter()
         if memory is None:
             memory = self.make_memory()
-        if not self.rl_config.is_reset:
-            self.rl_config.reset(self.make_env())
+        if not self.rl_config._is_setup:
+            self.rl_config.setup(self.make_env())
         trainer = make_trainer(self.rl_config, parameter, memory)
         if use_cache:
             self._trainer = trainer
@@ -437,7 +433,7 @@ class Runner(CallbackData):
             logger.info(f"[{run_name}] CUDA_VISIBLE_DEVICES is not define.")
 
         # --- check device ---
-        if run_name == RunNameTypes.main:
+        if run_name == RunNameTypes.main or run_name == RunNameTypes.trainer:
             device = self.config.device_main.upper()
             if device == "":
                 device = "AUTO"
@@ -590,24 +586,26 @@ class Runner(CallbackData):
             state = worker.state_encode(state, env, append_recent_state=False)
         return state
 
-    def copy(self, copy_context: bool = False, env_share: bool = False) -> "Runner":
-        runner = Runner(self.env_config, self.rl_config)
-        runner.config = self.config.copy()
-        if copy_context:
-            runner.context = self.context.copy()
+    def copy(self, env_share: bool, copy_setup: bool, copy_callbacks: bool) -> "Runner":
+        runner = Runner(
+            self.env_config.copy(),
+            self.rl_config.copy(),
+            self.config.copy(),
+            self.context_controller.copy(copy_setup, copy_callbacks),
+        )
         if env_share:
             runner._env = self._env
         return runner
 
     def create_mp_data(self) -> RunnerMPData:
-        return RunnerMPData(self.env_config, self.rl_config, self.config, self.context)
+        return RunnerMPData(self.config, self.context)
 
     def print_config(self):
         import pprint
 
         print(f"env\n{pprint.pformat(self.env_config.to_dict())}")
         print(f"rl\n{pprint.pformat(self.rl_config.to_dict())}")
-        print(f"context\n{pprint.pformat(self.context.to_dict())}")
+        print(f"context\n{pprint.pformat(self.context_controller.to_dict())}")
 
     # ------------------------------
     # eval
@@ -618,42 +616,45 @@ class Runner(CallbackData):
         eval_episode: int,
         eval_timeout: int,
         eval_max_steps: int,
-        eval_players: List[Union[None, str, Tuple[str, dict], RLConfig]],
+        eval_players: List[Union[None, StrWorkerType, RLWorkerType]],
         eval_shuffle_player: bool,
         enable_tf_device: bool,
         used_device_tf: str,
         used_device_torch: str,
         eval_callbacks: List[CallbackType],
     ) -> "Runner":
-        eval_runner = self.copy(copy_context=False, env_share=env_share)
-        # config
-        eval_runner.config.players = eval_players
+        self.context_controller.setup(self.config.training_mode, self.config.wkdir)
+        r = self.copy(env_share, copy_setup=True, copy_callbacks=False)
+
         # context
-        c = RunContext()
-        c.callbacks = eval_callbacks[:]  # type: ignore , type ok
-        c.run_name = RunNameTypes.eval
+        r.context.players = eval_players
+        r.context.run_name = RunNameTypes.eval
         # stop
-        c.max_episodes = eval_episode
-        c.timeout = eval_timeout
-        c.max_steps = eval_max_steps
+        r.context.max_episodes = eval_episode
+        r.context.timeout = eval_timeout
+        r.context.max_steps = eval_max_steps
         # play
-        c.shuffle_player = eval_shuffle_player
-        c.training = False
-        c.seed = None
+        r.context.shuffle_player = eval_shuffle_player
+        r.context.training = False
+        r.context.seed = None  # mainと競合するのでNone
         # device
-        c.enable_tf_device = enable_tf_device
-        c.used_device_tf = used_device_tf
-        c.used_device_torch = used_device_torch
-        c.setup(self.env_config, self.rl_config)
-        eval_runner.context = c
-        return eval_runner
+        r.context.enable_tf_device = enable_tf_device
+        r.context.used_device_tf = used_device_tf
+        r.context.used_device_torch = used_device_torch
+
+        r.context.callbacks = eval_callbacks[:]  # type: ignore , type ok
+        return r
 
     def callback_play_eval(self, parameter: RLParameter):
+        env = self.make_env()
+        memory = self.make_memory(is_load=False)
         state = core_run.play(
             self.context,
-            self.make_env(),
-            workers=self.make_players(parameter=parameter, use_cache=True),
-            trainer=self.make_trainer(parameter=parameter, use_cache=True),
+            env,
+            parameter=parameter,
+            memory=memory,
+            workers=self.make_workers(parameter, memory, use_cache=True),
+            trainer=None,
         )
         return state.episode_rewards_list
 
@@ -666,22 +667,34 @@ class Runner(CallbackData):
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
         trainer: Optional[RLTrainer] = None,
-    ) -> RunState:
+        workers: Optional[List[WorkerRun]] = None,
+    ) -> core_run.RunState:
+        self.context_controller.setup(self.config.training_mode, self.config.wkdir)
+
         # --- random ---
         if self.config.seed is not None:
             common.set_seed(self.config.seed, self.config.seed_enable_gpu)
             self.context.seed = self.config.seed
         # --------------
 
+        # --- make instance
+        if parameter is None:
+            parameter = self.make_parameter()
+        if memory is None:
+            memory = self.make_memory()
         if trainer is None:
-            trainer = self.make_trainer(parameter=parameter, memory=memory)
+            trainer = self.make_trainer(parameter, memory)
 
         # --- play ----
         if not trainer_only:
+            if workers is None:
+                workers = self.make_workers(parameter, memory)
             state = core_run.play(
                 self.context,
                 self.make_env(),
-                self.make_players(parameter=parameter, memory=memory),
+                parameter,
+                memory,
+                workers,
                 trainer,
                 self,
             )

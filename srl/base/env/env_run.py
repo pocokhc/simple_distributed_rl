@@ -417,9 +417,9 @@ class EnvRun:
     def make_worker(
         self,
         name: str,
-        distributed: bool = False,
-        enable_raise: bool = True,
         env_worker_kwargs: dict = {},
+        enable_raise: bool = True,
+        distributed: bool = False,
         actor_id: int = 0,
     ) -> Optional["WorkerRun"]:
         env_worker_kwargs = env_worker_kwargs.copy()

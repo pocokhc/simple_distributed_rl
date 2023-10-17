@@ -39,6 +39,7 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
         self.history_step = []
         self.history_episode = []
         self.history_episode_start_idx = 0
+        self.eval_runner = None
 
     def _check_print_progress(self):
         _time = time.time()
@@ -58,10 +59,17 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
         return True
 
     def _eval_str(self, runner: Runner) -> str:
-        eval_rewards = self.run_eval(runner)
-        if eval_rewards is None:
+        if self.eval_runner is None:
             return ""
-        return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
+        if runner.context.distributed:
+            if runner.context.actor_id == 0:
+                eval_rewards = self.run_eval(runner.state.parameter)
+                return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
+            else:
+                return " " * 12
+        else:
+            eval_rewards = self.run_eval(runner.state.parameter)
+            return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
 
     # -----------------------------------------------------
 
@@ -75,7 +83,7 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
         if runner.context.distributed:
             self.enable_eval = self.enable_eval and (context.actor_id == 0)
 
-        self.create_eval_runner(runner)
+        self.setup_eval_runner(runner)
 
         if not context.distributed:
             s = f"### env: {runner.env_config.name}, rl: {runner.rl_config.getName()}"
@@ -226,10 +234,7 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
             s += f",{_r_min} {_r_mid} {_r_max} re"
 
             # [eval reward]
-            if context.actor_id == 0:
-                s += self._eval_str(runner)
-            elif context.distributed:
-                s += " " * 12
+            s += self._eval_str(runner)
 
         # [memory]
         if state.memory is not None:
@@ -295,7 +300,7 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
 
         self.progress_timeout = self.start_time
 
-        self.create_eval_runner(runner)
+        self.setup_eval_runner(runner)
 
         if not runner.context.distributed:
             assert runner.state.memory is not None

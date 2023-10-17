@@ -4,8 +4,7 @@ from dataclasses import dataclass
 from typing import Tuple
 
 from srl.base.define import InfoType, InvalidActionsType, RLActionType, RLObservationType, RLTypes
-from srl.base.rl.base import RLConfig
-from srl.base.rl.worker import WorkerBase
+from srl.base.rl.base import RLConfig, RLWorker
 from srl.base.rl.worker_run import WorkerRun
 
 logger = logging.getLogger(__name__)
@@ -18,7 +17,7 @@ class DiscreteActionConfig(RLConfig):
         return RLTypes.DISCRETE
 
 
-class DiscreteActionWorker(WorkerBase):
+class DiscreteActionWorker(RLWorker):
     @abstractmethod
     def call_on_reset(
         self,

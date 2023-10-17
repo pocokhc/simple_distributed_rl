@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple, cast
 import pygame
 
 from srl.base.define import EnvActionType, KeyBindType, RenderModes
-from srl.base.run.data import RunState
+from srl.base.run.core import RunState
 from srl.runner.callback import GameCallback
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
 from srl.runner.runner import Runner
@@ -39,7 +39,7 @@ class PlayableGame(GameWindow):
         self.state = RunState()
         self.state.env = runner.make_env(is_init=True)
         if self.enable_remote_memory:
-            self.state.workers = runner.make_players()
+            self.state.workers = runner.make_workers()
             self.state.parameter = runner.make_parameter()
             self.state.memory = runner.make_memory()
         # ---------------------------

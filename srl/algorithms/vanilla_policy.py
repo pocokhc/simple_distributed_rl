@@ -5,10 +5,9 @@ from typing import Any, Tuple, cast
 import numpy as np
 
 from srl.base.define import RLActionType, RLTypes
-from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
-from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import render_discrete_action, to_str_observation
 from srl.rl.memories.sequence_memory import SequenceMemory
@@ -204,13 +203,13 @@ class Worker(RLWorker):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-    def call_on_reset(self, worker: WorkerRun) -> dict:
+    def on_reset(self, worker: WorkerRun) -> dict:
         self.state = to_str_observation(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
         self.history = []
         return {}
 
-    def call_policy(self, worker: WorkerRun) -> Tuple[RLActionType, dict]:
+    def policy(self, worker: WorkerRun) -> Tuple[RLActionType, dict]:
         self.state = to_str_observation(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
 
@@ -236,7 +235,7 @@ class Worker(RLWorker):
 
         return env_action, {}
 
-    def call_on_step(self, worker: WorkerRun) -> dict:
+    def on_step(self, worker: WorkerRun) -> dict:
         if not self.training:
             return {}
         self.history.append(

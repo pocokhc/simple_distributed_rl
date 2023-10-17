@@ -8,10 +8,9 @@ from tensorflow import keras
 
 from srl.base.define import RLTypes
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
-from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
@@ -348,7 +347,7 @@ class Worker(RLWorker):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-    def call_on_reset(self, worker: WorkerRun) -> dict:
+    def on_reset(self, worker: WorkerRun) -> dict:
         self.sampling_step = 0
         self.history = []
 
@@ -362,7 +361,7 @@ class Worker(RLWorker):
             self.N[state_str] = [0 for _ in range(self.config.action_num)]
             self.W[state_str] = [0 for _ in range(self.config.action_num)]
 
-    def call_policy(self, worker: WorkerRun) -> Tuple[int, dict]:
+    def policy(self, worker: WorkerRun) -> Tuple[int, dict]:
         self.state = worker.state
         self.state_str = to_str_observation(self.state, self.config.env_observation_type)
         self.invalid_actions = worker.get_invalid_actions()
@@ -401,7 +400,7 @@ class Worker(RLWorker):
 
         # 1step
         player_index = env.next_player_index
-        n_state, rewards = self.worker_run.env_step(env, action)
+        n_state, rewards = self.worker.env_step(env, action)
         reward = rewards[player_index]
         n_state_str = to_str_observation(n_state)
         enemy_turn = player_index != env.next_player_index
@@ -474,7 +473,7 @@ class Worker(RLWorker):
             scores[a] = score
         return scores
 
-    def call_on_step(self, worker: WorkerRun) -> dict:
+    def on_step(self, worker: WorkerRun) -> dict:
         self.sampling_step += 1
 
         if not self.training:

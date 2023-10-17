@@ -6,11 +6,10 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import EnvObservationTypes, RLTypes
-from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import render_discrete_action
 from srl.rl.functions.common_tf import compute_kl_divergence, compute_kl_divergence_normal, compute_logprob
@@ -463,13 +462,13 @@ class Worker(RLWorker):
             self.action_center = (self.config.action_space.high + self.config.action_space.low) / 2
             self.action_scale = self.config.action_space.high - self.action_center
 
-    def call_on_reset(self, worker: WorkerRun) -> dict:
+    def on_reset(self, worker: WorkerRun) -> dict:
         self.recent_batch = []
         self.recent_rewards = []
         self.recent_next_states = []
         return {}
 
-    def call_policy(self, worker: WorkerRun) -> Tuple[Any, dict]:
+    def policy(self, worker: WorkerRun) -> Tuple[Any, dict]:
         state = worker.state
         if self.config.state_clip is not None:
             state = np.clip(state, self.config.state_clip[0], self.config.state_clip[1])
@@ -510,7 +509,7 @@ class Worker(RLWorker):
 
         return action, {}
 
-    def call_on_step(self, worker: WorkerRun) -> dict:
+    def on_step(self, worker: WorkerRun) -> dict:
         if not self.training:
             return {}
 

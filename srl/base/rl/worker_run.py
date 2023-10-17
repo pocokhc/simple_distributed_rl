@@ -15,8 +15,8 @@ from srl.base.define import (
 )
 from srl.base.env.env_run import EnvRun
 from srl.base.render import Render
+from srl.base.rl.base import RLWorker
 from srl.base.rl.config import RLConfig
-from srl.base.rl.worker import WorkerBase
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +24,12 @@ logger = logging.getLogger(__name__)
 class WorkerRun:
     def __init__(
         self,
-        worker: WorkerBase,
+        worker: RLWorker,
         env: EnvRun,
         distributed: bool = False,
         actor_id: int = 0,
-        is_reset_logger: bool = True,
     ):
-        worker.config.reset(env, is_logger=is_reset_logger)
+        worker.config.setup(env, enable_log=False)
         worker._set_worker_run(self)
 
         self._worker = worker
@@ -59,7 +58,7 @@ class WorkerRun:
     # episode functions
     # ------------------------------------
     @property
-    def worker(self) -> WorkerBase:
+    def worker(self) -> RLWorker:
         return self._worker
 
     @property
@@ -131,7 +130,7 @@ class WorkerRun:
         self._state = self._config.create_dummy_state()
         self._reward = 0
         self._done = False
-        self._invalid_actions = [self.action_encode(a) for a in self._env.get_invalid_actions(self.player_index)]
+        self._set_invalid_actions()
 
         if self._config.window_length > 1:
             self._recent_states: List[RLObservationType] = [
@@ -143,7 +142,7 @@ class WorkerRun:
     def policy(self) -> EnvActionType:
         if not self._is_reset:
             # 1週目は reset -> policy
-            self._invalid_actions = [self.action_encode(a) for a in self._env.get_invalid_actions(self.player_index)]
+            self._set_invalid_actions()
             self._state = self.state_encode(self.env.state, self._env, append_recent_state=True)
             self._info = self._worker.on_reset(self)
             self._is_reset = True
@@ -186,7 +185,12 @@ class WorkerRun:
         self._done = self._env.done
         self._info = self._worker.on_step(self)
         self._step_reward = 0
-        self._invalid_actions = [self.action_encode(a) for a in self._env.get_invalid_actions(self.player_index)]
+        self._set_invalid_actions()
+
+    def _set_invalid_actions(self):
+        self._invalid_actions = cast(
+            InvalidActionsType, [self.action_encode(a) for a in self._env.get_invalid_actions(self.player_index)]
+        )
 
     # ------------------------------
     # encode/decode
@@ -258,15 +262,18 @@ class WorkerRun:
     def get_invalid_actions(self, env: Optional[EnvRun] = None) -> InvalidActionsType:
         return self._invalid_actions
 
-    # def get_valid_actions(self, env=None) -> InvalidActionsType:
-    #    raise NotImplementedError()  # TODO: bugがあったのでいったん保留
+    def get_valid_actions(self, env: Optional[EnvRun] = None) -> InvalidActionsType:
+        if self.config.action_type == RLTypes.DISCRETE:
+            return [a for a in range(self.config.action_num) if a not in self.get_invalid_actions(env)]
+        else:
+            raise NotImplementedError("not support")
 
     def add_invalid_actions(self, invalid_actions: InvalidActionsType) -> None:
         if self.config.action_type == RLTypes.DISCRETE:
             self._invalid_actions += invalid_actions
             self._invalid_actions = list(set(self._invalid_actions))
         else:
-            assert False, "not support"
+            raise NotImplementedError("not support")
 
     # ------------------------------------
     # check
@@ -274,7 +281,7 @@ class WorkerRun:
     def sanitize_action(self, action: RLActionType) -> RLActionType:
         if self.config.action_type == RLTypes.DISCRETE:
             try:
-                return int(action)
+                return int(cast(int, action))
             except Exception as e:
                 logger.error(f"{action}({type(action)}), {e}")
             return 0

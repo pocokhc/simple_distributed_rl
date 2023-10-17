@@ -3,15 +3,14 @@ from typing import Tuple
 
 from srl.base.define import EnvActionType, InfoType, RLActionType
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import DummyRLMemoryWorker, DummyRLParameter
+from srl.base.rl.base import RLWorker
 from srl.base.rl.config import DummyRLConfig
-from srl.base.rl.worker import WorkerBase
 from srl.base.rl.worker_run import WorkerRun
 
 
-class EnvWorker(WorkerBase):
-    def __init__(self) -> None:
-        super().__init__(DummyRLConfig(), DummyRLParameter(), DummyRLMemoryWorker())
+class EnvWorker(RLWorker):
+    def __init__(self, **kwargs) -> None:
+        super().__init__(DummyRLConfig())
 
     def call_on_reset(self, env: EnvRun) -> InfoType:
         return {}

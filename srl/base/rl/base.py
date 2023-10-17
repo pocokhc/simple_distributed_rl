@@ -3,14 +3,25 @@ import os
 import pickle
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Tuple
 
-from srl.base.define import InfoType
+import numpy as np
+
+from srl.base.define import InfoType, InvalidActionsType, RLActionType
+from srl.base.render import IRender
 from srl.base.rl.config import DummyRLConfig, RLConfig
+
+if TYPE_CHECKING:
+    from srl.base.env.env_run import EnvRun
+    from srl.base.rl.worker_run import WorkerRun
+
 
 logger = logging.getLogger(__name__)
 
 
+# ------------------------------------
+# Parameter
+# ------------------------------------
 class RLParameter(ABC):
     def __init__(self, config: RLConfig):
         self.config = config
@@ -65,22 +76,21 @@ class DummyRLParameter(RLParameter):
         return None
 
 
+# ------------------------------------
+# Memory
+# ------------------------------------
 class IRLMemoryWorker(ABC):
     @abstractmethod
     def add(self, *args) -> None:
         raise NotImplementedError()
 
-    @abstractmethod
-    def length(self) -> int:
-        raise NotImplementedError()
-
-
-class DummyRLMemoryWorker(IRLMemoryWorker):
-    def add(self, *args) -> None:
-        pass
-
     def length(self) -> int:
         return -1
+
+
+class UnusedRLMemoryWorker(IRLMemoryWorker):
+    def add(self, *args) -> None:
+        raise NotImplementedError("Unused")
 
 
 class IRLMemoryTrainer(ABC):
@@ -95,13 +105,8 @@ class IRLMemoryTrainer(ABC):
     def update(self, memory_update_args: Any) -> None:
         raise NotImplementedError()
 
-
-class DummyRLMemoryTrainer(IRLMemoryTrainer):
-    def is_warmup_needed(self) -> bool:
-        return True
-
-    def sample(self, batch_size: int, step: int) -> Any:
-        return None
+    def length(self) -> int:
+        return -1
 
 
 class RLMemory(IRLMemoryWorker, IRLMemoryTrainer):
@@ -175,6 +180,9 @@ class RLMemory(IRLMemoryWorker, IRLMemoryTrainer):
         logger.info(f"memory loaded (size: {self.length()}, time: {time.time() - t0:.1f}s): {path}")
 
 
+# ------------------------------------
+# Trainer
+# ------------------------------------
 class RLTrainer(ABC):
     def __init__(self, config: RLConfig, parameter: RLParameter, memory: IRLMemoryTrainer):
         self.config = config
@@ -201,3 +209,96 @@ class RLTrainer(ABC):
     @abstractmethod
     def train_on_batchs(self, memory_sample_return) -> None:
         raise NotImplementedError()
+
+
+# ------------------------------------
+# Worker
+# ------------------------------------
+class RLWorker(ABC, IRender):
+    def __init__(
+        self, config: RLConfig, parameter: Optional[RLParameter] = None, memory: Optional[IRLMemoryWorker] = None
+    ) -> None:
+        self.config = config
+        self.parameter = parameter
+        self.memory = UnusedRLMemoryWorker() if memory is None else memory
+
+    def _set_worker_run(self, worker: "WorkerRun"):
+        """WorkerRunの初期化で呼ばれる"""
+        self.__worker_run = worker
+
+    # ------------------------------
+    # implement
+    # ------------------------------
+    def on_reset(self, worker: "WorkerRun") -> InfoType:
+        return {}
+
+    @abstractmethod
+    def policy(self, worker: "WorkerRun") -> Tuple[RLActionType, InfoType]:
+        raise NotImplementedError()
+
+    def on_step(self, worker: "WorkerRun") -> InfoType:
+        return {}
+
+    # ------------------------------
+    # IRender
+    # ------------------------------
+    def render_terminal(self, worker: "WorkerRun", **kwargs) -> None:
+        pass
+
+    def render_rgb_array(self, worker: "WorkerRun", **kwargs) -> Optional[np.ndarray]:
+        return None
+
+    # ------------------------------------
+    # instance
+    # ------------------------------------
+    @property
+    def worker(self) -> "WorkerRun":
+        return self.__worker_run
+
+    @property
+    def env(self) -> "EnvRun":
+        return self.__worker_run._env
+
+    # ------------------------------------
+    # worker info (shortcut properties)
+    # ------------------------------------
+    @property
+    def training(self) -> bool:
+        return self.__worker_run.training
+
+    @property
+    def distributed(self) -> bool:
+        return self.__worker_run.distributed
+
+    @property
+    def rendering(self) -> bool:
+        return self.__worker_run.rendering
+
+    @property
+    def player_index(self) -> int:
+        return self.__worker_run.player_index
+
+    @property
+    def total_step(self) -> int:
+        return self.__worker_run.total_step
+
+    def get_invalid_actions(self) -> InvalidActionsType:
+        return self.__worker_run.get_invalid_actions()
+
+    def sample_action(self) -> RLActionType:
+        return self.__worker_run.sample_action()
+
+    # ------------------------------------
+    # env info (shortcut properties)
+    # ------------------------------------
+    @property
+    def max_episode_steps(self) -> int:
+        return self.__worker_run._env.max_episode_steps
+
+    @property
+    def player_num(self) -> int:
+        return self.__worker_run._env.player_num
+
+    @property
+    def step(self) -> int:
+        return self.__worker_run._env.step_num

@@ -14,7 +14,7 @@ from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
 
 if TYPE_CHECKING:
-    from srl.base.rl.worker import WorkerBase
+    from srl.base.rl.base import RLWorker
 
 
 class EnvBase(ABC, IRender):
@@ -133,11 +133,7 @@ class EnvBase(ABC, IRender):
     def get_key_bind(self) -> KeyBindType:
         return None
 
-    def make_worker(
-        self,
-        name: str,
-        **kwargs,
-    ) -> Optional["WorkerBase"]:
+    def make_worker(self, name: str, **kwargs) -> Optional["RLWorker"]:
         return None
 
     def get_original_env(self) -> object:

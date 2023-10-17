@@ -2,10 +2,9 @@ from dataclasses import dataclass
 from typing import Tuple
 
 from srl.base.define import RLActionType
-from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import DummyRLConfig
 from srl.base.rl.registration import register
-from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.memories.sequence_memory import SequenceMemory
 
@@ -29,9 +28,6 @@ class Memory(SequenceMemory):
 
 
 class Parameter(RLParameter):
-    def __init__(self, *args):
-        super().__init__(*args)
-
     def call_restore(self, data, **kwargs) -> None:
         pass
 
@@ -45,5 +41,5 @@ class Trainer(RLTrainer):
 
 
 class Worker(RLWorker):
-    def call_policy(self, worker: WorkerRun) -> Tuple[RLActionType, dict]:
+    def policy(self, worker: WorkerRun) -> Tuple[RLActionType, dict]:
         return worker.sample_action(), {}

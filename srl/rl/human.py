@@ -2,8 +2,8 @@ import logging
 from typing import Tuple
 
 from srl.base.define import EnvActionType, RLTypes
+from srl.base.rl.base import RLWorker
 from srl.base.rl.registration import register_rulebase
-from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces import ContinuousSpace
 
@@ -14,10 +14,10 @@ register_rulebase("human", __name__ + ":Worker")
 
 
 class Worker(RLWorker):
-    def call_policy(self, worker: WorkerRun) -> Tuple[EnvActionType, dict]:
+    def policy(self, worker: WorkerRun) -> Tuple[EnvActionType, dict]:
         if self.config.action_type == RLTypes.DISCRETE:
             invalid_actions = worker.get_invalid_actions()
-            action_num = worker.config.action_space.n
+            action_num = self.config.action_space.n
 
             print("- select action -")
             arr = []

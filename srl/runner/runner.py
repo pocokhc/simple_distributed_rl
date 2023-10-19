@@ -621,7 +621,6 @@ class Runner(CallbackData):
         enable_tf_device: bool,
         used_device_tf: str,
         used_device_torch: str,
-        eval_callbacks: List[CallbackType],
     ) -> "Runner":
         self.context_controller.setup(self.config.training_mode, self.config.wkdir)
         r = self.copy(env_share, copy_setup=True, copy_callbacks=False)
@@ -641,8 +640,6 @@ class Runner(CallbackData):
         r.context.enable_tf_device = enable_tf_device
         r.context.used_device_tf = used_device_tf
         r.context.used_device_torch = used_device_torch
-
-        r.context.callbacks = eval_callbacks[:]  # type: ignore , type ok
         return r
 
     def callback_play_eval(self, parameter: RLParameter):

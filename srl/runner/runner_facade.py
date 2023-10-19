@@ -29,7 +29,6 @@ class RunnerFacade(Runner):
         eval_shuffle_player: bool = False,
         eval_used_device_tf: str = "/CPU",
         eval_used_device_torch: str = "cpu",
-        eval_callbacks: List[CallbackType] = [],
     ):
         """学習履歴を保存する設定を指定します。
 
@@ -47,7 +46,6 @@ class RunnerFacade(Runner):
             eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
             eval_used_device_tf (str, optional): 評価時のdevice. Defaults to "/CPU".
             eval_used_device_torch (str, optional): 評価時のdevice. Defaults to "cpu".
-            eval_callbacks (List[CallbackType], optional): 評価時のcallbacks. Defaults to [].
         """
         self.context_controller.setup(self.config.training_mode, self.config.wkdir)
 
@@ -68,7 +66,6 @@ class RunnerFacade(Runner):
                     eval_shuffle_player=eval_shuffle_player,
                     eval_used_device_tf=eval_used_device_tf,
                     eval_used_device_torch=eval_used_device_torch,
-                    eval_callbacks=eval_callbacks,
                 )
             if write_file:
                 from srl.runner.callbacks.history_on_file import HistoryOnFile
@@ -84,7 +81,6 @@ class RunnerFacade(Runner):
                     eval_shuffle_player=eval_shuffle_player,
                     eval_used_device_tf=eval_used_device_tf,
                     eval_used_device_torch=eval_used_device_torch,
-                    eval_callbacks=eval_callbacks,
                 )
 
     def set_checkpoint(
@@ -100,7 +96,6 @@ class RunnerFacade(Runner):
         eval_shuffle_player: bool = False,
         eval_used_device_tf: str = "/CPU",
         eval_used_device_torch: str = "cpu",
-        eval_callbacks: List[CallbackType] = [],
     ):
         """一定間隔でモデルを保存します。
 
@@ -136,7 +131,6 @@ class RunnerFacade(Runner):
             eval_shuffle_player=eval_shuffle_player,
             eval_used_device_tf=eval_used_device_tf,
             eval_used_device_torch=eval_used_device_torch,
-            eval_callbacks=eval_callbacks,
         )
 
     def train(
@@ -169,7 +163,6 @@ class RunnerFacade(Runner):
         eval_enable_tf_device: bool = True,
         eval_used_device_tf: str = "/CPU",
         eval_used_device_torch: str = "cpu",
-        eval_callbacks: List[CallbackType] = [],
         # --- other
         callbacks: List[CallbackType] = [],
         parameter: Optional[RLParameter] = None,
@@ -200,7 +193,6 @@ class RunnerFacade(Runner):
             eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
             eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
             eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
-            eval_callbacks (List[CallbackType], optional): 評価時のcallbacks. Defaults to [].
             callbacks (List[CallbackType], optional): callbacks. Defaults to [].
         """
 
@@ -245,7 +237,6 @@ class RunnerFacade(Runner):
                     eval_enable_tf_device=eval_enable_tf_device,
                     eval_used_device_tf=eval_used_device_tf,
                     eval_used_device_torch=eval_used_device_torch,
-                    eval_callbacks=eval_callbacks,
                 )
             )
         # ----------------
@@ -383,7 +374,6 @@ class RunnerFacade(Runner):
         eval_enable_tf_device: bool = True,
         eval_used_device_tf: str = "/CPU",
         eval_used_device_torch: str = "cpu",
-        eval_callbacks: List[CallbackType] = [],
         # --- other
         callbacks: List[CallbackType] = [],
         parameter: Optional[RLParameter] = None,
@@ -424,7 +414,6 @@ class RunnerFacade(Runner):
                     eval_enable_tf_device=eval_enable_tf_device,
                     eval_used_device_tf=eval_used_device_tf,
                     eval_used_device_torch=eval_used_device_torch,
-                    eval_callbacks=eval_callbacks,
                 )
             )
         # ----------------
@@ -496,7 +485,6 @@ class RunnerFacade(Runner):
         eval_enable_tf_device: bool = True,
         eval_used_device_tf: str = "/CPU",
         eval_used_device_torch: str = "cpu",
-        eval_callbacks: List[CallbackType] = [],
         # --- other
         callbacks: List[CallbackType] = [],
     ):
@@ -547,7 +535,6 @@ class RunnerFacade(Runner):
                     eval_enable_tf_device=eval_enable_tf_device,
                     eval_used_device_tf=eval_used_device_tf,
                     eval_used_device_torch=eval_used_device_torch,
-                    eval_callbacks=eval_callbacks,
                 )
             )
         # ----------------
@@ -609,7 +596,6 @@ class RunnerFacade(Runner):
         eval_enable_tf_device: bool = True,
         eval_used_device_tf: str = "/CPU",
         eval_used_device_torch: str = "cpu",
-        eval_callbacks: List[CallbackType] = [],
         # --- other
         callbacks: List[CallbackType] = [],
         # --- debug option
@@ -668,7 +654,6 @@ class RunnerFacade(Runner):
                     eval_enable_tf_device=eval_enable_tf_device,
                     eval_used_device_tf=eval_used_device_tf,
                     eval_used_device_torch=eval_used_device_torch,
-                    eval_callbacks=eval_callbacks,
                 )
             )
         # ----------------
@@ -731,7 +716,6 @@ class RunnerFacade(Runner):
         eval_enable_tf_device: bool = True,
         eval_used_device_tf: str = "/CPU",
         eval_used_device_torch: str = "cpu",
-        eval_callbacks: List[CallbackType] = [],
         # --- other
         callbacks: List[CallbackType] = [],
     ):
@@ -757,6 +741,8 @@ class RunnerFacade(Runner):
         self.context.training = True
         self.context.render_mode = RenderModes.none
 
+        self.context_controller.setup(self.config.training_mode, self.config.wkdir)
+
         # --- progress ---
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
@@ -780,7 +766,6 @@ class RunnerFacade(Runner):
                     eval_enable_tf_device=eval_enable_tf_device,
                     eval_used_device_tf=eval_used_device_tf,
                     eval_used_device_torch=eval_used_device_torch,
-                    eval_callbacks=eval_callbacks,
                 )
             )
         # ----------------

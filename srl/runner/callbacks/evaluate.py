@@ -6,7 +6,6 @@ import numpy as np
 
 from srl.base.rl.base import RLParameter
 from srl.base.run.context import RLWorkerType, StrWorkerType
-from srl.runner.callback import CallbackType
 from srl.runner.runner import Runner
 
 logger = logging.getLogger(__name__)
@@ -24,9 +23,11 @@ class Evaluate:
     eval_enable_tf_device: bool = True
     eval_used_device_tf: str = "/CPU"
     eval_used_device_torch: str = "cpu"
-    eval_callbacks: List[CallbackType] = field(default_factory=list)
 
     def setup_eval_runner(self, runner: Runner):
+        if not self.enable_eval:
+            self.eval_runner = None
+            return
         self.eval_runner = runner.create_eval_runner(
             self.eval_env_sharing,
             self.eval_episode,
@@ -37,10 +38,10 @@ class Evaluate:
             self.eval_enable_tf_device,
             self.eval_used_device_tf,
             self.eval_used_device_torch,
-            self.eval_callbacks,
         )
 
     def run_eval(self, parameter: Optional[RLParameter]) -> np.ndarray:
+        assert self.eval_runner is not None
         assert parameter is not None
         eval_rewards = self.eval_runner.callback_play_eval(parameter)
         eval_rewards = np.mean(eval_rewards, axis=0)

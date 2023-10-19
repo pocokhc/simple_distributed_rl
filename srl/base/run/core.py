@@ -9,7 +9,7 @@ from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import IRLMemoryTrainer, IRLMemoryWorker, RLMemory, RLParameter, RLTrainer
 from srl.base.rl.registration import make_trainer
 from srl.base.rl.worker_run import WorkerRun
-from srl.base.run.context import RunContext
+from srl.base.run.context import RunContext, RunNameTypes
 from srl.utils import common
 from srl.utils.serialize import convert_for_json
 
@@ -88,7 +88,8 @@ def play(
         if common.is_enable_tf_device_name(context.used_device_tf):
             import tensorflow as tf
 
-            logger.info(f"tf.device({context.used_device_tf})")
+            if context.run_name != RunNameTypes.eval:
+                logger.info(f"tf.device({context.used_device_tf})")
             with tf.device(context.used_device_tf):  # type: ignore
                 return _play(context, env, parameter, memory, workers, trainer, callback_data)
     return _play(context, env, parameter, memory, workers, trainer, callback_data)
@@ -132,7 +133,8 @@ def _play(
         [c.on_skip_step(callback_data) for c in _callbacks]  # type: ignore , type OK
 
     # --- loop
-    logger.info(f"[{context.run_name}] loop start")
+    if context.run_name != RunNameTypes.eval:
+        logger.info(f"[{context.run_name}] loop start")
     env.init()
     while True:
         # --- stop check
@@ -228,7 +230,8 @@ def _play(
         if True in [c.intermediate_stop(callback_data) for c in _callbacks]:
             state.end_reason = "callback.intermediate_stop"
             break
-    logger.info(f"[{context.run_name}] loop end({state.end_reason})")
+    if context.run_name != RunNameTypes.eval:
+        logger.info(f"[{context.run_name}] loop end({state.end_reason})")
 
     # rewardは学習中は不要
     if not context.training:

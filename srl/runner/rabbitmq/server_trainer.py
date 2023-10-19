@@ -1,18 +1,17 @@
 import logging
-import pickle
 import queue
 import threading
 import time
 import traceback
-from typing import Any, cast
+from typing import Any, List, cast
 
-import pika
 from pika.adapters.blocking_connection import BlockingChannel
 
 import srl
 from srl.base.rl.base import IRLMemoryTrainer, RLMemory, RLParameter, RLTrainer
-from srl.base.run.data import RunNameTypes
+from srl.base.run.context import RunNameTypes
 from srl.runner.callback import TrainerCallback
+from srl.runner.rabbitmq.rabbitmq_manager import RabbitMQManager
 from srl.runner.runner import RunnerMPData
 
 logger = logging.getLogger(__name__)
@@ -74,42 +73,41 @@ class _TrainerRLMemory(IRLMemoryTrainer):
         self.q_update.put(memory_update_args)
 
 
-def _connect_mq(
-    pika_params,
+def _mq_thread(
+    mq_args,
+    client_id,
     memory: _TrainerRLMemory,
     parameter: RLParameter,
     trainer: _RLTrainer,
     trainer_parameter_send_interval_by_train_count: int,
     enable_prepare_batch: bool,
 ):
+    mq = RabbitMQManager.create(*mq_args)
     try:
-        with pika.BlockingConnection(pika_params) as connection:
-            channel = connection.channel()
+        mq.create_queue_once_if_not_exists(f"memory_{client_id}")
+        mq.purge_queue_once(f"memory_{client_id}")
 
-            channel.queue_declare(queue="memory")
-            channel.queue_purge(queue="memory")
+        while True:
+            # --- add memory
+            mq.create_queue_once_if_not_exists(f"memory_{client_id}")
+            body = mq.recv_once(f"memory_{client_id}")
+            if body is not None:
+                memory.add(*body)
+            if enable_prepare_batch:
+                memory.loop_update()
 
-            while True:
-                # --- add memory
-                method_frame, header_frame, body = channel.basic_get(queue="memory", auto_ack=True)
-                if body is not None:
-                    args = pickle.loads(body)
-                    memory.add(*args)
-                if enable_prepare_batch:
-                    memory.loop_update()
+            # --- sync parameter
+            if trainer.count_for_sync > trainer_parameter_send_interval_by_train_count:
+                trainer.count_for_sync = 0
 
-                # --- sync parameter
-                if trainer.count_for_sync > trainer_parameter_send_interval_by_train_count:
-                    trainer.count_for_sync = 0
-
-                    params = parameter.backup()
-                    if params is not None:
-                        channel.basic_publish(exchange="parameter", routing_key="", body=pickle.dumps(params))
+                params = parameter.backup()
+                if params is not None:
+                    if mq.send_fanout_once("parameter", params):
                         trainer.sync_count += 1
 
-                # --- alive
-                method_frame, header_frame, body = channel.basic_get(queue="trainer_end", auto_ack=True)
-                if body is not None:
+            # --- keepalive
+            if mq.keepalive():
+                if not mq.taskcheck_alive_task(client_id):
                     break
 
     except Exception:
@@ -125,17 +123,20 @@ class _TrainerInterrupt(TrainerCallback):
         return not self.mq_ps.is_alive()
 
 
-def _run_trainer(channel: BlockingChannel, mp_data: RunnerMPData, pika_params):
-    mp_data.context.run_name = RunNameTypes.main
+def _run_trainer(mq: RabbitMQManager, mp_data: RunnerMPData, client_id):
+    mp_data.context.run_name = RunNameTypes.trainer
 
     # --- memory
-    memory = srl.make_memory(mp_data.rl_config)
+    memory = srl.make_memory(mp_data.context.rl_config)
     if mp_data.context.enable_prepare_batch:
         memory = cast(RLMemory, _TrainerRLMemory(memory))
 
     # --- runner
-    runner = srl.Runner(mp_data.env_config, mp_data.rl_config, mp_data.config, mp_data.context, memory=memory)
+    runner = srl.Runner(
+        mp_data.context.env_config, mp_data.context.rl_config, mp_data.config, mp_data.context, memory=memory
+    )
     parameter = runner.make_parameter(is_load=False)
+
     try:
         trainer = _RLTrainer(runner.make_trainer())
         if mp_data.context.enable_prepare_batch:
@@ -143,9 +144,10 @@ def _run_trainer(channel: BlockingChannel, mp_data: RunnerMPData, pika_params):
 
         # --- connect
         mq_ps = threading.Thread(
-            target=_connect_mq,
+            target=_mq_thread,
             args=(
-                pika_params,
+                mq.copy_args(),
+                client_id,
                 memory,
                 parameter,
                 trainer,
@@ -160,62 +162,63 @@ def _run_trainer(channel: BlockingChannel, mp_data: RunnerMPData, pika_params):
         runner.core_play(trainer_only=True, trainer=trainer)
 
     finally:
-        with pika.BlockingConnection(pika_params) as connection:
-            channel = connection.channel()
-            channel.basic_publish(exchange="end", routing_key="", body="STOP")
+        # --- last params
+        try:
+            params = parameter.backup()
+            if params is not None:
+                mq.create_queue_once_if_not_exists(f"last_parameter_{client_id}")
+                mq.send_loop(f"last_parameter_{client_id}", params)
+        except Exception:
+            logger.warning(traceback.format_exc())
 
-            # --- send last params
-            body = pickle.dumps(parameter.backup())
-            channel.basic_publish(exchange="", routing_key="last_parameter", body=body)
+
+class TrainerServerCallback:
+    def on_polling(self, channel: BlockingChannel) -> None:
+        pass  # do nothing
+
+    # 外部から途中停止用
+    def intermediate_stop(self, channel: BlockingChannel) -> bool:
+        return False
 
 
 def run_forever(
     host: str,
     port: int = 5672,
-    user: str = "guest",
+    username: str = "guest",
     password: str = "guest",
+    virtual_host: str = "/",
+    callbacks: List[TrainerServerCallback] = [],
 ):
-    # thread配下でも共有してるっぽい、個別に接続する
-    pika_params = pika.ConnectionParameters(host, port, credentials=pika.PlainCredentials(user, password))
-    with pika.BlockingConnection(pika_params) as connection:
-        channel = connection.channel()
+    mq = RabbitMQManager(host, port, username, password, virtual_host)
+    mq.join("trainer")
+    mq.board_update({"status": "", "client": ""})
 
-        # start
-        channel.exchange_declare(exchange="start", exchange_type="fanout")
-        channel.queue_declare(queue="trainer_start")
-        channel.queue_bind(exchange="start", queue="trainer_start")
-
-        # end
-        channel.exchange_declare(exchange="end", exchange_type="fanout")
-        channel.queue_declare(queue="trainer_end")
-        channel.queue_bind(exchange="end", queue="trainer_end")
-
-        # parameter
-        channel.exchange_declare(exchange="parameter", exchange_type="fanout")
-
-        # queue
-        channel.queue_declare(queue="last_parameter")
-
+    print(f"wait trainer: {mq.uid}")
     while True:
-        # --- wait start
-        with pika.BlockingConnection(pika_params) as connection:
-            channel = connection.channel()
-            channel.queue_purge(queue="trainer_start")
-            print("wait trainer")
-            while True:
-                time.sleep(1)
-                method_frame, header_frame, body = channel.basic_get(queue="trainer_start", auto_ack=True)
-                if body is None:
-                    continue
-                body = pickle.loads(body)
-                channel.queue_purge(queue="trainer_end")
-                channel.queue_purge(queue="last_parameter")
-                break
+        time.sleep(1)
+        if mq.keepalive():
+            mq.health_check()
 
-        # --- start train
         try:
-            logger.info("trainer start")
-            _run_trainer(channel, body, pika_params)
+            # --- callback
+            # [c.on_polling(mq) for c in callbacks]
+            # for c in callbacks:
+            #    if c.intermediate_stop(mq):
+            #        break
+
+            # --- board check
+            client_id, mp_data, _ = mq.taskcheck_if_my_id_assigned()
+
+            # --- train loop
+            if client_id != "":
+                assert mp_data is not None
+                logger.info("trainer start")
+                _run_trainer(mq, mp_data, client_id)
+                logger.info("trainer end")
+                print(f"wait trainer: {mq.uid}")
+
+            # --- boardを更新
+            mq.board_update({"status": "", "client": ""})
+
         except Exception:
             logger.error(traceback.format_exc())
-        logger.info("trainer end")

@@ -211,7 +211,7 @@ def _play(
         if state.trainer is not None:
             state.trainer.train()
 
-        [c.on_step_end(callback_data) for c in _callbacks]
+        _stop_flags = [c.on_step_end(callback_data) for c in _callbacks]
         state.worker_idx = worker_idx
 
         if state.env.done:
@@ -226,8 +226,7 @@ def _play(
 
             [c.on_episode_end(callback_data) for c in _callbacks]
 
-        # callback
-        if True in [c.intermediate_stop(callback_data) for c in _callbacks]:
+        if True in _stop_flags:
             state.end_reason = "callback.intermediate_stop"
             break
     if context.run_name != RunNameTypes.eval:
@@ -305,12 +304,11 @@ def _play_trainer_only(
         state.trainer.train()
 
         # callbacks
-        [c.on_trainer_train_end(callback_data) for c in _callbacks]
-
-        # callback end
-        if True in [c.intermediate_stop(callback_data) for c in _callbacks]:
-            state.end_reason = "callback.intermediate_stop"
+        _stop_flags = [c.on_trainer_train_end(callback_data) for c in _callbacks]
+        if True in _stop_flags:
+            state.end_reason = "callback.trainer_intermediate_stop"
             break
+
     logger.info(f"loop end({state.end_reason})")
 
     # callbacks

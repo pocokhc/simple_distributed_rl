@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from srl.base.run.callback import Callback as CoreCallback
 from srl.base.run.callback import TrainerCallback as CoreTrainerCallback
@@ -27,30 +27,24 @@ class Callback(CoreCallback):
     def on_step_begin(self, runner: "Runner") -> None:
         pass  # do nothing
 
-    def on_step_end(self, runner: "Runner") -> None:
-        pass  # do nothing
+    def on_step_end(self, runner: "Runner") -> Optional[bool]:
+        """If return is True, it will end intermediate stop."""
+        return False  # do nothing
 
     def on_skip_step(self, runner: "Runner") -> None:
         pass  # do nothing
-
-    # 外部から途中停止用
-    def intermediate_stop(self, runner: "Runner") -> bool:
-        return False
 
 
 class TrainerCallback(CoreTrainerCallback):
     def on_trainer_start(self, runner: "Runner") -> None:
         pass  # do nothing
 
-    def on_trainer_train_end(self, runner: "Runner") -> None:
-        pass  # do nothing
+    def on_trainer_train_end(self, runner: "Runner") -> Optional[bool]:
+        """If return is True, it will end intermediate stop."""
+        return False  # do nothing
 
     def on_trainer_end(self, runner: "Runner") -> None:
         pass  # do nothing
-
-    # 外部から途中停止用
-    def intermediate_stop(self, runner: "Runner") -> bool:
-        return False
 
 
 class MPCallback(ABC):

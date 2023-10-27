@@ -87,21 +87,19 @@ class _ActorInterrupt(Callback):
     def on_episodes_begin(self, runner: srl.Runner):
         runner.state.sync_actor = 0
 
-    def on_step_end(self, runner: srl.Runner):
+    def on_step_end(self, runner: srl.Runner) -> bool:
         self.step += 1
         if self.step % self.actor_parameter_sync_interval_by_step != 0:
-            return
+            return self.train_end_signal.value
         update_count = self.remote_board.get_update_count()
         if update_count == self.prev_update_count:
-            return
+            return self.train_end_signal.value
         self.prev_update_count = update_count
         params = self.remote_board.read()
         if params is None:
-            return
+            return self.train_end_signal.value
         self.parameter.restore(params)
         runner.state.sync_actor += 1
-
-    def intermediate_stop(self, runner: srl.Runner) -> bool:
         return self.train_end_signal.value
 
 
@@ -204,10 +202,8 @@ class _TrainerInterrupt(TrainerCallback):
         self.train_end_signal = train_end_signal
         self.trainer = trainer
 
-    def on_trainer_train_end(self, runner: srl.Runner) -> None:
+    def on_trainer_train_end(self, runner: srl.Runner) -> bool:
         runner.state.sync_trainer = self.trainer.sync_count
-
-    def intermediate_stop(self, runner: srl.Runner) -> bool:
         return self.train_end_signal.value
 
 

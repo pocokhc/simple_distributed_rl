@@ -139,7 +139,7 @@ if __name__ == "__main__":
 
 ネットワーク経由での分散学習は以下のドキュメントを参照してください。
 
-+ [Distributed Learning (Multiple PCs)]()
++ [Distributed Learning (Multiple PCs)](https://pocokhc.github.io/simple_distributed_rl/pages/distributed.html)
 
 
 # 3. Framework Overview

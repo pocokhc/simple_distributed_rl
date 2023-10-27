@@ -4,24 +4,24 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Create Original Environment &mdash; SimpleDistributedRL 0.12.1.3 ドキュメント</title>
+  <title>Make Original Environment &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
-        <script src="../_static/translations.js"></script>
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=7913be7e"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="../_static/translations.js?v=4dbe4bdc"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
-    <link rel="next" title="Create Original Algorithm" href="custom_algorithm.html" />
-    <link rel="prev" title="How To Use" href="howtouse.html" /> 
+    <link rel="next" title="Make Original Algorithm" href="custom_algorithm.html" />
+    <link rel="prev" title="Distributed Learning (Multiple PCs)" href="distributed.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -48,10 +48,11 @@
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="distributed.html">Distributed Learning (Multiple PCs)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Create Original Environment</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Make Original Environment</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#id1">実装クラス</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#id2">gym の環境を利用</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#envbase">EnvBaseクラスを利用する方法</a></li>
@@ -67,14 +68,16 @@
 <li class="toctree-l2"><a class="reference internal" href="#q">Q学習による学習</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Create Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Make Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="framework_detail.html">Detailed Framework</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="env_config.html">EnvConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -96,7 +99,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Create Original Environment</li>
+      <li class="breadcrumb-item active">Make Original Environment</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/pages/custom_env.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -106,8 +109,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="create-original-environment">
-<span id="custom-env"></span><h1>Create Original Environment<a class="headerlink" href="#create-original-environment" title="この見出しへのパーマリンク"></a></h1>
+  <section id="make-original-environment">
+<span id="custom-env"></span><h1>Make Original Environment<a class="headerlink" href="#make-original-environment" title="Link to this heading"></a></h1>
 <p>ここでは本フレームワークでの自作環境を作成する方法を説明します。
 構成としては大きく以下です。</p>
 <ul class="simple">
@@ -128,7 +131,7 @@
 <li><p>6.Q学習による学習</p></li>
 </ul>
 <section id="id1">
-<h2>実装クラス<a class="headerlink" href="#id1" title="この見出しへのパーマリンク"></a></h2>
+<h2>実装クラス<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
 <p>自作環境を作成する方法は現在以下の二つがあります。</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://github.com/openai/gym">Gym</a> または <a class="reference external" href="https://github.com/Farama-Foundation/Gymnasium">Gymnasium</a> （以下gym）の環境を用意する</p></li>
@@ -136,10 +139,12 @@
 </ul>
 <p>それぞれについて説明します。</p>
 <section id="id2">
-<h3>gym の環境を利用<a class="headerlink" href="#id2" title="この見出しへのパーマリンク"></a></h3>
-<p>gym の環境を利用を利用する場合は別途 <cite>pip install gym</cite> が必要です。
-また、一部本フレームワークに特化した内容にはならない点があります。
-1-2で説明があるBaseクラスを見比べてもらえれば分かりますが、アルゴリズム向けに特化した情報が増えています。</p>
+<h3>gym の環境を利用<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">gymの環境を利用を利用する場合は別途 <cite>pip install gym</cite> が必要です。</div>
+<div class="line">ただ、gym環境を利用する場合、一部本フレームワークに特化した内容にはならない点には注意してください。</div>
+<div class="line">ある程度自動で予測していますが、状態やアクションが連続か離散か等、学習に必要な情報が増えており、その予測が間違う可能性があります。</div>
+</div>
 <p>※gym側の更新等により不正確な情報になる可能性があります。より正確な情報は公式(<a class="reference external" href="https://github.com/openai/gym">https://github.com/openai/gym</a>)を見てください。</p>
 <p>具体的なコードは以下です。
 gym.Envを継承して作成します。</p>
@@ -219,12 +224,16 @@ gym.Envを継承して作成します。</p>
 </div>
 </section>
 <section id="envbase">
-<h3>EnvBaseクラスを利用する方法<a class="headerlink" href="#envbase" title="この見出しへのパーマリンク"></a></h3>
-<p>本フレームワーク共通で使用する基底クラス(<cite>srl.base.env.EnvBase</cite>)の説明です。
-本フレームワークで環境を使う場合は、このクラスを継承している必要があります。</p>
-<p>ただ、EnvBaseは複数人のプレイ環境も実装できるようにいくつか余分な情報が入っています。
-これは作成する環境がどういったものかである程度決定できる情報があり、それに特化したクラスも用意しています。
-環境を作成する場合は、以下のクラスから選んで継承し作成してください。</p>
+<h3>EnvBaseクラスを利用する方法<a class="headerlink" href="#envbase" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">本フレームワーク共通で使用する基底クラス(<cite>srl.base.env.EnvBase</cite>)の説明です。</div>
+<div class="line">本フレームワークで環境を使う場合は、このクラスを継承している必要があります。</div>
+</div>
+<div class="line-block">
+<div class="line">ただ、EnvBaseは複数人のプレイ環境も実装できるようにいくつか余分な情報が入っています。</div>
+<div class="line">これは作成する環境がどういったものかである程度決定できる情報があり、それに特化したクラスも用意しています。</div>
+<div class="line">環境を作成する場合は、以下のクラスから選んで継承し作成してください。</div>
+</div>
 <ul class="simple">
 <li><p>EnvBase         : 0から環境を作る場合に継承するクラス</p></li>
 <li><p>SinglePlayEnv   : 一人用の環境を作る場合に継承するクラス</p></li>
@@ -315,7 +324,7 @@ gym.Envを継承して作成します。</p>
 </div>
 </section>
 <section id="id3">
-<h3>一人プレイ用のクラス<a class="headerlink" href="#id3" title="この見出しへのパーマリンク"></a></h3>
+<h3>一人プレイ用のクラス<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
 <p>一人プレイ用に特化した基底クラスの説明です。
 （<cite>srl.base.env.genre.singleplay.SinglePlayEnv</cite>）</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
@@ -385,7 +394,7 @@ gym.Envを継承して作成します。</p>
 </div>
 </section>
 <section id="id4">
-<h3>ターン制二人プレイ用のクラス<a class="headerlink" href="#id4" title="この見出しへのパーマリンク"></a></h3>
+<h3>ターン制二人プレイ用のクラス<a class="headerlink" href="#id4" title="Link to this heading"></a></h3>
 <p>ターン制二人プレイに特化した基底クラスの説明です。
 (<cite>srl.base.env.genre.turnbase2player.TurnBase2Player</cite>)</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
@@ -462,7 +471,7 @@ gym.Envを継承して作成します。</p>
 </div>
 </section>
 <section id="id5">
-<h3>その他オプション<a class="headerlink" href="#id5" title="この見出しへのパーマリンク"></a></h3>
+<h3>その他オプション<a class="headerlink" href="#id5" title="Link to this heading"></a></h3>
 <p>その他必須ではないですが、設定できる関数・プロパティとなります。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- 追加情報</span>
 <span class="nd">@property</span>
@@ -521,7 +530,7 @@ gym.Envを継承して作成します。</p>
 </section>
 </section>
 <section id="space">
-<h2>Spaceクラスについて<a class="headerlink" href="#space" title="この見出しへのパーマリンク"></a></h2>
+<h2>Spaceクラスについて<a class="headerlink" href="#space" title="Link to this heading"></a></h2>
 <p>Spaceクラスは、アクション・状態の取りうる範囲を決めるクラスとなります。
 現状5種類あり以下となります。</p>
 <table class="docutils align-default">
@@ -567,7 +576,7 @@ gym.Envを継承して作成します。</p>
 <p>詳細はコード(<cite>srl.base.env.spaces</cite>)を見てください。</p>
 </section>
 <section id="id6">
-<h2>自作環境の登録<a class="headerlink" href="#id6" title="この見出しへのパーマリンク"></a></h2>
+<h2>自作環境の登録<a class="headerlink" href="#id6" title="Link to this heading"></a></h2>
 <p>作成した環境は以下で登録して使います。
 引数は以下です。</p>
 <table class="docutils align-default">
@@ -608,7 +617,7 @@ gym.Envを継承して作成します。</p>
 </div>
 </section>
 <section id="id7">
-<h2>実装例<a class="headerlink" href="#id7" title="この見出しへのパーマリンク"></a></h2>
+<h2>実装例<a class="headerlink" href="#id7" title="Link to this heading"></a></h2>
 <p>左右に動け、左が穴で右がゴールなシンプルな環境を実装します。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">enum</span>
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
@@ -715,7 +724,7 @@ gym.Envを継承して作成します。</p>
         <span class="k">return</span> <span class="mi">1000</span> <span class="o">/</span> <span class="mi">1</span>
 </pre></div>
 </div>
-<p>実装した環境をとりあえず動かすコードは以下です。</p>
+<p>実装した環境を動かすコードは以下です。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 
 <span class="c1"># 実装したEnvファイルをimportし、registerに登録</span>
@@ -738,7 +747,7 @@ gym.Envを継承して作成します。</p>
 </div>
 </section>
 <section id="id8">
-<h2>テスト<a class="headerlink" href="#id8" title="この見出しへのパーマリンク"></a></h2>
+<h2>テスト<a class="headerlink" href="#id8" title="Link to this heading"></a></h2>
 <p>最低限ですが、ちゃんと動くか以下でテストできます。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># 実装したEnvファイルをimportし、registerに登録</span>
 <span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">sample_env</span>  <span class="c1"># noqa F401</span>
@@ -750,7 +759,7 @@ gym.Envを継承して作成します。</p>
 </div>
 </section>
 <section id="q">
-<h2>Q学習による学習<a class="headerlink" href="#q" title="この見出しへのパーマリンク"></a></h2>
+<h2>Q学習による学習<a class="headerlink" href="#q" title="Link to this heading"></a></h2>
 <p>以下のように学習できます。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
@@ -785,8 +794,8 @@ gym.Envを継承して作成します。</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="howtouse.html" class="btn btn-neutral float-left" title="How To Use" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="custom_algorithm.html" class="btn btn-neutral float-right" title="Create Original Algorithm" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="distributed.html" class="btn btn-neutral float-left" title="Distributed Learning (Multiple PCs)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="custom_algorithm.html" class="btn btn-neutral float-right" title="Make Original Algorithm" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

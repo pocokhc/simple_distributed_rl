@@ -4,23 +4,23 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How To Use &mdash; SimpleDistributedRL 0.12.1.3 ドキュメント</title>
+  <title>How To Use &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
-        <script src="../_static/translations.js"></script>
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=7913be7e"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="../_static/translations.js?v=4dbe4bdc"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
-    <link rel="next" title="Create Original Environment" href="custom_env.html" />
+    <link rel="next" title="Distributed Learning (Multiple PCs)" href="distributed.html" />
     <link rel="prev" title="Getting Started" href="quickstart.html" /> 
 </head>
 
@@ -62,18 +62,21 @@
 </li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="distributed.html">Distributed Learning (Multiple PCs)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Create Original Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Create Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Make Original Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Make Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="framework_detail.html">Detailed Framework</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="env_config.html">EnvConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -106,17 +109,16 @@
            <div itemprop="articleBody">
              
   <section id="how-to-use">
-<span id="howtouse"></span><h1>How To Use<a class="headerlink" href="#how-to-use" title="この見出しへのパーマリンク"></a></h1>
-<p>基本は以下の手順です。</p>
+<span id="howtouse"></span><h1>How To Use<a class="headerlink" href="#how-to-use" title="Link to this heading"></a></h1>
+<p>基本は以下の手順を想定しています。</p>
 <ol class="arabic simple">
-<li><p>EnvConfig で環境を設定する。</p></li>
-<li><p>RLConfig でRLアルゴリズムを設定する。</p></li>
-<li><p>Runner で動かす。</p></li>
+<li><p>EnvConfigで環境を設定する。</p></li>
+<li><p>RLConfigでアルゴリズムを設定する。</p></li>
+<li><p>Runnerで動かす。</p></li>
 </ol>
 <section id="envconfig">
-<h2>EnvConfig<a class="headerlink" href="#envconfig" title="この見出しへのパーマリンク"></a></h2>
-<p>実行する環境を設定します。
-基本は登録されているIDを指定するだけです。</p>
+<h2>EnvConfig<a class="headerlink" href="#envconfig" title="Link to this heading"></a></h2>
+<p>実行する環境を指定します。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">)</span>
 </pre></div>
@@ -126,19 +128,23 @@
 <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;FrozenLake-v1&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>自作の環境を用意したい場合は <a class="reference internal" href="custom_env.html#custom-env"><span class="std std-ref">Create Original Environment</span></a> を見てください。
-また、その他環境に対して設定できる項目は <a class="reference internal" href="env_config.html#env-config"><span class="std std-ref">EnvConfig</span></a> を見てください。</p>
+<div class="line-block">
+<div class="line">自作の環境を用意したい場合は <a class="reference internal" href="custom_env.html#custom-env"><span class="std std-ref">Make Original Environment</span></a> を見てください。</div>
+<div class="line">また、ID以外に環境に対して設定できる項目は <a class="reference internal" href="env_config.html#env-config"><span class="std std-ref">EnvConfig</span></a> を見てください。</div>
+</div>
 </section>
 <section id="rlconfig">
-<h2>RLConfig<a class="headerlink" href="#rlconfig" title="この見出しへのパーマリンク"></a></h2>
-<p>実行するアルゴリズムを設定します。
-各アルゴリズムには必ずConfigが定義されているのでそれを呼び出します。</p>
+<h2>RLConfig<a class="headerlink" href="#rlconfig" title="Link to this heading"></a></h2>
+<div class="line-block">
+<div class="line">実行するアルゴリズムを指定します。</div>
+<div class="line">各アルゴリズムには必ずConfigが定義されているのでそれを呼び出します。</div>
+</div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 使うアルゴリズムを読み込み</span>
 <span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
 <span class="n">rl_config</span> <span class="o">=</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>各アルゴリズムにはそれぞれハイパーパラメータがあるので、基本はコンストラクタまたは変数で値を指定します。</p>
+<p>各アルゴリズムのハイパーパラメータはConfigの変数で値を指定できます。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 割引率を変更する例</span>
 <span class="n">rl_config</span> <span class="o">=</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">discount</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
 
@@ -146,12 +152,13 @@
 <span class="n">rl_config</span><span class="o">.</span><span class="n">discount</span> <span class="o">=</span> <span class="mf">0.3</span>
 </pre></div>
 </div>
-<p>各アルゴリズムのパラメータは srl.algorithms 配下のそれぞれのコードを見てください。
-また、一部のハイパーパラメータはコンストラクタから指定できません。
-一部のハイパーパラメータと共通のパラメータに関しては <a class="reference internal" href="rl_config.html#rl-config"><span class="std std-ref">RLConfig</span></a> を見てください。</p>
+<div class="line-block">
+<div class="line">各アルゴリズムのハイパーパラメータについては srl.algorithms 配下のそれぞれのコードを見てください。</div>
+<div class="line">また、共通パラメータに関しては <a class="reference internal" href="rl_config.html#rl-config"><span class="std std-ref">RLConfig</span></a> を参照してください。</div>
+</div>
 </section>
 <section id="runner">
-<h2>Runner<a class="headerlink" href="#runner" title="この見出しへのパーマリンク"></a></h2>
+<h2>Runner<a class="headerlink" href="#runner" title="Link to this heading"></a></h2>
 <p>EnvConfigとRLConfigを元に実際に実行するRunnerを作成します。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 
@@ -186,7 +193,7 @@
     <span class="n">main</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>学習と評価を別々で実行できる形式です。</p>
+<p>以下は学習と評価を分けて実行する例です。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="kn">import</span> <span class="nn">srl</span>
@@ -270,10 +277,12 @@
 </pre></div>
 </div>
 <img alt="../_images/Grid.gif" src="../_images/Grid.gif" />
-<p>その他、Runnerで用意されているものは以下です。
-引数や他のRunnerの機能に関しては <a class="reference internal" href="runner.html#runner"><span class="std std-ref">Runner</span></a> を見てください。</p>
+<div class="line-block">
+<div class="line">Runnerで用意している実行形式は以下です。</div>
+<div class="line">引数や他のRunnerの機能に関しては <a class="reference internal" href="runner.html#runner"><span class="std std-ref">Runner(Configuration related)</span></a> を見てください。</div>
+</div>
 <section id="evaluate">
-<h3>Evaluate<a class="headerlink" href="#evaluate" title="この見出しへのパーマリンク"></a></h3>
+<h3>Evaluate<a class="headerlink" href="#evaluate" title="Link to this heading"></a></h3>
 <p>学習せずにシミュレーションし、報酬を返します。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 <span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
@@ -295,9 +304,12 @@
 </div>
 </section>
 <section id="replay-window">
-<h3>Replay Window<a class="headerlink" href="#replay-window" title="この見出しへのパーマリンク"></a></h3>
-<p>シミュレーションして、その結果を見返す機能です。
-1step毎の様子を見ることができます。</p>
+<h3>Replay Window<a class="headerlink" href="#replay-window" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">シミュレーションして、その結果を見返す機能です。</div>
+<div class="line">1step毎の様子を見ることができます。(GUIで表示されます)</div>
+<div class="line">pygameのwindowが表示できる環境である必要があります。</div>
+</div>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 <span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
 
@@ -307,7 +319,7 @@
 </div>
 </section>
 <section id="render-terminal">
-<h3>Render Terminal<a class="headerlink" href="#render-terminal" title="この見出しへのパーマリンク"></a></h3>
+<h3>Render Terminal<a class="headerlink" href="#render-terminal" title="Link to this heading"></a></h3>
 <p>print出力の形式で1エピソードシミュレーションします。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 <span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
@@ -396,8 +408,8 @@
 </div>
 </section>
 <section id="render-window">
-<h3>Render Window<a class="headerlink" href="#render-window" title="この見出しへのパーマリンク"></a></h3>
-<p>pygameにて1エピソードを描画します。
+<h3>Render Window<a class="headerlink" href="#render-window" title="Link to this heading"></a></h3>
+<p>1エピソードを描画します。
 pygameのwindowが表示できる環境である必要があります。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 <span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
@@ -410,7 +422,7 @@ pygameのwindowが表示できる環境である必要があります。</p>
 </div>
 </section>
 <section id="animation">
-<h3>Animation<a class="headerlink" href="#animation" title="この見出しへのパーマリンク"></a></h3>
+<h3>Animation<a class="headerlink" href="#animation" title="Link to this heading"></a></h3>
 <p>映像として残せるようにRGBデータを保存しながらシミュレーションします。
 アニメーションは、'matplotlib.animation.ArtistAnimation' で作成されます。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
@@ -424,7 +436,7 @@ pygameのwindowが表示できる環境である必要があります。</p>
 </div>
 </section>
 <section id="manual-play-terminal">
-<h3>Manual play Terminal<a class="headerlink" href="#manual-play-terminal" title="この見出しへのパーマリンク"></a></h3>
+<h3>Manual play Terminal<a class="headerlink" href="#manual-play-terminal" title="Link to this heading"></a></h3>
 <p>Terminal上で手動プレイします。
 環境によっては動作しない場合があります。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
@@ -435,7 +447,7 @@ pygameのwindowが表示できる環境である必要があります。</p>
 </div>
 </section>
 <section id="manual-play-window">
-<h3>Manual play Window<a class="headerlink" href="#manual-play-window" title="この見出しへのパーマリンク"></a></h3>
+<h3>Manual play Window<a class="headerlink" href="#manual-play-window" title="Link to this heading"></a></h3>
 <p>pygame上で手動プレイします。
 環境によっては動作しない場合があります。</p>
 <p>'key_bind' は設定しなくても遊べますが、設定するとより環境にあった入力方法でプレイすることができます。</p>
@@ -484,7 +496,7 @@ pygameのwindowが表示できる環境である必要があります。</p>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="quickstart.html" class="btn btn-neutral float-left" title="Getting Started" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="custom_env.html" class="btn btn-neutral float-right" title="Create Original Environment" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="distributed.html" class="btn btn-neutral float-right" title="Distributed Learning (Multiple PCs)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

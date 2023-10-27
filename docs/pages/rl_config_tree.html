@@ -4,19 +4,19 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RLConfig Parameters &mdash; SimpleDistributedRL 0.12.1.3 ドキュメント</title>
+  <title>RLConfig Parameters &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
-        <script src="../_static/translations.js"></script>
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=7913be7e"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="../_static/translations.js?v=4dbe4bdc"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
@@ -48,11 +48,13 @@
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="distributed.html">Distributed Learning (Multiple PCs)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Create Original Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Create Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Make Original Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Make Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="framework_detail.html">Detailed Framework</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
 <ul class="current">
@@ -68,7 +70,8 @@
 <li class="toctree-l2"><a class="reference internal" href="rl_config_scheduler.html">Scheduler</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -101,21 +104,37 @@
            <div itemprop="articleBody">
              
   <section id="rlconfig-parameters">
-<h1>RLConfig Parameters<a class="headerlink" href="#rlconfig-parameters" title="この見出しへのパーマリンク"></a></h1>
+<h1>RLConfig Parameters<a class="headerlink" href="#rlconfig-parameters" title="Link to this heading"></a></h1>
 <p>アルゴリズム内で共通に使われる特殊なパラメータとなります。</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="rl_config_memory.html">Memory</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.sequence_memory.SequenceRemoteMemory"><code class="docutils literal notranslate"><span class="pre">SequenceRemoteMemory</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.experience_replay_buffer.ExperienceReplayBufferConfig"><code class="docutils literal notranslate"><span class="pre">ExperienceReplayBufferConfig</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html#sequencememory">SequenceMemory</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.sequence_memory.SequenceMemory"><code class="docutils literal notranslate"><span class="pre">SequenceMemory</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html#experiencereplaybuffer">ExperienceReplayBuffer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.experience_replay_buffer.ExperienceReplayBufferConfig"><code class="docutils literal notranslate"><span class="pre">ExperienceReplayBufferConfig</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html#priorityexperiencereplay">PriorityExperienceReplay</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_experience_replay.PriorityExperienceReplayConfig"><code class="docutils literal notranslate"><span class="pre">PriorityExperienceReplayConfig</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.replay_memory.ReplayMemory"><code class="docutils literal notranslate"><span class="pre">ReplayMemory</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory"><code class="docutils literal notranslate"><span class="pre">RankBaseMemory</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.alpha"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory.alpha</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.beta_initial"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory.beta_initial</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.beta_steps"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory.beta_steps</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.has_duplicate"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory.has_duplicate</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.epsilon"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory.epsilon</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory"><code class="docutils literal notranslate"><span class="pre">RankBaseMemory</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.alpha"><code class="docutils literal notranslate"><span class="pre">RankBaseMemory.alpha</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_initial"><code class="docutils literal notranslate"><span class="pre">RankBaseMemory.beta_initial</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_steps"><code class="docutils literal notranslate"><span class="pre">RankBaseMemory.beta_steps</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory_linear.RankBaseMemoryLinear"><code class="docutils literal notranslate"><span class="pre">RankBaseMemoryLinear</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.demo_memory.DemoMemory"><code class="docutils literal notranslate"><span class="pre">DemoMemory</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.best_episode_memory.BestEpisodeMemory"><code class="docutils literal notranslate"><span class="pre">BestEpisodeMemory</span></code></a></li>
 </ul>
 </li>
 </ul>

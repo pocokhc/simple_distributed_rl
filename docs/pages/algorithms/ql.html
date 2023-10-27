@@ -4,24 +4,24 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Q-Learning &mdash; SimpleDistributedRL 0.12.1.3 ドキュメント</title>
+  <title>Q-Learning &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
-        <script src="../../_static/translations.js"></script>
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=7913be7e"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="../../_static/translations.js?v=4dbe4bdc"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="索引" href="../../genindex.html" />
     <link rel="search" title="検索" href="../../search.html" />
     <link rel="next" title="Deep Q-Networks" href="dqn.html" />
-    <link rel="prev" title="Runner" href="../runner.html" /> 
+    <link rel="prev" title="Runner(Configuration related)" href="../runner.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -48,18 +48,21 @@
 <li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../distributed.html">Distributed Learning (Multiple PCs)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../custom_env.html">Create Original Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../custom_algorithm.html">Create Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../custom_env.html">Make Original Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../custom_algorithm.html">Make Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../framework_detail.html">Detailed Framework</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../env_config.html">EnvConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../rl_config.html">RLConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../rl_config_tree.html">RLConfig Parameters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../runner.html">Runner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul class="current">
@@ -102,37 +105,37 @@
            <div itemprop="articleBody">
              
   <section id="q-learning">
-<h1>Q-Learning<a class="headerlink" href="#q-learning" title="この見出しへのパーマリンク"></a></h1>
+<h1>Q-Learning<a class="headerlink" href="#q-learning" title="Link to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.algorithms.ql.Config">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.algorithms.ql.</span></span><span class="sig-name descname"><span class="pre">Config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">override_env_observation_type:</span> <span class="pre">srl.base.define.EnvObservationTypes</span> <span class="pre">=</span> <span class="pre">&lt;EnvObservationTypes.UNKNOWN:</span> <span class="pre">0&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_action_type:</span> <span class="pre">srl.base.define.RLTypes</span> <span class="pre">=</span> <span class="pre">&lt;RLTypes.ANY:</span> <span class="pre">0&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observation_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extend_worker:</span> <span class="pre">Optional[Type[ForwardRef('ExtendWorker')]]</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameter_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_memory_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_rl_processor:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_render_image_for_observation:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">processors:</span> <span class="pre">List[srl.base.rl.processor.Processor]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_state_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_action_decode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_reward_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dummy_state_val:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_sanitize_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_assertion_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discount:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q_init:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.algorithms.ql.Config" title="この定義へのパーマリンク"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.algorithms.ql.</span></span><span class="sig-name descname"><span class="pre">Config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">override_env_observation_type:</span> <span class="pre">srl.base.define.EnvObservationTypes</span> <span class="pre">=</span> <span class="pre">&lt;EnvObservationTypes.UNKNOWN:</span> <span class="pre">0&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_action_type:</span> <span class="pre">srl.base.define.RLTypes</span> <span class="pre">=</span> <span class="pre">&lt;RLTypes.ANY:</span> <span class="pre">0&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observation_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extend_worker:</span> <span class="pre">Optional[Type[ForwardRef('ExtendWorker')]]</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameter_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_rl_processor:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_render_image_for_observation:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">processors:</span> <span class="pre">List[srl.base.rl.processor.Processor]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_state_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_action_decode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_reward_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dummy_state_val:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_sanitize_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_assertion_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discount:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q_init:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.algorithms.ql.Config" title="Link to this definition"></a></dt>
 <dd><dl class="py attribute">
 <dt class="sig sig-object py" id="srl.algorithms.ql.Config.test_epsilon">
-<span class="sig-name descname"><span class="pre">test_epsilon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.test_epsilon" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">test_epsilon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.test_epsilon" title="Link to this definition"></a></dt>
 <dd><p>ε-greedy parameter for Test</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.algorithms.ql.Config.epsilon">
-<span class="sig-name descname"><span class="pre">epsilon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.1</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.epsilon" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">epsilon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.1</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.epsilon" title="Link to this definition"></a></dt>
 <dd><p>&lt;<a class="reference internal" href="../rl_config_scheduler.html#scheduler"><span class="std std-ref">Scheduler</span></a>&gt; ε-greedy parameter for Train</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.algorithms.ql.Config.lr">
-<span class="sig-name descname"><span class="pre">lr</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.1</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.lr" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">lr</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.1</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.lr" title="Link to this definition"></a></dt>
 <dd><p>&lt;<a class="reference internal" href="../rl_config_scheduler.html#scheduler"><span class="std std-ref">Scheduler</span></a>&gt; Learning rate</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.algorithms.ql.Config.discount">
-<span class="sig-name descname"><span class="pre">discount</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.9</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.discount" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">discount</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.9</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.discount" title="Link to this definition"></a></dt>
 <dd><p>Discount rate</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.algorithms.ql.Config.q_init">
-<span class="sig-name descname"><span class="pre">q_init</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.q_init" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">q_init</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.q_init" title="Link to this definition"></a></dt>
 <dd><p>How to initialize Q table</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -153,7 +156,7 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../runner.html" class="btn btn-neutral float-left" title="Runner" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../runner.html" class="btn btn-neutral float-left" title="Runner(Configuration related)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="dqn.html" class="btn btn-neutral float-right" title="Deep Q-Networks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

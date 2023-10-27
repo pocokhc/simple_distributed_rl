@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>索引 &mdash; SimpleDistributedRL 0.12.1.3 ドキュメント</title>
+  <title>索引 &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script src="_static/jquery.js"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/doctools.js"></script>
-        <script src="_static/sphinx_highlight.js"></script>
-        <script src="_static/translations.js"></script>
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=7913be7e"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="_static/translations.js?v=4dbe4bdc"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="索引" href="#" />
     <link rel="search" title="検索" href="search.html" /> 
@@ -45,18 +45,21 @@
 <li class="toctree-l1"><a class="reference internal" href="pages/install.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/quickstart.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/distributed.html">Distributed Learning (Multiple PCs)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="pages/custom_env.html">Create Original Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/custom_algorithm.html">Create Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/custom_env.html">Make Original Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/custom_algorithm.html">Make Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/framework_detail.html">Detailed Framework</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="pages/env_config.html">EnvConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/rl_config.html">RLConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/rl_config_tree.html">RLConfig Parameters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/runner.html">Runner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -135,11 +138,13 @@
 </li>
       <li><a href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig.add_polynomial">add_polynomial() (srl.rl.schedulers.scheduler.SchedulerConfig のメソッド)</a>
 </li>
+      <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.alpha">alpha (srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory の属性)</a>
+
+      <ul>
+        <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.alpha">(srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory の属性)</a>
+</li>
+      </ul></li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.alphazero_block.AlphaZeroBlockConfig">AlphaZeroBlockConfig (srl.rl.models.alphazero_block のクラス)</a>
-</li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.animation_display">animation_display() (srl.runner.runner.Runner のメソッド)</a>
-</li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.animation_save_gif">animation_save_gif() (srl.runner.runner.Runner のメソッド)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -147,12 +152,20 @@
 <h2 id="B">B</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.batch_size">batch_size (srl.algorithms.dqn.dqn.Config の属性)</a>
+      <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.beta_initial">beta_initial (srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory の属性)</a>
+
+      <ul>
+        <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_initial">(srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory の属性)</a>
 </li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.best_episode_memory.BestEpisodeMemory">BestEpisodeMemory (srl.rl.memories.priority_memories.best_episode_memory のクラス)</a>
+      <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.beta_steps">beta_steps (srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory の属性)</a>
+
+      <ul>
+        <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_steps">(srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory の属性)</a>
 </li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -177,8 +190,6 @@
 <h2 id="D">D</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.demo_memory.DemoMemory">DemoMemory (srl.rl.memories.priority_memories.demo_memory のクラス)</a>
-</li>
       <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.discount">discount (srl.algorithms.dqn.dqn.Config の属性)</a>
 
       <ul>
@@ -232,8 +243,10 @@
       <ul>
         <li><a href="pages/algorithms/ql.html#srl.algorithms.ql.Config.epsilon">(srl.algorithms.ql.Config の属性)</a>
 </li>
+        <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.epsilon">(srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory の属性)</a>
+</li>
       </ul></li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.evaluate">evaluate() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner_facade.RunnerFacade.evaluate">evaluate() (srl.runner.runner_facade.RunnerFacade のメソッド)</a>
 </li>
       <li><a href="pages/rl_config_memory.html#srl.rl.memories.experience_replay_buffer.ExperienceReplayBufferConfig">ExperienceReplayBufferConfig (srl.rl.memories.experience_replay_buffer のクラス)</a>
 </li>
@@ -283,6 +296,10 @@
 <h2 id="H">H</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.has_duplicate">has_duplicate (srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory の属性)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.hidden_block">hidden_block (srl.algorithms.dqn.dqn.Config の属性)</a>
 </li>
   </ul></td>
@@ -311,9 +328,9 @@
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.load_parameter">load_parameter() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.load_memory">load_memory() (srl.runner.runner.Runner のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.load_remote_memory">load_remote_memory() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.load_parameter">load_parameter() (srl.runner.runner.Runner のメソッド)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -335,7 +352,7 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.memory_warmup_size">memory_warmup_size (srl.algorithms.dqn.dqn.Config の属性)</a>
+      <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.memory_path">memory_path (srl.base.rl.config.RLConfig の属性)</a>
 </li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.mlp_block.MLPBlockConfig">MLPBlockConfig (srl.rl.models.mlp_block のクラス)</a>
 </li>
@@ -375,14 +392,10 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.parameter_path">parameter_path (srl.base.rl.config.RLConfig の属性)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.play_terminal">play_terminal() (srl.runner.runner.Runner のメソッド)</a>
-</li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.play_window">play_window() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_experience_replay.PriorityExperienceReplayConfig">PriorityExperienceReplayConfig (srl.rl.memories.priority_experience_replay のクラス)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_experience_replay.PriorityExperienceReplayConfig">PriorityExperienceReplayConfig (srl.rl.memories.priority_experience_replay のクラス)</a>
-</li>
       <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.processors">processors (srl.base.rl.config.RLConfig の属性)</a>
 </li>
       <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory">ProportionalMemory (srl.rl.memories.priority_memories.proportional_memory のクラス)</a>
@@ -405,27 +418,23 @@
 </li>
       <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory_linear.RankBaseMemoryLinear">RankBaseMemoryLinear (srl.rl.memories.priority_memories.rankbase_memory_linear のクラス)</a>
 </li>
-      <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.remote_memory_path">remote_memory_path (srl.base.rl.config.RLConfig の属性)</a>
-</li>
       <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig.render_interval">render_interval (srl.base.env.config.EnvConfig の属性)</a>
 </li>
       <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig.render_scale">render_scale (srl.base.env.config.EnvConfig の属性)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.render_terminal">render_terminal() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.replay_memory.ReplayMemory">ReplayMemory (srl.rl.memories.priority_memories.replay_memory のクラス)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.render_window">render_window() (srl.runner.runner.Runner のメソッド)</a>
-</li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.replay_window">replay_window() (srl.runner.runner.Runner のメソッド)</a>
-</li>
-      <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.replay_memory.ReplayMemory">ReplayMemory (srl.rl.memories.priority_memories.replay_memory のクラス)</a>
-</li>
       <li><a href="pages/runner.html#srl.runner.runner.Runner.rl_config">rl_config (srl.runner.runner.Runner の属性)</a>
 </li>
       <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig">RLConfig (srl.base.rl.config のクラス)</a>
 </li>
+      <li><a href="pages/runner.html#srl.runner.runner_facade.RunnerFacade.rollout">rollout() (srl.runner.runner_facade.RunnerFacade のメソッド)</a>
+</li>
       <li><a href="pages/runner.html#srl.runner.runner.Runner">Runner (srl.runner.runner のクラス)</a>
+</li>
+      <li><a href="pages/runner.html#srl.runner.runner_facade.RunnerFacade">RunnerFacade (srl.runner.runner_facade のクラス)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -433,13 +442,13 @@
 <h2 id="S">S</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.save_parameter">save_parameter() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.save_memory">save_memory() (srl.runner.runner.Runner のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.save_remote_memory">save_remote_memory() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.save_parameter">save_parameter() (srl.runner.runner.Runner のメソッド)</a>
 </li>
       <li><a href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig">SchedulerConfig (srl.rl.schedulers.scheduler のクラス)</a>
 </li>
-      <li><a href="pages/rl_config_memory.html#srl.rl.memories.sequence_memory.SequenceRemoteMemory">SequenceRemoteMemory (srl.rl.memories.sequence_memory のクラス)</a>
+      <li><a href="pages/rl_config_memory.html#srl.rl.memories.sequence_memory.SequenceMemory">SequenceMemory (srl.rl.memories.sequence_memory のクラス)</a>
 </li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.dueling_network.DuelingNetworkConfig.set">set() (srl.rl.models.dueling_network.DuelingNetworkConfig のメソッド)</a>
 </li>
@@ -449,7 +458,7 @@
 </li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.framework_config.FrameworkConfig.set_auto">set_auto() (srl.rl.models.framework_config.FrameworkConfig のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.set_checkpoint">set_checkpoint() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner_facade.RunnerFacade.set_checkpoint">set_checkpoint() (srl.runner.runner_facade.RunnerFacade のメソッド)</a>
 </li>
       <li><a href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig.set_constant">set_constant() (srl.rl.schedulers.scheduler.SchedulerConfig のメソッド)</a>
 </li>
@@ -459,17 +468,15 @@
 </li>
       <li><a href="pages/runner.html#srl.runner.runner.Runner.set_device">set_device() (srl.runner.runner.Runner のメソッド)</a>
 </li>
-      <li><a href="pages/rl_config_model.html#srl.rl.models.image_block.ImageBlockConfig.set_dqn_image">set_dqn_image() (srl.rl.models.image_block.ImageBlockConfig のメソッド)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.set_history">set_history() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/rl_config_model.html#srl.rl.models.image_block.ImageBlockConfig.set_dqn_image">set_dqn_image() (srl.rl.models.image_block.ImageBlockConfig のメソッド)</a>
+</li>
+      <li><a href="pages/runner.html#srl.runner.runner_facade.RunnerFacade.set_history">set_history() (srl.runner.runner_facade.RunnerFacade のメソッド)</a>
 </li>
       <li><a href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig.set_linear">set_linear() (srl.rl.schedulers.scheduler.SchedulerConfig のメソッド)</a>
 </li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.mlp_block.MLPBlockConfig.set_mlp">set_mlp() (srl.rl.models.mlp_block.MLPBlockConfig のメソッド)</a>
-</li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.set_mp">set_mp() (srl.runner.runner.Runner のメソッド)</a>
 </li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.alphazero_block.AlphaZeroBlockConfig.set_muzero_atari_block">set_muzero_atari_block() (srl.rl.models.alphazero_block.AlphaZeroBlockConfig のメソッド)</a>
 </li>
@@ -481,10 +488,6 @@
 </li>
       <li><a href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig.set_rate">set_rate() (srl.rl.schedulers.scheduler.SchedulerConfig のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.set_remote">set_remote() (srl.runner.runner.Runner のメソッド)</a>
-</li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.set_save_dir">set_save_dir() (srl.runner.runner.Runner のメソッド)</a>
-</li>
       <li><a href="pages/runner.html#srl.runner.runner.Runner.set_seed">set_seed() (srl.runner.runner.Runner のメソッド)</a>
 </li>
       <li><a href="pages/runner.html#srl.runner.runner.Runner.set_stats">set_stats() (srl.runner.runner.Runner のメソッド)</a>
@@ -492,6 +495,8 @@
       <li><a href="pages/rl_config_model.html#srl.rl.models.framework_config.FrameworkConfig.set_tensorflow">set_tensorflow() (srl.rl.models.framework_config.FrameworkConfig のメソッド)</a>
 </li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.framework_config.FrameworkConfig.set_torch">set_torch() (srl.rl.models.framework_config.FrameworkConfig のメソッド)</a>
+</li>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.set_wkdir">set_wkdir() (srl.runner.runner.Runner のメソッド)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -507,17 +512,17 @@
         <li><a href="pages/algorithms/ql.html#srl.algorithms.ql.Config.test_epsilon">(srl.algorithms.ql.Config の属性)</a>
 </li>
       </ul></li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.train">train() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig.to_dict">to_dict() (srl.base.env.config.EnvConfig のメソッド)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.train_mp">train_mp() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner_facade.RunnerFacade.train">train() (srl.runner.runner_facade.RunnerFacade のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.train_mp_debug">train_mp_debug() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner_facade.RunnerFacade.train_mp">train_mp() (srl.runner.runner_facade.RunnerFacade のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.train_only">train_only() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner_facade.RunnerFacade.train_mp_debug">train_mp_debug() (srl.runner.runner_facade.RunnerFacade のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.train_remote">train_remote() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner_facade.RunnerFacade.train_only">train_only() (srl.runner.runner_facade.RunnerFacade のメソッド)</a>
 </li>
   </ul></td>
 </tr></table>

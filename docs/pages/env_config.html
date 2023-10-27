@@ -4,24 +4,24 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EnvConfig &mdash; SimpleDistributedRL 0.12.1.3 ドキュメント</title>
+  <title>EnvConfig &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
-        <script src="../_static/translations.js"></script>
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=7913be7e"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="../_static/translations.js?v=4dbe4bdc"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
     <link rel="next" title="RLConfig" href="rl_config.html" />
-    <link rel="prev" title="Create Original Algorithm" href="custom_algorithm.html" /> 
+    <link rel="prev" title="Detailed Framework" href="framework_detail.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -48,11 +48,13 @@
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="distributed.html">Distributed Learning (Multiple PCs)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Create Original Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Create Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Make Original Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Make Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="framework_detail.html">Detailed Framework</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
 <ul class="current">
@@ -76,6 +78,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.enable_sanitize_value"><code class="docutils literal notranslate"><span class="pre">EnvConfig.enable_sanitize_value</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.enable_assertion_value"><code class="docutils literal notranslate"><span class="pre">EnvConfig.enable_assertion_value</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.make_env"><code class="docutils literal notranslate"><span class="pre">EnvConfig.make_env()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">EnvConfig.to_dict()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.copy"><code class="docutils literal notranslate"><span class="pre">EnvConfig.copy()</span></code></a></li>
 </ul>
 </li>
@@ -83,7 +86,8 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -116,10 +120,10 @@
            <div itemprop="articleBody">
              
   <section id="envconfig">
-<span id="env-config"></span><h1>EnvConfig<a class="headerlink" href="#envconfig" title="この見出しへのパーマリンク"></a></h1>
+<span id="env-config"></span><h1>EnvConfig<a class="headerlink" href="#envconfig" title="Link to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.base.env.config.</span></span><span class="sig-name descname"><span class="pre">EnvConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">name:</span> <span class="pre">str,</span> <span class="pre">kwargs:</span> <span class="pre">~typing.Dict</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">max_episode_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">episode_timeout:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">frameskip:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">gym_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gym.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gymnasium_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gymnasium.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gym_check_image:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">gym_prediction_by_simulation:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">gym_prediction_step:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">10,</span> <span class="pre">gym_wrappers:</span> <span class="pre">~typing.List[GymUserWrapper]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">render_interval:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">render_scale:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0,</span> <span class="pre">font_name:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'',</span> <span class="pre">font_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">12,</span> <span class="pre">enable_sanitize_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">enable_assertion_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.base.env.config.EnvConfig" title="この定義へのパーマリンク"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.base.env.config.</span></span><span class="sig-name descname"><span class="pre">EnvConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">name:</span> <span class="pre">str,</span> <span class="pre">kwargs:</span> <span class="pre">~typing.Dict</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">max_episode_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">episode_timeout:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">frameskip:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">gym_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gym.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gymnasium_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gymnasium.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gym_check_image:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">gym_prediction_by_simulation:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">gym_prediction_step:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">10,</span> <span class="pre">gym_wrappers:</span> <span class="pre">~typing.List[GymUserWrapper]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">render_interval:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">render_scale:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0,</span> <span class="pre">font_name:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'',</span> <span class="pre">font_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">12,</span> <span class="pre">enable_sanitize_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">enable_assertion_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.base.env.config.EnvConfig" title="Link to this definition"></a></dt>
 <dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>EnvConfig は環境を定義します。</p>
 <p>環境は、基本は名前だけで呼び出せます。</p>
@@ -133,122 +137,127 @@
 </div>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.name">
-<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.name" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.name" title="Link to this definition"></a></dt>
 <dd><p>Specifies the environment name</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.kwargs">
-<span class="sig-name descname"><span class="pre">kwargs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.kwargs" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">kwargs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.kwargs" title="Link to this definition"></a></dt>
 <dd><p>環境生成時に渡す引数を指定します。
 これは登録されているパラメータより優先されます。</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.max_episode_steps">
-<span class="sig-name descname"><span class="pre">max_episode_steps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">-1</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.max_episode_steps" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">max_episode_steps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">-1</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.max_episode_steps" title="Link to this definition"></a></dt>
 <dd><p>1エピソードの最大ステップ数(0以下で無効)</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.episode_timeout">
-<span class="sig-name descname"><span class="pre">episode_timeout</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">-1</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.episode_timeout" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">episode_timeout</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">-1</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.episode_timeout" title="Link to this definition"></a></dt>
 <dd><p>1エピソードの最大実行時間(秒)(0以下で無効)</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.frameskip">
-<span class="sig-name descname"><span class="pre">frameskip</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.frameskip" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">frameskip</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.frameskip" title="Link to this definition"></a></dt>
 <dd><p>1stepあたり、環境内で余分に進めるstep数
 例えばframeskip=3の場合、ユーザが1step実行すると、環境内では4frame進みます。</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.gym_make_func">
-<span class="sig-name descname"><span class="pre">gym_make_func</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">gym.Env</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_make_func" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">gym_make_func</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">gym.Env</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_make_func" title="Link to this definition"></a></dt>
 <dd><p>gymの環境を生成する場合、Noneの場合は &quot;gym.make&quot; で生成されますが、関数を渡すとその関数で生成されます。</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.gymnasium_make_func">
-<span class="sig-name descname"><span class="pre">gymnasium_make_func</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">gymnasium.Env</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gymnasium_make_func" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">gymnasium_make_func</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">gymnasium.Env</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gymnasium_make_func" title="Link to this definition"></a></dt>
 <dd><p>gymnasiumの環境を生成する場合、Noneの場合は &quot;gymnasium.make&quot; で生成されますが、関数を渡すとその関数で生成されます。</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.gym_check_image">
-<span class="sig-name descname"><span class="pre">gym_check_image</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_check_image" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">gym_check_image</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_check_image" title="Link to this definition"></a></dt>
 <dd><p>gym/gymnasium環境を生成する際に、observation_space が画像かどうかチェックします</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.gym_prediction_by_simulation">
-<span class="sig-name descname"><span class="pre">gym_prediction_by_simulation</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_prediction_by_simulation" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">gym_prediction_by_simulation</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_prediction_by_simulation" title="Link to this definition"></a></dt>
 <dd><p>gym/gymnasium環境を生成する際に space の確認を実際にシミュレートして確認する</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.gym_prediction_step">
-<span class="sig-name descname"><span class="pre">gym_prediction_step</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_prediction_step" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">gym_prediction_step</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_prediction_step" title="Link to this definition"></a></dt>
 <dd><p>gym_prediction_by_simulation のシミュレーションステップ数</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.gym_wrappers">
-<span class="sig-name descname"><span class="pre">gym_wrappers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">GymUserWrapper</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_wrappers" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">gym_wrappers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">GymUserWrapper</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_wrappers" title="Link to this definition"></a></dt>
 <dd><p>gym/gymnasiumの環境に割り込むためのクラス
 (pickle化できる必要があります)</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.render_interval">
-<span class="sig-name descname"><span class="pre">render_interval</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">-1</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.render_interval" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">render_interval</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">-1</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.render_interval" title="Link to this definition"></a></dt>
 <dd><p>renderの間隔(ms)
 - -1 の場合、Envで定義されている値が使われます。</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.render_scale">
-<span class="sig-name descname"><span class="pre">render_scale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.render_scale" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">render_scale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.render_scale" title="Link to this definition"></a></dt>
 <dd><p>renderのscale</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.font_name">
-<span class="sig-name descname"><span class="pre">font_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.font_name" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">font_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.font_name" title="Link to this definition"></a></dt>
 <dd><p>render時のフォント名
 &quot;&quot;の場合は、<cite>srl.font.PlemolJPConsoleHS-Regular.ttf</cite> が使われます。</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.font_size">
-<span class="sig-name descname"><span class="pre">font_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">12</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.font_size" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">font_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">12</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.font_size" title="Link to this definition"></a></dt>
 <dd><p>render時のフォントサイズ</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.enable_sanitize_value">
-<span class="sig-name descname"><span class="pre">enable_sanitize_value</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.enable_sanitize_value" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">enable_sanitize_value</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.enable_sanitize_value" title="Link to this definition"></a></dt>
 <dd><p>action/observationの値をエラーが出ないように可能な限り変換します。
 ※エラー終了の可能性は減りますが、値の変換等による予期しない動作を引き起こす可能性が高くなります</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.enable_assertion_value">
-<span class="sig-name descname"><span class="pre">enable_assertion_value</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.enable_assertion_value" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">enable_assertion_value</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.enable_assertion_value" title="Link to this definition"></a></dt>
 <dd><p>action/observationの値を厳密にチェックし、おかしい場合は例外を出力します。
 enable_assertion_valueが有効な場合は、enable_sanitize_valueは無効です。</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.make_env">
-<span class="sig-name descname"><span class="pre">make_env</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">EnvRun</span></span></span><a class="headerlink" href="#srl.base.env.config.EnvConfig.make_env" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">make_env</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">EnvRun</span></span></span><a class="headerlink" href="#srl.base.env.config.EnvConfig.make_env" title="Link to this definition"></a></dt>
 <dd><p>環境を生成します。 srl.make_env(env_config) と同じ動作です。</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#srl.base.env.config.EnvConfig.to_dict" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.copy">
-<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#srl.base.env.config.EnvConfig" title="srl.base.env.config.EnvConfig"><span class="pre">EnvConfig</span></a></span></span><a class="headerlink" href="#srl.base.env.config.EnvConfig.copy" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#srl.base.env.config.EnvConfig" title="srl.base.env.config.EnvConfig"><span class="pre">EnvConfig</span></a></span></span><a class="headerlink" href="#srl.base.env.config.EnvConfig.copy" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -259,7 +268,7 @@ enable_assertion_valueが有効な場合は、enable_sanitize_valueは無効で�
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="custom_algorithm.html" class="btn btn-neutral float-left" title="Create Original Algorithm" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="framework_detail.html" class="btn btn-neutral float-left" title="Detailed Framework" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="rl_config.html" class="btn btn-neutral float-right" title="RLConfig" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

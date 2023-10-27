@@ -4,24 +4,24 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Create Original Algorithm &mdash; SimpleDistributedRL 0.12.1.3 ドキュメント</title>
+  <title>Make Original Algorithm &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
-        <script src="../_static/translations.js"></script>
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=7913be7e"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="../_static/translations.js?v=4dbe4bdc"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
-    <link rel="next" title="EnvConfig" href="env_config.html" />
-    <link rel="prev" title="Create Original Environment" href="custom_env.html" /> 
+    <link rel="next" title="Detailed Framework" href="framework_detail.html" />
+    <link rel="prev" title="Make Original Environment" href="custom_env.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -48,19 +48,19 @@
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="distributed.html">Distributed Learning (Multiple PCs)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Create Original Environment</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Create Original Algorithm</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Make Original Environment</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Make Original Algorithm</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#id1">概要</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#id2">実装する各クラスの説明</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#config">Config</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#remotememory">RemoteMemory</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#sequenceremotememory">SequenceRemoteMemory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#memory">Memory</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sequencememory">SequenceMemory</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#experiencereplaybuffer">ExperienceReplayBuffer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#priorityexperiencereplay">PriorityExperienceReplay</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#iprioritymemoryconfig">IPriorityMemoryConfig</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#parameter">Parameter</a></li>
@@ -78,13 +78,15 @@
 <li class="toctree-l2"><a class="reference internal" href="#q">実装例(Q学習)</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="framework_detail.html">Detailed Framework</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="env_config.html">EnvConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -106,7 +108,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Create Original Algorithm</li>
+      <li class="breadcrumb-item active">Make Original Algorithm</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/pages/custom_algorithm.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -116,16 +118,15 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="create-original-algorithm">
-<span id="custom-algorithm"></span><h1>Create Original Algorithm<a class="headerlink" href="#create-original-algorithm" title="この見出しへのパーマリンク"></a></h1>
-<p>ここでは本フレームワークでの自作アルゴリズムを作成する方法を説明します。
-構成としては大きく以下です。</p>
+  <section id="make-original-algorithm">
+<span id="custom-algorithm"></span><h1>Make Original Algorithm<a class="headerlink" href="#make-original-algorithm" title="Link to this heading"></a></h1>
+<p>ここでは本フレームワークでの自作アルゴリズムを作成する方法を説明します。構成は以下です。</p>
 <ol class="arabic simple">
 <li><p>概要</p></li>
 <li><dl class="simple">
 <dt>実装するクラスの説明</dt><dd><ol class="arabic simple">
 <li><p>Config</p></li>
-<li><p>RemoteMemory</p></li>
+<li><p>Memory</p></li>
 <li><p>Parameter</p></li>
 <li><p>Trainer</p></li>
 <li><p>Worker</p></li>
@@ -137,11 +138,13 @@
 <li><p>Q学習実装例</p></li>
 </ol>
 <section id="id1">
-<h2>概要<a class="headerlink" href="#id1" title="この見出しへのパーマリンク"></a></h2>
-<p>自作アルゴリズムでは5つクラスを定義する必要があり、以下のように連携して動作します。</p>
+<h2>概要<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
+<p>自作アルゴリズムでは5つクラスを定義する必要があり、以下のように連携して動作します。(図にはないですが、他にハイパーパラメータを管理するConfigクラスがあります)</p>
 <img alt="../_images/overview-sequence.drawio.png" src="../_images/overview-sequence.drawio.png" />
-<p>図では現れていませんが、5つ目としてハイパーパーパラメータを管理するConfigクラスがいます。
-役割は以下です。</p>
+<div class="line-block">
+<div class="line">WorkerRunとEnvRunはフレームワーク内の動作になるので意識する必要はありません。</div>
+<div class="line">それぞれの役割は以下です。</div>
+</div>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 25%" />
@@ -150,26 +153,26 @@
 <tbody>
 <tr class="row-odd"><td><p>Config</p></td>
 <td><ul class="simple">
-<li><p>ハイパーパラメータなどのパラメータを管理するクラス</p></li>
+<li><p>ハイパーパラメータを管理するクラス</p></li>
 </ul>
 </td>
 </tr>
 <tr class="row-even"><td><p>Worker</p></td>
 <td><ul class="simple">
 <li><p>Environmentと連携しサンプルを収集</p></li>
-<li><p>収集したサンプルをRemoteMemoryに送信</p></li>
+<li><p>収集したサンプルをMemoryに送信（add only）</p></li>
 <li><p>行動決定に必要な情報をParameterから読む（read only）</p></li>
 </ul>
 </td>
 </tr>
 <tr class="row-odd"><td><p>Trainer</p></td>
 <td><ul class="simple">
-<li><p>RemoteMemoryからサンプルを取得し学習する</p></li>
+<li><p>Memoryからサンプルを取得し学習する</p></li>
 <li><p>学習後、Parameterを更新する</p></li>
 </ul>
 </td>
 </tr>
-<tr class="row-even"><td><p>RemoteMemory</p></td>
+<tr class="row-even"><td><p>Memory</p></td>
 <td><ul class="simple">
 <li><p>サンプルを管理</p></li>
 </ul>
@@ -184,19 +187,19 @@
 </tbody>
 </table>
 <p>分散学習は以下となり各クラスが非同期で動作します。</p>
-<img alt="../_images/overview-distributed.drawio.png" src="../_images/overview-distributed.drawio.png" />
-<p>アルゴリズムを作成する視点だと大きな違いはありませんが、以下の点が異なります。</p>
+<img alt="../_images/overview-mp.drawio.png" src="../_images/overview-mp.drawio.png" />
+<p>同期的な学習と以下の点が異なります。</p>
 <ul class="simple">
-<li><p>WorkerがRemoteMemoryにサンプルを送るタイミングとTrainerが取り出すタイミングが異なる</p></li>
-<li><p>Parameter が Worker と Trainer と同期されない</p></li>
+<li><p>WorkerがMemoryにサンプルを送るタイミングとTrainerが取り出すタイミングが異なる</p></li>
+<li><p>ParameterがWorkerとTrainerで同期されない</p></li>
 </ul>
 <p>各クラスの実装の仕方を見ていきます。</p>
 </section>
 <section id="id2">
-<h2>実装する各クラスの説明<a class="headerlink" href="#id2" title="この見出しへのパーマリンク"></a></h2>
+<h2>実装する各クラスの説明<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
 <section id="config">
-<h3>Config<a class="headerlink" href="#config" title="この見出しへのパーマリンク"></a></h3>
-<p>強化学習アルゴリズムの種類やハイパーパラメータ等を管理するクラスです。
+<h3>Config<a class="headerlink" href="#config" title="Link to this heading"></a></h3>
+<p>強化学習アルゴリズムの種類やハイパーパラメータを管理するクラスです。
 基底クラスは <cite>srl.base.rl.base.RLConfig</cite> でこれを継承して作成します。</p>
 <p>RLConfig で実装が必要な関数・プロパティは以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
@@ -250,9 +253,12 @@
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; パラメータのassertを記載 &quot;&quot;&quot;</span>
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">assert_params</span><span class="p">()</span>  <span class="c1"># 親クラスも呼び出してください</span>
 
+   <span class="k">def</span> <span class="nf">set_config_by_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">EnvRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; env初期化後に呼び出されます。env関係の初期化がある場合は記載してください。 &quot;&quot;&quot;</span>
+      <span class="k">pass</span>
+
    <span class="k">def</span> <span class="nf">set_config_by_actor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">actor_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">actor_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 分散学習でactorが指定されたときに呼び出されます。</span>
-<span class="sd">      Actor関係の初期化がある場合は記載してください。 &quot;&quot;&quot;</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; 分散学習でactorが指定されたときに呼び出されます。Actor関係の初期化がある場合は記載してください。 &quot;&quot;&quot;</span>
       <span class="k">pass</span>
 
    <span class="k">def</span> <span class="nf">set_processor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">actor_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">actor_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Processor</span><span class="p">]:</span>
@@ -261,20 +267,21 @@
 </pre></div>
 </div>
 </section>
-<section id="remotememory">
-<h3>RemoteMemory<a class="headerlink" href="#remotememory" title="この見出しへのパーマリンク"></a></h3>
-<p>Workerが取得したサンプル(batch)をTrainerに渡す役割を持っているクラスです。
-分散学習では multiprocessing のサーバプロセス(Manager)になります。
-ですので、変数へのアクセスができなくなる点だけ制約があります。
-（全て関数経由でやり取りする必要があります）</p>
-<p>またよくあるクラスは <cite>srl.base.rl.remote_memory</cite> に別途定義しており、そちらを使うこともできます。</p>
+<section id="memory">
+<h3>Memory<a class="headerlink" href="#memory" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">Workerが取得したサンプル(batch)をTrainerに渡す役割を持っているクラスです。</div>
+<div class="line">以下の3種類から継承します。</div>
+<div class="line">（RLMemoryを直接継承することでオリジナルのMemoryを作成することも可能です）</div>
+<div class="line">（オリジナルのMemoryの作成例は`srl.algorithms.world_models`の実装を参考にしてください）</div>
+</div>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 33%" />
 <col style="width: 67%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p>SequenceRemoteMemory</p></td>
+<tr class="row-odd"><td><p>SequenceMemory</p></td>
 <td><p>来たサンプルを順序通りに取り出します。(Queueみたいな動作です)</p></td>
 </tr>
 <tr class="row-even"><td><p>ExperienceReplayBuffer</p></td>
@@ -285,43 +292,13 @@
 </tr>
 </tbody>
 </table>
-<p>各クラスの定義方法は後述します。
-まずは基底クラスである <cite>RLRemoteMemory</cite> で定義する関数は以下です。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLRemoteMemory</span>
-
-<span class="k">class</span> <span class="nc">MyRemoteMemory</span><span class="p">(</span><span class="n">RLRemoteMemory</span><span class="p">):</span>
-   <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; コントラクタの引数は親に渡してください &quot;&quot;&quot;</span>
-      <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-
-      <span class="c1"># self.config に上で定義した MyConfig が入ります</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
-
-   <span class="k">def</span> <span class="nf">length</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; メモリに保存されている数を返します &quot;&quot;&quot;</span>
-      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-
-   <span class="c1"># call_restore/call_backupで復元できるように作成します</span>
-   <span class="k">def</span> <span class="nf">call_restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span> <span class="o">=</span> <span class="n">data</span>
-   <span class="k">def</span> <span class="nf">call_backup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span>
-
-   <span class="c1"># -------</span>
-   <span class="c1"># その他、好きな関数を定義可能です。</span>
-   <span class="c1"># -------</span>
-</pre></div>
-</div>
-<section id="sequenceremotememory">
-<h4>SequenceRemoteMemory<a class="headerlink" href="#sequenceremotememory" title="この見出しへのパーマリンク"></a></h4>
-<p>順番通りにサンプルを取り出します RemoteMemory です。
-サンプルは取り出すとなくなります。</p>
-<p>ハイパーパラメータは特にないので継承するだけで実装できます。
-継承すると add 関数と sample 関数が追加されるのでそれを使います。</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.rl.memories.sequence_memory</span> <span class="kn">import</span> <span class="n">SequenceRemoteMemory</span>
+<section id="sequencememory">
+<h4>SequenceMemory<a class="headerlink" href="#sequencememory" title="Link to this heading"></a></h4>
+<p>順番通りにサンプルを取り出しますMemoryです。サンプルは取り出すとなくなります。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.rl.memories.sequence_memory</span> <span class="kn">import</span> <span class="n">SequenceMemory</span>
 
 
-<span class="k">class</span> <span class="nc">MyRemoteMemory</span><span class="p">(</span><span class="n">SequenceRemoteMemory</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">MyRemoteMemory</span><span class="p">(</span><span class="n">SequenceMemory</span><span class="p">):</span>
     <span class="k">pass</span>
 
 
@@ -336,10 +313,11 @@
 </div>
 </section>
 <section id="experiencereplaybuffer">
-<h4>ExperienceReplayBuffer<a class="headerlink" href="#experiencereplaybuffer" title="この見出しへのパーマリンク"></a></h4>
-<p>ランダムにサンプルを取り出すRemoteMemoryです。
-継承すると add 関数と sample 関数が追加されるのでそれを使います。</p>
-<p>ハイパーパラメータがあるのでRLConfigでハイパーパラメータの追加が必要です。</p>
+<h4>ExperienceReplayBuffer<a class="headerlink" href="#experiencereplaybuffer" title="Link to this heading"></a></h4>
+<div class="line-block">
+<div class="line">ランダムにサンプルを取り出すMemoryです。</div>
+<div class="line">これを使う場合は、Configにも <cite>ExperienceReplayBufferConfig</cite> を継承する必要があります。</div>
+</div>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 
 <span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLTypes</span>
@@ -377,17 +355,40 @@
 <span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 <span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
 <span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
-<span class="n">dat</span> <span class="o">=</span> <span class="n">memory</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">dat</span> <span class="o">=</span> <span class="n">memory</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">dat</span><span class="p">)</span>  <span class="c1"># [3, 2]</span>
 </pre></div>
 </div>
 </section>
 <section id="priorityexperiencereplay">
-<h4>PriorityExperienceReplay<a class="headerlink" href="#priorityexperiencereplay" title="この見出しへのパーマリンク"></a></h4>
-<p>優先順位に従ってサンプルを取り出すRemoteMemoryです。
-継承すると add,sample,update,on_step関数が追加されます。
-（on_stepはworkerで使用）</p>
-<p>実装コード例は以下です。</p>
+<h4>PriorityExperienceReplay<a class="headerlink" href="#priorityexperiencereplay" title="Link to this heading"></a></h4>
+<div class="line-block">
+<div class="line">優先順位に従ってサンプルを取り出すMemoryです。</div>
+<div class="line">これを使う場合は、Configにも <cite>PriorityExperienceReplayConfig</cite> を継承する必要があります。</div>
+</div>
+<p>PriorityExperienceReplayはConfigにより以下のアルゴリズムに切り替えることができます。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 23%" />
+<col style="width: 77%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>クラス名</p></th>
+<th class="head"><p>説明</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>ReplayMemory</p></td>
+<td><p>ExperienceReplayBufferと同じで、ランダムに取得します。（優先順位はありません）</p></td>
+</tr>
+<tr class="row-odd"><td><p>ProportionalMemory</p></td>
+<td><p>サンプルの重要度によって確率が変わります。重要度が高いサンプルほど選ばれる確率が上がります。</p></td>
+</tr>
+<tr class="row-even"><td><p>RankBaseMemory</p></td>
+<td><p>サンプルの重要度のランキングによって確率が変わります。重要度が高いサンプルほど選ばれる確率が上がるのはProportionalと同じです。</p></td>
+</tr>
+</tbody>
+</table>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -421,50 +422,28 @@
     <span class="k">pass</span>
 
 
-<span class="c1"># 実行例</span>
-<span class="n">memory</span> <span class="o">=</span> <span class="n">MyRemoteMemory</span><span class="p">(</span><span class="n">MyConfig</span><span class="p">())</span>
-<span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-<span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
-<span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
-<span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
-<span class="n">indices</span><span class="p">,</span> <span class="n">batchs</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">memory</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="c1"># --- select memory</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">MyConfig</span><span class="p">()</span>
+<span class="c1"># config.memory.set_replay_memory()</span>
+<span class="n">config</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">set_proportional_memory</span><span class="p">()</span>
+<span class="c1"># config.memory.set_rankbase_memory()</span>
+
+<span class="c1"># --- run memory</span>
+<span class="n">memory</span> <span class="o">=</span> <span class="n">MyRemoteMemory</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">indices</span><span class="p">,</span> <span class="n">batchs</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">memory</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">batchs</span><span class="p">)</span>  <span class="c1"># [2]</span>
-<span class="n">memory</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">batchs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">11</span><span class="p">]))</span>
+<span class="n">memory</span><span class="o">.</span><span class="n">update</span><span class="p">((</span><span class="n">indices</span><span class="p">,</span> <span class="n">batchs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">11</span><span class="p">])))</span>
 </pre></div>
 </div>
 </section>
-<section id="iprioritymemoryconfig">
-<h4>IPriorityMemoryConfig<a class="headerlink" href="#iprioritymemoryconfig" title="この見出しへのパーマリンク"></a></h4>
-<p>PriorityExperienceReplayはアルゴリズムがいくつかあるので、IPriorityMemoryConfig で切り替えれるようにしています。
-具体的なアルゴリズムは以下です。</p>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 23%" />
-<col style="width: 77%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>クラス名</p></th>
-<th class="head"><p>説明</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>ReplayMemoryConfig</p></td>
-<td><p>ExperienceReplayBufferと同じで、ランダムに取得します。（優先順位はありません）</p></td>
-</tr>
-<tr class="row-odd"><td><p>ProportionalMemoryConfig</p></td>
-<td><p>サンプルの重要度によって確率が変わります。重要度が高いサンプルほど選ばれる確率が上がります。</p></td>
-</tr>
-<tr class="row-even"><td><p>RankBaseMemoryConfig</p></td>
-<td><p>サンプルの重要度のランキングによって確率が変わります。重要度が高いサンプルほど選ばれる確率が上がるのはProportionalと同じです。</p></td>
-</tr>
-</tbody>
-</table>
-</section>
 </section>
 <section id="parameter">
-<h3>Parameter<a class="headerlink" href="#parameter" title="この見出しへのパーマリンク"></a></h3>
-<p>パラメータを管理するクラスです。
-深層学習の場合はここにニューラルネットワークを定義することを想定しています。</p>
+<h3>Parameter<a class="headerlink" href="#parameter" title="Link to this heading"></a></h3>
+<p>パラメータを管理するクラスです。深層学習の場合はここにニューラルネットワークを定義することを想定しています。</p>
 <p>実装が必要な関数は以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLParameter</span>
 
@@ -490,9 +469,8 @@
 </div>
 </section>
 <section id="trainer">
-<h3>Trainer<a class="headerlink" href="#trainer" title="この見出しへのパーマリンク"></a></h3>
-<p>学習を定義する部分です。
-RemoteMemory から経験を受け取ってParameterを更新します。</p>
+<h3>Trainer<a class="headerlink" href="#trainer" title="Link to this heading"></a></h3>
+<p>学習を定義する部分です。Memoryから経験を受け取ってParameterを更新します。</p>
 <p>実装が必要な関数は以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLTrainer</span>
 
@@ -501,28 +479,42 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; コントラクタの引数は親に渡してください &quot;&quot;&quot;</span>
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
-      <span class="c1"># config,parameter,memory がそれぞれ入ります。</span>
+      <span class="c1"># config,parameter がそれぞれ入ります。</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">:</span> <span class="n">MyRemoteMemory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span>
 
-   <span class="k">def</span> <span class="nf">get_train_count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 学習回数を返します &quot;&quot;&quot;</span>
-      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-
-   <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">train_on_batchs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_sample_return</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">      RemoteMemory からbatchを受け取ってParameterを更新する形で学習を定義します。</span>
-<span class="sd">      戻り値は任意で、学習情報を辞書形式で返します。</span>
+<span class="sd">      ・引数はmemory.sample()の戻り値が入ります。なので、以下の3パターンです。</span>
+
+<span class="sd">      # SequenceMemory の場合</span>
+<span class="sd">      batchs = memory_sample_return</span>
+
+<span class="sd">      # ExperienceReplayBuffer の場合</span>
+<span class="sd">      batchs = memory_sample_return</span>
+
+<span class="sd">      # PriorityExperienceReplay の場合</span>
+<span class="sd">      indices, batchs, weights = memory_sample_return</span>
+
+<span class="sd">      ・PriorityExperienceReplay の場合は途中で以下を呼び出す必要があります。</span>
+<span class="sd">      self.memory_update((indices, batchs, priorities))</span>
+
+<span class="sd">      ・学習回数を数えます。</span>
+<span class="sd">      self.train_count += 1</span>
+
+<span class="sd">      ・(option)必要に応じてinfoを設定します。</span>
+<span class="sd">      self.train_info = {&quot;loss&quot;: 0.0}</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 </pre></div>
 </div>
 </section>
 <section id="worker">
-<h3>Worker<a class="headerlink" href="#worker" title="この見出しへのパーマリンク"></a></h3>
-<p>実際に環境と連携して経験を収集するクラスです。
-役割は、Parameterを参照してアクションを決める事と、サンプルをRemoteMemoryに送信する事です。</p>
+<h3>Worker<a class="headerlink" href="#worker" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">実際に環境と連携して経験を収集するクラスです。</div>
+<div class="line">役割は、Parameterを参照してアクションを決める事と、サンプルをMemoryに送信する事です。</div>
+</div>
 <p>RLWorkerとRLTrainerのフローをすごく簡単に書くと以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 <span class="n">worker</span><span class="o">.</span><span class="n">on_reset</span><span class="p">()</span>
@@ -533,9 +525,11 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
    <span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>RLWorkerはアルゴリズムに合わせたインタフェースのクラスを用意しています。
-基本はそちらを使用してください。
-現状あるクラスは以下です。</p>
+<div class="line-block">
+<div class="line">RLWorkerはアルゴリズムに合わせたインタフェースのクラスを用意しています。</div>
+<div class="line">基本はそちらを使用してください。</div>
+<div class="line">現状あるクラスは以下です。</div>
+</div>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 27%" />
@@ -572,7 +566,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 </tbody>
 </table>
 <section id="discreteactionworker">
-<h4>DiscreteActionWorker<a class="headerlink" href="#discreteactionworker" title="この見出しへのパーマリンク"></a></h4>
+<h4>DiscreteActionWorker<a class="headerlink" href="#discreteactionworker" title="Link to this heading"></a></h4>
 <p>DiscreteActionWorkerで実装が必要な関数は以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.algorithms.discrete_action</span> <span class="kn">import</span> <span class="n">DiscreteActionWorker</span>
 
@@ -582,9 +576,10 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
       <span class="c1"># config,parameter,memory がそれぞれ入ります。</span>
+      <span class="c1"># memoryはaddしか使えません。</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">:</span> <span class="n">MyRemoteMemory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">:</span> <span class="n">IRLMemoryWorker</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span>
 
    <span class="k">def</span> <span class="nf">call_on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">invalid_actions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; エピソードの最初に呼ばれる関数</span>
@@ -635,7 +630,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 </div>
 </section>
 <section id="continuousactionworker">
-<h4>ContinuousActionWorker<a class="headerlink" href="#continuousactionworker" title="この見出しへのパーマリンク"></a></h4>
+<h4>ContinuousActionWorker<a class="headerlink" href="#continuousactionworker" title="Link to this heading"></a></h4>
 <p>ContinuousActionWorkerで実装が必要な関数は以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.algorithms.continuous_action</span> <span class="kn">import</span> <span class="n">ContinuousActionWorker</span>
 
@@ -645,9 +640,10 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
       <span class="c1"># config,parameter,memory がそれぞれ入ります。</span>
+      <span class="c1"># memoryはaddしか使えません。</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">:</span> <span class="n">MyRemoteMemory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">:</span> <span class="n">IRLMemoryWorker</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span>
 
    <span class="k">def</span> <span class="nf">call_on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Info</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; エピソードの最初に呼ばれる関数</span>
@@ -689,7 +685,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 </div>
 </section>
 <section id="rlworker">
-<h4>RLWorker<a class="headerlink" href="#rlworker" title="この見出しへのパーマリンク"></a></h4>
+<h4>RLWorker<a class="headerlink" href="#rlworker" title="Link to this heading"></a></h4>
 <p>RLWorker は実行時のクラスである WorkerRun を直接操作して実装するクラスです。
 出来ることが多いのと、仕様が変わる可能性大きいので詳細は一旦保留します。(TODO)</p>
 <p>実装が必要な関数は以下です。</p>
@@ -705,9 +701,10 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
       <span class="c1"># config,parameter,memory がそれぞれ入ります。</span>
+      <span class="c1"># memoryはaddしか使えません。</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">:</span> <span class="n">MyRemoteMemory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">:</span> <span class="n">IRLMemoryWorker</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span>
 
    <span class="k">def</span> <span class="nf">call_on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; エピソードの最初に呼ばれる関数</span>
@@ -751,7 +748,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 </div>
 </section>
 <section id="id3">
-<h4>Worker共通のプロパティ・関数<a class="headerlink" href="#id3" title="この見出しへのパーマリンク"></a></h4>
+<h4>Worker共通のプロパティ・関数<a class="headerlink" href="#id3" title="Link to this heading"></a></h4>
 <p>Workerで共通して持っているプロパティ・関数は以下となります。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
 <span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLAction</span>
@@ -772,14 +769,14 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; renderがあるエピソードかどうかを返します &quot;&quot;&quot;</span>
       <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rendering</span>
 
-   <span class="k">def</span> <span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">      描画用の関数です。</span>
 <span class="sd">      実装するとrenderによる描画が可能になります。</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">pass</span>
 
-   <span class="k">def</span> <span class="nf">render_rgb_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+   <span class="k">def</span> <span class="nf">render_rgb_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">      描画用の関数です。</span>
 <span class="sd">      実装するとrenderによる描画が可能になります。</span>
@@ -819,14 +816,14 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 </section>
 </section>
 <section id="id4">
-<h2>自作アルゴリズムの登録<a class="headerlink" href="#id4" title="この見出しへのパーマリンク"></a></h2>
+<h2>自作アルゴリズムの登録<a class="headerlink" href="#id4" title="Link to this heading"></a></h2>
 <p>以下で登録します。
 第2引数以降の entry_point は、<cite>モジュールパス + &quot;:&quot; + クラス名`で、
 モジュールパスは `importlib.import_module</cite> で呼び出せる形式である必要があります。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.registration</span> <span class="kn">import</span> <span class="n">register</span>
 <span class="n">register</span><span class="p">(</span>
    <span class="n">MyConfig</span><span class="p">(),</span>
-   <span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;:MyRemoteMemory&quot;</span><span class="p">,</span>
+   <span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;:MyMemory&quot;</span><span class="p">,</span>
    <span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;:MyParameter&quot;</span><span class="p">,</span>
    <span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;:MyTrainer&quot;</span><span class="p">,</span>
    <span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;:MyWorker&quot;</span><span class="p">,</span>
@@ -835,7 +832,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 </div>
 </section>
 <section id="q">
-<h2>実装例(Q学習)<a class="headerlink" href="#q" title="この見出しへのパーマリンク"></a></h2>
+<h2>実装例(Q学習)<a class="headerlink" href="#q" title="Link to this heading"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
@@ -847,7 +844,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLParameter</span><span class="p">,</span> <span class="n">RLTrainer</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.config</span> <span class="kn">import</span> <span class="n">RLConfig</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.registration</span> <span class="kn">import</span> <span class="n">register</span>
-<span class="kn">from</span> <span class="nn">srl.rl.memories.sequence_memory</span> <span class="kn">import</span> <span class="n">SequenceRemoteMemory</span>
+<span class="kn">from</span> <span class="nn">srl.rl.memories.sequence_memory</span> <span class="kn">import</span> <span class="n">SequenceMemory</span>
 
 
 <span class="nd">@dataclass</span>
@@ -872,7 +869,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
         <span class="k">return</span> <span class="s2">&quot;MyRL&quot;</span>
 
 
-<span class="k">class</span> <span class="nc">RemoteMemory</span><span class="p">(</span><span class="n">SequenceRemoteMemory</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">Memory</span><span class="p">(</span><span class="n">SequenceMemory</span><span class="p">):</span>
     <span class="k">pass</span>
 
 
@@ -901,16 +898,10 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">Config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">Parameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">:</span> <span class="n">RemoteMemory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">train_count</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">def</span> <span class="nf">train_on_batchs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_sample_return</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">batchs</span> <span class="o">=</span> <span class="n">memory_sample_return</span>
 
-    <span class="k">def</span> <span class="nf">get_train_count</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_count</span>
-
-    <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="c1"># memoryから経験を取得する</span>
-        <span class="n">batchs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>
         <span class="n">td_error</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">batchs</span><span class="p">:</span>
             <span class="c1"># 各batch毎にQテーブルを更新する</span>
@@ -932,13 +923,13 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
             <span class="n">q</span><span class="p">[</span><span class="n">action</span><span class="p">]</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">lr</span> <span class="o">*</span> <span class="n">td_error</span>
 
             <span class="n">td_error</span> <span class="o">+=</span> <span class="n">td_error</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">train_count</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">train_count</span> <span class="o">+=</span> <span class="mi">1</span>  <span class="c1"># 学習回数</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">batchs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">td_error</span> <span class="o">/=</span> <span class="nb">len</span><span class="p">(</span><span class="n">batchs</span><span class="p">)</span>
 
-        <span class="c1"># 学習結果の情報を返す(任意)</span>
-        <span class="k">return</span> <span class="p">{</span>
+        <span class="c1"># 学習結果(任意)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_info</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;Q&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="o">.</span><span class="n">Q</span><span class="p">),</span>
             <span class="s2">&quot;td_error&quot;</span><span class="p">:</span> <span class="n">td_error</span><span class="p">,</span>
         <span class="p">}</span>
@@ -949,7 +940,6 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">Config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">Parameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="p">:</span> <span class="n">RemoteMemory</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span>
 
     <span class="k">def</span> <span class="nf">call_on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">invalid_actions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
         <span class="k">return</span> <span class="p">{}</span>
@@ -992,11 +982,11 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
             <span class="s2">&quot;reward&quot;</span><span class="p">:</span> <span class="n">reward</span><span class="p">,</span>
             <span class="s2">&quot;done&quot;</span><span class="p">:</span> <span class="n">done</span><span class="p">,</span>
         <span class="p">}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">remote_memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>  <span class="c1"># memoryはaddのみ</span>
         <span class="k">return</span> <span class="p">{}</span>
 
     <span class="c1"># 強化学習の可視化用、今回ですとQテーブルを表示しています。</span>
-    <span class="k">def</span> <span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="o">.</span><span class="n">get_action_values</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
         <span class="n">maxa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">action_num</span><span class="p">):</span>
@@ -1004,7 +994,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
                 <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;*&quot;</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span>
-            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">env</span><span class="o">.</span><span class="n">action_to_str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">q</span><span class="p">[</span><span class="n">a</span><span class="p">]</span><span class="si">:</span><span class="s2">7.5f</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">worker</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">action_to_str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">q</span><span class="p">[</span><span class="n">a</span><span class="p">]</span><span class="si">:</span><span class="s2">7.5f</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="nb">print</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
 
 
@@ -1013,7 +1003,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 <span class="c1"># ---------------------------------</span>
 <span class="n">register</span><span class="p">(</span>
     <span class="n">Config</span><span class="p">(),</span>
-    <span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;:RemoteMemory&quot;</span><span class="p">,</span>
+    <span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;:Memory&quot;</span><span class="p">,</span>
     <span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;:Parameter&quot;</span><span class="p">,</span>
     <span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;:Trainer&quot;</span><span class="p">,</span>
     <span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;:Worker&quot;</span><span class="p">,</span>
@@ -1045,7 +1035,7 @@ RemoteMemory から経験を受け取ってParameterを更新します。</p>
 
 <span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">()</span>
 
-<span class="n">runner</span><span class="o">.</span><span class="n">animation_save_gif</span><span class="p">(</span><span class="s2">&quot;MyRL-Grid.gif&quot;</span><span class="p">,</span> <span class="n">render_scale</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">animation_save_gif</span><span class="p">(</span><span class="s2">&quot;_MyRL-Grid.gif&quot;</span><span class="p">,</span> <span class="n">render_scale</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>renderの表示例</p>
@@ -1160,8 +1150,8 @@ work0 {}
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="custom_env.html" class="btn btn-neutral float-left" title="Create Original Environment" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="env_config.html" class="btn btn-neutral float-right" title="EnvConfig" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="custom_env.html" class="btn btn-neutral float-left" title="Make Original Environment" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="framework_detail.html" class="btn btn-neutral float-right" title="Detailed Framework" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

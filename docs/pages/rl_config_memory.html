@@ -4,19 +4,19 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Memory &mdash; SimpleDistributedRL 0.12.1.3 ドキュメント</title>
+  <title>Memory &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
-        <script src="../_static/translations.js"></script>
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=7913be7e"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="../_static/translations.js?v=4dbe4bdc"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
@@ -48,11 +48,13 @@
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="distributed.html">Distributed Learning (Multiple PCs)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Create Original Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Create Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Make Original Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Make Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="framework_detail.html">Detailed Framework</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
 <ul class="current">
@@ -60,16 +62,20 @@
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a><ul class="current">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Memory</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#srl.rl.memories.sequence_memory.SequenceRemoteMemory"><code class="docutils literal notranslate"><span class="pre">SequenceRemoteMemory</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.rl.memories.experience_replay_buffer.ExperienceReplayBufferConfig"><code class="docutils literal notranslate"><span class="pre">ExperienceReplayBufferConfig</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sequencememory">SequenceMemory</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.sequence_memory.SequenceMemory"><code class="docutils literal notranslate"><span class="pre">SequenceMemory</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#experiencereplaybuffer">ExperienceReplayBuffer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.experience_replay_buffer.ExperienceReplayBufferConfig"><code class="docutils literal notranslate"><span class="pre">ExperienceReplayBufferConfig</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="#priorityexperiencereplay">PriorityExperienceReplay</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_experience_replay.PriorityExperienceReplayConfig"><code class="docutils literal notranslate"><span class="pre">PriorityExperienceReplayConfig</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.replay_memory.ReplayMemory"><code class="docutils literal notranslate"><span class="pre">ReplayMemory</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory"><code class="docutils literal notranslate"><span class="pre">RankBaseMemory</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.rankbase_memory_linear.RankBaseMemoryLinear"><code class="docutils literal notranslate"><span class="pre">RankBaseMemoryLinear</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.demo_memory.DemoMemory"><code class="docutils literal notranslate"><span class="pre">DemoMemory</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.best_episode_memory.BestEpisodeMemory"><code class="docutils literal notranslate"><span class="pre">BestEpisodeMemory</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -82,7 +88,8 @@
 <li class="toctree-l2"><a class="reference internal" href="rl_config_scheduler.html">Scheduler</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -116,49 +123,61 @@
            <div itemprop="articleBody">
              
   <section id="memory">
-<h1>Memory<a class="headerlink" href="#memory" title="この見出しへのパーマリンク"></a></h1>
+<h1>Memory<a class="headerlink" href="#memory" title="Link to this heading"></a></h1>
+<section id="sequencememory">
+<span id="id1"></span><h2>SequenceMemory<a class="headerlink" href="#sequencememory" title="Link to this heading"></a></h2>
 <dl class="py class">
-<dt class="sig sig-object py" id="srl.rl.memories.sequence_memory.SequenceRemoteMemory">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.sequence_memory.</span></span><span class="sig-name descname"><span class="pre">SequenceRemoteMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.sequence_memory.SequenceRemoteMemory" title="この定義へのパーマリンク"></a></dt>
-<dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">RLRemoteMemory</span></code></p>
-<p>FIFO形式でやりとりするシンプルなメモリです。
+<dt class="sig sig-object py" id="srl.rl.memories.sequence_memory.SequenceMemory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.sequence_memory.</span></span><span class="sig-name descname"><span class="pre">SequenceMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.sequence_memory.SequenceMemory" title="Link to this definition"></a></dt>
+<dd><p>FIFO形式でやりとりするシンプルなメモリです。
 パラメータは特にありません。</p>
 </dd></dl>
 
+</section>
+<section id="experiencereplaybuffer">
+<span id="id2"></span><h2>ExperienceReplayBuffer<a class="headerlink" href="#experiencereplaybuffer" title="Link to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.memories.experience_replay_buffer.ExperienceReplayBufferConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.experience_replay_buffer.</span></span><span class="sig-name descname"><span class="pre">ExperienceReplayBufferConfig</span></span><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.ExperienceReplayBufferConfig" title="この定義へのパーマリンク"></a></dt>
-<dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>ExperienceReplayBuffer</p>
-<p>これを実装しているアルゴリズムはmemoryを持ちます。</p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.experience_replay_buffer.</span></span><span class="sig-name descname"><span class="pre">ExperienceReplayBufferConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">32</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.ExperienceReplayBufferConfig" title="Link to this definition"></a></dt>
+<dd><p>ExperienceReplayBuffer</p>
+<p>これを継承しているアルゴリズムはbatch_size変数とmemory変数を持ちます。
+memory変数からパラメータを設定できます。</p>
 <dl class="simple">
-<dt>Parameter:</dt><dd><p>capacity(int): メモリに保存できる最大サイズ. default is 100_000</p>
+<dt>Parameter:</dt><dd><p>capacity(int): メモリに保存できる最大サイズ. default is 100_000
+warmup_size(int): warmup size. default is 1_000
+batch_size(int): Batch size. default is 32</p>
 </dd>
 </dl>
 <p class="rubric">サンプル</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">alphazero</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span> <span class="o">=</span> <span class="n">alphazero</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="mi">64</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">capacity</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">warmup_size</span> <span class="o">=</span> <span class="mi">1000</span>
 </pre></div>
 </div>
 </dd></dl>
 
+</section>
 <section id="priorityexperiencereplay">
-<span id="id1"></span><h2>PriorityExperienceReplay<a class="headerlink" href="#priorityexperiencereplay" title="この見出しへのパーマリンク"></a></h2>
+<span id="id3"></span><h2>PriorityExperienceReplay<a class="headerlink" href="#priorityexperiencereplay" title="Link to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.memories.priority_experience_replay.PriorityExperienceReplayConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_experience_replay.</span></span><span class="sig-name descname"><span class="pre">PriorityExperienceReplayConfig</span></span><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.PriorityExperienceReplayConfig" title="この定義へのパーマリンク"></a></dt>
-<dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>PriorityExperienceReplay</p>
-<p>これを実装しているアルゴリズムはmemoryを持ちます。
-memoryから任意の関数を呼ぶことで各memoryを設定できます。
-ただ、capacityだけは例外で直接指定できます。</p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_experience_replay.</span></span><span class="sig-name descname"><span class="pre">PriorityExperienceReplayConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">32</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.PriorityExperienceReplayConfig" title="Link to this definition"></a></dt>
+<dd><p>PriorityExperienceReplay</p>
+<p>これを継承しているアルゴリズムはbatch_size変数とmemory変数を持ちます。
+memory変数から関数を呼ぶことで各memoryを設定できます。
+また、memory変数から任意のパラメータを設定できます。</p>
 <p class="rubric">サンプル</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">dqn</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span> <span class="o">=</span> <span class="n">dqn</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="c1"># capacityの設定例</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># 各パラメータの設定例</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="mi">64</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">capacity</span> <span class="o">=</span> <span class="mi">10000</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="c1"># ProportionalMemory を設定</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">warmup_size</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># ProportionalMemory の設定例</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">set_proportional_memory</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -166,39 +185,71 @@ memoryから任意の関数を呼ぶことで各memoryを設定できます。
 
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.memories.priority_memories.replay_memory.ReplayMemory">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.replay_memory.</span></span><span class="sig-name descname"><span class="pre">ReplayMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100000</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.replay_memory.ReplayMemory" title="この定義へのパーマリンク"></a></dt>
-<dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">IPriorityMemory</span></code></p>
-</dd></dl>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.replay_memory.</span></span><span class="sig-name descname"><span class="pre">ReplayMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.replay_memory.ReplayMemory" title="Link to this definition"></a></dt>
+<dd></dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.proportional_memory.</span></span><span class="sig-name descname"><span class="pre">ProportionalMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_initial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">has_duplicate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0001</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory" title="この定義へのパーマリンク"></a></dt>
-<dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">IPriorityMemory</span></code></p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.proportional_memory.</span></span><span class="sig-name descname"><span class="pre">ProportionalMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_initial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">has_duplicate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0001</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory" title="Link to this definition"></a></dt>
+<dd><dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.alpha">
+<span class="sig-name descname"><span class="pre">alpha</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.6</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.alpha" title="Link to this definition"></a></dt>
+<dd><p>priorityの反映度、0の場合は完全ランダム、1に近づくほどpriorityによるランダム度になります。</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.beta_initial">
+<span class="sig-name descname"><span class="pre">beta_initial</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.4</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.beta_initial" title="Link to this definition"></a></dt>
+<dd><p>βはISを反映させる割合。ただβは少しずつ増やし、最後に1(完全反映)にします。そのβの初期値です。</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.beta_steps">
+<span class="sig-name descname"><span class="pre">beta_steps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1000000</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.beta_steps" title="Link to this definition"></a></dt>
+<dd><p>βを何stepで1にするか</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.has_duplicate">
+<span class="sig-name descname"><span class="pre">has_duplicate</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.has_duplicate" title="Link to this definition"></a></dt>
+<dd><p>sample時に重複をきょかするか</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.epsilon">
+<span class="sig-name descname"><span class="pre">epsilon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0001</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.epsilon" title="Link to this definition"></a></dt>
+<dd><p>priorityを0にしないための小さい値</p>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.rankbase_memory.</span></span><span class="sig-name descname"><span class="pre">RankBaseMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_initial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000000</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory" title="この定義へのパーマリンク"></a></dt>
-<dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">IPriorityMemory</span></code></p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.rankbase_memory.</span></span><span class="sig-name descname"><span class="pre">RankBaseMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_initial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000000</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory" title="Link to this definition"></a></dt>
+<dd><dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.alpha">
+<span class="sig-name descname"><span class="pre">alpha</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.6</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.alpha" title="Link to this definition"></a></dt>
+<dd><p>priorityの反映度、0の場合は完全ランダム、1に近づくほどpriorityによるランダム度になります。</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_initial">
+<span class="sig-name descname"><span class="pre">beta_initial</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.4</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_initial" title="Link to this definition"></a></dt>
+<dd><p>βはISを反映させる割合。ただβは少しずつ増やし、最後に1(完全反映)にします。そのβの初期値です。</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_steps">
+<span class="sig-name descname"><span class="pre">beta_steps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1000000</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_steps" title="Link to this definition"></a></dt>
+<dd><p>βを何stepで1にするか</p>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbase_memory_linear.RankBaseMemoryLinear">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.rankbase_memory_linear.</span></span><span class="sig-name descname"><span class="pre">RankBaseMemoryLinear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_initial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000000</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbase_memory_linear.RankBaseMemoryLinear" title="この定義へのパーマリンク"></a></dt>
-<dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">IPriorityMemory</span></code></p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.demo_memory.DemoMemory">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.demo_memory.</span></span><span class="sig-name descname"><span class="pre">DemoMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">main_memory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">srl.rl.memories.priority_memories.imemory.IPriorityMemory</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">demo_memory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">srl.rl.memories.priority_memories.imemory.IPriorityMemory</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">playing</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ratio</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.00390625</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.demo_memory.DemoMemory" title="この定義へのパーマリンク"></a></dt>
-<dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">IPriorityMemory</span></code></p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.best_episode_memory.BestEpisodeMemory">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.best_episode_memory.</span></span><span class="sig-name descname"><span class="pre">BestEpisodeMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">main_memory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">srl.rl.memories.priority_memories.imemory.IPriorityMemory</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">best_memory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">srl.rl.memories.priority_memories.imemory.IPriorityMemory</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ratio</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.00390625</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">has_reward_equal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.best_episode_memory.BestEpisodeMemory" title="この定義へのパーマリンク"></a></dt>
-<dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">IPriorityMemory</span></code></p>
-</dd></dl>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.rankbase_memory_linear.</span></span><span class="sig-name descname"><span class="pre">RankBaseMemoryLinear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_initial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000000</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbase_memory_linear.RankBaseMemoryLinear" title="Link to this definition"></a></dt>
+<dd></dd></dl>
 
 </section>
 </section>

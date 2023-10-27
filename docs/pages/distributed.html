@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="ja" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Distributed Learning (Multiple PCs) &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=7913be7e"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="../_static/translations.js?v=4dbe4bdc"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../genindex.html" />
+    <link rel="search" title="検索" href="../search.html" />
+    <link rel="next" title="Make Original Environment" href="custom_env.html" />
+    <link rel="prev" title="How To Use" href="howtouse.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SimpleDistributedRL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Distributed Learning (Multiple PCs)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#redis-pip">0. redis(pip)のインストール</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#redis">1. Redisサーバの起動</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#trainerserver-actorserver">2. TrainerServer/ActorServerの起動</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id1">3. 学習の実施</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Custom</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Make Original Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Make Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="framework_detail.html">Detailed Framework</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="env_config.html">EnvConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SimpleDistributedRL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Distributed Learning (Multiple PCs)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/pages/distributed.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="distributed-learning-multiple-pcs">
+<h1>Distributed Learning (Multiple PCs)<a class="headerlink" href="#distributed-learning-multiple-pcs" title="Link to this heading"></a></h1>
+<p>ここではネットワーク経由で学習する方法を説明します。概要は以下です。</p>
+<img alt="../_images/overview-mp.drawio.png" src="../_images/overview-mp.drawio.png" />
+<p>フローイメージは以下です。</p>
+<img alt="../_images/runner_distributed_flow.png" src="../_images/runner_distributed_flow.png" />
+<p>各サーバとのやりとりですが、Redisを採用しています。Redis経由でのやりとりイメージは以下です。</p>
+<img alt="../_images/overview-distribution.drawio.png" src="../_images/overview-distribution.drawio.png" />
+<p>学習を実行するまでのステップは以下となります。</p>
+<ol class="arabic simple" start="0">
+<li><p>redis(pip)のインストール(初回のみ)</p></li>
+<li><p>Redisの起動</p></li>
+<li><p>TrainerServer/ActorServerの起動</p></li>
+<li><p>学習の実施</p></li>
+</ol>
+<section id="redis-pip">
+<h2>0. redis(pip)のインストール<a class="headerlink" href="#redis-pip" title="Link to this heading"></a></h2>
+<p>Redisへのアクセスとして、redis を使うので以下でインストールします。</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>redis
+</pre></div>
+</div>
+</section>
+<section id="redis">
+<h2>1. Redisサーバの起動<a class="headerlink" href="#redis" title="Link to this heading"></a></h2>
+<div class="line-block">
+<div class="line">任意のRedisサーバを用意します。</div>
+<div class="line">フレームワーク上はサンプルとしてdocker-composeファイルを用意していますのでそちらを起動してください。</div>
+</div>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>docker-compose<span class="w"> </span>-f<span class="w"> </span>examples/distribution/docker-compose.yml<span class="w"> </span>up<span class="w"> </span>-d
+</pre></div>
+</div>
+</section>
+<section id="trainerserver-actorserver">
+<h2>2. TrainerServer/ActorServerの起動<a class="headerlink" href="#trainerserver-actorserver" title="Link to this heading"></a></h2>
+<div class="line-block">
+<div class="line">TrainerServerとActorServerを任意のPCで起動します。</div>
+<div class="line">基本はTrainerServerは1個、ActorServerは1個以上(actor_num数)の起動を想定しています。</div>
+<div class="line">※各TrainerServer/ActorServerでも、EnvとAlgorithmが使用できる必要があります</div>
+</div>
+<p>TrainerServerの起動例です。(examples/distribution/server_trainer.py)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.runner.distribution</span> <span class="kn">import</span> <span class="n">trainer_run_forever</span>
+
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">trainer_run_forever</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>ActorServerの起動例です。(examples/distribution/server_actor.py)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.runner.distribution</span> <span class="kn">import</span> <span class="n">actor_run_forever</span>
+
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">actor_run_forever</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>引数は以下です。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 12%" />
+<col style="width: 8%" />
+<col style="width: 80%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>host</p></td>
+<td><p>str</p></td>
+<td><p>Redisのホスト名またはIPアドレスを指定します。</p></td>
+</tr>
+<tr class="row-even"><td><p>port</p></td>
+<td><p>int</p></td>
+<td><p>Redisのポートを指定します。省略時は6379を使います。</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id1">
+<h2>3. 学習の実施<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
+<div class="line-block">
+<div class="line">学習のサンプルコードは以下です。Runnerから train_distribution を呼び出すと学習します。</div>
+<div class="line">学習後はrunner内のparameterに学習済みデータが入っています。</div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
+<span class="kn">from</span> <span class="nn">srl.utils</span> <span class="kn">import</span> <span class="n">common</span>
+
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">)</span>
+    <span class="n">rl_config</span> <span class="o">=</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
+
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">rl_config</span><span class="p">)</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">train_distribution</span><span class="p">(</span><span class="s2">&quot;127.0.0.1&quot;</span><span class="p">,</span> <span class="n">max_train_count</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">())</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">common</span><span class="o">.</span><span class="n">logger_print</span><span class="p">()</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="howtouse.html" class="btn btn-neutral float-left" title="How To Use" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="custom_env.html" class="btn btn-neutral float-right" title="Make Original Environment" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, poco_cpp.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

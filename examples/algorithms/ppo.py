@@ -11,7 +11,6 @@ def main():
     env_config = srl.EnvConfig("Grid")
     rl_config = ppo.Config(
         batch_size=128,
-        memory_warmup_size=1000,
         discount=0.9,
         gae_discount=0.9,
         enable_value_clip=True,
@@ -22,6 +21,7 @@ def main():
     )
     rl_config.lr.set_linear(100_000, 0.01, 0.001)
     rl_config.memory.capacity = 1000
+    rl_config.memory.warmup_size = 1000
     rl_config.hidden_block.set_mlp((64, 64))
     rl_config.value_block.set_mlp((64,))
     rl_config.policy_block.set_mlp(())

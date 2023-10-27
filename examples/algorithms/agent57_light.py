@@ -19,7 +19,8 @@ def main():
         input_int_reward=False,
         input_action=False,
     )
-    rl_config.dueling_network.set((64, 64), enable=True)
+    rl_config.dueling_network.set((128, 128), enable=True)
+    rl_config.batch_size = 64
     rl_config.memory.capacity = 100_000
     rl_config.memory.set_replay_memory()
     runner = srl.Runner(env_config, rl_config)

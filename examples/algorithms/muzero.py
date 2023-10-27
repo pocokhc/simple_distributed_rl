@@ -15,7 +15,6 @@ def main():
         num_simulations=10,
         discount=0.9,
         batch_size=16,
-        memory_warmup_size=200,
         v_min=-2,
         v_max=2,
         unroll_steps=1,
@@ -23,6 +22,7 @@ def main():
         enable_rescale=False,
         weight_decay=0,
     )
+    rl_config.memory.warmup_size = 200
     rl_config.lr.set_linear(10_000, 0.002, 0.001)
     rl_config.memory.capacity = 100_000
     rl_config.input_image_block.set_alphazero_block(1, 16)

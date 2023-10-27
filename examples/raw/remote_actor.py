@@ -2,6 +2,7 @@ from multiprocessing.managers import BaseManager
 from typing import Any, Optional
 
 import srl
+from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import RLConfig, RLMemory, RLParameter
 
@@ -42,11 +43,11 @@ def main(ip: str, port: int):
     manager.connect()
 
     train_config = manager.get_train_config()
-    rl_config = manager.get_rl_config().copy()
-    env_config = manager.get_env_config().copy()
+    rl_config: RLConfig = manager.get_rl_config().copy()
+    env_config: EnvConfig = manager.get_env_config().copy()
     server_state = manager.get_server_state()
     remote_board = manager.Board()
-    remote_memory = manager.RemoteMemory()
+    remote_memory: RLMemory = manager.RemoteMemory()
 
     max_actor = train_config.get("max_actor")
     actor_id = server_state.join_actor(max_actor)

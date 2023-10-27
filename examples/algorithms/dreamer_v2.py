@@ -30,7 +30,6 @@ def create_runner():
         lr_model=0.002,
         lr_critic=0.0005,
         lr_actor=0.0005,
-        memory_warmup_size=1000,
         epsilon=1.0,
         critic_estimation_method="dreamer_v2",
         experience_acquisition_method="episode",
@@ -39,6 +38,7 @@ def create_runner():
         entropy_rate=0.001,
         reinforce_baseline="v",
     )
+    rl_config.memory.warmup_size = 1000
 
     rl_config.use_render_image_for_observation = True
     runner = srl.Runner(env_config, rl_config)

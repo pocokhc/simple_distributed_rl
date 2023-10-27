@@ -1,7 +1,6 @@
 import os
 
 import numpy as np
-
 import srl
 from srl.algorithms import alphazero
 from srl.envs import othello
@@ -12,16 +11,16 @@ common.logger_print()
 
 def main():
     rl_config = alphazero.Config(
-        num_simulations=100,
+        num_simulations=50,
         sampling_steps=1,
         batch_size=128,
-        memory_warmup_size=500,
     )
     rl_config.lr.clear()
     rl_config.lr.add_constant(1000, 0.001)
     rl_config.lr.add_constant(4000, 0.0005)
     rl_config.lr.add_constant(1, 0.0002)
     rl_config.memory.capacity = 100_000
+    rl_config.memory.warmup_size = 500
     rl_config.input_image_block.set_alphazero_block(9, 64)
     rl_config.value_block.set_mlp((128,))
     rl_config.policy_block.set_mlp((128,))
@@ -38,7 +37,7 @@ def main():
 
     # --- train
     runner.set_players([None, None])  # self play
-    runner.train(max_episodes=2000)
+    runner.train(max_episodes=1000)
 
     # --- evaluate
     for players in [

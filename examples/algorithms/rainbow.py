@@ -1,6 +1,7 @@
 import os
 
 import matplotlib.pyplot as plt
+
 import srl
 from srl.algorithms import dqn, rainbow
 
@@ -29,12 +30,12 @@ def main():
 
     rl_configs.append(("base", rainbow_base_config.copy()))
 
-    _c = rainbow_base_config.copy()
+    _c: rainbow.Config = rainbow_base_config.copy()
     _c.enable_double_dqn = True
     rl_configs.append(("double_dqn", _c))
 
     _c = rainbow_base_config.copy()
-    _c.enable_dueling_network = True
+    _c.dueling_network.set((64, 64), enable=True)
     rl_configs.append(("dueling_network", _c))
 
     _c = rainbow_base_config.copy()
@@ -51,7 +52,7 @@ def main():
 
     _c = rainbow_base_config.copy()
     _c.enable_double_dqn = True
-    _c.enable_dueling_network = True
+    _c.dueling_network.set((64, 64), enable=True)
     _c.enable_noisy_dense = True
     _c.multisteps = 10
     _c.memory.set_proportional_memory(alpha=1.0, beta_initial=0.8, beta_steps=200 * 50)

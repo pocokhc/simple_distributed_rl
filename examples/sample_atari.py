@@ -10,7 +10,6 @@ common.set_logger()
 
 _parameter_path = "_sample_atari_parameter.dat"
 
-WARMUP_COUNT = 5_000
 TRAIN_COUNT = 500_000
 
 
@@ -20,22 +19,20 @@ def _create_runner(load_parameter: bool):
     # https://gymnasium.farama.org/environments/atari/
     env_config = srl.EnvConfig(
         "ALE/Pong-v5",
-        kwargs=dict(frameskip=1, repeat_action_probability=0, full_action_space=False),
-        frameskip=7,
+        kwargs=dict(frameskip=7, repeat_action_probability=0, full_action_space=False),
     )
     rl_config = dqn.Config(
         batch_size=32,
         target_model_update_interval=10_000,
         discount=0.99,
         lr=0.00025,
-        initial_epsilon=1.0,
-        final_epsilon=0.1,
-        exploration_steps=TRAIN_COUNT,
-        memory_warmup_size=WARMUP_COUNT,
         enable_reward_clip=False,
         enable_double_dqn=True,
         enable_rescale=False,
     )
+    rl_config.memory.warmup_size = 1_000
+    rl_config.epsilon.clear()
+    rl_config.epsilon.set_linear(TRAIN_COUNT, 1.0, 0.1)
     rl_config.memory.capacity = 10_000
     rl_config.memory.set_proportional_memory(beta_steps=TRAIN_COUNT)
     rl_config.image_block.set_r2d3_image()
@@ -66,7 +63,7 @@ def train():
     runner.model_summary(expand_nested=True)
 
     # --- train
-    runner.train_mp(actor_num=2, max_train_count=TRAIN_COUNT)
+    runner.train_mp(actor_num=1, max_train_count=TRAIN_COUNT)
     runner.save_parameter(_parameter_path)
 
 

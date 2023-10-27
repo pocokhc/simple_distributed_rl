@@ -10,7 +10,7 @@ from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter
 from srl.base.run.context import RunNameTypes
 from srl.base.run.core import RunState
 from srl.runner.callback import Callback, MPCallback, TrainerCallback
-from srl.runner.runner import RunnerMPData
+from srl.runner.runner import TaskConfig
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ class _RLMemory(IRLMemoryWorker):
 
 
 def _run_actor(
-    mp_data: RunnerMPData,
+    mp_data: TaskConfig,
     memory_queue: Queue,
     remote_board: _Board,
     actor_id: int,
@@ -222,7 +222,7 @@ def _run_actor(
 # trainer
 # --------------------
 def _run_trainer(
-    mp_data: RunnerMPData,
+    mp_data: TaskConfig,
     parameter: RLParameter,
     memory: RLMemory,
     remote_board: _Board,
@@ -335,7 +335,7 @@ def _run_memory(
 # 学習
 # ----------------------------
 def train(runner: srl.Runner, choice_method: str = "random"):
-    mp_data = runner.create_mp_data()
+    mp_data = runner.create_task_config()
 
     context = runner.context
     runner.make_env()

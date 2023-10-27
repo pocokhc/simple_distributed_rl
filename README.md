@@ -17,6 +17,7 @@
 本フレームワークに関するドキュメントは以下です。
 
 ・ドキュメント：<https://pocokhc.github.io/simple_distributed_rl/>
+
 ・Qiita記事（アルゴリズムに関する解説）：<https://qiita.com/pocokhc/items/a2f1ba993c79fdbd4b4d>
 
 # 1. Install/Download

@@ -18,6 +18,7 @@ Welcome to SimpleDistributedRL's documentation!
 
    pages/custom_env
    pages/custom_algorithm
+   pages/framework_detail
 
 .. toctree::
    :maxdepth: 2

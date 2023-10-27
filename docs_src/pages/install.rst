@@ -65,7 +65,7 @@ Sample code
 
 
 
-Using library
+Option library
 ====================
 
 使う機能によって以下ライブラリが必要になります。
@@ -86,13 +86,13 @@ Using library
    + gym or gymnasium
    + pygame
 + ハードウェアの統計情報を表示する場合
-  + psutil
-  + pynvml
-+ RabbitMQによる分散学習を使う場合
-  + pika
+   + psutil
+   + pynvml
++ Redisによる分散学習を使う場合
+   + redis
 
 Tensorflow,Torchを除いたライブラリを一括でインストールするコマンドは以下です。
 
 .. code-block:: console
 
-    $ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml pika
+    $ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis

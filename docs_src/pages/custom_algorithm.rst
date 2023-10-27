@@ -48,7 +48,7 @@ Make Original Algorithm
 
 分散学習は以下となり各クラスが非同期で動作します。
 
-.. image:: ../../diagrams/overview-distributed.drawio.png
+.. image:: ../../diagrams/overview-mp.drawio.png
 
 同期的な学習と以下の点が異なります。  
 

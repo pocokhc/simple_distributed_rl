@@ -20,7 +20,7 @@ note "Keeps run-time state.\nAbsorbs the difference with the environment." as Wo
 WorkerRun . WorkerRunMemo
 
 
-abstract WorkerBase {
+abstract RLWorker {
     config : RLConfig
     parameter : RLParameter
     memory : <color red>IRLMemoryWorker</color>
@@ -30,24 +30,23 @@ abstract WorkerBase {
     render_terminal()
     render_rgb_array()
 }
-WorkerBase -- WorkerRun
+RLWorker -- WorkerRun
 
 
-abstract RLWorker {
+abstract AlgorithmRLWorker {
     call_on_reset()
     call_policy()
     call_on_step()
 }
-RLWorker -- WorkerBase
+AlgorithmRLWorker -- RLWorker
 
-
-note as RLWorkerMemo
+note as AlgorithmRLWorkerMemo
 Arguments modified by implementation algorithm
 - DiscreteActionWorker
 - ContinuousActionWorker
 - etc..
 end note
-RLWorker <|- RLWorkerMemo
+AlgorithmRLWorker <|- AlgorithmRLWorkerMemo
 
 
 abstract RLTrainer {
@@ -96,14 +95,14 @@ abstract RLConfig {
 
 RLTypes .. RLConfig
 
-RLConfig --- WorkerBase
+RLConfig --- RLWorker
 RLConfig --- RLTrainer
 RLConfig -- RLParameter
 RLConfig -- RLMemory
 
-RLParameter -- WorkerBase
+RLParameter -- RLWorker
 RLParameter -- RLTrainer
-RLMemory -- WorkerBase
+RLMemory -- RLWorker
 RLMemory -- RLTrainer
 
 @enduml

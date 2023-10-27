@@ -29,11 +29,11 @@ def create_runner():
         lr_model=0.001,
         lr_critic=0.0005,
         lr_actor=0.0001,
-        memory_warmup_size=1000,
         epsilon=1.0,
         critic_estimation_method="dreamer",  # "simple" or "dreamer"
         horizon=20,
     )
+    rl_config.memory.warmup_size = 1000
 
     rl_config.use_render_image_for_observation = True
     runner = srl.Runner(env_config, rl_config)

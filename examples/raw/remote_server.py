@@ -7,6 +7,7 @@ import numpy as np
 
 import srl
 from srl.algorithms import ql
+from srl.base.env.config import EnvConfig
 from srl.base.rl.base import RLParameter
 from srl.base.rl.config import RLConfig
 
@@ -92,9 +93,9 @@ def run_trainer(queue, train_config):
     manager.server_stop()
 
 
-def run_server(train_config, env_config, rl_config):
+def run_server(train_config, env_config: EnvConfig, rl_config: RLConfig):
     env = srl.make_env(env_config)
-    rl_config.reset(env)
+    rl_config.setup(env)
     server_state = ServerState()
     board = Board()
     remote_memory = srl.make_memory(rl_config)
@@ -116,10 +117,9 @@ def run_server(train_config, env_config, rl_config):
     server.serve_forever()
 
 
-def train(train_config, env_name, rl_config):
-    env_config = srl.EnvConfig(env_name)
+def train(train_config, env_config: EnvConfig, rl_config: RLConfig):
     env = srl.make_env(env_config)
-    rl_config.reset(env)
+    rl_config.setup(env)
 
     # bug fix
     mp.set_start_method("spawn")
@@ -143,8 +143,8 @@ def train(train_config, env_name, rl_config):
     return parameter
 
 
-def _run_episode(env_name: str, rl_config: RLConfig, parameter: RLParameter):
-    env = srl.make_env(env_name)
+def _run_episode(env_config: EnvConfig, rl_config: RLConfig, parameter: RLParameter):
+    env = srl.make_env(env_config)
     assert env.player_num == 1
     worker = srl.make_worker(rl_config, env, parameter)
 
@@ -161,7 +161,7 @@ def _run_episode(env_name: str, rl_config: RLConfig, parameter: RLParameter):
 
 if __name__ == "__main__":
     # --- config
-    env_name = "Grid"
+    env_config = srl.EnvConfig("Grid")
     rl_config = ql.Config()
     train_config = {
         "ip": "127.0.0.1",
@@ -172,11 +172,11 @@ if __name__ == "__main__":
     }
 
     # --- remote train
-    parameter = train(train_config, env_name, rl_config)
+    parameter = train(train_config, env_config, rl_config)
 
     # --- evaluate
     reward_list = []
     for episode in range(100):
-        reward = _run_episode(env_name, rl_config, parameter)
+        reward = _run_episode(env_config, rl_config, parameter)
         reward_list.append(reward)
     print(f"Average reward for 100 episodes: {np.mean(reward_list):.5f}")

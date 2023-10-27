@@ -35,7 +35,7 @@ def main():
     rl_configs.append(("base", base_config.copy()))
 
     # intrinsic_reward
-    _c = base_config.copy()
+    _c: agent57.Config = base_config.copy()
     _c.enable_intrinsic_reward = True
     rl_configs.append(("intrinsic_reward", _c))
 
@@ -63,11 +63,11 @@ def main():
 
     # plot
     plt.figure(figsize=(12, 6))
-    plt.xlabel("episode")
+    plt.xlabel("train")
     plt.ylabel("reward")
     for name, df in results:
         df = df[df["name"] == "actor0"]
-        plt.plot(df["episode"], df["reward0"].rolling(10).mean(), label=name)
+        plt.plot(df["train"], df["reward0"].rolling(10).mean(), label=name)
     plt.grid()
     plt.legend()
     plt.tight_layout()

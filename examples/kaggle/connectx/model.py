@@ -34,19 +34,19 @@ class MyConnectXWorker(ExtendWorker):
         if worker.env.step_num == 0:
             # --- 先行1ターン目
             # DQNの探索率を0.5にして実行
-            self.rl_config.epsilon = 0.5
-            action, info = cast(int, self.base_worker.policy(worker))
+            self.rl_config.epsilon.set_constant(0.5)
+            action, info = self.base_worker.policy(worker)
             self._is_rl = True
-            return action, info
+            return cast(int, action), info
 
         # --- 2ターン目以降
         # DQNの探索率は0.1に戻す
-        self.rl_config.epsilon = 0.1
+        self.rl_config.epsilon.set_constant(0.1)
 
         # MinMaxを実施、環境は壊さないようにcopyで渡す
         self.minmax_count = 0
         t0 = time.time()
-        self.scores = self._minmax(self.worker_run.env.copy())
+        self.scores = self._minmax(self.worker.env.copy())
         self.minmax_time = time.time() - t0
 
         # 最大スコア
@@ -64,10 +64,10 @@ class MyConnectXWorker(ExtendWorker):
         worker.add_invalid_actions(new_invalid_actions)
 
         # rl実施
-        action, info = cast(int, self.base_worker.policy(worker))
+        action, info = self.base_worker.policy(worker)
         self._is_rl = True
 
-        return action, info
+        return cast(int, action), info
 
     # --- MinMax
     # 探索にbackup/restoreを使っているので重い

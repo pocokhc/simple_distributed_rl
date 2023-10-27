@@ -1,7 +1,6 @@
 import os
 
 import numpy as np
-
 import srl
 from srl.algorithms import dqn
 from srl.utils import common
@@ -21,7 +20,7 @@ def main():
     rl_config.window_length = 1  # Pendulum は加速も状態に含まれているので不要
     rl_config.lr.set_constant(0.001)
     rl_config.epsilon.set_constant(0.1)
-    rl_config.memory_warmup_size = 1000  # そこまで待たずに学習開始
+    rl_config.memory.warmup_size = 1000  # そこまで待たずに学習開始
     rl_config.target_model_update_interval = 1000  # 大きすぎると学習がゆっくり
     rl_config.enable_reward_clip = False  # 報酬clipしない
 

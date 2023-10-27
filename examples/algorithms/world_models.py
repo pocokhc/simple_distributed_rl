@@ -3,6 +3,7 @@ from typing import cast
 
 import matplotlib.pyplot as plt
 import numpy as np
+
 import srl
 from srl.algorithms import world_models
 from srl.utils import common
@@ -30,7 +31,7 @@ def _create_runner():
     if os.path.isfile(param_path):
         runner.load_parameter(param_path)
     if os.path.isfile(memory_path):
-        runner.load_remote_memory(memory_path)
+        runner.load_memory(memory_path)
 
     return runner, rl_config
 
@@ -40,7 +41,7 @@ def s1_collect_sample():
     runner, rl_config = _create_runner()
     rl_config.train_mode = 1
     runner.train(max_episodes=100, disable_trainer=True)
-    runner.save_remote_memory(memory_path)
+    runner.save_memory(memory_path)
 
 
 # VAEの学習

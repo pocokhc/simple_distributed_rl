@@ -2,6 +2,7 @@ from typing import List, Optional
 
 import numpy as np
 
+import srl
 import srl.rl.random_play
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import RLTrainer
@@ -89,9 +90,10 @@ def main():
     env_config = srl.EnvConfig("OX")
     rl_config = ql.Config()
 
-    # make instance
+    # --- make instance
     env = srl.make_env(env_config)
-    parameter = srl.make_parameter(rl_config, env)
+    rl_config.setup(env)
+    parameter = srl.make_parameter(rl_config)
     remote_memory = srl.make_memory(rl_config)
     trainer = srl.make_trainer(rl_config, parameter, remote_memory)
     workers = [
@@ -151,4 +153,4 @@ if __name__ == "__main__":
     common.logger_print()
 
     main()
-    # play_cpu()
+    play_cpu()

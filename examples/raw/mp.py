@@ -1,11 +1,12 @@
 import ctypes
 import multiprocessing as mp
 from multiprocessing.managers import BaseManager
-from typing import Any, Type, cast
+from typing import Any, List, cast
 
 import srl
 from srl.base.rl.base import RLMemory
-from srl.base.rl.registration import make_memory, make_parameter, make_trainer
+from srl.base.rl.config import RLConfig
+from srl.base.rl.registration import make_memory_class, make_parameter, make_trainer
 
 # --- env & algorithm
 from srl.envs import grid  # isort: skip # noqa F401
@@ -36,7 +37,7 @@ def _run_actor(
     train_end_signal: ctypes.c_bool,
 ):
     env_config = config["env_config"]
-    rl_config = config["rl_config"]
+    rl_config: RLConfig = config["rl_config"]
     rl_config.set_config_by_actor(config["actor_num"], actor_id)
 
     # make instance
@@ -133,13 +134,13 @@ def main():
 
     # init
     env = srl.make_env(env_config)
-    rl_config.reset(env)
+    rl_config.setup(env)
 
     # bug fix
     mp.set_start_method("spawn")
 
     # --- async
-    MPManager.register("RemoteMemory", cast(Type[RLMemory], make_memory(rl_config, return_class=True)))
+    MPManager.register("RemoteMemory", make_memory_class(rl_config))
     MPManager.register("Board", Board)
 
     with MPManager() as manager:
@@ -151,7 +152,7 @@ def main():
         remote_board = manager.Board()
 
         # --- actor
-        actors_ps_list = []
+        actors_ps_list: List[mp.Process] = []
         for actor_id in range(actor_num):
             params = (
                 config,

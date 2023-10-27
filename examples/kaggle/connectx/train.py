@@ -18,17 +18,12 @@ def train():
         runner.load_parameter(path)  # 以前学習したパラメータをロード
 
     # --- set players
-    # runner.set_players([None, None])  # self play
+    runner.set_players([None, None])  # self play
     # runner.set_players([None, "random"])
-    runner.set_players([None, "alphabeta8"])  # CPU
+    # runner.set_players([None, "alphabeta8"])
 
     # --- train
-    if True:
-        # sequence training
-        runner.train(timeout=60 * 60 * 5)
-    else:
-        # distributed training
-        runner.train_mp(actor_num=2, timeout=60 * 60 * 5)
+    runner.train(timeout=10)  # change time: timeout=60 * 60 * 5
 
     # --- save parameter
     runner.save_parameter(path)

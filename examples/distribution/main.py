@@ -8,7 +8,7 @@ def main():
     rl_config = ql.Config()
 
     runner = srl.Runner(env_config, rl_config)
-    runner.train_rabbitmq("127.0.0.1", timeout=30)
+    runner.train_distribution("127.0.0.1", max_train_count=1000)
 
     print(runner.evaluate())
 

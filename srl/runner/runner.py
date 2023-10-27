@@ -35,6 +35,9 @@ class RunnerConfig:
 
     training_mode: TrainingModeTypes = TrainingModeTypes.short
 
+    # --- mp
+    mp_queue_capacity: int = 1000
+
     # --- stats
     enable_stats: bool = True
 

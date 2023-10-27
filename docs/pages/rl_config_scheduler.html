@@ -4,23 +4,23 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scheduler &mdash; SimpleDistributedRL 0.12.1.3 ドキュメント</title>
+  <title>Scheduler &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
-        <script src="../_static/translations.js"></script>
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=7913be7e"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="../_static/translations.js?v=4dbe4bdc"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
-    <link rel="next" title="Runner" href="runner.html" />
+    <link rel="next" title="Runner(Configuration related)" href="runner.html" />
     <link rel="prev" title="Framework" href="rl_config_model.html" /> 
 </head>
 
@@ -48,11 +48,13 @@
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="distributed.html">Distributed Learning (Multiple PCs)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Create Original Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Create Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Make Original Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Make Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="framework_detail.html">Detailed Framework</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
 <ul class="current">
@@ -85,7 +87,8 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -119,10 +122,10 @@
            <div itemprop="articleBody">
              
   <section id="scheduler">
-<span id="id1"></span><h1>Scheduler<a class="headerlink" href="#scheduler" title="この見出しへのパーマリンク"></a></h1>
+<span id="id1"></span><h1>Scheduler<a class="headerlink" href="#scheduler" title="Link to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.schedulers.scheduler.</span></span><span class="sig-name descname"><span class="pre">SchedulerConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig" title="この定義へのパーマリンク"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.schedulers.scheduler.</span></span><span class="sig-name descname"><span class="pre">SchedulerConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig" title="Link to this definition"></a></dt>
 <dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>数値のハイパーパラメータに対してスケジュールによる変更を提供します。
 主に学習率に使われることを想定していますが、それ以外でも使用できます。</p>
@@ -146,13 +149,13 @@ clear後、addから始まる関数を使ってください。</p>
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.clear">
-<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.clear" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.clear" title="Link to this definition"></a></dt>
 <dd><p>配列を空にします</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.set_rate">
-<span class="sig-name descname"><span class="pre">set_rate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_rate" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">set_rate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_rate" title="Link to this definition"></a></dt>
 <dd><p>固定値を使用 これはset_constantと同じ動作です。</p>
 <p>y = rate</p>
 <dl class="field-list simple">
@@ -164,7 +167,7 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.set_constant">
-<span class="sig-name descname"><span class="pre">set_constant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_constant" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">set_constant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_constant" title="Link to this definition"></a></dt>
 <dd><p>固定値を使用</p>
 <p>y = rate</p>
 <dl class="field-list simple">
@@ -176,7 +179,7 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.add_constant">
-<span class="sig-name descname"><span class="pre">add_constant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_constant" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">add_constant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_constant" title="Link to this definition"></a></dt>
 <dd><p>固定値を追加</p>
 <p>y = rate</p>
 <dl class="field-list simple">
@@ -191,7 +194,7 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.set_linear">
-<span class="sig-name descname"><span class="pre">set_linear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_linear" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">set_linear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_linear" title="Link to this definition"></a></dt>
 <dd><p>線形に変化</p>
 <p>y = start_rate + (end_rate - start_rate) * step</p>
 <dl class="field-list simple">
@@ -207,7 +210,7 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.add_linear">
-<span class="sig-name descname"><span class="pre">add_linear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_linear" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">add_linear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_linear" title="Link to this definition"></a></dt>
 <dd><p>線形に変化を追加</p>
 <p>y = start_rate + (end_rate - start_rate) * step</p>
 <dl class="field-list simple">
@@ -223,7 +226,7 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.set_cosine">
-<span class="sig-name descname"><span class="pre">set_cosine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_cosine" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">set_cosine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_cosine" title="Link to this definition"></a></dt>
 <dd><p>cosに従って0へ変動</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -237,7 +240,7 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.add_cosine">
-<span class="sig-name descname"><span class="pre">add_cosine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_cosine" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">add_cosine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_cosine" title="Link to this definition"></a></dt>
 <dd><p>cosに従って0へ変動</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -251,7 +254,7 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.set_cosine_with_hard_restarts">
-<span class="sig-name descname"><span class="pre">set_cosine_with_hard_restarts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_cycles</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_cosine_with_hard_restarts" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">set_cosine_with_hard_restarts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_cycles</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_cosine_with_hard_restarts" title="Link to this definition"></a></dt>
 <dd><p>cosに従って0へ変動、ただしnum_cycles数繰り返す</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -266,7 +269,7 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.add_cosine_with_hard_restarts">
-<span class="sig-name descname"><span class="pre">add_cosine_with_hard_restarts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_cycles</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_cosine_with_hard_restarts" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">add_cosine_with_hard_restarts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_cycles</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_cosine_with_hard_restarts" title="Link to this definition"></a></dt>
 <dd><p>cosに従って0へ変動、ただしnum_cycles数繰り返す</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -281,7 +284,7 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.set_polynomial">
-<span class="sig-name descname"><span class="pre">set_polynomial</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">power</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_polynomial" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">set_polynomial</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">power</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_polynomial" title="Link to this definition"></a></dt>
 <dd><p>多項式に従って0へ減少</p>
 <p>y = start_rate * (1 - step/phase_steps)^power</p>
 <dl class="field-list simple">
@@ -297,7 +300,7 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.add_polynomial">
-<span class="sig-name descname"><span class="pre">add_polynomial</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">power</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_polynomial" title="この定義へのパーマリンク"></a></dt>
+<span class="sig-name descname"><span class="pre">add_polynomial</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">power</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_polynomial" title="Link to this definition"></a></dt>
 <dd><p>多項式に従って0へ減少</p>
 <p>y = start_rate * (1 - step/phase_steps)^power</p>
 <dl class="field-list simple">
@@ -320,7 +323,7 @@ clear後、addから始まる関数を使ってください。</p>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="rl_config_model.html" class="btn btn-neutral float-left" title="Framework" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="runner.html" class="btn btn-neutral float-right" title="Runner" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="runner.html" class="btn btn-neutral float-right" title="Runner(Configuration related)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

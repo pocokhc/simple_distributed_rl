@@ -4,18 +4,17 @@
 How To Use
 ===============
 
-基本は以下の手順です。
+基本は以下の手順を想定しています。
 
-1. EnvConfig で環境を設定する。
-2. RLConfig でRLアルゴリズムを設定する。
-3. Runner で動かす。
+1. EnvConfigで環境を設定する。
+2. RLConfigでアルゴリズムを設定する。
+3. Runnerで動かす。
 
 
 EnvConfig
 =====================
 
-実行する環境を設定します。
-基本は登録されているIDを指定するだけです。
+実行する環境を指定します。
 
 .. code-block:: python
 
@@ -29,15 +28,14 @@ Gym/Gymnasium がインストールされていればそれらのIDも指定で�
     import srl
     env_config = srl.EnvConfig("FrozenLake-v1")
 
-自作の環境を用意したい場合は :ref:`custom_env` を見てください。
-また、その他環境に対して設定できる項目は :ref:`env_config` を見てください。
-
+| 自作の環境を用意したい場合は :ref:`custom_env` を見てください。
+| また、ID以外に環境に対して設定できる項目は :ref:`env_config` を見てください。
 
 RLConfig
 =====================
 
-実行するアルゴリズムを設定します。
-各アルゴリズムには必ずConfigが定義されているのでそれを呼び出します。
+| 実行するアルゴリズムを指定します。
+| 各アルゴリズムには必ずConfigが定義されているのでそれを呼び出します。
 
 .. code-block:: python
 
@@ -45,7 +43,7 @@ RLConfig
     from srl.algorithms import ql
     rl_config = ql.Config()
 
-各アルゴリズムにはそれぞれハイパーパラメータがあるので、基本はコンストラクタまたは変数で値を指定します。
+各アルゴリズムのハイパーパラメータはConfigの変数で値を指定できます。
 
 .. code-block:: python
 
@@ -55,9 +53,8 @@ RLConfig
     # インスタンス後に書き換えてもいい
     rl_config.discount = 0.3
 
-各アルゴリズムのパラメータは srl.algorithms 配下のそれぞれのコードを見てください。
-また、一部のハイパーパラメータはコンストラクタから指定できません。
-一部のハイパーパラメータと共通のパラメータに関しては :ref:`rl_config` を見てください。
+| 各アルゴリズムのハイパーパラメータについては srl.algorithms 配下のそれぞれのコードを見てください。
+| また、共通パラメータに関しては :ref:`rl_config` を参照してください。
 
 
 Runner
@@ -83,14 +80,14 @@ Runnerを作成したら、基本的な流れは学習と評価です。
 
 .. literalinclude:: ../../examples/sample_basic.py
 
-学習と評価を別々で実行できる形式です。
+以下は学習と評価を分けて実行する例です。
 
 .. literalinclude:: ../../examples/sample_commonly.py
 
 .. image:: ../../Grid.gif
 
-その他、Runnerで用意されているものは以下です。
-引数や他のRunnerの機能に関しては :ref:`runner` を見てください。
+| Runnerで用意している実行形式は以下です。
+| 引数や他のRunnerの機能に関しては :ref:`runner` を見てください。
 
 
 Evaluate
@@ -104,8 +101,9 @@ Evaluate
 Replay Window
 ---------------------
 
-シミュレーションして、その結果を見返す機能です。
-1step毎の様子を見ることができます。
+| シミュレーションして、その結果を見返す機能です。
+| 1step毎の様子を見ることができます。(GUIで表示されます)
+| pygameのwindowが表示できる環境である必要があります。
 
 .. literalinclude:: howtouse_replay_window.py
 
@@ -121,7 +119,7 @@ print出力の形式で1エピソードシミュレーションします。
 Render Window
 ---------------------
 
-pygameにて1エピソードを描画します。
+1エピソードを描画します。
 pygameのwindowが表示できる環境である必要があります。
 
 .. literalinclude:: howtouse_render_window.py

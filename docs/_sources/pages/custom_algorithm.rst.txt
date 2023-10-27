@@ -1,16 +1,15 @@
 .. _custom_algorithm:
 
 =========================
-Create Original Algorithm
+Make Original Algorithm
 =========================
 
-ここでは本フレームワークでの自作アルゴリズムを作成する方法を説明します。  
-構成としては大きく以下です。  
+ここでは本フレームワークでの自作アルゴリズムを作成する方法を説明します。構成は以下です。
 
 #. 概要  
 #. 実装するクラスの説明  
     #. Config
-    #. RemoteMemory
+    #. Memory
     #. Parameter
     #. Trainer
     #. Worker
@@ -21,27 +20,27 @@ Create Original Algorithm
 概要
 ==========
 
-自作アルゴリズムでは5つクラスを定義する必要があり、以下のように連携して動作します。
+自作アルゴリズムでは5つクラスを定義する必要があり、以下のように連携して動作します。(図にはないですが、他にハイパーパラメータを管理するConfigクラスがあります)
 
 .. image:: ../../diagrams/overview-sequence.drawio.png
 
-図では現れていませんが、5つ目としてハイパーパーパラメータを管理するConfigクラスがいます。
-役割は以下です。
+| WorkerRunとEnvRunはフレームワーク内の動作になるので意識する必要はありません。
+| それぞれの役割は以下です。
 
 .. list-table::
    :widths: 10 30
    :header-rows: 0
 
    * - Config
-     - + ハイパーパラメータなどのパラメータを管理するクラス
+     - + ハイパーパラメータを管理するクラス
    * - Worker
      - + Environmentと連携しサンプルを収集
-       + 収集したサンプルをRemoteMemoryに送信
+       + 収集したサンプルをMemoryに送信（add only）
        + 行動決定に必要な情報をParameterから読む（read only）
    * - Trainer
-     - + RemoteMemoryからサンプルを取得し学習する
+     - + Memoryからサンプルを取得し学習する
        + 学習後、Parameterを更新する
-   * - RemoteMemory
+   * - Memory
      - + サンプルを管理
    * - Parameter
      - + 学習パラメータを保持
@@ -49,13 +48,13 @@ Create Original Algorithm
 
 分散学習は以下となり各クラスが非同期で動作します。
 
-.. image:: ../../diagrams/overview-distributed.drawio.png
+.. image:: ../../diagrams/overview-mp.drawio.png
 
-アルゴリズムを作成する視点だと大きな違いはありませんが、以下の点が異なります。  
+同期的な学習と以下の点が異なります。  
 
-+ WorkerがRemoteMemoryにサンプルを送るタイミングとTrainerが取り出すタイミングが異なる
-+ Parameter が Worker と Trainer と同期されない
-  
++ WorkerがMemoryにサンプルを送るタイミングとTrainerが取り出すタイミングが異なる
++ ParameterがWorkerとTrainerで同期されない
+
 各クラスの実装の仕方を見ていきます。
 
 
@@ -66,7 +65,7 @@ Create Original Algorithm
 Config
 --------------------------------------------
 
-強化学習アルゴリズムの種類やハイパーパラメータ等を管理するクラスです。  
+強化学習アルゴリズムの種類やハイパーパラメータを管理するクラスです。  
 基底クラスは `srl.base.rl.base.RLConfig` でこれを継承して作成します。  
 
 RLConfig で実装が必要な関数・プロパティは以下です。  
@@ -124,9 +123,12 @@ RLConfig で実装が必要な関数・プロパティは以下です。
          """ パラメータのassertを記載 """
          super().assert_params()  # 親クラスも呼び出してください
 
+      def set_config_by_env(self, env: EnvRun) -> None:
+         """ env初期化後に呼び出されます。env関係の初期化がある場合は記載してください。 """
+         pass
+         
       def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
-         """ 分散学習でactorが指定されたときに呼び出されます。
-         Actor関係の初期化がある場合は記載してください。 """
+         """ 分散学習でactorが指定されたときに呼び出されます。Actor関係の初期化がある場合は記載してください。 """
          pass
 
       def set_processor(self, actor_num: int, actor_id: int) -> list[Processor]:
@@ -135,65 +137,30 @@ RLConfig で実装が必要な関数・プロパティは以下です。
 
 
 
-RemoteMemory
+Memory
 --------------------------------------------
 
-Workerが取得したサンプル(batch)をTrainerに渡す役割を持っているクラスです。  
-分散学習では multiprocessing のサーバプロセス(Manager)になります。  
-ですので、変数へのアクセスができなくなる点だけ制約があります。  
-（全て関数経由でやり取りする必要があります）  
-
-またよくあるクラスは `srl.base.rl.remote_memory` に別途定義しており、そちらを使うこともできます。
+| Workerが取得したサンプル(batch)をTrainerに渡す役割を持っているクラスです。
+| 以下の3種類から継承します。
+| （RLMemoryを直接継承することでオリジナルのMemoryを作成することも可能です）
+| （オリジナルのMemoryの作成例は`srl.algorithms.world_models`の実装を参考にしてください）
 
 .. list-table::
    :widths: 15 30
    :header-rows: 0
 
-   * - SequenceRemoteMemory
+   * - SequenceMemory
      - 来たサンプルを順序通りに取り出します。(Queueみたいな動作です)
    * - ExperienceReplayBuffer
      - サンプルをランダムに取り出します。
    * - PriorityExperienceReplay
      - サンプルを優先順位に従い取り出します。
 
-各クラスの定義方法は後述します。
-まずは基底クラスである `RLRemoteMemory` で定義する関数は以下です。
 
-.. code-block:: python
-
-   from srl.base.rl.base import RLRemoteMemory
-
-   class MyRemoteMemory(RLRemoteMemory):
-      def __init__(self, *args):
-         """ コントラクタの引数は親に渡してください """
-         super().__init__(*args)
-
-         # self.config に上で定義した MyConfig が入ります
-         self.config: MyConfig = self.config
-
-      def length(self) -> int:
-         """ メモリに保存されている数を返します """
-         raise NotImplementedError()
-
-      # call_restore/call_backupで復元できるように作成します
-      def call_restore(self, data, **kwargs) -> None:
-         self.buffer = data
-      def call_backup(self, **kwargs):
-         return self.buffer
-
-      # -------
-      # その他、好きな関数を定義可能です。
-      # -------
-
-
-SequenceRemoteMemory
+SequenceMemory
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-順番通りにサンプルを取り出します RemoteMemory です。  
-サンプルは取り出すとなくなります。  
-
-ハイパーパラメータは特にないので継承するだけで実装できます。
-継承すると add 関数と sample 関数が追加されるのでそれを使います。
+順番通りにサンプルを取り出しますMemoryです。サンプルは取り出すとなくなります。
 
 .. literalinclude:: custom_algorithm1.py
 
@@ -201,10 +168,8 @@ SequenceRemoteMemory
 ExperienceReplayBuffer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-ランダムにサンプルを取り出すRemoteMemoryです。
-継承すると add 関数と sample 関数が追加されるのでそれを使います。
-
-ハイパーパラメータがあるのでRLConfigでハイパーパラメータの追加が必要です。
+| ランダムにサンプルを取り出すMemoryです。
+| これを使う場合は、Configにも `ExperienceReplayBufferConfig` を継承する必要があります。
 
 .. literalinclude:: custom_algorithm2.py
 
@@ -212,20 +177,10 @@ ExperienceReplayBuffer
 PriorityExperienceReplay
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-優先順位に従ってサンプルを取り出すRemoteMemoryです。  
-継承すると add,sample,update,on_step関数が追加されます。
-（on_stepはworkerで使用）
+| 優先順位に従ってサンプルを取り出すMemoryです。
+| これを使う場合は、Configにも `PriorityExperienceReplayConfig` を継承する必要があります。
 
-実装コード例は以下です。
-
-.. literalinclude:: custom_algorithm3.py
-
-
-IPriorityMemoryConfig
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-PriorityExperienceReplayはアルゴリズムがいくつかあるので、IPriorityMemoryConfig で切り替えれるようにしています。
-具体的なアルゴリズムは以下です。
+PriorityExperienceReplayはConfigにより以下のアルゴリズムに切り替えることができます。
 
 .. list-table::
    :widths: 15 50
@@ -233,19 +188,20 @@ PriorityExperienceReplayはアルゴリズムがいくつかあるので、IPrio
 
    * - クラス名
      - 説明
-   * - ReplayMemoryConfig
+   * - ReplayMemory
      - ExperienceReplayBufferと同じで、ランダムに取得します。（優先順位はありません）
-   * - ProportionalMemoryConfig
+   * - ProportionalMemory
      - サンプルの重要度によって確率が変わります。重要度が高いサンプルほど選ばれる確率が上がります。
-   * - RankBaseMemoryConfig
+   * - RankBaseMemory
      - サンプルの重要度のランキングによって確率が変わります。重要度が高いサンプルほど選ばれる確率が上がるのはProportionalと同じです。
+
+.. literalinclude:: custom_algorithm3.py
 
 
 Parameter
 --------------------------------------------
 
-パラメータを管理するクラスです。
-深層学習の場合はここにニューラルネットワークを定義することを想定しています。
+パラメータを管理するクラスです。深層学習の場合はここにニューラルネットワークを定義することを想定しています。
 
 実装が必要な関数は以下です。
 
@@ -274,12 +230,10 @@ Parameter
       # （パラメータに関するTrainer/Workerで共通する処理など）
 
 
-
 Trainer
 --------------------------
 
-学習を定義する部分です。  
-RemoteMemory から経験を受け取ってParameterを更新します。  
+学習を定義する部分です。Memoryから経験を受け取ってParameterを更新します。  
 
 実装が必要な関数は以下です。
 
@@ -292,31 +246,42 @@ RemoteMemory から経験を受け取ってParameterを更新します。
          """ コントラクタの引数は親に渡してください """
          super().__init__(*args)
 
-         # config,parameter,memory がそれぞれ入ります。
+         # config,parameter がそれぞれ入ります。
          self.config: MyConfig = self.config
          self.parameter: MyParameter = self.parameter
-         self.remote_memory: MyRemoteMemory = self.remote_memory
 
-      def get_train_count(self) -> int:
-         """ 学習回数を返します """
-         raise NotImplementedError()
-
-      def train(self) -> dict:
+      def train_on_batchs(self, memory_sample_return) -> None:
          """
-         RemoteMemory からbatchを受け取ってParameterを更新する形で学習を定義します。
-         戻り値は任意で、学習情報を辞書形式で返します。
+         ・引数はmemory.sample()の戻り値が入ります。なので、以下の3パターンです。
+
+         # SequenceMemory の場合
+         batchs = memory_sample_return
+
+         # ExperienceReplayBuffer の場合
+         batchs = memory_sample_return
+
+         # PriorityExperienceReplay の場合
+         indices, batchs, weights = memory_sample_return
+
+         ・PriorityExperienceReplay の場合は途中で以下を呼び出す必要があります。
+         self.memory_update((indices, batchs, priorities))
+         
+         ・学習回数を数えます。
+         self.train_count += 1
+
+         ・(option)必要に応じてinfoを設定します。
+         self.train_info = {"loss": 0.0}
          """
          raise NotImplementedError()
-
 
 
 Worker
 --------------------------------------------
 
-実際に環境と連携して経験を収集するクラスです。  
-役割は、Parameterを参照してアクションを決める事と、サンプルをRemoteMemoryに送信する事です。  
-  
-RLWorkerとRLTrainerのフローをすごく簡単に書くと以下です。  
+| 実際に環境と連携して経験を収集するクラスです。
+| 役割は、Parameterを参照してアクションを決める事と、サンプルをMemoryに送信する事です。
+
+RLWorkerとRLTrainerのフローをすごく簡単に書くと以下です。
 
 .. code-block:: python
 
@@ -328,9 +293,9 @@ RLWorkerとRLTrainerのフローをすごく簡単に書くと以下です。
       worker.on_step()
       trainer.train()
 
-RLWorkerはアルゴリズムに合わせたインタフェースのクラスを用意しています。  
-基本はそちらを使用してください。
-現状あるクラスは以下です。
+| RLWorkerはアルゴリズムに合わせたインタフェースのクラスを用意しています。
+| 基本はそちらを使用してください。
+| 現状あるクラスは以下です。
 
 .. list-table::
    :widths: 15 30 10
@@ -355,6 +320,7 @@ RLWorkerはアルゴリズムに合わせたインタフェースのクラスを
      - RLWorkerとルールベースを混ぜて使う用
      - 
 
+
 DiscreteActionWorker
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -370,9 +336,10 @@ DiscreteActionWorkerで実装が必要な関数は以下です。
          super().__init__(*args)
 
          # config,parameter,memory がそれぞれ入ります。
+         # memoryはaddしか使えません。
          self.config: MyConfig = self.config
          self.parameter: MyParameter = self.parameter
-         self.remote_memory: MyRemoteMemory = self.remote_memory
+         self.memory: IRLMemoryWorker = self.memory
 
       def call_on_reset(self, state: np.ndarray, invalid_actions: list[int]) -> dict:
          """ エピソードの最初に呼ばれる関数
@@ -436,9 +403,10 @@ ContinuousActionWorkerで実装が必要な関数は以下です。
          super().__init__(*args)
 
          # config,parameter,memory がそれぞれ入ります。
+         # memoryはaddしか使えません。
          self.config: MyConfig = self.config
          self.parameter: MyParameter = self.parameter
-         self.remote_memory: MyRemoteMemory = self.remote_memory
+         self.memory: IRLMemoryWorker = self.memory
 
       def call_on_reset(self, state: np.ndarray) -> Info:
          """ エピソードの最初に呼ばれる関数
@@ -500,9 +468,10 @@ RLWorker は実行時のクラスである WorkerRun を直接操作して実装
          super().__init__(*args)
 
          # config,parameter,memory がそれぞれ入ります。
+         # memoryはaddしか使えません。
          self.config: MyConfig = self.config
          self.parameter: MyParameter = self.parameter
-         self.remote_memory: MyRemoteMemory = self.remote_memory
+         self.memory: IRLMemoryWorker = self.memory
 
       def call_on_reset(self, worker: WorkerRun) -> dict:
          """ エピソードの最初に呼ばれる関数
@@ -570,14 +539,14 @@ Workerで共通して持っているプロパティ・関数は以下となり�
          """ renderがあるエピソードかどうかを返します """
          return self._rendering
 
-      def render_terminal(self, env, worker, **kwargs) -> None:
+      def render_terminal(self, worker, **kwargs) -> None:
          """ 
          描画用の関数です。
          実装するとrenderによる描画が可能になります。
          """
          pass
 
-      def render_rgb_array(self, env, worker, **kwargs) -> Optional[np.ndarray]:
+      def render_rgb_array(self, worker, **kwargs) -> Optional[np.ndarray]:
          """ 
          描画用の関数です。
          実装するとrenderによる描画が可能になります。
@@ -625,7 +594,7 @@ Workerで共通して持っているプロパティ・関数は以下となり�
    from srl.base.rl.registration import register
    register(
       MyConfig(),
-      __name__ + ":MyRemoteMemory",
+      __name__ + ":MyMemory",
       __name__ + ":MyParameter",
       __name__ + ":MyTrainer",
       __name__ + ":MyWorker",

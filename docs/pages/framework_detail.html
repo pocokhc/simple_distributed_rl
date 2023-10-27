@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="ja" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Detailed Framework &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=7913be7e"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="../_static/translations.js?v=4dbe4bdc"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../genindex.html" />
+    <link rel="search" title="検索" href="../search.html" />
+    <link rel="next" title="EnvConfig" href="env_config.html" />
+    <link rel="prev" title="Make Original Algorithm" href="custom_algorithm.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SimpleDistributedRL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="distributed.html">Distributed Learning (Multiple PCs)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Custom</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Make Original Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Make Original Algorithm</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Detailed Framework</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#play-flow">Play flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#multiplay-flow">Multiplay flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#distributed-flow">Distributed flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#class-diagram">Class diagram</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#interface-type">Interface Type</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="env_config.html">EnvConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SimpleDistributedRL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Detailed Framework</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/pages/framework_detail.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="detailed-framework">
+<span id="framework-detail"></span><h1>Detailed Framework<a class="headerlink" href="#detailed-framework" title="Link to this heading"></a></h1>
+<section id="play-flow">
+<h2>Play flow<a class="headerlink" href="#play-flow" title="Link to this heading"></a></h2>
+<img alt="../_images/playflow.png" src="../_images/playflow.png" />
+</section>
+<section id="multiplay-flow">
+<h2>Multiplay flow<a class="headerlink" href="#multiplay-flow" title="Link to this heading"></a></h2>
+<img alt="../_images/overview-multiplay.drawio.png" src="../_images/overview-multiplay.drawio.png" />
+</section>
+<section id="distributed-flow">
+<h2>Distributed flow<a class="headerlink" href="#distributed-flow" title="Link to this heading"></a></h2>
+<img alt="../_images/runner_distributed_flow.png" src="../_images/runner_distributed_flow.png" />
+</section>
+<section id="class-diagram">
+<h2>Class diagram<a class="headerlink" href="#class-diagram" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>RL</p></li>
+</ul>
+<img alt="../_images/class_rl.png" src="../_images/class_rl.png" />
+<ul class="simple">
+<li><p>Env</p></li>
+</ul>
+<img alt="../_images/class_env.png" src="../_images/class_env.png" />
+<ul class="simple">
+<li><p>Run</p></li>
+</ul>
+<img alt="../_images/class_runner.png" src="../_images/class_runner.png" />
+</section>
+<section id="interface-type">
+<h2>Interface Type<a class="headerlink" href="#interface-type" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Env input/output type</p></li>
+</ul>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td></td>
+<td><p>Type</p></td>
+</tr>
+<tr class="row-even"><td><p>Action</p></td>
+<td><p>Space</p></td>
+</tr>
+<tr class="row-odd"><td><p>Observation</p></td>
+<td><p>Space</p></td>
+</tr>
+</tbody>
+</table>
+<ul class="simple">
+<li><p>RL input/output type</p></li>
+</ul>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td></td>
+<td></td>
+<td><p>Type</p></td>
+</tr>
+<tr class="row-even"><td><p>Discrete</p></td>
+<td><p>Action</p></td>
+<td><p>int</p></td>
+</tr>
+<tr class="row-odd"><td><p>Discrete</p></td>
+<td><p>Observation</p></td>
+<td><p>NDArray[int]</p></td>
+</tr>
+<tr class="row-even"><td><p>Discrete</p></td>
+<td><p>Action</p></td>
+<td><p>list[float]</p></td>
+</tr>
+<tr class="row-odd"><td><p>Discrete</p></td>
+<td><p>Observation</p></td>
+<td><p>NDArray[np.float32]</p></td>
+</tr>
+</tbody>
+</table>
+<ul class="simple">
+<li><p>Space(srl.base.env.spaces)</p></li>
+</ul>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 67%" />
+<col style="width: 33%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>Class</p></td>
+<td><p>Type</p></td>
+</tr>
+<tr class="row-even"><td><p>DiscreteSpace</p></td>
+<td><p>int</p></td>
+</tr>
+<tr class="row-odd"><td><p>ArrayDiscreteSpace</p></td>
+<td><p>list[int]</p></td>
+</tr>
+<tr class="row-even"><td><p>ContinuousSpace</p></td>
+<td><p>float</p></td>
+</tr>
+<tr class="row-odd"><td><p>ArrayContinuousSpace</p></td>
+<td><p>list[float]</p></td>
+</tr>
+<tr class="row-even"><td><p>BoxSpace</p></td>
+<td><p>NDArray[np.float32]</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="custom_algorithm.html" class="btn btn-neutral float-left" title="Make Original Algorithm" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="env_config.html" class="btn btn-neutral float-right" title="EnvConfig" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, poco_cpp.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

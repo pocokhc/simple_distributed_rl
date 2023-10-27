@@ -11,7 +11,6 @@ class BaseCase(CommonBaseClass):
 
         rl_config = ppo.Config(
             batch_size=128,
-            memory_warmup_size=1000,
             discount=0.9,
             surrogate_type="clip",
             baseline_type="normal",
@@ -22,6 +21,7 @@ class BaseCase(CommonBaseClass):
         rl_config.lr.set_linear(1000, 0.01, 0.001)
         rl_config.hidden_block.set_mlp((32, 32))
         rl_config.memory.capacity = 1000
+        rl_config.memory.warmup_size = 1000
         return rl_config
 
     def test_Grid(self):

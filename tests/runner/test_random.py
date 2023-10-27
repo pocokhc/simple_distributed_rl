@@ -2,14 +2,13 @@ import numpy as np
 
 import srl
 import srl.rl.dummy
-from srl.runner.runner import Runner
 
 
 def test_play():
     env_config = srl.EnvConfig("Grid")
     rl_config = srl.rl.dummy.Config()
 
-    runner = Runner(env_config, rl_config)
+    runner = srl.Runner(env_config, rl_config)
     runner.set_seed(seed=1)
     runner.train(max_episodes=10)
 
@@ -29,7 +28,7 @@ def test_play():
     assert not np.allclose(rewards1, rewards2)
 
     # 2回目
-    runner = Runner(env_config, rl_config)
+    runner = srl.Runner(env_config, rl_config)
     runner.set_seed(seed=1)
     runner.train(max_episodes=10)
 

@@ -35,7 +35,7 @@ class BaseCase(CommonBaseClass):
         # rnn
         rl_config.train_mode = 2
         rl_config.lr.set_constant(0.001)
-        rl_config.memory_warmup_size = 100
+        rl_config.memory.warmup_size = 100
         runner.train_only(max_train_count=40_000)
 
         # controller

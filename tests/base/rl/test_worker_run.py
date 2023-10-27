@@ -8,9 +8,9 @@ from srl.base.define import EnvObservationTypes, InfoType, RLActionType, RLTypes
 from srl.base.env.base import SpaceBase
 from srl.base.env.genre.singleplay import SinglePlayEnv
 from srl.base.env.registration import register as register_env
+from srl.base.rl.base import RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register as register_rl
-from srl.base.rl.worker_rl import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
@@ -98,15 +98,15 @@ class StubRLWorker(RLWorker):
         self.state = np.array(0)
         self.action = 0
 
-    def call_on_reset(self, worker: WorkerRun) -> dict:
+    def on_reset(self, worker: WorkerRun) -> dict:
         self.on_reset_state = worker.state
         return {}
 
-    def call_policy(self, worker: WorkerRun) -> Tuple[RLActionType, dict]:
+    def policy(self, worker: WorkerRun) -> Tuple[RLActionType, dict]:
         self.state = worker.state
         return self.action, {}
 
-    def call_on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker: WorkerRun) -> InfoType:
         self.state = worker.state
         return {}
 

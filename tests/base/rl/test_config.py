@@ -10,7 +10,6 @@ from srl.base.rl.config import RLConfig
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
-from srl.utils import common
 
 
 class StubEnv(EnvBase):
@@ -146,7 +145,6 @@ def test_reset(
     override_act_type,
     rl_act_type,
 ):
-    common.logger_print()
     env = srl.make_env(
         srl.EnvConfig(
             "config_StubEnv",
@@ -163,7 +161,7 @@ def test_reset(
     rl_config.override_action_type = override_act_type
     rl_config.use_render_image_for_observation = use_image
     rl_config.window_length = window_length
-    rl_config.reset(env)
+    rl_config.setup(env)
 
     assert rl_act_type == rl_config.action_type
     assert rl_obs_type == rl_config.observation_type
@@ -174,15 +172,15 @@ def test_reset(
 def test_copy():
     config = TestConfig()
 
-    assert not config.is_reset
-    config.reset(srl.make_env("Grid"))
-    assert config.is_reset
+    assert not config.is_setup
+    config.setup(srl.make_env("Grid"))
+    assert config.is_setup
     config.window_length = 2
-    assert not config.is_reset
-    config.reset(srl.make_env("Grid"))
-    assert config.is_reset
+    assert not config.is_setup
+    config.setup(srl.make_env("Grid"))
+    assert config.is_setup
 
     config2 = config.copy()
-    assert config.is_reset
+    assert config.is_setup
     assert config.window_length == 2
     assert config2.name == "test"

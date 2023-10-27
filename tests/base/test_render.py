@@ -20,11 +20,12 @@ class StubRender(IRender):
 
 def test_render_terminal():
     render = Render(StubRender())
+    render.reset(mode="terminal")
 
     text = "StubRender\nAAA"
-    render.render_terminal(return_text=False, text=text)
+    render.render(text=text)
 
-    text2 = render.render_terminal(return_text=True, text=text)
+    text2 = render.render_ansi(text=text)
     assert text2 == text + "\n"
 
 
@@ -39,6 +40,7 @@ def test_render_rgb_array(return_rgb):
     pytest.importorskip("PIL")
 
     render = Render(StubRender())
+    render.reset(mode="terminal")
 
     text = "StubRender\nAAA"
 
@@ -57,6 +59,7 @@ def test_render_window():
         pytest.skip("pygame.error: No available video device")
 
     render = Render(StubRender())
+    render.reset(mode="window")
 
     for _ in range(10):
-        render.render_window(return_rgb=True)
+        render.render(return_rgb=True)

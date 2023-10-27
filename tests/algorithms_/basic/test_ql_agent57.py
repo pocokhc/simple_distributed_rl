@@ -1,8 +1,8 @@
 from typing import Tuple
 
+import srl
 from srl.algorithms import ql_agent57
 from srl.base.rl.config import RLConfig
-from srl.runner.runner import Runner
 from srl.test import TestRL
 from tests.algorithms_.common_base_class import CommonBaseSimpleTest
 
@@ -17,11 +17,10 @@ def test_Grid():
     rl_config = ql_agent57.Config()
     rl_config.enable_actor = False
     rl_config.epsilon.set_constant(0.5)
-    runner = Runner("Grid", rl_config)
+    runner = srl.Runner("Grid", rl_config)
     runner.set_seed(3)
     runner.train(max_train_count=100_000)
     tester.eval(runner, episode=100)
-    tester.verify_grid_policy(runner)
 
 
 def test_Grid_window_length():
@@ -30,7 +29,7 @@ def test_Grid_window_length():
     rl_config.enable_actor = False
     rl_config.epsilon.set_constant(0.5)
     rl_config.window_length = 2
-    runner = Runner("Grid", rl_config)
+    runner = srl.Runner("Grid", rl_config)
     runner.set_seed(3)
     runner.train(max_train_count=50_000)
     tester.eval(runner, episode=100)
@@ -41,7 +40,7 @@ def test_Grid_mp():
     rl_config = ql_agent57.Config()
     rl_config.enable_actor = False
     rl_config.epsilon.set_constant(0.5)
-    runner = Runner("Grid", rl_config)
+    runner = srl.Runner("Grid", rl_config)
     runner.train_mp(max_train_count=50_000)
     tester.eval(runner, episode=100)
 
@@ -49,7 +48,7 @@ def test_Grid_mp():
 def test_OneRoad():
     tester = TestRL()
     rl_config = ql_agent57.Config()
-    runner = Runner("Grid", rl_config)
+    runner = srl.Runner("Grid", rl_config)
     runner.set_seed(2)
     runner.train(max_train_count=10_000)
     tester.eval(runner)

@@ -2,8 +2,6 @@ from srl.utils import common
 
 from . import base_agent57, base_agent57_light, base_dqn, base_rainbow
 
-common.logger_print()
-
 
 class Test_agent57_CPU(base_agent57.BaseCase):
     def get_framework(self) -> str:

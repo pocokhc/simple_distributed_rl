@@ -25,7 +25,7 @@ class BaseCase(CommonBaseClass):
 
         rl_config = self._create_rl_config()
         rl_config.discount = 0.9
-        rl_config.memory_warmup_size = 100
+        rl_config.memory.warmup_size = 100
         rl_config.processors = [grid.LayerProcessor()]
         runner, tester = self.create_runner("Grid", rl_config)
 
@@ -74,7 +74,7 @@ class BaseCase(CommonBaseClass):
 
         rl_config = self._create_rl_config()
         rl_config.batch_size = 32
-        rl_config.memory_warmup_size = 500
+        rl_config.memory.warmup_size = 500
         rl_config.lr_schedule = [
             {"train": 0, "lr": 0.001},
             {"train": 1000, "lr": 0.0005},

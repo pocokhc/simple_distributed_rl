@@ -1,4 +1,4 @@
-from abc import ABC, abstractclassmethod
+from abc import ABC, abstractmethod
 from typing import Tuple, Union
 
 import pytest
@@ -7,7 +7,6 @@ import srl
 from srl.base.env.config import EnvConfig
 from srl.base.rl.config import RLConfig
 from srl.envs import grid
-from srl.runner.runner import Runner
 from srl.test.rl import TestRL
 from srl.utils import common
 
@@ -34,19 +33,20 @@ class CommonBaseSimpleTest:
         rl_config, simple_check_kwargs = self.create_rl_config(rl_param)
         _rl_config = rl_config.copy(reset_env_config=True)
 
-        env = srl.make_env("Grid")
         if simple_check_kwargs.get("use_layer_processor", False):
             _rl_config.processors.append(grid.LayerProcessor())
-        parameter = srl.make_parameter(_rl_config, env)
+
+        _rl_config.setup(srl.make_env("Grid"))
+        parameter = srl.make_parameter(_rl_config)
         parameter.summary()
 
 
 class CommonBaseClass(ABC):
-    @abstractclassmethod
+    @abstractmethod
     def get_framework(self) -> str:
         raise NotImplementedError()
 
-    @abstractclassmethod
+    @abstractmethod
     def get_device(self) -> str:
         raise NotImplementedError()
 
@@ -61,9 +61,8 @@ class CommonBaseClass(ABC):
         if isinstance(env_config, str):
             env_config = EnvConfig(env_config)
 
-        device_main = "CPU"
-        device_mp_trainer = "CPU"
-        device_mp_actors = "CPU"
+        device_trainer = "CPU"
+        device_actors = "CPU"
         if self.get_device() == "GPU":
             if self.get_framework() == "tensorflow":
                 if not common.is_available_gpu_tf():
@@ -72,14 +71,13 @@ class CommonBaseClass(ABC):
                 if not common.is_available_gpu_tf():
                     pytest.skip()
 
-            device_main = "AUTO"
-            device_mp_trainer = "GPU"
-            device_mp_actors = "CPU"
+            device_trainer = "GPU"
+            device_actors = "CPU"
 
         env_config.enable_sanitize_value = False
         rl_config.enable_sanitize_value = False
-        runner = Runner(env_config, rl_config)
-        runner.set_device(device_main, device_mp_trainer, device_mp_actors)
+        runner = srl.Runner(env_config, rl_config)
+        runner.set_device(device_trainer, device_actors)
         runner.set_seed(1)
         runner.set_stats(False)
 

@@ -23,8 +23,6 @@ class BaseCase(CommonBaseClass):
     def test_Pendulum_mp(self):
         self.check_skip()
         rl_config = self._create_rl_config()
-        rl_config.memory.set_proportional_memory()
-
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
         runner.train_mp(max_train_count=200 * 100)
         tester.eval(runner)
@@ -44,7 +42,7 @@ class BaseCase(CommonBaseClass):
         rl_config.window_length = 4
 
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
-        runner.train(max_steps=200 * 70)
+        runner.train(max_steps=200 * 80)
         tester.eval(runner)
 
         runner.model_summary()

@@ -3,14 +3,11 @@ from pprint import pprint
 
 import pytest
 
+import srl
 from srl.algorithms import ql, ql_agent57
 from srl.runner.callbacks.history_on_file import HistoryOnFile
 from srl.runner.callbacks.history_on_memory import HistoryOnMemory
 from srl.runner.callbacks.history_viewer import HistoryViewer
-from srl.runner.runner import Runner
-from srl.utils import common
-
-common.logger_print()
 
 
 def test_pickle():
@@ -20,7 +17,7 @@ def test_pickle():
 
 
 def test_on_memory_train():
-    runner = Runner("OX", ql.Config())
+    runner = srl.Runner("OX", ql.Config())
 
     runner.set_history(
         enable_history=True,
@@ -40,7 +37,7 @@ def test_on_memory_train():
     assert history.logs[0]["reward1"] > -2
     assert history.logs[0]["eval_reward0"] > -2
     assert history.logs[0]["eval_reward1"] > -2
-    assert history.logs[0]["remote_memory"] >= 0
+    assert history.logs[0]["memory"] >= 0
     for i, h in enumerate(history.logs):
         assert h["episode"] == i
 
@@ -49,7 +46,7 @@ def test_on_memory_train_plot():
     pytest.importorskip("pandas")
     pytest.importorskip("matplotlib")
 
-    runner = Runner("OX", ql.Config())
+    runner = srl.Runner("OX", ql.Config())
 
     runner.set_history(
         enable_history=True,
@@ -69,7 +66,7 @@ def test_on_memory_train_plot():
 
 
 def test_on_memory_train_only():
-    runner = Runner("OX", ql_agent57.Config())
+    runner = srl.Runner("OX", ql_agent57.Config())
     runner.train(max_episodes=100, disable_trainer=True)
 
     runner.set_history(
@@ -96,7 +93,7 @@ def test_on_memory_train_only_plot():
     pytest.importorskip("pandas")
     pytest.importorskip("matplotlib")
 
-    runner = Runner("OX", ql_agent57.Config())
+    runner = srl.Runner("OX", ql_agent57.Config())
     runner.train(max_episodes=100, disable_trainer=True)
 
     runner.set_history(
@@ -117,9 +114,9 @@ def test_on_memory_train_only_plot():
 
 
 def test_on_file_train():
-    runner = Runner("OX", ql.Config())
+    runner = srl.Runner("OX", ql.Config())
 
-    runner.set_save_dir("tmp_test")
+    runner.set_wkdir("tmp_test")
     runner.set_history(
         enable_history=True,
         enable_eval=True,
@@ -139,7 +136,7 @@ def test_on_file_train():
         assert h["reward1"] > -2
         assert h["eval_reward0"] > -2
         assert h["eval_reward1"] > -2
-        assert h["remote_memory"] >= 0
+        assert h["memory"] >= 0
         assert h["episode"] > 0
 
 
@@ -147,9 +144,9 @@ def test_on_file_train_plot():
     pytest.importorskip("pandas")
     pytest.importorskip("matplotlib")
 
-    runner = Runner("OX", ql.Config())
+    runner = srl.Runner("OX", ql.Config())
 
-    runner.set_save_dir("tmp_test")
+    runner.set_wkdir("tmp_test")
     runner.set_history(
         enable_history=True,
         enable_eval=True,
@@ -168,10 +165,10 @@ def test_on_file_train_plot():
 
 
 def test_on_file_train_only():
-    runner = Runner("OX", ql_agent57.Config())
+    runner = srl.Runner("OX", ql_agent57.Config())
     runner.train(max_episodes=100, disable_trainer=True)
 
-    runner.set_save_dir("tmp_test")
+    runner.set_wkdir("tmp_test")
     runner.set_history(
         enable_history=True,
         enable_eval=True,
@@ -196,10 +193,10 @@ def test_on_file_train_only_plot():
     pytest.importorskip("pandas")
     pytest.importorskip("matplotlib")
 
-    runner = Runner("OX", ql_agent57.Config())
+    runner = srl.Runner("OX", ql_agent57.Config())
     runner.train(max_episodes=100, disable_trainer=True)
 
-    runner.set_save_dir("tmp_test")
+    runner.set_wkdir("tmp_test")
     runner.set_history(
         enable_history=True,
         enable_eval=True,
@@ -218,9 +215,9 @@ def test_on_file_train_only_plot():
 
 
 def test_on_file_mp():
-    runner = Runner("OX", ql.Config())
+    runner = srl.Runner("OX", ql.Config())
 
-    runner.set_save_dir("tmp_test")
+    runner.set_wkdir("tmp_test")
     runner.set_history(
         enable_history=True,
         enable_eval=True,
@@ -247,9 +244,9 @@ def test_on_file_mp_plot():
     pytest.importorskip("pandas")
     pytest.importorskip("matplotlib")
 
-    runner = Runner("OX", ql.Config())
+    runner = srl.Runner("OX", ql.Config())
 
-    runner.set_save_dir("tmp_test")
+    runner.set_wkdir("tmp_test")
     runner.set_history(
         enable_history=True,
         enable_eval=True,

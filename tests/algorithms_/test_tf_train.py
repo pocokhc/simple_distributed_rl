@@ -19,8 +19,6 @@ from . import (
     base_world_models,
 )
 
-common.logger_print()
-
 
 class Test_agent57_light_CPU(base_agent57_light.BaseCase):
     def get_framework(self) -> str:

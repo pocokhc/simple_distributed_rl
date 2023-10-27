@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7.2-alpine
+    ports:
+      - 6379:6379
+    volumes:
+      - ./redis.conf:/etc/redis.conf
+      #- ./_redis_data:/data  # persistence
+    command: redis-server /etc/redis.conf
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"

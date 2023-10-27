@@ -678,12 +678,13 @@ class RunnerFacade(Runner):
             self.history_viewer.load(self.context.wkdir)
         # ----------------
 
-    def train_rabbitmq(
+    def train_distribution(
         self,
         host: str,
-        port: int = 5672,
-        user: str = "guest",
-        password: str = "guest",
+        port: int = 6379,
+        redis_kwargs: dict = {},
+        keepalive_interval: int = 10,
+        # mp
         actor_num: int = 1,
         trainer_parameter_send_interval_by_train_count: int = 100,
         actor_parameter_sync_interval_by_step: int = 100,
@@ -780,9 +781,9 @@ class RunnerFacade(Runner):
             self.context.callbacks.append(self._history_on_file_callback)
         # ----------------
 
-        from .rabbitmq.client import run
+        from .distribution.client import run
 
-        run(self, host, port, user, password)
+        run(self, host, port, redis_kwargs, keepalive_interval)
 
         # --- history ---
         if self._history_on_file_callback is not None:

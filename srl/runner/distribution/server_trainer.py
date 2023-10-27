@@ -3,16 +3,14 @@ import queue
 import threading
 import time
 import traceback
-from typing import Any, List, cast
-
-from pika.adapters.blocking_connection import BlockingChannel
+from typing import Any, List, Optional, cast
 
 import srl
 from srl.base.rl.base import IRLMemoryTrainer, RLMemory, RLParameter, RLTrainer
 from srl.base.run.context import RunNameTypes
 from srl.runner.callback import TrainerCallback
-from srl.runner.rabbitmq.rabbitmq_manager import RabbitMQManager
-from srl.runner.runner import RunnerMPData
+from srl.runner.distribution.manager import DistributedManager
+from srl.runner.runner import Runner, TaskConfig
 
 logger = logging.getLogger(__name__)
 
@@ -73,26 +71,22 @@ class _TrainerRLMemory(IRLMemoryTrainer):
         self.q_update.put(memory_update_args)
 
 
-def _mq_thread(
-    mq_args,
-    client_id,
+def _server_communicate(
+    manager_args,
+    task_id: str,
     memory: _TrainerRLMemory,
     parameter: RLParameter,
     trainer: _RLTrainer,
     trainer_parameter_send_interval_by_train_count: int,
     enable_prepare_batch: bool,
 ):
-    mq = RabbitMQManager.create(*mq_args)
     try:
-        mq.create_queue_once_if_not_exists(f"memory_{client_id}")
-        mq.purge_queue_once(f"memory_{client_id}")
-
+        manager = DistributedManager.create(*manager_args)
         while True:
             # --- add memory
-            mq.create_queue_once_if_not_exists(f"memory_{client_id}")
-            body = mq.recv_once(f"memory_{client_id}")
-            if body is not None:
-                memory.add(*body)
+            dat = manager.memory_recv(task_id)
+            if dat is not None:
+                memory.add(*dat)
             if enable_prepare_batch:
                 memory.loop_update()
 
@@ -102,123 +96,128 @@ def _mq_thread(
 
                 params = parameter.backup()
                 if params is not None:
-                    if mq.send_fanout_once("parameter", params):
-                        trainer.sync_count += 1
+                    manager.parameter_update(task_id, params)
+                    trainer.sync_count += 1
 
             # --- keepalive
-            if mq.keepalive():
-                if not mq.taskcheck_alive_task(client_id):
+            if manager.keepalive(task_id):
+                if manager.task_get_status(task_id) == "END":
                     break
+
+                manager.task_set_trainer(task_id, "train", trainer.get_train_count())
+                manager.task_set_trainer(task_id, "memory", memory.length())
 
     except Exception:
         logger.info(traceback.format_exc())
-        logger.info("trainer thread end.")
+    logger.info("trainer thread end.")
 
 
 class _TrainerInterrupt(TrainerCallback):
-    def __init__(self, mq_ps: threading.Thread) -> None:
-        self.mq_ps = mq_ps
+    def __init__(self, server_ps: threading.Thread) -> None:
+        self.server_ps = server_ps
 
-    def intermediate_stop(self, runner) -> bool:
-        return not self.mq_ps.is_alive()
+    def on_trainer_train_end(self, runner: Runner) -> bool:
+        return not self.server_ps.is_alive()
 
 
-def _run_trainer(mq: RabbitMQManager, mp_data: RunnerMPData, client_id):
-    mp_data.context.run_name = RunNameTypes.trainer
+def _run_trainer(manager: DistributedManager, task_id: str, task_config: TaskConfig):
+    task_config.context.run_name = RunNameTypes.trainer
 
     # --- memory
-    memory = srl.make_memory(mp_data.context.rl_config)
-    if mp_data.context.enable_prepare_batch:
+    memory = srl.make_memory(task_config.context.rl_config)
+    if task_config.context.enable_prepare_batch:
         memory = cast(RLMemory, _TrainerRLMemory(memory))
 
     # --- runner
     runner = srl.Runner(
-        mp_data.context.env_config, mp_data.context.rl_config, mp_data.config, mp_data.context, memory=memory
+        task_config.context.env_config,
+        task_config.context.rl_config,
+        task_config.config,
+        task_config.context,
+        memory=memory,
     )
+
+    # --- parameter
     parameter = runner.make_parameter(is_load=False)
+    params = manager.parameter_read(task_id)
+    if params is None:
+        logger.warning("Missing initial parameters")
+    else:
+        parameter.restore(params)
 
     try:
         trainer = _RLTrainer(runner.make_trainer())
-        if mp_data.context.enable_prepare_batch:
-            memory.trainer = trainer  # type: ignore
+        if task_config.context.enable_prepare_batch:
+            cast(_TrainerRLMemory, memory).trainer = trainer
 
         # --- connect
-        mq_ps = threading.Thread(
-            target=_mq_thread,
+        server_ps = threading.Thread(
+            target=_server_communicate,
             args=(
-                mq.copy_args(),
-                client_id,
+                manager.create_args(),
+                task_id,
                 memory,
                 parameter,
                 trainer,
-                mp_data.context.trainer_parameter_send_interval_by_train_count,
-                mp_data.context.enable_prepare_batch,
+                task_config.context.trainer_parameter_send_interval_by_train_count,
+                task_config.context.enable_prepare_batch,
             ),
         )
-        mq_ps.start()
+        server_ps.start()
 
         # --- play
-        runner.context.callbacks.append(_TrainerInterrupt(mq_ps))
+        runner.context.callbacks.append(_TrainerInterrupt(server_ps))
         runner.core_play(trainer_only=True, trainer=trainer)
 
     finally:
         # --- last params
-        try:
-            params = parameter.backup()
-            if params is not None:
-                mq.create_queue_once_if_not_exists(f"last_parameter_{client_id}")
-                mq.send_loop(f"last_parameter_{client_id}", params)
-        except Exception:
-            logger.warning(traceback.format_exc())
+        params = parameter.backup()
+        assert params is not None
+        manager.parameter_update(task_id, params)
+
+        # --- 終了はtrainerで
+        manager.task_end(task_id)
 
 
 class TrainerServerCallback:
-    def on_polling(self, channel: BlockingChannel) -> None:
-        pass  # do nothing
-
-    # 外部から途中停止用
-    def intermediate_stop(self, channel: BlockingChannel) -> bool:
+    def on_polling(self) -> Optional[bool]:
+        """If return is True, it will end intermediate stop."""
         return False
 
 
 def run_forever(
     host: str,
-    port: int = 5672,
-    username: str = "guest",
-    password: str = "guest",
-    virtual_host: str = "/",
+    port: int = 6379,
+    redis_kwargs: dict = {},
+    keepalive_interval: int = 10,
     callbacks: List[TrainerServerCallback] = [],
 ):
-    mq = RabbitMQManager(host, port, username, password, virtual_host)
-    mq.join("trainer")
-    mq.board_update({"status": "", "client": ""})
+    manager = DistributedManager(host, port, redis_kwargs, keepalive_interval)
+    manager.server_ping()
+    manager.set_user("trainer")
 
-    print(f"wait trainer: {mq.uid}")
+    print(f"wait trainer: {manager.uid}")
     while True:
-        time.sleep(1)
-        if mq.keepalive():
-            mq.health_check()
-
         try:
+            time.sleep(1)
+
             # --- callback
-            # [c.on_polling(mq) for c in callbacks]
-            # for c in callbacks:
-            #    if c.intermediate_stop(mq):
-            #        break
+            _stop_flags = [c.on_polling() for c in callbacks]
+            if True in _stop_flags:
+                break
 
             # --- board check
-            client_id, mp_data, _ = mq.taskcheck_if_my_id_assigned()
+            task_id, task_config, _ = manager.task_assign_by_my_id()
 
             # --- train loop
-            if client_id != "":
-                assert mp_data is not None
-                logger.info("trainer start")
-                _run_trainer(mq, mp_data, client_id)
-                logger.info("trainer end")
-                print(f"wait trainer: {mq.uid}")
-
-            # --- boardを更新
-            mq.board_update({"status": "", "client": ""})
+            if task_config is not None:
+                try:
+                    print(f"train start: {manager.uid}")
+                    logger.info(f"train start: {manager.uid}")
+                    _run_trainer(manager, task_id, task_config)
+                    logger.info(f"train end: {manager.uid}")
+                finally:
+                    print(f"wait trainer: {manager.uid}")
 
         except Exception:
             logger.error(traceback.format_exc())

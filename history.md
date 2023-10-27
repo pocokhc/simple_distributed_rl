@@ -1,19 +1,21 @@
 # TODO list
 
-1. tensorboard
-1. get_valid_actions
+1. (tensorboard)
 1. tf/torchの互換パラメータの作成
 1. (SEED RL)
-・長時間学習モード
-・rabbitmq
-1. MARL
+1. (MARL)
+1. 長時間学習モード
+1. rl_configに画像かどうか追加
+1. mpでのやりとりで学習回数などの情報を増やす？
 
 # v0.13.0
 
-分散コンピューティングによる強化学習を実装。
-・rabbitmqを用いた分散コンピューティングによる分散学習を実装しました
+Redisを用いた分散コンピューティングによる分散学習を実装しました。
+それに伴いアーキテクチャを見直しています。
+RLTrainer（とRLMemory）の変更が一番大きいので、自作でアルゴリズムを作成している場合はドキュメントを参照してください。
+(trainの実装がなくなり、代わりにtrain_on_batchsを実装する必要があります)
 
-
+また、次のアップデートで長時間の学習（途中復旧など）の実装を予定しています。
 
 **MainUpdates**
 
@@ -29,18 +31,18 @@
       1. コードが長いので、runnerの窓口関数たちをrunner_facade.pyに移動
       1. 終了条件にmax_memoryを追加
       1. [base.render] update: render関係を見直して更新
-1. [runner.rabbitmq] new: mqによる分散学習を追加
+1. [runner.distribution] new: redisによる分散学習を追加
 1. [runner.mp] update: プロセスによる通信ではなくスレッドによる通信に変更
 1. [docs] update: 更新に合わせてドキュメントを全体的に見直し
 
 **OtherUpdates**
 1. [algorithm] del: agent57_stateful, r2d2_statefulを削除(メンテをしていないので)
-1. [runner.remote] del: rabbitmqに置き換えるので削除
+1. [runner.remote] del: redisに置き換えるので削除
 1. [rl.memory] del: best_episode_memory,demo_memoryが実装と相性が悪いので削除(将来的に再実装する可能性はあり)
 1. [callbacks] change: TrainerCallbackのon_trainer_train->on_trainer_train_endに変更
+1. [callbacks] change: 途中停止のintermediate_stopを廃止し、stepなどの戻り値で制御に変更
 1. [rl.scheduler] new: updateを追加し、更新があるか分かるように変更
 1. [render] update: gifの生成をArtistAnimationからPIL.imageに変更
-
 
 
 # v0.12.2

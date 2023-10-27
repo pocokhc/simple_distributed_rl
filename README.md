@@ -87,13 +87,13 @@ print(srl.__version__)
 + ハードウェアの統計情報を表示する場合
   + psutil
   + pynvml
-+ RabbitMQによる分散学習を使う場合
-  + pika
++ Redisによる分散学習を使う場合
+  + redis
 
 Tensorflow,Torchを除いたライブラリを一括でインストールするコマンドは以下です。
 
 ``` bash
-pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml pika
+pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis
 ```
 
 # 2. Usage
@@ -149,7 +149,7 @@ if __name__ == "__main__":
 
 + Distributed flow
 
-![overview-distributed.drawio.png](diagrams/overview-distributed.drawio.png)
+![overview-mp.drawio.png](diagrams/overview-mp.drawio.png)
 
 + Simplified pseudo code(train)
 
@@ -262,57 +262,7 @@ while not env.done:
 + [Make Original Environment](https://pocokhc.github.io/simple_distributed_rl/pages/custom_env.html)
 + [Make Original Algorithm](https://pocokhc.github.io/simple_distributed_rl/pages/custom_algorithm.html)
 
-# 6. Detailed framework information
-
-## Play flow
-
-![playflow.png](diagrams/playflow.png)
-
-## Multiplay flow
-
-![overview-multiplay.drawio.png](diagrams/overview-multiplay.drawio.png)
-
-## Distribute flow
-
-![runner_distributed_flow.png](diagrams/runner_distributed_flow.png)
-
-## Class diagram
-
-![class_rl.png](diagrams/class_rl.png)
-
-![class_env.png](diagrams/class_env.png)
-
-![class_runner.png](diagrams/class_runner.png)
-
-## Interface
-
-+ Env input/output type
-
-|   |           |Type |
-|---|-----------|-----|
-|Env|action     |Space|
-|Env|observation|Space|
-
-+ RL input/output type
-
-|   |          |           |Type|
-|---|----------|-----------|------|
-|RL |Discrete  |action     |int|
-|RL |Discrete  |observation|NDArray[int]|
-|RL |Continuous|action     |list[float]|
-|RL |Continuous|observation|NDArray[np.float32]|
-
-+ Space(srl.base.env.spaces)
-
-|Class               |Type       |
-|--------------------|-----------|
-|DiscreteSpace       |int        |
-|ArrayDiscreteSpace  |list[int]  |
-|ContinuousSpace     |float      |
-|ArrayContinuousSpace|list[float]|
-|BoxSpace            |NDArray[np.float32]|
-
-# 7. Development environment
+# 6. Development environment
 
 Look "./dockers/"
 

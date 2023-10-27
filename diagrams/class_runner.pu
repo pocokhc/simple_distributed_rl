@@ -3,6 +3,8 @@
 abstract base.EnvConfig {}
 abstract base.RLConfig {}
 class base.RunContext {
+    env_config : EnvConfig
+    rl_config : RLConfig
     run_name : str
     Other run context variables
 }

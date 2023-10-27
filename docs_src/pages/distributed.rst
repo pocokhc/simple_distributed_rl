@@ -5,45 +5,45 @@ Distributed Learning (Multiple PCs)
 
 ここではネットワーク経由で学習する方法を説明します。概要は以下です。
 
-.. image:: ../../diagrams/overview-distributed.drawio.png
+.. image:: ../../diagrams/overview-mp.drawio.png
 
 フローイメージは以下です。
 
 .. image:: ../../diagrams/runner_distributed_flow.png
 
 
-各サーバとのやりとりですが、RabbitMQを採用しています。RabbitMQ経由でのやりとりイメージは以下です。
+各サーバとのやりとりですが、Redisを採用しています。Redis経由でのやりとりイメージは以下です。
 
-.. image:: ../../diagrams/overview-rabbitmq.drawio.png
+.. image:: ../../diagrams/overview-distribution.drawio.png
 
 学習を実行するまでのステップは以下となります。
 
-0. pikaのインストール(初回のみ)
-1. RabbitMQの起動
+0. redis(pip)のインストール(初回のみ)
+1. Redisの起動
 2. TrainerServer/ActorServerの起動
 3. 学習の実施
 
-------------------------
-0. pikaのインストール
-------------------------
+----------------------------------
+0. redis(pip)のインストール
+----------------------------------
 
-RabbitMQのライブラリとして pika を使うので以下でインストールします。
+Redisへのアクセスとして、redis を使うので以下でインストールします。
 
 .. code-block:: console
 
-    $ pip install pika
+    $ pip install redis
 
 
 ------------------------
-1. RabbitMQの起動
+1. Redisサーバの起動
 ------------------------
 
-| 任意のRabbitMQサーバを用意します。
+| 任意のRedisサーバを用意します。
 | フレームワーク上はサンプルとしてdocker-composeファイルを用意していますのでそちらを起動してください。
 
 .. code-block:: console
 
-    $ docker-compose -f examples/rabbitmq/docker-compose.yml up -d
+    $ docker-compose -f examples/distribution/docker-compose.yml up -d
 
 
 --------------------------------------------
@@ -51,15 +51,16 @@ RabbitMQのライブラリとして pika を使うので以下でインストー
 --------------------------------------------
 
 | TrainerServerとActorServerを任意のPCで起動します。
-| TrainerServerは1個のみ起動し、ActorServerは1個以上起動します。
+| 基本はTrainerServerは1個、ActorServerは1個以上(actor_num数)の起動を想定しています。
+| ※各TrainerServer/ActorServerでも、EnvとAlgorithmが使用できる必要があります
 
-TrainerServerの起動例です。(examples/rabbitmq/server_trainer.py)
+TrainerServerの起動例です。(examples/distribution/server_trainer.py)
 
-.. literalinclude:: ../../examples/rabbitmq/server_trainer.py
+.. literalinclude:: ../../examples/distribution/server_trainer.py
 
-ActorServerの起動例です。(examples/rabbitmq/server_actor.py)
+ActorServerの起動例です。(examples/distribution/server_actor.py)
 
-.. literalinclude:: ../../examples/rabbitmq/server_actor.py
+.. literalinclude:: ../../examples/distribution/server_actor.py
 
 引数は以下です。
 
@@ -69,23 +70,17 @@ ActorServerの起動例です。(examples/rabbitmq/server_actor.py)
 
    * - host
      - str
-     - RabbitMQのホスト名またはIPアドレスを指定します。
+     - Redisのホスト名またはIPアドレスを指定します。
    * - port
      - int
-     - RabbitMQのポートを指定します。省略時は5672を使います。
-   * - user
-     - str
-     - RabbitMQへのログイン名を指定します。省略時はguestを使います。
-   * - password
-     - str
-     - RabbitMQへのログインパスワードを指定します。省略時はguestを使います。
-
+     - Redisのポートを指定します。省略時は6379を使います。
 
 --------------------------------------------
 3. 学習の実施
 --------------------------------------------
 
-学習のサンプルコードは以下です。Runnerから学習します。
+| 学習のサンプルコードは以下です。Runnerから train_distribution を呼び出すと学習します。
+| 学習後はrunner内のparameterに学習済みデータが入っています。
 
-.. literalinclude:: ../../examples/rabbitmq/main.py
+.. literalinclude:: ../../examples/distribution/main.py
 

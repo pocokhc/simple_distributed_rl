@@ -24,7 +24,6 @@ class BaseCase(CommonBaseClass):
             lr_model=0.002,
             lr_critic=0.0005,
             lr_actor=0.0005,
-            memory_warmup_size=1000,
             epsilon=1.0,
             critic_estimation_method="dreamer_v2",
             experience_acquisition_method="episode",
@@ -33,6 +32,7 @@ class BaseCase(CommonBaseClass):
             entropy_rate=0.1,
             reinforce_baseline="v",
         )
+        rl_config.memory.warmup_size = 1000
         return rl_config
 
     def test_EasyGrid(self):

@@ -1,15 +1,21 @@
 import numpy as np
 
-from srl.algorithms import ql, ql_agent57
-from srl.runner.runner import Runner
-from srl.utils import common
+import srl
+from srl.algorithms import ql_agent57
+from srl.runner.callback import Callback, TrainerCallback
 
-common.logger_print()
+
+class _AssertTrainCallbacks(Callback, TrainerCallback):
+    def on_episodes_end(self, runner: srl.Runner) -> None:
+        assert runner.state.sync_actor > 1
+
+    def on_trainer_end(self, runner: srl.Runner) -> None:
+        assert runner.state.sync_trainer > 1
 
 
 def test_train():
-    runner = Runner("Grid", ql.Config())
-    runner.train_mp(actor_num=5, max_train_count=10_000)
+    runner = srl.Runner("Grid", ql_agent57.Config(batch_size=2))
+    runner.train_mp(actor_num=2, max_train_count=10_000, callbacks=[_AssertTrainCallbacks()])
 
     # eval
     rewards = runner.evaluate(max_episodes=100)
@@ -22,14 +28,15 @@ def test_train2():
     rl_config = ql_agent57.Config()
     rl_config.memory.capacity = 1000
     rl_config.memory.set_replay_memory()
-    runner = Runner("Grid", rl_config)
-    runner.train(max_episodes=5000)
+    runner = srl.Runner("Grid", rl_config)
+    runner.train(max_episodes=1000)
 
-    memory_len = runner.remote_memory.length()
-    rl_config.memory.capacity = 1100
+    assert runner.memory is not None
+    memory_len = runner.memory.length()
+    runner.memory.memory.capacity = 1100  # type: ignore , 直接変更
 
-    runner.train_mp(max_episodes=10, return_remote_memory=True)
-    memory2 = runner.remote_memory
+    runner.train_mp(timeout=1)
+    memory2 = runner.memory
 
     # eval
     rewards = runner.evaluate(max_episodes=100)
@@ -37,5 +44,6 @@ def test_train2():
     print(rewards)
     assert rewards > 0.5
 
+    assert memory2 is not None
     print(memory2.length(), memory_len)
     assert memory2.length() > memory_len

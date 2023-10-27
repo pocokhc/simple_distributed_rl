@@ -11,7 +11,7 @@ def test_constant():
     sch = config.create_schedulers()
 
     for i in range(10):
-        rate = sch.get_rate(i)
+        rate = sch.get_and_update_rate(i)
         assert rate == 0.2
 
 
@@ -21,12 +21,12 @@ def test_linear_up():
     sch = config.create_schedulers()
 
     for i in range(10):
-        rate = sch.get_rate(i)
+        rate = sch.get_and_update_rate(i)
         print(i, rate)
         assert math.isclose(rate, i / 10)
 
     for i in range(10, 20):
-        rate = sch.get_rate(i)
+        rate = sch.get_and_update_rate(i)
         print(i, rate)
         assert math.isclose(rate, 1)
 
@@ -37,12 +37,12 @@ def test_linear_down():
     sch = config.create_schedulers()
 
     for i in range(10):
-        rate = sch.get_rate(i)
+        rate = sch.get_and_update_rate(i)
         print(i, rate)
         assert math.isclose(rate, 1 - i / 10)
 
     for i in range(10, 20):
-        rate = sch.get_rate(i)
+        rate = sch.get_and_update_rate(i)
         print(i, rate)
         assert math.isclose(rate, 0)
 
@@ -53,13 +53,13 @@ def test_cosine():
     sch = config.create_schedulers()
 
     for i in range(10):
-        rate = sch.get_rate(i)
+        rate = sch.get_and_update_rate(i)
         true_rate = np.cos(((np.pi / 2) / 10) * i)
         print(i, rate, true_rate)
         assert math.isclose(rate, true_rate)
 
     for i in range(10, 20):
-        rate = sch.get_rate(i)
+        rate = sch.get_and_update_rate(i)
         print(i, rate)
         assert math.isclose(rate, 0)
 
@@ -70,19 +70,19 @@ def test_cosine_with_hard_restarts():
     sch = config.create_schedulers()
 
     for i in range(5):
-        rate = sch.get_rate(i)
+        rate = sch.get_and_update_rate(i)
         true_rate = np.cos(((np.pi / 2) / 5) * i)
         print(i, rate, true_rate)
         assert math.isclose(rate, true_rate)
 
     for i in range(5, 10):
-        rate = sch.get_rate(i)
+        rate = sch.get_and_update_rate(i)
         true_rate = np.cos(((np.pi / 2) / 5) * (i - 5))
         print(i, rate, true_rate)
         assert math.isclose(rate, true_rate)
 
     for i in range(10, 20):
-        rate = sch.get_rate(i)
+        rate = sch.get_and_update_rate(i)
         print(i, rate)
         assert math.isclose(rate, 0)
 
@@ -93,14 +93,14 @@ def test_polynomial():
     sch = config.create_schedulers()
 
     for i in range(10):
-        rate = sch.get_rate(i)
+        rate = sch.get_and_update_rate(i)
         true_rate = (1 - (i / 10)) ** 2
 
         print(i, rate, true_rate)
         assert math.isclose(rate, true_rate)
 
     for i in range(10, 20):
-        rate = sch.get_rate(i)
+        rate = sch.get_and_update_rate(i)
         print(i, rate)
         assert math.isclose(rate, 0)
 

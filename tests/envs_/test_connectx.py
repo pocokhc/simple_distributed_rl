@@ -109,7 +109,8 @@ def test_kaggle_connectx():
     rl_config = ql.Config()
 
     env = srl.make_env("connectx")
-    parameter = srl.make_parameter(rl_config, env)
+    rl_config.setup(env)
+    parameter = srl.make_parameter(rl_config)
     worker = srl.make_worker(rl_config, env, parameter)
 
     def agent(observation, configuration):
@@ -136,7 +137,8 @@ def test_kaggle_connectx_success():
     rl_config = mcts.Config()
 
     env = srl.make_env("connectx")
-    parameter = srl.make_parameter(rl_config, env)
+    rl_config.setup(env)
+    parameter = srl.make_parameter(rl_config)
     worker = srl.make_worker(rl_config, env, parameter)
 
     def agent(observation, configuration):

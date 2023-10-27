@@ -4,8 +4,6 @@ import math
 import numpy as np
 import pytest
 
-from srl.rl.memories.priority_memories.best_episode_memory import BestEpisodeMemory
-from srl.rl.memories.priority_memories.demo_memory import DemoMemory
 from srl.rl.memories.priority_memories.imemory import IPriorityMemory
 from srl.rl.memories.priority_memories.proportional_memory import ProportionalMemory
 from srl.rl.memories.priority_memories.rankbase_memory import RankBaseMemory
@@ -22,41 +20,24 @@ capacity = 10
         (ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=False), True, True),
         (RankBaseMemory(capacity, 0.8, 1, 10), True, True),
         (RankBaseMemoryLinear(capacity, 0.8, 1, 10), True, True),
-        (
-            BestEpisodeMemory(
-                main_memory=ProportionalMemory(capacity, 0.8, 1, 10),
-                best_memory=ProportionalMemory(capacity, 0.8, 1, 10),
-            ),
-            False,
-            False,
-        ),
-        (
-            DemoMemory(
-                main_memory=ProportionalMemory(capacity, 0.8, 1, 10),
-                demo_memory=ProportionalMemory(capacity, 0.8, 1, 10),
-            ),
-            False,
-            False,
-        ),
     ],
 )
-def test_memory(memory: IPriorityMemory, use_priority, check_dup):
+def test_priority_memory(memory: IPriorityMemory, use_priority: bool, check_dup: bool):
     # add
     for i in range(100):
         memory.add((i, i, i, i), 0)
-        memory.on_step(i, (i == 99))
-    assert len(memory) == capacity
+    assert memory.length() == capacity
 
     # 中身を1～10にする
     for i in range(10):
         i += 1
         memory.add((i, i, i, i), i)
-        assert len(memory) == capacity
+        assert memory.length() == capacity
 
     # --- 複数回やって比率をだす
     counter = []
     for i in range(10000):
-        (indices, batchs, weights) = memory.sample(5, 1)
+        (indices, batchs, weights) = memory.sample(5, step=1)
         assert len(batchs) == 5
         assert len(weights) == 5
 
@@ -70,7 +51,7 @@ def test_memory(memory: IPriorityMemory, use_priority, check_dup):
 
         # update priority
         memory.update(indices, batchs, np.array([b[3] for b in batchs]))
-        assert len(memory) == capacity
+        assert memory.length() == capacity
 
         # save/load
         d = memory.backup()
@@ -103,13 +84,13 @@ def test_IS_Proportional(alpha):
     memory = ProportionalMemory(capacity=10, alpha=alpha, beta_initial=1, epsilon=epsilon, has_duplicate=False)
 
     # --- true data
-    td_errors = [1, 2, 4, 3]
+    priorities = [1, 2, 4, 3]
 
     # (|delta| + e)^a
-    true_priorities = [(t + epsilon) ** alpha for t in td_errors]
+    true_priorities = [(t + epsilon) ** alpha for t in priorities]
 
     # --- check
-    _check_weights(memory, td_errors, true_priorities)
+    _check_weights(memory, priorities, true_priorities)
 
 
 @pytest.mark.parametrize("alpha", [0, 0.2, 0.5, 0.8, 1.0])
@@ -142,7 +123,7 @@ def test_IS_RankBaseLinear(alpha):
     _check_weights(memory, td_errors, true_priorities)
 
 
-def _check_weights(memory, td_errors, true_priorities):
+def _check_weights(memory: IPriorityMemory, priorities, true_priorities):
     N = len(true_priorities)
     # print(sum(true_priorities))
     # print(true_priorities)
@@ -160,9 +141,10 @@ def _check_weights(memory, td_errors, true_priorities):
     maxw = np.max(true_weights)
     true_weights /= maxw
 
-    for i, td_error in enumerate(td_errors):
-        memory.add((i, i, i, i), td_error=td_error)
-    indices, batchs, weights = memory.sample(N, 1)
+    for i, priority in enumerate(priorities):
+        assert priority >= 0
+        memory.add((i, i, i, i), priority=priority)
+    indices, batchs, weights = memory.sample(N, step=1)
 
     # 順番が変わっているので batch より元のindexを取得し比較
     for i, b in enumerate(batchs):

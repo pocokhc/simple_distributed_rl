@@ -9,7 +9,6 @@ class BaseCase(CommonBaseClass):
             num_simulations=10,
             discount=0.9,
             batch_size=16,
-            memory_warmup_size=200,
             v_min=-2,
             v_max=2,
             unroll_steps=2,
@@ -17,6 +16,7 @@ class BaseCase(CommonBaseClass):
             enable_rescale=False,
             codebook_size=4,
         )
+        rl_config.memory.warmup_size = 200
         rl_config.lr.set_constant(0.001)
         rl_config.memory.set_replay_memory()
         rl_config.input_image_block.set_alphazero_block(1, 16)

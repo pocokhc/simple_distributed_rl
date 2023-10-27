@@ -182,7 +182,7 @@ def _run_actor(
                         state.sync_actor += 1
             # --- ActorInterrupt ---
 
-            [c.on_step_end(runner) for c in _callbacks]
+            _stop_flags = [c.on_step_end(runner) for c in _callbacks]
             state.worker_idx = worker_idx
 
             if state.env.done:
@@ -200,7 +200,7 @@ def _run_actor(
                 break
             # --- ActorInterrupt ---
 
-            if True in [c.intermediate_stop(runner) for c in _callbacks]:
+            if True in _stop_flags:
                 state.end_reason = "callback.intermediate_stop"
                 break
 
@@ -287,7 +287,7 @@ def _run_trainer(
 
             # --- train
             state.trainer.train()
-            [c.on_trainer_train_end(runner) for c in _callbacks]
+            _stop_flags = [c.on_trainer_train_end(runner) for c in _callbacks]
 
             # --- TrainerInterrupt ---
             count_for_sync += 1
@@ -295,6 +295,10 @@ def _run_trainer(
                 count_for_sync = 0
                 remote_board.write(parameter.backup())
                 runner.state.sync_trainer += 1
+
+            if True in _stop_flags:
+                state.end_reason = "callback"
+                break
 
             if train_end_signal.get():
                 state.end_reason = "train_end_signal"

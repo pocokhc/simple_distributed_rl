@@ -1,7 +1,6 @@
 import ctypes
 import logging
 import multiprocessing as mp
-import pickle
 import queue
 import threading
 import time
@@ -13,7 +12,7 @@ import srl
 from srl.base.rl.base import IRLMemoryTrainer, IRLMemoryWorker, RLMemory, RLParameter, RLTrainer
 from srl.base.run.context import RunNameTypes
 from srl.runner.callback import Callback, MPCallback, TrainerCallback
-from srl.runner.runner import RunnerMPData
+from srl.runner.runner import TaskConfig
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +103,7 @@ class _ActorInterrupt(Callback):
 
 
 def _run_actor(
-    mp_data: RunnerMPData,
+    mp_data: TaskConfig,
     memory_queue: queue.Queue,
     remote_board: _Board,
     actor_id: int,
@@ -245,7 +244,6 @@ def _memory_mp(
 ):
     try:
         while not exit_event.is_set():
-            # --- add memory
             try:
                 batch = memory_queue.get(timeout=1)
                 memory.add(*batch)
@@ -259,7 +257,7 @@ def _memory_mp(
 
 
 def _run_trainer(
-    mp_data: RunnerMPData,
+    mp_data: TaskConfig,
     parameter: RLParameter,
     memory: RLMemory,
     memory_queue: queue.Queue,
@@ -361,7 +359,7 @@ def train(runner: srl.Runner):
 
 
 def _train(runner: srl.Runner, manager: Any):
-    mp_data = runner.create_mp_data()
+    mp_data = runner.create_task_config()
 
     # callbacks
     _callbacks = cast(List[MPCallback], [c for c in mp_data.context.callbacks if issubclass(c.__class__, MPCallback)])

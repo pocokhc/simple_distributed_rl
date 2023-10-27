@@ -65,13 +65,14 @@ def play(
     callback_data: Optional[CallbackData] = None,
 ) -> RunState:
     assert context._is_setup
-    assert (
-        context.max_steps > 0
-        or context.max_episodes > 0
-        or context.timeout > 0
-        or context.max_train_count > 0
-        or context.max_memory > 0
-    ), "Please specify 'max_episodes', 'timeout' , 'max_steps' or 'max_train_count' or 'max_memory'."
+    if not context.distributed:
+        assert (
+            context.max_steps > 0
+            or context.max_episodes > 0
+            or context.timeout > 0
+            or context.max_train_count > 0
+            or context.max_memory > 0
+        ), "Please specify 'max_episodes', 'timeout' , 'max_steps' or 'max_train_count' or 'max_memory'."
 
     # --- make instance
     if context.disable_trainer:

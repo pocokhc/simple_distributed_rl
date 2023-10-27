@@ -17,7 +17,6 @@ from srl.base.run import core as core_run
 from srl.base.run.callback import CallbackData
 from srl.base.run.context import RLWorkerType, RunContext, RunNameTypes, StrWorkerType, TrainingModeTypes
 from srl.rl import dummy
-from srl.runner.callback import CallbackType
 from srl.utils import common
 from srl.utils.serialize import convert_for_json
 
@@ -67,7 +66,7 @@ class RunnerConfig:
 
 
 @dataclass
-class RunnerMPData:
+class TaskConfig:
     config: RunnerConfig  # 将来的にはこちらもbaseに統合したい
     context: RunContext
 
@@ -600,8 +599,8 @@ class Runner(CallbackData):
             runner._env = self._env
         return runner
 
-    def create_mp_data(self) -> RunnerMPData:
-        return RunnerMPData(self.config, self.context)
+    def create_task_config(self) -> TaskConfig:
+        return TaskConfig(self.config, self.context)
 
     def print_config(self):
         import pprint

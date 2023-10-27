@@ -318,7 +318,6 @@ class Trainer(RLTrainer):
         # priority = abs(ext_td_error) + batch["beta"] * abs(int_td_error)
         self.memory_update((indices, batchs, np.abs(ext_td_errors)))
 
-        self.train_count += 1
         self.train_info = {
             "size": len(self.parameter.Q_ext),
             "ext_td_error": np.mean(ext_td_errors),

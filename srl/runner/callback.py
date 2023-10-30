@@ -39,7 +39,7 @@ class TrainerCallback(CoreTrainerCallback):
     def on_trainer_start(self, runner: "Runner") -> None:
         pass  # do nothing
 
-    def on_trainer_train_end(self, runner: "Runner") -> Optional[bool]:
+    def on_trainer_loop(self, runner: "Runner") -> Optional[bool]:
         """If return is True, it will end intermediate stop."""
         return False  # do nothing
 

@@ -125,7 +125,7 @@ class HistoryOnMemory(Callback, TrainerCallback, Evaluate):
     def on_trainer_end(self, runner: Runner):
         self._save_trainer_log(runner)
 
-    def on_trainer_train_end(self, runner: Runner):
+    def on_trainer_loop(self, runner: Runner):
         assert runner.state.trainer is not None
         self._add_info(self.train_infos, "trainer", runner.state.trainer.train_info)
 

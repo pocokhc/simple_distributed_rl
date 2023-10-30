@@ -34,5 +34,5 @@ def test_trainer_callback(mocker: pytest_mock.MockerFixture):
     runner.train_only(max_train_count=10, callbacks=[c])
 
     assert c.on_trainer_start.call_count == 1
-    assert c.on_trainer_train_end.call_count == 10
+    assert c.on_trainer_loop.call_count == 10
     assert c.on_trainer_end.call_count == 1

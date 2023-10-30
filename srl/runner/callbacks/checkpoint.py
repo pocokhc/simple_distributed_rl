@@ -55,7 +55,7 @@ class Checkpoint(Callback, TrainerCallback, Evaluate):
 
         self.interval_t0 = time.time()
 
-    def on_trainer_train_end(self, runner: Runner):
+    def on_trainer_loop(self, runner: Runner):
         if time.time() - self.interval_t0 > self.interval:
             self._save_parameter(runner)
             self.interval_t0 = time.time()

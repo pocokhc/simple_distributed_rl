@@ -223,7 +223,7 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
         self._write_trainer_log(runner)
         self.close()
 
-    def on_trainer_train_end(self, runner: Runner):
+    def on_trainer_loop(self, runner: Runner):
         assert runner.state.trainer is not None
         self._add_info(self.train_infos, "trainer", runner.state.trainer.train_info)
 

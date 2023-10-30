@@ -324,7 +324,7 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
     def on_trainer_end(self, runner: Runner) -> None:
         self._print_trainer(runner)
 
-    def on_trainer_train_end(self, runner: Runner) -> None:
+    def on_trainer_loop(self, runner: Runner) -> None:
         if self._check_print_progress():
             self._print_trainer(runner)
 

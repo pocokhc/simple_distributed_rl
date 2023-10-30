@@ -43,7 +43,7 @@ class TrainerCallback(ABC):
     def on_trainer_start(self, dat: CallbackData) -> None:
         pass  # do nothing
 
-    def on_trainer_train_end(self, dat: CallbackData) -> Optional[bool]:
+    def on_trainer_loop(self, dat: CallbackData) -> Optional[bool]:
         """If return is True, it will end intermediate stop."""
         return False  # do nothing
 

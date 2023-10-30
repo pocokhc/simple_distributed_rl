@@ -189,7 +189,7 @@ class RLTrainer(ABC):
         self.parameter = parameter
         self.memory = memory
 
-        self.batch_size: int = getattr(self.config, "batch_size", -1)
+        self.batch_size: int = getattr(self.config, "batch_size", 1)
 
         self.train_count: int = 0
         self.train_info: InfoType = {}
@@ -197,11 +197,12 @@ class RLTrainer(ABC):
     def get_train_count(self) -> int:
         return self.train_count
 
-    def train(self) -> None:
+    def train(self) -> bool:
         if self.memory.is_warmup_needed():
-            return
+            return False
         memory_sample_return = self.memory.sample(self.batch_size, self.train_count)
         self.train_on_batchs(memory_sample_return)
+        return True
 
     def memory_update(self, memory_update_args):
         self.memory.update(memory_update_args)

@@ -44,6 +44,9 @@ class RunState:
     episode_seed: Optional[int] = None
     action: EnvActionType = 0
 
+    # train
+    is_step_trained: bool = False
+
     # other
     sync_actor: int = 0
     sync_trainer: int = 0
@@ -302,10 +305,10 @@ def _play_trainer_only(
             break
 
         # --- train
-        state.trainer.train()
+        state.is_step_trained = state.trainer.train()
 
         # callbacks
-        _stop_flags = [c.on_trainer_train_end(callback_data) for c in _callbacks]
+        _stop_flags = [c.on_trainer_loop(callback_data) for c in _callbacks]
         if True in _stop_flags:
             state.end_reason = "callback.trainer_intermediate_stop"
             break

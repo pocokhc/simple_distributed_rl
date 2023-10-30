@@ -62,7 +62,7 @@ abstract EnvBase {
 } 
 
 EnvBase .. EnvObservationType
-EnvBase -- SpaceBase
+EnvBase .. SpaceBase
 
 abstract gymnasium.Env {}
 abstract gym.Env {}

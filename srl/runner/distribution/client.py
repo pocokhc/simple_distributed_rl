@@ -1,8 +1,10 @@
 import logging
 import time
 import traceback
+from typing import List
 
 import srl
+from srl.runner.distribution.callback import DistributionCallback
 from srl.runner.distribution.manager import DistributedManager
 
 logger = logging.getLogger(__name__)
@@ -11,13 +13,13 @@ logger = logging.getLogger(__name__)
 def run(
     runner: srl.Runner,
     host: str,
-    port: int = 6379,
     redis_kwargs: dict = {},
-    keepalive_interval: int = 10,
+    callbacks: List[DistributionCallback] = [],
 ):
     parameter = runner.make_parameter()
 
-    manager = DistributedManager(host, port, redis_kwargs, keepalive_interval)
+    keepalive_interval = 10  # TODO
+    manager = DistributedManager(host, redis_kwargs, keepalive_interval)
     manager.server_ping()
     manager.set_user("client")
 
@@ -25,17 +27,26 @@ def run(
     actor_num = runner.context.actor_num
     task_id = manager.task_add(
         actor_num,
-        runner.create_task_config(),
+        runner.create_task_config(["Checkpoint", "HistoryOnFile", "HistoryOnMemory"]),
         parameter.backup(),
     )
 
+    # callbacks
+    [c.on_start(runner, manager, task_id) for c in callbacks]
+
     # --- run
-    _check_t0 = time.time()
     print(f"wait task: {task_id}")
     while True:
         try:
             time.sleep(1)
-            manager.keepalive(task_id)
+            if manager.keepalive(task_id):
+                # 定期的に同期する
+                try:
+                    params = manager.parameter_read()
+                    if params is not None:
+                        parameter.restore(params)
+                except Exception:
+                    logger.warning(traceback.format_exc())
 
             # --- end check ---
             if manager.task_get_status(task_id) == "END":
@@ -51,38 +62,9 @@ def run(
                     break
             # -----------------
 
-            # --- progress
-            if time.time() - _check_t0 > keepalive_interval:
-                _check_t0 = time.time()
-
-                status = manager.task_get_status(task_id)
-                qsize = manager.memory_size(task_id)
-                print(f"--- {task_id} {status} {qsize}mem")
-
-                # trainer
-                tid = manager.task_get_trainer(task_id, "id")
-                if tid == "":
-                    print("trainer : not assigned")
-                else:
-                    s = manager.task_get_trainer(task_id, "train")
-                    s2 = manager.task_get_trainer(task_id, "memory")
-                    print(f"trainer : {tid} {s} train, {s2} memory")
-
-                # actor
-                for idx in range(actor_num):
-                    aid = manager.task_get_actor(task_id, idx, "id")
-                    if aid == "":
-                        print(f"actor{idx:<3d}: not assigned")
-                    else:
-                        s = manager.task_get_actor(task_id, idx, "episode")
-                        print(f"actor{idx:<3d}: {aid} {s} episode")
-
-                # --- check param
-                # 定期的にparameterを取得
-                params = manager.parameter_read(task_id)
-                if params is not None:
-                    parameter.restore(params)
-                    print(runner.evaluate())
+            [c.on_polling(runner, manager, task_id) for c in callbacks]
 
         except Exception:
             logger.error(traceback.format_exc())
+
+    [c.on_end(runner, manager, task_id) for c in callbacks]

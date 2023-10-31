@@ -1,10 +1,13 @@
 import json
 import logging
 import os
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
-from srl.runner.runner import Runner
 from srl.utils.common import compare_equal_version, is_package_installed, is_packages_installed
+
+if TYPE_CHECKING:
+    from srl.runner.callbacks.history_on_memory import HistoryOnMemory
+    from srl.runner.runner import Runner
 
 logger = logging.getLogger(__name__)
 
@@ -50,13 +53,13 @@ class HistoryViewer:
     # ------------------------------------
     # file
     # ------------------------------------
-    def load(self, dir_: str):
-        if not os.path.isdir(dir_):
-            logger.info(f"Log folder is not found.({dir_})")
+    def load(self, save_dir: str):
+        if not os.path.isdir(save_dir):
+            logger.info(f"History folder is not found.({save_dir})")
             return
 
         # --- version
-        path = os.path.join(dir_, "version.txt")
+        path = os.path.join(save_dir, "version.txt")
         if os.path.isfile(path):
             with open(path) as f:
                 v = f.read()
@@ -67,17 +70,17 @@ class HistoryViewer:
                 logger.warning(f"log version is different({v} != {srl.__version__})")
 
         # --- file
-        path = os.path.join(dir_, "env_config.json")
+        path = os.path.join(save_dir, "env_config.json")
         if os.path.isfile(path):
             with open(path) as f:
                 self.env_config: dict = json.load(f)
 
-        path = os.path.join(dir_, "rl_config.json")
+        path = os.path.join(save_dir, "rl_config.json")
         if os.path.isfile(path):
             with open(path) as f:
                 self.rl_config: dict = json.load(f)
 
-        path = os.path.join(dir_, "context.json")
+        path = os.path.join(save_dir, "context.json")
         if os.path.isfile(path):
             with open(path) as f:
                 self.context: dict = json.load(f)
@@ -85,10 +88,10 @@ class HistoryViewer:
         # --- load file
         self.logs = []
         for i in range(self.context["actor_num"]):
-            lines = self._load_log_file(os.path.join(dir_, "logs", f"actor{i}.txt"))
+            lines = self._load_log_file(os.path.join(save_dir, "history", f"actor{i}.txt"))
             self.logs.extend(lines)
 
-        lines = self._load_log_file(os.path.join(dir_, "logs", "trainer.txt"))
+        lines = self._load_log_file(os.path.join(save_dir, "history", "trainer.txt"))
         self.logs.extend(lines)
 
         # sort
@@ -112,11 +115,11 @@ class HistoryViewer:
     # ------------------------------------
     # memory
     # ------------------------------------
-    def set_history_on_memory(self, runner: Runner):
+    def set_history_on_memory(self, history: "HistoryOnMemory", runner: "Runner"):
         self.env_config: dict = runner.env_config.to_dict()
         self.rl_config: dict = runner.rl_config.to_dict()
         self.context: dict = runner.context_controller.to_dict()
-        self.logs = runner._history
+        self.logs: list = history.logs
 
     # ----------------------------------------
     # train logs

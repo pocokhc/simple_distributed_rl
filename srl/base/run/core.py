@@ -67,7 +67,6 @@ def play(
     trainer: Optional[RLTrainer] = None,
     callback_data: Optional[CallbackData] = None,
 ) -> RunState:
-    assert context._is_setup
     if not context.distributed:
         assert (
             context.max_steps > 0
@@ -76,6 +75,10 @@ def play(
             or context.max_train_count > 0
             or context.max_memory > 0
         ), "Please specify 'max_episodes', 'timeout' , 'max_steps' or 'max_train_count' or 'max_memory'."
+        if context.max_memory > 0:
+            _m = getattr(memory.config, "memory", None)
+            if _m is not None:
+                assert context.max_memory <= getattr(_m, "capacity", 0)
 
     # --- make instance
     if context.disable_trainer:
@@ -253,7 +256,6 @@ def play_trainer_only(
     trainer: RLTrainer,
     callback_data: Optional[CallbackData] = None,
 ) -> RunState:
-    assert context._is_setup
     assert context.training
     assert context.max_train_count > 0 or context.timeout > 0, "Please specify 'max_train_count' or 'timeout'."
 

@@ -20,9 +20,6 @@ class Evaluate:
     eval_max_steps: int = -1
     eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = field(default_factory=list)
     eval_shuffle_player: bool = False
-    eval_enable_tf_device: bool = True
-    eval_used_device_tf: str = "/CPU"
-    eval_used_device_torch: str = "cpu"
 
     def setup_eval_runner(self, runner: Runner):
         if not self.enable_eval:
@@ -35,9 +32,6 @@ class Evaluate:
             self.eval_max_steps,
             self.eval_players,
             self.eval_shuffle_player,
-            self.eval_enable_tf_device,
-            self.eval_used_device_tf,
-            self.eval_used_device_torch,
         )
 
     def run_eval(self, parameter: Optional[RLParameter]) -> np.ndarray:

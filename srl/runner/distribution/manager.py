@@ -15,12 +15,10 @@ class DistributedManager:
     def __init__(
         self,
         host: str,
-        port: int = 6379,
         redis_kwargs: dict = {},
         keepalive_interval: int = 10,
     ):
         self.host = host
-        self.port = port
         self.redis_kwargs = redis_kwargs
         self.keepalive_interval = keepalive_interval
 
@@ -40,7 +38,6 @@ class DistributedManager:
     def create_args(self):
         return (
             self.host,
-            self.port,
             self.redis_kwargs,
             self.keepalive_interval,
             self.uid,
@@ -51,19 +48,13 @@ class DistributedManager:
     @staticmethod
     def create(
         host,
-        port,
         redis_kwargs,
         keepalive_interval,
         uid,
         role,
         actor_idx,
     ):
-        m = DistributedManager(
-            host,
-            port,
-            redis_kwargs,
-            keepalive_interval,
-        )
+        m = DistributedManager(host, redis_kwargs, keepalive_interval)
         m.uid = uid
         m.role = role
         m.actor_idx = actor_idx
@@ -80,14 +71,14 @@ class DistributedManager:
 
     def server_ping(self):
         if self.server is None:
-            self.server = redis.Redis(self.host, self.port, **self.redis_kwargs)
+            self.server = redis.Redis(self.host, **self.redis_kwargs)
         self.server.ping()
 
     def connect(self) -> bool:
         if self.server is not None:
             return True
         try:
-            self.server = redis.Redis(self.host, self.port, **self.redis_kwargs)
+            self.server = redis.Redis(self.host, **self.redis_kwargs)
             return True
         except Exception:
             logger.error(traceback.format_exc())
@@ -204,6 +195,13 @@ class DistributedManager:
         self.server_set(f"task:{task_id}:status", "END")
         logger.info(f"task end: {task_id}")
         self.log(task_id, "End")
+
+    def task_is_dead(self, task_id: str) -> bool:
+        if not self.server_exists(f"taskid:{task_id}"):
+            return True
+        body = self.server_get(f"task:{task_id}:status")
+        status = "" if body is None else body.decode()
+        return status == "END"
 
     def task_get_status(self, task_id: str) -> str:
         if not self.server_exists(f"taskid:{task_id}"):
@@ -323,6 +321,3 @@ class DistributedManager:
 
             return True
         return False
-
-    def health_check(self):
-        raise  # TODO

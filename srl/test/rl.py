@@ -63,7 +63,8 @@ class TestRL:
                     rl_config2.processors.append(ox.LayerProcessor())
 
             runner = srl.Runner(env_config, rl_config2)
-            runner.set_device(device_trainer="CPU", device_actors="CPU")
+            runner.set_device("CPU")
+            device_actors = "CPU"
 
             if not is_mp:
                 # --- check sequence
@@ -87,7 +88,7 @@ class TestRL:
 
             else:
                 print(f"--- {env_config.name} mp check start ---")
-                runner.train_mp(actor_num=2, **train_kwargs_)
+                runner.train_mp(actor_num=2, device_actors=device_actors, **train_kwargs_)
             runner.evaluate(max_episodes=2, max_steps=10)
 
     def simple_check_raw(
@@ -180,9 +181,11 @@ class TestRL:
                     rl_config.processors.append(ox.LayerProcessor())
 
             runner = srl.Runner(env_config, rl_config)
-            runner.set_device(device_trainer="CPU", device_actors="CPU")
+            runner.set_device(device="CPU")
+            device_actors = "CPU"
             if enable_gpu:
-                runner.set_device(device_trainer="AUTO", device_actors="AUTO")
+                runner.set_device(device="AUTO")
+                device_actors = "AUTO"
 
             if not is_mp:
                 # --- check sequence
@@ -203,7 +206,7 @@ class TestRL:
 
             else:
                 print(f"--- {env_config.name} mp check start ---")
-                runner.train_mp(actor_num=2, **train_kwargs_)
+                runner.train_mp(actor_num=2, device_actors=device_actors, **train_kwargs_)
 
             runner.evaluate(max_episodes=2, max_steps=10)
 

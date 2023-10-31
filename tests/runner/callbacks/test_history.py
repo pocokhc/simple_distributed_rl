@@ -1,4 +1,6 @@
+import os
 import pickle
+import shutil
 from pprint import pprint
 
 import pytest
@@ -19,12 +21,7 @@ def test_pickle():
 def test_on_memory_train():
     runner = srl.Runner("OX", ql.Config())
 
-    runner.set_history(
-        enable_history=True,
-        enable_eval=True,
-        write_memory=True,
-        write_file=False,
-    )
+    runner.set_history(enable_eval=True)
     runner.train(max_episodes=100)
 
     history = runner.get_history()
@@ -48,12 +45,7 @@ def test_on_memory_train_plot():
 
     runner = srl.Runner("OX", ql.Config())
 
-    runner.set_history(
-        enable_history=True,
-        enable_eval=True,
-        write_memory=True,
-        write_file=False,
-    )
+    runner.set_history(enable_eval=True)
     runner.train(max_episodes=100)
     history = runner.get_history()
 
@@ -67,14 +59,9 @@ def test_on_memory_train_plot():
 
 def test_on_memory_train_only():
     runner = srl.Runner("OX", ql_agent57.Config())
-    runner.train(max_episodes=100, disable_trainer=True)
+    runner.rollout(max_memory=100)
 
-    runner.set_history(
-        enable_history=True,
-        enable_eval=True,
-        write_memory=True,
-        write_file=False,
-    )
+    runner.set_history(enable_eval=True)
     runner.train_only(timeout=3)
 
     history = runner.get_history()
@@ -94,14 +81,9 @@ def test_on_memory_train_only_plot():
     pytest.importorskip("matplotlib")
 
     runner = srl.Runner("OX", ql_agent57.Config())
-    runner.train(max_episodes=100, disable_trainer=True)
+    runner.rollout(max_memory=100)
 
-    runner.set_history(
-        enable_history=True,
-        enable_eval=True,
-        write_memory=True,
-        write_file=False,
-    )
+    runner.set_history(enable_eval=True)
     runner.train_only(timeout=5)
     history = runner.get_history()
 
@@ -113,16 +95,11 @@ def test_on_memory_train_only_plot():
     history.plot(ylabel_left=["train"], _no_plot=True)
 
 
-def test_on_file_train():
+def test_on_file_train(tmp_path):
     runner = srl.Runner("OX", ql.Config())
 
-    runner.set_wkdir("tmp_test")
-    runner.set_history(
-        enable_history=True,
-        enable_eval=True,
-        write_memory=False,
-        write_file=True,
-    )
+    runner.setup_wkdir(tmp_path)
+    runner.set_history(enable_eval=True)
     runner.train(timeout=5)
 
     history = runner.get_history()
@@ -140,19 +117,14 @@ def test_on_file_train():
         assert h["episode"] > 0
 
 
-def test_on_file_train_plot():
+def test_on_file_train_plot(tmp_path):
     pytest.importorskip("pandas")
     pytest.importorskip("matplotlib")
 
     runner = srl.Runner("OX", ql.Config())
 
-    runner.set_wkdir("tmp_test")
-    runner.set_history(
-        enable_history=True,
-        enable_eval=True,
-        write_memory=False,
-        write_file=True,
-    )
+    runner.setup_wkdir(tmp_path)
+    runner.set_history(enable_eval=True)
     runner.train(timeout=5)
     history = runner.get_history()
 
@@ -164,17 +136,12 @@ def test_on_file_train_plot():
     history.plot(_no_plot=True)
 
 
-def test_on_file_train_only():
+def test_on_file_train_only(tmp_path):
     runner = srl.Runner("OX", ql_agent57.Config())
-    runner.train(max_episodes=100, disable_trainer=True)
+    runner.rollout(max_memory=100)
 
-    runner.set_wkdir("tmp_test")
-    runner.set_history(
-        enable_history=True,
-        enable_eval=True,
-        write_memory=False,
-        write_file=True,
-    )
+    runner.setup_wkdir(tmp_path)
+    runner.set_history(enable_eval=True)
     runner.train_only(timeout=3)
 
     history = runner.get_history()
@@ -189,20 +156,15 @@ def test_on_file_train_only():
     assert history.logs[0]["trainer_size"] > 0
 
 
-def test_on_file_train_only_plot():
+def test_on_file_train_only_plot(tmp_path):
     pytest.importorskip("pandas")
     pytest.importorskip("matplotlib")
 
     runner = srl.Runner("OX", ql_agent57.Config())
-    runner.train(max_episodes=100, disable_trainer=True)
+    runner.rollout(max_memory=100)
 
-    runner.set_wkdir("tmp_test")
-    runner.set_history(
-        enable_history=True,
-        enable_eval=True,
-        write_memory=False,
-        write_file=True,
-    )
+    runner.setup_wkdir(tmp_path)
+    runner.set_history(enable_eval=True)
     runner.train_only(timeout=5)
     history = runner.get_history()
 
@@ -214,16 +176,11 @@ def test_on_file_train_only_plot():
     history.plot(ylabel_left=["train"], _no_plot=True)
 
 
-def test_on_file_mp():
+def test_on_file_mp(tmp_path):
     runner = srl.Runner("OX", ql.Config())
 
-    runner.set_wkdir("tmp_test")
-    runner.set_history(
-        enable_history=True,
-        enable_eval=True,
-        write_memory=False,
-        write_file=True,
-    )
+    runner.setup_wkdir(tmp_path)
+    runner.set_history(enable_eval=True)
     runner.train_mp(timeout=5)
 
     history = runner.get_history()
@@ -240,19 +197,14 @@ def test_on_file_mp():
             assert False
 
 
-def test_on_file_mp_plot():
+def test_on_file_mp_plot(tmp_path):
     pytest.importorskip("pandas")
     pytest.importorskip("matplotlib")
 
     runner = srl.Runner("OX", ql.Config())
 
-    runner.set_wkdir("tmp_test")
-    runner.set_history(
-        enable_history=True,
-        enable_eval=True,
-        write_memory=False,
-        write_file=True,
-    )
+    runner.setup_wkdir(tmp_path)
+    runner.set_history(enable_eval=True)
     runner.train_mp(timeout=5)
     history = runner.get_history()
 

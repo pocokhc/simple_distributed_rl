@@ -28,13 +28,12 @@ def test_train_only():
     rl_config.memory.warmup_size = 10
     runner = srl.Runner("Grid", rl_config)
 
-    runner.train(
-        timeout=1,
-        disable_trainer=True,
+    runner.rollout(
+        timeout=7,
         enable_progress=True,
         progress_start_time=1,
+        progress_interval_limit=2,
         progress_env_info=True,
-        enable_eval=True,
     )
     assert runner.memory is not None
     assert runner.memory.length() > rl_config.memory.warmup_size
@@ -42,6 +41,8 @@ def test_train_only():
     runner.train_only(
         timeout=7,
         enable_progress=True,
+        progress_start_time=1,
+        progress_interval_limit=2,
     )
 
 

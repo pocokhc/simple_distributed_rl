@@ -9,7 +9,7 @@ from multiprocessing.managers import BaseManager
 from typing import Any, List, cast
 
 import srl
-from srl.base.rl.base import IRLMemoryTrainer, IRLMemoryWorker, RLMemory, RLParameter, RLTrainer
+from srl.base.rl.base import IRLMemoryTrainer, IRLMemoryWorker, RLMemory, RLParameter
 from srl.base.run.context import RunNameTypes
 from srl.runner.callback import Callback, MPCallback, TrainerCallback
 from srl.runner.runner import TaskConfig
@@ -40,14 +40,9 @@ RuntimeError:
 class _Board:
     def __init__(self):
         self.params = None
-        self.update_count = 0
 
     def write(self, params):
         self.params = params
-        self.update_count += 1
-
-    def get_update_count(self):
-        return self.update_count
 
     def read(self):
         return self.params
@@ -57,14 +52,27 @@ class _Board:
 # actor
 # --------------------
 class _ActorRLMemory(IRLMemoryWorker):
-    def __init__(self, memory_queue: queue.Queue):
+    def __init__(self, memory_queue: queue.Queue, dist_queue_capacity: int, train_end_signal: ctypes.c_bool):
         self.queue = memory_queue
+        self.dist_queue_capacity = dist_queue_capacity
+        self.train_end_signal = train_end_signal
 
     def add(self, *args) -> None:
-        self.queue.put(args)
+        t0 = time.time()
+        while True:
+            qsize = self.queue.qsize()
+            if 0 <= qsize < self.dist_queue_capacity:
+                self.queue.put(args)
+                break
+            if self.train_end_signal.value:
+                break
+            if time.time() - t0 > 10:
+                t0 = time.time()
+                print(f"capacity over, wait queue: {qsize}/{self.dist_queue_capacity}")
+            time.sleep(1)
 
     def length(self) -> int:
-        return -1
+        return self.queue.qsize()
 
 
 class _ActorInterrupt(Callback):
@@ -73,27 +81,22 @@ class _ActorInterrupt(Callback):
         remote_board: _Board,
         parameter: RLParameter,
         train_end_signal: ctypes.c_bool,
-        actor_parameter_sync_interval_by_step: int,
+        actor_parameter_sync_interval: int,
     ) -> None:
         self.remote_board = remote_board
         self.parameter = parameter
         self.train_end_signal = train_end_signal
-        self.actor_parameter_sync_interval_by_step = actor_parameter_sync_interval_by_step
+        self.actor_parameter_sync_interval = actor_parameter_sync_interval
 
-        self.step = 0
-        self.prev_update_count = 0
+        self.t0 = time.time()
 
     def on_episodes_begin(self, runner: srl.Runner):
         runner.state.sync_actor = 0
 
     def on_step_end(self, runner: srl.Runner) -> bool:
-        self.step += 1
-        if self.step % self.actor_parameter_sync_interval_by_step != 0:
+        if time.time() - self.t0 < self.actor_parameter_sync_interval:
             return self.train_end_signal.value
-        update_count = self.remote_board.get_update_count()
-        if update_count == self.prev_update_count:
-            return self.train_end_signal.value
-        self.prev_update_count = update_count
+        self.t0 = time.time()
         params = self.remote_board.read()
         if params is None:
             return self.train_end_signal.value
@@ -119,7 +122,7 @@ def _run_actor(
         context.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
 
         # --- memory
-        memory = cast(RLMemory, _ActorRLMemory(memory_queue))
+        memory = cast(RLMemory, _ActorRLMemory(memory_queue, mp_data.config.dist_queue_capacity, train_end_signal))
 
         # --- runner
         runner = srl.Runner(
@@ -142,12 +145,18 @@ def _run_actor(
                 remote_board,
                 parameter,
                 train_end_signal,
-                context.actor_parameter_sync_interval_by_step,
+                mp_data.config.actor_parameter_sync_interval,
             )
         )
         runner.context.training = True
         runner.context.disable_trainer = True
-        runner.core_play(trainer_only=False)
+        runner.core_play(
+            trainer_only=False,
+            parameter=parameter,
+            memory=memory,
+            trainer=None,
+            workers=None,
+        )
 
     finally:
         train_end_signal.value = True
@@ -157,69 +166,23 @@ def _run_actor(
 # --------------------
 # trainer
 # --------------------
-class _RLTrainer(RLTrainer):
-    def __init__(
-        self,
-        base_trainer: RLTrainer,
-        parameter: RLParameter,
-        remote_board: _Board,
-        trainer_parameter_send_interval_by_train_count: int,
-    ):
-        super().__init__(base_trainer.config, base_trainer.parameter, base_trainer.memory)
-        self.base_trainer = base_trainer
-        self.parameter = parameter
-        self.remote_board = remote_board
-        self.trainer_parameter_send_interval_by_train_count = trainer_parameter_send_interval_by_train_count
-        self.sync_count = 0
-        self.count_for_sync = 0
-
-    def train(self) -> None:
-        if self.memory.is_warmup_needed():
-            time.sleep(1)
-            return
-        memory_sample_return = self.memory.sample(self.base_trainer.batch_size, self.train_count)
-        _prev_train_count = self.base_trainer.train_count
-        self.base_trainer.train_on_batchs(memory_sample_return)
-        self.count_for_sync += self.base_trainer.train_count - _prev_train_count
-
-        # --- sync parameter
-        if self.count_for_sync > self.trainer_parameter_send_interval_by_train_count:
-            self.count_for_sync = 0
-            self.remote_board.write(self.parameter.backup())
-            self.sync_count += 1
-
-        # --- infos
-        self.train_count = self.base_trainer.train_count
-        self.train_info = self.base_trainer.train_info
-
-    def train_on_batchs(self, memory_sample_return) -> None:
-        raise NotImplementedError("not used")
-
-
-class _TrainerInterrupt(TrainerCallback):
-    def __init__(self, train_end_signal: ctypes.c_bool, trainer: _RLTrainer) -> None:
-        self.train_end_signal = train_end_signal
-        self.trainer = trainer
-
-    def on_trainer_train_end(self, runner: srl.Runner) -> bool:
-        runner.state.sync_trainer = self.trainer.sync_count
-        return self.train_end_signal.value
-
-
-class _TrainerRLMemory(IRLMemoryTrainer):
-    def __init__(self, base_memory: RLMemory):
+class _TrainerRLMemoryPrepareBatch(IRLMemoryTrainer):
+    def __init__(self, base_memory: RLMemory, batch_size: int, share_dict: dict):
+        # recv,warmup両方threadなので、両方待つ場合は待機
         self.base_memory = base_memory
+        self.batch_size = batch_size
+        self.share_dict = share_dict
         self.q_batch = queue.Queue()
         self.q_update = queue.Queue()
-        self.trainer: RLTrainer
 
-    def add(self, *args) -> None:
-        self.base_memory.add(*args)
-
-    def loop_update(self):
+    def recv(self, dat) -> None:
+        if dat is not None:
+            self.base_memory.add(*dat)
+        if dat is None and self.base_memory.is_warmup_needed():
+            time.sleep(1)
         if not self.base_memory.is_warmup_needed():
             if self.q_batch.qsize() < 5:
-                self.q_batch.put(self.base_memory.sample(self.trainer.batch_size, self.trainer.train_count))
+                self.q_batch.put(self.base_memory.sample(self.batch_size, self.share_dict["train_count"]))
         if not self.q_update.empty():
             self.base_memory.update(self.q_update.get())
 
@@ -236,28 +199,81 @@ class _TrainerRLMemory(IRLMemoryTrainer):
         self.q_update.put(memory_update_args)
 
 
-def _memory_mp(
+class _TrainerRLMemory(IRLMemoryTrainer):
+    def __init__(self, base_memory: RLMemory):
+        # thread(recv) は受信できなければ待機
+        # main(is_warmup_needed) はwarmup中なら待機
+        self.base_memory = base_memory
+
+    def recv(self, dat) -> None:
+        if dat is None:
+            time.sleep(1)
+        else:
+            self.base_memory.add(*dat)
+
+    def length(self) -> int:
+        return self.base_memory.length()
+
+    def is_warmup_needed(self) -> bool:
+        if self.base_memory.is_warmup_needed():
+            time.sleep(1)
+            return True
+        return False
+
+    def sample(self, batch_size: int, step: int) -> Any:
+        return self.base_memory.sample(batch_size, step)
+
+    def update(self, memory_update_args: Any) -> None:
+        self.base_memory.update(memory_update_args)
+
+
+def _server_communicate(
     memory: _TrainerRLMemory,
     memory_queue: queue.Queue,
+    parameter: RLParameter,
+    remote_board: _Board,
     exit_event: threading.Event,
-    enable_prepare_batch: bool,
+    share_dict: dict,
+    trainer_parameter_send_interval: int,
 ):
     try:
+        t0 = time.time()
         while not exit_event.is_set():
+            # --- memory
             try:
-                batch = memory_queue.get(timeout=1)
-                memory.add(*batch)
+                if memory_queue.empty():
+                    batch = None
+                else:
+                    batch = memory_queue.get(timeout=1)
             except queue.Empty:
-                time.sleep(1)
-            if enable_prepare_batch:
-                memory.loop_update()
+                batch = None
+            memory.recv(batch)
+
+            # --- parameter
+            if time.time() - t0 > trainer_parameter_send_interval:
+                t0 = time.time()
+
+                remote_board.write(parameter.backup())
+                share_dict["sync_count"] += 1
 
     except Exception:
         logger.warning(traceback.format_exc())
 
 
+class _TrainerInterrupt(TrainerCallback):
+    def __init__(self, train_end_signal: ctypes.c_bool, share_dict: dict) -> None:
+        self.train_end_signal = train_end_signal
+        self.share_dict = share_dict
+
+    def on_trainer_loop(self, runner: srl.Runner) -> bool:
+        assert runner.state.trainer is not None
+        self.share_dict["train_count"] = runner.state.trainer.get_train_count()
+        runner.state.sync_trainer = self.share_dict["sync_count"]
+        return self.train_end_signal.value
+
+
 def _run_trainer(
-    mp_data: TaskConfig,
+    task_config: TaskConfig,
     parameter: RLParameter,
     memory: RLMemory,
     memory_queue: queue.Queue,
@@ -265,43 +281,49 @@ def _run_trainer(
     train_end_signal: ctypes.c_bool,
 ):
     logger.info("trainer start.")
-    mp_data.context.run_name = RunNameTypes.trainer
-
-    # --- memory
-    if mp_data.context.enable_prepare_batch:
-        memory = cast(RLMemory, _TrainerRLMemory(memory))
+    task_config.context.run_name = RunNameTypes.trainer
 
     # --- runner
     runner = srl.Runner(
-        mp_data.context.env_config,
-        mp_data.context.rl_config,
-        mp_data.config,
-        mp_data.context,
+        task_config.context.env_config,
+        task_config.context.rl_config,
+        task_config.config,
+        task_config.context,
         parameter,
-        memory,
     )
 
-    # --- trainer
-    trainer = _RLTrainer(
-        runner.make_trainer(),
-        parameter,
-        remote_board,
-        mp_data.context.trainer_parameter_send_interval_by_train_count,
-    )
-    if mp_data.context.enable_prepare_batch:
-        memory.trainer = trainer  # type: ignore
-
-    # --- memory
+    # --- memory_ps
+    share_dict = {"sync_count": 0, "train_count": 0}
+    if task_config.config.dist_enable_prepare_sample_batch:
+        batch_size = getattr(task_config.context.rl_config, "batch_size", 1)
+        memory = cast(RLMemory, _TrainerRLMemoryPrepareBatch(memory, batch_size, share_dict))
+    else:
+        memory = cast(RLMemory, _TrainerRLMemory(memory))
     exit_event = threading.Event()
     memory_ps = threading.Thread(
-        target=_memory_mp, args=(memory, memory_queue, exit_event, mp_data.context.enable_prepare_batch)
+        target=_server_communicate,
+        args=(
+            memory,
+            memory_queue,
+            parameter,
+            remote_board,
+            exit_event,
+            share_dict,
+            task_config.config.trainer_parameter_send_interval,
+        ),
     )
     memory_ps.start()
 
     # --- train
-    runner.context.callbacks.insert(0, _TrainerInterrupt(train_end_signal, trainer))
+    runner.context.callbacks.append(_TrainerInterrupt(train_end_signal, share_dict))
     runner.context.training = True
-    runner.core_play(trainer=trainer, trainer_only=True)
+    runner.core_play(
+        trainer_only=True,
+        parameter=parameter,
+        memory=memory,
+        trainer=None,
+        workers=None,
+    )
     train_end_signal.value = True
 
     # thread end
@@ -359,10 +381,8 @@ def train(runner: srl.Runner):
 
 
 def _train(runner: srl.Runner, manager: Any):
-    mp_data = runner.create_task_config()
-
     # callbacks
-    _callbacks = cast(List[MPCallback], [c for c in mp_data.context.callbacks if issubclass(c.__class__, MPCallback)])
+    _callbacks = cast(List[MPCallback], [c for c in runner.context.callbacks if issubclass(c.__class__, MPCallback)])
     [c.on_init(runner) for c in _callbacks]
 
     # --- share values
@@ -375,9 +395,10 @@ def _train(runner: srl.Runner, manager: Any):
     memory = runner.make_memory()
     remote_board.write(parameter.backup())
 
-    # --- actor
+    # --- actor ---
+    mp_data = runner.create_task_config(exclude_callbacks=["Checkpoint"])
     actors_ps_list: List[mp.Process] = []
-    for actor_id in range(mp_data.context.actor_num):
+    for actor_id in range(runner.context.actor_num):
         params = (
             mp_data,
             memory_queue,
@@ -387,6 +408,7 @@ def _train(runner: srl.Runner, manager: Any):
         )
         ps = mp.Process(target=_run_actor, args=params)
         actors_ps_list.append(ps)
+    # -------------
 
     # --- start
     logger.debug("process start")
@@ -397,7 +419,7 @@ def _train(runner: srl.Runner, manager: Any):
 
     # train
     _run_trainer(
-        mp_data,
+        runner.create_task_config(),
         parameter,
         memory,
         memory_queue,

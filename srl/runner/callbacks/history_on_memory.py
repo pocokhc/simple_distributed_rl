@@ -15,8 +15,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class HistoryOnMemory(Callback, TrainerCallback, Evaluate):
-    """memory上に保存する、distributeでは実行しない"""
-
     interval: int = 1  # s
 
     def _read_stats(self, runner: Runner):
@@ -25,23 +23,22 @@ class HistoryOnMemory(Callback, TrainerCallback, Evaluate):
 
         d = {}
 
-        if runner.config.used_psutil:
-            try:
-                memory_percent, cpu_percent = runner.read_psutil()
+        try:
+            memory_percent, cpu_percent = runner.read_psutil()
+            if memory_percent != np.NaN:
                 d["system_memory"] = memory_percent
                 d["cpu"] = cpu_percent
-            except Exception:
-                logger.debug(traceback.format_exc())
+        except Exception:
+            logger.debug(traceback.format_exc())
 
-        if runner.config.used_nvidia:
-            try:
-                gpus = runner.read_nvml()
-                # device_id, rate.gpu, rate.memory
-                for device_id, gpu, memory in gpus:
-                    d[f"gpu{device_id}"] = gpu
-                    d[f"gpu{device_id}_memory"] = memory
-            except Exception:
-                logger.debug(traceback.format_exc())
+        try:
+            gpus = runner.read_nvml()
+            # device_id, rate.gpu, rate.memory
+            for device_id, gpu, memory in gpus:
+                d[f"gpu{device_id}"] = gpu
+                d[f"gpu{device_id}_memory"] = memory
+        except Exception:
+            logger.debug(traceback.format_exc())
 
         return d
 
@@ -59,7 +56,7 @@ class HistoryOnMemory(Callback, TrainerCallback, Evaluate):
 
     def on_episodes_begin(self, runner: Runner):
         assert not runner.context.distributed
-
+        self.logs = []
         self.t0 = time.time()
         self.setup_eval_runner(runner)
 
@@ -110,7 +107,7 @@ class HistoryOnMemory(Callback, TrainerCallback, Evaluate):
         d.update(summarize_info_from_dictlist(self.episode_infos))
         d.update(self._read_stats(runner))
 
-        runner._history.append(d)
+        self.logs.append(d)
 
     # ---------------------------
     # trainer
@@ -121,6 +118,7 @@ class HistoryOnMemory(Callback, TrainerCallback, Evaluate):
         self.t0_train_count = 0
         self.interval_t0 = time.time()
         self.train_infos = {}
+        self.logs = []
 
     def on_trainer_end(self, runner: Runner):
         self._save_trainer_log(runner)
@@ -154,7 +152,7 @@ class HistoryOnMemory(Callback, TrainerCallback, Evaluate):
         d.update(summarize_info_from_dictlist(self.train_infos))
         d.update(self._read_stats(runner))
 
-        runner._history.append(d)
+        self.logs.append(d)
 
         self.t0_train = time.time()
         self.t0_train_count = runner.state.trainer.get_train_count()

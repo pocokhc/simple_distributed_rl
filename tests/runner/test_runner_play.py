@@ -1,4 +1,5 @@
 import io
+import os
 import time
 
 import numpy as np
@@ -41,11 +42,20 @@ def test_train_multi_runner():
     runner1.train(max_train_count=10)
 
 
+def test_rollout():
+    rl_config = ql_agent57.Config()
+    runner = srl.Runner("Grid", rl_config)
+
+    runner.rollout(max_memory=100)
+    assert runner.memory is not None
+    assert runner.memory.length() == 100
+
+
 def test_train_only():
     rl_config = ql_agent57.Config()
     runner = srl.Runner("Grid", rl_config)
 
-    runner.train(max_steps=10_000, disable_trainer=True)
+    runner.rollout(max_memory=1010)
     assert runner.memory is not None
     assert runner.memory.length() > 1000
 
@@ -94,17 +104,13 @@ def test_render_window():
     assert reward[0] > 0.5
 
 
-def test_animation():
+def test_animation(tmp_path):
     pytest.importorskip("cv2")
     pytest.importorskip("PIL")
     pytest.importorskip("pygame")
 
-    env_config = srl.EnvConfig("Grid")
-    rl_config = ql.Config()
-    runner = srl.Runner(env_config, rl_config)
-
-    runner.train(max_steps=20000)
-    runner.animation_save_gif("tmp_test/a.gif", max_steps=10)
+    runner = srl.Runner("Grid", ql.Config())
+    runner.animation_save_gif(os.path.join(tmp_path, "a.gif"), max_steps=10)
 
 
 def test_replay_window():
@@ -119,10 +125,7 @@ def test_replay_window():
     if not is_available_pygame_video_device():
         pytest.skip("pygame.error: No available video device")
 
-    env_config = srl.EnvConfig("Grid")
-    rl_config = ql.Config()
-    runner = srl.Runner(env_config, rl_config)
-
+    runner = srl.Runner("Grid", ql.Config())
     runner.replay_window(_is_test=True)
 
 
@@ -150,24 +153,24 @@ def test_play_window():
     runner.play_window(_is_test=True)
 
 
-def test_gym():
+def test_gym(tmp_path):
     pytest.importorskip("cv2")
     pytest.importorskip("PIL")
     pytest.importorskip("pygame")
     pytest.importorskip("gym")
 
     runner = srl.Runner("MountainCar-v0")
-    runner.animation_save_gif("tmp_test/b.gif", max_steps=10)
+    runner.animation_save_gif(os.path.join(tmp_path, "b.gif"), max_steps=10)
 
 
-def test_gymnasium():
+def test_gymnasium(tmp_path):
     pytest.importorskip("cv2")
     pytest.importorskip("PIL")
     pytest.importorskip("pygame")
     pytest.importorskip("gymnasium")
 
     runner = srl.Runner("MountainCar-v0", None)
-    runner.animation_save_gif("tmp_test/c.gif", max_steps=10)
+    runner.animation_save_gif(os.path.join(tmp_path, "b.gif"), max_steps=10)
 
 
 def test_shuffle_player():

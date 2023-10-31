@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 import srl
 from srl.algorithms import ql, ql_agent57
@@ -13,9 +14,18 @@ class _AssertTrainCallbacks(Callback, TrainerCallback):
         assert runner.state.sync_trainer > 1
 
 
-def test_train():
+@pytest.mark.parametrize("enable_prepare_sample_batch", [False, True])
+def test_train(enable_prepare_sample_batch):
     runner = srl.Runner("Grid", ql.Config())
-    runner.train_mp_debug(actor_num=2, max_train_count=10_000, callbacks=[_AssertTrainCallbacks()])
+    runner.train_mp_debug(
+        actor_num=2,
+        max_train_count=10_000,
+        enable_eval=True,
+        enable_prepare_sample_batch=enable_prepare_sample_batch,
+        callbacks=[_AssertTrainCallbacks()],
+        trainer_parameter_send_interval=0,
+        actor_parameter_sync_interval=0,
+    )
 
     # eval
     rewards = runner.evaluate(max_episodes=100)

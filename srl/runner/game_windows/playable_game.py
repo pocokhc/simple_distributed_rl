@@ -20,7 +20,7 @@ class PlayableGame(GameWindow):
         self,
         runner: Runner,
         key_bind: KeyBindType = None,
-        enable_remote_memory: bool = False,
+        enable_memory: bool = False,
         _is_test: bool = False,  # for test
     ) -> None:
         super().__init__(_is_test=_is_test)
@@ -32,13 +32,12 @@ class PlayableGame(GameWindow):
 
         self.noop = None
         self.step_time = 0
-        self.enable_remote_memory = enable_remote_memory
+        self.enable_memory = enable_memory
 
         # --- env/workers/trainer ---
-        assert runner.context._is_setup
         self.state = RunState()
         self.state.env = runner.make_env(is_init=True)
-        if self.enable_remote_memory:
+        if self.enable_memory:
             self.state.workers = runner.make_workers()
             self.state.parameter = runner.make_parameter()
             self.state.memory = runner.make_memory()
@@ -81,7 +80,7 @@ class PlayableGame(GameWindow):
             self.state.episode_seed += 1
         self.env_interval = self.state.env.config.render_interval
         self.set_image(self.state.env.render_rgb_array(), None)
-        if self.enable_remote_memory:
+        if self.enable_memory:
             self.state.worker_idx = self.state.env.next_player_index
             [
                 w.on_reset(i, training=self.runner.context.training, render_mode=self.runner.context.render_mode)
@@ -105,7 +104,7 @@ class PlayableGame(GameWindow):
         t0 = time.time()
 
         # --- worker.policy
-        if self.enable_remote_memory:
+        if self.enable_memory:
             _ = self.state.workers[self.state.worker_idx].policy()
 
         # --- env.step
@@ -121,7 +120,7 @@ class PlayableGame(GameWindow):
         worker_idx = self.state.env.next_player_index
 
         # --- worker.on_step
-        if self.enable_remote_memory:
+        if self.enable_memory:
             [w.on_step() for w in self.state.workers]
 
         # callbacks

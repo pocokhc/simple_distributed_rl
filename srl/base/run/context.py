@@ -1,10 +1,6 @@
 import copy
-import datetime
 import enum
 import logging
-import os
-import pickle
-import re
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Tuple, Union, cast
 
@@ -30,11 +26,6 @@ class RunNameTypes(enum.Enum):
     eval = enum.auto()
 
 
-class TrainingModeTypes(enum.Enum):
-    short = enum.auto()
-    long = enum.auto()
-
-
 StrWorkerType = Union[str, Tuple[str, dict]]
 RLWorkerType = Union[RLConfig, Tuple[RLConfig, Any]]  # [RLConfig, RLParameter]
 
@@ -52,19 +43,8 @@ class RunContext:
     # playersという変数名だけど、役割はworkersの方が正しい
     players: List[Union[None, StrWorkerType, RLWorkerType]] = field(default_factory=list)
 
-    run_name: RunNameTypes = RunNameTypes.main
-    #: 短い場合はwkdirを分けて作成
-    #: 長い場合はwkdirを同じにして、実行をまたいでリストアさせる
-    training_mode: TrainingModeTypes = TrainingModeTypes.short
-
-    # --- mp
-    actor_id: int = 0
-    actor_num: int = 1
-    trainer_parameter_send_interval_by_train_count: int = 100
-    actor_parameter_sync_interval_by_step: int = 100
-    enable_prepare_batch: bool = False
-
     # --- play context
+    run_name: RunNameTypes = RunNameTypes.main
     # stop config
     max_episodes: int = 0
     timeout: int = 0
@@ -79,6 +59,10 @@ class RunContext:
     training: bool = False
     render_mode: Union[str, RenderModes] = RenderModes.none
 
+    # --- mp
+    actor_id: int = 0
+    actor_num: int = 1
+
     # --- random
     seed: Optional[int] = None
 
@@ -91,12 +75,6 @@ class RunContext:
     # --- callbacks
     callbacks: List[Union[Callback, TrainerCallback]] = field(default_factory=list)
 
-    def __post_init__(self):
-        self._is_setup = False
-
-        self.wkdir: str = ""
-        self.start_date = datetime.datetime(2000, 1, 1)
-
     def create_controller(self) -> "RunContextController":
         return RunContextController(self)
 
@@ -105,11 +83,19 @@ class RunContextController:
     def __init__(self, context: RunContext):
         self.context = context
 
-    def to_dict(self) -> dict:
-        dat: dict = convert_for_json(self.context.__dict__)
+    def to_dict(self, skip_config: bool = False) -> dict:
+        if skip_config:
+            dat: dict = {}
+            for k, v in self.context.__dict__.items():
+                if k in ["env_config", "rl_config"]:
+                    continue
+                dat[k] = v
+            dat: dict = convert_for_json(dat)
+        else:
+            dat: dict = convert_for_json(self.context.__dict__)
         return dat
 
-    def copy(self, copy_setup: bool, copy_callbacks: bool) -> "RunContext":
+    def copy(self, copy_callbacks: bool, exclude_callbacks: List[str]) -> "RunContext":
         _c = self.context.callbacks
 
         self.context.callbacks = []
@@ -117,35 +103,22 @@ class RunContextController:
         self.context.callbacks = _c
 
         if copy_callbacks:
-            c.callbacks = _c
-
-        if copy_setup:
-            c._is_setup = self.context._is_setup
-        else:
-            c._is_setup = False
+            c.callbacks = []
+            for c2 in _c:
+                f = True
+                for e in exclude_callbacks:
+                    if e in c2.__class__.__name__:
+                        f = False
+                        break
+                if f:
+                    c.callbacks.append(c2)
         return c
-
-    def setup(self, training_mode: TrainingModeTypes = TrainingModeTypes.short, wkdir: str = "tmp"):
-        if self.context._is_setup:
-            return
-
-        self.context.training_mode = training_mode
-
-        if training_mode == TrainingModeTypes.short:
-            self.context.start_date = datetime.datetime.now()
-
-            # "YYYYMMDD_HHMMSS_EnvName_RLName"
-            dir_name = self.context.start_date.strftime("%Y%m%d_%H%M%S")
-            dir_name += f"_{self.context.env_config.name}_{self.context.rl_config.getName()}"
-            dir_name = re.sub(r'[\\/:?."<>\|]', "_", dir_name)
-            self.context.wkdir = os.path.join(wkdir, dir_name)
-
-        elif training_mode == TrainingModeTypes.long:
-            raise NotImplementedError("TODO")
-        else:
-            raise ValueError(training_mode)
-
-        self.context._is_setup = True
+    
+    def set_device(self, used_device_tf, used_device_torch):
+        self.context.used_device_tf = used_device_tf
+        self.context.used_device_torch = used_device_torch
+        self.context.rl_config._used_device_tf = used_device_tf
+        self.context.rl_config._used_device_torch = used_device_torch
 
     def make_env(self) -> EnvRun:
         env = make_env(self.context.env_config)

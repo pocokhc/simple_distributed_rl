@@ -32,14 +32,9 @@ class _ShareBool:
 class _Board:
     def __init__(self):
         self.params = None
-        self.update_count = 0
 
     def write(self, params):
         self.params = params
-        self.update_count += 1
-
-    def get_update_count(self):
-        return self.update_count
 
     def read(self):
         return self.params
@@ -117,7 +112,7 @@ def _run_actor(
         state.elapsed_t0 = time.time()
         state.worker_indices = [i for i in range(state.env.player_num)]
         state.sync_actor = 0
-        prev_update_count = 0
+        t0_sync = time.time()
 
         def __skip_func():
             [c.on_skip_step(runner) for c in _callbacks]
@@ -172,14 +167,12 @@ def _run_actor(
             state.total_step += 1
 
             # --- ActorInterrupt ---
-            if state.total_step % mp_data.context.actor_parameter_sync_interval_by_step == 0:
-                update_count = remote_board.get_update_count()
-                if update_count != prev_update_count:
-                    prev_update_count = update_count
-                    params = remote_board.read()
-                    if params is not None:
-                        parameter.restore(params)
-                        state.sync_actor += 1
+            if time.time() - t0_sync > mp_data.config.actor_parameter_sync_interval:
+                t0_sync = time.time()
+                params = remote_board.read()
+                if params is not None:
+                    parameter.restore(params)
+                    state.sync_actor += 1
             # --- ActorInterrupt ---
 
             _stop_flags = [c.on_step_end(runner) for c in _callbacks]
@@ -271,7 +264,7 @@ def _run_trainer(
 
         # --- init
         state.elapsed_t0 = time.time()
-        count_for_sync = 0
+        t0_sync = time.time()
 
         while True:
             yield
@@ -287,12 +280,11 @@ def _run_trainer(
 
             # --- train
             state.trainer.train()
-            _stop_flags = [c.on_trainer_train_end(runner) for c in _callbacks]
+            _stop_flags = [c.on_trainer_loop(runner) for c in _callbacks]
 
             # --- TrainerInterrupt ---
-            count_for_sync += 1
-            if count_for_sync > mp_data.context.trainer_parameter_send_interval_by_train_count:
-                count_for_sync = 0
+            if time.time() - t0_sync > mp_data.config.trainer_parameter_send_interval:
+                t0_sync = time.time()
                 remote_board.write(parameter.backup())
                 runner.state.sync_trainer += 1
 
@@ -335,8 +327,6 @@ def _run_memory(
 # 学習
 # ----------------------------
 def train(runner: srl.Runner, choice_method: str = "random"):
-    mp_data = runner.create_task_config()
-
     context = runner.context
     runner.make_env()
 
@@ -359,7 +349,7 @@ def train(runner: srl.Runner, choice_method: str = "random"):
     for actor_id in range(context.actor_num):
         actors_gen_list.append(
             _run_actor(
-                pickle.loads(pickle.dumps(mp_data)),
+                pickle.loads(pickle.dumps(runner.create_task_config(["Checkpoint"]))),
                 memory_queue,
                 remote_board,
                 pickle.loads(pickle.dumps(actor_id)),
@@ -369,7 +359,7 @@ def train(runner: srl.Runner, choice_method: str = "random"):
 
     # --- trainer
     trainer_gen = _run_trainer(
-        pickle.loads(pickle.dumps(mp_data)),
+        pickle.loads(pickle.dumps(runner.create_task_config())),
         parameter,
         memory,
         remote_board,

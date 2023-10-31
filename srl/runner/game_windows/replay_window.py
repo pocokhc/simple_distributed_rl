@@ -48,17 +48,17 @@ class _GetRGBCallback(Callback):
         # --- render info
         d["env_rgb_array"] = env.render_rgb_array()
 
-        self.step_info_env = d
+        self.step_info_env: dict = d
 
     def _tmp_step_worker(self, runner: Runner):
-        d = {
+        d: dict = {
             "action": runner.state.action,
         }
         for i, w in enumerate(runner.state.workers):
             d[f"work{i}_info"] = w.info
             d[f"work{i}_rgb_array"] = w.render_rgb_array()
 
-        self.step_info_worker = d
+        self.step_info_worker: dict = d
 
     def _add_step(self, is_skip_step=False):
         d = {"is_skip_step": is_skip_step}
@@ -95,7 +95,7 @@ class RePlayableGame(GameWindow):
             self.episode_data = cache[1]
         else:
             self.runner.context.disable_trainer = True
-            self.runner.core_play(trainer_only=False)
+            self.runner.core_play(trainer_only=False, parameter=None, memory=None, trainer=None, workers=None)
 
             self.episode_info = {"total_rewards": 0}
             self.episode_data = self.history.steps

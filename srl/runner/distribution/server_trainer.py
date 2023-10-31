@@ -3,58 +3,45 @@ import queue
 import threading
 import time
 import traceback
-from typing import Any, List, Optional, cast
+from typing import Any, List, cast
 
 import srl
-from srl.base.rl.base import IRLMemoryTrainer, RLMemory, RLParameter, RLTrainer
+from srl.base.rl.base import IRLMemoryTrainer, RLMemory, RLParameter
 from srl.base.run.context import RunNameTypes
 from srl.runner.callback import TrainerCallback
+from srl.runner.distribution.callback import TrainerServerCallback
 from srl.runner.distribution.manager import DistributedManager
 from srl.runner.runner import Runner, TaskConfig
 
 logger = logging.getLogger(__name__)
 
 
-class _RLTrainer(RLTrainer):
-    def __init__(self, base_trainer: RLTrainer):
-        super().__init__(base_trainer.config, base_trainer.parameter, base_trainer.memory)
-        self.base_trainer = base_trainer
-
-        self.sync_count = 0
-        self.count_for_sync = 0
-
-    def train(self) -> None:
-        if self.memory.is_warmup_needed():
-            time.sleep(1)
-            return
-        memory_sample_return = self.memory.sample(self.base_trainer.batch_size, self.train_count)
-        _prev_train_count = self.base_trainer.train_count
-        self.base_trainer.train_on_batchs(memory_sample_return)
-        self.count_for_sync += self.base_trainer.train_count - _prev_train_count
-
-        # --- infos
-        self.train_count = self.base_trainer.train_count
-        self.train_info = self.base_trainer.train_info
-        self.train_info["mp_sync"] = self.sync_count
-
-    def train_on_batchs(self, memory_sample_return) -> None:
-        raise NotImplementedError("not used")
-
-
-class _TrainerRLMemory(IRLMemoryTrainer):
-    def __init__(self, base_memory: RLMemory):
+# ---------------------------------------------------
+# thread
+#  enable_prepare_sample_batch: True
+#   (add -> sample, update) | (train)
+#
+#  enable_prepare_sample_batch: False
+#   (add) | (sample -> train -> update)
+#
+# ---------------------------------------------------
+class _TrainerRLMemoryThreadPrepareBatch(IRLMemoryTrainer):
+    def __init__(self, base_memory: RLMemory, batch_size: int, share_dict: dict):
+        # recv,warmup両方threadなので、両方待つ場合は待機
         self.base_memory = base_memory
+        self.batch_size = batch_size
+        self.share_dict = share_dict
         self.q_batch = queue.Queue()
         self.q_update = queue.Queue()
-        self.trainer: RLTrainer
 
-    def add(self, *args) -> None:
-        self.base_memory.add(*args)
-
-    def loop_update(self):
+    def recv(self, dat) -> None:
+        if dat is not None:
+            self.base_memory.add(*dat)
+        if dat is None and self.base_memory.is_warmup_needed():
+            time.sleep(1)
         if not self.base_memory.is_warmup_needed():
             if self.q_batch.qsize() < 5:
-                self.q_batch.put(self.base_memory.sample(self.trainer.batch_size, self.trainer.train_count))
+                self.q_batch.put(self.base_memory.sample(self.batch_size, self.share_dict["train_count"]))
         if not self.q_update.empty():
             self.base_memory.update(self.q_update.get())
 
@@ -71,62 +58,143 @@ class _TrainerRLMemory(IRLMemoryTrainer):
         self.q_update.put(memory_update_args)
 
 
+class _TrainerRLMemoryThread(IRLMemoryTrainer):
+    def __init__(self, base_memory: RLMemory):
+        # thread(recv) は受信できなければ待機
+        # main(is_warmup_needed) はwarmup中なら待機
+        self.base_memory = base_memory
+
+    def recv(self, dat) -> None:
+        if dat is None:
+            time.sleep(1)
+        else:
+            self.base_memory.add(*dat)
+
+    def length(self) -> int:
+        return self.base_memory.length()
+
+    def is_warmup_needed(self) -> bool:
+        if self.base_memory.is_warmup_needed():
+            time.sleep(1)
+            return True
+        return False
+
+    def sample(self, batch_size: int, step: int) -> Any:
+        return self.base_memory.sample(batch_size, step)
+
+    def update(self, memory_update_args: Any) -> None:
+        self.base_memory.update(memory_update_args)
+
+
 def _server_communicate(
     manager_args,
     task_id: str,
-    memory: _TrainerRLMemory,
+    memory: _TrainerRLMemoryThread,
     parameter: RLParameter,
-    trainer: _RLTrainer,
-    trainer_parameter_send_interval_by_train_count: int,
-    enable_prepare_batch: bool,
+    share_dict: dict,
+    trainer_parameter_send_interval: int,
 ):
     try:
         manager = DistributedManager.create(*manager_args)
+        t0 = time.time()
         while True:
-            # --- add memory
+            # --- recv memory
             dat = manager.memory_recv(task_id)
-            if dat is not None:
-                memory.add(*dat)
-            if enable_prepare_batch:
-                memory.loop_update()
+            memory.recv(dat)
 
             # --- sync parameter
-            if trainer.count_for_sync > trainer_parameter_send_interval_by_train_count:
-                trainer.count_for_sync = 0
+            if time.time() - t0 > trainer_parameter_send_interval:
+                t0 = time.time()
 
                 params = parameter.backup()
                 if params is not None:
                     manager.parameter_update(task_id, params)
-                    trainer.sync_count += 1
+                    share_dict["sync_count"] += 1
 
             # --- keepalive
             if manager.keepalive(task_id):
-                if manager.task_get_status(task_id) == "END":
+                manager.task_set_trainer(task_id, "train", str(share_dict["train_count"]))
+                manager.task_set_trainer(task_id, "memory", str(memory.length()))
+                if manager.task_is_dead(task_id):
+                    logger.info(f"task is dead: {task_id}")
                     break
-
-                manager.task_set_trainer(task_id, "train", trainer.get_train_count())
-                manager.task_set_trainer(task_id, "memory", memory.length())
 
     except Exception:
         logger.info(traceback.format_exc())
+    finally:
+        share_dict["end_signal"] = True
     logger.info("trainer thread end.")
 
 
-class _TrainerInterrupt(TrainerCallback):
-    def __init__(self, server_ps: threading.Thread) -> None:
+class _TrainerInterruptThread(TrainerCallback):
+    def __init__(self, server_ps: threading.Thread, share_dict: dict) -> None:
         self.server_ps = server_ps
+        self.share_dict = share_dict
 
-    def on_trainer_train_end(self, runner: Runner) -> bool:
-        return not self.server_ps.is_alive()
+    def on_trainer_loop(self, runner: Runner) -> bool:
+        assert runner.state.trainer is not None
+        self.share_dict["train_count"] = runner.state.trainer.get_train_count()
+        runner.state.sync_trainer = self.share_dict["sync_count"]
+        if not self.server_ps.is_alive():
+            self.share_dict["end_signal"] = True
+        return self.share_dict["end_signal"]
 
 
+# ------------------------------------------
+# no thread(add -> sample -> train -> update)
+# ------------------------------------------
+class _TrainerInterruptManager(TrainerCallback):
+    def __init__(
+        self,
+        manager: DistributedManager,
+        task_id,
+        memory: RLMemory,
+        trainer_parameter_send_interval: int,
+    ) -> None:
+        self.manager = manager
+        self.task_id = task_id
+        self.memory = memory
+        self.trainer_parameter_send_interval = trainer_parameter_send_interval
+        self.t0 = time.time()
+
+    def on_trainer_loop(self, runner: Runner) -> bool:
+        # --- recv memory
+        dat = self.manager.memory_recv(self.task_id)
+        if dat is not None:
+            assert runner.state.memory is not None
+            self.memory.add(*dat)
+
+        # no warmupとmemory emptyなら待つ
+        if dat is None and self.memory.is_warmup_needed():
+            time.sleep(1)
+
+        # --- sync parameter
+        if runner.state.is_step_trained:
+            if time.time() - self.t0 > self.trainer_parameter_send_interval:
+                self.t0 = time.time()
+
+                assert runner.state.parameter is not None
+                params = runner.state.parameter.backup()
+                if params is not None:
+                    self.manager.parameter_update(self.task_id, params)
+                    runner.state.sync_trainer += 1
+
+        # --- keepalive
+        if self.manager.keepalive(self.task_id):
+            assert runner.state.trainer is not None
+            self.manager.task_set_trainer(self.task_id, "train", str(runner.state.trainer.get_train_count()))
+            self.manager.task_set_trainer(self.task_id, "memory", str(self.memory.length()))
+            if self.manager.task_is_dead(self.task_id):
+                logger.info(f"task is dead: {self.task_id}")
+                return True
+        return False
+
+
+# --------------------------------
+# main
+# --------------------------------
 def _run_trainer(manager: DistributedManager, task_id: str, task_config: TaskConfig):
     task_config.context.run_name = RunNameTypes.trainer
-
-    # --- memory
-    memory = srl.make_memory(task_config.context.rl_config)
-    if task_config.context.enable_prepare_batch:
-        memory = cast(RLMemory, _TrainerRLMemory(memory))
 
     # --- runner
     runner = srl.Runner(
@@ -134,7 +202,6 @@ def _run_trainer(manager: DistributedManager, task_id: str, task_config: TaskCon
         task_config.context.rl_config,
         task_config.config,
         task_config.context,
-        memory=memory,
     )
 
     # --- parameter
@@ -145,54 +212,76 @@ def _run_trainer(manager: DistributedManager, task_id: str, task_config: TaskCon
     else:
         parameter.restore(params)
 
-    try:
-        trainer = _RLTrainer(runner.make_trainer())
-        if task_config.context.enable_prepare_batch:
-            cast(_TrainerRLMemory, memory).trainer = trainer
+    # --- memory
+    memory = runner.make_memory(is_load=False)
 
-        # --- connect
-        server_ps = threading.Thread(
-            target=_server_communicate,
-            args=(
-                manager.create_args(),
-                task_id,
-                memory,
-                parameter,
-                trainer,
-                task_config.context.trainer_parameter_send_interval_by_train_count,
-                task_config.context.enable_prepare_batch,
-            ),
-        )
-        server_ps.start()
+    try:
+        # --- thread
+        if task_config.config.dist_enable_trainer_thread:
+            share_dict = {
+                "sync_count": 0,
+                "train_count": 0,
+                "end_signal": False,
+            }
+            if task_config.config.dist_enable_prepare_sample_batch:
+                batch_size = getattr(task_config.context.rl_config, "batch_size", 1)
+                memory = _TrainerRLMemoryThreadPrepareBatch(memory, batch_size, share_dict)
+            else:
+                memory = _TrainerRLMemoryThread(memory)
+
+            server_ps = threading.Thread(
+                target=_server_communicate,
+                args=(
+                    manager.create_args(),
+                    task_id,
+                    memory,
+                    parameter,
+                    share_dict,
+                    task_config.config.trainer_parameter_send_interval,
+                ),
+            )
+            server_ps.start()
+            runner.context.callbacks.append(_TrainerInterruptThread(server_ps, share_dict))
+        else:
+            runner.context.callbacks.append(
+                _TrainerInterruptManager(
+                    manager,
+                    task_id,
+                    memory,
+                    task_config.config.trainer_parameter_send_interval,
+                )
+            )
 
         # --- play
-        runner.context.callbacks.append(_TrainerInterrupt(server_ps))
-        runner.core_play(trainer_only=True, trainer=trainer)
+        runner.core_play(
+            trainer_only=True,
+            parameter=parameter,
+            memory=cast(RLMemory, memory),
+            trainer=None,
+            workers=None,
+        )
 
     finally:
         # --- last params
         params = parameter.backup()
-        assert params is not None
-        manager.parameter_update(task_id, params)
+        if params is not None:
+            manager.parameter_update(task_id, params)
 
         # --- 終了はtrainerで
         manager.task_end(task_id)
 
 
-class TrainerServerCallback:
-    def on_polling(self) -> Optional[bool]:
-        """If return is True, it will end intermediate stop."""
-        return False
-
-
 def run_forever(
     host: str,
-    port: int = 6379,
     redis_kwargs: dict = {},
     keepalive_interval: int = 10,
     callbacks: List[TrainerServerCallback] = [],
+    framework: str = "tensorflow",
+    device: str = "AUTO",
 ):
-    manager = DistributedManager(host, port, redis_kwargs, keepalive_interval)
+    used_device_tf, used_device_torch = Runner.setup_device(framework, device)
+
+    manager = DistributedManager(host, redis_kwargs, keepalive_interval)
     manager.server_ping()
     manager.set_user("trainer")
 
@@ -206,14 +295,16 @@ def run_forever(
             if True in _stop_flags:
                 break
 
-            # --- board check
+            # --- task check
             task_id, task_config, _ = manager.task_assign_by_my_id()
-
-            # --- train loop
             if task_config is not None:
                 try:
                     print(f"train start: {manager.uid}")
                     logger.info(f"train start: {manager.uid}")
+                    task_config = cast(TaskConfig, task_config)
+                    task_config.context.create_controller().set_device(used_device_tf, used_device_torch)
+                    task_config.context.used_device_tf = used_device_tf
+                    task_config.context.used_device_torch = used_device_torch
                     _run_trainer(manager, task_id, task_config)
                     logger.info(f"train end: {manager.uid}")
                 finally:

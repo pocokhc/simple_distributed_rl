@@ -27,7 +27,7 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
 
     def __post_init__(self):
         assert self.start_time > 0
-        assert self.interval_limit > self.start_time
+        assert self.interval_limit >= self.start_time
         if self.start_time > self.interval_limit:
             logger.info(f"change start_time: {self.start_time}s -> {self.interval_limit}s")
             self.start_time = self.interval_limit
@@ -39,7 +39,6 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
         self.history_step = []
         self.history_episode = []
         self.history_episode_start_idx = 0
-        self.eval_runner = None
 
     def _check_print_progress(self):
         _time = time.time()
@@ -106,6 +105,7 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
         self.t0_print_time = _time
         self.t0_step_count = 0
         self.t0_episode_count = 0
+        self.t0_memory_count = 0
 
     def on_episodes_end(self, runner: Runner):
         if runner.context.actor_id >= self.progress_max_actor:
@@ -150,17 +150,23 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
             s += f" actor{context.actor_id:2d}:"
         s += f" {to_str_time(elapsed_time)}"
 
-        # calc time
+        # calc step time
         diff_step = state.total_step - self.t0_step_count
         if diff_step > 0:
             step_time = (_time - self.t0_print_time) / diff_step
         else:
             step_time = np.inf
         diff_episode = state.episode_count - self.t0_episode_count
-        if diff_episode:
+        if diff_episode > 0:
             episode_time = (_time - self.t0_print_time) / diff_episode
         else:
             episode_time = np.inf
+        memory_time = np.inf
+        if state.memory is not None:
+            diff_memory = state.memory.length() - self.t0_memory_count
+            if diff_memory > 0:
+                memory_time = (_time - self.t0_print_time) / diff_memory
+            self.t0_print_time = state.memory.length()
 
         self.t0_print_time = _time
         self.t0_step_count = state.total_step
@@ -184,7 +190,12 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
             train_count = state.trainer.get_train_count()
             if (context.max_train_count > 0) and (train_count > 0):
                 remain_train = (context.max_train_count - train_count) * step_time
+        remain_memory = np.inf
+        if state.memory is not None:
+            if context.max_memory > 0 and state.memory.length() > 0:
+                remain_memory = (context.max_memory - state.memory.length()) * memory_time
         remain = min(min(min(remain_step, remain_episode), remain_time), remain_train)
+        remain = min(remain, remain_memory)
         if remain == np.inf:
             s += "(     - left)"
         else:
@@ -264,30 +275,29 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
         # ,CPU100% M100%,GPU0 100% M100%
         s = ""
         if runner.context.actor_id == 0:
-            if runner.config.used_psutil:
-                try:
-                    memory_percent, cpu_percent = runner.read_psutil()
+            try:
+                memory_percent, cpu_percent = runner.read_psutil()
+                if memory_percent != np.NaN:
                     s += f"[CPU{cpu_percent:3.0f}%,M{memory_percent:2.0f}%]"
-                except Exception:
-                    logger.debug(traceback.format_exc())
-                    s += "[CPU Nan%]"
+            except Exception:
+                logger.debug(traceback.format_exc())
+                s += "[CPU Nan%]"
 
-            if runner.config.used_nvidia:
-                try:
-                    gpus = runner.read_nvml()
-                    # device_id, rate.gpu, rate.memory
-                    s += "".join([f"[GPU{g[0]} {g[1]:2.0f}%,M{g[2]:2.0f}%]" for g in gpus])
-                except Exception:
-                    logger.debug(traceback.format_exc())
-                    s += ",GPU Nan%"
+            try:
+                gpus = runner.read_nvml()
+                # device_id, rate.gpu, rate.memory
+                s += "".join([f"[GPU{g[0]} {g[1]:2.0f}%,M{g[2]:2.0f}%]" for g in gpus])
+            except Exception:
+                logger.debug(traceback.format_exc())
+                s += ",GPU Nan%"
         else:
-            if runner.config.used_psutil:
-                try:
-                    memory_percent, cpu_percent = runner.read_psutil()
+            try:
+                memory_percent, cpu_percent = runner.read_psutil()
+                if memory_percent != np.NaN:
                     s += f"[CPU{cpu_percent:3.0f}%]"
-                except Exception:
-                    logger.debug(traceback.format_exc())
-                    s += "[CPU Nan%]"
+            except Exception:
+                logger.debug(traceback.format_exc())
+                s += "[CPU Nan%]"
         return s
 
     # ----------------------------------
@@ -345,12 +355,11 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
 
         # calc time
         train_count = state.trainer.get_train_count()
-        diff_count = train_count - self.t0_train_count
-        if diff_count > 0:
-            train_time = (_time - self.t0_train_time) / diff_count
+        _d = train_count - self.t0_train_count
+        if _d > 0:
+            train_time = (_time - self.t0_train_time) / _d
         else:
             train_time = np.inf
-
         self.t0_train_time = _time
         self.t0_train_count = train_count
 

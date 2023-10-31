@@ -4,9 +4,21 @@
 1. tf/torchの互換パラメータの作成
 1. (SEED RL)
 1. (MARL)
-1. 長時間学習モード
-1. rl_configに画像かどうか追加
 1. mpでのやりとりで学習回数などの情報を増やす？
+
+
+# v0.13.1
+
+**MainUpdates**
+
+1. [runner] new: wkdirによる連続学習環境を整備
+   1. 合わせてmpとdistributionも更新
+   1. deviceの初期化方法を変更
+
+**OtherUpdates**
+
+1. [callbacks] change: on_trainer_train_end -> on_trainer_loop に変更
+1. [core.trainer] change: trainの戻り値をboolにし、train_on_batchsを実行したかを返すように変更
 
 # v0.13.0
 

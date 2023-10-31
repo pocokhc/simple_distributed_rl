@@ -9,7 +9,6 @@ from typing import Optional
 
 import numpy as np
 
-import srl
 from srl.runner.callback import Callback, TrainerCallback
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.runner import Runner
@@ -33,6 +32,7 @@ save_dir/
 
 @dataclass
 class HistoryOnFile(Callback, TrainerCallback, Evaluate):
+    save_dir: str = "history"
     interval: int = 1  # s
 
     def __post_init__(self):
@@ -52,37 +52,29 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
         fp.flush()
 
     def _init(self, runner: Runner):
-        self.save_dir = runner.context.wkdir
-        if not os.path.isdir(self.save_dir):
-            os.makedirs(self.save_dir, exist_ok=True)
-            logger.info(f"makedirs: {self.save_dir}")
-
-        self.log_dir = os.path.join(self.save_dir, "logs")
-        if not os.path.isdir(self.log_dir):
-            os.makedirs(self.log_dir, exist_ok=True)
-            logger.info(f"create log_dir: {self.log_dir}")
+        self.history_dir = os.path.join(self.save_dir, "history")
+        if not os.path.isdir(self.history_dir):
+            os.makedirs(self.history_dir, exist_ok=True)
+            logger.info(f"makedirs: {self.history_dir}")
 
         # --- ver
         path_ver = os.path.join(self.save_dir, "version.txt")
         if not os.path.isfile(path_ver):
+            import srl
+
             with open(path_ver, "w", encoding="utf-8") as f:
                 f.write(srl.__version__)
 
-        # --- file
-        path = os.path.join(self.save_dir, "env_config.json")
-        if not os.path.isfile(path):
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(runner.env_config.to_dict(), f, indent=2)
-
-        path = os.path.join(self.save_dir, "rl_config.json")
-        if not os.path.isfile(path):
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(runner.rl_config.to_dict(), f, indent=2)
-
-        path = os.path.join(self.save_dir, "context.json")
-        if not os.path.isfile(path):
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(runner.context_controller.to_dict(), f, indent=2)
+        for fn, dat in [
+            ["env_config.json", runner.context.env_config.to_dict()],
+            ["rl_config.json", runner.context.rl_config.to_dict()],
+            ["context.json", runner.context_controller.to_dict(skip_config=True)],
+            ["config.json", runner.config.to_dict()],
+        ]:
+            path = os.path.join(self.save_dir, fn)
+            if not os.path.isfile(path):
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(dat, f, indent=2)
 
     def _add_info(self, info, prefix, dict_):
         if dict_ is None:
@@ -102,7 +94,7 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
 
         self.actor_id = runner.context.actor_id
 
-        path = os.path.join(self.log_dir, f"actor{self.actor_id}.txt")
+        path = os.path.join(self.history_dir, f"actor{self.actor_id}.txt")
         self.fp_dict["actor"] = open(path, "w", encoding="utf-8")
 
         self.t0 = time.time()
@@ -186,23 +178,22 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
 
         d = {}
 
-        if runner.config.used_psutil:
-            try:
-                memory_percent, cpu_percent = runner.read_psutil()
+        try:
+            memory_percent, cpu_percent = runner.read_psutil()
+            if memory_percent != np.NaN:
                 d["system_memory"] = memory_percent
                 d["cpu"] = cpu_percent
-            except Exception:
-                logger.debug(traceback.format_exc())
+        except Exception:
+            logger.debug(traceback.format_exc())
 
-        if runner.config.used_nvidia:
-            try:
-                gpus = runner.read_nvml()
-                # device_id, rate.gpu, rate.memory
-                for device_id, gpu, memory in gpus:
-                    d[f"gpu{device_id}"] = gpu
-                    d[f"gpu{device_id}_memory"] = memory
-            except Exception:
-                logger.debug(traceback.format_exc())
+        try:
+            gpus = runner.read_nvml()
+            # device_id, rate.gpu, rate.memory
+            for device_id, gpu, memory in gpus:
+                d[f"gpu{device_id}"] = gpu
+                d[f"gpu{device_id}_memory"] = memory
+        except Exception:
+            logger.debug(traceback.format_exc())
 
         return d
 
@@ -211,7 +202,7 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
     # ---------------------------
     def on_trainer_start(self, runner: Runner):
         self._init(runner)
-        self.fp_dict["trainer"] = open(os.path.join(self.log_dir, "trainer.txt"), "w", encoding="utf-8")
+        self.fp_dict["trainer"] = open(os.path.join(self.history_dir, "trainer.txt"), "w", encoding="utf-8")
 
         self.t0 = time.time()
         self.t0_train = time.time()

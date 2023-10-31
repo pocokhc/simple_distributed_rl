@@ -61,8 +61,7 @@ class CommonBaseClass(ABC):
         if isinstance(env_config, str):
             env_config = EnvConfig(env_config)
 
-        device_trainer = "CPU"
-        device_actors = "CPU"
+        device = "CPU"
         if self.get_device() == "GPU":
             if self.get_framework() == "tensorflow":
                 if not common.is_available_gpu_tf():
@@ -71,14 +70,13 @@ class CommonBaseClass(ABC):
                 if not common.is_available_gpu_tf():
                     pytest.skip()
 
-            device_trainer = "GPU"
-            device_actors = "CPU"
+            device = "GPU"
 
         env_config.enable_sanitize_value = False
         rl_config.enable_sanitize_value = False
         runner = srl.Runner(env_config, rl_config)
-        runner.set_device(device_trainer, device_actors)
+        runner.set_device(device)
         runner.set_seed(1)
-        runner.set_stats(False)
+        runner.disable_stats()
 
         return runner, TestRL()

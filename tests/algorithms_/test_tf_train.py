@@ -1,6 +1,3 @@
-from srl.utils import common
-from tests.algorithms_ import base_dreamer_v2
-
 from . import (
     base_agent57,
     base_agent57_light,
@@ -9,6 +6,7 @@ from . import (
     base_ddpg,
     base_dqn,
     base_dreamer,
+    base_dreamer_v2,
     base_muzero,
     base_planet,
     base_ppo,

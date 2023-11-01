@@ -150,8 +150,9 @@ class PrintProgress(DistributionCallback, Evaluate):
         if trainer_id == "":
             print(" trainer  not assigned")
         else:
-            s = f" trainer  {trainer_id}: "
-            s += " {:6d}tr".format(train_count)
+            health = manager.task_get_trainer(task_id, "health")
+            s = f" trainer  {trainer_id} {health}: "
+            s += f" {train_count:5d}tr"
             s += f", {train_time:.3f}s/tr"
 
             memory_size = manager.task_get_trainer(task_id, "memory")
@@ -165,5 +166,6 @@ class PrintProgress(DistributionCallback, Evaluate):
             if aid == "":
                 print(f" actor{idx:<3d} not assigned")
             else:
+                health = manager.task_get_trainer(task_id, "health")
                 s = manager.task_get_actor(task_id, idx, "episode")
-                print(f" actor{idx:<3d} {aid}: {s:>7s}episode")
+                print(f" actor{idx:<3d} {aid} {health}: {s:>6s}ep")

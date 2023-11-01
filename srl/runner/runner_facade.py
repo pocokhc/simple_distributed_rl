@@ -1,13 +1,16 @@
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 from srl.base.define import RenderModes
 from srl.base.rl.base import RLMemory, RLParameter, RLTrainer
 from srl.base.run.context import RLWorkerType, RunNameTypes, StrWorkerType
 from srl.runner.callback import CallbackType
 from srl.runner.runner import Runner
+
+if TYPE_CHECKING:
+    from srl.runner.distribution.manager import ServerParameters
 
 logger = logging.getLogger(__name__)
 
@@ -492,8 +495,7 @@ class RunnerFacade(Runner):
 
     def train_distribution(
         self,
-        host: str,
-        redis_kwargs: dict = {},
+        server_parameters: "ServerParameters",
         # mp
         actor_num: int = 1,
         queue_capacity: int = 1000,
@@ -583,8 +585,8 @@ class RunnerFacade(Runner):
         )
 
         from .distribution.callback import DistributionCallback
+        from .distribution.callbacks.print_progress import PrintProgress as PrintProgressDist
         from .distribution.client import run
-        from .distribution.print_progress import PrintProgress as PrintProgressDist
 
         _callbacks_dist: List[DistributionCallback] = [
             PrintProgressDist(
@@ -600,7 +602,7 @@ class RunnerFacade(Runner):
             )
         ]
         if self.config.enable_wkdir:
-            from .distribution.checkpoint import Checkpoint
+            from .distribution.callbacks.checkpoint import Checkpoint
 
             _callbacks_dist.append(
                 Checkpoint(
@@ -616,7 +618,7 @@ class RunnerFacade(Runner):
                 )
             )
 
-        run(self, host, redis_kwargs, _callbacks_dist)
+        run(self, server_parameters, _callbacks_dist)
 
         self._add_core_play_after(*callback_return_args)
 

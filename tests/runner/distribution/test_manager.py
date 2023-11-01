@@ -1,82 +1,36 @@
-import queue
-from typing import Dict, Optional
-from unittest.mock import Mock
-
 import pytest
 import pytest_mock
 
-from srl.runner.distribution import manager as manager_module
-from srl.runner.distribution.manager import DistributedManager
+from srl.runner.distribution.manager import DistributedManager, ServerParameters
+from tests.runner.distribution.server_mock import create_mock
 
 
-class RedisMock(Mock):
-    tbl = {}
-    queues: Dict[str, queue.Queue] = {}
+@pytest.mark.parametrize("server", ["redis", "pika"])
+def test_memory(mocker: pytest_mock.MockerFixture, server):
+    create_mock(mocker)
+    if server == "redis":
+        rabbitmq_host = ""
+    else:
+        rabbitmq_host = "test"
+    manager = DistributedManager(ServerParameters(rabbitmq_host=rabbitmq_host))
 
-    def get(self, key: str) -> Optional[bytes]:
-        return self.tbl.get(key, None)
+    m = manager.create_memory_connector()
+    assert m.ping()
 
-    def set(self, key: str, value):
-        # どうやら文字列もバイナリになる
-        if isinstance(value, str):
-            value = value.encode()
-        self.tbl[key] = value
-        return True
+    m.memory_add("0", {"a": 1})
+    m.memory_add("1", {"b": 2})
 
-    def exists(self, key: str) -> bool:
-        return key in self.tbl
+    assert m.memory_size("0") == 1
+    assert m.memory_size("1") == 1
+    assert m.memory_size("2") == 0
 
-    def keys(self, filter: str):
-        filter = filter.replace("*", "")
-        keys = [k for k in list(self.tbl.keys()) if filter in k]
-        return keys
-
-    def rpush(self, key: str, value):
-        if key not in self.queues:
-            self.queues[key] = queue.Queue()
-        self.queues[key].put(value)
-        return True
-
-    def lpop(self, key: str):
-        if key not in self.queues:
-            return None
-        if self.queues[key].empty():
-            return None
-        return self.queues[key].get(timeout=1)
-
-    def llen(self, key: str):
-        if key not in self.queues:
-            return 0
-        return self.queues[key].qsize()
-
-
-def _create_mock(mocker: pytest_mock.MockerFixture):
-    mock_redis_cls = mocker.patch.object(manager_module.redis, "Redis", autospec=True)
-    mock_redis = RedisMock()
-    mock_redis_cls.return_value = mock_redis
-
-
-def test_memory(mocker: pytest_mock.MockerFixture):
-    _create_mock(mocker)
-    manager = DistributedManager("test")
-
-    manager.memory_add("0", "a")
-    manager.memory_add("1", "b")
-
-    assert manager.memory_size("0") == 1
-    assert manager.memory_size("1") == 1
-    assert manager.memory_size("2") == 0
-
-    assert manager.memory_recv("0") == "a"
-    assert manager.memory_recv("0") is None
-
-    manager.memory_reset("1")
-    assert manager.memory_size("1") == 0
+    assert m.memory_recv("0") == {"a": 1}
+    assert m.memory_recv("0") is None
 
 
 def test_parameter(mocker: pytest_mock.MockerFixture):
-    _create_mock(mocker)
-    manager = DistributedManager("test")
+    create_mock(mocker)
+    manager = DistributedManager(ServerParameters())
     manager.set_user("trainer")
 
     assert manager.parameter_read("0") is None
@@ -86,9 +40,14 @@ def test_parameter(mocker: pytest_mock.MockerFixture):
         manager.parameter_update("0", "a")
 
 
-def test_no_task(mocker: pytest_mock.MockerFixture):
-    _create_mock(mocker)
-    manager = DistributedManager("test")
+@pytest.mark.parametrize("server", ["redis", "pika"])
+def test_no_task(mocker: pytest_mock.MockerFixture, server):
+    create_mock(mocker)
+    if server == "redis":
+        rabbitmq_host = ""
+    else:
+        rabbitmq_host = "test"
+    manager = DistributedManager(ServerParameters(rabbitmq_host=rabbitmq_host))
 
     manager.task_end("0")
     assert manager.task_get_status("0") == ""
@@ -98,14 +57,19 @@ def test_no_task(mocker: pytest_mock.MockerFixture):
     assert manager.task_get_actor("0", 1, "a") == ""
     manager.task_set_actor("0", 1, "a", "a")
     manager.task_assign_by_my_id()
-    manager.log("0", "")
+    manager.task_log("0", "")
     manager.keepalive("0")
 
 
-def test_task(mocker: pytest_mock.MockerFixture):
-    _create_mock(mocker)
+@pytest.mark.parametrize("server", ["redis", "pika"])
+def test_task(mocker: pytest_mock.MockerFixture, server):
+    create_mock(mocker)
+    if server == "redis":
+        rabbitmq_host = ""
+    else:
+        rabbitmq_host = "test"
 
-    manager = DistributedManager("test")
+    manager = DistributedManager(ServerParameters(rabbitmq_host=rabbitmq_host))
     manager.set_user("client")
     task_id = manager.task_add(2, "config", "parameter")
     assert manager.task_get_status(task_id) == "WAIT"
@@ -116,44 +80,44 @@ def test_task(mocker: pytest_mock.MockerFixture):
     assert manager.task_get_actor(task_id, -1, "id") == ""
 
     # assign trainer
-    manager_trainer = DistributedManager("test")
+    manager_trainer = DistributedManager(ServerParameters(rabbitmq_host=rabbitmq_host))
     manager_trainer.set_user("trainer")
-    task_id_trainer, config, actor_id = manager_trainer.task_assign_by_my_id()
+    task_id_trainer, actor_id = manager_trainer.task_assign_by_my_id()
     assert task_id_trainer == task_id
-    assert config == "config"
+    assert manager_trainer.task_get_config(task_id) == "config"
     assert actor_id == 0
     assert manager_trainer.task_get_trainer(task_id, "id") == manager_trainer.uid
     assert manager_trainer.parameter_read(task_id) == "parameter"
     manager_trainer.parameter_update(task_id, "parameter2")
 
-    _, config, _ = manager_trainer.task_assign_by_my_id()
-    assert config is None
+    _t, _ = manager_trainer.task_assign_by_my_id()
+    assert _t == ""
 
     # assign actor1
-    manager_actor1 = DistributedManager("test")
+    manager_actor1 = DistributedManager(ServerParameters(rabbitmq_host=rabbitmq_host))
     manager_actor1.set_user("actor")
-    task_id_actor1, config, actor_id1 = manager_actor1.task_assign_by_my_id()
+    task_id_actor1, actor_id1 = manager_actor1.task_assign_by_my_id()
     assert task_id_actor1 == task_id
-    assert config == "config"
+    assert manager_actor1.task_get_config(task_id) == "config"
     assert actor_id1 == 0
     assert manager_actor1.task_get_actor(task_id, actor_id1, "id") == manager_actor1.uid
     assert manager_actor1.parameter_read(task_id) == "parameter2"
 
     # assign actor2
-    manager_actor2 = DistributedManager("test")
+    manager_actor2 = DistributedManager(ServerParameters(rabbitmq_host=rabbitmq_host))
     manager_actor2.set_user("actor")
-    task_id_actor2, config, actor_id2 = manager_actor2.task_assign_by_my_id()
+    task_id_actor2, actor_id2 = manager_actor2.task_assign_by_my_id()
     assert task_id_actor2 == task_id
-    assert config == "config"
+    assert manager_actor2.task_get_config(task_id) == "config"
     assert actor_id2 == 1
     assert manager_actor2.task_get_actor(task_id, actor_id2, "id") == manager_actor2.uid
     assert manager_actor2.parameter_read(task_id) == "parameter2"
 
-    _, config, _ = manager_actor2.task_assign_by_my_id()
-    assert config is None
+    _t, _ = manager_actor2.task_assign_by_my_id()
+    assert _t == ""
 
     # assign actor3
-    manager_actor3 = DistributedManager("test")
+    manager_actor3 = DistributedManager(ServerParameters(rabbitmq_host=rabbitmq_host))
     manager_actor3.set_user("actor")
-    _, config, _ = manager_actor3.task_assign_by_my_id()
-    assert config is None
+    _t, _ = manager_actor3.task_assign_by_my_id()
+    assert _t == ""

@@ -1,5 +1,6 @@
 import srl
 from srl.algorithms import ql
+from srl.runner.distribution import ServerParameters
 from srl.utils import common
 
 
@@ -8,7 +9,9 @@ def main():
     rl_config = ql.Config()
 
     runner = srl.Runner(env_config, rl_config)
-    runner.train_distribution("127.0.0.1", max_train_count=1000)
+
+    params = ServerParameters(redis_host="localhost", rabbitmq_host="localhost")
+    runner.train_distribution(params, max_train_count=1000)
 
     print(runner.evaluate())
 

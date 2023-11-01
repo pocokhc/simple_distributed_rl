@@ -5,22 +5,20 @@ from typing import List
 
 import srl
 from srl.runner.distribution.callback import DistributionCallback
-from srl.runner.distribution.manager import DistributedManager
+from srl.runner.distribution.manager import DistributedManager, ServerParameters
 
 logger = logging.getLogger(__name__)
 
 
 def run(
     runner: srl.Runner,
-    host: str,
-    redis_kwargs: dict = {},
+    server_parameter: ServerParameters,
     callbacks: List[DistributionCallback] = [],
 ):
     parameter = runner.make_parameter()
 
-    keepalive_interval = 10  # TODO
-    manager = DistributedManager(host, redis_kwargs, keepalive_interval)
-    manager.server_ping()
+    manager = DistributedManager(server_parameter)
+    assert manager.ping()
     manager.set_user("client")
 
     # --- task
@@ -62,7 +60,9 @@ def run(
                     break
             # -----------------
 
-            [c.on_polling(runner, manager, task_id) for c in callbacks]
+            _stop_flags = [c.on_polling(runner, manager, task_id) for c in callbacks]
+            if True in _stop_flags:
+                break
 
         except Exception:
             logger.error(traceback.format_exc())

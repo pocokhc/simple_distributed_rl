@@ -10,7 +10,7 @@ from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter
 from srl.base.run.context import RunNameTypes
 from srl.runner.callback import Callback
 from srl.runner.distribution.callback import ActorServerCallback
-from srl.runner.distribution.manager import DistributedManager
+from srl.runner.distribution.manager import DistributedManager, ServerParameters
 from srl.runner.runner import Runner, TaskConfig
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,10 @@ class _ActorRLMemoryThread(IRLMemoryWorker):
                 break
             if time.time() - t0 > 10:
                 t0 = time.time()
-                print(f"capacity over, wait queue: {qsize}/{self.dist_queue_capacity}")
+                s = f"capacity over, wait queue: {qsize}/{self.dist_queue_capacity}"
+                print(s)
+                logger.info(s)
+                break
             time.sleep(1)
 
     def length(self) -> int:
@@ -48,8 +51,9 @@ class _ActorRLMemoryThread(IRLMemoryWorker):
 
 
 class _ActorInterruptThread(Callback):
-    def __init__(self, server_ps: threading.Thread, share_dict: dict) -> None:
-        self.server_ps = server_ps
+    def __init__(self, memory_ps: threading.Thread, parameter_ps: threading.Thread, share_dict: dict) -> None:
+        self.memory_ps = memory_ps
+        self.parameter_ps = parameter_ps
         self.share_dict = share_dict
 
     def on_episodes_begin(self, runner: srl.Runner):
@@ -58,7 +62,9 @@ class _ActorInterruptThread(Callback):
 
     def on_step_end(self, runner: srl.Runner) -> bool:
         runner.state.sync_actor = self.share_dict["sync_count"]
-        if not self.server_ps.is_alive():
+        if not self.memory_ps.is_alive():
+            self.share_dict["end_signal"] = True
+        if not self.parameter_ps.is_alive():
             self.share_dict["end_signal"] = True
         return self.share_dict["end_signal"]
 
@@ -66,24 +72,46 @@ class _ActorInterruptThread(Callback):
         self.share_dict["episode_count"] = runner.state.episode_count
 
 
-def _server_communicate(
+def _memory_communicate(
     manager_args,
     task_id: str,
     actor_idx: int,
     memory: _ActorRLMemoryThread,
-    parameter: RLParameter,
     share_dict: dict,
-    actor_parameter_sync_interval: int,
+    th_exit_event: threading.Event,
 ):
     try:
         manager = DistributedManager.create(*manager_args)
-        t0 = time.time()
-        while True:
-            # --- send memory
-            share_dict["qsize"] = manager.memory_size(task_id)
-            if memory.length() > 0:
-                manager.memory_add(task_id, memory.q.get())
+        remote_memory = manager.create_memory_connector()
 
+        while not th_exit_event.is_set():
+            share_dict["qsize"] = remote_memory.memory_size(task_id)
+            if memory.length() == 0:
+                time.sleep(0.1)
+            else:
+                remote_memory.memory_add(task_id, memory.q.get())
+
+    except Exception:
+        share_dict["th_error"] = traceback.format_exc()
+    finally:
+        share_dict["end_signal"] = True
+        logger.info(f"actor{actor_idx} memory thread end.")
+
+
+def _parameter_communicate(
+    manager_args,
+    task_id: str,
+    actor_idx: int,
+    parameter: RLParameter,
+    share_dict: dict,
+    actor_parameter_sync_interval: int,
+    th_exit_event: threading.Event,
+):
+    try:
+        manager = DistributedManager.create(*manager_args)
+
+        t0 = time.time()
+        while not th_exit_event.is_set():
             # --- sync parameter
             if time.time() - t0 > actor_parameter_sync_interval:
                 t0 = time.time()
@@ -97,15 +125,19 @@ def _server_communicate(
             if manager.keepalive(task_id):
                 manager.task_set_actor(task_id, actor_idx, "episode", str(share_dict["episode_count"]))
                 if manager.task_is_dead(task_id):
-                    share_dict["end_signal"] = True
                     logger.info(f"task is dead: {task_id}")
                     break
 
+            time.sleep(1)
+
+        manager.keepalive(task_id, do_now=True)
+        manager.task_set_actor(task_id, actor_idx, "episode", str(share_dict["episode_count"]))
+
     except Exception:
-        logger.info(traceback.format_exc())
+        share_dict["th_error"] = traceback.format_exc()
     finally:
         share_dict["end_signal"] = True
-    logger.info(f"actor{actor_idx} thread end.")
+        logger.info(f"actor{actor_idx} parameter thread end.")
 
 
 # ------------------------------------------
@@ -114,6 +146,7 @@ def _server_communicate(
 class _ActorRLMemoryManager(IRLMemoryWorker):
     def __init__(self, manager: DistributedManager, task_id: str, dist_queue_capacity: int):
         self.manager = manager
+        self.remote_memory = manager.create_memory_connector()
         self.task_id = task_id
         self.dist_queue_capacity = dist_queue_capacity
         self.count = 0
@@ -121,9 +154,9 @@ class _ActorRLMemoryManager(IRLMemoryWorker):
 
     def add(self, *args) -> None:
         while True:
-            qsize = self.manager.memory_size(self.task_id)
+            qsize = self.remote_memory.memory_size(self.task_id)
             if 0 <= qsize < self.dist_queue_capacity:
-                self.manager.memory_add(self.task_id, args)
+                self.remote_memory.memory_add(self.task_id, args)
                 self.count += 1
                 break
 
@@ -176,6 +209,10 @@ class _ActorInterruptManager(Callback):
                 return True
         return False
 
+    def on_episodes_end(self, runner: Runner) -> None:
+        self.manager.keepalive(self.task_id, do_now=True)
+        self.manager.task_set_actor(self.task_id, self.actor_idx, "episode", str(runner.state.episode_count))
+
 
 # --------------------------------
 # main
@@ -207,23 +244,41 @@ def _run_actor(manager: DistributedManager, task_id: str, task_config: TaskConfi
             "qsize": 0,
             "episode_count": 0,
             "end_signal": False,
+            "th_error": "",
         }
         memory = _ActorRLMemoryThread(share_dict, task_config.config.dist_queue_capacity)
-        server_ps = threading.Thread(
-            target=_server_communicate,
+        th_exit_event = threading.Event()
+        memory_ps = threading.Thread(
+            target=_memory_communicate,
             args=(
                 manager.create_args(),
                 task_id,
                 actor_idx,
                 memory,
+                share_dict,
+                th_exit_event,
+            ),
+        )
+        parameter_ps = threading.Thread(
+            target=_parameter_communicate,
+            args=(
+                manager.create_args(),
+                task_id,
+                actor_idx,
                 parameter,
                 share_dict,
                 task_config.config.actor_parameter_sync_interval,
+                th_exit_event,
             ),
         )
-        server_ps.start()
-        runner.context.callbacks.append(_ActorInterruptThread(server_ps, share_dict))
+        memory_ps.start()
+        parameter_ps.start()
+        runner.context.callbacks.append(_ActorInterruptThread(memory_ps, parameter_ps, share_dict))
     else:
+        memory_ps = None
+        parameter_ps = None
+        th_exit_event = None
+        share_dict = {}
         memory = _ActorRLMemoryManager(manager, task_id, task_config.config.dist_queue_capacity)
         runner.context.callbacks.append(
             _ActorInterruptManager(
@@ -237,11 +292,11 @@ def _run_actor(manager: DistributedManager, task_id: str, task_config: TaskConfi
 
     # --- play
     runner.context.disable_trainer = True
-    runner.context.max_episodes = -1
-    runner.context.max_memory = -1
-    runner.context.max_steps = -1
-    runner.context.max_train_count = -1
-    runner.context.timeout = -1
+    # runner.context.max_episodes = -1
+    # runner.context.max_memory = -1
+    # runner.context.max_steps = -1
+    # runner.context.max_train_count = -1
+    # runner.context.timeout = -1
     try:
         runner.core_play(
             trainer_only=False,
@@ -250,22 +305,31 @@ def _run_actor(manager: DistributedManager, task_id: str, task_config: TaskConfi
             trainer=None,
             workers=None,
         )
-    except ActorException as e:
-        logger.info(e)
+    except ActorException:
+        raise
+    finally:
+        if th_exit_event is not None:
+            th_exit_event.set()
+            assert memory_ps is not None
+            assert parameter_ps is not None
+            memory_ps.join(timeout=10)
+            parameter_ps.join(timeout=10)
+            if share_dict["th_error"] != "":
+                raise ValueError(share_dict["th_error"])
 
 
 def run_forever(
-    host: str,
-    redis_kwargs: dict = {},
-    keepalive_interval: int = 10,
+    parameter: ServerParameters,
     callbacks: List[ActorServerCallback] = [],
     framework: str = "tensorflow",
     device: str = "CPU",
+    run_once: bool = False,
 ):
     used_device_tf, used_device_torch = Runner.setup_device(framework, device)
 
-    manager = DistributedManager(host, redis_kwargs, keepalive_interval)
-    manager.server_ping()
+    manager = DistributedManager(parameter)
+    assert manager.ping()
+    assert manager.create_memory_connector().ping()
     manager.set_user("actor")
 
     print(f"wait actor: {manager.uid}")
@@ -279,19 +343,27 @@ def run_forever(
                 break
 
             # --- task check
-            task_id, task_config, actor_id = manager.task_assign_by_my_id()
-            if task_config is not None:
+            task_id, actor_id = manager.task_assign_by_my_id()
+            if task_id != "":
                 try:
                     print(f"actor{manager.uid} start, actor_id={actor_id}")
                     logger.info(f"actor{manager.uid} start, actor_id={actor_id}")
-                    task_config = cast(TaskConfig, task_config)
+                    task_config = manager.task_get_config(task_id)
+                    assert task_config is not None
                     task_config.context.create_controller().set_device(used_device_tf, used_device_torch)
                     task_config.context.used_device_tf = used_device_tf
                     task_config.context.used_device_torch = used_device_torch
                     _run_actor(manager, task_id, task_config, actor_id)
                     logger.info(f"actor{manager.uid} end")
+                    if run_once:
+                        break
+                except Exception:
+                    raise
                 finally:
                     print(f"wait actor: {manager.uid}")
 
         except Exception:
-            logger.warning(traceback.format_exc())
+            if run_once:
+                raise
+            else:
+                logger.error(traceback.format_exc())

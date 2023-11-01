@@ -1,17 +1,16 @@
-import ctypes
 import multiprocessing as mp
 import socket
 import time
-from typing import cast
 
 import numpy as np
+import pytest
+import pytest_timeout  # noqa F401
 
 import srl
 from srl.algorithms import ql_agent57
 from srl.runner.callback import Callback, TrainerCallback
-from srl.runner.distribution.server_actor import ActorServerCallback
+from srl.runner.distribution.manager import ServerParameters
 from srl.runner.distribution.server_actor import run_forever as actor_run_forever
-from srl.runner.distribution.server_trainer import TrainerServerCallback
 from srl.runner.distribution.server_trainer import run_forever as trainer_run_forever
 from srl.utils import common
 
@@ -24,34 +23,14 @@ def is_port_open(host, port):
         return False
 
 
-class _ActorServerCallback(ActorServerCallback):
-    def __init__(self, end_signal: ctypes.c_bool):
-        self.end_signal = end_signal
-        self.t0 = time.time()
-
-    def on_polling(self) -> bool:
-        if time.time() - self.t0 > 10:
-            return True
-        return self.end_signal.value
+def _run_actor():
+    common.logger_print()
+    actor_run_forever(ServerParameters(redis_host="localhost", rabbitmq_host="localhost"))
 
 
-class _TrainerServerCallback(TrainerServerCallback):
-    def __init__(self, end_signal: ctypes.c_bool):
-        self.end_signal = end_signal
-        self.t0 = time.time()
-
-    def on_polling(self) -> bool:
-        if time.time() - self.t0 > 10:
-            return True
-        return self.end_signal.value
-
-
-def _run_actor(end_signal):
-    actor_run_forever("127.0.0.1", callbacks=[_ActorServerCallback(end_signal)])
-
-
-def _run_trainer(end_signal):
-    trainer_run_forever("127.0.0.1", callbacks=[_TrainerServerCallback(end_signal)])
+def _run_trainer():
+    common.logger_print()
+    trainer_run_forever(ServerParameters(redis_host="localhost", rabbitmq_host="localhost"))
 
 
 class _AssertTrainCallbacks(Callback, TrainerCallback):
@@ -59,20 +38,20 @@ class _AssertTrainCallbacks(Callback, TrainerCallback):
         assert runner.state.sync_actor > 0
 
     def on_trainer_end(self, runner: srl.Runner) -> None:
-        # assert runner.state.sync_trainer > 0  # TODO
-        pass
+        assert runner.state.sync_trainer > 0
 
 
+@pytest.mark.timeout(60)  # pip install pytest_timeout
 def test_train():
     # 起動しないテスト方法が不明...
     # サーバが起動している事
     common.logger_print()
 
+    assert is_port_open("127.0.0.1", 5672), "RabbitMQ is not running."
     assert is_port_open("127.0.0.1", 6379), "Redis is not running."
 
-    end_signal = cast(ctypes.c_bool, mp.Value(ctypes.c_bool, False))
-    th_actor = mp.Process(target=_run_actor, args=(end_signal,))
-    th_trainer = mp.Process(target=_run_trainer, args=(end_signal,))
+    th_actor = mp.Process(target=_run_actor)
+    th_trainer = mp.Process(target=_run_trainer)
 
     th_actor.start()
     th_trainer.start()
@@ -81,12 +60,12 @@ def test_train():
 
     runner = srl.Runner("Grid", ql_agent57.Config(batch_size=2))
     runner.train_distribution(
-        "127.0.0.1",
+        ServerParameters(redis_host="localhost", keepalive_interval=0),
+        trainer_parameter_send_interval=0,
+        actor_parameter_sync_interval=0,
         max_train_count=100_000,
-        timeout=10,  # for safety
         callbacks=[_AssertTrainCallbacks()],
     )
-    end_signal.value = True
 
     # eval
     rewards = runner.evaluate(max_episodes=100)

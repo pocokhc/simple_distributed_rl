@@ -10,7 +10,7 @@ from srl.runner.callback import CallbackType
 from srl.runner.runner import Runner
 
 if TYPE_CHECKING:
-    from srl.runner.distribution.manager import ServerParameters
+    from srl.runner.distribution.connectors.redis_ import RedisParameters
 
 logger = logging.getLogger(__name__)
 
@@ -495,7 +495,7 @@ class RunnerFacade(Runner):
 
     def train_distribution(
         self,
-        server_parameters: "ServerParameters",
+        redis_parameter: "RedisParameters",
         # mp
         actor_num: int = 1,
         queue_capacity: int = 1000,
@@ -585,7 +585,8 @@ class RunnerFacade(Runner):
         )
 
         from .distribution.callback import DistributionCallback
-        from .distribution.callbacks.print_progress import PrintProgress as PrintProgressDist
+        from .distribution.callbacks.print_progress import \
+            PrintProgress as PrintProgressDist
         from .distribution.client import run
 
         _callbacks_dist: List[DistributionCallback] = [
@@ -618,7 +619,7 @@ class RunnerFacade(Runner):
                 )
             )
 
-        run(self, server_parameters, _callbacks_dist)
+        run(self, redis_parameter, _callbacks_dist)
 
         self._add_core_play_after(*callback_return_args)
 

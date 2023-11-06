@@ -2,13 +2,16 @@ from queue import Queue
 from typing import Dict, Optional, Union
 from unittest.mock import Mock
 
-import pika.exceptions
+try:
+    import google.api_core.exceptions
+    import pika.exceptions
+except ModuleNotFoundError as e:
+    print(e)
+
 import pytest_mock
 
-from srl.runner.distribution import manager as manager_module
 
-
-class PikaMock(Mock):
+class PikaMock:
     queues: Dict[str, Queue] = {}
 
     def __init__(self):
@@ -26,88 +29,181 @@ class PikaMock(Mock):
         if not self.connection:
             raise pika.exceptions.ChannelClosedByBroker(403, "NOT_CONNECTED")
         # なくても例外は出ない
-        if routing_key not in self.queues:
+        if routing_key not in PikaMock.queues:
             return
-        self.queues[routing_key].put(body)
+        PikaMock.queues[routing_key].put(body)
 
     def basic_get(self, queue: str, auto_ack: bool = False):
         if not self.connection:
             raise pika.exceptions.ChannelClosedByBroker(403, "NOT_CONNECTED")
         # ない場合は例外
-        if queue not in self.queues:
+        if queue not in PikaMock.queues:
             self.connection = False
             raise pika.exceptions.ChannelClosedByBroker(404, "NOT_FOUND")
-        if self.queues[queue].empty():
+        if PikaMock.queues[queue].empty():
             return None, None, None
-        return {}, {}, self.queues[queue].get()
+        return {}, {}, PikaMock.queues[queue].get()
 
     def queue_declare(self, queue: str, passive: bool = False):
         if not self.connection:
             raise pika.exceptions.ChannelClosedByBroker(403, "NOT_CONNECTED")
         # ない場合は例外
         if passive:
-            if queue not in self.queues:
+            if queue not in PikaMock.queues:
                 self.connection = False
                 raise pika.exceptions.ChannelClosedByBroker(404, "NOT_FOUND")
         else:
-            if queue not in self.queues:
-                self.queues[queue] = Queue()
+            if queue not in PikaMock.queues:
+                PikaMock.queues[queue] = Queue()
 
         mock = Mock()
-        mock.method.message_count = self.queues[queue].qsize()
+        mock.method.message_count = PikaMock.queues[queue].qsize()
         return mock
 
+    def queue_delete(self, queue: str):
+        if not self.connection:
+            raise pika.exceptions.ChannelClosedByBroker(403, "NOT_CONNECTED")
+        # ない場合は例外
+        if queue not in PikaMock.queues:
+            self.connection = False
+            raise pika.exceptions.ChannelClosedByBroker(404, "NOT_FOUND")
+        del PikaMock.queues[queue]
 
-class RedisMock(Mock):
+
+class RedisMock:
     tbl = {}
     queues: Dict[str, Queue] = {}
 
+    def ping(self) -> bool:
+        return True
+
+    def close(self) -> None:
+        pass
+
     def get(self, key: str) -> Optional[bytes]:
-        return self.tbl.get(key, None)
+        return RedisMock.tbl.get(key, None)
 
     def set(self, key: str, value):
         # どうやら文字列もバイナリになる
         if isinstance(value, str):
             value = value.encode()
-        self.tbl[key] = value
+        RedisMock.tbl[key] = value
         return True
 
     def exists(self, key: str) -> bool:
-        return key in self.tbl
+        return key in RedisMock.tbl
 
     def keys(self, filter: str):
         filter = filter.replace("*", "")
-        keys = [k for k in list(self.tbl.keys()) if filter in k]
+        keys = [k for k in list(RedisMock.tbl.keys()) if filter in k]
         return keys
 
     def rpush(self, key: str, value):
-        if key not in self.queues:
-            self.queues[key] = Queue()
-        self.queues[key].put(value)
+        if key not in RedisMock.queues:
+            RedisMock.queues[key] = Queue()
+        RedisMock.queues[key].put(value)
         return True
 
     def lpop(self, key: str):
-        if key not in self.queues:
+        if key not in RedisMock.queues:
             return None
-        if self.queues[key].empty():
+        if RedisMock.queues[key].empty():
             return None
-        return self.queues[key].get(timeout=1)
+        return RedisMock.queues[key].get(timeout=1)
 
     def llen(self, key: str):
-        if key not in self.queues:
+        if key not in RedisMock.queues:
             return 0
-        return self.queues[key].qsize()
+        return RedisMock.queues[key].qsize()
 
 
-def create_mock(mocker: pytest_mock.MockerFixture):
-    # --- redis
-    mock_redis_cls = mocker.patch.object(manager_module.redis, "Redis", autospec=True)
+class GCPMock:
+    tbl = {}
+    queues: Dict[str, Queue] = {}
+
+    def topic_path(self, project: str, topic: str):
+        return f"{project}/{topic}"
+
+    def subscription_path(self, project: str, subscription: str):
+        return f"{project}/{subscription}"
+
+    def create_topic(self, name: str):
+        if name not in GCPMock.queues:
+            GCPMock.queues[name] = Queue()
+
+    def create_subscription(self, name: str, topic: str):
+        GCPMock.tbl[name] = topic
+        if topic not in GCPMock.queues:
+            GCPMock.queues[topic] = Queue()
+
+    def get_topic(self, topic: str):
+        if topic not in GCPMock.queues:
+            raise google.api_core.exceptions.NotFound("Not found")
+        return {}
+
+    def get_subscription(self, subscription: str):
+        if subscription not in GCPMock.tbl:
+            raise google.api_core.exceptions.NotFound("Not found")
+        return {}
+
+    def publish(self, topic: str, dat):
+        GCPMock.queues[topic].put(dat)
+
+    def pull(self, subscription: str, **kwargs):
+        if GCPMock.queues[GCPMock.tbl[subscription]].empty():
+            mock = Mock()
+            mock.received_messages = []
+            return mock
+        dat = GCPMock.queues[GCPMock.tbl[subscription]].get(timeout=1)
+
+        mock2 = Mock()
+        mock2.ack_id = 1
+        mock2.message.data = dat
+
+        mock = Mock()
+        mock.received_messages = [mock2]
+
+        return mock
+
+    def acknowledge(self, subscription: str, **kwargs):
+        pass
+
+    def delete_topic(self, topic: str):
+        if topic not in GCPMock.queues:
+            raise google.api_core.exceptions.NotFound("Not found")
+        del GCPMock.queues[topic]
+
+    def delete_subscription(self, subscription: str):
+        if subscription not in GCPMock.tbl:
+            raise google.api_core.exceptions.NotFound("Not found")
+        del GCPMock.queues[GCPMock.tbl[subscription]]
+
+
+def create_redis_mock(mocker: pytest_mock.MockerFixture):
+    from srl.runner.distribution.connectors import redis_
+
+    mock_redis_cls = mocker.patch.object(redis_.redis, "Redis", autospec=True)
     mock_redis = RedisMock()
     mock_redis_cls.return_value = mock_redis
+    return mock_redis
 
-    # --- pika
-    mock_pika_cls = mocker.patch.object(manager_module.pika, "BlockingConnection", autospec=True)
+
+def create_pika_mock(mocker: pytest_mock.MockerFixture):
+    from srl.runner.distribution.connectors import rabbitmq
+
+    mock_pika_cls = mocker.patch.object(rabbitmq.pika, "BlockingConnection", autospec=True)
     mock_pika = PikaMock()
     mock_pika_cls.return_value = mock_pika
+    return mock_pika
 
-    return mock_redis, mock_pika
+
+def create_gcp_mock(mocker: pytest_mock.MockerFixture):
+    from srl.runner.distribution.connectors import gcp
+
+    mock_gcp = GCPMock()
+    mock_gcp_cls = mocker.patch.object(gcp.pubsub_v1, "PublisherClient", autospec=True)
+    mock_gcp_cls.return_value = mock_gcp
+    mock_gcp_cls = mocker.patch.object(gcp.pubsub_v1, "SubscriberClient", autospec=True)
+    mock_gcp_cls.return_value = mock_gcp
+
+    return mock_gcp

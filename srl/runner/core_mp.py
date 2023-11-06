@@ -106,7 +106,7 @@ class _ActorInterrupt(Callback):
 
 
 def _run_actor(
-    mp_data: TaskConfig,
+    task_config: TaskConfig,
     memory_queue: queue.Queue,
     remote_board: _Board,
     actor_id: int,
@@ -114,23 +114,16 @@ def _run_actor(
 ):
     try:
         logger.info(f"actor{actor_id} start.")
-        context = mp_data.context
+        context = task_config.context
         context.run_name = RunNameTypes.actor
         context.actor_id = actor_id
-
-        # --- set_config_by_actor
-        context.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
-
-        # --- memory
-        memory = cast(RLMemory, _ActorRLMemory(memory_queue, mp_data.config.dist_queue_capacity, train_end_signal))
 
         # --- runner
         runner = srl.Runner(
             context.env_config,
             context.rl_config,
-            mp_data.config,
-            context,
-            memory=memory,
+            task_config.config,
+            task_config.context,
         )
 
         # --- parameter
@@ -139,15 +132,27 @@ def _run_actor(
         if params is not None:
             parameter.restore(params)
 
+        # --- memory
+        memory = cast(
+            RLMemory,
+            _ActorRLMemory(
+                memory_queue,
+                task_config.config.dist_queue_capacity,
+                train_end_signal,
+            ),
+        )
+
         # --- callback
         runner.context.callbacks.append(
             _ActorInterrupt(
                 remote_board,
                 parameter,
                 train_end_signal,
-                mp_data.config.actor_parameter_sync_interval,
+                task_config.config.actor_parameter_sync_interval,
             )
         )
+
+        # --- play
         runner.context.training = True
         runner.context.disable_trainer = True
         runner.core_play(
@@ -166,39 +171,6 @@ def _run_actor(
 # --------------------
 # trainer
 # --------------------
-class _TrainerRLMemoryPrepareBatch(IRLMemoryTrainer):
-    def __init__(self, base_memory: RLMemory, batch_size: int, share_dict: dict):
-        # recv,warmup両方threadなので、両方待つ場合は待機
-        self.base_memory = base_memory
-        self.batch_size = batch_size
-        self.share_dict = share_dict
-        self.q_batch = queue.Queue()
-        self.q_update = queue.Queue()
-
-    def recv(self, dat) -> None:
-        if dat is not None:
-            self.base_memory.add(*dat)
-        if dat is None and self.base_memory.is_warmup_needed():
-            time.sleep(1)
-        if not self.base_memory.is_warmup_needed():
-            if self.q_batch.qsize() < 5:
-                self.q_batch.put(self.base_memory.sample(self.batch_size, self.share_dict["train_count"]))
-        if not self.q_update.empty():
-            self.base_memory.update(self.q_update.get())
-
-    def length(self) -> int:
-        return self.base_memory.length()
-
-    def is_warmup_needed(self) -> bool:
-        return self.q_batch.empty()
-
-    def sample(self, batch_size: int, step: int) -> Any:
-        return self.q_batch.get()
-
-    def update(self, memory_update_args: Any) -> None:
-        self.q_update.put(memory_update_args)
-
-
 class _TrainerRLMemory(IRLMemoryTrainer):
     def __init__(self, base_memory: RLMemory):
         # thread(recv) は受信できなければ待機
@@ -294,11 +266,7 @@ def _run_trainer(
 
     # --- memory_ps
     share_dict = {"sync_count": 0, "train_count": 0}
-    if task_config.config.dist_enable_prepare_sample_batch:
-        batch_size = getattr(task_config.context.rl_config, "batch_size", 1)
-        memory = cast(RLMemory, _TrainerRLMemoryPrepareBatch(memory, batch_size, share_dict))
-    else:
-        memory = cast(RLMemory, _TrainerRLMemory(memory))
+    memory = cast(RLMemory, _TrainerRLMemory(memory))
     exit_event = threading.Event()
     memory_ps = threading.Thread(
         target=_server_communicate,

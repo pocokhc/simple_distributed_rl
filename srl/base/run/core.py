@@ -123,6 +123,10 @@ def _play(
         callback_data = CallbackData()
     callback_data.set_data(context, state)
 
+    # --- set_config_by_actor
+    if context.distributed:
+        context.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
+
     # --- random
     if context.seed is not None:
         state.episode_seed = random.randint(0, 2**16)

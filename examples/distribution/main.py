@@ -1,6 +1,6 @@
 import srl
 from srl.algorithms import ql
-from srl.runner.distribution import ServerParameters
+from srl.runner.distribution import RedisParameters
 from srl.utils import common
 
 
@@ -10,8 +10,10 @@ def main():
 
     runner = srl.Runner(env_config, rl_config)
 
-    params = ServerParameters(redis_host="localhost", rabbitmq_host="localhost")
-    runner.train_distribution(params, max_train_count=1000)
+    runner.train_distribution(
+        RedisParameters(host="localhost"),
+        max_train_count=1000,
+    )
 
     print(runner.evaluate())
 

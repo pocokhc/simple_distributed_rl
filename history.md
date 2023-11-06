@@ -14,6 +14,8 @@
 1. [runner] new: wkdirによる連続学習環境を整備
    1. 合わせてmpとdistributionも更新
    1. deviceの初期化方法を変更
+1. [distribution] change: QueueのやりとりにRabbitMQを使えるように変更
+1. [distribution] add: QueueのやりとりにGoogleCloud Pub/Subを追加
 
 **OtherUpdates**
 

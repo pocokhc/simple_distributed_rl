@@ -5,19 +5,20 @@ from typing import List
 
 import srl
 from srl.runner.distribution.callback import DistributionCallback
-from srl.runner.distribution.manager import DistributedManager, ServerParameters
+from srl.runner.distribution.connectors.parameters import RedisParameters
+from srl.runner.distribution.manager import DistributedManager
 
 logger = logging.getLogger(__name__)
 
 
 def run(
     runner: srl.Runner,
-    server_parameter: ServerParameters,
+    redis_parameter: RedisParameters,
     callbacks: List[DistributionCallback] = [],
 ):
     parameter = runner.make_parameter()
 
-    manager = DistributedManager(server_parameter)
+    manager = DistributedManager(redis_parameter, None)
     assert manager.ping()
     manager.set_user("client")
 

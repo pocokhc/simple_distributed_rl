@@ -9,7 +9,7 @@ import pytest_timeout  # noqa F401
 import srl
 from srl.algorithms import ql_agent57
 from srl.runner.callback import Callback, TrainerCallback
-from srl.runner.distribution.manager import ServerParameters
+from srl.runner.distribution.connectors.parameters import RabbitMQParameters, RedisParameters
 from srl.runner.distribution.server_actor import run_forever as actor_run_forever
 from srl.runner.distribution.server_trainer import run_forever as trainer_run_forever
 from srl.utils import common
@@ -25,12 +25,12 @@ def is_port_open(host, port):
 
 def _run_actor():
     common.logger_print()
-    actor_run_forever(ServerParameters(redis_host="localhost", rabbitmq_host="localhost"))
+    actor_run_forever(RedisParameters(host="localhost"), RabbitMQParameters(host="localhost", ssl=False))
 
 
 def _run_trainer():
     common.logger_print()
-    trainer_run_forever(ServerParameters(redis_host="localhost", rabbitmq_host="localhost"))
+    trainer_run_forever(RedisParameters(host="localhost"), RabbitMQParameters(host="localhost", ssl=False))
 
 
 class _AssertTrainCallbacks(Callback, TrainerCallback):
@@ -60,7 +60,7 @@ def test_train():
 
     runner = srl.Runner("Grid", ql_agent57.Config(batch_size=2))
     runner.train_distribution(
-        ServerParameters(redis_host="localhost", keepalive_interval=0),
+        RedisParameters(host="localhost", keepalive_interval=0),
         trainer_parameter_send_interval=0,
         actor_parameter_sync_interval=0,
         max_train_count=100_000,

@@ -136,9 +136,9 @@ class PrintProgress(DistributionCallback, Evaluate):
         else:
             s += f"({to_str_time(remain)} left)"
 
-        # [qsize]
-        qsize = manager.memory_size(task_id)
-        s += f", {qsize} qsize"
+        # [qsize] TODO
+        # qsize = manager.memory_size()
+        # s += f", {qsize} qsize"
 
         # [eval]
         s += self._eval_str(runner)

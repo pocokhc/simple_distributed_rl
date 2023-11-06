@@ -1,9 +1,11 @@
-from srl.runner.distribution import ServerParameters, trainer_run_forever
+from srl.runner.distribution import RabbitMQParameters, RedisParameters, trainer_run_forever
 
 
 def main():
-    params = ServerParameters(redis_host="localhost", rabbitmq_host="localhost")
-    trainer_run_forever(params)
+    trainer_run_forever(
+        RedisParameters(host="localhost"),
+        RabbitMQParameters(host="localhost", ssl=False),
+    )
 
 
 if __name__ == "__main__":

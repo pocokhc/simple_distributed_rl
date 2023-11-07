@@ -43,12 +43,12 @@ def train():
     runner.model_summary()
 
     # train
-    runner.train(max_episodes=1000, disable_trainer=True)
+    runner.rollout(max_episodes=1000)
 
     rl_config.memory.warmup_size = rl_config.batch_size + 1
     runner.train_only(max_train_count=2_000)
 
-    runner.save(_parameter_path)
+    runner.save_parameter(_parameter_path)
 
 
 def evaluate():

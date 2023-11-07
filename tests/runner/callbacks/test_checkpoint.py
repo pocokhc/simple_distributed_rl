@@ -1,6 +1,5 @@
 import os
 import pickle
-import shutil
 
 import srl
 from srl.algorithms import ql, ql_agent57

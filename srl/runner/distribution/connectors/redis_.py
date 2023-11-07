@@ -32,7 +32,12 @@ class RedisConnector(IMemoryConnector):
         if self.server is not None:
             return
         if self.parameter.url == "":
-            self.server = redis.Redis(self.parameter.host, **self.parameter.kwargs)
+            self.server = redis.Redis(
+                self.parameter.host,
+                self.parameter.port,
+                self.parameter.db,
+                **self.parameter.kwargs,
+            )
         else:
             self.server = redis.from_url(self.parameter.url, **self.parameter.kwargs)
 

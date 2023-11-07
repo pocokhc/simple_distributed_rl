@@ -7,9 +7,12 @@ from srl.runner.distribution.connectors.imemory import IMemoryConnector, IServer
 class RedisParameters(IServerParameters):
     url: str = ""
     host: str = ""
+    port: int = 6379
+    db: int = 0
     kwargs: dict = field(default_factory=dict)
 
     def create_memory_connector(self) -> "IMemoryConnector":
+        assert self.url != "" or self.host != "", "Please specify 'host' or 'url'."
         from .redis_ import RedisConnector
 
         return RedisConnector(self)
@@ -27,6 +30,7 @@ class RabbitMQParameters(IServerParameters):
     kwargs: dict = field(default_factory=dict)
 
     def create_memory_connector(self) -> IMemoryConnector:
+        assert self.url != "" or self.host != "", "Please specify 'host' or 'url'."
         from .rabbitmq import RabbitMQConnector
 
         return RabbitMQConnector(self)
@@ -37,6 +41,7 @@ class GCPParameters(IServerParameters):
     project_id: str = ""
 
     def create_memory_connector(self) -> IMemoryConnector:
-        from .gcp import GCPubSubConnector
+        assert self.project_id != "", "Please specify 'project_id'."
+        from .gcp import GCPPubSubConnector
 
-        return GCPubSubConnector(self)
+        return GCPPubSubConnector(self)

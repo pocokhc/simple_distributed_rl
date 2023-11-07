@@ -11,22 +11,22 @@ from tests.runner.distribution.test_connectors import memory_connector_test
 
 def test_memory_redis(mocker: pytest_mock.MockerFixture):
     create_redis_mock(mocker)
-    memory_connector_test(RedisParameters().create_memory_connector())
+    memory_connector_test(RedisParameters(host="test").create_memory_connector())
 
 
 def test_memory_pika(mocker: pytest_mock.MockerFixture):
     create_pika_mock(mocker)
-    memory_connector_test(RabbitMQParameters().create_memory_connector())
+    memory_connector_test(RabbitMQParameters(host="test").create_memory_connector())
 
 
 def test_memory_gcp(mocker: pytest_mock.MockerFixture):
     create_gcp_mock(mocker)
-    memory_connector_test(GCPParameters().create_memory_connector())
+    memory_connector_test(GCPParameters(project_id="test").create_memory_connector())
 
 
 def test_parameter(mocker: pytest_mock.MockerFixture):
     create_redis_mock(mocker)
-    manager = DistributedManager(RedisParameters(), None)
+    manager = DistributedManager(RedisParameters(host="test"), None)
     manager.set_user("trainer")
 
     assert manager.parameter_read("0") is None
@@ -42,16 +42,16 @@ def test_no_task(mocker: pytest_mock.MockerFixture, server: Literal["redis", "pi
     if server == "":
         params = None
     elif server == "redis":
-        params = RedisParameters()
+        params = RedisParameters(host="test")
     elif server == "pika":
         create_pika_mock(mocker)
-        params = RabbitMQParameters()
+        params = RabbitMQParameters(host="test")
     elif server == "gcp":
         create_gcp_mock(mocker)
-        params = GCPParameters()
+        params = GCPParameters(project_id="test")
     else:
         raise
-    manager = DistributedManager(RedisParameters(), params)
+    manager = DistributedManager(RedisParameters(host="test"), params)
 
     manager.task_end("0")
     assert manager.task_get_status("0") == ""
@@ -71,17 +71,17 @@ def test_task(mocker: pytest_mock.MockerFixture, server: Literal["redis", "pika"
     if server == "":
         params = None
     elif server == "redis":
-        params = RedisParameters()
+        params = RedisParameters(host="test")
     elif server == "pika":
         create_pika_mock(mocker)
-        params = RabbitMQParameters()
+        params = RabbitMQParameters(host="test")
     elif server == "gcp":
         create_gcp_mock(mocker)
-        params = GCPParameters()
+        params = GCPParameters(project_id="test")
     else:
         raise
 
-    m_client = DistributedManager(RedisParameters(), params)
+    m_client = DistributedManager(RedisParameters(host="test"), params)
     m_client.set_user("client")
     task_id = m_client.task_add(2, "config", "parameter")
     assert m_client.task_get_status(task_id) == "WAIT"
@@ -92,7 +92,7 @@ def test_task(mocker: pytest_mock.MockerFixture, server: Literal["redis", "pika"
     assert m_client.task_get_actor(task_id, -1, "id") == ""
 
     # assign trainer
-    m_trainer = DistributedManager(RedisParameters(), params)
+    m_trainer = DistributedManager(RedisParameters(host="test"), params)
     m_trainer.set_user("trainer")
     task_id_trainer, actor_id = m_trainer.task_assign_by_my_id()
     assert task_id_trainer == task_id
@@ -106,7 +106,7 @@ def test_task(mocker: pytest_mock.MockerFixture, server: Literal["redis", "pika"
     assert _t == ""
 
     # assign actor1
-    m_actor1 = DistributedManager(RedisParameters(), params)
+    m_actor1 = DistributedManager(RedisParameters(host="test"), params)
     m_actor1.set_user("actor")
     task_id_actor1, actor_id1 = m_actor1.task_assign_by_my_id()
     assert task_id_actor1 == task_id
@@ -116,7 +116,7 @@ def test_task(mocker: pytest_mock.MockerFixture, server: Literal["redis", "pika"
     assert m_actor1.parameter_read(task_id) == "parameter2"
 
     # assign actor2
-    m_actor2 = DistributedManager(RedisParameters(), params)
+    m_actor2 = DistributedManager(RedisParameters(host="test"), params)
     m_actor2.set_user("actor")
     task_id_actor2, actor_id2 = m_actor2.task_assign_by_my_id()
     assert task_id_actor2 == task_id
@@ -129,7 +129,7 @@ def test_task(mocker: pytest_mock.MockerFixture, server: Literal["redis", "pika"
     assert _t == ""
 
     # assign actor3
-    m_actor3 = DistributedManager(RedisParameters(), params)
+    m_actor3 = DistributedManager(RedisParameters(host="test"), params)
     m_actor3.set_user("actor")
     _t, _ = m_actor3.task_assign_by_my_id()
     assert _t == ""

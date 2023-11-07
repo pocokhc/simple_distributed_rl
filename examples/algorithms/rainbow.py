@@ -10,13 +10,13 @@ def main():
     env_config = srl.EnvConfig("Pendulum-v1")
     rl_configs = []
 
-    _c = dqn.Config(
+    _c_dqn = dqn.Config(
         lr=0.0005,
         enable_double_dqn=False,
         enable_rescale=False,
     )
-    _c.hidden_block.set_mlp((64, 64))
-    rl_configs.append(("DQN", _c))
+    _c_dqn.hidden_block.set_mlp((64, 64))
+    rl_configs.append(("DQN", _c_dqn))
 
     rainbow_base_config = rainbow.Config(
         lr=0.0005,

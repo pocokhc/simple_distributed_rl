@@ -40,7 +40,7 @@ def _create_runner():
 def s1_collect_sample():
     runner, rl_config = _create_runner()
     rl_config.train_mode = 1
-    runner.train(max_episodes=100, disable_trainer=True)
+    runner.rollout(max_memory=10_000)
     runner.save_memory(memory_path)
 
 

@@ -2,26 +2,18 @@ import logging
 import pickle
 import time
 import traceback
-from dataclasses import dataclass
 from typing import Any, Optional, cast
 
 import google.api_core.exceptions
 from google.cloud import pubsub_v1
 
-from srl.runner.distribution.connectors.imemory import IMemoryConnector, IServerParameters
+from srl.runner.distribution.connectors.imemory import IMemoryConnector
+from srl.runner.distribution.connectors.parameters import GCPParameters
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class GCPParameters(IServerParameters):
-    project_id: str = ""
-
-    def create_memory_connector(self) -> IMemoryConnector:
-        return GCPubSubConnector(self)
-
-
-class GCPubSubConnector(IMemoryConnector):
+class GCPPubSubConnector(IMemoryConnector):
     def __init__(self, parameter: GCPParameters):
         self.parameter = parameter
         self.publisher = None

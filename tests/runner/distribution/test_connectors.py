@@ -59,14 +59,14 @@ def test_CloudAMQP():
 
 
 def test_GCP():
-    from srl.runner.distribution.connectors.gcp import GCPubSubConnector
+    from srl.runner.distribution.connectors.gcp import GCPPubSubConnector
 
     common.logger_print()
     keys = _load_key()
 
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = keys["GCP_CREDENTIALS_FILE_PATH"]
 
-    m = GCPubSubConnector(GCPParameters(project_id=keys["GCP_project_id"]))
+    m = GCPPubSubConnector(GCPParameters(project_id=keys["GCP_project_id"]))
     memory_connector_test(m)
 
 

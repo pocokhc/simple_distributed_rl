@@ -25,12 +25,16 @@ def is_port_open(host, port):
 
 def _run_actor():
     common.logger_print()
-    actor_run_forever(RedisParameters(host="localhost"), RabbitMQParameters(host="localhost", ssl=False))
+    actor_run_forever(
+        RedisParameters(host="localhost"), RabbitMQParameters(host="localhost", ssl=False), run_once=True
+    )
 
 
 def _run_trainer():
     common.logger_print()
-    trainer_run_forever(RedisParameters(host="localhost"), RabbitMQParameters(host="localhost", ssl=False))
+    trainer_run_forever(
+        RedisParameters(host="localhost"), RabbitMQParameters(host="localhost", ssl=False), run_once=True
+    )
 
 
 class _AssertTrainCallbacks(Callback, TrainerCallback):
@@ -43,6 +47,8 @@ class _AssertTrainCallbacks(Callback, TrainerCallback):
 
 @pytest.mark.timeout(60)  # pip install pytest_timeout
 def test_train():
+    pytest.importorskip("redis")
+
     # 起動しないテスト方法が不明...
     # サーバが起動している事
     common.logger_print()

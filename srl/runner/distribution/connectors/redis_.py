@@ -1,7 +1,7 @@
 import logging
 import pickle
 import traceback
-from typing import Any, Optional, Union, cast
+from typing import Any, List, Optional, Union, cast
 
 import redis
 
@@ -15,6 +15,8 @@ class RedisConnector(IMemoryConnector):
     def __init__(self, parameter: RedisParameters):
         self.parameter = parameter
         self.server = None
+        self.queue_name = parameter.queue_name
+        self.connect()
 
     def __del__(self):
         self.close()
@@ -62,18 +64,25 @@ class RedisConnector(IMemoryConnector):
         assert self.server is not None
         return cast(bool, self.server.exists(key))
 
+    def server_get_keys(self, key: str) -> List[str]:
+        self.connect()
+        assert self.server is not None
+        return [key for key in self.server.scan_iter("taskid:*")]
+
+    def server_delete(self, key: str) -> None:
+        self.connect()
+        assert self.server is not None
+        if self.server_exists(key):
+            self.server.delete(key)
+
     # -----------------------------
     # memory
     # -----------------------------
-    def memory_setup(self, task_id: str) -> None:
-        self.memory_name = f"task:{task_id}:memory"
-        self.connect()
-
     def memory_add(self, dat: Any) -> bool:
         try:
             assert self.server is not None
             dat = pickle.dumps(dat)
-            self.server.rpush(self.memory_name, dat)
+            self.server.rpush(self.queue_name, dat)
             return True
         except Exception:
             logger.error(traceback.format_exc())
@@ -84,7 +93,7 @@ class RedisConnector(IMemoryConnector):
     def memory_recv(self) -> Optional[Any]:
         try:
             assert self.server is not None
-            dat = self.server.lpop(self.memory_name)
+            dat = self.server.lpop(self.queue_name)
             return dat if dat is None else pickle.loads(cast(bytes, dat))
         except Exception:
             logger.error(traceback.format_exc())
@@ -95,23 +104,19 @@ class RedisConnector(IMemoryConnector):
     def memory_size(self) -> int:
         try:
             assert self.server is not None
-            return cast(int, self.server.llen(self.memory_name))
+            return cast(int, self.server.llen(self.queue_name))
         except Exception:
             logger.error(traceback.format_exc())
             self.close()
             self.connect()
         return 0
 
-    def memory_delete_if_exist(self, task_id: str) -> None:
-        if not self.connect():
-            return
-        assert self.server is not None
-        m_name = f"task:{task_id}:memory"
-        if self.server.exists(m_name):
-            self.server.delete(m_name)
-
-    def memory_exist(self, task_id: str) -> bool:
-        if not self.connect():
-            return False
-        assert self.server is not None
-        return cast(bool, self.server.exists(f"task:{task_id}:memory"))
+    def memory_purge(self) -> None:
+        try:
+            assert self.server is not None
+            if self.server_exists(self.queue_name):
+                self.server.delete(self.queue_name)
+        except Exception:
+            logger.error(traceback.format_exc())
+            self.close()
+            self.connect()

@@ -1,9 +1,10 @@
 import json
 import os
 
-from srl.runner.distribution.connectors.gcp import GCPParameters
+import pytest
+
 from srl.runner.distribution.connectors.imemory import IMemoryConnector
-from srl.runner.distribution.connectors.parameters import RabbitMQParameters, RedisParameters
+from srl.runner.distribution.connectors.parameters import GCPParameters, RabbitMQParameters, RedisParameters
 from srl.utils import common
 
 
@@ -16,11 +17,7 @@ def _load_key():
 def memory_connector_test(m: IMemoryConnector):
     assert m.ping()
 
-    m.memory_delete_if_exist("0")
-    assert not m.memory_exist("0")
-
-    m.memory_setup("0")
-    m.memory_setup("0")
+    m.memory_purge()
 
     # sizeはオプション
     n = m.memory_size()
@@ -37,8 +34,16 @@ def memory_connector_test(m: IMemoryConnector):
     assert d["a"] == 1
     assert m.memory_recv() is None
 
+    m.memory_purge()
+
+    # sizeはオプション
+    n = m.memory_size()
+    if n != -1:
+        assert n == 0
+
 
 def test_aiven_redis():
+    pytest.importorskip("redis")
     from srl.runner.distribution.connectors.redis_ import RedisConnector
 
     common.logger_print()
@@ -49,6 +54,7 @@ def test_aiven_redis():
 
 
 def test_CloudAMQP():
+    pytest.importorskip("redis")
     from srl.runner.distribution.connectors.rabbitmq import RabbitMQConnector
 
     common.logger_print()
@@ -59,6 +65,7 @@ def test_CloudAMQP():
 
 
 def test_GCP():
+    pytest.importorskip("redis")
     from srl.runner.distribution.connectors.gcp import GCPPubSubConnector
 
     common.logger_print()
@@ -71,6 +78,7 @@ def test_GCP():
 
 
 def test_AWS():
+    pytest.importorskip("redis")
     from srl.runner.distribution.connectors.rabbitmq import RabbitMQConnector
 
     common.logger_print()

@@ -17,7 +17,7 @@ class Checkpoint(DistributionCallback, Evaluate):
     save_dir: str = "checkpoints"
     interval: int = 60 * 20  # s
 
-    def on_start(self, runner: Runner, manager: DistributedManager, task_id: str):
+    def on_start(self, runner: Runner, manager: DistributedManager):
         self.setup_eval_runner(runner)
 
         if not os.path.isdir(self.save_dir):
@@ -25,20 +25,20 @@ class Checkpoint(DistributionCallback, Evaluate):
             logger.info(f"makedirs: {self.save_dir}")
 
         self.interval_t0 = time.time()
-        self._save_parameter(runner, manager, task_id, is_last=True)
+        self._save_parameter(runner, manager, is_last=True)
 
-    def on_polling(self, runner: Runner, manager: DistributedManager, task_id: str):
+    def on_polling(self, runner: Runner, manager: DistributedManager):
         if time.time() - self.interval_t0 > self.interval:
-            self._save_parameter(runner, manager, task_id, is_last=False)
+            self._save_parameter(runner, manager, is_last=False)
             self.interval_t0 = time.time()
 
-    def on_end(self, runner: Runner, manager: DistributedManager, task_id: str):
-        self._save_parameter(runner, manager, task_id, is_last=True)
+    def on_end(self, runner: Runner, manager: DistributedManager):
+        self._save_parameter(runner, manager, is_last=True)
 
-    def _save_parameter(self, runner: Runner, manager: DistributedManager, task_id: str, is_last: bool):
+    def _save_parameter(self, runner: Runner, manager: DistributedManager, is_last: bool):
         parameter = runner.make_parameter(is_load=False)
 
-        params = manager.parameter_read(task_id)
+        params = manager.parameter_read()
         if params is not None:
             parameter.restore(params)
 

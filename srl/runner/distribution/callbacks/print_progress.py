@@ -60,7 +60,7 @@ class PrintProgress(DistributionCallback, Evaluate):
 
     # -----------------------------------------------------
 
-    def on_start(self, runner: Runner, manager: DistributedManager, task_id: int):
+    def on_start(self, runner: Runner, manager: DistributedManager):
         context = runner.context
         self.setup_eval_runner(runner)
 
@@ -86,29 +86,29 @@ class PrintProgress(DistributionCallback, Evaluate):
         self.t0_train_time = _time
         self.t0_train_count = 0
 
-    def on_end(self, runner: Runner, manager: DistributedManager, task_id: str):
-        self._print(runner, manager, task_id)
+    def on_end(self, runner: Runner, manager: DistributedManager):
+        self._print(runner, manager)
 
-    def on_polling(self, runner: Runner, manager: DistributedManager, task_id: str):
+    def on_polling(self, runner: Runner, manager: DistributedManager):
         if self._check_print_progress():
-            self._print(runner, manager, task_id)
+            self._print(runner, manager)
 
     # -----------------------------------------
 
-    def _print(self, runner: Runner, manager: DistributedManager, task_id: str):
+    def _print(self, runner: Runner, manager: DistributedManager):
         context = runner.context
         _time = time.time()
         elapsed_time = _time - self.elapsed_t0
 
         actor_num = runner.context.actor_num
-        status = manager.task_get_status(task_id)
+        status = manager.task_get_status()
 
         # [TIME] [status] [elapsed time]
         s = datetime.datetime.now().strftime("%H:%M:%S")
         s += f" {status} {to_str_time(elapsed_time)}"
 
         # calc time
-        train_count = manager.task_get_trainer(task_id, "train")
+        train_count = manager.task_get_trainer("train")
         if train_count == "":
             train_count = 0
         else:
@@ -146,26 +146,26 @@ class PrintProgress(DistributionCallback, Evaluate):
         print(s)
 
         # --- trainer
-        trainer_id = manager.task_get_trainer(task_id, "id")
+        trainer_id = manager.task_get_trainer("id")
         if trainer_id == "":
             print(" trainer  not assigned")
         else:
-            health = manager.task_get_trainer(task_id, "health")
+            health = manager.task_get_trainer("health")
             s = f" trainer  {trainer_id} {health}: "
             s += f" {train_count:5d}tr"
             s += f", {train_time:.3f}s/tr"
 
-            memory_size = manager.task_get_trainer(task_id, "memory")
+            memory_size = manager.task_get_trainer("memory")
             s += f", {memory_size}mem"
 
             print(s)
 
         # --- actor
         for idx in range(actor_num):
-            aid = manager.task_get_actor(task_id, idx, "id")
+            aid = manager.task_get_actor(idx, "id")
             if aid == "":
                 print(f" actor{idx:<3d} not assigned")
             else:
-                health = manager.task_get_trainer(task_id, "health")
-                s = manager.task_get_actor(task_id, idx, "episode")
+                health = manager.task_get_trainer("health")
+                s = manager.task_get_actor(idx, "episode")
                 print(f" actor{idx:<3d} {aid} {health}: {s:>6s}ep")

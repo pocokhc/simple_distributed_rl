@@ -18,10 +18,6 @@ class IMemoryConnector(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def memory_setup(self, task_id: str):
-        raise NotImplementedError()
-
-    @abstractmethod
     def memory_add(self, dat: Any) -> bool:
         raise NotImplementedError()
 
@@ -34,9 +30,5 @@ class IMemoryConnector(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def memory_delete_if_exist(self, task_id: str) -> None:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def memory_exist(self, task_id: str) -> bool:
+    def memory_purge(self) -> None:
         raise NotImplementedError()

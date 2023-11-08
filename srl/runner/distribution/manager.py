@@ -3,7 +3,7 @@ import logging
 import pickle
 import time
 import uuid
-from typing import Any, List, Optional, Tuple, cast
+from typing import Any, Optional, Tuple, cast
 
 from srl.runner.distribution.connectors.imemory import IMemoryConnector, IServerParameters
 from srl.runner.distribution.connectors.parameters import RedisParameters
@@ -71,199 +71,146 @@ class DistributedManager:
     # -----------------------------
     # parameter
     # -----------------------------
-    def parameter_read(self, task_id: str = ""):
-        if task_id == "":
-            task_id = self.uid
-        params = self.server.server_get(f"task:{task_id}:parameter")
+    def parameter_read(self):
+        params = self.server.server_get("task:parameter")
         return params if params is None else pickle.loads(params)
 
-    def parameter_update(self, task_id: str, parameter: Any) -> bool:
-        # 自分のidが登録されている場合のみ更新
-        _tid = self.task_get_trainer(task_id, "id")
-        assert _tid == self.uid
-        self.server.server_set(f"task:{task_id}:parameter", pickle.dumps(parameter))
-        return True
+    def parameter_update(self, parameter: Any):
+        self.server.server_set("task:parameter", pickle.dumps(parameter))
 
     # -----------------------------
     # task
     # -----------------------------
-    def task_add(self, actor_num: int, task_config: Any, parameter: Any) -> str:
-        task_id = self.uid  # とりあえず 1client=1task
-        self.server.server_set(f"task:{task_id}:status", "WAIT")
-        self.server.server_set(f"task:{task_id}:config", pickle.dumps(task_config))
-        self.server.server_set(f"task:{task_id}:actor_num", str(actor_num))
+    def task_create(self, actor_num: int, task_config: Any, parameter: Any) -> None:
+        self.server.server_set("task:status", "WAIT")
+        self.server.server_set("task:config", pickle.dumps(task_config))
+        self.server.server_set("task:actor_num", str(actor_num))
+        for k in self.server.server_get_keys("task:trainer:*"):
+            self.server.server_delete(k)
+        self.server.server_set("task:trainer:id", "NO_ASSIGN")
         for i in range(actor_num):
-            self.server.server_set(f"task:{task_id}:actor:{i}:id", "NO_ASSIGN")
-        self.server.server_set(f"task:{task_id}:trainer:id", "NO_ASSIGN")
-        self.server.server_set(f"task:{task_id}:parameter", pickle.dumps(parameter))
-        self.server.server_set(f"taskid:{task_id}", task_id)  # last
-        logger.info(f"add task: {task_id}")
+            for k in self.server.server_get_keys(f"task:actor:{i}:*"):
+                self.server.server_delete(k)
+            self.server.server_set(f"task:actor:{i}:id", "NO_ASSIGN")
+        self.server.server_set("task:parameter", pickle.dumps(parameter))
+        logger.info("create new task")
+        self.task_log("Create new task")
 
-        self.task_log(task_id, "create task")
-        return task_id
+    def task_end(self):
+        self.server.server_set("task:status", "END")
+        logger.info("task end")
+        self.task_log("End")
 
-    def task_end(self, task_id: str):
-        if not self.server.server_exists(f"taskid:{task_id}"):
-            return
-        self.server.server_set(f"task:{task_id}:status", "END")
-        logger.info(f"task end: {task_id}")
-        self.task_log(task_id, "End")
-
-    def task_is_dead(self, task_id: str) -> bool:
-        if not self.server.server_exists(f"taskid:{task_id}"):
-            return True
-        body = self.server.server_get(f"task:{task_id}:status")
+    def task_is_dead(self) -> bool:
+        body = self.server.server_get("task:status")
         status = "" if body is None else body.decode()
         return status == "END"
 
-    def task_get_status(self, task_id: str) -> str:
-        if not self.server.server_exists(f"taskid:{task_id}"):
-            return ""
-        body = self.server.server_get(f"task:{task_id}:status")
+    def task_get_status(self) -> str:
+        body = self.server.server_get("task:status")
         return "" if body is None else body.decode()
 
-    def task_get_actor_num(self, task_id: str) -> int:
-        if not self.server.server_exists(f"taskid:{task_id}"):
-            return -1
-        body = self.server.server_get(f"task:{task_id}:actor_num")
+    def task_get_actor_num(self) -> int:
+        body = self.server.server_get("task:actor_num")
         if body is None:
             return 1
         return int(body.decode())
 
-    def task_get_trainer(self, task_id: str, key: str) -> str:
-        if not self.server.server_exists(f"taskid:{task_id}"):
-            return ""
-        body = self.server.server_get(f"task:{task_id}:trainer:{key}")
+    def task_get_trainer(self, key: str) -> str:
+        body = self.server.server_get(f"task:trainer:{key}")
         return "" if body is None else body.decode()
 
-    def task_set_trainer(self, task_id: str, key: str, value: str) -> None:
-        if not self.server.server_exists(f"taskid:{task_id}"):
-            return
-        self.server.server_set(f"task:{task_id}:trainer:{key}", value)
+    def task_set_trainer(self, key: str, value: str) -> None:
+        self.server.server_set(f"task:trainer:{key}", value)
 
-    def task_get_actor(self, task_id: str, idx: int, key: str) -> str:
-        if not self.server.server_exists(f"taskid:{task_id}"):
-            return ""
-        body = self.server.server_get(f"task:{task_id}:actor:{idx}:{key}")
+    def task_get_actor(self, idx: int, key: str) -> str:
+        body = self.server.server_get(f"task:actor:{idx}:{key}")
         return "" if body is None else body.decode()
 
-    def task_set_actor(self, task_id: str, idx: int, key: str, value: str) -> None:
-        if not self.server.server_exists(f"taskid:{task_id}"):
-            return
-        self.server.server_set(f"task:{task_id}:actor:{idx}:{key}", value)
+    def task_set_actor(self, idx: int, key: str, value: str) -> None:
+        self.server.server_set(f"task:actor:{idx}:{key}", value)
 
-    def task_get_config(self, task_id: str) -> Optional[TaskConfig]:
-        config = self.server.server_get(f"task:{task_id}:config")
+    def task_get_config(self) -> Optional[TaskConfig]:
+        config = self.server.server_get("task:config")
         assert config is not None
         config = pickle.loads(config)
         return cast(TaskConfig, config)
 
-    def task_get_ids(self) -> List[str]:
-        self.server.connect()
-        assert self.server.server is not None
-
-        task_ids = []
-        for key in self.server.server.scan_iter("taskid:*"):
-            task_id = self.server.server_get(key)
-            if task_id is not None:
-                task_ids.append(task_id.decode())
-        return task_ids
-
-    def task_assign_by_my_id(self) -> Tuple[str, int]:
+    def task_assign_by_my_id(self) -> Tuple[bool, int]:
         now_str = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
         self.server.connect()
         assert self.server.server is not None
 
-        keys = cast(list, self.server.server.keys("taskid:*"))
-        for key in keys:
-            task_id = self.server.server_get(key)
-            assert task_id is not None
-            task_id = task_id.decode()
-            status = self.task_get_status(task_id)
-            if status != "WAIT":
-                continue
+        status = self.task_get_status()
+        if status != "WAIT":
+            return False, 0
 
-            # --- trainer assign check
-            if self.role == "trainer":
-                _tid = self.task_get_trainer(task_id, "id")
-                if _tid != "NO_ASSIGN":
+        # --- trainer assign check
+        if self.role == "trainer":
+            _tid = self.task_get_trainer("id")
+            if _tid != "NO_ASSIGN":
+                return False, 0
+
+            self.server.server_set("task:trainer:id", self.uid)
+            self.server.server_set("task:trainer:health", now_str)
+            logger.info(f"Trainer assigned({self.uid})")
+            self.task_log("Trainer assigned")
+            return True, 0
+
+        # --- actor assign check
+        if self.role == "actor":
+            actor_num = self.task_get_actor_num()
+            for i in range(actor_num):
+                _aid = self.task_get_actor(i, "id")
+                if _aid != "NO_ASSIGN":
                     continue
+                self.actor_idx = i
+                self.server.server_set(f"task:actor:{i}:id", self.uid)
+                self.server.server_set(f"task:actor:{i}:health", now_str)
+                logger.info(f"Actor{i} assigned({self.uid})")
+                self.task_log(f"Actor{i} assigned")
+                return True, i
 
-                self.server.server_set(f"task:{task_id}:trainer:id", self.uid)
-                self.server.server_set(f"task:{task_id}:trainer:health", now_str)
-                logger.info(f"Trainer assigned({self.uid}): {task_id}")
-                self.task_log(task_id, "Trainer assigned")
-                return task_id, 0
-
-            # --- actor assign check
-            if self.role == "actor":
-                actor_num = self.task_get_actor_num(task_id)
-                for i in range(actor_num):
-                    _aid = self.task_get_actor(task_id, i, "id")
-                    if _aid != "NO_ASSIGN":
-                        continue
-                    self.actor_idx = i
-                    self.server.server_set(f"task:{task_id}:actor:{i}:id", self.uid)
-                    self.server.server_set(f"task:{task_id}:actor:{i}:health", now_str)
-                    logger.info(f"Actor{i} assigned({self.uid}): {task_id}")
-                    self.task_log(task_id, f"Actor{i} assigned")
-                    return task_id, i
-
-        return "", 0
+        return False, 0
 
     def _task_log_push(self, key: str, value: str):
         self.server.connect()
         assert self.server.server is not None
         self.server.server.rpush(key, value)
 
-    def task_log(self, task_id: str, msg: str) -> None:
-        if not self.server.server_exists(f"taskid:{task_id}"):
-            return
+    def task_log(self, msg: str) -> None:
         now = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
         msg = f"{now} [{self.role}] {msg} ({self.uid})"
-        self._task_log_push(f"task:{task_id}:logs", msg)
+        self._task_log_push("task:logs", msg)
 
-    def keepalive(self, task_id: str, do_now: bool = False) -> bool:
-        if not self.server.server_exists(f"taskid:{task_id}"):
-            return False
-
-        if not do_now and time.time() - self._keepalive_t0 < self.parameter.keepalive_interval:
+    def keepalive(self, do_now: bool = False) -> bool:
+        if not do_now and (time.time() - self._keepalive_t0 < self.parameter.keepalive_interval):
             return False
         self._keepalive_t0 = time.time()
 
         # --- update health
         now_str = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         if self.role == "trainer":
-            _tid = self.task_get_trainer(task_id, "id")
+            _tid = self.task_get_trainer("id")
             assert _tid == self.uid
-            self.task_set_trainer(task_id, "health", now_str)
+            self.task_set_trainer("health", now_str)
         elif self.role == "actor":
-            _aid = self.task_get_actor(task_id, self.actor_idx, "id")
+            _aid = self.task_get_actor(self.actor_idx, "id")
             assert _aid == self.uid
-            self.task_set_actor(task_id, self.actor_idx, "health", now_str)
+            self.task_set_actor(self.actor_idx, "health", now_str)
+        elif self.role == "client":
+            # --- 全部アサインされたらRUNに変更
+            if self.task_get_status() == "WAIT":
+                is_all_assigned = True
+                _tid = self.task_get_trainer("id")
+                if _tid == "" or _tid == "NO_ASSIGN":
+                    is_all_assigned = False
+                for idx in range(self.task_get_actor_num()):
+                    _aid = self.task_get_actor(idx, "id")
+                    if _aid == "" or _aid == "NO_ASSIGN":
+                        is_all_assigned = False
+                if is_all_assigned:
+                    self.server.server_set("task:status", "RUNNING")
 
         return True
-
-    def server_cleaning(self):
-        self.server.connect()
-        assert self.server.server is not None
-
-        memory_manager = self.create_memory_connector()
-        for id in self.task_get_ids():
-            status = self.task_get_status(id)
-            if status != "END":
-                continue
-
-            # --- delete queue
-            memory_manager.memory_delete_if_exist(id)
-
-            # --- delete key
-            keys = cast(list, self.server.server.keys(match=f"task:{id}:*"))
-            self.server.server.delete(*keys)
-
-            # すべて消えてたらidも消す
-            keys = cast(list, self.server.server.keys(match=f"task:{id}:*"))
-            if not memory_manager.memory_exist(id) and len(keys) == 0:
-                self.server.server.delete(f"taskid:{id}")
-                logger.info(f"task deleted: {id}")

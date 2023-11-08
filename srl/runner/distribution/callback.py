@@ -7,14 +7,14 @@ if TYPE_CHECKING:
 
 
 class DistributionCallback(ABC):
-    def on_start(self, runner: "Runner", manager: "DistributedManager", task_id: str) -> None:
+    def on_start(self, runner: "Runner", manager: "DistributedManager") -> None:
         pass  # do nothing
 
-    def on_polling(self, runner: "Runner", manager: "DistributedManager", task_id: str) -> Optional[bool]:
+    def on_polling(self, runner: "Runner", manager: "DistributedManager") -> Optional[bool]:
         """If return is True, it will end intermediate stop."""
         return False
 
-    def on_end(self, runner: "Runner", manager: "DistributedManager", task_id: str) -> None:
+    def on_end(self, runner: "Runner", manager: "DistributedManager") -> None:
         pass  # do nothing
 
 

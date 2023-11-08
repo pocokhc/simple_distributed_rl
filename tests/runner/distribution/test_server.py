@@ -16,6 +16,7 @@ from tests.runner.distribution.server_mock import create_gcp_mock, create_pika_m
 
 @pytest.mark.timeout(10)  # pip install pytest_timeout
 def test_client(mocker: pytest_mock.MockerFixture):
+    pytest.importorskip("redis")
     create_redis_mock(mocker)
 
     common.logger_print()
@@ -27,39 +28,39 @@ def test_client(mocker: pytest_mock.MockerFixture):
             super().__init__()
             self.count = 0
 
-        def on_polling(self, runner: Runner, manager: DistributedManager, task_id: str) -> bool | None:
+        def on_polling(self, runner: Runner, manager: DistributedManager) -> bool | None:
             self.manager = manager
-            self.task_id = task_id
-            manager.task_end(task_id)
+            manager.task_end()
             return False
 
     c = mocker.Mock(spec=DistributionCallback)
     c2 = _call()
-    params = RedisParameters(keepalive_interval=0)
+    params = RedisParameters(host="test", keepalive_interval=0)
     dist_run(runner, params, callbacks=[c, c2])
 
     assert c.on_start.call_count == 1
     assert c.on_polling.call_count > 0
     assert c.on_end.call_count == 1
 
-    assert c2.manager.task_get_config(c2.task_id) is not None
+    assert c2.manager.task_get_config() is not None
 
 
 @pytest.mark.parametrize("server", ["", "redis", "pika", "gcp"])
 @pytest.mark.parametrize("enable_actor_thread", [False, True])
 @pytest.mark.timeout(30)  # pip install pytest_timeout
 def test_server_actor(mocker: pytest_mock.MockerFixture, server, enable_actor_thread):
+    pytest.importorskip("redis")
     create_redis_mock(mocker)
     if server == "":
         params = None
     elif server == "redis":
-        params = RedisParameters()
+        params = RedisParameters(host="test")
     elif server == "pika":
         create_pika_mock(mocker)
-        params = RabbitMQParameters()
+        params = RabbitMQParameters(host="test")
     elif server == "gcp":
         create_gcp_mock(mocker)
-        params = GCPParameters()
+        params = GCPParameters(project_id="test")
     else:
         raise
     common.logger_print()
@@ -70,14 +71,15 @@ def test_server_actor(mocker: pytest_mock.MockerFixture, server, enable_actor_th
     runner.context.training = True
     runner.config.dist_enable_actor_thread = enable_actor_thread
     runner.config.actor_parameter_sync_interval = 0
-    manager = DistributedManager(RedisParameters(keepalive_interval=0), params)
+    manager = DistributedManager(RedisParameters(host="test", keepalive_interval=0), params)
     manager.set_user("client")
-    task_id = manager.task_add(1, runner.create_task_config(), runner.make_parameter().backup())
+    manager.task_create(1, runner.create_task_config(), runner.make_parameter().backup())
 
     # --- run
+    manager.create_memory_connector().memory_purge()
     c2 = mocker.Mock(spec=ActorServerCallback)
     actor_run_forever(
-        RedisParameters(keepalive_interval=0),
+        RedisParameters(host="test", keepalive_interval=0),
         params,
         callbacks=[c2],
         framework="",
@@ -87,7 +89,6 @@ def test_server_actor(mocker: pytest_mock.MockerFixture, server, enable_actor_th
     assert c2.on_polling.call_count > 0
 
     remote_memory = manager.create_memory_connector()
-    remote_memory.memory_setup(task_id)
     qsize = remote_memory.memory_size()
     assert qsize == -1 or qsize > 0
     assert remote_memory.memory_recv() is not None
@@ -100,17 +101,18 @@ def test_server_actor(mocker: pytest_mock.MockerFixture, server, enable_actor_th
 @pytest.mark.parametrize("dist_option", [[False, False], [True, False], [True, True]])
 @pytest.mark.timeout(10)  # pip install pytest_timeout
 def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
+    pytest.importorskip("redis")
     create_redis_mock(mocker)
     if server == "":
         params = None
     elif server == "redis":
-        params = RedisParameters()
+        params = RedisParameters(host="test")
     elif server == "pika":
         create_pika_mock(mocker)
-        params = RabbitMQParameters()
+        params = RabbitMQParameters(host="test")
     elif server == "gcp":
         create_gcp_mock(mocker)
-        params = GCPParameters()
+        params = GCPParameters(project_id="test")
     else:
         raise
 
@@ -126,13 +128,13 @@ def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
     runner.config.dist_enable_trainer_thread = dist_option[0]
     runner.config.dist_enable_prepare_sample_batch = dist_option[1]
     runner.config.trainer_parameter_send_interval = 0
-    manager = DistributedManager(RedisParameters(keepalive_interval=0), params)
+    manager = DistributedManager(RedisParameters(host="test", keepalive_interval=0), params)
     manager.set_user("client")
-    manager.task_add(1, runner.create_task_config(), runner.make_parameter().backup())
+    manager.task_create(1, runner.create_task_config(), runner.make_parameter().backup())
 
     # add batch
     remote_memory = manager.create_memory_connector()
-    remote_memory.memory_setup(manager.uid)
+    remote_memory.memory_purge()
     for _ in range(100):
         remote_memory.memory_add(
             (
@@ -151,14 +153,15 @@ def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
         )
 
     # --- run
-    assert manager.task_get_trainer(manager.uid, "train") == ""
+    assert manager.task_get_trainer("train") == ""
     c2 = mocker.Mock(spec=TrainerServerCallback)
     trainer_run_forever(
-        RedisParameters(keepalive_interval=0),
+        RedisParameters(host="test", keepalive_interval=0),
         params,
         callbacks=[c2],
         framework="",
         run_once=True,
+        is_remote_memory_purge=False,
     )
     assert c2.on_polling.call_count > 0
-    assert int(manager.task_get_trainer(manager.uid, "train")) > 0
+    assert int(manager.task_get_trainer("train")) > 0

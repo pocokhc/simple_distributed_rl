@@ -69,6 +69,15 @@ class PikaMock:
             raise pika.exceptions.ChannelClosedByBroker(404, "NOT_FOUND")
         del PikaMock.queues[queue]
 
+    def queue_purge(self, queue: str):
+        if not self.connection:
+            raise pika.exceptions.ChannelClosedByBroker(403, "NOT_CONNECTED")
+        # ない場合は例外
+        if queue not in PikaMock.queues:
+            self.connection = False
+            raise pika.exceptions.ChannelClosedByBroker(404, "NOT_FOUND")
+        PikaMock.queues[queue] = Queue()
+
 
 class RedisMock:
     tbl = {}
@@ -91,12 +100,20 @@ class RedisMock:
         return True
 
     def exists(self, key: str) -> bool:
-        return key in RedisMock.tbl
+        if key in RedisMock.tbl:
+            return True
+        return key in RedisMock.queues
+
+    def delete(self, key: str):
+        del RedisMock.queues[key]
 
     def keys(self, filter: str):
         filter = filter.replace("*", "")
         keys = [k for k in list(RedisMock.tbl.keys()) if filter in k]
         return keys
+
+    def scan_iter(self, filter: str):
+        return self.keys(filter)
 
     def rpush(self, key: str, value):
         if key not in RedisMock.queues:

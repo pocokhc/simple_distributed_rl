@@ -31,13 +31,11 @@ class _ActorRLMemoryThread(IRLMemoryWorker):
         share_dict: dict,
         dist_queue_capacity: int,
         manager: DistributedManager,
-        task_id: str,
     ):
         self.share_dict = share_dict
         self.dist_queue_capacity = dist_queue_capacity
         self.q = queue.Queue()
         self.remote_memory = manager.create_memory_connector()
-        self.remote_memory.memory_setup(task_id)
 
     def add(self, *args) -> None:
         t0 = time.time()
@@ -99,25 +97,22 @@ class _ActorInterruptThread(Callback):
 
 def _memory_communicate(
     manager_args,
-    task_id: str,
     actor_idx: int,
     memory: _ActorRLMemoryThread,
     share_dict: dict,
-    th_exit_event: threading.Event,
 ):
     try:
         manager = DistributedManager.create(*manager_args)
         remote_memory = manager.create_memory_connector()
 
-        remote_memory.memory_setup(task_id)
         q_send_count = 0
-        while not th_exit_event.is_set():
-            remote_memory.memory_add(memory.q.get())
-            q_send_count += 1
-            share_dict["q_send_count"] = q_send_count
-
-            if memory.length() == 0:
+        while not share_dict["end_signal"]:
+            if memory.q.empty():
                 time.sleep(0.1)
+            else:
+                remote_memory.memory_add(memory.q.get(timeout=1))
+                q_send_count += 1
+                share_dict["q_send_count"] = q_send_count
 
     except Exception:
         share_dict["th_error"] = traceback.format_exc()
@@ -128,43 +123,41 @@ def _memory_communicate(
 
 def _parameter_communicate(
     manager_args,
-    task_id: str,
     actor_idx: int,
     parameter: RLParameter,
     share_dict: dict,
     actor_parameter_sync_interval: int,
-    th_exit_event: threading.Event,
 ):
     try:
         manager = DistributedManager.create(*manager_args)
 
         t0 = time.time()
-        while not th_exit_event.is_set():
+        while not share_dict["end_signal"]:
             # --- sync parameter
             if time.time() - t0 > actor_parameter_sync_interval:
                 t0 = time.time()
 
-                params = manager.parameter_read(task_id)
+                params = manager.parameter_read()
                 if params is not None:
-                    parameter.restore(params)
+                    parameter.restore(params, from_cpu=True)
                     share_dict["sync_count"] += 1
 
-            q_recv_count = manager.task_get_trainer(task_id, "q_recv_count")
+            q_recv_count = manager.task_get_trainer("q_recv_count")
             share_dict["q_recv_count"] = 0 if q_recv_count == "" else int(q_recv_count)
 
             # --- keepalive
-            if manager.keepalive(task_id):
-                manager.task_set_actor(task_id, actor_idx, "episode", str(share_dict["episode_count"]))
-                manager.task_set_actor(task_id, actor_idx, "q_send_count", str(share_dict["q_send_count"]))
-                if manager.task_is_dead(task_id):
-                    logger.info(f"task is dead: {task_id}")
+            if manager.keepalive():
+                manager.task_set_actor(actor_idx, "episode", str(share_dict["episode_count"]))
+                manager.task_set_actor(actor_idx, "q_send_count", str(share_dict["q_send_count"]))
+                if manager.task_is_dead():
+                    logger.info("task is dead")
                     break
 
             time.sleep(1)
 
-        manager.keepalive(task_id, do_now=True)
-        manager.task_set_actor(task_id, actor_idx, "episode", str(share_dict["episode_count"]))
-        manager.task_set_actor(task_id, actor_idx, "q_send_count", str(share_dict["q_send_count"]))
+        manager.keepalive(do_now=True)
+        manager.task_set_actor(actor_idx, "episode", str(share_dict["episode_count"]))
+        manager.task_set_actor(actor_idx, "q_send_count", str(share_dict["q_send_count"]))
 
     except Exception:
         share_dict["th_error"] = traceback.format_exc()
@@ -177,11 +170,9 @@ def _parameter_communicate(
 # no thread(step -> add)
 # ------------------------------------------
 class _ActorRLMemoryManager(IRLMemoryWorker):
-    def __init__(self, manager: DistributedManager, task_id: str, dist_queue_capacity: int):
+    def __init__(self, manager: DistributedManager, dist_queue_capacity: int):
         self.manager = manager
         self.remote_memory = manager.create_memory_connector()
-        self.remote_memory.memory_setup(task_id)
-        self.task_id = task_id
         self.dist_queue_capacity = dist_queue_capacity
         self.q_send_count = 0
         self.q = queue.Queue()
@@ -192,7 +183,7 @@ class _ActorRLMemoryManager(IRLMemoryWorker):
             _is_send_q = True
 
             # --- 受信と送信でN以上差があれば待機
-            q_recv_count = self.manager.task_get_trainer(self.task_id, "q_recv_count")
+            q_recv_count = self.manager.task_get_trainer("q_recv_count")
             q_recv_count = 0 if q_recv_count == "" else int(q_recv_count)
             if self.q_send_count - q_recv_count > self.dist_queue_capacity:
                 _is_send_q = False
@@ -208,9 +199,9 @@ class _ActorRLMemoryManager(IRLMemoryWorker):
                 break
 
             # keepalive
-            if self.manager.keepalive(self.task_id):
-                if self.manager.task_is_dead(self.task_id):
-                    raise ActorException(f"task is dead: {self.task_id}")
+            if self.manager.keepalive():
+                if self.manager.task_is_dead():
+                    raise ActorException("task is dead")
 
             if time.time() - t0 > 10:
                 t0 = time.time()
@@ -232,13 +223,11 @@ class _ActorInterruptManager(Callback):
     def __init__(
         self,
         manager: DistributedManager,
-        task_id: str,
         actor_idx: int,
         parameter: RLParameter,
         actor_parameter_sync_interval: int,
     ) -> None:
         self.manager = manager
-        self.task_id = task_id
         self.actor_idx = actor_idx
         self.parameter = parameter
         self.actor_parameter_sync_interval = actor_parameter_sync_interval
@@ -252,34 +241,32 @@ class _ActorInterruptManager(Callback):
         if time.time() - self.t0 > self.actor_parameter_sync_interval:
             self.t0 = time.time()
 
-            body = self.manager.parameter_read(self.task_id)
+            body = self.manager.parameter_read()
             if body is not None:
-                self.parameter.restore(body)
+                self.parameter.restore(body, from_cpu=True)
                 runner.state.sync_actor += 1
 
         # --- keepalive
-        if self.manager.keepalive(self.task_id):
+        if self.manager.keepalive():
             assert runner.state.memory is not None
-            self.manager.task_set_actor(self.task_id, self.actor_idx, "episode", str(runner.state.episode_count))
-            self.manager.task_set_actor(
-                self.task_id, self.actor_idx, "q_send_count", str(runner.state.memory.length())
-            )
-            if self.manager.task_is_dead(self.task_id):
-                logger.info(f"task is dead: {self.task_id}")
+            self.manager.task_set_actor(self.actor_idx, "episode", str(runner.state.episode_count))
+            self.manager.task_set_actor(self.actor_idx, "q_send_count", str(runner.state.memory.length()))
+            if self.manager.task_is_dead():
+                logger.info("task is dead")
                 return True
         return False
 
     def on_episodes_end(self, runner: Runner) -> None:
         assert runner.state.memory is not None
-        self.manager.keepalive(self.task_id, do_now=True)
-        self.manager.task_set_actor(self.task_id, self.actor_idx, "episode", str(runner.state.episode_count))
-        self.manager.task_set_actor(self.task_id, self.actor_idx, "q_send_count", str(runner.state.memory.length()))
+        self.manager.keepalive(do_now=True)
+        self.manager.task_set_actor(self.actor_idx, "episode", str(runner.state.episode_count))
+        self.manager.task_set_actor(self.actor_idx, "q_send_count", str(runner.state.memory.length()))
 
 
 # --------------------------------
 # main
 # --------------------------------
-def _run_actor(manager: DistributedManager, task_id: str, task_config: TaskConfig, actor_idx: int):
+def _run_actor(manager: DistributedManager, task_config: TaskConfig, actor_idx: int):
     task_config.context.run_name = RunNameTypes.actor
     task_config.context.actor_id = actor_idx
 
@@ -293,11 +280,11 @@ def _run_actor(manager: DistributedManager, task_id: str, task_config: TaskConfi
 
     # --- parameter
     parameter = runner.make_parameter()
-    params = manager.parameter_read(task_id)
+    params = manager.parameter_read()
     if params is None:
         logger.warning("Missing initial parameters")
     else:
-        parameter.restore(params)
+        parameter.restore(params, from_cpu=True)
 
     # --- thread
     if task_config.config.dist_enable_actor_thread:
@@ -309,29 +296,24 @@ def _run_actor(manager: DistributedManager, task_id: str, task_config: TaskConfi
             "end_signal": False,
             "th_error": "",
         }
-        memory = _ActorRLMemoryThread(share_dict, task_config.config.dist_queue_capacity, manager, task_id)
-        th_exit_event = threading.Event()
+        memory = _ActorRLMemoryThread(share_dict, task_config.config.dist_queue_capacity, manager)
         memory_ps = threading.Thread(
             target=_memory_communicate,
             args=(
                 manager.create_args(),
-                task_id,
                 actor_idx,
                 memory,
                 share_dict,
-                th_exit_event,
             ),
         )
         parameter_ps = threading.Thread(
             target=_parameter_communicate,
             args=(
                 manager.create_args(),
-                task_id,
                 actor_idx,
                 parameter,
                 share_dict,
                 task_config.config.actor_parameter_sync_interval,
-                th_exit_event,
             ),
         )
         memory_ps.start()
@@ -340,13 +322,11 @@ def _run_actor(manager: DistributedManager, task_id: str, task_config: TaskConfi
     else:
         memory_ps = None
         parameter_ps = None
-        th_exit_event = None
         share_dict = {}
-        memory = _ActorRLMemoryManager(manager, task_id, task_config.config.dist_queue_capacity)
+        memory = _ActorRLMemoryManager(manager, task_config.config.dist_queue_capacity)
         runner.context.callbacks.append(
             _ActorInterruptManager(
                 manager,
-                task_id,
                 actor_idx,
                 parameter,
                 runner.config.actor_parameter_sync_interval,
@@ -371,8 +351,8 @@ def _run_actor(manager: DistributedManager, task_id: str, task_config: TaskConfi
     except ActorException:
         raise
     finally:
-        if th_exit_event is not None:
-            th_exit_event.set()
+        if memory_ps is not None:
+            share_dict["end_signal"] = True
             assert memory_ps is not None
             assert parameter_ps is not None
             memory_ps.join(timeout=10)
@@ -388,6 +368,7 @@ def run_forever(
     framework: str = "tensorflow",
     device: str = "CPU",
     run_once: bool = False,
+    is_remote_memory_purge: bool = True,
 ):
     used_device_tf, used_device_torch = Runner.setup_device(framework, device)
 
@@ -396,6 +377,7 @@ def run_forever(
     manager.set_user("actor")
 
     print(f"wait actor: {manager.uid}")
+    logger.info(f"wait actor: {manager.uid}")
     while True:
         try:
             time.sleep(1)
@@ -406,20 +388,23 @@ def run_forever(
                 break
 
             # --- task check
-            task_id, actor_id = manager.task_assign_by_my_id()
-            if task_id != "":
+            is_assigned, actor_id = manager.task_assign_by_my_id()
+            if is_assigned:
                 print(f"actor{manager.uid} start, actor_id={actor_id}")
                 logger.info(f"actor{manager.uid} start, actor_id={actor_id}")
-                task_config = manager.task_get_config(task_id)
+                task_config = manager.task_get_config()
                 assert task_config is not None
                 task_config.context.create_controller().set_device(used_device_tf, used_device_torch)
                 task_config.context.used_device_tf = used_device_tf
                 task_config.context.used_device_torch = used_device_torch
-                _run_actor(manager, task_id, task_config, actor_id)
+                if is_remote_memory_purge:
+                    manager.create_memory_connector().memory_purge()
+                _run_actor(manager, task_config, actor_id)
                 logger.info(f"actor{manager.uid} end")
                 if run_once:
                     break
                 print(f"wait actor: {manager.uid}")
+                logger.info(f"wait actor: {manager.uid}")
 
         except Exception:
             if run_once:
@@ -427,3 +412,4 @@ def run_forever(
             else:
                 logger.error(traceback.format_exc())
                 print(f"wait actor: {manager.uid}")
+                logger.info(f"wait actor: {manager.uid}")

@@ -293,8 +293,8 @@ class RunnerFacade(Runner):
         # mp
         actor_num: int = 1,
         queue_capacity: int = 1000,
-        trainer_parameter_send_interval: int = 10,
-        actor_parameter_sync_interval: int = 10,
+        trainer_parameter_send_interval: int = 1,
+        actor_parameter_sync_interval: int = 1,
         enable_prepare_sample_batch: bool = False,
         device_actors: Union[str, List[str]] = "AUTO",
         # --- stop config
@@ -391,8 +391,8 @@ class RunnerFacade(Runner):
         # mp
         actor_num: int = 1,
         queue_capacity: int = 1000,
-        trainer_parameter_send_interval: int = 10,
-        actor_parameter_sync_interval: int = 10,
+        trainer_parameter_send_interval: int = 1,
+        actor_parameter_sync_interval: int = 1,
         enable_prepare_sample_batch: bool = False,
         device_actors: Union[str, List[str]] = "AUTO",
         # --- stop config
@@ -499,8 +499,8 @@ class RunnerFacade(Runner):
         # mp
         actor_num: int = 1,
         queue_capacity: int = 1000,
-        trainer_parameter_send_interval: int = 10,
-        actor_parameter_sync_interval: int = 10,
+        trainer_parameter_send_interval: int = 1,
+        actor_parameter_sync_interval: int = 1,
         enable_prepare_sample_batch: bool = False,
         enable_trainer_thread: bool = True,
         enable_actor_thread: bool = True,
@@ -585,8 +585,7 @@ class RunnerFacade(Runner):
         )
 
         from .distribution.callback import DistributionCallback
-        from .distribution.callbacks.print_progress import \
-            PrintProgress as PrintProgressDist
+        from .distribution.callbacks.print_progress import PrintProgress as PrintProgressDist
         from .distribution.client import run
 
         _callbacks_dist: List[DistributionCallback] = [

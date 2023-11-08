@@ -1,3 +1,4 @@
+import copy
 from typing import Any
 
 import numpy as np
@@ -57,25 +58,26 @@ class Parameter(CommonInterfaceParameter):
 
         self.device = torch.device(self.config.used_device_torch)
 
-        self.q_online = _QNetwork(self.config).to("cpu")
-        self.q_target = _QNetwork(self.config).to("cpu")
+        self.q_online = _QNetwork(self.config).to(self.device)
+        self.q_target = _QNetwork(self.config).to(self.device)
         self.q_target.eval()
         self.q_target.load_state_dict(self.q_online.state_dict())
-        self.q_online.to(self.device)
-        self.q_target.to(self.device)
 
-    def call_restore(self, data: Any, **kwargs) -> None:
-        self.q_online.to("cpu")
-        self.q_target.to("cpu")
-        self.q_online.load_state_dict(data)
-        self.q_target.load_state_dict(data)
-        self.q_online.to(self.device)
-        self.q_target.to(self.device)
+    def call_restore(self, data: Any, from_cpu: bool = False, **kwargs) -> None:
+        if self.config.used_device_torch != "cpu" and from_cpu:
+            self.q_online.to("cpu").load_state_dict(data)
+            self.q_target.to("cpu").load_state_dict(data)
+            self.q_online.to(self.device)
+            self.q_target.to(self.device)
+        else:
+            self.q_online.load_state_dict(data)
+            self.q_target.load_state_dict(data)
 
-    def call_backup(self, **kwargs) -> Any:
-        d = self.q_online.to("cpu").state_dict()
-        self.q_online.to(self.device)
-        return d
+    def call_backup(self, to_cpu: bool = False, **kwargs) -> Any:
+        if self.config.used_device_torch != "cpu" and to_cpu:
+            return copy.deepcopy(self.q_online).to("cpu").state_dict()
+        else:
+            return self.q_online.state_dict()
 
     def summary(self, **kwargs):
         print(self.q_online)

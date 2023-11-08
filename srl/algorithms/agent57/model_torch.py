@@ -1,3 +1,4 @@
+import copy
 from typing import Any, Tuple
 
 import numpy as np
@@ -205,60 +206,62 @@ class Parameter(CommonInterfaceParameter):
 
         self.device = torch.device(self.config.used_device_torch)
 
-        self.q_ext_online = _QNetwork(self.config).to("cpu")
-        self.q_ext_target = _QNetwork(self.config).to("cpu")
-        self.q_int_online = _QNetwork(self.config).to("cpu")
-        self.q_int_target = _QNetwork(self.config).to("cpu")
+        self.q_ext_online = _QNetwork(self.config).to(self.device)
+        self.q_ext_target = _QNetwork(self.config).to(self.device)
+        self.q_int_online = _QNetwork(self.config).to(self.device)
+        self.q_int_target = _QNetwork(self.config).to(self.device)
         self.q_ext_target.eval()
         self.q_int_target.eval()
         self.q_ext_target.load_state_dict(self.q_ext_online.state_dict())
         self.q_int_target.load_state_dict(self.q_int_online.state_dict())
-        self.q_ext_online.to(self.device)
-        self.q_ext_target.to(self.device)
-        self.q_int_online.to(self.device)
-        self.q_int_target.to(self.device)
 
         self.emb_network = _EmbeddingNetwork(self.config).to(self.device)
         self.lifelong_target = _LifelongNetwork(self.config).to(self.device)
         self.lifelong_train = _LifelongNetwork(self.config).to(self.device)
         self.lifelong_target.eval()
 
-    def call_restore(self, data: Any, **kwargs) -> None:
-        self.q_ext_online.to("cpu")
-        self.q_ext_target.to("cpu")
-        self.q_int_online.to("cpu")
-        self.q_int_target.to("cpu")
-        self.emb_network.to("cpu")
-        self.lifelong_target.to("cpu")
-        self.lifelong_train.to("cpu")
-        self.q_ext_online.load_state_dict(data[0])
-        self.q_ext_target.load_state_dict(data[0])
-        self.q_int_online.load_state_dict(data[1])
-        self.q_int_target.load_state_dict(data[1])
-        self.emb_network.load_state_dict(data[2])
-        self.lifelong_target.load_state_dict(data[3])
-        self.lifelong_train.load_state_dict(data[4])
-        self.q_ext_online.to(self.device)
-        self.q_ext_target.to(self.device)
-        self.q_int_online.to(self.device)
-        self.q_int_target.to(self.device)
-        self.emb_network.to(self.device)
-        self.lifelong_target.to(self.device)
-        self.lifelong_train.to(self.device)
+    def call_restore(self, data: Any, from_cpu: bool = False, **kwargs) -> None:
+        if self.config.used_device_torch != "cpu" and from_cpu:
+            self.q_ext_online.to("cpu").load_state_dict(data[0])
+            self.q_ext_target.to("cpu").load_state_dict(data[0])
+            self.q_int_online.to("cpu").load_state_dict(data[1])
+            self.q_int_target.to("cpu").load_state_dict(data[1])
+            self.emb_network.to("cpu").load_state_dict(data[2])
+            self.lifelong_target.to("cpu").load_state_dict(data[3])
+            self.lifelong_train.to("cpu").load_state_dict(data[4])
+            self.q_ext_online.to(self.device)
+            self.q_ext_target.to(self.device)
+            self.q_int_online.to(self.device)
+            self.q_int_target.to(self.device)
+            self.emb_network.to(self.device)
+            self.lifelong_target.to(self.device)
+            self.lifelong_train.to(self.device)
+        else:
+            self.q_ext_online.load_state_dict(data[0])
+            self.q_ext_target.load_state_dict(data[0])
+            self.q_int_online.load_state_dict(data[1])
+            self.q_int_target.load_state_dict(data[1])
+            self.emb_network.load_state_dict(data[2])
+            self.lifelong_target.load_state_dict(data[3])
+            self.lifelong_train.load_state_dict(data[4])
 
-    def call_backup(self, **kwargs):
-        d = [
-            self.q_ext_online.to("cpu").state_dict(),
-            self.q_int_online.to("cpu").state_dict(),
-            self.emb_network.to("cpu").state_dict(),
-            self.lifelong_target.to("cpu").state_dict(),
-            self.lifelong_train.to("cpu").state_dict(),
-        ]
-        self.q_ext_online.to(self.device)
-        self.q_int_online.to(self.device)
-        self.emb_network.to(self.device)
-        self.lifelong_target.to(self.device)
-        self.lifelong_train.to(self.device)
+    def call_backup(self, to_cpu: bool = False, **kwargs):
+        if self.config.used_device_torch != "cpu" and to_cpu:
+            d = [
+                copy.deepcopy(self.q_ext_online).to("cpu").state_dict(),
+                copy.deepcopy(self.q_int_online).to("cpu").state_dict(),
+                copy.deepcopy(self.emb_network).to("cpu").state_dict(),
+                copy.deepcopy(self.lifelong_target).to("cpu").state_dict(),
+                copy.deepcopy(self.lifelong_train).to("cpu").state_dict(),
+            ]
+        else:
+            d = [
+                self.q_ext_online.state_dict(),
+                self.q_int_online.state_dict(),
+                self.emb_network.state_dict(),
+                self.lifelong_target.state_dict(),
+                self.lifelong_train.state_dict(),
+            ]
         return d
 
     def summary(self, **kwargs):

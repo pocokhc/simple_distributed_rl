@@ -35,8 +35,8 @@ logger = logging.getLogger(__name__)
 class RunnerConfig:
     # --- mp
     dist_queue_capacity: int = 1000
-    trainer_parameter_send_interval: int = 10  # sec
-    actor_parameter_sync_interval: int = 10  # sec
+    trainer_parameter_send_interval: int = 1  # sec
+    actor_parameter_sync_interval: int = 1  # sec
     dist_enable_prepare_sample_batch: bool = False
     dist_enable_trainer_thread: bool = True
     dist_enable_actor_thread: bool = True

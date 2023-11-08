@@ -16,11 +16,13 @@
    1. deviceの初期化方法を変更
 1. [distribution] change: QueueのやりとりにRabbitMQを使えるように変更
 1. [distribution] add: QueueのやりとりにGoogleCloud Pub/Subを追加
+1. [distribution] change: TaskIDを廃止し、基本1学習のみとする
 
 **OtherUpdates**
 
 1. [callbacks] change: on_trainer_train_end -> on_trainer_loop に変更
 1. [core.trainer] change: trainの戻り値をboolにし、train_on_batchsを実行したかを返すように変更
+1. [torch] fix: GPUのbackup/restoreの割り当てを改善(並列処理でTrainerとrestoreでCPU/GPUが競合した)、to_cpu/from_cpuの引数を追加
 
 # v0.13.0
 

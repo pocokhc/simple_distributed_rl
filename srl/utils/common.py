@@ -107,7 +107,7 @@ def set_logger(
         logging.getLogger("pika").setLevel(logging.ERROR)
 
         # TF log
-        # os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+        os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
         logging.getLogger("tensorflow").setLevel(logging.INFO)
         logging.getLogger("h5py").setLevel(logging.INFO)
 

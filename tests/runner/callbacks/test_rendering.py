@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 import srl
 from srl.algorithms import ql
 from srl.base.define import EnvObservationTypes
@@ -8,6 +10,8 @@ from srl.utils import common
 
 
 def test_1():
+    pytest.importorskip("pygame")
+    
     common.logger_print()
 
     rl_config = ql.Config()

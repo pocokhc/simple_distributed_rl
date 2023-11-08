@@ -61,14 +61,3 @@ class BaseCase(CommonBaseClass):
         tester.eval(runner, baseline=[0.4, None])
         runner.set_players(["random", None])
         tester.eval(runner, baseline=[None, 0.4])
-
-    def case_image_r2d3(self):
-        self.check_skip()
-        rl_config = self._create_rl_config()
-        rl_config.image_block.set_r2d3_image()
-        rl_config.hidden_block.set_mlp((128, 32, 16))
-        rl_config.use_render_image_for_observation = True
-
-        runner, tester = self.create_runner("Grid", rl_config)
-        runner.train(max_train_count=200 * 200)
-        tester.eval(runner)

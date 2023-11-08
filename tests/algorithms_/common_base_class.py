@@ -67,7 +67,7 @@ class CommonBaseClass(ABC):
                 if not common.is_available_gpu_tf():
                     pytest.skip()
             if self.get_framework() == "torch":
-                if not common.is_available_gpu_tf():
+                if not common.is_available_gpu_torch():
                     pytest.skip()
 
             device = "GPU"

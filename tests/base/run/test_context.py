@@ -1,6 +1,8 @@
 import json
 from pprint import pprint
 
+import pytest
+
 import srl
 from srl.algorithms import dqn, ql
 from srl.base.env import registration as env_registration
@@ -18,6 +20,8 @@ class NotJsonClass:
 
 
 def test_to_dict():
+    pytest.importorskip("tensorflow")
+
     env_config = EnvConfig("Grid")
     rl_config = ql.Config()
     rl_config2 = dqn.Config()

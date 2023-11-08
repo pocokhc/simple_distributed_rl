@@ -31,7 +31,6 @@ def _create_runner(load_parameter: bool):
         enable_rescale=False,
     )
     rl_config.memory.warmup_size = 1_000
-    rl_config.epsilon.clear()
     rl_config.epsilon.set_linear(TRAIN_COUNT, 1.0, 0.1)
     rl_config.memory.capacity = 10_000
     rl_config.memory.set_proportional_memory(beta_steps=TRAIN_COUNT)

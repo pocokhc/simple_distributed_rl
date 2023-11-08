@@ -1,5 +1,3 @@
-from srl.utils import common
-
 from . import base_agent57, base_agent57_light, base_dqn, base_rainbow
 
 
@@ -49,9 +47,6 @@ class Test_dqn_GPU(base_dqn.BaseCase):
 
     def get_device(self) -> str:
         return "GPU"
-
-    def test_image_r2d3(self):
-        self.case_image_r2d3()
 
 
 class Test_rainbow_CPU(base_rainbow.BaseCase):

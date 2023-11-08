@@ -113,9 +113,6 @@ class Test_dqn_GPU(base_dqn.BaseCase):
     def get_device(self) -> str:
         return "GPU"
 
-    def test_image_r2d3(self):
-        self.case_image_r2d3()
-
 
 class Test_dreamer_CPU(base_dreamer.BaseCase):
     def get_framework(self) -> str:

@@ -18,6 +18,7 @@ class GCPPubSubConnector(IMemoryConnector):
         self.parameter = parameter
         self.publisher = None
         self.subscriber = None
+        self._setup()
 
     def __del__(self):
         self.close()
@@ -26,7 +27,7 @@ class GCPPubSubConnector(IMemoryConnector):
         self.publisher = None
         self.subscriber = None
 
-    def connect_publisher(self) -> bool:
+    def _connect_publisher(self) -> bool:
         if self.publisher is not None:
             return True
         try:
@@ -37,7 +38,7 @@ class GCPPubSubConnector(IMemoryConnector):
             self.publisher = None
         return False
 
-    def connect_subscriber(self) -> bool:
+    def _connect_subscriber(self) -> bool:
         if self.subscriber is not None:
             return True
         try:
@@ -49,36 +50,29 @@ class GCPPubSubConnector(IMemoryConnector):
         return False
 
     def ping(self) -> bool:
-        self.connect_publisher()
-        self.connect_subscriber()
+        self._setup()
         return True
 
-    def _create_memory_name(self, task_id: str):
-        return f"task:{task_id}".replace(":", "_")
-
-    def memory_setup(self, task_id: str):
-        self.memory_name = self._create_memory_name(task_id)
-        self._close_setup()
-
-    def _close_setup(self):
-        self.close()
-        self.connect_publisher()
-        self.connect_subscriber()
+    def _setup(self):
+        self._connect_publisher()
+        self._connect_subscriber()
         assert self.publisher is not None
         assert self.subscriber is not None
 
-        self.topic_path = self.publisher.topic_path(self.parameter.project_id, self.memory_name)
-        self.subscription_path = self.subscriber.subscription_path(self.parameter.project_id, self.memory_name)
+        self.topic_path = self.publisher.topic_path(self.parameter.project_id, self.parameter.topic_name)
+        self.subscription_path = self.subscriber.subscription_path(
+            self.parameter.project_id, self.parameter.subscription_name
+        )
 
         try:
             self.publisher.create_topic(name=self.topic_path)
-            logger.info(f"create topic {self.memory_name}")
+            logger.info(f"create topic {self.parameter.topic_name}")
         except google.api_core.exceptions.AlreadyExists:
             pass
 
         try:
             self.subscriber.create_subscription(name=self.subscription_path, topic=self.topic_path)
-            logger.info(f"create subscription {self.memory_name}")
+            logger.info(f"create subscription {self.parameter.subscription_name}")
         except google.api_core.exceptions.AlreadyExists:
             pass
 
@@ -87,7 +81,7 @@ class GCPPubSubConnector(IMemoryConnector):
         for _ in range(120):
             if topic is not None:
                 break
-            print(f"Topic {self.memory_name} is not available yet. Waiting...")
+            print("Topic is not available yet. Waiting...")
             time.sleep(1)
             topic = self.publisher.get_topic(topic=self.topic_path)
 
@@ -95,7 +89,7 @@ class GCPPubSubConnector(IMemoryConnector):
         for _ in range(120):
             if subscription is not None:
                 break
-            print(f"Subscription {self.memory_name} is not available yet. Waiting...")
+            print("Subscription is not available yet. Waiting...")
             time.sleep(1)
             subscription = self.subscriber.get_subscription(subscription=self.subscription_path)
 
@@ -107,7 +101,8 @@ class GCPPubSubConnector(IMemoryConnector):
             return True
         except Exception:
             logger.error(traceback.format_exc())
-            self._close_setup()
+            self.close()
+            self._setup()
         return False
 
     def memory_recv(self) -> Optional[Any]:
@@ -125,49 +120,28 @@ class GCPPubSubConnector(IMemoryConnector):
             return dat if dat is None else pickle.loads(cast(bytes, dat))
         except Exception:
             logger.error(traceback.format_exc())
-            self._close_setup()
+            self.close()
+            self._setup()
         return None
 
     def memory_size(self) -> int:
         return -1
 
-    def memory_delete_if_exist(self, task_id: str) -> None:
-        name = self._create_memory_name(task_id)
-
-        assert self.subscriber
+    def memory_purge(self) -> None:
         try:
-            subscription_path = self.subscriber.subscription_path(self.parameter.project_id, name)
-            self.subscriber.delete_subscription(subscription=subscription_path)
-            logger.info(f"delete subscription {name}")
-        except google.api_core.exceptions.NotFound as e:
-            logger.info(e)
+            assert self.subscriber
+            for _ in range(100):
+                response = self.subscriber.pull(
+                    subscription=self.subscription_path, max_messages=100, return_immediately=True
+                )
+                received_messages = response.received_messages
+                if not received_messages:
+                    break
 
-        assert self.publisher
-        try:
-            topic_path = self.publisher.topic_path(self.parameter.project_id, name)
-            self.publisher.delete_topic(topic=topic_path)
-            logger.info(f"delete topic {name}")
-        except google.api_core.exceptions.NotFound as e:
-            logger.info(e)
+                ack_ids = [message.ack_id for message in received_messages]
+                self.subscriber.acknowledge(subscription=self.subscription_path, ack_ids=ack_ids)
 
-    def memory_exist(self, task_id: str) -> bool:
-        # どちらかがあればあるとする
-        name = self._create_memory_name(task_id)
-
-        assert self.subscriber
-        try:
-            subscription = self.subscriber.subscription_path(self.parameter.project_id, name)
-            self.subscriber.get_subscription(subscription=subscription)
-            return True
-        except google.api_core.exceptions.NotFound as e:
-            logger.info(e)
-
-        assert self.publisher
-        try:
-            topic_path = self.publisher.topic_path(self.parameter.project_id, name)
-            self.publisher.get_topic(topic=topic_path)
-            return True
-        except google.api_core.exceptions.NotFound as e:
-            logger.info(e)
-
-        return False
+        except Exception:
+            logger.error(traceback.format_exc())
+            self.close()
+            self._setup()

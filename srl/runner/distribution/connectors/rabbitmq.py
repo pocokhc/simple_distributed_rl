@@ -38,7 +38,8 @@ class RabbitMQConnector(IMemoryConnector):
 
         self.connection = None
         self.channel = None
-        self.memory_name = ""
+        self.queue_name = parameter.queue_name
+        self.connect()
 
     def __del__(self):
         self.close()
@@ -73,15 +74,10 @@ class RabbitMQConnector(IMemoryConnector):
 
     def _close_setup(self):
         self.close()
-        assert self.memory_name != "", "memory_setup first"
         if self.connect():
             assert self.channel is not None
-            self.channel.queue_declare(queue=self.memory_name)
+            self.channel.queue_declare(queue=self.queue_name)
             time.sleep(1)
-
-    def memory_setup(self, task_id: str) -> None:
-        self.memory_name = f"task:{task_id}"
-        self._close_setup()
 
     def memory_add(self, dat: Any) -> bool:
         try:
@@ -89,7 +85,7 @@ class RabbitMQConnector(IMemoryConnector):
                 self._close_setup()
                 assert self.channel is not None
             dat = pickle.dumps(dat)
-            self.channel.basic_publish(exchange="", routing_key=self.memory_name, body=dat)
+            self.channel.basic_publish(exchange="", routing_key=self.queue_name, body=dat)
             return True
         except pika.exceptions.AMQPError:
             logger.error(traceback.format_exc())
@@ -101,7 +97,7 @@ class RabbitMQConnector(IMemoryConnector):
             if self.channel is None:
                 self._close_setup()
                 assert self.channel is not None
-            _, _, body = self.channel.basic_get(queue=self.memory_name, auto_ack=True)
+            _, _, body = self.channel.basic_get(queue=self.queue_name, auto_ack=True)
             return body if body is None else pickle.loads(cast(bytes, body))
         except pika.exceptions.AMQPError:
             logger.error(traceback.format_exc())
@@ -113,7 +109,7 @@ class RabbitMQConnector(IMemoryConnector):
             if self.channel is None:
                 self._close_setup()
                 assert self.channel is not None
-            queue_info = self.channel.queue_declare(queue=self.memory_name, passive=True)
+            queue_info = self.channel.queue_declare(queue=self.queue_name, passive=True)
             return queue_info.method.message_count
         except pika.exceptions.ChannelClosed as e:
             logger.info(e)
@@ -125,30 +121,16 @@ class RabbitMQConnector(IMemoryConnector):
             self._close_setup()
         return 0
 
-    def memory_delete_if_exist(self, task_id: str) -> None:
+    def memory_purge(self) -> None:
         try:
             self.connect()
             assert self.channel is not None
-            self.channel.queue_delete(f"task:{task_id}")
+            self.channel.queue_purge(self.queue_name)
         except pika.exceptions.ChannelClosed as e:
             logger.info(e)
-            self.close()
-        except pika.exceptions.AMQPError:
-            self.close()
-            raise
-
-    def memory_exist(self, task_id: str) -> bool:
-        try:
-            self.connect()
-            assert self.channel is not None
-            self.channel.queue_declare(queue=f"task:{task_id}", passive=True)
-            return True
-        except pika.exceptions.ChannelClosed as e:
-            logger.info(e)
-            self.close()
+            self._close_setup()
             if e.reply_code == 404:  # NOT_FOUND
-                return False
+                return
         except pika.exceptions.AMQPError:
-            self.close()
-            raise
-        return False
+            logger.error(traceback.format_exc())
+            self._close_setup()

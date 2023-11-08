@@ -10,6 +10,7 @@ class RedisParameters(IServerParameters):
     port: int = 6379
     db: int = 0
     kwargs: dict = field(default_factory=dict)
+    queue_name: str = "mq"
 
     def create_memory_connector(self) -> "IMemoryConnector":
         assert self.url != "" or self.host != "", "Please specify 'host' or 'url'."
@@ -28,6 +29,7 @@ class RabbitMQParameters(IServerParameters):
     virtual_host: str = "/"
     ssl: bool = True
     kwargs: dict = field(default_factory=dict)
+    queue_name: str = "mq"
 
     def create_memory_connector(self) -> IMemoryConnector:
         assert self.url != "" or self.host != "", "Please specify 'host' or 'url'."
@@ -39,6 +41,8 @@ class RabbitMQParameters(IServerParameters):
 @dataclass
 class GCPParameters(IServerParameters):
     project_id: str = ""
+    topic_name: str = "mq"
+    subscription_name: str = "mq"
 
     def create_memory_connector(self) -> IMemoryConnector:
         assert self.project_id != "", "Please specify 'project_id'."

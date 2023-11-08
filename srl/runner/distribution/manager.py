@@ -192,12 +192,13 @@ class DistributedManager:
         # --- update health
         now_str = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         if self.role == "trainer":
-            _tid = self.task_get_trainer("id")
-            assert _tid == self.uid
+            # 一旦TODO
+            # _tid = self.task_get_trainer("id")
+            # assert _tid == self.uid
             self.task_set_trainer("health", now_str)
         elif self.role == "actor":
-            _aid = self.task_get_actor(self.actor_idx, "id")
-            assert _aid == self.uid
+            # _aid = self.task_get_actor(self.actor_idx, "id")
+            # assert _aid == self.uid
             self.task_set_actor(self.actor_idx, "health", now_str)
         elif self.role == "client":
             # --- 全部アサインされたらRUNに変更

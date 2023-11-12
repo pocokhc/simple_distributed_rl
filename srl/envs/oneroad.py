@@ -28,6 +28,7 @@ registration.register(
 class OneRoad(SinglePlayEnv):
     N: int = 10
     action: int = 2
+    is_end: bool = True
 
     @property
     def action_space(self) -> DiscreteSpace:
@@ -64,7 +65,10 @@ class OneRoad(SinglePlayEnv):
         if action == 0:
             self.player_pos += 1
         else:
-            self.player_pos = 0
+            if self.is_end:
+                return self.player_pos, 0, True, {}
+            else:
+                self.player_pos = 0
 
         if self.player_pos == self.N:
             reward = 1.0

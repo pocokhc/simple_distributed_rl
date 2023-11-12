@@ -6,6 +6,7 @@ import traceback
 from typing import List, Optional, cast
 
 import srl
+from srl.base.exception import DistributionError
 from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter
 from srl.base.run.context import RunNameTypes
 from srl.runner.callback import Callback
@@ -17,9 +18,8 @@ from srl.runner.runner import Runner, TaskConfig
 
 logger = logging.getLogger(__name__)
 
-
-class ActorException(Exception):
-    pass
+# remote_memoryは接続が切れたら再接続
+# redisは接続が切れたら終了
 
 
 # ------------------------------------------
@@ -31,39 +31,51 @@ class _ActorRLMemoryThread(IRLMemoryWorker):
         share_dict: dict,
         dist_queue_capacity: int,
         manager: DistributedManager,
+        actor_idx: int,
     ):
         self.share_dict = share_dict
         self.dist_queue_capacity = dist_queue_capacity
         self.q = queue.Queue()
         self.remote_memory = manager.create_memory_connector()
+        self.manager = manager
+        self.actor_num = self.manager.task_get_actor_num()
+        self.actor_idx = actor_idx
 
     def add(self, *args) -> None:
         t0 = time.time()
         while True:
-            _is_send_q = True
+            # --- server check
+            remote_qsize = -1
+            if not self.remote_memory.is_connected:
+                self.remote_memory.ping()
+            if self.remote_memory.is_connected:
+                remote_qsize = self.remote_memory.memory_size()
 
-            # --- 受信と送信でN以上差があれば待機
-            diff_qsize = self.share_dict["q_send_count"] - self.share_dict["q_recv_count"]
-            if diff_qsize > self.dist_queue_capacity:
-                _is_send_q = False
+            # remote_qsizeが取得できない場合は受信と送信から予測
+            if remote_qsize < 0:
+                # 他のactorのsendを取得
+                qsize = 0
+                for idx in range(self.actor_num):
+                    if idx == self.actor_idx:
+                        continue
+                    _q = self.manager.task_get_actor(idx, "q_send_count")
+                    qsize += 0 if _q == "" else int(_q)
+                qsize += self.share_dict["q_send_count"]
+                remote_qsize = qsize - self.share_dict["q_recv_count"]
 
-            # --- qsizeがN以上なら待機、sizeはリアルタイムで取る
-            remote_memory_qsize = self.remote_memory.memory_size()
-            qsize = remote_memory_qsize + self.q.qsize()
-            if qsize >= self.dist_queue_capacity:
-                _is_send_q = False
-
-            if _is_send_q:
+            # --- qが一定以下のみ送信
+            if remote_qsize + self.q.qsize() < self.dist_queue_capacity:
                 self.q.put(args)
                 break
+
             if self.share_dict["end_signal"]:
                 break
+
             if time.time() - t0 > 10:
                 t0 = time.time()
                 s = "capacity over, wait:"
                 s += f"local {self.q.qsize()}"
-                s += f", server {remote_memory_qsize}"
-                s += f", send/recv {diff_qsize}"
+                s += f", remote_qsize {remote_qsize}"
                 print(s)
                 logger.info(s)
                 break
@@ -109,10 +121,19 @@ def _memory_communicate(
         while not share_dict["end_signal"]:
             if memory.q.empty():
                 time.sleep(0.1)
-            else:
+                continue
+
+            if not remote_memory.is_connected:
+                time.sleep(1)
+                if not remote_memory.ping():
+                    continue
+
+            try:
                 remote_memory.memory_add(memory.q.get(timeout=1))
                 q_send_count += 1
                 share_dict["q_send_count"] = q_send_count
+            except Exception as e:
+                logger.error(f"Memory send error: {e}")
 
     except Exception:
         share_dict["th_error"] = traceback.format_exc()
@@ -170,45 +191,58 @@ def _parameter_communicate(
 # no thread(step -> add)
 # ------------------------------------------
 class _ActorRLMemoryManager(IRLMemoryWorker):
-    def __init__(self, manager: DistributedManager, dist_queue_capacity: int):
+    def __init__(self, manager: DistributedManager, dist_queue_capacity: int, actor_idx: int):
         self.manager = manager
         self.remote_memory = manager.create_memory_connector()
         self.dist_queue_capacity = dist_queue_capacity
         self.q_send_count = 0
         self.q = queue.Queue()
+        self.actor_num = self.manager.task_get_actor_num()
+        self.actor_idx = actor_idx
 
     def add(self, *args) -> None:
         t0 = time.time()
         while True:
-            _is_send_q = True
+            # --- server check
+            remote_qsize = -1
+            if not self.remote_memory.is_connected:
+                self.remote_memory.ping()
+            if self.remote_memory.is_connected:
+                remote_qsize = self.remote_memory.memory_size()
 
-            # --- 受信と送信でN以上差があれば待機
-            q_recv_count = self.manager.task_get_trainer("q_recv_count")
-            q_recv_count = 0 if q_recv_count == "" else int(q_recv_count)
-            if self.q_send_count - q_recv_count > self.dist_queue_capacity:
-                _is_send_q = False
+            # remote_qsizeが取得できない場合は受信と送信から予測
+            if remote_qsize < 0:
+                # 他のactorのsendを取得
+                qsize = 0
+                for idx in range(self.actor_num):
+                    if idx == self.actor_idx:
+                        continue
+                    _q = self.manager.task_get_actor(idx, "q_send_count")
+                    qsize += 0 if _q == "" else int(_q)
+                qsize += self.q_send_count
+                q_recv_count = self.manager.task_get_trainer("q_recv_count")
+                q_recv_count = 0 if q_recv_count == "" else int(q_recv_count)
+                remote_qsize = qsize - q_recv_count
 
-            # --- qsizeがN以上なら待機
-            qsize = self.remote_memory.memory_size()
-            if qsize >= self.dist_queue_capacity:
-                _is_send_q = False
-
-            if _is_send_q:
-                self.remote_memory.memory_add(args)
-                self.q_send_count += 1
+            # --- qが一定以下のみ送信
+            if remote_qsize < self.dist_queue_capacity:
+                try:
+                    self.remote_memory.memory_add(args)
+                    self.q_send_count += 1
+                except Exception as e:
+                    logger.error(e)
                 break
 
             # keepalive
             if self.manager.keepalive():
                 if self.manager.task_is_dead():
-                    raise ActorException("task is dead")
+                    raise DistributionError("task is dead")
 
             if time.time() - t0 > 10:
                 t0 = time.time()
                 s = "capacity over, wait:"
-                s += f"local {qsize}"
-                s += f", server {self.dist_queue_capacity}"
-                s += f", send/recv {self.q_send_count - q_recv_count}"
+                s += f"local {self.q.qsize()}"
+                s += f", remote_qsize {remote_qsize}"
                 print(s)
                 logger.info(s)
                 break
@@ -296,7 +330,7 @@ def _run_actor(manager: DistributedManager, task_config: TaskConfig, actor_idx: 
             "end_signal": False,
             "th_error": "",
         }
-        memory = _ActorRLMemoryThread(share_dict, task_config.config.dist_queue_capacity, manager)
+        memory = _ActorRLMemoryThread(share_dict, task_config.config.dist_queue_capacity, manager, actor_idx)
         memory_ps = threading.Thread(
             target=_memory_communicate,
             args=(
@@ -323,7 +357,7 @@ def _run_actor(manager: DistributedManager, task_config: TaskConfig, actor_idx: 
         memory_ps = None
         parameter_ps = None
         share_dict = {}
-        memory = _ActorRLMemoryManager(manager, task_config.config.dist_queue_capacity)
+        memory = _ActorRLMemoryManager(manager, task_config.config.dist_queue_capacity, actor_idx)
         runner.context.callbacks.append(
             _ActorInterruptManager(
                 manager,
@@ -348,7 +382,7 @@ def _run_actor(manager: DistributedManager, task_config: TaskConfig, actor_idx: 
             trainer=None,
             workers=None,
         )
-    except ActorException:
+    except DistributionError:
         raise
     finally:
         if memory_ps is not None:
@@ -368,12 +402,10 @@ def run_forever(
     framework: str = "tensorflow",
     device: str = "CPU",
     run_once: bool = False,
-    is_remote_memory_purge: bool = True,
 ):
     used_device_tf, used_device_torch = Runner.setup_device(framework, device)
 
     manager = DistributedManager(redis_parameter, memory_parameter)
-    assert manager.ping()
     manager.set_user("actor")
 
     print(f"wait actor: {manager.uid}")
@@ -387,6 +419,15 @@ def run_forever(
             if True in _stop_flags:
                 break
 
+            if not manager.ping():
+                logger.info("Server connect fail.")
+                time.sleep(10)
+                continue
+
+            # --- queue が setup されてから実行する
+            if not manager.task_is_setup_queue():
+                continue
+
             # --- task check
             is_assigned, actor_id = manager.task_assign_by_my_id()
             if is_assigned:
@@ -397,8 +438,6 @@ def run_forever(
                 task_config.context.create_controller().set_device(used_device_tf, used_device_torch)
                 task_config.context.used_device_tf = used_device_tf
                 task_config.context.used_device_torch = used_device_torch
-                if is_remote_memory_purge:
-                    manager.create_memory_connector().memory_purge()
                 _run_actor(manager, task_config, actor_id)
                 logger.info(f"actor{manager.uid} end")
                 if run_once:

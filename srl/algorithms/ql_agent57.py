@@ -447,6 +447,7 @@ class Worker(DiscreteActionWorker):
         done: bool,
         next_invalid_actions: List[int],
     ) -> dict:
+        self.prev_episode_reward += reward
         n_state = to_str_observation(next_state)
         self._recent_states.pop(0)
         self._recent_states.append(n_state)

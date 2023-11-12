@@ -220,7 +220,7 @@ def _play(
 
         # trainer
         if state.trainer is not None:
-            state.trainer.train()
+            state.is_step_trained = state.trainer.train()
 
         _stop_flags = [c.on_step_end(callback_data) for c in _callbacks]
         state.worker_idx = worker_idx

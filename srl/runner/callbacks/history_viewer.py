@@ -3,7 +3,7 @@ import logging
 import os
 from typing import TYPE_CHECKING, List, Optional
 
-from srl.utils.common import compare_equal_version, is_package_installed, is_packages_installed
+from srl.utils.common import is_package_installed, is_packages_installed
 
 if TYPE_CHECKING:
     from srl.runner.callbacks.history_on_memory import HistoryOnMemory
@@ -65,9 +65,10 @@ class HistoryViewer:
                 v = f.read()
 
             import srl
+            from srl.utils.common import compare_equal_version
 
             if not compare_equal_version(v, srl.__version__):
-                logger.warning(f"log version is different({v} != {srl.__version__})")
+                logger.warning(f"SRL version is different({v} != {srl.__version__})")
 
         # --- file
         path = os.path.join(save_dir, "env_config.json")

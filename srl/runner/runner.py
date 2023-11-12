@@ -122,7 +122,8 @@ class Runner(CallbackData):
         self._history_viewer = None
         self._checkpoint_kwargs: Optional[dict] = None
 
-        self._psutil_process: Union[None, bool, "psutil.Process"] = None
+        self._is_setup_psutil: bool = False
+        self._psutil_process: Optional["psutil.Process"] = None
 
     @property
     def env(self) -> EnvRun:
@@ -512,7 +513,6 @@ class Runner(CallbackData):
     # ------------------------------
     def _setup_process(self):
         if self.config.enable_stats:
-            self.setup_psutil()
             Runner.setup_nvidia()
 
         # --- device
@@ -745,26 +745,22 @@ class Runner(CallbackData):
     # ------------------------------
     # psutil
     # ------------------------------
-    def setup_psutil(self):
-        if self._psutil_process is not None:
-            return
-
-        self._psutil_process = False
-        if common.is_package_installed("psutil"):
-            try:
-                import psutil
-
-                self._psutil_process = psutil.Process()
-            except Exception as e:
-                import traceback
-
-                logger.debug(traceback.format_exc())
-                logger.info(e)
-
     def read_psutil(self) -> Tuple[float, float]:
+        if not self._is_setup_psutil:
+            self._is_setup_psutil = True
+            self._psutil_process = None
+            if common.is_package_installed("psutil"):
+                try:
+                    import psutil
+
+                    self._psutil_process = psutil.Process()
+                except Exception as e:
+                    import traceback
+
+                    logger.debug(traceback.format_exc())
+                    logger.info(e)
+
         if self._psutil_process is None:
-            return np.NaN, np.NaN
-        if isinstance(self._psutil_process, bool):
             return np.NaN, np.NaN
 
         import psutil

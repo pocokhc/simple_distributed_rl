@@ -43,7 +43,7 @@ class RunnerConfig:
     device_actors: Union[str, List[str]] = "CPU"
 
     # --- stats
-    enable_stats: bool = True
+    enable_stats: bool = False
 
     # --- random
     seed: Optional[int] = None

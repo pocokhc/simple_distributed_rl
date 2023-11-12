@@ -17,6 +17,9 @@ from srl.runner.runner import Runner, TaskConfig
 
 logger = logging.getLogger(__name__)
 
+# remote_memoryは接続が切れたら再接続
+# redisは接続が切れたら終了
+
 
 # ---------------------------------------------------
 # thread
@@ -74,15 +77,27 @@ def _memory_communicate(
 
         if enable_prepare_sample_batch:
             memory_th = cast(_TrainerRLMemoryThreadPrepareBatch, memory)
-            while not share_dict["end_signal"]:
+
+        while not share_dict["end_signal"]:
+            if not remote_memory.is_connected:
+                time.sleep(1)
+                if not remote_memory.ping():
+                    continue
+
+            try:
                 dat = remote_memory.memory_recv()
+            except Exception as e:
+                logger.error(f"Memory recv error: {e}")
+                continue
+
+            if enable_prepare_sample_batch:
+                # 受信できない場合もsampleを作り続ける
                 memory_th.recv(dat)
                 if dat is not None:
                     q_recv_count += 1
                     share_dict["q_recv_count"] = q_recv_count
-        else:
-            while not share_dict["end_signal"]:
-                dat = remote_memory.memory_recv()
+            else:
+                # 受信できなければサーバ側なので少し待つ
                 if dat is None:
                     time.sleep(0.1)
                 else:
@@ -108,8 +123,9 @@ def _parameter_communicate(
         manager = DistributedManager.create(*manager_args)
 
         while not share_dict["end_signal"]:
-            # --- sync parameter
             time.sleep(trainer_parameter_send_interval)
+
+            # --- sync parameter
             params = parameter.backup(to_cpu=True)
             if params is not None:
                 manager.parameter_update(params)
@@ -178,10 +194,15 @@ class _TrainerInterruptManager(TrainerCallback):
         runner.state.memory = cast(RLMemory, runner.state.memory)
 
         # --- recv memory
-        dat = self.remote_memory.memory_recv()
-        if dat is not None:
-            self.q_recv_count += 1
-            runner.state.memory.add(*dat)
+        if not self.remote_memory.is_connected:
+            self.remote_memory.ping()
+        if self.remote_memory.is_connected:
+            dat = self.remote_memory.memory_recv()
+            if dat is not None:
+                self.q_recv_count += 1
+                runner.state.memory.add(*dat)
+        else:
+            dat = None
 
         # no warmupとmemory emptyなら待つ
         if dat is None and runner.state.memory.is_warmup_needed():
@@ -332,7 +353,6 @@ def run_forever(
     used_device_tf, used_device_torch = Runner.setup_device(framework, device)
 
     manager = DistributedManager(redis_parameter, memory_parameter)
-    assert manager.ping()
     manager.set_user("trainer")
 
     print(f"wait trainer: {manager.uid}")
@@ -346,6 +366,11 @@ def run_forever(
             if True in _stop_flags:
                 break
 
+            if not manager.ping():
+                logger.info("Server connect fail.")
+                time.sleep(10)
+                continue
+
             # --- task check
             is_assigned, _ = manager.task_assign_by_my_id()
             if is_assigned:
@@ -356,8 +381,10 @@ def run_forever(
                 task_config.context.create_controller().set_device(used_device_tf, used_device_torch)
                 task_config.context.used_device_tf = used_device_tf
                 task_config.context.used_device_torch = used_device_torch
-                if is_remote_memory_purge:
+                if is_remote_memory_purge and not manager.task_is_setup_queue():
                     manager.create_memory_connector().memory_purge()
+                    logger.info("memory purge")
+                manager.task_set_setup_queue()
                 _run_trainer(manager, task_config)
                 logger.info(f"train end: {manager.uid}")
                 if run_once:

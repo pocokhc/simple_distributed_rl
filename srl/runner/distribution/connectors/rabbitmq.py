@@ -1,7 +1,6 @@
 import logging
 import pickle
 import ssl
-import time
 import traceback
 from typing import Any, Optional, cast
 
@@ -39,7 +38,6 @@ class RabbitMQConnector(IMemoryConnector):
         self.connection = None
         self.channel = None
         self.queue_name = parameter.queue_name
-        self.connect()
 
     def __del__(self):
         self.close()
@@ -48,89 +46,96 @@ class RabbitMQConnector(IMemoryConnector):
         if self.connection is not None:
             try:
                 self.connection.close()
-                logger.debug("Connection to RabbitMQ closed")
             except pika.exceptions.AMQPError as e:
                 logger.error(f"RabbitMQ close error: {str(e)}")
 
         self.connection = None
         self.channel = None
 
-    def connect(self) -> bool:
-        if self.connection is not None:
-            return True
+    def connect(self) -> None:
+        if self.channel is not None:
+            self.channel.queue_declare(queue=self.queue_name)
+            return
         try:
             self.connection = pika.BlockingConnection(self._pika_params)
             self.channel = self.connection.channel()
-            logger.debug("Connected to RabbitMQ")
-            return True
+            self.channel.queue_declare(queue=self.queue_name)
+            return
         except pika.exceptions.AMQPError:
-            logger.error(traceback.format_exc())
             self.connection = None
             self.channel = None
-        return False
+            raise
+
+    @property
+    def is_connected(self) -> bool:
+        return self.connection is not None
 
     def ping(self) -> bool:
-        return self.connect()
+        try:
+            self.close()
+            self.connect()
+        except pika.exceptions.AMQPError as e:
+            logger.error(e)
+            self.close()
+            return False
+        except Exception as e:
+            logger.error(e)
+            return False
+        return self.connection is not None
 
-    def _close_setup(self):
-        self.close()
-        if self.connect():
-            assert self.channel is not None
-            self.channel.queue_declare(queue=self.queue_name)
-            time.sleep(1)
-
-    def memory_add(self, dat: Any) -> bool:
+    def memory_add(self, dat: Any) -> None:
         try:
             if self.channel is None:
-                self._close_setup()
+                self.connect()
                 assert self.channel is not None
             dat = pickle.dumps(dat)
             self.channel.basic_publish(exchange="", routing_key=self.queue_name, body=dat)
-            return True
         except pika.exceptions.AMQPError:
-            logger.error(traceback.format_exc())
-            self._close_setup()
-        return False
+            self.close()
+            raise
 
     def memory_recv(self) -> Optional[Any]:
         try:
             if self.channel is None:
-                self._close_setup()
+                self.connect()
                 assert self.channel is not None
             _, _, body = self.channel.basic_get(queue=self.queue_name, auto_ack=True)
             return body if body is None else pickle.loads(cast(bytes, body))
         except pika.exceptions.AMQPError:
-            logger.error(traceback.format_exc())
-            self._close_setup()
-        return None
+            self.close()
+            raise
 
     def memory_size(self) -> int:
         try:
             if self.channel is None:
-                self._close_setup()
-                assert self.channel is not None
+                self.connect()
+                if self.channel is None:
+                    return -1
             queue_info = self.channel.queue_declare(queue=self.queue_name, passive=True)
             return queue_info.method.message_count
         except pika.exceptions.ChannelClosed as e:
             logger.info(e)
-            self._close_setup()
+            self.close()
+            self.connect()
             if e.reply_code == 404:  # NOT_FOUND
-                return 0
-        except pika.exceptions.AMQPError:
+                return -1
+        except Exception:
             logger.error(traceback.format_exc())
-            self._close_setup()
-        return 0
+            self.close()
+        return -1
 
     def memory_purge(self) -> None:
         try:
             self.connect()
-            assert self.channel is not None
+            if self.channel is None:
+                return
             self.channel.queue_purge(self.queue_name)
         except pika.exceptions.ChannelClosed as e:
             logger.info(e)
-            self._close_setup()
+            self.close()
+            self.connect()
             if e.reply_code == 404:  # NOT_FOUND
                 return
-        except pika.exceptions.AMQPError:
+        except Exception:
             logger.error(traceback.format_exc())
-            self._close_setup()
+            self.close()

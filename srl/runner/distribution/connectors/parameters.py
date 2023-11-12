@@ -10,6 +10,7 @@ class RedisParameters(IServerParameters):
     port: int = 6379
     db: int = 0
     kwargs: dict = field(default_factory=dict)
+    task_name: str = "task"
     queue_name: str = "mq"
 
     def create_memory_connector(self) -> "IMemoryConnector":

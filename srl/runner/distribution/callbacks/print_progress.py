@@ -136,14 +136,13 @@ class PrintProgress(DistributionCallback, Evaluate):
         else:
             s += f"({to_str_time(remain)} left)"
 
-        # [qsize] TODO
-        # qsize = manager.memory_size()
-        # s += f", {qsize} qsize"
-
         # [eval]
         s += self._eval_str(runner)
 
         print(s)
+
+        # --- task_time
+        task_time = manager.task_get_task_time()
 
         # --- trainer
         trainer_id = manager.task_get_trainer("id")
@@ -151,7 +150,8 @@ class PrintProgress(DistributionCallback, Evaluate):
             print(" trainer  not assigned")
         else:
             health = manager.task_get_trainer("health")
-            s = f" trainer  {trainer_id} {health}: "
+            health = 0 if health == "" else float(health)
+            s = f" trainer  {trainer_id} {task_time-health:.1f}s: "
             s += f" {train_count:5d}tr"
             s += f", {train_time:.3f}s/tr"
 
@@ -166,6 +166,7 @@ class PrintProgress(DistributionCallback, Evaluate):
             if aid == "":
                 print(f" actor{idx:<3d} not assigned")
             else:
-                health = manager.task_get_trainer("health")
+                health = manager.task_get_actor(idx, "health")
+                health = 0 if health == "" else float(health)
                 s = manager.task_get_actor(idx, "episode")
-                print(f" actor{idx:<3d} {aid} {health}: {s:>6s}ep")
+                print(f" actor{idx:<3d} {aid} {task_time-health:.1f}s: {s:>6s}ep")

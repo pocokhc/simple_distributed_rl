@@ -16,7 +16,6 @@ class RedisConnector(IMemoryConnector):
         self.parameter = parameter
         self.server = None
         self.queue_name = parameter.queue_name
-        self.connect()
 
     def __del__(self):
         self.close()
@@ -43,10 +42,21 @@ class RedisConnector(IMemoryConnector):
         else:
             self.server = redis.from_url(self.parameter.url, **self.parameter.kwargs)
 
+    @property
+    def is_connected(self) -> bool:
+        return self.server is not None
+
     def ping(self) -> bool:
-        self.connect()
-        assert self.server is not None
-        return cast(bool, self.server.ping())
+        try:
+            self.connect()
+            if self.server is not None:
+                return cast(bool, self.server.ping())
+        except redis.RedisError as e:
+            logger.error(e)
+            self.close()
+        except Exception as e:
+            logger.error(e)
+        return False
 
     def server_get(self, key: str) -> Optional[bytes]:
         self.connect()
@@ -67,7 +77,7 @@ class RedisConnector(IMemoryConnector):
     def server_get_keys(self, key: str) -> List[str]:
         self.connect()
         assert self.server is not None
-        return [key for key in self.server.scan_iter("taskid:*")]
+        return [key for key in self.server.scan_iter(key)]
 
     def server_delete(self, key: str) -> None:
         self.connect()
@@ -78,45 +88,52 @@ class RedisConnector(IMemoryConnector):
     # -----------------------------
     # memory
     # -----------------------------
-    def memory_add(self, dat: Any) -> bool:
+    def memory_add(self, dat: Any) -> None:
         try:
-            assert self.server is not None
+            if self.server is None:
+                self.connect()
+                assert self.server is not None
             dat = pickle.dumps(dat)
             self.server.rpush(self.queue_name, dat)
-            return True
-        except Exception:
-            logger.error(traceback.format_exc())
+        except redis.RedisError:
             self.close()
-            self.connect()
-        return False
+            raise
 
     def memory_recv(self) -> Optional[Any]:
         try:
-            assert self.server is not None
+            if self.server is None:
+                self.connect()
+                assert self.server is not None
             dat = self.server.lpop(self.queue_name)
             return dat if dat is None else pickle.loads(cast(bytes, dat))
-        except Exception:
-            logger.error(traceback.format_exc())
+        except redis.RedisError:
             self.close()
-            self.connect()
-        return None
+            raise
 
     def memory_size(self) -> int:
         try:
-            assert self.server is not None
+            if self.server is None:
+                self.connect()
+                if self.server is None:
+                    return -1
             return cast(int, self.server.llen(self.queue_name))
-        except Exception:
+        except redis.RedisError:
             logger.error(traceback.format_exc())
             self.close()
-            self.connect()
-        return 0
+        except Exception:
+            logger.error(traceback.format_exc())
+        return -1
 
     def memory_purge(self) -> None:
         try:
-            assert self.server is not None
+            if self.server is None:
+                self.connect()
+                if self.server is None:
+                    return
             if self.server_exists(self.queue_name):
                 self.server.delete(self.queue_name)
-        except Exception:
+        except redis.RedisError:
             logger.error(traceback.format_exc())
             self.close()
-            self.connect()
+        except Exception:
+            logger.error(traceback.format_exc())

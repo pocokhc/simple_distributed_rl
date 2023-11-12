@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: actor
+spec:
+  replicas: 2  # actor_num
+  selector:
+    matchLabels:
+      app: actor
+  template:
+    metadata:
+      labels:
+        app: actor
+    spec:
+      containers:
+        - name: actor-node
+          image: {YOUR IMAGE}
+          #command: ["sh", "-c", "while true; do sleep 3600; done"]
+          command: ["python", "/code/server_actor.py"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 256Mi
+            limits:
+              cpu: 1
+              memory: 1Gi
+

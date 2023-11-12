@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+FROM tensorflow/tensorflow:2.14.0-gpu AS builder
+WORKDIR /code
+
+COPY srl /code/srl
+COPY examples/kubernetes/server_actor.py /code/
+COPY examples/kubernetes/server_trainer.py /code/
+COPY examples/kubernetes/main.py /code/
+RUN find /code -type d -name "__pycache__" | xargs rm -rf
+# The font data is large so delete it
+RUN rm -f /code/srl/font/*.ttf
+
+# select image CPU(1.76GB) or GPU(7.38GB)
+FROM tensorflow/tensorflow:2.14.0-gpu
+#FROM tensorflow/tensorflow:2.14.0
+
+WORKDIR /code
+ENV PYTHONPATH="/code"
+
+COPY examples/kubernetes/requirements.txt /root/requirements.txt
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libgl1-mesa-dev libglib2.0-0 \
+ && rm -rf /var/lib/apt/lists/* \
+ && pip install --no-cache-dir -r /root/requirements.txt \
+ && pip install --no-cache-dir tensorflow_probability==0.22.1
+
+COPY --from=builder /code /code

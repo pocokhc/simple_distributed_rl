@@ -198,6 +198,7 @@ class RLTrainer(ABC):
         return self.train_count
 
     def train(self) -> bool:
+        self.train_no_batchs()
         if self.memory.is_warmup_needed():
             return False
         memory_sample_return = self.memory.sample(self.batch_size, self.train_count)
@@ -210,6 +211,9 @@ class RLTrainer(ABC):
     @abstractmethod
     def train_on_batchs(self, memory_sample_return) -> None:
         raise NotImplementedError()
+
+    def train_no_batchs(self) -> None:
+        pass
 
 
 # ------------------------------------

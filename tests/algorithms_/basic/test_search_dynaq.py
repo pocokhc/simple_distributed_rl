@@ -18,7 +18,9 @@ def test_Grid():
     rl_config.ext_lr.set_constant(0.01)
     runner = srl.Runner("Grid", rl_config)
     runner.set_seed(1)
-    runner.train(max_train_count=10_000)
+    runner.train(max_train_count=5_000)
+    rl_config.search_mode = False
+    runner.train_only(max_train_count=5_000)
     tester.eval(runner)
 
 
@@ -28,7 +30,9 @@ def test_Grid_mp():
     rl_config.ext_lr.set_constant(0.01)
     runner = srl.Runner("Grid", rl_config)
     runner.set_seed(1)
-    runner.train_mp(max_train_count=10_000)
+    runner.train_mp(max_train_count=5_000)
+    rl_config.search_mode = False
+    runner.train_only(max_train_count=5_000)
     tester.eval(runner)
 
 
@@ -38,4 +42,5 @@ def test_OneRoad():
     runner = srl.Runner("OneRoad", rl_config)
     runner.set_seed(4)
     runner.train(max_train_count=2_000)
+    rl_config.search_mode = False
     tester.eval(runner)

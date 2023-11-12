@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  srl-latest:
+    image: simpledistributedrl:latest
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    

@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mq-internal-service
+spec:
+  type: ClusterIP
+  selector:
+    app: mq
+  ports:
+  - name: mq-internal-port
+    protocol: TCP
+    port: 5672
+    targetPort: 5672
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mq-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mq
+  template:
+    metadata:
+      labels:
+        app: mq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3-management-alpine
+          ports:
+          - containerPort: 5672
+          - containerPort: 15672
+          env:
+          - {"name": "RABBITMQ_DEFAULT_USER", "value": "guest"}
+          - {"name": "RABBITMQ_DEFAULT_PASS", "value": "guest"}
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi

@@ -20,7 +20,6 @@ def main():
     env = controller.make_env()
     parameter = srl.make_parameter(rl_config)
     memory = srl.make_memory(rl_config)
-    controller.setup()
 
     # --- train
     context.max_train_count = 1000

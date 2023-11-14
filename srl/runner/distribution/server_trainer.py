@@ -75,9 +75,6 @@ def _memory_communicate(
 
         q_recv_count = 0
 
-        if enable_prepare_sample_batch:
-            memory_th = cast(_TrainerRLMemoryThreadPrepareBatch, memory)
-
         while not share_dict["end_signal"]:
             if not remote_memory.is_connected:
                 time.sleep(1)
@@ -92,7 +89,7 @@ def _memory_communicate(
 
             if enable_prepare_sample_batch:
                 # 受信できない場合もsampleを作り続ける
-                memory_th.recv(dat)
+                cast(_TrainerRLMemoryThreadPrepareBatch, memory).recv(dat)
                 if dat is not None:
                     q_recv_count += 1
                     share_dict["q_recv_count"] = q_recv_count
@@ -134,14 +131,14 @@ def _parameter_communicate(
             # --- keepalive
             manager.task_set_trainer("q_recv_count", str(share_dict["q_recv_count"]))
 
-            if manager.keepalive():
+            if manager.keepalive_trainer():
                 manager.task_set_trainer("train", str(share_dict["train_count"]))
                 manager.task_set_trainer("memory", str(memory.length()))
                 if manager.task_is_dead():
                     logger.info("task is dead")
                     break
 
-        manager.keepalive(do_now=True)
+        manager.keepalive_trainer(do_now=True)
         manager.task_set_trainer("q_recv_count", str(share_dict["q_recv_count"]))
         manager.task_set_trainer("train", str(share_dict["train_count"]))
         manager.task_set_trainer("memory", str(memory.length()))
@@ -220,7 +217,7 @@ class _TrainerInterruptManager(TrainerCallback):
                     runner.state.sync_trainer += 1
 
         # --- keepalive
-        if self.manager.keepalive():
+        if self.manager.keepalive_trainer():
             assert runner.state.trainer is not None
             assert runner.state.memory is not None
             self.manager.task_set_trainer("train", str(runner.state.trainer.get_train_count()))
@@ -234,7 +231,7 @@ class _TrainerInterruptManager(TrainerCallback):
     def on_trainer_end(self, runner: Runner):
         assert runner.state.trainer is not None
         assert runner.state.memory is not None
-        self.manager.keepalive(do_now=True)
+        self.manager.keepalive_trainer(do_now=True)
         self.manager.task_set_trainer("train", str(runner.state.trainer.get_train_count()))
         self.manager.task_set_trainer("memory", str(runner.state.memory.length()))
         self.manager.task_set_trainer("q_recv_count", str(self.q_recv_count))

@@ -38,7 +38,7 @@ def run(
         while True:
             try:
                 time.sleep(1)
-                if manager.keepalive():
+                if manager.keepalive_client():
                     # 定期的に同期する
                     try:
                         params = manager.parameter_read()

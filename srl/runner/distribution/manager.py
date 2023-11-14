@@ -26,6 +26,12 @@ class DistributedManager:
         self.server = cast(RedisConnector, parameter.create_memory_connector())
         self._keepalive_t0 = 0
         self._memory_connector = None
+        self.health_start_time = 0
+        self.health_t0 = 0
+
+        self.keepalive_threshold = self.parameter.keepalive_interval * 2.2
+        if self.keepalive_threshold < 5:
+            self.keepalive_threshold = 5
 
     def set_user(self, role: str, uid: str = "", actor_idx: int = 0):
         self.role = role
@@ -131,9 +137,7 @@ class DistributedManager:
 
         # health check
         task_time = self.task_get_task_time()
-        if (
-            time.time() - self.health_t0 + self.health_start_time
-        ) - task_time > self.parameter.keepalive_interval * 2.2:
+        if (time.time() - self.health_t0 + self.health_start_time) - task_time > self.keepalive_threshold:
             s = "Task is dead(health over)"
             self.task_log(s)
             logger.info(s)
@@ -244,76 +248,87 @@ class DistributedManager:
         msg = f"{now} [{self.role}] {msg} ({self.uid})"
         self._task_log_push(f"{self.parameter.task_name}:logs", msg)
 
-    def keepalive(self, do_now: bool = False) -> bool:
+    def keepalive_trainer(self, do_now: bool = False) -> bool:
         if not do_now and (time.time() - self._keepalive_t0 < self.parameter.keepalive_interval):
             return False
         self._keepalive_t0 = time.time()
 
-        # --- update health
-        if self.role == "trainer":
-            self.task_set_trainer("health", str(time.time() - self.health_t0 + self.health_start_time))
-        elif self.role == "actor":
-            # --- 2重にアサインされていないかチェック
-            aid = self.task_get_actor(self.actor_idx, "id")
-            if aid != self.uid:
-                # アサインされていたらランダム秒まって止める
-                s = f"Another actor has been assigned. my:{self.uid}, another: {aid}"
-                self.task_log(s)
-                time.sleep(random.randint(0, 5))
-                raise DistributionError(s)
-            self.task_set_actor(self.actor_idx, "health", str(time.time() - self.health_t0 + self.health_start_time))
-        elif self.role == "client":
-            task_time = time.time() - self.health_t0
-            self.server.server_set(f"{self.parameter.task_name}:health", str(task_time))
+        self.task_set_trainer("health", str(time.time() - self.health_t0 + self.health_start_time))
+        return True
 
-            # --- health check trainer
-            health = self.task_get_trainer("health")
+    def keepalive_actor(self, do_now: bool = False) -> bool:
+        if not do_now and (time.time() - self._keepalive_t0 < self.parameter.keepalive_interval):
+            return False
+        self._keepalive_t0 = time.time()
+
+        # --- 2重にアサインされていないかチェック
+        aid = self.task_get_actor(self.actor_idx, "id")
+        if aid != self.uid:
+            # アサインされていたらランダム秒まって止める
+            s = f"Another actor has been assigned. my:{self.uid}, another: {aid}"
+            self.task_log(s)
+            time.sleep(random.randint(0, 5))
+            raise DistributionError(s)
+
+        self.task_set_actor(self.actor_idx, "health", str(time.time() - self.health_t0 + self.health_start_time))
+        return True
+
+    def keepalive_client(self, do_now: bool = False) -> bool:
+        if not do_now and (time.time() - self._keepalive_t0 < self.parameter.keepalive_interval):
+            return False
+        self._keepalive_t0 = time.time()
+
+        task_time = time.time() - self.health_t0
+        self.server.server_set(f"{self.parameter.task_name}:health", str(task_time))
+
+        # --- health check trainer
+        health = self.task_get_trainer("health")
+        if health != "":
+            diff_time = task_time - float(health)
+            if diff_time > self.keepalive_threshold:
+                tid = self.task_get_trainer("id")
+                s = f"Trainer remove(health over) {diff_time:.1f}s {tid}"
+                self.task_log(s)
+                logger.info(s)
+                self.task_set_trainer("id", "")
+                self.task_set_trainer("health", "")
+
+        # --- health check actor
+        actor_num = self.task_get_actor_num()
+        for i in range(actor_num):
+            health = self.task_get_actor(i, "health")
             if health != "":
                 diff_time = task_time - float(health)
-                if diff_time > self.parameter.keepalive_interval * 2.2:
-                    tid = self.task_get_trainer("id")
-                    s = f"Trainer remove(health over) {diff_time:.1f}s {tid}"
+                if diff_time > self.keepalive_threshold:
+                    aid = self.task_get_actor(i, "id")
+                    s = f"Actor{i} remove(health over) {diff_time:.1f}s {aid}"
                     self.task_log(s)
                     logger.info(s)
-                    self.task_set_trainer("id", "")
-                    self.task_set_trainer("health", "")
+                    self.task_set_actor(i, "id", "")
+                    self.task_set_actor(i, "health", "")
 
-            # --- health check actor
-            actor_num = self.task_get_actor_num()
-            for i in range(actor_num):
-                health = self.task_get_actor(i, "health")
-                if health != "":
-                    diff_time = task_time - float(health)
-                    if diff_time > self.parameter.keepalive_interval * 2.2:
-                        aid = self.task_get_actor(i, "id")
-                        s = f"Actor{i} remove(health over) {diff_time:.1f}s {aid}"
-                        self.task_log(s)
-                        logger.info(s)
-                        self.task_set_actor(i, "id", "")
-                        self.task_set_actor(i, "health", "")
-
-            # --- 全部アサインされたらRUNに変更
-            status = self.task_get_status()
-            if status in ["WAIT", "RUN"]:
-                is_all_assigned = True
-                _tid = self.task_get_trainer("id")
-                if _tid == "" or _tid == "":
+        # --- 全部アサインされたらRUNに変更
+        status = self.task_get_status()
+        if status in ["WAIT", "RUN"]:
+            is_all_assigned = True
+            _tid = self.task_get_trainer("id")
+            if _tid == "" or _tid == "":
+                is_all_assigned = False
+            for idx in range(self.task_get_actor_num()):
+                _aid = self.task_get_actor(idx, "id")
+                if _aid == "" or _aid == "":
                     is_all_assigned = False
-                for idx in range(self.task_get_actor_num()):
-                    _aid = self.task_get_actor(idx, "id")
-                    if _aid == "" or _aid == "":
-                        is_all_assigned = False
-                if status == "WAIT":
-                    if is_all_assigned:
-                        s = "change status: RUN"
-                        self.task_log(s)
-                        logger.info(s)
-                        self.server.server_set(f"{self.parameter.task_name}:status", "RUN")
-                elif status == "RUN":
-                    if not is_all_assigned:
-                        s = "change status: WAIT"
-                        self.task_log(s)
-                        logger.info(s)
-                        self.server.server_set(f"{self.parameter.task_name}:status", "WAIT")
+            if status == "WAIT":
+                if is_all_assigned:
+                    s = "change status: RUN"
+                    self.task_log(s)
+                    logger.info(s)
+                    self.server.server_set(f"{self.parameter.task_name}:status", "RUN")
+            elif status == "RUN":
+                if not is_all_assigned:
+                    s = "change status: WAIT"
+                    self.task_log(s)
+                    logger.info(s)
+                    self.server.server_set(f"{self.parameter.task_name}:status", "WAIT")
 
         return True

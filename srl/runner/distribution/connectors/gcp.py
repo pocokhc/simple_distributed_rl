@@ -16,9 +16,7 @@ logger = logging.getLogger(__name__)
 class GCPPubSubConnector(IMemoryConnector):
     def __init__(self, parameter: GCPParameters):
         self.parameter = parameter
-        self.publisher = None
-        self.subscriber = None
-        self._setup()
+        self.close()
 
     def __del__(self):
         self.close()
@@ -26,6 +24,8 @@ class GCPPubSubConnector(IMemoryConnector):
     def close(self):
         self.publisher = None
         self.subscriber = None
+        self.topic_path = ""
+        self.subscription_path = ""
 
     def _connect_publisher(self) -> bool:
         if self.publisher is not None:
@@ -49,11 +49,7 @@ class GCPPubSubConnector(IMemoryConnector):
             self.subscriber = None
         return False
 
-    def ping(self) -> bool:
-        self._setup()
-        return True
-
-    def _setup(self):
+    def connect(self):
         self._connect_publisher()
         self._connect_subscriber()
         assert self.publisher is not None
@@ -93,22 +89,42 @@ class GCPPubSubConnector(IMemoryConnector):
             time.sleep(1)
             subscription = self.subscriber.get_subscription(subscription=self.subscription_path)
 
-    def memory_add(self, dat: Any) -> bool:
+    @property
+    def is_connected(self) -> bool:
+        return self.publisher is not None and self.subscriber is not None
+
+    def ping(self) -> bool:
         try:
+            self.connect()
             assert self.publisher is not None
+            topic = self.publisher.get_topic(topic=self.topic_path)
+            if topic is None:
+                return False
+            assert self.subscriber is not None
+            subscription = self.subscriber.get_subscription(subscription=self.subscription_path)
+            if subscription is None:
+                return False
+            return True
+        except Exception as e:
+            logger.error(e)
+        return False
+
+    def memory_add(self, dat: Any) -> None:
+        try:
+            if self.publisher is None:
+                self.connect()
+                assert self.publisher is not None
             dat = pickle.dumps(dat)
             self.publisher.publish(self.topic_path, dat)
-            return True
         except Exception:
-            logger.error(traceback.format_exc())
             self.close()
-            self._setup()
-        return False
+            raise
 
     def memory_recv(self) -> Optional[Any]:
         try:
-            assert self.subscriber is not None
-
+            if self.subscriber is None:
+                self.connect()
+                assert self.subscriber is not None
             response = self.subscriber.pull(
                 subscription=self.subscription_path, max_messages=1, return_immediately=True
             )
@@ -119,17 +135,17 @@ class GCPPubSubConnector(IMemoryConnector):
             dat = mess.message.data
             return dat if dat is None else pickle.loads(cast(bytes, dat))
         except Exception:
-            logger.error(traceback.format_exc())
             self.close()
-            self._setup()
-        return None
+            raise
 
     def memory_size(self) -> int:
         return -1
 
     def memory_purge(self) -> None:
         try:
-            assert self.subscriber
+            if self.subscriber is None:
+                self.connect()
+                assert self.subscriber is not None
             for _ in range(100):
                 response = self.subscriber.pull(
                     subscription=self.subscription_path, max_messages=100, return_immediately=True
@@ -140,8 +156,6 @@ class GCPPubSubConnector(IMemoryConnector):
 
                 ack_ids = [message.ack_id for message in received_messages]
                 self.subscriber.acknowledge(subscription=self.subscription_path, ack_ids=ack_ids)
-
         except Exception:
             logger.error(traceback.format_exc())
             self.close()
-            self._setup()

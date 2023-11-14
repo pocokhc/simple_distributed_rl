@@ -87,7 +87,7 @@ def _run_actor(
         parameter = runner.make_parameter(is_load=False)
         params = remote_board.read()
         if params is not None:
-            parameter.restore(params, from_cpu=True)
+            parameter.restore(pickle.loads(params), from_cpu=True)
 
         # --- train
         runner.context.training = True
@@ -171,7 +171,7 @@ def _run_actor(
                 t0_sync = time.time()
                 params = remote_board.read()
                 if params is not None:
-                    parameter.restore(params, from_cpu=True)
+                    parameter.restore(pickle.loads(params), from_cpu=True)
                     state.sync_actor += 1
             # --- ActorInterrupt ---
 
@@ -242,7 +242,7 @@ def _run_trainer(
         parameter = runner.make_parameter(is_load=False)
         params = remote_board.read()
         if params is not None:
-            parameter.restore(params, from_cpu=True)
+            parameter.restore(pickle.loads(params), from_cpu=True)
 
         # --- train
         context = runner.context
@@ -285,7 +285,7 @@ def _run_trainer(
             # --- TrainerInterrupt ---
             if time.time() - t0_sync > mp_data.config.trainer_parameter_send_interval:
                 t0_sync = time.time()
-                remote_board.write(parameter.backup(to_cpu=True))
+                remote_board.write(pickle.dumps(parameter.backup(to_cpu=True)))
                 runner.state.sync_trainer += 1
 
             if True in _stop_flags:
@@ -304,7 +304,7 @@ def _run_trainer(
         train_end_signal.set(True)
         if parameter is not None:
             t0 = time.time()
-            remote_board.write(parameter.backup(to_cpu=True))
+            remote_board.write(pickle.dumps(parameter.backup(to_cpu=True)))
             logger.info(f"trainer end.(send parameter time: {time.time() - t0:.1f}s)")
 
 
@@ -342,7 +342,7 @@ def train(runner: srl.Runner, choice_method: str = "random"):
     # --- init remote_memory/parameter
     parameter = runner.make_parameter()
     memory = runner.make_memory()
-    remote_board.write(parameter.backup(to_cpu=True))
+    remote_board.write(pickle.dumps(parameter.backup(to_cpu=True)))
 
     # --- actor
     actors_gen_list = []
@@ -406,7 +406,7 @@ def train(runner: srl.Runner, choice_method: str = "random"):
     params = remote_board.read()
     if params is not None:
         runner.parameter = None
-        runner.make_parameter().restore(params, from_cpu=True)
+        runner.make_parameter().restore(pickle.loads(params), from_cpu=True)
     logger.info(f"recv parameter time: {time.time() - t0:.1f}s")
 
     # callbacks

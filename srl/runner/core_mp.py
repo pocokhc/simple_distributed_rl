@@ -1,6 +1,8 @@
 import ctypes
 import logging
 import multiprocessing as mp
+import os
+import pickle
 import queue
 import threading
 import time
@@ -68,7 +70,9 @@ class _ActorRLMemory(IRLMemoryWorker):
                 break
             if time.time() - t0 > 10:
                 t0 = time.time()
-                print(f"capacity over, wait queue: {qsize}/{self.dist_queue_capacity}")
+                print(f"queue capacity over: {qsize}/{self.dist_queue_capacity}")
+                break  # 終了条件用に1step進める
+
             time.sleep(1)
 
     def length(self) -> int:
@@ -94,13 +98,18 @@ class _ActorInterrupt(Callback):
         runner.state.sync_actor = 0
 
     def on_step_end(self, runner: srl.Runner) -> bool:
+        if os.getppid() == 1:
+            self.end_signal.value = True
+            logger.info("end_signale: True")
+            return True
+
         if time.time() - self.t0 < self.actor_parameter_sync_interval:
             return self.end_signal.value
         self.t0 = time.time()
         params = self.remote_board.read()
         if params is None:
             return self.end_signal.value
-        self.parameter.restore(params, from_cpu=True)
+        self.parameter.restore(pickle.loads(params), from_cpu=True)
         runner.state.sync_actor += 1
         return self.end_signal.value
 
@@ -130,7 +139,7 @@ def _run_actor(
         parameter = runner.make_parameter(is_load=False)
         params = remote_board.read()
         if params is not None:
-            parameter.restore(params, from_cpu=True)
+            parameter.restore(pickle.loads(params), from_cpu=True)
 
         # --- memory
         memory = cast(
@@ -165,6 +174,7 @@ def _run_actor(
 
     finally:
         end_signal.value = True
+        logger.info("end_signal: True")
         logger.info(f"actor{actor_id} end")
 
 
@@ -203,7 +213,7 @@ def _parameter_communicate(
             time.sleep(trainer_parameter_send_interval)
             params = parameter.backup(to_cpu=True)
             if params is not None:
-                remote_board.write(params)
+                remote_board.write(pickle.dumps(params))
                 share_dict["sync_count"] += 1
 
     except Exception:
@@ -281,6 +291,7 @@ def _run_trainer(
         workers=None,
     )
     end_signal.value = True
+    logger.info("end_signal: True")
 
     # thread end
     memory_ps.join(timeout=10)
@@ -349,7 +360,7 @@ def _train(runner: srl.Runner, manager: Any):
     # --- init remote_memory/parameter
     parameter = runner.make_parameter()
     memory = runner.make_memory()
-    remote_board.write(parameter.backup(to_cpu=True))
+    remote_board.write(pickle.dumps(parameter.backup(to_cpu=True)))
 
     # --- actor ---
     mp_data = runner.create_task_config(exclude_callbacks=["Checkpoint"])
@@ -385,6 +396,7 @@ def _train(runner: srl.Runner, manager: Any):
         )
     finally:
         end_signal.value = True
+        logger.info("end_signal: True")
 
     # --- プロセスの終了を待つ
     for w in actors_ps_list:

@@ -1,7 +1,7 @@
 import logging
 import time
 import traceback
-from typing import List
+from typing import List, Optional
 
 import srl
 from srl.runner.distribution.callback import DistributionCallback
@@ -11,24 +11,55 @@ from srl.runner.distribution.manager import DistributedManager
 logger = logging.getLogger(__name__)
 
 
+class TaskManager:
+    def __init__(self, redis_parameter: RedisParameters) -> None:
+        self.manager = DistributedManager(redis_parameter, None)
+
+    def read_status(self) -> str:
+        assert self.manager.ping()
+        return self.manager.task_get_status()
+
+    def read_parameter(self):
+        assert self.manager.ping()
+        return self.manager.parameter_read()
+
+    def create_task_runner(self) -> Optional[srl.Runner]:
+        assert self.manager.ping()
+        task_config = self.manager.task_get_config()
+        if task_config is None:
+            return None
+        runner = srl.Runner(
+            task_config.context.env_config,
+            task_config.context.rl_config,
+            task_config.config,
+            task_config.context,
+        )
+        params = self.manager.parameter_read()
+        if params is not None:
+            runner.make_parameter().restore(params)
+        return runner
+
+
 def run(
     runner: srl.Runner,
     redis_parameter: RedisParameters,
+    wait: bool,
     callbacks: List[DistributionCallback] = [],
 ):
     parameter = runner.make_parameter()
-
     manager = DistributedManager(redis_parameter, None)
     assert manager.ping()
     manager.set_user("client")
 
-    # --- task
-    actor_num = runner.context.actor_num
     manager.task_create(
-        actor_num,
+        runner.context.actor_num,
         runner.create_task_config(["Checkpoint", "HistoryOnFile", "HistoryOnMemory"]),
         parameter.backup(to_cpu=True),
     )
+
+    if not wait:
+        return
+
     try:
         # callbacks
         [c.on_start(runner, manager) for c in callbacks]
@@ -43,7 +74,7 @@ def run(
                     try:
                         params = manager.parameter_read()
                         if params is not None:
-                            parameter.restore(params, from_cpu=True)
+                            runner.make_parameter().restore(params, from_cpu=True)
                     except Exception:
                         logger.warning(traceback.format_exc())
 
@@ -52,7 +83,7 @@ def run(
                     try:
                         params = manager.parameter_read()
                         if params is not None:
-                            parameter.restore(params, from_cpu=True)
+                            runner.make_parameter().restore(params, from_cpu=True)
                     except Exception:
                         logger.warning(traceback.format_exc())
                     finally:

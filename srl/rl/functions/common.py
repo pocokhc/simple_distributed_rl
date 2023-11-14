@@ -16,6 +16,14 @@ def inverse_rescaling(x, eps=0.001):
     return np.sign(x) * ((n**2) - 1.0)
 
 
+def symlog(x):
+    return np.sign(x) * np.log(1 + np.abs(x))
+
+
+def symexp(x):
+    return np.sign(x) * (np.exp(np.abs(x)) - 1)
+
+
 def sigmoid(x, a=1):
     return 1 / (1 + np.exp(-a * x))
 

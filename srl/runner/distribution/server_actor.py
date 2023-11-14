@@ -73,12 +73,12 @@ class _ActorRLMemoryThread(IRLMemoryWorker):
 
             if time.time() - t0 > 10:
                 t0 = time.time()
-                s = "capacity over, wait:"
+                s = "queue capacity over:"
                 s += f"local {self.q.qsize()}"
                 s += f", remote_qsize {remote_qsize}"
                 print(s)
                 logger.info(s)
-                break
+                break  # 終了条件用に1step進める
             time.sleep(1)
 
     def length(self) -> int:
@@ -167,7 +167,7 @@ def _parameter_communicate(
             share_dict["q_recv_count"] = 0 if q_recv_count == "" else int(q_recv_count)
 
             # --- keepalive
-            if manager.keepalive():
+            if manager.keepalive_actor():
                 manager.task_set_actor(actor_idx, "episode", str(share_dict["episode_count"]))
                 manager.task_set_actor(actor_idx, "q_send_count", str(share_dict["q_send_count"]))
                 if manager.task_is_dead():
@@ -176,7 +176,7 @@ def _parameter_communicate(
 
             time.sleep(1)
 
-        manager.keepalive(do_now=True)
+        manager.keepalive_actor(do_now=True)
         manager.task_set_actor(actor_idx, "episode", str(share_dict["episode_count"]))
         manager.task_set_actor(actor_idx, "q_send_count", str(share_dict["q_send_count"]))
 
@@ -234,7 +234,7 @@ class _ActorRLMemoryManager(IRLMemoryWorker):
                 break
 
             # keepalive
-            if self.manager.keepalive():
+            if self.manager.keepalive_actor():
                 if self.manager.task_is_dead():
                     raise DistributionError("task is dead")
 
@@ -281,7 +281,7 @@ class _ActorInterruptManager(Callback):
                 runner.state.sync_actor += 1
 
         # --- keepalive
-        if self.manager.keepalive():
+        if self.manager.keepalive_actor():
             assert runner.state.memory is not None
             self.manager.task_set_actor(self.actor_idx, "episode", str(runner.state.episode_count))
             self.manager.task_set_actor(self.actor_idx, "q_send_count", str(runner.state.memory.length()))
@@ -292,7 +292,7 @@ class _ActorInterruptManager(Callback):
 
     def on_episodes_end(self, runner: Runner) -> None:
         assert runner.state.memory is not None
-        self.manager.keepalive(do_now=True)
+        self.manager.keepalive_actor(do_now=True)
         self.manager.task_set_actor(self.actor_idx, "episode", str(runner.state.episode_count))
         self.manager.task_set_actor(self.actor_idx, "q_send_count", str(runner.state.memory.length()))
 

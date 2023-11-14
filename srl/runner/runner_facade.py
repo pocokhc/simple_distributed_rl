@@ -1,5 +1,4 @@
 import logging
-import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, List, Optional, Union
 
@@ -117,10 +116,11 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        callback_return_args = self._add_core_play_before(
+        self._add_core_play_before(
             enable_checkpoint=True,
             enable_checkpoint_load=True,
-            enable_history=True,
+            enable_history_on_memory=True,
+            enable_history_on_file=True,
         )
 
         self.core_play(
@@ -131,7 +131,10 @@ class RunnerFacade(Runner):
             workers=None,
         )
 
-        self._add_core_play_after(*callback_return_args)
+        self._add_core_play_after(
+            enable_history_on_memory=True,
+            enable_history_on_file=True,
+        )
 
     def rollout(
         self,
@@ -193,10 +196,11 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        callback_return_args = self._add_core_play_before(
+        self._add_core_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=True,
-            enable_history=True,
+            enable_history_on_memory=True,
+            enable_history_on_file=True,
         )
 
         self.core_play(
@@ -207,7 +211,10 @@ class RunnerFacade(Runner):
             workers=None,
         )
 
-        self._add_core_play_after(*callback_return_args)
+        self._add_core_play_after(
+            enable_history_on_memory=True,
+            enable_history_on_file=True,
+        )
 
     def train_only(
         self,
@@ -273,10 +280,11 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        callback_return_args = self._add_core_play_before(
+        self._add_core_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=True,
-            enable_history=True,
+            enable_history_on_memory=True,
+            enable_history_on_file=True,
         )
 
         self.core_play(
@@ -286,7 +294,10 @@ class RunnerFacade(Runner):
             trainer=trainer,
             workers=None,
         )
-        self._add_core_play_after(*callback_return_args)
+        self._add_core_play_after(
+            enable_history_on_memory=True,
+            enable_history_on_file=True,
+        )
 
     def train_mp(
         self,
@@ -374,17 +385,21 @@ class RunnerFacade(Runner):
             )
             logger.info("add callback PrintProgress")
 
-        callback_return_args = self._add_core_play_before(
+        self._add_core_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=True,
-            enable_history=True,
+            enable_history_on_memory=False,
+            enable_history_on_file=True,
         )
 
         from .core_mp import train
 
         train(self)
 
-        self._add_core_play_after(*callback_return_args)
+        self._add_core_play_after(
+            enable_history_on_memory=False,
+            enable_history_on_file=True,
+        )
 
     def train_mp_debug(
         self,
@@ -481,21 +496,26 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        callback_return_args = self._add_core_play_before(
+        self._add_core_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=True,
-            enable_history=True,
+            enable_history_on_memory=False,
+            enable_history_on_file=True,
         )
 
         from .core_mp_debug import train
 
         train(self, choice_method)
 
-        self._add_core_play_after(*callback_return_args)
+        self._add_core_play_after(
+            enable_history_on_memory=False,
+            enable_history_on_file=True,
+        )
 
     def train_distribution(
         self,
         redis_parameter: "RedisParameters",
+        wait: bool = True,
         # mp
         actor_num: int = 1,
         queue_capacity: int = 1000,
@@ -529,8 +549,6 @@ class RunnerFacade(Runner):
         eval_max_steps: int = -1,
         eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
-        # --- checkpoint
-        checkpoint_interval: int = 60 * 20,
         # --- other
         callbacks: List[CallbackType] = [],
     ):
@@ -578,10 +596,11 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        callback_return_args = self._add_core_play_before(
+        self._add_core_play_before(
             enable_checkpoint_load=True,
-            enable_checkpoint=True,
-            enable_history=True,
+            enable_checkpoint=False,
+            enable_history_on_memory=False,
+            enable_history_on_file=False,
         )
 
         from .distribution.callback import DistributionCallback
@@ -601,26 +620,32 @@ class RunnerFacade(Runner):
                 eval_shuffle_player=eval_shuffle_player,
             )
         ]
-        if self.config.enable_wkdir:
+
+        # checkpointは別途定義
+        if self._checkpoint is not None:
             from .distribution.callbacks.checkpoint import Checkpoint
 
             _callbacks_dist.append(
                 Checkpoint(
-                    save_dir=os.path.join(self.config.wkdir1, "checkpoint"),
-                    interval=checkpoint_interval,
-                    enable_eval=enable_eval,
-                    eval_env_sharing=eval_env_sharing,
-                    eval_episode=eval_episode,
-                    eval_timeout=eval_timeout,
-                    eval_max_steps=eval_max_steps,
-                    eval_players=eval_players,
-                    eval_shuffle_player=eval_shuffle_player,
+                    save_dir=self._checkpoint.save_dir,
+                    interval=self._checkpoint.interval,
+                    enable_eval=self._checkpoint.enable_eval,
+                    eval_env_sharing=self._checkpoint.eval_env_sharing,
+                    eval_episode=self._checkpoint.eval_episode,
+                    eval_timeout=self._checkpoint.eval_timeout,
+                    eval_max_steps=self._checkpoint.eval_max_steps,
+                    eval_players=self._checkpoint.eval_players,
+                    eval_shuffle_player=self._checkpoint.eval_shuffle_player,
                 )
             )
+            logger.info(f"add callback Checkpoint: {self._checkpoint.save_dir}")
 
-        run(self, redis_parameter, _callbacks_dist)
+        run(self, redis_parameter, wait, _callbacks_dist)
 
-        self._add_core_play_after(*callback_return_args)
+        self._add_core_play_after(
+            enable_history_on_memory=False,
+            enable_history_on_file=False,
+        )
 
     def evaluate(
         self,
@@ -698,7 +723,8 @@ class RunnerFacade(Runner):
         self._add_core_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=False,
-            enable_history=False,
+            enable_history_on_memory=False,
+            enable_history_on_file=False,
         )
 
         state = self.core_play(
@@ -762,7 +788,8 @@ class RunnerFacade(Runner):
         self._add_core_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=False,
-            enable_history=False,
+            enable_history_on_memory=False,
+            enable_history_on_file=False,
         )
 
         state = self.core_play(
@@ -857,7 +884,8 @@ class RunnerFacade(Runner):
         self._add_core_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=False,
-            enable_history=False,
+            enable_history_on_memory=False,
+            enable_history_on_file=False,
         )
 
         state = self.core_play(
@@ -954,7 +982,8 @@ class RunnerFacade(Runner):
         self._add_core_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=False,
-            enable_history=False,
+            enable_history_on_memory=False,
+            enable_history_on_file=False,
         )
 
         state = self.core_play(
@@ -1053,7 +1082,8 @@ class RunnerFacade(Runner):
         self._add_core_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=False,
-            enable_history=False,
+            enable_history_on_memory=False,
+            enable_history_on_file=False,
         )
 
         state = self.core_play(
@@ -1125,7 +1155,8 @@ class RunnerFacade(Runner):
         self._add_core_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=False,
-            enable_history=False,
+            enable_history_on_memory=False,
+            enable_history_on_file=False,
         )
 
         from srl.runner.game_windows.replay_window import RePlayableGame
@@ -1183,7 +1214,8 @@ class RunnerFacade(Runner):
         self._add_core_play_before(
             enable_checkpoint_load=False,
             enable_checkpoint=False,
-            enable_history=False,
+            enable_history_on_memory=False,
+            enable_history_on_file=False,
         )
 
         state = self.core_play(
@@ -1229,7 +1261,8 @@ class RunnerFacade(Runner):
         self._add_core_play_before(
             enable_checkpoint_load=False,
             enable_checkpoint=False,
-            enable_history=False,
+            enable_history_on_memory=False,
+            enable_history_on_file=False,
         )
 
         from srl.utils.common import is_packages_installed

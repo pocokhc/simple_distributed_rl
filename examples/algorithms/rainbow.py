@@ -64,7 +64,7 @@ def main():
         print(name)
 
         # --- train
-        runner.set_history(enable_eval=True)
+        runner.set_history_on_memory(enable_eval=True)
         runner.train(max_episodes=200)
         results.append((name, runner.get_history().get_df()))
 

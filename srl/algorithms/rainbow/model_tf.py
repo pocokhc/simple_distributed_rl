@@ -145,4 +145,5 @@ class Trainer(RLTrainer):
         self.train_info = {
             "loss": loss.numpy(),
             "sync": self.sync_count,
+            "lr": self.lr_sch.get_rate(),
         }

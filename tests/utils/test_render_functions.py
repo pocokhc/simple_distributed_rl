@@ -14,6 +14,7 @@ from srl.utils.render_functions import print_to_text, text_to_rgb_array
 )
 def test_print_to_text(name, text):
     text2 = print_to_text(lambda: print(text))
+    print(text2)
     assert text2 == text + "\n"
 
 
@@ -37,7 +38,7 @@ def test_text_to_rgb_array(name, text):
 
     # debug
     if False:
-        from PIL import Image
+        import cv2
 
-        img = Image.fromarray(rgb_array)
-        img.show()
+        cv2.imshow("image", rgb_array)
+        cv2.waitKey()

@@ -56,8 +56,8 @@ def main():
     for name, rl_config in rl_configs:
         print(name)
         runner = srl.Runner(env_config, rl_config)
-        runner.set_history(write_file=True)
-        runner.train_mp(max_train_count=200 * 100)
+        runner.set_history_on_memory()
+        runner.train(max_train_count=200 * 100)
         df = runner.get_history().get_df()
         results.append((name, df))
 

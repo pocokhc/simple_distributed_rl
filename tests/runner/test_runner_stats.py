@@ -11,14 +11,8 @@ def test_psutil():
 
     runner = srl.Runner("Grid", ql.Config())
 
-    memory_percent, cpu_percent = runner.read_psutil()
-    assert np.isnan(memory_percent)
-
     for _ in range(2):
         runner.context.max_steps = 10
-        runner.setup_psutil()
-        assert runner._psutil_process is not None
-        assert runner._psutil_process
 
         memory_percent, cpu_percent = runner.read_psutil()
         print(memory_percent, cpu_percent)

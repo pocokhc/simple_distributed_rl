@@ -117,26 +117,38 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
     #: <:ref:`scheduler`> Episodic Learning rate
     episodic_lr: float = 0.0005  # type: ignore , type OK
-    episodic_count_max: int = 10  # k
+    #: [episodic] k
+    episodic_count_max: int = 10
+    #: [episodic] epsilon
     episodic_epsilon: float = 0.001
+    #: [episodic] cluster_distance
     episodic_cluster_distance: float = 0.008
+    #: [episodic] capacity
     episodic_memory_capacity: int = 30000
-    episodic_pseudo_counts: float = 0.1  # 疑似カウント定数
+    #: [episodic] 疑似カウント定数(c)
+    episodic_pseudo_counts: float = 0.1
+    #: <:ref:`MLPBlock`> [episodic] emb block
     episodic_emb_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    #: <:ref:`MLPBlock`> [episodic] out block
     episodic_out_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     #: <:ref:`scheduler`> Lifelong Learning rate
     lifelong_lr: float = 0.0005  # type: ignore , type OK
-    lifelong_max: float = 5.0  # L
+    #: [lifelong] L
+    lifelong_max: float = 5.0
+    #: <:ref:`MLPBlock`> [lifelong] hidden block
     lifelong_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
-    # UVFA
+    #: [UVFA] input ext reward
     input_ext_reward: bool = True
+    #: [UVFA] input int reward
     input_int_reward: bool = False
+    #: [UVFA] input action
     input_action: bool = False
 
-    # other
-    disable_int_priority: bool = False  # Not use internal rewards to calculate priority
+    #: Not use internal rewards to calculate priority
+    disable_int_priority: bool = False
+    #: dummy_state_val
     dummy_state_val: float = 0.0
 
     def __post_init__(self):

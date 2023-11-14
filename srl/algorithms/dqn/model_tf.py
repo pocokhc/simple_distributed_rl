@@ -43,10 +43,10 @@ class _QNetwork(keras.Model):
         self.build((None,) + config.observation_shape)
 
     @tf.function
-    def call(self, x, training=False):
+    def call(self, x, training=False) -> Any:
         return self._call(x, training)
 
-    def _call(self, x, training=False):
+    def _call(self, x, training=False) -> Any:
         x = self.in_block(x, training=training)
         if self.in_block.use_image_layer:
             x = self.image_block(x, training=training)
@@ -96,10 +96,10 @@ class Parameter(CommonInterfaceParameter):
     # -------------------------------------
 
     def predict_q(self, state: np.ndarray) -> np.ndarray:
-        return self.q_online.call(state).numpy()  # type:ignore , ignore check "None"
+        return self.q_online(state).numpy()
 
     def predict_target_q(self, state: np.ndarray) -> np.ndarray:
-        return self.q_target(state).numpy()  # type:ignore , ignore check "None"
+        return self.q_target(state).numpy()
 
 
 # ------------------------------------------------------
@@ -114,7 +114,8 @@ class Trainer(RLTrainer):
         self.lr_sch = self.config.lr.create_schedulers()
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
-        self.loss_func = keras.losses.Huber(reduction=tf.keras.losses.Reduction.NONE)
+        # self.loss_func = keras.losses.Huber(reduction=tf.keras.losses.Reduction.NONE)
+        self.loss_func = keras.losses.Huber()
 
         self.sync_count = 0
 
@@ -128,7 +129,7 @@ class Trainer(RLTrainer):
             q = tf.reduce_sum(q * onehot_actions, axis=1)
 
             loss = self.loss_func(target_q * weights, q * weights)
-            loss += tf.nn.scale_regularization_loss(self.parameter.q_online.losses)
+            # loss += tf.nn.scale_regularization_loss(self.parameter.q_online.losses)
 
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
@@ -148,5 +149,6 @@ class Trainer(RLTrainer):
         self.train_info = {
             "loss": loss.numpy(),
             "sync": self.sync_count,
+            "lr": self.lr_sch.get_rate(),
         }
         self.train_count += 1

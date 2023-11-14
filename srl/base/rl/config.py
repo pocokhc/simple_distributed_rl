@@ -82,6 +82,7 @@ class RLConfig(ABC):
         self._is_setup = False
         self._run_processors: List[Processor] = []
         self._rl_action_type = self.override_action_type
+        self._input_is_image = False
 
         # The device used by the framework.
         self._used_device_tf: str = "/CPU"
@@ -265,6 +266,12 @@ class RLConfig(ABC):
             self._action_low = np.array(self.action_space.list_low)
             self._action_high = np.array(self.action_space.list_high)
 
+        self._input_is_image = self._rl_env_observation_type not in [
+            EnvObservationTypes.DISCRETE,
+            EnvObservationTypes.CONTINUOUS,
+            EnvObservationTypes.UNKNOWN,
+        ]
+
         # --- option
         self.set_config_by_env(env)
 
@@ -346,6 +353,10 @@ class RLConfig(ABC):
     @property
     def env_observation_type(self) -> EnvObservationTypes:
         return self._rl_env_observation_type
+
+    @property
+    def input_is_image(self) -> bool:
+        return self._input_is_image
 
     def to_dict(self) -> dict:
         dat: dict = convert_for_json(self.__dict__)

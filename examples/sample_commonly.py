@@ -30,9 +30,6 @@ def train():
     # sequence training
     runner.train(timeout=10)
 
-    # distributed training
-    runner.train_mp(timeout=10)
-
     # save parameter
     runner.save_parameter(_parameter_path)
 

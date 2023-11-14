@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Installation &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
+  <title>Installation &mdash; SimpleDistributedRL 0.13.1 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -13,14 +13,14 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=7913be7e"></script>
+        <script src="../_static/documentation_options.js?v=2d7bc41f"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
-    <link rel="next" title="Getting Started" href="quickstart.html" />
+    <link rel="next" title="How To Use" href="howtouse.html" />
     <link rel="prev" title="Welcome to SimpleDistributedRL&#39;s documentation!" href="../index.html" /> 
 </head>
 
@@ -52,7 +52,6 @@
 <li class="toctree-l2"><a class="reference internal" href="#option-library">Option library</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
 <li class="toctree-l1"><a class="reference internal" href="distributed.html">Distributed Learning (Multiple PCs)</a></li>
 </ul>
@@ -74,6 +73,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/agent57.html">Agent57</a></li>
 </ul>
 
         </div>
@@ -215,16 +215,12 @@
 </dd>
 </dl>
 </li>
-<li><dl class="simple">
-<dt>Redisによる分散学習を使う場合</dt><dd><ul>
-<li><p>redis</p></li>
-</ul>
-</dd>
-</dl>
-</li>
+<li><p>クラウド/ネットワークによる分散学習を使う場合
++ redis
++ pika</p></li>
 </ul>
 <p>Tensorflow,Torchを除いたライブラリを一括でインストールするコマンドは以下です。</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>matplotlib<span class="w"> </span>pillow<span class="w"> </span>opencv-python<span class="w"> </span>pygame<span class="w"> </span>pandas<span class="w"> </span>gymnasium<span class="w"> </span>psutil<span class="w"> </span>pynvml<span class="w"> </span>redis
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>matplotlib<span class="w"> </span>pillow<span class="w"> </span>opencv-python<span class="w"> </span>pygame<span class="w"> </span>pandas<span class="w"> </span>gymnasium<span class="w"> </span>psutil<span class="w"> </span>pynvml<span class="w"> </span>redis<span class="w"> </span>pika
 </pre></div>
 </div>
 </section>
@@ -235,7 +231,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="../index.html" class="btn btn-neutral float-left" title="Welcome to SimpleDistributedRL&#39;s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="quickstart.html" class="btn btn-neutral float-right" title="Getting Started" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="howtouse.html" class="btn btn-neutral float-right" title="How To Use" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How To Use &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
+  <title>How To Use &mdash; SimpleDistributedRL 0.13.1 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -13,7 +13,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=7913be7e"></script>
+        <script src="../_static/documentation_options.js?v=2d7bc41f"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -21,7 +21,7 @@
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
     <link rel="next" title="Distributed Learning (Multiple PCs)" href="distributed.html" />
-    <link rel="prev" title="Getting Started" href="quickstart.html" /> 
+    <link rel="prev" title="Installation" href="install.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -46,16 +46,27 @@
               <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Getting Started</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">How To Use</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#envconfig">EnvConfig</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#rlconfig">RLConfig</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#runner">Runner</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#envconfig">1. EnvConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#gym-gymnasium">Gym/Gymnasiumに対応していない環境の読み込み</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#rlconfig">2. RLConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#runner">3. Runner</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#basic-run-of-study">Basic run of study</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#commonly-run-example">Commonly run Example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#runner-functions">4. Runner functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#train">Train</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#rollout">Rollout</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#train-only">Train Only</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#train-multiprocessing">Train Multiprocessing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#evaluate">Evaluate</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#replay-window">Replay Window</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#render-terminal">Render Terminal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#render-window">Render Window</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#animation">Animation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#replay-window">Replay Window</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#manual-play-terminal">Manual play Terminal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#manual-play-window">Manual play Window</a></li>
 </ul>
@@ -82,6 +93,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/agent57.html">Agent57</a></li>
 </ul>
 
         </div>
@@ -117,7 +129,7 @@
 <li><p>Runnerで動かす。</p></li>
 </ol>
 <section id="envconfig">
-<h2>EnvConfig<a class="headerlink" href="#envconfig" title="Link to this heading"></a></h2>
+<h2>1. EnvConfig<a class="headerlink" href="#envconfig" title="Link to this heading"></a></h2>
 <p>実行する環境を指定します。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">)</span>
@@ -130,14 +142,39 @@
 </div>
 <div class="line-block">
 <div class="line">自作の環境を用意したい場合は <a class="reference internal" href="custom_env.html#custom-env"><span class="std std-ref">Make Original Environment</span></a> を見てください。</div>
-<div class="line">また、ID以外に環境に対して設定できる項目は <a class="reference internal" href="env_config.html#env-config"><span class="std std-ref">EnvConfig</span></a> を見てください。</div>
+<div class="line">また、ID以外にEnvConfigに設定できる項目は <a class="reference internal" href="env_config.html#env-config"><span class="std std-ref">EnvConfig</span></a> を見てください。</div>
+</div>
+<section id="gym-gymnasium">
+<h3>Gym/Gymnasiumに対応していない環境の読み込み<a class="headerlink" href="#gym-gymnasium" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">'gym_make_func' 'gymnasium_make_func' に読み込む関数を指定することができます。</div>
+<div class="line">例は 'gym-retro' を読み込む例です。</div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># pip install gym-retro</span>
+<span class="c1"># gym-retro support python3.6 3.7 3.8 and gym&lt;=0.25.2</span>
+<span class="kn">import</span> <span class="nn">retro</span>
+
+<span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
+
+<span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span>
+    <span class="s2">&quot;Airstriker-Genesis&quot;</span><span class="p">,</span>
+    <span class="nb">dict</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;Level1&quot;</span><span class="p">),</span>
+    <span class="n">gym_make_func</span><span class="o">=</span><span class="n">retro</span><span class="o">.</span><span class="n">make</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
+
+<span class="n">runner</span><span class="o">.</span><span class="n">render_window</span><span class="p">()</span>
+</pre></div>
 </div>
 </section>
+</section>
 <section id="rlconfig">
-<h2>RLConfig<a class="headerlink" href="#rlconfig" title="Link to this heading"></a></h2>
+<h2>2. RLConfig<a class="headerlink" href="#rlconfig" title="Link to this heading"></a></h2>
 <div class="line-block">
 <div class="line">実行するアルゴリズムを指定します。</div>
-<div class="line">各アルゴリズムには必ずConfigが定義されているのでそれを呼び出します。</div>
+<div class="line">各アルゴリズムにはConfigがあるのでそれを呼び出します。</div>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 使うアルゴリズムを読み込み</span>
 <span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
@@ -158,10 +195,12 @@
 </div>
 </section>
 <section id="runner">
-<h2>Runner<a class="headerlink" href="#runner" title="Link to this heading"></a></h2>
+<h2>3. Runner<a class="headerlink" href="#runner" title="Link to this heading"></a></h2>
 <p>EnvConfigとRLConfigを元に実際に実行するRunnerを作成します。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 
+<span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">)</span>
+<span class="n">rl_config</span> <span class="o">=</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
 <span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">rl_config</span><span class="p">)</span>
 
 <span class="c1"># envはIDのみでも可能</span>
@@ -171,8 +210,9 @@
 <span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Runnerを作成したら、基本的な流れは学習と評価です。</p>
-<p>最もシンプルな学習は以下です。</p>
+<p>Runnerを作成したら後は任意の関数を実行して学習します。</p>
+<section id="basic-run-of-study">
+<h3>Basic run of study<a class="headerlink" href="#basic-run-of-study" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 <span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># algorithm load</span>
 
@@ -193,7 +233,9 @@
     <span class="n">main</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>以下は学習と評価を分けて実行する例です。</p>
+</section>
+<section id="commonly-run-example">
+<h3>Commonly run Example<a class="headerlink" href="#commonly-run-example" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="kn">import</span> <span class="nn">srl</span>
@@ -225,9 +267,6 @@
 
     <span class="c1"># sequence training</span>
     <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
-
-    <span class="c1"># distributed training</span>
-    <span class="n">runner</span><span class="o">.</span><span class="n">train_mp</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 
     <span class="c1"># save parameter</span>
     <span class="n">runner</span><span class="o">.</span><span class="n">save_parameter</span><span class="p">(</span><span class="n">_parameter_path</span><span class="p">)</span>
@@ -277,10 +316,51 @@
 </pre></div>
 </div>
 <img alt="../_images/Grid.gif" src="../_images/Grid.gif" />
+<p>引数や他のRunnerの機能に関しては <a class="reference internal" href="runner.html#runner"><span class="std std-ref">Runner(Configuration related)</span></a> を見てください。</p>
+</section>
+</section>
+<section id="runner-functions">
+<h2>4. Runner functions<a class="headerlink" href="#runner-functions" title="Link to this heading"></a></h2>
+<section id="train">
+<h3>Train<a class="headerlink" href="#train" title="Link to this heading"></a></h3>
 <div class="line-block">
-<div class="line">Runnerで用意している実行形式は以下です。</div>
-<div class="line">引数や他のRunnerの機能に関しては <a class="reference internal" href="runner.html#runner"><span class="std std-ref">Runner(Configuration related)</span></a> を見てください。</div>
+<div class="line">学習をします。</div>
+<div class="line">学習後のParameterとMemoryがRunner内に保存されます。</div>
 </div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">max_episode</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="rollout">
+<h3>Rollout<a class="headerlink" href="#rollout" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">経験を集める時に使います。</div>
+<div class="line">実際に学習環境でエピソードを実行しますが、学習はしません。</div>
+<div class="line">実行後はMemoryがRunner内に保存されます。</div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">runner</span><span class="o">.</span><span class="n">rollout</span><span class="p">(</span><span class="n">max_episode</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="train-only">
+<h3>Train Only<a class="headerlink" href="#train-only" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">エピソードは実行せず、Trainerの学習のみを実施します。</div>
+<div class="line">Memoryがある状態など、学習が可能な状態で呼び出してください。（学習が進まない場合無限ループになります）</div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">runner</span><span class="o">.</span><span class="n">train_only</span><span class="p">(</span><span class="n">max_train_count</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="train-multiprocessing">
+<h3>Train Multiprocessing<a class="headerlink" href="#train-multiprocessing" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">multiprocessing による分散学習を実施します。</div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">runner</span><span class="o">.</span><span class="n">train_mp</span><span class="p">(</span><span class="n">max_train_count</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 <section id="evaluate">
 <h3>Evaluate<a class="headerlink" href="#evaluate" title="Link to this heading"></a></h3>
 <p>学習せずにシミュレーションし、報酬を返します。</p>
@@ -300,21 +380,6 @@
 <span class="sd">    -2.079999975860119</span>
 <span class="sd">]</span>
 <span class="sd">&quot;&quot;&quot;</span>
-</pre></div>
-</div>
-</section>
-<section id="replay-window">
-<h3>Replay Window<a class="headerlink" href="#replay-window" title="Link to this heading"></a></h3>
-<div class="line-block">
-<div class="line">シミュレーションして、その結果を見返す機能です。</div>
-<div class="line">1step毎の様子を見ることができます。(GUIで表示されます)</div>
-<div class="line">pygameのwindowが表示できる環境である必要があります。</div>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
-<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
-
-<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
-<span class="n">runner</span><span class="o">.</span><span class="n">replay_window</span><span class="p">()</span>
 </pre></div>
 </div>
 </section>
@@ -435,6 +500,21 @@ pygameのwindowが表示できる環境である必要があります。</p>
 </pre></div>
 </div>
 </section>
+<section id="replay-window">
+<h3>Replay Window<a class="headerlink" href="#replay-window" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">シミュレーションして、その結果を見返す機能です。</div>
+<div class="line">1step毎の様子を見ることができます。(GUIで表示されます)</div>
+<div class="line">pygameのwindowが表示できる環境である必要があります。</div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
+<span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
+
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">replay_window</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
 <section id="manual-play-terminal">
 <h3>Manual play Terminal<a class="headerlink" href="#manual-play-terminal" title="Link to this heading"></a></h3>
 <p>Terminal上で手動プレイします。
@@ -495,7 +575,7 @@ pygameのwindowが表示できる環境である必要があります。</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="quickstart.html" class="btn btn-neutral float-left" title="Getting Started" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="install.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="distributed.html" class="btn btn-neutral float-right" title="Distributed Learning (Multiple PCs)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

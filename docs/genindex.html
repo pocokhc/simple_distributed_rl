@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>索引 &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
+  <title>索引 &mdash; SimpleDistributedRL 0.13.1 ドキュメント</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -12,7 +12,7 @@
   
         <script src="_static/jquery.js?v=5d32c60e"></script>
         <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="_static/documentation_options.js?v=7913be7e"></script>
+        <script src="_static/documentation_options.js?v=2d7bc41f"></script>
         <script src="_static/doctools.js?v=888ff710"></script>
         <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="_static/translations.js?v=4dbe4bdc"></script>
@@ -43,7 +43,6 @@
               <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="pages/install.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/quickstart.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/howtouse.html">How To Use</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/distributed.html">Distributed Learning (Multiple PCs)</a></li>
 </ul>
@@ -65,6 +64,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/agent57.html">Agent57</a></li>
 </ul>
 
         </div>
@@ -126,6 +126,8 @@
 </li>
       <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.actor_epsilon">actor_epsilon (srl.algorithms.dqn.dqn.Config の属性)</a>
 </li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.actor_num">actor_num (srl.algorithms.agent57.Config の属性)</a>
+</li>
       <li><a href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig.add_constant">add_constant() (srl.rl.schedulers.scheduler.SchedulerConfig のメソッド)</a>
 </li>
       <li><a href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig.add_cosine">add_cosine() (srl.rl.schedulers.scheduler.SchedulerConfig のメソッド)</a>
@@ -166,6 +168,8 @@
         <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_steps">(srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory の属性)</a>
 </li>
       </ul></li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.burnin">burnin (srl.algorithms.agent57.Config の属性)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -174,9 +178,11 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig.clear">clear() (srl.rl.schedulers.scheduler.SchedulerConfig のメソッド)</a>
 </li>
-      <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config">Config (srl.algorithms.dqn.dqn のクラス)</a>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config">Config (srl.algorithms.agent57 のクラス)</a>
 
       <ul>
+        <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config">(srl.algorithms.dqn.dqn のクラス)</a>
+</li>
         <li><a href="pages/algorithms/ql.html#srl.algorithms.ql.Config">(srl.algorithms.ql のクラス)</a>
 </li>
       </ul></li>
@@ -190,6 +196,10 @@
 <h2 id="D">D</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.disable_int_priority">disable_int_priority (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.disable_stats">disable_stats() (srl.runner.runner.Runner のメソッド)</a>
+</li>
       <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.discount">discount (srl.algorithms.dqn.dqn.Config の属性)</a>
 
       <ul>
@@ -198,10 +208,16 @@
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.dueling_network">dueling_network (srl.algorithms.agent57.Config の属性)</a>
+</li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.dueling_network.DuelingNetworkConfig">DuelingNetworkConfig (srl.rl.models.dueling_network のクラス)</a>
 </li>
-      <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.dummy_state_val">dummy_state_val (srl.base.rl.config.RLConfig の属性)</a>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.dummy_state_val">dummy_state_val (srl.algorithms.agent57.Config の属性)</a>
+
+      <ul>
+        <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.dummy_state_val">(srl.base.rl.config.RLConfig の属性)</a>
 </li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -216,10 +232,20 @@
         <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.enable_assertion_value">(srl.base.rl.config.RLConfig の属性)</a>
 </li>
       </ul></li>
-      <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.enable_double_dqn">enable_double_dqn (srl.algorithms.dqn.dqn.Config の属性)</a>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.enable_double_dqn">enable_double_dqn (srl.algorithms.agent57.Config の属性)</a>
+
+      <ul>
+        <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.enable_double_dqn">(srl.algorithms.dqn.dqn.Config の属性)</a>
 </li>
-      <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.enable_rescale">enable_rescale (srl.algorithms.dqn.dqn.Config の属性)</a>
+      </ul></li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.enable_intrinsic_reward">enable_intrinsic_reward (srl.algorithms.agent57.Config の属性)</a>
 </li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.enable_rescale">enable_rescale (srl.algorithms.agent57.Config の属性)</a>
+
+      <ul>
+        <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.enable_rescale">(srl.algorithms.dqn.dqn.Config の属性)</a>
+</li>
+      </ul></li>
       <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.enable_reward_clip">enable_reward_clip (srl.algorithms.dqn.dqn.Config の属性)</a>
 </li>
       <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.enable_reward_encode">enable_reward_encode (srl.base.rl.config.RLConfig の属性)</a>
@@ -230,13 +256,31 @@
         <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.enable_sanitize_value">(srl.base.rl.config.RLConfig の属性)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.enable_state_encode">enable_state_encode (srl.base.rl.config.RLConfig の属性)</a>
+</li>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.enable_stats">enable_stats() (srl.runner.runner.Runner のメソッド)</a>
 </li>
       <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig">EnvConfig (srl.base.env.config のクラス)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig.episode_timeout">episode_timeout (srl.base.env.config.EnvConfig の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.episodic_cluster_distance">episodic_cluster_distance (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.episodic_count_max">episodic_count_max (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.episodic_emb_block">episodic_emb_block (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.episodic_epsilon">episodic_epsilon (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.episodic_lr">episodic_lr (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.episodic_memory_capacity">episodic_memory_capacity (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.episodic_out_block">episodic_out_block (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.episodic_pseudo_counts">episodic_pseudo_counts (srl.algorithms.agent57.Config の属性)</a>
 </li>
       <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.epsilon">epsilon (srl.algorithms.dqn.dqn.Config の属性)</a>
 
@@ -262,12 +306,16 @@
 </li>
       <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig.font_size">font_size (srl.base.env.config.EnvConfig の属性)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig.frameskip">frameskip (srl.base.env.config.EnvConfig の属性)</a>
 </li>
-      <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.framework">framework (srl.algorithms.dqn.dqn.Config の属性)</a>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.framework">framework (srl.algorithms.agent57.Config の属性)</a>
+
+      <ul>
+        <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.framework">(srl.algorithms.dqn.dqn.Config の属性)</a>
 </li>
+      </ul></li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.framework_config.FrameworkConfig">FrameworkConfig (srl.rl.models.framework_config のクラス)</a>
 </li>
   </ul></td>
@@ -308,11 +356,21 @@
 <h2 id="I">I</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.image_block">image_block (srl.algorithms.dqn.dqn.Config の属性)</a>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.image_block">image_block (srl.algorithms.agent57.Config の属性)</a>
+
+      <ul>
+        <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.image_block">(srl.algorithms.dqn.dqn.Config の属性)</a>
+</li>
+      </ul></li>
+      <li><a href="pages/rl_config_model.html#srl.rl.models.image_block.ImageBlockConfig">ImageBlockConfig (srl.rl.models.image_block のクラス)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/rl_config_model.html#srl.rl.models.image_block.ImageBlockConfig">ImageBlockConfig (srl.rl.models.image_block のクラス)</a>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.input_action">input_action (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.input_ext_reward">input_ext_reward (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.input_int_reward">input_int_reward (srl.algorithms.agent57.Config の属性)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -328,6 +386,12 @@
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.lifelong_hidden_block">lifelong_hidden_block (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.lifelong_lr">lifelong_lr (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.lifelong_max">lifelong_max (srl.algorithms.agent57.Config の属性)</a>
+</li>
       <li><a href="pages/runner.html#srl.runner.runner.Runner.load_memory">load_memory() (srl.runner.runner.Runner のメソッド)</a>
 </li>
       <li><a href="pages/runner.html#srl.runner.runner.Runner.load_parameter">load_parameter() (srl.runner.runner.Runner のメソッド)</a>
@@ -340,6 +404,12 @@
         <li><a href="pages/algorithms/ql.html#srl.algorithms.ql.Config.lr">(srl.algorithms.ql.Config の属性)</a>
 </li>
       </ul></li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.lr_ext">lr_ext (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.lr_int">lr_int (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.lstm_units">lstm_units (srl.algorithms.agent57.Config の属性)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -426,6 +496,8 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.retrace_h">retrace_h (srl.algorithms.agent57.Config の属性)</a>
+</li>
       <li><a href="pages/runner.html#srl.runner.runner.Runner.rl_config">rl_config (srl.runner.runner.Runner の属性)</a>
 </li>
       <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig">RLConfig (srl.base.rl.config のクラス)</a>
@@ -448,17 +520,23 @@
 </li>
       <li><a href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig">SchedulerConfig (srl.rl.schedulers.scheduler のクラス)</a>
 </li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.sequence_length">sequence_length (srl.algorithms.agent57.Config の属性)</a>
+</li>
       <li><a href="pages/rl_config_memory.html#srl.rl.memories.sequence_memory.SequenceMemory">SequenceMemory (srl.rl.memories.sequence_memory のクラス)</a>
 </li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.dueling_network.DuelingNetworkConfig.set">set() (srl.rl.models.dueling_network.DuelingNetworkConfig のメソッド)</a>
 </li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.alphazero_block.AlphaZeroBlockConfig.set_alphazero_block">set_alphazero_block() (srl.rl.models.alphazero_block.AlphaZeroBlockConfig のメソッド)</a>
 </li>
-      <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.set_atari_config">set_atari_config() (srl.algorithms.dqn.dqn.Config のメソッド)</a>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.set_atari_config">set_atari_config() (srl.algorithms.agent57.Config のメソッド)</a>
+
+      <ul>
+        <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.set_atari_config">(srl.algorithms.dqn.dqn.Config のメソッド)</a>
 </li>
+      </ul></li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.framework_config.FrameworkConfig.set_auto">set_auto() (srl.rl.models.framework_config.FrameworkConfig のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner_facade.RunnerFacade.set_checkpoint">set_checkpoint() (srl.runner.runner_facade.RunnerFacade のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.set_checkpoint">set_checkpoint() (srl.runner.runner.Runner のメソッド)</a>
 </li>
       <li><a href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig.set_constant">set_constant() (srl.rl.schedulers.scheduler.SchedulerConfig のメソッド)</a>
 </li>
@@ -466,13 +544,15 @@
 </li>
       <li><a href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig.set_cosine_with_hard_restarts">set_cosine_with_hard_restarts() (srl.rl.schedulers.scheduler.SchedulerConfig のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.set_device">set_device() (srl.runner.runner.Runner のメソッド)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.set_device">set_device() (srl.runner.runner.Runner のメソッド)</a>
+</li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.image_block.ImageBlockConfig.set_dqn_image">set_dqn_image() (srl.rl.models.image_block.ImageBlockConfig のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner_facade.RunnerFacade.set_history">set_history() (srl.runner.runner_facade.RunnerFacade のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.set_history_on_file">set_history_on_file() (srl.runner.runner.Runner のメソッド)</a>
+</li>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.set_history_on_memory">set_history_on_memory() (srl.runner.runner.Runner のメソッド)</a>
 </li>
       <li><a href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig.set_linear">set_linear() (srl.rl.schedulers.scheduler.SchedulerConfig のメソッド)</a>
 </li>
@@ -490,13 +570,11 @@
 </li>
       <li><a href="pages/runner.html#srl.runner.runner.Runner.set_seed">set_seed() (srl.runner.runner.Runner のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.set_stats">set_stats() (srl.runner.runner.Runner のメソッド)</a>
-</li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.framework_config.FrameworkConfig.set_tensorflow">set_tensorflow() (srl.rl.models.framework_config.FrameworkConfig のメソッド)</a>
 </li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.framework_config.FrameworkConfig.set_torch">set_torch() (srl.rl.models.framework_config.FrameworkConfig のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner.Runner.set_wkdir">set_wkdir() (srl.runner.runner.Runner のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.setup_wkdir">setup_wkdir() (srl.runner.runner.Runner のメソッド)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -504,18 +582,26 @@
 <h2 id="T">T</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.target_model_update_interval">target_model_update_interval (srl.algorithms.dqn.dqn.Config の属性)</a>
-</li>
-      <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.test_epsilon">test_epsilon (srl.algorithms.dqn.dqn.Config の属性)</a>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.target_model_update_interval">target_model_update_interval (srl.algorithms.agent57.Config の属性)</a>
 
       <ul>
+        <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.target_model_update_interval">(srl.algorithms.dqn.dqn.Config の属性)</a>
+</li>
+      </ul></li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.test_beta">test_beta (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.test_epsilon">test_epsilon (srl.algorithms.agent57.Config の属性)</a>
+
+      <ul>
+        <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.test_epsilon">(srl.algorithms.dqn.dqn.Config の属性)</a>
+</li>
         <li><a href="pages/algorithms/ql.html#srl.algorithms.ql.Config.test_epsilon">(srl.algorithms.ql.Config の属性)</a>
 </li>
       </ul></li>
-      <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig.to_dict">to_dict() (srl.base.env.config.EnvConfig のメソッド)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig.to_dict">to_dict() (srl.base.env.config.EnvConfig のメソッド)</a>
+</li>
       <li><a href="pages/runner.html#srl.runner.runner_facade.RunnerFacade.train">train() (srl.runner.runner_facade.RunnerFacade のメソッド)</a>
 </li>
       <li><a href="pages/runner.html#srl.runner.runner_facade.RunnerFacade.train_mp">train_mp() (srl.runner.runner_facade.RunnerFacade のメソッド)</a>
@@ -530,10 +616,16 @@
 <h2 id="U">U</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.use_render_image_for_observation">use_render_image_for_observation (srl.base.rl.config.RLConfig の属性)</a>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.ucb_beta">ucb_beta (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.ucb_epsilon">ucb_epsilon (srl.algorithms.agent57.Config の属性)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config.ucb_window_size">ucb_window_size (srl.algorithms.agent57.Config の属性)</a>
+</li>
+      <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.use_render_image_for_observation">use_render_image_for_observation (srl.base.rl.config.RLConfig の属性)</a>
+</li>
       <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.use_rl_processor">use_rl_processor (srl.base.rl.config.RLConfig の属性)</a>
 </li>
   </ul></td>

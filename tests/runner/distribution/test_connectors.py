@@ -16,15 +16,14 @@ def _load_key():
 
 def memory_connector_test(m: IMemoryConnector):
     assert m.ping()
+    assert m.is_connected
 
     m.memory_purge()
-
-    # sizeはオプション
     n = m.memory_size()
     if n != -1:
         assert n == 0
 
-    assert m.memory_add({"a": 1})
+    m.memory_add({"a": 1})
     n = m.memory_size()
     if n != -1:
         assert m.memory_size() == 1
@@ -34,12 +33,27 @@ def memory_connector_test(m: IMemoryConnector):
     assert d["a"] == 1
     assert m.memory_recv() is None
 
+    m.memory_add({"a": 1})
+    n = m.memory_size()
+    if n != -1:
+        assert n == 1
     m.memory_purge()
-
-    # sizeはオプション
     n = m.memory_size()
     if n != -1:
         assert n == 0
+
+
+def memory_connector_error_test(m: IMemoryConnector):
+    assert not m.ping()
+    assert not m.is_connected
+    m.memory_purge()
+    assert m.memory_size() == -1
+
+    with pytest.raises(Exception):
+        m.memory_add({"a": 1})
+
+    with pytest.raises(Exception):
+        m.memory_recv()
 
 
 def test_aiven_redis():

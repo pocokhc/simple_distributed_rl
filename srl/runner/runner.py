@@ -21,12 +21,13 @@ from srl.base.run import core as core_run
 from srl.base.run.callback import CallbackData
 from srl.base.run.context import RLWorkerType, RunContext, RunNameTypes, StrWorkerType
 from srl.rl import dummy
-from srl.runner.callbacks.history_viewer import HistoryViewer
 from srl.utils import common
 from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
     import psutil
+
+    from srl.runner.callbacks.history_viewer import HistoryViewer
 
 logger = logging.getLogger(__name__)
 
@@ -118,9 +119,10 @@ class Runner(CallbackData):
         self._trainer: Optional[RLTrainer] = None
         self._workers: Optional[List[WorkerRun]] = None
 
-        self._history_kwargs: Optional[dict] = None
+        self._history_on_file = None
+        self._history_on_memory = None
         self._history_viewer = None
-        self._checkpoint_kwargs: Optional[dict] = None
+        self._checkpoint = None
 
         self._is_setup_psutil: bool = False
         self._psutil_process: Optional["psutil.Process"] = None
@@ -128,30 +130,6 @@ class Runner(CallbackData):
     @property
     def env(self) -> EnvRun:
         return self.make_env()
-
-    # ------------------------------
-    # wkdir/
-    #  └ [env]_[rl]/
-    #    ├ checkpoint/
-    #    └ run_YYYYMMDD_HHMMSS/
-    #      ├ history/
-    #      └ ConfigFiles
-    # ------------------------------
-    def setup_wkdir(self, wkdir: str = "tmp"):
-        """
-        作業ディレクトリを作成し、学習状況を保存します。
-        """
-        self.config.wkdir = wkdir
-        dir_name = f"{self.context.env_config.name}_{self.context.rl_config.getName()}"
-        dir_name = re.sub(r'[\\/:?."<>\|]', "_", dir_name)
-        self.config.wkdir1 = os.path.join(wkdir, dir_name)
-        os.makedirs(self.config.wkdir1, exist_ok=True)
-        logger.info(f"create wkdir: {self.config.wkdir1}")
-        self.config.enable_wkdir = True
-
-        self.disable_stats()
-        self.set_checkpoint()
-        self.set_history()
 
     # ------------------------------
     # set config
@@ -193,191 +171,6 @@ class Runner(CallbackData):
     def disable_stats(self):
         """ハードウェアの統計情報に関する設定を無効にします。"""
         self.config.enable_stats = False
-
-    def get_history(self) -> HistoryViewer:
-        if self.config.enable_wkdir:
-            from srl.runner.callbacks.history_viewer import HistoryViewer
-
-            # 最後の結果を探す
-            dirs = []
-            for d in glob.glob(os.path.join(self.config.wkdir1, "run_*")):
-                try:
-                    _s = os.path.basename(d).split("_")
-                    date = datetime.datetime.strptime(f"{_s[1]}_{_s[2]}", "%Y%m%d_%H%M%S")
-                    dirs.append([date, d])
-                except Exception:
-                    logger.warning(traceback.format_exc())
-
-            if len(dirs) == 0:
-                return HistoryViewer()
-            dirs.sort()
-
-            _history_viewer = HistoryViewer()
-            _history_viewer.load(dirs[-1][1])
-            return _history_viewer
-
-        else:
-            assert self._history_viewer is not None
-            return self._history_viewer
-
-    def set_history(
-        self,
-        interval: int = 1,
-        enable_eval: bool = False,
-        eval_env_sharing: bool = False,
-        eval_episode: int = 1,
-        eval_timeout: int = -1,
-        eval_max_steps: int = -1,
-        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
-        eval_shuffle_player: bool = False,
-    ):
-        """学習履歴を保存する設定を指定します。
-
-        Args:
-            interval (int, optional): 学習履歴を保存する間隔(秒). Defaults to 1.
-            enable_eval (bool, optional): 学習履歴の保存時に評価用のシミュレーションを実行します. Defaults to False.
-            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
-            eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
-            eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
-            eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
-            eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
-            eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
-        """
-
-        self._history_kwargs = dict(
-            interval=interval,
-            enable_eval=enable_eval,
-            eval_env_sharing=eval_env_sharing,
-            eval_episode=eval_episode,
-            eval_timeout=eval_timeout,
-            eval_max_steps=eval_max_steps,
-            eval_players=eval_players,
-            eval_shuffle_player=eval_shuffle_player,
-        )
-
-    def disable_history(self):
-        self._history_kwargs = None
-
-    def set_checkpoint(
-        self,
-        interval: int = 60 * 20,
-        enable_eval: bool = True,
-        eval_env_sharing: bool = False,
-        eval_episode: int = 1,
-        eval_timeout: int = -1,
-        eval_max_steps: int = -1,
-        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
-        eval_shuffle_player: bool = False,
-    ):
-        """一定間隔でモデルを保存します。
-
-        Args:
-            interval (int, optional): 保存する間隔（秒）. Defaults to 60*20sec.
-            enable_eval (bool, optional): モデル保存時に評価用のシミュレーションを実行します. Defaults to False.
-            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
-            eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
-            eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
-            eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
-            eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
-            eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
-        """
-
-        self._checkpoint_kwargs = dict(
-            interval=interval,
-            enable_eval=enable_eval,
-            eval_env_sharing=eval_env_sharing,
-            eval_episode=eval_episode,
-            eval_timeout=eval_timeout,
-            eval_max_steps=eval_max_steps,
-            eval_players=eval_players,
-            eval_shuffle_player=eval_shuffle_player,
-        )
-
-    def disable_checkpoint(self):
-        self._checkpoint_kwargs = None
-
-    def _add_core_play_before(
-        self,
-        enable_checkpoint_load: bool,
-        enable_checkpoint: bool,
-        enable_history: bool,
-    ):
-        # --- wkdir ---
-        if self.config.enable_wkdir:
-            dir_name = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.config.wkdir2 = os.path.join(self.config.wkdir1, f"run_{dir_name}")
-        # -------------
-
-        # --- checkpoint load ---
-        if enable_checkpoint_load and self.config.enable_wkdir:
-            from srl.runner.callbacks.checkpoint import Checkpoint
-
-            checkpoint_dir = os.path.join(self.config.wkdir1, "checkpoint")
-            path = Checkpoint.get_parameter_path(checkpoint_dir)
-            if os.path.isfile(path):
-                try:
-                    self.make_parameter(is_load=False).load(path)
-                    logger.info(f"Checkpoint parameter loaded: {path}")
-                except Exception as e:
-                    logger.info(e)
-                    logger.warning(f"Failed to load parameter. Run without loading. {path}")
-            else:
-                logger.info(f"Checkpoint parameter is not found: {path}")
-        # -----------------------
-
-        # --- checkpoint ---
-        if enable_checkpoint and self._checkpoint_kwargs is not None:
-            from srl.runner.callbacks.checkpoint import Checkpoint
-
-            checkpoint_dir = os.path.join(self.config.wkdir1, "checkpoint")
-            self.context.callbacks.append(Checkpoint(save_dir=checkpoint_dir, **self._checkpoint_kwargs))
-            logger.info("add callback Checkpoint")
-        # -------------------
-
-        # --- history ---
-        history_type = ""
-        if enable_history:
-            if self._history_kwargs is not None:
-                # 分散の場合はfileのみ、wkdirがなければmemory
-                if self.context.distributed and self.config.enable_wkdir:
-                    history_type = "file"
-                elif self.config.enable_wkdir:
-                    history_type = "file"
-                else:
-                    history_type = "memory"
-
-        history_memory = None
-        if history_type == "memory":
-            from srl.runner.callbacks.history_on_memory import HistoryOnMemory
-
-            assert self._history_kwargs is not None
-            history_memory = HistoryOnMemory(**self._history_kwargs)
-            self.context.callbacks.append(history_memory)
-            logger.info("add callback HistoryOnMemory")
-
-        if history_type == "file":
-            from srl.runner.callbacks.history_on_file import HistoryOnFile
-
-            assert self._history_kwargs is not None
-            self.context.callbacks.append(HistoryOnFile(save_dir=self.config.wkdir2, **self._history_kwargs))
-            logger.info("add callback HistoryOnFile")
-        # ---------------
-
-        return history_type, history_memory
-
-    def _add_core_play_after(self, history_type, history_memory):
-        # --- checkpoint
-        if history_memory is not None:
-            from srl.runner.callbacks.history_viewer import HistoryViewer
-
-            self._history_viewer = HistoryViewer()
-            self._history_viewer.set_history_on_memory(history_memory, self)
-
-        if history_type == "file":
-            from srl.runner.callbacks.history_viewer import HistoryViewer
-
-            self._history_viewer = HistoryViewer()
-            self._history_viewer.load(self.config.wkdir2)
 
     # ------------------------------
     # model summary
@@ -846,6 +639,290 @@ class Runner(CallbackData):
             trainer=None,
         )
         return state.episode_rewards_list
+
+    # ------------------------------
+    # wkdir/
+    #  └ [env]_[rl]/
+    #    ├ checkpoint/
+    #    └ run_YYYYMMDD_HHMMSS/
+    #      ├ history/
+    #      └ ConfigFiles
+    # ------------------------------
+    def setup_wkdir(
+        self,
+        wkdir: str = "tmp",
+        checkpoint_interval: int = 60 * 20,
+        checkpoint_eval: bool = True,
+        checkpoint_eval_env_sharing: bool = False,
+        checkpoint_eval_episode: int = 1,
+        checkpoint_eval_timeout: int = -1,
+        checkpoint_eval_max_steps: int = -1,
+        checkpoint_eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
+        checkpoint_eval_shuffle_player: bool = False,
+        history_interval: int = 10,
+        history_eval: bool = False,
+        history_eval_env_sharing: bool = False,
+        history_eval_episode: int = 1,
+        history_eval_timeout: int = -1,
+        history_eval_max_steps: int = -1,
+        history_eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
+        history_eval_shuffle_player: bool = False,
+    ):
+        """
+        作業ディレクトリを作成し、学習状況を保存します。
+        """
+        self.config.wkdir = wkdir
+        dir_name = f"{self.context.env_config.name}_{self.context.rl_config.getName()}"
+        dir_name = re.sub(r'[\\/:?."<>\|]', "_", dir_name)
+        self.config.wkdir1 = os.path.join(wkdir, dir_name)
+        os.makedirs(self.config.wkdir1, exist_ok=True)
+        logger.info(f"create wkdir: {self.config.wkdir1}")
+
+        self.set_checkpoint(
+            os.path.join(self.config.wkdir1, "checkpoint"),
+            checkpoint_interval,
+            checkpoint_eval,
+            checkpoint_eval_env_sharing,
+            checkpoint_eval_episode,
+            checkpoint_eval_timeout,
+            checkpoint_eval_max_steps,
+            checkpoint_eval_players,
+            checkpoint_eval_shuffle_player,
+        )
+        self.set_history_on_file(
+            "",
+            history_interval,
+            history_eval,
+            history_eval_env_sharing,
+            history_eval_episode,
+            history_eval_timeout,
+            history_eval_max_steps,
+            history_eval_players,
+            history_eval_shuffle_player,
+        )
+        self.config.enable_wkdir = True
+
+    # ------------------------------
+    # history/checkpoint
+    # ------------------------------
+    @staticmethod
+    def load_history(history_dir: str) -> "HistoryViewer":
+        from srl.runner.callbacks.history_viewer import HistoryViewer
+
+        _history_viewer = HistoryViewer()
+        _history_viewer.load(history_dir)
+        return _history_viewer
+
+    def get_history(self) -> "HistoryViewer":
+        from srl.runner.callbacks.history_viewer import HistoryViewer
+
+        if self.config.enable_wkdir:
+            # 最後の結果を探す
+            dirs = []
+            for d in glob.glob(os.path.join(self.config.wkdir1, "run_*")):
+                try:
+                    _s = os.path.basename(d).split("_")
+                    date = datetime.datetime.strptime(f"{_s[1]}_{_s[2]}", "%Y%m%d_%H%M%S")
+                    dirs.append([date, d])
+                except Exception:
+                    logger.warning(traceback.format_exc())
+
+            if len(dirs) == 0:
+                return HistoryViewer()
+            dirs.sort()
+
+            _history_viewer = HistoryViewer()
+            _history_viewer.load(dirs[-1][1])
+            return _history_viewer
+
+        assert self._history_viewer is not None
+        return self._history_viewer
+
+    def set_history_on_memory(
+        self,
+        interval: int = 1,
+        enable_eval: bool = False,
+        eval_env_sharing: bool = False,
+        eval_episode: int = 1,
+        eval_timeout: int = -1,
+        eval_max_steps: int = -1,
+        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
+        eval_shuffle_player: bool = False,
+    ):
+        """学習履歴を保存する設定を指定します。
+
+        Args:
+            interval (int, optional): 学習履歴を保存する間隔(秒). Defaults to 1.
+            enable_eval (bool, optional): 学習履歴の保存時に評価用のシミュレーションを実行します. Defaults to False.
+            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
+            eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
+            eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
+            eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
+            eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
+            eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
+        """
+        from srl.runner.callbacks.history_on_memory import HistoryOnMemory
+
+        self._history_on_memory = HistoryOnMemory(
+            interval=interval,
+            enable_eval=enable_eval,
+            eval_env_sharing=eval_env_sharing,
+            eval_episode=eval_episode,
+            eval_timeout=eval_timeout,
+            eval_max_steps=eval_max_steps,
+            eval_players=eval_players,
+            eval_shuffle_player=eval_shuffle_player,
+        )
+
+    def set_history_on_file(
+        self,
+        save_dir: str,
+        interval: int = 1,
+        enable_eval: bool = False,
+        eval_env_sharing: bool = False,
+        eval_episode: int = 1,
+        eval_timeout: int = -1,
+        eval_max_steps: int = -1,
+        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
+        eval_shuffle_player: bool = False,
+    ):
+        """学習履歴を保存する設定を指定します。
+
+        Args:
+            save_dir (str): 保存するディレクトリ
+            interval (int, optional): 学習履歴を保存する間隔(秒). Defaults to 1.
+            enable_eval (bool, optional): 学習履歴の保存時に評価用のシミュレーションを実行します. Defaults to False.
+            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
+            eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
+            eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
+            eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
+            eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
+            eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
+        """
+        from srl.runner.callbacks.history_on_file import HistoryOnFile
+
+        self._history_on_file = HistoryOnFile(
+            save_dir=save_dir,
+            interval=interval,
+            enable_eval=enable_eval,
+            eval_env_sharing=eval_env_sharing,
+            eval_episode=eval_episode,
+            eval_timeout=eval_timeout,
+            eval_max_steps=eval_max_steps,
+            eval_players=eval_players,
+            eval_shuffle_player=eval_shuffle_player,
+        )
+
+    def disable_history(self):
+        self._history_on_memory = None
+        self._history_on_file = None
+
+    def set_checkpoint(
+        self,
+        save_dir: str,
+        interval: int = 60 * 20,
+        enable_eval: bool = True,
+        eval_env_sharing: bool = False,
+        eval_episode: int = 1,
+        eval_timeout: int = -1,
+        eval_max_steps: int = -1,
+        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
+        eval_shuffle_player: bool = False,
+    ):
+        """一定間隔でモデルを保存します。
+
+        Args:
+            save_dir (int): 保存するディレクトリ
+            interval (int, optional): 保存する間隔（秒）. Defaults to 60*20sec.
+            enable_eval (bool, optional): モデル保存時に評価用のシミュレーションを実行します. Defaults to False.
+            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
+            eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
+            eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
+            eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
+            eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
+            eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
+        """
+        from srl.runner.callbacks.checkpoint import Checkpoint
+
+        self._checkpoint = Checkpoint(
+            save_dir=save_dir,
+            interval=interval,
+            enable_eval=enable_eval,
+            eval_env_sharing=eval_env_sharing,
+            eval_episode=eval_episode,
+            eval_timeout=eval_timeout,
+            eval_max_steps=eval_max_steps,
+            eval_players=eval_players,
+            eval_shuffle_player=eval_shuffle_player,
+        )
+
+    def disable_checkpoint(self):
+        self._checkpoint = None
+
+    def _add_core_play_before(
+        self,
+        enable_checkpoint_load: bool,
+        enable_checkpoint: bool,
+        enable_history_on_memory: bool,
+        enable_history_on_file: bool,
+    ):
+        # --- wkdir ---
+        if self.config.enable_wkdir:
+            dir_name = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.config.wkdir2 = os.path.join(self.config.wkdir1, f"run_{dir_name}")
+        # -------------
+
+        # --- checkpoint load ---
+        if enable_checkpoint_load and self.config.enable_wkdir:
+            from srl.runner.callbacks.checkpoint import Checkpoint
+
+            checkpoint_dir = os.path.join(self.config.wkdir1, "checkpoint")
+            path = Checkpoint.get_parameter_path(checkpoint_dir)
+            if os.path.isfile(path):
+                try:
+                    self.make_parameter(is_load=False).load(path)
+                    logger.info(f"Checkpoint parameter loaded: {path}")
+                except Exception as e:
+                    logger.info(e)
+                    logger.warning(f"Failed to load parameter. Run without loading. {path}")
+            else:
+                logger.info(f"Checkpoint parameter is not found: {path}")
+        # -----------------------
+
+        # --- checkpoint ---
+        if enable_checkpoint and self._checkpoint is not None:
+            self.context.callbacks.append(self._checkpoint)
+            logger.info(f"add callback Checkpoint: {self._checkpoint.save_dir}")
+        # -------------------
+
+        # --- history ---
+        if enable_history_on_memory and self._history_on_memory is not None:
+            self.context.callbacks.append(self._history_on_memory)
+            logger.info("add callback HistoryOnMemory")
+
+        if enable_history_on_file and self._history_on_file is not None:
+            if self.config.enable_wkdir:
+                self._history_on_file.save_dir = self.config.wkdir2
+            self.context.callbacks.append(self._history_on_file)
+            logger.info(f"add callback HistoryOnFile: {self._history_on_file.save_dir}")
+        # ---------------
+
+    def _add_core_play_after(
+        self,
+        enable_history_on_memory: bool,
+        enable_history_on_file: bool,
+    ):
+        if enable_history_on_memory and self._history_on_memory is not None:
+            from srl.runner.callbacks.history_viewer import HistoryViewer
+
+            self._history_viewer = HistoryViewer()
+            self._history_viewer.set_history_on_memory(self._history_on_memory, self)
+
+        if enable_history_on_file and self._history_on_file is not None:
+            from srl.runner.callbacks.history_viewer import HistoryViewer
+
+            self._history_viewer = HistoryViewer()
+            self._history_viewer.load(self._history_on_file.save_dir)
 
     # ---------------------------------------------
     # run

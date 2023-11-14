@@ -4,13 +4,12 @@
 # Simple Distributed Reinforcement Learning (シンプルな分散強化学習)
 
 シンプルな分散強化学習フレームワークを目指して作成しています。  
-どちらかというと学習用フレームワークに近いかもしれません。  
 以下の特徴があります。  
 
 + 標準で分散強化学習のサポート
 + 環境とアルゴリズム間のインタフェースの自動調整
-+ 上記を満たすカスタマイズ可能な環境クラスの提供
-+ 上記を満たすカスタマイズ可能な強化学習アルゴリズムクラスの提供
++ カスタマイズ可能な環境クラスの提供
++ カスタマイズ可能な強化学習アルゴリズムクラスの提供
 + 有名な強化学習アルゴリズムの提供
 + （新しいアルゴリズムへの対応）
 
@@ -88,13 +87,14 @@ print(srl.__version__)
 + ハードウェアの統計情報を表示する場合
   + psutil
   + pynvml
-+ Redisによる分散学習を使う場合
++ クラウド/ネットワークによる分散学習を使う場合
   + redis
+  + pika
 
 Tensorflow,Torchを除いたライブラリを一括でインストールするコマンドは以下です。
 
 ``` bash
-pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis
+pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis pika
 ```
 
 # 2. Usage
@@ -118,7 +118,7 @@ def main():
     print(f"evaluate episodes: {rewards}")
 
     # --- animation sample
-    #  (Run "pip install opencv-python pillow matplotlib pygame" to use the animation)
+    #  (Run "pip install opencv-python pillow pygame" to use the animation)
     runner.render_window()
     # runner.animation_save_gif("Grid.gif")  # save image
 
@@ -141,6 +141,9 @@ if __name__ == "__main__":
 
 + [Distributed Learning (Multiple PCs)](https://pocokhc.github.io/simple_distributed_rl/pages/distributed.html)
 
+またクラウドサービスとの連携はQiita記事を参照
+
++ Qiita記事を投稿したら更新します(TODO)
 
 # 3. Framework Overview
 
@@ -254,7 +257,8 @@ while not env.done:
 |-------------|-----------|--------|---------|----------|----|---|
 |QL_agent57   |Discrete   |Discrete|ValueBase|          | 80%|QL + Agent57|
 |Agent57_light|Continuous |Discrete|ValueBase|Tensorflow|100%|Agent57 - (LSTM,MultiStep)|
-|SearchDynaQ  |Discrete   |Discrete|ModelBase/ValueBase|| 80%|original|
+|SearchDynaQ  |Discrete   |Discrete|ModelBase/ValueBase|| 99%|original|
+|SearchDreamer|Continuous |Discrete|ModelBase|Tensorflow| 0%|original|
 
 # 5. Customize
 

@@ -88,11 +88,12 @@ Option library
 + ハードウェアの統計情報を表示する場合
    + psutil
    + pynvml
-+ Redisによる分散学習を使う場合
-   + redis
++ クラウド/ネットワークによる分散学習を使う場合
+  + redis
+  + pika
 
 Tensorflow,Torchを除いたライブラリを一括でインストールするコマンドは以下です。
 
 .. code-block:: console
 
-    $ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis
+    $ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis pika

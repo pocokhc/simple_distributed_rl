@@ -8,7 +8,6 @@ Welcome to SimpleDistributedRL's documentation!
    :caption: Contents
 
    pages/install
-   pages/quickstart
    pages/howtouse
    pages/distributed
 
@@ -35,6 +34,7 @@ Welcome to SimpleDistributedRL's documentation!
 
    pages/algorithms/ql
    pages/algorithms/dqn
+   pages/algorithms/agent57
 
 
 Indices and tables

@@ -4,7 +4,7 @@ import pytest_mock
 from srl.runner.distribution.connectors.parameters import GCPParameters, RabbitMQParameters, RedisParameters
 from srl.runner.distribution.manager import DistributedManager
 from tests.runner.distribution.server_mock import create_gcp_mock, create_pika_mock, create_redis_mock
-from tests.runner.distribution.test_connectors import memory_connector_test
+from tests.runner.distribution.test_connectors import memory_connector_error_test, memory_connector_test
 
 
 def test_memory_redis(mocker: pytest_mock.MockerFixture):
@@ -13,16 +13,31 @@ def test_memory_redis(mocker: pytest_mock.MockerFixture):
     memory_connector_test(RedisParameters(host="test").create_memory_connector())
 
 
-def test_memory_pika(mocker: pytest_mock.MockerFixture):
+def test_memory_redis_no_server():
     pytest.importorskip("redis")
+    memory_connector_error_test(RedisParameters(host="test").create_memory_connector())
+
+
+def test_memory_pika(mocker: pytest_mock.MockerFixture):
+    pytest.importorskip("pika")
     create_pika_mock(mocker)
     memory_connector_test(RabbitMQParameters(host="test").create_memory_connector())
 
 
+def test_memory_pika_no_server():
+    pytest.importorskip("pika")
+    memory_connector_error_test(RabbitMQParameters(host="test").create_memory_connector())
+
+
 def test_memory_gcp(mocker: pytest_mock.MockerFixture):
-    pytest.importorskip("redis")
+    pytest.importorskip("google")
     create_gcp_mock(mocker)
     memory_connector_test(GCPParameters(project_id="test").create_memory_connector())
+
+
+def test_memory_gcp_no_server():
+    pytest.importorskip("google")
+    memory_connector_error_test(GCPParameters(project_id="test").create_memory_connector())
 
 
 def test_parameter(mocker: pytest_mock.MockerFixture):
@@ -63,7 +78,7 @@ def test_no_task(mocker: pytest_mock.MockerFixture, server):
     assert manager.task_get_actor(1, "a") == "a"
     manager.task_assign_by_my_id()
     manager.task_log("")
-    manager.keepalive()
+    manager.keepalive_client()
 
 
 @pytest.mark.parametrize("server", ["", "redis", "pika", "gcp"])
@@ -88,9 +103,9 @@ def test_task(mocker: pytest_mock.MockerFixture, server):
     m_client.task_create(2, "config", "parameter")
     assert m_client.task_get_status() == "WAIT"
     assert m_client.task_get_actor_num() == 2
-    assert m_client.task_get_trainer("id") == "NO_ASSIGN"
-    assert m_client.task_get_actor(0, "id") == "NO_ASSIGN"
-    assert m_client.task_get_actor(1, "id") == "NO_ASSIGN"
+    assert m_client.task_get_trainer("id") == ""
+    assert m_client.task_get_actor(0, "id") == ""
+    assert m_client.task_get_actor(1, "id") == ""
     assert m_client.task_get_actor(-1, "id") == ""
 
     # assign trainer

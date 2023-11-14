@@ -15,12 +15,10 @@ def test_train(tmp_path):
     rl_config.memory.warmup_size = 10
     runner = srl.Runner("OX", rl_config)
 
-    runner.setup_wkdir(tmp_path)
-    runner.set_checkpoint(interval=1)
+    runner.set_checkpoint(tmp_path, interval=1)
     runner.train(timeout=3)
 
-    path = os.path.join(runner.config.wkdir1, "checkpoint")
-    assert len(os.listdir(path)) > 0
+    assert len(os.listdir(tmp_path)) > 0
 
 
 def test_train_only(tmp_path):
@@ -32,20 +30,16 @@ def test_train_only(tmp_path):
     assert runner.memory is not None
     assert runner.memory.length() > rl_config.memory.warmup_size
 
-    runner.setup_wkdir(tmp_path)
-    runner.set_checkpoint(interval=1)
+    runner.set_checkpoint(tmp_path, interval=1)
     runner.train_only(timeout=3)
 
-    path = os.path.join(runner.config.wkdir1, "checkpoint")
-    assert len(os.listdir(path)) > 0
+    assert len(os.listdir(tmp_path)) > 0
 
 
 def test_mp(tmp_path):
     runner = srl.Runner("Grid", ql.Config())
 
-    runner.setup_wkdir(tmp_path)
-    runner.set_checkpoint(interval=1)
+    runner.set_checkpoint(tmp_path, interval=1)
     runner.train_mp(timeout=3)
 
-    path = os.path.join(runner.config.wkdir1, "checkpoint")
-    assert len(os.listdir(path)) > 0
+    assert len(os.listdir(tmp_path)) > 0

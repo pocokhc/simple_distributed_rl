@@ -21,7 +21,7 @@ def test_pickle():
 def test_on_memory_train():
     runner = srl.Runner("OX", ql.Config())
 
-    runner.set_history(enable_eval=True)
+    runner.set_history_on_memory(enable_eval=True)
     runner.train(max_episodes=100)
 
     history = runner.get_history()
@@ -45,7 +45,7 @@ def test_on_memory_train_plot():
 
     runner = srl.Runner("OX", ql.Config())
 
-    runner.set_history(enable_eval=True)
+    runner.set_history_on_memory(enable_eval=True)
     runner.train(max_episodes=100)
     history = runner.get_history()
 
@@ -61,7 +61,7 @@ def test_on_memory_train_only():
     runner = srl.Runner("OX", ql_agent57.Config())
     runner.rollout(max_memory=100)
 
-    runner.set_history(enable_eval=True)
+    runner.set_history_on_memory(enable_eval=True)
     runner.train_only(timeout=3)
 
     history = runner.get_history()
@@ -83,7 +83,7 @@ def test_on_memory_train_only_plot():
     runner = srl.Runner("OX", ql_agent57.Config())
     runner.rollout(max_memory=100)
 
-    runner.set_history(enable_eval=True)
+    runner.set_history_on_memory(enable_eval=True)
     runner.train_only(timeout=5)
     history = runner.get_history()
 
@@ -98,8 +98,7 @@ def test_on_memory_train_only_plot():
 def test_on_file_train(tmp_path):
     runner = srl.Runner("OX", ql.Config())
 
-    runner.setup_wkdir(tmp_path)
-    runner.set_history(enable_eval=True)
+    runner.set_history_on_file(tmp_path, enable_eval=True)
     runner.train(timeout=5)
 
     history = runner.get_history()
@@ -123,8 +122,7 @@ def test_on_file_train_plot(tmp_path):
 
     runner = srl.Runner("OX", ql.Config())
 
-    runner.setup_wkdir(tmp_path)
-    runner.set_history(enable_eval=True)
+    runner.set_history_on_file(tmp_path, enable_eval=True)
     runner.train(timeout=5)
     history = runner.get_history()
 
@@ -140,8 +138,7 @@ def test_on_file_train_only(tmp_path):
     runner = srl.Runner("OX", ql_agent57.Config())
     runner.rollout(max_memory=100)
 
-    runner.setup_wkdir(tmp_path)
-    runner.set_history(enable_eval=True)
+    runner.set_history_on_file(tmp_path, enable_eval=True)
     runner.train_only(timeout=3)
 
     history = runner.get_history()
@@ -163,8 +160,7 @@ def test_on_file_train_only_plot(tmp_path):
     runner = srl.Runner("OX", ql_agent57.Config())
     runner.rollout(max_memory=100)
 
-    runner.setup_wkdir(tmp_path)
-    runner.set_history(enable_eval=True)
+    runner.set_history_on_file(tmp_path, enable_eval=True)
     runner.train_only(timeout=5)
     history = runner.get_history()
 
@@ -179,8 +175,7 @@ def test_on_file_train_only_plot(tmp_path):
 def test_on_file_mp(tmp_path):
     runner = srl.Runner("OX", ql.Config())
 
-    runner.setup_wkdir(tmp_path)
-    runner.set_history(enable_eval=True)
+    runner.set_history_on_file(tmp_path, enable_eval=True)
     runner.train_mp(timeout=5)
 
     history = runner.get_history()
@@ -203,8 +198,7 @@ def test_on_file_mp_plot(tmp_path):
 
     runner = srl.Runner("OX", ql.Config())
 
-    runner.setup_wkdir(tmp_path)
-    runner.set_history(enable_eval=True)
+    runner.set_history_on_file(tmp_path, enable_eval=True)
     runner.train_mp(timeout=5)
     history = runner.get_history()
 

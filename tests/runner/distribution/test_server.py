@@ -4,6 +4,7 @@ import pytest_timeout  # noqa F401
 
 import srl
 from srl.algorithms import ql_agent57
+from srl.base.exception import DistributionError
 from srl.runner.distribution import actor_run_forever, trainer_run_forever
 from srl.runner.distribution.callback import ActorServerCallback, DistributionCallback, TrainerServerCallback
 from srl.runner.distribution.client import run as dist_run
@@ -36,7 +37,7 @@ def test_client(mocker: pytest_mock.MockerFixture):
     c = mocker.Mock(spec=DistributionCallback)
     c2 = _call()
     params = RedisParameters(host="test", keepalive_interval=0)
-    dist_run(runner, params, callbacks=[c, c2])
+    dist_run(runner, params, wait=True, callbacks=[c, c2])
 
     assert c.on_start.call_count == 1
     assert c.on_polling.call_count > 0
@@ -47,7 +48,7 @@ def test_client(mocker: pytest_mock.MockerFixture):
 
 @pytest.mark.parametrize("server", ["", "redis", "pika", "gcp"])
 @pytest.mark.parametrize("enable_actor_thread", [False, True])
-@pytest.mark.timeout(30)  # pip install pytest_timeout
+@pytest.mark.timeout(10)  # pip install pytest_timeout
 def test_server_actor(mocker: pytest_mock.MockerFixture, server, enable_actor_thread):
     pytest.importorskip("redis")
     create_redis_mock(mocker)
@@ -74,17 +75,21 @@ def test_server_actor(mocker: pytest_mock.MockerFixture, server, enable_actor_th
     manager = DistributedManager(RedisParameters(host="test", keepalive_interval=0), params)
     manager.set_user("client")
     manager.task_create(1, runner.create_task_config(), runner.make_parameter().backup())
+    manager.create_memory_connector().memory_purge()
+    manager.task_set_setup_queue()
 
     # --- run
-    manager.create_memory_connector().memory_purge()
     c2 = mocker.Mock(spec=ActorServerCallback)
-    actor_run_forever(
-        RedisParameters(host="test", keepalive_interval=0),
-        params,
-        callbacks=[c2],
-        framework="",
-        run_once=True,
-    )
+    try:
+        actor_run_forever(
+            RedisParameters(host="test", keepalive_interval=0),
+            params,
+            callbacks=[c2],
+            framework="",
+            run_once=True,
+        )
+    except DistributionError:
+        pass
 
     assert c2.on_polling.call_count > 0
 

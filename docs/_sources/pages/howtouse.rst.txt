@@ -11,7 +11,7 @@ How To Use
 3. Runnerで動かす。
 
 
-EnvConfig
+1. EnvConfig
 =====================
 
 実行する環境を指定します。
@@ -29,13 +29,24 @@ Gym/Gymnasium がインストールされていればそれらのIDも指定で�
     env_config = srl.EnvConfig("FrozenLake-v1")
 
 | 自作の環境を用意したい場合は :ref:`custom_env` を見てください。
-| また、ID以外に環境に対して設定できる項目は :ref:`env_config` を見てください。
+| また、ID以外にEnvConfigに設定できる項目は :ref:`env_config` を見てください。
 
-RLConfig
+
+Gym/Gymnasiumに対応していない環境の読み込み
+------------------------------------------------
+
+| 'gym_make_func' 'gymnasium_make_func' に読み込む関数を指定することができます。
+| 例は 'gym-retro' を読み込む例です。
+
+.. literalinclude:: ../../examples/sample_gym_retro.py
+
+
+
+2. RLConfig
 =====================
 
 | 実行するアルゴリズムを指定します。
-| 各アルゴリズムには必ずConfigが定義されているのでそれを呼び出します。
+| 各アルゴリズムにはConfigがあるのでそれを呼び出します。
 
 .. code-block:: python
 
@@ -57,7 +68,7 @@ RLConfig
 | また、共通パラメータに関しては :ref:`rl_config` を参照してください。
 
 
-Runner
+3. Runner
 =====================
 
 EnvConfigとRLConfigを元に実際に実行するRunnerを作成します。
@@ -66,6 +77,8 @@ EnvConfigとRLConfigを元に実際に実行するRunnerを作成します。
 
     import srl
 
+    env_config = srl.EnvConfig("Grid")
+    rl_config = ql.Config()
     runner = srl.Runner(env_config, rl_config)
 
     # envはIDのみでも可能
@@ -74,20 +87,71 @@ EnvConfigとRLConfigを元に実際に実行するRunnerを作成します。
     # envのみの指定も可能(ただしアルゴリズムを使うものは利用できない)
     runner = srl.Runner("Grid")
 
-Runnerを作成したら、基本的な流れは学習と評価です。
+Runnerを作成したら後は任意の関数を実行して学習します。
 
-最もシンプルな学習は以下です。
+
+Basic run of study
+--------------------------
 
 .. literalinclude:: ../../examples/sample_basic.py
 
-以下は学習と評価を分けて実行する例です。
+
+Commonly run Example
+--------------------------
 
 .. literalinclude:: ../../examples/sample_commonly.py
 
 .. image:: ../../Grid.gif
 
-| Runnerで用意している実行形式は以下です。
-| 引数や他のRunnerの機能に関しては :ref:`runner` を見てください。
+引数や他のRunnerの機能に関しては :ref:`runner` を見てください。
+
+
+4. Runner functions
+==========================
+
+
+Train
+---------------------
+
+| 学習をします。
+| 学習後のParameterとMemoryがRunner内に保存されます。
+
+.. code-block:: python
+
+    runner.train(max_episode=10)
+
+
+Rollout
+---------------------
+
+| 経験を集める時に使います。
+| 実際に学習環境でエピソードを実行しますが、学習はしません。
+| 実行後はMemoryがRunner内に保存されます。
+
+.. code-block:: python
+
+    runner.rollout(max_episode=10)
+
+
+Train Only
+---------------------
+
+| エピソードは実行せず、Trainerの学習のみを実施します。
+| Memoryがある状態など、学習が可能な状態で呼び出してください。（学習が進まない場合無限ループになります）
+
+.. code-block:: python
+
+    runner.train_only(max_train_count=10)
+
+
+Train Multiprocessing
+---------------------
+
+| multiprocessing による分散学習を実施します。
+
+.. code-block:: python
+
+    runner.train_mp(max_train_count=10)
 
 
 Evaluate
@@ -96,16 +160,6 @@ Evaluate
 学習せずにシミュレーションし、報酬を返します。
 
 .. literalinclude:: howtouse_eval.py
-
-
-Replay Window
----------------------
-
-| シミュレーションして、その結果を見返す機能です。
-| 1step毎の様子を見ることができます。(GUIで表示されます)
-| pygameのwindowが表示できる環境である必要があります。
-
-.. literalinclude:: howtouse_replay_window.py
 
 
 Render Terminal
@@ -132,6 +186,16 @@ Animation
 アニメーションは、'matplotlib.animation.ArtistAnimation' で作成されます。
 
 .. literalinclude:: howtouse_animation.py
+
+
+Replay Window
+---------------------
+
+| シミュレーションして、その結果を見返す機能です。
+| 1step毎の様子を見ることができます。(GUIで表示されます)
+| pygameのwindowが表示できる環境である必要があります。
+
+.. literalinclude:: howtouse_replay_window.py
 
 
 Manual play Terminal

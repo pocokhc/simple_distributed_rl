@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Distributed Learning (Multiple PCs) &mdash; SimpleDistributedRL 0.12.2.3 ドキュメント</title>
+  <title>Distributed Learning (Multiple PCs) &mdash; SimpleDistributedRL 0.13.1 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -13,7 +13,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=7913be7e"></script>
+        <script src="../_static/documentation_options.js?v=2d7bc41f"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -46,13 +46,12 @@
               <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Distributed Learning (Multiple PCs)</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#redis-pip">0. redis(pip)のインストール</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#redis">1. Redisサーバの起動</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id1">0. 必要なライブラリのインストール</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#redis-rabbitmq">1. Redis/RabbitMQサーバの起動</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#trainerserver-actorserver">2. TrainerServer/ActorServerの起動</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id1">3. 学習の実施</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id2">3. 学習の実施</a></li>
 </ul>
 </li>
 </ul>
@@ -74,6 +73,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/agent57.html">Agent57</a></li>
 </ul>
 
         </div>
@@ -106,27 +106,28 @@
 <img alt="../_images/overview-mp.drawio.png" src="../_images/overview-mp.drawio.png" />
 <p>フローイメージは以下です。</p>
 <img alt="../_images/runner_distributed_flow.png" src="../_images/runner_distributed_flow.png" />
-<p>各サーバとのやりとりですが、Redisを採用しています。Redis経由でのやりとりイメージは以下です。</p>
+<p>各サーバとのやりとりのイメージは以下です。</p>
 <img alt="../_images/overview-distribution.drawio.png" src="../_images/overview-distribution.drawio.png" />
-<p>学習を実行するまでのステップは以下となります。</p>
+<p>学習を実行するまでのステップは大きく以下となります。</p>
 <ol class="arabic simple" start="0">
-<li><p>redis(pip)のインストール(初回のみ)</p></li>
+<li><p>必要なライブラリのインストール(初回のみ)</p></li>
 <li><p>Redisの起動</p></li>
 <li><p>TrainerServer/ActorServerの起動</p></li>
 <li><p>学習の実施</p></li>
 </ol>
-<section id="redis-pip">
-<h2>0. redis(pip)のインストール<a class="headerlink" href="#redis-pip" title="Link to this heading"></a></h2>
-<p>Redisへのアクセスとして、redis を使うので以下でインストールします。</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>redis
+<section id="id1">
+<h2>0. 必要なライブラリのインストール<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
+<p>RedisとRabbitMQ用のライブラリをインストールします。</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>redis<span class="w"> </span>pika
 </pre></div>
 </div>
 </section>
-<section id="redis">
-<h2>1. Redisサーバの起動<a class="headerlink" href="#redis" title="Link to this heading"></a></h2>
+<section id="redis-rabbitmq">
+<h2>1. Redis/RabbitMQサーバの起動<a class="headerlink" href="#redis-rabbitmq" title="Link to this heading"></a></h2>
 <div class="line-block">
-<div class="line">任意のRedisサーバを用意します。</div>
-<div class="line">フレームワーク上はサンプルとしてdocker-composeファイルを用意していますのでそちらを起動してください。</div>
+<div class="line">RedisサーバとRabbitMQサーバを用意します。（RabbitMQはオプション）</div>
+<div class="line">サンプルにdocker-composeファイルを用意してるので、そちらの起動でも大丈夫です。</div>
+<div class="line">（DockerComposeが実行できる環境である必要があります）</div>
 </div>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>docker-compose<span class="w"> </span>-f<span class="w"> </span>examples/distribution/docker-compose.yml<span class="w"> </span>up<span class="w"> </span>-d
 </pre></div>
@@ -138,13 +139,17 @@
 <div class="line">TrainerServerとActorServerを任意のPCで起動します。</div>
 <div class="line">基本はTrainerServerは1個、ActorServerは1個以上(actor_num数)の起動を想定しています。</div>
 <div class="line">※各TrainerServer/ActorServerでも、EnvとAlgorithmが使用できる必要があります</div>
+<div class="line">※RabbitMQサーバがない場合は第2引数をNoneにしてください</div>
 </div>
 <p>TrainerServerの起動例です。(examples/distribution/server_trainer.py)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.runner.distribution</span> <span class="kn">import</span> <span class="n">trainer_run_forever</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.runner.distribution</span> <span class="kn">import</span> <span class="n">RabbitMQParameters</span><span class="p">,</span> <span class="n">RedisParameters</span><span class="p">,</span> <span class="n">trainer_run_forever</span>
 
 
 <span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
-    <span class="n">trainer_run_forever</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">)</span>
+    <span class="n">trainer_run_forever</span><span class="p">(</span>
+        <span class="n">RedisParameters</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s2">&quot;localhost&quot;</span><span class="p">),</span>
+        <span class="n">RabbitMQParameters</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="n">ssl</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+    <span class="p">)</span>
 
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
@@ -152,44 +157,30 @@
 </pre></div>
 </div>
 <p>ActorServerの起動例です。(examples/distribution/server_actor.py)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.runner.distribution</span> <span class="kn">import</span> <span class="n">actor_run_forever</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.runner.distribution</span> <span class="kn">import</span> <span class="n">RabbitMQParameters</span><span class="p">,</span> <span class="n">RedisParameters</span><span class="p">,</span> <span class="n">actor_run_forever</span>
 
 
 <span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
-    <span class="n">actor_run_forever</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">)</span>
+    <span class="n">actor_run_forever</span><span class="p">(</span>
+        <span class="n">RedisParameters</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s2">&quot;localhost&quot;</span><span class="p">),</span>
+        <span class="n">RabbitMQParameters</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="n">ssl</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+    <span class="p">)</span>
 
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">main</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>引数は以下です。</p>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 12%" />
-<col style="width: 8%" />
-<col style="width: 80%" />
-</colgroup>
-<tbody>
-<tr class="row-odd"><td><p>host</p></td>
-<td><p>str</p></td>
-<td><p>Redisのホスト名またはIPアドレスを指定します。</p></td>
-</tr>
-<tr class="row-even"><td><p>port</p></td>
-<td><p>int</p></td>
-<td><p>Redisのポートを指定します。省略時は6379を使います。</p></td>
-</tr>
-</tbody>
-</table>
 </section>
-<section id="id1">
-<h2>3. 学習の実施<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
+<section id="id2">
+<h2>3. 学習の実施<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
 <div class="line-block">
 <div class="line">学習のサンプルコードは以下です。Runnerから train_distribution を呼び出すと学習します。</div>
 <div class="line">学習後はrunner内のparameterに学習済みデータが入っています。</div>
 </div>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 <span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
+<span class="kn">from</span> <span class="nn">srl.runner.distribution</span> <span class="kn">import</span> <span class="n">RedisParameters</span>
 <span class="kn">from</span> <span class="nn">srl.utils</span> <span class="kn">import</span> <span class="n">common</span>
 
 
@@ -198,7 +189,11 @@
     <span class="n">rl_config</span> <span class="o">=</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
 
     <span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">rl_config</span><span class="p">)</span>
-    <span class="n">runner</span><span class="o">.</span><span class="n">train_distribution</span><span class="p">(</span><span class="s2">&quot;127.0.0.1&quot;</span><span class="p">,</span> <span class="n">max_train_count</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+
+    <span class="n">runner</span><span class="o">.</span><span class="n">train_distribution</span><span class="p">(</span>
+        <span class="n">RedisParameters</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s2">&quot;localhost&quot;</span><span class="p">),</span>
+        <span class="n">max_train_count</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+    <span class="p">)</span>
 
     <span class="nb">print</span><span class="p">(</span><span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">())</span>
 

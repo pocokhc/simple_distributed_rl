@@ -4,19 +4,22 @@
 1. (tf/torchの互換パラメータの作成)
 1. (SEED RL)
 1. (MARL)
-1. mpでのやりとりで学習回数などの情報を増やす？
 1. jax
 
 # v0.13.1
+
+クラウドサービスを利用した分散学習の環境を整備
 
 **MainUpdates**
 
 1. [runner] new: wkdirによる連続学習環境を整備
    1. 合わせてmpとdistributionも更新
    1. deviceの初期化方法を変更
+   1. サンプル追加(examples/sample_long_training.py)
 1. [distribution] change: QueueのやりとりにRabbitMQを使えるように変更
 1. [distribution] new: QueueのやりとりにGoogleCloud Pub/Subを追加
 1. [distribution] change: TaskIDを廃止し、基本1学習のみとする
+1. [distribution] new: 非同期にタスクを実行できる仕組みを追加
 1. [k8s] new: sampleコード追加
 
 **OtherUpdates**
@@ -29,6 +32,9 @@
 1. [exception] new: SRL用のExceptionを追加（とりあえずクラスだけ）
 1. [dockers] change: 構成を見直し全体的にリファクタリング
 1. [algorithm.search_dynaq] update: 更新
+1. [runner.mp] fix: torch+mpでboardとのやりとりで強制終了するバグ修正
+1. [base.rl] new: input_is_image追加
+1. [rl.functions] new: symlog追加
 
 # v0.13.0
 

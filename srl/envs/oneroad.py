@@ -66,7 +66,7 @@ class OneRoad(SinglePlayEnv):
             self.player_pos += 1
         else:
             if self.is_end:
-                return self.player_pos, 0, True, {}
+                return self.player_pos, 0.0, True, {}
             else:
                 self.player_pos = 0
 

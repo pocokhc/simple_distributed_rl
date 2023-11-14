@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+
 import srl
 from srl.algorithms import dqn
 from srl.utils import common
@@ -24,14 +25,14 @@ def main():
     rl_config.target_model_update_interval = 1000  # 大きすぎると学習がゆっくり
     rl_config.enable_reward_clip = False  # 報酬clipしない
 
-    # frameworkを指定したい場合 "tensorflow" or "torch"
-    # rl_config.framework = "tensorflow"
+    # frameworkを指定したい場合 tensorflow or torch
+    # rl_config.framework.set_tensorflow()
 
     runner = srl.Runner(env_config, rl_config)
     runner.model_summary(expand_nested=True)
 
     # --- train
-    runner.set_history()
+    runner.set_history_on_memory()
     runner.train(max_episodes=200)
     history = runner.get_history()
     history.plot(ylabel_right=["trainer_loss"])

@@ -35,7 +35,7 @@ def main():
     for name, rl_config in rl_configs:
         print(name)
         runner = srl.Runner(env_config, rl_config)
-        runner.set_history(enable_eval=True)
+        runner.set_history_on_memory(enable_eval=True)
         runner.train(max_episodes=50)
         results.append((name, runner.get_history().get_df()))
 

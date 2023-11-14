@@ -30,8 +30,7 @@ def test_render():
 
     # debug
     if False:
-        from PIL import Image
+        import cv2
 
-        img = Image.fromarray(rgb_array)
-        img.show()
-        img.save("_test_pygame_wrapper.png")
+        cv2.imshow("image", rgb_array)
+        cv2.waitKey()

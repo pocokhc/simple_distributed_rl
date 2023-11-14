@@ -11,35 +11,36 @@ Distributed Learning (Multiple PCs)
 
 .. image:: ../../diagrams/runner_distributed_flow.png
 
-
-各サーバとのやりとりですが、Redisを採用しています。Redis経由でのやりとりイメージは以下です。
+各サーバとのやりとりのイメージは以下です。
 
 .. image:: ../../diagrams/overview-distribution.drawio.png
 
-学習を実行するまでのステップは以下となります。
+学習を実行するまでのステップは大きく以下となります。
 
-0. redis(pip)のインストール(初回のみ)
+0. 必要なライブラリのインストール(初回のみ)
 1. Redisの起動
 2. TrainerServer/ActorServerの起動
 3. 学習の実施
 
+
 ----------------------------------
-0. redis(pip)のインストール
+0. 必要なライブラリのインストール
 ----------------------------------
 
-Redisへのアクセスとして、redis を使うので以下でインストールします。
+RedisとRabbitMQ用のライブラリをインストールします。
 
 .. code-block:: console
 
-    $ pip install redis
+    $ pip install redis pika
 
 
-------------------------
-1. Redisサーバの起動
-------------------------
+------------------------------------
+1. Redis/RabbitMQサーバの起動
+------------------------------------
 
-| 任意のRedisサーバを用意します。
-| フレームワーク上はサンプルとしてdocker-composeファイルを用意していますのでそちらを起動してください。
+| RedisサーバとRabbitMQサーバを用意します。（RabbitMQはオプション）
+| サンプルにdocker-composeファイルを用意してるので、そちらの起動でも大丈夫です。
+| （DockerComposeが実行できる環境である必要があります）
 
 .. code-block:: console
 
@@ -53,6 +54,7 @@ Redisへのアクセスとして、redis を使うので以下でインストー
 | TrainerServerとActorServerを任意のPCで起動します。
 | 基本はTrainerServerは1個、ActorServerは1個以上(actor_num数)の起動を想定しています。
 | ※各TrainerServer/ActorServerでも、EnvとAlgorithmが使用できる必要があります
+| ※RabbitMQサーバがない場合は第2引数をNoneにしてください
 
 TrainerServerの起動例です。(examples/distribution/server_trainer.py)
 
@@ -62,18 +64,6 @@ ActorServerの起動例です。(examples/distribution/server_actor.py)
 
 .. literalinclude:: ../../examples/distribution/server_actor.py
 
-引数は以下です。
-
-.. list-table::
-   :widths: 3 2 20
-   :header-rows: 0
-
-   * - host
-     - str
-     - Redisのホスト名またはIPアドレスを指定します。
-   * - port
-     - int
-     - Redisのポートを指定します。省略時は6379を使います。
 
 --------------------------------------------
 3. 学習の実施
@@ -82,5 +72,5 @@ ActorServerの起動例です。(examples/distribution/server_actor.py)
 | 学習のサンプルコードは以下です。Runnerから train_distribution を呼び出すと学習します。
 | 学習後はrunner内のparameterに学習済みデータが入っています。
 
-.. literalinclude:: ../../examples/distribution/main.py
+.. literalinclude:: ../../examples/distribution/main_sync.py
 

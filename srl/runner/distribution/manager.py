@@ -104,7 +104,6 @@ class DistributedManager:
     def task_create(self, actor_num: int, task_config: Any, parameter: Any) -> None:
         self.health_t0 = time.time()
         self.server.server_set(f"{self.parameter.task_name}:version", srl.__version__)
-        self.server.server_set(f"{self.parameter.task_name}:status", "WAIT")
         self.server.server_set(f"{self.parameter.task_name}:config", pickle.dumps(task_config))
         self.server.server_set(f"{self.parameter.task_name}:actor_num", str(actor_num))
         self.server.server_set(f"{self.parameter.task_name}:setup_queue", "0")
@@ -117,6 +116,7 @@ class DistributedManager:
                 self.server.server_delete(k)
             self.server.server_set(f"{self.parameter.task_name}:actor:{i}:id", "")
         self.server.server_set(f"{self.parameter.task_name}:parameter", pickle.dumps(parameter))
+        self.server.server_set(f"{self.parameter.task_name}:status", "WAIT")
         logger.info("create new task")
         self.task_log("Create new task")
 

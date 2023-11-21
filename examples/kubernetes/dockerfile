@@ -23,6 +23,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends libgl1-mesa-dev libglib2.0-0 \
  && rm -rf /var/lib/apt/lists/* \
  && pip install --no-cache-dir -r /root/requirements.txt \
+ #&& pip install --no-cache-dir gymnasium[atari,accept-rom-license] \
  && pip install --no-cache-dir tensorflow_probability==0.22.1
 
 COPY --from=builder /code /code

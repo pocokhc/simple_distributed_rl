@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: ReplicaSet
 metadata:
   name: actor
 spec:
@@ -19,9 +19,9 @@ spec:
           command: ["python", "/code/server_actor.py"]
           resources:
             requests:
-              cpu: 10m
-              memory: 256Mi
+              cpu: "10m"
+              memory: "256Mi"
             limits:
-              cpu: 1
-              memory: 1Gi
+              cpu: "1"
+              memory: "1Gi"
 

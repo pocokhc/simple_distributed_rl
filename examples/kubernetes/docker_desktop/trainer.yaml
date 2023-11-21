@@ -1,23 +1,14 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
-  name: trainer
+  name: trainer-pod
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: trainer
-  template:
-    metadata:
-      labels:
-        app: trainer
-    spec:
-      containers:
-        - name: trainer-node
-          image: simpledistributedrl:latest
-          imagePullPolicy: Never
-          #command: ["sh", "-c", "while true; do sleep 3600; done"]
-          command: ["python", "-u", "/code/server_trainer.py"]
-          resources:
-            limits:
-              cpu: 950m
+  containers:
+    - name: trainer-node
+      image: simpledistributedrl:latest
+      imagePullPolicy: Never
+      #command: ["sh", "-c", "while true; do sleep 3600; done"]
+      command: ["python", "-u", "/code/server_trainer.py"]
+      resources:
+        limits:
+          cpu: "950m"

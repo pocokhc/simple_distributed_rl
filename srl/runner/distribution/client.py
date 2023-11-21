@@ -1,60 +1,31 @@
 import logging
 import time
 import traceback
-from typing import List, Optional
+from typing import List
 
 import srl
 from srl.runner.distribution.callback import DistributionCallback
 from srl.runner.distribution.connectors.parameters import RedisParameters
-from srl.runner.distribution.manager import DistributedManager
+from srl.runner.distribution.server_manager import ServerManager
+from srl.runner.distribution.task_manager import TaskManagerParams
 
 logger = logging.getLogger(__name__)
 
 
-class TaskManager:
-    def __init__(self, redis_parameter: RedisParameters) -> None:
-        self.manager = DistributedManager(redis_parameter, None)
-
-    def read_status(self) -> str:
-        assert self.manager.ping()
-        return self.manager.task_get_status()
-
-    def read_parameter(self):
-        assert self.manager.ping()
-        return self.manager.parameter_read()
-
-    def create_task_runner(self) -> Optional[srl.Runner]:
-        assert self.manager.ping()
-        task_config = self.manager.task_get_config()
-        if task_config is None:
-            return None
-        runner = srl.Runner(
-            task_config.context.env_config,
-            task_config.context.rl_config,
-            task_config.config,
-            task_config.context,
-        )
-        params = self.manager.parameter_read()
-        if params is not None:
-            runner.make_parameter().restore(params)
-        return runner
-
-
 def run(
     runner: srl.Runner,
-    redis_parameter: RedisParameters,
+    redis_params: RedisParameters,
     wait: bool,
+    parameter_sync_interval: int = 60,
     callbacks: List[DistributionCallback] = [],
 ):
-    parameter = runner.make_parameter()
-    manager = DistributedManager(redis_parameter, None)
-    assert manager.ping()
-    manager.set_user("client")
+    task_manager_params = TaskManagerParams("client")
+    manager = ServerManager(redis_params, None, task_manager_params)
 
-    manager.task_create(
-        runner.context.actor_num,
+    task_manager = manager.get_task_manager()
+    task_manager.create(
         runner.create_task_config(["Checkpoint", "HistoryOnFile", "HistoryOnMemory"]),
-        parameter.backup(to_cpu=True),
+        runner.make_parameter().backup(to_cpu=True),
     )
 
     if not wait:
@@ -64,31 +35,34 @@ def run(
         # callbacks
         [c.on_start(runner, manager) for c in callbacks]
 
+        parameter_reader = manager.get_parameter_reader()
+
         # --- run
         print("wait task")
+        t0 = time.time()
         while True:
             try:
                 time.sleep(1)
-                if manager.keepalive_client():
-                    # 定期的に同期する
+
+                # --- param sync
+                if time.time() - t0 > parameter_sync_interval:
+                    t0 = time.time()
                     try:
-                        params = manager.parameter_read()
+                        params = parameter_reader.parameter_read()
                         if params is not None:
                             runner.make_parameter().restore(params, from_cpu=True)
                     except Exception:
                         logger.warning(traceback.format_exc())
 
                 # --- end check ---
-                if manager.task_get_status() == "END":
+                if task_manager.is_finished():
                     try:
-                        params = manager.parameter_read()
+                        params = parameter_reader.parameter_read()
                         if params is not None:
                             runner.make_parameter().restore(params, from_cpu=True)
                     except Exception:
                         logger.warning(traceback.format_exc())
                     finally:
-                        print("task end")
-                        logger.info("task end")
                         break
                 # -----------------
 
@@ -100,6 +74,7 @@ def run(
                 logger.error(traceback.format_exc())
 
         [c.on_end(runner, manager) for c in callbacks]
-
     finally:
-        manager.task_end()
+        task_manager.finished("client end")
+        print("task end")
+        logger.info("task end")

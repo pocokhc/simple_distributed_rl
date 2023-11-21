@@ -7,7 +7,7 @@ import numpy as np
 
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.distribution.callback import DistributionCallback
-from srl.runner.distribution.manager import DistributedManager
+from srl.runner.distribution.server_manager import ServerManager
 from srl.runner.runner import Runner
 from srl.utils.util_str import to_str_reward, to_str_time
 
@@ -16,31 +16,15 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PrintProgress(DistributionCallback, Evaluate):
-    start_time: int = 1
-    interval_limit: int = 60 * 10
+    interval: int = 60
     eval_worker: int = 0
-
-    def __post_init__(self):
-        assert self.start_time > 0
-        assert self.interval_limit >= self.start_time
-        if self.start_time > self.interval_limit:
-            logger.info(f"change start_time: {self.start_time}s -> {self.interval_limit}s")
-            self.start_time = self.interval_limit
 
     def _check_print_progress(self):
         _time = time.time()
         taken_time = _time - self.progress_t0
-        if taken_time < self.progress_timeout:
+        if taken_time < self.interval:
             return False
         self.progress_t0 = _time
-
-        # 表示間隔を増やす、5s以下は5sに、それ以降は２倍
-        if self.progress_timeout < 5:
-            self.progress_timeout = 5
-        else:
-            self.progress_timeout *= 2
-            if self.progress_timeout > self.interval_limit:
-                self.progress_timeout = self.interval_limit
 
         return True
 
@@ -60,11 +44,9 @@ class PrintProgress(DistributionCallback, Evaluate):
 
     # -----------------------------------------------------
 
-    def on_start(self, runner: Runner, manager: DistributedManager):
+    def on_start(self, runner: Runner, manager: ServerManager):
         context = runner.context
         self.setup_eval_runner(runner)
-
-        self.progress_timeout = self.start_time
 
         s = f"### env: {runner.env_config.name}, rl: {runner.rl_config.getName()}"
         if context.max_episodes > 0:
@@ -80,35 +62,36 @@ class PrintProgress(DistributionCallback, Evaluate):
         print(s)
 
         _time = time.time()
-        self.progress_t0 = _time
+        self.progress_t0 = 0
         self.elapsed_t0 = _time
 
         self.t0_train_time = _time
         self.t0_train_count = 0
 
-    def on_end(self, runner: Runner, manager: DistributedManager):
+    def on_end(self, runner: Runner, manager: ServerManager):
         self._print(runner, manager)
 
-    def on_polling(self, runner: Runner, manager: DistributedManager):
+    def on_polling(self, runner: Runner, manager: ServerManager):
         if self._check_print_progress():
             self._print(runner, manager)
 
     # -----------------------------------------
 
-    def _print(self, runner: Runner, manager: DistributedManager):
+    def _print(self, runner: Runner, manager: ServerManager):
         context = runner.context
         _time = time.time()
         elapsed_time = _time - self.elapsed_t0
+        task_manager = manager.get_task_manager()
 
         actor_num = runner.context.actor_num
-        status = manager.task_get_status()
+        status = task_manager.get_status()
 
         # [TIME] [status] [elapsed time]
         s = datetime.datetime.now().strftime("%H:%M:%S")
         s += f" {status} {to_str_time(elapsed_time)}"
 
         # calc time
-        train_count = manager.task_get_trainer("train")
+        train_count = task_manager.get_train_count()
         if train_count == "":
             train_count = 0
         else:
@@ -141,32 +124,29 @@ class PrintProgress(DistributionCallback, Evaluate):
 
         print(s)
 
-        # --- task_time
-        task_time = manager.task_get_task_time()
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
 
         # --- trainer
-        trainer_id = manager.task_get_trainer("id")
+        trainer_id = task_manager.get_trainer("id")
         if trainer_id == "":
             print(" trainer  not assigned")
         else:
-            health = manager.task_get_trainer("health")
-            health = 0 if health == "" else float(health)
-            s = f" trainer  {trainer_id} {task_time-health:.1f}s: "
+            _elapsed_time = (now_utc - task_manager.get_trainer_update_time()).total_seconds()
+            s = f" trainer  {trainer_id} {_elapsed_time:.1f}s: "
             s += f" {train_count:5d}tr"
             s += f", {train_time:.3f}s/tr"
 
-            memory_size = manager.task_get_trainer("memory")
+            memory_size = task_manager.get_trainer("memory")
             s += f", {memory_size}mem"
 
             print(s)
 
         # --- actor
         for idx in range(actor_num):
-            aid = manager.task_get_actor(idx, "id")
+            aid = task_manager.get_actor(idx, "id")
             if aid == "":
                 print(f" actor{idx:<3d} not assigned")
             else:
-                health = manager.task_get_actor(idx, "health")
-                health = 0 if health == "" else float(health)
-                s = manager.task_get_actor(idx, "episode")
-                print(f" actor{idx:<3d} {aid} {task_time-health:.1f}s: {s:>6s}ep")
+                _elapsed_time = (now_utc - task_manager.get_actor_update_time(idx)).total_seconds()
+                s = task_manager.get_actor(idx, "episode")
+                print(f" actor{idx:<3d} {aid} {_elapsed_time:.1f}s: {s:>6s}ep")

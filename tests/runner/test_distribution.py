@@ -26,14 +26,20 @@ def is_port_open(host, port):
 def _run_actor():
     common.logger_print()
     actor_run_forever(
-        RedisParameters(host="localhost"), RabbitMQParameters(host="localhost", ssl=False), run_once=True
+        RedisParameters(host="localhost"),
+        RabbitMQParameters(host="localhost", ssl=False),
+        keepalive_interval=0,
+        run_once=True,
     )
 
 
 def _run_trainer():
     common.logger_print()
     trainer_run_forever(
-        RedisParameters(host="localhost"), RabbitMQParameters(host="localhost", ssl=False), run_once=True
+        RedisParameters(host="localhost"),
+        RabbitMQParameters(host="localhost", ssl=False),
+        keepalive_interval=0,
+        run_once=True,
     )
 
 
@@ -66,7 +72,7 @@ def test_train():
 
     runner = srl.Runner("Grid", ql_agent57.Config(batch_size=2))
     runner.train_distribution(
-        RedisParameters(host="localhost", keepalive_interval=0),
+        RedisParameters(host="localhost"),
         trainer_parameter_send_interval=0,
         actor_parameter_sync_interval=0,
         max_train_count=100_000,

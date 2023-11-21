@@ -5,9 +5,9 @@ metadata:
 spec:
   type: LoadBalancer
   selector:
-    app: redis
+    app: trainer
   ports:
-  - name: redis-port
+  - name: redis-external-port
     protocol: TCP
     port: 16379
     targetPort: 6379

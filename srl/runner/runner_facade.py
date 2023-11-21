@@ -515,7 +515,7 @@ class RunnerFacade(Runner):
     def train_distribution(
         self,
         redis_parameter: "RedisParameters",
-        wait: bool = True,
+        parameter_sync_interval: int = 60,
         # mp
         actor_num: int = 1,
         queue_capacity: int = 1000,
@@ -534,16 +534,12 @@ class RunnerFacade(Runner):
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
-        progress_start_time: int = 1,
-        progress_interval_limit: int = 60 * 10,
-        progress_env_info: bool = False,
-        progress_train_info: bool = True,
-        progress_worker_info: bool = True,
+        progress_interval: int = 60 * 1,
         progress_worker: int = 0,
         progress_max_actor: int = 5,
         # --- eval
-        enable_eval: bool = False,
-        eval_env_sharing: bool = False,
+        enable_eval: bool = True,
+        eval_env_sharing: bool = True,
         eval_episode: int = 1,
         eval_timeout: int = -1,
         eval_max_steps: int = -1,
@@ -577,17 +573,12 @@ class RunnerFacade(Runner):
         self.context.render_mode = RenderModes.none
         self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
-        # --- progress ---
-        if enable_progress:
+        # --- remote progress ---
+        if True:
             from srl.runner.callbacks.print_progress import PrintProgress
 
             self.context.callbacks.append(
                 PrintProgress(
-                    start_time=progress_start_time,
-                    interval_limit=progress_interval_limit,
-                    progress_env_info=progress_env_info,
-                    progress_train_info=progress_train_info,
-                    progress_worker_info=progress_worker_info,
                     progress_worker=progress_worker,
                     progress_max_actor=progress_max_actor,
                     enable_eval=False,
@@ -604,22 +595,25 @@ class RunnerFacade(Runner):
         )
 
         from .distribution.callback import DistributionCallback
-        from .distribution.callbacks.print_progress import PrintProgress as PrintProgressDist
         from .distribution.client import run
 
-        _callbacks_dist: List[DistributionCallback] = [
-            PrintProgressDist(
-                start_time=progress_start_time,
-                interval_limit=progress_interval_limit,
-                enable_eval=enable_eval,
-                eval_env_sharing=eval_env_sharing,
-                eval_episode=eval_episode,
-                eval_timeout=eval_timeout,
-                eval_max_steps=eval_max_steps,
-                eval_players=eval_players,
-                eval_shuffle_player=eval_shuffle_player,
+        _callbacks_dist: List[DistributionCallback] = []
+
+        if enable_progress:
+            from .distribution.callbacks.print_progress import PrintProgress as PrintProgressDist
+
+            _callbacks_dist.append(
+                PrintProgressDist(
+                    interval=progress_interval,
+                    enable_eval=enable_eval,
+                    eval_env_sharing=eval_env_sharing,
+                    eval_episode=eval_episode,
+                    eval_timeout=eval_timeout,
+                    eval_max_steps=eval_max_steps,
+                    eval_players=eval_players,
+                    eval_shuffle_player=eval_shuffle_player,
+                )
             )
-        ]
 
         # checkpointは別途定義
         if self._checkpoint is not None:
@@ -640,7 +634,93 @@ class RunnerFacade(Runner):
             )
             logger.info(f"add callback Checkpoint: {self._checkpoint.save_dir}")
 
-        run(self, redis_parameter, wait, _callbacks_dist)
+        run(
+            self,
+            redis_parameter,
+            wait=True,
+            parameter_sync_interval=parameter_sync_interval,
+            callbacks=_callbacks_dist,
+        )
+
+        self._add_core_play_after(
+            enable_history_on_memory=False,
+            enable_history_on_file=False,
+        )
+
+    def train_distribution_start(
+        self,
+        redis_parameter: "RedisParameters",
+        # mp
+        actor_num: int = 1,
+        queue_capacity: int = 1000,
+        trainer_parameter_send_interval: int = 1,
+        actor_parameter_sync_interval: int = 1,
+        enable_prepare_sample_batch: bool = False,
+        enable_trainer_thread: bool = True,
+        enable_actor_thread: bool = True,
+        # --- stop config
+        max_episodes: int = -1,
+        timeout: int = -1,
+        max_steps: int = -1,
+        max_train_count: int = -1,
+        max_memory: int = -1,
+        # --- play config
+        shuffle_player: bool = True,
+        # --- progress
+        progress_worker: int = 0,
+        progress_max_actor: int = 5,
+        # --- other
+        callbacks: List[CallbackType] = [],
+    ):
+        self.context.actor_num = actor_num
+        self.config.dist_queue_capacity = queue_capacity
+        self.config.trainer_parameter_send_interval = trainer_parameter_send_interval
+        self.config.actor_parameter_sync_interval = actor_parameter_sync_interval
+        self.config.dist_enable_prepare_sample_batch = enable_prepare_sample_batch
+        self.config.dist_enable_trainer_thread = enable_trainer_thread
+        self.config.dist_enable_actor_thread = enable_actor_thread
+
+        # --- set context
+        self.context.run_name = RunNameTypes.main
+        # stop config
+        self.context.max_episodes = max_episodes
+        self.context.timeout = timeout
+        self.context.max_steps = max_steps
+        self.context.max_train_count = max_train_count
+        self.context.max_memory = max_memory
+        # play config
+        self.context.shuffle_player = shuffle_player
+        self.context.disable_trainer = False
+        # play info
+        self.context.distributed = True
+        self.context.training = True
+        self.context.render_mode = RenderModes.none
+        self.context.callbacks = callbacks[:]  # type: ignore , type ok
+
+        # --- remote progress ---
+        if True:
+            from srl.runner.callbacks.print_progress import PrintProgress
+
+            self.context.callbacks.append(
+                PrintProgress(
+                    progress_worker=progress_worker,
+                    progress_max_actor=progress_max_actor,
+                    enable_eval=False,
+                )
+            )
+            logger.info("add callback PrintProgress")
+        # ----------------
+
+        self._add_core_play_before(
+            enable_checkpoint_load=True,
+            enable_checkpoint=False,
+            enable_history_on_memory=False,
+            enable_history_on_file=False,
+        )
+
+        from .distribution.client import run
+
+        run(self, redis_parameter, wait=False)
 
         self._add_core_play_after(
             enable_history_on_memory=False,

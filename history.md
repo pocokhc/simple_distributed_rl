@@ -5,6 +5,27 @@
 1. (SEED RL)
 1. (MARL)
 1. jax
+1. baseline
+1. memory
+
+
+# v0.13.2
+
+**MainUpdates**
+
+1. [distribution] update: リファクタリング
+   1. Queueの基本動作をRabbitMQではなくRedisに変更
+   1. Task,Parameter,Memory周りのinterfaceを定義
+   1. (Task,Parameterも分離できるように作成はしたけどRedisで両方賄えるので分離はしていない)
+   1. Taskの死活監視をUTC時間を基準に厳密化
+   1. TaskManagerを外に出してasyncの動作を明確化
+   1. 副産物として内部動作改善
+
+**OtherUpdates**
+
+1. [distribution] new: MQTTを追加
+1. [runner.mp] update: queue,remote_boardのやりとりを最適化
+1. [rl.processors] new: spaceを正規化するNormalizeProcessorを追加
 
 # v0.13.1
 

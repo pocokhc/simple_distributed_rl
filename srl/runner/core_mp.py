@@ -3,7 +3,6 @@ import logging
 import multiprocessing as mp
 import os
 import pickle
-import queue
 import threading
 import time
 import traceback
@@ -54,8 +53,8 @@ class _Board:
 # actor
 # --------------------
 class _ActorRLMemory(IRLMemoryWorker):
-    def __init__(self, memory_queue: queue.Queue, dist_queue_capacity: int, end_signal: ctypes.c_bool):
-        self.queue = memory_queue
+    def __init__(self, remote_queue: mp.Queue, dist_queue_capacity: int, end_signal: ctypes.c_bool):
+        self.queue = remote_queue
         self.dist_queue_capacity = dist_queue_capacity
         self.end_signal = end_signal
 
@@ -100,7 +99,7 @@ class _ActorInterrupt(Callback):
     def on_step_end(self, runner: srl.Runner) -> bool:
         if os.getppid() == 1:
             self.end_signal.value = True
-            logger.info("end_signale: True")
+            logger.info("end_signal: True")
             return True
 
         if time.time() - self.t0 < self.actor_parameter_sync_interval:
@@ -116,7 +115,7 @@ class _ActorInterrupt(Callback):
 
 def _run_actor(
     task_config: TaskConfig,
-    memory_queue: queue.Queue,
+    remote_queue: mp.Queue,
     remote_board: _Board,
     actor_id: int,
     end_signal: ctypes.c_bool,
@@ -145,7 +144,7 @@ def _run_actor(
         memory = cast(
             RLMemory,
             _ActorRLMemory(
-                memory_queue,
+                remote_queue,
                 task_config.config.dist_queue_capacity,
                 end_signal,
             ),
@@ -171,7 +170,6 @@ def _run_actor(
             trainer=None,
             workers=None,
         )
-
     finally:
         end_signal.value = True
         logger.info("end_signal: True")
@@ -183,15 +181,15 @@ def _run_actor(
 # --------------------
 def _memory_communicate(
     memory: RLMemory,
-    memory_queue: queue.Queue,
+    remote_queue: mp.Queue,
     end_signal: ctypes.c_bool,
 ):
     try:
         while not end_signal.value:
-            if memory_queue.empty():
+            if remote_queue.empty():
                 time.sleep(0.1)
             else:
-                batch = memory_queue.get(timeout=1)
+                batch = remote_queue.get(timeout=1)
                 memory.add(*batch)
 
     except Exception:
@@ -241,7 +239,7 @@ def _run_trainer(
     task_config: TaskConfig,
     parameter: RLParameter,
     memory: RLMemory,
-    memory_queue: queue.Queue,
+    remote_queue: mp.Queue,
     remote_board: _Board,
     end_signal: ctypes.c_bool,
 ):
@@ -263,7 +261,7 @@ def _run_trainer(
         target=_memory_communicate,
         args=(
             memory,
-            memory_queue,
+            remote_queue,
             end_signal,
         ),
     )
@@ -299,7 +297,7 @@ def _run_trainer(
 
 
 # ----------------------------
-# 学習
+# train
 # ----------------------------
 class MPManager(BaseManager):
     pass
@@ -338,75 +336,74 @@ def train(runner: srl.Runner):
             mp.set_start_method("spawn", force=True)
             __is_set_start_method = True
 
-    MPManager.register("Queue", queue.Queue)
     MPManager.register("Board", _Board)
 
-    logger.info("MPManager start")
-    with MPManager() as manager:
-        _train(runner, manager)
-    logger.info("MPManager end")
-
-
-def _train(runner: srl.Runner, manager: Any):
     # callbacks
     _callbacks = cast(List[MPCallback], [c for c in runner.context.callbacks if issubclass(c.__class__, MPCallback)])
     [c.on_init(runner) for c in _callbacks]
 
     # --- share values
     end_signal = cast(ctypes.c_bool, mp.Value(ctypes.c_bool, False))
-    memory_queue: queue.Queue = manager.Queue()
-    remote_board: _Board = manager.Board()
+    remote_queue = mp.Queue()
+    with MPManager() as manager:
+        remote_board: _Board = cast(Any, manager).Board()
 
-    # --- init remote_memory/parameter
-    parameter = runner.make_parameter()
-    memory = runner.make_memory()
-    remote_board.write(pickle.dumps(parameter.backup(to_cpu=True)))
+        # --- init remote_memory/parameter
+        parameter = runner.make_parameter()
+        memory = runner.make_memory()
+        params = parameter.backup(to_cpu=True)
+        if params is not None:
+            remote_board.write(pickle.dumps(params))
 
-    # --- actor ---
-    mp_data = runner.create_task_config(exclude_callbacks=["Checkpoint"])
-    actors_ps_list: List[mp.Process] = []
-    for actor_id in range(runner.context.actor_num):
-        params = (
-            mp_data,
-            memory_queue,
-            remote_board,
-            actor_id,
-            end_signal,
-        )
-        ps = mp.Process(target=_run_actor, args=params)
-        actors_ps_list.append(ps)
-    # -------------
+        # --- actor ---
+        mp_data = runner.create_task_config(exclude_callbacks=["Checkpoint"])
+        actors_ps_list: List[mp.Process] = []
+        for actor_id in range(runner.context.actor_num):
+            params = (
+                mp_data,
+                remote_queue,
+                remote_board,
+                actor_id,
+                end_signal,
+            )
+            ps = mp.Process(target=_run_actor, args=params)
+            actors_ps_list.append(ps)
+        # -------------
 
-    # --- start
-    logger.debug("process start")
-    [p.start() for p in actors_ps_list]
+        # --- start
+        logger.debug("process start")
+        [p.start() for p in actors_ps_list]
 
-    # callbacks
-    [c.on_start(runner) for c in _callbacks]
+        # callbacks
+        [c.on_start(runner) for c in _callbacks]
 
-    # train
-    try:
-        _run_trainer(
-            runner.create_task_config(),
-            parameter,
-            memory,
-            memory_queue,
-            remote_board,
-            end_signal,
-        )
-    finally:
-        end_signal.value = True
-        logger.info("end_signal: True")
+        # train
+        try:
+            _run_trainer(
+                runner.create_task_config(),
+                parameter,
+                memory,
+                remote_queue,
+                remote_board,
+                end_signal,
+            )
+        finally:
+            end_signal.value = True
+            logger.info("end_signal: True")
 
-    # --- プロセスの終了を待つ
-    for w in actors_ps_list:
-        for _ in range(5):
-            if w.is_alive():
-                time.sleep(1)
+        # --- プロセスの終了を待つ
+        for w in actors_ps_list:
+            # qが残っているとactorプロセスが終わらない
+            for _ in range(remote_queue.qsize()):
+                remote_queue.get(timeout=1)
+
+            for _ in range(5):
+                if w.is_alive():
+                    time.sleep(1)
+                else:
+                    break
             else:
-                break
-        else:
-            w.terminate()
+                w.terminate()
 
     # 子プロセスが正常終了していなければ例外を出す
     # exitcode: 0 正常, 1 例外, 負 シグナル

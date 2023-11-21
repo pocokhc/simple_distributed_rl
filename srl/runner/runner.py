@@ -27,7 +27,7 @@ from srl.utils.serialize import convert_for_json
 if TYPE_CHECKING:
     import psutil
 
-    from srl.runner.callbacks.history_viewer import HistoryViewer
+    from srl.runner.callbacks.history_viewer import HistoryViewer, HistoryViewers
 
 logger = logging.getLogger(__name__)
 
@@ -311,6 +311,8 @@ class Runner(CallbackData):
         # --- device
         if not Runner.__setup_device:
             framework = self.rl_config.get_use_framework()
+            if framework == "":
+                return
             device = self.get_device(self.context.run_name, self.context.actor_id)
             used_device_tf, used_device_torch = Runner.setup_device(
                 framework,
@@ -709,9 +711,13 @@ class Runner(CallbackData):
     def load_history(history_dir: str) -> "HistoryViewer":
         from srl.runner.callbacks.history_viewer import HistoryViewer
 
-        _history_viewer = HistoryViewer()
-        _history_viewer.load(history_dir)
-        return _history_viewer
+        return HistoryViewer(history_dir)
+
+    @staticmethod
+    def load_histories(history_dirs: List[str]) -> "HistoryViewers":
+        from srl.runner.callbacks.history_viewer import HistoryViewers
+
+        return HistoryViewers(history_dirs)
 
     def get_history(self) -> "HistoryViewer":
         from srl.runner.callbacks.history_viewer import HistoryViewer

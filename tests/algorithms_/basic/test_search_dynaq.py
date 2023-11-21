@@ -15,7 +15,7 @@ class Test_search_dynaq(CommonBaseSimpleTest):
 def test_Grid():
     tester = TestRL()
     rl_config = search_dynaq.Config()
-    rl_config.ext_lr.set_constant(0.01)
+    rl_config.lr_ext.set_constant(0.01)
     runner = srl.Runner("Grid", rl_config)
     runner.set_seed(1)
     runner.train(max_train_count=5_000)
@@ -27,7 +27,7 @@ def test_Grid():
 def test_Grid_mp():
     tester = TestRL()
     rl_config = search_dynaq.Config()
-    rl_config.ext_lr.set_constant(0.01)
+    rl_config.lr_ext.set_constant(0.01)
     runner = srl.Runner("Grid", rl_config)
     runner.set_seed(1)
     runner.train_mp(max_train_count=5_000)

@@ -34,9 +34,9 @@ class Config(RLConfig):
     action_ucb_beta: float = np.sqrt(2)
 
     # model params
-    ext_lr: float = 0.1  # type: ignore , type OK
+    lr_ext: float = 0.1  # type: ignore , type OK
     ext_discount: float = 0.9
-    int_lr: float = 0.5  # type: ignore , type OK
+    lr_int: float = 0.5  # type: ignore , type OK
     int_discount: float = 0.1
 
     # episodic
@@ -52,8 +52,8 @@ class Config(RLConfig):
     def __post_init__(self):
         super().__post_init__()
 
-        self.ext_lr: SchedulerConfig = SchedulerConfig(cast(float, self.ext_lr))
-        self.int_lr: SchedulerConfig = SchedulerConfig(cast(float, self.int_lr))
+        self.lr_ext: SchedulerConfig = SchedulerConfig(cast(float, self.lr_ext))
+        self.lr_int: SchedulerConfig = SchedulerConfig(cast(float, self.lr_int))
 
     @property
     def base_action_type(self) -> RLTypes:
@@ -250,8 +250,8 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.ext_lr_sch = self.config.ext_lr.create_schedulers()
-        self.int_lr_sch = self.config.int_lr.create_schedulers()
+        self.ext_lr_sch = self.config.lr_ext.create_schedulers()
+        self.int_lr_sch = self.config.lr_int.create_schedulers()
 
     def train_on_batchs(self, memory_sample_return) -> None:
         batchs = memory_sample_return

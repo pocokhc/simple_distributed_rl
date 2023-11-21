@@ -209,7 +209,8 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
         self.t0_train_count = 0
         self.interval_t0 = time.time()
         self.train_infos = {}
-
+        self.setup_eval_runner(runner)
+        
     def on_trainer_end(self, runner: Runner):
         self._write_trainer_log(runner)
         self.close()
@@ -244,6 +245,11 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
         }
         memory = runner.state.memory
         d["memory"] = 0 if memory is None else memory.length()
+
+        if self.enable_eval:
+            eval_rewards = self.run_eval(runner.state.parameter)
+            for i, r in enumerate(eval_rewards):
+                d[f"eval_reward{i}"] = r
 
         d.update(summarize_info_from_dictlist(self.train_infos))
         # d.update(self._read_stats(runner))

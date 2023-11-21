@@ -47,8 +47,11 @@ logs = [
 
 
 class HistoryViewer:
-    def __init__(self) -> None:
+    def __init__(self, save_dir: str = "") -> None:
         self.df = None
+
+        if save_dir != "":
+            self.load(save_dir)
 
     # ------------------------------------
     # file
@@ -172,11 +175,15 @@ class HistoryViewer:
 
         df = self.get_df()
         if len(df) == 0:
-            logger.info("DataFrame length is 0.")
+            s = "DataFrame length is 0."
+            print(s)
+            logger.info(s)
             return
 
         if xlabel not in df:
-            logger.info(f"'{xlabel}' is not found.")
+            s = f"'{xlabel}' is not found."
+            print(s)
+            logger.info(s)
             return
 
         n = 0
@@ -187,13 +194,17 @@ class HistoryViewer:
             if column in df:
                 n += 1
         if n == 0:
-            logger.info(f"'{ylabel_left}' '{ylabel_right}' is not found.")
+            s = f"'{ylabel_left}' '{ylabel_right}' is not found."
+            print(s)
+            logger.info(s)
             return
 
         _df = df[[xlabel] + ylabel_left + ylabel_right]
         _df = _df.dropna()
         if len(_df) == 0:
-            logger.info("DataFrame length is 0.")
+            s = "DataFrame length is 0."
+            print(s)
+            logger.info(s)
             return
 
         if len(_df) > aggregation_num * 2:
@@ -243,3 +254,82 @@ class HistoryViewer:
         plt.tight_layout()
         if not _no_plot:
             plt.show()
+
+
+class HistoryViewers:
+    def __init__(self, history_dirs: List[str]) -> None:
+
+        self.histories = [(os.path.basename(d), HistoryViewer(d)) for d in history_dirs]
+
+    def plot(self,
+        xlabel: str = "time",
+        ylabel: str = "reward0",
+        aggregation_num: int = 50,
+        ymin: Optional[float] = None,
+        ymax: Optional[float] = None,
+        _no_plot: bool = False,  # for test
+    ):
+
+        assert is_packages_installed(
+            ["matplotlib", "pandas"]
+        ), "To use plot you need to install the 'matplotlib', 'pandas'. (pip install matplotlib pandas)"
+
+        import matplotlib.pyplot as plt
+
+        color_idx = 0
+        for name, h in self.histories:
+            df = h.get_df()
+            if len(df) == 0:
+                s = f"[{name}] DataFrame length is 0."
+                print(s)
+                logger.info(s)
+                continue
+
+            if xlabel not in df:
+                s = f"[{name}] '{xlabel}' is not found. {df.columns}"
+                print(s)
+                logger.info(s)
+                continue
+
+            if ylabel not in df:
+                s = f"[{name}] '{ylabel}' is not found. {df.columns}"
+                print(s)
+                logger.info(s)
+                continue
+
+            _df = df[[xlabel, ylabel]]
+            _df = _df.dropna()
+            if len(_df) == 0:
+                s = f"[{name}] DataFrame length is 0."
+                print(s)
+                logger.info(s)
+                return
+
+            if len(_df) > aggregation_num * 2:
+                rolling_n = int(len(_df) / aggregation_num)
+            else:
+                rolling_n = 0
+
+            x = _df[xlabel]
+            y = _df[ylabel]
+            if rolling_n > 0:
+                plt.plot(x, y.rolling(rolling_n).mean(), f"C{color_idx}", label=name)
+                plt.plot(x, y, f"C{color_idx}", alpha=0.1)
+            else:
+                plt.plot(x, y, f"C{color_idx}", label=name)
+            color_idx += 1
+
+            if ymin is not None:
+                plt.ylim(bottom=ymin)
+            if ymax is not None:
+                plt.ylim(top=ymax)
+
+        plt.legend()
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.grid()
+        plt.tight_layout()
+        if not _no_plot:
+            plt.show()
+
+        

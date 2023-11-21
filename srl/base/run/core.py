@@ -76,9 +76,10 @@ def play(
             or context.max_memory > 0
         ), "Please specify 'max_episodes', 'timeout' , 'max_steps' or 'max_train_count' or 'max_memory'."
         if context.max_memory > 0:
-            _m = getattr(memory.config, "memory", None)
-            if _m is not None:
-                assert context.max_memory <= getattr(_m, "capacity", 0)
+            if hasattr(memory, "config"):
+                _m = getattr(memory.config, "memory", None)
+                if _m is not None:
+                    assert context.max_memory <= getattr(_m, "capacity", 0)
 
     # --- make instance
     if context.disable_trainer:

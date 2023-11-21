@@ -1,7 +1,7 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: ReplicaSet
 metadata:
-  name: actor
+  name: actor-pods
 spec:
   replicas: 1  # actor_num
   selector:
@@ -20,4 +20,4 @@ spec:
           command: ["python", "-u", "/code/server_actor.py"]
           resources:
             limits:
-              cpu: 950m
+              cpu: "950m"

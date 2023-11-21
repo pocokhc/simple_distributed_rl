@@ -1,3 +1,4 @@
+import datetime
 import logging
 import queue
 import threading
@@ -10,15 +11,13 @@ from srl.base.rl.base import IRLMemoryTrainer, RLMemory, RLParameter
 from srl.base.run.context import RunNameTypes
 from srl.runner.callback import TrainerCallback
 from srl.runner.distribution.callback import TrainerServerCallback
-from srl.runner.distribution.connectors.imemory import IServerParameters
 from srl.runner.distribution.connectors.parameters import RedisParameters
-from srl.runner.distribution.manager import DistributedManager
-from srl.runner.runner import Runner, TaskConfig
+from srl.runner.distribution.interface import IMemoryServerParameters
+from srl.runner.distribution.server_manager import ServerManager
+from srl.runner.distribution.task_manager import TaskManager, TaskManagerParams
+from srl.runner.runner import Runner
 
 logger = logging.getLogger(__name__)
-
-# remote_memoryは接続が切れたら再接続
-# redisは接続が切れたら終了
 
 
 # ---------------------------------------------------
@@ -64,37 +63,47 @@ class _TrainerRLMemoryThreadPrepareBatch(IRLMemoryTrainer):
 
 
 def _memory_communicate(
-    manager_args,
+    manager_copy_args,
     memory: RLMemory,
     share_dict: dict,
     enable_prepare_sample_batch,
 ):
     try:
-        manager = DistributedManager.create(*manager_args)
-        remote_memory = manager.create_memory_connector()
+        manager = ServerManager._copy(*manager_copy_args)
+        memory_receiver = manager.get_memory_receiver()
 
         q_recv_count = 0
 
-        while not share_dict["end_signal"]:
-            if not remote_memory.is_connected:
-                time.sleep(1)
-                if not remote_memory.ping():
+        if enable_prepare_sample_batch:
+            # --- 受信できない場合もsampleを作り続ける
+            while not share_dict["end_signal"]:
+                try:
+                    if not memory_receiver.is_connected:
+                        memory_receiver.ping()
+
+                    dat = memory_receiver.memory_recv()
+                except Exception as e:
+                    logger.error(f"Memory recv error: {e}")
                     continue
 
-            try:
-                dat = remote_memory.memory_recv()
-            except Exception as e:
-                logger.error(f"Memory recv error: {e}")
-                continue
-
-            if enable_prepare_sample_batch:
-                # 受信できない場合もsampleを作り続ける
                 cast(_TrainerRLMemoryThreadPrepareBatch, memory).recv(dat)
                 if dat is not None:
                     q_recv_count += 1
                     share_dict["q_recv_count"] = q_recv_count
-            else:
-                # 受信できなければサーバ側なので少し待つ
+        else:
+            # --- 受信できなければサーバ側なので少し待つ
+            while not share_dict["end_signal"]:
+                if not memory_receiver.is_connected:
+                    time.sleep(1)
+                    if not memory_receiver.ping():
+                        continue
+
+                try:
+                    dat = memory_receiver.memory_recv()
+                except Exception as e:
+                    logger.error(f"Memory recv error: {e}")
+                    continue
+
                 if dat is None:
                     time.sleep(0.1)
                 else:
@@ -110,38 +119,38 @@ def _memory_communicate(
 
 
 def _parameter_communicate(
-    manager_args,
+    manager_copy_args,
     memory: RLMemory,
     parameter: RLParameter,
     share_dict: dict,
     trainer_parameter_send_interval: int,
 ):
     try:
-        manager = DistributedManager.create(*manager_args)
+        manager = ServerManager._copy(*manager_copy_args)
+        task_manager = manager.get_task_manager()
+        parameter_writer = manager.get_parameter_writer()
 
+        keepalive_t0 = 0
+        start_train_count = task_manager.get_train_count()
         while not share_dict["end_signal"]:
             time.sleep(trainer_parameter_send_interval)
 
             # --- sync parameter
             params = parameter.backup(to_cpu=True)
             if params is not None:
-                manager.parameter_update(params)
+                parameter_writer.parameter_update(params)
                 share_dict["sync_count"] += 1
 
             # --- keepalive
-            manager.task_set_trainer("q_recv_count", str(share_dict["q_recv_count"]))
-
-            if manager.keepalive_trainer():
-                manager.task_set_trainer("train", str(share_dict["train_count"]))
-                manager.task_set_trainer("memory", str(memory.length()))
-                if manager.task_is_dead():
-                    logger.info("task is dead")
+            task_manager.set_trainer("q_recv_count", str(share_dict["q_recv_count"]))
+            if time.time() - keepalive_t0 > task_manager.params.keepalive_interval:
+                keepalive_t0 = time.time()
+                _keepalive(task_manager, start_train_count, share_dict["train_count"], memory.length())
+                if task_manager.is_finished():
                     break
 
-        manager.keepalive_trainer(do_now=True)
-        manager.task_set_trainer("q_recv_count", str(share_dict["q_recv_count"]))
-        manager.task_set_trainer("train", str(share_dict["train_count"]))
-        manager.task_set_trainer("memory", str(memory.length()))
+        task_manager.set_trainer("q_recv_count", str(share_dict["q_recv_count"]))
+        _keepalive(task_manager, start_train_count, share_dict["train_count"], memory.length())
 
     except Exception:
         share_dict["th_error"] = traceback.format_exc()
@@ -177,24 +186,28 @@ class _TrainerInterruptThread(TrainerCallback):
 class _TrainerInterruptManager(TrainerCallback):
     def __init__(
         self,
-        manager: DistributedManager,
+        manager: ServerManager,
         trainer_parameter_send_interval: int,
     ) -> None:
-        self.manager = manager
-        self.remote_memory = self.manager.create_memory_connector()
+        self.memory_receiver = manager.get_memory_receiver()
+        self.parameter_writer = manager.get_parameter_writer()
+        self.task_manager = manager.get_task_manager()
         self.trainer_parameter_send_interval = trainer_parameter_send_interval
         self.q_recv_count = 0
-        self.t0 = time.time()
+
+        self.keepalive_t0 = 0
+        self.sync_parameter_t0 = time.time()
+        self.start_train_count = self.task_manager.get_train_count()
 
     def on_trainer_loop(self, runner: Runner) -> bool:
         assert runner.state.memory is not None
         runner.state.memory = cast(RLMemory, runner.state.memory)
 
         # --- recv memory
-        if not self.remote_memory.is_connected:
-            self.remote_memory.ping()
-        if self.remote_memory.is_connected:
-            dat = self.remote_memory.memory_recv()
+        if not self.memory_receiver.is_connected:
+            self.memory_receiver.ping()
+        if self.memory_receiver.is_connected:
+            dat = self.memory_receiver.memory_recv()
             if dat is not None:
                 self.q_recv_count += 1
                 runner.state.memory.add(*dat)
@@ -207,40 +220,50 @@ class _TrainerInterruptManager(TrainerCallback):
 
         # --- sync parameter
         if runner.state.is_step_trained:
-            if time.time() - self.t0 > self.trainer_parameter_send_interval:
-                self.t0 = time.time()
+            if time.time() - self.sync_parameter_t0 > self.trainer_parameter_send_interval:
+                self.sync_parameter_t0 = time.time()
 
                 assert runner.state.parameter is not None
                 params = runner.state.parameter.backup(to_cpu=True)
                 if params is not None:
-                    self.manager.parameter_update(params)
+                    self.parameter_writer.parameter_update(params)
                     runner.state.sync_trainer += 1
 
         # --- keepalive
-        if self.manager.keepalive_trainer():
+        if time.time() - self.keepalive_t0 > self.task_manager.params.keepalive_interval:
+            self.keepalive_t0 = time.time()
             assert runner.state.trainer is not None
             assert runner.state.memory is not None
-            self.manager.task_set_trainer("train", str(runner.state.trainer.get_train_count()))
-            self.manager.task_set_trainer("memory", str(runner.state.memory.length()))
-            self.manager.task_set_trainer("q_recv_count", str(self.q_recv_count))
-            if self.manager.task_is_dead():
-                logger.info("task is dead")
+            self.task_manager.set_trainer("q_recv_count", str(self.q_recv_count))
+            _keepalive(
+                self.task_manager,
+                self.start_train_count,
+                runner.state.trainer.get_train_count(),
+                runner.state.memory.length(),
+            )
+            if self.task_manager.is_finished():
                 return True
+
         return False
 
     def on_trainer_end(self, runner: Runner):
         assert runner.state.trainer is not None
         assert runner.state.memory is not None
-        self.manager.keepalive_trainer(do_now=True)
-        self.manager.task_set_trainer("train", str(runner.state.trainer.get_train_count()))
-        self.manager.task_set_trainer("memory", str(runner.state.memory.length()))
-        self.manager.task_set_trainer("q_recv_count", str(self.q_recv_count))
+        self.task_manager.set_trainer("q_recv_count", str(self.q_recv_count))
+        _keepalive(
+            self.task_manager,
+            self.start_train_count,
+            runner.state.trainer.get_train_count(),
+            runner.state.memory.length(),
+        )
 
 
-# --------------------------------
-# main
-# --------------------------------
-def _run_trainer(manager: DistributedManager, task_config: TaskConfig):
+def _run_trainer(manager: ServerManager):
+    task_manager = manager.get_task_manager()
+    parameter_writer = manager.get_parameter_writer()
+
+    task_config = task_manager.get_config()
+    assert task_config is not None
     task_config.context.run_name = RunNameTypes.trainer
 
     # --- runner
@@ -253,7 +276,7 @@ def _run_trainer(manager: DistributedManager, task_config: TaskConfig):
 
     # --- parameter
     parameter = runner.make_parameter(is_load=False)
-    params = manager.parameter_read()
+    params = manager.get_parameter_reader().parameter_read()
     if params is None:
         logger.warning("Missing initial parameters")
     else:
@@ -279,10 +302,11 @@ def _run_trainer(manager: DistributedManager, task_config: TaskConfig):
                 batch_size = getattr(task_config.context.rl_config, "batch_size", 1)
                 memory = _TrainerRLMemoryThreadPrepareBatch(memory, batch_size, share_dict)
 
+            _manager_copy_args = manager._copy_args()
             memory_ps = threading.Thread(
                 target=_memory_communicate,
                 args=(
-                    manager.create_args(),
+                    _manager_copy_args,
                     memory,
                     share_dict,
                     task_config.config.dist_enable_prepare_sample_batch,
@@ -291,7 +315,7 @@ def _run_trainer(manager: DistributedManager, task_config: TaskConfig):
             parameter_ps = threading.Thread(
                 target=_parameter_communicate,
                 args=(
-                    manager.create_args(),
+                    _manager_copy_args,
                     memory,
                     parameter,
                     share_dict,
@@ -323,10 +347,9 @@ def _run_trainer(manager: DistributedManager, task_config: TaskConfig):
         # --- last params
         params = parameter.backup(to_cpu=True)
         if params is not None:
-            manager.parameter_update(params)
+            parameter_writer.parameter_update(params)
 
-        # --- 終了はtrainerで
-        manager.task_end()
+        task_manager.finished("trainer end")
 
         if memory_ps is not None:
             share_dict["end_signal"] = True
@@ -338,9 +361,43 @@ def _run_trainer(manager: DistributedManager, task_config: TaskConfig):
                 raise ValueError(share_dict["th_error"])
 
 
+def _keepalive(task_manager: TaskManager, start_train_count: int, train_count: int, memory_size: int):
+    task_manager.set_train_count(start_train_count, train_count)
+    task_manager.set_trainer("train", str(train_count))
+    task_manager.set_trainer("memory", str(memory_size))
+    task_manager.set_trainer("update_time", task_manager.get_now_str())
+
+
+def _task_assign(task_manager: TaskManager) -> bool:
+    if task_manager.get_status() != "ACTIVE":
+        return False
+
+    # --- アサイン時にhealthチェック ---
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    _t_elapsed_time = (now_utc - task_manager.get_trainer_update_time()).total_seconds()
+    if _t_elapsed_time > task_manager.params.keepalive_threshold:
+        _tid = task_manager.get_trainer("id")
+        s = f"Trainer remove(health time over) {_t_elapsed_time:.1f}s {_tid}"
+        task_manager.add_log(s)
+        task_manager.set_trainer("id", "")
+    # ----------------------------------
+
+    _tid = task_manager.get_trainer("id")
+    if _tid != "":
+        return False
+
+    task_manager.set_trainer("id", task_manager.params.uid)
+    task_manager.set_trainer("update_time", task_manager.get_now_str())
+    task_manager.add_log(f"Trainer assigned({task_manager.params.uid})")
+    task_manager.check_version()
+    return True
+
+
 def run_forever(
-    redis_parameter: RedisParameters,
-    memory_parameter: Optional[IServerParameters] = None,
+    redis_params: RedisParameters,
+    memory_params: Optional[IMemoryServerParameters] = None,
+    keepalive_interval: int = 10,
+    keepalive_threshold: int = 101,
     callbacks: List[TrainerServerCallback] = [],
     framework: str = "tensorflow",
     device: str = "AUTO",
@@ -348,12 +405,21 @@ def run_forever(
     is_remote_memory_purge: bool = True,
 ):
     used_device_tf, used_device_torch = Runner.setup_device(framework, device)
+    task_manager_params = TaskManagerParams(
+        "trainer",
+        keepalive_interval,
+        keepalive_threshold,
+        used_device_tf=used_device_tf,
+        used_device_torch=used_device_torch,
+    )
+    manager = ServerManager(redis_params, memory_params, task_manager_params)
+    task_manager = manager.get_task_manager()
+    redis_connector = manager.get_redis_connector()
+    memory_receiver = manager.get_memory_receiver()
+    uid = task_manager.params.uid
 
-    manager = DistributedManager(redis_parameter, memory_parameter)
-    manager.set_user("trainer")
-
-    print(f"wait trainer: {manager.uid}")
-    logger.info(f"wait trainer: {manager.uid}")
+    print(f"wait trainer: {uid}")
+    logger.info(f"wait trainer: {uid}")
     while True:
         try:
             time.sleep(1)
@@ -363,36 +429,33 @@ def run_forever(
             if True in _stop_flags:
                 break
 
-            if not manager.ping():
-                logger.info("Server connect fail.")
+            # --- server check
+            if not redis_connector.ping():
+                logger.info("Redis server connect fail.")
+                time.sleep(10)
+                continue
+            if not memory_receiver.ping():
+                logger.info("MemoryReceiver server connect fail.")
                 time.sleep(10)
                 continue
 
             # --- task check
-            is_assigned, _ = manager.task_assign_by_my_id()
+            is_assigned = _task_assign(task_manager)
             if is_assigned:
-                print(f"train start: {manager.uid}")
-                logger.info(f"train start: {manager.uid}")
-                task_config = manager.task_get_config()
-                assert task_config is not None
-                task_config.context.create_controller().set_device(used_device_tf, used_device_torch)
-                task_config.context.used_device_tf = used_device_tf
-                task_config.context.used_device_torch = used_device_torch
-                if is_remote_memory_purge and not manager.task_is_setup_queue():
-                    manager.create_memory_connector().memory_purge()
-                    logger.info("memory purge")
-                manager.task_set_setup_queue()
-                _run_trainer(manager, task_config)
-                logger.info(f"train end: {manager.uid}")
+                print(f"train start: {uid}")
+                logger.info(f"train start: {uid}")
+                task_manager.setup_memory(memory_receiver, is_remote_memory_purge)
+                _run_trainer(manager)
+                logger.info(f"train end: {uid}")
                 if run_once:
                     break
-                print(f"wait trainer: {manager.uid}")
-                logger.info(f"wait trainer: {manager.uid}")
+                print(f"wait trainer: {uid}")
+                logger.info(f"wait trainer: {uid}")
 
         except Exception:
             if run_once:
                 raise
             else:
                 logger.error(traceback.format_exc())
-                print(f"wait trainer: {manager.uid}")
-                logger.info(f"wait trainer: {manager.uid}")
+                print(f"wait trainer: {uid}")
+                logger.info(f"wait trainer: {uid}")

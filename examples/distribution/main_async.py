@@ -13,9 +13,8 @@ def create_task():
     rl_config = ql.Config()
     runner = srl.Runner(env_config, rl_config)
 
-    runner.train_distribution(
+    runner.train_distribution_start(
         redis_params,
-        wait=False,
         max_train_count=1000,
     )
 
@@ -24,14 +23,22 @@ def wait_task():
     manager = TaskManager(redis_params)
 
     while True:
-        time.sleep(1)
-        if manager.read_status() == "END":
+        print("wait task...")
+        time.sleep(10)
+
+        runner = manager.create_runner()
+        if runner is None:
+            print("Task not found.")
+            break
+        print(runner.evaluate())
+
+        if manager.is_finished():
             break
 
 
 def eval_task():
     manager = TaskManager(redis_params)
-    runner = manager.create_task_runner()
+    runner = manager.create_runner()
     if runner is None:
         print("Task not found.")
         return

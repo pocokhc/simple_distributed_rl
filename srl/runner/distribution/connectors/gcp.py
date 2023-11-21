@@ -1,19 +1,17 @@
 import logging
 import pickle
-import time
 import traceback
 from typing import Any, Optional, cast
 
-import google.api_core.exceptions
 from google.cloud import pubsub_v1
 
-from srl.runner.distribution.connectors.imemory import IMemoryConnector
 from srl.runner.distribution.connectors.parameters import GCPParameters
+from srl.runner.distribution.interface import IMemoryReceiver, IMemorySender
 
 logger = logging.getLogger(__name__)
 
 
-class GCPPubSubConnector(IMemoryConnector):
+class GCPPubSubReceiver(IMemoryReceiver):
     def __init__(self, parameter: GCPParameters):
         self.parameter = parameter
         self.close()
@@ -22,108 +20,55 @@ class GCPPubSubConnector(IMemoryConnector):
         self.close()
 
     def close(self):
-        self.publisher = None
         self.subscriber = None
-        self.topic_path = ""
         self.subscription_path = ""
-
-    def _connect_publisher(self) -> bool:
-        if self.publisher is not None:
-            return True
-        try:
-            self.publisher = pubsub_v1.PublisherClient()
-            return True
-        except Exception:
-            logger.error(traceback.format_exc())
-            self.publisher = None
-        return False
 
     def _connect_subscriber(self) -> bool:
         if self.subscriber is not None:
             return True
         try:
             self.subscriber = pubsub_v1.SubscriberClient()
+            self.subscription_path = self.subscriber.subscription_path(
+                self.parameter.project_id, self.parameter.subscription_name
+            )
+
+            # try:
+            #     self.subscriber.create_subscription(name=self.subscription_path, topic=self.topic_path)
+            #     logger.info(f"create subscription {self.parameter.subscription_name}")
+            #     subscription = self.subscriber.get_subscription(subscription=self.subscription_path)
+            #     for _ in range(120):
+            #         if subscription is not None:
+            #             break
+            #         print("Subscription is not available yet. Waiting...")
+            #         time.sleep(1)
+            #         subscription = self.subscriber.get_subscription(subscription=self.subscription_path)
+            # except google.api_core.exceptions.AlreadyExists:
+            #     pass
+
             return True
         except Exception:
             logger.error(traceback.format_exc())
             self.subscriber = None
         return False
 
-    def connect(self):
-        self._connect_publisher()
-        self._connect_subscriber()
-        assert self.publisher is not None
-        assert self.subscriber is not None
-
-        self.topic_path = self.publisher.topic_path(self.parameter.project_id, self.parameter.topic_name)
-        self.subscription_path = self.subscriber.subscription_path(
-            self.parameter.project_id, self.parameter.subscription_name
-        )
-
-        try:
-            self.publisher.create_topic(name=self.topic_path)
-            logger.info(f"create topic {self.parameter.topic_name}")
-        except google.api_core.exceptions.AlreadyExists:
-            pass
-
-        try:
-            self.subscriber.create_subscription(name=self.subscription_path, topic=self.topic_path)
-            logger.info(f"create subscription {self.parameter.subscription_name}")
-        except google.api_core.exceptions.AlreadyExists:
-            pass
-
-        # topicが出来るまで待機
-        topic = self.publisher.get_topic(topic=self.topic_path)
-        for _ in range(120):
-            if topic is not None:
-                break
-            print("Topic is not available yet. Waiting...")
-            time.sleep(1)
-            topic = self.publisher.get_topic(topic=self.topic_path)
-
-        subscription = self.subscriber.get_subscription(subscription=self.subscription_path)
-        for _ in range(120):
-            if subscription is not None:
-                break
-            print("Subscription is not available yet. Waiting...")
-            time.sleep(1)
-            subscription = self.subscriber.get_subscription(subscription=self.subscription_path)
-
     @property
     def is_connected(self) -> bool:
-        return self.publisher is not None and self.subscriber is not None
+        return self.subscriber is not None
 
     def ping(self) -> bool:
         try:
-            self.connect()
-            assert self.publisher is not None
-            topic = self.publisher.get_topic(topic=self.topic_path)
-            if topic is None:
-                return False
+            self._connect_subscriber()
             assert self.subscriber is not None
             subscription = self.subscriber.get_subscription(subscription=self.subscription_path)
-            if subscription is None:
-                return False
-            return True
+            return subscription is not None
         except Exception as e:
             logger.error(e)
         return False
 
-    def memory_add(self, dat: Any) -> None:
-        try:
-            if self.publisher is None:
-                self.connect()
-                assert self.publisher is not None
-            dat = pickle.dumps(dat)
-            self.publisher.publish(self.topic_path, dat)
-        except Exception:
-            self.close()
-            raise
-
     def memory_recv(self) -> Optional[Any]:
         try:
             if self.subscriber is None:
-                self.connect()
+                self._connect_subscriber()
                 assert self.subscriber is not None
             response = self.subscriber.pull(
                 subscription=self.subscription_path, max_messages=1, return_immediately=True
@@ -138,13 +83,10 @@ class GCPPubSubConnector(IMemoryConnector):
             self.close()
             raise
 
-    def memory_size(self) -> int:
-        return -1
-
     def memory_purge(self) -> None:
         try:
             if self.subscriber is None:
-                self.connect()
+                self._connect_subscriber()
                 assert self.subscriber is not None
             for _ in range(100):
                 response = self.subscriber.pull(
@@ -159,3 +101,70 @@ class GCPPubSubConnector(IMemoryConnector):
         except Exception:
             logger.error(traceback.format_exc())
             self.close()
+
+
+class GCPPubSubSender(IMemorySender):
+    def __init__(self, parameter: GCPParameters):
+        self.parameter = parameter
+        self.close()
+
+    def __del__(self):
+        self.close()
+
+    def close(self):
+        self.publisher = None
+        self.topic_path = ""
+
+    def _connect_publisher(self) -> bool:
+        if self.publisher is not None:
+            return True
+        try:
+            self.publisher = pubsub_v1.PublisherClient()
+            self.topic_path = self.publisher.topic_path(self.parameter.project_id, self.parameter.topic_name)
+
+            # try:
+            #     self.publisher.create_topic(name=self.topic_path)
+            #     logger.info(f"create topic {self.parameter.topic_name}")
+            #     topic = self.publisher.get_topic(topic=self.topic_path)
+            #     for _ in range(120):
+            #         if topic is not None:
+            #             break
+            #         print("Topic is not available yet. Waiting...")
+            #         time.sleep(1)
+            #         topic = self.publisher.get_topic(topic=self.topic_path)
+            # except google.api_core.exceptions.AlreadyExists:
+            #     pass
+
+            return True
+        except Exception:
+            logger.error(traceback.format_exc())
+            self.publisher = None
+        return False
+
+    @property
+    def is_connected(self) -> bool:
+        return self.publisher is not None
+
+    def ping(self) -> bool:
+        try:
+            self._connect_publisher()
+            assert self.publisher is not None
+            topic = self.publisher.get_topic(topic=self.topic_path)
+            return topic is not None
+        except Exception as e:
+            logger.error(e)
+        return False
+
+    def memory_add(self, dat: Any) -> None:
+        try:
+            if self.publisher is None:
+                self._connect_publisher()
+                assert self.publisher is not None
+            dat = pickle.dumps(dat)
+            self.publisher.publish(self.topic_path, dat)
+        except Exception:
+            self.close()
+            raise
+
+    def memory_size(self) -> int:
+        return -1

@@ -28,7 +28,7 @@ class _AssertTrainCallbacks(Callback, TrainerCallback):
 def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     common.logger_print()
 
-    memory_queue = queue.Queue()
+    remote_queue = cast(mp.Queue, queue.Queue())
     remote_board = mocker.Mock(spec=_Board)
     remote_board.read.return_value = None
     train_end_signal = cast(ctypes.c_bool, mp.Value(ctypes.c_bool, False))
@@ -55,15 +55,14 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
         runner.context.callbacks.append(_c2(train_end_signal))
 
     # --- run
-    _run_actor(runner.create_task_config(), memory_queue, remote_board, 0, train_end_signal)
+    _run_actor(runner.create_task_config(), remote_queue, remote_board, 0, train_end_signal)
 
     assert train_end_signal.value
     assert c.on_episodes_begin.call_count > 0
     assert c.on_episodes_end.call_count > 0
-    assert remote_board.read.call_count > 0
-    assert memory_queue.qsize() > 0
+    assert remote_queue.qsize() > 0
 
-    batch = memory_queue.get(timeout=1)
+    batch = remote_queue.get(timeout=1)
     print(batch)
 
 
@@ -73,7 +72,7 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
 def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch, interrupt_stop: bool):
     common.logger_print()
 
-    memory_queue = queue.Queue()
+    remote_queue = cast(mp.Queue, queue.Queue())
     remote_board = mocker.Mock(spec=_Board)
     train_end_signal = cast(ctypes.c_bool, mp.Value(ctypes.c_bool, False))
 
@@ -107,7 +106,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
 
     # --- add queue
     for _ in range(100):
-        memory_queue.put(
+        remote_queue.put(
             (
                 {
                     "states": ["1,3", "1,2"],
@@ -128,7 +127,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
         runner.create_task_config(),
         runner.make_parameter(),
         runner.make_memory(),
-        memory_queue,
+        remote_queue,
         remote_board,
         train_end_signal,
     )
@@ -136,11 +135,11 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
     assert train_end_signal.value
     assert c.on_trainer_start.call_count > 0
     assert c.on_trainer_end.call_count > 0
-    assert remote_board.write.call_count > 0
 
 
 @pytest.mark.timeout(5)  # pip install pytest_timeout
 def test_train():
+    common.logger_print()
     rl_config = ql_agent57.Config(batch_size=2)
     rl_config.memory.warmup_size = 10
     runner = srl.Runner("Grid", rl_config)

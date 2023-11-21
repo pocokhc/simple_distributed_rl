@@ -11,6 +11,61 @@ except ModuleNotFoundError as e:
 import pytest_mock
 
 
+class RedisMock:
+    tbl = {}
+    queues: Dict[str, Queue] = {}
+
+    def ping(self) -> bool:
+        return True
+
+    def close(self) -> None:
+        pass
+
+    def get(self, key: str) -> Optional[bytes]:
+        return RedisMock.tbl.get(key, None)
+
+    def set(self, key: str, value):
+        # どうやら文字列もバイナリになる
+        if isinstance(value, str):
+            value = value.encode()
+        RedisMock.tbl[key] = value
+        return True
+
+    def exists(self, key: str) -> bool:
+        if key in RedisMock.tbl:
+            return True
+        return key in RedisMock.queues
+
+    def delete(self, key: str):
+        del RedisMock.queues[key]
+
+    def keys(self, filter: str):
+        filter = filter.replace("*", "")
+        keys = [k for k in list(RedisMock.tbl.keys()) if filter in k]
+        return keys
+
+    def scan_iter(self, filter: str):
+        return self.keys(filter)
+
+    def rpush(self, key: str, value):
+        if key not in RedisMock.queues:
+            RedisMock.queues[key] = Queue()
+        RedisMock.queues[key].put(value)
+        return True
+
+    def lpop(self, key: str):
+        if key not in RedisMock.queues:
+            return None
+        if RedisMock.queues[key].empty():
+            return None
+        return RedisMock.queues[key].get(timeout=1)
+
+    def llen(self, key: str):
+        if key not in RedisMock.queues:
+            return 0
+        return RedisMock.queues[key].qsize()
+
+
 class PikaMock:
     queues: Dict[str, Queue] = {}
 
@@ -79,59 +134,32 @@ class PikaMock:
         PikaMock.queues[queue] = Queue()
 
 
-class RedisMock:
-    tbl = {}
-    queues: Dict[str, Queue] = {}
+class PahoMock:
+    on_message = None
 
-    def ping(self) -> bool:
-        return True
+    def connect(self, **kwargs):
+        return
 
     def close(self) -> None:
         pass
 
-    def get(self, key: str) -> Optional[bytes]:
-        return RedisMock.tbl.get(key, None)
+    def subscribe(self, topic: str):
+        pass
 
-    def set(self, key: str, value):
-        # どうやら文字列もバイナリになる
-        if isinstance(value, str):
-            value = value.encode()
-        RedisMock.tbl[key] = value
-        return True
+    def loop_start(self):
+        pass
 
-    def exists(self, key: str) -> bool:
-        if key in RedisMock.tbl:
-            return True
-        return key in RedisMock.queues
+    def publish(self, topic: str, dat):
+        if PahoMock.on_message is not None:
+            mock = Mock()
+            mock.payload = dat
+            PahoMock.on_message(None, None, mock)
 
-    def delete(self, key: str):
-        del RedisMock.queues[key]
-
-    def keys(self, filter: str):
-        filter = filter.replace("*", "")
-        keys = [k for k in list(RedisMock.tbl.keys()) if filter in k]
-        return keys
-
-    def scan_iter(self, filter: str):
-        return self.keys(filter)
-
-    def rpush(self, key: str, value):
-        if key not in RedisMock.queues:
-            RedisMock.queues[key] = Queue()
-        RedisMock.queues[key].put(value)
-        return True
-
-    def lpop(self, key: str):
-        if key not in RedisMock.queues:
-            return None
-        if RedisMock.queues[key].empty():
-            return None
-        return RedisMock.queues[key].get(timeout=1)
-
-    def llen(self, key: str):
-        if key not in RedisMock.queues:
-            return 0
-        return RedisMock.queues[key].qsize()
+    def __setattr__(self, name, value):
+        if name == "on_message":
+            PahoMock.on_message = value
+        else:
+            super().__setattr__(name, value)
 
 
 class GCPMock:
@@ -139,9 +167,12 @@ class GCPMock:
     queues: Dict[str, Queue] = {}
 
     def topic_path(self, project: str, topic: str):
+        self.create_topic(f"{project}/{topic}")
         return f"{project}/{topic}"
 
     def subscription_path(self, project: str, subscription: str):
+        # TODO topic name
+        self.create_subscription(f"{project}/{subscription}", f"{project}/{subscription}")
         return f"{project}/{subscription}"
 
     def create_topic(self, name: str):
@@ -212,6 +243,15 @@ def create_pika_mock(mocker: pytest_mock.MockerFixture):
     mock_pika = PikaMock()
     mock_pika_cls.return_value = mock_pika
     return mock_pika
+
+
+def create_paho_mock(mocker: pytest_mock.MockerFixture):
+    from srl.runner.distribution.connectors import mqtt
+
+    mock_cls = mocker.patch.object(mqtt.mqtt, "Client", autospec=True)
+    mock = PahoMock()
+    mock_cls.return_value = mock
+    return mock
 
 
 def create_gcp_mock(mocker: pytest_mock.MockerFixture):

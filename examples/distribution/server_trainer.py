@@ -1,11 +1,16 @@
-from srl.runner.distribution import RabbitMQParameters, RedisParameters, trainer_run_forever
+from srl.runner import distribution
+from srl.utils import common
 
 
 def main():
-    trainer_run_forever(
-        RedisParameters(host="localhost"),
-        RabbitMQParameters(host="localhost", ssl=False),
-    )
+    common.logger_print()
+
+    memory_params = None
+    # memory_params = distribution.RabbitMQParameters(host="localhost", ssl=False)
+    # memory_params = distribution.MQTTParameters(host="localhost")
+    # memory_params = distribution.GCPParameters(project_id="YOUR_PROJECT_ID")
+
+    distribution.trainer_run_forever(distribution.RedisParameters(host="localhost"), memory_params)
 
 
 if __name__ == "__main__":

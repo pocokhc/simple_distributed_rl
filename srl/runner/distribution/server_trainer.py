@@ -184,7 +184,7 @@ class _TrainerInterruptThread(TrainerCallback):
 # ------------------------------------------
 # no thread(add -> sample -> train -> update)
 # ------------------------------------------
-class _TrainerInterruptManager(TrainerCallback):
+class _TrainerInterruptNoThread(TrainerCallback):
     def __init__(
         self,
         manager: ServerManager,
@@ -259,21 +259,12 @@ class _TrainerInterruptManager(TrainerCallback):
         )
 
 
-def _run_trainer(manager: ServerManager):
+def _run_trainer(manager: ServerManager, runner: srl.Runner):
     task_manager = manager.get_task_manager()
     parameter_writer = manager.get_parameter_writer()
 
-    task_config = task_manager.get_config()
-    assert task_config is not None
-    task_config.context.run_name = RunNameTypes.trainer
-
-    # --- runner
-    runner = srl.Runner(
-        task_config.context.env_config,
-        task_config.context.rl_config,
-        task_config.config,
-        task_config.context,
-    )
+    _t = task_manager.get_config()
+    callbacks = [] if _t is None else _t.callbacks
 
     # --- parameter
     parameter = runner.make_parameter(is_load=False)
@@ -291,7 +282,7 @@ def _run_trainer(manager: ServerManager):
     share_dict = {}
     try:
         # --- thread
-        if task_config.config.dist_enable_trainer_thread:
+        if runner.config.dist_enable_trainer_thread:
             share_dict = {
                 "sync_count": 0,
                 "train_count": 0,
@@ -299,8 +290,8 @@ def _run_trainer(manager: ServerManager):
                 "end_signal": False,
                 "th_error": "",
             }
-            if task_config.config.dist_enable_prepare_sample_batch:
-                batch_size = getattr(task_config.context.rl_config, "batch_size", 1)
+            if runner.config.dist_enable_prepare_sample_batch:
+                batch_size = getattr(runner.context.rl_config, "batch_size", 1)
                 memory = _TrainerRLMemoryThreadPrepareBatch(memory, batch_size, share_dict)
 
             _manager_copy_args = manager._copy_args()
@@ -310,7 +301,7 @@ def _run_trainer(manager: ServerManager):
                     _manager_copy_args,
                     memory,
                     share_dict,
-                    task_config.config.dist_enable_prepare_sample_batch,
+                    runner.config.dist_enable_prepare_sample_batch,
                 ),
             )
             parameter_ps = threading.Thread(
@@ -320,17 +311,17 @@ def _run_trainer(manager: ServerManager):
                     memory,
                     parameter,
                     share_dict,
-                    task_config.config.trainer_parameter_send_interval,
+                    runner.config.trainer_parameter_send_interval,
                 ),
             )
             memory_ps.start()
             parameter_ps.start()
-            task_config.callbacks.append(_TrainerInterruptThread(memory_ps, parameter_ps, share_dict))
+            callbacks.append(_TrainerInterruptThread(memory_ps, parameter_ps, share_dict))
         else:
-            task_config.callbacks.append(
-                _TrainerInterruptManager(
+            callbacks.append(
+                _TrainerInterruptNoThread(
                     manager,
-                    task_config.config.trainer_parameter_send_interval,
+                    runner.config.trainer_parameter_send_interval,
                 )
             )
 
@@ -341,7 +332,7 @@ def _run_trainer(manager: ServerManager):
             memory=cast(RLMemory, memory),
             trainer=None,
             workers=None,
-            callbacks=task_config.callbacks,
+            callbacks=callbacks,
         )
     except Exception:
         raise
@@ -370,9 +361,15 @@ def _keepalive(task_manager: TaskManager, start_train_count: int, train_count: i
     task_manager.set_trainer("update_time", task_manager.get_now_str())
 
 
-def _task_assign(task_manager: TaskManager) -> bool:
+def _task_assign(task_manager: TaskManager) -> Optional[srl.Runner]:
     if task_manager.get_status() != "ACTIVE":
-        return False
+        return None
+
+    # --- runnerが作れるか
+    runner = task_manager.create_runner(read_parameter=True)
+    if runner is None:
+        return None
+    runner.context.run_name = RunNameTypes.trainer
 
     # --- アサイン時にhealthチェック ---
     now_utc = datetime.datetime.now(datetime.timezone.utc)
@@ -386,13 +383,13 @@ def _task_assign(task_manager: TaskManager) -> bool:
 
     _tid = task_manager.get_trainer("id")
     if _tid != "":
-        return False
+        return None
 
     task_manager.set_trainer("id", task_manager.params.uid)
     task_manager.set_trainer("update_time", task_manager.get_now_str())
     task_manager.add_log(f"Trainer assigned({task_manager.params.uid})")
     task_manager.check_version()
-    return True
+    return runner
 
 
 def run_forever(
@@ -442,12 +439,13 @@ def run_forever(
                 continue
 
             # --- task check
-            is_assigned = _task_assign(task_manager)
-            if is_assigned:
+            task_manager.reset()
+            runner = _task_assign(task_manager)
+            if runner is not None:
                 print(f"train start: {uid}")
                 logger.info(f"train start: {uid}")
                 task_manager.setup_memory(memory_receiver, is_remote_memory_purge)
-                _run_trainer(manager)
+                _run_trainer(manager, runner)
                 logger.info(f"train end: {uid}")
                 if run_once:
                     break

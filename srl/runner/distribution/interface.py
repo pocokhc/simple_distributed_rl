@@ -26,7 +26,7 @@ class IParameterWriter(IServerConnector):
 
 class IParameterReader(IServerConnector):
     @abstractmethod
-    def parameter_read(self) -> None:
+    def parameter_read(self) -> Optional[Any]:
         """例外を出す"""
         raise NotImplementedError()
 

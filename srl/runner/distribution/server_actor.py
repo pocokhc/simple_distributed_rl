@@ -5,7 +5,7 @@ import random
 import threading
 import time
 import traceback
-from typing import List, Optional, Tuple, cast
+from typing import List, Optional, cast
 
 import srl
 from srl.base.exception import DistributionError
@@ -18,7 +18,6 @@ from srl.runner.distribution.connectors.parameters import RedisParameters
 from srl.runner.distribution.interface import IMemoryServerParameters
 from srl.runner.distribution.server_manager import ServerManager
 from srl.runner.distribution.task_manager import TaskManager, TaskManagerParams
-from srl.runner.runner import Runner
 
 logger = logging.getLogger(__name__)
 
@@ -167,12 +166,12 @@ def _parameter_communicate(
             # --- task check
             if time.time() - keepalive_t0 > task_manager.params.keepalive_interval:
                 keepalive_t0 = time.time()
-                _keepalive(task_manager, share_dict["episode_count"], share_dict["q_send_count"])
+                _keepalive(task_manager, actor_idx, share_dict["episode_count"], share_dict["q_send_count"])
                 if task_manager.is_finished():
                     break
 
             time.sleep(1)
-        _keepalive(task_manager, share_dict["episode_count"], share_dict["q_send_count"])
+        _keepalive(task_manager, actor_idx, share_dict["episode_count"], share_dict["q_send_count"])
 
     except Exception:
         share_dict["th_error"] = traceback.format_exc()
@@ -248,11 +247,13 @@ class _ActorInterruptNoThread(RunCallback):
         self,
         manager: ServerManager,
         parameter: RLParameter,
+        actor_id: int,
         actor_parameter_sync_interval: int,
     ) -> None:
         self.task_manager = manager.get_task_manager()
         self.parameter_reader = manager.get_parameter_reader()
         self.keepalive_interval = self.task_manager.params.keepalive_interval
+        self.actor_id = actor_id
 
         self.parameter = parameter
         self.actor_parameter_sync_interval = actor_parameter_sync_interval
@@ -275,42 +276,25 @@ class _ActorInterruptNoThread(RunCallback):
         # --- keepalive
         if time.time() - self._keepalive_t0 < self.keepalive_interval:
             assert state.memory is not None
-            _keepalive(self.task_manager, state.episode_count, state.memory.length())
+            _keepalive(self.task_manager, self.actor_id, state.episode_count, state.memory.length())
             if self.task_manager.is_finished():
                 return True
         return False
 
     def on_episodes_end(self, context: RunContext, state: RunState) -> None:
         assert state.memory is not None
-        _keepalive(self.task_manager, state.episode_count, state.memory.length())
+        _keepalive(self.task_manager, self.actor_id, state.episode_count, state.memory.length())
 
 
-def _run_actor(manager: ServerManager):
+def _run_actor(manager: ServerManager, runner: srl.Runner):
     task_manager = manager.get_task_manager()
-
-    task_config = task_manager.get_config()
-    assert task_config is not None
-    task_config.context.run_name = RunNameTypes.actor
-    task_config.context.actor_id = task_manager.params.actor_idx
-
-    # --- runner
-    runner = srl.Runner(
-        task_config.context.env_config,
-        task_config.context.rl_config,
-        task_config.config,
-        task_config.context,
-    )
-
-    # --- parameter
     parameter = runner.make_parameter(is_load=False)
-    params = manager.get_parameter_reader().parameter_read()
-    if params is None:
-        logger.warning("Missing initial parameters")
-    else:
-        parameter.restore(params, from_cpu=True)
+
+    _t = task_manager.get_config()
+    callbacks = [] if _t is None else _t.callbacks
 
     # --- thread
-    if task_config.config.dist_enable_actor_thread:
+    if runner.config.dist_enable_actor_thread:
         share_dict = {
             "sync_count": 0,
             "episode_count": 0,
@@ -327,9 +311,9 @@ def _run_actor(manager: ServerManager):
                 _manager_copy_args,
                 share_q,
                 share_dict,
-                task_config.config.dist_queue_capacity,
+                runner.config.dist_queue_capacity,
                 task_manager.get_actor_num(),
-                task_manager.params.actor_idx,
+                runner.context.actor_id,
             ),
         )
         parameter_ps = threading.Thread(
@@ -338,8 +322,8 @@ def _run_actor(manager: ServerManager):
                 _manager_copy_args,
                 parameter,
                 share_dict,
-                task_config.config.actor_parameter_sync_interval,
-                task_manager.params.actor_idx,
+                runner.config.actor_parameter_sync_interval,
+                runner.context.actor_id,
             ),
         )
         memory_ps.start()
@@ -347,18 +331,19 @@ def _run_actor(manager: ServerManager):
         memory = _ActorRLMemoryThread(
             share_q,
             share_dict,
-            task_config.config.dist_queue_capacity,
+            runner.config.dist_queue_capacity,
         )
-        task_config.callbacks.append(_ActorInterruptThread(share_dict, memory_ps, parameter_ps))
+        callbacks.append(_ActorInterruptThread(share_dict, memory_ps, parameter_ps))
     else:
         memory_ps = None
         parameter_ps = None
         share_dict = {}
-        memory = _ActorRLMemoryNoThread(manager, task_config.config.dist_queue_capacity)
-        task_config.callbacks.append(
+        memory = _ActorRLMemoryNoThread(manager, runner.config.dist_queue_capacity)
+        callbacks.append(
             _ActorInterruptNoThread(
                 manager,
                 parameter,
+                runner.context.actor_id,
                 runner.config.actor_parameter_sync_interval,
             )
         )
@@ -377,7 +362,7 @@ def _run_actor(manager: ServerManager):
             memory=cast(RLMemory, memory),
             trainer=None,
             workers=None,
-            callbacks=task_config.callbacks,
+            callbacks=callbacks,
         )
     except DistributionError:
         raise
@@ -392,9 +377,9 @@ def _run_actor(manager: ServerManager):
                 raise ValueError(share_dict["th_error"])
 
 
-def _keepalive(task_manager: TaskManager, episode: int, q_send_count: int):
+def _keepalive(task_manager: TaskManager, actor_id: int, episode: int, q_send_count: int):
     # --- 2重にアサインされていないかチェック
-    aid = task_manager.get_actor(task_manager.params.actor_idx, "id")
+    aid = task_manager.get_actor(actor_id, "id")
     if aid != task_manager.params.uid:
         # アサインされていたらランダム秒まって止める
         s = f"Another actor has been assigned. my:{task_manager.params.uid}, another: {aid}"
@@ -403,22 +388,26 @@ def _keepalive(task_manager: TaskManager, episode: int, q_send_count: int):
         raise DistributionError(s)
 
     # update
-    task_manager.set_actor(task_manager.params.actor_idx, "episode", str(episode))
-    task_manager.set_actor(task_manager.params.actor_idx, "q_send_count", str(q_send_count))
-    task_manager.set_actor(task_manager.params.actor_idx, "update_time", task_manager.get_now_str())
+    task_manager.set_actor(actor_id, "episode", str(episode))
+    task_manager.set_actor(actor_id, "q_send_count", str(q_send_count))
+    task_manager.set_actor(actor_id, "update_time", task_manager.get_now_str())
 
 
-def _task_assign(task_manager: TaskManager) -> Tuple[bool, int]:
+def _task_assign(task_manager: TaskManager) -> Optional[srl.Runner]:
     if task_manager.get_status() != "ACTIVE":
-        return False, 0
+        return None
 
     # --- queue が setup されてから実行する
     if not task_manager.is_setup_memory():
-        return False, 0
+        return None
+
+    # --- runnerが作れるか
+    runner = task_manager.create_runner(read_parameter=True)
+    if runner is None:
+        return None
 
     # --- env が動かせるか
-    if not task_manager.is_create_env():
-        return False, 0
+    runner.make_env()
 
     now_utc = datetime.datetime.now(datetime.timezone.utc)
 
@@ -426,12 +415,12 @@ def _task_assign(task_manager: TaskManager) -> Tuple[bool, int]:
     for i in range(task_manager.get_actor_num()):
         _aid = task_manager.get_actor(i, "id")
         if _aid == task_manager.params.uid:
-            task_manager.params.actor_idx = i
-            task_manager.set_actor(i, "id", task_manager.params.uid)
+            runner.context.run_name = RunNameTypes.actor
+            runner.context.actor_id = i
             task_manager.set_actor(i, "update_time", task_manager.get_now_str())
             task_manager.add_log(f"Actor{i} reassigned({task_manager.params.uid})")
             task_manager.check_version()
-            return True, i
+            return runner
 
     for i in range(task_manager.get_actor_num()):
         _aid = task_manager.get_actor(i, "id")
@@ -448,14 +437,15 @@ def _task_assign(task_manager: TaskManager) -> Tuple[bool, int]:
         if _aid != "":
             continue
 
-        task_manager.params.actor_idx = i
+        runner.context.run_name = RunNameTypes.actor
+        runner.context.actor_id = i
         task_manager.set_actor(i, "id", task_manager.params.uid)
         task_manager.set_actor(i, "update_time", task_manager.get_now_str())
         task_manager.add_log(f"Actor{i} assigned({task_manager.params.uid})")
         task_manager.check_version()
-        return True, i
+        return runner
 
-    return False, 0
+    return None
 
 
 def run_forever(
@@ -468,7 +458,7 @@ def run_forever(
     device: str = "CPU",
     run_once: bool = False,
 ):
-    used_device_tf, used_device_torch = Runner.setup_device(framework, device)
+    used_device_tf, used_device_torch = srl.Runner.setup_device(framework, device)
     task_manager_params = TaskManagerParams(
         "actor",
         keepalive_interval,
@@ -504,11 +494,12 @@ def run_forever(
                 continue
 
             # --- task check
-            is_assigned, actor_id = _task_assign(task_manager)
-            if is_assigned:
-                print(f"actor{uid} start, actor_id={actor_id}")
-                logger.info(f"actor{uid} start, actor_id={actor_id}")
-                _run_actor(manager)
+            task_manager.reset()
+            runner = _task_assign(task_manager)
+            if runner is not None:
+                print(f"actor{uid} start, actor_id={runner.context.actor_id}")
+                logger.info(f"actor{uid} start, actor_id={runner.context.actor_id}")
+                _run_actor(manager, runner)
                 logger.info(f"actor{uid} end")
                 if run_once:
                     break

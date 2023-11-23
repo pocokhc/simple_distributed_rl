@@ -11,9 +11,10 @@ from srl.algorithms import ql_agent57
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext
 from srl.base.run.core import RunState
-from srl.runner.distribution.connectors.parameters import RabbitMQParameters, RedisParameters
+from srl.runner.distribution.connectors.parameters import RedisParameters
 from srl.runner.distribution.server_actor import run_forever as actor_run_forever
 from srl.runner.distribution.server_trainer import run_forever as trainer_run_forever
+from srl.runner.distribution.task_manager import TaskManager
 from srl.utils import common
 
 
@@ -29,7 +30,7 @@ def _run_actor():
     common.logger_print()
     actor_run_forever(
         RedisParameters(host="localhost"),
-        RabbitMQParameters(host="localhost", ssl=False),
+        None,
         keepalive_interval=0,
         run_once=True,
     )
@@ -39,7 +40,7 @@ def _run_trainer():
     common.logger_print()
     trainer_run_forever(
         RedisParameters(host="localhost"),
-        RabbitMQParameters(host="localhost", ssl=False),
+        None,
         keepalive_interval=0,
         run_once=True,
     )
@@ -53,15 +54,15 @@ class _AssertTrainCallbacks(RunCallback, TrainerCallback):
         assert state.sync_trainer > 0
 
 
+@pytest.mark.parametrize("is_wait", [False, True])
 @pytest.mark.timeout(60)  # pip install pytest_timeout
-def test_train():
+def test_train(is_wait):
     pytest.importorskip("redis")
 
     # 起動しないテスト方法が不明...
     # サーバが起動している事
     common.logger_print()
 
-    assert is_port_open("127.0.0.1", 5672), "RabbitMQ is not running."
     assert is_port_open("127.0.0.1", 6379), "Redis is not running."
 
     th_actor = mp.Process(target=_run_actor)
@@ -73,13 +74,26 @@ def test_train():
     time.sleep(1)
 
     runner = srl.Runner("Grid", ql_agent57.Config(batch_size=2))
-    runner.train_distribution(
-        RedisParameters(host="localhost"),
-        trainer_parameter_send_interval=0,
-        actor_parameter_sync_interval=0,
-        max_train_count=100_000,
-        callbacks=[_AssertTrainCallbacks()],
-    )
+    if is_wait:
+        runner.train_distribution(
+            RedisParameters(host="localhost"),
+            trainer_parameter_send_interval=0,
+            actor_parameter_sync_interval=0,
+            max_train_count=100_000,
+            callbacks=[_AssertTrainCallbacks()],
+        )
+    else:
+        runner.train_distribution_start(
+            RedisParameters(host="localhost"),
+            trainer_parameter_send_interval=0,
+            actor_parameter_sync_interval=0,
+            max_train_count=100_000,
+            callbacks=[_AssertTrainCallbacks()],
+        )
+        task_manager = TaskManager(RedisParameters(host="localhost"))
+        task_manager.train_wait()
+        runner = task_manager.create_runner()
+        assert runner is not None
 
     # eval
     rewards = runner.evaluate(max_episodes=100)

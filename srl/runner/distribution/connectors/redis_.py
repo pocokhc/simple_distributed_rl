@@ -102,7 +102,7 @@ class RedisConnector(IParameterWriter, IParameterReader, IMemoryReceiver, IMemor
             raise
 
     # --- IParameterReader
-    def parameter_read(self):
+    def parameter_read(self) -> Optional[Any]:
         try:
             if self.server is None:
                 self.connect()

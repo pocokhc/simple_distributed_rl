@@ -502,8 +502,7 @@ class RunnerFacade(Runner):
 
     def train_distribution(
         self,
-        redis_parameter: "RedisParameters",
-        parameter_sync_interval: int = 60,
+        redis_params: "RedisParameters",
         # mp
         actor_num: int = 1,
         queue_capacity: int = 1000,
@@ -589,44 +588,42 @@ class RunnerFacade(Runner):
             callbacks=callbacks_run,
         )
 
-        from .distribution.client import run
+        from srl.runner.distribution.task_manager import TaskManager
 
-        if enable_progress:
-            from .distribution.callbacks.print_progress import PrintProgress as PrintProgressDist
-
-            callbacks_dist.append(
-                PrintProgressDist(
-                    interval=progress_interval,
-                    enable_eval=enable_eval,
-                    eval_env_sharing=eval_env_sharing,
-                    eval_episode=eval_episode,
-                    eval_timeout=eval_timeout,
-                    eval_max_steps=eval_max_steps,
-                    eval_players=eval_players,
-                    eval_shuffle_player=eval_shuffle_player,
-                )
+        task_manager = TaskManager(redis_params, "client")
+        task_manager.create_task(self.create_task_config(), self.make_parameter(is_load=False))
+        if self._checkpoint_kwargs is None:
+            _k: dict = dict(enable_checkpoint=False)
+        else:
+            _k: dict = dict(
+                enable_checkpoint=False,
+                checkpoint_save_dir=self._checkpoint_kwargs["save_dir"],
+                checkpoint_interval=self._checkpoint_kwargs["interval"],
             )
-
-        # checkpointは別途定義
-        if self._checkpoint_kwargs is not None:
-            from .distribution.callbacks.checkpoint import Checkpoint
-
-            callbacks_dist.append(Checkpoint(**self._checkpoint_kwargs))
-            logger.info(f"add callback Checkpoint: {self._checkpoint_kwargs['save_dir']}")
-
-        run(
-            self,
-            redis_parameter,
-            wait=True,
-            parameter_sync_interval=parameter_sync_interval,
-            callbacks=callbacks_dist,
-        )
+        try:
+            task_manager.train_wait(
+                enable_progress=enable_progress,
+                progress_interval=progress_interval,
+                **_k,
+                enable_eval=enable_eval,
+                eval_env_sharing=eval_env_sharing,
+                eval_episode=eval_episode,
+                eval_timeout=eval_timeout,
+                eval_max_steps=eval_max_steps,
+                eval_players=eval_players,
+                eval_shuffle_player=eval_shuffle_player,
+                callbacks=callbacks_dist,
+                raise_exception=False,
+            )
+        finally:
+            task_manager.finished("runner")
+            task_manager.read_parameter(self.make_parameter(is_load=False))
 
         self._base_run_play_after()
 
     def train_distribution_start(
         self,
-        redis_parameter: "RedisParameters",
+        redis_params: "RedisParameters",
         # mp
         actor_num: int = 1,
         queue_capacity: int = 1000,
@@ -697,11 +694,10 @@ class RunnerFacade(Runner):
             callbacks=callbacks,
         )
 
-        from .distribution.client import run
+        from srl.runner.distribution.task_manager import TaskManager
 
-        run(self, redis_parameter, wait=False)
-
-        self._base_run_play_after()
+        task_manager = TaskManager(redis_params, "client")
+        task_manager.create_task(self.create_task_config(), self.make_parameter(is_load=False))
 
     def evaluate(
         self,

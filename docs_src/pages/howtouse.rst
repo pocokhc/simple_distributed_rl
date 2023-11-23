@@ -6,9 +6,9 @@ How To Use
 
 基本は以下の手順を想定しています。
 
-1. EnvConfigで環境を設定する。
-2. RLConfigでアルゴリズムを設定する。
-3. Runnerで動かす。
+1. 環境を設定（EnvConfig）
+2. アルゴリズムを設定（RLConfig）
+3. Runnerで動かす
 
 
 1. EnvConfig
@@ -183,7 +183,6 @@ Animation
 ---------------------
 
 映像として残せるようにRGBデータを保存しながらシミュレーションします。
-アニメーションは、'matplotlib.animation.ArtistAnimation' で作成されます。
 
 .. literalinclude:: howtouse_animation.py
 
@@ -210,10 +209,8 @@ Terminal上で手動プレイします。
 Manual play Window
 ---------------------
 
-pygame上で手動プレイします。
-環境によっては動作しない場合があります。
-
-'key_bind' は設定しなくても遊べますが、設定するとより環境にあった入力方法でプレイすることができます。
+| pygame上で手動プレイします。
+| 'key_bind' は設定しなくても遊べますが、設定するとより環境にあった入力方法でプレイすることができます。
 
 .. literalinclude:: ../../examples/sample_play_atari.py
 

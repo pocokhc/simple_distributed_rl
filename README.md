@@ -136,11 +136,11 @@ if __name__ == "__main__":
 + [SimpleDistributedRL Getting Started](https://pocokhc.github.io/simple_distributed_rl/pages/quickstart.html)
 
 
-## Distributed Learning (Multiple PCs)
+## Distributed Learning (Online)
 
 ネットワーク経由での分散学習は以下のドキュメントを参照してください。
 
-+ [Distributed Learning (Multiple PCs)](https://pocokhc.github.io/simple_distributed_rl/pages/distributed.html)
++ [Distributed Learning (Online)](https://pocokhc.github.io/simple_distributed_rl/pages/distributed.html)
 
 またクラウドサービスとの連携はQiita記事を参照
 

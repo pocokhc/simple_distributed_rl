@@ -69,10 +69,10 @@ class TestRL:
             if not is_mp:
                 # --- check sequence
                 print(f"--- {env_config.name} sequence check start ---")
-                runner.train(**train_kwargs_)
-                assert runner.state.trainer is not None
+                state = runner.train(**train_kwargs_)
+                assert state.trainer is not None
                 if train_kwargs_.get("max_train_count", 0) > 0:
-                    assert runner.state.trainer.get_train_count() > 0
+                    assert state.trainer.get_train_count() > 0
 
                 # --- check render
                 if check_render:

@@ -21,7 +21,7 @@ def main():
     memory = srl.make_memory(rl_config, env)
 
     # --- train
-    context.max_train_count = 1000
+    context.max_episodes = 10000
     context.training = True
     play(context, env, parameter, memory)
 

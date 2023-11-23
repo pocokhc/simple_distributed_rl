@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How To Use &mdash; SimpleDistributedRL 0.13.1 ドキュメント</title>
+  <title>How To Use &mdash; SimpleDistributedRL 0.13.1.2 ドキュメント</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -13,7 +13,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=2d7bc41f"></script>
+        <script src="../_static/documentation_options.js?v=b264dbca"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -124,9 +124,9 @@
 <span id="howtouse"></span><h1>How To Use<a class="headerlink" href="#how-to-use" title="Link to this heading"></a></h1>
 <p>基本は以下の手順を想定しています。</p>
 <ol class="arabic simple">
-<li><p>EnvConfigで環境を設定する。</p></li>
-<li><p>RLConfigでアルゴリズムを設定する。</p></li>
-<li><p>Runnerで動かす。</p></li>
+<li><p>環境を設定（EnvConfig）</p></li>
+<li><p>アルゴリズムを設定（RLConfig）</p></li>
+<li><p>Runnerで動かす</p></li>
 </ol>
 <section id="envconfig">
 <h2>1. EnvConfig<a class="headerlink" href="#envconfig" title="Link to this heading"></a></h2>
@@ -488,8 +488,7 @@ pygameのwindowが表示できる環境である必要があります。</p>
 </section>
 <section id="animation">
 <h3>Animation<a class="headerlink" href="#animation" title="Link to this heading"></a></h3>
-<p>映像として残せるようにRGBデータを保存しながらシミュレーションします。
-アニメーションは、'matplotlib.animation.ArtistAnimation' で作成されます。</p>
+<p>映像として残せるようにRGBデータを保存しながらシミュレーションします。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 <span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>
 
@@ -528,9 +527,10 @@ pygameのwindowが表示できる環境である必要があります。</p>
 </section>
 <section id="manual-play-window">
 <h3>Manual play Window<a class="headerlink" href="#manual-play-window" title="Link to this heading"></a></h3>
-<p>pygame上で手動プレイします。
-環境によっては動作しない場合があります。</p>
-<p>'key_bind' は設定しなくても遊べますが、設定するとより環境にあった入力方法でプレイすることができます。</p>
+<div class="line-block">
+<div class="line">pygame上で手動プレイします。</div>
+<div class="line">'key_bind' は設定しなくても遊べますが、設定するとより環境にあった入力方法でプレイすることができます。</div>
+</div>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pygame</span>
 
 <span class="kn">import</span> <span class="nn">srl</span>

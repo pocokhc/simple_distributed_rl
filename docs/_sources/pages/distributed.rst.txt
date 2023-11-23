@@ -1,6 +1,6 @@
 
 ==============================================
-Distributed Learning (Multiple PCs)
+Distributed Learning (Online)
 ==============================================
 
 ここではネットワーク経由で学習する方法を説明します。概要は以下です。
@@ -18,7 +18,7 @@ Distributed Learning (Multiple PCs)
 学習を実行するまでのステップは大きく以下となります。
 
 0. 必要なライブラリのインストール(初回のみ)
-1. Redisの起動
+1. Redisサーバの起動
 2. TrainerServer/ActorServerの起動
 3. 学習の実施
 
@@ -27,18 +27,18 @@ Distributed Learning (Multiple PCs)
 0. 必要なライブラリのインストール
 ----------------------------------
 
-RedisとRabbitMQ用のライブラリをインストールします。
+Redis用のライブラリをインストールします。
 
 .. code-block:: console
 
-    $ pip install redis pika
+    $ pip install redis
 
 
 ------------------------------------
-1. Redis/RabbitMQサーバの起動
+1. Redisサーバの起動
 ------------------------------------
 
-| RedisサーバとRabbitMQサーバを用意します。（RabbitMQはオプション）
+| Redisサーバを用意します。
 | サンプルにdocker-composeファイルを用意してるので、そちらの起動でも大丈夫です。
 | （DockerComposeが実行できる環境である必要があります）
 

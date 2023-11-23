@@ -91,9 +91,10 @@ Option library
 + クラウド/ネットワークによる分散学習を使う場合
   + redis
   + pika
+  + paho-mqtt
 
 Tensorflow,Torchを除いたライブラリを一括でインストールするコマンドは以下です。
 
 .. code-block:: console
 
-    $ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis pika
+    $ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis pika paho-mqtt

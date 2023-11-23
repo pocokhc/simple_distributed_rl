@@ -24,7 +24,7 @@ class BaseCase(CommonBaseClass):
         runner, tester = self.create_runner(env_config, rl_config)
 
         rl_config.train_mode = 1
-        runner.train(max_episodes=100, disable_trainer=True)
+        runner.rollout(max_episodes=100)
 
         # vae
         rl_config.train_mode = 1

@@ -31,7 +31,7 @@ class TaskManagerParams:
         self.actor_num: int = -1
         self.actor_idx: int = 0
         self.max_train_count: Optional[int] = None
-        self.timeout: Optional[int] = None
+        self.timeout: Optional[float] = None
         self.create_time: Optional[datetime.datetime] = None
 
         self.is_create_env: Optional[bool] = None
@@ -179,7 +179,7 @@ class TaskManager:
             self.params.max_train_count = -1 if body is None else int(body.decode())
         return self.params.max_train_count
 
-    def get_timeout(self) -> int:
+    def get_timeout(self) -> float:
         if self.params.timeout is None:
             body = self._connector.get(f"{self.task_name}:timeout")
             self.params.timeout = -1 if body is None else int(body.decode())

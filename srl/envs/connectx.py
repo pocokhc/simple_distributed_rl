@@ -193,7 +193,7 @@ class AlphaBeta(EnvWorker):
     def __init__(
         self,
         max_depth: int = 4,
-        timeout: int = 6,  # s
+        timeout: float = 6,  # s
         equal_cut: bool = True,
         **kwargs,
     ):

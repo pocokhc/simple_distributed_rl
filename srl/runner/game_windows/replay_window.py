@@ -4,37 +4,40 @@ from typing import List
 
 import pygame
 
-from srl.runner.callback import Callback
+from srl.base.run.callback import RunCallback
+from srl.base.run.context import RunContext
+from srl.base.run.core import RunState
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
 from srl.runner.runner import Runner
 
 logger = logging.getLogger(__name__)
 
 
-class _GetRGBCallback(Callback):
-    def on_episode_begin(self, runner: Runner):
+class _GetRGBCallback(RunCallback):
+    def on_episode_begin(self, context: RunContext, state: RunState):
         self.steps = []
 
-    def on_step_action_before(self, runner: Runner) -> None:
-        self._tmp_step_env(runner)
+    def on_step_action_before(self, context: RunContext, state: RunState) -> None:
+        self._tmp_step_env(context, state)
 
-    def on_step_begin(self, runner: Runner) -> None:
-        self._tmp_step_worker(runner)
+    def on_step_begin(self, context: RunContext, state: RunState) -> None:
+        self._tmp_step_worker(context, state)
         self._add_step()
 
-    def on_skip_step(self, runner: Runner) -> None:
-        self._tmp_step_env(runner)
+    def on_skip_step(self, context: RunContext, state: RunState) -> None:
+        self._tmp_step_env(context, state)
         self._add_step(is_skip_step=True)
 
-    def on_episode_end(self, runner: Runner):
-        self._tmp_step_env(runner)
-        self._tmp_step_worker(runner)
+    def on_episode_end(self, context: RunContext, state: RunState):
+        self._tmp_step_env(context, state)
+        self._tmp_step_worker(context, state)
         self._add_step(is_skip_step=True)
 
     # ---------------------------------
 
-    def _tmp_step_env(self, runner: Runner):
-        env = runner.env
+    def _tmp_step_env(self, context: RunContext, state: RunState):
+        env = state.env
+        assert env is not None
         d = {
             "step": env.step_num,
             "next_player_index": env.next_player_index,
@@ -50,11 +53,11 @@ class _GetRGBCallback(Callback):
 
         self.step_info_env: dict = d
 
-    def _tmp_step_worker(self, runner: Runner):
+    def _tmp_step_worker(self, context: RunContext, state: RunState):
         d: dict = {
-            "action": runner.state.action,
+            "action": state.action,
         }
-        for i, w in enumerate(runner.state.workers):
+        for i, w in enumerate(state.workers):
             d[f"work{i}_info"] = w.info
             d[f"work{i}_rgb_array"] = w.render_rgb_array()
 
@@ -76,10 +79,7 @@ class RePlayableGame(GameWindow):
         super().__init__(_is_test=_is_test)
         self.runner = runner
 
-        # callback
         self.history = _GetRGBCallback()
-        self.runner.context.callbacks.append(self.history)
-
         self.interval = self.runner.env.config.render_interval
         self.episodes_cache = {}
         self.episode = 0
@@ -95,7 +95,14 @@ class RePlayableGame(GameWindow):
             self.episode_data = cache[1]
         else:
             self.runner.context.disable_trainer = True
-            self.runner.core_play(trainer_only=False, parameter=None, memory=None, trainer=None, workers=None)
+            self.runner.base_run_play(
+                trainer_only=False,
+                parameter=None,
+                memory=None,
+                trainer=None,
+                workers=None,
+                callbacks=[self.history],
+            )
 
             self.episode_info = {"total_rewards": 0}
             self.episode_data = self.history.steps

@@ -6,7 +6,10 @@ import time
 import traceback
 from dataclasses import dataclass
 
-from srl.runner.callback import Callback, TrainerCallback
+from srl.base.run.callback import RunCallback, TrainerCallback
+from srl.base.run.context import RunContext
+from srl.base.run.core import RunState
+from srl.runner.callback import RunnerCallback
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.runner import Runner
 
@@ -14,16 +17,9 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Checkpoint(Callback, TrainerCallback, Evaluate):
+class Checkpoint(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     save_dir: str = "checkpoints"
     interval: int = 60 * 20  # s
-
-    def _init(self, runner: Runner):
-        if not os.path.isdir(self.save_dir):
-            os.makedirs(self.save_dir, exist_ok=True)
-            logger.info(f"makedirs: {self.save_dir}")
-
-        self.setup_eval_runner(runner)
 
     @staticmethod
     def get_parameter_path(save_dir: str) -> str:
@@ -41,53 +37,20 @@ class Checkpoint(Callback, TrainerCallback, Evaluate):
         trains.sort()
         return trains[-1][1]
 
-    # ---------------------------
-    # actor
-    # ---------------------------
-    def on_episodes_begin(self, runner: Runner):
-        self._init(runner)
-        self.interval_t0 = time.time()
-        self._save_parameter(runner, is_last=False)
+    def on_runner_start(self, runner: Runner) -> None:
+        if not os.path.isdir(self.save_dir):
+            os.makedirs(self.save_dir, exist_ok=True)
+            logger.info(f"makedirs: {self.save_dir}")
 
-    def on_episode_end(self, runner: Runner):
-        if runner.state.trainer is None:
+    def _save_parameter(self, state: RunState, is_last: bool):
+        if state.trainer is None:
             return
-        if time.time() - self.interval_t0 > self.interval:
-            self._save_parameter(runner, is_last=False)
-            self.interval_t0 = time.time()
-
-    def on_episodes_end(self, runner: Runner) -> None:
-        if runner.state.trainer is None:
+        if state.parameter is None:
             return
-        self._save_parameter(runner, is_last=True)
-
-    # ---------------------------
-    # trainer
-    # ---------------------------
-    def on_trainer_start(self, runner: Runner):
-        self._init(runner)
-        self.interval_t0 = time.time()
-        self._save_parameter(runner, is_last=False)
-
-    def on_trainer_loop(self, runner: Runner):
-        if time.time() - self.interval_t0 > self.interval:
-            self._save_parameter(runner, is_last=False)
-            self.interval_t0 = time.time()
-
-    def on_trainer_end(self, runner: Runner):
-        self._save_parameter(runner, is_last=True)
-
-    # ---------------------------
-    # function
-    # ---------------------------
-    def _save_parameter(self, runner: Runner, is_last: bool):
-        if runner.state.trainer is None:
-            return
-        train_count = runner.state.trainer.get_train_count()
-        assert runner.state.parameter is not None
+        train_count = state.trainer.get_train_count()
 
         if self.enable_eval:
-            eval_rewards = self.run_eval(runner.state.parameter)
+            eval_rewards = self.run_eval(state.parameter)
         else:
             eval_rewards = "None"
 
@@ -97,4 +60,50 @@ class Checkpoint(Callback, TrainerCallback, Evaluate):
             fn += "_last"
         fn += ".pickle"
 
-        runner.state.parameter.save(os.path.join(self.save_dir, fn))
+        state.parameter.save(os.path.join(self.save_dir, fn))
+
+    # ---------------------------
+    # actor
+    # ---------------------------
+    def on_episodes_begin(self, context: RunContext, state: RunState):
+        # Trainerがいる場合のみ保存
+        if state.trainer is None:
+            return
+
+        # eval
+        if self.runner is not None:
+            self.setup_eval_runner(self.runner)
+
+        self.interval_t0 = time.time()
+        self._save_parameter(state, is_last=False)
+
+    def on_episode_end(self, context: RunContext, state: RunState):
+        if state.trainer is None:
+            return
+        if time.time() - self.interval_t0 > self.interval:
+            self._save_parameter(state, is_last=False)
+            self.interval_t0 = time.time()
+
+    def on_episodes_end(self, context: RunContext, state: RunState) -> None:
+        if state.trainer is None:
+            return
+        self._save_parameter(state, is_last=True)
+
+    # ---------------------------
+    # trainer
+    # ---------------------------
+    def on_trainer_start(self, context: RunContext, state: RunState):
+        # eval
+        if self.runner is not None:
+            self.setup_eval_runner(self.runner)
+
+        self.interval_t0 = time.time()
+        self._save_parameter(state, is_last=False)
+
+    def on_trainer_loop(self, context: RunContext, state: RunState):
+        if time.time() - self.interval_t0 > self.interval:
+            self._save_parameter(state, is_last=False)
+            self.interval_t0 = time.time()
+
+    def on_trainer_end(self, context: RunContext, state: RunState):
+        self._save_parameter(state, is_last=True)

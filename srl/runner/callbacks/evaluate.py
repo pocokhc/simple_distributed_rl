@@ -16,7 +16,7 @@ class Evaluate:
     enable_eval: bool = True
     eval_env_sharing: bool = False
     eval_episode: int = 1
-    eval_timeout: int = -1
+    eval_timeout: float = -1
     eval_max_steps: int = -1
     eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = field(default_factory=list)
     eval_shuffle_player: bool = False

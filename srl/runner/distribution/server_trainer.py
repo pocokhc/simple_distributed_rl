@@ -8,8 +8,9 @@ from typing import Any, List, Optional, cast
 
 import srl
 from srl.base.rl.base import IRLMemoryTrainer, RLMemory, RLParameter
-from srl.base.run.context import RunNameTypes
-from srl.runner.callback import TrainerCallback
+from srl.base.run.callback import TrainerCallback
+from srl.base.run.context import RunContext, RunNameTypes
+from srl.base.run.core import RunState
 from srl.runner.distribution.callback import TrainerServerCallback
 from srl.runner.distribution.connectors.parameters import RedisParameters
 from srl.runner.distribution.interface import IMemoryServerParameters
@@ -165,14 +166,14 @@ class _TrainerInterruptThread(TrainerCallback):
         self.parameter_ps = parameter_ps
         self.share_dict = share_dict
 
-    def on_trainer_loop(self, runner: Runner) -> bool:
-        if not runner.state.is_step_trained:
+    def on_trainer_loop(self, context: RunContext, state: RunState) -> bool:
+        if not state.is_step_trained:
             # warmupなら待機
             time.sleep(1)
 
-        assert runner.state.trainer is not None
-        self.share_dict["train_count"] = runner.state.trainer.get_train_count()
-        runner.state.sync_trainer = self.share_dict["sync_count"]
+        assert state.trainer is not None
+        self.share_dict["train_count"] = state.trainer.get_train_count()
+        state.sync_trainer = self.share_dict["sync_count"]
         if not self.memory_ps.is_alive():
             self.share_dict["end_signal"] = True
         if not self.parameter_ps.is_alive():
@@ -199,9 +200,9 @@ class _TrainerInterruptManager(TrainerCallback):
         self.sync_parameter_t0 = time.time()
         self.start_train_count = self.task_manager.get_train_count()
 
-    def on_trainer_loop(self, runner: Runner) -> bool:
-        assert runner.state.memory is not None
-        runner.state.memory = cast(RLMemory, runner.state.memory)
+    def on_trainer_loop(self, context: RunContext, state: RunState) -> bool:
+        assert state.memory is not None
+        state.memory = cast(RLMemory, state.memory)
 
         # --- recv memory
         if not self.memory_receiver.is_connected:
@@ -210,51 +211,51 @@ class _TrainerInterruptManager(TrainerCallback):
             dat = self.memory_receiver.memory_recv()
             if dat is not None:
                 self.q_recv_count += 1
-                runner.state.memory.add(*dat)
+                state.memory.add(*dat)
         else:
             dat = None
 
         # no warmupとmemory emptyなら待つ
-        if dat is None and runner.state.memory.is_warmup_needed():
+        if dat is None and state.memory.is_warmup_needed():
             time.sleep(1)
 
         # --- sync parameter
-        if runner.state.is_step_trained:
+        if state.is_step_trained:
             if time.time() - self.sync_parameter_t0 > self.trainer_parameter_send_interval:
                 self.sync_parameter_t0 = time.time()
 
-                assert runner.state.parameter is not None
-                params = runner.state.parameter.backup(to_cpu=True)
+                assert state.parameter is not None
+                params = state.parameter.backup(to_cpu=True)
                 if params is not None:
                     self.parameter_writer.parameter_update(params)
-                    runner.state.sync_trainer += 1
+                    state.sync_trainer += 1
 
         # --- keepalive
         if time.time() - self.keepalive_t0 > self.task_manager.params.keepalive_interval:
             self.keepalive_t0 = time.time()
-            assert runner.state.trainer is not None
-            assert runner.state.memory is not None
+            assert state.trainer is not None
+            assert state.memory is not None
             self.task_manager.set_trainer("q_recv_count", str(self.q_recv_count))
             _keepalive(
                 self.task_manager,
                 self.start_train_count,
-                runner.state.trainer.get_train_count(),
-                runner.state.memory.length(),
+                state.trainer.get_train_count(),
+                state.memory.length(),
             )
             if self.task_manager.is_finished():
                 return True
 
         return False
 
-    def on_trainer_end(self, runner: Runner):
-        assert runner.state.trainer is not None
-        assert runner.state.memory is not None
+    def on_trainer_end(self, context: RunContext, state: RunState):
+        assert state.trainer is not None
+        assert state.memory is not None
         self.task_manager.set_trainer("q_recv_count", str(self.q_recv_count))
         _keepalive(
             self.task_manager,
             self.start_train_count,
-            runner.state.trainer.get_train_count(),
-            runner.state.memory.length(),
+            state.trainer.get_train_count(),
+            state.memory.length(),
         )
 
 
@@ -324,9 +325,9 @@ def _run_trainer(manager: ServerManager):
             )
             memory_ps.start()
             parameter_ps.start()
-            runner.context.callbacks.append(_TrainerInterruptThread(memory_ps, parameter_ps, share_dict))
+            task_config.callbacks.append(_TrainerInterruptThread(memory_ps, parameter_ps, share_dict))
         else:
-            runner.context.callbacks.append(
+            task_config.callbacks.append(
                 _TrainerInterruptManager(
                     manager,
                     task_config.config.trainer_parameter_send_interval,
@@ -334,12 +335,13 @@ def _run_trainer(manager: ServerManager):
             )
 
         # --- play
-        runner.core_play(
+        runner.base_run_play(
             trainer_only=True,
             parameter=parameter,
             memory=cast(RLMemory, memory),
             trainer=None,
             workers=None,
+            callbacks=task_config.callbacks,
         )
     except Exception:
         raise

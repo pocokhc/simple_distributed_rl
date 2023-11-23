@@ -6,7 +6,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from srl.runner.callback import Callback, MPCallback, TrainerCallback
+from srl.base.run.callback import RunCallback, TrainerCallback
+from srl.base.run.context import RunContext
+from srl.base.run.core import RunState
+from srl.runner.callback import RunnerCallback
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.runner import Runner
 from srl.utils.util_str import to_str_info, to_str_reward, to_str_time
@@ -14,9 +17,11 @@ from srl.utils.util_str import to_str_info, to_str_reward, to_str_time
 logger = logging.getLogger(__name__)
 
 
-# 進捗に対して表示、少しずつ間隔を長くする(上限あり)
 @dataclass
-class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
+class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
+    """時間に対して少しずつ長く表示、学習し始めたら長くしていく"""
+
+    # mode: str = "simple"
     start_time: int = 1
     interval_limit: int = 60 * 10
     progress_env_info: bool = False
@@ -57,46 +62,47 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
 
         return True
 
-    def _eval_str(self, runner: Runner) -> str:
+    def _eval_str(self, context: RunContext, state: RunState) -> str:
         if self.eval_runner is None:
             return ""
-        if runner.context.distributed:
-            if runner.context.actor_id == 0:
-                eval_rewards = self.run_eval(runner.state.parameter)
+        if context.distributed:
+            if context.actor_id == 0:
+                eval_rewards = self.run_eval(state.parameter)
                 return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
             else:
                 return " " * 12
         else:
-            eval_rewards = self.run_eval(runner.state.parameter)
+            eval_rewards = self.run_eval(state.parameter)
             return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
 
-    # -----------------------------------------------------
+    def on_base_run_start(self, runner: Runner) -> None:
+        s = f"### env: {runner.env_config.name}, rl: {runner.rl_config.getName()}"
+        if runner.context.max_episodes > 0:
+            s += f", max episodes: {runner.context.max_episodes}"
+        if runner.context.timeout > 0:
+            s += f", timeout: {to_str_time(runner.context.timeout)}"
+        if runner.context.max_steps > 0:
+            s += f", max steps: {runner.context.max_steps}"
+        if runner.context.max_train_count > 0:
+            s += f", max train: {runner.context.max_train_count}"
+        if runner.context.max_memory > 0:
+            s += f", max memory: {runner.context.max_memory}"
+        print(s)
 
-    def on_episodes_begin(self, runner: Runner):
-        if runner.context.actor_id >= self.progress_max_actor:
+    # -----------------------------------------------------
+    # actor
+    # -----------------------------------------------------
+    def on_episodes_begin(self, context: RunContext, state: RunState):
+        if context.actor_id >= self.progress_max_actor:
             return
-        context = runner.context
-        self.progress_timeout = self.start_time
 
         # 分散の場合はactor_id=0のみevalをする
-        if runner.context.distributed:
+        if context.distributed:
             self.enable_eval = self.enable_eval and (context.actor_id == 0)
+        if self.runner is not None:
+            self.setup_eval_runner(self.runner)
 
-        self.setup_eval_runner(runner)
-
-        if not context.distributed:
-            s = f"### env: {runner.env_config.name}, rl: {runner.rl_config.getName()}"
-            if context.max_episodes > 0:
-                s += f", max episodes: {context.max_episodes}"
-            if context.timeout > 0:
-                s += f", timeout: {to_str_time(context.timeout)}"
-            if context.max_steps > 0:
-                s += f", max steps: {context.max_steps}"
-            if context.max_train_count > 0:
-                s += f", max train: {context.max_train_count}"
-            if context.max_memory > 0:
-                s += f", max memory: {context.max_memory}"
-            print(s)
+        self.progress_timeout = self.start_time
 
         _time = time.time()
         self.progress_t0 = _time
@@ -107,38 +113,35 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
         self.t0_episode_count = 0
         self.t0_memory_count = 0
 
-    def on_episodes_end(self, runner: Runner):
-        if runner.context.actor_id >= self.progress_max_actor:
+    def on_episodes_end(self, context: RunContext, state: RunState):
+        if context.actor_id >= self.progress_max_actor:
             return
-        self._print_actor(runner)
+        self._print_actor(context, state)
 
-    def on_step_end(self, runner: Runner):
-        if runner.context.actor_id >= self.progress_max_actor:
+    def on_step_end(self, context: RunContext, state: RunState):
+        if context.actor_id >= self.progress_max_actor:
             return
         if self._check_print_progress():
-            self._print_actor(runner)
+            self._print_actor(context, state)
 
-    def on_episode_end(self, runner: Runner):
-        if runner.context.actor_id >= self.progress_max_actor:
+    def on_episode_end(self, context: RunContext, state: RunState):
+        if context.actor_id >= self.progress_max_actor:
             return
-        env = runner.state.env
-        assert env is not None
 
         # print_workerの報酬を記録する
-        player_idx = runner.state.worker_indices[self.progress_worker]
-        episode_reward = env.episode_rewards[player_idx]
+        player_idx = state.worker_indices[self.progress_worker]
+        assert state.env is not None
+        episode_reward = state.env.episode_rewards[player_idx]
 
         d = {
-            "episode_step": env.step_num,
+            "episode_step": state.env.step_num,
             "episode_reward": episode_reward,
         }
         self.progress_history.append(d)
 
     # -----------------------------------------
 
-    def _print_actor(self, runner: Runner):
-        context = runner.context
-        state = runner.state
+    def _print_actor(self, context: RunContext, state: RunState):
         assert state.env is not None
 
         _time = time.time()
@@ -245,18 +248,18 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
             s += f",{_r_min} {_r_mid} {_r_max} re"
 
             # [eval reward]
-            s += self._eval_str(runner)
+            s += self._eval_str(context, state)
 
         # [memory]
         if state.memory is not None:
             s += f", {state.memory.length()}mem"
 
         # [system]
-        s += self._stats_str(runner)
+        s += self._stats_str()
 
         # [info] , 速度優先して一番最新の状態をそのまま表示
         env_types = state.env.info_types
-        rl_types = runner.rl_config.info_types
+        rl_types = context.rl_config.info_types
         if self.progress_env_info:
             s += to_str_info(state.env.info, env_types)
         if self.progress_worker_info:
@@ -268,15 +271,17 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
         print(s)
         self.progress_history = []
 
-    def _stats_str(self, runner: Runner) -> str:
-        if not runner.config.enable_stats:
+    def _stats_str(self) -> str:
+        if self.runner is None:
+            return ""
+        if not self.runner.config.enable_stats:
             return ""
 
         # ,CPU100% M100%,GPU0 100% M100%
         s = ""
-        if runner.context.actor_id == 0:
+        if self.runner.context.actor_id == 0:
             try:
-                memory_percent, cpu_percent = runner.read_psutil()
+                memory_percent, cpu_percent = self.runner.read_psutil()
                 if memory_percent != np.NaN:
                     s += f"[CPU{cpu_percent:3.0f}%,M{memory_percent:2.0f}%]"
             except Exception:
@@ -284,7 +289,7 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
                 s += "[CPU Nan%]"
 
             try:
-                gpus = runner.read_nvml()
+                gpus = self.runner.read_nvml()
                 # device_id, rate.gpu, rate.memory
                 s += "".join([f"[GPU{g[0]} {g[1]:2.0f}%,M{g[2]:2.0f}%]" for g in gpus])
             except Exception:
@@ -292,7 +297,7 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
                 s += ",GPU Nan%"
         else:
             try:
-                memory_percent, cpu_percent = runner.read_psutil()
+                memory_percent, cpu_percent = self.runner.read_psutil()
                 if memory_percent != np.NaN:
                     s += f"[CPU{cpu_percent:3.0f}%]"
             except Exception:
@@ -303,27 +308,15 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
     # ----------------------------------
     # trainer
     # ----------------------------------
-    def on_trainer_start(self, runner: Runner) -> None:
-        # 分散の場合はevalをしない
-        if runner.context.distributed:
+    def on_trainer_start(self, context: RunContext, state: RunState) -> None:
+        # eval, 分散の場合はevalをしない
+        if context.distributed:
             self.enable_eval = False
+        if self.runner is not None:
+            self.setup_eval_runner(self.runner)
 
         self.progress_timeout = self.start_time
 
-        self.setup_eval_runner(runner)
-
-        if not runner.context.distributed:
-            assert runner.state.memory is not None
-            s = f"### rl: {runner.rl_config.getName()} memory len: {runner.state.memory.length()}"
-            if runner.context.max_train_count > 0:
-                s += f", max train: {runner.context.max_train_count}"
-            if runner.context.timeout > 0:
-                s += f", timeout: {to_str_time(runner.context.timeout)}"
-            if runner.context.max_memory > 0:
-                s += f", max memory: {runner.context.max_memory}"
-            print(s)
-
-        # --- init
         _time = time.time()
         self.progress_t0 = _time
         self.progress_history = []
@@ -331,16 +324,14 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
         self.t0_train_time = _time
         self.t0_train_count = 0
 
-    def on_trainer_end(self, runner: Runner) -> None:
-        self._print_trainer(runner)
+    def on_trainer_end(self, context: RunContext, state: RunState) -> None:
+        self._print_trainer(context, state)
 
-    def on_trainer_loop(self, runner: Runner) -> None:
+    def on_trainer_loop(self, context: RunContext, state: RunState) -> None:
         if self._check_print_progress():
-            self._print_trainer(runner)
+            self._print_trainer(context, state)
 
-    def _print_trainer(self, runner: Runner):
-        context = runner.context
-        state = runner.state
+    def _print_trainer(self, context: RunContext, state: RunState):
         assert state.trainer is not None
 
         _time = time.time()
@@ -398,26 +389,15 @@ class PrintProgress(Callback, MPCallback, TrainerCallback, Evaluate):
                 s += f", {state.sync_trainer:2d}send"
 
             # [eval]
-            s += self._eval_str(runner)
+            s += self._eval_str(context, state)
 
             # [system]
-            s += self._stats_str(runner)
+            s += self._stats_str()
 
             # [info] , 速度優先して一番最新の状態をそのまま表示
             if self.progress_train_info:
                 if state.trainer is not None:
-                    s += to_str_info(state.trainer.train_info, runner.rl_config.info_types)
+                    s += to_str_info(state.trainer.train_info, context.rl_config.info_types)
 
         print(s)
         self.progress_history = []
-
-    # ----------------------------------
-    # mp
-    # ----------------------------------
-    def on_start(self, runner: Runner):
-        s = f"### env: {runner.env_config.name}, rl: {runner.rl_config.getName()}"
-        if runner.context.max_train_count > 0:
-            s += f", max train: {runner.context.max_train_count}"
-        if runner.context.timeout > 0:
-            s += f", timeout: {to_str_time(runner.context.timeout)}"
-        print(s)

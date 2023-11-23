@@ -7,8 +7,9 @@ import numpy as np
 
 from srl.base.define import EnvObservationTypes, RenderModes
 from srl.base.rl.worker_run import WorkerRun
-from srl.runner.callback import Callback
-from srl.runner.runner import Runner
+from srl.base.run.callback import RunCallback
+from srl.base.run.context import RunContext
+from srl.base.run.core import RunState
 from srl.utils.render_functions import text_to_rgb_array
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class Rendering(Callback):
+class Rendering(RunCallback):
     mode: Union[str, RenderModes] = RenderModes.none
     kwargs: dict = field(default_factory=lambda: {})
     step_stop: bool = False
@@ -50,49 +51,49 @@ class Rendering(Callback):
 
         self.mode = RenderModes.from_str(self.mode)
 
-    def on_episodes_begin(self, runner: Runner) -> None:
-        assert runner.state.env is not None
-        self.render_interval = runner.state.env.set_render_options(
+    def on_episodes_begin(self, context: RunContext, state: RunState) -> None:
+        assert state.env is not None
+        self.render_interval = state.env.set_render_options(
             self.render_interval,
             self.render_scale,
             self.font_name,
             self.font_size,
         )
 
-    def on_step_action_before(self, runner: Runner) -> None:
-        self._render_env(runner)
+    def on_step_action_before(self, context: RunContext, state: RunState) -> None:
+        self._render_env(context, state)
 
-    def on_step_begin(self, runner: Runner) -> None:
-        self._render_worker(runner)
+    def on_step_begin(self, context: RunContext, state: RunState) -> None:
+        self._render_worker(context, state)
         self._add_image()
 
         if self.step_stop:
             input("Enter to continue:")
 
-    def on_skip_step(self, runner: Runner):
+    def on_skip_step(self, context: RunContext, state: RunState):
         if not self.render_skip_step:
             return
-        self._render_env(runner, True)
+        self._render_env(context, state, True)
         self._add_image()
 
-    def on_episode_end(self, runner: Runner) -> None:
-        self._render_env(runner)
+    def on_episode_end(self, context: RunContext, state: RunState) -> None:
+        self._render_env(context, state)
         self._add_image()
 
-    def on_episodes_end(self, runner: Runner) -> None:
+    def on_episodes_end(self, context: RunContext, state: RunState) -> None:
         if self.step_stop:
             input("Enter to continue:")
 
     # -----------------------------------------------
 
-    def _render_env(self, runner: Runner, skip_step=False):
-        env = runner.state.env
+    def _render_env(self, context: RunContext, state: RunState, skip_step=False):
+        env = state.env
         assert env is not None
 
         # --- info text
-        action = runner.state.action
-        worker_idx = runner.state.worker_idx
-        worker: WorkerRun = runner.state.workers[worker_idx]
+        action = state.action
+        worker_idx = state.worker_idx
+        worker: WorkerRun = state.workers[worker_idx]
         info_text = f"### {env.step_num}"
         if isinstance(action, float):
             a1 = f"{action:.3f}"
@@ -138,8 +139,8 @@ class Rendering(Callback):
                 }
             )
 
-    def _render_worker(self, runner: Runner):
-        worker = runner.state.workers[runner.state.worker_idx]
+    def _render_worker(self, context: RunContext, state: RunState):
+        worker = state.workers[state.worker_idx]
 
         # --- rgb
         if self.mode == RenderModes.rgb_array:

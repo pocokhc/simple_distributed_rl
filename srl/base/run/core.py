@@ -2,7 +2,7 @@ import logging
 import random
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional, Union, cast
+from typing import List, Optional, Union
 
 from srl.base.define import EnvActionType
 from srl.base.env.env_run import EnvRun
@@ -13,7 +13,7 @@ from srl.base.run.context import RunContext, RunNameTypes
 from srl.utils import common
 from srl.utils.serialize import convert_for_json
 
-from .callback import Callback, CallbackData, TrainerCallback
+from .callback import RunCallback, TrainerCallback
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ def play(
     memory: RLMemory,
     workers: Optional[List[WorkerRun]] = None,
     trainer: Optional[RLTrainer] = None,
-    callback_data: Optional[CallbackData] = None,
+    callbacks: List[RunCallback] = [],
 ) -> RunState:
     if not context.distributed:
         assert (
@@ -99,8 +99,8 @@ def play(
             if context.run_name != RunNameTypes.eval:
                 logger.info(f"tf.device({context.used_device_tf})")
             with tf.device(context.used_device_tf):  # type: ignore
-                return _play(context, env, parameter, memory, workers, trainer, callback_data)
-    return _play(context, env, parameter, memory, workers, trainer, callback_data)
+                return _play(context, env, parameter, memory, workers, trainer, callbacks)
+    return _play(context, env, parameter, memory, workers, trainer, callbacks)
 
 
 def _play(
@@ -110,7 +110,7 @@ def _play(
     memory: RLMemory,
     workers: List[WorkerRun],
     trainer: Optional[RLTrainer],
-    callback_data: Optional[CallbackData] = None,
+    callbacks: List[RunCallback] = [],
 ) -> RunState:
     assert env.player_num == len(workers)
 
@@ -120,9 +120,6 @@ def _play(
     state.memory = memory
     state.workers = workers
     state.trainer = trainer
-    if callback_data is None:
-        callback_data = CallbackData()
-    callback_data.set_data(context, state)
 
     # --- set_config_by_actor
     if context.distributed:
@@ -134,15 +131,14 @@ def _play(
         logger.info(f"set_seed: {context.seed}, 1st episode seed: {state.episode_seed}")
 
     # --- callbacks
-    _callbacks = cast(List[Callback], [c for c in context.callbacks if issubclass(c.__class__, Callback)])
-    [c.on_episodes_begin(callback_data) for c in _callbacks]
+    [c.on_episodes_begin(context, state) for c in callbacks]
 
     # --- init
     state.elapsed_t0 = time.time()
     state.worker_indices = [i for i in range(state.env.player_num)]
 
     def __skip_func():
-        [c.on_skip_step(callback_data) for c in _callbacks]  # type: ignore , type OK
+        [c.on_skip_step(context, state) for c in callbacks]
 
     # --- loop
     if context.run_name != RunNameTypes.eval:
@@ -196,7 +192,7 @@ def _play(
             ]
 
             # callbacks
-            [c.on_episode_begin(callback_data) for c in _callbacks]
+            [c.on_episode_begin(context, state) for c in callbacks]
 
         # ------------------------
         # step
@@ -204,12 +200,12 @@ def _play(
 
         # action
         state.env.render()
-        [c.on_step_action_before(callback_data) for c in _callbacks]
+        [c.on_step_action_before(context, state) for c in callbacks]
         state.action = state.workers[state.worker_idx].policy()
 
         # env step
         state.workers[state.worker_idx].render()
-        [c.on_step_begin(callback_data) for c in _callbacks]
+        [c.on_step_begin(context, state) for c in callbacks]
         state.env.step(state.action, __skip_func)
         worker_idx = state.worker_indices[state.env.next_player_index]
 
@@ -223,7 +219,7 @@ def _play(
         if state.trainer is not None:
             state.is_step_trained = state.trainer.train()
 
-        _stop_flags = [c.on_step_end(callback_data) for c in _callbacks]
+        _stop_flags = [c.on_step_end(context, state) for c in callbacks]
         state.worker_idx = worker_idx
 
         if state.env.done:
@@ -236,7 +232,7 @@ def _play(
                 ]
                 state.episode_rewards_list.append(worker_rewards)
 
-            [c.on_episode_end(callback_data) for c in _callbacks]
+            [c.on_episode_end(context, state) for c in callbacks]
 
         if True in _stop_flags:
             state.end_reason = "callback.intermediate_stop"
@@ -252,14 +248,14 @@ def _play(
             state.episode_rewards_list.append(worker_rewards)
 
     # callbacks
-    [c.on_episodes_end(callback_data) for c in _callbacks]
+    [c.on_episodes_end(context, state) for c in callbacks]
     return state
 
 
 def play_trainer_only(
     context: RunContext,
     trainer: RLTrainer,
-    callback_data: Optional[CallbackData] = None,
+    callbacks: List[TrainerCallback] = [],
 ) -> RunState:
     assert context.training
     assert context.max_train_count > 0 or context.timeout > 0, "Please specify 'max_train_count' or 'timeout'."
@@ -271,28 +267,22 @@ def play_trainer_only(
 
             logger.info(f"tf.device({context.used_device_tf})")
             with tf.device(context.used_device_tf):  # type: ignore
-                return _play_trainer_only(context, trainer, callback_data)
-    return _play_trainer_only(context, trainer, callback_data)
+                return _play_trainer_only(context, trainer, callbacks)
+    return _play_trainer_only(context, trainer, callbacks)
 
 
 def _play_trainer_only(
     context: RunContext,
     trainer: RLTrainer,
-    callback_data: Optional[CallbackData] = None,
+    callbacks: List[TrainerCallback] = [],
 ):
     state = RunState()
     state.trainer = trainer
     state.parameter = trainer.parameter
     state.memory = trainer.memory
-    if callback_data is None:
-        callback_data = CallbackData()
-    callback_data.set_data(context, state)
 
-    # --- callbacks
-    _callbacks = cast(
-        List[TrainerCallback], [c for c in context.callbacks if issubclass(c.__class__, TrainerCallback)]
-    )
-    [c.on_trainer_start(callback_data) for c in _callbacks]
+    # callbacks
+    [c.on_trainer_start(context, state) for c in callbacks]
 
     # --- init
     state.elapsed_t0 = time.time()
@@ -315,7 +305,7 @@ def _play_trainer_only(
         state.is_step_trained = state.trainer.train()
 
         # callbacks
-        _stop_flags = [c.on_trainer_loop(callback_data) for c in _callbacks]
+        _stop_flags = [c.on_trainer_loop(context, state) for c in callbacks]
         if True in _stop_flags:
             state.end_reason = "callback.trainer_intermediate_stop"
             break
@@ -323,5 +313,5 @@ def _play_trainer_only(
     logger.info(f"loop end({state.end_reason})")
 
     # callbacks
-    [c.on_trainer_end(callback_data) for c in _callbacks]
+    [c.on_trainer_end(context, state) for c in callbacks]
     return state

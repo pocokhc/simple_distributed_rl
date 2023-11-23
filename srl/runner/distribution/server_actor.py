@@ -10,8 +10,9 @@ from typing import List, Optional, Tuple, cast
 import srl
 from srl.base.exception import DistributionError
 from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter
-from srl.base.run.context import RunNameTypes
-from srl.runner.callback import Callback
+from srl.base.run.callback import RunCallback
+from srl.base.run.context import RunContext, RunNameTypes
+from srl.base.run.core import RunState
 from srl.runner.distribution.callback import ActorServerCallback
 from srl.runner.distribution.connectors.parameters import RedisParameters
 from srl.runner.distribution.interface import IMemoryServerParameters
@@ -60,7 +61,7 @@ class _ActorRLMemoryThread(IRLMemoryWorker):
         return self.share_dict["q_send_count"]
 
 
-class _ActorInterruptThread(Callback):
+class _ActorInterruptThread(RunCallback):
     def __init__(
         self,
         share_dict: dict,
@@ -71,20 +72,20 @@ class _ActorInterruptThread(Callback):
         self.memory_ps = memory_ps
         self.parameter_ps = parameter_ps
 
-    def on_episodes_begin(self, runner: srl.Runner):
-        runner.state.sync_actor = 0
+    def on_episodes_begin(self, context: RunContext, state: RunState):
+        state.sync_actor = 0
         self.share_dict["sync_count"] = 0
 
-    def on_step_end(self, runner: srl.Runner) -> bool:
-        runner.state.sync_actor = self.share_dict["sync_count"]
+    def on_step_end(self, context: RunContext, state: RunState) -> bool:
+        state.sync_actor = self.share_dict["sync_count"]
         if not self.memory_ps.is_alive():
             self.share_dict["end_signal"] = True
         if not self.parameter_ps.is_alive():
             self.share_dict["end_signal"] = True
         return self.share_dict["end_signal"]
 
-    def on_episode_end(self, runner: srl.Runner):
-        self.share_dict["episode_count"] = runner.state.episode_count
+    def on_episode_end(self, context: RunContext, state: RunState):
+        self.share_dict["episode_count"] = state.episode_count
 
 
 def _memory_communicate(
@@ -242,7 +243,7 @@ class _ActorRLMemoryNoThread(IRLMemoryWorker):
         return self.q_send_count
 
 
-class _ActorInterruptNoThread(Callback):
+class _ActorInterruptNoThread(RunCallback):
     def __init__(
         self,
         manager: ServerManager,
@@ -257,11 +258,11 @@ class _ActorInterruptNoThread(Callback):
         self.actor_parameter_sync_interval = actor_parameter_sync_interval
         self.t0 = time.time()
 
-    def on_episodes_begin(self, runner: srl.Runner):
-        runner.state.sync_actor = 0
+    def on_episodes_begin(self, context: RunContext, state: RunState):
+        state.sync_actor = 0
         self._keepalive_t0 = 0
 
-    def on_step_end(self, runner: srl.Runner) -> bool:
+    def on_step_end(self, context: RunContext, state: RunState) -> bool:
         # --- sync params
         if time.time() - self.t0 > self.actor_parameter_sync_interval:
             self.t0 = time.time()
@@ -269,19 +270,19 @@ class _ActorInterruptNoThread(Callback):
             body = self.parameter_reader.parameter_read()
             if body is not None:
                 self.parameter.restore(body, from_cpu=True)
-                runner.state.sync_actor += 1
+                state.sync_actor += 1
 
         # --- keepalive
         if time.time() - self._keepalive_t0 < self.keepalive_interval:
-            assert runner.state.memory is not None
-            _keepalive(self.task_manager, runner.state.episode_count, runner.state.memory.length())
+            assert state.memory is not None
+            _keepalive(self.task_manager, state.episode_count, state.memory.length())
             if self.task_manager.is_finished():
                 return True
         return False
 
-    def on_episodes_end(self, runner: Runner) -> None:
-        assert runner.state.memory is not None
-        _keepalive(self.task_manager, runner.state.episode_count, runner.state.memory.length())
+    def on_episodes_end(self, context: RunContext, state: RunState) -> None:
+        assert state.memory is not None
+        _keepalive(self.task_manager, state.episode_count, state.memory.length())
 
 
 def _run_actor(manager: ServerManager):
@@ -348,13 +349,13 @@ def _run_actor(manager: ServerManager):
             share_dict,
             task_config.config.dist_queue_capacity,
         )
-        runner.context.callbacks.append(_ActorInterruptThread(share_dict, memory_ps, parameter_ps))
+        task_config.callbacks.append(_ActorInterruptThread(share_dict, memory_ps, parameter_ps))
     else:
         memory_ps = None
         parameter_ps = None
         share_dict = {}
         memory = _ActorRLMemoryNoThread(manager, task_config.config.dist_queue_capacity)
-        runner.context.callbacks.append(
+        task_config.callbacks.append(
             _ActorInterruptNoThread(
                 manager,
                 parameter,
@@ -370,12 +371,13 @@ def _run_actor(manager: ServerManager):
     # runner.context.max_train_count = -1
     # runner.context.timeout = -1
     try:
-        runner.core_play(
+        runner.base_run_play(
             trainer_only=False,
             parameter=parameter,
             memory=cast(RLMemory, memory),
             trainer=None,
             workers=None,
+            callbacks=task_config.callbacks,
         )
     except DistributionError:
         raise

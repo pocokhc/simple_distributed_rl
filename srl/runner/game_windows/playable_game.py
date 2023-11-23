@@ -27,7 +27,7 @@ class PlayableGame(GameWindow):
 
         self.runner = runner
         self.callbacks = cast(
-            List[GameCallback], [c for c in runner.context.callbacks if issubclass(c.__class__, GameCallback)]
+            List[GameCallback], [c for c in runner._callbacks if issubclass(c.__class__, GameCallback)]
         )
 
         self.noop = None

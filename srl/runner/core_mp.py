@@ -11,8 +11,9 @@ from typing import Any, List, cast
 
 import srl
 from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter
-from srl.base.run.context import RunNameTypes
-from srl.runner.callback import Callback, MPCallback, TrainerCallback
+from srl.base.run.callback import RunCallback, TrainerCallback
+from srl.base.run.context import RunContext, RunNameTypes
+from srl.base.run.core import RunState
 from srl.runner.runner import TaskConfig
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,7 @@ class _ActorRLMemory(IRLMemoryWorker):
         return self.queue.qsize()
 
 
-class _ActorInterrupt(Callback):
+class _ActorInterrupt(RunCallback):
     def __init__(
         self,
         remote_board: _Board,
@@ -93,10 +94,10 @@ class _ActorInterrupt(Callback):
 
         self.t0 = time.time()
 
-    def on_episodes_begin(self, runner: srl.Runner):
-        runner.state.sync_actor = 0
+    def on_episodes_begin(self, context: RunContext, state: RunState):
+        state.sync_actor = 0
 
-    def on_step_end(self, runner: srl.Runner) -> bool:
+    def on_step_end(self, context: RunContext, state: RunState) -> bool:
         if os.getppid() == 1:
             self.end_signal.value = True
             logger.info("end_signal: True")
@@ -109,7 +110,7 @@ class _ActorInterrupt(Callback):
         if params is None:
             return self.end_signal.value
         self.parameter.restore(pickle.loads(params), from_cpu=True)
-        runner.state.sync_actor += 1
+        state.sync_actor += 1
         return self.end_signal.value
 
 
@@ -151,7 +152,7 @@ def _run_actor(
         )
 
         # --- callback
-        runner.context.callbacks.append(
+        task_config.callbacks.append(
             _ActorInterrupt(
                 remote_board,
                 parameter,
@@ -163,12 +164,13 @@ def _run_actor(
         # --- play
         runner.context.training = True
         runner.context.disable_trainer = True
-        runner.core_play(
+        runner.base_run_play(
             trainer_only=False,
             parameter=parameter,
             memory=memory,
             trainer=None,
             workers=None,
+            callbacks=task_config.callbacks,
         )
     finally:
         end_signal.value = True
@@ -226,12 +228,12 @@ class _TrainerInterrupt(TrainerCallback):
         self.end_signal = end_signal
         self.share_dict = share_dict
 
-    def on_trainer_loop(self, runner: srl.Runner) -> bool:
-        if not runner.state.is_step_trained:
+    def on_trainer_loop(self, context: RunContext, state: RunState) -> bool:
+        if not state.is_step_trained:
             # warmupなら待機
             time.sleep(1)
 
-        runner.state.sync_trainer = self.share_dict["sync_count"]
+        state.sync_trainer = self.share_dict["sync_count"]
         return self.end_signal.value
 
 
@@ -279,14 +281,15 @@ def _run_trainer(
     parameter_ps.start()
 
     # --- train
-    runner.context.callbacks.append(_TrainerInterrupt(end_signal, share_dict))
+    task_config.callbacks.append(_TrainerInterrupt(end_signal, share_dict))
     runner.context.training = True
-    runner.core_play(
+    runner.base_run_play(
         trainer_only=True,
         parameter=parameter,
         memory=memory,
         trainer=None,
         workers=None,
+        callbacks=task_config.callbacks,
     )
     end_signal.value = True
     logger.info("end_signal: True")
@@ -338,10 +341,6 @@ def train(runner: srl.Runner):
 
     MPManager.register("Board", _Board)
 
-    # callbacks
-    _callbacks = cast(List[MPCallback], [c for c in runner.context.callbacks if issubclass(c.__class__, MPCallback)])
-    [c.on_init(runner) for c in _callbacks]
-
     # --- share values
     end_signal = cast(ctypes.c_bool, mp.Value(ctypes.c_bool, False))
     remote_queue = mp.Queue()
@@ -356,7 +355,7 @@ def train(runner: srl.Runner):
             remote_board.write(pickle.dumps(params))
 
         # --- actor ---
-        mp_data = runner.create_task_config(exclude_callbacks=["Checkpoint"])
+        mp_data = runner.create_task_config()
         actors_ps_list: List[mp.Process] = []
         for actor_id in range(runner.context.actor_num):
             params = (
@@ -373,9 +372,6 @@ def train(runner: srl.Runner):
         # --- start
         logger.debug("process start")
         [p.start() for p in actors_ps_list]
-
-        # callbacks
-        [c.on_start(runner) for c in _callbacks]
 
         # train
         try:
@@ -410,6 +406,3 @@ def train(runner: srl.Runner):
     for i, w in enumerate(actors_ps_list):
         if w.exitcode != 0 and w.exitcode is not None:
             raise RuntimeError(f"An exception has occurred in actor {i} process.(exitcode: {w.exitcode})")
-
-    # callbacks
-    [c.on_end(runner) for c in _callbacks]

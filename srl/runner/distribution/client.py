@@ -23,10 +23,7 @@ def run(
     manager = ServerManager(redis_params, None, task_manager_params)
 
     task_manager = manager.get_task_manager()
-    task_manager.create(
-        runner.create_task_config(["Checkpoint", "HistoryOnFile", "HistoryOnMemory"]),
-        runner.make_parameter().backup(to_cpu=True),
-    )
+    task_manager.create(runner.create_task_config(), runner.make_parameter().backup(to_cpu=True))
 
     if not wait:
         return

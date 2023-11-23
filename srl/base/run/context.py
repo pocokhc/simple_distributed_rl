@@ -14,8 +14,6 @@ from srl.base.rl.registration import make_memory, make_parameter, make_worker, m
 from srl.base.rl.worker_run import WorkerRun
 from srl.utils.serialize import convert_for_json
 
-from .callback import Callback, TrainerCallback
-
 logger = logging.getLogger(__name__)
 
 
@@ -47,7 +45,7 @@ class RunContext:
     run_name: RunNameTypes = RunNameTypes.main
     # stop config
     max_episodes: int = 0
-    timeout: int = 0
+    timeout: float = 0
     max_steps: int = 0
     max_train_count: int = 0
     max_memory: int = 0
@@ -72,9 +70,6 @@ class RunContext:
     used_device_tf: str = "/CPU"
     used_device_torch: str = "cpu"
 
-    # --- callbacks
-    callbacks: List[Union[Callback, TrainerCallback]] = field(default_factory=list)
-
     def create_controller(self) -> "RunContextController":
         return RunContextController(self)
 
@@ -95,25 +90,9 @@ class RunContextController:
             dat: dict = convert_for_json(self.context.__dict__)
         return dat
 
-    def copy(self, copy_callbacks: bool, exclude_callbacks: List[str]) -> "RunContext":
-        _c = self.context.callbacks
+    def copy(self) -> "RunContext":
+        return copy.deepcopy(self.context)
 
-        self.context.callbacks = []
-        c = copy.deepcopy(self.context)
-        self.context.callbacks = _c
-
-        if copy_callbacks:
-            c.callbacks = []
-            for c2 in _c:
-                f = True
-                for e in exclude_callbacks:
-                    if e in c2.__class__.__name__:
-                        f = False
-                        break
-                if f:
-                    c.callbacks.append(c2)
-        return c
-    
     def set_device(self, used_device_tf, used_device_torch):
         self.context.used_device_tf = used_device_tf
         self.context.used_device_torch = used_device_torch

@@ -3,10 +3,11 @@ import datetime
 import glob
 import logging
 import os
+import pickle
 import re
 import traceback
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union, cast
 
 import numpy as np
 
@@ -17,10 +18,11 @@ from srl.base.env.registration import make as make_env
 from srl.base.rl.base import RLConfig, RLMemory, RLParameter, RLTrainer
 from srl.base.rl.registration import make_memory, make_parameter, make_trainer, make_worker
 from srl.base.rl.worker_run import WorkerRun
-from srl.base.run import core as core_run
-from srl.base.run.callback import CallbackData
+from srl.base.run import core as base_run
+from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RLWorkerType, RunContext, RunNameTypes, StrWorkerType
 from srl.rl import dummy
+from srl.runner.callback import GameCallback, RunnerCallback
 from srl.utils import common
 from srl.utils.serialize import convert_for_json
 
@@ -30,6 +32,9 @@ if TYPE_CHECKING:
     from srl.runner.callbacks.history_viewer import HistoryViewer, HistoryViewers
 
 logger = logging.getLogger(__name__)
+
+
+CallbackType = Union[RunCallback, TrainerCallback, RunnerCallback, GameCallback]
 
 
 @dataclass
@@ -75,10 +80,11 @@ class RunnerConfig:
 class TaskConfig:
     config: RunnerConfig
     context: RunContext
+    callbacks: List[CallbackType]
 
 
 @dataclass
-class Runner(CallbackData):
+class Runner:
     """実行環境を提供"""
 
     #: EnvConfigを指定（文字列のみのIDでも可能）
@@ -114,15 +120,16 @@ class Runner(CallbackData):
         if self.context is None:
             self.context: RunContext = RunContext(self.env_config, self.rl_config)
         self.context_controller = self.context.create_controller()
+        self._callbacks: List[CallbackType] = []
 
         self._env: Optional[EnvRun] = None
         self._trainer: Optional[RLTrainer] = None
         self._workers: Optional[List[WorkerRun]] = None
 
-        self._history_on_file = None
-        self._history_on_memory = None
-        self._history_viewer = None
-        self._checkpoint = None
+        self._history_on_file_kwargs: Optional[dict] = None
+        self._history_on_memory_kwargs: Optional[dict] = None
+        self._checkpoint_kwargs: Optional[dict] = None
+        self.history_viewer: Optional["HistoryViewer"] = None
 
         self._is_setup_psutil: bool = False
         self._psutil_process: Optional["psutil.Process"] = None
@@ -578,20 +585,34 @@ class Runner(CallbackData):
             state = worker.state_encode(state, env, append_recent_state=False)
         return state
 
-    def copy(self, env_share: bool, copy_callbacks: bool, exclude_callbacks: List[str] = []) -> "Runner":
+    def copy(self, env_share: bool) -> "Runner":
         runner = Runner(
             self.env_config.copy(),
             self.rl_config.copy(),
             self.config.copy(),
-            self.context_controller.copy(copy_callbacks, exclude_callbacks),
+            self.context_controller.copy(),
         )
         if env_share:
             runner._env = self._env
         return runner
 
+    def get_callbacks(self, exclude_callbacks: List[str] = []) -> List[CallbackType]:
+        c = []
+        for c2 in self._callbacks:
+            f = True
+            for e in exclude_callbacks:
+                if e in c2.__class__.__name__:
+                    f = False
+                    break
+            if f:
+                c.append(c2)
+        return c
+
     def create_task_config(self, exclude_callbacks: List[str] = []) -> TaskConfig:
         return TaskConfig(
-            self.config.copy(), self.context_controller.copy(copy_callbacks=True, exclude_callbacks=exclude_callbacks)
+            self.config.copy(),
+            self.context_controller.copy(),
+            pickle.loads(pickle.dumps(self.get_callbacks(exclude_callbacks))),
         )
 
     def print_config(self):
@@ -608,12 +629,12 @@ class Runner(CallbackData):
         self,
         env_share: bool,
         eval_episode: int,
-        eval_timeout: int,
+        eval_timeout: float,
         eval_max_steps: int,
         eval_players: List[Union[None, StrWorkerType, RLWorkerType]],
         eval_shuffle_player: bool,
     ) -> "Runner":
-        r = self.copy(env_share, copy_callbacks=False)
+        r = self.copy(env_share)
 
         # context
         r.context.players = eval_players
@@ -626,13 +647,12 @@ class Runner(CallbackData):
         r.context.shuffle_player = eval_shuffle_player
         r.context.training = False
         r.context.seed = None  # mainと競合するのでNone
-        # device関係は引き継ぐ
         return r
 
     def callback_play_eval(self, parameter: RLParameter):
         env = self.make_env()
         memory = self.make_memory(is_load=False)
-        state = core_run.play(
+        state = base_run.play(
             self.context,
             env,
             parameter=parameter,
@@ -657,15 +677,16 @@ class Runner(CallbackData):
         checkpoint_eval: bool = True,
         checkpoint_eval_env_sharing: bool = False,
         checkpoint_eval_episode: int = 1,
-        checkpoint_eval_timeout: int = -1,
+        checkpoint_eval_timeout: float = -1,
         checkpoint_eval_max_steps: int = -1,
         checkpoint_eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         checkpoint_eval_shuffle_player: bool = False,
         history_interval: int = 10,
+        history_write_system: bool = False,
         history_eval: bool = False,
         history_eval_env_sharing: bool = False,
         history_eval_episode: int = 1,
-        history_eval_timeout: int = -1,
+        history_eval_timeout: float = -1,
         history_eval_max_steps: int = -1,
         history_eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         history_eval_shuffle_player: bool = False,
@@ -692,8 +713,10 @@ class Runner(CallbackData):
             checkpoint_eval_shuffle_player,
         )
         self.set_history_on_file(
-            "",
+            self.config.wkdir1,
             history_interval,
+            True,
+            history_write_system,
             history_eval,
             history_eval_env_sharing,
             history_eval_episode,
@@ -741,8 +764,8 @@ class Runner(CallbackData):
             _history_viewer.load(dirs[-1][1])
             return _history_viewer
 
-        assert self._history_viewer is not None
-        return self._history_viewer
+        assert self.history_viewer is not None
+        return self.history_viewer
 
     def set_history_on_memory(
         self,
@@ -750,7 +773,7 @@ class Runner(CallbackData):
         enable_eval: bool = False,
         eval_env_sharing: bool = False,
         eval_episode: int = 1,
-        eval_timeout: int = -1,
+        eval_timeout: float = -1,
         eval_max_steps: int = -1,
         eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
@@ -767,9 +790,8 @@ class Runner(CallbackData):
             eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
             eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
         """
-        from srl.runner.callbacks.history_on_memory import HistoryOnMemory
 
-        self._history_on_memory = HistoryOnMemory(
+        self._history_on_memory_kwargs = dict(
             interval=interval,
             enable_eval=enable_eval,
             eval_env_sharing=eval_env_sharing,
@@ -784,10 +806,12 @@ class Runner(CallbackData):
         self,
         save_dir: str,
         interval: int = 1,
+        add_history: bool = False,
+        write_system: bool = False,
         enable_eval: bool = False,
         eval_env_sharing: bool = False,
         eval_episode: int = 1,
-        eval_timeout: int = -1,
+        eval_timeout: float = -1,
         eval_max_steps: int = -1,
         eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
@@ -797,6 +821,8 @@ class Runner(CallbackData):
         Args:
             save_dir (str): 保存するディレクトリ
             interval (int, optional): 学習履歴を保存する間隔(秒). Defaults to 1.
+            add_history (bool, optional): 追記で学習履歴を保存. Defaults to False.
+            write_system (bool, optional): CPU/memory情報も保存. Defaults to False.
             enable_eval (bool, optional): 学習履歴の保存時に評価用のシミュレーションを実行します. Defaults to False.
             eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
             eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
@@ -805,11 +831,12 @@ class Runner(CallbackData):
             eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
             eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
         """
-        from srl.runner.callbacks.history_on_file import HistoryOnFile
 
-        self._history_on_file = HistoryOnFile(
+        self._history_on_file_kwargs = dict(
             save_dir=save_dir,
             interval=interval,
+            add_history=add_history,
+            write_system=write_system,
             enable_eval=enable_eval,
             eval_env_sharing=eval_env_sharing,
             eval_episode=eval_episode,
@@ -818,10 +845,12 @@ class Runner(CallbackData):
             eval_players=eval_players,
             eval_shuffle_player=eval_shuffle_player,
         )
+        if write_system:
+            self.enable_stats()
 
     def disable_history(self):
-        self._history_on_memory = None
-        self._history_on_file = None
+        self._history_on_memory_kwargs = None
+        self._history_on_file_kwargs = None
 
     def set_checkpoint(
         self,
@@ -830,7 +859,7 @@ class Runner(CallbackData):
         enable_eval: bool = True,
         eval_env_sharing: bool = False,
         eval_episode: int = 1,
-        eval_timeout: int = -1,
+        eval_timeout: float = -1,
         eval_max_steps: int = -1,
         eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
@@ -848,9 +877,8 @@ class Runner(CallbackData):
             eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
             eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
         """
-        from srl.runner.callbacks.checkpoint import Checkpoint
 
-        self._checkpoint = Checkpoint(
+        self._checkpoint_kwargs = dict(
             save_dir=save_dir,
             interval=interval,
             enable_eval=enable_eval,
@@ -863,15 +891,22 @@ class Runner(CallbackData):
         )
 
     def disable_checkpoint(self):
-        self._checkpoint = None
+        self._checkpoint_kwargs = None
 
-    def _add_core_play_before(
+    # ---------------------------------------------
+    # run
+    # ---------------------------------------------
+
+    def _base_run_play_before(
         self,
         enable_checkpoint_load: bool,
         enable_checkpoint: bool,
         enable_history_on_memory: bool,
         enable_history_on_file: bool,
+        callbacks: List[CallbackType],
     ):
+        self._callbacks = callbacks[:]
+
         # --- wkdir ---
         if self.config.enable_wkdir:
             dir_name = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -896,51 +931,51 @@ class Runner(CallbackData):
         # -----------------------
 
         # --- checkpoint ---
-        if enable_checkpoint and self._checkpoint is not None:
-            self.context.callbacks.append(self._checkpoint)
-            logger.info(f"add callback Checkpoint: {self._checkpoint.save_dir}")
+        if enable_checkpoint and self._checkpoint_kwargs is not None:
+            from srl.runner.callbacks.checkpoint import Checkpoint
+
+            self._callbacks.append(Checkpoint(**self._checkpoint_kwargs))
+            logger.info(f"add callback Checkpoint: {self._checkpoint_kwargs['save_dir']}")
         # -------------------
 
         # --- history ---
-        if enable_history_on_memory and self._history_on_memory is not None:
-            self.context.callbacks.append(self._history_on_memory)
+        if enable_history_on_memory and self._history_on_memory_kwargs is not None:
+            from srl.runner.callbacks.history_on_memory import HistoryOnMemory
+
+            self._callbacks.append(HistoryOnMemory(**self._history_on_memory_kwargs))
             logger.info("add callback HistoryOnMemory")
 
-        if enable_history_on_file and self._history_on_file is not None:
-            if self.config.enable_wkdir:
-                self._history_on_file.save_dir = self.config.wkdir2
-            self.context.callbacks.append(self._history_on_file)
-            logger.info(f"add callback HistoryOnFile: {self._history_on_file.save_dir}")
+        if enable_history_on_file and self._history_on_file_kwargs is not None:
+            from srl.runner.callbacks.history_on_file import HistoryOnFile
+
+            self._callbacks.append(HistoryOnFile(**self._history_on_file_kwargs))
+            logger.info(f"add callback HistoryOnFile: {self._history_on_file_kwargs['save_dir']}")
         # ---------------
 
-    def _add_core_play_after(
-        self,
-        enable_history_on_memory: bool,
-        enable_history_on_file: bool,
-    ):
-        if enable_history_on_memory and self._history_on_memory is not None:
-            from srl.runner.callbacks.history_viewer import HistoryViewer
+        # --- callback
+        [
+            cast(RunnerCallback, c).on_runner_start(self)
+            for c in self._callbacks
+            if issubclass(c.__class__, RunnerCallback)
+        ]
 
-            self._history_viewer = HistoryViewer()
-            self._history_viewer.set_history_on_memory(self._history_on_memory, self)
+    def _base_run_play_after(self):
+        # --- callback
+        [
+            cast(RunnerCallback, c).on_runner_end(self)
+            for c in self._callbacks
+            if issubclass(c.__class__, RunnerCallback)
+        ]
 
-        if enable_history_on_file and self._history_on_file is not None:
-            from srl.runner.callbacks.history_viewer import HistoryViewer
-
-            self._history_viewer = HistoryViewer()
-            self._history_viewer.load(self._history_on_file.save_dir)
-
-    # ---------------------------------------------
-    # run
-    # ---------------------------------------------
-    def core_play(
+    def base_run_play(
         self,
         trainer_only: bool,
         parameter: Optional[RLParameter],
         memory: Optional[RLMemory],
         trainer: Optional[RLTrainer],
         workers: Optional[List[WorkerRun]],
-    ) -> core_run.RunState:
+        callbacks: List[CallbackType] = [],
+    ) -> base_run.RunState:
         # --- make instance ---
         if parameter is None:
             parameter = self.make_parameter()
@@ -954,25 +989,44 @@ class Runner(CallbackData):
             self.context.seed = self.config.seed
         # --------------
 
+        # --- callback
+        _callbacks = self._callbacks[:]
+        _callbacks.extend(callbacks)
+        _callbacks_dist = cast(
+            List[RunnerCallback], [c for c in _callbacks if issubclass(c.__class__, RunnerCallback)]
+        )
+        for c in _callbacks_dist:
+            c.runner = self
+            c.on_base_run_start(self)
+
         # --- play ----
         if not trainer_only:
             if not self.context.disable_trainer and trainer is None:
                 trainer = self.make_trainer(parameter, memory)
             if workers is None:
                 workers = self.make_workers(parameter, memory)
-            state = core_run.play(
+            state = base_run.play(
                 self.context,
                 self.make_env(),
                 parameter,
                 memory,
                 workers,
                 trainer,
-                self,
+                cast(List[RunCallback], [c for c in _callbacks if issubclass(c.__class__, RunCallback)]),
             )
         else:
             if trainer is None:
                 trainer = self.make_trainer(parameter, memory)
-            state = core_run.play_trainer_only(self.context, trainer, self)
+            state = base_run.play_trainer_only(
+                self.context,
+                trainer,
+                cast(List[TrainerCallback], [c for c in _callbacks if issubclass(c.__class__, TrainerCallback)]),
+            )
         # ----------------
+
+        # --- callback
+        for c in _callbacks_dist:
+            c.runner = None
+            c.on_base_run_end(self)
 
         return state

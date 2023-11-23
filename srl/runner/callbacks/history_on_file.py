@@ -1,3 +1,4 @@
+import glob
 import io
 import json
 import logging
@@ -9,8 +10,12 @@ from typing import Optional
 
 import numpy as np
 
-from srl.runner.callback import Callback, TrainerCallback
+from srl.base.run.callback import RunCallback, TrainerCallback
+from srl.base.run.context import RunContext
+from srl.base.run.core import RunState
+from srl.runner.callback import RunnerCallback
 from srl.runner.callbacks.evaluate import Evaluate
+from srl.runner.callbacks.history_viewer import HistoryViewer
 from srl.runner.runner import Runner
 from srl.utils.common import summarize_info_from_dictlist
 from srl.utils.serialize import JsonNumpyEncoder
@@ -19,10 +24,9 @@ logger = logging.getLogger(__name__)
 
 """
 save_dir/
-   ├ log/
-   │ ├ actorX.txt
-   │ └ trainer.txt
-   │
+   ├ actorX.txt
+   ├ trainer.txt
+   ├ system.txt
    ├ env_config.json
    ├ rl_config.json
    ├ context.json
@@ -30,32 +34,63 @@ save_dir/
 """
 
 
+def _file_get_last_data(file_path) -> Optional[dict]:
+    if not os.path.isfile(file_path):
+        return None
+    with open(file_path, "rb") as f:
+        cur = f.seek(-2, os.SEEK_END)
+        while True:
+            # --- 改行前まで進める
+            while True:
+                f.seek(cur, os.SEEK_SET)
+                if f.read(1) == b"\n":
+                    break
+                cur -= 1
+                if cur < 0:
+                    break
+            if cur < 0:
+                break
+
+            # --- data load
+            line = f.readline().decode().strip()
+            if line == "":
+                continue
+            try:
+                return json.loads(line)
+            except json.JSONDecodeError as e:
+                logger.warning(f"JSONDecodeError {e.args[0]}, '{line.strip()}'")
+
+    return None
+
+
 @dataclass
-class HistoryOnFile(Callback, TrainerCallback, Evaluate):
+class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     save_dir: str = "history"
     interval: int = 1  # s
+    add_history: bool = False
+    write_system: bool = False
 
     def __post_init__(self):
-        self.fp_dict: dict[str, Optional[io.TextIOWrapper]] = {}
+        self._fp_dict: dict[str, Optional[io.TextIOWrapper]] = {}
 
     def __del__(self):
         self.close()
 
     def close(self):
-        for k, v in self.fp_dict.items():
+        for k, v in self._fp_dict.items():
             if v is not None:
-                self.fp_dict[k] = None
+                self._fp_dict[k] = None
                 v.close()
 
     def _write_log(self, fp, d):
         fp.write(json.dumps(d, cls=JsonNumpyEncoder) + "\n")
         fp.flush()
 
-    def _init(self, runner: Runner):
-        self.history_dir = os.path.join(self.save_dir, "history")
-        if not os.path.isdir(self.history_dir):
-            os.makedirs(self.history_dir, exist_ok=True)
-            logger.info(f"makedirs: {self.history_dir}")
+    def on_runner_start(self, runner: Runner) -> None:
+        # --- make dir
+        if not os.path.isdir(self.save_dir):
+            os.makedirs(self.save_dir, exist_ok=True)
+            logger.info(f"makedirs: {self.save_dir}")
 
         # --- ver
         path_ver = os.path.join(self.save_dir, "version.txt")
@@ -65,6 +100,7 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
             with open(path_ver, "w", encoding="utf-8") as f:
                 f.write(srl.__version__)
 
+        # --- config
         for fn, dat in [
             ["env_config.json", runner.context.env_config.to_dict()],
             ["rl_config.json", runner.context.rl_config.to_dict()],
@@ -75,6 +111,48 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
             if not os.path.isfile(path):
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump(dat, f, indent=2)
+
+        # --- 前回の終わり状況を読む
+        self.start_time = 0
+        self.start_episode_count = 0
+        self.start_train_count = 0
+        self.start_sync_actor = 0
+        self.start_sync_trainer = 0
+        if self.add_history:
+            t_data = _file_get_last_data(os.path.join(self.save_dir, "trainer.txt"))
+            if t_data is not None:
+                self.start_time = t_data.get("time", 0)
+                self.start_train_count = t_data.get("train", 0)
+                self.start_sync_trainer = t_data.get("sync", 0)
+            a_data = _file_get_last_data(os.path.join(self.save_dir, "actor0.txt"))
+            if a_data is not None:
+                if self.start_time < a_data.get("time", 0):
+                    self.start_time = a_data.get("time", 0)
+                if self.start_train_count < a_data.get("train", 0):
+                    self.start_train_count = a_data.get("train", 0)
+                self.start_episode_count = a_data.get("episode", 0)
+                self.start_sync_actor = a_data.get("sync", 0)
+        else:
+            # 前回の結果を削除
+            t_path = os.path.join(self.save_dir, "trainer.txt")
+            if os.path.isfile(t_path):
+                logger.info(f"remove file: {t_path}")
+                os.remove(t_path)
+            for path in glob.glob(os.path.join(self.save_dir, "actor*.txt")):
+                logger.info(f"remove file: {path}")
+                os.remove(path)
+            s_path = os.path.join(self.save_dir, "system.txt")
+            if os.path.isfile(s_path):
+                logger.info(f"remove file: {s_path}")
+                os.remove(s_path)
+
+    def on_runner_end(self, runner: Runner) -> None:
+        runner.history_viewer = HistoryViewer()
+        runner.history_viewer.load(self.save_dir)
+
+        # 2回目以降は引き継ぐ
+        if runner._history_on_file_kwargs is not None:
+            runner._history_on_file_kwargs["add_history"] = True
 
     def _add_info(self, info, prefix, dict_):
         if dict_ is None:
@@ -87,99 +165,25 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
                 info[k].append(v)
 
     # ---------------------------
-    # actor
+    # system
     # ---------------------------
-    def on_episodes_begin(self, runner: Runner):
-        self._init(runner)
+    def _write_system(self):
+        if not self._write_system:
+            return
+        if self.runner is None:
+            return
+        if not self.runner.config.enable_stats:
+            return
+        if self._fp_dict.get("system", None) is None:
+            return
 
-        self.actor_id = runner.context.actor_id
-
-        path = os.path.join(self.history_dir, f"actor{self.actor_id}.txt")
-        self.fp_dict["actor"] = open(path, "w", encoding="utf-8")
-
-        self.t0 = time.time()
-        self.interval_t0 = self.t0
-        self.last_episode_result = {}
-        self.setup_eval_runner(runner)
-
-    def on_episodes_end(self, runner: Runner):
-        self._write_actor_log(runner)
-        self.close()
-
-    def on_episode_begin(self, runner: Runner):
-        self.episode_infos = {}
-        self.t0_episode = time.time()
-        self.step_count = 0
-
-        if runner.state.env is not None:
-            self._add_info(self.episode_infos, "env", runner.state.env.info)
-
-    def on_step_end(self, runner: Runner):
-        self.step_count += 1
-
-        if runner.state.env is not None:
-            self._add_info(self.episode_infos, "env", runner.state.env.info)
-        if runner.state.trainer is not None:
-            self._add_info(self.episode_infos, "trainer", runner.state.trainer.train_info)
-        [self._add_info(self.episode_infos, f"worker{i}", w.info) for i, w in enumerate(runner.state.workers)]
-
-        _time = time.time()
-        if _time - self.interval_t0 > self.interval:
-            self.interval_t0 = _time
-            self._write_actor_log(runner)
-
-    def on_episode_end(self, runner: Runner):
         d = {
-            "episode": runner.state.episode_count,
-            "episode_time": time.time() - self.t0_episode,
-            "episode_step": self.step_count,
+            "name": "system",
+            "time": time.time() - self.t0 + self.start_time,
         }
-        if runner.state.env is not None:
-            for i, r in enumerate(runner.state.env.episode_rewards):
-                d[f"reward{i}"] = r
-
-        d.update(summarize_info_from_dictlist(self.episode_infos))
-
-        self.last_episode_result = d
-
-    def _write_actor_log(self, runner: Runner):
-        if self.fp_dict["actor"] is None:
-            return
-        if self.last_episode_result is None:
-            return
-
-        d = self.last_episode_result
-        _time = time.time()
-        d["name"] = f"actor{runner.context.actor_id}"
-        d["time"] = _time - self.t0
-        d["sync"] = runner.state.sync_actor
-        trainer = runner.state.trainer
-        if trainer is not None:
-            d["train"] = trainer.get_train_count()
-            memory = runner.state.memory
-            d["memory"] = 0 if memory is None else memory.length()
-            if runner.state.trainer is not None:
-                for k, v in runner.state.trainer.train_info.items():
-                    d[f"trainer_{k}"] = v
-
-        if self.enable_eval:
-            eval_rewards = self.run_eval(runner.state.parameter)
-            for i, r in enumerate(eval_rewards):
-                d[f"eval_reward{i}"] = r
-
-        d.update(self._read_stats(runner))
-
-        self._write_log(self.fp_dict["actor"], d)
-        self.last_episode_result = None
-
-    def _read_stats(self, runner: Runner):
-        if not runner.config.enable_stats:
-            return {}
-
-        d = {}
 
         try:
-            memory_percent, cpu_percent = runner.read_psutil()
+            memory_percent, cpu_percent = self.runner.read_psutil()
             if memory_percent != np.NaN:
                 d["system_memory"] = memory_percent
                 d["cpu"] = cpu_percent
@@ -187,7 +191,7 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
             logger.debug(traceback.format_exc())
 
         try:
-            gpus = runner.read_nvml()
+            gpus = self.runner.read_nvml()
             # device_id, rate.gpu, rate.memory
             for device_id, gpu, memory in gpus:
                 d[f"gpu{device_id}"] = gpu
@@ -195,67 +199,172 @@ class HistoryOnFile(Callback, TrainerCallback, Evaluate):
         except Exception:
             logger.debug(traceback.format_exc())
 
-        return d
+        self._write_log(self._fp_dict["system"], d)
+
+    # ---------------------------
+    # actor
+    # ---------------------------
+    def on_episodes_begin(self, context: RunContext, state: RunState):
+        if self.add_history:
+            mode = "a"
+        else:
+            mode = "w"
+        if self._fp_dict.get("actor", None) is None:
+            fn = f"actor{context.actor_id}.txt"
+            self._fp_dict["actor"] = open(os.path.join(self.save_dir, fn), mode, encoding="utf-8")
+        if self.write_system and self._fp_dict.get("system", None) is None:
+            self._fp_dict["system"] = open(os.path.join(self.save_dir, "system.txt"), mode, encoding="utf-8")
+
+        # 分散の場合はactor_id=0のみevalをする
+        if context.distributed:
+            self.enable_eval = self.enable_eval and (context.actor_id == 0)
+        if self.runner is not None:
+            self.setup_eval_runner(self.runner)
+
+        self.t0 = time.time()
+        self.interval_t0 = self.t0
+        self.last_episode_result = {}
+
+    def on_episodes_end(self, context: RunContext, state: RunState):
+        self._write_actor_log(context, state)
+        self._write_system()
+        self.close()
+
+    def on_episode_begin(self, context: RunContext, state: RunState):
+        self.episode_infos = {}
+        self.t0_episode = time.time()
+        self.step_count = 0
+
+        if state.env is not None:
+            self._add_info(self.episode_infos, "env", state.env.info)
+
+    def on_step_end(self, context: RunContext, state: RunState):
+        self.step_count += 1
+
+        if state.env is not None:
+            self._add_info(self.episode_infos, "env", state.env.info)
+        if state.trainer is not None:
+            self._add_info(self.episode_infos, "trainer", state.trainer.train_info)
+        [self._add_info(self.episode_infos, f"worker{i}", w.info) for i, w in enumerate(state.workers)]
+
+        _time = time.time()
+        if _time - self.interval_t0 > self.interval:
+            self.interval_t0 = _time
+            self._write_actor_log(context, state)
+            self._write_system()
+
+    def on_episode_end(self, context: RunContext, state: RunState):
+        d = {
+            "episode": state.episode_count + self.start_episode_count,
+            "episode_time": time.time() - self.t0_episode,
+            "episode_step": self.step_count,
+        }
+        if state.env is not None:
+            for i, r in enumerate(state.env.episode_rewards):
+                d[f"reward{i}"] = r
+
+        d.update(summarize_info_from_dictlist(self.episode_infos))
+
+        self.last_episode_result = d
+
+    def _write_actor_log(self, context: RunContext, state: RunState):
+        if self._fp_dict.get("actor", None) is None:
+            return
+        if self.last_episode_result is None:
+            return
+
+        d = self.last_episode_result
+        d["name"] = f"actor{context.actor_id}"
+        d["time"] = time.time() - self.t0 + self.start_time
+        d["sync"] = state.sync_actor + self.start_sync_actor
+        trainer = state.trainer
+        if trainer is not None:
+            d["train"] = trainer.get_train_count()
+            memory = state.memory
+            d["memory"] = 0 if memory is None else memory.length()
+            if state.trainer is not None:
+                for k, v in state.trainer.train_info.items():
+                    d[f"trainer_{k}"] = v
+
+        if self.enable_eval:
+            eval_rewards = self.run_eval(state.parameter)
+            for i, r in enumerate(eval_rewards):
+                d[f"eval_reward{i}"] = r
+
+        self._write_log(self._fp_dict["actor"], d)
+        self.last_episode_result = None
 
     # ---------------------------
     # trainer
     # ---------------------------
-    def on_trainer_start(self, runner: Runner):
-        self._init(runner)
-        self.fp_dict["trainer"] = open(os.path.join(self.history_dir, "trainer.txt"), "w", encoding="utf-8")
+    def on_trainer_start(self, context: RunContext, state: RunState):
+        if self.add_history:
+            mode = "a"
+        else:
+            mode = "w"
+        if self._fp_dict.get("trainer", None) is None:
+            self._fp_dict["trainer"] = open(os.path.join(self.save_dir, "trainer.txt"), mode, encoding="utf-8")
+        if self.write_system and self._fp_dict.get("system", None) is None:
+            self._fp_dict["system"] = open(os.path.join(self.save_dir, "system.txt"), mode, encoding="utf-8")
 
         self.t0 = time.time()
         self.t0_train = time.time()
         self.t0_train_count = 0
         self.interval_t0 = time.time()
         self.train_infos = {}
-        self.setup_eval_runner(runner)
-        
-    def on_trainer_end(self, runner: Runner):
-        self._write_trainer_log(runner)
+
+        # eval, 分散の場合はevalをしない
+        if context.distributed:
+            self.enable_eval = False
+        if self.runner is not None:
+            self.setup_eval_runner(self.runner)
+
+    def on_trainer_end(self, context: RunContext, state: RunState):
+        self._write_trainer_log(context, state)
+        self._write_system()
         self.close()
 
-    def on_trainer_loop(self, runner: Runner):
-        assert runner.state.trainer is not None
-        self._add_info(self.train_infos, "trainer", runner.state.trainer.train_info)
+    def on_trainer_loop(self, context: RunContext, state: RunState):
+        assert state.trainer is not None
+        self._add_info(self.train_infos, "trainer", state.trainer.train_info)
 
         _time = time.time()
         if _time - self.interval_t0 > self.interval:
-            self._write_trainer_log(runner)
+            self._write_trainer_log(context, state)
+            self._write_system()
             self.interval_t0 = _time
 
-    def _write_trainer_log(self, runner: Runner):
-        if self.fp_dict["trainer"] is None:
+    def _write_trainer_log(self, context: RunContext, state: RunState):
+        if self._fp_dict.get("trainer", None) is None:
             return
         if self.train_infos == {}:
             return
-        assert runner.state.trainer is not None
+        assert state.trainer is not None
 
-        train_count = runner.state.trainer.get_train_count()
+        train_count = state.trainer.get_train_count()
         if train_count - self.t0_train_count > 0:
             train_time = (time.time() - self.t0_train) / (train_count - self.t0_train_count)
         else:
             train_time = np.inf
         d = {
             "name": "trainer",
-            "time": time.time() - self.t0,
-            "train": train_count,
+            "time": time.time() - self.t0 + self.start_time,
+            "train": train_count + self.start_train_count,
             "train_time": train_time,
-            "sync": runner.state.sync_trainer,
+            "sync": state.sync_trainer + self.start_sync_trainer,
         }
-        memory = runner.state.memory
+        memory = state.memory
         d["memory"] = 0 if memory is None else memory.length()
 
         if self.enable_eval:
-            eval_rewards = self.run_eval(runner.state.parameter)
+            eval_rewards = self.run_eval(state.parameter)
             for i, r in enumerate(eval_rewards):
                 d[f"eval_reward{i}"] = r
 
         d.update(summarize_info_from_dictlist(self.train_infos))
-        # d.update(self._read_stats(runner))
 
-        self._write_log(self.fp_dict["trainer"], d)
+        self._write_log(self._fp_dict["trainer"], d)
 
         self.t0_train = time.time()
-        self.t0_train_count = runner.state.trainer.get_train_count()
+        self.t0_train_count = state.trainer.get_train_count()
         self.train_infos = {}

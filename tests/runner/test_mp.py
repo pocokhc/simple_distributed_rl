@@ -9,18 +9,20 @@ import pytest_mock
 
 import srl
 from srl.algorithms import ql_agent57
-from srl.runner.callback import Callback, TrainerCallback
+from srl.base.run.callback import RunCallback, TrainerCallback
+from srl.base.run.context import RunContext
+from srl.base.run.core import RunState
 from srl.runner.core_mp import _Board, _run_actor, _run_trainer
 from srl.runner.runner import Runner
 from srl.utils import common
 
 
-class _AssertTrainCallbacks(Callback, TrainerCallback):
-    def on_episodes_end(self, runner: srl.Runner) -> None:
-        assert runner.state.sync_actor > 1
+class _AssertTrainCallbacks(RunCallback, TrainerCallback):
+    def on_episodes_end(self, context: RunContext, state: RunState) -> None:
+        assert state.sync_actor > 1
 
-    def on_trainer_end(self, runner: srl.Runner) -> None:
-        assert runner.state.sync_trainer > 1
+    def on_trainer_end(self, context: RunContext, state: RunState) -> None:
+        assert state.sync_trainer > 1
 
 
 @pytest.mark.parametrize("interrupt_stop", [False, True])
@@ -34,28 +36,30 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     train_end_signal = cast(ctypes.c_bool, mp.Value(ctypes.c_bool, False))
 
     # --- create task
-    c = mocker.Mock(spec=Callback)
+    c = mocker.Mock(spec=RunCallback)
     runner = srl.Runner("Grid", ql_agent57.Config())
     if not interrupt_stop:
         runner.context.max_episodes = 2
     runner.context.training = True
     runner.context.distributed = True
     runner.config.actor_parameter_sync_interval = 0
-    runner.context.callbacks = [c]
+
+    task_config = runner.create_task_config()
+    task_config.callbacks.append(c)
 
     if interrupt_stop:
 
-        class _c2(Callback):
+        class _c2(RunCallback):
             def __init__(self, train_end_signal: ctypes.c_bool):
                 self.train_end_signal = train_end_signal
 
-            def on_episode_end(self, runner: Runner) -> None:
+            def on_episode_end(self, context: RunContext, state: RunState) -> None:
                 self.train_end_signal.value = True
 
-        runner.context.callbacks.append(_c2(train_end_signal))
+        task_config.callbacks.append(_c2(train_end_signal))
 
     # --- run
-    _run_actor(runner.create_task_config(), remote_queue, remote_board, 0, train_end_signal)
+    _run_actor(task_config, remote_queue, remote_board, 0, train_end_signal)
 
     assert train_end_signal.value
     assert c.on_episodes_begin.call_count > 0
@@ -89,7 +93,9 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
     runner.context.distributed = True
     runner.config.trainer_parameter_send_interval = 0
     runner.config.dist_enable_prepare_sample_batch = enable_prepare_sample_batch
-    runner.context.callbacks = [c]
+
+    task_config = runner.create_task_config()
+    task_config.callbacks.append(c)
 
     if interrupt_stop:
 
@@ -97,12 +103,12 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
             def __init__(self, train_end_signal: ctypes.c_bool):
                 self.train_end_signal = train_end_signal
 
-            def on_trainer_loop(self, runner: Runner) -> None:
-                assert runner.state.trainer is not None
-                if runner.state.trainer.get_train_count() > 10:
+            def on_trainer_loop(self, context: RunContext, state: RunState) -> None:
+                assert state.trainer is not None
+                if state.trainer.get_train_count() > 10:
                     self.train_end_signal.value = True
 
-        runner.context.callbacks.append(_c2(train_end_signal))
+        task_config.callbacks.append(_c2(train_end_signal))
 
     # --- add queue
     for _ in range(100):
@@ -124,7 +130,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
 
     # --- run
     _run_trainer(
-        runner.create_task_config(),
+        task_config,
         runner.make_parameter(),
         runner.make_memory(),
         remote_queue,

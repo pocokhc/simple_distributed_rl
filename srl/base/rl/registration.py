@@ -14,15 +14,18 @@ _registry = {}
 _registry_worker = {}
 
 
-def _check_rl_config(rl_config: RLConfig) -> None:
+def _check_rl_config(rl_config: RLConfig, env: Optional[EnvRun]) -> None:
     name = rl_config.getName()
     assert name in _registry, f"{name} is not registered."
-    assert rl_config.is_setup, "Run 'rl_config.setup(env)' first"
+    if env is None:
+        assert rl_config.is_setup, "Run 'rl_config.reset(env)' first"
+    else:
+        rl_config.setup(env)
     rl_config.assert_params()
 
 
-def make_memory(rl_config: RLConfig, is_load: bool = True) -> RLMemory:
-    _check_rl_config(rl_config)
+def make_memory(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: bool = True) -> RLMemory:
+    _check_rl_config(rl_config, env)
 
     entry_point = _registry[rl_config.getName()][0]
     memory: RLMemory = load_module(entry_point)(rl_config)
@@ -34,13 +37,13 @@ def make_memory(rl_config: RLConfig, is_load: bool = True) -> RLMemory:
     return memory
 
 
-def make_memory_class(rl_config: RLConfig) -> Type[RLMemory]:
-    _check_rl_config(rl_config)
+def make_memory_class(rl_config: RLConfig, env: Optional[EnvRun] = None) -> Type[RLMemory]:
+    _check_rl_config(rl_config, env)
     return load_module(_registry[rl_config.getName()][0])
 
 
-def make_parameter(rl_config: RLConfig, is_load: bool = True) -> RLParameter:
-    _check_rl_config(rl_config)
+def make_parameter(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: bool = True) -> RLParameter:
+    _check_rl_config(rl_config, env)
 
     entry_point = _registry[rl_config.getName()][1]
     parameter: RLParameter = load_module(entry_point)(rl_config)
@@ -52,8 +55,10 @@ def make_parameter(rl_config: RLConfig, is_load: bool = True) -> RLParameter:
     return parameter
 
 
-def make_trainer(rl_config: RLConfig, parameter: RLParameter, memory: IRLMemoryTrainer) -> RLTrainer:
-    _check_rl_config(rl_config)
+def make_trainer(
+    rl_config: RLConfig, parameter: RLParameter, memory: IRLMemoryTrainer, env: Optional[EnvRun] = None
+) -> RLTrainer:
+    _check_rl_config(rl_config, env)
     entry_point = _registry[rl_config.getName()][2]
     return load_module(entry_point)(rl_config, parameter, memory)
 
@@ -67,7 +72,7 @@ def make_worker(
     actor_id: int = 0,
 ) -> WorkerRun:
     rl_config.setup(env, enable_log=True)
-    _check_rl_config(rl_config)
+    _check_rl_config(rl_config, env)
 
     entry_point = _registry[rl_config.getName()][3]
     worker: RLWorker = load_module(entry_point)(rl_config, parameter, memory)

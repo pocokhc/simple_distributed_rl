@@ -1,6 +1,4 @@
-import os
 import pickle
-import shutil
 from pprint import pprint
 
 import pytest
@@ -98,14 +96,21 @@ def test_on_memory_train_only_plot():
 def test_on_file_train(tmp_path):
     runner = srl.Runner("OX", ql.Config())
 
-    runner.set_history_on_file(tmp_path, enable_eval=True)
-    runner.train(timeout=5)
-
+    runner.set_history_on_file(tmp_path, enable_eval=True, write_system=True)
+    runner.train(timeout=1.2)
     history = runner.get_history()
-    pprint(history.logs[-1])
-    assert len(history.logs) > 0
-    for i, h in enumerate(history.logs):
-        assert h["name"] == "actor0"
+    pprint(history.logs)
+    assert len(history.logs) == 2 * 2
+
+    # add history
+    runner.train(timeout=1.2)
+    history = runner.get_history()
+    assert len(history.logs) == 2 * 4
+
+    # actor
+    actor_log = [h for h in history.logs if h["name"] == "actor0"]
+    assert len(actor_log) == 4
+    for h in actor_log:
         assert h["time"] > 0
         assert h["episode_time"] >= 0
         assert h["reward0"] > -2
@@ -115,6 +120,12 @@ def test_on_file_train(tmp_path):
         assert h["memory"] >= 0
         assert h["episode"] > 0
 
+    # system
+    system_log = [h for h in history.logs if h["name"] == "system"]
+    assert len(system_log) == 4
+    for h in system_log:
+        assert h["time"] > 0
+
 
 def test_on_file_train_plot(tmp_path):
     pytest.importorskip("pandas")
@@ -123,7 +134,7 @@ def test_on_file_train_plot(tmp_path):
     runner = srl.Runner("OX", ql.Config())
 
     runner.set_history_on_file(tmp_path, enable_eval=True)
-    runner.train(timeout=5)
+    runner.train(timeout=1.5)
     history = runner.get_history()
 
     df = history.get_df()
@@ -139,11 +150,11 @@ def test_on_file_train_only(tmp_path):
     runner.rollout(max_memory=100)
 
     runner.set_history_on_file(tmp_path, enable_eval=True)
-    runner.train_only(timeout=3)
+    runner.train_only(timeout=1.2)
 
     history = runner.get_history()
     pprint(history.logs[-1])
-    assert len(history.logs) > 1
+    assert len(history.logs) == 2
     assert history.logs[0]["name"] == "trainer"
     assert history.logs[0]["time"] > 0
     assert history.logs[-1]["train"] > 0

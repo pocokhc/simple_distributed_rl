@@ -1,14 +1,14 @@
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Union, cast
 
 from srl.base.define import RenderModes
 from srl.base.rl.base import RLMemory, RLParameter, RLTrainer
 from srl.base.run.context import RLWorkerType, RunNameTypes, StrWorkerType
-from srl.runner.callback import CallbackType
-from srl.runner.runner import Runner
+from srl.runner.runner import CallbackType, Runner
 
 if TYPE_CHECKING:
+    from srl.runner.distribution.callback import DistributionCallback
     from srl.runner.distribution.connectors.redis_ import RedisParameters
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ class RunnerFacade(Runner):
         self,
         # --- stop config
         max_episodes: int = -1,
-        timeout: int = -1,
+        timeout: float = -1,
         max_steps: int = -1,
         max_train_count: int = -1,
         max_memory: int = -1,
@@ -38,7 +38,7 @@ class RunnerFacade(Runner):
         enable_eval: bool = False,
         eval_env_sharing: bool = False,
         eval_episode: int = 1,
-        eval_timeout: int = -1,
+        eval_timeout: float = -1,
         eval_max_steps: int = -1,
         eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
@@ -52,7 +52,7 @@ class RunnerFacade(Runner):
 
         Args:
             max_episodes (int, optional): 終了するまでのエピソード数. Defaults to -1.
-            timeout (int, optional): 終了するまでの時間（秒）. Defaults to -1.
+            timeout (float, optional): 終了するまでの時間（秒）. Defaults to -1.
             max_steps (int, optional): 終了するまでの総ステップ. Defaults to -1.
             max_train_count (int, optional): 終了するまでの学習回数. Defaults to -1.
             max_memory (int, optional): 終了するまでのメモリ数. Defaults to -1.
@@ -73,6 +73,7 @@ class RunnerFacade(Runner):
             eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
             callbacks (List[CallbackType], optional): callbacks. Defaults to [].
         """
+        callbacks = callbacks[:]
 
         # --- context
         self.context.run_name = RunNameTypes.main
@@ -89,13 +90,12 @@ class RunnerFacade(Runner):
         self.context.distributed = False
         self.context.training = True
         self.context.render_mode = RenderModes.none
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
         # --- progress ---
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            self.context.callbacks.append(
+            callbacks.append(
                 PrintProgress(
                     start_time=progress_start_time,
                     interval_limit=progress_interval_limit,
@@ -116,31 +116,28 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint=True,
             enable_checkpoint_load=True,
             enable_history_on_memory=True,
             enable_history_on_file=True,
+            callbacks=callbacks,
         )
-
-        self.core_play(
+        state = self.base_run_play(
             trainer_only=False,
             parameter=parameter,
             memory=memory,
             trainer=trainer,
             workers=None,
         )
-
-        self._add_core_play_after(
-            enable_history_on_memory=True,
-            enable_history_on_file=True,
-        )
+        self._base_run_play_after()
+        return state
 
     def rollout(
         self,
         # --- stop config
         max_episodes: int = -1,
-        timeout: int = -1,
+        timeout: float = -1,
         max_steps: int = -1,
         max_memory: int = -1,
         # --- play config
@@ -159,6 +156,7 @@ class RunnerFacade(Runner):
         memory: Optional[RLMemory] = None,
     ):
         """collect_memory"""
+        callbacks = callbacks[:]
 
         # --- set context
         self.context.run_name = RunNameTypes.main
@@ -175,13 +173,12 @@ class RunnerFacade(Runner):
         self.context.distributed = False
         self.context.training = True
         self.context.render_mode = RenderModes.none
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
         # --- progress ---
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            self.context.callbacks.append(
+            callbacks.append(
                 PrintProgress(
                     start_time=progress_start_time,
                     interval_limit=progress_interval_limit,
@@ -196,30 +193,27 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=True,
             enable_history_on_memory=True,
             enable_history_on_file=True,
+            callbacks=callbacks,
         )
-
-        self.core_play(
+        state = self.base_run_play(
             trainer_only=False,
             parameter=parameter,
             memory=memory,
             trainer=None,
             workers=None,
         )
-
-        self._add_core_play_after(
-            enable_history_on_memory=True,
-            enable_history_on_file=True,
-        )
+        self._base_run_play_after()
+        return state
 
     def train_only(
         self,
         # --- stop config
-        timeout: int = -1,
+        timeout: float = -1,
         max_train_count: int = -1,
         # --- progress
         enable_progress: bool = True,
@@ -229,7 +223,7 @@ class RunnerFacade(Runner):
         # --- eval
         enable_eval: bool = False,
         eval_episode: int = 1,
-        eval_timeout: int = -1,
+        eval_timeout: float = -1,
         eval_max_steps: int = -1,
         eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
@@ -240,6 +234,7 @@ class RunnerFacade(Runner):
         trainer: Optional[RLTrainer] = None,
     ):
         """Trainerが学習するだけでWorkerによるシミュレーションはありません。"""
+        callbacks = callbacks[:]
 
         # --- context
         self.context.run_name = RunNameTypes.main
@@ -256,13 +251,12 @@ class RunnerFacade(Runner):
         self.context.distributed = False
         self.context.training = True
         self.context.render_mode = RenderModes.none
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
         # --- progress ---
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            self.context.callbacks.append(
+            callbacks.append(
                 PrintProgress(
                     start_time=progress_start_time,
                     interval_limit=progress_interval_limit,
@@ -280,24 +274,22 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=True,
             enable_history_on_memory=True,
             enable_history_on_file=True,
+            callbacks=callbacks,
         )
-
-        self.core_play(
+        state = self.base_run_play(
             trainer_only=True,
             parameter=parameter,
             memory=memory,
             trainer=trainer,
             workers=None,
         )
-        self._add_core_play_after(
-            enable_history_on_memory=True,
-            enable_history_on_file=True,
-        )
+        self._base_run_play_after()
+        return state
 
     def train_mp(
         self,
@@ -310,7 +302,7 @@ class RunnerFacade(Runner):
         device_actors: Union[str, List[str]] = "AUTO",
         # --- stop config
         max_episodes: int = -1,
-        timeout: int = -1,
+        timeout: float = -1,
         max_steps: int = -1,
         max_train_count: int = -1,
         max_memory: int = -1,
@@ -329,7 +321,7 @@ class RunnerFacade(Runner):
         enable_eval: bool = False,
         eval_env_sharing: bool = False,
         eval_episode: int = 1,
-        eval_timeout: int = -1,
+        eval_timeout: float = -1,
         eval_max_steps: int = -1,
         eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
@@ -337,6 +329,7 @@ class RunnerFacade(Runner):
         callbacks: List[CallbackType] = [],
     ):
         """multiprocessingを使用した分散学習による学習を実施します。"""
+        callbacks = callbacks[:]
 
         self.context.actor_num = actor_num
         self.config.dist_queue_capacity = queue_capacity
@@ -360,12 +353,11 @@ class RunnerFacade(Runner):
         self.context.distributed = True
         self.context.training = True
         self.context.render_mode = RenderModes.none
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            self.context.callbacks.append(
+            callbacks.append(
                 PrintProgress(
                     start_time=progress_start_time,
                     interval_limit=progress_interval_limit,
@@ -385,21 +377,19 @@ class RunnerFacade(Runner):
             )
             logger.info("add callback PrintProgress")
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=True,
             enable_history_on_memory=False,
             enable_history_on_file=True,
+            callbacks=callbacks,
         )
 
         from .core_mp import train
 
         train(self)
 
-        self._add_core_play_after(
-            enable_history_on_memory=False,
-            enable_history_on_file=True,
-        )
+        self._base_run_play_after()
 
     def train_mp_debug(
         self,
@@ -412,7 +402,7 @@ class RunnerFacade(Runner):
         device_actors: Union[str, List[str]] = "AUTO",
         # --- stop config
         max_episodes: int = -1,
-        timeout: int = -1,
+        timeout: float = -1,
         max_steps: int = -1,
         max_train_count: int = -1,
         max_memory: int = -1,
@@ -431,7 +421,7 @@ class RunnerFacade(Runner):
         enable_eval: bool = False,
         eval_env_sharing: bool = False,
         eval_episode: int = 1,
-        eval_timeout: int = -1,
+        eval_timeout: float = -1,
         eval_max_steps: int = -1,
         eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
@@ -446,6 +436,7 @@ class RunnerFacade(Runner):
         Args:
             choice_method(str, optional): 各actorとtrainerの採用方法を指定します. Defaults to 'random'.
         """
+        callbacks = callbacks[:]
 
         self.context.actor_num = actor_num
         self.config.dist_queue_capacity = queue_capacity
@@ -469,13 +460,12 @@ class RunnerFacade(Runner):
         self.context.distributed = True
         self.context.training = True
         self.context.render_mode = RenderModes.none
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
         # --- progress ---
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            self.context.callbacks.append(
+            callbacks.append(
                 PrintProgress(
                     start_time=progress_start_time,
                     interval_limit=progress_interval_limit,
@@ -496,21 +486,19 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=True,
             enable_history_on_memory=False,
             enable_history_on_file=True,
+            callbacks=callbacks,
         )
 
         from .core_mp_debug import train
 
         train(self, choice_method)
 
-        self._add_core_play_after(
-            enable_history_on_memory=False,
-            enable_history_on_file=True,
-        )
+        self._base_run_play_after()
 
     def train_distribution(
         self,
@@ -526,7 +514,7 @@ class RunnerFacade(Runner):
         enable_actor_thread: bool = True,
         # --- stop config
         max_episodes: int = -1,
-        timeout: int = -1,
+        timeout: float = -1,
         max_steps: int = -1,
         max_train_count: int = -1,
         max_memory: int = -1,
@@ -541,13 +529,20 @@ class RunnerFacade(Runner):
         enable_eval: bool = True,
         eval_env_sharing: bool = True,
         eval_episode: int = 1,
-        eval_timeout: int = -1,
+        eval_timeout: float = -1,
         eval_max_steps: int = -1,
         eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         eval_shuffle_player: bool = False,
         # --- other
-        callbacks: List[CallbackType] = [],
+        callbacks: List[Union[CallbackType, "DistributionCallback"]] = [],
     ):
+        from .distribution.callback import DistributionCallback
+
+        callbacks_run = cast(List[CallbackType], [c for c in callbacks if issubclass(c.__class__, CallbackType)])
+        callbacks_dist = cast(
+            List[DistributionCallback], [c for c in callbacks if issubclass(c.__class__, DistributionCallback)]
+        )
+
         self.context.actor_num = actor_num
         self.config.dist_queue_capacity = queue_capacity
         self.config.trainer_parameter_send_interval = trainer_parameter_send_interval
@@ -571,13 +566,12 @@ class RunnerFacade(Runner):
         self.context.distributed = True
         self.context.training = True
         self.context.render_mode = RenderModes.none
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
         # --- remote progress ---
         if True:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            self.context.callbacks.append(
+            callbacks_run.append(
                 PrintProgress(
                     progress_worker=progress_worker,
                     progress_max_actor=progress_max_actor,
@@ -587,22 +581,20 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
+            callbacks=callbacks_run,
         )
 
-        from .distribution.callback import DistributionCallback
         from .distribution.client import run
-
-        _callbacks_dist: List[DistributionCallback] = []
 
         if enable_progress:
             from .distribution.callbacks.print_progress import PrintProgress as PrintProgressDist
 
-            _callbacks_dist.append(
+            callbacks_dist.append(
                 PrintProgressDist(
                     interval=progress_interval,
                     enable_eval=enable_eval,
@@ -616,36 +608,21 @@ class RunnerFacade(Runner):
             )
 
         # checkpointは別途定義
-        if self._checkpoint is not None:
+        if self._checkpoint_kwargs is not None:
             from .distribution.callbacks.checkpoint import Checkpoint
 
-            _callbacks_dist.append(
-                Checkpoint(
-                    save_dir=self._checkpoint.save_dir,
-                    interval=self._checkpoint.interval,
-                    enable_eval=self._checkpoint.enable_eval,
-                    eval_env_sharing=self._checkpoint.eval_env_sharing,
-                    eval_episode=self._checkpoint.eval_episode,
-                    eval_timeout=self._checkpoint.eval_timeout,
-                    eval_max_steps=self._checkpoint.eval_max_steps,
-                    eval_players=self._checkpoint.eval_players,
-                    eval_shuffle_player=self._checkpoint.eval_shuffle_player,
-                )
-            )
-            logger.info(f"add callback Checkpoint: {self._checkpoint.save_dir}")
+            callbacks_dist.append(Checkpoint(**self._checkpoint_kwargs))
+            logger.info(f"add callback Checkpoint: {self._checkpoint_kwargs['save_dir']}")
 
         run(
             self,
             redis_parameter,
             wait=True,
             parameter_sync_interval=parameter_sync_interval,
-            callbacks=_callbacks_dist,
+            callbacks=callbacks_dist,
         )
 
-        self._add_core_play_after(
-            enable_history_on_memory=False,
-            enable_history_on_file=False,
-        )
+        self._base_run_play_after()
 
     def train_distribution_start(
         self,
@@ -660,7 +637,7 @@ class RunnerFacade(Runner):
         enable_actor_thread: bool = True,
         # --- stop config
         max_episodes: int = -1,
-        timeout: int = -1,
+        timeout: float = -1,
         max_steps: int = -1,
         max_train_count: int = -1,
         max_memory: int = -1,
@@ -672,6 +649,8 @@ class RunnerFacade(Runner):
         # --- other
         callbacks: List[CallbackType] = [],
     ):
+        callbacks = callbacks[:]
+
         self.context.actor_num = actor_num
         self.config.dist_queue_capacity = queue_capacity
         self.config.trainer_parameter_send_interval = trainer_parameter_send_interval
@@ -695,13 +674,12 @@ class RunnerFacade(Runner):
         self.context.distributed = True
         self.context.training = True
         self.context.render_mode = RenderModes.none
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
         # --- remote progress ---
         if True:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            self.context.callbacks.append(
+            callbacks.append(
                 PrintProgress(
                     progress_worker=progress_worker,
                     progress_max_actor=progress_max_actor,
@@ -711,27 +689,25 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
+            callbacks=callbacks,
         )
 
         from .distribution.client import run
 
         run(self, redis_parameter, wait=False)
 
-        self._add_core_play_after(
-            enable_history_on_memory=False,
-            enable_history_on_file=False,
-        )
+        self._base_run_play_after()
 
     def evaluate(
         self,
         # --- stop config
         max_episodes: int = 10,
-        timeout: int = -1,
+        timeout: float = -1,
         max_steps: int = -1,
         # --- play config
         shuffle_player: bool = True,
@@ -763,6 +739,7 @@ class RunnerFacade(Runner):
         Returns:
             Union[List[float], List[List[float]]]: プレイヤー数が1人なら Lost[float]、複数なら List[List[float]]] を返します。
         """
+        callbacks = callbacks[:]
 
         # --- set context
         self.context.run_name = RunNameTypes.main
@@ -779,13 +756,12 @@ class RunnerFacade(Runner):
         self.context.distributed = False
         self.context.training = False
         self.context.render_mode = RenderModes.none
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
         # --- progress ---
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            self.context.callbacks.append(
+            callbacks.append(
                 PrintProgress(
                     start_time=progress_start_time,
                     interval_limit=progress_interval_limit,
@@ -800,20 +776,23 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
+            callbacks=callbacks,
         )
 
-        state = self.core_play(
+        state = self.base_run_play(
             trainer_only=False,
             parameter=None,
             memory=None,
             trainer=None,
             workers=None,
         )
+
+        self._base_run_play_after()
 
         if self.env_config.player_num == 1:
             return [r[0] for r in state.episode_rewards_list]
@@ -827,11 +806,12 @@ class RunnerFacade(Runner):
         step_stop: bool = False,
         render_skip_step: bool = True,
         # --- stop config
-        timeout: int = -1,
+        timeout: float = -1,
         max_steps: int = -1,
         # --- other
         callbacks: List[CallbackType] = [],
     ):
+        callbacks = callbacks[:]
         mode = RenderModes.terminal
 
         # --- set context
@@ -849,12 +829,11 @@ class RunnerFacade(Runner):
         self.context.distributed = False
         self.context.training = False
         self.context.render_mode = mode
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
 
-        self.context.callbacks.append(
+        callbacks.append(
             Rendering(
                 mode=mode,
                 kwargs=render_kwargs,
@@ -865,20 +844,21 @@ class RunnerFacade(Runner):
         logger.info("enable Rendering")
         # -----------------
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
+            callbacks=callbacks,
         )
-
-        state = self.core_play(
+        state = self.base_run_play(
             trainer_only=False,
             parameter=None,
             memory=None,
             trainer=None,
             workers=None,
         )
+        self._base_run_play_after()
 
         return state.episode_rewards_list[0]
 
@@ -894,7 +874,7 @@ class RunnerFacade(Runner):
         font_name: str = "",
         font_size: int = 12,
         # --- stop config
-        timeout: int = -1,
+        timeout: float = -1,
         max_steps: int = -1,
         # --- progress
         enable_progress: bool = True,
@@ -906,6 +886,7 @@ class RunnerFacade(Runner):
         # --- other
         callbacks: List[CallbackType] = [],
     ):
+        callbacks = callbacks[:]
         mode = RenderModes.window
 
         # --- context
@@ -923,12 +904,11 @@ class RunnerFacade(Runner):
         self.context.distributed = False
         self.context.training = False
         self.context.render_mode = mode
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
         # --- rendering
         from srl.runner.callbacks.rendering import Rendering
 
-        self.context.callbacks.append(
+        callbacks.append(
             Rendering(
                 mode=mode,
                 kwargs=render_kwargs,
@@ -946,7 +926,7 @@ class RunnerFacade(Runner):
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            self.context.callbacks.append(
+            callbacks.append(
                 PrintProgress(
                     start_time=progress_start_time,
                     interval_limit=progress_interval_limit,
@@ -961,20 +941,21 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
+            callbacks=callbacks,
         )
-
-        state = self.core_play(
+        state = self.base_run_play(
             trainer_only=False,
             parameter=None,
             memory=None,
             trainer=None,
             workers=None,
         )
+        self._base_run_play_after()
 
         return state.episode_rewards_list[0]
 
@@ -992,7 +973,7 @@ class RunnerFacade(Runner):
         #
         draw_info: bool = True,
         # --- stop config
-        timeout: int = -1,
+        timeout: float = -1,
         max_steps: int = -1,
         # --- progress
         enable_progress: bool = True,
@@ -1004,6 +985,7 @@ class RunnerFacade(Runner):
         # --- other
         callbacks: List[CallbackType] = [],
     ):
+        callbacks = callbacks[:]
         mode = RenderModes.rgb_array
 
         # --- set context
@@ -1021,7 +1003,6 @@ class RunnerFacade(Runner):
         self.context.distributed = False
         self.context.training = False
         self.context.render_mode = mode
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -1036,7 +1017,7 @@ class RunnerFacade(Runner):
             font_name=font_name,
             font_size=font_size,
         )
-        self.context.callbacks.append(rendering)
+        callbacks.append(rendering)
         logger.info("add callback Rendering")
         # -----------------
 
@@ -1044,7 +1025,7 @@ class RunnerFacade(Runner):
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            self.context.callbacks.append(
+            callbacks.append(
                 PrintProgress(
                     start_time=progress_start_time,
                     interval_limit=progress_interval_limit,
@@ -1059,22 +1040,23 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
+            callbacks=callbacks,
         )
-
-        state = self.core_play(
+        state = self.base_run_play(
             trainer_only=False,
             parameter=None,
             memory=None,
             trainer=None,
             workers=None,
         )
-
         rendering.save_gif(path, render_interval, draw_info)
+
+        self._base_run_play_after()
 
         return state.episode_rewards_list[0]
 
@@ -1092,7 +1074,7 @@ class RunnerFacade(Runner):
         #
         draw_info: bool = True,
         # --- stop config
-        timeout: int = -1,
+        timeout: float = -1,
         max_steps: int = -1,
         # --- progress
         enable_progress: bool = True,
@@ -1104,6 +1086,7 @@ class RunnerFacade(Runner):
         # --- other
         callbacks: List[CallbackType] = [],
     ):
+        callbacks = callbacks[:]
         mode = RenderModes.rgb_array
 
         # --- set context
@@ -1121,7 +1104,6 @@ class RunnerFacade(Runner):
         self.context.distributed = False
         self.context.training = False
         self.context.render_mode = mode
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -1136,7 +1118,7 @@ class RunnerFacade(Runner):
             font_name=font_name,
             font_size=font_size,
         )
-        self.context.callbacks.append(rendering)
+        callbacks.append(rendering)
         logger.info("add callback Rendering")
         # -----------------
 
@@ -1144,7 +1126,7 @@ class RunnerFacade(Runner):
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            self.context.callbacks.append(
+            callbacks.append(
                 PrintProgress(
                     start_time=progress_start_time,
                     interval_limit=progress_interval_limit,
@@ -1159,14 +1141,15 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
+            callbacks=callbacks,
         )
 
-        state = self.core_play(
+        state = self.base_run_play(
             trainer_only=False,
             parameter=None,
             memory=None,
@@ -1176,12 +1159,14 @@ class RunnerFacade(Runner):
 
         rendering.display(render_interval, render_scale, draw_info)
 
+        self._base_run_play_after()
+
         return state.episode_rewards_list[0]
 
     def replay_window(
         self,
         # --- stop config
-        timeout: int = -1,
+        timeout: float = -1,
         max_steps: int = -1,
         # --- progress
         enable_progress: bool = True,
@@ -1194,6 +1179,7 @@ class RunnerFacade(Runner):
         callbacks: List[CallbackType] = [],
         _is_test: bool = False,  # for test
     ):
+        callbacks = callbacks[:]
         mode = RenderModes.rgb_array
 
         # --- set context
@@ -1211,13 +1197,12 @@ class RunnerFacade(Runner):
         self.context.distributed = False
         self.context.training = False
         self.context.render_mode = mode
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
         # --- progress ---
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            self.context.callbacks.append(
+            callbacks.append(
                 PrintProgress(
                     start_time=progress_start_time,
                     interval_limit=progress_interval_limit,
@@ -1232,17 +1217,20 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
         # ----------------
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
+            callbacks=callbacks,
         )
 
         from srl.runner.game_windows.replay_window import RePlayableGame
 
         window = RePlayableGame(self, _is_test)
         window.play()
+
+        self._base_run_play_after()
 
     def play_terminal(
         self,
@@ -1252,14 +1240,14 @@ class RunnerFacade(Runner):
         step_stop: bool = False,
         render_skip_step: bool = True,
         # --- stop config
-        timeout: int = -1,
+        timeout: float = -1,
         max_steps: int = -1,
         # --- other
         callbacks: List[CallbackType] = [],
     ):
-        self.context.players = players
-
+        callbacks = callbacks[:]
         mode = RenderModes.terminal
+        self.context.players = players
 
         # --- set context
         self.context.run_name = RunNameTypes.main
@@ -1276,7 +1264,6 @@ class RunnerFacade(Runner):
         self.context.distributed = False
         self.context.training = False
         self.context.render_mode = mode
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -1287,24 +1274,28 @@ class RunnerFacade(Runner):
             step_stop=step_stop,
             render_skip_step=render_skip_step,
         )
-        self.context.callbacks.append(rendering)
+        callbacks.append(rendering)
         logger.info("add callback Rendering")
         # -----------------
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint_load=False,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
+            callbacks=callbacks,
         )
 
-        state = self.core_play(
+        state = self.base_run_play(
             trainer_only=False,
             parameter=None,
             memory=None,
             trainer=None,
             workers=None,
+            callbacks=callbacks,
         )
+
+        self._base_run_play_after()
 
         return state.episode_rewards_list[0]
 
@@ -1313,12 +1304,13 @@ class RunnerFacade(Runner):
         key_bind: Any = None,
         enable_memory: bool = False,
         # --- stop config
-        timeout: int = -1,
+        timeout: float = -1,
         max_steps: int = -1,
         # other
         callbacks: List[CallbackType] = [],
         _is_test: bool = False,  # for test
     ):
+        callbacks = callbacks[:]
         mode = RenderModes.rgb_array
 
         # --- set context
@@ -1336,13 +1328,13 @@ class RunnerFacade(Runner):
         self.context.distributed = False
         self.context.training = enable_memory
         self.context.render_mode = mode
-        self.context.callbacks = callbacks[:]  # type: ignore , type ok
 
-        self._add_core_play_before(
+        self._base_run_play_before(
             enable_checkpoint_load=False,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
+            callbacks=callbacks,
         )
 
         from srl.utils.common import is_packages_installed
@@ -1360,3 +1352,5 @@ class RunnerFacade(Runner):
             _is_test=_is_test,
         )
         game.play()
+
+        self._base_run_play_after()

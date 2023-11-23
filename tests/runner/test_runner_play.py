@@ -13,19 +13,19 @@ from srl.utils.common import is_available_pygame_video_device
 def test_train():
     runner = srl.Runner("OX", ql.Config())
 
-    runner.train(max_episodes=10)
-    assert runner.state.episode_count == 10
+    state = runner.train(max_episodes=10)
+    assert state.episode_count == 10
 
     t0 = time.time()
     runner.train(timeout=1)
     assert time.time() - t0 >= 1
 
-    runner.train(max_steps=10)
-    assert runner.state.total_step == 10
+    state = runner.train(max_steps=10)
+    assert state.total_step == 10
 
-    runner.train(max_train_count=10)
-    assert runner.state.trainer is not None
-    assert runner.state.trainer.get_train_count() == 10
+    state = runner.train(max_train_count=10)
+    assert state.trainer is not None
+    assert state.trainer.get_train_count() == 10
 
 
 def test_train_multi_runner():

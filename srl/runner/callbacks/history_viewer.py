@@ -46,6 +46,22 @@ logs = [
 """
 
 
+def _load_log_file(path: str) -> List[dict]:
+    if not os.path.isfile(path):
+        return []
+    import json
+
+    data = []
+    with open(path, "r") as f:
+        for line in f:
+            try:
+                d = json.loads(line)
+                data.append(d)
+            except json.JSONDecodeError as e:
+                logger.warning(f"JSONDecodeError {e.args[0]}, '{line.strip()}'")
+    return data
+
+
 class HistoryViewer:
     def __init__(self, save_dir: str = "") -> None:
         self.df = None
@@ -92,29 +108,17 @@ class HistoryViewer:
         # --- load file
         self.logs = []
         for i in range(self.context["actor_num"]):
-            lines = self._load_log_file(os.path.join(save_dir, "history", f"actor{i}.txt"))
+            lines = _load_log_file(os.path.join(save_dir, f"actor{i}.txt"))
             self.logs.extend(lines)
 
-        lines = self._load_log_file(os.path.join(save_dir, "history", "trainer.txt"))
+        lines = _load_log_file(os.path.join(save_dir, "trainer.txt"))
+        self.logs.extend(lines)
+
+        lines = _load_log_file(os.path.join(save_dir, "system.txt"))
         self.logs.extend(lines)
 
         # sort
         self.logs.sort(key=lambda x: x["time"])
-
-    def _load_log_file(self, path: str) -> List[dict]:
-        if not os.path.isfile(path):
-            return []
-        import json
-
-        data = []
-        with open(path, "r") as f:
-            for line in f:
-                try:
-                    d = json.loads(line)
-                    data.append(d)
-                except json.JSONDecodeError as e:
-                    logger.warning(f"JSONDecodeError {e.args[0]}, '{line.strip()}'")
-        return data
 
     # ------------------------------------
     # memory
@@ -222,7 +226,7 @@ class HistoryViewer:
                 continue
             if rolling_n > 0:
                 ax1.plot(x, _df[column].rolling(rolling_n).mean(), f"C{color_idx}", label=column)
-                ax1.plot(x, _df[column], f"C{color_idx}", alpha=0.1)
+                ax1.plot(x, _df[column], f"C{color_idx}", alpha=0.2)
             else:
                 ax1.plot(x, _df[column], f"C{color_idx}", label=column)
             color_idx += 1
@@ -258,18 +262,18 @@ class HistoryViewer:
 
 class HistoryViewers:
     def __init__(self, history_dirs: List[str]) -> None:
-
         self.histories = [(os.path.basename(d), HistoryViewer(d)) for d in history_dirs]
 
-    def plot(self,
+    def plot(
+        self,
         xlabel: str = "time",
         ylabel: str = "reward0",
         aggregation_num: int = 50,
         ymin: Optional[float] = None,
         ymax: Optional[float] = None,
+        title: str = "",
         _no_plot: bool = False,  # for test
     ):
-
         assert is_packages_installed(
             ["matplotlib", "pandas"]
         ), "To use plot you need to install the 'matplotlib', 'pandas'. (pip install matplotlib pandas)"
@@ -310,13 +314,15 @@ class HistoryViewers:
             else:
                 rolling_n = 0
 
+            _df.sort_values(xlabel, inplace=True)
             x = _df[xlabel]
             y = _df[ylabel]
+            label = name.replace("_", " ").strip()
             if rolling_n > 0:
-                plt.plot(x, y.rolling(rolling_n).mean(), f"C{color_idx}", label=name)
-                plt.plot(x, y, f"C{color_idx}", alpha=0.1)
+                plt.plot(x, y.rolling(rolling_n).mean(), f"C{color_idx}", label=label)
+                plt.plot(x, y, f"C{color_idx}", alpha=0.2)
             else:
-                plt.plot(x, y, f"C{color_idx}", label=name)
+                plt.plot(x, y, f"C{color_idx}", label=label)
             color_idx += 1
 
             if ymin is not None:
@@ -328,8 +334,8 @@ class HistoryViewers:
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.grid()
+        if title != "":
+            plt.title(title)
         plt.tight_layout()
         if not _no_plot:
             plt.show()
-
-        

@@ -8,7 +8,9 @@ import pytest_timeout  # noqa F401
 
 import srl
 from srl.algorithms import ql_agent57
-from srl.runner.callback import Callback, TrainerCallback
+from srl.base.run.callback import RunCallback, TrainerCallback
+from srl.base.run.context import RunContext
+from srl.base.run.core import RunState
 from srl.runner.distribution.connectors.parameters import RabbitMQParameters, RedisParameters
 from srl.runner.distribution.server_actor import run_forever as actor_run_forever
 from srl.runner.distribution.server_trainer import run_forever as trainer_run_forever
@@ -43,12 +45,12 @@ def _run_trainer():
     )
 
 
-class _AssertTrainCallbacks(Callback, TrainerCallback):
-    def on_episodes_end(self, runner: srl.Runner) -> None:
-        assert runner.state.sync_actor > 0
+class _AssertTrainCallbacks(RunCallback, TrainerCallback):
+    def on_episodes_end(self, context: RunContext, state: RunState) -> None:
+        assert state.sync_actor > 0
 
-    def on_trainer_end(self, runner: srl.Runner) -> None:
-        assert runner.state.sync_trainer > 0
+    def on_trainer_end(self, context: RunContext, state: RunState) -> None:
+        assert state.sync_trainer > 0
 
 
 @pytest.mark.timeout(60)  # pip install pytest_timeout

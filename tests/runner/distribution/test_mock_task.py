@@ -10,7 +10,6 @@ from srl.runner.distribution.connectors.parameters import (
     RabbitMQParameters,
     RedisParameters,
 )
-from srl.runner.distribution.interface import IMemoryReceiver
 from srl.runner.distribution.task_manager import TaskManager
 from srl.runner.runner import RunnerConfig, TaskConfig
 from tests.runner.distribution.memory_test_functions import memory_connector_test
@@ -80,7 +79,7 @@ def test_task(mocker: pytest_mock.MockerFixture):
     create_redis_mock(mocker)
 
     client = TaskManager(RedisParameters(host="test"), "client")
-    task_config = TaskConfig(RunnerConfig(), RunContext(srl.EnvConfig("Grid"), ql.Config()))
+    task_config = TaskConfig(RunnerConfig(), RunContext(srl.EnvConfig("Grid"), ql.Config()), [])
     task_config.context.actor_num = 2
     task_config.context.max_train_count = 10
     client.create(task_config, "parameter")

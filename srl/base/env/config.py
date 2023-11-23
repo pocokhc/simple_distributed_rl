@@ -43,7 +43,7 @@ class EnvConfig:
     #: 1エピソードの最大ステップ数(0以下で無効)
     max_episode_steps: int = -1
     #: 1エピソードの最大実行時間(秒)(0以下で無効)
-    episode_timeout: int = -1
+    episode_timeout: float = -1
     #: 1stepあたり、環境内で余分に進めるstep数
     #: 例えばframeskip=3の場合、ユーザが1step実行すると、環境内では4frame進みます。
     frameskip: int = 0

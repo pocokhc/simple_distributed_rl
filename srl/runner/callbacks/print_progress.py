@@ -63,17 +63,25 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         return True
 
     def _eval_str(self, context: RunContext, state: RunState) -> str:
-        if self.eval_runner is None:
+        assert self.runner is not None
+        assert state.parameter is not None
+        if not self.setup_eval_runner(self.runner):
             return ""
         if context.distributed:
             if context.actor_id == 0:
                 eval_rewards = self.run_eval(state.parameter)
-                return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
+                if eval_rewards is None:
+                    return " " * 12
+                else:
+                    return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
             else:
                 return " " * 12
         else:
             eval_rewards = self.run_eval(state.parameter)
-            return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
+            if eval_rewards is None:
+                return " " * 12
+            else:
+                return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
 
     def on_base_run_start(self, runner: Runner) -> None:
         s = f"### env: {runner.env_config.name}, rl: {runner.rl_config.getName()}"
@@ -99,8 +107,6 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         # 分散の場合はactor_id=0のみevalをする
         if context.distributed:
             self.enable_eval = self.enable_eval and (context.actor_id == 0)
-        if self.runner is not None:
-            self.setup_eval_runner(self.runner)
 
         self.progress_timeout = self.start_time
 
@@ -312,8 +318,6 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         # eval, 分散の場合はevalをしない
         if context.distributed:
             self.enable_eval = False
-        if self.runner is not None:
-            self.setup_eval_runner(self.runner)
 
         self.progress_timeout = self.start_time
 

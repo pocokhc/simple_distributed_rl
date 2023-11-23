@@ -49,7 +49,8 @@ class Checkpoint(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             return
         train_count = state.trainer.get_train_count()
 
-        if self.enable_eval:
+        assert self.runner is not None
+        if self.setup_eval_runner(self.runner):
             eval_rewards = self.run_eval(state.parameter)
         else:
             eval_rewards = "None"
@@ -70,10 +71,6 @@ class Checkpoint(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         if state.trainer is None:
             return
 
-        # eval
-        if self.runner is not None:
-            self.setup_eval_runner(self.runner)
-
         self.interval_t0 = time.time()
         self._save_parameter(state, is_last=False)
 
@@ -93,10 +90,6 @@ class Checkpoint(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     # trainer
     # ---------------------------
     def on_trainer_start(self, context: RunContext, state: RunState):
-        # eval
-        if self.runner is not None:
-            self.setup_eval_runner(self.runner)
-
         self.interval_t0 = time.time()
         self._save_parameter(state, is_last=False)
 

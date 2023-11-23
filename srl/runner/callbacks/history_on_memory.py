@@ -72,8 +72,6 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         # 分散の場合はactor_id=0のみevalをする
         if context.distributed:
             self.enable_eval = self.enable_eval and (context.actor_id == 0)
-        if self.runner is not None:
-            self.setup_eval_runner(self.runner)
 
     def on_episode_begin(self, context: RunContext, state: RunState):
         self.episode_infos = {}
@@ -114,10 +112,13 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
                 for k, v in state.trainer.train_info.items():
                     d[f"trainer_{k}"] = v
 
-        if self.enable_eval:
+        assert self.runner is not None
+        assert state.parameter is not None
+        if self.setup_eval_runner(self.runner):
             eval_rewards = self.run_eval(state.parameter)
-            for i, r in enumerate(eval_rewards):
-                d[f"eval_reward{i}"] = r
+            if eval_rewards is not None:
+                for i, r in enumerate(eval_rewards):
+                    d[f"eval_reward{i}"] = r
 
         d.update(summarize_info_from_dictlist(self.episode_infos))
         d.update(self._read_stats())
@@ -138,8 +139,6 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         # eval, 分散の場合はevalをしない
         if context.distributed:
             self.enable_eval = False
-        if self.runner is not None:
-            self.setup_eval_runner(self.runner)
 
     def on_trainer_end(self, context: RunContext, state: RunState):
         self._save_trainer_log(context, state)

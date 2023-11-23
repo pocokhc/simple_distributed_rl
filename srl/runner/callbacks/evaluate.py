@@ -21,11 +21,14 @@ class Evaluate:
     eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = field(default_factory=list)
     eval_shuffle_player: bool = False
 
-    def setup_eval_runner(self, runner: Runner):
+    _eval_runner: Optional[Runner] = field(init=False, default=None)
+
+    def setup_eval_runner(self, runner: Runner) -> bool:
         if not self.enable_eval:
-            self.eval_runner = None
-            return
-        self.eval_runner = runner.create_eval_runner(
+            return False
+        if self._eval_runner is not None:
+            return True
+        self._eval_runner = runner.create_eval_runner(
             self.eval_env_sharing,
             self.eval_episode,
             self.eval_timeout,
@@ -33,10 +36,11 @@ class Evaluate:
             self.eval_players,
             self.eval_shuffle_player,
         )
+        return True
 
-    def run_eval(self, parameter: Optional[RLParameter]) -> np.ndarray:
-        assert self.eval_runner is not None
-        assert parameter is not None
-        eval_rewards = self.eval_runner.callback_play_eval(parameter)
+    def run_eval(self, parameter: RLParameter) -> Optional[np.ndarray]:
+        if self._eval_runner is None:
+            return None
+        eval_rewards = self._eval_runner.callback_play_eval(parameter)
         eval_rewards = np.mean(eval_rewards, axis=0)
         return eval_rewards

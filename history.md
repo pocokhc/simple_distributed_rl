@@ -20,12 +20,18 @@
    1. Taskの死活監視をUTC時間を基準に厳密化
    1. TaskManagerを外に出してasyncの動作を明確化
    1. 副産物として内部動作改善
+1. [callbacks] change: リファクタリング
+   1. baseとRunnerのcallbackを明確に分割
+   1. 合わせてcallbacksの引数をrunnerからcontext,stateに変更
+1. [examples.baseline] new: ベースラインを試験的に導入
 
 **OtherUpdates**
 
 1. [distribution] new: MQTTを追加
 1. [runner.mp] update: queue,remote_boardのやりとりを最適化
 1. [rl.processors] new: spaceを正規化するNormalizeProcessorを追加
+1. [runner] change: timeout引数の型をintからfloatに変更
+1. [runner.mp_debug] delete: 更新が追い付かないのでmp_debugを一時的に削除
 
 # v0.13.1
 

@@ -1,5 +1,3 @@
-import time
-
 import srl
 from srl.algorithms import ql
 from srl.runner.distribution import RedisParameters, TaskManager
@@ -15,25 +13,13 @@ def create_task():
 
     runner.train_distribution_start(
         redis_params,
-        max_train_count=1000,
+        max_train_count=10_000,
     )
 
 
 def wait_task():
-    manager = TaskManager(redis_params)
-
-    while True:
-        print("wait task...")
-        time.sleep(10)
-
-        runner = manager.create_runner()
-        if runner is None:
-            print("Task not found.")
-            break
-        print(runner.evaluate())
-
-        if manager.is_finished():
-            break
+    task_manager = TaskManager(redis_params)
+    task_manager.train_wait()
 
 
 def eval_task():

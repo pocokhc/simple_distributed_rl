@@ -1,16 +1,23 @@
 import datetime
 import logging
 import pickle
+import time
+import traceback
 import uuid
 from dataclasses import dataclass
-from typing import Any, Optional, cast
+from typing import TYPE_CHECKING, List, Optional, Union, cast
 
 import srl
+from srl.base.rl.base import RLParameter
+from srl.base.run.context import RLWorkerType, StrWorkerType
 from srl.runner.distribution.connectors.parameters import RedisParameters
 from srl.runner.distribution.connectors.redis_ import RedisConnector
 from srl.runner.distribution.interface import IMemoryReceiver
 from srl.runner.runner import TaskConfig
 from srl.utils.common import compare_equal_version
+
+if TYPE_CHECKING:
+    from srl.runner.distribution.callback import DistributionCallback
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +32,16 @@ class TaskManagerParams:
     used_device_torch: str = "cpu"
 
     def __post_init__(self):
+        self.init()
+
+    def init(self):
         self.task_name: str = ""
         self.task_id: str = ""
         self.version: str = ""
         self.actor_num: int = -1
-        self.actor_idx: int = 0
         self.max_train_count: Optional[int] = None
         self.timeout: Optional[float] = None
         self.create_time: Optional[datetime.datetime] = None
-
-        self.is_create_env: Optional[bool] = None
 
         if self.uid == "":
             self.uid = str(uuid.uuid4()) if self.uid == "" else self.uid
@@ -53,11 +60,9 @@ class TaskManager:
         used_device_torch: str = "cpu",
     ):
         self._config = None
-
         if redis_params.url == "NO_USE":
             return
         self._connector = redis_params.create_connector()
-
         self.task_name = redis_params.task_name
         self.params = TaskManagerParams(
             role,
@@ -67,6 +72,11 @@ class TaskManager:
             used_device_tf,
             used_device_torch,
         )
+        self.params.task_name = self.task_name
+
+    def reset(self):
+        self._config = None
+        self.params.init()
         self.params.task_name = self.task_name
 
     @staticmethod
@@ -80,10 +90,10 @@ class TaskManager:
     def get_now_str(self) -> str:
         return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S %z")
 
-    def create(
+    def create_task(
         self,
         task_config: TaskConfig,
-        parameter: Any,
+        parameter: RLParameter,
         uid: str = "",
     ) -> None:
         assert (
@@ -102,7 +112,7 @@ class TaskManager:
         self._connector.set(f"{self.task_name}:id", self.params.task_id)
         self._connector.set(f"{self.task_name}:version", self.params.version)
         self._connector.set(f"{self.task_name}:raw:config", pickle.dumps(task_config))
-        self._connector.set(f"{self.task_name}:raw:parameter", pickle.dumps(parameter))
+        self._connector.set(f"{self.task_name}:raw:parameter", pickle.dumps(parameter.backup(to_cpu=True)))
         self._connector.set(f"{self.task_name}:actor_num", str(self.params.actor_num))
         self._connector.set(f"{self.task_name}:max_train_count", str(self.params.max_train_count))
         self._connector.set(f"{self.task_name}:timeout", str(self.params.timeout))
@@ -123,10 +133,12 @@ class TaskManager:
         self.add_log("Create new task")
 
     def get_task_id(self) -> str:
+        # 別タスクかどうかチェックする場合も使う
+        body = self._connector.get(f"{self.task_name}:id")
+        task_id = "" if body is None else body.decode()
         if self.params.task_id == "":
-            body = self._connector.get(f"{self.task_name}:id")
-            self.params.task_id = "" if body is None else body.decode()
-        return self.params.task_id
+            self.params.task_id = task_id
+        return task_id
 
     def get_version(self) -> str:
         if self.params.version == "":
@@ -237,7 +249,12 @@ class TaskManager:
         self._connector.set(f"{self.task_name}:status", status)
 
     def is_finished(self) -> bool:
+        if self.params.task_id != "" and self.params.task_id != self.get_task_id():
+            logger.info(f"is_finished: different ID({self.params.task_id} != {self.get_task_id()})")
+            return True
+
         if self.get_status() == "END":
+            logger.info("is_finished: status END")
             return True
 
         # end check
@@ -255,6 +272,7 @@ class TaskManager:
 
     def finished(self, reason: str = "call"):
         self.set_status("END")
+        self._connector.set(f"{self.task_name}:id", "")
         self._connector.set(f"{self.task_name}:setup_memory", "0")
         s = f"Task finished({reason})"
         self.add_log(s)
@@ -285,27 +303,15 @@ class TaskManager:
         self._connector.rpush(f"{self.task_name}:logs", s)
         logger.info(s)
 
-    # --- runner
-    def is_create_env(self) -> bool:
-        if self.params.is_create_env is None:
-            task_config = self.get_config()
-            if task_config is None:
-                return False
-            runner = srl.Runner(
-                task_config.context.env_config,
-                task_config.context.rl_config,
-                task_config.config,
-                task_config.context,
-            )
-
-            try:
-                runner.make_env()
-                self.params.is_create_env = True
-            except Exception as e:
-                logger.warning(f"Env load fail: {e}")
-                self.params.is_create_env = False
-
-        return self.params.is_create_env
+    # ---------------------------------
+    # runner
+    # ---------------------------------
+    def read_parameter(self, parameter: RLParameter) -> bool:
+        params = self._connector.parameter_read()
+        if params is None:
+            return False
+        parameter.restore(params, from_cpu=True)
+        return True
 
     def create_runner(self, read_parameter: bool = True) -> Optional[srl.Runner]:
         task_config = self.get_config()
@@ -318,7 +324,95 @@ class TaskManager:
             task_config.context,
         )
         if read_parameter:
-            params = self._connector.parameter_read()
-            if params is not None:
-                runner.make_parameter().restore(params)
+            self.read_parameter(runner.make_parameter())
         return runner
+
+    # ---------------------------------
+    # facade
+    # ---------------------------------
+    def train_wait(
+        self,
+        # --- progress
+        enable_progress: bool = True,
+        progress_interval: int = 60 * 1,
+        # --- checkpoint
+        enable_checkpoint: bool = False,
+        checkpoint_save_dir: str = "checkpoint",
+        checkpoint_interval: int = 60 * 20,
+        # --- eval
+        enable_eval: bool = True,
+        eval_env_sharing: bool = True,
+        eval_episode: int = 1,
+        eval_timeout: float = -1,
+        eval_max_steps: int = -1,
+        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
+        eval_shuffle_player: bool = False,
+        # --- other
+        callbacks: List["DistributionCallback"] = [],
+        raise_exception: bool = True,
+    ):
+        callbacks = callbacks[:]
+
+        if enable_progress:
+            from srl.runner.distribution.callbacks.print_progress import PrintProgress
+
+            callbacks.append(
+                PrintProgress(
+                    interval=progress_interval,
+                    enable_eval=enable_eval,
+                    eval_env_sharing=eval_env_sharing,
+                    eval_episode=eval_episode,
+                    eval_timeout=eval_timeout,
+                    eval_max_steps=eval_max_steps,
+                    eval_players=eval_players,
+                    eval_shuffle_player=eval_shuffle_player,
+                )
+            )
+            logger.info("add callback PrintProgress")
+
+        if enable_checkpoint:
+            from srl.runner.distribution.callbacks.checkpoint import Checkpoint
+
+            callbacks.append(
+                Checkpoint(
+                    save_dir=checkpoint_save_dir,
+                    interval=checkpoint_interval,
+                    enable_eval=enable_eval,
+                    eval_env_sharing=eval_env_sharing,
+                    eval_episode=eval_episode,
+                    eval_timeout=eval_timeout,
+                    eval_max_steps=eval_max_steps,
+                    eval_players=eval_players,
+                    eval_shuffle_player=eval_shuffle_player,
+                )
+            )
+            logger.info(f"add callback Checkpoint: {checkpoint_save_dir}")
+
+        # callbacks
+        [c.on_start(self) for c in callbacks]
+
+        if raise_exception:
+            while True:
+                time.sleep(1)
+
+                if self.is_finished():
+                    break
+
+                _stop_flags = [c.on_polling(self) for c in callbacks]
+                if True in _stop_flags:
+                    break
+        else:
+            while True:
+                try:
+                    time.sleep(1)
+
+                    if self.is_finished():
+                        break
+
+                    _stop_flags = [c.on_polling(self) for c in callbacks]
+                    if True in _stop_flags:
+                        break
+                except Exception:
+                    logger.error(traceback.format_exc())
+
+        [c.on_end(self) for c in callbacks]

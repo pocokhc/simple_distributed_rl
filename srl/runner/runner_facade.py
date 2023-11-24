@@ -254,11 +254,8 @@ class RunnerFacade(Runner):
         enable_prepare_sample_batch: bool = False,
         device_actors: Union[str, List[str]] = "AUTO",
         # --- stop config
-        max_episodes: int = -1,
         timeout: float = -1,
-        max_steps: int = -1,
         max_train_count: int = -1,
-        max_memory: int = -1,
         # --- play config
         shuffle_player: bool = True,
         # --- progress
@@ -284,11 +281,11 @@ class RunnerFacade(Runner):
         # --- set context
         self.context.run_name = RunNameTypes.main
         # stop config
-        self.context.max_episodes = max_episodes
+        self.context.max_episodes = -1
         self.context.timeout = timeout
-        self.context.max_steps = max_steps
+        self.context.max_steps = -1
         self.context.max_train_count = max_train_count
-        self.context.max_memory = max_memory
+        self.context.max_memory = -1
         # play config
         self.context.shuffle_player = shuffle_player
         self.context.disable_trainer = False
@@ -447,11 +444,8 @@ class RunnerFacade(Runner):
         enable_trainer_thread: bool = True,
         enable_actor_thread: bool = True,
         # --- stop config
-        max_episodes: int = -1,
         timeout: float = -1,
-        max_steps: int = -1,
         max_train_count: int = -1,
-        max_memory: int = -1,
         # --- play config
         shuffle_player: bool = True,
         # --- progress
@@ -486,11 +480,11 @@ class RunnerFacade(Runner):
         # --- set context
         self.context.run_name = RunNameTypes.main
         # stop config
-        self.context.max_episodes = max_episodes
+        self.context.max_episodes = -1
         self.context.timeout = timeout
-        self.context.max_steps = max_steps
+        self.context.max_steps = -1
         self.context.max_train_count = max_train_count
-        self.context.max_memory = max_memory
+        self.context.max_memory = -1
         # play config
         self.context.shuffle_player = shuffle_player
         self.context.disable_trainer = False
@@ -565,11 +559,8 @@ class RunnerFacade(Runner):
         enable_trainer_thread: bool = True,
         enable_actor_thread: bool = True,
         # --- stop config
-        max_episodes: int = -1,
         timeout: float = -1,
-        max_steps: int = -1,
         max_train_count: int = -1,
-        max_memory: int = -1,
         # --- play config
         shuffle_player: bool = True,
         # --- other
@@ -588,11 +579,11 @@ class RunnerFacade(Runner):
         # --- set context
         self.context.run_name = RunNameTypes.main
         # stop config
-        self.context.max_episodes = max_episodes
+        self.context.max_episodes = -1
         self.context.timeout = timeout
-        self.context.max_steps = max_steps
+        self.context.max_steps = -1
         self.context.max_train_count = max_train_count
-        self.context.max_memory = max_memory
+        self.context.max_memory = -1
         # play config
         self.context.shuffle_player = shuffle_player
         self.context.disable_trainer = False

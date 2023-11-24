@@ -58,6 +58,7 @@ class _ActorRLMemory(IRLMemoryWorker):
         self.queue = remote_queue
         self.dist_queue_capacity = dist_queue_capacity
         self.end_signal = end_signal
+        self.q_send = 0
 
     def add(self, *args) -> None:
         t0 = time.time()
@@ -65,6 +66,7 @@ class _ActorRLMemory(IRLMemoryWorker):
             qsize = self.queue.qsize()
             if 0 <= qsize < self.dist_queue_capacity:
                 self.queue.put(args)
+                self.q_send += 1
                 break
             if self.end_signal.value:
                 break
@@ -105,6 +107,8 @@ class _ActorInterrupt(RunCallback):
 
         if time.time() - self.t0 < self.actor_parameter_sync_interval:
             return self.end_signal.value
+        state.actor_send_q = cast(_ActorRLMemory, state.memory).q_send
+
         self.t0 = time.time()
         params = self.remote_board.read()
         if params is None:
@@ -185,6 +189,7 @@ def _memory_communicate(
     memory: RLMemory,
     remote_queue: mp.Queue,
     end_signal: ctypes.c_bool,
+    share_dict: dict,
 ):
     try:
         while not end_signal.value:
@@ -193,6 +198,7 @@ def _memory_communicate(
             else:
                 batch = remote_queue.get(timeout=1)
                 memory.add(*batch)
+                share_dict["q_recv"] += 1
 
     except Exception:
         logger.error(traceback.format_exc())
@@ -234,6 +240,7 @@ class _TrainerInterrupt(TrainerCallback):
             time.sleep(1)
 
         state.sync_trainer = self.share_dict["sync_count"]
+        state.trainer_recv_q = self.share_dict["q_recv"]
         return self.end_signal.value
 
 
@@ -258,13 +265,17 @@ def _run_trainer(
     )
 
     # --- thread
-    share_dict = {"sync_count": 0}
+    share_dict = {
+        "sync_count": 0,
+        "q_recv": 0,
+    }
     memory_ps = threading.Thread(
         target=_memory_communicate,
         args=(
             memory,
             remote_queue,
             end_signal,
+            share_dict,
         ),
     )
     parameter_ps = threading.Thread(

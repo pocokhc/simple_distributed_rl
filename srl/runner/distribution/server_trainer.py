@@ -171,6 +171,7 @@ class _TrainerInterruptThread(TrainerCallback):
             # warmupなら待機
             time.sleep(1)
 
+        state.trainer_recv_q = self.share_dict["q_recv_count"]
         assert state.trainer is not None
         self.share_dict["train_count"] = state.trainer.get_train_count()
         state.sync_trainer = self.share_dict["sync_count"]
@@ -212,6 +213,7 @@ class _TrainerInterruptNoThread(TrainerCallback):
             if dat is not None:
                 self.q_recv_count += 1
                 state.memory.add(*dat)
+                state.trainer_recv_q = self.q_recv_count
         else:
             dat = None
 

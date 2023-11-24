@@ -47,9 +47,11 @@ class RunState:
     # train
     is_step_trained: bool = False
 
-    # other
+    # distributed
     sync_actor: int = 0
     sync_trainer: int = 0
+    actor_send_q: int = 0
+    trainer_recv_q: int = 0
 
     # ------------
 

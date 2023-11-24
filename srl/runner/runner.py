@@ -131,6 +131,8 @@ class Runner:
         self._checkpoint_kwargs: Optional[dict] = None
         self.history_viewer: Optional["HistoryViewer"] = None
 
+        self._progress_kwargs: dict = {}
+
         self._is_setup_psutil: bool = False
         self._psutil_process: Optional["psutil.Process"] = None
 
@@ -726,6 +728,50 @@ class Runner:
             history_eval_shuffle_player,
         )
         self.config.enable_wkdir = True
+
+    # ------------------------------
+    # progress
+    # ------------------------------
+    def set_progress_options(
+        self,
+        start_time: int = 1,
+        interval_limit: int = 60 * 10,
+        single_line=True,
+        env_info: bool = False,
+        train_info: bool = True,
+        worker_info: bool = True,
+        worker: int = 0,
+        max_actor: int = 5,
+        # --- eval
+        eval_env_sharing: bool = False,
+        eval_shuffle_player: bool = False,
+    ):
+        """progress options
+
+        Args:
+            start_time (int, optional): 最初に進捗を表示する秒数. Defaults to 1.
+            interval_limit (int, optional): 進捗を表示する最大の間隔（秒）. Defaults to 60*10.
+            single_line (bool, optional): 表示を1lineにするか. Defaults to False.
+            env_info (bool, optional): 進捗表示にenv infoを表示するか. Defaults to False.
+            train_info (bool, optional): 進捗表示にtrain infoを表示するか. Defaults to True.
+            worker_info (bool, optional): 進捗表示にworker infoを表示するか. Defaults to True.
+            worker (int, optional): 進捗表示に表示するworker index. Defaults to 0.
+            max_actor (int, optional): 進捗表示に表示するworker数. Defaults to 5.
+            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
+            eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
+        """
+        self._progress_kwargs = dict(
+            start_time=start_time,
+            interval_limit=interval_limit,
+            single_line=single_line,
+            progress_env_info=env_info,
+            progress_train_info=train_info,
+            progress_worker_info=worker_info,
+            progress_worker=worker,
+            progress_max_actor=max_actor,
+            eval_env_sharing=eval_env_sharing,
+            eval_shuffle_player=eval_shuffle_player,
+        )
 
     # ------------------------------
     # history/checkpoint

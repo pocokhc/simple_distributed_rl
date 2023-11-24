@@ -77,6 +77,8 @@ class _ActorInterruptThread(RunCallback):
 
     def on_step_end(self, context: RunContext, state: RunState) -> bool:
         state.sync_actor = self.share_dict["sync_count"]
+        assert state.memory is not None
+        state.actor_send_q = state.memory.length()
         if not self.memory_ps.is_alive():
             self.share_dict["end_signal"] = True
         if not self.parameter_ps.is_alive():
@@ -273,9 +275,11 @@ class _ActorInterruptNoThread(RunCallback):
                 self.parameter.restore(body, from_cpu=True)
                 state.sync_actor += 1
 
+        assert state.memory is not None
+        state.actor_send_q = state.memory.length()
+
         # --- keepalive
         if time.time() - self._keepalive_t0 < self.keepalive_interval:
-            assert state.memory is not None
             _keepalive(self.task_manager, self.actor_id, state.episode_count, state.memory.length())
             if self.task_manager.is_finished():
                 return True

@@ -24,6 +24,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     # mode: str = "simple"
     start_time: int = 1
     interval_limit: int = 60 * 10
+    single_line: bool = True
     progress_env_info: bool = False
     progress_train_info: bool = True
     progress_worker_info: bool = True
@@ -118,6 +119,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self.t0_step_count = 0
         self.t0_episode_count = 0
         self.t0_memory_count = 0
+        self.t0_actor_send_q = 0
 
     def on_episodes_end(self, context: RunContext, state: RunState):
         if context.actor_id >= self.progress_max_actor:
@@ -159,27 +161,23 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             s += f" actor{context.actor_id:2d}:"
         s += f" {to_str_time(elapsed_time)}"
 
-        # calc step time
+        # calc time
+        diff_time = _time - self.t0_print_time
         diff_step = state.total_step - self.t0_step_count
-        if diff_step > 0:
-            step_time = (_time - self.t0_print_time) / diff_step
-        else:
-            step_time = np.inf
         diff_episode = state.episode_count - self.t0_episode_count
-        if diff_episode > 0:
-            episode_time = (_time - self.t0_print_time) / diff_episode
-        else:
-            episode_time = np.inf
+        step_time = diff_time / diff_step if diff_step > 0 else np.inf
+        episode_time = diff_time / diff_episode if diff_episode > 0 else np.inf
+        self.t0_print_time = _time
+        self.t0_step_count = state.total_step
+        self.t0_episode_count = state.episode_count
+
+        # calc memory
         memory_time = np.inf
         if state.memory is not None:
             diff_memory = state.memory.length() - self.t0_memory_count
             if diff_memory > 0:
-                memory_time = (_time - self.t0_print_time) / diff_memory
-            self.t0_print_time = state.memory.length()
-
-        self.t0_print_time = _time
-        self.t0_step_count = state.total_step
-        self.t0_episode_count = state.episode_count
+                memory_time = diff_time / diff_memory
+            self.t0_memory_count = state.memory.length()
 
         # [remain]
         if (context.max_steps > 0) and (state.total_step > 0):
@@ -210,41 +208,46 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         else:
             s += f"({to_str_time(remain)} left)"
 
-        # [all step] [all episode] [train]
-        s += f" {state.total_step:7d}st({state.episode_count:6d}ep)"
-        if state.trainer is not None:
-            s += " {:5d}tr".format(state.trainer.get_train_count())
+        # [step time]
+        s += f",{int(diff_step/diff_time):6d} st/s"
+
+        # [all step]
+        s += f",{state.total_step:7d}st"
+
+        # [memory]
+        if state.memory is not None:
+            s += f",{state.memory.length():6d}mem"
 
         # [sync]
         if context.distributed:
-            s += f", {state.sync_actor:2d}recv"
+            diff_q = state.actor_send_q - self.t0_actor_send_q
+            s += f", Q {int(diff_q/diff_time):4d} send/s({state.actor_send_q:8d})"
+            self.t0_actor_send_q = state.actor_send_q
+            s += f", {state.sync_actor:4d} recv Param"
+
+        # [all episode] [train]
+        s += f", {state.episode_count:3d}ep"
+        if state.trainer is not None:
+            s += ", {:5d}tr".format(state.trainer.get_train_count())
 
         if diff_episode == 0:
             if diff_step == 0:
-                # ---------------------------
-                # no info
-                # ---------------------------
+                # --- no info
                 s += "1 step is not over."
             else:
-                # ---------------------------
-                # steps info
-                # ---------------------------
-                # [episode step] [step time]
-                s += f", {diff_step:5d} step"
-                s += f", {step_time:.5f}s/step"
+                # --- steps info
+                # [episode step]
+                s += f", {state.env.step_num}st"
 
                 # [reward]
                 r_list = [to_str_reward(r) for r in state.env.episode_rewards]
                 s += " [" + ",".join(r_list) + "]reward"
 
         else:
-            # ---------------------------
-            # episode info
-            # ---------------------------
-            # [mean episode step] [episode time]
+            # --- episode info
+            # [mean episode step]
             _s = [h["episode_step"] for h in self.progress_history]
-            s += f", {int(np.mean(_s)):3d}step"
-            s += f", {episode_time:.2f}s/ep"
+            s += f", {int(np.mean(_s)):3d}st"
 
             # [reward]
             _r = [h["episode_reward"] for h in self.progress_history]
@@ -256,25 +259,28 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             # [eval reward]
             s += self._eval_str(context, state)
 
-        # [memory]
-        if state.memory is not None:
-            s += f", {state.memory.length()}mem"
-
         # [system]
         s += self._stats_str()
 
         # [info] , 速度優先して一番最新の状態をそのまま表示
+        s_info = ""
         env_types = state.env.info_types
         rl_types = context.rl_config.info_types
         if self.progress_env_info:
-            s += to_str_info(state.env.info, env_types)
+            s_info += to_str_info(state.env.info, env_types)
         if self.progress_worker_info:
-            s += to_str_info(state.workers[self.progress_worker].info, rl_types)
+            s_info += to_str_info(state.workers[self.progress_worker].info, rl_types)
         if self.progress_train_info:
             if state.trainer is not None:
-                s += to_str_info(state.trainer.train_info, rl_types)
+                s_info += to_str_info(state.trainer.train_info, rl_types)
 
-        print(s)
+        if self.single_line:
+            print(s + s_info)
+        elif s_info == "":
+            print(s)
+        else:
+            print(s)
+            print("  " + s_info)
         self.progress_history = []
 
     def _stats_str(self) -> str:
@@ -327,6 +333,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
 
         self.t0_train_time = _time
         self.t0_train_count = 0
+        self.t0_trainer_recv_q = 0
 
     def on_trainer_end(self, context: RunContext, state: RunState) -> None:
         self._print_trainer(context, state)
@@ -349,12 +356,10 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         s += f" {to_str_time(elapsed_time)}"
 
         # calc time
+        diff_time = _time - self.t0_train_time
         train_count = state.trainer.get_train_count()
-        _d = train_count - self.t0_train_count
-        if _d > 0:
-            train_time = (_time - self.t0_train_time) / _d
-        else:
-            train_time = np.inf
+        diff_train_count = train_count - self.t0_train_count
+        train_time = diff_time / diff_train_count if diff_train_count > 0 else np.inf
         self.t0_train_time = _time
         self.t0_train_count = train_count
 
@@ -373,35 +378,44 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         else:
             s += f"({to_str_time(remain)} left)"
 
+        # [train time]
+        s += f",{int(diff_train_count/diff_time):6d} tr/s"
+
         # [train count]
-        s += " {:6d}tr".format(train_count)
+        s += ",{:7d}tr".format(train_count)
 
         # [memory]
         if state.memory is not None:
-            s += f", {state.memory.length()}mem"
+            s += f",{state.memory.length():6d}mem"
+
+        # [distributed]
+        if context.distributed:
+            diff_q = state.trainer_recv_q - self.t0_trainer_recv_q
+            s += f", Q {int(diff_q/diff_time):4d} recv/s({state.trainer_recv_q:8d})"
+            self.t0_trainer_recv_q = state.trainer_recv_q
+            s += f", {state.sync_trainer:4d} send Param"
 
         if train_count == 0:
-            # --- no info
+            # no info
             s += " 1train is not over."
         else:
-            # --- train info
-            # [train time]
-            s += f", {train_time:.3f}s/tr"
-
-            # [sync]
-            if context.distributed:
-                s += f", {state.sync_trainer:2d}send"
-
             # [eval]
             s += self._eval_str(context, state)
 
-            # [system]
-            s += self._stats_str()
+        # [system]
+        s += self._stats_str()
 
-            # [info] , 速度優先して一番最新の状態をそのまま表示
-            if self.progress_train_info:
-                if state.trainer is not None:
-                    s += to_str_info(state.trainer.train_info, context.rl_config.info_types)
+        # [info] , 速度優先して一番最新の状態をそのまま表示
+        s_info = ""
+        if self.progress_train_info:
+            if state.trainer is not None:
+                s_info += to_str_info(state.trainer.train_info, context.rl_config.info_types)
 
-        print(s)
+        if self.single_line:
+            print(s + s_info)
+        elif s_info == "":
+            print(s)
+        else:
+            print(s)
+            print("  " + s_info)
         self.progress_history = []

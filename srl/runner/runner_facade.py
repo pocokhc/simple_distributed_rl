@@ -28,20 +28,11 @@ class RunnerFacade(Runner):
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
-        progress_start_time: int = 1,
-        progress_interval_limit: int = 60 * 10,
-        progress_env_info: bool = False,
-        progress_train_info: bool = True,
-        progress_worker_info: bool = True,
-        progress_worker: int = 0,
-        # --- eval
         enable_eval: bool = False,
-        eval_env_sharing: bool = False,
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
         eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
-        eval_shuffle_player: bool = False,
         # --- other
         callbacks: List[CallbackType] = [],
         parameter: Optional[RLParameter] = None,
@@ -58,19 +49,11 @@ class RunnerFacade(Runner):
             max_memory (int, optional): 終了するまでのメモリ数. Defaults to -1.
             shuffle_player (bool, optional): playersをシャッフルするかどうか. Defaults to True.
             enable_progress (bool, optional): 進捗を表示するか. Defaults to True.
-            progress_start_time (int, optional): 最初に進捗を表示する秒数. Defaults to 1.
-            progress_interval_limit (int, optional): 進捗を表示する最大の間隔（秒）. Defaults to 60*10.
-            progress_env_info (bool, optional): 進捗表示にenv infoを表示するか. Defaults to False.
-            progress_train_info (bool, optional): 進捗表示にtrain infoを表示するか. Defaults to True.
-            progress_worker_info (bool, optional): 進捗表示にworker infoを表示するか. Defaults to True.
-            progress_worker (int, optional): 進捗表示に表示するworker index. Defaults to 0.
             enable_eval (bool, optional): 評価用のシミュレーションを実行します. Defaults to False.
-            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
             eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
             eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
             eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
             eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
-            eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
             callbacks (List[CallbackType], optional): callbacks. Defaults to [].
         """
         callbacks = callbacks[:]
@@ -97,20 +80,12 @@ class RunnerFacade(Runner):
 
             callbacks.append(
                 PrintProgress(
-                    start_time=progress_start_time,
-                    interval_limit=progress_interval_limit,
-                    progress_env_info=progress_env_info,
-                    progress_train_info=progress_train_info,
-                    progress_worker_info=progress_worker_info,
-                    progress_worker=progress_worker,
-                    progress_max_actor=5,
                     enable_eval=enable_eval,
-                    eval_env_sharing=eval_env_sharing,
                     eval_episode=eval_episode,
                     eval_timeout=eval_timeout,
                     eval_max_steps=eval_max_steps,
                     eval_players=eval_players,
-                    eval_shuffle_player=eval_shuffle_player,
+                    **self._progress_kwargs,
                 )
             )
             logger.info("add callback PrintProgress")
@@ -144,12 +119,6 @@ class RunnerFacade(Runner):
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
-        progress_start_time: int = 1,
-        progress_interval_limit: int = 60 * 10,
-        progress_env_info: bool = False,
-        progress_train_info: bool = True,
-        progress_worker_info: bool = True,
-        progress_worker: int = 0,
         # --- other
         callbacks: List[CallbackType] = [],
         parameter: Optional[RLParameter] = None,
@@ -180,14 +149,8 @@ class RunnerFacade(Runner):
 
             callbacks.append(
                 PrintProgress(
-                    start_time=progress_start_time,
-                    interval_limit=progress_interval_limit,
-                    progress_env_info=progress_env_info,
-                    progress_train_info=progress_train_info,
-                    progress_worker_info=progress_worker_info,
-                    progress_worker=progress_worker,
-                    progress_max_actor=5,
                     enable_eval=False,
+                    **self._progress_kwargs,
                 )
             )
             logger.info("add callback PrintProgress")
@@ -217,16 +180,11 @@ class RunnerFacade(Runner):
         max_train_count: int = -1,
         # --- progress
         enable_progress: bool = True,
-        progress_start_time: int = 1,
-        progress_interval_limit: int = 60 * 10,
-        progress_train_info: bool = True,
-        # --- eval
         enable_eval: bool = False,
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
         eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
-        eval_shuffle_player: bool = False,
         # --- other
         callbacks: List[CallbackType] = [],
         parameter: Optional[RLParameter] = None,
@@ -258,17 +216,12 @@ class RunnerFacade(Runner):
 
             callbacks.append(
                 PrintProgress(
-                    start_time=progress_start_time,
-                    interval_limit=progress_interval_limit,
-                    progress_train_info=progress_train_info,
-                    progress_max_actor=5,
                     enable_eval=enable_eval,
-                    eval_env_sharing=True,
                     eval_episode=eval_episode,
                     eval_timeout=eval_timeout,
                     eval_max_steps=eval_max_steps,
                     eval_players=eval_players,
-                    eval_shuffle_player=eval_shuffle_player,
+                    **self._progress_kwargs,
                 )
             )
             logger.info("add callback PrintProgress")
@@ -310,21 +263,11 @@ class RunnerFacade(Runner):
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
-        progress_start_time: int = 1,
-        progress_interval_limit: int = 60 * 10,
-        progress_env_info: bool = False,
-        progress_train_info: bool = True,
-        progress_worker_info: bool = True,
-        progress_worker: int = 0,
-        progress_max_actor: int = 5,
-        # --- eval
         enable_eval: bool = False,
-        eval_env_sharing: bool = False,
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
         eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
-        eval_shuffle_player: bool = False,
         # --- other
         callbacks: List[CallbackType] = [],
     ):
@@ -359,20 +302,12 @@ class RunnerFacade(Runner):
 
             callbacks.append(
                 PrintProgress(
-                    start_time=progress_start_time,
-                    interval_limit=progress_interval_limit,
-                    progress_env_info=progress_env_info,
-                    progress_train_info=progress_train_info,
-                    progress_worker_info=progress_worker_info,
-                    progress_worker=progress_worker,
-                    progress_max_actor=progress_max_actor,
                     enable_eval=enable_eval,
-                    eval_env_sharing=eval_env_sharing,
                     eval_episode=eval_episode,
                     eval_timeout=eval_timeout,
                     eval_max_steps=eval_max_steps,
                     eval_players=eval_players,
-                    eval_shuffle_player=eval_shuffle_player,
+                    **self._progress_kwargs,
                 )
             )
             logger.info("add callback PrintProgress")
@@ -522,8 +457,6 @@ class RunnerFacade(Runner):
         # --- progress
         enable_progress: bool = True,
         progress_interval: int = 60 * 1,
-        progress_worker: int = 0,
-        progress_max_actor: int = 5,
         # --- eval
         enable_eval: bool = True,
         eval_env_sharing: bool = True,
@@ -572,9 +505,8 @@ class RunnerFacade(Runner):
 
             callbacks_run.append(
                 PrintProgress(
-                    progress_worker=progress_worker,
-                    progress_max_actor=progress_max_actor,
                     enable_eval=False,
+                    **self._progress_kwargs,
                 )
             )
             logger.info("add callback PrintProgress")
@@ -640,9 +572,6 @@ class RunnerFacade(Runner):
         max_memory: int = -1,
         # --- play config
         shuffle_player: bool = True,
-        # --- progress
-        progress_worker: int = 0,
-        progress_max_actor: int = 5,
         # --- other
         callbacks: List[CallbackType] = [],
     ):
@@ -678,9 +607,8 @@ class RunnerFacade(Runner):
 
             callbacks.append(
                 PrintProgress(
-                    progress_worker=progress_worker,
-                    progress_max_actor=progress_max_actor,
                     enable_eval=False,
+                    **self._progress_kwargs,
                 )
             )
             logger.info("add callback PrintProgress")
@@ -709,11 +637,6 @@ class RunnerFacade(Runner):
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
-        progress_start_time: int = 1,
-        progress_interval_limit: int = 60 * 10,
-        progress_env_info: bool = False,
-        progress_worker_info: bool = True,
-        progress_worker: int = 0,
         # --- other
         callbacks: List[CallbackType] = [],
     ) -> Union[List[float], List[List[float]]]:  # single play , multi play
@@ -757,18 +680,7 @@ class RunnerFacade(Runner):
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            callbacks.append(
-                PrintProgress(
-                    start_time=progress_start_time,
-                    interval_limit=progress_interval_limit,
-                    progress_env_info=progress_env_info,
-                    progress_train_info=False,
-                    progress_worker_info=progress_worker_info,
-                    progress_worker=progress_worker,
-                    progress_max_actor=5,
-                    enable_eval=False,
-                )
-            )
+            callbacks.append(PrintProgress(enable_eval=False, **self._progress_kwargs))
             logger.info("add callback PrintProgress")
         # ----------------
 
@@ -874,11 +786,6 @@ class RunnerFacade(Runner):
         max_steps: int = -1,
         # --- progress
         enable_progress: bool = True,
-        progress_start_time: int = 1,
-        progress_interval_limit: int = 60 * 10,
-        progress_env_info: bool = False,
-        progress_worker_info: bool = True,
-        progress_worker: int = 0,
         # --- other
         callbacks: List[CallbackType] = [],
     ):
@@ -924,14 +831,8 @@ class RunnerFacade(Runner):
 
             callbacks.append(
                 PrintProgress(
-                    start_time=progress_start_time,
-                    interval_limit=progress_interval_limit,
-                    progress_env_info=progress_env_info,
-                    progress_train_info=False,
-                    progress_worker_info=progress_worker_info,
-                    progress_worker=progress_worker,
-                    progress_max_actor=5,
                     enable_eval=False,
+                    **self._progress_kwargs,
                 )
             )
             logger.info("add callback PrintProgress")
@@ -973,11 +874,6 @@ class RunnerFacade(Runner):
         max_steps: int = -1,
         # --- progress
         enable_progress: bool = True,
-        progress_start_time: int = 1,
-        progress_interval_limit: int = 60 * 10,
-        progress_env_info: bool = False,
-        progress_worker_info: bool = True,
-        progress_worker: int = 0,
         # --- other
         callbacks: List[CallbackType] = [],
     ):
@@ -1023,14 +919,8 @@ class RunnerFacade(Runner):
 
             callbacks.append(
                 PrintProgress(
-                    start_time=progress_start_time,
-                    interval_limit=progress_interval_limit,
-                    progress_env_info=progress_env_info,
-                    progress_train_info=False,
-                    progress_worker_info=progress_worker_info,
-                    progress_worker=progress_worker,
-                    progress_max_actor=5,
                     enable_eval=False,
+                    **self._progress_kwargs,
                 )
             )
             logger.info("add callback PrintProgress")
@@ -1074,11 +964,6 @@ class RunnerFacade(Runner):
         max_steps: int = -1,
         # --- progress
         enable_progress: bool = True,
-        progress_start_time: int = 1,
-        progress_interval_limit: int = 60 * 10,
-        progress_env_info: bool = False,
-        progress_worker_info: bool = True,
-        progress_worker: int = 0,
         # --- other
         callbacks: List[CallbackType] = [],
     ):
@@ -1124,14 +1009,8 @@ class RunnerFacade(Runner):
 
             callbacks.append(
                 PrintProgress(
-                    start_time=progress_start_time,
-                    interval_limit=progress_interval_limit,
-                    progress_env_info=progress_env_info,
-                    progress_train_info=False,
-                    progress_worker_info=progress_worker_info,
-                    progress_worker=progress_worker,
-                    progress_max_actor=5,
                     enable_eval=False,
+                    **self._progress_kwargs,
                 )
             )
             logger.info("add callback PrintProgress")
@@ -1166,11 +1045,6 @@ class RunnerFacade(Runner):
         max_steps: int = -1,
         # --- progress
         enable_progress: bool = True,
-        progress_start_time: int = 1,
-        progress_interval_limit: int = 60 * 10,
-        progress_env_info: bool = False,
-        progress_worker_info: bool = True,
-        progress_worker: int = 0,
         # --- other
         callbacks: List[CallbackType] = [],
         _is_test: bool = False,  # for test
@@ -1200,14 +1074,8 @@ class RunnerFacade(Runner):
 
             callbacks.append(
                 PrintProgress(
-                    start_time=progress_start_time,
-                    interval_limit=progress_interval_limit,
-                    progress_env_info=progress_env_info,
-                    progress_train_info=False,
-                    progress_worker_info=progress_worker_info,
-                    progress_worker=progress_worker,
-                    progress_max_actor=5,
                     enable_eval=False,
+                    **self._progress_kwargs,
                 )
             )
             logger.info("add callback PrintProgress")

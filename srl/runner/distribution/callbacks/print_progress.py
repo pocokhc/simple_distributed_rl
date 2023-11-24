@@ -90,16 +90,10 @@ class PrintProgress(DistributionCallback, Evaluate):
         s += f" {status} {to_str_time(elapsed_time)}"
 
         # calc time
+        diff_time = _time - self.t0_train_time
         train_count = task_manager.get_train_count()
-        if train_count == "":
-            train_count = 0
-        else:
-            train_count = int(train_count)
-        _d = train_count - self.t0_train_count
-        if _d > 0:
-            train_time = (_time - self.t0_train_time) / _d
-        else:
-            train_time = np.inf
+        diff_train_count = train_count - self.t0_train_count
+        train_time = diff_time / diff_train_count if diff_train_count > 0 else np.inf
         self.t0_train_time = _time
         self.t0_train_count = train_count
 
@@ -132,9 +126,9 @@ class PrintProgress(DistributionCallback, Evaluate):
             print(" trainer  not assigned")
         else:
             _elapsed_time = (now_utc - task_manager.get_trainer_update_time()).total_seconds()
-            s = f" trainer  {trainer_id} {_elapsed_time:.1f}s: "
+            s = f" trainer  {trainer_id} {_elapsed_time:.2f}s: "
             s += f" {train_count:5d}tr"
-            s += f", {train_time:.3f}s/tr"
+            s += f",{int(diff_train_count/diff_time):5d}tr/s"
 
             memory_size = task_manager.get_trainer("memory")
             s += f", {memory_size}mem"

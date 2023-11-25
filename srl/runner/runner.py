@@ -774,7 +774,7 @@ class Runner:
         )
 
     # ------------------------------
-    # history/checkpoint
+    # history
     # ------------------------------
     @staticmethod
     def load_history(history_dir: str) -> "HistoryViewer":
@@ -898,6 +898,23 @@ class Runner:
         self._history_on_memory_kwargs = None
         self._history_on_file_kwargs = None
 
+    # ------------------------------
+    # checkpoint
+    # ------------------------------
+    def load_checkpoint(self, save_dir: str):
+        from srl.runner.callbacks.checkpoint import Checkpoint
+
+        path = Checkpoint.get_parameter_path(save_dir)
+        if os.path.isfile(path):
+            try:
+                self.make_parameter(is_load=False).load(path)
+                logger.info(f"Checkpoint parameter loaded: {path}")
+            except Exception as e:
+                logger.info(e)
+                logger.warning(f"Failed to load parameter. Run without loading. {path}")
+        else:
+            logger.info(f"Checkpoint parameter is not found: {path}")
+
     def set_checkpoint(
         self,
         save_dir: str,
@@ -942,7 +959,6 @@ class Runner:
     # ---------------------------------------------
     # run
     # ---------------------------------------------
-
     def _base_run_play_before(
         self,
         enable_checkpoint_load: bool,
@@ -961,19 +977,8 @@ class Runner:
 
         # --- checkpoint load ---
         if enable_checkpoint_load and self.config.enable_wkdir:
-            from srl.runner.callbacks.checkpoint import Checkpoint
-
             checkpoint_dir = os.path.join(self.config.wkdir1, "checkpoint")
-            path = Checkpoint.get_parameter_path(checkpoint_dir)
-            if os.path.isfile(path):
-                try:
-                    self.make_parameter(is_load=False).load(path)
-                    logger.info(f"Checkpoint parameter loaded: {path}")
-                except Exception as e:
-                    logger.info(e)
-                    logger.warning(f"Failed to load parameter. Run without loading. {path}")
-            else:
-                logger.info(f"Checkpoint parameter is not found: {path}")
+            self.load_checkpoint(checkpoint_dir)
         # -----------------------
 
         # --- checkpoint ---

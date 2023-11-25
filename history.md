@@ -8,6 +8,24 @@
 1. baseline
 1. memory
 
+# v0.13.3
+
+**MainUpdates**
+
+1. [runner.callbacks.PrintProgress] update
+    1. 表示単位を1秒間の回数に変更
+    1. 表示を複数行できるオプションを追加
+    1. runnerにset_progress_optionsを追加し、引数を分割
+    1. SendQとRecvQを作成し、速度が分かるように
+1. [runner] change: dist系のtrainの終了条件をtrainとtimeoutのみに限定
+1. [runner] new: load_checkpointを追加し、フォルダから読み込みえるように
+1. [runner.distribution] new: history_on_fileを追加
+1. [runner.distribution] update: 長時間学習用に、checkpoint/historyの環境を整備
+
+**OtherUpdates**
+
+1. [runner.distribution] fix: Checkpointのバグ修正
+1. [runner.callbacks] update: evaluateに例外対策を追加
 
 # v0.13.2
 

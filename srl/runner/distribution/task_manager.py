@@ -272,8 +272,6 @@ class TaskManager:
 
     def finished(self, reason: str = "call"):
         self.set_status("END")
-        self._connector.set(f"{self.task_name}:id", "")
-        self._connector.set(f"{self.task_name}:setup_memory", "0")
         s = f"Task finished({reason})"
         self.add_log(s)
         logger.info(s)

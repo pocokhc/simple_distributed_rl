@@ -1,4 +1,5 @@
 import logging
+import traceback
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
 
@@ -41,6 +42,10 @@ class Evaluate:
     def run_eval(self, parameter: RLParameter) -> Optional[np.ndarray]:
         if self._eval_runner is None:
             return None
-        eval_rewards = self._eval_runner.callback_play_eval(parameter)
-        eval_rewards = np.mean(eval_rewards, axis=0)
-        return eval_rewards
+        try:
+            eval_rewards = self._eval_runner.callback_play_eval(parameter)
+            eval_rewards = np.mean(eval_rewards, axis=0)
+            return eval_rewards
+        except Exception:
+            logger.error(traceback.format_exc())
+            return None

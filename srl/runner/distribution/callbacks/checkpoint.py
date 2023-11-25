@@ -21,6 +21,7 @@ class Checkpoint(DistributionCallback, Evaluate):
             os.makedirs(self.save_dir, exist_ok=True)
             logger.info(f"makedirs: {self.save_dir}")
 
+        self.runner = None
         self.interval_t0 = time.time()
         self._save_parameter(task_manager, is_last=False)
 
@@ -40,7 +41,7 @@ class Checkpoint(DistributionCallback, Evaluate):
 
         parameter = self.runner.make_parameter(is_load=False)
         task_manager.read_parameter(parameter)
-        
+
         if self.setup_eval_runner(self.runner):
             eval_rewards = self.run_eval(parameter)
         else:

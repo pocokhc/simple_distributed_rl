@@ -144,7 +144,9 @@ if __name__ == "__main__":
 
 またクラウドサービスとの連携はQiita記事を参照
 
-+ Qiita記事を投稿したら更新します(TODO)
++ [クラウドサービスを利用した分散強化学習（無料編）](https://qiita.com/pocokhc/items/f7a32ee6c62cba54d6ab)
++ [クラウドサービスを利用した分散強化学習（kubernetes編）](https://qiita.com/pocokhc/items/56c930e1e401ce156141)
++ [クラウドサービスを利用した分散強化学習（GKE/有料編）](https://qiita.com/pocokhc/items/e08aab0fe56566ab9407)
 
 # 3. Framework Overview
 

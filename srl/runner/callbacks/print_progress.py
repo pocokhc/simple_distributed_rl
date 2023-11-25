@@ -209,7 +209,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             s += f"({to_str_time(remain)} left)"
 
         # [step time]
-        s += f",{int(diff_step/diff_time):6d} st/s"
+        s += f",{int(diff_step/diff_time):6d}st/s"
 
         # [all step]
         s += f",{state.total_step:7d}st"
@@ -221,7 +221,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         # [sync]
         if context.distributed:
             diff_q = state.actor_send_q - self.t0_actor_send_q
-            s += f", Q {int(diff_q/diff_time):4d} send/s({state.actor_send_q:8d})"
+            s += f", Q {int(diff_q/diff_time):4d}send/s({state.actor_send_q:8d})"
             self.t0_actor_send_q = state.actor_send_q
             s += f", {state.sync_actor:4d} recv Param"
 
@@ -379,7 +379,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             s += f"({to_str_time(remain)} left)"
 
         # [train time]
-        s += f",{int(diff_train_count/diff_time):6d} tr/s"
+        s += f",{int(diff_train_count/diff_time):6d}tr/s"
 
         # [train count]
         s += ",{:7d}tr".format(train_count)
@@ -391,7 +391,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         # [distributed]
         if context.distributed:
             diff_q = state.trainer_recv_q - self.t0_trainer_recv_q
-            s += f", Q {int(diff_q/diff_time):4d} recv/s({state.trainer_recv_q:8d})"
+            s += f", Q {int(diff_q/diff_time):4d}recv/s({state.trainer_recv_q:8d})"
             self.t0_trainer_recv_q = state.trainer_recv_q
             s += f", {state.sync_trainer:4d} send Param"
 

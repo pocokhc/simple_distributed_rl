@@ -60,8 +60,10 @@ class PrintProgress(DistributionCallback, Evaluate):
         self.progress_t0 = 0
         self.elapsed_t0 = _time
 
-        self.t0_train_time = _time
+        self.t0_print_time = _time
         self.t0_train_count = 0
+        self.t0_trainer_recv_q = 0
+        self.t0_actor = {}
 
     def on_end(self, task_manager: TaskManager):
         self._print(task_manager)
@@ -90,11 +92,11 @@ class PrintProgress(DistributionCallback, Evaluate):
         s += f" {status} {to_str_time(elapsed_time)}"
 
         # calc time
-        diff_time = _time - self.t0_train_time
+        diff_time = _time - self.t0_print_time
         train_count = task_manager.get_train_count()
         diff_train_count = train_count - self.t0_train_count
         train_time = diff_time / diff_train_count if diff_train_count > 0 else np.inf
-        self.t0_train_time = _time
+        self.t0_print_time = _time
         self.t0_train_count = train_count
 
         # [remain]
@@ -112,9 +114,12 @@ class PrintProgress(DistributionCallback, Evaluate):
         else:
             s += f"({to_str_time(remain)} left)"
 
+        # [train count]
+        s += f",{train_count:7d}tr"
+
         # [eval]
         if self.enable_eval:
-            s += self._eval_str(task_manager, self._task_config)
+            s += " " + self._eval_str(task_manager, self._task_config)
 
         print(s)
 
@@ -125,13 +130,21 @@ class PrintProgress(DistributionCallback, Evaluate):
         if trainer_id == "":
             print(" trainer  not assigned")
         else:
-            _elapsed_time = (now_utc - task_manager.get_trainer_update_time()).total_seconds()
-            s = f" trainer  {trainer_id} {_elapsed_time:.2f}s: "
-            s += f" {train_count:5d}tr"
-            s += f",{int(diff_train_count/diff_time):5d}tr/s"
+            _health_time = (now_utc - task_manager.get_trainer_update_time()).total_seconds()
+            s = f" trainer  {trainer_id} {_health_time:4.1f}s:"
+            s += f" {int(diff_train_count/diff_time):5d}tr/s"
 
-            memory_size = task_manager.get_trainer("memory")
-            s += f", {memory_size}mem"
+            # q_recv_count
+            q_recv_count = task_manager.get_trainer("q_recv_count")
+            q_recv_count = 0 if q_recv_count == "" else int(q_recv_count)
+            diff_q_recv_count = q_recv_count - self.t0_trainer_recv_q
+            self.t0_trainer_recv_q = q_recv_count
+            s += f",{int(diff_q_recv_count/diff_time):5d}recv/s"
+
+            # total
+            trainer_train_count = task_manager.get_trainer("train")
+            s += f",{trainer_train_count:>8s}tr"
+            s += f",{q_recv_count:8d}recv"
 
             print(s)
 
@@ -141,6 +154,31 @@ class PrintProgress(DistributionCallback, Evaluate):
             if aid == "":
                 print(f" actor{idx:<3d} not assigned")
             else:
-                _elapsed_time = (now_utc - task_manager.get_actor_update_time(idx)).total_seconds()
-                s = task_manager.get_actor(idx, "episode")
-                print(f" actor{idx:<3d} {aid} {_elapsed_time:.1f}s: {s:>6s}ep")
+                if idx not in self.t0_actor:
+                    self.t0_actor[idx] = {
+                        "step": 0,
+                        "q_send_count": 0,
+                    }
+
+                _health_time = (now_utc - task_manager.get_actor_update_time(idx)).total_seconds()
+                s = f" actor{idx:<3d} {aid} {_health_time:4.1f}s:"
+
+                # step
+                step = task_manager.get_actor(idx, "step")
+                step = 0 if step == "" else int(step)
+                diff_step = step - self.t0_actor[idx]["step"]
+                self.t0_actor[idx]["step"] = step
+                s += f" {int(diff_step/diff_time):5d}st/s"
+
+                # q_send_count
+                q_send_count = task_manager.get_actor(idx, "q_send_count")
+                q_send_count = 0 if q_send_count == "" else int(q_send_count)
+                diff_q_send_count = q_send_count - self.t0_actor[idx]["q_send_count"]
+                self.t0_actor[idx]["q_send_count"] = q_send_count
+                s += f",{int(diff_q_send_count/diff_time):5d}send/s"
+
+                # total
+                s += f",{step:8d}st"
+                s += f",{q_send_count:8d}send"
+
+                print(s)

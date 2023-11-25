@@ -54,7 +54,6 @@ Redis用のライブラリをインストールします。
 | TrainerServerとActorServerを任意のPCで起動します。
 | 基本はTrainerServerは1個、ActorServerは1個以上(actor_num数)の起動を想定しています。
 | ※各TrainerServer/ActorServerでも、EnvとAlgorithmが使用できる必要があります
-| ※RabbitMQサーバがない場合は第2引数をNoneにしてください
 
 TrainerServerの起動例です。(examples/distribution/server_trainer.py)
 
@@ -73,4 +72,10 @@ ActorServerの起動例です。(examples/distribution/server_actor.py)
 | 学習後はrunner内のparameterに学習済みデータが入っています。
 
 .. literalinclude:: ../../examples/distribution/main_sync.py
+
+
+| 非同期で学習を実施する場合は以下です。
+| 'TaskManager'を使うと直接やりとりできます。
+
+.. literalinclude:: ../../examples/distribution/main_async.py
 

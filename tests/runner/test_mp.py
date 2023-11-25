@@ -13,7 +13,6 @@ from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext
 from srl.base.run.core import RunState
 from srl.runner.core_mp import _Board, _run_actor, _run_trainer
-from srl.runner.runner import Runner
 from srl.utils import common
 
 
@@ -151,7 +150,7 @@ def test_train():
     runner = srl.Runner("Grid", rl_config)
     runner.train_mp(
         actor_num=2,
-        max_train_count=10_000,
+        max_train_count=20_000,
         enable_eval=True,
         callbacks=[_AssertTrainCallbacks()],
         trainer_parameter_send_interval=0,

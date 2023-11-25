@@ -14,13 +14,8 @@ def test_train():
     rl_config.memory.warmup_size = 10
     runner = srl.Runner("OX", rl_config)
 
-    runner.train(
-        timeout=7,
-        enable_progress=True,
-        progress_start_time=1,
-        progress_env_info=True,
-        enable_eval=True,
-    )
+    runner.set_progress_options(start_time=1, env_info=True)
+    runner.train(timeout=7, enable_progress=True, enable_eval=True)
 
 
 def test_train_only():
@@ -28,22 +23,13 @@ def test_train_only():
     rl_config.memory.warmup_size = 10
     runner = srl.Runner("Grid", rl_config)
 
-    runner.rollout(
-        timeout=7,
-        enable_progress=True,
-        progress_start_time=1,
-        progress_interval_limit=2,
-        progress_env_info=True,
-    )
+    runner.set_progress_options(start_time=1, interval_limit=2, env_info=True)
+    runner.rollout(timeout=7, enable_progress=True)
     assert runner.memory is not None
     assert runner.memory.length() > rl_config.memory.warmup_size
 
-    runner.train_only(
-        timeout=7,
-        enable_progress=True,
-        progress_start_time=1,
-        progress_interval_limit=2,
-    )
+    runner.set_progress_options(start_time=1, interval_limit=2)
+    runner.train_only(timeout=7, enable_progress=True)
 
 
 def test_mp():

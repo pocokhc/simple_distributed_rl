@@ -334,9 +334,12 @@ class TaskManager:
         enable_progress: bool = True,
         progress_interval: int = 60 * 1,
         # --- checkpoint
-        enable_checkpoint: bool = False,
-        checkpoint_save_dir: str = "checkpoint",
+        checkpoint_save_dir: str = "",
         checkpoint_interval: int = 60 * 20,
+        # --- history
+        history_save_dir: str = "",
+        history_interval: int = 10,
+        history_add_history: bool = True,
         # --- eval
         enable_eval: bool = True,
         eval_env_sharing: bool = True,
@@ -368,13 +371,32 @@ class TaskManager:
             )
             logger.info("add callback PrintProgress")
 
-        if enable_checkpoint:
+        if checkpoint_save_dir != "":
             from srl.runner.distribution.callbacks.checkpoint import Checkpoint
 
             callbacks.append(
                 Checkpoint(
                     save_dir=checkpoint_save_dir,
                     interval=checkpoint_interval,
+                    enable_eval=enable_eval,
+                    eval_env_sharing=eval_env_sharing,
+                    eval_episode=eval_episode,
+                    eval_timeout=eval_timeout,
+                    eval_max_steps=eval_max_steps,
+                    eval_players=eval_players,
+                    eval_shuffle_player=eval_shuffle_player,
+                )
+            )
+            logger.info(f"add callback Checkpoint: {checkpoint_save_dir}")
+
+        if history_save_dir != "":
+            from srl.runner.distribution.callbacks.history_on_file import HistoryOnFile
+
+            callbacks.append(
+                HistoryOnFile(
+                    save_dir=history_save_dir,
+                    interval=history_interval,
+                    add_history=history_add_history,
                     enable_eval=enable_eval,
                     eval_env_sharing=eval_env_sharing,
                     eval_episode=eval_episode,

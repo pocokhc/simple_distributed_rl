@@ -18,26 +18,26 @@ logs = [
         "time" : 学習実行時からの経過時間
 
         # --- episode関係
-        "episode"         : 総エピソード数
-        "episode_step"    : 1エピソードの総step
-        "episode_time"    : 1エピソードのtime
-        "rewardX" : 1エピソードの player の総報酬
-        "eval_rewardX"    : 評価してる場合はその報酬
-        "sync"    : mpの時の同期回数
-        "workerX_YYY"     : 学習情報
+        "episode"      : 総エピソード数
+        "episode_step" : 1エピソードの総step
+        "episode_time" : 1エピソードのtime
+        "rewardX"      : 1エピソードの player の総報酬
+        "eval_rewardX" : 評価してる場合はその報酬
+        "sync"         : mpの時の同期回数
+        "workerX_YYY"  : 学習情報
 
         # --- memory
         "memory" : memory に入っているbatch数
 
         # --- train関係
-        "train"         : 学習回数
-        "train_time"    : 区間内での学習時間の平均値
-        "sync"    : mpの時の同期回数
-        "trainer_YYY"   : 学習情報
+        "train"       : 学習回数
+        "train_time"  : 区間内での学習時間の平均値
+        "sync"        : mpの時の同期回数
+        "trainer_YYY" : 学習情報
 
         # --- system関係
         "system_memory" : メモリ使用率
-        "cpu"    : CPU使用率
+        "cpu"        : CPU使用率
         "gpuX"       : GPU使用率
         "gpuX_memory": GPUメモリの使用率
     },
@@ -115,6 +115,9 @@ class HistoryViewer:
         self.logs.extend(lines)
 
         lines = _load_log_file(os.path.join(save_dir, "system.txt"))
+        self.logs.extend(lines)
+
+        lines = _load_log_file(os.path.join(save_dir, "client.txt"))
         self.logs.extend(lines)
 
         # sort

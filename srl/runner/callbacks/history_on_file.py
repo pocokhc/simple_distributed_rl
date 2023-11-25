@@ -16,7 +16,7 @@ from srl.base.run.core import RunState
 from srl.runner.callback import RunnerCallback
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.callbacks.history_viewer import HistoryViewer
-from srl.runner.runner import Runner
+from srl.runner.runner import Runner, RunnerConfig
 from srl.utils.common import summarize_info_from_dictlist
 from srl.utils.serialize import JsonNumpyEncoder
 
@@ -64,14 +64,12 @@ def _file_get_last_data(file_path) -> Optional[dict]:
 
 
 @dataclass
-class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
+class HistoryOnFileBase:
     save_dir: str = "history"
-    interval: int = 1  # s
     add_history: bool = False
-    write_system: bool = False
 
     def __post_init__(self):
-        self._fp_dict: dict[str, Optional[io.TextIOWrapper]] = {}
+        self._fp_dict: dict[str, io.TextIOWrapper] = {}
 
     def __del__(self):
         self.close()
@@ -79,14 +77,28 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     def close(self):
         for k, v in self._fp_dict.items():
             if v is not None:
-                self._fp_dict[k] = None
-                v.close()
+                try:
+                    v.close()
+                except Exception as e:
+                    logger.error(f"close error: {e}")
+        self._fp_dict = {}
 
-    def _write_log(self, fp, d):
+    def open_fp(self, name: str, filename: str):
+        if self.add_history:
+            mode = "a"
+        else:
+            mode = "w"
+        self._fp_dict[name] = open(os.path.join(self.save_dir, filename), mode, encoding="utf-8")
+
+    def is_fp(self, name: str):
+        return name in self._fp_dict
+
+    def write_log(self, name: str, d):
+        fp = self._fp_dict[name]
         fp.write(json.dumps(d, cls=JsonNumpyEncoder) + "\n")
         fp.flush()
 
-    def on_runner_start(self, runner: Runner) -> None:
+    def setup(self, config: RunnerConfig, context: RunContext):
         # --- make dir
         if not os.path.isdir(self.save_dir):
             os.makedirs(self.save_dir, exist_ok=True)
@@ -102,10 +114,10 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
 
         # --- config
         for fn, dat in [
-            ["env_config.json", runner.context.env_config.to_dict()],
-            ["rl_config.json", runner.context.rl_config.to_dict()],
-            ["context.json", runner.context_controller.to_dict(skip_config=True)],
-            ["config.json", runner.config.to_dict()],
+            ["env_config.json", context.env_config.to_dict()],
+            ["rl_config.json", context.rl_config.to_dict()],
+            ["context.json", context.create_controller().to_dict(skip_config=True)],
+            ["config.json", config.to_dict()],
         ]:
             path = os.path.join(self.save_dir, fn)
             if not os.path.isfile(path):
@@ -146,6 +158,20 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
                 logger.info(f"remove file: {s_path}")
                 os.remove(s_path)
 
+
+@dataclass
+class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
+    save_dir: str = "history"
+    interval: int = 1  # s
+    add_history: bool = False
+    write_system: bool = False
+
+    def __post_init__(self):
+        self._base = HistoryOnFileBase(self.save_dir, self.add_history)
+
+    def on_runner_start(self, runner: Runner) -> None:
+        self._base.setup(runner.config, runner.context)
+
     def on_runner_end(self, runner: Runner) -> None:
         runner.history_viewer = HistoryViewer()
         runner.history_viewer.load(self.save_dir)
@@ -174,12 +200,12 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             return
         if not self.runner.config.enable_stats:
             return
-        if self._fp_dict.get("system", None) is None:
+        if not self._base.is_fp("system"):
             return
 
         d = {
             "name": "system",
-            "time": time.time() - self.t0 + self.start_time,
+            "time": time.time() - self.t0 + self._base.start_time,
         }
 
         try:
@@ -199,21 +225,14 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         except Exception:
             logger.debug(traceback.format_exc())
 
-        self._write_log(self._fp_dict["system"], d)
+        self._base.write_log("system", d)
 
     # ---------------------------
     # actor
     # ---------------------------
     def on_episodes_begin(self, context: RunContext, state: RunState):
-        if self.add_history:
-            mode = "a"
-        else:
-            mode = "w"
-        if self._fp_dict.get("actor", None) is None:
-            fn = f"actor{context.actor_id}.txt"
-            self._fp_dict["actor"] = open(os.path.join(self.save_dir, fn), mode, encoding="utf-8")
-        if self.write_system and self._fp_dict.get("system", None) is None:
-            self._fp_dict["system"] = open(os.path.join(self.save_dir, "system.txt"), mode, encoding="utf-8")
+        self._base.open_fp("actor", f"actor{context.actor_id}.txt")
+        self._base.open_fp("system", "system.txt")
 
         # 分散の場合はactor_id=0のみevalをする
         if context.distributed:
@@ -226,7 +245,7 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     def on_episodes_end(self, context: RunContext, state: RunState):
         self._write_actor_log(context, state)
         self._write_system()
-        self.close()
+        self._base.close()
 
     def on_episode_begin(self, context: RunContext, state: RunState):
         self.episode_infos = {}
@@ -253,7 +272,7 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
 
     def on_episode_end(self, context: RunContext, state: RunState):
         d = {
-            "episode": state.episode_count + self.start_episode_count,
+            "episode": state.episode_count + self._base.start_episode_count,
             "episode_time": time.time() - self.t0_episode,
             "episode_step": self.step_count,
         }
@@ -266,15 +285,15 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self.last_episode_result = d
 
     def _write_actor_log(self, context: RunContext, state: RunState):
-        if self._fp_dict.get("actor", None) is None:
+        if not self._base.is_fp("actor"):
             return
         if self.last_episode_result is None:
             return
 
         d = self.last_episode_result
         d["name"] = f"actor{context.actor_id}"
-        d["time"] = time.time() - self.t0 + self.start_time
-        d["sync"] = state.sync_actor + self.start_sync_actor
+        d["time"] = time.time() - self.t0 + self._base.start_time
+        d["sync"] = state.sync_actor + self._base.start_sync_actor
         trainer = state.trainer
         if trainer is not None:
             d["train"] = trainer.get_train_count()
@@ -292,21 +311,15 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
                 for i, r in enumerate(eval_rewards):
                     d[f"eval_reward{i}"] = r
 
-        self._write_log(self._fp_dict["actor"], d)
+        self._base.write_log("actor", d)
         self.last_episode_result = None
 
     # ---------------------------
     # trainer
     # ---------------------------
     def on_trainer_start(self, context: RunContext, state: RunState):
-        if self.add_history:
-            mode = "a"
-        else:
-            mode = "w"
-        if self._fp_dict.get("trainer", None) is None:
-            self._fp_dict["trainer"] = open(os.path.join(self.save_dir, "trainer.txt"), mode, encoding="utf-8")
-        if self.write_system and self._fp_dict.get("system", None) is None:
-            self._fp_dict["system"] = open(os.path.join(self.save_dir, "system.txt"), mode, encoding="utf-8")
+        self._base.open_fp("trainer", "trainer.txt")
+        self._base.open_fp("system", "system.txt")
 
         self.t0 = time.time()
         self.t0_train = time.time()
@@ -321,7 +334,7 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     def on_trainer_end(self, context: RunContext, state: RunState):
         self._write_trainer_log(context, state)
         self._write_system()
-        self.close()
+        self._base.close()
 
     def on_trainer_loop(self, context: RunContext, state: RunState):
         assert state.trainer is not None
@@ -334,7 +347,7 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             self.interval_t0 = _time
 
     def _write_trainer_log(self, context: RunContext, state: RunState):
-        if self._fp_dict.get("trainer", None) is None:
+        if not self._base.is_fp("trainer"):
             return
         if self.train_infos == {}:
             return
@@ -347,10 +360,10 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             train_time = np.inf
         d = {
             "name": "trainer",
-            "time": time.time() - self.t0 + self.start_time,
-            "train": train_count + self.start_train_count,
+            "time": time.time() - self.t0 + self._base.start_time,
+            "train": train_count + self._base.start_train_count,
             "train_time": train_time,
-            "sync": state.sync_trainer + self.start_sync_trainer,
+            "sync": state.sync_trainer + self._base.start_sync_trainer,
         }
         memory = state.memory
         d["memory"] = 0 if memory is None else memory.length()
@@ -365,7 +378,7 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
 
         d.update(summarize_info_from_dictlist(self.train_infos))
 
-        self._write_log(self._fp_dict["trainer"], d)
+        self._base.write_log("trainer", d)
 
         self.t0_train = time.time()
         self.t0_train_count = state.trainer.get_train_count()

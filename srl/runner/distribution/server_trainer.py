@@ -30,12 +30,21 @@ logger = logging.getLogger(__name__)
 #   (add) | (sample -> train -> update)
 #
 # ---------------------------------------------------
+class _ShareData:
+    def __init__(self):
+        self.sync_count = 0
+        self.train_count = 0
+        self.q_recv_count = 0
+        self.end_signal = False
+        self.th_error = ""
+
+
 class _TrainerRLMemoryThreadPrepareBatch(IRLMemoryTrainer):
-    def __init__(self, base_memory: RLMemory, batch_size: int, share_dict: dict):
+    def __init__(self, base_memory: RLMemory, batch_size: int, share_data: _ShareData):
         # recv,warmup両方threadなので、両方待つ場合は待機
         self.base_memory = base_memory
         self.batch_size = batch_size
-        self.share_dict = share_dict
+        self.share_data = share_data
         self.q_batch = queue.Queue()
         self.q_update = queue.Queue()
 
@@ -46,7 +55,7 @@ class _TrainerRLMemoryThreadPrepareBatch(IRLMemoryTrainer):
             time.sleep(0.1)
         if not self.base_memory.is_warmup_needed():
             if self.q_batch.qsize() < 5:
-                self.q_batch.put(self.base_memory.sample(self.batch_size, self.share_dict["train_count"]))
+                self.q_batch.put(self.base_memory.sample(self.batch_size, self.share_data.train_count))
         if not self.q_update.empty():
             self.base_memory.update(self.q_update.get())
 
@@ -66,7 +75,7 @@ class _TrainerRLMemoryThreadPrepareBatch(IRLMemoryTrainer):
 def _memory_communicate(
     manager_copy_args,
     memory: RLMemory,
-    share_dict: dict,
+    share_data: _ShareData,
     enable_prepare_sample_batch,
 ):
     try:
@@ -77,7 +86,7 @@ def _memory_communicate(
 
         if enable_prepare_sample_batch:
             # --- 受信できない場合もsampleを作り続ける
-            while not share_dict["end_signal"]:
+            while not share_data.end_signal:
                 try:
                     if not memory_receiver.is_connected:
                         memory_receiver.ping()
@@ -90,10 +99,10 @@ def _memory_communicate(
                 cast(_TrainerRLMemoryThreadPrepareBatch, memory).recv(dat)
                 if dat is not None:
                     q_recv_count += 1
-                    share_dict["q_recv_count"] = q_recv_count
+                    share_data.q_recv_count = q_recv_count
         else:
             # --- 受信できなければサーバ側なので少し待つ
-            while not share_dict["end_signal"]:
+            while not share_data.end_signal:
                 if not memory_receiver.is_connected:
                     time.sleep(1)
                     if not memory_receiver.ping():
@@ -109,21 +118,20 @@ def _memory_communicate(
                     time.sleep(0.1)
                 else:
                     q_recv_count += 1
-                    share_dict["q_recv_count"] = q_recv_count
+                    share_data.q_recv_count = q_recv_count
                     memory.add(*dat)
 
     except Exception:
-        share_dict["th_error"] = traceback.format_exc()
+        share_data.th_error = traceback.format_exc()
     finally:
-        share_dict["end_signal"] = True
+        share_data.end_signal = True
         logger.info("trainer memory thread end.")
 
 
 def _parameter_communicate(
     manager_copy_args,
-    memory: RLMemory,
     parameter: RLParameter,
-    share_dict: dict,
+    share_data: _ShareData,
     trainer_parameter_send_interval: int,
 ):
     try:
@@ -133,53 +141,53 @@ def _parameter_communicate(
 
         keepalive_t0 = 0
         start_train_count = task_manager.get_train_count()
-        while not share_dict["end_signal"]:
+        while not share_data.end_signal:
             time.sleep(trainer_parameter_send_interval)
 
             # --- sync parameter
             params = parameter.backup(to_cpu=True)
             if params is not None:
                 parameter_writer.parameter_update(params)
-                share_dict["sync_count"] += 1
+                share_data.sync_count += 1
 
             # --- keepalive
-            task_manager.set_trainer("q_recv_count", str(share_dict["q_recv_count"]))
+            task_manager.set_trainer("q_recv_count", str(share_data.q_recv_count))
             if time.time() - keepalive_t0 > task_manager.params.keepalive_interval:
                 keepalive_t0 = time.time()
-                _keepalive(task_manager, start_train_count, share_dict["train_count"], memory.length())
+                _keepalive(task_manager, start_train_count, share_data.train_count)
                 if task_manager.is_finished():
                     break
 
-        task_manager.set_trainer("q_recv_count", str(share_dict["q_recv_count"]))
-        _keepalive(task_manager, start_train_count, share_dict["train_count"], memory.length())
+        task_manager.set_trainer("q_recv_count", str(share_data.q_recv_count))
+        _keepalive(task_manager, start_train_count, share_data.train_count)
 
     except Exception:
-        share_dict["th_error"] = traceback.format_exc()
+        share_data.th_error = traceback.format_exc()
     finally:
-        share_dict["end_signal"] = True
+        share_data.end_signal = True
         logger.info("trainer parameter thread end.")
 
 
 class _TrainerInterruptThread(TrainerCallback):
-    def __init__(self, memory_ps: threading.Thread, parameter_ps: threading.Thread, share_dict: dict) -> None:
+    def __init__(self, memory_ps: threading.Thread, parameter_ps: threading.Thread, share_data: _ShareData) -> None:
         self.memory_ps = memory_ps
         self.parameter_ps = parameter_ps
-        self.share_dict = share_dict
+        self.share_data = share_data
 
     def on_trainer_loop(self, context: RunContext, state: RunState) -> bool:
         if not state.is_step_trained:
             # warmupなら待機
             time.sleep(1)
 
-        state.trainer_recv_q = self.share_dict["q_recv_count"]
+        state.trainer_recv_q = self.share_data.q_recv_count
         assert state.trainer is not None
-        self.share_dict["train_count"] = state.trainer.get_train_count()
-        state.sync_trainer = self.share_dict["sync_count"]
+        self.share_data.train_count = state.trainer.get_train_count()
+        state.sync_trainer = self.share_data.sync_count
         if not self.memory_ps.is_alive():
-            self.share_dict["end_signal"] = True
+            self.share_data.end_signal = True
         if not self.parameter_ps.is_alive():
-            self.share_dict["end_signal"] = True
-        return self.share_dict["end_signal"]
+            self.share_data.end_signal = True
+        return self.share_data.end_signal
 
 
 # ------------------------------------------
@@ -236,13 +244,11 @@ class _TrainerInterruptNoThread(TrainerCallback):
         if time.time() - self.keepalive_t0 > self.task_manager.params.keepalive_interval:
             self.keepalive_t0 = time.time()
             assert state.trainer is not None
-            assert state.memory is not None
             self.task_manager.set_trainer("q_recv_count", str(self.q_recv_count))
             _keepalive(
                 self.task_manager,
                 self.start_train_count,
                 state.trainer.get_train_count(),
-                state.memory.length(),
             )
             if self.task_manager.is_finished():
                 return True
@@ -251,13 +257,11 @@ class _TrainerInterruptNoThread(TrainerCallback):
 
     def on_trainer_end(self, context: RunContext, state: RunState):
         assert state.trainer is not None
-        assert state.memory is not None
         self.task_manager.set_trainer("q_recv_count", str(self.q_recv_count))
         _keepalive(
             self.task_manager,
             self.start_train_count,
             state.trainer.get_train_count(),
-            state.memory.length(),
         )
 
 
@@ -281,20 +285,14 @@ def _run_trainer(manager: ServerManager, runner: srl.Runner):
 
     memory_ps = None
     parameter_ps = None
-    share_dict = {}
+    share_data = None
     try:
         # --- thread
         if runner.config.dist_enable_trainer_thread:
-            share_dict = {
-                "sync_count": 0,
-                "train_count": 0,
-                "q_recv_count": 0,
-                "end_signal": False,
-                "th_error": "",
-            }
+            share_data = _ShareData()
             if runner.config.dist_enable_prepare_sample_batch:
                 batch_size = getattr(runner.context.rl_config, "batch_size", 1)
-                memory = _TrainerRLMemoryThreadPrepareBatch(memory, batch_size, share_dict)
+                memory = _TrainerRLMemoryThreadPrepareBatch(memory, batch_size, share_data)
 
             _manager_copy_args = manager._copy_args()
             memory_ps = threading.Thread(
@@ -302,7 +300,7 @@ def _run_trainer(manager: ServerManager, runner: srl.Runner):
                 args=(
                     _manager_copy_args,
                     memory,
-                    share_dict,
+                    share_data,
                     runner.config.dist_enable_prepare_sample_batch,
                 ),
             )
@@ -310,15 +308,14 @@ def _run_trainer(manager: ServerManager, runner: srl.Runner):
                 target=_parameter_communicate,
                 args=(
                     _manager_copy_args,
-                    memory,
                     parameter,
-                    share_dict,
+                    share_data,
                     runner.config.trainer_parameter_send_interval,
                 ),
             )
             memory_ps.start()
             parameter_ps.start()
-            callbacks.append(_TrainerInterruptThread(memory_ps, parameter_ps, share_dict))
+            callbacks.append(_TrainerInterruptThread(memory_ps, parameter_ps, share_data))
         else:
             callbacks.append(
                 _TrainerInterruptNoThread(
@@ -347,19 +344,19 @@ def _run_trainer(manager: ServerManager, runner: srl.Runner):
         task_manager.finished("trainer end")
 
         if memory_ps is not None:
-            share_dict["end_signal"] = True
+            assert share_data is not None
             assert memory_ps is not None
             assert parameter_ps is not None
+            share_data.end_signal = True
             memory_ps.join(timeout=10)
             parameter_ps.join(timeout=10)
-            if share_dict["th_error"] != "":
-                raise ValueError(share_dict["th_error"])
+            if share_data.th_error != "":
+                raise ValueError(share_data.th_error)
 
 
-def _keepalive(task_manager: TaskManager, start_train_count: int, train_count: int, memory_size: int):
+def _keepalive(task_manager: TaskManager, start_train_count: int, train_count: int):
     task_manager.set_train_count(start_train_count, train_count)
     task_manager.set_trainer("train", str(train_count))
-    task_manager.set_trainer("memory", str(memory_size))
     task_manager.set_trainer("update_time", task_manager.get_now_str())
 
 
@@ -459,5 +456,6 @@ def run_forever(
                 raise
             else:
                 logger.error(traceback.format_exc())
+                time.sleep(10)
                 print(f"wait trainer: {uid}")
                 logger.info(f"wait trainer: {uid}")

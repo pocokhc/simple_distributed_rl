@@ -518,19 +518,19 @@ class RunnerFacade(Runner):
 
         task_manager = TaskManager(redis_params, "client")
         task_manager.create_task(self.create_task_config(), self.make_parameter(is_load=False))
-        if self._checkpoint_kwargs is None:
-            _k: dict = dict(enable_checkpoint=False)
-        else:
-            _k: dict = dict(
-                enable_checkpoint=False,
-                checkpoint_save_dir=self._checkpoint_kwargs["save_dir"],
-                checkpoint_interval=self._checkpoint_kwargs["interval"],
-            )
+        _train_wait_kwargs = {}
+        if self._checkpoint_kwargs is not None:
+            _train_wait_kwargs["checkpoint_save_dir"] = self._checkpoint_kwargs["save_dir"]
+            _train_wait_kwargs["checkpoint_interval"] = self._checkpoint_kwargs["interval"]
+        if self._history_on_file_kwargs is not None:
+            _train_wait_kwargs["history_save_dir"] = self._history_on_file_kwargs["save_dir"]
+            _train_wait_kwargs["history_interval"] = self._history_on_file_kwargs["interval"]
+            _train_wait_kwargs["history_add_history"] = self._history_on_file_kwargs["add_history"]
         try:
             task_manager.train_wait(
                 enable_progress=enable_progress,
                 progress_interval=progress_interval,
-                **_k,
+                **_train_wait_kwargs,
                 enable_eval=enable_eval,
                 eval_env_sharing=eval_env_sharing,
                 eval_episode=eval_episode,

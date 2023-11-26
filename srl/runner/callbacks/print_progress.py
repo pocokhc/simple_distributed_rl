@@ -46,13 +46,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self.history_episode = []
         self.history_episode_start_idx = 0
 
-    def _check_print_progress(self):
-        _time = time.time()
-        taken_time = _time - self.progress_t0
-        if taken_time < self.progress_timeout:
-            return False
-        self.progress_t0 = _time
-
+    def _update_progress(self):
         # 表示間隔を増やす、5s以下は5sに、それ以降は２倍
         if self.progress_timeout < 5:
             self.progress_timeout = 5
@@ -60,8 +54,6 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             self.progress_timeout *= 2
             if self.progress_timeout > self.interval_limit:
                 self.progress_timeout = self.interval_limit
-
-        return True
 
     def _eval_str(self, context: RunContext, state: RunState) -> str:
         assert self.runner is not None
@@ -129,8 +121,10 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     def on_step_end(self, context: RunContext, state: RunState):
         if context.actor_id >= self.progress_max_actor:
             return
-        if self._check_print_progress():
+        if time.time() - self.progress_t0 > self.progress_timeout:
             self._print_actor(context, state)
+            self._update_progress()
+            self.progress_t0 = time.time()  # last
 
     def on_episode_end(self, context: RunContext, state: RunState):
         if context.actor_id >= self.progress_max_actor:
@@ -163,6 +157,8 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
 
         # calc time
         diff_time = _time - self.t0_print_time
+        if diff_time < 0.1:
+            diff_time = 0.1
         diff_step = state.total_step - self.t0_step_count
         diff_episode = state.episode_count - self.t0_episode_count
         step_time = diff_time / diff_step if diff_step > 0 else np.inf
@@ -339,8 +335,10 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self._print_trainer(context, state)
 
     def on_trainer_loop(self, context: RunContext, state: RunState) -> None:
-        if self._check_print_progress():
+        if time.time() - self.progress_t0 > self.progress_timeout:
             self._print_trainer(context, state)
+            self._update_progress()
+            self.progress_t0 = time.time()  # last
 
     def _print_trainer(self, context: RunContext, state: RunState):
         assert state.trainer is not None

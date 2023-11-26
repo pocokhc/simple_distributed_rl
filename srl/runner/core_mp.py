@@ -72,7 +72,9 @@ class _ActorRLMemory(IRLMemoryWorker):
                 break
             if time.time() - t0 > 10:
                 t0 = time.time()
-                print(f"queue capacity over: {qsize}/{self.dist_queue_capacity}")
+                s = f"queue capacity over: {qsize}/{self.dist_queue_capacity}"
+                print(s)
+                logger.info(s)
                 break  # 終了条件用に1step進める
 
             time.sleep(1)

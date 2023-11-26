@@ -266,9 +266,9 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
 
         _time = time.time()
         if _time - self.interval_t0 > self.interval:
-            self.interval_t0 = _time
             self._write_actor_log(context, state)
             self._write_system()
+            self.interval_t0 = _time  # last
 
     def on_episode_end(self, context: RunContext, state: RunState):
         d = {
@@ -344,7 +344,7 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         if _time - self.interval_t0 > self.interval:
             self._write_trainer_log(context, state)
             self._write_system()
-            self.interval_t0 = _time
+            self.interval_t0 = _time  # last
 
     def _write_trainer_log(self, context: RunContext, state: RunState):
         if not self._base.is_fp("trainer"):

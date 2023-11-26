@@ -150,7 +150,7 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         _time = time.time()
         if _time - self.interval_t0 > self.interval:
             self._save_trainer_log(context, state)
-            self.interval_t0 = _time
+            self.interval_t0 = _time  # last
 
     def _save_trainer_log(self, context: RunContext, state: RunState):
         assert state.trainer is not None

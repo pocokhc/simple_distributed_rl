@@ -79,7 +79,7 @@ class Checkpoint(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             return
         if time.time() - self.interval_t0 > self.interval:
             self._save_parameter(state, is_last=False)
-            self.interval_t0 = time.time()
+            self.interval_t0 = time.time()  # last
 
     def on_episodes_end(self, context: RunContext, state: RunState) -> None:
         if state.trainer is None:
@@ -96,7 +96,7 @@ class Checkpoint(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     def on_trainer_loop(self, context: RunContext, state: RunState):
         if time.time() - self.interval_t0 > self.interval:
             self._save_parameter(state, is_last=False)
-            self.interval_t0 = time.time()
+            self.interval_t0 = time.time()  # last
 
     def on_trainer_end(self, context: RunContext, state: RunState):
         self._save_parameter(state, is_last=True)

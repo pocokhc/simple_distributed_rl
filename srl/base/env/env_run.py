@@ -1,5 +1,6 @@
 import logging
 import pickle
+import random
 import time
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 
@@ -78,6 +79,9 @@ class EnvRun:
         # --- env reset
         self._reset_vals()
         self._state, self._info = self.env.reset()
+        if self.config.random_noop_max > 0:
+            for _ in range(random.randint(0, self.config.random_noop_max)):
+                self._state, rewards, done, self._info = self.env.step(self.env.action_space.get_default())
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
         if self.config.enable_assertion_value:
             assert self.observation_space.check_val(self._state)

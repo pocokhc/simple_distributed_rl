@@ -47,6 +47,8 @@ class EnvConfig:
     #: 1stepあたり、環境内で余分に進めるstep数
     #: 例えばframeskip=3の場合、ユーザが1step実行すると、環境内では4frame進みます。
     frameskip: int = 0
+    #: 1以上を指定するとそのstep数以内で、エピソード開始からランダムstep進めてからエピソード開始します。
+    random_noop_max: int = 0
 
     # --- gym
     #: gymの環境を生成する場合、Noneの場合は "gym.make" で生成されますが、関数を渡すとその関数で生成されます。

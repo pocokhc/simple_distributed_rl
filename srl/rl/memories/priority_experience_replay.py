@@ -3,6 +3,7 @@ from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
+from srl.base.define import RLMemoryTypes
 from srl.base.rl.base import RLMemory
 from srl.rl.memories.priority_memories.imemory import IPriorityMemory
 
@@ -147,6 +148,10 @@ class PriorityExperienceReplay(RLMemory):
         self.config: PriorityExperienceReplayConfig = self.config
         self.batch_size = self.config.batch_size
         self.memory = self.config.memory.create_memory()
+
+    @property
+    def memory_type(self) -> RLMemoryTypes:
+        return RLMemoryTypes.PRIORITY
 
     def length(self) -> int:
         return self.memory.length()

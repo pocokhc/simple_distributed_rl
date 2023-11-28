@@ -60,6 +60,11 @@ class _ActorRLMemory(IRLMemoryWorker):
         self.end_signal = end_signal
         self.q_send = 0
 
+
+    @property
+    def memory_type(self) -> RLMemoryTypes:
+        return RLMemoryTypes.NONE
+
     def add(self, *args) -> None:
         t0 = time.time()
         while True:

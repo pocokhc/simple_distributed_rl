@@ -7,6 +7,7 @@ import traceback
 from typing import Any, List, Optional, cast
 
 import srl
+from srl.base.define import RLMemoryTypes
 from srl.base.rl.base import IRLMemoryTrainer, RLMemory, RLParameter
 from srl.base.run.callback import TrainerCallback
 from srl.base.run.context import RunContext, RunNameTypes
@@ -47,6 +48,10 @@ class _TrainerRLMemoryThreadPrepareBatch(IRLMemoryTrainer):
         self.share_data = share_data
         self.q_batch = queue.Queue()
         self.q_update = queue.Queue()
+
+    @property
+    def memory_type(self) -> RLMemoryTypes:
+        return RLMemoryTypes.NONE
 
     def recv(self, dat) -> None:
         if dat is not None:

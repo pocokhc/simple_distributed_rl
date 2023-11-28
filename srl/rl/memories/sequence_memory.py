@@ -1,5 +1,6 @@
 from typing import Any, List
 
+from srl.base.define import RLMemoryTypes
 from srl.base.rl.base import RLMemory
 
 
@@ -13,6 +14,10 @@ class SequenceMemory(RLMemory):
     def __init__(self, *args):
         super().__init__(*args)
         self.buffer = []
+
+    @property
+    def memory_type(self) -> RLMemoryTypes:
+        return RLMemoryTypes.SEQUENCE
 
     def length(self) -> int:
         return len(self.buffer)

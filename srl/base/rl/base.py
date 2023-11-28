@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Optional, Tuple
 
 import numpy as np
 
-from srl.base.define import InfoType, InvalidActionsType, RLActionType
+from srl.base.define import InfoType, InvalidActionsType, RLActionType, RLMemoryTypes
 from srl.base.render import IRender
 from srl.base.rl.config import DummyRLConfig, RLConfig
 
@@ -79,21 +79,32 @@ class DummyRLParameter(RLParameter):
 # ------------------------------------
 # Memory
 # ------------------------------------
-class IRLMemoryWorker(ABC):
+class _IRLMemoryBase(ABC):
+    @property
     @abstractmethod
-    def add(self, *args) -> None:
+    def memory_type(self) -> RLMemoryTypes:
         raise NotImplementedError()
 
     def length(self) -> int:
         return -1
 
 
+class IRLMemoryWorker(_IRLMemoryBase):
+    @abstractmethod
+    def add(self, *args) -> None:
+        raise NotImplementedError()
+
+
 class UnusedRLMemoryWorker(IRLMemoryWorker):
+    @property
+    def memory_type(self) -> RLMemoryTypes:
+        return RLMemoryTypes.NONE
+
     def add(self, *args) -> None:
         raise NotImplementedError("Unused")
 
 
-class IRLMemoryTrainer(ABC):
+class IRLMemoryTrainer(_IRLMemoryBase):
     @abstractmethod
     def is_warmup_needed(self) -> bool:
         raise NotImplementedError()
@@ -104,9 +115,6 @@ class IRLMemoryTrainer(ABC):
 
     def update(self, memory_update_args: Any) -> None:
         raise NotImplementedError()
-
-    def length(self) -> int:
-        return -1
 
 
 class RLMemory(IRLMemoryWorker, IRLMemoryTrainer):
@@ -178,6 +186,32 @@ class RLMemory(IRLMemoryWorker, IRLMemoryTrainer):
                 dat = pickle.load(f)
         self.call_restore(dat, **kwargs)
         logger.info(f"memory loaded (size: {self.length()}, time: {time.time() - t0:.1f}s): {path}")
+
+
+class DummyRLMemory(RLMemory):
+    def __init__(self, config: Optional[RLConfig] = None):
+        if config is None:
+            config = DummyRLConfig()
+        super().__init__(config)
+
+    @property
+    def memory_type(self) -> RLMemoryTypes:
+        return RLMemoryTypes.NONE
+
+    def call_backup(self, **kwargs) -> Any:
+        return None
+
+    def call_restore(self, data: Any, **kwargs) -> None:
+        pass
+
+    def add(self, *args) -> None:
+        pass
+
+    def is_warmup_needed(self) -> bool:
+        return False
+
+    def sample(self, batch_size: int, step: int) -> Any:
+        return None
 
 
 # ------------------------------------

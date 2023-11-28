@@ -78,6 +78,7 @@ def get_random_max_index(arr: Union[np.ndarray, List[float]], invalid_actions: L
         if len(invalid_actions) > 0:
             if isinstance(arr, np.ndarray):
                 arr = arr.tolist()
+            arr = arr[:]
             for a in invalid_actions:
                 arr[a] = -np.inf
         max_value = max(arr)

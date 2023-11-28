@@ -1,8 +1,6 @@
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from srl.runner.distribution.connectors.parameters import RedisParameters
-from srl.runner.distribution.connectors.redis_ import RedisConnector
 from srl.runner.distribution.interface import (
     IMemoryReceiver,
     IMemorySender,
@@ -12,13 +10,17 @@ from srl.runner.distribution.interface import (
 )
 from srl.runner.distribution.task_manager import TaskManager, TaskManagerParams
 
+if TYPE_CHECKING:
+    from srl.runner.distribution.connectors.parameters import RedisParameters
+    from srl.runner.distribution.connectors.redis_ import RedisConnector
+
 logger = logging.getLogger(__name__)
 
 
 class ServerManager:
     def __init__(
         self,
-        redis_params: RedisParameters,
+        redis_params: "RedisParameters",
         memory_params: Optional[IMemoryServerParameters],
         task_manager_params: TaskManagerParams,
     ):
@@ -48,7 +50,7 @@ class ServerManager:
     ):
         return ServerManager(redis_params, memory_params, task_manager_params)
 
-    def get_redis_connector(self) -> RedisConnector:
+    def get_redis_connector(self) -> "RedisConnector":
         if self._redis_connector is None:
             self._redis_connector = self.redis_params.create_connector()
         return self._redis_connector

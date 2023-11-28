@@ -27,6 +27,7 @@ class GameWindow(ABC):
         self.padding: int = 4
         self.img_dir = os.path.join(os.path.dirname(__file__), "img")
         self.keys_status = {}
+        self._valid_unicode_keys = ["-", "+"]
 
         self.org_env_w = 0
         self.org_env_h = 0
@@ -45,10 +46,12 @@ class GameWindow(ABC):
         return self.keys_status.get(key, KeyStatus.UP)
 
     def get_down_keys(self) -> List[int]:
-        return [k for k, s in self.keys_status.items() if s == KeyStatus.DOWN]
+        keys = [k for k, s in self.keys_status.items() if s == KeyStatus.DOWN]
+        return [k for k in keys if k not in self._valid_unicode_keys]
 
     def get_pressed_keys(self) -> List[int]:
-        return [k for k, s in self.keys_status.items() if s == KeyStatus.PRESSED]
+        keys = [k for k, s in self.keys_status.items() if s == KeyStatus.PRESSED]
+        return [k for k in keys if k not in self._valid_unicode_keys]
 
     def play(self):
         if "SDL_VIDEODRIVER" in os.environ:
@@ -79,20 +82,19 @@ class GameWindow(ABC):
 
             # --- event check
             is_window_resize = False
-            _valid_unicode_keys = ["-", "+"]
             events = pygame.event.get()
             for event in events:
                 if event.type == pygame.QUIT:
                     pygame_done = True
                 elif event.type == pygame.KEYUP:
                     self.keys_status[event.key] = KeyStatus.RELEASED
-                    if event.unicode in _valid_unicode_keys:
+                    if event.unicode in self._valid_unicode_keys:
                         self.keys_status[event.unicode] = KeyStatus.RELEASED
 
                 elif event.type == pygame.KEYDOWN:
                     if self.keys_status.get(event.key, KeyStatus.UP) != KeyStatus.DOWN:
                         self.keys_status[event.key] = KeyStatus.PRESSED
-                    if event.unicode in _valid_unicode_keys:
+                    if event.unicode in self._valid_unicode_keys:
                         if self.keys_status.get(event.unicode, KeyStatus.UP) != KeyStatus.DOWN:
                             self.keys_status[event.unicode] = KeyStatus.PRESSED
 

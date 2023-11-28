@@ -1,12 +1,36 @@
 # TODO list
 
-1. (tensorboard)
+// (tensorboard) SRL上でいいI/Fの作成方法が思い浮かばず保留
+// (SEED RL) 大量のActor向けなのでいったん見送り
+// (MARL) マルコフ過程みたいなモデルがある？Actor同士の通信方法の定義が見当たらずに保留
+// (jax) batch数(32)ぐらいの量だとnumpyの方が早かったので見送り
 1. (tf/torchの互換パラメータの作成)
-1. (SEED RL)
-1. (MARL)
-1. jax
 1. baseline
 1. memory
+1. Async-SGD
+1. オリジナルrl/env対応
+1. (RLの定義rl_configからmakeしたほうが素直？定義方法から変わるので保留)
+
+# v0.13.4
+
+**MainUpdates**
+
+1. [base.run] change: RunStateをRunStateActorとRunStateTrainerに分割、合わせてCallbacksの引数も変更
+1. [base.env] new: エピソード最初に乱数を追加する random_noop_max を追加
+1. [base] new: RLMemoryにRLMemoryTypesを追加
+1. [base.processor] new: preprocess_doneを追加し、Processをリファクタリング
+1. [runner.core_mp] fix: 最適化
+1. [rl.processors] new: AtariProcessor追加
+
+**OtherUpdates**
+
+1. [runner.callbacks] fix: evalで時間がかかる場合に待機時間を経過し、連続で実行される状態を回避
+1. [runner.callbacks] fix: 2重にcallbackが実行される不具合修正
+1. [base.env.gymnasium_wrapper] fix: metadataがない環境に対応
+1. [base.rl.RLTrainer] update: 毎step、train_info={}を追加
+1. [rl.functions.common] fix: get_random_max_indexで元の値が変わる不具合を修正
+1. [runner.game_window] fix: -+で例外が発生する不具合修正
+1. [algorithms.search_dynaq] update: 100%に
 
 # v0.13.3
 

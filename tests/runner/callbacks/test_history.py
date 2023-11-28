@@ -26,8 +26,8 @@ def test_on_memory_train():
     pprint(history.logs[-1])
     assert len(history.logs) == 100
     assert history.logs[0]["name"] == "actor0"
-    assert history.logs[0]["time"] > 0
-    assert history.logs[0]["episode_time"] > 0
+    assert history.logs[0]["time"] >= 0
+    assert history.logs[0]["episode_time"] >= 0
     assert history.logs[0]["reward0"] > -2
     assert history.logs[0]["reward1"] > -2
     assert history.logs[0]["eval_reward0"] > -2

@@ -106,7 +106,7 @@ class Parameter(RLParameter):
     def call_backup(self, **kwargs):
         return json.dumps(self.Q)
 
-    def get_action_values(self, state: str) -> List[float]:
+    def get_action_values(self, state: str, update_invalid_actions: list = []) -> List[float]:
         if state not in self.Q:
             if self.config.q_init == "random":
                 self.Q[state] = [random.random() for a in range(self.config.action_num)]
@@ -114,6 +114,8 @@ class Parameter(RLParameter):
                 self.Q[state] = [np.random.normal() for a in range(self.config.action_num)]
             else:
                 self.Q[state] = [0.0 for a in range(self.config.action_num)]
+        for a in update_invalid_actions:
+            self.Q[state][a] = -np.inf
         return self.Q[state]
 
 
@@ -138,10 +140,11 @@ class Trainer(RLTrainer):
             action = batch[2]
             reward = batch[3]
             done = batch[4]
+            next_invalid_actions = batch[5]
 
             target_q = reward
             if not done:
-                n_q = self.parameter.get_action_values(n_state)
+                n_q = self.parameter.get_action_values(n_state, next_invalid_actions)
                 target_q += self.config.discount * max(n_q)
 
             td_error = target_q - self.parameter.get_action_values(state)[action]
@@ -204,6 +207,7 @@ class Worker(DiscreteActionWorker):
                 self.action,
                 reward,
                 done,
+                next_invalid_actions,
             ]
         )
         return {}

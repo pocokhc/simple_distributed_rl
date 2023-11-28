@@ -174,6 +174,8 @@ class CommonInterfaceParameter(RLParameter, ABC):
         raise NotImplementedError()
 
     def calc_target_q(self, batchs, training: bool):
+        # ここの計算はtfで計算するよりnpで計算したほうが早い
+
         batch_size = len(batchs)
 
         states, n_states, onehot_actions, rewards, dones, _ = zip(*batchs)

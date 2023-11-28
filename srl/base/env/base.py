@@ -136,7 +136,7 @@ class EnvBase(ABC, IRender):
     def make_worker(self, name: str, **kwargs) -> Optional["RLWorker"]:
         return None
 
-    def get_original_env(self) -> object:
+    def get_original_env(self) -> Any:
         return self
 
     def set_seed(self, seed: Optional[int] = None) -> None:

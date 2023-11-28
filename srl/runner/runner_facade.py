@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, List, Optional, Union, cast
 from srl.base.define import RenderModes
 from srl.base.rl.base import RLMemory, RLParameter, RLTrainer
 from srl.base.run.context import RLWorkerType, RunNameTypes, StrWorkerType
+from srl.runner.callback import GameCallback
 from srl.runner.runner import CallbackType, Runner
 
 if TYPE_CHECKING:
@@ -104,6 +105,7 @@ class RunnerFacade(Runner):
             memory=memory,
             trainer=trainer,
             workers=None,
+            callbacks=callbacks,
         )
         self._base_run_play_after()
         return state
@@ -169,8 +171,9 @@ class RunnerFacade(Runner):
             memory=memory,
             trainer=None,
             workers=None,
+            callbacks=callbacks,
         )
-        self._base_run_play_after()
+        self._base_run_play_after(callbacks=callbacks)
         return state
 
     def train_only(
@@ -239,9 +242,9 @@ class RunnerFacade(Runner):
             parameter=parameter,
             memory=memory,
             trainer=trainer,
-            workers=None,
+            callbacks=callbacks,
         )
-        self._base_run_play_after()
+        self._base_run_play_after(callbacks=callbacks)
         return state
 
     def train_mp(
@@ -319,9 +322,9 @@ class RunnerFacade(Runner):
 
         from .core_mp import train
 
-        train(self)
+        train(self, callbacks=callbacks)
 
-        self._base_run_play_after()
+        self._base_run_play_after(callbacks=callbacks)
 
     # def train_mp_debug(
     #     self,
@@ -517,7 +520,7 @@ class RunnerFacade(Runner):
         from srl.runner.distribution.task_manager import TaskManager
 
         task_manager = TaskManager(redis_params, "client")
-        task_manager.create_task(self.create_task_config(), self.make_parameter(is_load=False))
+        task_manager.create_task(self.create_task_config(callbacks=callbacks_run), self.make_parameter(is_load=False))
         _train_wait_kwargs = {}
         if self._checkpoint_kwargs is not None:
             _train_wait_kwargs["checkpoint_save_dir"] = self._checkpoint_kwargs["save_dir"]
@@ -545,7 +548,7 @@ class RunnerFacade(Runner):
             task_manager.finished("runner")
             task_manager.read_parameter(self.make_parameter(is_load=False))
 
-        self._base_run_play_after()
+        self._base_run_play_after(callbacks=callbacks_run)
 
     def train_distribution_start(
         self,
@@ -616,7 +619,7 @@ class RunnerFacade(Runner):
         from srl.runner.distribution.task_manager import TaskManager
 
         task_manager = TaskManager(redis_params, "client")
-        task_manager.create_task(self.create_task_config(), self.make_parameter(is_load=False))
+        task_manager.create_task(self.create_task_config(callbacks=callbacks), self.make_parameter(is_load=False))
 
     def evaluate(
         self,
@@ -689,9 +692,10 @@ class RunnerFacade(Runner):
             memory=None,
             trainer=None,
             workers=None,
+            callbacks=callbacks,
         )
 
-        self._base_run_play_after()
+        self._base_run_play_after(callbacks=callbacks)
 
         if self.env_config.player_num == 1:
             return [r[0] for r in state.episode_rewards_list]
@@ -756,8 +760,9 @@ class RunnerFacade(Runner):
             memory=None,
             trainer=None,
             workers=None,
+            callbacks=callbacks,
         )
-        self._base_run_play_after()
+        self._base_run_play_after(callbacks=callbacks)
 
         return state.episode_rewards_list[0]
 
@@ -842,8 +847,9 @@ class RunnerFacade(Runner):
             memory=None,
             trainer=None,
             workers=None,
+            callbacks=callbacks,
         )
-        self._base_run_play_after()
+        self._base_run_play_after(callbacks=callbacks)
 
         return state.episode_rewards_list[0]
 
@@ -930,10 +936,11 @@ class RunnerFacade(Runner):
             memory=None,
             trainer=None,
             workers=None,
+            callbacks=callbacks,
         )
         rendering.save_gif(path, render_interval, draw_info)
 
-        self._base_run_play_after()
+        self._base_run_play_after(callbacks=callbacks)
 
         return state.episode_rewards_list[0]
 
@@ -1021,11 +1028,12 @@ class RunnerFacade(Runner):
             memory=None,
             trainer=None,
             workers=None,
+            callbacks=callbacks,
         )
 
         rendering.display(render_interval, render_scale, draw_info)
 
-        self._base_run_play_after()
+        self._base_run_play_after(callbacks=callbacks)
 
         return state.episode_rewards_list[0]
 
@@ -1082,10 +1090,9 @@ class RunnerFacade(Runner):
 
         from srl.runner.game_windows.replay_window import RePlayableGame
 
-        window = RePlayableGame(self, _is_test)
+        window = RePlayableGame(self, _is_test=_is_test)
         window.play()
-
-        self._base_run_play_after()
+        self._base_run_play_after(callbacks=callbacks)
 
     def play_terminal(
         self,
@@ -1150,7 +1157,7 @@ class RunnerFacade(Runner):
             callbacks=callbacks,
         )
 
-        self._base_run_play_after()
+        self._base_run_play_after(callbacks=callbacks)
 
         return state.episode_rewards_list[0]
 
@@ -1204,8 +1211,9 @@ class RunnerFacade(Runner):
             self,
             key_bind,
             enable_memory=enable_memory,
+            callbacks=cast(List[GameCallback], [c for c in callbacks if issubclass(c.__class__, GameCallback)]),
             _is_test=_is_test,
         )
         game.play()
 
-        self._base_run_play_after()
+        self._base_run_play_after(callbacks=callbacks)

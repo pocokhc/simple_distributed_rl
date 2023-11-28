@@ -137,6 +137,7 @@ class WorkerRun:
                 self._dummy_state for _ in range(self._config.window_length)
             ]
 
+        [r.on_reset(self._env) for r in self._config._run_processors]
         self._render.reset(render_mode)
 
     def policy(self) -> EnvActionType:
@@ -173,6 +174,10 @@ class WorkerRun:
         # 相手の番のrewardも加算
         self._step_reward += self._env.step_rewards[self.player_index]
 
+        if self._done and not self._env.done:
+            self._env._done = True
+            self._env._done_reason = "RL"
+
         # 終了ならon_step実行
         if self._env.done:
             self._on_step()
@@ -180,12 +185,13 @@ class WorkerRun:
                 self._render.cache_reset()
 
     def _on_step(self):
+        # encode -> set invalid -> on_step -> reward=0
         self._state = self.state_encode(self._env.state, self._env, append_recent_state=True)
         self._reward = self.reward_encode(self._step_reward, self._env)
-        self._done = self._env.done
+        self._done = self.done_encode(self._env.done, self._env)
+        self._set_invalid_actions()
         self._info = self._worker.on_step(self)
         self._step_reward = 0
-        self._set_invalid_actions()
 
     def _set_invalid_actions(self):
         self._invalid_actions = cast(
@@ -197,13 +203,13 @@ class WorkerRun:
     # ------------------------------
     def state_encode(self, state: EnvObservationType, env: EnvRun, append_recent_state: bool) -> RLObservationType:
         if self._config.enable_state_encode:
-            for processor in self._config.run_processors:
-                state = processor.preprocess_observation(state, env)
+            for p in self.config.run_processors:
+                state = p.preprocess_observation(state, env)
 
             if self._config.observation_type == RLTypes.DISCRETE:
-                state = self._config.observation_space.encode_to_int_np(state)
+                state = self._config.observation_one_step_space.encode_to_int_np(state)
             elif self._config.observation_type == RLTypes.CONTINUOUS:
-                state = self._config.observation_space.encode_to_np(state)
+                state = self._config.observation_one_step_space.encode_to_np(state)
             else:
                 # not coming
                 state = np.asarray(state, dtype=np.float32)
@@ -252,9 +258,15 @@ class WorkerRun:
 
     def reward_encode(self, reward: float, env: EnvRun) -> float:
         if self._config.enable_reward_encode:
-            for processor in self._config.run_processors:
-                reward = processor.preprocess_reward(reward, env)
+            for p in self.config.run_processors:
+                reward = p.preprocess_reward(reward, env)
         return reward
+
+    def done_encode(self, done: bool, env: EnvRun) -> bool:
+        if self._config.enable_done_encode:
+            for p in self.config.run_processors:
+                done = p.preprocess_done(done, env)
+        return done
 
     # ------------------------------------
     # invalid

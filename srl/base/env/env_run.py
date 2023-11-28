@@ -437,7 +437,7 @@ class EnvRun:
 
         return WorkerRun(worker, self, distributed, actor_id)
 
-    def get_original_env(self) -> object:
+    def get_original_env(self) -> Any:
         return self.env.get_original_env()
 
     def get_env_base(self) -> EnvBase:

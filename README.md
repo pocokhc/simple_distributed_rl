@@ -260,7 +260,7 @@ while not env.done:
 |-------------|-----------|--------|---------|----------|----|---|
 |QL_agent57   |Discrete   |Discrete|ValueBase|          | 80%|QL + Agent57|
 |Agent57_light|Continuous |Discrete|ValueBase|Tensorflow|100%|Agent57 - (LSTM,MultiStep)|
-|SearchDynaQ  |Discrete   |Discrete|ModelBase/ValueBase|| 99%|original|
+|SearchDynaQ  |Discrete   |Discrete|ModelBase/ValueBase||100%|original|
 |SearchDreamer|Continuous |Discrete|ModelBase|Tensorflow| 0%|original|
 
 # 5. Customize

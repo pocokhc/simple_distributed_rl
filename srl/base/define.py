@@ -54,6 +54,13 @@ class RLTypes(enum.Enum):
     CONTINUOUS = enum.auto()  # 連続
 
 
+class RLMemoryTypes(enum.Enum):
+    NONE = enum.auto()
+    SEQUENCE = enum.auto()
+    BUFFER = enum.auto()
+    PRIORITY = enum.auto()
+
+
 class RenderModes(enum.Enum):
     none = 0
     terminal = enum.auto()

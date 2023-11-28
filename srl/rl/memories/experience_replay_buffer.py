@@ -3,6 +3,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Any, List
 
+from srl.base.define import RLMemoryTypes
 from srl.base.rl.base import RLMemory
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,10 @@ class ExperienceReplayBuffer(RLMemory):
         self.capacity = self.config.memory.capacity
         self.memory = []
         self.idx = 0
+
+    @property
+    def memory_type(self) -> RLMemoryTypes:
+        return RLMemoryTypes.BUFFER
 
     def length(self) -> int:
         return len(self.memory)

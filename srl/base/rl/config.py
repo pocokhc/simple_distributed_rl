@@ -65,6 +65,8 @@ class RLConfig(ABC):
     enable_action_decode: bool = True
     #: reward_encodeを有効にするか
     enable_reward_encode: bool = True
+    #: done_encodeを有効にするか
+    enable_done_encode: bool = True
     #: 過去Nステップをまとめて状態とします
     window_length: int = 1
     #: window_length指定時の存在しないstepでの状態の値
@@ -170,42 +172,48 @@ class RLConfig(ABC):
             if enable_log:
                 logger.info(f"override observation type: {rl_env_observation_type}")
 
+        # --- processor
         self._run_processors = []
         if self.enable_state_encode:
-            # --- add processor
+            # render image
             if self.use_render_image_for_observation:
                 from srl.rl.processors.render_image_processor import RenderImageProcessor
 
                 self._run_processors.append(RenderImageProcessor())
-            self._run_processors.extend(self.processors)
-            if self.use_rl_processor:
-                self._run_processors.extend(self.set_processor())
 
-            # --- processor
-            for processor in self._run_processors:
-                rl_observation_space, rl_env_observation_type = processor.preprocess_observation_space(
+        # user processor
+        self._run_processors.extend(self.processors)
+
+        # rl processor
+        if self.use_rl_processor:
+            self._run_processors.extend(self.set_processor())
+
+        if self.enable_state_encode:
+            # change space
+            for p in self._run_processors:
+                rl_observation_space, rl_env_observation_type = p.preprocess_observation_space(
                     rl_observation_space,
                     rl_env_observation_type,
                     env,
                     self,
                 )
                 if enable_log:
-                    logger.info(f"processor obs space: {rl_observation_space}")
-                    logger.info(f"processor obs type : {rl_env_observation_type}")
+                    logger.info(f"change processor obs space: {rl_observation_space}")
+                    logger.info(f"change processor obs type : {rl_env_observation_type}")
 
-        # --- window_length
-        self._one_observation = rl_observation_space
-        if self.window_length > 1:
-            rl_observation_space = BoxSpace(
-                (self.window_length,) + self._one_observation.shape,
-                np.min(self._one_observation.low),
-                np.max(self._one_observation.high),
-            )
-            if enable_log:
-                logger.info(f"window_length obs space: {rl_observation_space}")
+        [r.setup(env, self) for r in self._run_processors]
 
+        self._rl_observation_one_step_space = rl_observation_space
         self._rl_observation_space = rl_observation_space
         self._rl_env_observation_type = rl_env_observation_type
+
+        # --- window_length
+        if self.window_length > 1:
+            self._rl_observation_space = BoxSpace(
+                (self.window_length,) + self._rl_observation_one_step_space.shape,
+                np.min(self._rl_observation_one_step_space.low),
+                np.max(self._rl_observation_one_step_space.high),
+            )
 
         # --- obs type
         # 優先度
@@ -277,11 +285,13 @@ class RLConfig(ABC):
 
         self._is_setup = True
         if enable_log:
-            logger.info(f"action_space(env)       : {self._env_action_space}")
-            logger.info(f"action_type(rl)         : {self._rl_action_type}")
-            logger.info(f"observation_env_type(rl): {self._rl_env_observation_type}")
-            logger.info(f"observation_type(rl)    : {self._rl_observation_type}")
-            logger.info(f"observation_space(rl)   : {self._rl_observation_space}")
+            logger.info(f"action_space(env)             : {self._env_action_space}")
+            logger.info(f"action_type(rl)               : {self._rl_action_type}")
+            logger.info(f"observation_env_type(rl)      : {self._rl_env_observation_type}")
+            logger.info(f"observation_type(rl)          : {self._rl_observation_type}")
+            logger.info(f"observation_space(rl)         : {self._rl_observation_space}")
+            if self.window_length > 1:
+                logger.info(f"observation_one_step_space(rl): {self._rl_observation_one_step_space}")
 
     def __setattr__(self, name, value):
         if name == "_is_setup":
@@ -339,6 +349,10 @@ class RLConfig(ABC):
         return self._rl_action_type
 
     @property
+    def observation_one_step_space(self) -> SpaceBase:
+        return self._rl_observation_one_step_space
+
+    @property
     def observation_space(self) -> SpaceBase:
         return self._rl_observation_space
 
@@ -382,7 +396,7 @@ class RLConfig(ABC):
 
     def create_dummy_state(self, is_one: bool = False) -> RLObservationType:
         if is_one:
-            return np.full(self._one_observation.shape, self.dummy_state_val, dtype=np.float32)
+            return np.full(self._rl_observation_one_step_space.shape, self.dummy_state_val, dtype=np.float32)
         else:
             return np.full(self.observation_shape, self.dummy_state_val, dtype=np.float32)
 

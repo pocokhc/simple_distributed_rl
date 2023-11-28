@@ -10,9 +10,11 @@ if TYPE_CHECKING:
 
 
 class Processor(ABC):
-    """
-    Preprocess information about the environment. (for RL)
-    """
+    def on_reset(self, env: "EnvRun"):
+        pass
+
+    def setup(self, env: "EnvRun", rl_config: "RLConfig"):
+        pass
 
     def preprocess_observation_space(
         self,
@@ -23,16 +25,11 @@ class Processor(ABC):
     ) -> Tuple[SpaceBase, EnvObservationTypes]:
         return env_observation_space, env_observation_type
 
-    def preprocess_observation(
-        self,
-        observation: EnvObservationType,
-        env: "EnvRun",
-    ) -> EnvObservationType:
+    def preprocess_observation(self, observation: EnvObservationType, env: "EnvRun") -> EnvObservationType:
         return observation
 
-    def preprocess_reward(
-        self,
-        reward: float,
-        env: "EnvRun",
-    ) -> float:
+    def preprocess_reward(self, reward: float, env: "EnvRun") -> float:
         return reward
+
+    def preprocess_done(self, done: bool, env: "EnvRun") -> bool:
+        return done

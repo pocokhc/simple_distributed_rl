@@ -100,14 +100,13 @@ class RunnerFacade(Runner):
             callbacks=callbacks,
         )
         state = self.base_run_play(
-            trainer_only=False,
             parameter=parameter,
             memory=memory,
             trainer=trainer,
             workers=None,
             callbacks=callbacks,
         )
-        self._base_run_play_after()
+        self._base_run_play_after(callbacks=callbacks)
         return state
 
     def rollout(
@@ -166,7 +165,6 @@ class RunnerFacade(Runner):
             callbacks=callbacks,
         )
         state = self.base_run_play(
-            trainer_only=False,
             parameter=parameter,
             memory=memory,
             trainer=None,
@@ -237,8 +235,7 @@ class RunnerFacade(Runner):
             enable_history_on_file=True,
             callbacks=callbacks,
         )
-        state = self.base_run_play(
-            trainer_only=True,
+        state = self.base_run_play_trainer_only(
             parameter=parameter,
             memory=memory,
             trainer=trainer,
@@ -687,7 +684,6 @@ class RunnerFacade(Runner):
         )
 
         state = self.base_run_play(
-            trainer_only=False,
             parameter=None,
             memory=None,
             trainer=None,
@@ -755,7 +751,6 @@ class RunnerFacade(Runner):
             callbacks=callbacks,
         )
         state = self.base_run_play(
-            trainer_only=False,
             parameter=None,
             memory=None,
             trainer=None,
@@ -842,7 +837,6 @@ class RunnerFacade(Runner):
             callbacks=callbacks,
         )
         state = self.base_run_play(
-            trainer_only=False,
             parameter=None,
             memory=None,
             trainer=None,
@@ -931,7 +925,6 @@ class RunnerFacade(Runner):
             callbacks=callbacks,
         )
         state = self.base_run_play(
-            trainer_only=False,
             parameter=None,
             memory=None,
             trainer=None,
@@ -1023,7 +1016,6 @@ class RunnerFacade(Runner):
         )
 
         state = self.base_run_play(
-            trainer_only=False,
             parameter=None,
             memory=None,
             trainer=None,
@@ -1149,7 +1141,6 @@ class RunnerFacade(Runner):
         )
 
         state = self.base_run_play(
-            trainer_only=False,
             parameter=None,
             memory=None,
             trainer=None,

@@ -2,7 +2,7 @@ import logging
 import random
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from srl.base.define import EnvActionType
 from srl.base.env.env_run import EnvRun
@@ -18,18 +18,24 @@ from .callback import RunCallback, TrainerCallback
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class RunState:
+class _RunStateBase:
     """
     実行中に変動する変数をまとめたクラス
     Class that summarizes variables that change during execution
     """
 
-    env: Optional[EnvRun] = None
-    workers: List[WorkerRun] = field(default_factory=list)
-    trainer: Optional[RLTrainer] = None
-    memory: Optional[Union[IRLMemoryWorker, IRLMemoryTrainer]] = None
-    parameter: Optional[RLParameter] = None
+    def to_dict(self) -> dict:
+        dat: dict = convert_for_json(self.__dict__)
+        return dat
+
+
+@dataclass
+class RunStateActor(_RunStateBase):
+    env: EnvRun
+    workers: List[WorkerRun]
+    memory: IRLMemoryWorker
+    parameter: RLParameter
+    trainer: Optional[RLTrainer]
 
     # episodes init
     elapsed_t0: float = 0
@@ -49,15 +55,7 @@ class RunState:
 
     # distributed
     sync_actor: int = 0
-    sync_trainer: int = 0
     actor_send_q: int = 0
-    trainer_recv_q: int = 0
-
-    # ------------
-
-    def to_dict(self) -> dict:
-        dat: dict = convert_for_json(self.__dict__)
-        return dat
 
 
 def play(
@@ -68,7 +66,7 @@ def play(
     workers: Optional[List[WorkerRun]] = None,
     trainer: Optional[RLTrainer] = None,
     callbacks: List[RunCallback] = [],
-) -> RunState:
+) -> RunStateActor:
     if not context.distributed:
         assert (
             context.max_steps > 0
@@ -113,15 +111,10 @@ def _play(
     workers: List[WorkerRun],
     trainer: Optional[RLTrainer],
     callbacks: List[RunCallback] = [],
-) -> RunState:
+) -> RunStateActor:
     assert env.player_num == len(workers)
 
-    state = RunState()
-    state.env = env
-    state.parameter = parameter
-    state.memory = memory
-    state.workers = workers
-    state.trainer = trainer
+    state = RunStateActor(env, workers, memory, parameter, trainer)
 
     # --- set_config_by_actor
     if context.distributed:
@@ -254,11 +247,29 @@ def _play(
     return state
 
 
+# ----------------------------------------------------
+@dataclass
+class RunStateTrainer(_RunStateBase):
+    trainer: RLTrainer
+    memory: IRLMemoryTrainer
+    parameter: RLParameter
+
+    elapsed_t0: float = 0
+    end_reason: str = ""
+
+    # train
+    is_step_trained: bool = False
+
+    # distributed
+    sync_trainer: int = 0
+    trainer_recv_q: int = 0
+
+
 def play_trainer_only(
     context: RunContext,
     trainer: RLTrainer,
     callbacks: List[TrainerCallback] = [],
-) -> RunState:
+) -> RunStateTrainer:
     assert context.training
     assert context.max_train_count > 0 or context.timeout > 0, "Please specify 'max_train_count' or 'timeout'."
 
@@ -278,10 +289,7 @@ def _play_trainer_only(
     trainer: RLTrainer,
     callbacks: List[TrainerCallback] = [],
 ):
-    state = RunState()
-    state.trainer = trainer
-    state.parameter = trainer.parameter
-    state.memory = trainer.memory
+    state = RunStateTrainer(trainer, trainer.memory, trainer.parameter)
 
     # callbacks
     [c.on_trainer_start(context, state) for c in callbacks]

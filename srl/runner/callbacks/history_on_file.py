@@ -12,7 +12,7 @@ import numpy as np
 
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext
-from srl.base.run.core import RunState
+from srl.base.run.core import RunStateActor, RunStateTrainer
 from srl.runner.callback import RunnerCallback
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.callbacks.history_viewer import HistoryViewer
@@ -230,7 +230,7 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     # ---------------------------
     # actor
     # ---------------------------
-    def on_episodes_begin(self, context: RunContext, state: RunState):
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor):
         self._base.open_fp("actor", f"actor{context.actor_id}.txt")
         self._base.open_fp("system", "system.txt")
 
@@ -242,12 +242,12 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self.interval_t0 = self.t0
         self.last_episode_result = {}
 
-    def on_episodes_end(self, context: RunContext, state: RunState):
+    def on_episodes_end(self, context: RunContext, state: RunStateActor):
         self._write_actor_log(context, state)
         self._write_system()
         self._base.close()
 
-    def on_episode_begin(self, context: RunContext, state: RunState):
+    def on_episode_begin(self, context: RunContext, state: RunStateActor):
         self.episode_infos = {}
         self.t0_episode = time.time()
         self.step_count = 0
@@ -255,7 +255,7 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         if state.env is not None:
             self._add_info(self.episode_infos, "env", state.env.info)
 
-    def on_step_end(self, context: RunContext, state: RunState):
+    def on_step_end(self, context: RunContext, state: RunStateActor):
         self.step_count += 1
 
         if state.env is not None:
@@ -270,7 +270,7 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             self._write_system()
             self.interval_t0 = _time  # last
 
-    def on_episode_end(self, context: RunContext, state: RunState):
+    def on_episode_end(self, context: RunContext, state: RunStateActor):
         d = {
             "episode": state.episode_count + self._base.start_episode_count,
             "episode_time": time.time() - self.t0_episode,
@@ -284,7 +284,7 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
 
         self.last_episode_result = d
 
-    def _write_actor_log(self, context: RunContext, state: RunState):
+    def _write_actor_log(self, context: RunContext, state: RunStateActor):
         if not self._base.is_fp("actor"):
             return
         if self.last_episode_result is None:
@@ -304,7 +304,6 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
                     d[f"trainer_{k}"] = v
 
         assert self.runner is not None
-        assert state.parameter is not None
         if self.setup_eval_runner(self.runner):
             eval_rewards = self.run_eval(state.parameter)
             if eval_rewards is not None:
@@ -317,7 +316,7 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     # ---------------------------
     # trainer
     # ---------------------------
-    def on_trainer_start(self, context: RunContext, state: RunState):
+    def on_trainer_start(self, context: RunContext, state: RunStateTrainer):
         self._base.open_fp("trainer", "trainer.txt")
         self._base.open_fp("system", "system.txt")
 
@@ -331,13 +330,12 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         if context.distributed:
             self.enable_eval = False
 
-    def on_trainer_end(self, context: RunContext, state: RunState):
+    def on_trainer_end(self, context: RunContext, state: RunStateTrainer):
         self._write_trainer_log(context, state)
         self._write_system()
         self._base.close()
 
-    def on_trainer_loop(self, context: RunContext, state: RunState):
-        assert state.trainer is not None
+    def on_trainer_loop(self, context: RunContext, state: RunStateTrainer):
         self._add_info(self.train_infos, "trainer", state.trainer.train_info)
 
         _time = time.time()
@@ -346,12 +344,11 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             self._write_system()
             self.interval_t0 = _time  # last
 
-    def _write_trainer_log(self, context: RunContext, state: RunState):
+    def _write_trainer_log(self, context: RunContext, state: RunStateTrainer):
         if not self._base.is_fp("trainer"):
             return
         if self.train_infos == {}:
             return
-        assert state.trainer is not None
 
         train_count = state.trainer.get_train_count()
         if train_count - self.t0_train_count > 0:
@@ -369,7 +366,6 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         d["memory"] = 0 if memory is None else memory.length()
 
         assert self.runner is not None
-        assert state.parameter is not None
         if self.setup_eval_runner(self.runner):
             eval_rewards = self.run_eval(state.parameter)
             if eval_rewards is not None:

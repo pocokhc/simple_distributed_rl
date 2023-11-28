@@ -100,7 +100,6 @@ class _A_MDP:
         self.reward = {}  # [state][action] 報酬の合計
         self.done = {}  # [state][action] 終了回数
         self.count = {}  # [state][action] 訪問回数
-        self.invalid_actions_list = {}  # [state]
 
         # 訪問履歴(state,action)
         self.existing_location = []
@@ -111,7 +110,6 @@ class _A_MDP:
             self.reward,
             self.done,
             self.count,
-            self.invalid_actions_list,
             self.existing_location,
         ]
 
@@ -120,8 +118,7 @@ class _A_MDP:
         self.reward = d[1]
         self.done = d[2]
         self.count = d[3]
-        self.invalid_actions_list = d[4]
-        self.existing_location = d[5]
+        self.existing_location = d[4]
 
     def _init_state(self, state, action, n_state):
         if state not in self.count:
@@ -137,15 +134,12 @@ class _A_MDP:
         if n_state is not None and n_state not in self.trans[state][action]:
             self.trans[state][action][n_state] = 0
 
-    def update(self, state, invalid_actions, action, n_state, n_invalid_actions, reward, done):
+    def update(self, state, action, n_state, reward, done):
         self._init_state(state, action, n_state)
         self.trans[state][action][n_state] += 1
         self.reward[state][action] += reward
         self.done[state][action] += 1 if done else 0
         self.count[state][action] += 1
-
-        self.invalid_actions_list[state] = invalid_actions
-        self.invalid_actions_list[n_state] = n_invalid_actions
 
         key = (state, action)
         if key not in self.existing_location:
@@ -165,8 +159,6 @@ class _A_MDP:
             "next_state": next_state,
             "reward": self.sample_reward(state, action),
             "done": self.sample_done(state, action),
-            "invalid_actions": self.invalid_actions_list[state],
-            "next_invalid_actions": self.invalid_actions_list[next_state],
         }
         return batch
 
@@ -277,10 +269,8 @@ class Trainer(RLTrainer):
             # --- 近似モデルの学習
             self.parameter.model.update(
                 state,
-                invalid_actions,
                 action,
                 n_state,
-                next_invalid_actions,
                 reward_ext,
                 done,
             )
@@ -328,8 +318,6 @@ class Trainer(RLTrainer):
         action = batch["action"]
         reward = batch["reward"]
         done = batch["done"]
-        invalid_actions = batch["invalid_actions"]
-        next_invalid_actions = batch["next_invalid_actions"]
 
         td_error_ext = self._calc_td_error(
             reward,
@@ -440,7 +428,6 @@ class Worker(DiscreteActionWorker):
         self.prev_episode_reward += reward_ext
         if not self.training:
             return {}
-
         next_state = to_str_observation(_next_state)
         self.parameter.init_state(next_state, next_invalid_actions)
 

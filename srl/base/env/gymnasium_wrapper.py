@@ -238,23 +238,24 @@ class GymnasiumWrapper(EnvBase):
         self.config = config
 
         self.seed = None
-        self.render_mode = RenderModes.none
+        self.render_modes = ["ansi", "human", "rgb_array"]
 
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         logger.info("set SDL_VIDEODRIVER='dummy'")
 
         self.env = self.make_gymnasium_env()
-        logger.info(f"metadata    : {self.env.metadata}")
         logger.info(f"action_space: {self.env.action_space}")
         logger.info(f"obs_space   : {self.env.observation_space}")
 
-        # fps
-        self.fps = self.env.metadata.get("render_fps", 60)
+        # metadata
+        if hasattr(self.env, "metadata"):
+            logger.info(f"metadata    : {self.env.metadata}")
 
-        # render_modes
-        self.render_modes = ["ansi", "human", "rgb_array"]
-        if "render_modes" in self.env.metadata:
-            self.render_modes = self.env.metadata["render_modes"]
+            # fps
+            self.fps = self.env.metadata.get("render_fps", 60)
+
+            if "render_modes" in self.env.metadata:
+                self.render_modes = self.env.metadata["render_modes"]
 
         _act_space = None
         _obs_type = EnvObservationTypes.UNKNOWN

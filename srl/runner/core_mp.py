@@ -10,11 +10,12 @@ from multiprocessing.managers import BaseManager
 from typing import Any, List, cast
 
 import srl
+from srl.base.define import RLMemoryTypes
 from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext, RunNameTypes
-from srl.base.run.core import RunState
-from srl.runner.runner import TaskConfig
+from srl.base.run.core import RunStateActor, RunStateTrainer
+from srl.runner.runner import CallbackType, TaskConfig
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +56,12 @@ class _Board:
 # --------------------
 class _ActorRLMemory(IRLMemoryWorker):
     def __init__(self, remote_queue: mp.Queue, dist_queue_capacity: int, end_signal: ctypes.c_bool):
-        self.queue = remote_queue
+        self.remote_queue = remote_queue
         self.dist_queue_capacity = dist_queue_capacity
         self.end_signal = end_signal
         self.q_send = 0
 
+        self.last_qsize = 0
 
     @property
     def memory_type(self) -> RLMemoryTypes:
@@ -68,16 +70,16 @@ class _ActorRLMemory(IRLMemoryWorker):
     def add(self, *args) -> None:
         t0 = time.time()
         while True:
-            qsize = self.queue.qsize()
-            if 0 <= qsize < self.dist_queue_capacity:
-                self.queue.put(args)
+            self.last_qsize = self.remote_queue.qsize()
+            if 0 <= self.last_qsize < self.dist_queue_capacity:
+                self.remote_queue.put(args)
                 self.q_send += 1
                 break
             if self.end_signal.value:
                 break
             if time.time() - t0 > 10:
                 t0 = time.time()
-                s = f"queue capacity over: {qsize}/{self.dist_queue_capacity}"
+                s = f"queue capacity over: {self.last_qsize}/{self.dist_queue_capacity}"
                 print(s)
                 logger.info(s)
                 break  # 終了条件用に1step進める
@@ -85,7 +87,7 @@ class _ActorRLMemory(IRLMemoryWorker):
             time.sleep(1)
 
     def length(self) -> int:
-        return self.queue.qsize()
+        return self.last_qsize
 
 
 class _ActorInterrupt(RunCallback):
@@ -102,15 +104,19 @@ class _ActorInterrupt(RunCallback):
         self.actor_parameter_sync_interval = actor_parameter_sync_interval
 
         self.t0 = time.time()
+        self.t0_health = time.time()
 
-    def on_episodes_begin(self, context: RunContext, state: RunState):
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor):
         state.sync_actor = 0
 
-    def on_step_end(self, context: RunContext, state: RunState) -> bool:
-        if os.getppid() == 1:
-            self.end_signal.value = True
-            logger.info("end_signal: True")
-            return True
+    def on_step_end(self, context: RunContext, state: RunStateActor) -> bool:
+        if time.time() - self.t0_health > 10:
+            # getppid は重い
+            if os.getppid() == 1:
+                self.end_signal.value = True
+                logger.info("end_signal: True")
+                return True
+            self.t0_health = time.time()
 
         if time.time() - self.t0 < self.actor_parameter_sync_interval:
             return self.end_signal.value
@@ -202,9 +208,11 @@ def _memory_communicate(
             if remote_queue.empty():
                 time.sleep(0.1)
             else:
-                batch = remote_queue.get(timeout=1)
-                memory.add(*batch)
-                share_dict["q_recv"] += 1
+                qsize = remote_queue.qsize()
+                for _ in range(qsize):
+                    batch = remote_queue.get(timeout=5)
+                    memory.add(*batch)
+                    share_dict["q_recv"] += 1
 
     except Exception:
         logger.error(traceback.format_exc())

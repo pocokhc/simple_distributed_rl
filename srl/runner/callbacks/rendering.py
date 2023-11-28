@@ -9,7 +9,7 @@ from srl.base.define import EnvObservationTypes, RenderModes
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.callback import RunCallback
 from srl.base.run.context import RunContext
-from srl.base.run.core import RunState
+from srl.base.run.core import RunStateActor
 from srl.utils.render_functions import text_to_rgb_array
 
 logger = logging.getLogger(__name__)
@@ -51,8 +51,7 @@ class Rendering(RunCallback):
 
         self.mode = RenderModes.from_str(self.mode)
 
-    def on_episodes_begin(self, context: RunContext, state: RunState) -> None:
-        assert state.env is not None
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor) -> None:
         self.render_interval = state.env.set_render_options(
             self.render_interval,
             self.render_scale,
@@ -60,35 +59,34 @@ class Rendering(RunCallback):
             self.font_size,
         )
 
-    def on_step_action_before(self, context: RunContext, state: RunState) -> None:
+    def on_step_action_before(self, context: RunContext, state: RunStateActor) -> None:
         self._render_env(context, state)
 
-    def on_step_begin(self, context: RunContext, state: RunState) -> None:
+    def on_step_begin(self, context: RunContext, state: RunStateActor) -> None:
         self._render_worker(context, state)
         self._add_image()
 
         if self.step_stop:
             input("Enter to continue:")
 
-    def on_skip_step(self, context: RunContext, state: RunState):
+    def on_skip_step(self, context: RunContext, state: RunStateActor):
         if not self.render_skip_step:
             return
         self._render_env(context, state, True)
         self._add_image()
 
-    def on_episode_end(self, context: RunContext, state: RunState) -> None:
+    def on_episode_end(self, context: RunContext, state: RunStateActor) -> None:
         self._render_env(context, state)
         self._add_image()
 
-    def on_episodes_end(self, context: RunContext, state: RunState) -> None:
+    def on_episodes_end(self, context: RunContext, state: RunStateActor) -> None:
         if self.step_stop:
             input("Enter to continue:")
 
     # -----------------------------------------------
 
-    def _render_env(self, context: RunContext, state: RunState, skip_step=False):
+    def _render_env(self, context: RunContext, state: RunStateActor, skip_step=False):
         env = state.env
-        assert env is not None
 
         # --- info text
         action = state.action
@@ -139,7 +137,7 @@ class Rendering(RunCallback):
                 }
             )
 
-    def _render_worker(self, context: RunContext, state: RunState):
+    def _render_worker(self, context: RunContext, state: RunStateActor):
         worker = state.workers[state.worker_idx]
 
         # --- rgb

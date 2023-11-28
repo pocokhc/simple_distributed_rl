@@ -964,8 +964,6 @@ class Runner:
         enable_history_on_file: bool,
         callbacks: List[CallbackType],
     ):
-        self._callbacks = callbacks[:]
-
         # --- wkdir ---
         if self.config.enable_wkdir:
             dir_name = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1009,13 +1007,12 @@ class Runner:
 
     def base_run_play(
         self,
-        trainer_only: bool,
         parameter: Optional[RLParameter],
         memory: Optional[RLMemory],
         trainer: Optional[RLTrainer],
         workers: Optional[List[WorkerRun]],
         callbacks: List[CallbackType],
-    ) -> base_run.RunState:
+    ) -> base_run.RunStateActor:
         # --- make instance ---
         if parameter is None:
             parameter = self.make_parameter()
@@ -1036,28 +1033,62 @@ class Runner:
                 cast(RunnerCallback, c).runner = self
 
         # --- play ----
-        if not trainer_only:
-            if not self.context.disable_trainer and trainer is None:
-                trainer = self.make_trainer(parameter, memory)
-            if workers is None:
-                workers = self.make_workers(parameter, memory)
-            state = base_run.play(
-                self.context,
-                self.make_env(),
-                parameter,
-                memory,
-                workers,
-                trainer,
-                cast(List[RunCallback], [c for c in _callbacks if issubclass(c.__class__, RunCallback)]),
-            )
-        else:
-            if trainer is None:
-                trainer = self.make_trainer(parameter, memory)
-            state = base_run.play_trainer_only(
-                self.context,
-                trainer,
-                cast(List[TrainerCallback], [c for c in _callbacks if issubclass(c.__class__, TrainerCallback)]),
-            )
+        if not self.context.disable_trainer and trainer is None:
+            trainer = self.make_trainer(parameter, memory)
+        if workers is None:
+            workers = self.make_workers(parameter, memory)
+        state = base_run.play(
+            self.context,
+            self.make_env(),
+            parameter,
+            memory,
+            workers,
+            trainer,
+            cast(List[RunCallback], [c for c in _callbacks if issubclass(c.__class__, RunCallback)]),
+        )
+        # ----------------
+
+        # --- callback
+        for c in _callbacks:
+            if issubclass(c.__class__, RunnerCallback):
+                cast(RunnerCallback, c).runner = None
+
+        return state
+
+    def base_run_play_trainer_only(
+        self,
+        parameter: Optional[RLParameter],
+        memory: Optional[RLMemory],
+        trainer: Optional[RLTrainer],
+        callbacks: List[CallbackType],
+    ) -> base_run.RunStateTrainer:
+        # --- make instance ---
+        if parameter is None:
+            parameter = self.make_parameter()
+        if memory is None:
+            memory = self.make_memory()
+        # ---------------------
+
+        # --- random ---
+        if self.config.seed is not None:
+            common.set_seed(self.config.seed, self.config.seed_enable_gpu)
+            self.context.seed = self.config.seed
+        # --------------
+
+        # --- callback
+        _callbacks = callbacks[:]
+        for c in _callbacks:
+            if issubclass(c.__class__, RunnerCallback):
+                cast(RunnerCallback, c).runner = self
+
+        # --- play ----
+        if trainer is None:
+            trainer = self.make_trainer(parameter, memory)
+        state = base_run.play_trainer_only(
+            self.context,
+            trainer,
+            cast(List[TrainerCallback], [c for c in _callbacks if issubclass(c.__class__, TrainerCallback)]),
+        )
         # ----------------
 
         # --- callback

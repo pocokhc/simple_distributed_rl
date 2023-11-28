@@ -7,7 +7,7 @@ import numpy as np
 
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext
-from srl.base.run.core import RunState
+from srl.base.run.core import RunStateActor, RunStateTrainer
 from srl.runner.callback import RunnerCallback
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.callbacks.history_viewer import HistoryViewer
@@ -64,7 +64,7 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     # ---------------------------
     # actor
     # ---------------------------
-    def on_episodes_begin(self, context: RunContext, state: RunState):
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor):
         assert not context.distributed
         self.logs = []
         self.t0 = time.time()
@@ -73,7 +73,7 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         if context.distributed:
             self.enable_eval = self.enable_eval and (context.actor_id == 0)
 
-    def on_episode_begin(self, context: RunContext, state: RunState):
+    def on_episode_begin(self, context: RunContext, state: RunStateActor):
         self.episode_infos = {}
         self.t0_episode = time.time()
         self.step_count = 0
@@ -81,7 +81,7 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         if state.env is not None:
             self._add_info(self.episode_infos, "env", state.env.info)
 
-    def on_step_end(self, context: RunContext, state: RunState):
+    def on_step_end(self, context: RunContext, state: RunStateActor):
         self.step_count += 1
 
         if state.env is not None:
@@ -90,7 +90,7 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             self._add_info(self.episode_infos, "trainer", state.trainer.train_info)
         [self._add_info(self.episode_infos, f"worker{i}", w.info) for i, w in enumerate(state.workers)]
 
-    def on_episode_end(self, context: RunContext, state: RunState):
+    def on_episode_end(self, context: RunContext, state: RunStateActor):
         d = {
             "name": f"actor{context.actor_id}",
             "time": time.time() - self.t0,
@@ -113,7 +113,6 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
                     d[f"trainer_{k}"] = v
 
         assert self.runner is not None
-        assert state.parameter is not None
         if self.setup_eval_runner(self.runner):
             eval_rewards = self.run_eval(state.parameter)
             if eval_rewards is not None:
@@ -128,7 +127,7 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     # ---------------------------
     # trainer
     # ---------------------------
-    def on_trainer_start(self, context: RunContext, state: RunState):
+    def on_trainer_start(self, context: RunContext, state: RunStateTrainer):
         self.t0 = time.time()
         self.t0_train = time.time()
         self.t0_train_count = 0
@@ -140,11 +139,10 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         if context.distributed:
             self.enable_eval = False
 
-    def on_trainer_end(self, context: RunContext, state: RunState):
+    def on_trainer_end(self, context: RunContext, state: RunStateTrainer):
         self._save_trainer_log(context, state)
 
-    def on_trainer_loop(self, context: RunContext, state: RunState):
-        assert state.trainer is not None
+    def on_trainer_loop(self, context: RunContext, state: RunStateTrainer):
         self._add_info(self.train_infos, "trainer", state.trainer.train_info)
 
         _time = time.time()
@@ -152,8 +150,7 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             self._save_trainer_log(context, state)
             self.interval_t0 = _time  # last
 
-    def _save_trainer_log(self, context: RunContext, state: RunState):
-        assert state.trainer is not None
+    def _save_trainer_log(self, context: RunContext, state: RunStateTrainer):
         train_count = state.trainer.get_train_count()
         if train_count - self.t0_train_count > 0:
             train_time = (time.time() - self.t0_train) / (train_count - self.t0_train_count)

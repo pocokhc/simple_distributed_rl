@@ -12,7 +12,7 @@ from srl.base.exception import DistributionError
 from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter
 from srl.base.run.callback import RunCallback
 from srl.base.run.context import RunContext, RunNameTypes
-from srl.base.run.core import RunState
+from srl.base.run.core import RunStateActor
 from srl.runner.distribution.callback import ActorServerCallback
 from srl.runner.distribution.connectors.parameters import RedisParameters
 from srl.runner.distribution.interface import IMemoryServerParameters
@@ -81,14 +81,13 @@ class _ActorInterruptThread(RunCallback):
         self.memory_ps = memory_ps
         self.parameter_ps = parameter_ps
 
-    def on_episodes_begin(self, context: RunContext, state: RunState):
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor):
         state.sync_actor = 0
         self.share_data.sync_count = 0
 
-    def on_step_end(self, context: RunContext, state: RunState) -> bool:
+    def on_step_end(self, context: RunContext, state: RunStateActor) -> bool:
         state.sync_actor = self.share_data.sync_count
         self.share_data.step = state.total_step
-        assert state.memory is not None
         state.actor_send_q = state.memory.length()
         if not self.memory_ps.is_alive():
             self.share_data.end_signal = True
@@ -269,11 +268,11 @@ class _ActorInterruptNoThread(RunCallback):
         self.actor_parameter_sync_interval = actor_parameter_sync_interval
         self.t0 = time.time()
 
-    def on_episodes_begin(self, context: RunContext, state: RunState):
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor):
         state.sync_actor = 0
         self._keepalive_t0 = 0
 
-    def on_step_end(self, context: RunContext, state: RunState) -> bool:
+    def on_step_end(self, context: RunContext, state: RunStateActor) -> bool:
         # --- sync params
         if time.time() - self.t0 > self.actor_parameter_sync_interval:
             self.t0 = time.time()
@@ -283,7 +282,6 @@ class _ActorInterruptNoThread(RunCallback):
                 self.parameter.restore(body, from_cpu=True)
                 state.sync_actor += 1
 
-        assert state.memory is not None
         state.actor_send_q = state.memory.length()
 
         # --- keepalive
@@ -293,8 +291,7 @@ class _ActorInterruptNoThread(RunCallback):
                 return True
         return False
 
-    def on_episodes_end(self, context: RunContext, state: RunState) -> None:
-        assert state.memory is not None
+    def on_episodes_end(self, context: RunContext, state: RunStateActor) -> None:
         _keepalive(self.task_manager, self.actor_id, state.total_step, state.memory.length())
 
 
@@ -362,7 +359,6 @@ def _run_actor(manager: ServerManager, runner: srl.Runner):
     # runner.context.timeout = -1
     try:
         runner.base_run_play(
-            trainer_only=False,
             parameter=parameter,
             memory=cast(RLMemory, memory),
             trainer=None,

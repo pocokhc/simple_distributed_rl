@@ -171,7 +171,6 @@ def _run_actor(
         runner.context.training = True
         runner.context.disable_trainer = True
         runner.base_run_play(
-            trainer_only=False,
             parameter=parameter,
             memory=memory,
             trainer=None,
@@ -236,7 +235,7 @@ class _TrainerInterrupt(TrainerCallback):
         self.end_signal = end_signal
         self.share_dict = share_dict
 
-    def on_trainer_loop(self, context: RunContext, state: RunState) -> bool:
+    def on_trainer_loop(self, context: RunContext, state: RunStateTrainer) -> bool:
         if not state.is_step_trained:
             # warmupなら待機
             time.sleep(1)
@@ -296,12 +295,10 @@ def _run_trainer(
     # --- train
     task_config.callbacks.append(_TrainerInterrupt(end_signal, share_dict))
     runner.context.training = True
-    runner.base_run_play(
-        trainer_only=True,
+    runner.base_run_play_trainer_only(
         parameter=parameter,
         memory=memory,
         trainer=None,
-        workers=None,
         callbacks=task_config.callbacks,
     )
     end_signal.value = True
@@ -322,7 +319,7 @@ class MPManager(BaseManager):
 __is_set_start_method = False
 
 
-def train(runner: srl.Runner):
+def train(runner: srl.Runner, callbacks: List[CallbackType]):
     global __is_set_start_method
 
     # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような
@@ -368,7 +365,7 @@ def train(runner: srl.Runner):
             remote_board.write(pickle.dumps(params))
 
         # --- actor ---
-        mp_data = runner.create_task_config()
+        mp_data = runner.create_task_config(callbacks)
         actors_ps_list: List[mp.Process] = []
         for actor_id in range(runner.context.actor_num):
             params = (
@@ -389,7 +386,7 @@ def train(runner: srl.Runner):
         # train
         try:
             _run_trainer(
-                runner.create_task_config(),
+                mp_data,
                 parameter,
                 memory,
                 remote_queue,

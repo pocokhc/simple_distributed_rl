@@ -6,9 +6,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from srl.base.rl.base import RLParameter
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext
-from srl.base.run.core import RunState
+from srl.base.run.core import RunStateActor, RunStateTrainer
 from srl.runner.callback import RunnerCallback
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.runner import Runner
@@ -55,14 +56,13 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             if self.progress_timeout > self.interval_limit:
                 self.progress_timeout = self.interval_limit
 
-    def _eval_str(self, context: RunContext, state: RunState) -> str:
+    def _eval_str(self, context: RunContext, parameter: RLParameter) -> str:
         assert self.runner is not None
-        assert state.parameter is not None
         if not self.setup_eval_runner(self.runner):
             return ""
         if context.distributed:
             if context.actor_id == 0:
-                eval_rewards = self.run_eval(state.parameter)
+                eval_rewards = self.run_eval(parameter)
                 if eval_rewards is None:
                     return " " * 12
                 else:
@@ -70,13 +70,13 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             else:
                 return " " * 12
         else:
-            eval_rewards = self.run_eval(state.parameter)
+            eval_rewards = self.run_eval(parameter)
             if eval_rewards is None:
                 return " " * 12
             else:
                 return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
 
-    def on_base_run_start(self, runner: Runner) -> None:
+    def on_runner_start(self, runner: Runner) -> None:
         s = f"### env: {runner.env_config.name}, rl: {runner.rl_config.getName()}"
         if runner.context.max_episodes > 0:
             s += f", max episodes: {runner.context.max_episodes}"
@@ -93,7 +93,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     # -----------------------------------------------------
     # actor
     # -----------------------------------------------------
-    def on_episodes_begin(self, context: RunContext, state: RunState):
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor):
         if context.actor_id >= self.progress_max_actor:
             return
 
@@ -113,12 +113,12 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self.t0_memory_count = 0
         self.t0_actor_send_q = 0
 
-    def on_episodes_end(self, context: RunContext, state: RunState):
+    def on_episodes_end(self, context: RunContext, state: RunStateActor):
         if context.actor_id >= self.progress_max_actor:
             return
         self._print_actor(context, state)
 
-    def on_step_end(self, context: RunContext, state: RunState):
+    def on_step_end(self, context: RunContext, state: RunStateActor):
         if context.actor_id >= self.progress_max_actor:
             return
         if time.time() - self.progress_t0 > self.progress_timeout:
@@ -126,13 +126,12 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             self._update_progress()
             self.progress_t0 = time.time()  # last
 
-    def on_episode_end(self, context: RunContext, state: RunState):
+    def on_episode_end(self, context: RunContext, state: RunStateActor):
         if context.actor_id >= self.progress_max_actor:
             return
 
         # print_workerの報酬を記録する
         player_idx = state.worker_indices[self.progress_worker]
-        assert state.env is not None
         episode_reward = state.env.episode_rewards[player_idx]
 
         d = {
@@ -143,9 +142,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
 
     # -----------------------------------------
 
-    def _print_actor(self, context: RunContext, state: RunState):
-        assert state.env is not None
-
+    def _print_actor(self, context: RunContext, state: RunStateActor):
         _time = time.time()
         elapsed_time = _time - state.elapsed_t0
 
@@ -253,7 +250,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             s += f",{_r_min} {_r_mid} {_r_max} re"
 
             # [eval reward]
-            s += self._eval_str(context, state)
+            s += self._eval_str(context, state.parameter)
 
         # [system]
         s += self._stats_str()
@@ -316,7 +313,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     # ----------------------------------
     # trainer
     # ----------------------------------
-    def on_trainer_start(self, context: RunContext, state: RunState) -> None:
+    def on_trainer_start(self, context: RunContext, state: RunStateTrainer) -> None:
         # eval, 分散の場合はevalをしない
         if context.distributed:
             self.enable_eval = False
@@ -331,18 +328,16 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self.t0_train_count = 0
         self.t0_trainer_recv_q = 0
 
-    def on_trainer_end(self, context: RunContext, state: RunState) -> None:
+    def on_trainer_end(self, context: RunContext, state: RunStateTrainer) -> None:
         self._print_trainer(context, state)
 
-    def on_trainer_loop(self, context: RunContext, state: RunState) -> None:
+    def on_trainer_loop(self, context: RunContext, state: RunStateTrainer) -> None:
         if time.time() - self.progress_t0 > self.progress_timeout:
             self._print_trainer(context, state)
             self._update_progress()
             self.progress_t0 = time.time()  # last
 
-    def _print_trainer(self, context: RunContext, state: RunState):
-        assert state.trainer is not None
-
+    def _print_trainer(self, context: RunContext, state: RunStateTrainer):
         _time = time.time()
         elapsed_time = _time - state.elapsed_t0
 
@@ -355,6 +350,8 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
 
         # calc time
         diff_time = _time - self.t0_train_time
+        if diff_time < 0.1:
+            diff_time = 0.1
         train_count = state.trainer.get_train_count()
         diff_train_count = train_count - self.t0_train_count
         train_time = diff_time / diff_train_count if diff_train_count > 0 else np.inf
@@ -398,7 +395,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             s += " 1train is not over."
         else:
             # [eval]
-            s += self._eval_str(context, state)
+            s += self._eval_str(context, state.parameter)
 
         # [system]
         s += self._stats_str()

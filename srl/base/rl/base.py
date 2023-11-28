@@ -231,7 +231,9 @@ class RLTrainer(ABC):
     def get_train_count(self) -> int:
         return self.train_count
 
+    # TODO: trainをabstractに戻してもいい（けど修正が大きい…）
     def train(self) -> bool:
+        self.train_info = {}
         self.train_no_batchs()
         if self.memory.is_warmup_needed():
             return False

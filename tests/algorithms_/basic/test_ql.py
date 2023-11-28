@@ -37,7 +37,7 @@ def test_Grid_mp():
     rl_config.lr.set_constant(0.01)
     runner = srl.Runner("Grid", rl_config)
     runner.set_seed(2)
-    runner.train_mp(max_train_count=100_000)
+    runner.train_mp(max_train_count=100_000, queue_capacity=100_000)
     tester.eval(runner, episode=100)
 
 
@@ -52,14 +52,18 @@ def test_Grid(q_init):
     tester.eval(runner, episode=100)
 
 
-def test_OX():
+@pytest.mark.parametrize("is_mp", [False, True])
+def test_OX(is_mp):
     tester = TestRL()
     rl_config = ql.Config()
     rl_config.epsilon.set_constant(0.5)
     rl_config.lr.set_constant(0.1)
     runner = srl.Runner("OX", rl_config)
     runner.set_seed(1)
-    runner.train(max_train_count=100_000)
+    if is_mp:
+        runner.train_mp(max_train_count=100_000, queue_capacity=100_000)
+    else:
+        runner.train(max_train_count=100_000)
     tester.eval_2player(runner)
 
 

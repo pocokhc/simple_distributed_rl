@@ -5,15 +5,6 @@ import pytest_timeout  # noqa F401
 import srl
 from srl.algorithms import ql_agent57
 from srl.base.exception import DistributionError
-from srl.runner.distribution import actor_run_forever, trainer_run_forever
-from srl.runner.distribution.callback import ActorServerCallback, TrainerServerCallback
-from srl.runner.distribution.connectors.parameters import (
-    GCPParameters,
-    MQTTParameters,
-    RabbitMQParameters,
-    RedisParameters,
-)
-from srl.runner.distribution.task_manager import TaskManager
 from srl.utils import common
 from tests.runner.distribution.server_mock import (
     create_gcp_mock,
@@ -21,6 +12,19 @@ from tests.runner.distribution.server_mock import (
     create_pika_mock,
     create_redis_mock,
 )
+
+try:
+    from srl.runner.distribution import actor_run_forever, trainer_run_forever
+    from srl.runner.distribution.callback import ActorServerCallback, TrainerServerCallback
+    from srl.runner.distribution.connectors.parameters import (
+        GCPParameters,
+        MQTTParameters,
+        RabbitMQParameters,
+        RedisParameters,
+    )
+    from srl.runner.distribution.task_manager import TaskManager
+except ModuleNotFoundError:
+    pass
 
 
 @pytest.mark.parametrize("server", ["", "redis", "pika", "paho", "gcp"])
@@ -57,7 +61,7 @@ def test_server_actor(mocker: pytest_mock.MockerFixture, server, enable_actor_th
     runner.config.dist_enable_actor_thread = enable_actor_thread
     runner.config.actor_parameter_sync_interval = 0
     task_manager = TaskManager(redis_params, "client")
-    task_manager.create_task(runner.create_task_config(), runner.make_parameter())
+    task_manager.create_task(runner.create_task_config(callbacks=[]), runner.make_parameter())
     if memory_params is None:
         task_manager.setup_memory(redis_params.create_memory_receiver(), is_purge=True)
     else:
@@ -128,7 +132,7 @@ def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
     runner.config.dist_enable_prepare_sample_batch = dist_option[1]
     runner.config.trainer_parameter_send_interval = 0
     task_manager = TaskManager(redis_params, "client")
-    task_manager.create_task(runner.create_task_config(), runner.make_parameter())
+    task_manager.create_task(runner.create_task_config(callbacks=[]), runner.make_parameter())
     if memory_params is None:
         memory_params2 = redis_params
     else:

@@ -5,13 +5,6 @@ import srl
 from srl.algorithms import ql
 from srl.base.rl.base import DummyRLParameter
 from srl.base.run.context import RunContext
-from srl.runner.distribution.connectors.parameters import (
-    GCPParameters,
-    MQTTParameters,
-    RabbitMQParameters,
-    RedisParameters,
-)
-from srl.runner.distribution.task_manager import TaskManager
 from srl.runner.runner import RunnerConfig, TaskConfig
 from tests.runner.distribution.memory_test_functions import memory_connector_test
 from tests.runner.distribution.server_mock import (
@@ -20,6 +13,17 @@ from tests.runner.distribution.server_mock import (
     create_pika_mock,
     create_redis_mock,
 )
+
+try:
+    from srl.runner.distribution.connectors.parameters import (
+        GCPParameters,
+        MQTTParameters,
+        RabbitMQParameters,
+        RedisParameters,
+    )
+    from srl.runner.distribution.task_manager import TaskManager
+except ModuleNotFoundError:
+    pass
 
 
 def test_memory_redis(mocker: pytest_mock.MockerFixture):

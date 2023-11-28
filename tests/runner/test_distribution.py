@@ -10,12 +10,16 @@ import srl
 from srl.algorithms import ql_agent57
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext
-from srl.base.run.core import RunState
-from srl.runner.distribution.connectors.parameters import RedisParameters
-from srl.runner.distribution.server_actor import run_forever as actor_run_forever
-from srl.runner.distribution.server_trainer import run_forever as trainer_run_forever
-from srl.runner.distribution.task_manager import TaskManager
+from srl.base.run.core import RunStateActor, RunStateTrainer
 from srl.utils import common
+
+try:
+    from srl.runner.distribution.connectors.parameters import RedisParameters
+    from srl.runner.distribution.server_actor import run_forever as actor_run_forever
+    from srl.runner.distribution.server_trainer import run_forever as trainer_run_forever
+    from srl.runner.distribution.task_manager import TaskManager
+except ModuleNotFoundError:
+    pass
 
 
 def is_port_open(host, port):
@@ -47,10 +51,10 @@ def _run_trainer():
 
 
 class _AssertTrainCallbacks(RunCallback, TrainerCallback):
-    def on_episodes_end(self, context: RunContext, state: RunState) -> None:
+    def on_episodes_end(self, context: RunContext, state: RunStateActor) -> None:
         assert state.sync_actor > 0
 
-    def on_trainer_end(self, context: RunContext, state: RunState) -> None:
+    def on_trainer_end(self, context: RunContext, state: RunStateTrainer) -> None:
         assert state.sync_trainer > 0
 
 

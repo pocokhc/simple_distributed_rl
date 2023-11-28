@@ -21,14 +21,13 @@ class PlayableGame(GameWindow):
         runner: Runner,
         key_bind: KeyBindType = None,
         enable_memory: bool = False,
+        callbacks: List[GameCallback] = [],
         _is_test: bool = False,  # for test
     ) -> None:
         super().__init__(_is_test=_is_test)
 
         self.runner = runner
-        self.callbacks = cast(
-            List[GameCallback], [c for c in runner._callbacks if issubclass(c.__class__, GameCallback)]
-        )
+        self.callbacks = callbacks[:]
 
         self.noop = None
         self.step_time = 0

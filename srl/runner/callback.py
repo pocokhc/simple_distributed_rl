@@ -15,12 +15,6 @@ class RunnerCallback(ABC):
     def on_runner_end(self, runner: "Runner") -> None:
         pass  # do nothing
 
-    def on_base_run_start(self, runner: "Runner") -> None:
-        pass  # do nothing
-
-    def on_base_run_end(self, runner: "Runner") -> None:
-        pass  # do nothing
-
 
 class GameCallback(ABC):
     def on_game_init(self, runner: "Runner") -> None:

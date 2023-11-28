@@ -120,7 +120,6 @@ class Runner:
         if self.context is None:
             self.context: RunContext = RunContext(self.env_config, self.rl_config)
         self.context_controller = self.context.create_controller()
-        self._callbacks: List[CallbackType] = []
 
         self._env: Optional[EnvRun] = None
         self._trainer: Optional[RLTrainer] = None
@@ -598,9 +597,9 @@ class Runner:
             runner._env = self._env
         return runner
 
-    def get_callbacks(self, exclude_callbacks: List[str] = []) -> List[CallbackType]:
+    def create_task_config(self, callbacks: List[CallbackType], exclude_callbacks: List[str] = []) -> TaskConfig:
         c = []
-        for c2 in self._callbacks:
+        for c2 in callbacks:
             f = True
             for e in exclude_callbacks:
                 if e in c2.__class__.__name__:
@@ -608,13 +607,11 @@ class Runner:
                     break
             if f:
                 c.append(c2)
-        return c
 
-    def create_task_config(self, exclude_callbacks: List[str] = []) -> TaskConfig:
         return TaskConfig(
             self.config.copy(),
             self.context_controller.copy(),
-            pickle.loads(pickle.dumps(self.get_callbacks(exclude_callbacks))),
+            pickle.loads(pickle.dumps(c)),
         )
 
     def print_config(self):
@@ -985,7 +982,7 @@ class Runner:
         if enable_checkpoint and self._checkpoint_kwargs is not None:
             from srl.runner.callbacks.checkpoint import Checkpoint
 
-            self._callbacks.append(Checkpoint(**self._checkpoint_kwargs))
+            callbacks.append(Checkpoint(**self._checkpoint_kwargs))
             logger.info(f"add callback Checkpoint: {self._checkpoint_kwargs['save_dir']}")
         # -------------------
 
@@ -993,30 +990,22 @@ class Runner:
         if enable_history_on_memory and self._history_on_memory_kwargs is not None:
             from srl.runner.callbacks.history_on_memory import HistoryOnMemory
 
-            self._callbacks.append(HistoryOnMemory(**self._history_on_memory_kwargs))
+            callbacks.append(HistoryOnMemory(**self._history_on_memory_kwargs))
             logger.info("add callback HistoryOnMemory")
 
         if enable_history_on_file and self._history_on_file_kwargs is not None:
             from srl.runner.callbacks.history_on_file import HistoryOnFile
 
-            self._callbacks.append(HistoryOnFile(**self._history_on_file_kwargs))
+            callbacks.append(HistoryOnFile(**self._history_on_file_kwargs))
             logger.info(f"add callback HistoryOnFile: {self._history_on_file_kwargs['save_dir']}")
         # ---------------
 
         # --- callback
-        [
-            cast(RunnerCallback, c).on_runner_start(self)
-            for c in self._callbacks
-            if issubclass(c.__class__, RunnerCallback)
-        ]
+        [cast(RunnerCallback, c).on_runner_start(self) for c in callbacks if issubclass(c.__class__, RunnerCallback)]
 
-    def _base_run_play_after(self):
+    def _base_run_play_after(self, callbacks: List[CallbackType]):
         # --- callback
-        [
-            cast(RunnerCallback, c).on_runner_end(self)
-            for c in self._callbacks
-            if issubclass(c.__class__, RunnerCallback)
-        ]
+        [cast(RunnerCallback, c).on_runner_end(self) for c in callbacks if issubclass(c.__class__, RunnerCallback)]
 
     def base_run_play(
         self,
@@ -1025,7 +1014,7 @@ class Runner:
         memory: Optional[RLMemory],
         trainer: Optional[RLTrainer],
         workers: Optional[List[WorkerRun]],
-        callbacks: List[CallbackType] = [],
+        callbacks: List[CallbackType],
     ) -> base_run.RunState:
         # --- make instance ---
         if parameter is None:
@@ -1041,14 +1030,10 @@ class Runner:
         # --------------
 
         # --- callback
-        _callbacks = self._callbacks[:]
-        _callbacks.extend(callbacks)
-        _callbacks_dist = cast(
-            List[RunnerCallback], [c for c in _callbacks if issubclass(c.__class__, RunnerCallback)]
-        )
-        for c in _callbacks_dist:
-            c.runner = self
-            c.on_base_run_start(self)
+        _callbacks = callbacks[:]
+        for c in _callbacks:
+            if issubclass(c.__class__, RunnerCallback):
+                cast(RunnerCallback, c).runner = self
 
         # --- play ----
         if not trainer_only:
@@ -1076,8 +1061,8 @@ class Runner:
         # ----------------
 
         # --- callback
-        for c in _callbacks_dist:
-            c.runner = None
-            c.on_base_run_end(self)
+        for c in _callbacks:
+            if issubclass(c.__class__, RunnerCallback):
+                cast(RunnerCallback, c).runner = None
 
         return state

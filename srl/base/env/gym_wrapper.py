@@ -242,7 +242,6 @@ class GymWrapper(EnvBase):
         self.config = config
 
         self.seed = None
-        self.render_mode = RenderModes.none
         self.v0260_older = compare_less_version(gym.__version__, "0.26.0")  # type: ignore
         if False:
             if is_package_installed("ale_py"):
@@ -264,6 +263,7 @@ class GymWrapper(EnvBase):
         self.fps = self.env.metadata.get("render_fps", 60)
 
         # render_modes
+        self.render_mode = RenderModes.none
         self.render_modes = ["ansi", "human", "rgb_array"]
         if "render.modes" in self.env.metadata:
             self.render_modes = self.env.metadata["render.modes"]

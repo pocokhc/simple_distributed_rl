@@ -6,7 +6,7 @@ import pygame
 
 from srl.base.run.callback import RunCallback
 from srl.base.run.context import RunContext
-from srl.base.run.core import RunState
+from srl.base.run.core import RunStateActor
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
 from srl.runner.runner import Runner
 
@@ -14,28 +14,28 @@ logger = logging.getLogger(__name__)
 
 
 class _GetRGBCallback(RunCallback):
-    def on_episode_begin(self, context: RunContext, state: RunState):
+    def on_episode_begin(self, context: RunContext, state: RunStateActor):
         self.steps = []
 
-    def on_step_action_before(self, context: RunContext, state: RunState) -> None:
+    def on_step_action_before(self, context: RunContext, state: RunStateActor) -> None:
         self._tmp_step_env(context, state)
 
-    def on_step_begin(self, context: RunContext, state: RunState) -> None:
+    def on_step_begin(self, context: RunContext, state: RunStateActor) -> None:
         self._tmp_step_worker(context, state)
         self._add_step()
 
-    def on_skip_step(self, context: RunContext, state: RunState) -> None:
+    def on_skip_step(self, context: RunContext, state: RunStateActor) -> None:
         self._tmp_step_env(context, state)
         self._add_step(is_skip_step=True)
 
-    def on_episode_end(self, context: RunContext, state: RunState):
+    def on_episode_end(self, context: RunContext, state: RunStateActor):
         self._tmp_step_env(context, state)
         self._tmp_step_worker(context, state)
         self._add_step(is_skip_step=True)
 
     # ---------------------------------
 
-    def _tmp_step_env(self, context: RunContext, state: RunState):
+    def _tmp_step_env(self, context: RunContext, state: RunStateActor):
         env = state.env
         assert env is not None
         d = {
@@ -53,7 +53,7 @@ class _GetRGBCallback(RunCallback):
 
         self.step_info_env: dict = d
 
-    def _tmp_step_worker(self, context: RunContext, state: RunState):
+    def _tmp_step_worker(self, context: RunContext, state: RunStateActor):
         d: dict = {
             "action": state.action,
         }

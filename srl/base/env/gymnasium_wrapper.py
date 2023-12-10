@@ -238,6 +238,7 @@ class GymnasiumWrapper(EnvBase):
         self.config = config
 
         self.seed = None
+        self.render_mode = RenderModes.none
         self.render_modes = ["ansi", "human", "rgb_array"]
 
         os.environ["SDL_VIDEODRIVER"] = "dummy"

@@ -42,8 +42,6 @@ pattern0 = [
     ((4, 8), EnvObservationTypes.GRAY_2ch, (4, 8, 1), True),
     ((4, 8, 1), EnvObservationTypes.GRAY_3ch, (4, 8, 1), True),
     ((4, 8, 3), EnvObservationTypes.COLOR, (4, 8, 3), True),
-    ((4, 8), EnvObservationTypes.SHAPE2, (4, 8, 1), True),
-    ((10, 4, 8), EnvObservationTypes.SHAPE3, (4, 8, 10), True),
 ]
 
 
@@ -71,8 +69,6 @@ pattern10 = [
     ((10, 4, 8), EnvObservationTypes.GRAY_2ch, (4, 8, 10), True, False),
     ((10, 4, 8, 1), EnvObservationTypes.GRAY_3ch, (4, 8, 10), True, False),
     ((10, 4, 8, 3), EnvObservationTypes.COLOR, None, None, True),
-    ((10, 4, 8), EnvObservationTypes.SHAPE2, (4, 8, 10), True, False),
-    ((10, 10, 4, 8), EnvObservationTypes.SHAPE3, None, None, True),
 ]
 
 
@@ -104,8 +100,6 @@ pattern_time = [
     ((4, 8), EnvObservationTypes.GRAY_2ch, (4, 8, 1), True),
     ((4, 8, 1), EnvObservationTypes.GRAY_3ch, (4, 8, 1), True),
     ((4, 8, 3), EnvObservationTypes.COLOR, (4, 8, 3), True),
-    ((4, 8), EnvObservationTypes.SHAPE2, (4, 8, 1), True),
-    ((10, 4, 8), EnvObservationTypes.SHAPE3, (4, 8, 10), True),
 ]
 
 

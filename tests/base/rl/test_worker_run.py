@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 import srl
-from srl.base.define import EnvObservationTypes, InfoType, RLActionType, RLTypes
+from srl.base.define import EnvObservationTypes, InfoType, RLActionType, RLBaseTypes, RLTypes
 from srl.base.env.base import SpaceBase
 from srl.base.env.genre.singleplay import SinglePlayEnv
 from srl.base.env.registration import register as register_env
@@ -73,18 +73,18 @@ register_env(
 class StubRLConfig(RLConfig):
     def __init__(self) -> None:
         super().__init__()
-        self._action_type = RLTypes.ANY
-        self._observation_type = RLTypes.ANY
+        self._action_type = RLBaseTypes.ANY
+        self._observation_type = RLBaseTypes.ANY
 
     def getName(self) -> str:
         return "Stub"
 
     @property
-    def base_action_type(self) -> RLTypes:
+    def base_action_type(self) -> RLBaseTypes:
         return self._action_type
 
     @property
-    def base_observation_type(self) -> RLTypes:
+    def base_observation_type(self) -> RLBaseTypes:
         return self._observation_type
 
     def get_use_framework(self) -> str:
@@ -119,32 +119,30 @@ def test_env_play():
     tester.play_test("Stub")
 
 
-# rl_action : DISCRETE, CONTINUOUS(float, list[float])
-# env_action: space
 @pytest.mark.parametrize(
     "rl_action_type, rl_action, env_action_space, true_env_action",
     [
-        [RLTypes.DISCRETE, 1, DiscreteSpace(5), 1],
-        [RLTypes.DISCRETE, 1, ArrayDiscreteSpace(2, 0, 5), [0, 1]],
-        [RLTypes.DISCRETE, 1, ContinuousSpace(0, 5), 1.25],
-        [RLTypes.DISCRETE, 1, ArrayContinuousSpace(1, 0, 5), [1.25]],
-        [RLTypes.DISCRETE, 2, BoxSpace((1,)), None],
-        [RLTypes.DISCRETE, 1, BoxSpace((1,), -1, 1), [-0.5]],
-        [RLTypes.CONTINUOUS, 1.2, DiscreteSpace(5), 1],
-        [RLTypes.CONTINUOUS, 1.2, ArrayDiscreteSpace(2, 0, 5), [1]],
-        [RLTypes.CONTINUOUS, 1.2, ContinuousSpace(0, 5), 1.2],
-        [RLTypes.CONTINUOUS, 1.2, ArrayContinuousSpace(1, 0, 5), [1.2]],
-        [RLTypes.CONTINUOUS, 1.2, BoxSpace((1,)), [1.2]],
-        [RLTypes.CONTINUOUS, [1.2, 2.2], DiscreteSpace(5), 1],
-        [RLTypes.CONTINUOUS, [1.2, 2.2], ArrayDiscreteSpace(2, 0, 5), [1, 2]],
-        [RLTypes.CONTINUOUS, [1.2, 2.2], ContinuousSpace(0, 5), 1.2],
-        [RLTypes.CONTINUOUS, [1.2, 2.2], ArrayContinuousSpace(1, 0, 5), [1.2, 2.2]],
-        [RLTypes.CONTINUOUS, [1.2, 2.2], BoxSpace((2, 1)), [[1.2], [2.2]]],
-        [RLTypes.ANY, 1, DiscreteSpace(5), 1],
-        [RLTypes.ANY, 1, ArrayDiscreteSpace(2, 0, 5), [0, 1]],
-        [RLTypes.ANY, 1.2, ContinuousSpace(0, 5), 1.2],
-        [RLTypes.ANY, [1.2, 2.2], ArrayContinuousSpace(1, 0, 5), [1.2, 2.2]],
-        [RLTypes.ANY, [1.2, 2.2], BoxSpace((2, 1)), [[1.2], [2.2]]],
+        [RLBaseTypes.DISCRETE, 1, DiscreteSpace(5), 1],
+        [RLBaseTypes.DISCRETE, 1, ArrayDiscreteSpace(2, 0, 5), [0, 1]],
+        [RLBaseTypes.DISCRETE, 1, ContinuousSpace(0, 5), 1.25],
+        [RLBaseTypes.DISCRETE, 1, ArrayContinuousSpace(1, 0, 5), [1.25]],
+        [RLBaseTypes.DISCRETE, 2, BoxSpace((1,)), None],
+        [RLBaseTypes.DISCRETE, 1, BoxSpace((1,), -1, 1), [-0.5]],
+        [RLBaseTypes.CONTINUOUS, 1.2, DiscreteSpace(5), 1],
+        [RLBaseTypes.CONTINUOUS, 1.2, ArrayDiscreteSpace(2, 0, 5), [1]],
+        [RLBaseTypes.CONTINUOUS, 1.2, ContinuousSpace(0, 5), 1.2],
+        [RLBaseTypes.CONTINUOUS, 1.2, ArrayContinuousSpace(1, 0, 5), [1.2]],
+        [RLBaseTypes.CONTINUOUS, 1.2, BoxSpace((1,)), [1.2]],
+        [RLBaseTypes.CONTINUOUS, [1.2, 2.2], DiscreteSpace(5), 1],
+        [RLBaseTypes.CONTINUOUS, [1.2, 2.2], ArrayDiscreteSpace(2, 0, 5), [1, 2]],
+        [RLBaseTypes.CONTINUOUS, [1.2, 2.2], ContinuousSpace(0, 5), 1.2],
+        [RLBaseTypes.CONTINUOUS, [1.2, 2.2], ArrayContinuousSpace(1, 0, 5), [1.2, 2.2]],
+        [RLBaseTypes.CONTINUOUS, [1.2, 2.2], BoxSpace((2, 1)), [[1.2], [2.2]]],
+        [RLBaseTypes.ANY, 1, DiscreteSpace(5), 1],
+        [RLBaseTypes.ANY, 1, ArrayDiscreteSpace(2, 0, 5), [0, 1]],
+        [RLBaseTypes.ANY, 1.2, ContinuousSpace(0, 5), 1.2],
+        [RLBaseTypes.ANY, [1.2, 2.2], ArrayContinuousSpace(1, 0, 5), [1.2, 2.2]],
+        [RLBaseTypes.ANY, [1.2, 2.2], BoxSpace((2, 1)), [[1.2], [2.2]]],
     ],
 )
 def test_action_decode(rl_action_type, rl_action, env_action_space, true_env_action):
@@ -179,42 +177,78 @@ def test_action_decode(rl_action_type, rl_action, env_action_space, true_env_act
         assert env_action == true_env_action
 
 
-# env_obs: space
-# rl_obs : DISCRETE(np[int32]), CONTINUOUS(np[float32])
-@pytest.mark.parametrize(
-    "env_obs_type",
-    [
-        EnvObservationTypes.UNKNOWN,
-        EnvObservationTypes.DISCRETE,
-        EnvObservationTypes.CONTINUOUS,
-        EnvObservationTypes.GRAY_2ch,
-        EnvObservationTypes.GRAY_3ch,
-        EnvObservationTypes.COLOR,
-        EnvObservationTypes.SHAPE2,
-        EnvObservationTypes.SHAPE3,
-    ],
-)
 @pytest.mark.parametrize(
     "env_obs_space, env_state, rl_obs_type, true_obs_type, true_state",
     [
-        [DiscreteSpace(5), 1, RLTypes.DISCRETE, RLTypes.DISCRETE, 1],
-        [DiscreteSpace(5), 1, RLTypes.CONTINUOUS, RLTypes.CONTINUOUS, 1],
-        [DiscreteSpace(5), 1, RLTypes.ANY, RLTypes.DISCRETE, 1],
-        [ArrayDiscreteSpace(2, 0, 5), [0, 1], RLTypes.DISCRETE, RLTypes.DISCRETE, [0, 1]],
-        [ArrayDiscreteSpace(2, 0, 5), [0, 1], RLTypes.CONTINUOUS, RLTypes.CONTINUOUS, [0, 1]],
-        [ArrayDiscreteSpace(2, 0, 5), [0, 1], RLTypes.ANY, RLTypes.DISCRETE, [0, 1]],
-        [ContinuousSpace(0, 5), 1.2, RLTypes.DISCRETE, RLTypes.DISCRETE, 1],
-        [ContinuousSpace(0, 5), 1.2, RLTypes.CONTINUOUS, RLTypes.CONTINUOUS, 1.2],
-        [ContinuousSpace(0, 5), 1.2, RLTypes.ANY, RLTypes.CONTINUOUS, 1.2],
-        [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], RLTypes.DISCRETE, RLTypes.DISCRETE, [1, 2]],
-        [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], RLTypes.CONTINUOUS, RLTypes.CONTINUOUS, [1.1, 2.1]],
-        [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], RLTypes.ANY, RLTypes.CONTINUOUS, [1.1, 2.1]],
-        [BoxSpace((2, 1)), [[1.1], [2.1]], RLTypes.DISCRETE, RLTypes.DISCRETE, [[1], [2]]],
-        [BoxSpace((2, 1)), [[1.1], [2.1]], RLTypes.CONTINUOUS, RLTypes.CONTINUOUS, [[1.1], [2.1]]],
-        [BoxSpace((2, 1)), [[1.1], [2.1]], RLTypes.ANY, RLTypes.CONTINUOUS, [[1.1], [2.1]]],
+        [DiscreteSpace(5), 1, RLBaseTypes.DISCRETE, RLTypes.DISCRETE, 1],
+        [DiscreteSpace(5), 1, RLBaseTypes.CONTINUOUS, RLTypes.CONTINUOUS, 1],
+        [DiscreteSpace(5), 1, RLBaseTypes.ANY, RLTypes.DISCRETE, 1],
+        [ArrayDiscreteSpace(2, 0, 5), [0, 1], RLBaseTypes.DISCRETE, RLTypes.DISCRETE, [0, 1]],
+        [ArrayDiscreteSpace(2, 0, 5), [0, 1], RLBaseTypes.CONTINUOUS, RLTypes.CONTINUOUS, [0, 1]],
+        [ArrayDiscreteSpace(2, 0, 5), [0, 1], RLBaseTypes.ANY, RLTypes.DISCRETE, [0, 1]],
+        [ContinuousSpace(0, 5), 1.2, RLBaseTypes.DISCRETE, RLTypes.DISCRETE, 1],
+        [ContinuousSpace(0, 5), 1.2, RLBaseTypes.CONTINUOUS, RLTypes.CONTINUOUS, 1.2],
+        [ContinuousSpace(0, 5), 1.2, RLBaseTypes.ANY, RLTypes.CONTINUOUS, 1.2],
+        [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], RLBaseTypes.DISCRETE, RLTypes.DISCRETE, [1, 2]],
+        [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], RLBaseTypes.CONTINUOUS, RLTypes.CONTINUOUS, [1.1, 2.1]],
+        [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], RLBaseTypes.ANY, RLTypes.CONTINUOUS, [1.1, 2.1]],
+        [BoxSpace((2, 1)), [[1.1], [2.1]], RLBaseTypes.DISCRETE, RLTypes.DISCRETE, [[1], [2]]],
+        [BoxSpace((2, 1)), [[1.1], [2.1]], RLBaseTypes.CONTINUOUS, RLTypes.CONTINUOUS, [[1.1], [2.1]]],
+        [BoxSpace((2, 1)), [[1.1], [2.1]], RLBaseTypes.ANY, RLTypes.CONTINUOUS, [[1.1], [2.1]]],
     ],
 )
-def test_observation_encode(env_obs_type, env_obs_space, env_state, rl_obs_type, true_obs_type, true_state):
+def test_observation_encode(env_obs_space, env_state, rl_obs_type, true_obs_type, true_state):
+    print(env_obs_space, env_state, rl_obs_type, true_obs_type, true_state)
+    env = srl.make_env("Stub")
+    env_org = cast(StubEnv, env.get_original_env())
+    env_org._observation_type = EnvObservationTypes.UNKNOWN
+    env_org._observation_space = env_obs_space
+    env_org.s_state = env_state
+
+    rl_config = StubRLConfig()
+    rl_config._observation_type = rl_obs_type
+
+    # ---
+    worker_run = srl.make_worker(rl_config, env)
+    worker = cast(StubRLWorker, worker_run.worker)
+
+    print(rl_config.observation_type)
+    assert rl_config.observation_type == true_obs_type
+
+    env.reset()
+    worker_run.on_reset(0, training=False)
+    action = worker_run.policy()
+
+    print(worker.state)
+    assert isinstance(worker.state, np.ndarray)
+    assert np.allclose(worker.state, np.array(true_state))
+
+    env.step(action)
+    worker_run.on_step()
+
+    print(worker.state)
+    assert isinstance(worker.state, np.ndarray)
+    assert np.allclose(worker.state, np.array(true_state))
+
+
+@pytest.mark.parametrize(
+    "env_obs_type",
+    [
+        EnvObservationTypes.GRAY_2ch,
+        EnvObservationTypes.GRAY_3ch,
+        EnvObservationTypes.COLOR,
+        EnvObservationTypes.IMAGE,
+    ],
+)
+@pytest.mark.parametrize(
+    " env_obs_space, env_state, rl_obs_type, true_obs_type, true_state",
+    [
+        [BoxSpace((2, 1)), [[1.1], [2.1]], RLBaseTypes.DISCRETE, RLTypes.DISCRETE, [[1], [2]]],
+        [BoxSpace((2, 1)), [[1.1], [2.1]], RLBaseTypes.CONTINUOUS, RLTypes.IMAGE, [[1.1], [2.1]]],
+        [BoxSpace((2, 1)), [[1.1], [2.1]], RLBaseTypes.ANY, RLTypes.IMAGE, [[1.1], [2.1]]],
+    ],
+)
+def test_observation_img_encode(env_obs_type, env_obs_space, env_state, rl_obs_type, true_obs_type, true_state):
     print(env_obs_type, env_obs_space, env_state, rl_obs_type, true_obs_type, true_state)
     env = srl.make_env("Stub")
     env_org = cast(StubEnv, env.get_original_env())
@@ -251,20 +285,20 @@ def test_observation_encode(env_obs_type, env_obs_space, env_state, rl_obs_type,
 @pytest.mark.parametrize(
     "rl_action_type, env_action_space, true_type",
     [
-        [RLTypes.DISCRETE, DiscreteSpace(5), int],
-        [RLTypes.DISCRETE, ArrayDiscreteSpace(2, 0, 5), int],
-        [RLTypes.DISCRETE, ContinuousSpace(0, 5), int],
-        [RLTypes.DISCRETE, ArrayContinuousSpace(1), None],
-        [RLTypes.DISCRETE, ArrayContinuousSpace(1, 0, 5), int],
-        [RLTypes.DISCRETE, BoxSpace((1,)), None],
-        [RLTypes.DISCRETE, BoxSpace((1,), -1, 1), int],
-        [RLTypes.CONTINUOUS, DiscreteSpace(5), list],
-        [RLTypes.CONTINUOUS, ArrayDiscreteSpace(2, 0, 5), list],
-        [RLTypes.CONTINUOUS, ContinuousSpace(0, 5), list],
-        [RLTypes.CONTINUOUS, ArrayContinuousSpace(1), list],
-        [RLTypes.CONTINUOUS, ArrayContinuousSpace(1, 0, 5), list],
-        [RLTypes.CONTINUOUS, BoxSpace((1,)), list],
-        [RLTypes.CONTINUOUS, BoxSpace((1,), -1, 1), list],
+        [RLBaseTypes.DISCRETE, DiscreteSpace(5), int],
+        [RLBaseTypes.DISCRETE, ArrayDiscreteSpace(2, 0, 5), int],
+        [RLBaseTypes.DISCRETE, ContinuousSpace(0, 5), int],
+        [RLBaseTypes.DISCRETE, ArrayContinuousSpace(1), None],
+        [RLBaseTypes.DISCRETE, ArrayContinuousSpace(1, 0, 5), int],
+        [RLBaseTypes.DISCRETE, BoxSpace((1,)), None],
+        [RLBaseTypes.DISCRETE, BoxSpace((1,), -1, 1), int],
+        [RLBaseTypes.CONTINUOUS, DiscreteSpace(5), list],
+        [RLBaseTypes.CONTINUOUS, ArrayDiscreteSpace(2, 0, 5), list],
+        [RLBaseTypes.CONTINUOUS, ContinuousSpace(0, 5), list],
+        [RLBaseTypes.CONTINUOUS, ArrayContinuousSpace(1), list],
+        [RLBaseTypes.CONTINUOUS, ArrayContinuousSpace(1, 0, 5), list],
+        [RLBaseTypes.CONTINUOUS, BoxSpace((1,)), list],
+        [RLBaseTypes.CONTINUOUS, BoxSpace((1,), -1, 1), list],
     ],
 )
 def test_sample_action(rl_action_type, env_action_space, true_type):

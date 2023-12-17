@@ -74,7 +74,7 @@ RLConfig で実装が必要な関数・プロパティは以下です。
 
    from dataclasses import dataclass
    from srl.base.rl.base import RLConfig
-   from srl.base.define import RLTypes
+   from srl.base.define import RLBaseTypes
    from srl.base.rl.processor import Processor
 
    # 必ず dataclass で書いてください
@@ -88,7 +88,7 @@ RLConfig で実装が必要な関数・プロパティは以下です。
          raise NotImplementedError()
 
       @property
-      def base_action_type(self) -> RLTypes:
+      def base_action_type(self) -> RLBaseTypes:
          """
          アルゴリズムが想定するアクションのタイプを返してください。
          DISCRETE  : 離散値
@@ -98,7 +98,7 @@ RLConfig で実装が必要な関数・プロパティは以下です。
          raise NotImplementedError()
 
       @property
-      def base_observation_type(self) -> RLTypes:
+      def base_observation_type(self) -> RLBaseTypes:
          """
          アルゴリズムが想定する環境から受け取る状態のタイプを返してください。
          DISCRETE  : 離散値

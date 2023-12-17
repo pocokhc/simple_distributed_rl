@@ -3,7 +3,7 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Tuple
 
-from srl.base.define import InfoType, InvalidActionsType, RLActionType, RLObservationType, RLTypes
+from srl.base.define import InfoType, InvalidActionsType, RLActionType, RLBaseTypes, RLObservationType
 from srl.base.rl.base import RLConfig, RLWorker
 from srl.base.rl.worker_run import WorkerRun
 
@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DiscreteActionConfig(RLConfig):
     @property
-    def base_action_type(self) -> RLTypes:
-        return RLTypes.DISCRETE
+    def base_action_type(self) -> RLBaseTypes:
+        return RLBaseTypes.DISCRETE
 
 
 class DiscreteActionWorker(RLWorker):

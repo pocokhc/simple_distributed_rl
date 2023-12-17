@@ -5,7 +5,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from srl.base.define import InfoType, RLActionType, RLTypes
+from srl.base.define import InfoType, RLActionType, RLBaseTypes
 from srl.base.rl.base import RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.worker_run import WorkerRun
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ContinuousActionConfig(RLConfig):
     @property
-    def base_action_type(self) -> RLTypes:
-        return RLTypes.CONTINUOUS
+    def base_action_type(self) -> RLBaseTypes:
+        return RLBaseTypes.CONTINUOUS
 
 
 class ContinuousActionWorker(RLWorker):

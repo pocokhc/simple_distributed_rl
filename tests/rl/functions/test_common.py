@@ -105,8 +105,6 @@ def test_category():
         EnvObservationTypes.GRAY_2ch,
         EnvObservationTypes.GRAY_3ch,
         EnvObservationTypes.COLOR,
-        EnvObservationTypes.SHAPE2,
-        EnvObservationTypes.SHAPE3,
     ],
 )
 def test_to_str_observation(state_type):

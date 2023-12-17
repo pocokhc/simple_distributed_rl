@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLTypes
+from srl.base.define import EnvObservationTypes, RLBaseTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLMemory, RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
@@ -73,12 +73,12 @@ class Config(RLConfig):
         ]
 
     @property
-    def base_action_type(self) -> RLTypes:
-        return RLTypes.DISCRETE
+    def base_action_type(self) -> RLBaseTypes:
+        return RLBaseTypes.DISCRETE
 
     @property
-    def base_observation_type(self) -> RLTypes:
-        return RLTypes.CONTINUOUS
+    def base_observation_type(self) -> RLBaseTypes:
+        return RLBaseTypes.CONTINUOUS
 
     def get_use_framework(self) -> str:
         return "tensorflow"

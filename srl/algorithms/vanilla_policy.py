@@ -4,7 +4,7 @@ from typing import Any, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import RLActionType, RLTypes
+from srl.base.define import RLActionType, RLBaseTypes, RLTypes
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
@@ -27,12 +27,12 @@ class Config(RLConfig):
         self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
 
     @property
-    def base_action_type(self) -> RLTypes:
-        return RLTypes.ANY
+    def base_action_type(self) -> RLBaseTypes:
+        return RLBaseTypes.ANY
 
     @property
-    def base_observation_type(self) -> RLTypes:
-        return RLTypes.DISCRETE
+    def base_observation_type(self) -> RLBaseTypes:
+        return RLBaseTypes.DISCRETE
 
     def get_use_framework(self) -> str:
         return ""

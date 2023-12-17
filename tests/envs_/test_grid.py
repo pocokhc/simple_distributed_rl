@@ -26,15 +26,15 @@ def test_processor():
     env_name = "Grid"
 
     env = grid.Grid()
-    field = np.zeros((1, env.H, env.W))
-    field[0][3][1] = 1
+    field = np.zeros((env.H, env.W, 1))
+    field[3][1][0] = 1
 
     tester.run(processor, env_name)
     tester.preprocess_observation_space(
         processor,
         env_name,
-        after_type=EnvObservationTypes.SHAPE3,
-        after_space=BoxSpace((1, env.H, env.W), 0, 1),
+        after_type=EnvObservationTypes.IMAGE,
+        after_space=BoxSpace((env.H, env.W, 1), 0, 1),
     )
     tester.preprocess_observation(
         processor,

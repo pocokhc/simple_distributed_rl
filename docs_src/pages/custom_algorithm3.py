@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from srl.base.define import RLTypes
+from srl.base.define import RLBaseTypes
 from srl.base.rl.base import RLConfig
 from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
 
@@ -16,12 +16,12 @@ class MyConfig(RLConfig, PriorityExperienceReplayConfig):
         return "MyConfig"
 
     @property
-    def base_action_type(self) -> RLTypes:
-        return RLTypes.DISCRETE
+    def base_action_type(self) -> RLBaseTypes:
+        return RLBaseTypes.DISCRETE
 
     @property
-    def base_observation_type(self) -> RLTypes:
-        return RLTypes.DISCRETE
+    def base_observation_type(self) -> RLBaseTypes:
+        return RLBaseTypes.DISCRETE
 
     def get_use_framework(self) -> str:
         return ""

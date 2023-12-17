@@ -6,7 +6,7 @@ from typing import Any, List, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import RLTypes
+from srl.base.define import RLBaseTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
@@ -56,12 +56,12 @@ class Config(RLConfig):
         self.lr_int: SchedulerConfig = SchedulerConfig(cast(float, self.lr_int))
 
     @property
-    def base_action_type(self) -> RLTypes:
-        return RLTypes.DISCRETE
+    def base_action_type(self) -> RLBaseTypes:
+        return RLBaseTypes.DISCRETE
 
     @property
-    def base_observation_type(self) -> RLTypes:
-        return RLTypes.DISCRETE
+    def base_observation_type(self) -> RLBaseTypes:
+        return RLBaseTypes.DISCRETE
 
     def get_use_framework(self) -> str:
         return ""

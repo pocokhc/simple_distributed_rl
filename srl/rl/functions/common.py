@@ -134,8 +134,7 @@ def to_str_observation(state: np.ndarray, state_type: EnvObservationTypes = EnvO
                 EnvObservationTypes.GRAY_2ch: np.int32,
                 EnvObservationTypes.GRAY_3ch: np.int32,
                 EnvObservationTypes.COLOR: np.int32,
-                EnvObservationTypes.SHAPE2: np.int32,
-                EnvObservationTypes.SHAPE3: np.int32,
+                EnvObservationTypes.IMAGE: np.int32,
             }[state_type]
         )
     return str(state.flatten().tolist()).replace(" ", "")[1:-1]

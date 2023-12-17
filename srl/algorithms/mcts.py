@@ -4,7 +4,7 @@ from typing import Any, Tuple
 
 import numpy as np
 
-from srl.base.define import RLTypes
+from srl.base.define import RLBaseTypes
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
@@ -25,12 +25,12 @@ class Config(RLConfig):
     uct_c: float = np.sqrt(2.0)
 
     @property
-    def base_action_type(self) -> RLTypes:
-        return RLTypes.DISCRETE
+    def base_action_type(self) -> RLBaseTypes:
+        return RLBaseTypes.DISCRETE
 
     @property
-    def base_observation_type(self) -> RLTypes:
-        return RLTypes.DISCRETE
+    def base_observation_type(self) -> RLBaseTypes:
+        return RLBaseTypes.DISCRETE
 
     def get_use_framework(self) -> str:
         return ""

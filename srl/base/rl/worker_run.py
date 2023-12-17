@@ -121,7 +121,6 @@ class WorkerRun:
     ) -> None:
         self._player_index = player_index
         self._training = training
-        self._rendering = RenderModes.is_rendering(render_mode)
 
         self._is_reset = False
         self._step_reward = 0
@@ -138,6 +137,8 @@ class WorkerRun:
             ]
 
         [r.on_reset(self._env) for r in self._config._run_processors]
+
+        self._rendering = RenderModes.is_rendering(render_mode)
         self._render.reset(render_mode)
 
     def policy(self) -> EnvActionType:
@@ -318,7 +319,7 @@ class WorkerRun:
             if isinstance(action, list):
                 for a in action:
                     assert isinstance(a, float), f"The type of action is different. {a}({type(a)})"
-        elif self.config.action_type == RLTypes.ANY:
+        elif self.config.action_type == RLTypes.UNKNOWN:
             assert (
                 isinstance(action, int) or isinstance(action, float) or isinstance(action, list)
             ), f"The type of action is different. {action}({type(action)})"

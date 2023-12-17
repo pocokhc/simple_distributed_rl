@@ -10,6 +10,8 @@
 1. Async-SGD
 1. オリジナルrl/env対応
 1. (RLの定義rl_configからmakeしたほうが素直？定義方法から変わるので保留)
+RLTypesに画像を追加
+1. 複数spaceの入力
 
 # v0.13.4
 
@@ -21,16 +23,34 @@
 1. [base.processor] new: preprocess_doneを追加し、Processをリファクタリング
 1. [runner.core_mp] fix: 最適化
 1. [rl.processors] new: AtariProcessor追加
+1. [base.define] change: SHAPE2,SHAPE3を削除し、IMAGEを追加
+1. [base.define] change: RLTypesをRLTypesとRLBaseTypesに分割
+1. [base.rl.RLTrainer] change: RLTrainerのtrain_on_batchsを廃止し、trainに戻しました
+1. [base.rl.RLTrainer] add: RLTrainerにdistributedとtrain_onlyのプロパティを追加
+1. [runner] : リファクタリング
+    1. delete: setup_wkdirを削除
+    1. add: set_checkpointにis_loadを追加し、過去のディレクトリから最新のパラメータをloadするコードを追加
+    1. add: parameter,memory,trainer,workersを参照できるように変更
+    1. add: model_summaryの引数にexpand_nestedを追加
+    1. fix: create_eval_runnerのバグ修正
+1. [tensorflow] : リファクタリング
+    1. [rl.models.tf] new: distributionsを追加、主に確率を扱うNNを一元管理することが目的(ベルヌーイ分布,カテゴリカル分布,正規分布等)
+    1. [rl.models.tf] update: InputBlockを見直し
+    1. [rl.models] change: DuelingNetworkBlockを使わない場合の名前をNoDuelingNetworkBlockに変更
+    1. [rl.models] update: その他exceptionに伴う細かい修正
 
 **OtherUpdates**
 
 1. [runner.callbacks] fix: evalで時間がかかる場合に待機時間を経過し、連続で実行される状態を回避
 1. [runner.callbacks] fix: 2重にcallbackが実行される不具合修正
 1. [base.env.gymnasium_wrapper] fix: metadataがない環境に対応
+1. [base.env.gymnasium_wrapper] fix: render_modeが消えてたバグ修正
 1. [base.rl.RLTrainer] update: 毎step、train_info={}を追加
 1. [rl.functions.common] fix: get_random_max_indexで元の値が変わる不具合を修正
 1. [runner.game_window] fix: -+で例外が発生する不具合修正
 1. [algorithms.search_dynaq] update: 100%に
+1. [base.exception] new: フレームワーク用のExceptionを追加
+1. [render] update: render周りを見直してリファクタリング
 
 # v0.13.3
 
@@ -245,7 +265,7 @@ class RLConfig(ABC):
    # change name: observation_type -> base_observation_type
    @property
    @abstractmethod
-   def base_observation_type(self) -> RLTypes:
+   def base_observation_type(self) -> RLBaseTypes:
       raise NotImplementedError()
 
    # new abstractmethod

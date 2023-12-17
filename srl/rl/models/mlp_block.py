@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, Tuple
 
+from srl.base.exception import UndefinedError
+
 
 @dataclass
 class MLPBlockConfig:
@@ -62,7 +64,7 @@ class MLPBlockConfig:
 
             return load_module(self._kwargs["entry_point"])(**self._kwargs["kwargs"])
 
-        raise ValueError(self._name)
+        raise UndefinedError(self._name)
 
     def create_block_torch(self, in_size: int):
         if self._name == "mlp":
@@ -78,4 +80,4 @@ class MLPBlockConfig:
 
             return load_module(self._kwargs["entry_point"])(**self._kwargs["kwargs"])
 
-        raise ValueError(self._name)
+        raise UndefinedError(self._name)

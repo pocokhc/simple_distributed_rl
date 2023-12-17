@@ -8,7 +8,7 @@ kl = keras.layers
 class MLPBlock(keras.Model):
     def __init__(
         self,
-        layer_sizes: Tuple[int, ...] = (512,),
+        layer_sizes: Tuple[int, ...],
         activation: str = "relu",
         use_bias=True,
         kernel_initializer="he_normal",

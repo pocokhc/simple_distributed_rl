@@ -345,8 +345,10 @@ class Trainer(RLTrainer):
         else:
             self.optimizer = keras.optimizers.legacy.Adam(self.lr_sch.get_rate())
 
-    def train_on_batchs(self, memory_sample_return) -> None:
-        batchs = memory_sample_return
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
+            return
+        batchs = self.memory.sample(self.batch_size, self.train_count)
 
         if self.config.enable_overshooting_loss:
             self.train_info = self._train_latent_overshooting_loss(batchs)

@@ -36,7 +36,7 @@ class Parameter(RLParameter):
 
 
 class Trainer(RLTrainer):
-    def train_on_batchs(self, memory_sample_return) -> None:
+    def train(self) -> None:
         self.train_count += 1
 
 

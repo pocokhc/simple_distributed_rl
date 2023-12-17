@@ -452,8 +452,10 @@ class Trainer(RLTrainer):
 
         self.sync_count = 0
 
-    def train_on_batchs(self, memory_sample_return) -> None:
-        batchs = memory_sample_return
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
+            return
+        batchs = self.memory.sample(self.batch_size, self.train_count)
 
         _info = {}
 

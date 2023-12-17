@@ -249,27 +249,21 @@ Trainer
          # config,parameter がそれぞれ入ります。
          self.config: MyConfig = self.config
          self.parameter: MyParameter = self.parameter
+         self.memory: IRLMemoryTrainer = self.memory
 
-      def train_on_batchs(self, memory_sample_return) -> None:
+      def train(self) -> None:
          """
-         ・引数はmemory.sample()の戻り値が入ります。なので、以下の3パターンです。
+         self.memory から batch を受け取り学習を定義します。
+         self.memory は以下の関数が定義されています。
 
-         # SequenceMemory の場合
-         batchs = memory_sample_return
+         self.memory.is_warmup_needed() : warmup中かどうかを返します
+         self.memory.sample(self.batch_size, self.train_count) : batchを返します
+         self.memory.update(memory_update_args) : ProportionalMemory の場合 update で使います
 
-         # ExperienceReplayBuffer の場合
-         batchs = memory_sample_return
-
-         # PriorityExperienceReplay の場合
-         indices, batchs, weights = memory_sample_return
-
-         ・PriorityExperienceReplay の場合は途中で以下を呼び出す必要があります。
-         self.memory_update((indices, batchs, priorities))
-         
-         ・学習回数を数えます。
+         ・学習したら回数を数えてください
          self.train_count += 1
 
-         ・(option)必要に応じてinfoを設定します。
+         ・(option)必要に応じてinfoを設定します
          self.train_info = {"loss": 0.0}
          """
          raise NotImplementedError()

@@ -129,8 +129,10 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.lr_scheduler = self.config.lr.create_schedulers()
 
-    def train_on_batchs(self, memory_sample_return) -> None:
-        batchs = memory_sample_return
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
+            return
+        batchs = self.memory.sample(self.batch_size, self.train_count)
 
         td_error = 0
         lr = self.lr_scheduler.get_and_update_rate(self.train_count)

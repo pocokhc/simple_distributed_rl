@@ -281,8 +281,10 @@ class Trainer(RLTrainer):
         self.lr_ext_sch = self.config.lr_ext.create_schedulers()
         self.lr_int_sch = self.config.lr_int.create_schedulers()
 
-    def train_on_batchs(self, memory_sample_return) -> None:
-        indices, batchs, weights = memory_sample_return
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
+            return
+        indices, batchs, weights = self.memory.sample(self.batch_size, self.train_count)
 
         lr_ext = self.lr_ext_sch.get_and_update_rate(self.train_count)
         lr_int = self.lr_int_sch.get_and_update_rate(self.train_count)
@@ -316,7 +318,7 @@ class Trainer(RLTrainer):
 
         # 外部Qを優先
         # priority = abs(ext_td_error) + batch["beta"] * abs(int_td_error)
-        self.memory_update((indices, batchs, np.abs(ext_td_errors)))
+        self.memory.update((indices, batchs, np.abs(ext_td_errors)))
 
         self.train_info = {
             "size": len(self.parameter.Q_ext),

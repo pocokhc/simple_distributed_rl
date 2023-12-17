@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 
-import srl.rl.dummy
 from srl.base.define import EnvObservationTypes
 from srl.base.spaces.box import BoxSpace
 from srl.rl.processors.render_image_processor import RenderImageProcessor

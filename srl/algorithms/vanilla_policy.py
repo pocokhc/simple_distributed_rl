@@ -121,8 +121,10 @@ class Trainer(RLTrainer):
 
         self.lr_sch = self.config.lr.create_schedulers()
 
-    def train_on_batchs(self, memory_sample_return) -> None:
-        batchs = memory_sample_return
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
+            return
+        batchs = self.memory.sample(self.batch_size, self.train_count)
 
         if self.config.action_type == RLTypes.DISCRETE:
             self.train_info = self._train_discrete(batchs)

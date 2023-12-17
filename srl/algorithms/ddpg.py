@@ -283,8 +283,10 @@ class Trainer(RLTrainer):
         self.actor_optimizer = keras.optimizers.Adam(learning_rate=lr)
         self.critic_optimizer = keras.optimizers.Adam(learning_rate=lr)
 
-    def train_on_batchs(self, memory_sample_return) -> None:
-        batchs = memory_sample_return
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
+            return
+        batchs = self.memory.sample(self.batch_size, self.train_count)
 
         states = []
         actions = []

@@ -218,38 +218,41 @@ class DummyRLMemory(RLMemory):
 # Trainer
 # ------------------------------------
 class RLTrainer(ABC):
-    def __init__(self, config: RLConfig, parameter: RLParameter, memory: IRLMemoryTrainer):
+    def __init__(
+        self,
+        config: RLConfig,
+        parameter: RLParameter,
+        memory: IRLMemoryTrainer,
+        distributed: bool = False,
+        train_only: bool = False,
+    ):
         self.config = config
         self.parameter = parameter
         self.memory = memory
+        self.__distributed = distributed
+        self.__train_only = train_only
 
         self.batch_size: int = getattr(self.config, "batch_size", 1)
 
+        # abstract value
         self.train_count: int = 0
         self.train_info: InfoType = {}
 
     def get_train_count(self) -> int:
         return self.train_count
 
-    # TODO: trainをabstractに戻してもいい（けど修正が大きい…）
-    def train(self) -> bool:
-        self.train_info = {}
-        self.train_no_batchs()
-        if self.memory.is_warmup_needed():
-            return False
-        memory_sample_return = self.memory.sample(self.batch_size, self.train_count)
-        self.train_on_batchs(memory_sample_return)
-        return True
-
-    def memory_update(self, memory_update_args):
-        self.memory.update(memory_update_args)
-
     @abstractmethod
-    def train_on_batchs(self, memory_sample_return) -> None:
+    def train(self) -> None:
         raise NotImplementedError()
 
-    def train_no_batchs(self) -> None:
-        pass
+    # --- properties
+    @property
+    def distributed(self) -> bool:
+        return self.__distributed
+
+    @property
+    def train_only(self) -> bool:
+        return self.__train_only
 
 
 # ------------------------------------

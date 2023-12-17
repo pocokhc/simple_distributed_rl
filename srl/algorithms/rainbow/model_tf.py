@@ -111,8 +111,10 @@ class Trainer(RLTrainer):
 
         self.sync_count = 0
 
-    def train_on_batchs(self, memory_sample_return) -> None:
-        indices, batchs, weights = memory_sample_return
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
+            return
+        indices, batchs, weights = self.memory.sample(self.batch_size, self.train_count)
 
         if self.config.multisteps == 1:
             target_q, states, onehot_actions = calc_target_q(self.parameter, batchs, training=True)
@@ -134,7 +136,7 @@ class Trainer(RLTrainer):
 
         # --- update
         priorities = np.abs(target_q - q)
-        self.memory_update((indices, batchs, priorities))
+        self.memory.update((indices, batchs, priorities))
 
         # --- sync target
         if self.train_count % self.config.target_model_update_interval == 0:

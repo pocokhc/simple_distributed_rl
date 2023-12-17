@@ -788,7 +788,7 @@ class Trainer(RLTrainer):
         self.train_count += 1
 
         # memory update
-        self.memory_update((indices, batchs, priorities))
+        self.memory.update((indices, batchs, priorities))
 
         # 学習したらキャッシュは削除
         self.parameter.reset_cache()

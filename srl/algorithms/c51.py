@@ -243,8 +243,10 @@ class Trainer(RLTrainer):
         self.Z = np.linspace(self.v_min, self.v_max, self.n_atoms)
         self.delta_z = (self.v_max - self.v_min) / (self.n_atoms - 1)
 
-    def train_on_batchs(self, memory_sample_return) -> None:
-        batchs = memory_sample_return
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
+            return
+        batchs = self.memory.sample(self.batch_size, self.train_count)
 
         states = []
         actions = []

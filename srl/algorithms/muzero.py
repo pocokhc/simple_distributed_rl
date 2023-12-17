@@ -565,7 +565,7 @@ class Trainer(RLTrainer):
             self.optimizer.apply_gradients(zip(grads[i], variables[i]))
 
         # memory update
-        self.memory_update((indices, batchs, priorities))
+        self.memory.update((indices, batchs, priorities))
 
         # 学習したらキャッシュは削除
         self.parameter.reset_cache()

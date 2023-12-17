@@ -285,11 +285,13 @@ class Trainer(RLTrainer):
 
         self.sync_count = 0
 
-    def train_on_batchs(self, memory_sample_return) -> None:
-        indices, batchs, weights = memory_sample_return
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
+            return
+        indices, batchs, weights = self.memory.sample(self.batch_size, self.train_count)
 
         td_errors, loss = self._train_on_batchs(batchs, np.array(weights).reshape(-1, 1))
-        self.memory_update((indices, batchs, np.array(td_errors)))
+        self.memory.update((indices, batchs, np.array(td_errors)))
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:

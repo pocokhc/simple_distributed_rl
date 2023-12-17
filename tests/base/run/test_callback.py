@@ -16,12 +16,13 @@ def test_callback(mocker: pytest_mock.MockerFixture):
     env = srl.make_env(env_config)
     parameter = srl.make_parameter(rl_config, env)
     memory = srl.make_memory(rl_config, env)
+    trainer = srl.make_trainer(rl_config, parameter, memory)
     c = mocker.Mock(spec=RunCallback)
 
     context = RunContext(env_config, rl_config)
     context.training = True
     context.max_steps = 10
-    state = play(context, env, parameter, memory, callbacks=[c])
+    state = play(context, env, parameter, memory, trainer=trainer, callbacks=[c])
 
     assert state.total_step == 10
     assert c.on_episodes_begin.call_count == 1
@@ -55,7 +56,7 @@ def test_trainer_callback(mocker: pytest_mock.MockerFixture):
     context = RunContext(env_config, rl_config)
     context.training = True
     context.max_train_count = 10
-    trainer = srl.make_trainer(rl_config, parameter, memory, env)
+    trainer = srl.make_trainer(rl_config, parameter, memory, env=env)
     c = mocker.Mock(spec=TrainerCallback)
     play_trainer_only(context, trainer, callbacks=[c])
 

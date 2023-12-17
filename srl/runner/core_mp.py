@@ -275,7 +275,6 @@ def _run_trainer(
         task_config.context.rl_config,
         task_config.config,
         task_config.context,
-        parameter,
     )
 
     # --- thread

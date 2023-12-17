@@ -1,13 +1,13 @@
 import logging
 import random
 import time
+import traceback
 from dataclasses import dataclass, field
 from typing import List, Optional
 
 from srl.base.define import EnvActionType
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import IRLMemoryTrainer, IRLMemoryWorker, RLMemory, RLParameter, RLTrainer
-from srl.base.rl.registration import make_trainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.context import RunContext, RunNameTypes
 from srl.utils import common
@@ -63,8 +63,8 @@ def play(
     env: EnvRun,
     parameter: RLParameter,
     memory: RLMemory,
-    workers: Optional[List[WorkerRun]] = None,
     trainer: Optional[RLTrainer] = None,
+    workers: Optional[List[WorkerRun]] = None,
     callbacks: List[RunCallback] = [],
 ) -> RunStateActor:
     if not context.distributed:
@@ -84,12 +84,10 @@ def play(
     # --- make instance
     if context.disable_trainer:
         trainer = None
-    else:
-        if trainer is None:
-            trainer = make_trainer(context.rl_config, parameter, memory)
+    elif context.training:
+        assert trainer is not None
     if workers is None:
-        controller = context.create_controller()
-        workers = controller.make_workers(env, parameter, memory)
+        workers = context.create_controller().make_workers(env, parameter, memory)
 
     # --- play tf
     if context.enable_tf_device and context.framework == "tensorflow":
@@ -99,8 +97,8 @@ def play(
             if context.run_name != RunNameTypes.eval:
                 logger.info(f"tf.device({context.used_device_tf})")
             with tf.device(context.used_device_tf):  # type: ignore
-                return _play(context, env, parameter, memory, workers, trainer, callbacks)
-    return _play(context, env, parameter, memory, workers, trainer, callbacks)
+                return _play(context, env, parameter, memory, trainer, workers, callbacks)
+    return _play(context, env, parameter, memory, trainer, workers, callbacks)
 
 
 def _play(
@@ -108,8 +106,8 @@ def _play(
     env: EnvRun,
     parameter: RLParameter,
     memory: RLMemory,
-    workers: List[WorkerRun],
     trainer: Optional[RLTrainer],
+    workers: List[WorkerRun],
     callbacks: List[RunCallback] = [],
 ) -> RunStateActor:
     assert env.player_num == len(workers)
@@ -212,7 +210,9 @@ def _play(
 
         # trainer
         if state.trainer is not None:
-            state.is_step_trained = state.trainer.train()
+            _prev_train = state.trainer.get_train_count()
+            state.trainer.train()
+            state.is_step_trained = state.trainer.get_train_count() > _prev_train
 
         _stop_flags = [c.on_step_end(context, state) for c in callbacks]
         state.worker_idx = worker_idx
@@ -312,7 +312,9 @@ def _play_trainer_only(
             break
 
         # --- train
-        state.is_step_trained = state.trainer.train()
+        _prev_train = state.trainer.get_train_count()
+        state.trainer.train()
+        state.is_step_trained = state.trainer.get_train_count() > _prev_train
 
         # callbacks
         _stop_flags = [c.on_trainer_loop(context, state) for c in callbacks]

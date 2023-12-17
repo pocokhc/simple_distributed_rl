@@ -56,11 +56,16 @@ def make_parameter(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: b
 
 
 def make_trainer(
-    rl_config: RLConfig, parameter: RLParameter, memory: IRLMemoryTrainer, env: Optional[EnvRun] = None
+    rl_config: RLConfig,
+    parameter: RLParameter,
+    memory: IRLMemoryTrainer,
+    distributed: bool = False,
+    train_only: bool = False,
+    env: Optional[EnvRun] = None,
 ) -> RLTrainer:
     _check_rl_config(rl_config, env)
     entry_point = _registry[rl_config.getName()][2]
-    return load_module(entry_point)(rl_config, parameter, memory)
+    return load_module(entry_point)(rl_config, parameter, memory, distributed, train_only)
 
 
 def make_worker(

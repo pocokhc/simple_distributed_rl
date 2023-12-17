@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, List, Union
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, RenderModes
+from srl.base.define import EnvObservationTypes, RenderModes, RLTypes
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.callback import RunCallback
 from srl.base.run.context import RunContext
@@ -146,8 +146,8 @@ class Rendering(RunCallback):
             self.rl_maxw = max(self.rl_maxw, self.rl_img.shape[1])
             self.rl_maxh = max(self.rl_maxh, self.rl_img.shape[0])
 
-            # rlへの入力画像
-            if EnvObservationTypes.is_image(worker.config.env_observation_type):
+            # rlへの入力が画像なら表示
+            if worker.config.observation_type == RLTypes.IMAGE:
                 # COLOR画像に変換
                 if worker.config.window_length > 1:
                     _img = worker._recent_states[-1].copy()

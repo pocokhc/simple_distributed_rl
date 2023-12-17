@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import pytest
 
 import srl
-from srl.base.define import EnvObservationTypes, RLTypes
+from srl.base.define import EnvObservationTypes, RLBaseTypes, RLTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvBase
 from srl.base.rl.config import RLConfig
@@ -66,18 +66,18 @@ registration.register(id="config_StubEnv", entry_point=__name__ + ":StubEnv")
 
 @dataclass
 class TestConfig(RLConfig):
-    set_base_action_type: RLTypes = RLTypes.ANY
-    set_base_observation_type: RLTypes = RLTypes.ANY
+    set_base_action_type: RLBaseTypes = RLBaseTypes.ANY
+    set_base_observation_type: RLBaseTypes = RLBaseTypes.ANY
 
     def getName(self) -> str:
         return "test"
 
     @property
-    def base_action_type(self) -> RLTypes:
+    def base_action_type(self) -> RLBaseTypes:
         return self.set_base_action_type
 
     @property
-    def base_observation_type(self) -> RLTypes:
+    def base_observation_type(self) -> RLBaseTypes:
         return self.set_base_observation_type
 
     def get_use_framework(self) -> str:
@@ -108,8 +108,8 @@ _BS = BoxSpace((3,), -1, 1)
         [_EDIS, _DS, _EUNK, False, 4, RLTypes.CONTINUOUS, _EDIS, BoxSpace((4, 1), 0, 4)],
         [_EDIS, _DS, _ECON, False, 1, RLTypes.DISCRETE, _ECON, _DS],  # type mismatch
         [_EDIS, _DS, _ECON, False, 4, RLTypes.CONTINUOUS, _ECON, BoxSpace((4, 1), 0, 4)],
-        [_EDIS, _DS, _EUNK, True, 1, RLTypes.CONTINUOUS, _ECOL, BoxSpace((4, 4, 3), 0, 255)],
-        [_EDIS, _DS, _EUNK, True, 4, RLTypes.CONTINUOUS, _ECOL, BoxSpace((4, 4, 4, 3), 0, 255)],
+        [_EDIS, _DS, _EUNK, True, 1, RLTypes.IMAGE, _ECOL, BoxSpace((4, 4, 3), 0, 255)],
+        [_EDIS, _DS, _EUNK, True, 4, RLTypes.IMAGE, _ECOL, BoxSpace((4, 4, 4, 3), 0, 255)],
         [_ECON, _BS, _EUNK, False, 1, RLTypes.CONTINUOUS, _ECON, BoxSpace((3,), -1, 1)],
         [_ECON, _BS, _EUNK, False, 4, RLTypes.CONTINUOUS, _ECON, BoxSpace((4, 3), -1, 1)],
     ],
@@ -117,16 +117,16 @@ _BS = BoxSpace((3,), -1, 1)
 @pytest.mark.parametrize(
     "env_act_space,rl_base_act_type,override_act_type,rl_act_type",
     [
-        [_DS, RLTypes.DISCRETE, RLTypes.ANY, RLTypes.DISCRETE],
-        [_DS, RLTypes.CONTINUOUS, RLTypes.ANY, RLTypes.CONTINUOUS],
-        [_DS, RLTypes.ANY, RLTypes.DISCRETE, RLTypes.DISCRETE],
-        [_DS, RLTypes.ANY, RLTypes.CONTINUOUS, RLTypes.CONTINUOUS],
-        [_DS, RLTypes.ANY, RLTypes.ANY, RLTypes.DISCRETE],
-        [_BS, RLTypes.DISCRETE, RLTypes.ANY, RLTypes.DISCRETE],
-        [_BS, RLTypes.CONTINUOUS, RLTypes.ANY, RLTypes.CONTINUOUS],
-        [_BS, RLTypes.ANY, RLTypes.DISCRETE, RLTypes.DISCRETE],
-        [_BS, RLTypes.ANY, RLTypes.CONTINUOUS, RLTypes.CONTINUOUS],
-        [_BS, RLTypes.ANY, RLTypes.ANY, RLTypes.CONTINUOUS],
+        [_DS, RLBaseTypes.DISCRETE, RLTypes.UNKNOWN, RLTypes.DISCRETE],
+        [_DS, RLBaseTypes.CONTINUOUS, RLTypes.UNKNOWN, RLTypes.CONTINUOUS],
+        [_DS, RLBaseTypes.ANY, RLTypes.DISCRETE, RLTypes.DISCRETE],
+        [_DS, RLBaseTypes.ANY, RLTypes.CONTINUOUS, RLTypes.CONTINUOUS],
+        [_DS, RLBaseTypes.ANY, RLTypes.UNKNOWN, RLTypes.DISCRETE],
+        [_BS, RLBaseTypes.DISCRETE, RLTypes.UNKNOWN, RLTypes.DISCRETE],
+        [_BS, RLBaseTypes.CONTINUOUS, RLTypes.UNKNOWN, RLTypes.CONTINUOUS],
+        [_BS, RLBaseTypes.ANY, RLTypes.DISCRETE, RLTypes.DISCRETE],
+        [_BS, RLBaseTypes.ANY, RLTypes.CONTINUOUS, RLTypes.CONTINUOUS],
+        [_BS, RLBaseTypes.ANY, RLTypes.UNKNOWN, RLTypes.CONTINUOUS],
     ],
 )
 def test_reset(
@@ -156,7 +156,7 @@ def test_reset(
         )
     )
     # base_observation_typeはANYでspaceの状態が反映される場合のみを確認
-    rl_config = TestConfig(set_base_action_type=rl_base_act_type, set_base_observation_type=RLTypes.ANY)
+    rl_config = TestConfig(set_base_action_type=rl_base_act_type, set_base_observation_type=RLBaseTypes.ANY)
     rl_config.override_env_observation_type = override_obs_type
     rl_config.override_action_type = override_act_type
     rl_config.use_render_image_for_observation = use_image

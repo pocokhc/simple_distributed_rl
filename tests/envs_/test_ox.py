@@ -30,8 +30,8 @@ def test_processor():
     tester.preprocess_observation_space(
         processor,
         env_name,
-        EnvObservationTypes.SHAPE3,
-        BoxSpace((2, 3, 3), 0, 1),
+        EnvObservationTypes.IMAGE,
+        BoxSpace((3, 3, 2), 0, 1),
     )
     tester.preprocess_observation(
         processor,

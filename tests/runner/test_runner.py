@@ -19,5 +19,5 @@ def test_get_env_init_state():
     rl_state = runner.get_env_init_state(encode=True)
     rl_state = cast(np.ndarray, rl_state)
     print(rl_state)
-    assert rl_state.shape == (1, 5, 6)
-    assert rl_state[0][3][1] == 1
+    assert rl_state.shape == (5, 6, 1)
+    assert rl_state[3][1][0] == 1

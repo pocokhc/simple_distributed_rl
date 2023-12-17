@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLTypes
+from srl.base.define import EnvObservationTypes, RLBaseTypes, RLTypes
 from srl.base.rl.algorithms.continuous_action import ContinuousActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
@@ -76,12 +76,12 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         self.q_hidden_block.set_mlp((128, 128, 128))
 
     @property
-    def base_action_type(self) -> RLTypes:
-        return RLTypes.CONTINUOUS
+    def base_action_type(self) -> RLBaseTypes:
+        return RLBaseTypes.CONTINUOUS
 
     @property
-    def base_observation_type(self) -> RLTypes:
-        return RLTypes.CONTINUOUS
+    def base_observation_type(self) -> RLBaseTypes:
+        return RLBaseTypes.CONTINUOUS
 
     def get_use_framework(self) -> str:
         return "tensorflow"

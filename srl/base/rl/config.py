@@ -6,8 +6,10 @@ from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Type
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, RLObservationType, RLTypes
+from srl.base.define import (EnvObservationTypes, RLBaseTypes,
+                             RLObservationType, RLTypes)
 from srl.base.env.env_run import EnvRun, SpaceBase
+from srl.base.exception import UndefinedError
 from srl.base.rl.processor import Processor
 from srl.base.spaces.box import BoxSpace
 from srl.utils.serialize import convert_for_json
@@ -30,7 +32,7 @@ class RLConfig(ABC):
     override_env_observation_type: EnvObservationTypes = EnvObservationTypes.UNKNOWN
     #: action_type を上書きできます。
     #: これはアルゴリズム側の base_action_type がANY(Discrete/Continuousどちらも対応できるアルゴリズム)の場合のみ有効になります。
-    override_action_type: RLTypes = RLTypes.ANY
+    override_action_type: RLTypes = RLTypes.UNKNOWN
 
     #: 連続値から離散値に変換する場合の分割数です。-1の場合round変換で丸めます。
     #: The number of divisions when converting from continuous to discrete values.
@@ -104,12 +106,12 @@ class RLConfig(ABC):
 
     @property
     @abstractmethod
-    def base_action_type(self) -> RLTypes:
+    def base_action_type(self) -> RLBaseTypes:
         raise NotImplementedError()
 
     @property
     @abstractmethod
-    def base_observation_type(self) -> RLTypes:
+    def base_observation_type(self) -> RLBaseTypes:
         raise NotImplementedError()
 
     @abstractmethod
@@ -177,7 +179,8 @@ class RLConfig(ABC):
         if self.enable_state_encode:
             # render image
             if self.use_render_image_for_observation:
-                from srl.rl.processors.render_image_processor import RenderImageProcessor
+                from srl.rl.processors.render_image_processor import \
+                    RenderImageProcessor
 
                 self._run_processors.append(RenderImageProcessor())
 
@@ -198,8 +201,8 @@ class RLConfig(ABC):
                     self,
                 )
                 if enable_log:
-                    logger.info(f"change processor obs space: {rl_observation_space}")
                     logger.info(f"change processor obs type : {rl_env_observation_type}")
+                    logger.info(f"change processor obs space: {rl_observation_space}")
 
         [r.setup(env, self) for r in self._run_processors]
 
@@ -219,23 +222,24 @@ class RLConfig(ABC):
         # 優先度
         # 1. RL
         # 2. obs_space
-        rl_obs_type = self.base_observation_type
-        if rl_obs_type == RLTypes.ANY:
-            rl_obs_type = self._rl_observation_space.rl_type
-        self._rl_observation_type = rl_obs_type
+        if self.base_observation_type == RLBaseTypes.DISCRETE:
+            self._rl_observation_type: RLTypes = RLTypes.DISCRETE
+        elif self.base_observation_type == RLBaseTypes.CONTINUOUS:
+            self._rl_observation_type: RLTypes = RLTypes.CONTINUOUS
+        elif self.base_observation_type == RLBaseTypes.ANY:
+            self._rl_observation_type: RLTypes = self._rl_observation_space.rl_type
+        else:
+            raise UndefinedError(self.base_observation_type)
 
-        # check type
-        _f = False
-        if rl_obs_type == RLTypes.DISCRETE:
-            if rl_env_observation_type not in [
-                EnvObservationTypes.DISCRETE,
-                EnvObservationTypes.SHAPE3,
-                EnvObservationTypes.SHAPE2,
+        # CONTINUOUSなら画像チェックする
+        if self._rl_observation_type == RLTypes.CONTINUOUS:
+            if self._rl_env_observation_type in [
+                EnvObservationTypes.GRAY_2ch,
+                EnvObservationTypes.GRAY_3ch,
+                EnvObservationTypes.COLOR,
+                EnvObservationTypes.IMAGE,
             ]:
-                _f = True
-        if _f:
-            if enable_log:
-                logger.warning(f"EnvType and RLType do not match. {rl_env_observation_type} != {rl_obs_type}")
+                self._rl_observation_type = RLTypes.IMAGE
 
         # -----------------------
         #  action type
@@ -244,23 +248,27 @@ class RLConfig(ABC):
         # 1. RL
         # 2. override_action_type
         # 3. action_space
-        rl_action_type = self.base_action_type
-        if rl_action_type == RLTypes.ANY:
-            rl_action_type = self.override_action_type
-        if rl_action_type == RLTypes.ANY:
-            rl_action_type = self._env_action_space.rl_type
-        self._rl_action_type = rl_action_type
+        if self.base_action_type == RLBaseTypes.DISCRETE:
+            self._rl_action_type: RLTypes = RLTypes.DISCRETE
+        elif self.base_action_type == RLBaseTypes.CONTINUOUS:
+            self._rl_action_type: RLTypes = RLTypes.CONTINUOUS
+        elif self.base_action_type == RLBaseTypes.ANY:
+            if self.override_action_type != RLTypes.UNKNOWN:
+                self._rl_action_type: RLTypes = self.override_action_type
+            else:
+                self._rl_action_type: RLTypes = self._env_action_space.rl_type
+        else:
+            raise UndefinedError(self.base_action_type)
 
-        # --- base obs type
-        base_obs_type = self.base_observation_type
-        if base_obs_type == RLTypes.ANY:
-            base_obs_type = self._rl_observation_space.rl_type
+        # ------------------------------
 
         # --- division
         # RLが DISCRETE で Space が CONTINUOUS なら分割して DISCRETE にする
         if (self._rl_action_type == RLTypes.DISCRETE) and (self._env_action_space.rl_type == RLTypes.CONTINUOUS):
             self._env_action_space.create_division_tbl(self.action_division_num)
-        if (base_obs_type == RLTypes.DISCRETE) and (self._rl_observation_space.rl_type == RLTypes.CONTINUOUS):
+        if (self._rl_observation_type == RLTypes.DISCRETE) and (
+            self._rl_observation_space.rl_type == RLTypes.CONTINUOUS
+        ):
             self._rl_observation_space.create_division_tbl(self.observation_division_num)
 
         # --- set rl property
@@ -285,8 +293,8 @@ class RLConfig(ABC):
 
         self._is_setup = True
         if enable_log:
-            logger.info(f"action_space(env)             : {self._env_action_space}")
             logger.info(f"action_type(rl)               : {self._rl_action_type}")
+            logger.info(f"action_space(env)             : {self._env_action_space}")
             logger.info(f"observation_env_type(rl)      : {self._rl_env_observation_type}")
             logger.info(f"observation_type(rl)          : {self._rl_observation_type}")
             logger.info(f"observation_space(rl)         : {self._rl_observation_space}")
@@ -421,12 +429,12 @@ class DummyRLConfig(RLConfig):
     name: str = "dummy"
 
     @property
-    def base_action_type(self) -> RLTypes:
-        return RLTypes.ANY
+    def base_action_type(self) -> RLBaseTypes:
+        return RLBaseTypes.ANY
 
     @property
-    def base_observation_type(self) -> RLTypes:
-        return RLTypes.ANY
+    def base_observation_type(self) -> RLBaseTypes:
+        return RLBaseTypes.ANY
 
     def get_use_framework(self) -> str:
         return ""

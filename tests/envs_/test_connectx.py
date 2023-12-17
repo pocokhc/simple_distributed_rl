@@ -83,14 +83,14 @@ def test_processor():
     rows = 6
 
     in_state = [0] * 42
-    out_state = np.zeros((2, columns, rows))
+    out_state = np.zeros((columns, rows, 2))
 
     tester.run(processor, env_name)
     tester.preprocess_observation_space(
         processor,
         env_name,
-        EnvObservationTypes.SHAPE3,
-        BoxSpace((2, columns, rows), 0, 1),
+        EnvObservationTypes.IMAGE,
+        BoxSpace((columns, rows, 2), 0, 1),
     )
     tester.preprocess_observation(
         processor,

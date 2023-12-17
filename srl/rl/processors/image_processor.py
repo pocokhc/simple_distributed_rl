@@ -22,8 +22,6 @@ class ImageProcessor(Processor):
         self.before_observation_type = EnvObservationTypes.UNKNOWN
         self.max_val = 0
 
-        assert EnvObservationTypes.is_image(self.image_type)
-
     def preprocess_observation_space(
         self,
         env_observation_space: SpaceBase,
@@ -42,6 +40,14 @@ class ImageProcessor(Processor):
         if not isinstance(env_observation_space, BoxSpace):
             return env_observation_space, env_observation_type
 
+        # 画像のみ対象
+        if self.before_observation_type not in [
+            EnvObservationTypes.GRAY_2ch,
+            EnvObservationTypes.GRAY_3ch,
+            EnvObservationTypes.COLOR,
+        ]:
+            return env_observation_space, env_observation_type
+
         # 予測する
         if self.before_observation_type == EnvObservationTypes.UNKNOWN:
             if len(env_observation_space.shape) == 2:
@@ -53,10 +59,6 @@ class ImageProcessor(Processor):
                     self.before_observation_type = EnvObservationTypes.GRAY_3ch
                 elif ch == 3:
                     self.before_observation_type = EnvObservationTypes.COLOR
-
-        # 画像のみ対象
-        if not EnvObservationTypes.is_image(self.before_observation_type):
-            return env_observation_space, env_observation_type
 
         shape = env_observation_space.shape
         low = env_observation_space.low

@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLTypes
+from srl.base.define import RLBaseTypes
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
@@ -91,12 +91,12 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         self.policy_block.set_mlp(())
 
     @property
-    def base_action_type(self) -> RLTypes:
-        return RLTypes.DISCRETE
+    def base_action_type(self) -> RLBaseTypes:
+        return RLBaseTypes.DISCRETE
 
     @property
-    def base_observation_type(self) -> RLTypes:
-        return RLTypes.CONTINUOUS
+    def base_observation_type(self) -> RLBaseTypes:
+        return RLBaseTypes.CONTINUOUS
 
     def get_use_framework(self) -> str:
         return "tensorflow"

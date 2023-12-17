@@ -28,30 +28,27 @@ InfoType = Dict[str, Union[float, int, str]]
 
 class EnvObservationTypes(enum.Enum):
     UNKNOWN = 0
-    # 値
-    DISCRETE = enum.auto()  # 離散
-    CONTINUOUS = enum.auto()  # 連続
-    # 画像
-    GRAY_2ch = enum.auto()  # (width, height)
-    GRAY_3ch = enum.auto()  # (width, height, 1)
-    COLOR = enum.auto()  # (width, height, ch)
-    # その他
-    SHAPE2 = enum.auto()  # (width, height)
-    SHAPE3 = enum.auto()  # (n, width, height)
+    # value
+    DISCRETE = enum.auto()
+    CONTINUOUS = enum.auto()
+    # image
+    GRAY_2ch = enum.auto()  # (height, width)
+    GRAY_3ch = enum.auto()  # (height, width, 1)
+    COLOR = enum.auto()  # (height, width, 3)
+    IMAGE = enum.auto()  # (height, width, ch)
 
-    @staticmethod
-    def is_image(val: "EnvObservationTypes") -> bool:
-        return val in [
-            EnvObservationTypes.GRAY_2ch,
-            EnvObservationTypes.GRAY_3ch,
-            EnvObservationTypes.COLOR,
-        ]
+
+class RLBaseTypes(enum.Enum):
+    ANY = enum.auto()
+    DISCRETE = enum.auto()
+    CONTINUOUS = enum.auto()
 
 
 class RLTypes(enum.Enum):
-    ANY = 0
-    DISCRETE = enum.auto()  # 離散
-    CONTINUOUS = enum.auto()  # 連続
+    UNKNOWN = 0
+    DISCRETE = enum.auto()
+    CONTINUOUS = enum.auto()  # np
+    IMAGE = enum.auto()  # (height, width, ch)
 
 
 class RLMemoryTypes(enum.Enum):

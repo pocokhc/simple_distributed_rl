@@ -52,7 +52,7 @@ class DuelingNetworkConfig:
             d = self._kwargs.copy()
             del d["dueling_type"]
 
-            return dueling_network.NormalBlock(
+            return dueling_network.NoDuelingNetworkBlock(
                 action_num=action_num,
                 **d,
                 enable_noisy_dense=enable_noisy_dense,

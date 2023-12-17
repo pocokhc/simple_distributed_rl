@@ -118,7 +118,7 @@ class DuelingNetworkBlock(keras.Model):
         keras.Model(inputs=x, outputs=self.call(x), name=name)
 
 
-class NormalBlock(keras.Model):
+class NoDuelingNetworkBlock(keras.Model):
     def __init__(
         self,
         action_num: int,

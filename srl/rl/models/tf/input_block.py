@@ -4,6 +4,7 @@ from typing import Tuple
 from tensorflow import keras
 
 from srl.base.define import EnvObservationTypes
+from srl.base.exception import TFLayerError, UndefinedError
 
 kl = keras.layers
 
@@ -11,15 +12,14 @@ kl = keras.layers
 logger = logging.getLogger(__name__)
 
 
-class InputBlock(keras.Model):
+class InputImageBlock(keras.Model):
     def __init__(
         self,
         observation_shape: Tuple[int, ...],
         observation_type: EnvObservationTypes,
         enable_time_distributed_layer: bool = False,
-        **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__()
         self._init_layer(observation_shape, observation_type)
 
         if enable_time_distributed_layer:
@@ -47,7 +47,7 @@ class InputBlock(keras.Model):
                 # (len, h, w) -> (h, w, len)
                 self.in_layers.append(kl.Permute((2, 3, 1)))
             else:
-                raise ValueError(err_msg)
+                raise TFLayerError(err_msg)
 
         elif observation_type == EnvObservationTypes.GRAY_3ch:
             assert observation_shape[-1] == 1
@@ -60,34 +60,17 @@ class InputBlock(keras.Model):
                 self.in_layers.append(kl.Reshape(observation_shape[:3]))
                 self.in_layers.append(kl.Permute((2, 3, 1)))
             else:
-                raise ValueError(err_msg)
+                raise TFLayerError(err_msg)
 
         elif observation_type == EnvObservationTypes.COLOR:
             if len(observation_shape) == 3:
                 # (h, w, ch)
                 pass
             else:
-                raise ValueError(err_msg)
-
-        elif observation_type == EnvObservationTypes.SHAPE2:
-            if len(observation_shape) == 2:
-                # (h, w) -> (h, w, 1)
-                self.in_layers.append(kl.Reshape(observation_shape + (1,)))
-            elif len(observation_shape) == 3:
-                # (len, h, w) -> (h, w, len)
-                self.in_layers.append(kl.Permute((2, 3, 1)))
-            else:
-                raise ValueError(err_msg)
-
-        elif observation_type == EnvObservationTypes.SHAPE3:
-            if len(observation_shape) == 3:
-                # (n, h, w) -> (h, w, n)
-                self.in_layers.append(kl.Permute((2, 3, 1)))
-            else:
-                raise ValueError(err_msg)
+                raise TFLayerError(err_msg)
 
         else:
-            raise ValueError(err_msg)
+            raise UndefinedError(observation_type)
 
     def call(self, x, training=False):
         for layer in self.in_layers:
@@ -105,7 +88,7 @@ class InputBlock(keras.Model):
 
 
 if __name__ == "__main__":
-    m = InputBlock((1, 2, 3), EnvObservationTypes.COLOR)
+    m = InputImageBlock((1, 2, 3), EnvObservationTypes.COLOR)
     m.build((None, 1, 2, 3))
     m.init_model_graph()
     m.summary()

@@ -202,7 +202,11 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             s += f"({to_str_time(remain)} left)"
 
         # [step time]
-        s += f",{int(diff_step/diff_time):6d}st/s"
+        _c = diff_step / diff_time
+        if _c < 10:
+            s += f",{_c:6.2f}st/s"
+        else:
+            s += f",{int(_c):6d}st/s"
 
         # [all step]
         s += f",{state.total_step:7d}st"
@@ -374,7 +378,11 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             s += f"({to_str_time(remain)} left)"
 
         # [train time]
-        s += f",{int(diff_train_count/diff_time):6d}tr/s"
+        _c = diff_train_count / diff_time
+        if _c < 10:
+            s += f",{_c:6.2f}tr/s"
+        else:
+            s += f",{int(_c):6d}tr/s"
 
         # [train count]
         s += ",{:7d}tr".format(train_count)

@@ -99,6 +99,8 @@ class HistoryOnFileBase:
         fp.flush()
 
     def setup(self, config: RunnerConfig, context: RunContext):
+        import srl
+
         # --- make dir
         if not os.path.isdir(self.save_dir):
             os.makedirs(self.save_dir, exist_ok=True)
@@ -106,11 +108,8 @@ class HistoryOnFileBase:
 
         # --- ver
         path_ver = os.path.join(self.save_dir, "version.txt")
-        if not os.path.isfile(path_ver):
-            import srl
-
-            with open(path_ver, "w", encoding="utf-8") as f:
-                f.write(srl.__version__)
+        with open(path_ver, "w", encoding="utf-8") as f:
+            f.write(srl.__version__)
 
         # --- config
         for fn, dat in [
@@ -120,9 +119,8 @@ class HistoryOnFileBase:
             ["config.json", config.to_dict()],
         ]:
             path = os.path.join(self.save_dir, fn)
-            if not os.path.isfile(path):
-                with open(path, "w", encoding="utf-8") as f:
-                    json.dump(dat, f, indent=2)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(dat, f, indent=2)
 
         # --- 前回の終わり状況を読む
         self.start_time = 0

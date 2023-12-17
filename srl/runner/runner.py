@@ -1,6 +1,5 @@
 import copy
 import datetime
-import glob
 import logging
 import os
 import pickle
@@ -62,12 +61,6 @@ class RunnerConfig:
     tf_device_enable: bool = True
     tf_enable_memory_growth: bool = True
 
-    def __post_init__(self):
-        self.enable_wkdir: bool = False
-        self.wkdir: str = ""
-        self.wkdir1: str = ""
-        self.wkdir2: str = ""
-
     def to_dict(self) -> dict:
         dat: dict = convert_for_json(self.__dict__)
         return dat
@@ -95,9 +88,6 @@ class Runner:
     config: Optional[RunnerConfig] = None  # type: ignore , type
     context: Optional[RunContext] = None  # type: ignore , type
 
-    parameter: Optional[RLParameter] = None
-    memory: Optional[RLMemory] = None
-
     # --- private(static class instance)
     # multiprocessing("spawn")ではプロセス毎に初期化される想定
     __setup_device = False
@@ -122,6 +112,8 @@ class Runner:
         self.context_controller = self.context.create_controller()
 
         self._env: Optional[EnvRun] = None
+        self._parameter: Optional[RLParameter] = None
+        self._memory: Optional[RLMemory] = None
         self._trainer: Optional[RLTrainer] = None
         self._workers: Optional[List[WorkerRun]] = None
 
@@ -138,6 +130,22 @@ class Runner:
     @property
     def env(self) -> EnvRun:
         return self.make_env()
+
+    @property
+    def parameter(self) -> RLParameter:
+        return self.make_parameter()
+
+    @property
+    def memory(self) -> RLMemory:
+        return self.make_memory()
+
+    @property
+    def trainer(self) -> Optional[RLTrainer]:
+        return self._trainer
+
+    @property
+    def workers(self) -> Optional[List[WorkerRun]]:
+        return self._workers
 
     # ------------------------------
     # set config
@@ -183,17 +191,20 @@ class Runner:
     # ------------------------------
     # model summary
     # ------------------------------
-    def model_summary(self, **kwargs) -> RLParameter:
+    def model_summary(self, expand_nested: bool = True, **kwargs) -> RLParameter:
         """modelの概要を返します。これは以下と同じです。
 
         >>> parameter = runner.make_parameter()
         >>> parameter.summary()
 
+        Args:
+            expand_nested (bool): tensorflow option
+
         Returns:
             RLParameter: RLParameter
         """
         parameter = self.make_parameter()
-        parameter.summary(**kwargs)
+        parameter.summary(expand_nested=expand_nested, **kwargs)
         return parameter
 
     # ------------------------------
@@ -233,26 +244,27 @@ class Runner:
 
     def make_parameter(self, is_load: bool = True) -> RLParameter:
         self._setup_process()
-        if self.parameter is None:
+        if self._parameter is None:
             if not self.rl_config._is_setup:
                 self.rl_config.setup(self.make_env())
-            self.parameter = make_parameter(self.rl_config, is_load=is_load)
-            logger.info(f"make parameter: {self.parameter}")
-        return self.parameter
+            self._parameter = make_parameter(self.rl_config, is_load=is_load)
+            logger.info(f"make parameter: {self._parameter}")
+        return self._parameter
 
     def make_memory(self, is_load: bool = True) -> RLMemory:
         self._setup_process()
-        if self.memory is None:
+        if self._memory is None:
             if not self.rl_config._is_setup:
                 self.rl_config.setup(self.make_env())
-            self.memory = make_memory(self.rl_config, is_load=is_load)
-            logger.info(f"make memory: {self.memory}")
-        return self.memory
+            self._memory = make_memory(self.rl_config, is_load=is_load)
+            logger.info(f"make memory: {self._memory}")
+        return self._memory
 
     def make_trainer(
         self,
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
+        train_only: bool = False,
         use_cache: bool = False,
     ) -> RLTrainer:
         self._setup_process()
@@ -264,9 +276,14 @@ class Runner:
             memory = self.make_memory()
         if not self.rl_config._is_setup:
             self.rl_config.setup(self.make_env())
-        trainer = make_trainer(self.rl_config, parameter, memory)
-        if use_cache:
-            self._trainer = trainer
+        trainer = make_trainer(
+            self.rl_config,
+            parameter,
+            memory,
+            self.context.distributed,
+            train_only,
+        )
+        self._trainer = trainer
         return trainer
 
     def make_worker(
@@ -305,8 +322,7 @@ class Runner:
             memory = self.make_memory()
         workers = self.context_controller.make_workers(self.make_env(), parameter, memory)
 
-        if use_cache:
-            self._workers = workers
+        self._workers = workers
         return workers
 
     # ------------------------------
@@ -642,8 +658,13 @@ class Runner:
         r.context.max_episodes = eval_episode
         r.context.timeout = eval_timeout
         r.context.max_steps = eval_max_steps
-        # play
+        r.context.max_train_count = -1
+        r.context.max_memory = -1
+        # play config
         r.context.shuffle_player = eval_shuffle_player
+        r.context.disable_trainer = True
+        # play info
+        r.context.distributed = False
         r.context.training = False
         r.context.seed = None  # mainと競合するのでNone
         return r
@@ -662,69 +683,15 @@ class Runner:
         return state.episode_rewards_list
 
     # ------------------------------
-    # wkdir/
-    #  └ [env]_[rl]/
-    #    ├ checkpoint/
-    #    └ run_YYYYMMDD_HHMMSS/
-    #      ├ history/
-    #      └ ConfigFiles
+    # path
     # ------------------------------
-    def setup_wkdir(
-        self,
-        wkdir: str = "tmp",
-        checkpoint_interval: int = 60 * 20,
-        checkpoint_eval: bool = True,
-        checkpoint_eval_env_sharing: bool = False,
-        checkpoint_eval_episode: int = 1,
-        checkpoint_eval_timeout: float = -1,
-        checkpoint_eval_max_steps: int = -1,
-        checkpoint_eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
-        checkpoint_eval_shuffle_player: bool = False,
-        history_interval: int = 10,
-        history_write_system: bool = False,
-        history_eval: bool = False,
-        history_eval_env_sharing: bool = False,
-        history_eval_episode: int = 1,
-        history_eval_timeout: float = -1,
-        history_eval_max_steps: int = -1,
-        history_eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
-        history_eval_shuffle_player: bool = False,
-    ):
-        """
-        作業ディレクトリを作成し、学習状況を保存します。
-        """
-        self.config.wkdir = wkdir
+    def get_dirname1(self) -> str:
         dir_name = f"{self.context.env_config.name}_{self.context.rl_config.getName()}"
         dir_name = re.sub(r'[\\/:?."<>\|]', "_", dir_name)
-        self.config.wkdir1 = os.path.join(wkdir, dir_name)
-        os.makedirs(self.config.wkdir1, exist_ok=True)
-        logger.info(f"create wkdir: {self.config.wkdir1}")
+        return dir_name
 
-        self.set_checkpoint(
-            os.path.join(self.config.wkdir1, "checkpoint"),
-            checkpoint_interval,
-            checkpoint_eval,
-            checkpoint_eval_env_sharing,
-            checkpoint_eval_episode,
-            checkpoint_eval_timeout,
-            checkpoint_eval_max_steps,
-            checkpoint_eval_players,
-            checkpoint_eval_shuffle_player,
-        )
-        self.set_history_on_file(
-            self.config.wkdir1,
-            history_interval,
-            True,
-            history_write_system,
-            history_eval,
-            history_eval_env_sharing,
-            history_eval_episode,
-            history_eval_timeout,
-            history_eval_max_steps,
-            history_eval_players,
-            history_eval_shuffle_player,
-        )
-        self.config.enable_wkdir = True
+    def get_dirname2(self) -> str:
+        return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # ------------------------------
     # progress
@@ -786,26 +753,10 @@ class Runner:
         return HistoryViewers(history_dirs)
 
     def get_history(self) -> "HistoryViewer":
-        from srl.runner.callbacks.history_viewer import HistoryViewer
+        if self._history_on_file_kwargs is not None:
+            from srl.runner.callbacks.history_viewer import HistoryViewer
 
-        if self.config.enable_wkdir:
-            # 最後の結果を探す
-            dirs = []
-            for d in glob.glob(os.path.join(self.config.wkdir1, "run_*")):
-                try:
-                    _s = os.path.basename(d).split("_")
-                    date = datetime.datetime.strptime(f"{_s[1]}_{_s[2]}", "%Y%m%d_%H%M%S")
-                    dirs.append([date, d])
-                except Exception:
-                    logger.warning(traceback.format_exc())
-
-            if len(dirs) == 0:
-                return HistoryViewer()
-            dirs.sort()
-
-            _history_viewer = HistoryViewer()
-            _history_viewer.load(dirs[-1][1])
-            return _history_viewer
+            return HistoryViewer(self._history_on_file_kwargs["save_dir"])
 
         assert self.history_viewer is not None
         return self.history_viewer
@@ -915,6 +866,7 @@ class Runner:
     def set_checkpoint(
         self,
         save_dir: str,
+        is_load: bool,
         interval: int = 60 * 20,
         enable_eval: bool = True,
         eval_env_sharing: bool = False,
@@ -937,6 +889,8 @@ class Runner:
             eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
             eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
         """
+        if is_load:
+            self.load_checkpoint(save_dir)
 
         self._checkpoint_kwargs = dict(
             save_dir=save_dir,
@@ -964,18 +918,6 @@ class Runner:
         enable_history_on_file: bool,
         callbacks: List[CallbackType],
     ):
-        # --- wkdir ---
-        if self.config.enable_wkdir:
-            dir_name = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.config.wkdir2 = os.path.join(self.config.wkdir1, f"run_{dir_name}")
-        # -------------
-
-        # --- checkpoint load ---
-        if enable_checkpoint_load and self.config.enable_wkdir:
-            checkpoint_dir = os.path.join(self.config.wkdir1, "checkpoint")
-            self.load_checkpoint(checkpoint_dir)
-        # -----------------------
-
         # --- checkpoint ---
         if enable_checkpoint and self._checkpoint_kwargs is not None:
             from srl.runner.callbacks.checkpoint import Checkpoint
@@ -1042,8 +984,8 @@ class Runner:
             self.make_env(),
             parameter,
             memory,
-            workers,
             trainer,
+            workers,
             cast(List[RunCallback], [c for c in _callbacks if issubclass(c.__class__, RunCallback)]),
         )
         # ----------------
@@ -1083,7 +1025,10 @@ class Runner:
 
         # --- play ----
         if trainer is None:
-            trainer = self.make_trainer(parameter, memory)
+            if self.context.distributed:
+                trainer = self.make_trainer(parameter, memory, train_only=False)
+            else:
+                trainer = self.make_trainer(parameter, memory, train_only=True)
         state = base_run.play_trainer_only(
             self.context,
             trainer,

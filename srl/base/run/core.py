@@ -219,6 +219,14 @@ def _play(
 
         if state.env.done:
             state.env.render()
+            for w in state.workers:
+                if w.rendering:
+                    try:
+                        # rendering用に実行、終了状態のpolicyは未定義
+                        w.policy()
+                    except Exception:
+                        logger.error(traceback.format_exc())
+                    w.render()
 
             # rewardは学習中は不要
             if not context.training:

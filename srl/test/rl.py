@@ -38,11 +38,7 @@ class TestRL:
         rl_config: RLConfig,
         env_list: List[Union[str, EnvConfig]] = ["Grid", "OX"],
         is_mp: bool = False,
-        train_kwargs: dict = dict(
-            max_train_count=2,
-            max_steps=-1,
-            timeout=-1,
-        ),
+        train_kwargs: dict = dict(max_train_count=2),
         use_layer_processor: bool = False,
         check_render: bool = True,
     ):
@@ -88,6 +84,9 @@ class TestRL:
 
             else:
                 print(f"--- {env_config.name} mp check start ---")
+                if "max_steps" in train_kwargs_:
+                    train_kwargs_["max_train_count"] = train_kwargs_["max_steps"]
+                    del train_kwargs_["max_steps"]
                 runner.train_mp(actor_num=2, device_actors=device_actors, **train_kwargs_)
             runner.evaluate(max_episodes=2, max_steps=10)
 

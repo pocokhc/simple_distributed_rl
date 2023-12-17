@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple, cast
 import pygame
 
 from srl.base.define import EnvActionType, KeyBindType, RenderModes
-from srl.base.run.core import RunState
+from srl.base.run.core import RunStateActor
 from srl.runner.callback import GameCallback
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
 from srl.runner.runner import Runner
@@ -34,12 +34,13 @@ class PlayableGame(GameWindow):
         self.enable_memory = enable_memory
 
         # --- env/workers/trainer ---
-        self.state = RunState()
-        self.state.env = runner.make_env(is_init=True)
-        if self.enable_memory:
-            self.state.workers = runner.make_workers()
-            self.state.parameter = runner.make_parameter()
-            self.state.memory = runner.make_memory()
+        self.state = RunStateActor(
+            runner.make_env(is_init=True),
+            runner.make_workers(),
+            runner.make_memory(),
+            runner.make_parameter(),
+            trainer=None,
+        )
         # ---------------------------
 
         # --- key bind (扱いやすいように変形) ---

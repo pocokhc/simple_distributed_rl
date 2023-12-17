@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from srl.utils.common import is_package_installed, is_packages_installed
 
@@ -265,7 +265,15 @@ class HistoryViewer:
 
 class HistoryViewers:
     def __init__(self, history_dirs: List[str]) -> None:
-        self.histories = [(os.path.basename(d), HistoryViewer(d)) for d in history_dirs]
+        self.histories: List[Tuple[str, HistoryViewer]] = []
+        for d in history_dirs:
+            if os.path.isdir(d):
+                self.histories.append(
+                    (
+                        os.path.basename(d),
+                        HistoryViewer(d),
+                    )
+                )
 
     def plot(
         self,

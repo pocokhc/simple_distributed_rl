@@ -96,7 +96,6 @@ class RePlayableGame(GameWindow):
         else:
             self.runner.context.disable_trainer = True
             self.runner.base_run_play(
-                trainer_only=False,
                 parameter=None,
                 memory=None,
                 trainer=None,

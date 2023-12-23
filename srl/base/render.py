@@ -64,7 +64,7 @@ class Render:
         interval: float = -1,  # ms
         scale: float = 1.0,
         font_name: str = "",
-        font_size: int = 12,
+        font_size: int = 18,
     ):
         self.interval = interval
         self.scale = scale

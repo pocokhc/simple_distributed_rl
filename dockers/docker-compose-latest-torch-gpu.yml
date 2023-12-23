@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  srl-latest:
+  srl-latest-torch:
     build:
       dockerfile: ./dockerfile_latest_torch_gpu
     volumes:

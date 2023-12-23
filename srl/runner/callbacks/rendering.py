@@ -29,7 +29,7 @@ class Rendering(RunCallback):
     render_interval: float = -1  # ms
     render_scale: float = 1.0
     font_name: str = ""
-    font_size: int = 12
+    font_size: int = 18
 
     def __post_init__(self):
         self.frames = []

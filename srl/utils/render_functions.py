@@ -4,6 +4,7 @@ import sys
 from typing import Callable
 
 import numpy as np
+
 from srl.font import get_font_path
 from srl.utils.common import compare_less_version
 
@@ -34,7 +35,7 @@ _fonts = {}
 def text_to_rgb_array(
     text: str,
     font_name: str = "",
-    font_size: int = 12,
+    font_size: int = 18,
 ) -> np.ndarray:
     import PIL.Image
     import PIL.ImageDraw

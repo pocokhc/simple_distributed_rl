@@ -337,7 +337,7 @@ class WorkerRun:
         interval: float = -1,  # ms
         scale: float = 1.0,
         font_name: str = "",
-        font_size: int = 12,
+        font_size: int = 18,
     ):
         self._render.set_render_options(interval, scale, font_name, font_size)
 

@@ -771,7 +771,7 @@ class RunnerFacade(Runner):
         render_interval: float = -1,  # ms
         render_scale: float = 1.0,
         font_name: str = "",
-        font_size: int = 12,
+        font_size: int = 18,
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
@@ -858,7 +858,7 @@ class RunnerFacade(Runner):
         render_interval: float = -1,  # ms
         render_scale: float = 1.0,
         font_name: str = "",
-        font_size: int = 12,
+        font_size: int = 18,
         #
         draw_info: bool = True,
         # --- stop config
@@ -948,7 +948,7 @@ class RunnerFacade(Runner):
         render_interval: float = -1,  # ms
         render_scale: float = 1.0,
         font_name: str = "",
-        font_size: int = 12,
+        font_size: int = 18,
         #
         draw_info: bool = True,
         # --- stop config

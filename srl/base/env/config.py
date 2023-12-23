@@ -75,7 +75,7 @@ class EnvConfig:
     #: ""の場合は、`srl.font.PlemolJPConsoleHS-Regular.ttf` が使われます。
     font_name: str = ""
     #: render時のフォントサイズ
-    font_size: int = 12
+    font_size: int = 18
 
     # --- other
     #: action/observationの値をエラーが出ないように可能な限り変換します。

@@ -1,7 +1,7 @@
 import enum
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, List, Tuple, cast
 
 import numpy as np
@@ -56,15 +56,17 @@ class Grid(SinglePlayEnv):
     goal_reward: float = 1.0
     hole_reward: float = -1.0
 
-    def __post_init__(self):
-        self.base_field = [
+    field: List[List[int]] = field(
+        default_factory=lambda: [
             [9, 9, 9, 9, 9, 9],
             [9, 0, 0, 0, 1, 9],
             [9, 0, 9, 0, -1, 9],
-            [9, 0, 0, 0, 0, 9],
+            [9, 2, 0, 0, 0, 9],
             [9, 9, 9, 9, 9, 9],
-        ]
+        ],
+    )
 
+    def __post_init__(self):
         # 遷移確率
         self.action_probs = {
             Action.UP: {
@@ -122,7 +124,12 @@ class Grid(SinglePlayEnv):
         }
 
     def call_reset(self) -> Tuple[List[int], dict]:
-        self.player_pos = (1, 3)
+        self.player_pos = (0, 0)
+        for y in range(self.H):
+            for x in range(self.W):
+                if self.field[y][x] == 2:
+                    self.player_pos = (x, y)
+                    break
         self.action = Action.DOWN
         return list(self.player_pos), {}
 
@@ -149,13 +156,15 @@ class Grid(SinglePlayEnv):
         for y in range(self.H):
             s = ""
             for x in range(self.W):
-                n = self.base_field[y][x]
+                n = self.field[y][x]
                 if self.player_pos[0] == x and self.player_pos[1] == y:
                     s += "P"
                 elif n == 0:  # 道
                     s += " "
                 elif n == 1:  # goal
                     s += "G"
+                elif n == 2:  # start
+                    s += "S"
                 elif n == -1:  # 穴
                     s += "X"
                 elif n == 9:  # 壁
@@ -191,7 +200,7 @@ class Grid(SinglePlayEnv):
                 y_pos = y * cell_size
                 pw.draw_image(self.screen, "cell", x_pos, y_pos)
 
-                n = self.base_field[y][x]
+                n = self.field[y][x]
                 if self.player_pos[0] == x and self.player_pos[1] == y:
                     if self.action == Action.DOWN:
                         pw.draw_image(self.screen, "player_down", x_pos, y_pos)
@@ -239,11 +248,11 @@ class Grid(SinglePlayEnv):
     # ------------------------------------
     @property
     def W(self) -> int:
-        return len(self.base_field[0])
+        return len(self.field[0])
 
     @property
     def H(self) -> int:
-        return len(self.base_field)
+        return len(self.field)
 
     @property
     def actions(self) -> List[Action]:
@@ -258,7 +267,7 @@ class Grid(SinglePlayEnv):
         return states
 
     def can_action_at(self, state):
-        if self.base_field[state[1]][state[0]] == 0:
+        if self.field[state[1]][state[0]] == 0:
             return True
         else:
             return False
@@ -295,7 +304,7 @@ class Grid(SinglePlayEnv):
             next_state = state
 
         # 移動できない
-        if self.base_field[next_state[1]][next_state[0]] == 9:
+        if self.field[next_state[1]][next_state[0]] == 9:
             next_state = state
 
         return tuple(next_state)
@@ -304,7 +313,7 @@ class Grid(SinglePlayEnv):
         reward = self.move_reward
         done = False
 
-        attribute = self.base_field[state[1]][state[0]]
+        attribute = self.field[state[1]][state[0]]
         if attribute == 1:
             reward = self.goal_reward
             done = True
@@ -453,9 +462,9 @@ class LayerProcessor(Processor):
         observation_space = BoxSpace(
             low=0,
             high=1,
-            shape=(1, _env.H, _env.W),
+            shape=(_env.H, _env.W, 1),
         )
-        return observation_space, EnvObservationTypes.SHAPE3
+        return observation_space, EnvObservationTypes.IMAGE
 
     def preprocess_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
         _env = cast(Grid, env.get_original_env())
@@ -463,9 +472,9 @@ class LayerProcessor(Processor):
         px = _env.player_pos[0]
         py = _env.player_pos[1]
 
-        _field = np.zeros((1, _env.H, _env.W))
+        _field = np.zeros((_env.H, _env.W, 1))
         for y in range(_env.H):
             for x in range(_env.W):
                 if y == py and x == px:
-                    _field[0][y][x] = 1
+                    _field[y][x][0] = 1
         return _field

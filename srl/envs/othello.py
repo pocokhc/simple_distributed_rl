@@ -461,7 +461,7 @@ class Cpu(EnvWorker):
                 if self.eval_field is None:
                     scores[a] = 0
                 else:
-                    scores[a] = np.sum(self.eval_field * np.array(env.field))
+                    scores[a] = np.sum(np.asarray(self.eval_field) * np.asarray(env.field))
                 if player_index != 0:
                     scores[a] = -scores[a]
             else:
@@ -504,9 +504,9 @@ class LayerProcessor(Processor):
         observation_space = BoxSpace(
             low=0,
             high=1,
-            shape=(2, _env.H, _env.W),
+            shape=(_env.H, _env.W, 2),
         )
-        return observation_space, EnvObservationTypes.SHAPE3
+        return observation_space, EnvObservationTypes.IMAGE
 
     def preprocess_observation(self, observation: np.ndarray, env: Othello) -> np.ndarray:
         _env = cast(Othello, env.get_original_env())
@@ -519,12 +519,12 @@ class LayerProcessor(Processor):
         else:
             my_field = -1
             enemy_field = 1
-        _field = np.zeros((2, _env.H, _env.W))
+        _field = np.zeros((_env.H, _env.W, 2))
         for y in range(_env.H):
             for x in range(_env.W):
                 idx = x + y * _env.W
                 if observation[idx] == my_field:
-                    _field[0][y][x] = 1
+                    _field[y][x][0] = 1
                 elif observation[idx] == enemy_field:
-                    _field[1][y][x] = 1
+                    _field[y][x][1] = 1
         return _field

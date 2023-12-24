@@ -309,16 +309,16 @@ class LayerProcessor(Processor):
         observation_space = BoxSpace(
             low=0,
             high=1,
-            shape=(2, _env.columns, _env.rows),
+            shape=(_env.columns, _env.rows, 2),
         )
-        return observation_space, EnvObservationTypes.SHAPE3
+        return observation_space, EnvObservationTypes.IMAGE
 
     def preprocess_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
         _env = cast(ConnectX, env.env)
 
         # Layer0: my player field (0 or 1)
         # Layer1: enemy player field (0 or 1)
-        _field = np.zeros((2, _env.columns, _env.rows))
+        _field = np.zeros((_env.columns, _env.rows, 2))
         if env.next_player_index == 0:
             my_player = 1
             enemy_player = 2
@@ -329,7 +329,7 @@ class LayerProcessor(Processor):
             for x in range(_env.rows):
                 idx = x + y * _env.rows
                 if _env.board[idx] == my_player:
-                    _field[0][y][x] = 1
+                    _field[y][x][0] = 1
                 elif _env.board[idx] == enemy_player:
-                    _field[1][y][x] = 1
+                    _field[y][x][1] = 1
         return _field

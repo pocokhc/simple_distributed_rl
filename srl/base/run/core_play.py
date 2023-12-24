@@ -3,34 +3,22 @@ import random
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Generator, List, Optional, Tuple
 
 from srl.base.define import EnvActionType
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import IRLMemoryTrainer, IRLMemoryWorker, RLMemory, RLParameter, RLTrainer
+from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter, RLTrainer
 from srl.base.rl.worker_run import WorkerRun
-from srl.base.run.context import RunContext, RunNameTypes
+from srl.base.run.context import RunContext, RunNameTypes, RunStateBase
 from srl.utils import common
-from srl.utils.serialize import convert_for_json
 
-from .callback import RunCallback, TrainerCallback
+from .callback import RunCallback
 
 logger = logging.getLogger(__name__)
 
 
-class _RunStateBase:
-    """
-    実行中に変動する変数をまとめたクラス
-    Class that summarizes variables that change during execution
-    """
-
-    def to_dict(self) -> dict:
-        dat: dict = convert_for_json(self.__dict__)
-        return dat
-
-
 @dataclass
-class RunStateActor(_RunStateBase):
+class RunStateActor(RunStateBase):
     env: EnvRun
     workers: List[WorkerRun]
     memory: IRLMemoryWorker
@@ -66,7 +54,7 @@ def play(
     trainer: Optional[RLTrainer] = None,
     workers: Optional[List[WorkerRun]] = None,
     callbacks: List[RunCallback] = [],
-) -> RunStateActor:
+):
     if not context.distributed:
         assert (
             context.max_steps > 0
@@ -108,7 +96,7 @@ def _play(
     memory: RLMemory,
     trainer: Optional[RLTrainer],
     workers: List[WorkerRun],
-    callbacks: List[RunCallback] = [],
+    callbacks: List[RunCallback],
 ) -> RunStateActor:
     assert env.player_num == len(workers)
 
@@ -255,83 +243,178 @@ def _play(
     return state
 
 
-# ----------------------------------------------------
-@dataclass
-class RunStateTrainer(_RunStateBase):
-    trainer: RLTrainer
-    memory: IRLMemoryTrainer
-    parameter: RLParameter
-
-    elapsed_t0: float = 0
-    end_reason: str = ""
-
-    # train
-    is_step_trained: bool = False
-
-    # distributed
-    sync_trainer: int = 0
-    trainer_recv_q: int = 0
-
-
-def play_trainer_only(
+def play_generator(
     context: RunContext,
-    trainer: RLTrainer,
-    callbacks: List[TrainerCallback] = [],
-) -> RunStateTrainer:
-    assert context.training
-    assert context.max_train_count > 0 or context.timeout > 0, "Please specify 'max_train_count' or 'timeout'."
+    env: EnvRun,
+    parameter: RLParameter,
+    memory: RLMemory,
+    trainer: Optional[RLTrainer] = None,
+    workers: Optional[List[WorkerRun]] = None,
+    callbacks: List[RunCallback] = [],
+) -> Generator[Tuple[RunStateActor, str], EnvActionType, None]:
+    if not context.distributed:
+        if context.max_memory > 0:
+            if hasattr(memory, "config"):
+                _m = getattr(memory.config, "memory", None)
+                if _m is not None:
+                    assert context.max_memory <= getattr(_m, "capacity", 0)
 
-    # --- play tf
-    if context.enable_tf_device and context.framework == "tensorflow":
-        if common.is_enable_tf_device_name(context.used_device_tf):
-            import tensorflow as tf
+    # --- make instance
+    if context.disable_trainer:
+        trainer = None
+    elif context.training:
+        assert trainer is not None
+    if workers is None:
+        workers = context.create_controller().make_workers(env, parameter, memory)
 
-            logger.info(f"tf.device({context.used_device_tf})")
-            with tf.device(context.used_device_tf):  # type: ignore
-                return _play_trainer_only(context, trainer, callbacks)
-    return _play_trainer_only(context, trainer, callbacks)
+    assert env.player_num == len(workers)
+    state = RunStateActor(env, workers, memory, parameter, trainer)
 
+    # --- set_config_by_actor
+    if context.distributed:
+        context.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
 
-def _play_trainer_only(
-    context: RunContext,
-    trainer: RLTrainer,
-    callbacks: List[TrainerCallback] = [],
-):
-    state = RunStateTrainer(trainer, trainer.memory, trainer.parameter)
+    # --- random
+    if context.seed is not None:
+        state.episode_seed = random.randint(0, 2**16)
+        logger.info(f"set_seed: {context.seed}, 1st episode seed: {state.episode_seed}")
 
-    # callbacks
-    [c.on_trainer_start(context, state) for c in callbacks]
+    # --- callbacks
+    [c.on_episodes_begin(context, state) for c in callbacks]
+    yield (state, "on_episodes_begin")
 
     # --- init
     state.elapsed_t0 = time.time()
+    state.worker_indices = [i for i in range(state.env.player_num)]
+
+    def __skip_func():
+        [c.on_skip_step(context, state) for c in callbacks]
 
     # --- loop
-    logger.info("loop start")
+    if context.run_name != RunNameTypes.eval:
+        logger.info(f"[{context.run_name}] loop start")
+    env.init()
     while True:
-        _time = time.time()
-
         # --- stop check
-        if context.timeout > 0 and (_time - state.elapsed_t0) >= context.timeout:
+        if context.timeout > 0 and (time.time() - state.elapsed_t0) >= context.timeout:
             state.end_reason = "timeout."
             break
 
-        if context.max_train_count > 0 and state.trainer.get_train_count() >= context.max_train_count:
-            state.end_reason = "max_train_count over."
+        if context.max_steps > 0 and state.total_step >= context.max_steps:
+            state.end_reason = "max_steps over."
             break
 
-        # --- train
-        _prev_train = state.trainer.get_train_count()
-        state.trainer.train()
-        state.is_step_trained = state.trainer.get_train_count() > _prev_train
+        if state.trainer is not None:
+            if context.max_train_count > 0 and state.trainer.get_train_count() >= context.max_train_count:
+                state.end_reason = "max_train_count over."
+                break
 
-        # callbacks
-        _stop_flags = [c.on_trainer_loop(context, state) for c in callbacks]
+        if state.memory is not None:
+            if context.max_memory > 0 and state.memory.length() >= context.max_memory:
+                state.end_reason = "max_memory over."
+                break
+
+        # ------------------------
+        # episode end / init
+        # ------------------------
+        if state.env.done:
+            state.episode_count += 1
+
+            if context.max_episodes > 0 and state.episode_count >= context.max_episodes:
+                state.end_reason = "episode_count over."
+                break  # end
+
+            # env reset
+            state.env.reset(render_mode=context.render_mode, seed=state.episode_seed)
+
+            if state.episode_seed is not None:
+                state.episode_seed += 1
+
+            # shuffle
+            if context.shuffle_player:
+                random.shuffle(state.worker_indices)
+            state.worker_idx = state.worker_indices[state.env.next_player_index]
+
+            # worker reset
+            [
+                w.on_reset(state.worker_indices[i], context.training, context.render_mode)
+                for i, w in enumerate(state.workers)
+            ]
+
+            # callbacks
+            [c.on_episode_begin(context, state) for c in callbacks]
+            yield (state, "on_episode_begin")
+
+        # ------------------------
+        # step
+        # ------------------------
+
+        # action
+        state.env.render()
+        [c.on_step_action_before(context, state) for c in callbacks]
+        yield (state, "on_step_action_before")
+        state.action = state.workers[state.worker_idx].policy()
+
+        _act = yield (state, "policy")
+        if _act is not None:
+            state.action = _act
+
+        # env step
+        state.workers[state.worker_idx].render()
+        [c.on_step_begin(context, state) for c in callbacks]
+        yield (state, "on_step_begin")
+        state.env.step(state.action, __skip_func)
+        worker_idx = state.worker_indices[state.env.next_player_index]
+
+        # rl step
+        [w.on_step() for w in state.workers]
+
+        # step update
+        state.total_step += 1
+
+        # trainer
+        if state.trainer is not None:
+            _prev_train = state.trainer.get_train_count()
+            state.trainer.train()
+            state.is_step_trained = state.trainer.get_train_count() > _prev_train
+
+        _stop_flags = [c.on_step_end(context, state) for c in callbacks]
+        state.worker_idx = worker_idx
+
+        if state.env.done:
+            state.env.render()
+            for w in state.workers:
+                if w.rendering:
+                    try:
+                        # rendering用に実行、終了状態のpolicyは未定義
+                        w.policy()
+                    except Exception:
+                        logger.error(traceback.format_exc())
+                    w.render()
+
+            # rewardは学習中は不要
+            if not context.training:
+                worker_rewards = [
+                    state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)
+                ]
+                state.episode_rewards_list.append(worker_rewards)
+
+            [c.on_episode_end(context, state) for c in callbacks]
+            yield (state, "on_episode_end")
+
         if True in _stop_flags:
-            state.end_reason = "callback.trainer_intermediate_stop"
+            state.end_reason = "callback.intermediate_stop"
             break
+    if context.run_name != RunNameTypes.eval:
+        logger.info(f"[{context.run_name}] loop end({state.end_reason})")
 
-    logger.info(f"loop end({state.end_reason})")
+    # rewardは学習中は不要
+    if not context.training:
+        # 一度もepisodeを終了していない場合は例外で途中経過を保存
+        if state.episode_count == 0:
+            worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
+            state.episode_rewards_list.append(worker_rewards)
 
     # callbacks
-    [c.on_trainer_end(context, state) for c in callbacks]
-    return state
+    [c.on_episodes_end(context, state) for c in callbacks]
+    yield (state, "on_episodes_end")

@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Type
 
 import numpy as np
 
-from srl.base.define import (EnvObservationTypes, RLBaseTypes,
-                             RLObservationType, RLTypes)
+from srl.base.define import EnvObservationTypes, RLBaseTypes, RLObservationType, RLTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.exception import UndefinedError
 from srl.base.rl.processor import Processor
@@ -92,7 +91,8 @@ class RLConfig(ABC):
         self._used_device_tf: str = "/CPU"
         self._used_device_torch: str = "cpu"
 
-        self._check_parameter = True
+        self._changeable_parameter_names: List[str] = []
+        self._check_parameter = True  # last
 
     def assert_params(self) -> None:
         assert self.window_length > 0
@@ -125,6 +125,9 @@ class RLConfig(ABC):
         pass  # NotImplemented
 
     def set_processor(self) -> List[Processor]:
+        return []  # NotImplemented
+
+    def get_changeable_parameters(self) -> List[str]:
         return []  # NotImplemented
 
     # infoの情報のタイプを指定、出力形式等で使用を想定
@@ -179,8 +182,7 @@ class RLConfig(ABC):
         if self.enable_state_encode:
             # render image
             if self.use_render_image_for_observation:
-                from srl.rl.processors.render_image_processor import \
-                    RenderImageProcessor
+                from srl.rl.processors.render_image_processor import RenderImageProcessor
 
                 self._run_processors.append(RenderImageProcessor())
 
@@ -194,15 +196,18 @@ class RLConfig(ABC):
         if self.enable_state_encode:
             # change space
             for p in self._run_processors:
-                rl_observation_space, rl_env_observation_type = p.preprocess_observation_space(
+                _new_rl_observation_space, _new_rl_env_observation_type = p.preprocess_observation_space(
                     rl_observation_space,
                     rl_env_observation_type,
                     env,
                     self,
                 )
                 if enable_log:
-                    logger.info(f"change processor obs type : {rl_env_observation_type}")
-                    logger.info(f"change processor obs space: {rl_observation_space}")
+                    logger.info(f"apply observation processor: {repr(p)}")
+                    logger.info(f"  type : {rl_env_observation_type} -> {_new_rl_env_observation_type}")
+                    logger.info(f"  space: {rl_observation_space} -> {_new_rl_observation_space}")
+                rl_observation_space = _new_rl_observation_space
+                rl_env_observation_type = _new_rl_env_observation_type
 
         [r.setup(env, self) for r in self._run_processors]
 
@@ -291,6 +296,11 @@ class RLConfig(ABC):
         # --- option
         self.set_config_by_env(env)
 
+        # --- changeable parameters
+        self._changeable_parameter_names = self.get_changeable_parameters()
+
+        # --- log
+        self._check_parameter = True
         self._is_setup = True
         if enable_log:
             logger.info(f"action_type(rl)               : {self._rl_action_type}")
@@ -301,28 +311,23 @@ class RLConfig(ABC):
             if self.window_length > 1:
                 logger.info(f"observation_one_step_space(rl): {self._rl_observation_one_step_space}")
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value):
         if name == "_is_setup":
             object.__setattr__(self, name, value)
             return
 
-        if hasattr(self, "_check_parameter"):
-            if self._check_parameter and not hasattr(self, name):
+        # --- パラメータが決まった場合は書き換え不可能
+        if getattr(self, "_check_parameter", False):
+            if not hasattr(self, name):
                 logger.warning(f"An undefined variable was assigned. {name}={value}")
+            elif getattr(self, "_is_setup", False):
+                # --- パラメータが決まった場合は書き換え不可能
+                if not name.startswith("_") and (name not in getattr(self, "_changeable_parameter_names", [])):
+                    s = f"'{name}' tried to change from '{getattr(self,name)}' to '{value}' but it did not change."
+                    logger.warning(s)
+                    print(s)
+                    return
 
-        # configが書き変わったら reset が必要
-        if name in [
-            "processors",
-            "override_env_observation_type",
-            "override_action_type",
-            "action_division_num",
-            "use_render_image_for_observation",
-            "use_rl_processor",
-            "enable_state_encode",
-            "enable_action_decode",
-            "window_length",
-        ]:
-            self._is_setup = False
         object.__setattr__(self, name, value)
 
     # ----------------------------

@@ -27,11 +27,13 @@ class NormalDist:
                 np.log(stable_gradients_stddev_range[0]),
                 np.log(stable_gradients_stddev_range[1]),
             )
+        self.y_org = None
 
     def sample(self):
         stddev = tf.exp(self._log_stddev)
         e = tf.random.normal(shape=self._mean.shape)
         y = self._mean + stddev * e
+        self.y_org = y
         if self.enable_squashed:
             y = tf.tanh(y)
         return y
@@ -43,10 +45,17 @@ class NormalDist:
         return y
 
     def mean(self):
-        return self._mean
+        y = self._mean
+        if self.enable_squashed:
+            y = tf.tanh(y)
+        return y
 
     def stddev(self):
-        return tf.exp(self._log_stddev)
+        if self.enable_squashed:
+            # enable_squashed時の分散は未確認（TODO）
+            return tf.exp(self._log_stddev)
+        else:
+            return tf.exp(self._log_stddev)
 
     def log_prob(self, y_org):
         if self.enable_squashed:
@@ -56,17 +65,7 @@ class NormalDist:
 
 
 class NormalGradDist(NormalDist):
-    def sample(self):
-        stddev = tf.exp(self._log_stddev)
-        e = tf.random.normal(shape=self._mean.shape)
-        y_org = self._mean + stddev * e
-
-        if self.enable_squashed:
-            y_sgp = tf.tanh(y_org)
-        else:
-            y_sgp = y_org
-
-        return y_sgp, y_org, self._mean, self._log_stddev, stddev
+    pass
 
 
 class NormalDistBlock(keras.Model):
@@ -116,13 +115,7 @@ class NormalDistBlock(keras.Model):
                         activation=activation,
                     )
                 )
-            self.log_stddev_layers.append(
-                kl.Dense(
-                    out_size,
-                    kernel_initializer=keras.initializers.TruncatedNormal(mean=0.0, stddev=0.5),
-                    bias_initializer="zeros",
-                )
-            )
+            self.log_stddev_layers.append(kl.Dense(out_size, bias_initializer="zeros"))
 
     def call(self, x, training=False):
         for layer in self.hidden_layers:
@@ -137,26 +130,35 @@ class NormalDistBlock(keras.Model):
             for layer in self.log_stddev_layers:
                 log_stddev = layer(log_stddev, training=training)
 
-        return mean, log_stddev
+        return [mean, log_stddev]
+
+    def get_dist(self, x):
+        return NormalDist(
+            mean=x[0],
+            log_stddev=x[1],
+            enable_squashed=self.enable_squashed,
+            enable_stable_gradients=self.enable_stable_gradients,
+            stable_gradients_stddev_range=self.stable_gradients_stddev_range,
+        )
+
+    def get_grad_dist(self, x):
+        return NormalGradDist(
+            mean=x[0],
+            log_stddev=x[1],
+            enable_squashed=self.enable_squashed,
+            enable_stable_gradients=self.enable_stable_gradients,
+            stable_gradients_stddev_range=self.stable_gradients_stddev_range,
+        )
 
     def call_dist(self, x):
-        return NormalDist(
-            *self(x, training=False),
-            enable_squashed=self.enable_squashed,
-            enable_stable_gradients=self.enable_stable_gradients,
-            stable_gradients_stddev_range=self.stable_gradients_stddev_range,
-        )
+        return self.get_dist(self(x, training=False))
 
     def call_grad_dist(self, x):
-        return NormalGradDist(
-            *self(x, training=True),
-            enable_squashed=self.enable_squashed,
-            enable_stable_gradients=self.enable_stable_gradients,
-            stable_gradients_stddev_range=self.stable_gradients_stddev_range,
-        )
+        return self.get_grad_dist(self(x, training=True))
 
-    def compute_loss(self, x, y):
-        dist = self.call_grad_dist(x)
+    @tf.function
+    def compute_train_loss(self, x, y):
+        dist = self.get_grad_dist(self(x, training=True))
 
         # 対数尤度の最大化
         log_likelihood = dist.log_prob(y)

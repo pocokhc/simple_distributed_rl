@@ -10,7 +10,7 @@ kl = keras.layers
 
 def _twohot_encode(x, bins, low, high):
     x = tf.clip_by_value(x, low, high)
-    arr = tf.zeros((x.shape[0], bins), dtype=tf.float32)
+    arr = tf.zeros(x.shape[:-1] + (bins,), dtype=tf.float32)
 
     # 0-bins のサイズで正規化
     x = (bins - 1) * (x - low) / (high - low)
@@ -27,11 +27,15 @@ def _twohot_encode(x, bins, low, high):
 
 
 def _twohot_decode(x, bins, low, high):
-    indices = tf.range(0, bins, dtype=tf.float32)
-    indices = tf.tile(tf.expand_dims(indices, 0), [x.shape[0], 1])
-    x = tf.reduce_sum(x * indices, axis=-1)
+    indices = tf.range(bins, dtype=tf.float32)
+    for _ in range(len(x.shape) - 1):
+        indices = tf.expand_dims(indices, 0)
+    tile_shape = list(x.shape[:])
+    tile_shape[-1] = 1
+    indices = tf.tile(indices, tile_shape)
+    x = tf.reduce_sum(x * indices, axis=-1, keepdims=True)
     x = (x / (bins - 1)) * (high - low) + low
-    return tf.expand_dims(x, -1)
+    return x
 
 
 class TwoHotDist:
@@ -54,6 +58,10 @@ class TwoHotDist:
         if self.use_symlog:
             x = symexp(x)
         return x
+
+
+class TwoHotGradDist(TwoHotDist):
+    pass
 
 
 class TwoHotDistBlock(keras.Model):
@@ -84,14 +92,21 @@ class TwoHotDistBlock(keras.Model):
             x = layer(x, training=training)
         return self.out_layer(x)
 
+    def get_dist(self, logits):
+        return TwoHotDist(logits, self.low, self.high, self.use_symlog)
+
+    def get_grad_dist(self, logits):
+        return TwoHotGradDist(logits, self.low, self.high, self.use_symlog)
+
     def call_dist(self, x):
-        return TwoHotDist(self(x, training=False), self.low, self.high, self.use_symlog)
+        return self.get_dist(self(x, training=False))
 
     def call_grad_dist(self, x):
-        return TwoHotDist(self(x, training=True), self.low, self.high, self.use_symlog)
+        return self.get_grad_dist(self(x, training=True))
 
-    def compute_loss(self, x, y):
-        dist = self.call_grad_dist(x)
+    @tf.function
+    def compute_train_loss(self, x, y):
+        dist = self.get_grad_dist(self(x, training=True))
         probs = dist.probs()
 
         if self.use_symlog:

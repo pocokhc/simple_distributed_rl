@@ -48,10 +48,20 @@ class LinearBlock(keras.Model):
             x = layer(x, training=training)
         return self.out_layer(x)
 
-    def call_dist(self, x, training=False):
-        return Linear(self(x, training), self.use_symlog)
+    def get_dist(self, x):
+        return Linear(x, self.use_symlog)
 
-    def compute_loss(self, x, y):
+    def get_grad_dist(self, x):
+        return Linear(x, self.use_symlog)
+
+    def call_dist(self, x):
+        return self.get_dist(self(x, training=False))
+
+    def call_grad_dist(self, x):
+        return self.get_grad_dist(self(x, training=True))
+
+    @tf.function
+    def compute_train_loss(self, x, y):
         pred = self(x, training=True)
         if self.use_symlog:
             y = symlog(y)
@@ -62,16 +72,3 @@ class LinearBlock(keras.Model):
         if self.use_symlog:
             y = symexp(y)
         return y
-
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
-    def init_model_graph(self, name: str = ""):
-        x = kl.Input(shape=self.__input_shape[1:])
-        name = self.__class__.__name__ if name == "" else name
-        return keras.Model(inputs=x, outputs=self.call(x), name=name)
-
-    def summary(self, name="", **kwargs):
-        m = self.init_model_graph(name)
-        return m.summary(**kwargs)

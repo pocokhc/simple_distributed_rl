@@ -25,23 +25,28 @@ class CategoricalDist:
         a = tf.random.categorical(self.logits, num_samples=1)
         if onehot:
             a = tf.squeeze(a, axis=1)
-            a = tf.one_hot(a, self.classes)
+            a = tf.one_hot(a, self.classes, dtype=tf.float32)
         return a
 
     def mode(self):
         return tf.argmax(self.logits, axis=-1)
 
+    def log_probs(self):
+        probs = tf.clip_by_value(self._probs, 1e-10, 1)  # log(0)回避用
+        return tf.math.log(probs)
+
     def log_prob(self, a, onehot: bool = False):
         if onehot:
             a = tf.squeeze(a, axis=1)
-            a = tf.one_hot(a, self.classes)
-        a = tf.reduce_sum(self._probs * a, axis=-1)
-        a = tf.clip_by_value(a, 1e-10, 1)  # log(0)回避用
-        return tf.expand_dims(tf.math.log(a), axis=-1)
+            a = tf.one_hot(a, self.classes, dtype=tf.float32)
+        a = tf.reduce_sum(self.log_probs() * a, axis=-1)
+        return tf.expand_dims(a, axis=-1)
 
 
 class CategoricalGradDist(CategoricalDist):
-    def sample(self):
+    def sample(self, stop_gradient: bool = False):
+        if stop_gradient:
+            return super().sample(onehot=True)
         sample = tf.random.categorical(self.logits, num_samples=1)
         sample = tf.one_hot(tf.squeeze(sample, 1), self.classes)
         z = self._probs + tf.stop_gradient(sample - self._probs)
@@ -65,21 +70,28 @@ class CategoricalDistBlock(keras.Model):
         self.hidden_layers = []
         for i in range(len(hidden_layer_sizes)):
             self.hidden_layers.append(kl.Dense(hidden_layer_sizes[i], activation=activation))
-        self.out_layer = kl.Dense(classes)
+        self.out_layer = kl.Dense(classes, kernel_initializer="zeros")
 
     def call(self, x, training=False):
         for layer in self.hidden_layers:
             x = layer(x, training=training)
         return self.out_layer(x)
 
+    def get_dist(self, logits):
+        return CategoricalDist(logits, self.unimix)
+
+    def get_grad_dist(self, logits):
+        return CategoricalGradDist(logits, self.unimix)
+
     def call_dist(self, x):
-        return CategoricalDist(self(x, training=False), self.unimix)
+        return self.get_dist(self(x, training=False))
 
     def call_grad_dist(self, x):
-        return CategoricalGradDist(self(x, training=True), self.unimix)
+        return self.get_grad_dist(self(x, training=True))
 
-    def compute_loss(self, x, y):
-        dist = self.call_grad_dist(x)
+    @tf.function
+    def compute_train_loss(self, x, y):
+        dist = self.get_grad_dist(self(x, training=True))
         probs = dist.probs()
 
         if self.use_mse:

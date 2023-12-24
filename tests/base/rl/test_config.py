@@ -171,16 +171,16 @@ def test_reset(
 
 def test_copy():
     config = TestConfig()
+    config.window_length = 4
 
     assert not config.is_setup
     config.setup(srl.make_env("Grid"))
-    assert config.is_setup
     config.window_length = 2
-    assert not config.is_setup
+    assert config.is_setup
     config.setup(srl.make_env("Grid"))
     assert config.is_setup
 
     config2 = config.copy()
     assert config.is_setup
-    assert config.window_length == 2
+    assert config.window_length == 4
     assert config2.name == "test"

@@ -1,7 +1,7 @@
 import numpy as np
 
 import srl
-from srl.base.define import EnvObservationTypes
+from srl.base.define import DoneTypes, EnvObservationTypes
 from srl.base.spaces.box import BoxSpace
 from srl.envs import ox  # noqa F401
 from srl.test import TestEnv
@@ -24,7 +24,7 @@ def test_processor():
     env_name = "OX"
 
     in_state = [0] * 9
-    out_state = np.zeros((2, 3, 3))
+    out_state = np.zeros((3, 3, 2))
 
     tester.run(processor, env_name)
     tester.preprocess_observation_space(
@@ -56,7 +56,6 @@ def test_play_step():
     np.testing.assert_array_equal(env.get_invalid_actions(), [0])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
     assert not env.done
-    assert env.done_reason == ""
 
     # 2
     env.step(1)
@@ -66,7 +65,6 @@ def test_play_step():
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
     assert not env.done
-    assert env.done_reason == ""
 
     # 3
     env.step(2)
@@ -76,7 +74,6 @@ def test_play_step():
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
     assert not env.done
-    assert env.done_reason == ""
 
     # 4
     env.step(3)
@@ -86,7 +83,6 @@ def test_play_step():
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2, 3])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
     assert not env.done
-    assert env.done_reason == ""
 
     # 5
     env.step(4)
@@ -96,7 +92,6 @@ def test_play_step():
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2, 3, 4])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
     assert not env.done
-    assert env.done_reason == ""
 
     # 6
     env.step(5)
@@ -106,7 +101,6 @@ def test_play_step():
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2, 3, 4, 5])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
     assert not env.done
-    assert env.done_reason == ""
 
     # 7
     env.step(7)
@@ -116,7 +110,6 @@ def test_play_step():
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2, 3, 4, 5, 7])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
     assert not env.done
-    assert env.done_reason == ""
 
     # 8
     env.step(6)
@@ -126,7 +119,6 @@ def test_play_step():
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2, 3, 4, 5, 6, 7])
     np.testing.assert_array_equal(env.step_rewards, [0, 0])
     assert not env.done
-    assert env.done_reason == ""
 
     # 9
     env.step(8)
@@ -136,4 +128,4 @@ def test_play_step():
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2, 3, 4, 5, 6, 7, 8])
     np.testing.assert_array_equal(env.step_rewards, [1, -1])
     assert env.done
-    assert env.done_reason == "env"
+    assert env.done_reason == DoneTypes.TERMINATED

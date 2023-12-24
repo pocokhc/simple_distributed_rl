@@ -4,52 +4,82 @@ import numpy as np
 import pytest
 
 
-def _normal(mean, stddev, x, epsilon=1e-10):
+def _normal(x, mean, stddev, epsilon=1e-10):
     x = np.array(x, dtype=np.float32)
     mean = np.array(mean, dtype=np.float32)
     stddev = np.array(stddev, dtype=np.float32)
     stddev = np.clip(stddev, epsilon, None)
-    y = (1 / (stddev * np.sqrt(2 * np.pi))) * np.exp(-((x - mean) ** 2) / (2 * stddev**2))
+    y = (1 / (np.sqrt(2 * np.pi * stddev * stddev))) * np.exp(-((x - mean) ** 2) / (2 * stddev * stddev))
+    return np.array(y, dtype=np.float32)
+
+
+def _normal_log(x, mean, log_stddev):
+    x = np.array(x, dtype=np.float32)
+    mean = np.array(mean, dtype=np.float32)
+    log_stddev = np.array(log_stddev, dtype=np.float32)
+    y = -0.5 * np.log(2 * np.pi) - log_stddev - 0.5 * (((x - mean) / np.exp(log_stddev)) ** 2)
     return np.array(y, dtype=np.float32)
 
 
 @pytest.mark.parametrize(
-    "action, mean, stddev",
+    "x, mean, stddev",
     [
         (0, 0, 1),
         (0, 0, 0),
-        (10, 9, 1),
-        (-230697, 4, 22665437184),
+        (5, 9, 1),
+        (-20, 9, 3),
     ],
 )
-def test_compute_logprob(action, mean, stddev):
+def test_compute_normal_logprob(x, mean, stddev):
     pytest.importorskip("tensorflow")
 
     import tensorflow as tf
 
-    from srl.rl.functions.common_tf import compute_logprob
+    from srl.rl.functions.common_tf import compute_normal_logprob
 
-    epsilon = 1e-10
-
-    np_pi = _normal(mean, stddev, action, epsilon)
+    np_pi = _normal(x, mean, stddev)
     np_logpi = np.log(np_pi).astype(np.float32)
 
-    logpi = compute_logprob(
+    logpi = compute_normal_logprob(
+        tf.constant([x], dtype=np.float32),
         tf.constant([mean], dtype=np.float32),
         tf.constant([stddev], dtype=np.float32),
-        tf.constant([action], dtype=np.float32),
-        epsilon,
     )
     pi = tf.exp(logpi)  # logpiが-130ぐらいだと-infになる
     pi = pi.numpy()[0]
     logpi = logpi.numpy()[0]
 
-    print(np_pi)
-    print(pi)
-    print(np_logpi)
-    print(logpi)
+    print(f"x={x}, mean={mean}, stddev={stddev}, np_pi={np_pi}, pi={pi}, np_logpi={np_logpi}, logpi={logpi}")
     assert math.isclose(np_pi, pi, rel_tol=0.00001)
-    assert math.isclose(np_logpi, logpi, rel_tol=0.000001)
+    assert math.isclose(np_logpi, logpi, rel_tol=0.00001)
+
+
+@pytest.mark.parametrize(
+    "x, mean, log_stddev",
+    [
+        (0, 0, 1),
+        (0, 0, 0),
+        (5, 9, -12),
+        (-20, 9, 13),
+        (5.668556, 9.42877, -46.50863),  # inf
+    ],
+)
+def test_compute_normal_logprob_in_log(x, mean, log_stddev):
+    pytest.importorskip("tensorflow")
+    import tensorflow as tf
+
+    from srl.rl.functions.common_tf import compute_normal_logprob_in_log
+
+    np_log_likelihood = _normal_log(x, mean, log_stddev)
+
+    log_likelihood = compute_normal_logprob_in_log(
+        tf.constant([x], dtype=np.float32),
+        tf.constant([mean], dtype=np.float32),
+        tf.constant([log_stddev], dtype=np.float32),
+    )
+
+    print(f"x={x}, mean={mean}, log_stddev={log_stddev}, np={np_log_likelihood}, tf={log_likelihood}")
+    assert math.isclose(np_log_likelihood, log_likelihood, rel_tol=0.00001)
 
 
 @pytest.mark.parametrize(
@@ -60,34 +90,62 @@ def test_compute_logprob(action, mean, stddev):
         (5, 9, 1),
     ],
 )
-def test_compute_logprob_sgp(action, mean, stddev):
+def test_compute_normal_logprob_sgp(action, mean, stddev):
     pytest.importorskip("tensorflow")
 
     import tensorflow as tf
 
-    from srl.rl.functions.common_tf import compute_logprob_sgp
+    from srl.rl.functions.common_tf import compute_normal_logprob_sgp
 
-    epsilon = 1e-10
-
-    np_mu = _normal(mean, stddev, action, epsilon)
+    np_mu = _normal(action, mean, stddev)
     np_logmu = np.log(np_mu)
     np_logpi = np_logmu - np.log(1 - np.tanh(action) ** 2)
     np_pi = np.exp(np_logpi)
 
-    logpi = compute_logprob_sgp(
+    logpi = compute_normal_logprob_sgp(
+        tf.constant([[action]], dtype=np.float32),
         tf.constant([[mean]], dtype=np.float32),
         tf.constant([[stddev]], dtype=np.float32),
-        tf.constant([[action]], dtype=np.float32),
-        epsilon,
     )
     pi = tf.exp(logpi)  # logpiが-130ぐらいだと-infになる
     pi = pi.numpy()[0][0]
     logpi = logpi.numpy()[0][0]
 
-    print(np_pi)
-    print(pi)
-    print(np_logpi)
-    print(logpi)
+    print(f"np_mu={np_mu}, np_logmu={np_logmu}, np_logpi={np_logpi}, np_pi={np_pi}, logpi={logpi}, pi={pi}")
+    assert math.isclose(np_pi, pi, rel_tol=0.1)
+    assert math.isclose(np_logpi, logpi, rel_tol=0.01)
+
+
+@pytest.mark.parametrize(
+    "x, mean, log_stddev",
+    [
+        (0, 0, 1),
+        (0, 0, 0),
+        (5, 9, -12),
+        (-5, 9, 13),
+    ],
+)
+def test_compute_normal_logprob_sgp_in_log(x, mean, log_stddev):
+    pytest.importorskip("tensorflow")
+
+    import tensorflow as tf
+
+    from srl.rl.functions.common_tf import compute_normal_logprob_sgp_in_log
+
+    np_logmu = _normal_log(x, mean, log_stddev)
+    np_logpi = np_logmu - np.log(1 - np.tanh(x) ** 2)
+    np_pi = np.exp(np_logpi)
+
+    logpi = compute_normal_logprob_sgp_in_log(
+        tf.constant([[x]], dtype=np.float32),
+        tf.constant([[mean]], dtype=np.float32),
+        tf.constant([[log_stddev]], dtype=np.float32),
+    )
+    pi = tf.exp(logpi)  # logpiが-130ぐらいだと-infになる
+    pi = pi.numpy()[0][0]
+    logpi = logpi.numpy()[0][0]
+
+    print(f"x={x}, np_logmu={np_logmu}, np_logpi={np_logpi}, np_pi={np_pi}, logpi={logpi}, pi={pi}")
     assert math.isclose(np_pi, pi, rel_tol=0.1)
     assert math.isclose(np_logpi, logpi, rel_tol=0.01)
 

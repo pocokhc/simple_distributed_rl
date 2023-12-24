@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, List, Optional, Union, cast
 from srl.base.define import RenderModes
 from srl.base.rl.base import RLMemory, RLParameter, RLTrainer
 from srl.base.run.context import RLWorkerType, RunNameTypes, StrWorkerType
-from srl.runner.callback import GameCallback
+from srl.base.run.core_play import RunStateActor
 from srl.runner.runner import CallbackType, Runner
 
 if TYPE_CHECKING:
@@ -94,17 +94,20 @@ class RunnerFacade(Runner):
 
         self._base_run_play_before(
             enable_checkpoint=True,
-            enable_checkpoint_load=True,
             enable_history_on_memory=True,
             enable_history_on_file=True,
             callbacks=callbacks,
         )
-        state = self.base_run_play(
-            parameter=parameter,
-            memory=memory,
-            trainer=trainer,
-            workers=None,
-            callbacks=callbacks,
+        state = cast(
+            RunStateActor,
+            self.base_run_play(
+                parameter=parameter,
+                memory=memory,
+                trainer=trainer,
+                workers=None,
+                callbacks=callbacks,
+                enable_generator=False,
+            ),
         )
         self._base_run_play_after(callbacks=callbacks)
         return state
@@ -158,18 +161,21 @@ class RunnerFacade(Runner):
         # ----------------
 
         self._base_run_play_before(
-            enable_checkpoint_load=True,
             enable_checkpoint=True,
             enable_history_on_memory=True,
             enable_history_on_file=True,
             callbacks=callbacks,
         )
-        state = self.base_run_play(
-            parameter=parameter,
-            memory=memory,
-            trainer=None,
-            workers=None,
-            callbacks=callbacks,
+        state = cast(
+            RunStateActor,
+            self.base_run_play(
+                parameter=parameter,
+                memory=memory,
+                trainer=None,
+                workers=None,
+                callbacks=callbacks,
+                enable_generator=False,
+            ),
         )
         self._base_run_play_after(callbacks=callbacks)
         return state
@@ -229,7 +235,6 @@ class RunnerFacade(Runner):
         # ----------------
 
         self._base_run_play_before(
-            enable_checkpoint_load=True,
             enable_checkpoint=True,
             enable_history_on_memory=True,
             enable_history_on_file=True,
@@ -310,7 +315,6 @@ class RunnerFacade(Runner):
             logger.info("add callback PrintProgress")
 
         self._base_run_play_before(
-            enable_checkpoint_load=True,
             enable_checkpoint=True,
             enable_history_on_memory=False,
             enable_history_on_file=True,
@@ -419,7 +423,7 @@ class RunnerFacade(Runner):
     #     # ----------------
 
     #     self._base_run_play_before(
-    #         enable_checkpoint_load=True,
+    #
     #         enable_checkpoint=True,
     #         enable_history_on_memory=False,
     #         enable_history_on_file=True,
@@ -507,7 +511,6 @@ class RunnerFacade(Runner):
         # ----------------
 
         self._base_run_play_before(
-            enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
@@ -606,7 +609,6 @@ class RunnerFacade(Runner):
         # ----------------
 
         self._base_run_play_before(
-            enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
@@ -676,19 +678,22 @@ class RunnerFacade(Runner):
         # ----------------
 
         self._base_run_play_before(
-            enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
             callbacks=callbacks,
         )
 
-        state = self.base_run_play(
-            parameter=None,
-            memory=None,
-            trainer=None,
-            workers=None,
-            callbacks=callbacks,
+        state = cast(
+            RunStateActor,
+            self.base_run_play(
+                parameter=None,
+                memory=None,
+                trainer=None,
+                workers=None,
+                callbacks=callbacks,
+                enable_generator=False,
+            ),
         )
 
         self._base_run_play_after(callbacks=callbacks)
@@ -744,18 +749,21 @@ class RunnerFacade(Runner):
         # -----------------
 
         self._base_run_play_before(
-            enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
             callbacks=callbacks,
         )
-        state = self.base_run_play(
-            parameter=None,
-            memory=None,
-            trainer=None,
-            workers=None,
-            callbacks=callbacks,
+        state = cast(
+            RunStateActor,
+            self.base_run_play(
+                parameter=None,
+                memory=None,
+                trainer=None,
+                workers=None,
+                callbacks=callbacks,
+                enable_generator=False,
+            ),
         )
         self._base_run_play_after(callbacks=callbacks)
 
@@ -830,18 +838,21 @@ class RunnerFacade(Runner):
         # ----------------
 
         self._base_run_play_before(
-            enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
             callbacks=callbacks,
         )
-        state = self.base_run_play(
-            parameter=None,
-            memory=None,
-            trainer=None,
-            workers=None,
-            callbacks=callbacks,
+        state = cast(
+            RunStateActor,
+            self.base_run_play(
+                parameter=None,
+                memory=None,
+                trainer=None,
+                workers=None,
+                callbacks=callbacks,
+                enable_generator=False,
+            ),
         )
         self._base_run_play_after(callbacks=callbacks)
 
@@ -919,18 +930,21 @@ class RunnerFacade(Runner):
         # ----------------
 
         self._base_run_play_before(
-            enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
             callbacks=callbacks,
         )
-        state = self.base_run_play(
-            parameter=None,
-            memory=None,
-            trainer=None,
-            workers=None,
-            callbacks=callbacks,
+        state = cast(
+            RunStateActor,
+            self.base_run_play(
+                parameter=None,
+                memory=None,
+                trainer=None,
+                workers=None,
+                callbacks=callbacks,
+                enable_generator=False,
+            ),
         )
         rendering.save_gif(path, render_interval, draw_info)
 
@@ -1009,19 +1023,22 @@ class RunnerFacade(Runner):
         # ----------------
 
         self._base_run_play_before(
-            enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
             callbacks=callbacks,
         )
 
-        state = self.base_run_play(
-            parameter=None,
-            memory=None,
-            trainer=None,
-            workers=None,
-            callbacks=callbacks,
+        state = cast(
+            RunStateActor,
+            self.base_run_play(
+                parameter=None,
+                memory=None,
+                trainer=None,
+                workers=None,
+                callbacks=callbacks,
+                enable_generator=False,
+            ),
         )
 
         rendering.display(render_interval, render_scale, draw_info)
@@ -1074,7 +1091,6 @@ class RunnerFacade(Runner):
         # ----------------
 
         self._base_run_play_before(
-            enable_checkpoint_load=True,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
@@ -1134,19 +1150,22 @@ class RunnerFacade(Runner):
         # -----------------
 
         self._base_run_play_before(
-            enable_checkpoint_load=False,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
             callbacks=callbacks,
         )
 
-        state = self.base_run_play(
-            parameter=None,
-            memory=None,
-            trainer=None,
-            workers=None,
-            callbacks=callbacks,
+        state = cast(
+            RunStateActor,
+            self.base_run_play(
+                parameter=None,
+                memory=None,
+                trainer=None,
+                workers=None,
+                callbacks=callbacks,
+                enable_generator=False,
+            ),
         )
 
         self._base_run_play_after(callbacks=callbacks)
@@ -1170,7 +1189,7 @@ class RunnerFacade(Runner):
         # --- set context
         self.context.run_name = RunNameTypes.main
         # stop config
-        self.context.max_episodes = 1
+        self.context.max_episodes = -1
         self.context.timeout = timeout
         self.context.max_steps = max_steps
         self.context.max_train_count = 0
@@ -1184,7 +1203,6 @@ class RunnerFacade(Runner):
         self.context.render_mode = mode
 
         self._base_run_play_before(
-            enable_checkpoint_load=False,
             enable_checkpoint=False,
             enable_history_on_memory=False,
             enable_history_on_file=False,
@@ -1203,7 +1221,7 @@ class RunnerFacade(Runner):
             self,
             key_bind,
             enable_memory=enable_memory,
-            callbacks=cast(List[GameCallback], [c for c in callbacks if issubclass(c.__class__, GameCallback)]),
+            callbacks=callbacks,
             _is_test=_is_test,
         )
         game.play()

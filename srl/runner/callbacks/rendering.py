@@ -9,7 +9,7 @@ from srl.base.define import EnvObservationTypes, RenderModes, RLTypes
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.callback import RunCallback
 from srl.base.run.context import RunContext
-from srl.base.run.core import RunStateActor
+from srl.base.run.core_play import RunStateActor
 from srl.utils.render_functions import text_to_rgb_array
 
 logger = logging.getLogger(__name__)

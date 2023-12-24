@@ -7,7 +7,8 @@ import numpy as np
 
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext
-from srl.base.run.core import RunStateActor, RunStateTrainer
+from srl.base.run.core_play import RunStateActor
+from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callback import RunnerCallback
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.callbacks.history_viewer import HistoryViewer

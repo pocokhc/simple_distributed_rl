@@ -14,20 +14,3 @@ class RunnerCallback(ABC):
 
     def on_runner_end(self, runner: "Runner") -> None:
         pass  # do nothing
-
-
-class GameCallback(ABC):
-    def on_game_init(self, runner: "Runner") -> None:
-        pass  # do nothing
-
-    def on_game_begin(self, runner: "Runner") -> None:
-        pass  # do nothing
-
-    def on_game_end(self, runner: "Runner") -> None:
-        pass  # do nothing
-
-    def on_game_step_end(self, runner: "Runner") -> None:
-        pass  # do nothing
-
-    def on_skip_step(self, runner: "Runner") -> None:
-        pass  # do nothing

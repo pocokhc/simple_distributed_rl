@@ -14,7 +14,8 @@ from srl.base.define import RLMemoryTypes
 from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext, RunNameTypes
-from srl.base.run.core import RunStateActor, RunStateTrainer
+from srl.base.run.core_play import RunStateActor
+from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.runner import CallbackType, TaskConfig
 
 logger = logging.getLogger(__name__)
@@ -187,6 +188,7 @@ def _run_actor(
             trainer=None,
             workers=None,
             callbacks=task_config.callbacks,
+            enable_generator=False,
         )
     finally:
         end_signal.value = True

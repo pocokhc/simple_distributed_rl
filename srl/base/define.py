@@ -26,6 +26,26 @@ RLObservationType = np.ndarray
 InfoType = Dict[str, Union[float, int, str]]
 
 
+class DoneTypes(enum.Enum):
+    RESET = enum.auto()
+    NONE = enum.auto()
+    TERMINATED = enum.auto()
+    TIMEOUT = enum.auto()
+    EPISODE_STEP_OVER = enum.auto()
+    TRUNCATED_ENV_SANITIZE = enum.auto()
+    TRUNCATED_RL = enum.auto()
+
+    @staticmethod
+    def done(done: Union[bool, "DoneTypes"]) -> bool:
+        return done if isinstance(done, bool) else DoneTypes.NONE != done
+
+    @staticmethod
+    def from_bool(done: Union[bool, "DoneTypes"]) -> "DoneTypes":
+        if isinstance(done, bool):
+            return DoneTypes.TERMINATED if done else DoneTypes.NONE
+        return done
+
+
 class EnvObservationTypes(enum.Enum):
     UNKNOWN = 0
     # value

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
 from srl.base.define import (
+    DoneTypes,
     EnvActionType,
     EnvObservationType,
     EnvObservationTypes,
@@ -86,7 +87,7 @@ class EnvBase(ABC, IRender):
         raise NotImplementedError()
 
     @abstractmethod
-    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], bool, InfoType]:
+    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], Union[bool, DoneTypes], InfoType]:
         """step
 
         Args:
@@ -99,7 +100,7 @@ class EnvBase(ABC, IRender):
                 player2 reward,
                 ...
             ],
-            done,
+            done or DoneTypes,
             info,
         )
         """

@@ -6,16 +6,19 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import EnvObservationTypes, RLBaseTypes, RLTypes
-from srl.base.rl.algorithms.continuous_action import ContinuousActionWorker
-from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.exception import UndefinedError
+from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
-from srl.rl.functions.common_tf import compute_logprob_sgp
+from srl.base.rl.worker_run import WorkerRun
+from srl.rl.functions.common import render_discrete_action
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
-from srl.rl.models.tf.input_block import InputBlock
+from srl.rl.models.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
+from srl.rl.models.tf.distributions.normal_dist_block import NormalDistBlock
+from srl.rl.models.tf.input_block import InputImageBlock
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.utils.common import compare_less_version
@@ -45,25 +48,40 @@ SAC
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig, ExperienceReplayBufferConfig):
-    # model
+    # --- model
+    #: <:ref:`ImageBlock`> This layer is only used when the input is an image.
     image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
+    #: <:ref:`MLPBlock`> policy layer
     policy_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    #: <:ref:`MLPBlock`>
     q_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
+    #: discount
     discount: float = 0.9
+    #: policy learning rate
     lr_policy: float = 0.001  # type: ignore , type OK
+    #: q learning rate
     lr_q: float = 0.001  # type: ignore , type OK
-    lr_alpha: float = 0.0001  # type: ignore , type OK
+    #: alpha learning rate
+    lr_alpha: float = 0.001  # type: ignore , type OK
+    #: soft_target_update_tau
     soft_target_update_tau: float = 0.02
+    #: hard_target_update_interval
     hard_target_update_interval: int = 100
+    #: actionが連続値の時、正規分布をtanhで-1～1に丸めるか
+    enable_normal_squashed: bool = True
 
-    enable_alpha_train: bool = True
-    alpha_no_learning: float = 0.1  # 学習しない場合のalpha値
+    #: entropy alphaを自動調整するか
+    entropy_alpha_auto_scale: bool = True
+    #: entropy alphaの初期値
+    entropy_alpha: float = 0.2
+    #: Q値の計算からエントロピーボーナスを除外します
+    entropy_bonus_exclude_q: float = False
 
     #: 勾配爆発の対策, 平均、分散、ランダムアクションで大きい値を出さないようにclipする
-    enable_stable_gradients: bool = True  # 勾配爆発の対策
-    stable_gradients_max_stddev: float = 1
-    stable_gradients_normal_max_action: float = 1
+    enable_stable_gradients: bool = True
+    #: enable_stable_gradients状態での標準偏差のclip
+    stable_gradients_stddev_range: tuple = (1e-10, 10)
 
     def __post_init__(self):
         super().__post_init__()
@@ -77,7 +95,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     @property
     def base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS
+        return RLBaseTypes.ANY
 
     @property
     def base_observation_type(self) -> RLBaseTypes:
@@ -128,155 +146,127 @@ class _PolicyNetwork(keras.Model):
         self.config = config
 
         # input
-        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
+        self.in_img_block = None
+        if config.observation_type == RLTypes.IMAGE:
+            self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
+            self.img_block = config.image_block.create_block_tf()
+        self.flat_layer = kl.Flatten()
 
-        # image
-        if self.in_block.use_image_layer:
-            self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=False)
-            self.image_flatten = kl.Flatten()
-
-        # --- hidden block
+        # layers
         self.hidden_block = config.policy_hidden_block.create_block_tf()
-
-        # --- out layer
-        self.mean_layer = kl.Dense(
-            config.action_num,
-            activation="linear",
-        )
-        # 分散が大きいとinfになるので0-1あたりに抑える
-        self.stddev_layer = kl.Dense(
-            config.action_num,
-            activation="linear",
-            kernel_initializer=tf.keras.initializers.TruncatedNormal(mean=0.0, stddev=0.5),
-            bias_initializer="zeros",
-        )
+        if self.config.action_type == RLTypes.DISCRETE:
+            self.policy_dist_block = CategoricalGumbelDistBlock(config.action_num)
+        elif self.config.action_type == RLTypes.CONTINUOUS:
+            self.policy_dist_block = NormalDistBlock(
+                config.action_num,
+                enable_squashed=self.config.enable_normal_squashed,
+                enable_stable_gradients=self.config.enable_stable_gradients,
+                stable_gradients_stddev_range=self.config.stable_gradients_stddev_range,
+            )
+        else:
+            raise UndefinedError(self.config.action_type)
 
         # build
-        self.build((None,) + config.observation_shape)
+        self._in_shape = config.observation_shape
+        self.build((None,) + self._in_shape)
 
-    def call(self, state, training=False):
-        x = self.in_block(state, training=training)
-        if self.in_block.use_image_layer:
-            x = self.image_block(x, training=training)
-            x = self.image_flatten(x)
+    def call(self, x, training=False) -> Any:
+        if self.in_img_block is not None:
+            x = self.in_img_block(x, training)
+            x = self.img_block(x, training)
+        x = self.flat_layer(x)
         x = self.hidden_block(x, training=training)
-        mean = self.mean_layer(x)
-        stddev = self.stddev_layer(x)
+        return self.policy_dist_block(x)
 
-        # σ > 0
-        stddev = tf.exp(stddev)
+    def policy(self, state):
+        return self.policy_dist_block.get_dist(self(state, training=False))
 
-        if self.config.enable_stable_gradients:
-            stddev = tf.clip_by_value(stddev, 0, self.config.stable_gradients_max_stddev)
+    @tf.function
+    def compute_train_loss(self, state, q1_model, q2_model, alpha):
+        p_dist = self.policy_dist_block.get_grad_dist(self(state, training=True))
 
-        if mean.shape[0] is None:
-            return mean, stddev
+        if self.config.action_type == RLTypes.DISCRETE:
+            action = p_dist.sample()
+            logpi = p_dist.log_probs()
+            H = -tf.reduce_sum(tf.exp(logpi) * logpi, axis=1, keepdims=True)
+        elif self.config.action_type == RLTypes.CONTINUOUS:
+            action = p_dist.sample()
+            logpi = p_dist.log_prob(p_dist.y_org)
+            H = -logpi
+        else:
+            raise UndefinedError(self.config.action_type)
 
-        # Reparameterization trick
-        normal_random = tf.random.normal(mean.shape, mean=0.0, stddev=1.0)
-        if self.config.enable_stable_gradients:
-            normal_random = tf.clip_by_value(
-                normal_random,
-                -self.config.stable_gradients_normal_max_action,
-                self.config.stable_gradients_normal_max_action,
-            )
-        action = mean + stddev * normal_random
+        # Q値を出力、小さいほうを使う
+        q1 = q1_model([state, action])
+        q2 = q2_model([state, action])
+        q_min = tf.minimum(q1, q2)
 
-        # Squashed Gaussian Policy
-        sgp_action = tf.tanh(action)
-
-        return sgp_action, mean, stddev, action
-
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
+        policy_loss = q_min + (alpha * H)
+        policy_loss = -tf.reduce_mean(policy_loss)
+        policy_loss += tf.reduce_sum(self.losses)  # 正則化項
+        return policy_loss, logpi
 
     def summary(self, name: str = "", **kwargs):
-        if hasattr(self.in_block, "init_model_graph"):
-            self.in_block.init_model_graph()
-        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
-            self.image_block.init_model_graph()
-        if hasattr(self.hidden_block, "init_model_graph"):
-            self.hidden_block.init_model_graph()
+        if self.in_img_block is not None:
+            self.in_img_block.init_model_graph()
+            self.img_block.init_model_graph()
+        self.hidden_block.init_model_graph()
 
-        x = kl.Input(shape=self.__input_shape[1:])
+        x = kl.Input(shape=self._in_shape)
         name = self.__class__.__name__ if name == "" else name
         model = keras.Model(inputs=x, outputs=self.call(x), name=name)
         model.summary(**kwargs)
 
 
-class _DualQNetwork(keras.Model):
+class _QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
         # input
-        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
+        self.in_img_block = None
+        if config.observation_type == RLTypes.IMAGE:
+            self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
+            self.img_block = config.image_block.create_block_tf()
+        self.flat_layer = kl.Flatten()
 
-        # image
-        if self.in_block.use_image_layer:
-            self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=False)
-            self.image_flatten = kl.Flatten()
-
-        # q1
-        self.q1_block = config.q_hidden_block.create_block_tf()
-        self.q1_out_layer = kl.Dense(1)
-
-        # q2
-        self.q2_block = config.q_hidden_block.create_block_tf()
-        self.q2_out_layer = kl.Dense(1)
+        self.q_block = config.q_hidden_block.create_block_tf()
+        self.q_out_layer = kl.Dense(1)
 
         # build
-        self.build(
-            [
-                (None,) + config.observation_shape,
-                (None, config.action_num),
-            ]
-        )
+        self._in_shape1 = config.observation_shape
+        self._in_shape2 = (config.action_num,)
+        self.build([(None,) + self._in_shape1, (None,) + self._in_shape2])
+
+    def call(self, x, training=False):
+        state = x[0]
+        onehot_action = x[1]
+
+        if self.in_img_block is not None:
+            state = self.in_img_block(state, training)
+            state = self.img_block(state, training)
+        state = self.flat_layer(state)
+        x = tf.concat([state, onehot_action], axis=1)
+
+        x = self.q_block(x, training=training)
+        x = self.q_out_layer(x, training=training)
+        return x
 
     @tf.function
-    def call(self, x, training=False):
-        return self._call(x, training)
-
-    def _call(self, inputs, training=False):
-        state = inputs[0]
-        action = inputs[1]
-
-        x = self.in_block(state, training=training)
-        if self.in_block.use_image_layer:
-            x = self.image_block(x, training=training)
-            x = self.image_flatten(x)
-        x = tf.concat([x, action], axis=1)
-
-        # q1
-        q1 = self.q1_block(x, training=training)
-        q1 = self.q1_out_layer(q1, training=training)
-
-        # q2
-        q2 = self.q2_block(x, training=training)
-        q2 = self.q2_out_layer(q2, training=training)
-
-        return q1, q2
-
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
+    def compute_train_loss(self, state, onehot_action, target_q):
+        q = self([state, onehot_action], training=True)
+        loss = tf.reduce_mean(tf.square(target_q - q))
+        loss += tf.reduce_sum(self.losses)  # 正則化項
+        return loss
 
     def summary(self, name: str = "", **kwargs):
-        if hasattr(self.in_block, "init_model_graph"):
-            self.in_block.init_model_graph()
-        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
-            self.image_block.init_model_graph()
-        if hasattr(self.q1_block, "init_model_graph"):
-            self.q1_block.init_model_graph()
-        if hasattr(self.q2_block, "init_model_graph"):
-            self.q2_block.init_model_graph()
+        if self.in_img_block is not None:
+            self.in_img_block.init_model_graph()
+            self.img_block.init_model_graph()
+        self.q_block.init_model_graph()
 
-        x = [
-            kl.Input(shape=self.__input_shape[0][1:]),
-            kl.Input(shape=self.__input_shape[1][1:]),
-        ]
+        x = [kl.Input(shape=self._in_shape1), kl.Input(shape=self._in_shape2)]
         name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
         model.summary(**kwargs)
 
 
@@ -289,24 +279,35 @@ class Parameter(RLParameter):
         self.config: Config = self.config
 
         self.policy = _PolicyNetwork(self.config)
-        self.q_online = _DualQNetwork(self.config)
-        self.q_target = _DualQNetwork(self.config)
-        self.q_target.set_weights(self.q_online.get_weights())
+        self.q1_online = _QNetwork(self.config)
+        self.q1_target = _QNetwork(self.config)
+        self.q1_target.set_weights(self.q1_online.get_weights())
+        self.q2_online = _QNetwork(self.config)
+        self.q2_target = _QNetwork(self.config)
+        self.q2_target.set_weights(self.q2_online.get_weights())
+
+        # エントロピーα自動調整用
+        self.log_alpha = tf.Variable(np.log(self.config.entropy_alpha), dtype=tf.float32)
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.policy.set_weights(data[0])
-        self.q_online.set_weights(data[1])
-        self.q_target.set_weights(data[1])
+        self.q1_online.set_weights(data[1])
+        self.q1_target.set_weights(data[1])
+        self.q2_online.set_weights(data[2])
+        self.q2_target.set_weights(data[2])
+        self.log_alpha = data[3]
 
     def call_backup(self, **kwargs) -> Any:
         return [
             self.policy.get_weights(),
-            self.q_online.get_weights(),
+            self.q1_online.get_weights(),
+            self.q2_online.get_weights(),
+            self.log_alpha,
         ]
 
     def summary(self, **kwargs):
         self.policy.summary(**kwargs)
-        self.q_online.summary(**kwargs)
+        self.q1_online.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -318,27 +319,28 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_policy_sch = self.config.lr_policy.create_schedulers()
         self.lr_q_sch = self.config.lr_q.create_schedulers()
+        self.lr_policy_sch = self.config.lr_policy.create_schedulers()
         self.lr_alpha_sch = self.config.lr_alpha.create_schedulers()
 
         if compare_less_version(tf.__version__, "2.11.0"):
-            self.q_optimizer = keras.optimizers.Adam(learning_rate=self.lr_policy_sch.get_rate())
-            self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.lr_q_sch.get_rate())
+            self.q1_optimizer = keras.optimizers.Adam(learning_rate=self.lr_q_sch.get_rate())
+            self.q2_optimizer = keras.optimizers.Adam(learning_rate=self.lr_q_sch.get_rate())
+            self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.lr_policy_sch.get_rate())
             self.alpha_optimizer = keras.optimizers.Adam(learning_rate=self.lr_alpha_sch.get_rate())
         else:
-            self.q_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_policy_sch.get_rate())
-            self.policy_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_q_sch.get_rate())
+            self.q1_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_q_sch.get_rate())
+            self.q2_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_q_sch.get_rate())
+            self.policy_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_policy_sch.get_rate())
             self.alpha_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_alpha_sch.get_rate())
 
-        # エントロピーαの目標値、-1×アクション数が良いらしい
+        # エントロピーαの目標値、-1*アクション数が良いらしい
         self.target_entropy = -1 * self.config.action_num
 
-        # エントロピーα自動調整用
-        self.log_alpha = tf.Variable(0.5, dtype=tf.float32)
-
-    def train_on_batchs(self, memory_sample_return) -> None:
-        batchs = memory_sample_return
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
+            return
+        batchs = self.memory.sample(self.batch_size, self.train_count)
 
         states = []
         actions = []
@@ -354,153 +356,192 @@ class Trainer(RLTrainer):
         states = np.asarray(states)
         n_states = np.asarray(n_states)
         actions = np.asarray(actions)
-        dones = np.asarray(dones).reshape((-1, 1))
-        rewards = np.asarray(rewards).reshape((-1, 1))
+        dones = np.asarray(dones, dtype=np.float32)[..., np.newaxis]
+        rewards = np.asarray(rewards, dtype=np.float32)[..., np.newaxis]
 
         # 方策エントロピーの反映率αを計算
-        if self.config.enable_alpha_train:
-            alpha = tf.math.exp(self.log_alpha)
+        alpha = np.exp(self.parameter.log_alpha)
+
+        # ポリシーより次の状態のアクションを取得し、次の状態のアクションlogpiを取得
+        n_p_dist = self.parameter.policy.policy(n_states)
+        if self.config.action_type == RLTypes.DISCRETE:
+            n_action = n_p_dist.sample(onehot=True)
+            n_logpi = n_p_dist.log_prob(n_action)
+            H = -n_logpi
+        elif self.config.action_type == RLTypes.CONTINUOUS:
+            n_action = n_p_dist.sample()
+            # Squashed Gaussian PolicyはSquash前のアクションを渡す必要あり
+            n_logpi = n_p_dist.log_prob(n_p_dist.y_org)
+            H = -n_logpi
         else:
-            alpha = self.config.alpha_no_learning
+            raise UndefinedError(self.config.action_type)
 
-        # ポリシーより次の状態のアクションを取得
-        n_actions, n_means, n_stddevs, n_action_orgs = self.parameter.policy(n_states)
-        # 次の状態のアクションのlogpiを取得
-        n_logpi = compute_logprob_sgp(n_means, n_stddevs, n_action_orgs)
-
-        # 2つのQ値から小さいほうを採用(Clipped Double Q learning)して、
-        # Q値を計算 : reward if done else (reward + discount * n_qval) - (alpha * H)
-        n_q1, n_q2 = self.parameter.q_target([n_states, n_actions])
-        n_qval = self.config.discount * tf.minimum(n_q1, n_q2)
-        q_vals = rewards + (1 - dones) * n_qval - (alpha * n_logpi)
+        # 2つのQ値から小さいほうを採用(Clipped Double Q learning)
+        n_q1 = self.parameter.q1_target([n_states, n_action])
+        n_q2 = self.parameter.q2_target([n_states, n_action])
+        n_qval = tf.minimum(n_q1, n_q2)
+        if self.config.entropy_bonus_exclude_q:
+            target_q = rewards + (1 - dones) * self.config.discount * n_qval
+        else:
+            target_q = rewards + (1 - dones) * self.config.discount * (n_qval + alpha * H)
 
         # --- Qモデルの学習
+        # 一緒に学習すると-と+で釣り合う場合がある
+        self.parameter.q1_online.trainable = True
+        self.parameter.q2_online.trainable = True
         with tf.GradientTape() as tape:
-            q1, q2 = self.parameter.q_online([states, actions], training=True)
-            loss1 = tf.reduce_mean(tf.square(q_vals - q1))
-            loss2 = tf.reduce_mean(tf.square(q_vals - q2))
-            q_loss = (loss1 + loss2) / 2
-            q_loss += tf.reduce_sum(self.parameter.q_online.losses)  # 正則化項
+            q1_loss = self.parameter.q1_online.compute_train_loss(states, actions, target_q)
+        grads = tape.gradient(q1_loss, self.parameter.q1_online.trainable_variables)
+        self.q1_optimizer.apply_gradients(zip(grads, self.parameter.q1_online.trainable_variables))
+        self.train_info["q1_loss"] = q1_loss.numpy()
 
-        grads = tape.gradient(q_loss, self.parameter.q_online.trainable_variables)
-        self.q_optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
+        with tf.GradientTape() as tape:
+            q2_loss = self.parameter.q2_online.compute_train_loss(states, actions, target_q)
+        grads = tape.gradient(q2_loss, self.parameter.q2_online.trainable_variables)
+        self.q2_optimizer.apply_gradients(zip(grads, self.parameter.q2_online.trainable_variables))
+        self.train_info["q2_loss"] = q2_loss.numpy()
 
         # --- ポリシーの学習
+        self.parameter.q1_online.trainable = False
+        self.parameter.q2_online.trainable = False
         with tf.GradientTape() as tape:
-            # アクションを出力
-            selected_actions, means, stddevs, action_orgs = self.parameter.policy(states, training=True)
-
-            # logπ(a|s)
-            logpi = compute_logprob_sgp(means, stddevs, action_orgs)
-
-            # Q値を出力、小さいほうを使う
-            q1, q2 = self.parameter.q_online([states, selected_actions], training=True)
-            q_min = tf.minimum(q1, q2)
-
-            # alphaは定数扱いなので勾配が流れないようにする
-            policy_loss = q_min - (tf.stop_gradient(alpha) * logpi)
-            policy_loss = -tf.reduce_mean(policy_loss)
-            policy_loss += tf.reduce_sum(self.parameter.policy.losses)  # 正則化項
-
+            policy_loss, logpi = self.parameter.policy.compute_train_loss(
+                states,
+                self.parameter.q1_online,
+                self.parameter.q2_online,
+                alpha,
+            )
         grads = tape.gradient(policy_loss, self.parameter.policy.trainable_variables)
         self.policy_optimizer.apply_gradients(zip(grads, self.parameter.policy.trainable_variables))
+        self.train_info["policy_loss"] = policy_loss.numpy()
 
         # --- 方策エントロピーαの自動調整
-        if self.config.enable_alpha_train:
-            _, means, stddevs, action_orgs = self.parameter.policy(states)
-            logpi = compute_logprob_sgp(means, stddevs, action_orgs)
-
+        if self.config.entropy_alpha_auto_scale:
             with tf.GradientTape() as tape:
                 entropy_diff = logpi + self.target_entropy
-                log_alpha_loss = tf.reduce_mean(-tf.exp(self.log_alpha) * entropy_diff)
-
-            grad = tape.gradient(log_alpha_loss, self.log_alpha)
-            self.alpha_optimizer.apply_gradients([(grad, self.log_alpha)])
+                log_alpha_loss = tf.reduce_mean(-tf.exp(self.parameter.log_alpha) * entropy_diff)
+            grad = tape.gradient(log_alpha_loss, self.parameter.log_alpha)
+            self.alpha_optimizer.apply_gradients([(grad, self.parameter.log_alpha)])
+            self.train_info["alpha_loss"] = log_alpha_loss.numpy()
+            self.train_info["alpha"] = alpha
 
         # --- soft target update
-        self.parameter.q_target.set_weights(
-            (1 - self.config.soft_target_update_tau) * np.array(self.parameter.q_target.get_weights(), dtype=object)
-            + (self.config.soft_target_update_tau) * np.array(self.parameter.q_online.get_weights(), dtype=object)
+        self.parameter.q1_target.set_weights(
+            (1 - self.config.soft_target_update_tau) * np.array(self.parameter.q1_target.get_weights(), dtype=object)
+            + (self.config.soft_target_update_tau) * np.array(self.parameter.q1_online.get_weights(), dtype=object)
+        )
+        self.parameter.q2_target.set_weights(
+            (1 - self.config.soft_target_update_tau) * np.array(self.parameter.q2_target.get_weights(), dtype=object)
+            + (self.config.soft_target_update_tau) * np.array(self.parameter.q2_online.get_weights(), dtype=object)
         )
 
         # --- hard target sync
         if self.train_count % self.config.hard_target_update_interval == 0:
-            self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
+            self.parameter.q1_target.set_weights(self.parameter.q1_online.get_weights())
+            self.parameter.q2_target.set_weights(self.parameter.q2_online.get_weights())
 
         # lr_schedule
         if self.lr_q_sch.update(self.train_count):
-            self.q_optimizer.learning_rate = self.lr_q_sch.get_rate()
+            self.q1_optimizer.learning_rate = self.lr_q_sch.get_rate()
+            self.q2_optimizer.learning_rate = self.lr_q_sch.get_rate()
         if self.lr_policy_sch.update(self.train_count):
             self.policy_optimizer.learning_rate = self.lr_policy_sch.get_rate()
         if self.lr_alpha_sch.update(self.train_count):
             self.alpha_optimizer.learning_rate = self.lr_alpha_sch.get_rate()
 
         self.train_count += 1
-        self.train_info = {
-            "q_loss": q_loss.numpy(),
-            "policy_loss": policy_loss.numpy(),
-            "alpha_loss": log_alpha_loss.numpy(),
-        }
 
 
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(ContinuousActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-    def call_on_reset(self, state: np.ndarray) -> dict:
-        self.state = state
+    def on_reset(self, worker: WorkerRun) -> dict:
         return {}
 
-    def call_policy(self, state: np.ndarray) -> Tuple[List[float], dict]:
-        self.state = state
-        action, mean, stddev, _ = self.parameter.policy(state.reshape(1, -1))  # type:ignore , ignore check "None"
+    def policy(self, worker: WorkerRun) -> Tuple[Any, dict]:
+        self.state = worker.state
 
-        if self.training:
-            action = action.numpy()[0]
+        p_dist = self.parameter.policy.policy(self.state[np.newaxis, ...])
+        if self.config.action_type == RLTypes.DISCRETE:  # int
+            self.action = p_dist.sample(onehot=True).numpy()[0]
+            env_action = int(np.argmax(self.action))
+            if self.rendering:
+                self.probs = p_dist.probs().numpy()[0]
+
+            # --- debug
+            # env_action = self.sample_action()
+            # self.action = np.identity(self.config.action_num, dtype=np.float32)[env_action]
+
+        elif self.config.action_type == RLTypes.CONTINUOUS:  # float,list[float]
+            if self.training:
+                self.action = p_dist.sample().numpy()[0]
+            else:
+                self.action = p_dist.mean().numpy()[0]
+
+            if self.config.enable_normal_squashed:
+                # Squashed Gaussian Policy (-1, 1) -> (action range)
+                env_action = (self.action + 1) / 2
+                env_action = self.config.action_low + env_action * (self.config.action_high - self.config.action_low)
+            else:
+                env_action = np.clip(self.action, self.config.action_low, self.config.action_high)
+            env_action = env_action.tolist()
+
+            if self.rendering:
+                self.mean = p_dist.mean().numpy()[0]
+                self.stddev = p_dist.stddev().numpy()[0]
+
         else:
-            # テスト時は平均を使う
-            mean = tf.tanh(mean)
-            action = mean.numpy()[0]
+            raise UndefinedError(self.config.action_type)
 
-        # Squashed Gaussian Policy (-1, 1) -> (action range)
-        env_action = (action + 1) / 2
-        env_action = self.config.action_low + env_action * (self.config.action_high - self.config.action_low)
+        return env_action, {}
 
-        self.mean = mean.numpy()[0]
-        self.stddev = stddev.numpy()[0]
-        self.action = action
-        return env_action.tolist(), {}
-
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward: float,
-        done: bool,
-    ) -> dict:
+    def on_step(self, worker: WorkerRun) -> dict:
         if not self.training:
             return {}
 
         batch = {
             "state": self.state,
             "action": self.action,
-            "next_state": next_state,
-            "reward": reward,
-            "done": done,
+            "next_state": worker.state,
+            "reward": worker.reward,
+            "done": worker.done,
         }
         self.memory.add(batch)
 
         return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
-        q1, q2 = self.parameter.q_online([self.state.reshape(1, -1), np.asarray([self.action])])
-        q1 = q1.numpy()[0][0]
-        q2 = q2.numpy()[0][0]
+        if self.config.action_type == RLTypes.DISCRETE:
+            maxa = np.argmax(self.probs)
 
-        print(f"mean   {self.mean}")
-        print(f"stddev {self.stddev}")
-        print(f"q1   {q1:.5f}, q2    {q2:.5f}")
+            def _render_sub(a: int) -> str:
+                onehot_a = np.identity(self.config.action_num, dtype=np.float32)[a][np.newaxis, ...]
+                q1 = self.parameter.q1_online([self.state[np.newaxis, ...], onehot_a])
+                q2 = self.parameter.q2_online([self.state[np.newaxis, ...], onehot_a])
+                q1 = q1.numpy()[0][0]
+                q2 = q2.numpy()[0][0]
+
+                s = f"{self.probs[a] * 100:5.1f}%, q1 {q1:.5f}, q2 {q2:.5f} "
+                return s
+
+            render_discrete_action(maxa, worker.env, self.config, _render_sub)
+
+        elif self.config.action_type == RLTypes.CONTINUOUS:
+            q1 = self.parameter.q1_online([self.state[np.newaxis, ...], self.action[np.newaxis, ...]])
+            q2 = self.parameter.q2_online([self.state[np.newaxis, ...], self.action[np.newaxis, ...]])
+            q1 = q1.numpy()[0][0]
+            q2 = q2.numpy()[0][0]
+            print(f"q1 {q1:8.5f}")
+            print(f"q2 {q2:8.5f}")
+            print(f"action: {self.action}")
+            print(f"mean  : {self.mean}")
+            print(f"stddev: {self.stddev}")
+
+        else:
+            raise UndefinedError(self.config.action_type)

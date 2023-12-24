@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 import numpy as np
 
 from srl.base.define import (
+    DoneTypes,
     EnvActionType,
     EnvObservationType,
     EnvObservationTypes,
@@ -42,7 +43,7 @@ class EnvRun:
 
     def init(self):
         """reset前の状態を定義"""
-        self._done = True
+        self._done = DoneTypes.RESET
 
     # --- with
     def __del__(self):
@@ -81,7 +82,8 @@ class EnvRun:
         self._state, self._info = self.env.reset()
         if self.config.random_noop_max > 0:
             for _ in range(random.randint(0, self.config.random_noop_max)):
-                self._state, rewards, done, self._info = self.env.step(self.env.action_space.get_default())
+                self._state, rewards, env_done, self._info = self.env.step(self.env.action_space.get_default())
+                assert not DoneTypes.done(env_done), "Terminated during noop step."
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
         if self.config.enable_assertion_value:
             assert self.observation_space.check_val(self._state)
@@ -94,23 +96,18 @@ class EnvRun:
             ]
 
     def _reset_vals(self):
-        self._step_num = 0
+        self._step_num: int = 0
         self._state = self.env.observation_space.get_default()
-        self._done = False
-        self._done_reason = ""
-        self._prev_player_index = 0
+        self._done: DoneTypes = DoneTypes.NONE
+        self._prev_player_index: int = 0
         self._episode_rewards = np.zeros(self.player_num)
         self._step_rewards = np.zeros(self.player_num)
-        self._invalid_actions_list = [[] for _ in range(self.env.player_num)]
+        self._invalid_actions_list: list = [[] for _ in range(self.env.player_num)]
         self._t0 = time.time()
-        self._info = {}
+        self._info: dict = {}
 
-    def step(
-        self,
-        action: EnvActionType,
-        frameskip_function: Optional[Callable[[], None]] = None,
-    ) -> None:
-        assert not self.done, "It is in the done state. Please execute reset()."
+    def step(self, action: EnvActionType, frameskip_function: Optional[Callable[[], None]] = None) -> None:
+        assert self._done == DoneTypes.NONE, "It is in the done state. Please execute reset()."
         if self._is_direct_step:
             assert self.env.can_simulate_from_direct_step, "env does not support 'step' after 'direct_step'."
 
@@ -120,15 +117,15 @@ class EnvRun:
         elif self.config.enable_sanitize_value:
             action = self.sanitize_action(action, "The format of 'action' entered in 'env.step' was wrong.")
         self._prev_player_index = self.env.next_player_index
-        state, rewards, done, info = self.env.step(action)
+        state, rewards, env_done, info = self.env.step(action)
         if self.config.enable_assertion_value:
             self.assert_state(state)
             self.assert_rewards(rewards)
-            self.assert_done(done)
+            self.assert_done(env_done)
         elif self.config.enable_sanitize_value:
             state = self.sanitize_state(state, "'state' in 'env.step' may not be SpaceType.")
             rewards = self.sanitize_rewards(rewards, "'rewards' in 'env.step' may not be List[float].")
-            done = self.sanitize_done(done, "'done' in 'env.reset may' not be bool.")
+            env_done = self.sanitize_done(env_done, "'done' in 'env.reset may' not be bool.")
 
         self._render.cache_reset()
         step_rewards = np.array(rewards, dtype=np.float32)
@@ -136,30 +133,30 @@ class EnvRun:
         # --- skip frame
         for _ in range(self.config.frameskip):
             assert self.player_num == 1, "not support"
-            state, rewards, done, info = self.env.step(action)
+            state, rewards, env_done, info = self.env.step(action)
             if self.config.enable_assertion_value:
                 self.assert_state(state)
                 self.assert_rewards(rewards)
-                self.assert_done(done)
+                self.assert_done(env_done)
             elif self.config.enable_sanitize_value:
                 state = self.sanitize_state(state, "'state' in 'env.step' may not be SpaceType.")
                 rewards = self.sanitize_rewards(rewards, "'rewards' in 'env.step' may not be List[float].")
-                done = self.sanitize_done(done, "'done' in 'env.reset may' not be bool.")
+                env_done = self.sanitize_done(env_done, "'done' in 'env.reset may' not be bool.")
 
             step_rewards += np.array(rewards, dtype=np.float32)
             self._render.cache_reset()
-            if done:
+            if DoneTypes.done(env_done):
                 break
 
             if frameskip_function is not None:
                 frameskip_function()
 
-        return self._step(state, step_rewards, done, info)
+        return self._step(state, step_rewards, env_done, info)
 
-    def _step(self, state: EnvObservationType, rewards: np.ndarray, done: bool, info: InfoType):
+    def _step(self, state: EnvObservationType, rewards: np.ndarray, env_done: Union[bool, DoneTypes], info: InfoType):
         self._state = state
         self._step_rewards = rewards
-        self._done = done
+        self._done = DoneTypes.from_bool(env_done)
         self._info = info
 
         invalid_actions = self.env.get_invalid_actions(self.next_player_index)
@@ -174,31 +171,27 @@ class EnvRun:
         self._episode_rewards += self.step_rewards
 
         # action check
-        if not self.done and len(invalid_actions) > 0:
+        if not self._done and len(invalid_actions) > 0:
             assert len(invalid_actions) < self.action_space.n
 
         # done step
-        if self.done:
-            self._done_reason = "env"
-        elif self.step_num > self.max_episode_steps:
-            self._done = True
-            self._done_reason = "episode max steps"
-        elif self.config.episode_timeout > 0 and time.time() - self._t0 > self.config.episode_timeout:
-            self._done = True
-            self._done_reason = "timeout"
+        if self._done == DoneTypes.NONE:
+            if self.step_num > self.max_episode_steps:
+                self._done = DoneTypes.EPISODE_STEP_OVER
+            elif self.config.episode_timeout > 0 and time.time() - self._t0 > self.config.episode_timeout:
+                self._done = DoneTypes.TIMEOUT
 
     def backup(self, include_env: bool = True) -> Any:
         logger.debug("env.backup")
         d = [
-            self.step_num,
-            self.episode_rewards,
-            self.state,
-            self.step_rewards,
-            self.done,
-            self.done_reason,
-            self.prev_player_index,
+            self._step_num,
+            self._episode_rewards,
+            self._state,
+            self._step_rewards,
+            self._done,
+            self._prev_player_index,
             self._invalid_actions_list,
-            self.info,
+            self._info,
             self._t0,
             self._is_direct_step,
         ]
@@ -215,12 +208,11 @@ class EnvRun:
         self._state = d[2]
         self._step_rewards = d[3]
         self._done = d[4]
-        self._done_reason = d[5]
-        self._prev_player_index = d[6]
-        self._invalid_actions_list = d[7]
-        self._info = d[8]
-        self._t0 = d[9]
-        self._is_direct_step = d[10]
+        self._prev_player_index = d[5]
+        self._invalid_actions_list = d[6]
+        self._info = d[7]
+        self._t0 = d[8]
+        self._is_direct_step = d[9]
         if self._is_direct_step:
             if not self.env.can_simulate_from_direct_step:
                 logger.warning("env does not support 'step' after 'direct_step'.")
@@ -273,14 +265,14 @@ class EnvRun:
         for r in rewards:
             assert isinstance(r, float), f"The type of reward is different. {r}({type(r)}), {rewards}"
 
-    def sanitize_done(self, done: bool, error_msg: str = "") -> bool:
+    def sanitize_done(self, done: Union[bool, DoneTypes], error_msg: str = "") -> DoneTypes:
         try:
-            return bool(done)
+            return DoneTypes.from_bool(done)
         except Exception as e:
             logger.error(f"{done}({type(done)}), {error_msg}, {e}")
-        return True
+        return DoneTypes.TRUNCATED_ENV_SANITIZE
 
-    def assert_done(self, done: bool):
+    def assert_done(self, done: Union[bool, DoneTypes]):
         assert isinstance(done, bool), f"The type of reward is different. {done}({type(done)})"
 
     def sanitize_invalid_actions(self, invalid_actions: InvalidActionsType, error_msg: str = "") -> InvalidActionsType:
@@ -353,11 +345,11 @@ class EnvRun:
 
     @property
     def done(self) -> bool:
-        return self._done
+        return self._done != DoneTypes.NONE
 
     @property
-    def done_reason(self) -> str:
-        return self._done_reason
+    def done_reason(self) -> DoneTypes:
+        return self._done
 
     @property
     def episode_rewards(self) -> np.ndarray:
@@ -383,19 +375,13 @@ class EnvRun:
 
     # invalid actions
     def get_invalid_actions(self, player_index: int = -1) -> InvalidActionsType:
-        if isinstance(self.action_space, DiscreteSpace):
-            if player_index == -1:
-                player_index = self.next_player_index
-            return self._invalid_actions_list[player_index]
-        else:
-            return []
+        if player_index == -1:
+            player_index = self.next_player_index
+        return self._invalid_actions_list[player_index]
 
     def get_valid_actions(self, player_index: int = -1) -> InvalidActionsType:
-        if isinstance(self.action_space, DiscreteSpace):
-            invalid_actions = self.get_invalid_actions(player_index)
-            return [a for a in range(self.action_space.n) if a not in invalid_actions]
-        else:
-            assert False, "not support"
+        invalid_actions = self.get_invalid_actions(player_index)
+        return [a for a in range(self.action_space.n) if a not in invalid_actions]
 
     def add_invalid_actions(self, invalid_actions: InvalidActionsType, player_index: int) -> None:
         if self.config.enable_assertion_value:

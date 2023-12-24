@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple, Union, cast
 import numpy as np
 
 from srl.base.define import (
+    DoneTypes,
     EnvActionType,
     EnvObservationType,
     InfoType,
@@ -38,18 +39,17 @@ class WorkerRun:
         self._distributed = distributed
         self._actor_id = actor_id
 
-        self._training = False
-        self._rendering = False
-        self._player_index = 0
-        self._info = {}
+        self._training: bool = False
+        self._rendering: bool = False
+        self._player_index: int = 0
+        self._info: dict = {}
         self._state: RLObservationType = self._config.create_dummy_state()
-        self._reward = 0
-        self._step_reward = 0
-        self._done = False
+        self._reward: float = 0
+        self._step_reward: float = 0
         self._invalid_actions: InvalidActionsType = []
         self._render = Render(worker)
 
-        self._total_step = 0
+        self._total_step: int = 0
 
         if self._config.window_length > 1:
             self._dummy_state = self._config.create_dummy_state(is_one=True)
@@ -103,7 +103,11 @@ class WorkerRun:
 
     @property
     def done(self) -> bool:
-        return self._done
+        return self._env.done
+
+    @property
+    def done_reason(self) -> DoneTypes:
+        return self._env.done_reason
 
     @property
     def invalid_actions(self) -> InvalidActionsType:
@@ -128,7 +132,6 @@ class WorkerRun:
         self._info = {}
         self._state = self._config.create_dummy_state()
         self._reward = 0
-        self._done = False
         self._set_invalid_actions()
 
         if self._config.window_length > 1:
@@ -175,12 +178,8 @@ class WorkerRun:
         # 相手の番のrewardも加算
         self._step_reward += self._env.step_rewards[self.player_index]
 
-        if self._done and not self._env.done:
-            self._env._done = True
-            self._env._done_reason = "RL"
-
         # 終了ならon_step実行
-        if self._env.done:
+        if self.done:
             self._on_step()
             if self._rendering:
                 self._render.cache_reset()
@@ -189,7 +188,7 @@ class WorkerRun:
         # encode -> set invalid -> on_step -> reward=0
         self._state = self.state_encode(self._env.state, self._env, append_recent_state=True)
         self._reward = self.reward_encode(self._step_reward, self._env)
-        self._done = self.done_encode(self._env.done, self._env)
+        self._env._done = self.done_encode(self._env._done, self._env)
         self._set_invalid_actions()
         self._info = self._worker.on_step(self)
         self._step_reward = 0
@@ -263,7 +262,7 @@ class WorkerRun:
                 reward = p.preprocess_reward(reward, env)
         return reward
 
-    def done_encode(self, done: bool, env: EnvRun) -> bool:
+    def done_encode(self, done: DoneTypes, env: EnvRun) -> DoneTypes:
         if self._config.enable_done_encode:
             for p in self.config.run_processors:
                 done = p.preprocess_done(done, env)

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Optional, Tuple
 
 import numpy as np
 
-from srl.base.define import InfoType, InvalidActionsType, RLActionType, RLMemoryTypes
+from srl.base.define import DoneTypes, InfoType, InvalidActionsType, RLActionType, RLMemoryTypes
 from srl.base.render import IRender
 from srl.base.rl.config import DummyRLConfig, RLConfig
 
@@ -302,6 +302,9 @@ class RLWorker(ABC, IRender):
     @property
     def env(self) -> "EnvRun":
         return self.__worker_run._env
+
+    def terminated(self) -> None:
+        self.__worker_run._env._done = DoneTypes.TRUNCATED_RL
 
     # ------------------------------------
     # worker info (shortcut properties)

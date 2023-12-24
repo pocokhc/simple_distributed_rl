@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import TYPE_CHECKING, Tuple
 
-from srl.base.define import EnvObservationType, EnvObservationTypes
+from srl.base.define import DoneTypes, EnvObservationType, EnvObservationTypes
 from srl.base.env.env_run import SpaceBase
 
 if TYPE_CHECKING:
@@ -31,5 +31,5 @@ class Processor(ABC):
     def preprocess_reward(self, reward: float, env: "EnvRun") -> float:
         return reward
 
-    def preprocess_done(self, done: bool, env: "EnvRun") -> bool:
+    def preprocess_done(self, done: DoneTypes, env: "EnvRun") -> DoneTypes:
         return done

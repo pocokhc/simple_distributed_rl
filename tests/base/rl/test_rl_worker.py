@@ -6,7 +6,7 @@ from srl.base.rl.base import DummyRLMemory, DummyRLParameter, RLWorker
 from srl.base.rl.config import DummyRLConfig
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.context import RunContext
-from srl.base.run.core import play
+from srl.base.run.core_play import play
 
 
 class StubWorker(RLWorker):

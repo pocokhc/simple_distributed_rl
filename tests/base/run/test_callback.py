@@ -6,7 +6,8 @@ import srl
 from srl.algorithms import ql, ql_agent57
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext
-from srl.base.run.core import play, play_trainer_only
+from srl.base.run.core_play import play
+from srl.base.run.core_train_only import play_trainer_only
 
 
 def test_callback(mocker: pytest_mock.MockerFixture):

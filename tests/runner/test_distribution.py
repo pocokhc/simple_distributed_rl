@@ -10,7 +10,8 @@ import srl
 from srl.algorithms import ql_agent57
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext
-from srl.base.run.core import RunStateActor, RunStateTrainer
+from srl.base.run.core_play import RunStateActor
+from srl.base.run.core_train_only import RunStateTrainer
 from srl.utils import common
 
 try:

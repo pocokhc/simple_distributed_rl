@@ -46,19 +46,19 @@ def test_processor():
     env_name = "Othello"
 
     in_state = [0] * (8 * 8)
-    out_state = np.zeros((2, 8, 8))
+    out_state = np.zeros((8, 8, 2))
 
     in_state[0] = 1
     in_state[1] = -1
     out_state[0][0][0] = 1
-    out_state[1][0][1] = 1
+    out_state[0][1][1] = 1
 
     tester.run(processor, env_name)
     tester.preprocess_observation_space(
         processor,
         env_name,
-        EnvObservationTypes.SHAPE3,
-        BoxSpace((2, 8, 8), 0, 1),
+        EnvObservationTypes.IMAGE,
+        BoxSpace((8, 8, 2), 0, 1),
     )
     tester.preprocess_observation(
         processor,

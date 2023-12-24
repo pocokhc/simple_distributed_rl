@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from srl.base.define import EnvObservationTypes
+from srl.base.exception import TFLayerError
 
 
 def call_block_tf(
@@ -10,9 +11,9 @@ def call_block_tf(
     x,
     enable_time_distributed_layer=False,
 ):
-    from srl.rl.models.tf.input_block import InputBlock
+    from srl.rl.models.tf.input_block import InputImageBlock
 
-    block = InputBlock(
+    block = InputImageBlock(
         obs_shape,
         obs_type,
         enable_time_distributed_layer=enable_time_distributed_layer,
@@ -30,8 +31,6 @@ pattern0 = [
     ((4, 8), EnvObservationTypes.GRAY_2ch, (4, 8, 1), True),
     ((4, 8, 1), EnvObservationTypes.GRAY_3ch, (4, 8, 1), True),
     ((4, 8, 3), EnvObservationTypes.COLOR, (4, 8, 3), True),
-    ((4, 8), EnvObservationTypes.SHAPE2, (4, 8, 1), True),
-    ((10, 4, 8), EnvObservationTypes.SHAPE3, (4, 8, 10), True),
 ]
 
 
@@ -59,8 +58,6 @@ pattern10 = [
     ((10, 4, 8), EnvObservationTypes.GRAY_2ch, (4, 8, 10), True, False),
     ((10, 4, 8, 1), EnvObservationTypes.GRAY_3ch, (4, 8, 10), True, False),
     ((10, 4, 8, 3), EnvObservationTypes.COLOR, None, None, True),
-    ((10, 4, 8), EnvObservationTypes.SHAPE2, (4, 8, 10), True, False),
-    ((10, 10, 4, 8), EnvObservationTypes.SHAPE3, None, None, True),
 ]
 
 
@@ -75,7 +72,7 @@ def _window_10(call_block, obs_shape, obs_type, true_shape, true_image, is_throw
 
     x = np.ones((batch_size,) + obs_shape, dtype=np.float32)
     if is_throw:
-        with pytest.raises(ValueError):
+        with pytest.raises(TFLayerError):
             call_block(obs_shape, obs_type, x)
     else:
         y, use_image_layer, out_shape = call_block(obs_shape, obs_type, x)
@@ -92,8 +89,6 @@ pattern_time = [
     ((4, 8), EnvObservationTypes.GRAY_2ch, (4, 8, 1), True),
     ((4, 8, 1), EnvObservationTypes.GRAY_3ch, (4, 8, 1), True),
     ((4, 8, 3), EnvObservationTypes.COLOR, (4, 8, 3), True),
-    ((4, 8), EnvObservationTypes.SHAPE2, (4, 8, 1), True),
-    ((10, 4, 8), EnvObservationTypes.SHAPE3, (4, 8, 10), True),
 ]
 
 

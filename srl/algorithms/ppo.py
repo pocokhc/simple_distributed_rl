@@ -6,17 +6,23 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import EnvObservationTypes, RLBaseTypes, RLTypes
+from srl.base.exception import UndefinedError
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import render_discrete_action
-from srl.rl.functions.common_tf import compute_kl_divergence, compute_kl_divergence_normal, compute_logprob
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
+from srl.rl.functions.common_tf import (compute_kl_divergence,
+                                        compute_kl_divergence_normal)
+from srl.rl.memories.experience_replay_buffer import (
+    ExperienceReplayBuffer, ExperienceReplayBufferConfig)
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
-from srl.rl.models.tf.input_block import InputBlock
+from srl.rl.models.tf.distributions.categorical_dist_block import \
+    CategoricalDistBlock
+from srl.rl.models.tf.distributions.normal_dist_block import NormalDistBlock
+from srl.rl.models.tf.input_block import InputImageBlock
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -48,37 +54,67 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig, ExperienceReplayBufferConfig):
-    # model
+    # --- model
+    #: <:ref:`ImageBlock`> This layer is only used when the input is an image.
     image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
+    #: <:ref:`MLPBlock`> hidden layers
     hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    #: <:ref:`MLPBlock`> value layers
     value_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    #: <:ref:`MLPBlock`> policy layers
     policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
-    experience_collection_method: str = "MC"  # "MC" or "GAE"
-    gae_discount: float = 0.9  # GAEの割引率
+    #: 割引報酬の計算方法
+    #:   "MC" : モンテカルロ法
+    #:   "GAE": Generalized Advantage Estimator
+    experience_collection_method: str = "MC"
+    #: discount
+    discount: float = 0.9
+    #: GAEの割引率
+    gae_discount: float = 0.9
 
-    baseline_type: str = "ave"  # "" or "ave" or "std" or "normal" or "advantage"
-    surrogate_type: str = "clip"  # "" or "clip" or "kl"
-    clip_range: float = 0.2  # 状態価値のクリップ範囲
-    adaptive_kl_target: float = 0.01  # Adaptive KLペナルティ内の定数
+    #: baseline
+    #:  "" "none"       : none
+    #:  "ave"           : (adv - mean)
+    #:  "std"           : adv/std
+    #:  "normal"        : (adv - mean)/std
+    #:  "advantage" "v" : adv - v
+    baseline_type: str = "ave"
+    #: surrogate type
+    #:  ""     : none
+    #:  "clip" : Clipped Surrogate Objective
+    #:  "kl"   : Adaptive KLペナルティ
+    surrogate_type: str = "clip"
+    #: Clipped Surrogate Objective
+    policy_clip_range: float = 0.2
+    #: Adaptive KLペナルティ内の定数
+    adaptive_kl_target: float = 0.01
 
-    discount: float = 0.9  # 割引率
+    #: value clip flag
+    enable_value_clip: float = False
+    #: value clip range
+    value_clip_range: float = 0.2
+
+    #: <:ref:`scheduler`> Learning rate
     lr: SchedulerConfig = field(init=False, default_factory=lambda: SchedulerConfig())
-    value_loss_weight: float = 1.0  # 状態価値の反映率
-    entropy_weight: float = 0.1  # エントロピーの反映率
+    #: 状態価値の反映率
+    value_loss_weight: float = 1.0
+    #: エントロピーの反映率
+    entropy_weight: float = 0.1
 
-    enable_state_normalized: bool = True  # 状態の正規化
-    enable_value_clip: float = True  # 価値関数もclipするか
-    global_gradient_clip_norm: float = 0.5  # 勾配のL2におけるclip値(0で無効)
-
-    enable_action_normalization: bool = True  # アクションの正規化
-    state_clip: Optional[Tuple[float, float]] = None  # 状態のclip(Noneで無効、(-10,10)で指定)
-    reward_clip: Optional[Tuple[float, float]] = None  # 報酬のclip(Noneで無効、(-10,10)で指定)
+    #: 状態の正規化 flag
+    enable_state_normalized: bool = False
+    #: 勾配のL2におけるclip値(0で無効)
+    global_gradient_clip_norm: float = 0.5
+    #: 状態のclip(Noneで無効、(-10,10)で指定)
+    state_clip: Optional[Tuple[float, float]] = None
+    #: 報酬のclip(Noneで無効、(-10,10)で指定)
+    reward_clip: Optional[Tuple[float, float]] = None
 
     #: 勾配爆発の対策, 平均、分散、ランダムアクションで大きい値を出さないようにclipする
-    enable_stable_gradients: bool = True  # 勾配爆発の対策
-    stable_gradients_max_stddev: float = 1
-    stable_gradients_normal_max_action: float = 1
+    enable_stable_gradients: bool = True
+    #: enable_stable_gradients状態での標準偏差のclip
+    stable_gradients_stddev_range: tuple = (1e-10, 10)
 
     def __post_init__(self):
         super().__post_init__()
@@ -150,122 +186,138 @@ class _ActorCriticNetwork(keras.Model):
         super().__init__()
         self.config = config
 
-        if config.action_type == RLTypes.CONTINUOUS and config.enable_stable_gradients:
-            if config.enable_action_normalization:
-                self.mean_low = -1
-                self.mean_high = 1
-            else:
-                # mean の範囲はactionの取りうる範囲
-                self.mean_low = config.action_low
-                self.mean_high = config.action_high
-
         # Orthogonal initialization and layer scaling
         kernel_initializer = "orthogonal"
 
-        # input
-        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
-
-        # image
-        if self.in_block.use_image_layer:
-            self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=False)
-            self.image_flatten = kl.Flatten()
+        # --- input
+        self.in_img_block = None
+        if config.observation_type == RLTypes.IMAGE:
+            self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
+            self.img_block = config.image_block.create_block_tf()
+        self.flat_layer = kl.Flatten()
 
         # --- hidden block
         self.hidden_block = config.hidden_block.create_block_tf()
 
         # --- value
         self.value_block = config.value_block.create_block_tf()
-        self.value_layer = kl.Dense(1, kernel_initializer=kernel_initializer)
+        self.value_out_layer = kl.Dense(1, kernel_initializer=kernel_initializer)
 
         # --- policy
         self.policy_block = config.policy_block.create_block_tf()
         if self.config.action_type == RLTypes.DISCRETE:
-            self.out_layer = kl.Dense(config.action_num, activation="softmax", kernel_initializer=kernel_initializer)
+            self.policy_dist_block = CategoricalDistBlock(config.action_num)
         elif self.config.action_type == RLTypes.CONTINUOUS:
-            self.pi_mean_layer = kl.Dense(
+            self.policy_dist_block = NormalDistBlock(
                 config.action_num,
-                activation="linear",
-                kernel_initializer=kernel_initializer,
-                bias_initializer="truncated_normal",
-            )
-            self.pi_stddev_layer = kl.Dense(
-                config.action_num,
-                activation="linear",
-                kernel_initializer=tf.keras.initializers.TruncatedNormal(mean=0.0, stddev=0.5),
-                bias_initializer="zeros",
+                enable_stable_gradients=self.config.enable_stable_gradients,
+                stable_gradients_stddev_range=self.config.stable_gradients_stddev_range,
             )
         else:
-            raise ValueError(self.config.action_type)
+            raise UndefinedError(self.config.action_type)
 
         # build
-        self.build((None,) + config.observation_shape)
+        self._in_shape = config.observation_shape
+        self.build((None,) + self._in_shape)
 
-    def call(self, state, training=False):
-        x = self.in_block(state, training=training)
-        if self.in_block.use_image_layer:
-            x = self.image_block(x, training=training)
-            x = self.image_flatten(x)
+    def call(self, x, training=False):
+        if self.in_img_block is not None:
+            x = self.in_img_block(x, training)
+            x = self.img_block(x, training)
+        x = self.flat_layer(x)
         x = self.hidden_block(x, training=training)
 
-        v = self.value_block(x)
-        v = self.value_layer(v)
+        # value
+        v = self.value_block(x, training=training)
+        v = self.value_out_layer(v, training=training)
 
-        p = self.policy_block(x)
-        if self.config.action_type == RLTypes.DISCRETE:
-            prob = self.out_layer(p)
-            return v, prob
-        elif self.config.action_type == RLTypes.CONTINUOUS:
-            mean = self.pi_mean_layer(p)
-            stddev = self.pi_stddev_layer(p)
-
-            # σ > 0
-            stddev = tf.exp(stddev)
-
-            if self.config.enable_stable_gradients:
-                mean = tf.clip_by_value(mean, self.mean_low, self.mean_high)
-                stddev = tf.clip_by_value(stddev, 0, self.config.stable_gradients_max_stddev)
-
-            return v, mean, stddev
+        # policy
+        p = self.policy_block(x, training=training)
+        p = self.policy_dist_block(p, training=training)
+        return v, p
 
     def policy(self, state):
-        if self.config.action_type == RLTypes.DISCRETE:
-            v, probs = self.call(state.reshape(1, -1))
-            prob = probs.numpy()[0]
-            action = np.random.choice(self.config.action_num, 1, p=prob)[0]
-            return v.numpy()[0], prob, action
-        elif self.config.action_type == RLTypes.CONTINUOUS:
-            v, mean, stddev = self(state.reshape((1, -1)))
+        v, p = self(state, training=False)
+        return v, self.policy_dist_block.get_dist(p)
 
-            # ガウス分布に従った乱数をだす
-            normal_random = tf.random.normal(mean.shape, mean=0.0, stddev=1.0)
-            if self.config.enable_stable_gradients:
-                normal_random = tf.clip_by_value(
-                    normal_random,
-                    -self.config.stable_gradients_normal_max_action,
-                    self.config.stable_gradients_normal_max_action,
-                )
-            action = mean + stddev * normal_random
+    @tf.function
+    def compute_train_loss(
+        self,
+        state,
+        action,
+        advantage,
+        old_logpi,
+        old_probs,
+        old_mean,
+        old_stddev,
+        old_v,
+        adaptive_kl_beta,
+    ):
+        # --- 現在の方策
+        v, p = self(state, training=True)
+        policy_dist = self.policy_dist_block.get_grad_dist(p)
+        new_logpi = policy_dist.log_prob(action)
 
-            return (
-                v.numpy()[0],
-                mean.numpy()[0],
-                stddev.numpy()[0],
-                action.numpy()[0],
+        # advantage
+        if self.config.baseline_type == "advantage":
+            advantage = advantage - tf.stop_gradient(v)
+
+        # --- policy
+        kl = 0
+        ratio = tf.exp(new_logpi - old_logpi)
+        if self.config.surrogate_type == "clip":
+            # Clipped Surrogate Objective
+            ratio_clipped = tf.clip_by_value(
+                ratio, 1 - self.config.policy_clip_range, 1 + self.config.policy_clip_range
             )
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
+            # loss の計算
+            loss_unclipped = ratio * advantage
+            loss_clipped = ratio_clipped * advantage
+
+            # 小さいほうを採用
+            policy_loss = tf.minimum(loss_unclipped, loss_clipped)
+
+        elif self.config.surrogate_type == "kl":
+            if self.config.action_type == RLTypes.DISCRETE:
+                new_probs = policy_dist.probs()
+                kl = compute_kl_divergence(old_probs, new_probs)
+            else:
+                new_mean = policy_dist.mean()
+                new_stddev = policy_dist.stddev()
+                kl = compute_kl_divergence_normal(old_mean, old_stddev, new_mean, new_stddev)
+            policy_loss = ratio * advantage - adaptive_kl_beta * kl
+        elif self.config.surrogate_type == "":
+            policy_loss = ratio * advantage
+        else:
+            raise UndefinedError(self.config.surrogate_type)
+
+        # 最大化
+        policy_loss = -tf.reduce_mean(policy_loss)
+
+        # --- value loss
+        if self.config.enable_value_clip:
+            v_clipped = tf.clip_by_value(v, old_v - self.config.value_clip_range, old_v + self.config.value_clip_range)
+            value_loss = tf.maximum((v - advantage) ** 2, (v_clipped - advantage) ** 2)
+        else:
+            value_loss = (v - advantage) ** 2
+        # MSEの最小化
+        value_loss = self.config.value_loss_weight * tf.reduce_mean(value_loss)
+
+        # --- 方策エントロピーボーナス(最大化)
+        # H = Σ-π(a|s)lnπ(a|s)
+        entropy_loss = tf.reduce_sum(-tf.exp(new_logpi) * new_logpi, axis=-1)
+        entropy_loss = self.config.entropy_weight * -tf.reduce_mean(entropy_loss)
+
+        return policy_loss, value_loss, entropy_loss, kl
 
     def summary(self, name: str = "", **kwargs):
-        if hasattr(self.in_block, "init_model_graph"):
-            self.in_block.init_model_graph()
-        if self.in_block.use_image_layer and hasattr(self.image_block, "init_model_graph"):
-            self.image_block.init_model_graph()
-        if hasattr(self.hidden_block, "init_model_graph"):
-            self.hidden_block.init_model_graph()
+        if self.in_img_block is not None:
+            self.in_img_block.init_model_graph()
+            self.img_block.init_model_graph()
+        self.hidden_block.init_model_graph()
 
-        x = kl.Input(shape=self.__input_shape[1:])
+        x = kl.Input(shape=self._in_shape)
         name = self.__class__.__name__ if name == "" else name
         model = keras.Model(inputs=x, outputs=self.call(x), name=name)
         model.summary(**kwargs)
@@ -311,19 +363,20 @@ class Trainer(RLTrainer):
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
 
-    def train_on_batchs(self, memory_sample_return) -> None:
-        batchs = memory_sample_return
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
+            return
+        batchs = self.memory.sample(self.batch_size, self.train_count)
 
         states = np.asarray([e["state"] for e in batchs])
-        advantage = np.asarray([e["discounted_reward"] for e in batchs]).reshape((-1, 1))
-        old_v = np.asarray([e["v"] for e in batchs])
+        advantage = np.asarray([e["discounted_reward"] for e in batchs])[..., np.newaxis]
 
         # --- 状態の正規化
         if self.config.enable_state_normalized:
             states = (states - np.mean(states, axis=0, keepdims=True)) / (np.std(states, axis=0, keepdims=True) + 1e-8)
 
         # --- baseline
-        if self.config.baseline_type == "" or self.config.baseline_type == "none":
+        if self.config.baseline_type in ["", "none"]:
             pass
         elif self.config.baseline_type == "ave":
             advantage -= np.mean(advantage)
@@ -331,116 +384,66 @@ class Trainer(RLTrainer):
             advantage = advantage / (np.std(advantage) + 1e-8)
         elif self.config.baseline_type == "normal":
             advantage = (advantage - np.mean(advantage)) / (np.std(advantage) + 1e-8)
-        elif self.config.baseline_type == "advantage":
+        elif self.config.baseline_type in ["advantage", "v"]:
             pass
         else:
-            raise ValueError("baseline_type fail. ['none', 'ave', 'std', 'normal', 'advantage]")
+            raise UnicodeError("baseline_type fail. ['none', 'ave', 'std', 'normal', 'advantage]")
 
+        # --- old
+        old_probs = 0
+        old_mean = 0
+        old_stddev = 0
+        old_v = 0
         if self.config.action_type == RLTypes.DISCRETE:
             actions = np.asarray([e["action"] for e in batchs])
-            old_probs = np.asarray([e["prob"] for e in batchs])
-
-            # アクションをonehotベクトルの形に変形
-            onehot_actions = tf.one_hot(actions, self.config.action_num).numpy()
-
-            # old_pi
-            old_pi = tf.reduce_sum(onehot_actions * old_probs, axis=1, keepdims=True)
-            old_logpi = np.log(old_pi)
+            old_logpi = np.asarray([e["log_prob"] for e in batchs])[..., np.newaxis]
+            if self.config.surrogate_type == "kl":
+                old_probs = np.asarray([e["probs"] for e in batchs])
         else:
-            actions = np.asarray([e["action"] for e in batchs])
-            old_logpi = np.asarray([e["logpi"] for e in batchs])
+            actions = np.asarray([e["action"] for e in batchs])[..., np.newaxis]
+            old_logpi = np.asarray([e["log_prob"] for e in batchs])[..., np.newaxis]
             if self.config.surrogate_type == "kl":
                 old_mean = np.asarray([e["mean"] for e in batchs])
                 old_stddev = np.asarray([e["stddev"] for e in batchs])
+        if self.config.enable_value_clip:
+            old_v = np.asarray([e["v"] for e in batchs])[..., np.newaxis]
 
         # --- Qモデルの学習
         with tf.GradientTape() as tape:
-            if self.config.action_type == RLTypes.DISCRETE:
-                v, new_probs = self.parameter.model(states, training=True)
-
-                # π(a|s)とlog(π(a|s))を計算
-                new_pi = tf.reduce_sum(onehot_actions * new_probs, axis=1, keepdims=True)
-                new_logpi = tf.math.log(tf.clip_by_value(new_pi, 1e-8, 1.0))
-
-            else:
-                v, new_mean, new_stddev = self.parameter.model(states, training=True)
-                new_logpi = compute_logprob(new_mean, new_stddev, actions)
-                new_pi = tf.exp(new_logpi)
-
-            # (new_pi / old_pi) で計算するとnanになりやすい
-            ratio = tf.exp(new_logpi - old_logpi)
-
-            # advantage
-            if self.config.baseline_type == "advantage":
-                advantage = advantage - tf.stop_gradient(v)
-
-            if self.config.surrogate_type == "clip":
-                # Clipped Surrogate Objective
-                ratio_clipped = tf.clip_by_value(ratio, 1 - self.config.clip_range, 1 + self.config.clip_range)
-
-                # loss の計算
-                loss_unclipped = ratio * advantage
-                loss_clipped = ratio_clipped * advantage
-
-                # 小さいほうを採用
-                policy_loss = tf.minimum(loss_unclipped, loss_clipped)
-
-            elif self.config.surrogate_type == "kl":
-                if self.config.action_type == RLTypes.DISCRETE:
-                    kl = compute_kl_divergence(old_probs, new_probs)
-                else:
-                    kl = compute_kl_divergence_normal(old_mean, old_stddev, new_mean, new_stddev)
-                policy_loss = ratio * advantage - self.parameter.adaptive_kl_beta * kl
-            elif self.config.surrogate_type == "":
-                policy_loss = ratio * advantage
-            else:
-                raise ValueError(self.config.surrogate_type)
-
-            # --- Value loss
-            if self.config.enable_value_clip:
-                # clipする場合
-                v_clipped = tf.clip_by_value(v, old_v - self.config.clip_range, old_v + self.config.clip_range)
-                value_loss = tf.maximum((v - advantage) ** 2, (v_clipped - advantage) ** 2)
-            else:
-                # clipしない場合
-                value_loss = (v - advantage) ** 2
-
-            # --- 方策エントロピー
-            entropy_loss = tf.reduce_sum(new_pi * new_logpi, axis=1, keepdims=True)
-
-            # --- total loss
-            policy_loss = -policy_loss
-            value_loss = self.config.value_loss_weight * value_loss
-            entropy_loss = -self.config.entropy_weight * entropy_loss
-
-            loss = tf.reduce_mean(policy_loss + value_loss + entropy_loss)  # ミニバッチ
+            policy_loss, value_loss, entropy_loss, kl = self.parameter.model.compute_train_loss(
+                states,
+                actions,
+                advantage,
+                old_logpi,
+                old_probs,
+                old_mean,
+                old_stddev,
+                old_v,
+                self.parameter.adaptive_kl_beta,
+            )
+            loss = policy_loss + value_loss + entropy_loss
             loss += tf.reduce_sum(self.parameter.model.losses)  # 正則化項
 
         grads = tape.gradient(loss, self.parameter.model.trainable_variables)
         if self.config.global_gradient_clip_norm != 0:
             grads, _ = tf.clip_by_global_norm(grads, self.config.global_gradient_clip_norm)
         self.optimizer.apply_gradients(zip(grads, self.parameter.model.trainable_variables))
+        self.train_info["policy_loss"] = policy_loss.numpy()
+        self.train_info["value_loss"] = value_loss.numpy()
+        self.train_info["entropy_loss"] = entropy_loss.numpy()
 
-        info = {
-            "policy_loss": np.mean(policy_loss.numpy()),
-            "value_loss": np.mean(value_loss.numpy()),
-            "entropy_loss": np.mean(entropy_loss.numpy()),
-        }
-
-        # KLペナルティβの調整
+        # --- KLペナルティβの調整
         if self.config.surrogate_type == "kl":
             kl_mean = tf.reduce_mean(kl).numpy()
             if kl_mean < self.config.adaptive_kl_target / 1.5:
                 self.parameter.adaptive_kl_beta /= 2
-            elif kl_mean > self.config.adaptive_kl_target * 1.5:
+            elif kl_mean > self.config.adaptive_kl_target * 1.5 and self.parameter.adaptive_kl_beta < 10:
                 self.parameter.adaptive_kl_beta *= 2
-
-            info["kl_mean"] = kl_mean
-            info["kl_beta"] = self.parameter.adaptive_kl_beta
+            self.train_info["kl_mean"] = kl_mean
+            self.train_info["kl_beta"] = self.parameter.adaptive_kl_beta
             # nanになる場合は adaptive_kl_target が小さすぎる可能性あり
 
         self.train_count += 1
-        self.train_info = info
 
         # lr_schedule
         if self.lr_sch.update(self.train_count):
@@ -458,10 +461,6 @@ class Worker(RLWorker):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        if self.config.enable_action_normalization:
-            self.action_center = (self.config.action_space.high + self.config.action_space.low) / 2
-            self.action_scale = self.config.action_space.high - self.action_center
-
     def on_reset(self, worker: WorkerRun) -> dict:
         self.recent_batch = []
         self.recent_rewards = []
@@ -473,41 +472,38 @@ class Worker(RLWorker):
         if self.config.state_clip is not None:
             state = np.clip(state, self.config.state_clip[0], self.config.state_clip[1])
 
-        if self.config.action_type == RLTypes.DISCRETE:
-            v, prob, action = self.parameter.model.policy(state)
-            action = int(action)
-            self.batch = {
+        v, policy_dist = self.parameter.model.policy(state[np.newaxis, ...])
+        if self.config.action_type == RLTypes.DISCRETE:  # int
+            onehot_action = policy_dist.sample(onehot=True)
+            env_action = int(np.argmax(onehot_action))
+            batch = {
                 "state": state,
-                "action": action,
-                "prob": prob,
-                "v": v,
+                "action": onehot_action.numpy()[0],
+                "v": v.numpy()[0][0],
+                "log_prob": policy_dist.log_prob(onehot_action).numpy()[0][0],
             }
+            if self.config.surrogate_type == "kl" or self.rendering:
+                batch["probs"] = policy_dist.probs().numpy()[0]
+            self.recent_batch.append(batch)
+        elif self.config.action_type == RLTypes.CONTINUOUS:  # float,list[float]
+            action = policy_dist.sample().numpy()[0]
+            batch = {
+                "state": state,
+                "action": action[0],
+                "v": v.numpy()[0][0],
+                "log_prob": policy_dist.log_prob(action).numpy()[0][0],
+            }
+            if self.config.surrogate_type == "kl" or self.rendering:
+                batch["mean"] = policy_dist.mean().numpy()[0]
+                batch["stddev"] = policy_dist.stddev().numpy()[0]
+            self.recent_batch.append(batch)
+
+            env_action = np.clip(action, self.config.action_low, self.config.action_high)
+            env_action = env_action.tolist()
         else:
-            v, mean, stddev, action = self.parameter.model.policy(state)
-            logpi = compute_logprob(mean.reshape((-1, 1)), stddev.reshape((-1, 1)), action.reshape((-1, 1)))
-            self.batch = {
-                "state": state,
-                "action": action,
-                "v": v,
-                "logpi": logpi[0],
-            }
+            raise UndefinedError(self.config.action_type)
 
-            if self.config.enable_action_normalization:
-                action = action * self.action_scale + self.action_center
-
-            # safety action
-            action = np.clip(action, self.config.action_low, self.config.action_high)
-            action = action.tolist()
-
-            if self.config.surrogate_type == "kl":
-                self.batch["mean"] = mean
-                self.batch["stddev"] = stddev
-            if self.rendering:
-                self.batch["mean"] = mean
-                self.batch["stddev"] = stddev
-                self.batch["env_action"] = action
-
-        return action, {}
+        return env_action, {}
 
     def on_step(self, worker: WorkerRun) -> dict:
         if not self.training:
@@ -529,7 +525,6 @@ class Worker(RLWorker):
             self.recent_next_states.append(next_state)
 
         self.recent_rewards.append(reward)
-        self.recent_batch.append(self.batch)
 
         if worker.done:
             if self.config.experience_collection_method == "MC":
@@ -539,16 +534,12 @@ class Worker(RLWorker):
                     mc_r = r + self.config.discount * mc_r
 
                     batch = self.recent_batch[i]
-                    batch["discounted_reward"] = mc_r
+                    batch["discounted_reward"] = np.asarray(mc_r, dtype=np.float32)
                     self.memory.add(batch)
 
             elif self.config.experience_collection_method == "GAE":
-                if self.config.action_type == RLTypes.DISCRETE:
-                    v, _ = self.parameter.model(np.asarray([e["state"] for e in self.recent_batch]))
-                    n_v, _ = self.parameter.model(np.asarray(self.recent_next_states))
-                else:
-                    v, _, _ = self.parameter.model(np.asarray([e["state"] for e in self.recent_batch]))
-                    n_v, _, _ = self.parameter.model(np.asarray(self.recent_next_states))
+                v, _ = self.parameter.model(np.asarray([e["state"] for e in self.recent_batch]))
+                n_v, _ = self.parameter.model(np.asarray(self.recent_next_states))
                 v = v.numpy().reshape((-1,))
                 n_v = n_v.numpy().reshape((-1,))
                 gae = 0
@@ -560,36 +551,37 @@ class Worker(RLWorker):
                     else:
                         delta = self.recent_rewards[i] + self.config.discount * n_v[i] - v[i]
                     gae = delta + self.config.discount * self.config.gae_discount * gae
-                    batch["discounted_reward"] = gae
+                    batch["discounted_reward"] = np.asarray(gae, dtype=np.float32)
                     self.memory.add(batch)
 
             else:
-                raise ValueError(self.config.experience_collection_method)
+                raise UndefinedError(self.config.experience_collection_method)
 
         return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
-        v = self.batch["v"]
-        print(f"V: {v[0]:.5f}")
+        batch = self.recent_batch[-1]
+        v = batch["v"]
+        print(f"V: {v:.5f}")
 
         if self.config.action_type == RLTypes.DISCRETE:
-            prob = self.batch["prob"]
-            maxa = np.argmax(prob)
+            probs = batch["probs"]
+            maxa = np.argmax(probs)
 
             def _render_sub(a: int) -> str:
-                s = "{:8.3f}%".format(prob[a])
+                s = "{:5.1f}%".format(probs[a] * 100)
                 return s
 
             render_discrete_action(maxa, worker.env, self.config, _render_sub)
-        else:
-            action = self.batch["action"]
-            env_action = self.batch["env_action"]
-            pi = np.exp(self.batch["logpi"])
-            mean = self.batch["mean"]
-            stddev = self.batch["stddev"]
+        elif self.config.action_type == RLTypes.CONTINUOUS:
+            action = batch["action"]
+            prob = np.exp(batch["log_prob"])
+            mean = batch["mean"]
+            stddev = batch["stddev"]
 
-            print(f"mean      : {mean}")
-            print(f"stddev    : {stddev}")
-            print(f"action    : {action}")
-            print(f"env_action: {env_action}")
-            print(f"pi        : {pi}")
+            print(f"action: {action}")
+            print(f"prob  : {prob}")
+            print(f"mean  : {mean}")
+            print(f"stddev: {stddev}")
+        else:
+            raise UndefinedError(self.config.action_type)

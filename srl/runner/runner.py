@@ -17,11 +17,11 @@ from srl.base.env.registration import make as make_env
 from srl.base.rl.base import RLConfig, RLMemory, RLParameter, RLTrainer
 from srl.base.rl.registration import make_memory, make_parameter, make_trainer, make_worker
 from srl.base.rl.worker_run import WorkerRun
-from srl.base.run import core as base_run
+from srl.base.run import core_play, core_train_only
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RLWorkerType, RunContext, RunNameTypes, StrWorkerType
 from srl.rl import dummy
-from srl.runner.callback import GameCallback, RunnerCallback
+from srl.runner.callback import RunnerCallback
 from srl.utils import common
 from srl.utils.serialize import convert_for_json
 
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-CallbackType = Union[RunCallback, TrainerCallback, RunnerCallback, GameCallback]
+CallbackType = Union[RunCallback, TrainerCallback, RunnerCallback]
 
 
 @dataclass
@@ -344,7 +344,7 @@ class Runner:
                 self.config.set_CUDA_VISIBLE_DEVICES_if_CPU,
                 self.config.tf_enable_memory_growth,
             )
-            self.context_controller.set_device(used_device_tf, used_device_torch)
+            self.context_controller.set_device(framework, used_device_tf, used_device_torch)
 
     # ------------------------------
     # nvidia
@@ -672,13 +672,16 @@ class Runner:
     def callback_play_eval(self, parameter: RLParameter):
         env = self.make_env()
         memory = self.make_memory(is_load=False)
-        state = base_run.play(
-            self.context,
-            env,
-            parameter=parameter,
-            memory=memory,
-            workers=self.make_workers(parameter, memory, use_cache=True),
-            trainer=None,
+        state = cast(
+            core_play.RunStateActor,
+            core_play.play(
+                self.context,
+                env,
+                parameter=parameter,
+                memory=memory,
+                workers=self.make_workers(parameter, memory, use_cache=True),
+                trainer=None,
+            ),
         )
         return state.episode_rewards_list
 
@@ -912,7 +915,6 @@ class Runner:
     # ---------------------------------------------
     def _base_run_play_before(
         self,
-        enable_checkpoint_load: bool,
         enable_checkpoint: bool,
         enable_history_on_memory: bool,
         enable_history_on_file: bool,
@@ -954,7 +956,8 @@ class Runner:
         trainer: Optional[RLTrainer],
         workers: Optional[List[WorkerRun]],
         callbacks: List[CallbackType],
-    ) -> base_run.RunStateActor:
+        enable_generator: bool,
+    ):
         # --- make instance ---
         if parameter is None:
             parameter = self.make_parameter()
@@ -979,15 +982,26 @@ class Runner:
             trainer = self.make_trainer(parameter, memory)
         if workers is None:
             workers = self.make_workers(parameter, memory)
-        state = base_run.play(
-            self.context,
-            self.make_env(),
-            parameter,
-            memory,
-            trainer,
-            workers,
-            cast(List[RunCallback], [c for c in _callbacks if issubclass(c.__class__, RunCallback)]),
-        )
+        if not enable_generator:
+            state = core_play.play(
+                self.context,
+                self.make_env(),
+                parameter,
+                memory,
+                trainer,
+                workers,
+                cast(List[RunCallback], [c for c in _callbacks if issubclass(c.__class__, RunCallback)]),
+            )
+        else:
+            return core_play.play_generator(
+                self.context,
+                self.make_env(),
+                parameter,
+                memory,
+                trainer,
+                workers,
+                cast(List[RunCallback], [c for c in _callbacks if issubclass(c.__class__, RunCallback)]),
+            )
         # ----------------
 
         # --- callback
@@ -1003,7 +1017,7 @@ class Runner:
         memory: Optional[RLMemory],
         trainer: Optional[RLTrainer],
         callbacks: List[CallbackType],
-    ) -> base_run.RunStateTrainer:
+    ):
         # --- make instance ---
         if parameter is None:
             parameter = self.make_parameter()
@@ -1029,7 +1043,7 @@ class Runner:
                 trainer = self.make_trainer(parameter, memory, train_only=False)
             else:
                 trainer = self.make_trainer(parameter, memory, train_only=True)
-        state = base_run.play_trainer_only(
+        state = core_train_only.play_trainer_only(
             self.context,
             trainer,
             cast(List[TrainerCallback], [c for c in _callbacks if issubclass(c.__class__, TrainerCallback)]),

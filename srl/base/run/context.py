@@ -93,7 +93,8 @@ class RunContextController:
     def copy(self) -> "RunContext":
         return copy.deepcopy(self.context)
 
-    def set_device(self, used_device_tf, used_device_torch):
+    def set_device(self, framework, used_device_tf, used_device_torch):
+        self.context.framework = framework
         self.context.used_device_tf = used_device_tf
         self.context.used_device_torch = used_device_torch
         self.context.rl_config._used_device_tf = used_device_tf
@@ -183,3 +184,14 @@ class RunContextController:
             raise ValueError(f"unknown worker: {worker_type}")
 
         return workers
+
+
+class RunStateBase:
+    """
+    実行中に変動する変数をまとめたクラス
+    Class that summarizes variables that change during execution
+    """
+
+    def to_dict(self) -> dict:
+        dat: dict = convert_for_json(self.__dict__)
+        return dat

@@ -71,8 +71,8 @@ class GameWindow(ABC):
         # -------------------------------
         # pygame window loop
         # -------------------------------
-        pygame_done = False
-        while not pygame_done:
+        self.pygame_done = False
+        while not self.pygame_done:
             # --- key check
             for k in self.keys_status.keys():
                 if self.keys_status[k] == KeyStatus.RELEASED:
@@ -85,7 +85,7 @@ class GameWindow(ABC):
             events = pygame.event.get()
             for event in events:
                 if event.type == pygame.QUIT:
-                    pygame_done = True
+                    self.pygame_done = True
                 elif event.type == pygame.KEYUP:
                     self.keys_status[event.key] = KeyStatus.RELEASED
                     if event.unicode in self._valid_unicode_keys:
@@ -99,7 +99,7 @@ class GameWindow(ABC):
                             self.keys_status[event.unicode] = KeyStatus.PRESSED
 
                     if event.key == pygame.K_ESCAPE:
-                        pygame_done = True
+                        self.pygame_done = True
                     elif event.unicode == "1":
                         self.scale = 0.5
                         is_window_resize = True
@@ -180,7 +180,7 @@ class GameWindow(ABC):
                 self.resize(self.scale)
 
             if self._is_test:
-                pygame_done = True
+                self.pygame_done = True
 
     def set_image(self, env_image: np.ndarray, rl_image: Optional[np.ndarray]):
         if rl_image is None:

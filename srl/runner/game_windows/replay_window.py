@@ -6,7 +6,7 @@ import pygame
 
 from srl.base.run.callback import RunCallback
 from srl.base.run.context import RunContext
-from srl.base.run.core import RunStateActor
+from srl.base.run.core_play import RunStateActor
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
 from srl.runner.runner import Runner
 
@@ -101,6 +101,7 @@ class RePlayableGame(GameWindow):
                 trainer=None,
                 workers=None,
                 callbacks=[self.history],
+                enable_generator=False,
             )
 
             self.episode_info = {"total_rewards": 0}

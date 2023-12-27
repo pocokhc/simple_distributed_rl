@@ -10,7 +10,7 @@ from srl.base.rl.worker_run import WorkerRun
 
 class EnvWorker(RLWorker):
     def __init__(self, **kwargs) -> None:
-        super().__init__(DummyRLConfig())
+        super().__init__(DummyRLConfig(enable_action_decode=False))
 
     def call_on_reset(self, env: EnvRun) -> InfoType:
         return {}
@@ -25,7 +25,6 @@ class EnvWorker(RLWorker):
     # -------------------------------
 
     def on_reset(self, worker: WorkerRun) -> InfoType:
-        self.config.enable_action_decode = False
         return self.call_on_reset(worker.env)
 
     def policy(self, worker: WorkerRun) -> Tuple[RLActionType, InfoType]:

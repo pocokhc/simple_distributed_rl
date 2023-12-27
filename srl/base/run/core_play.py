@@ -209,11 +209,12 @@ def _play(
             state.env.render()
             for w in state.workers:
                 if w.rendering:
-                    try:
-                        # rendering用に実行、終了状態のpolicyは未定義
-                        w.policy()
-                    except Exception:
-                        logger.error(traceback.format_exc())
+                    # 最後のrender用policyは実施しない(RLWorker側で対処)
+                    # try:
+                    #    w.policy()
+                    # except Exception:
+                    #    logger.info(traceback.format_exc())
+                    #    logger.info("Policy error in termination status (for rendering)")
                     w.render()
 
             # rewardは学習中は不要

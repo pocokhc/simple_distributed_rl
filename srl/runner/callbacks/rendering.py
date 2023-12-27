@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, List, Union
 import numpy as np
 
 from srl.base.define import EnvObservationTypes, RenderModes, RLTypes
+from srl.base.exception import UndefinedError
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.callback import RunCallback
 from srl.base.run.context import RunContext
@@ -160,6 +161,12 @@ class Rendering(RunCallback):
                     _img = np.tile(_img, (1, 1, 3))
                 elif worker.config.env_observation_type == EnvObservationTypes.GRAY_3ch:
                     _img = np.tile(_img, (1, 1, 3))
+                elif worker.config.env_observation_type == EnvObservationTypes.COLOR:
+                    pass
+                elif worker.config.env_observation_type == EnvObservationTypes.IMAGE:
+                    return
+                else:
+                    raise UndefinedError(worker.config.env_observation_type)
                 self.rl_state_image = _img.astype(np.uint8)
                 self.rl_state_maxw = max(self.rl_state_maxw, self.rl_state_image.shape[1])
                 self.rl_state_maxh = max(self.rl_state_maxh, self.rl_state_image.shape[0])
@@ -238,7 +245,6 @@ class Rendering(RunCallback):
                 color=(255, 255, 255),
                 thickness=1,
             )
-
             left_img = cv2.vconcat([env_image, rl_state_image])  # 縦連結
             left_maxh = self.env_maxh + self.rl_state_maxh + padding * 4
 

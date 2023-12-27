@@ -107,7 +107,7 @@ class EnvRun:
         self._info: dict = {}
 
     def step(self, action: EnvActionType, frameskip_function: Optional[Callable[[], None]] = None) -> None:
-        assert self._done == DoneTypes.NONE, "It is in the done state. Please execute reset()."
+        assert self._done == DoneTypes.NONE, f"It is in the done state. Please execute reset(). ({self._done})"
         if self._is_direct_step:
             assert self.env.can_simulate_from_direct_step, "env does not support 'step' after 'direct_step'."
 

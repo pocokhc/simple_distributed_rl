@@ -28,15 +28,6 @@ class InputImageBlock(keras.Model):
     def _init_layer(self, observation_shape, observation_type):
         err_msg = f"unknown observation_type: {observation_type}"
         self.in_layers = []
-        self.use_image_layer = not (
-            observation_type == EnvObservationTypes.DISCRETE
-            or observation_type == EnvObservationTypes.CONTINUOUS
-            or observation_type == EnvObservationTypes.UNKNOWN
-        )
-        # --- value head
-        if not self.use_image_layer:
-            self.in_layers.append(kl.Flatten())
-            return
 
         # --- image head
         if observation_type == EnvObservationTypes.GRAY_2ch:
@@ -69,6 +60,9 @@ class InputImageBlock(keras.Model):
             else:
                 raise TFLayerError(err_msg)
 
+        elif observation_type == EnvObservationTypes.IMAGE:
+            # (h, w, ch)
+            pass
         else:
             raise UndefinedError(observation_type)
 

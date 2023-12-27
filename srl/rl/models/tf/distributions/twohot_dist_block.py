@@ -85,7 +85,7 @@ class TwoHotDistBlock(keras.Model):
         self.hidden_layers = []
         for i in range(len(hidden_layer_sizes)):
             self.hidden_layers.append(kl.Dense(hidden_layer_sizes[i], activation=activation))
-        self.out_layer = kl.Dense(self.bins)
+        self.out_layer = kl.Dense(self.bins, kernel_initializer="zeros")
 
     def call(self, x, training=False):
         for layer in self.hidden_layers:
@@ -114,7 +114,7 @@ class TwoHotDistBlock(keras.Model):
         y = _twohot_encode(y, self.bins, self.low, self.high)
 
         if self.use_mse:
-            return tf.reduce_mean((y - probs) ** 2)
+            return tf.reduce_mean(tf.square(y - probs))
         else:
             # クロスエントロピーの最小化
             # -Σ p * log(q)

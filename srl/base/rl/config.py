@@ -91,6 +91,12 @@ class RLConfig(ABC):
         self._used_device_tf: str = "/CPU"
         self._used_device_torch: str = "cpu"
 
+        self._changeable_parameter_names_base = [
+            "parameter_path",
+            "memory_path",
+            "enable_sanitize_value",
+            "enable_assertion_value",
+        ]
         self._changeable_parameter_names: List[str] = []
         self._check_parameter = True  # last
 
@@ -297,7 +303,8 @@ class RLConfig(ABC):
         self.set_config_by_env(env)
 
         # --- changeable parameters
-        self._changeable_parameter_names = self.get_changeable_parameters()
+        self._changeable_parameter_names = self._changeable_parameter_names_base[:]
+        self._changeable_parameter_names.extend(self.get_changeable_parameters())
 
         # --- log
         self._check_parameter = True
@@ -316,17 +323,14 @@ class RLConfig(ABC):
             object.__setattr__(self, name, value)
             return
 
-        # --- パラメータが決まった場合は書き換え不可能
-        if getattr(self, "_check_parameter", False):
+        # --- パラメータが決まった後の書き換え
+        if getattr(self, "_check_parameter", False) and (not name.startswith("_")):
             if not hasattr(self, name):
                 logger.warning(f"An undefined variable was assigned. {name}={value}")
             elif getattr(self, "_is_setup", False):
-                # --- パラメータが決まった場合は書き換え不可能
-                if not name.startswith("_") and (name not in getattr(self, "_changeable_parameter_names", [])):
-                    s = f"'{name}' tried to change from '{getattr(self,name)}' to '{value}' but it did not change."
+                if name not in getattr(self, "_changeable_parameter_names", []):
+                    s = f"Parameter has been rewritten. '{name}' : '{getattr(self,name)}' -> '{value}'"
                     logger.warning(s)
-                    print(s)
-                    return
 
         object.__setattr__(self, name, value)
 

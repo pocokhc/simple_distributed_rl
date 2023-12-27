@@ -228,8 +228,8 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         if state.trainer is not None:
             s += ", {:5d}tr".format(state.trainer.get_train_count())
 
-        if diff_episode == 0:
-            if diff_step == 0:
+        if diff_episode <= 0:
+            if diff_step <= 0:
                 # --- no info
                 s += "1 step is not over."
             else:

@@ -123,7 +123,6 @@ class Trainer(RLTrainer):
 
         states = torch.tensor(states).to(device)
         onehot_actions = torch.tensor(onehot_actions).to(device)
-        weights = torch.tensor(weights).to(device)
         target_q = torch.from_numpy(target_q).to(dtype=torch.float32).to(device)
 
         # --- torch train
@@ -133,7 +132,7 @@ class Trainer(RLTrainer):
         # 現在選んだアクションのQ値
         q = torch.sum(q * onehot_actions, dim=1)
 
-        loss = self.criterion(target_q * weights, q * weights)
+        loss = self.criterion(target_q, q)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -143,11 +142,7 @@ class Trainer(RLTrainer):
             for param_group in self.optimizer.param_groups:
                 param_group["lr"] = lr
 
-        # --- update
-        priorities = np.abs((target_q - q).to("cpu").detach().numpy())
-        self.memory_update((indices, batchs, priorities))
-
-        # targetと同期
+        # --- targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
             self.parameter.q_target.load_state_dict(self.parameter.q_online.state_dict())
             self.sync_count += 1

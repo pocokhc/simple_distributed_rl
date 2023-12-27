@@ -11,7 +11,7 @@ from srl.base.rl.base import RLParameter
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
-from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
 from srl.rl.models.framework_config import FrameworkConfig
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
@@ -48,8 +48,8 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, PriorityExperienceReplayConfig):
-    """<:ref:`PriorityExperienceReplay`>"""
+class Config(RLConfig, ExperienceReplayBufferConfig):
+    """<:ref:`ExperienceReplayBuffer`>"""
 
     #: ε-greedy parameter for Test
     test_epsilon: float = 0
@@ -97,7 +97,6 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     def set_atari_config(self):
         """Set the Atari parameters written in the paper."""
         self.batch_size = 32
-        self.memory.set_replay_memory()
         self.memory.capacity = 1_000_000
         self.memory.warmup_size = 50_000
         self.image_block.set_dqn_image()
@@ -153,7 +152,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 # ------------------------------------------------------
 # Memory
 # ------------------------------------------------------
-class Memory(PriorityExperienceReplay):
+class Memory(ExperienceReplayBuffer):
     pass
 
 
@@ -181,7 +180,7 @@ class CommonInterfaceParameter(RLParameter, ABC):
         states, n_states, onehot_actions, rewards, dones, _ = zip(*batchs)
         states = np.asarray(states)
         n_states = np.asarray(n_states)
-        onehot_actions = np.asarray(onehot_actions)
+        onehot_actions = np.asarray(onehot_actions, dtype=np.float32)
         rewards = np.array(rewards, dtype=np.float32)
         dones = np.array(dones)
         """ invalid actions
@@ -220,9 +219,9 @@ class CommonInterfaceParameter(RLParameter, ABC):
             target_q = rescaling(target_q)
 
         if training:
-            return target_q, states, onehot_actions
+            return target_q.astype(np.float32), states, onehot_actions
         else:
-            return target_q
+            return target_q.astype(np.float32)
 
 
 # ------------------------------------------------------
@@ -297,19 +296,7 @@ class Worker(DiscreteActionWorker):
             int(not done),
             next_invalid_actions,
         ]
-
-        if not self.distributed:
-            priority = None
-        elif not self.config.memory.requires_priority():
-            priority = None
-        else:
-            if self.q is None:
-                self.q = self.parameter.predict_q(self.state[np.newaxis, ...])[0]
-            select_q = self.q[self.action]
-            target_q = self.parameter.calc_target_q([batch], training=False)[0]
-            priority = abs(target_q - select_q)
-
-        self.memory.add(batch, priority)
+        self.memory.add(batch)
         return {}
 
     def render_terminal(self, worker, **kwargs) -> None:

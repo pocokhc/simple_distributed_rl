@@ -6,8 +6,9 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLBaseTypes
+from srl.base.define import RLBaseTypes, RLTypes
 from srl.base.env.env_run import EnvRun
+from srl.base.exception import UndefinedError
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
@@ -16,7 +17,7 @@ from srl.rl.functions.common import random_choice_by_probs, render_discrete_acti
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
 from srl.rl.models.alphazero_block import AlphaZeroBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
-from srl.rl.models.tf.input_block import InputBlock
+from srl.rl.models.tf.input_block import InputImageBlock
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
@@ -60,6 +61,9 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     input_image_block: AlphaZeroBlockConfig = field(init=False, default_factory=lambda: AlphaZeroBlockConfig())
     value_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
     policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+
+    #: "rate" or "linear"
+    value_type: str = "linear"
 
     def __post_init__(self):
         super().__post_init__()
@@ -139,14 +143,13 @@ class Memory(ExperienceReplayBuffer):
 class _Network(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
+        self.value_type = config.value_type
 
-        # --- in block
-        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
-        self.use_image_layer = self.in_block.use_image_layer
-
-        # --- image
-        if self.use_image_layer:
-            self.input_image_block = config.input_image_block.create_block_tf()
+        # input
+        self.in_img_block = None
+        if config.observation_type == RLTypes.IMAGE:
+            self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
+            self.img_block = config.input_image_block.create_block_tf()
 
             # --- policy image
             self.input_image_policy_layers = [
@@ -173,31 +176,38 @@ class _Network(keras.Model):
                 kl.ReLU(),
                 kl.Flatten(),
             ]
+        else:
+            self.flat_layer = kl.Flatten()
 
         # --- policy output
         self.policy_block = config.policy_block.create_block_tf()
         self.policy_out_layer = kl.Dense(
             config.action_num,
             activation="softmax",
-            kernel_initializer="truncated_normal",
+            kernel_initializer="zeros",
         )
 
         # --- value output
         self.value_block = config.value_block.create_block_tf()
-        self.value_out_layer = kl.Dense(
-            1,
-            activation="tanh",  # 論文はtanh(-1～1)
-            kernel_initializer="truncated_normal",
-        )
+        if config.value_type == "rate":
+            self.value_out_layer = kl.Dense(
+                1,
+                activation="tanh",
+                kernel_initializer="truncated_normal",
+            )
+        elif config.value_type == "linear":
+            self.value_out_layer = kl.Dense(1, kernel_initializer="truncated_normal")
+        else:
+            raise UndefinedError(config.value_type)
 
         # build
-        self.build((None,) + config.observation_shape)
+        self._in_shape = config.observation_shape
+        self.build((None,) + self._in_shape)
 
-    def call(self, state, training=False):
-        # input
-        x = self.in_block(state, training=training)
-        if self.use_image_layer:
-            x = self.input_image_block(x, training=training)
+    def call(self, x, training=False):
+        if self.in_img_block is not None:
+            x = self.in_img_block(x)
+            x = self.img_block(x, training=training)
 
             # --- policy image
             x1 = x
@@ -209,6 +219,7 @@ class _Network(keras.Model):
             for layer in self.input_image_value_layers:
                 x2 = layer(x2, training=training)
         else:
+            x = self.flat_layer(x)
             x1 = x
             x2 = x
 
@@ -222,21 +233,36 @@ class _Network(keras.Model):
 
         return x1, x2
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
+    @tf.function
+    def compute_train_loss(self, state, reward, policy):
+        p_pred, v_pred = self(state, training=True)
+
+        # value: 状態に対する勝率(reward)を教師に学習(MSE)
+        value_loss = tf.reduce_mean(tf.square(reward - v_pred))
+
+        # policy: 選んだアクション(MCTSの結果)を教師に学習(categorical cross entropy)
+        if self.value_type == "rate":
+            p_pred = tf.clip_by_value(p_pred, 1e-10, p_pred)  # log(0)回避用
+            policy_loss = -tf.reduce_mean(tf.reduce_sum(policy * tf.math.log(p_pred), axis=1))
+        elif self.value_type == "linear":
+            policy_loss = tf.reduce_mean(tf.square(policy - p_pred))
+        else:
+            raise UndefinedError(self.value_type)
+
+        loss = value_loss + policy_loss
+        loss += tf.reduce_sum(self.losses)  # 正則化項
+        return loss, value_loss, policy_loss
 
     def summary(self, name="", **kwargs):
-        if hasattr(self.in_block, "init_model_graph"):
-            self.in_block.init_model_graph()
-        if self.use_image_layer and hasattr(self.input_image_block, "init_model_graph"):
-            self.input_image_block.init_model_graph()
+        if self.in_img_block is not None:
+            self.in_img_block.init_model_graph()
+            self.img_block.init_model_graph()
         if hasattr(self.policy_block, "init_model_graph"):
             self.policy_block.init_model_graph()
         if hasattr(self.value_block, "init_model_graph"):
             self.value_block.init_model_graph()
 
-        x = kl.Input(shape=self.__input_shape[1:])
+        x = kl.Input(shape=self._in_shape)
         name = self.__class__.__name__ if name == "" else name
         model = keras.Model(inputs=x, outputs=self.call(x), name=name)
         model.summary(**kwargs)
@@ -292,8 +318,10 @@ class Trainer(RLTrainer):
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
 
-    def train_on_batchs(self, memory_sample_return) -> None:
-        batchs = memory_sample_return
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
+            return
+        batchs = self.memory.sample(self.batch_size, self.train_count)
 
         states = []
         policies = []
@@ -303,30 +331,17 @@ class Trainer(RLTrainer):
             policies.append(b["policy"])
             rewards.append([b["reward"]])
         states = np.asarray(states)
-        policies = np.asarray(policies)
-        rewards = np.asarray(rewards)
+        policies = np.asarray(policies, dtype=np.float32)
+        rewards = np.asarray(rewards, dtype=np.float32)
 
         with tf.GradientTape() as tape:
-            p_pred, v_pred = self.parameter.network(states, training=True)  # type:ignore , ignore check "None"
-
-            # value: 状態に対する勝率(reward)を教師に学習(MSE)
-            value_loss: Any = tf.square(rewards - v_pred)
-
-            # policy: 選んだアクション(MCTSの結果)を教師に学習(categorical cross entropy)
-            p_pred = tf.clip_by_value(p_pred, 1e-6, p_pred)  # log(0)回避用
-            policy_loss = -tf.reduce_sum(policies * tf.math.log(p_pred), axis=1, keepdims=True)
-
-            loss = tf.reduce_mean(value_loss + policy_loss)
-            loss += tf.reduce_sum(self.parameter.network.losses)  # 正則化のLoss
-
+            loss, value_loss, policy_loss = self.parameter.network.compute_train_loss(states, rewards, policies)
         grads = tape.gradient(loss, self.parameter.network.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.network.trainable_variables))
 
         self.train_count += 1
-        self.train_info = {
-            "value_loss": np.mean(value_loss.numpy()),
-            "policy_loss": np.mean(policy_loss.numpy()),
-        }
+        self.train_info["value_loss"] = value_loss.numpy()
+        self.train_info["policy_loss"] = policy_loss.numpy()
 
         # lr_schedule
         if self.lr_sch.update(self.train_count):

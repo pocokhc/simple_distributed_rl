@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLBaseTypes
+from srl.base.define import EnvObservationTypes, RLBaseTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
@@ -24,7 +24,7 @@ from srl.rl.functions.common import (
 from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
 from srl.rl.models.alphazero_block import AlphaZeroBlockConfig
 from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
-from srl.rl.models.tf.input_block import InputBlock
+from srl.rl.models.tf.input_block import InputImageBlock
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.utils.common import compare_less_version
@@ -171,25 +171,21 @@ class Memory(PriorityExperienceReplay):
 class _RepresentationNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
+        assert config.observation_type == RLTypes.IMAGE, "Input supports only image format."
 
         # input
-        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
-        assert self.in_block.use_image_layer, "Input supports only image format."
+        self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
+        self.img_block = config.input_image_block.create_block_tf()
 
-        # image
-        self.image_block = config.input_image_block.create_block_tf()
-
-        # build
-        self.build((None,) + config.observation_shape)
-
-        # 出力shapeを取得
-        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
+        # build & 出力shapeを取得
+        self._in_shape = config.observation_shape
+        dummy_state = np.zeros(shape=(1,) + self._in_shape, dtype=np.float32)
         hidden_state = self(dummy_state)
         self.hidden_state_shape = hidden_state.shape[1:]  # type:ignore , ignore check "None"
 
     def call(self, state, training=False):
-        x = self.in_block(state, training=training)
-        x = self.image_block(x, training=training)
+        x = self.in_img_block(state, training=training)
+        x = self.img_block(x, training=training)
 
         # 隠れ状態はアクションとスケールを合わせるため0-1で正規化(一応batch毎)
         batch, h, w, d = x.shape
@@ -206,17 +202,13 @@ class _RepresentationNetwork(keras.Model):
 
         return x
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
     def summary(self, name: str = "", **kwargs):
-        if hasattr(self.in_block, "init_model_graph"):
-            self.in_block.init_model_graph()
-        if hasattr(self.image_block, "init_model_graph"):
-            self.image_block.init_model_graph()
+        if hasattr(self.in_img_block, "init_model_graph"):
+            self.in_img_block.init_model_graph()
+        if hasattr(self.img_block, "init_model_graph"):
+            self.img_block.init_model_graph()
 
-        x = kl.Input(shape=self.__input_shape[1:])
+        x = kl.Input(shape=self._in_shape)
         name = self.__class__.__name__ if name == "" else name
         model = keras.Model(inputs=x, outputs=self.call(x), name=name)
         model.summary(**kwargs)
@@ -258,7 +250,8 @@ class _DynamicsNetwork(keras.Model):
         ]
 
         # build
-        self.build((None, h, w, ch + self.c_size))
+        self._in_shape = (h, w, ch + self.c_size)
+        self.build((None,) + self._in_shape)
 
     def call(self, in_state, training=False):
         # hidden state
@@ -282,7 +275,7 @@ class _DynamicsNetwork(keras.Model):
         x, reward_category = self.call(in_state, training)
 
         # 隠れ状態はアクションとスケールを合わせるため0-1で正規化(一応batch毎)
-        batch, h, w, d = x.shape  # type:ignore , ignore check "None"
+        batch, h, w, d = x.shape
         s_min = tf.reduce_min(tf.reshape(x, (batch, -1)), axis=1, keepdims=True)
         s_max = tf.reduce_max(tf.reshape(x, (batch, -1)), axis=1, keepdims=True)
         s_min = s_min * tf.ones((batch, h * w * d), dtype=tf.float32)
@@ -294,15 +287,11 @@ class _DynamicsNetwork(keras.Model):
 
         return x, reward_category
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
     def summary(self, name="", **kwargs):
         if hasattr(self.image_block, "init_model_graph"):
             self.image_block.init_model_graph()
 
-        x = kl.Input(shape=self.__input_shape[1:])
+        x = kl.Input(shape=self._in_shape)
         name = self.__class__.__name__ if name == "" else name
         model = keras.Model(inputs=x, outputs=self.call(x), name=name)
         model.summary(**kwargs)
@@ -311,7 +300,7 @@ class _DynamicsNetwork(keras.Model):
 class _PredictionNetwork(keras.Model):
     def __init__(self, config: Config, hidden_shape):
         super().__init__()
-
+        self._in_shape = hidden_shape
         v_num = config.v_max - config.v_min + 1
 
         # --- policy
@@ -357,7 +346,7 @@ class _PredictionNetwork(keras.Model):
         ]
 
         # build
-        self.build((None,) + hidden_shape)
+        self.build((None,) + self._in_shape)
 
     def call(self, state, training=False):
         policy = state
@@ -370,12 +359,8 @@ class _PredictionNetwork(keras.Model):
 
         return policy, value
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
     def summary(self, name: str = "", **kwargs):
-        x = kl.Input(shape=self.__input_shape[1:])
+        x = kl.Input(shape=self._in_shape)
         name = self.__class__.__name__ if name == "" else name
         model = keras.Model(inputs=x, outputs=self.call(x), name=name)
         model.summary(**kwargs)
@@ -394,7 +379,8 @@ class _AfterstateDynamicsNetwork(keras.Model):
         )
 
         # build
-        self.build((None, h, w, ch + self.action_num))
+        self._in_shape = (h, w, ch + self.action_num)
+        self.build((None,) + self._in_shape)
 
     def call(self, in_state, training=False):
         return self.image_block(in_state, training=training)
@@ -411,15 +397,11 @@ class _AfterstateDynamicsNetwork(keras.Model):
         in_state = tf.concat([hidden_state, action_image], axis=3)
         return self.call(in_state, training)
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
     def summary(self, name="", **kwargs):
         if hasattr(self.image_block, "init_model_graph"):
             self.image_block.init_model_graph()
 
-        x = kl.Input(shape=self.__input_shape[1:])
+        x = kl.Input(shape=self._in_shape)
         name = self.__class__.__name__ if name == "" else name
         model = keras.Model(inputs=x, outputs=self.call(x), name=name)
         model.summary(**kwargs)
@@ -428,7 +410,7 @@ class _AfterstateDynamicsNetwork(keras.Model):
 class _AfterstatePredictionNetwork(keras.Model):
     def __init__(self, config: Config, as_shape):
         super().__init__()
-
+        self._in_shape = as_shape
         v_num = config.v_max - config.v_min + 1
 
         # --- code
@@ -473,7 +455,7 @@ class _AfterstatePredictionNetwork(keras.Model):
             ),
         ]
         # build
-        self.build((None,) + as_shape)
+        self.build((None,) + self._in_shape)
 
     def call(self, state, training=False):
         code = state
@@ -486,12 +468,8 @@ class _AfterstatePredictionNetwork(keras.Model):
 
         return code, q
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
     def summary(self, name: str = "", **kwargs):
-        x = kl.Input(shape=self.__input_shape[1:])
+        x = kl.Input(shape=self._in_shape)
         name = self.__class__.__name__ if name == "" else name
         model = keras.Model(inputs=x, outputs=self.call(x), name=name)
         model.summary(**kwargs)
@@ -500,18 +478,15 @@ class _AfterstatePredictionNetwork(keras.Model):
 class _VQ_VAE(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
+        assert config.observation_type == RLTypes.IMAGE, "Input supports only image format."
 
         # --- codebook(one-hot vector)
         self.c_size = config.codebook_size
         self.codebook = np.identity(self.c_size, dtype=np.float32)[np.newaxis, ...]
 
         # --- model
-        # input
-        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
-        assert self.in_block.use_image_layer, "Input supports only image format."
-
-        # image
-        self.image_block = config.input_image_block.create_block_tf()
+        self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
+        self.img_block = config.input_image_block.create_block_tf()
 
         self.out_layers = [
             kl.Conv2D(
@@ -535,11 +510,12 @@ class _VQ_VAE(keras.Model):
         ]
 
         # build
-        self.build((None,) + config.observation_shape)
+        self._in_shape = config.observation_shape
+        self.build((None,) + self._in_shape)
 
     def call(self, state, training=False):
-        x = self.in_block(state, training=training)
-        x = self.image_block(x, training=training)
+        x = self.in_img_block(state, training=training)
+        x = self.img_block(x, training=training)
         for layer in self.out_layers:
             x = layer(x, training=training)
         if state.shape[0] is None:
@@ -562,17 +538,13 @@ class _VQ_VAE(keras.Model):
 
         return code
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
     def summary(self, name: str = "", **kwargs):
-        if hasattr(self.in_block, "init_model_graph"):
-            self.in_block.init_model_graph()
-        if hasattr(self.image_block, "init_model_graph"):
-            self.image_block.init_model_graph()
+        if hasattr(self.in_img_block, "init_model_graph"):
+            self.in_img_block.init_model_graph()
+        if hasattr(self.img_block, "init_model_graph"):
+            self.img_block.init_model_graph()
 
-        x = kl.Input(shape=self.__input_shape[1:])
+        x = kl.Input(shape=self._in_shape)
         name = self.__class__.__name__ if name == "" else name
         model = keras.Model(inputs=x, outputs=self.call(x), name=name)
         model.summary(**kwargs)
@@ -687,8 +659,10 @@ class Trainer(RLTrainer):
     def _mse_loss(self, y_true, y_pred):
         return tf.reduce_mean(tf.square(y_true - y_pred))
 
-    def train_on_batchs(self, memory_sample_return) -> None:
-        indices, batchs, weights = memory_sample_return
+    def train(self) -> None:
+        if self.memory.is_warmup_needed():
+            return
+        indices, batchs, weights = self.memory.sample(self.batch_size, self.train_count)
 
         # (batch, dict, steps, val) -> (steps, batch, val)
         states_list = []

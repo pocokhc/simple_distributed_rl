@@ -212,9 +212,9 @@ class CommonInterfaceParameter(RLParameter, ABC):
         # (batch, multistep, shape)
         states_list, onehot_actions_list, rewards, dones, _ = zip(*batchs)
         states_list = np.asarray(states_list)
-        onehot_actions_list = np.asarray(onehot_actions_list)
+        onehot_actions_list = np.asarray(onehot_actions_list, dtype=np.float32)
         rewards = np.array(rewards, dtype=np.float32)
-        dones = np.array(dones)
+        dones = np.array(dones, dtype=np.float32)
 
         # 1step目はretraceで使わない、retraceで使うのは 2step以降
         states = states_list[:, 0, :]
@@ -301,7 +301,7 @@ class CommonInterfaceParameter(RLParameter, ABC):
         # (multistep, batch, shape) ->  (batch, multistep, shape)
         retrace_list = np.asarray(retrace_list).transpose((1, 0))
 
-        target_q = np.sum(td_errors * multi_discounts * retrace_list, axis=1)
+        target_q = np.sum(td_errors * multi_discounts * retrace_list, axis=1, dtype=np.float32)
 
         if training:
             return target_q, states, onehot_actions

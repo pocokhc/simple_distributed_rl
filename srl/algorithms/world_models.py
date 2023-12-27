@@ -8,14 +8,14 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLBaseTypes
+from srl.base.define import EnvObservationTypes, RLBaseTypes, RLMemoryTypes, RLTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLMemory, RLParameter, RLTrainer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.base.rl.worker_run import WorkerRun
-from srl.rl.models.tf.input_block import InputBlock
+from srl.rl.models.tf.input_block import InputImageBlock
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -62,6 +62,18 @@ class Config(RLConfig):
     def __post_init__(self):
         super().__post_init__()
         self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
+
+    def get_changeable_parameters(self) -> List[str]:
+        return [
+            "train_mode",
+            "memory_warmup_size",
+            "kl_tolerance",
+            "num_simulations",
+            "num_individual",
+            "mutation",
+            "randn_sigma",
+            "blx_a",
+        ]
 
     def set_processor(self) -> List[Processor]:
         return [
@@ -124,6 +136,10 @@ class Memory(RLMemory):
 
         self.c_score = -np.inf
         self.c_params = None
+
+    @property
+    def memory_type(self) -> RLMemoryTypes:
+        return RLMemoryTypes.BUFFER
 
     def length(self) -> int:
         if self.config.train_mode == 1:
@@ -192,11 +208,12 @@ class _VAE(keras.Model):
 
         self.z_size = config.z_size
         self.kl_tolerance = config.kl_tolerance
+        self.use_image_head = config.observation_type == RLTypes.IMAGE
 
         # --- encoder
-        self.encoder_in_block = InputBlock(config.observation_shape, config.env_observation_type)
-        self.use_image_head = self.encoder_in_block.use_image_layer
         if self.use_image_head:
+            self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
+
             assert config.window_length == 1
             self.encoder_in_layers = [
                 kl.Conv2D(filters=32, kernel_size=4, strides=2, activation="relu"),
@@ -207,6 +224,7 @@ class _VAE(keras.Model):
             ]
         else:
             self.encoder_in_layers = [
+                kl.Flatten(),
                 kl.Dense(256, activation="relu"),
                 kl.Dense(256, activation="relu"),
             ]
@@ -233,24 +251,26 @@ class _VAE(keras.Model):
             ]
 
         # build
-        self.build((None,) + config.observation_shape)
+        self._in_shape = config.observation_shape
+        self.build((None,) + self._in_shape)
 
     def call(self, x, training=False):
         return self.decode(self.encode(x, training), training)
 
     def encode(self, x, training=False):
-        x = self.encoder_in_block(x, training=training)
+        if self.use_image_head:
+            x = self.in_img_block(x, training=training)
         for layer in self.encoder_in_layers:
             x = layer(x, training=training)
         z_mean = self.encoder_z_mean_layer(x, training=training)
         z_log_stddev = self.encoder_z_log_stddev(x, training=training)
 
-        if x.shape[0] is None:  # type:ignore , ignore check "None"
+        if x.shape[0] is None:
             return z_mean
 
         # reparameterize
-        e = tf.random.normal(z_mean.shape)  # type:ignore , ignore check "None"
-        z = z_mean + tf.exp(0.5 * z_log_stddev) * e  # type:ignore , ignore check "None"
+        e = tf.random.normal(z_mean.shape)
+        z = z_mean + tf.exp(0.5 * z_log_stddev) * e
 
         if training:
             return z_mean, z_log_stddev, z
@@ -266,15 +286,11 @@ class _VAE(keras.Model):
         z = np.random.normal(size=(size, self.z_size))
         return self.decode(z), z
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
     def summary(self, name: str = "", **kwargs):
-        if hasattr(self.encoder_in_block, "init_model_graph"):
-            self.encoder_in_block.init_model_graph()
+        if self.use_image_head:
+            self.in_img_block.init_model_graph()
 
-        x = kl.Input(shape=self.__input_shape[1:])
+        x = kl.Input(shape=self._in_shape)
         name = self.__class__.__name__ if name == "" else name
         model = keras.Model(inputs=x, outputs=self.call(x), name=name)
         model.summary(**kwargs)

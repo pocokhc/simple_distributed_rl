@@ -23,7 +23,7 @@ from srl.rl.functions.common import (
 from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
 from srl.rl.models.dueling_network import DuelingNetworkConfig
 from srl.rl.models.image_block import ImageBlockConfig
-from srl.rl.models.tf.input_block import InputBlock
+from srl.rl.models.tf.input_block import InputImageBlock
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -71,7 +71,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     actor_alpha: float = 7.0
 
     # model
-    image_block_config: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
+    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
     lstm_units: int = 512
     dueling_network: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 
@@ -187,17 +187,13 @@ class _QNetwork(keras.Model):
         super().__init__()
 
         # --- in block
-        self.in_block = InputBlock(
-            config.observation_shape,
-            config.env_observation_type,
-            enable_time_distributed_layer=True,
-        )
-        self.use_image_layer = self.in_block.use_image_layer
-
-        # image
-        if self.use_image_layer:
-            self.image_block = config.image_block_config.create_block_tf(enable_time_distributed_layer=True)
-            self.image_flatten = kl.TimeDistributed(kl.Flatten())
+        self.in_img_block = None
+        if config.observation_type == RLTypes.IMAGE:
+            self.in_img_block = InputImageBlock(
+                config.observation_shape, config.env_observation_type, enable_time_distributed_layer=True
+            )
+            self.img_block = config.image_block.create_block_tf(enable_time_distributed_layer=True)
+        self.flat_layer = kl.TimeDistributed(kl.Flatten())
 
         # --- lstm
         self.lstm_layer = kl.LSTM(config.lstm_units, return_sequences=True, return_state=True)
@@ -209,17 +205,18 @@ class _QNetwork(keras.Model):
         )
 
         # build
-        self.build((None, config.sequence_length) + config.observation_shape)
+        self._in_shape = (config.sequence_length,) + config.observation_shape
+        self.build((None,) + self._in_shape)
 
     @tf.function()
     def call(self, x, hidden_states=None, training=False):
         return self._call(x, hidden_states, training)
 
-    def _call(self, state, hidden_state=None, training=False):
-        x = self.in_block(state, training=training)
-        if self.use_image_layer:
-            x = self.image_block(x, training=training)
-            x = self.image_flatten(x)
+    def _call(self, x, hidden_state=None, training=False):
+        if self.in_img_block is not None:
+            x = self.in_img_block(x, training)
+            x = self.img_block(x, training)
+        x = self.flat_layer(x)
 
         # lstm
         x, h, c = self.lstm_layer(x, initial_state=hidden_state, training=training)
@@ -230,17 +227,13 @@ class _QNetwork(keras.Model):
     def init_hidden_state(self):
         return self.lstm_layer.cell.get_initial_state(batch_size=1, dtype=tf.float32)
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
     def summary(self, name="", **kwargs):
-        self.in_block.init_model_graph()
-        if self.in_block.use_image_layer:
-            self.image_block.init_model_graph()
+        if self.in_img_block is not None:
+            self.in_img_block.init_model_graph()
+            self.img_block.init_model_graph()
         self.dueling_block.init_model_graph()
 
-        x = kl.Input(self.__input_shape[1:])
+        x = kl.Input(self._in_shape)
         name = self.__class__.__name__ if name == "" else name
         model = keras.Model(inputs=x, outputs=self._call(x), name=name)
         model.summary(**kwargs)

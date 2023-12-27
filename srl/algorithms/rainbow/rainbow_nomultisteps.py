@@ -18,9 +18,9 @@ def calc_target_q(self: CommonInterfaceParameter, batchs, training: bool):
     states, n_states, onehot_actions, rewards, dones, _ = zip(*batchs)
     states = np.asarray(states)
     n_states = np.asarray(n_states)
-    onehot_actions = np.asarray(onehot_actions)
+    onehot_actions = np.asarray(onehot_actions, dtype=np.float32)
     rewards = np.array(rewards, dtype=np.float32)
-    dones = np.array(dones)
+    dones = np.array(dones, dtype=np.float32)
     next_invalid_actions = [e for b in batchs for e in b[5]]
     next_invalid_actions_idx = [i for i, b in enumerate(batchs) for e in b[5]]
 

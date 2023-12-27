@@ -4,8 +4,9 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
+from srl.base.define import RLTypes
 from srl.base.rl.base import RLTrainer
-from srl.rl.models.tf.input_block import InputBlock
+from srl.rl.models.tf.input_block import InputImageBlock
 
 from .rainbow import CommonInterfaceParameter, Config
 from .rainbow_nomultisteps import calc_target_q
@@ -20,13 +21,12 @@ class _QNetwork(keras.Model):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        # input
-        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
-
-        # image
-        if self.in_block.use_image_layer:
-            self.image_block = config.image_block.create_block_tf(enable_time_distributed_layer=False)
-            self.image_flatten = kl.Flatten()
+        # in block
+        self.in_img_block = None
+        if config.observation_type == RLTypes.IMAGE:
+            self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
+            self.img_block = config.image_block.create_block_tf()
+        self.flat_layer = kl.Flatten()
 
         # out
         self.dueling_block = config.dueling_network.create_block_tf(
@@ -35,33 +35,36 @@ class _QNetwork(keras.Model):
         )
 
         # build
-        self.build((None,) + config.observation_shape)
+        self._in_shape = config.observation_shape
+        self.build((None,) + self._in_shape)
 
-    @tf.function
+        self.loss_func = keras.losses.Huber()
+
     def call(self, x, training=False):
-        return self._call(x, training)
-
-    def _call(self, x, training=False):
-        x = self.in_block(x, training=training)
-        if self.in_block.use_image_layer:
-            x = self.image_block(x, training=training)
-            x = self.image_flatten(x)
+        if self.in_img_block is not None:
+            x = self.in_img_block(x, training)
+            x = self.img_block(x, training)
+        x = self.flat_layer(x)
         x = self.dueling_block(x, training=training)
         return x
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
+    @tf.function
+    def compute_train_loss(self, state, onehot_action, target_q, weights):
+        q = self(state, training=True)
+        q = tf.reduce_sum(q * onehot_action, axis=1)
+        loss = self.loss_func(target_q * weights, q * weights)
+        loss += tf.reduce_sum(self.losses)
+        return loss, q
 
     def summary(self, name="", **kwargs):
-        self.in_block.init_model_graph()
-        if self.in_block.use_image_layer:
-            self.image_block.init_model_graph()
+        if self.in_img_block is not None:
+            self.in_img_block.init_model_graph()
+            self.img_block.init_model_graph()
         self.dueling_block.init_model_graph()
 
-        x = kl.Input(shape=self.__input_shape[1:])
+        x = kl.Input(shape=self._in_shape)
         name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
         model.summary(**kwargs)
 
 
@@ -105,10 +108,7 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
 
         self.lr_sch = self.config.lr.create_schedulers()
-
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
-        self.loss_func = keras.losses.Huber()
-
         self.sync_count = 0
 
     def train(self) -> None:
@@ -122,12 +122,7 @@ class Trainer(RLTrainer):
             target_q, states, onehot_actions = self.parameter.calc_target_q(batchs, training=True)
 
         with tf.GradientTape() as tape:
-            q = self.parameter.q_online(states, training=True)
-            q = tf.reduce_sum(q * onehot_actions, axis=1)
-
-            loss = self.loss_func(target_q * weights, q * weights)
-            loss += tf.reduce_sum(self.parameter.q_online.losses)
-
+            loss, q = self.parameter.q_online.compute_train_loss(states, onehot_actions, target_q, weights)
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
 

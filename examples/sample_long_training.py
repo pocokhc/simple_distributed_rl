@@ -11,9 +11,7 @@ def _create_runner():
     runner = srl.Runner(env_config, rl_config)
 
     # --- Set directory to save learning
-    # Parameters will be saved automatically.
-    # The previous parameters will be automatically loaded.
-    runner.setup_wkdir("_sample_long_training")
+    runner.set_checkpoint("_sample_long_training_checkpoint", is_load=True)
 
     return runner
 

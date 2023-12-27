@@ -2,7 +2,7 @@ import numpy as np
 
 import srl
 from srl.base.run.context import RunContext
-from srl.base.run.core import play
+from srl.base.run.core_play import play
 from srl.utils import common
 
 # --- env & algorithm load
@@ -19,11 +19,12 @@ def main():
     env = srl.make_env(env_config)
     parameter = srl.make_parameter(rl_config, env)
     memory = srl.make_memory(rl_config, env)
+    trainer = srl.make_trainer(rl_config, parameter, memory)
 
     # --- train
     context.max_episodes = 10000
     context.training = True
-    play(context, env, parameter, memory)
+    play(context, env, parameter, memory, trainer)
 
     # --- evaluate
     context.max_episodes = 100

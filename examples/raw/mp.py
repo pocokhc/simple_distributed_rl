@@ -89,7 +89,7 @@ def _run_trainer(
     rl_config = config["rl_config"]
 
     parameter = make_parameter(rl_config)
-    trainer = make_trainer(rl_config, parameter, remote_memory)
+    trainer = make_trainer(rl_config, parameter, remote_memory, distributed=True)
 
     train_count = 0
     while True:

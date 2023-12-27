@@ -68,7 +68,7 @@ def run_trainer(queue, train_config):
     remote_memory = manager.RemoteMemory()
 
     parameter = srl.make_parameter(rl_config)
-    trainer = srl.make_trainer(rl_config, parameter, remote_memory)
+    trainer = srl.make_trainer(rl_config, parameter, remote_memory, distributed=True)
 
     train_count = 0
     while True:

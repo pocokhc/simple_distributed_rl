@@ -59,12 +59,12 @@ def test_loss_grad(unimix):
 
     from srl.rl.models.tf.distributions.categorical_dist_block import CategoricalDistBlock
 
-    m = CategoricalDistBlock(10, (64, 64, 64), unimix=unimix)
+    m = CategoricalDistBlock(20, (128, 128, 128), unimix=unimix)
     m2 = keras.Sequential(
         [
-            keras.layers.Dense(64, activation="relu"),
+            keras.layers.Dense(128, activation="relu"),
             keras.layers.LayerNormalization(),
-            keras.layers.Dense(64, activation="relu"),
+            keras.layers.Dense(128, activation="relu"),
             keras.layers.Dense(1),
         ]
     )
@@ -72,7 +72,7 @@ def test_loss_grad(unimix):
     m.summary()
 
     optimizer = keras.optimizers.legacy.Adam(learning_rate=0.0005)
-    for i in range(2000):
+    for i in range(1000):
         x_train, y_train = _create_dataset(64)
         with tf.GradientTape() as tape:
             dist = m.call_grad_dist(x_train)

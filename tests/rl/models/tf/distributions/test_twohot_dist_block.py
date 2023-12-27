@@ -20,10 +20,10 @@ def test_loss(use_symlog, use_mse):
     from srl.rl.models.tf.distributions.twohot_dist_block import TwoHotDistBlock
 
     m = TwoHotDistBlock(
-        100,
+        200,
         -1,
-        20,
-        (64, 64),
+        10,
+        (64, 64, 64),
         use_symlog=use_symlog,
         use_mse=use_mse,
     )
@@ -31,7 +31,7 @@ def test_loss(use_symlog, use_mse):
     m.summary()
 
     optimizer = keras.optimizers.Adam(learning_rate=0.02)
-    for i in range(500):
+    for i in range(1000):
         x_train, y_train = _create_dataset(32)
         with tf.GradientTape() as tape:
             loss = m.compute_train_loss(x_train, y_train)
@@ -82,5 +82,5 @@ def test_twohot_encode(x, bins, low, high, idx1, val1, idx2, val2, decode_x):
 
 
 if __name__ == "__main__":
-    test_loss(True, False)
+    test_loss(False, True)
     # test_twohot_encode(2.4, 11, -5, 5, 7, 0.6, 8, 0.4, 2.4)

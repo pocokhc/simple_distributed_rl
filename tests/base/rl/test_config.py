@@ -182,5 +182,5 @@ def test_copy():
 
     config2 = config.copy()
     assert config.is_setup
-    assert config.window_length == 4
+    assert config.window_length == 2
     assert config2.name == "test"

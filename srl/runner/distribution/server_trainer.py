@@ -11,7 +11,7 @@ from srl.base.define import RLMemoryTypes
 from srl.base.rl.base import IRLMemoryTrainer, RLMemory, RLParameter
 from srl.base.run.callback import TrainerCallback
 from srl.base.run.context import RunContext, RunNameTypes
-from srl.base.run.core import RunStateTrainer
+from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.distribution.callback import TrainerServerCallback
 from srl.runner.distribution.connectors.parameters import RedisParameters
 from srl.runner.distribution.interface import IMemoryServerParameters
@@ -405,6 +405,7 @@ def run_forever(
         "trainer",
         keepalive_interval,
         keepalive_threshold,
+        framework=framework,
         used_device_tf=used_device_tf,
         used_device_torch=used_device_torch,
     )

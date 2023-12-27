@@ -28,6 +28,7 @@ class TaskManagerParams:
     keepalive_interval: int = 10
     keepalive_threshold: int = 101
     uid: str = ""
+    framework: str = ""
     used_device_tf: str = "/CPU"
     used_device_torch: str = "cpu"
 
@@ -56,6 +57,7 @@ class TaskManager:
         keepalive_interval: int = 10,
         keepalive_threshold: int = 101,
         uid: str = "",
+        framework: str = "",
         used_device_tf: str = "/CPU",
         used_device_torch: str = "cpu",
     ):
@@ -69,6 +71,7 @@ class TaskManager:
             keepalive_interval,
             keepalive_threshold,
             uid,
+            framework,
             used_device_tf,
             used_device_torch,
         )
@@ -166,11 +169,10 @@ class TaskManager:
 
         # device
         self._config.context.create_controller().set_device(
+            self.params.framework,
             self.params.used_device_tf,
             self.params.used_device_torch,
         )
-        self._config.context.used_device_tf = self.params.used_device_tf
-        self._config.context.used_device_torch = self.params.used_device_torch
 
         # local
         self.params.actor_num = self._config.context.actor_num

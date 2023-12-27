@@ -1,7 +1,9 @@
+import itertools
 from typing import Tuple
 
 import pytest
 
+from srl.base.define import RLTypes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_class import CommonBaseSimpleTest
 
@@ -118,14 +120,16 @@ class Test_dqn(CommonBaseSimpleTest):
         return rl_config, {}
 
 
-class Test_dreamer(CommonBaseSimpleTest):
+class Test_dreamer_v3(CommonBaseSimpleTest):
     # 総当たりは時間がかかるので、どれか１つ実行に変更
     @pytest.fixture(
-        params=[
-            ["simple", "episode", "none"],
-            ["simple", "loop", "none"],
-            ["dreamer", "episode_steps", "tanh"],
-        ]
+        params=list(
+            itertools.product(
+                ["", "v1", "v2", "v3"],
+                [False, True],  # image
+                [RLTypes.DISCRETE, RLTypes.CONTINUOUS],  # action
+            )
+        )
     )
     def rl_param(self, request):
         return request.param
@@ -135,63 +139,39 @@ class Test_dreamer(CommonBaseSimpleTest):
         pytest.importorskip("tensorflow_probability")
         pytest.importorskip("pygame")
 
-        from srl.algorithms import dreamer
+        from srl.algorithms import dreamer_v3
 
-        rl_config = dreamer.Config(
-            deter_size=2,
-            stoch_size=2,
-            reward_layer_sizes=(2, 2),
-            critic_layer_sizes=(2, 2),
-            actor_layer_sizes=(2, 2),
-            cnn_depth=2,
-            batch_size=2,
-            batch_length=2,
-            critic_estimation_method=rl_param[0],
-            experience_acquisition_method=rl_param[1],
-            clip_rewards=rl_param[2],
-        )
-        rl_config.memory.warmup_size = 2
+        rl_config = dreamer_v3.Config()
+        if rl_param[0] == "v1":
+            rl_config.set_dreamer_v1()
+        elif rl_param[0] == "v2":
+            rl_config.set_dreamer_v2()
+        elif rl_param[0] == "v3":
+            rl_config.set_dreamer_v3()
+
+        # model
+        rl_config.rssm_deter_size = 2
+        rl_config.rssm_stoch_size = 2
+        rl_config.rssm_classes = 2
+        rl_config.rssm_hidden_units = 2
+        rl_config.reward_layer_sizes = (5,)
+        rl_config.cont_layer_sizes = (5,)
+        rl_config.critic_layer_sizes = (5, 5)
+        rl_config.actor_layer_sizes = (5, 5)
+        rl_config.encoder_decoder_mlp = (5, 5)
+        # cnn
+        rl_config.cnn_depth = 2
+        rl_config.cnn_blocks = 1
+        # lr
+        rl_config.batch_size = 2
+        rl_config.batch_length = 2
         rl_config.horizon = 2
-        rl_config.use_render_image_for_observation = True
-        return rl_config, {}
-
-
-class Test_dreamer_v2(CommonBaseSimpleTest):
-    # 総当たりは時間がかかるので、どれか１つ実行に変更
-    @pytest.fixture(
-        params=[
-            ["simple", "episode", "none"],
-            ["dreamer", "loop", "none"],
-            ["dreamer_v2", "episode_steps", "tanh"],
-        ]
-    )
-    def rl_param(self, request):
-        return request.param
-
-    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
-        pytest.importorskip("tensorflow")
-        pytest.importorskip("tensorflow_probability")
-        pytest.importorskip("pygame")
-
-        from srl.algorithms import dreamer_v2
-
-        rl_config = dreamer_v2.Config(
-            deter_size=2,
-            stoch_size=2,
-            reward_layer_sizes=(5, 5),
-            discount_layer_sizes=(5, 5),
-            critic_layer_sizes=(5, 5),
-            actor_layer_sizes=(5, 5),
-            cnn_depth=2,
-            batch_size=2,
-            batch_length=2,
-            critic_estimation_method=rl_param[0],
-            experience_acquisition_method=rl_param[1],
-            clip_rewards=rl_param[2],
-        )
+        # memory
         rl_config.memory.warmup_size = 2
-        rl_config.horizon = 2
-        rl_config.use_render_image_for_observation = True
+        rl_config.memory.capacity = 10_000
+
+        rl_config.use_render_image_for_observation = rl_param[1]
+        rl_config.override_action_type = rl_param[2]
         return rl_config, {}
 
 
@@ -239,11 +219,11 @@ class Test_planet(CommonBaseSimpleTest):
 class Test_ppo(CommonBaseSimpleTest):
     @pytest.fixture(
         params=[
-            ["MC", "", ""],
-            ["MC", "ave", "clip"],
-            ["GAE", "std", "kl"],
-            ["GAE", "normal", "kl"],
-            ["GAE", "advantage", "kl"],
+            [RLTypes.DISCRETE, "MC", "", ""],
+            [RLTypes.DISCRETE, "MC", "ave", "clip"],
+            [RLTypes.DISCRETE, "GAE", "std", "kl"],
+            [RLTypes.CONTINUOUS, "GAE", "normal", "kl"],
+            [RLTypes.CONTINUOUS, "MC", "advantage", "clip"],
         ]
     )
     def rl_param(self, request):
@@ -255,9 +235,10 @@ class Test_ppo(CommonBaseSimpleTest):
         from srl.algorithms import ppo
 
         rl_config = ppo.Config(
-            experience_collection_method=rl_param[0],
-            baseline_type=rl_param[1],
-            surrogate_type=rl_param[2],
+            override_action_type=rl_param[0],
+            experience_collection_method=rl_param[1],
+            baseline_type=rl_param[2],
+            surrogate_type=rl_param[3],
         )
         rl_config.batch_size = 2
         rl_config.memory.warmup_size = 2
@@ -309,6 +290,17 @@ class Test_rainbow(CommonBaseSimpleTest):
 
 
 class Test_sac(CommonBaseSimpleTest):
+    @pytest.fixture(
+        params=[
+            dict(override_action_type=RLTypes.DISCRETE, entropy_bonus_exclude_q=False),
+            dict(override_action_type=RLTypes.DISCRETE, entropy_bonus_exclude_q=True),
+            dict(override_action_type=RLTypes.CONTINUOUS, enable_normal_squashed=False),
+            dict(override_action_type=RLTypes.CONTINUOUS, enable_normal_squashed=True),
+        ]
+    )
+    def rl_param(self, request):
+        return request.param
+
     def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
         pytest.importorskip("tensorflow")
 
@@ -317,6 +309,9 @@ class Test_sac(CommonBaseSimpleTest):
         rl_config = sac.Config()
         rl_config.memory.warmup_size = 2
         rl_config.batch_size = 2
+        rl_config.entropy_bonus_exclude_q = rl_param.get("entropy_bonus_exclude_q", True)
+        rl_config.enable_normal_squashed = rl_param.get("enable_normal_squashed", True)
+        rl_config.override_action_type = rl_param["override_action_type"]
 
         return rl_config, {}
 

@@ -5,8 +5,7 @@ from . import (
     base_c51,
     base_ddpg,
     base_dqn,
-    base_dreamer,
-    base_dreamer_v2,
+    base_dreamer_v3,
     base_muzero,
     base_planet,
     base_ppo,
@@ -114,7 +113,7 @@ class Test_dqn_GPU(base_dqn.BaseCase):
         return "GPU"
 
 
-class Test_dreamer_CPU(base_dreamer.BaseCase):
+class Test_dreamer_v3_CPU(base_dreamer_v3.BaseCase):
     def get_framework(self) -> str:
         return "tensorflow"
 
@@ -122,23 +121,7 @@ class Test_dreamer_CPU(base_dreamer.BaseCase):
         return "CPU"
 
 
-class Test_dreamer_v2_GPU(base_dreamer_v2.BaseCase):
-    def get_framework(self) -> str:
-        return "tensorflow"
-
-    def get_device(self) -> str:
-        return "GPU"
-
-
-class Test_dreamer_v2_CPU(base_dreamer_v2.BaseCase):
-    def get_framework(self) -> str:
-        return "tensorflow"
-
-    def get_device(self) -> str:
-        return "CPU"
-
-
-class Test_dreamer_GPU(base_dreamer.BaseCase):
+class Test_dreamer_v3_GPU(base_dreamer_v3.BaseCase):
     def get_framework(self) -> str:
         return "tensorflow"
 

@@ -13,7 +13,7 @@ from srl.base.exception import DistributionError
 from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter
 from srl.base.run.callback import RunCallback
 from srl.base.run.context import RunContext, RunNameTypes
-from srl.base.run.core import RunStateActor
+from srl.base.run.core_play import RunStateActor
 from srl.runner.distribution.callback import ActorServerCallback
 from srl.runner.distribution.connectors.parameters import RedisParameters
 from srl.runner.distribution.interface import IMemoryServerParameters
@@ -373,6 +373,7 @@ def _run_actor(manager: ServerManager, runner: srl.Runner):
             trainer=None,
             workers=None,
             callbacks=callbacks,
+            enable_generator=False,
         )
     except DistributionError:
         raise
@@ -474,6 +475,7 @@ def run_forever(
         "actor",
         keepalive_interval,
         keepalive_threshold,
+        framework=framework,
         used_device_tf=used_device_tf,
         used_device_torch=used_device_torch,
     )

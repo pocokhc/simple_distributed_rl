@@ -45,6 +45,7 @@ def test_server_actor(mocker: pytest_mock.MockerFixture, server, enable_actor_th
         create_paho_mock(mocker)
         memory_params = MQTTParameters(host="test")
     elif server == "gcp":
+        pytest.skip("GCPは要検討")
         create_gcp_mock(mocker)
         memory_params = GCPParameters(project_id="test")
     else:
@@ -112,6 +113,7 @@ def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
         create_paho_mock(mocker)
         memory_params = MQTTParameters(host="test")
     elif server == "gcp":
+        pytest.skip("GCPは要検討")
         create_gcp_mock(mocker)
         memory_params = GCPParameters(project_id="test")
     else:

@@ -398,6 +398,8 @@ class RLConfig(ABC):
         config._check_parameter = False
 
         for k, v in self.__dict__.items():
+            if k == "_check_parameter":
+                continue
             if isinstance(v, EnvRun):
                 continue
             try:

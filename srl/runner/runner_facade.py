@@ -1175,6 +1175,7 @@ class RunnerFacade(Runner):
     def play_window(
         self,
         key_bind: Any = None,
+        action_division_num: int = 5,
         enable_memory: bool = False,
         # --- stop config
         timeout: float = -1,
@@ -1218,8 +1219,9 @@ class RunnerFacade(Runner):
         from srl.runner.game_windows.playable_game import PlayableGame
 
         game = PlayableGame(
-            self,
-            key_bind,
+            runner=self,
+            action_division_num=action_division_num,
+            key_bind=key_bind,
             enable_memory=enable_memory,
             callbacks=callbacks,
             _is_test=_is_test,

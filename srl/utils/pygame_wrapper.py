@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import pygame
+
 from srl.font import get_font_path
 
 
@@ -97,7 +98,7 @@ def draw_text(
     y: float,
     text: str,
     font: str = "",
-    size: int = 12,
+    size: int = 18,
     color: Tuple[int, int, int] = (0, 0, 0),
 ) -> Tuple[int, int]:  # width, height
     global _fonts
@@ -123,7 +124,7 @@ def draw_texts(
     y: float,
     texts: List[str],
     font: str = "",
-    size: int = 12,
+    size: int = 18,
     color: Tuple[int, int, int] = (0, 0, 0),
 ) -> Tuple[int, int]:  # width, height:
     height = 0

@@ -37,11 +37,11 @@ class AlphaZeroImageBlock(keras.Model):
 
         self.resblocks = [_ResidualBlock(filters, activation) for _ in range(n_blocks)]
 
-    def call(self, x):
+    def call(self, x, training=False):
         for layer in self.input_layers:
-            x = layer(x)
+            x = layer(x, training=training)
         for resblock in self.resblocks:
-            x = resblock(x)
+            x = resblock(x, training=training)
         return x
 
     def build(self, input_shape):
@@ -84,10 +84,10 @@ class _ResidualBlock(keras.Model):
         ]
         self.act2 = kl.Activation(activation)
 
-    def call(self, x):
+    def call(self, x, training=False):
         x1 = x
         for layer in self.res_layers:
-            x1 = layer(x1)
+            x1 = layer(x1, training=training)
         x = x + x1
         x = self.act2(x)
         return x

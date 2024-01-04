@@ -54,19 +54,19 @@ class MuZeroAtariBlock(keras.Model):
         self.resblock8 = _ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
         self.pool2 = kl.AveragePooling2D(pool_size=3, strides=2, padding="same")
 
-    def call(self, x):
-        x = self.conv1(x)
-        x = self.resblock1(x)
-        x = self.resblock2(x)
-        x = self.conv2(x)
-        x = self.resblock3(x)
-        x = self.resblock4(x)
-        x = self.resblock5(x)
-        x = self.pool1(x)
-        x = self.resblock6(x)
-        x = self.resblock7(x)
-        x = self.resblock8(x)
-        x = self.pool2(x)
+    def call(self, x, training=False):
+        x = self.conv1(x, training=training)
+        x = self.resblock1(x, training=training)
+        x = self.resblock2(x, training=training)
+        x = self.conv2(x, training=training)
+        x = self.resblock3(x, training=training)
+        x = self.resblock4(x, training=training)
+        x = self.resblock5(x, training=training)
+        x = self.pool1(x, training=training)
+        x = self.resblock6(x, training=training)
+        x = self.resblock7(x, training=training)
+        x = self.resblock8(x, training=training)
+        x = self.pool2(x, training=training)
         return x
 
 
@@ -109,12 +109,12 @@ class _ResidualBlock(keras.Model):
             self.bn2 = kl.BatchNormalization()
         self.act2 = kl.Activation(activation)
 
-    def call(self, x):
-        x1 = self.conv1(x)
-        x1 = self.bn1(x1)
+    def call(self, x, training=False):
+        x1 = self.conv1(x, training=training)
+        x1 = self.bn1(x1, training=training)
         x1 = self.act1(x1)
-        x1 = self.conv2(x1)
-        x1 = self.bn2(x1)
+        x1 = self.conv2(x1, training=training)
+        x1 = self.bn2(x1, training=training)
         x = x + x1
         x = self.act2(x)
         return x

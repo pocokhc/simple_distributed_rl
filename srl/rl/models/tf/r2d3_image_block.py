@@ -23,10 +23,10 @@ class R2D3ImageBlock(keras.Model):
         self.res3 = _ResBlock(filters * 2, activation, enable_time_distributed_layer)
         self.act = kl.Activation(activation)
 
-    def call(self, x):
-        x = self.res1(x)
-        x = self.res2(x)
-        x = self.res3(x)
+    def call(self, x, training=False):
+        x = self.res1(x, training=training)
+        x = self.res2(x, training=training)
+        x = self.res3(x, training=training)
         x = self.act(x)
         return x
 
@@ -63,11 +63,11 @@ class _ResBlock(keras.Model):
             self.conv = kl.TimeDistributed(self.conv)
             self.pool = kl.TimeDistributed(self.pool)
 
-    def call(self, x):
-        x = self.conv(x)
-        x = self.pool(x)
-        x = self.res1(x)
-        x = self.res2(x)
+    def call(self, x, training=False):
+        x = self.conv(x, training=training)
+        x = self.pool(x, training=training)
+        x = self.res1(x, training=training)
+        x = self.res2(x, training=training)
         return x
 
     def build(self, input_shape):
@@ -103,11 +103,11 @@ class _ResidualBlock(keras.Model):
             self.conv1 = kl.TimeDistributed(self.conv1)
             self.conv2 = kl.TimeDistributed(self.conv2)
 
-    def call(self, x):
+    def call(self, x, training=False):
         x1 = self.act1(x)
-        x1 = self.conv1(x1)
+        x1 = self.conv1(x1, training=training)
         x1 = self.act2(x1)
-        x1 = self.conv2(x1)
+        x1 = self.conv2(x1, training=training)
         return self.add([x, x1])
 
     def build(self, input_shape):

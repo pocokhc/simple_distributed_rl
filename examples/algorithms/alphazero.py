@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+
 import srl
 from srl.algorithms import alphazero
 from srl.envs import othello

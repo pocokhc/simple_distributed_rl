@@ -34,7 +34,6 @@ def _create_runner():
     rl_config.memory.warmup_size = 1_000
     rl_config.epsilon.set_linear(TRAIN_COUNT, 1.0, 0.1)
     rl_config.memory.capacity = 10_000
-    rl_config.memory.set_proportional_memory(beta_steps=TRAIN_COUNT)
     rl_config.image_block.set_r2d3_image()
     rl_config.hidden_block.set_mlp((512,))
     rl_config.window_length = 4
@@ -58,7 +57,7 @@ def train():
     runner = _create_runner()
 
     # (option) print tensorflow model
-    runner.model_summary(expand_nested=True)
+    runner.model_summary()
 
     # --- train
     runner.set_history_on_file(_history_path, interval=5)

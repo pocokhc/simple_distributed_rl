@@ -1,7 +1,6 @@
 import os
 
 import numpy as np
-
 import srl
 from srl.algorithms import dqn
 from srl.utils import common
@@ -29,7 +28,7 @@ def main():
     # rl_config.framework.set_tensorflow()
 
     runner = srl.Runner(env_config, rl_config)
-    runner.model_summary(expand_nested=True)
+    runner.model_summary()
 
     # --- train
     runner.set_history_on_memory()

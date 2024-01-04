@@ -43,7 +43,7 @@ def main_search_dynaq():
 
     runner = srl.Runner("FrozenLake-v1", rl_config)
     runner.set_history_on_file(
-        os.path.join(base_dir, "_{ENV_PRE}_SearchDynaQ"),
+        os.path.join(base_dir, f"_{ENV_PRE}_SearchDynaQ"),
         enable_eval=True,
         eval_episode=100,
     )

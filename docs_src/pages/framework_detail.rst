@@ -71,10 +71,10 @@ Interface Type
    * - Discrete
      - Observation
      - NDArray[int]
-   * - Discrete
+   * - Continuous
      - Action
      - list[float]
-   * - Discrete
+   * - Continuous
      - Observation
      - NDArray[np.float32]
 

@@ -13,14 +13,11 @@ from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import render_discrete_action
-from srl.rl.functions.common_tf import (compute_kl_divergence,
-                                        compute_kl_divergence_normal)
-from srl.rl.memories.experience_replay_buffer import (
-    ExperienceReplayBuffer, ExperienceReplayBufferConfig)
+from srl.rl.functions.common_tf import compute_kl_divergence, compute_kl_divergence_normal
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
-from srl.rl.models.tf.distributions.categorical_dist_block import \
-    CategoricalDistBlock
+from srl.rl.models.tf.distributions.categorical_dist_block import CategoricalDistBlock
 from srl.rl.models.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.rl.models.tf.input_block import InputImageBlock
 from srl.rl.processors.image_processor import ImageProcessor
@@ -65,6 +62,8 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     #: 割引報酬の計算方法
+    #:
+    #: Parameters:
     #:   "MC" : モンテカルロ法
     #:   "GAE": Generalized Advantage Estimator
     experience_collection_method: str = "MC"
@@ -74,6 +73,8 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     gae_discount: float = 0.9
 
     #: baseline
+    #:
+    #: Parameters:
     #:  "" "none"       : none
     #:  "ave"           : (adv - mean)
     #:  "std"           : adv/std
@@ -81,6 +82,8 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     #:  "advantage" "v" : adv - v
     baseline_type: str = "ave"
     #: surrogate type
+    #:
+    #: Parameters:
     #:  ""     : none
     #:  "clip" : Clipped Surrogate Objective
     #:  "kl"   : Adaptive KLペナルティ

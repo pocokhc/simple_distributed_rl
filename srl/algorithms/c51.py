@@ -95,23 +95,6 @@ def create_input_layer(
         else:
             raise ValueError(err_msg)
 
-    elif observation_type == EnvObservationTypes.SHAPE2:
-        if len(observation_shape) == 2:
-            # (w, h) -> (w, h, 1)
-            c = kl.Reshape(observation_shape + (1,))(c)
-        elif len(observation_shape) == 3:
-            # (len, w, h) -> (w, h, len)
-            c = kl.Permute((2, 3, 1))(c)
-        else:
-            raise ValueError(err_msg)
-
-    elif observation_type == EnvObservationTypes.SHAPE3:
-        if len(observation_shape) == 3:
-            # (n, w, h) -> (w, h, n)
-            c = kl.Permute((2, 3, 1))(c)
-        else:
-            raise ValueError(err_msg)
-
     else:
         raise ValueError(err_msg)
 

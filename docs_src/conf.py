@@ -37,7 +37,6 @@ language = "ja"
 
 # html_theme = "alabaster"
 html_theme = "sphinx_rtd_theme"  # pip install sphinx_rtd_theme
-html_static_path = ["_static"]
 
 
 # メンバーの表示順をソースコードの定義順に設定

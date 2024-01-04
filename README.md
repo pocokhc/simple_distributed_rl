@@ -92,10 +92,10 @@ print(srl.__version__)
   + pika
   + paho-mqtt
 
-Tensorflow,Torchを除いたライブラリを一括でインストールするコマンドは以下です。
+Tensorflow,Torch,pika,paho-mqttを除いたライブラリを一括でインストールするコマンドは以下です。
 
 ``` bash
-pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis pika paho-mqtt
+pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis
 ```
 
 # 2. Usage
@@ -206,7 +206,7 @@ while not env.done:
 |DQN       |Continuous |Discrete|Torch|100%||
 |C51       |Continuous |Discrete|Tensorflow| 99%|CategoricalDQN|
 |Rainbow   |Continuous |Discrete|Tensorflow|100%||
-|Rainbow   |Continuous |Discrete|Torch|90%||
+|Rainbow   |Continuous |Discrete|Torch|100%||
 |R2D2      |Continuous |Discrete|Tensorflow|100%||
 |R2D2      |Continuous |Discrete|Torch|0%||
 |Agent57   |Continuous |Discrete|Tensorflow|100%||
@@ -219,9 +219,9 @@ while not env.done:
 |VanillaPolicy          |Discrete   |Both      |-|100%||
 |A3C/A2C                |           |          ||  0%||
 |TRPO                   |Continuous |          ||   -||
-|PPO                    |Continuous |Both      |Tensorflow|100%|ContinuousAction is unstable.|
+|PPO                    |Continuous |Both      |Tensorflow|100%||
 |DDPG/TD3               |Continuous |Continuous|Tensorflow|100%||
-|SAC                    |Continuous |Continuous|Tensorflow|100%||
+|SAC                    |Continuous |Both      |Tensorflow|100%||
 
 ## AlphaSeries
 
@@ -236,17 +236,17 @@ while not env.done:
 
 |Algorithm  |Observation|Action     |Framework|ProgressRate|
 |-----------|-----------|-----------|----------|----|
-|DynaQ      |Discrete   |Discrete   | 10%|
+|DynaQ      |Discrete   |Discrete   |100%|
 
 ### WorldModels
 
-|Algorithm  |Observation|Action     |Framework|ProgressRate|
-|-----------|-----------|-----------|----------|----|
-|WorldModels|Continuous |Discrete   |Tensorflow|100%|
-|PlaNet     |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%|
-|Dreamer    |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%|
-|DreamerV2  |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%|
-|DreamerV3  |Continuous |Discrete   |Tensorflow,tensorflow-probability|0%|
+|Algorithm  |Observation|Action     |Framework|ProgressRate||
+|-----------|-----------|-----------|----------|----|---|
+|WorldModels|Continuous |Discrete   |Tensorflow|100%||
+|PlaNet     |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%||
+|Dreamer    |Continuous |Discrete   |Tensorflow,tensorflow-probability|-|merge DreamerV3|
+|DreamerV2  |Continuous |Discrete   |Tensorflow,tensorflow-probability|-|merge DreamerV3|
+|DreamerV3  |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%||
 
 ## Offline
 
@@ -260,7 +260,7 @@ while not env.done:
 |-------------|-----------|--------|---------|----------|----|---|
 |QL_agent57   |Discrete   |Discrete|ValueBase|          | 80%|QL + Agent57|
 |Agent57_light|Continuous |Discrete|ValueBase|Tensorflow|100%|Agent57 - (LSTM,MultiStep)|
-|SearchDynaQ  |Discrete   |Discrete|ModelBase/ValueBase||100%|original|
+|SearchDynaQ  |Discrete   |Discrete|ModelBase||100%|original|
 |SearchDreamer|Continuous |Discrete|ModelBase|Tensorflow| 0%|original|
 
 # 5. Customize

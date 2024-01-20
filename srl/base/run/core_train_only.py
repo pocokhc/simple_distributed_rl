@@ -55,13 +55,16 @@ def _play_trainer_only(
 ):
     state = RunStateTrainer(trainer, trainer.memory, trainer.parameter)
 
-    # callbacks
+    # --- 1 start
+    state.trainer.train_start()
+
+    # 2 callbacks
     [c.on_trainer_start(context, state) for c in callbacks]
 
-    # --- init
+    # --- 3 init
     state.elapsed_t0 = time.time()
 
-    # --- loop
+    # --- 4 loop
     logger.info("loop start")
     while True:
         _time = time.time()
@@ -88,6 +91,9 @@ def _play_trainer_only(
 
     logger.info(f"loop end({state.end_reason})")
 
-    # callbacks
+    # 5 end
+    state.trainer.train_end()
+
+    # 6 callbacks
     [c.on_trainer_end(context, state) for c in callbacks]
     return state

@@ -245,6 +245,14 @@ class RLTrainer(ABC):
     def train(self) -> None:
         raise NotImplementedError()
 
+    # abstract
+    def train_start(self) -> None:
+        pass
+
+    # abstract
+    def train_end(self) -> None:
+        pass
+
     # --- properties
     @property
     def distributed(self) -> bool:
@@ -282,6 +290,12 @@ class RLWorker(ABC, IRender):
 
     def on_step(self, worker: "WorkerRun") -> InfoType:
         return {}
+
+    def on_start(self, worker: "WorkerRun") -> None:
+        pass
+
+    def on_end(self, worker: "WorkerRun") -> None:
+        pass
 
     # ------------------------------
     # IRender

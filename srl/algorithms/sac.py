@@ -172,8 +172,8 @@ class _PolicyNetwork(keras.Model):
 
     def call(self, x, training=False) -> Any:
         if self.in_img_block is not None:
-            x = self.in_img_block(x, training)
-            x = self.img_block(x, training)
+            x = self.in_img_block(x, training=training)
+            x = self.img_block(x, training=training)
         x = self.flat_layer(x)
         x = self.hidden_block(x, training=training)
         return self.policy_dist_block(x)
@@ -188,11 +188,10 @@ class _PolicyNetwork(keras.Model):
         if self.config.action_type == RLTypes.DISCRETE:
             action = p_dist.sample()
             logpi = p_dist.log_probs()
-            H = -tf.reduce_sum(tf.exp(logpi) * logpi, axis=1, keepdims=True)
+            entropy = -tf.reduce_sum(tf.exp(logpi) * logpi, axis=1, keepdims=True)
         elif self.config.action_type == RLTypes.CONTINUOUS:
-            action = p_dist.sample()
-            logpi = p_dist.log_prob(p_dist.y_org)
-            H = -logpi
+            action, logpi = p_dist.sample_and_logprob()
+            entropy = -logpi
         else:
             raise UndefinedError(self.config.action_type)
 
@@ -201,7 +200,7 @@ class _PolicyNetwork(keras.Model):
         q2 = q2_model([state, action])
         q_min = tf.minimum(q1, q2)
 
-        policy_loss = q_min + (alpha * H)
+        policy_loss = q_min + (alpha * entropy)
         policy_loss = -tf.reduce_mean(policy_loss)
         policy_loss += tf.reduce_sum(self.losses)  # 正則化項
         return policy_loss, logpi
@@ -367,12 +366,10 @@ class Trainer(RLTrainer):
         if self.config.action_type == RLTypes.DISCRETE:
             n_action = n_p_dist.sample(onehot=True)
             n_logpi = n_p_dist.log_prob(n_action)
-            H = -n_logpi
+            entropy = -n_logpi
         elif self.config.action_type == RLTypes.CONTINUOUS:
-            n_action = n_p_dist.sample()
-            # Squashed Gaussian PolicyはSquash前のアクションを渡す必要あり
-            n_logpi = n_p_dist.log_prob(n_p_dist.y_org)
-            H = -n_logpi
+            n_action, n_logpi = n_p_dist.sample_and_logprob()
+            entropy = -n_logpi
         else:
             raise UndefinedError(self.config.action_type)
 
@@ -383,7 +380,7 @@ class Trainer(RLTrainer):
         if self.config.entropy_bonus_exclude_q:
             target_q = rewards + (1 - dones) * self.config.discount * n_qval
         else:
-            target_q = rewards + (1 - dones) * self.config.discount * (n_qval + alpha * H)
+            target_q = rewards + (1 - dones) * self.config.discount * (n_qval + alpha * entropy)
 
         # --- Qモデルの学習
         # 一緒に学習すると-と+で釣り合う場合がある

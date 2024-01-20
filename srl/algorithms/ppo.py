@@ -285,10 +285,12 @@ class _ActorCriticNetwork(keras.Model):
             if self.config.action_type == RLTypes.DISCRETE:
                 new_probs = policy_dist.probs()
                 kl = compute_kl_divergence(old_probs, new_probs)
-            else:
+            elif self.config.action_type == RLTypes.CONTINUOUS:
                 new_mean = policy_dist.mean()
                 new_stddev = policy_dist.stddev()
                 kl = compute_kl_divergence_normal(old_mean, old_stddev, new_mean, new_stddev)
+            else:
+                raise UndefinedError(self.config.action_type)
             policy_loss = ratio * advantage - adaptive_kl_beta * kl
         elif self.config.surrogate_type == "":
             policy_loss = ratio * advantage

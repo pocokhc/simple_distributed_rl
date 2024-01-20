@@ -403,7 +403,7 @@ class Trainer(RLTrainer):
             rewards_ext,
             *_params,
         )
-        _info["ext_loss"] = _loss
+        self.train_info["ext_loss"] = _loss
 
         # --- intrinsic reward
         if self.config.enable_intrinsic_reward:
@@ -417,7 +417,7 @@ class Trainer(RLTrainer):
                 rewards_int,
                 *_params,
             )
-            _info["int_loss"] = _loss
+            self.train_info["int_loss"] = _loss
 
             # ----------------------------------------
             # embedding network
@@ -429,7 +429,7 @@ class Trainer(RLTrainer):
             self.emb_optimizer.zero_grad()
             emb_loss.backward()
             self.emb_optimizer.step()
-            _info["emb_loss"] = emb_loss.item()
+            self.train_info["emb_loss"] = emb_loss.item()
 
             if self.lr_sch_emb.update(self.train_count):
                 lr = self.lr_sch_emb.get_rate()
@@ -448,7 +448,7 @@ class Trainer(RLTrainer):
             self.lifelong_optimizer.zero_grad()
             lifelong_loss.backward()
             self.lifelong_optimizer.step()
-            _info["lifelong_loss"] = lifelong_loss.item()
+            self.train_info["lifelong_loss"] = lifelong_loss.item()
 
             if self.lr_sch_ll.update(self.train_count):
                 lr = self.lr_sch_ll.get_rate()
@@ -471,9 +471,8 @@ class Trainer(RLTrainer):
             self.parameter.q_ext_target.load_state_dict(self.parameter.q_ext_online.state_dict())
             self.parameter.q_int_target.load_state_dict(self.parameter.q_int_online.state_dict())
             self.sync_count += 1
-        _info["sync"] = self.sync_count
+        self.train_info["sync"] = self.sync_count
 
-        self.train_info = _info
         self.train_count += 1
 
     def _update_q(

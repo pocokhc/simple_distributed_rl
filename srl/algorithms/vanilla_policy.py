@@ -9,6 +9,7 @@ from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
 from srl.base.rl.worker_run import WorkerRun
+from srl.rl.functions import common
 from srl.rl.functions.common import render_discrete_action, to_str_observation
 from srl.rl.memories.sequence_memory import SequenceMemory
 from srl.rl.schedulers.scheduler import SchedulerConfig
@@ -21,6 +22,10 @@ from srl.rl.schedulers.scheduler import SchedulerConfig
 class Config(RLConfig):
     discount: float = 0.9
     lr: float = 0.1  # type: ignore , type OK
+
+    update_max_mean: float = 1
+    update_max_stddev: float = 5
+    update_stddev_rate: float = 0.1
 
     def __post_init__(self):
         super().__post_init__()
@@ -179,10 +184,12 @@ class Trainer(RLTrainer):
             # 分散
             stddev_diff_logpi = (((action - mean) ** 2) - (stddev**2)) / (stddev**3)
             stddev_diff_j = stddev_diff_logpi * reward
-            new_stddev = self.parameter.policy[state]["stddev_logits"] + lr * stddev_diff_j
+            new_stddev = (
+                self.parameter.policy[state]["stddev_logits"] + lr * stddev_diff_j * self.config.update_stddev_rate
+            )
 
             # 更新幅が大きすぎる場合は更新しない
-            if abs(mean_diff_j) < 1 and abs(stddev_diff_j) < 5:
+            if abs(mean_diff_j) < self.config.update_max_mean and abs(stddev_diff_j) < self.config.update_max_stddev:
                 self.parameter.policy[state]["mean"] = new_mean
                 self.parameter.policy[state]["stddev_logits"] = new_stddev
 
@@ -218,18 +225,23 @@ class Worker(RLWorker):
         if self.config.action_type == RLTypes.DISCRETE:
             # --- 離散
             probs = self.parameter.get_probs(self.state, self.invalid_actions)
-            action = np.random.choice([a for a in range(self.config.action_num)], p=probs)
-            self.action = int(action)
-            env_action = self.action
-            self.prob = probs[self.action]
+            if self.training:
+                action = np.random.choice([a for a in range(self.config.action_num)], p=probs)
+                self.action = env_action = int(action)
+                self.prob = probs[self.action]
+            else:
+                env_action = common.get_random_max_index(probs, worker.invalid_actions)
 
         else:
             # --- 連続
             # パラメータ
             mean, stddev = self.parameter.get_normal(self.state)
 
-            # ガウス分布に従った乱数を出す
-            self.action = env_action = mean + np.random.normal() * stddev
+            if self.training:
+                # ガウス分布に従った乱数を出す
+                self.action = env_action = mean + np.random.normal() * stddev
+            else:
+                env_action = mean
 
             # -inf～infの範囲を取るので実際に環境に渡すアクションはlowとhighで切り取る
             # 本当はポリシーが変化しちゃうのでよくない（暫定対処）

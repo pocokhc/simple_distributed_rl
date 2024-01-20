@@ -32,6 +32,7 @@ class DoneTypes(enum.Enum):
     TERMINATED = enum.auto()
     TIMEOUT = enum.auto()
     EPISODE_STEP_OVER = enum.auto()
+    TRUNCATED_ENV = enum.auto()
     TRUNCATED_ENV_SANITIZE = enum.auto()
     TRUNCATED_RL = enum.auto()
 

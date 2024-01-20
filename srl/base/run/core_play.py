@@ -102,26 +102,31 @@ def _play(
 
     state = RunStateActor(env, workers, memory, parameter, trainer)
 
-    # --- set_config_by_actor
+    # --- 1 set_config_by_actor
     if context.distributed:
         context.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
 
-    # --- random
+    # --- 2 random
     if context.seed is not None:
         state.episode_seed = random.randint(0, 2**16)
         logger.info(f"set_seed: {context.seed}, 1st episode seed: {state.episode_seed}")
 
-    # --- callbacks
+    # --- 3 start
+    [w.on_start() for w in state.workers]
+    if state.trainer is not None:
+        state.trainer.train_start()
+
+    # --- 4 callbacks
     [c.on_episodes_begin(context, state) for c in callbacks]
 
-    # --- init
+    # --- 5 init
     state.elapsed_t0 = time.time()
     state.worker_indices = [i for i in range(state.env.player_num)]
 
     def __skip_func():
         [c.on_skip_step(context, state) for c in callbacks]
 
-    # --- loop
+    # --- 6 loop
     if context.run_name != RunNameTypes.eval:
         logger.info(f"[{context.run_name}] loop start")
     env.init()
@@ -232,6 +237,11 @@ def _play(
     if context.run_name != RunNameTypes.eval:
         logger.info(f"[{context.run_name}] loop end({state.end_reason})")
 
+    # --- 7 end
+    [w.on_end() for w in state.workers]
+    if state.trainer is not None:
+        state.trainer.train_end()
+
     # rewardは学習中は不要
     if not context.training:
         # 一度もepisodeを終了していない場合は例外で途中経過を保存
@@ -239,7 +249,7 @@ def _play(
             worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
             state.episode_rewards_list.append(worker_rewards)
 
-    # callbacks
+    # 8 callbacks
     [c.on_episodes_end(context, state) for c in callbacks]
     return state
 
@@ -271,27 +281,32 @@ def play_generator(
     assert env.player_num == len(workers)
     state = RunStateActor(env, workers, memory, parameter, trainer)
 
-    # --- set_config_by_actor
+    # --- 1 set_config_by_actor
     if context.distributed:
         context.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
 
-    # --- random
+    # --- 2 random
     if context.seed is not None:
         state.episode_seed = random.randint(0, 2**16)
         logger.info(f"set_seed: {context.seed}, 1st episode seed: {state.episode_seed}")
 
-    # --- callbacks
+    # --- 3 start
+    [w.on_start() for w in state.workers]
+    if state.trainer is not None:
+        state.trainer.train_start()
+
+    # --- 4 callbacks
     [c.on_episodes_begin(context, state) for c in callbacks]
     yield (state, "on_episodes_begin")
 
-    # --- init
+    # --- 5 init
     state.elapsed_t0 = time.time()
     state.worker_indices = [i for i in range(state.env.player_num)]
 
     def __skip_func():
         [c.on_skip_step(context, state) for c in callbacks]
 
-    # --- loop
+    # --- 6 loop
     if context.run_name != RunNameTypes.eval:
         logger.info(f"[{context.run_name}] loop start")
     env.init()
@@ -409,6 +424,11 @@ def play_generator(
     if context.run_name != RunNameTypes.eval:
         logger.info(f"[{context.run_name}] loop end({state.end_reason})")
 
+    # 8 end
+    [w.on_end() for w in state.workers]
+    if state.trainer is not None:
+        state.trainer.train_end()
+
     # rewardは学習中は不要
     if not context.training:
         # 一度もepisodeを終了していない場合は例外で途中経過を保存
@@ -416,6 +436,6 @@ def play_generator(
             worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
             state.episode_rewards_list.append(worker_rewards)
 
-    # callbacks
+    # 9 callbacks
     [c.on_episodes_end(context, state) for c in callbacks]
     yield (state, "on_episodes_end")

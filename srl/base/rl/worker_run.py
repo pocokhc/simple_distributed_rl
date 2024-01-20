@@ -198,6 +198,12 @@ class WorkerRun:
             InvalidActionsType, [self.action_encode(a) for a in self._env.get_invalid_actions(self.player_index)]
         )
 
+    def on_start(self):
+        self._worker.on_start(self)
+
+    def on_end(self):
+        self._worker.on_end(self)
+
     # ------------------------------
     # encode/decode
     # ------------------------------

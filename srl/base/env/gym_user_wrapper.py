@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import TYPE_CHECKING, Any, Optional, Tuple, Union
 
-from srl.base.define import EnvObservationTypes
+from srl.base.define import DoneTypes, EnvObservationTypes
 from srl.base.env.base import SpaceBase
 
 if TYPE_CHECKING:
@@ -34,5 +34,5 @@ class GymUserWrapper(ABC):
     def reward(self, reward: float, env: Union["gymnasium.Env", "gym.Env"]) -> float:
         return reward
 
-    def done(self, done: bool, env: Union["gymnasium.Env", "gym.Env"]) -> bool:
+    def done(self, done: DoneTypes, env: Union["gymnasium.Env", "gym.Env"]) -> Union[bool, DoneTypes]:
         return done

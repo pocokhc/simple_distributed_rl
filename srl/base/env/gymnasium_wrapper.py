@@ -8,7 +8,7 @@ import numpy as np
 from gymnasium import spaces as gym_spaces
 from gymnasium.spaces import flatten, flatten_space
 
-from srl.base.define import EnvActionType, EnvObservationTypes, InfoType, RenderModes
+from srl.base.define import DoneTypes, EnvActionType, EnvObservationTypes, InfoType, RenderModes
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.config import EnvConfig
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
@@ -399,7 +399,7 @@ class GymnasiumWrapper(EnvBase):
         state = self.observation_space.convert(state)
         return state, info
 
-    def step(self, action: EnvActionType) -> Tuple[np.ndarray, List[float], bool, InfoType]:
+    def step(self, action: EnvActionType) -> Tuple[np.ndarray, List[float], Union[bool, DoneTypes], InfoType]:
         # wrapper
         for w in self.config.gym_wrappers:
             action = w.action(action, self.env)
@@ -410,13 +410,18 @@ class GymnasiumWrapper(EnvBase):
 
         # step
         state, reward, terminated, truncated, info = self.env.step(action)
-        done = terminated or truncated
+        if terminated:
+            done = DoneTypes.TERMINATED
+        elif truncated:
+            done = DoneTypes.TRUNCATED_ENV
+        else:
+            done = DoneTypes.NONE
 
         # wrapper
         for w in self.config.gym_wrappers:
             state = w.observation(state, self.env)
             reward = w.reward(cast(float, reward), self.env)
-            done = w.done(done, self.env)
+            done = w.done(cast(DoneTypes, done), self.env)
 
         # flatten
         if self.enable_flatten_observation:

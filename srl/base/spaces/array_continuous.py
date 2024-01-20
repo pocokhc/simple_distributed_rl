@@ -27,7 +27,7 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
         assert self.low.shape == self.high.shape
         assert np.less_equal(self.low, self.high).all()
 
-        self._is_inf = np.isinf(low) or np.isinf(high)
+        self._is_inf = np.isinf(low).any() or np.isinf(high).any()
         self.division_tbl = None
 
     def sample(self, invalid_actions: InvalidActionsType = []) -> List[float]:

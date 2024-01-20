@@ -39,8 +39,8 @@ class BernoulliDistBlock(keras.Model):
         self.out_size = out_size
 
         self.hidden_layers = []
-        for i in range(len(hidden_layer_sizes)):
-            self.hidden_layers.append(kl.Dense(hidden_layer_sizes[i], activation=activation))
+        for size in hidden_layer_sizes:
+            self.hidden_layers.append(kl.Dense(size, activation=activation))
         self.out_layer = kl.Dense(out_size)
 
         self.loss_function = tf.keras.losses.BinaryCrossentropy(from_logits=True)

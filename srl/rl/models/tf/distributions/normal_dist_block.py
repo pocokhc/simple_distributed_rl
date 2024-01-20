@@ -27,7 +27,6 @@ class NormalDist:
                 np.log(stable_gradients_stddev_range[0]),
                 np.log(stable_gradients_stddev_range[1]),
             )
-        self.y_org = None
 
     def sample(self):
         stddev = tf.exp(self._log_stddev)
@@ -37,6 +36,19 @@ class NormalDist:
         if self.enable_squashed:
             y = tf.tanh(y)
         return y
+
+    def sample_and_logprob(self):
+        stddev = tf.exp(self._log_stddev)
+        e = tf.random.normal(shape=self._mean.shape)
+        y = self._mean + stddev * e
+
+        # Squashed Gaussian PolicyのlogはSquash前のアクションを渡す必要あり
+        if self.enable_squashed:
+            log_prob = compute_normal_logprob_sgp_in_log(y, self._mean, self._log_stddev)
+            y = tf.tanh(y)
+        else:
+            log_prob = compute_normal_logprob_in_log(y, self._mean, self._log_stddev)
+        return y, log_prob
 
     def mode(self):
         y = self._mean

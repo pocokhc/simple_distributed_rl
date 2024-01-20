@@ -42,6 +42,11 @@ class CategoricalDist:
         a = tf.reduce_sum(self.log_probs() * a, axis=-1)
         return tf.expand_dims(a, axis=-1)
 
+    def kl_divergence(self, q: "CategoricalDist"):
+        # KL : sum(p * (log(p) - log(q)))
+        p = tf.clip_by_value(self._probs, 1e-10, 1)  # log(0)回避用
+        return tf.reduce_sum(p * (tf.math.log(p) - q.log_probs()), axis=-1, keepdims=True)
+
 
 class CategoricalGradDist(CategoricalDist):
     def sample(self, stop_gradient: bool = False):

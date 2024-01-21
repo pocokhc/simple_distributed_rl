@@ -5,28 +5,32 @@
 // (MARL) マルコフ過程みたいなモデルがある？Actor同士の通信方法の定義が見当たらずに保留
 // (jax) batch数(32)ぐらいの量だとnumpyの方が早かったので見送り
 1. (tf/torchの互換パラメータの作成)
-1. baseline
-1. memory
 1. Async-SGD
-1. オリジナルrl/env対応
-1. (RLの定義rl_configからmakeしたほうが素直？定義方法から変わるので保留)
-RLTypesに画像を追加
-1. 複数spaceの入力
+1. (distribution)memoryの仕様決め
+1. (distribution)オリジナルrl/env対応
+1. RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
+1. spaceの複数入力（画像+値の入力など）
 
-# v0.13.4
+# v0.14.0
 
 **MainUpdates**
 
-1. [base.run] change: RunStateをRunStateActorとRunStateTrainerに分割、合わせてCallbacksの引数も変更
-1. [base.env] new: エピソード最初に乱数を追加する random_noop_max を追加
-1. [base] new: RLMemoryにRLMemoryTypesを追加
-1. [base.processor] new: preprocess_doneを追加し、Processをリファクタリング
-1. [runner.core_mp] fix: 最適化
-1. [rl.processors] new: AtariProcessor追加
-1. [base.define] change: SHAPE2,SHAPE3を削除し、IMAGEを追加
-1. [base.define] change: RLTypesをRLTypesとRLBaseTypesに分割
-1. [base.rl.RLTrainer] change: RLTrainerのtrain_on_batchsを廃止し、trainに戻しました
-1. [base.rl.RLTrainer] add: RLTrainerにdistributedとtrain_onlyのプロパティを追加
+1. [base]配下
+   1. リファクタリング
+      1. [base.run] change: RunStateをRunStateActorとRunStateTrainerに分割、合わせてCallbacksの引数も変更
+   1. [base.run] new: yieldを追加し、step毎に制御できる機能を追加
+   1. [base.run] change: core.pyが大きくなったのでcore_play.pyとcore_train_only.pyに分割
+   1. [base.env] new: エピソード最初に乱数を追加する random_noop_max を追加
+   1. [base] new: RLMemoryにRLMemoryTypesを追加
+   1. [base.processor] new: preprocess_doneを追加し、Processをリファクタリング
+   1. [base.define] change: SHAPE2,SHAPE3を削除し、IMAGEを追加
+   1. [base.define] change: RLTypesをRLTypesとRLBaseTypesに分割
+   1. [base.define] new: DoneTypesを追加し、終了状態を判定できるように変更
+   1. [base.rl.RLTrainer] change: RLTrainerのtrain_on_batchsを廃止し、trainに戻しました
+   1. [base.rl.RLTrainer] add: RLTrainerにdistributedとtrain_onlyのプロパティを追加
+   1. [base.rl.RLTrainer] new: train_startとtrain_end関数を追加
+   1. [base.rl.RLWorker] new: on_startとon_end関数を追加
+   1. [basel.rl.RLConfig] update/new: setup後にパラメータの変更で警告が出るように変更し、変更可能パラメータを指定できるようにget_changeable_parametersを追加
 1. [runner] : リファクタリング
     1. delete: setup_wkdirを削除
     1. add: set_checkpointにis_loadを追加し、過去のディレクトリから最新のパラメータをloadするコードを追加
@@ -38,6 +42,13 @@ RLTypesに画像を追加
     1. [rl.models.tf] update: InputBlockを見直し
     1. [rl.models] change: DuelingNetworkBlockを使わない場合の名前をNoDuelingNetworkBlockに変更
     1. [rl.models] update: その他exceptionに伴う細かい修正
+1. [algorithms] 確率モデルの更新に伴って再整理
+    1. PPO
+    1. DDPG
+    1. SAC
+1. [algorithms] new: dreamer_v3追加、合わせてv1とv2を統合
+1. [runner.core_mp] fix: 最適化
+1. [rl.processors] new: AtariProcessor追加
 
 **OtherUpdates**
 
@@ -48,9 +59,14 @@ RLTypesに画像を追加
 1. [base.rl.RLTrainer] update: 毎step、train_info={}を追加
 1. [rl.functions.common] fix: get_random_max_indexで元の値が変わる不具合を修正
 1. [runner.game_window] fix: -+で例外が発生する不具合修正
+1. [algorithms.dqn] change: MemoryをPriorityをやめてただのReplayBufferに（シンプルな実装に修正）
 1. [algorithms.search_dynaq] update: 100%に
 1. [base.exception] new: フレームワーク用のExceptionを追加
 1. [render] update: render周りを見直してリファクタリング
+1. [render] update: font sizeのデフォルトを12から18に変更
+1. [examples.baseline] update: gym.frozen_lake update
+1. [examples.baseline] new: gym.taxi追加
+1. [examples.baseline] new: env.grid追加
 
 # v0.13.3
 

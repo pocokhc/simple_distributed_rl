@@ -38,7 +38,7 @@ def main_ql_agent57():
 
 
 def main_search_dynaq():
-    rl_config = search_dynaq.Config(int_lr=BASE_LR)
+    rl_config = search_dynaq.Config(q_ext_lr=BASE_LR, q_int_lr=BASE_LR)
     runner = srl.Runner("Taxi-v3", rl_config)
     runner.set_history_on_file(
         os.path.join(base_dir, f"_{ENV_PRE}_SearchDynaQ"),

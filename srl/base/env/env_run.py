@@ -273,7 +273,12 @@ class EnvRun:
         return DoneTypes.TRUNCATED_ENV_SANITIZE
 
     def assert_done(self, done: Union[bool, DoneTypes]):
-        assert isinstance(done, bool), f"The type of reward is different. {done}({type(done)})"
+        if isinstance(done, bool):
+            pass
+        elif isinstance(done, DoneTypes):
+            pass
+        else:
+            assert False, f"The type of reward is different. {done}({type(done)})"
 
     def sanitize_invalid_actions(self, invalid_actions: InvalidActionsType, error_msg: str = "") -> InvalidActionsType:
         try:

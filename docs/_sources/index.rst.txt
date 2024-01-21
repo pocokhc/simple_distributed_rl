@@ -35,6 +35,10 @@ Welcome to SimpleDistributedRL's documentation!
    pages/algorithms/ql
    pages/algorithms/dqn
    pages/algorithms/agent57
+   pages/algorithms/ppo
+   pages/algorithms/ddpg
+   pages/algorithms/sac
+   pages/algorithms/dreamer_v3
 
 
 Indices and tables

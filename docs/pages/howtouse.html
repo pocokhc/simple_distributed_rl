@@ -1,19 +1,21 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="ja" >
+<html class="writer-html5" lang="ja" data-content_root="../">
 <head>
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How To Use &mdash; SimpleDistributedRL 0.13.3 ドキュメント</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <title>How To Use &mdash; SimpleDistributedRL 0.13.3.3 ドキュメント</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=befbca6c"></script>
+        <script src="../_static/documentation_options.js?v=f5b6cb61"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -94,6 +96,10 @@
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ppo.html">PPO(Proximal Policy Optimization)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
 </ul>
 
         </div>
@@ -151,7 +157,7 @@
 <div class="line">例は 'gym-retro' を読み込む例です。</div>
 </div>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># pip install gym-retro</span>
-<span class="c1"># gym-retro support python3.6 3.7 3.8 and gym&lt;=0.25.2</span>
+<span class="c1"># gym-retro==0.8.0 support python3.6 3.7 3.8 and gym&lt;=0.25.2</span>
 <span class="kn">import</span> <span class="nn">retro</span>
 
 <span class="kn">import</span> <span class="nn">srl</span>
@@ -185,7 +191,7 @@
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 割引率を変更する例</span>
 <span class="n">rl_config</span> <span class="o">=</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">discount</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
 
-<span class="c1"># インスタンス後に書き換えてもいい</span>
+<span class="c1"># インスタンス後に書き換えも可能</span>
 <span class="n">rl_config</span><span class="o">.</span><span class="n">discount</span> <span class="o">=</span> <span class="mf">0.3</span>
 </pre></div>
 </div>
@@ -199,11 +205,12 @@
 <p>EnvConfigとRLConfigを元に実際に実行するRunnerを作成します。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 
+<span class="c1"># Runnerの引数にEnvConfigとRLConfigを指定</span>
 <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">)</span>
 <span class="n">rl_config</span> <span class="o">=</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
 <span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">rl_config</span><span class="p">)</span>
 
-<span class="c1"># envはIDのみでも可能</span>
+<span class="c1"># envはIDのみでも指定可能</span>
 <span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">rl_config</span><span class="p">)</span>
 
 <span class="c1"># envのみの指定も可能(ただしアルゴリズムを使うものは利用できない)</span>
@@ -321,6 +328,7 @@
 </section>
 <section id="runner-functions">
 <h2>4. Runner functions<a class="headerlink" href="#runner-functions" title="Link to this heading"></a></h2>
+<p>Runnerで実行できる各関数に関してです。</p>
 <section id="train">
 <h3>Train<a class="headerlink" href="#train" title="Link to this heading"></a></h3>
 <div class="line-block">
@@ -346,7 +354,7 @@
 <h3>Train Only<a class="headerlink" href="#train-only" title="Link to this heading"></a></h3>
 <div class="line-block">
 <div class="line">エピソードは実行せず、Trainerの学習のみを実施します。</div>
-<div class="line">Memoryがある状態など、学習が可能な状態で呼び出してください。（学習が進まない場合無限ループになります）</div>
+<div class="line">Memoryにbatchがない状態など、学習出来ない場合で実行すると無限ループになるので注意してください。</div>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">runner</span><span class="o">.</span><span class="n">train_only</span><span class="p">(</span><span class="n">max_train_count</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 </pre></div>

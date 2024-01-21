@@ -1,19 +1,21 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="ja" >
+<html class="writer-html5" lang="ja" data-content_root="../">
 <head>
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EnvConfig &mdash; SimpleDistributedRL 0.13.3 ドキュメント</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <title>EnvConfig &mdash; SimpleDistributedRL 0.13.3.3 ドキュメント</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=befbca6c"></script>
+        <script src="../_static/documentation_options.js?v=f5b6cb61"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -64,6 +66,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.max_episode_steps"><code class="docutils literal notranslate"><span class="pre">EnvConfig.max_episode_steps</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.episode_timeout"><code class="docutils literal notranslate"><span class="pre">EnvConfig.episode_timeout</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.frameskip"><code class="docutils literal notranslate"><span class="pre">EnvConfig.frameskip</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.random_noop_max"><code class="docutils literal notranslate"><span class="pre">EnvConfig.random_noop_max</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.gym_make_func"><code class="docutils literal notranslate"><span class="pre">EnvConfig.gym_make_func</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.gymnasium_make_func"><code class="docutils literal notranslate"><span class="pre">EnvConfig.gymnasium_make_func</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.gym_check_image"><code class="docutils literal notranslate"><span class="pre">EnvConfig.gym_check_image</span></code></a></li>
@@ -93,6 +96,10 @@
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ppo.html">PPO(Proximal Policy Optimization)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
 </ul>
 
         </div>
@@ -123,7 +130,7 @@
 <span id="env-config"></span><h1>EnvConfig<a class="headerlink" href="#envconfig" title="Link to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.base.env.config.</span></span><span class="sig-name descname"><span class="pre">EnvConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">name:</span> <span class="pre">str,</span> <span class="pre">kwargs:</span> <span class="pre">~typing.Dict</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">max_episode_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">episode_timeout:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">frameskip:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">gym_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gym.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gymnasium_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gymnasium.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gym_check_image:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">gym_prediction_by_simulation:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">gym_prediction_step:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">10,</span> <span class="pre">gym_wrappers:</span> <span class="pre">~typing.List[GymUserWrapper]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">render_interval:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">render_scale:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0,</span> <span class="pre">font_name:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'',</span> <span class="pre">font_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">12,</span> <span class="pre">enable_sanitize_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">enable_assertion_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.base.env.config.EnvConfig" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.base.env.config.</span></span><span class="sig-name descname"><span class="pre">EnvConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">name:</span> <span class="pre">str,</span> <span class="pre">kwargs:</span> <span class="pre">~typing.Dict</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">max_episode_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">episode_timeout:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">frameskip:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">random_noop_max:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">gym_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gym.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gymnasium_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gymnasium.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gym_check_image:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">gym_prediction_by_simulation:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">gym_prediction_step:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">10,</span> <span class="pre">gym_wrappers:</span> <span class="pre">~typing.List[GymUserWrapper]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">render_interval:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">render_scale:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0,</span> <span class="pre">font_name:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'',</span> <span class="pre">font_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">18,</span> <span class="pre">enable_sanitize_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">enable_assertion_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.base.env.config.EnvConfig" title="Link to this definition"></a></dt>
 <dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>EnvConfig は環境を定義します。</p>
 <p>環境は、基本は名前だけで呼び出せます。</p>
@@ -165,6 +172,12 @@
 <span class="sig-name descname"><span class="pre">frameskip</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.frameskip" title="Link to this definition"></a></dt>
 <dd><p>1stepあたり、環境内で余分に進めるstep数
 例えばframeskip=3の場合、ユーザが1step実行すると、環境内では4frame進みます。</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.random_noop_max">
+<span class="sig-name descname"><span class="pre">random_noop_max</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.random_noop_max" title="Link to this definition"></a></dt>
+<dd><p>1以上を指定するとそのstep数以内で、エピソード開始からランダムstep進めてからエピソード開始します。</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -226,7 +239,7 @@
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.font_size">
-<span class="sig-name descname"><span class="pre">font_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">12</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.font_size" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">font_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">18</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.font_size" title="Link to this definition"></a></dt>
 <dd><p>render時のフォントサイズ</p>
 </dd></dl>
 

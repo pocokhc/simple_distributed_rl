@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="ja" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SAC(Soft-Actor-Critic) &mdash; SimpleDistributedRL 0.13.3.3 ドキュメント</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=f5b6cb61"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="../../_static/translations.js?v=4dbe4bdc"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../../genindex.html" />
+    <link rel="search" title="検索" href="../../search.html" />
+    <link rel="next" title="DreamerV3" href="dreamer_v3.html" />
+    <link rel="prev" title="DDPG(Deep Deterministic Policy Gradient)" href="ddpg.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            SimpleDistributedRL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../distributed.html">Distributed Learning (Online)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Custom</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../custom_env.html">Make Original Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../custom_algorithm.html">Make Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../framework_detail.html">Detailed Framework</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../env_config.html">EnvConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rl_config.html">RLConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rl_config_tree.html">RLConfig Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="ql.html">Q-Learning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ppo.html">PPO(Proximal Policy Optimization)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">SAC(Soft-Actor-Critic)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#srl.algorithms.sac.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.image_block"><code class="docutils literal notranslate"><span class="pre">Config.image_block</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.policy_hidden_block"><code class="docutils literal notranslate"><span class="pre">Config.policy_hidden_block</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.q_hidden_block"><code class="docutils literal notranslate"><span class="pre">Config.q_hidden_block</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.discount"><code class="docutils literal notranslate"><span class="pre">Config.discount</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.lr_policy"><code class="docutils literal notranslate"><span class="pre">Config.lr_policy</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.lr_q"><code class="docutils literal notranslate"><span class="pre">Config.lr_q</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.lr_alpha"><code class="docutils literal notranslate"><span class="pre">Config.lr_alpha</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.soft_target_update_tau"><code class="docutils literal notranslate"><span class="pre">Config.soft_target_update_tau</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.hard_target_update_interval"><code class="docutils literal notranslate"><span class="pre">Config.hard_target_update_interval</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.enable_normal_squashed"><code class="docutils literal notranslate"><span class="pre">Config.enable_normal_squashed</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.entropy_alpha_auto_scale"><code class="docutils literal notranslate"><span class="pre">Config.entropy_alpha_auto_scale</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.entropy_alpha"><code class="docutils literal notranslate"><span class="pre">Config.entropy_alpha</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.entropy_bonus_exclude_q"><code class="docutils literal notranslate"><span class="pre">Config.entropy_bonus_exclude_q</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.enable_stable_gradients"><code class="docutils literal notranslate"><span class="pre">Config.enable_stable_gradients</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.sac.Config.stable_gradients_stddev_range"><code class="docutils literal notranslate"><span class="pre">Config.stable_gradients_stddev_range</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dreamer_v3.html">DreamerV3</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SimpleDistributedRL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">SAC(Soft-Actor-Critic)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/pages/algorithms/sac.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="sac-soft-actor-critic">
+<h1>SAC(Soft-Actor-Critic)<a class="headerlink" href="#sac-soft-actor-critic" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.algorithms.sac.</span></span><span class="sig-name descname"><span class="pre">Config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_env_observation_type:</span> <span class="pre">srl.base.define.EnvObservationTypes</span> <span class="pre">=</span> <span class="pre">&lt;EnvObservationTypes.UNKNOWN:</span> <span class="pre">0&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_action_type:</span> <span class="pre">srl.base.define.RLTypes</span> <span class="pre">=</span> <span class="pre">&lt;RLTypes.UNKNOWN:</span> <span class="pre">0&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observation_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extend_worker:</span> <span class="pre">Optional[Type[ForwardRef('ExtendWorker')]]</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameter_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_rl_processor:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_render_image_for_observation:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">processors:</span> <span class="pre">List[srl.base.rl.processor.Processor]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_state_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_action_decode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_reward_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_done_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dummy_state_val:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_sanitize_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_assertion_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discount:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr_policy:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr_q:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr_alpha:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">soft_target_update_tau:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.02</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hard_target_update_interval:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_normal_squashed:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entropy_alpha_auto_scale:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entropy_alpha:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entropy_bonus_exclude_q:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_stable_gradients:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stable_gradients_stddev_range:</span> <span class="pre">tuple</span> <span class="pre">=</span> <span class="pre">(1e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">10)</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.algorithms.sac.Config" title="Link to this definition"></a></dt>
+<dd><dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.image_block">
+<span class="sig-name descname"><span class="pre">image_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_model.html#srl.rl.models.image_block.ImageBlockConfig" title="srl.rl.models.image_block.ImageBlockConfig"><span class="pre">ImageBlockConfig</span></a></em><a class="headerlink" href="#srl.algorithms.sac.Config.image_block" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_model.html#imageblock"><span class="std std-ref">ImageBlock</span></a>&gt; This layer is only used when the input is an image.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.policy_hidden_block">
+<span class="sig-name descname"><span class="pre">policy_hidden_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_model.html#srl.rl.models.mlp_block.MLPBlockConfig" title="srl.rl.models.mlp_block.MLPBlockConfig"><span class="pre">MLPBlockConfig</span></a></em><a class="headerlink" href="#srl.algorithms.sac.Config.policy_hidden_block" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_model.html#mlpblock"><span class="std std-ref">MLPBlock</span></a>&gt; policy layer</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.q_hidden_block">
+<span class="sig-name descname"><span class="pre">q_hidden_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_model.html#srl.rl.models.mlp_block.MLPBlockConfig" title="srl.rl.models.mlp_block.MLPBlockConfig"><span class="pre">MLPBlockConfig</span></a></em><a class="headerlink" href="#srl.algorithms.sac.Config.q_hidden_block" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_model.html#mlpblock"><span class="std std-ref">MLPBlock</span></a>&gt;</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.discount">
+<span class="sig-name descname"><span class="pre">discount</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.9</span></em><a class="headerlink" href="#srl.algorithms.sac.Config.discount" title="Link to this definition"></a></dt>
+<dd><p>discount</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.lr_policy">
+<span class="sig-name descname"><span class="pre">lr_policy</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.001</span></em><a class="headerlink" href="#srl.algorithms.sac.Config.lr_policy" title="Link to this definition"></a></dt>
+<dd><p>policy learning rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.lr_q">
+<span class="sig-name descname"><span class="pre">lr_q</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.001</span></em><a class="headerlink" href="#srl.algorithms.sac.Config.lr_q" title="Link to this definition"></a></dt>
+<dd><p>q learning rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.lr_alpha">
+<span class="sig-name descname"><span class="pre">lr_alpha</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.001</span></em><a class="headerlink" href="#srl.algorithms.sac.Config.lr_alpha" title="Link to this definition"></a></dt>
+<dd><p>alpha learning rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.soft_target_update_tau">
+<span class="sig-name descname"><span class="pre">soft_target_update_tau</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.02</span></em><a class="headerlink" href="#srl.algorithms.sac.Config.soft_target_update_tau" title="Link to this definition"></a></dt>
+<dd><p>soft_target_update_tau</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.hard_target_update_interval">
+<span class="sig-name descname"><span class="pre">hard_target_update_interval</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100</span></em><a class="headerlink" href="#srl.algorithms.sac.Config.hard_target_update_interval" title="Link to this definition"></a></dt>
+<dd><p>hard_target_update_interval</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.enable_normal_squashed">
+<span class="sig-name descname"><span class="pre">enable_normal_squashed</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.sac.Config.enable_normal_squashed" title="Link to this definition"></a></dt>
+<dd><p>actionが連続値の時、正規分布をtanhで-1～1に丸めるか</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.entropy_alpha_auto_scale">
+<span class="sig-name descname"><span class="pre">entropy_alpha_auto_scale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.sac.Config.entropy_alpha_auto_scale" title="Link to this definition"></a></dt>
+<dd><p>entropy alphaを自動調整するか</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.entropy_alpha">
+<span class="sig-name descname"><span class="pre">entropy_alpha</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.2</span></em><a class="headerlink" href="#srl.algorithms.sac.Config.entropy_alpha" title="Link to this definition"></a></dt>
+<dd><p>entropy alphaの初期値</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.entropy_bonus_exclude_q">
+<span class="sig-name descname"><span class="pre">entropy_bonus_exclude_q</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.algorithms.sac.Config.entropy_bonus_exclude_q" title="Link to this definition"></a></dt>
+<dd><p>Q値の計算からエントロピーボーナスを除外します</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.enable_stable_gradients">
+<span class="sig-name descname"><span class="pre">enable_stable_gradients</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.sac.Config.enable_stable_gradients" title="Link to this definition"></a></dt>
+<dd><p>勾配爆発の対策, 平均、分散、ランダムアクションで大きい値を出さないようにclipする</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.sac.Config.stable_gradients_stddev_range">
+<span class="sig-name descname"><span class="pre">stable_gradients_stddev_range</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(1e-10,</span> <span class="pre">10)</span></em><a class="headerlink" href="#srl.algorithms.sac.Config.stable_gradients_stddev_range" title="Link to this definition"></a></dt>
+<dd><p>enable_stable_gradients状態での標準偏差のclip</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="ddpg.html" class="btn btn-neutral float-left" title="DDPG(Deep Deterministic Policy Gradient)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="dreamer_v3.html" class="btn btn-neutral float-right" title="DreamerV3" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, poco_cpp.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

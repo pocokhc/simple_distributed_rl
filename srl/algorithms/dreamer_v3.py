@@ -8,7 +8,8 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow import keras
 
-from srl.base.define import DoneTypes, EnvObservationTypes, RLBaseTypes, RLTypes
+from srl.base.define import (DoneTypes, EnvObservationTypes, RLBaseTypes,
+                             RLTypes)
 from srl.base.exception import UndefinedError
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
@@ -16,12 +17,15 @@ from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions import common
-from srl.rl.functions.common_tf import symexp, symlog
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
-from srl.rl.models.tf.distributions.bernoulli_dist_block import BernoulliDistBlock
-from srl.rl.models.tf.distributions.categorical_dist_block import CategoricalDistBlock, CategoricalGradDist
-from srl.rl.models.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
-from srl.rl.models.tf.distributions.linear_block import LinearBlock
+from srl.rl.memories.experience_replay_buffer import (
+    ExperienceReplayBuffer, ExperienceReplayBufferConfig)
+from srl.rl.models.tf.distributions.bernoulli_dist_block import \
+    BernoulliDistBlock
+from srl.rl.models.tf.distributions.categorical_dist_block import (
+    CategoricalDistBlock, CategoricalGradDist)
+from srl.rl.models.tf.distributions.categorical_gumbel_dist_block import \
+    CategoricalGumbelDistBlock
+from srl.rl.models.tf.distributions.linear_block import Linear, LinearBlock
 from srl.rl.models.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.rl.models.tf.distributions.twohot_dist_block import TwoHotDistBlock
 from srl.rl.processors.image_processor import ImageProcessor
@@ -64,10 +68,12 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     # --- other model layers
     #: 学習する報酬の分布のタイプ
+    #:
+    #: Parameters:
     #:   "linear": MSEで学習（use_symlogの影響を受けます）
-    #:   "twohot": TwoHotエンコーディングによる学習（use_symlogの影響を受けます）
     #:   "normal": ガウス分布による学習（use_symlogの影響はうけません）
     #:   "normal_fixed_stddev": ガウス分布による学習ですが、分散は1で固定（use_symlogの影響はうけません）
+    #:   "twohot": TwoHotエンコーディングによる学習（use_symlogの影響を受けます）
     reward_type: str = "twohot"
     #: reward_typeが"twohot"の時のみ有効、bins
     reward_twohot_bins: int = 255
@@ -91,6 +97,12 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     # --- encoder/decoder
     #: 入力がIMAGE以外の場合の隠れ層
     encoder_decoder_mlp: Tuple[int, ...] = (1024, 1024, 1024, 1024)
+    #: decoder出力層の分布
+    #:
+    #: Parameters:
+    #:   "linear": mse
+    #:   "normal": 正規分布
+    encoder_decoder_dist: str = "linear"
     #: [入力がIMAGEの場合] Conv2Dのユニット数
     cnn_depth: int = 96
     #: [入力がIMAGEの場合] ResBlockの数
@@ -98,10 +110,14 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     #: [入力がIMAGEの場合] activation
     cnn_activation: Any = "silu"
     #: [入力がIMAGEの場合] 正規化層を追加するか
+    #:
+    #: Parameters:
     #:  "none": 何もしません
     #:  "layer": LayerNormalization層が追加されます
     cnn_normalization_type: str = "layer"
     #: [入力がIMAGEの場合] 画像を縮小する際のアルゴリズム
+    #:
+    #: Parameters:
     #:   "stride": Conv2Dのスライドで縮小します
     #:   "stride3": Conv2Dの3スライドで縮小します
     cnn_resize_type: str = "stride"
@@ -119,6 +135,8 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     loss_scale_kl_dyn: float = 0.5
     #: rep kl loss rate
     loss_scale_kl_rep: float = 0.1
+    #: 序盤はworld modelのみ学習します
+    warmup_world_model: int = 0
 
     # --- actor/critic
     #: critic target update interval
@@ -126,12 +144,13 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     #: critic target soft update tau
     critic_target_soft_update: float = 0.02
     #: critic model type
-    #:   "linear"    : MSEで学習（use_symlogの影響を受けます）
-    #:   "normal"    : 正規分布（use_symlogの影響は受けません）
-    #:   "dreamer_v1": 分散1固定の正規分布（use_symlogの影響は受けません）
-    #:   "dreamer_v2": 分散1固定の正規分布（use_symlogの影響は受けません）
-    #:   "dreamer_v3": TwoHotカテゴリカル分布（use_symlogの影響を受けます）
-    critic_type: str = "dreamer_v3"
+    #:
+    #: Parameters:
+    #:   "linear" : MSEで学習（use_symlogの影響を受けます）
+    #:   "normal" : 正規分布（use_symlogの影響は受けません）
+    #:   "normal_fixed_stddev": 分散1固定の正規分布（use_symlogの影響は受けません）
+    #:   "twohot" : TwoHotカテゴリカル分布（use_symlogの影響を受けます）
+    critic_type: str = "twohot"
     #: critic_typeが"dreamer_v3"の時のみ有効、bins
     critic_twohot_bins: int = 255
     #: critic_typeが"dreamer_v3"の時のみ有効、low
@@ -139,11 +158,15 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     #: critic_typeが"dreamer_v3"の時のみ有効、high
     critic_twohot_high: int = 20
     #: actor model type
+    #:
+    #: Parameters:
     #:   "categorical"        : カテゴリカル分布
     #:   "gumbel_categorical" : Gumbelカテゴリ分布
     actor_discrete_type: str = "categorical"
     #: カテゴリカル分布で保証する最低限の確率（actionタイプがDISCRETEの時のみ有効）
     actor_discrete_unimix: float = 0.01
+    #: actionが連続値の時、正規分布をtanhで-1～1に丸めるか
+    actor_continuous_enable_normal_squashed: bool = True
 
     # --- Behavior
     #: horizonのstep数
@@ -151,16 +174,17 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     #: "actor" or "random", random is debug.
     horizon_policy: str = "actor"
     #: horizon時の価値の計算方法
-    #:  "simple"    : 単純な総和
-    #:  "discount"  : 割引報酬
-    #:  "dreamer_v1": EWA
-    #:  "dreamer_v2": λ-return
-    #:  "dreamer_v3": λ-return
-    critic_estimation_method: str = "dreamer_v3"
-    #: EWAの係数、小さいほど最近の値を反映（critic_estimation_method=="dreamer_v1"の時のみ有効）
+    #:
+    #: Parameters:
+    #:  "simple"   : 単純な総和
+    #:  "discount" : 割引報酬
+    #:  "ewa"      : EWA
+    #:  "h-return" : λ-return
+    critic_estimation_method: str = "h-return"
+    #: EWAの係数、小さいほど最近の値を反映（"ewa"の時のみ有効）
     horizon_ewa_disclam: float = 0.1
-    #: λ-returnの係数（critic_estimation_method=="dreamer_v2,v3"の時のみ有効）
-    horizon_return_lambda: float = 0.95
+    #: λ-returnの係数（"h-return"の時のみ有効）
+    horizon_h_return: float = 0.95
     #: 割引率
     discount: float = 0.997
 
@@ -180,13 +204,19 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     #: actor model learning rate
     lr_actor: float = 3e-5  # type: ignore , type OK
     #: loss計算の方法
+    #:
+    #: Parameters:
     #:   "dreamer_v1" : Vの最大化
     #:   "dreamer_v2" : Vとエントロピーの最大化
     #:   "dreamer_v3" : V2 + パーセンタイルによる正規化
     actor_loss_type: str = "dreamer_v3"
+    #: actionがCONTINUOUSの場合のReinforceとDynamics backpropの比率
+    actor_reinforce_rate: float = 0.0
     #: entropy rate
     entropy_rate: float = 0.0003
     #: baseline
+    #:
+    #: Parameters:
     #:   "v"  : -v
     #:   other: none
     reinforce_baseline: str = "v"
@@ -195,6 +225,8 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     #: action ε-greedy(for debug)
     epsilon: float = 0
     #: 報酬の前処理
+    #:
+    #: Parameters:
     #:   "none": なし
     #:   "tanh": tanh
     clip_rewards: str = "none"
@@ -218,7 +250,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
             "horizon_policy",
             "critic_estimation_method",
             "horizon_ewa_disclam",
-            "horizon_return_lambda",
+            "horizon_h_return",
             "discount",
             "enable_train_model",
             "enable_train_actor",
@@ -254,8 +286,10 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         self.use_symlog = False
         # --- encoder/decoder
         self.encoder_decoder_mlp = (400, 400, 400, 400)
+        self.encoder_decoder_dist = "normal"
         self.cnn_depth = 32
         self.cnn_blocks = 0
+        self.cnn_resized_image_size = 1
         self.cnn_activation = "relu"
         self.cnn_normalization_type = "none"
         self.cnn_resize_type = "stride"
@@ -268,11 +302,11 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         self.loss_scale_kl_rep = 0.5
         # --- actor/critic
         self.critic_target_update_interval = 0
-        self.critic_type = "dreamer_v1"
+        self.critic_type = "normal_fixed_stddev"
         self.actor_discrete_unimix = 0
         # Behavior
         self.horizon = 15
-        self.critic_estimation_method: str = "dreamer_v1"
+        self.critic_estimation_method: str = "ewa"
         self.horizon_ewa_disclam = 0.1
         self.discount: float = 0.99
         # Training
@@ -303,8 +337,10 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         self.use_symlog = False
         # --- encoder/decoder
         self.encoder_decoder_mlp = (400, 400, 400, 400)
+        self.encoder_decoder_dist = "normal"
         self.cnn_depth = 48
         self.cnn_blocks = 0
+        self.cnn_resized_image_size = 1
         self.cnn_activation = "relu"
         self.cnn_normalization_type = "none"
         self.cnn_resize_type = "stride"
@@ -318,12 +354,12 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         # --- actor/critic
         self.critic_target_update_interval = 100
         self.critic_target_soft_update = 1
-        self.critic_type = "dreamer_v2"
+        self.critic_type = "normal_fixed_stddev"
         self.actor_discrete_unimix = 0
         # Behavior
         self.horizon = 15
-        self.critic_estimation_method: str = "dreamer_v2"
-        self.horizon_return_lambda = 0.95
+        self.critic_estimation_method: str = "h-return"
+        self.horizon_h_return = 0.95
         self.discount: float = 0.99
         # Training
         self.batch_size = 16
@@ -358,8 +394,10 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         self.use_symlog = True
         # --- encoder/decoder
         self.encoder_decoder_mlp = (1024, 1024, 1024, 1024, 1024)
+        self.encoder_decoder_dist = "linear"
         self.cnn_depth = 96
         self.cnn_blocks = 0
+        self.cnn_resized_image_size = 4
         self.cnn_activation = "silu"
         self.cnn_normalization_type = "layer"
         self.cnn_resize_type = "stride"
@@ -372,15 +410,15 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         self.loss_scale_kl_rep = 0.1
         # --- actor/critic
         self.critic_target_update_interval = 0
-        self.critic_type = "dreamer_v3"
+        self.critic_type = "twohot"
         self.critic_twohot_bins = 255
         self.critic_twohot_low = -20
         self.critic_twohot_high = 20
         self.actor_discrete_unimix = 0.01
         # Behavior
-        self.horizon = 15
-        self.critic_estimation_method: str = "dreamer_v3"
-        self.horizon_return_lambda = 0.95
+        self.horizon = 333
+        self.critic_estimation_method: str = "h-return"
+        self.horizon_h_return = 0.95
         self.discount: float = 0.997
         # Training
         self.batch_size = 16
@@ -393,13 +431,22 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         self.reinforce_baseline: str = "v"
 
     def set_processor(self) -> List[Processor]:
-        return [
-            ImageProcessor(
-                image_type=EnvObservationTypes.COLOR,
-                resize=(64, 64),
-                enable_norm=True,
-            )
-        ]
+        if self.cnn_resize_type == "stride3":
+            return [
+                ImageProcessor(
+                    image_type=EnvObservationTypes.COLOR,
+                    resize=(96, 96),
+                    enable_norm=True,
+                )
+            ]
+        else:
+            return [
+                ImageProcessor(
+                    image_type=EnvObservationTypes.COLOR,
+                    resize=(64, 64),
+                    enable_norm=True,
+                )
+            ]
 
     @property
     def base_action_type(self) -> RLBaseTypes:
@@ -418,6 +465,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
+        assert self.horizon >= 0
 
 
 register(
@@ -589,6 +637,9 @@ class _RSSM(keras.Model):
             post_probs = tf.stack(post_probs, axis=0)
             prior_probs = tf.stack(prior_probs, axis=0)
 
+            # 多分KLの計算でlogが使われるので確率0があるとinfになる
+            post_probs = tf.clip_by_value(post_probs, 1e-10, 1)  # log(0)回避用
+            prior_probs = tf.clip_by_value(prior_probs, 1e-10, 1)  # log(0)回避用
             post_dist = tfd.OneHotCategorical(probs=post_probs)
             prior_dist = tfd.OneHotCategorical(probs=prior_probs)
 
@@ -796,21 +847,26 @@ class _ImageDecoder(keras.Model):
         activation,
         normalization_type: str,
         resize_type: str,
+        dist_type: str,
     ):
         super().__init__()
         self.use_sigmoid = use_sigmoid
+        self.dist_type = dist_type
 
         stages = encoder.stages
         depth = depth * 2 ** (encoder.stages - 1)
         img_shape = encoder.img_shape
         resized_img_shape = encoder.resized_img_shape
 
+        # --- in layers
+        self.in_layer = kl.Dense(resized_img_shape[0] * resized_img_shape[1] * resized_img_shape[2])
+        self.reshape_layer = kl.Reshape([resized_img_shape[0], resized_img_shape[1], resized_img_shape[2]])
+
+        # --- conv layers
         _conv_kw: dict = dict(
             kernel_initializer=tf.initializers.TruncatedNormal(),
             bias_initializer="zero",
         )
-        self.in_layer = kl.Dense(resized_img_shape[0] * resized_img_shape[1] * resized_img_shape[2])
-        self.reshape_layer = kl.Reshape([resized_img_shape[0], resized_img_shape[1], resized_img_shape[2]])
         self.blocks = []
         for i in range(encoder.stages):
             # --- res
@@ -853,6 +909,13 @@ class _ImageDecoder(keras.Model):
 
             self.blocks.append([res_blocks_layers, cnn_layers])
 
+        if dist_type == "linear":
+            self.out_dist = LinearBlock(depth, activation=activation)
+        elif dist_type == "normal":
+            self.out_dist = NormalDistBlock(depth, activation=activation)
+        else:
+            raise UndefinedError(dist_type)
+
     def call(self, x):
         x = self.in_layer(x)
         x = self.reshape_layer(x)
@@ -873,16 +936,27 @@ class _ImageDecoder(keras.Model):
         else:
             x = cast(Any, x) + 0.5
 
-        return x
+        return self.out_dist(x)
 
     @tf.function
-    def compute_train_loss(self, feat, states):
+    def compute_train_loss(self, feat, state):
         y_pred = self(feat)
-        # MSE
-        return tf.reduce_mean(tf.square(states - y_pred))
+        if self.dist_type == "linear":
+            return tf.reduce_mean(tf.square(state - y_pred))
+        elif self.dist_type == "normal":
+            dist = self.out_dist.get_grad_dist(y_pred)
+            return -tf.reduce_mean(dist.log_prob(state))
+        else:
+            raise UndefinedError(self.dist_type)
 
-    def sample(self, x) -> Any:
-        return self(x)
+    def call_dist(self, x):
+        x = self(x)
+        if self.dist_type == "linear":
+            return Linear(x)
+        elif self.dist_type == "normal":
+            return self.out_dist.get_dist(x)
+        else:
+            raise UndefinedError(self.dist_type)
 
     def build(self, input_shape):
         self.__input_shape = input_shape
@@ -904,9 +978,8 @@ class _LinearEncoder(keras.Model):
         super().__init__()
 
         self.hidden_layers = []
-        for i in range(len(hidden_layer_sizes)):
-            self.hidden_layers.append(kl.Dense(hidden_layer_sizes[i], activation=activation))
-
+        for size in hidden_layer_sizes:
+            self.hidden_layers.append(kl.Dense(size, activation=activation))
         self.out_size: int = hidden_layer_sizes[-1]
 
     @tf.function
@@ -914,43 +987,6 @@ class _LinearEncoder(keras.Model):
         for layer in self.hidden_layers:
             x = layer(x)
         return x
-
-
-class _LinearDecoder(keras.Model):
-    def __init__(
-        self,
-        out_size: int,
-        hidden_layer_sizes: Tuple[int, ...],
-        activation: str,
-        use_symlog: bool,
-    ):
-        super().__init__()
-        self.use_symlog = use_symlog
-
-        self.hidden_layers = []
-        for i in reversed(range(len(hidden_layer_sizes))):
-            self.hidden_layers.append(kl.Dense(hidden_layer_sizes[i], activation=activation))
-        self.out_layer = kl.Dense(out_size)
-
-    def call(self, x):
-        for layer in self.hidden_layers:
-            x = layer(x)
-        x = self.out_layer(x)
-        return x
-
-    @tf.function
-    def compute_train_loss(self, feat, y):
-        y_pred = self(feat)
-        if self.use_symlog:
-            y = symlog(y)
-        # MSE
-        return tf.reduce_mean(tf.square(y - y_pred))
-
-    def sample(self, x) -> Any:
-        y = self(x)
-        if self.use_symlog:
-            y = symexp(y)
-        return y
 
 
 # ------------------------------------------------------
@@ -980,20 +1016,31 @@ class Parameter(RLParameter):
                 self.config.cnn_activation,
                 self.config.cnn_normalization_type,
                 self.config.cnn_resize_type,
+                self.config.encoder_decoder_dist,
             )
-            logger.info("Encoder/Decoder: Image")
+            logger.info(f"Encoder/Decoder: Image({self.config.encoder_decoder_dist})")
         else:
             self.encode = _LinearEncoder(
                 self.config.encoder_decoder_mlp,
                 self.config.dense_act,
             )
-            self.decode = _LinearDecoder(
-                self.config.observation_shape[-1],
-                self.config.encoder_decoder_mlp,
-                self.config.dense_act,
-                use_symlog=self.config.use_symlog,
-            )
-            logger.info("Encoder/Decoder: Linear" + ("(symlog)" if self.config.use_symlog else ""))
+            if self.config.encoder_decoder_dist == "linear":
+                self.decode = LinearBlock(
+                    self.config.observation_shape[-1],
+                    list(reversed(self.config.encoder_decoder_mlp)),
+                    activation=self.config.dense_act,
+                    use_symlog=self.config.use_symlog,
+                )
+                logger.info("Encoder/Decoder: Linear" + ("(symlog)" if self.config.use_symlog else ""))
+            elif self.config.encoder_decoder_dist == "normal":
+                self.decode = NormalDistBlock(
+                    self.config.observation_shape[-1],
+                    list(reversed(self.config.encoder_decoder_mlp)),
+                    activation=self.config.dense_act,
+                )
+                logger.info("Encoder/Decoder: Normal")
+            else:
+                raise UndefinedError(self.config.encoder_decoder_dist)
 
         # --- dynamics
         self.dynamics = _RSSM(
@@ -1015,7 +1062,7 @@ class Parameter(RLParameter):
                 self.config.dense_act,
                 use_symlog=self.config.use_symlog,
             )
-            logger.info("Reward  : Linear" + ("(symlog)" if self.config.use_symlog else ""))
+            logger.info("Reward: Linear" + ("(symlog)" if self.config.use_symlog else ""))
         elif self.config.reward_type == "twohot":
             self.reward = TwoHotDistBlock(
                 self.config.reward_twohot_bins,
@@ -1025,13 +1072,13 @@ class Parameter(RLParameter):
                 self.config.dense_act,
                 use_symlog=self.config.use_symlog,
             )
-            logger.info("Reward  : TwoHot" + ("(symlog)" if self.config.use_symlog else ""))
+            logger.info("Reward: TwoHot" + ("(symlog)" if self.config.use_symlog else ""))
         elif self.config.reward_type == "normal":
             self.reward = NormalDistBlock(1, self.config.reward_layer_sizes, (), (), self.config.dense_act)
-            logger.info("Reward  : Normal")
+            logger.info("Reward: Normal")
         elif self.config.reward_type == "normal_fixed_stddev":
             self.reward = NormalDistBlock(1, self.config.reward_layer_sizes, (), (), self.config.dense_act, 1)
-            logger.info("Reward  : Normal fixed stddev")
+            logger.info("Reward: Normal(stddev=1)")
         else:
             raise UndefinedError(self.config.reward_type)
 
@@ -1040,6 +1087,7 @@ class Parameter(RLParameter):
         logger.info("Continue: Bernoulli")
 
         # --- critic
+        logger.info(f"Critic estimation method: {self.config.critic_estimation_method}")
         if self.config.critic_type == "linear":
             self.critic = LinearBlock(
                 1,
@@ -1053,30 +1101,26 @@ class Parameter(RLParameter):
                 self.config.dense_act,
                 self.config.use_symlog,
             )
-            logger.info("Critic  : Linear" + ("(symlog)" if self.config.use_symlog else ""))
+            logger.info("Critic: Linear" + ("(symlog)" if self.config.use_symlog else ""))
         elif self.config.critic_type == "normal":
             self.critic = NormalDistBlock(1, self.config.critic_layer_sizes, (), (), self.config.dense_act)
             self.critic_target = NormalDistBlock(1, self.config.critic_layer_sizes, (), (), self.config.dense_act)
-            logger.info("Critic  : Normal")
-        elif self.config.critic_type in ["dreamer_v1", "dreamer_v2"]:
+            logger.info("Critic: Normal")
+        elif self.config.critic_type == "normal_fixed_stddev":
             self.critic = NormalDistBlock(
                 1,
                 self.config.critic_layer_sizes,
-                (),
-                (),
-                self.config.dense_act,
+                activation=self.config.dense_act,
                 fixed_stddev=1,
             )
             self.critic_target = NormalDistBlock(
                 1,
                 self.config.critic_layer_sizes,
-                (),
-                (),
-                self.config.dense_act,
+                activation=self.config.dense_act,
                 fixed_stddev=1,
             )
-            logger.info("Critic  : Normal(stddev=1)")
-        elif self.config.critic_type == "dreamer_v3":
+            logger.info("Critic: Normal(stddev=1)")
+        elif self.config.critic_type == "twohot":
             self.critic = TwoHotDistBlock(
                 self.config.critic_twohot_bins,
                 self.config.critic_twohot_low,
@@ -1093,11 +1137,12 @@ class Parameter(RLParameter):
                 self.config.dense_act,
                 use_symlog=self.config.use_symlog,
             )
-            logger.info("Critic  : TwoHot" + ("(symlog)" if self.config.use_symlog else ""))
+            logger.info("Critic: TwoHot" + ("(symlog)" if self.config.use_symlog else ""))
         else:
             raise UndefinedError(self.config.critic_type)
 
         # --- actor
+        logger.info(f"Actor loss: {self.config.actor_loss_type}")
         if self.config.action_type == RLTypes.DISCRETE:
             if self.config.actor_discrete_type == "categorical":
                 self.actor = CategoricalDistBlock(
@@ -1105,18 +1150,22 @@ class Parameter(RLParameter):
                     self.config.actor_layer_sizes,
                     unimix=self.config.actor_discrete_unimix,
                 )
-                logger.info(f"Actor   : Categorical(unimix={self.config.actor_discrete_unimix})")
+                logger.info(f"Actor: Categorical(unimix={self.config.actor_discrete_unimix})")
             elif self.config.actor_discrete_type == "gumbel_categorical":
                 self.actor = CategoricalGumbelDistBlock(
                     self.config.action_num,
                     self.config.actor_layer_sizes,
                 )
-                logger.info("Actor   : GumbelCategorical")
+                logger.info("Actor: GumbelCategorical")
             else:
                 raise UndefinedError(self.config.actor_discrete_type)
         elif self.config.action_type == RLTypes.CONTINUOUS:
-            self.actor = NormalDistBlock(self.config.action_num, self.config.actor_layer_sizes, (), ())
-            logger.info("Actor   : Normal")
+            self.actor = NormalDistBlock(
+                self.config.action_num,
+                self.config.actor_layer_sizes,
+                enable_squashed=self.config.actor_continuous_enable_normal_squashed,
+            )
+            logger.info("Actor: Normal")
         else:
             raise ValueError(self.config.action_type)
 
@@ -1196,7 +1245,7 @@ class Trainer(RLTrainer):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        self.train_info = {}
+        self.train_count += 1
 
         # --- create sequence batch
         # 各batchにbatch_seq溜まるまでエピソードを追加する
@@ -1301,6 +1350,7 @@ class Trainer(RLTrainer):
                 self.parameter.dynamics.trainable_variables,
                 self.parameter.decode.trainable_variables,
                 self.parameter.reward.trainable_variables,
+                self.parameter.cont.trainable_variables,
             ]
             grads = tape.gradient(loss, variables)
             for i in range(len(variables)):
@@ -1316,7 +1366,8 @@ class Trainer(RLTrainer):
 
         if (not self.config.enable_train_actor) and (not self.config.enable_train_critic):
             # WorldModelsのみ学習
-            self.train_count += 1
+            return
+        if self.train_count < self.config.warmup_world_model:
             return
 
         self.parameter.encode.trainable = False
@@ -1327,19 +1378,22 @@ class Trainer(RLTrainer):
         # ------------------------
         # Actor
         # ------------------------
-        V = None
+        horizon_feat = None
+        horizon_V = None
         if self.config.enable_train_actor:
             self.parameter.actor.trainable = True
             self.parameter.critic.trainable = False
             with tf.GradientTape() as tape:
-                actor_loss, act_v_loss, entropy_loss, V = self._compute_horizon_step(stochs, deters, feats)
+                actor_loss, act_v_loss, entropy_loss, horizon_feat, horizon_V = self._compute_horizon_step(
+                    stochs, deters, feats
+                )
             grads = tape.gradient(actor_loss, self.parameter.actor.trainable_variables)
             self._actor_opt.apply_gradients(zip(grads, self.parameter.actor.trainable_variables))
             if act_v_loss is not None:
-                self.train_info["act_v_loss"] = -np.mean(act_v_loss)
+                self.train_info["act_v_loss"] = act_v_loss.numpy()
             if entropy_loss is not None:
-                self.train_info["entropy_loss"] = -np.mean(entropy_loss)
-            self.train_info["actor_loss"] = actor_loss.numpy() / self.config.horizon
+                self.train_info["entropy_loss"] = entropy_loss.numpy()
+            self.train_info["actor_loss"] = actor_loss.numpy()
 
             if self.lr_sch_actor.update(self.train_count):
                 self._actor_opt.learning_rate = self.lr_sch_actor.get_rate()
@@ -1348,13 +1402,15 @@ class Trainer(RLTrainer):
         # critic
         # ------------------------
         if self.config.enable_train_critic:
-            if V is None:
-                actor_loss, act_v_loss, entropy_loss, V = self._compute_horizon_step(stochs, deters, feats)
+            if horizon_feat is None:
+                actor_loss, act_v_loss, entropy_loss, horizon_feat, horizon_V = self._compute_horizon_step(
+                    stochs, deters, feats, is_critic=True
+                )
 
             self.parameter.actor.trainable = False
             self.parameter.critic.trainable = True
             with tf.GradientTape() as tape:
-                critic_loss = self.parameter.critic.compute_train_loss(feats, tf.stop_gradient(V))
+                critic_loss = self.parameter.critic.compute_train_loss(horizon_feat, tf.stop_gradient(horizon_V))
             grads = tape.gradient(critic_loss, self.parameter.critic.trainable_variables)
             self._critic_opt.apply_gradients(zip(grads, self.parameter.critic.trainable_variables))
             self.train_info["critic_loss"] = critic_loss.numpy()
@@ -1374,14 +1430,14 @@ class Trainer(RLTrainer):
                         * np.array(self.parameter.critic.get_weights(), dtype=object)
                     )
 
-        self.train_count += 1
         return
 
-    @tf.function
-    def _compute_horizon_step(self, stoch, deter, feat):
+    # @tf.function
+    def _compute_horizon_step(self, stoch, deter, feat, is_critic: bool = False):
+        # featはアクション後の状態でQに近いイメージ
         horizon_feat = [feat]
-        log_pi = None
-        entropy = None
+        horizon_logpi = []
+        entropy = tf.zeros(stoch.shape[0])
         for t in range(self.config.horizon):
             # --- calc action
             if self.config.action_type == RLTypes.DISCRETE:
@@ -1392,19 +1448,15 @@ class Trainer(RLTrainer):
                         np.random.randint(0, self.config.action_num - 1, size=stoch.shape[0]),
                         self.config.action_num,
                     )
-                # use entropy
-                if t == 0:
-                    log_probs = dist.log_probs()
-                    entropy = -tf.reduce_sum(tf.exp(log_probs) * log_probs, axis=-1)
+                log_probs = dist.log_probs()
+                entropy += -tf.reduce_sum(tf.exp(log_probs) * log_probs, axis=-1)
             elif self.config.action_type == RLTypes.CONTINUOUS:
                 dist = self.parameter.actor.call_grad_dist(feat)
-                action = dist.sample()
+                action, log_prob = dist.sample_and_logprob()
+                horizon_logpi.append(log_prob)
+                entropy += -tf.squeeze(log_prob, axis=-1)
                 if self.config.horizon_policy == "random":
                     action = tf.random.normal(action.shape)
-                # use H and logpi
-                if t == 0:
-                    log_pi = dist.log_prob(action)
-                    entropy = -log_pi
             else:
                 raise UndefinedError(self.config.action_type)
 
@@ -1414,62 +1466,69 @@ class Trainer(RLTrainer):
             feat = tf.concat([stoch, deter], -1)
             horizon_feat.append(feat)
         horizon_feat = tf.stack(horizon_feat)
+        horizon_logpi = tf.stack(horizon_logpi)
 
         horizon_reward = self.parameter.reward.call_grad_dist(horizon_feat).mode()
+        horizon_cont = tf.cast(self.parameter.cont.call_grad_dist(horizon_feat).mode(), dtype=tf.float32)
         if self.config.critic_target_update_interval > 0:
             horizon_v = self.parameter.critic_target.call_grad_dist(horizon_feat).mode()
         else:
             horizon_v = self.parameter.critic.call_grad_dist(horizon_feat).mode()
-        horizon_cont = tf.cast(self.parameter.cont.call_grad_dist(horizon_feat).mode(), dtype=tf.float32)
 
         # --- compute V
-        # (horizon, batch_size*batch_length, shape) -> (batch_size*batch_length, shape)
-        V = _compute_V(
+        # (horizon+1, batch_size*batch_length, shape) -> (batch_size*batch_length, shape)
+        horizon_V = _compute_V(
             self.config.critic_estimation_method,
             horizon_reward,
             horizon_v,
             horizon_cont,
             self.config.discount,
             self.config.horizon_ewa_disclam,
-            self.config.horizon_return_lambda,
+            self.config.horizon_h_return,
         )
+        if is_critic:
+            return None, None, None, horizon_feat, horizon_V
 
         # --- compute actor
         act_v_loss = None
         entropy_loss = None
         if self.config.actor_loss_type == "dreamer_v1":
             # Vの最大化
-            actor_loss = -tf.reduce_mean(V / self.config.horizon)
+            actor_loss = -tf.reduce_mean(tf.reduce_sum(horizon_V[1:], axis=0))
         elif self.config.actor_loss_type in ["dreamer_v2", "dreamer_v3"]:
+            adv = horizon_V[1:]
             if self.config.actor_loss_type == "dreamer_v3":
                 # パーセンタイルの計算
-                d5 = tfp.stats.percentile(V, 5)
-                d95 = tfp.stats.percentile(V, 95)
-                adv = V / tf.maximum(1.0, d95 - d5)
-            else:
-                adv = V
-            adv /= self.config.horizon
+                d5 = tfp.stats.percentile(adv, 5)
+                d95 = tfp.stats.percentile(adv, 95)
+                adv = adv / tf.maximum(1.0, d95 - d5)
 
             if self.config.action_type == RLTypes.DISCRETE:
-                # dynamics backprop
-                act_v_loss = tf.reduce_mean(adv)
+                # dynamics backprop 最大化
+                act_v_loss = -tf.reduce_mean(tf.reduce_sum(adv, axis=0))
             elif self.config.action_type == RLTypes.CONTINUOUS:
-                # reinforce
+                # reinforce 最大化
                 if self.config.reinforce_baseline == "v":
-                    adv = adv - horizon_v
-                act_v_loss = tf.reduce_mean(log_pi * tf.stop_gradient(adv))
+                    adv = adv - horizon_v[1:]
+                # advの勾配のみ流す、horizon_logpiは勾配が流れていると思うけど学習できなかった
+                adv = tf.reduce_sum(
+                    adv * self.config.actor_reinforce_rate
+                    + (1 - self.config.actor_reinforce_rate) * horizon_logpi * tf.stop_gradient(adv),
+                    axis=0,
+                )
+                act_v_loss = -tf.reduce_mean(adv)
+
             else:
                 raise UndefinedError(self.config.action_type)
 
-            # entropy
-            entropy_loss = tf.reduce_mean(entropy)
+            # entropyの最大化
+            entropy_loss = -self.config.entropy_rate * tf.reduce_mean(entropy)
 
-            # Vの最大化 + entropyの最大化
-            actor_loss = -(act_v_loss + self.config.entropy_rate * entropy_loss)
+            actor_loss = act_v_loss + entropy_loss
         else:
             raise UndefinedError(self.config.actor_loss_type)
 
-        return actor_loss, act_v_loss, entropy_loss, V
+        return actor_loss, act_v_loss, entropy_loss, horizon_feat, horizon_V
 
 
 def _compute_V(
@@ -1479,7 +1538,7 @@ def _compute_V(
     horizon_cont,
     discount: float,
     horizon_ewa_disclam: float,
-    horizon_return_lambda: float,
+    horizon_h_return: float,
 ) -> Any:
     horizon = horizon_reward.shape[0]
     batch = horizon_reward.shape[1]
@@ -1504,34 +1563,42 @@ def _compute_V(
         cont2.append(_is_cont)
 
     if critic_estimation_method == "simple":
-        V = tf.reduce_sum(rewards, axis=0)
+        horizon_V = tf.math.cumsum(rewards, reverse=True)
     elif critic_estimation_method == "discount":
-        disc = tf.constant([discount**t for t in range(horizon)], dtype=tf.float32)
-        disc = tf.expand_dims(tf.tile(tf.expand_dims(disc, axis=1), [1, batch]), axis=-1)
-        rewards = tf.stack(rewards, axis=0)
-        V = tf.reduce_sum(rewards * disc, axis=0)
-    elif critic_estimation_method in ["dreamer_v1", "ewa"]:
+        horizon_V = []
+        v = tf.zeros((batch, 1), dtype=tf.float32)
+        for t in reversed(range(horizon)):
+            v = rewards[t] + cont2[t] * discount * (horizon_v[t] * cont3[t] + v)
+            horizon_V.insert(0, v)
+        horizon_V = tf.stack(horizon_V)
+    elif critic_estimation_method == "ewa":
         VN = []
         v = tf.zeros((batch, 1), dtype=tf.float32)
         for t in reversed(range(horizon)):
-            v = (rewards[t] * (1.0 - cont3[t]) + horizon_v[t] * cont3[t]) + cont2[t] * discount * v
+            v = rewards[t] + cont2[t] * discount * (horizon_v[t] * cont3[t] + v)
             VN.insert(0, v)
 
-        # EWA
-        V = VN[0]
-        for t in range(1, horizon):
-            V = (1 - horizon_ewa_disclam) * V + horizon_ewa_disclam * VN[t]
+        horizon_V = []
+        for t in range(horizon):
+            v = VN[t]
+            for t2 in range(t + 1, horizon):
+                v = (1 - horizon_ewa_disclam) * v + horizon_ewa_disclam * VN[t2]
+            horizon_V.append(v)
+        horizon_V = tf.stack(horizon_V)
 
-    elif critic_estimation_method in ["dreamer_v2", "dreamer_v3", "h-return"]:
-        V = tf.zeros((batch, 1), dtype=tf.float32)
+    elif critic_estimation_method == "h-return":
+        horizon_V = []
+        v = tf.zeros((batch, 1), dtype=tf.float32)
         for t in reversed(range(horizon)):
-            a = (1 - horizon_return_lambda) * horizon_v[t] + horizon_return_lambda * V
+            a = (1 - horizon_h_return) * horizon_v[t] + horizon_h_return * v
             b = horizon_v[t]
-            V = rewards[t] + cont2[t] * discount * (a * (1.0 - cont3[t]) + b * cont3[t])
+            v = rewards[t] + cont2[t] * discount * (a * (1.0 - cont3[t]) + b * cont3[t])
+            horizon_V.insert(0, v)
+        horizon_V = tf.stack(horizon_V)
     else:
         raise UndefinedError(critic_estimation_method)
 
-    return V
+    return horizon_V
 
 
 # ------------------------------------------------------
@@ -1548,50 +1615,18 @@ class Worker(RLWorker):
     def on_reset(self, worker: WorkerRun) -> dict:
         self.stoch, self.deter = self.parameter.dynamics.get_initial_state()
         if self.config.action_type == RLTypes.DISCRETE:
-            self.action = tf.one_hot([self.sample_action()], self.config.action_num, dtype=tf.float32)
+            self.action = tf.one_hot([0], self.config.action_num, dtype=tf.float32)
         elif self.config.action_type == RLTypes.CONTINUOUS:
-            self.action = tf.constant([self.sample_action() for _ in range(self.config.action_num)], dtype=tf.float32)
+            self.action = tf.constant([[0 for _ in range(self.config.action_num)]], dtype=tf.float32)
         else:
             raise UndefinedError(self.config.action_type)
-
         # 初期状態へのstep
         state = worker.state.astype(np.float32)
-        self._rssm_step(state, self.action)
         self._recent_actions = [self.action.numpy()[0]]
         self._recent_next_states = [state]
         self._recent_rewards = [0]
-
+        self._rssm_step(state, self.action)
         return {}
-
-    def policy(self, worker: WorkerRun) -> Tuple[Any, dict]:
-        self.feat = None
-
-        self._rssm_step(worker.state.astype(np.float32), self.action)
-
-        # debug
-        if random.random() < self.config.epsilon:
-            env_action = self.sample_action()
-            if self.config.action_type == RLTypes.DISCRETE:
-                self.action = tf.one_hot([env_action], self.config.action_num, dtype=tf.float32)
-            elif self.config.action_type == RLTypes.CONTINUOUS:
-                self.action = env_action
-            else:
-                raise UndefinedError(self.config.action_type)
-            return env_action, {}
-
-        dist = self.parameter.actor.call_dist(self.feat)
-        if self.config.action_type == RLTypes.DISCRETE:  # int
-            self.action = dist.sample(onehot=True)
-            env_action = int(np.argmax(self.action[0]))
-        elif self.config.action_type == RLTypes.CONTINUOUS:  # float,list[float]
-            self.action = dist.sample()
-            env_action = self.action[0].numpy()
-            env_action = env_action * (self.config.action_high - self.config.action_low) + self.config.action_low
-            env_action = np.clip(env_action, self.config.action_low, self.config.action_high).tolist()
-        else:
-            raise UndefinedError(self.config.action_type)
-
-        return env_action, {}
 
     def _rssm_step(self, state, action):
         embed = self.parameter.encode(state[np.newaxis, ...])
@@ -1601,7 +1636,41 @@ class Worker(RLWorker):
         self.deter = deter
         self.stoch = post["stoch"]
 
+    def policy(self, worker: WorkerRun) -> Tuple[Any, dict]:
+        # debug
+        if random.random() < self.config.epsilon:
+            env_action = self.sample_action()
+            if self.config.action_type == RLTypes.DISCRETE:
+                self.action = tf.one_hot([env_action], self.config.action_num, dtype=tf.float32)
+            elif self.config.action_type == RLTypes.CONTINUOUS:
+                self.action = tf.constant([env_action], dtype=tf.float32)
+            else:
+                raise UndefinedError(self.config.action_type)
+            return env_action, {}
+
+        dist = self.parameter.actor.call_dist(self.feat)
+        if self.config.action_type == RLTypes.DISCRETE:  # int
+            self.action = dist.sample(onehot=True)
+            env_action = int(np.argmax(self.action[0]))
+        elif self.config.action_type == RLTypes.CONTINUOUS:  # float,list[float]
+            self.action, self.logpi = dist.sample_and_logprob()
+            env_action = self.action[0].numpy()
+            if self.config.actor_continuous_enable_normal_squashed:
+                # Squashed Gaussian Policy (-1, 1) -> (action range)
+                env_action = (1 + env_action) / 2
+                env_action = self.config.action_low + env_action * (self.config.action_high - self.config.action_low)
+            else:
+                env_action = env_action * (self.config.action_high - self.config.action_low) + self.config.action_low
+                env_action = np.clip(env_action, self.config.action_low, self.config.action_high).tolist()
+        else:
+            raise UndefinedError(self.config.action_type)
+
+        return env_action, {}
+
     def on_step(self, worker: WorkerRun) -> dict:
+        next_state = worker.state.astype(np.float32)
+        self._rssm_step(next_state, self.action)
+
         if not self.training:
             return {}
 
@@ -1610,28 +1679,23 @@ class Worker(RLWorker):
 
         # 1episodeのbatch
         self._recent_actions.append(self.action.numpy()[0])
-        self._recent_next_states.append(worker.state.astype(np.float32))
+        self._recent_next_states.append(next_state)
         self._recent_rewards.append(reward)
 
         if worker.done:
-            self.memory.add(
-                {
-                    "actions": self._recent_actions,
-                    "next_states": self._recent_next_states,
-                    "rewards": self._recent_rewards,
-                    "terminated": worker.done_reason == DoneTypes.TERMINATED,
-                }
-            )
+            batch = {
+                "actions": self._recent_actions,
+                "next_states": self._recent_next_states,
+                "rewards": self._recent_rewards,
+                "terminated": worker.done_reason == DoneTypes.TERMINATED,
+            }
+            self.memory.add(batch)
 
         return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
-        assert self.feat is not None
-        if worker.done:
-            self.policy(worker)
-
         # --- decode
-        pred_state = self.parameter.decode.sample(self.feat)[0].numpy()
+        pred_state = self.parameter.decode.call_dist(self.feat).sample()[0].numpy()
         pred_reward = self.parameter.reward.call_dist(self.feat).mode()[0][0].numpy()
         pred_cont = self.parameter.cont.call_dist(self.feat).prob()[0][0].numpy()
         value = self.parameter.critic.call_dist(self.feat).mode()[0][0].numpy()
@@ -1651,9 +1715,10 @@ class Worker(RLWorker):
                 feat = tf.concat([prior["stoch"], deter], axis=1)
 
                 # サンプルを表示
-                next_state = self.parameter.decode.sample(feat)
+                next_state = self.parameter.decode.call_dist(feat).sample()
                 reward = self.parameter.reward.call_dist(feat).mode()
-                cont = self.parameter.cont.call_dist(feat).prob()
+                cont = self.parameter.cont.call_dist(feat).sample()
+                # cont = self.parameter.cont.call_dist(feat).prob()
                 value = self.parameter.critic.call_dist(feat).mode()
                 s = f"{act_probs[a]*100:4.1f}%"
                 s += f", {next_state[0].numpy()}"
@@ -1664,15 +1729,19 @@ class Worker(RLWorker):
 
             common.render_discrete_action(maxa, worker.env, self.config, _render_sub)
         elif self.config.action_type == RLTypes.CONTINUOUS:
-            action = self.parameter.actor.call_dist(self.feat).mode()
+            act_dist = cast(NormalDistBlock, self.parameter.actor).call_dist(self.feat)
+            action = act_dist.mean()
             deter, prior = self.parameter.dynamics.img_step(self.stoch, self.deter, action)
             feat = tf.concat([prior["stoch"], deter], axis=1)
 
-            next_state = self.parameter.decode.sample(feat)
+            next_state = self.parameter.decode.call_dist(feat).sample()
             reward = self.parameter.reward.call_dist(feat).mode()
             cont = self.parameter.cont.call_dist(feat).prob()
             value = self.parameter.critic.call_dist(feat).mode()
 
+            print(
+                f"act   : {action.numpy()[0]}, mean {act_dist.mean().numpy()[0]}, std {act_dist.stddev().numpy()[0]}"
+            )
             print(f"next  : {next_state[0].numpy()}")
             print(f"reward: {reward[0][0].numpy()}")
             print(f"done  : {(1-cont[0][0].numpy())*100:4.1f}%")
@@ -1684,11 +1753,6 @@ class Worker(RLWorker):
     def render_rgb_array(self, worker, **kwargs) -> Optional[np.ndarray]:
         if self.config.observation_type != RLTypes.IMAGE:
             return None
-
-        assert self.feat is not None
-        if worker.done:
-            self.policy(worker)
-
         state = worker.state
 
         from srl.utils import pygame_wrapper as pw
@@ -1697,8 +1761,8 @@ class Worker(RLWorker):
         _view_sample = 3
         IMG_W = 64
         IMG_H = 64
-        STR_H = 15
-        PADDING = 4
+        STR_H = 20
+        PADDING = 8
         WIDTH = (IMG_W + PADDING) * _view_action + 5
         HEIGHT = (IMG_H + PADDING + STR_H * 3) * (_view_sample + 1) + 5
 
@@ -1707,7 +1771,7 @@ class Worker(RLWorker):
         pw.draw_fill(self.screen, color=(0, 0, 0))
 
         # --- decode
-        pred_state = self.parameter.decode.sample(self.feat)[0].numpy()
+        pred_state = self.parameter.decode.call_dist(self.feat).sample()[0].numpy()
         pred_reward = self.parameter.reward.call_dist(self.feat).mode()[0][0].numpy()
         pred_cont = self.parameter.cont.call_dist(self.feat).prob()[0][0].numpy()
         value = self.parameter.critic.call_dist(self.feat).mode()[0][0].numpy()
@@ -1722,7 +1786,7 @@ class Worker(RLWorker):
             self.screen,
             IMG_W + PADDING,
             0,
-            f"decode(RMSE: {rmse:.4f})",
+            f"decode(RMSE: {rmse:.2f})",
             color=(255, 255, 255),
         )
         pw.draw_image_rgb_array(self.screen, IMG_W + PADDING, STR_H, img2)
@@ -1730,22 +1794,22 @@ class Worker(RLWorker):
         pw.draw_text(
             self.screen,
             IMG_W * 2 + PADDING + 10,
-            10,
-            f"reward: {pred_reward:.4f}",
+            14,
+            f"reward: {pred_reward:.2f}",
             color=(255, 255, 255),
         )
         pw.draw_text(
             self.screen,
             IMG_W * 2 + PADDING + 10,
-            20,
-            f"V     : {value:.4f}",
+            28,
+            f"V     : {value:.2f}",
             color=(255, 255, 255),
         )
         pw.draw_text(
             self.screen,
             IMG_W * 2 + PADDING + 10,
-            30,
-            f"done  : {1-pred_cont:.4f}",
+            42,
+            f"done  : {1-pred_cont:.2f}",
             color=(255, 255, 255),
         )
 
@@ -1764,7 +1828,7 @@ class Worker(RLWorker):
                     self.screen,
                     (IMG_W + PADDING) * a,
                     20 + IMG_H,
-                    f"{worker.env.action_to_str(a)}({act_probs[a]*100:.1f}%)",
+                    f"{worker.env.action_to_str(a)}({act_probs[a]*100:.0f}%)",
                     color=(255, 255, 255),
                 )
 
@@ -1772,7 +1836,7 @@ class Worker(RLWorker):
                 deter, prior = self.parameter.dynamics.img_step(self.stoch, self.deter, action)
                 feat = tf.concat([prior["stoch"], deter], axis=1)
 
-                next_state = self.parameter.decode.sample(feat)
+                next_state = self.parameter.decode.call_dist(feat).sample()
                 reward = self.parameter.reward.call_dist(feat).mode()
                 cont = self.parameter.cont.call_dist(feat).mode()
                 value = self.parameter.critic.call_dist(feat).mode()
@@ -1788,37 +1852,38 @@ class Worker(RLWorker):
                     self.screen,
                     x,
                     y + STR_H * 0,
-                    f"r={reward:.3f}",
+                    f"r={reward:5.2f}",
                     color=(255, 255, 255),
                 )
                 pw.draw_text(
                     self.screen,
                     x,
                     y + STR_H * 1,
-                    f"d={1-cont:.3f}",
+                    f"d={1-cont:5.2f}",
                     color=(255, 255, 255),
                 )
                 pw.draw_text(
                     self.screen,
                     x,
                     y + STR_H * 2,
-                    f"V={value:.3f}",
+                    f"V={value:5.2f}",
                     color=(255, 255, 255),
                 )
                 pw.draw_image_rgb_array(self.screen, x, y + STR_H * 3, n_img)
 
         elif self.config.action_type == RLTypes.CONTINUOUS:
-            action = cast(NormalDistBlock, self.parameter.actor).call_dist(self.feat).mode()
+            act_dist = cast(NormalDistBlock, self.parameter.actor).call_dist(self.feat)
+            action = act_dist.mean()
             deter, prior = self.parameter.dynamics.img_step(self.stoch, self.deter, action)
             feat = tf.concat([prior["stoch"], deter], axis=1)
 
-            next_state = self.parameter.decode.sample(feat)
+            next_state = self.parameter.decode.call_dist(feat).sample()
             reward = self.parameter.reward.call_dist(feat).mode()
             cont = self.parameter.cont.call_dist(feat).prob()
             value = self.parameter.critic.call_dist(feat).mode()
 
             n_img = next_state[0].numpy() * 255
-            s = f"act {action.numpy()[0][0]:.5f}"
+            s = f"act {action.numpy()[0]}, mean {act_dist.mean().numpy()[0]}, std {act_dist.stddev().numpy()[0]}"
             s += f", reward {reward.numpy()[0][0]:.5f}"
             s += f", done {(1-cont.numpy()[0][0])*100:4.1f}%"
             s += f", value {value.numpy()[0][0]:.5f}"

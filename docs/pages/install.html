@@ -1,19 +1,21 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="ja" >
+<html class="writer-html5" lang="ja" data-content_root="../">
 <head>
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Installation &mdash; SimpleDistributedRL 0.13.3 ドキュメント</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <title>Installation &mdash; SimpleDistributedRL 0.13.3.3 ドキュメント</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=befbca6c"></script>
+        <script src="../_static/documentation_options.js?v=f5b6cb61"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -74,6 +76,10 @@
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ppo.html">PPO(Proximal Policy Optimization)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
 </ul>
 
         </div>
@@ -215,13 +221,18 @@
 </dd>
 </dl>
 </li>
-<li><p>クラウド/ネットワークによる分散学習を使う場合
-+ redis
-+ pika
-+ paho-mqtt</p></li>
+<li><dl class="simple">
+<dt>クラウド/ネットワークによる分散学習を使う場合</dt><dd><ul>
+<li><p>redis</p></li>
+<li><p>pika</p></li>
+<li><p>paho-mqtt</p></li>
 </ul>
-<p>Tensorflow,Torchを除いたライブラリを一括でインストールするコマンドは以下です。</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>matplotlib<span class="w"> </span>pillow<span class="w"> </span>opencv-python<span class="w"> </span>pygame<span class="w"> </span>pandas<span class="w"> </span>gymnasium<span class="w"> </span>psutil<span class="w"> </span>pynvml<span class="w"> </span>redis<span class="w"> </span>pika<span class="w"> </span>paho-mqtt
+</dd>
+</dl>
+</li>
+</ul>
+<p>Tensorflow,Torch,pika,paho-mqttを除いたライブラリを一括でインストールするコマンドは以下です。</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>matplotlib<span class="w"> </span>pillow<span class="w"> </span>opencv-python<span class="w"> </span>pygame<span class="w"> </span>pandas<span class="w"> </span>gymnasium<span class="w"> </span>psutil<span class="w"> </span>pynvml<span class="w"> </span>redis
 </pre></div>
 </div>
 </section>

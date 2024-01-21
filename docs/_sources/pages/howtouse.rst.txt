@@ -61,7 +61,7 @@ Gym/Gymnasiumに対応していない環境の読み込み
     # 割引率を変更する例
     rl_config = ql.Config(discount=0.5)
 
-    # インスタンス後に書き換えてもいい
+    # インスタンス後に書き換えも可能
     rl_config.discount = 0.3
 
 | 各アルゴリズムのハイパーパラメータについては srl.algorithms 配下のそれぞれのコードを見てください。
@@ -77,11 +77,12 @@ EnvConfigとRLConfigを元に実際に実行するRunnerを作成します。
 
     import srl
 
+    # Runnerの引数にEnvConfigとRLConfigを指定
     env_config = srl.EnvConfig("Grid")
     rl_config = ql.Config()
     runner = srl.Runner(env_config, rl_config)
 
-    # envはIDのみでも可能
+    # envはIDのみでも指定可能
     runner = srl.Runner("Grid", rl_config)
 
     # envのみの指定も可能(ただしアルゴリズムを使うものは利用できない)
@@ -109,6 +110,7 @@ Commonly run Example
 4. Runner functions
 ==========================
 
+Runnerで実行できる各関数に関してです。
 
 Train
 ---------------------
@@ -137,7 +139,7 @@ Train Only
 ---------------------
 
 | エピソードは実行せず、Trainerの学習のみを実施します。
-| Memoryがある状態など、学習が可能な状態で呼び出してください。（学習が進まない場合無限ループになります）
+| Memoryにbatchがない状態など、学習出来ない場合で実行すると無限ループになるので注意してください。
 
 .. code-block:: python
 

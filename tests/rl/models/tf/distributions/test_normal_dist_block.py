@@ -55,6 +55,7 @@ def test_loss(fixed_stddev, enable_squashed, is_plot=False):
 
 
 def test_inf():
+    pytest.importorskip("tensorflow")
     from srl.rl.models.tf.distributions.normal_dist_block import NormalDist
 
     m = NormalDist(
@@ -96,6 +97,7 @@ def test_inf():
 
 
 def test_inf2():
+    pytest.importorskip("tensorflow")
     from srl.rl.models.tf.distributions.normal_dist_block import NormalDist
 
     m = NormalDist(
@@ -119,10 +121,8 @@ def test_inf2():
         ),
         enable_squashed=True,
     )
-    act = m.sample()
+    act, log_prob = m.sample_and_logprob()
     print(act)
-    print(m.y_org)
-    log_prob = m.log_prob(m.y_org)
     print(log_prob)
     print(np.exp(log_prob))
     assert not np.isinf(log_prob).any()

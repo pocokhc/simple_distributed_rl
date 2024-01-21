@@ -100,6 +100,7 @@ def test_loss_grad(unimix):
 
 
 def test_inf():
+    pytest.importorskip("tensorflow")
     from srl.rl.models.tf.distributions.categorical_dist_block import CategoricalDist
 
     m = CategoricalDist(

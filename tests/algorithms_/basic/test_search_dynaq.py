@@ -18,7 +18,6 @@ class Test_search_dynaq(CommonBaseSimpleTest):
 def test_Grid(is_mp):
     tester = TestRL()
     rl_config = search_dynaq.Config()
-    rl_config.int_lr.set_constant(0.01)
     runner = srl.Runner("Grid", rl_config)
     runner.set_seed(1)
     if is_mp:

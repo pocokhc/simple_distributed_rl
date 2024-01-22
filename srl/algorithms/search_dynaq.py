@@ -1,7 +1,6 @@
 import json
 import logging
 import math
-import random
 from dataclasses import dataclass
 from typing import Any, List, Tuple
 
@@ -41,6 +40,8 @@ class Config(RLConfig):
     value_iteration_threshold: float = 0.0001
     q_model_update_interval: int = 1000
 
+    use_symlog: bool = True
+
     q_ext_beta: float = 1.0
     q_int_beta: float = 1.0
 
@@ -50,14 +51,11 @@ class Config(RLConfig):
     q_ext_target_policy_prob: float = 1.0
     q_int_target_policy_prob: float = 0.9
 
-    q_int_target_epsilon: float = 0.1
-    # int_discount: float = 0.9
-    int_target_model_update_interval: int = 100
-
     int_reward_discount: float = 0.9
 
     q_max_iteration: int = 10_000
     iteration_threshold: float = 0.01
+    iteration_interval: int = 1000
 
     action_ucb_beta: float = math.sqrt(2)
     episodic_memory_capacity: int = 30000
@@ -113,7 +111,6 @@ class Parameter(RLParameter):
         self.reward_ext = {}
         self.reward_int = {}
         self.done = {}
-        self.count = {}
 
         # [state]
         self.invalid_actions = {}
@@ -132,12 +129,11 @@ class Parameter(RLParameter):
         self.reward_ext = d[1]
         self.reward_int = d[2]
         self.done = d[3]
-        self.count = d[4]
-        self.invalid_actions = d[5]
-        self.q_ext = d[6]
-        self.q_int = d[7]
-        self.action_count = d[8]
-        self.lifelong = d[9]
+        self.invalid_actions = d[4]
+        self.q_ext = d[5]
+        self.q_int = d[6]
+        self.action_count = d[7]
+        self.lifelong = d[8]
 
     def call_backup(self, **kwargs):
         return json.dumps(
@@ -146,7 +142,6 @@ class Parameter(RLParameter):
                 self.reward_ext,
                 self.reward_int,
                 self.done,
-                self.count,
                 self.invalid_actions,
                 self.q_ext,
                 self.q_int,
@@ -156,19 +151,17 @@ class Parameter(RLParameter):
         )
 
     def init_state(self, state, action, n_state, invalid_actions, next_invalid_actions):
-        if state not in self.count:
+        if state not in self.trans:
             self.trans[state] = [{} for _ in range(self.config.action_num)]
             self.reward_ext[state] = [{} for _ in range(self.config.action_num)]
             self.reward_int[state] = [{} for _ in range(self.config.action_num)]
             self.done[state] = [{} for _ in range(self.config.action_num)]
-            self.count[state] = [{} for _ in range(self.config.action_num)]
             self.invalid_actions[state] = invalid_actions
         if n_state is not None and n_state not in self.trans[state][action]:
             self.trans[state][action][n_state] = 0
             self.reward_ext[state][action][n_state] = 0
             self.reward_int[state][action][n_state] = 0
             self.done[state][action][n_state] = 0
-            self.count[state][action][n_state] = 0
             self.invalid_actions[n_state] = next_invalid_actions
 
     def init_q(self, state: str):
@@ -202,7 +195,7 @@ class Parameter(RLParameter):
 
                     q = 0
                     for next_state in self.trans[state][act].keys():
-                        if self.count[state][act][next_state] == 0:
+                        if self.trans[state][act][next_state] == 0:
                             continue
                         trans_prob = self.trans[state][act][next_state] / N
                         reward = self.reward_ext[state][act][next_state]
@@ -229,7 +222,7 @@ class Parameter(RLParameter):
         if prob == 1:
             return q_max
 
-        q_max_idx = [i for i, q in enumerate(q_tbl) if q == q_max]
+        q_max_idx = [a for a, q in enumerate(q_tbl) if q == q_max and (a not in invalid_actions)]
         valid_actions = self.config.action_num - len(invalid_actions)
         if valid_actions == len(q_max_idx):
             prob = 1.0
@@ -237,8 +230,6 @@ class Parameter(RLParameter):
         n_q = 0
         for a in range(self.config.action_num):
             if a in invalid_actions:
-                continue
-            if np.isinf(q_tbl[a]):
                 continue
             elif a in q_max_idx:
                 p = prob / len(q_max_idx)
@@ -291,9 +282,8 @@ class Trainer(RLTrainer):
             done = 1 if done else 0
 
             # --- model update
-            self.parameter.count[state][action][n_state] += 1
-            c = self.parameter.count[state][action][n_state]
             self.parameter.trans[state][action][n_state] += 1
+            c = self.parameter.trans[state][action][n_state]
             # online mean
             self.parameter.done[state][action][n_state] += (done - self.parameter.done[state][action][n_state]) / c
             # online mean
@@ -301,9 +291,11 @@ class Trainer(RLTrainer):
                 reward_ext - self.parameter.reward_ext[state][action][n_state]
             ) / c
             # discount online mean
-            self.parameter.reward_int[state][action][n_state] += (
-                reward_int - self.parameter.reward_int[state][action][n_state] * self.config.int_reward_discount
-            ) / c
+            old_reward_int = self.parameter.reward_int[state][action][n_state]
+            self.parameter.reward_int[state][action][n_state] = (
+                old_reward_int * self.config.int_reward_discount
+                + (reward_int - old_reward_int * self.config.int_reward_discount) / c
+            )
 
             # --- ext (greedy)
             # TD誤差なので生データ
@@ -328,6 +320,10 @@ class Trainer(RLTrainer):
             # --- action count update
             if self.distributed:
                 self.parameter.action_count[state][action] += 1
+
+            if self.train_count % self.config.iteration_interval == 0:
+                self.parameter.iteration_q("ext")
+                self.parameter.iteration_q("int")
 
             self.train_count += 1
 
@@ -365,6 +361,9 @@ class Worker(DiscreteActionWorker):
         q = self.config.q_ext_beta * q_ext + self.config.q_int_beta * q_int
 
         if self.training or self.rendering:
+            # UCBのスケールに合わせてざっくり0～1になるようにする
+            q = (q + 2) / 4
+
             # actionはUCBで決める
             N = sum(self.parameter.action_count[self.state])
             self.ucb_list = []
@@ -402,7 +401,10 @@ class Worker(DiscreteActionWorker):
         # 内部報酬
         episodic_reward = self._calc_episodic_reward(next_state)
         lifelong_reward = self._calc_lifelong_reward(next_state)
-        reward_int = episodic_reward * lifelong_reward
+        reward_int = (episodic_reward * lifelong_reward) * 2 - 1
+
+        if self.config.use_symlog:
+            reward_ext = symlog(reward_ext)
 
         batch = {
             "state": self.state,

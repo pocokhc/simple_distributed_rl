@@ -38,7 +38,7 @@ def main_ql_agent57():
 
 
 def main_search_dynaq():
-    rl_config = search_dynaq.Config(q_ext_lr=BASE_LR, q_int_lr=BASE_LR)
+    rl_config = search_dynaq.Config(q_ext_lr=BASE_LR, q_int_lr=BASE_LR, use_symlog=False)
 
     runner = srl.Runner("FrozenLake-v1", rl_config)
     runner.set_history_on_file(

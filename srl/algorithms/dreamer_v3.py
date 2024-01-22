@@ -8,8 +8,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow import keras
 
-from srl.base.define import (DoneTypes, EnvObservationTypes, RLBaseTypes,
-                             RLTypes)
+from srl.base.define import DoneTypes, EnvObservationTypes, RLBaseTypes, RLTypes
 from srl.base.exception import UndefinedError
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
@@ -17,14 +16,10 @@ from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions import common
-from srl.rl.memories.experience_replay_buffer import (
-    ExperienceReplayBuffer, ExperienceReplayBufferConfig)
-from srl.rl.models.tf.distributions.bernoulli_dist_block import \
-    BernoulliDistBlock
-from srl.rl.models.tf.distributions.categorical_dist_block import (
-    CategoricalDistBlock, CategoricalGradDist)
-from srl.rl.models.tf.distributions.categorical_gumbel_dist_block import \
-    CategoricalGumbelDistBlock
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
+from srl.rl.models.tf.distributions.bernoulli_dist_block import BernoulliDistBlock
+from srl.rl.models.tf.distributions.categorical_dist_block import CategoricalDistBlock, CategoricalGradDist
+from srl.rl.models.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
 from srl.rl.models.tf.distributions.linear_block import Linear, LinearBlock
 from srl.rl.models.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.rl.models.tf.distributions.twohot_dist_block import TwoHotDistBlock
@@ -1432,7 +1427,7 @@ class Trainer(RLTrainer):
 
         return
 
-    # @tf.function
+    @tf.function
     def _compute_horizon_step(self, stoch, deter, feat, is_critic: bool = False):
         # featはアクション後の状態でQに近いイメージ
         horizon_feat = [feat]
@@ -1495,13 +1490,8 @@ class Trainer(RLTrainer):
         if self.config.actor_loss_type == "dreamer_v1":
             # Vの最大化
             actor_loss = -tf.reduce_mean(tf.reduce_sum(horizon_V[1:], axis=0))
-        elif self.config.actor_loss_type in ["dreamer_v2", "dreamer_v3"]:
+        elif self.config.actor_loss_type == "dreamer_v2":
             adv = horizon_V[1:]
-            if self.config.actor_loss_type == "dreamer_v3":
-                # パーセンタイルの計算
-                d5 = tfp.stats.percentile(adv, 5)
-                d95 = tfp.stats.percentile(adv, 95)
-                adv = adv / tf.maximum(1.0, d95 - d5)
 
             if self.config.action_type == RLTypes.DISCRETE:
                 # dynamics backprop 最大化
@@ -1520,6 +1510,22 @@ class Trainer(RLTrainer):
 
             else:
                 raise UndefinedError(self.config.action_type)
+
+            # entropyの最大化
+            entropy_loss = -self.config.entropy_rate * tf.reduce_mean(entropy)
+
+            actor_loss = act_v_loss + entropy_loss
+
+        elif self.config.actor_loss_type == "dreamer_v3":
+            adv = horizon_V[1:]
+
+            # パーセンタイルの計算
+            d5 = tfp.stats.percentile(adv, 5)
+            d95 = tfp.stats.percentile(adv, 95)
+            adv = adv / tf.maximum(1.0, d95 - d5)
+
+            # dynamics backprop 最大化
+            act_v_loss = -tf.reduce_mean(tf.reduce_sum(adv, axis=0))
 
             # entropyの最大化
             entropy_loss = -self.config.entropy_rate * tf.reduce_mean(entropy)

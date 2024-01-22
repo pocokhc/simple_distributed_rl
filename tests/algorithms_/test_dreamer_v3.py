@@ -78,10 +78,10 @@ def test_compute_V_discount():
     ).numpy()
     print(horizon_V)
     y = [
-        [[4 + discount * 6.339], [1 + discount * 1]],
-        [[3 + discount * 3.71], [1]],
-        [[2 + discount * 1.9], [0]],
-        [[1 + discount * 1], [0]],
+        [[4 + discount * 7.068], [1 + discount * 1]],
+        [[3 + discount * 4.52], [1]],
+        [[2 + discount * 2.8], [0]],
+        [[1 + discount * 2], [0]],
     ]
     print(y)
     assert horizon_V.shape == (4, 2, 1)
@@ -96,7 +96,7 @@ def test_compute_V_dreamer_v1(horizon_ewa_disclam):
 
     horizon_reward, horizon_v, horizon_cont = _setup_compute_V()
     horizon_V = _compute_V(
-        "dreamer_v1",
+        "ewa",
         horizon_reward,
         horizon_v,
         horizon_cont,
@@ -107,10 +107,10 @@ def test_compute_V_dreamer_v1(horizon_ewa_disclam):
     print(horizon_V, horizon_V.shape)
 
     y = [
-        [[4 + discount * 6.339], [1 + discount * 1]],
-        [[3 + discount * 3.71], [1]],
-        [[2 + discount * 1.9], [0]],
-        [[1 + discount * 1], [0]],
+        [[4 + discount * 7.068], [1 + discount * 1]],
+        [[3 + discount * 4.52], [1]],
+        [[2 + discount * 2.8], [0]],
+        [[1 + discount * 2], [0]],
     ]
     print(y)
     y1 = []
@@ -136,7 +136,7 @@ def test_compute_V_dreamer_v2(horizon_h_target):
 
     horizon_reward, horizon_v, horizon_cont = _setup_compute_V()
     horizon_V = _compute_V(
-        "dreamer_v2",
+        "h-return",
         horizon_reward,
         horizon_v,
         horizon_cont,
@@ -146,15 +146,20 @@ def test_compute_V_dreamer_v2(horizon_h_target):
     ).numpy()
     print(horizon_V, horizon_V.shape)
 
-    y = [
-        [
-            [4 + discount * ((1 - horizon_h_target) * 1 + horizon_h_target * 6.02949)],
-            [1 + discount * ((1 - horizon_h_target) * 2 + horizon_h_target * 1)],
-        ],
-        [[3 + discount * ((1 - horizon_h_target) * 1 + horizon_h_target * 3.629)], [1]],
-        [[2 + discount * ((1 - horizon_h_target) * 1 + horizon_h_target * 1.9)], [0]],
-        [[1 + discount * 1], [0]],
-    ]
+    _a = 1 + discount * 2
+    _b = 0
+    y = [[[_a], [_b]]]
+    horizon_reward = horizon_reward.numpy()
+    horizon_v = horizon_v.numpy()
+    for i in reversed(range(3)):
+        _a = horizon_reward[i][0][0] + discount * ((1 - horizon_h_target) * horizon_v[i][0][0] + horizon_h_target * _a)
+        if i == 1:
+            _b = 1
+        elif i == 0:
+            _b = horizon_reward[i][1][0] + discount * (
+                (1 - horizon_h_target) * horizon_v[i][1][0] + horizon_h_target * _b
+            )
+        y.insert(0, [[_a], [_b]])
     print(y)
 
     assert horizon_V.shape == (4, 2, 1)
@@ -163,7 +168,7 @@ def test_compute_V_dreamer_v2(horizon_h_target):
 
 @pytest.mark.parametrize("normalization_type", ["none", "layer"])
 @pytest.mark.parametrize("resize_type", ["stride", "stride3", "max"])
-@pytest.mark.parametrize("dist_type", ["mse", "normal"])
+@pytest.mark.parametrize("dist_type", ["linear", "normal"])
 def test_image_enc_dec(normalization_type, resize_type, dist_type):
     from srl.algorithms.dreamer_v3 import _ImageDecoder, _ImageEncoder
 
@@ -186,6 +191,6 @@ if __name__ == "__main__":
     # test_compute_V_simple()
     # test_compute_V_discount()
     # test_compute_V_dreamer_v1(0.1)
-    # test_compute_V_dreamer_v2(0.9)
+    test_compute_V_dreamer_v2(0.9)
 
-    test_image_enc_dec("none", "max", "mse")
+    # test_image_enc_dec("none", "max", "mse")

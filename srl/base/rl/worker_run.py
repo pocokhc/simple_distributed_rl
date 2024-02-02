@@ -43,9 +43,12 @@ class WorkerRun:
         self._rendering: bool = False
         self._player_index: int = 0
         self._info: dict = {}
+        self._prev_state: RLObservationType = self._config.create_dummy_state()
         self._state: RLObservationType = self._config.create_dummy_state()
+        self._prev_action: RLActionType
         self._reward: float = 0
         self._step_reward: float = 0
+        self._prev_invalid_actions: InvalidActionsType = []
         self._invalid_actions: InvalidActionsType = []
         self._render = Render(worker)
 
@@ -94,8 +97,16 @@ class WorkerRun:
         return self._info
 
     @property
+    def prev_state(self) -> RLObservationType:
+        return self._prev_state
+
+    @property
     def state(self) -> RLObservationType:
         return self._state
+
+    @property
+    def prev_action(self) -> RLActionType:
+        return self._prev_action
 
     @property
     def reward(self) -> float:
@@ -108,6 +119,10 @@ class WorkerRun:
     @property
     def done_reason(self) -> DoneTypes:
         return self._env.done_reason
+
+    @property
+    def prev_invalid_actions(self) -> InvalidActionsType:
+        return self._prev_invalid_actions
 
     @property
     def invalid_actions(self) -> InvalidActionsType:
@@ -130,6 +145,7 @@ class WorkerRun:
         self._step_reward = 0
 
         self._info = {}
+        self._prev_state = self._config.create_dummy_state()
         self._state = self._config.create_dummy_state()
         self._reward = 0
         self._set_invalid_actions()
@@ -148,6 +164,7 @@ class WorkerRun:
         if not self._is_reset:
             # 1週目は reset -> policy
             self._set_invalid_actions()
+            self._prev_state = self._state
             self._state = self.state_encode(self.env.state, self._env, append_recent_state=True)
             self._info = self._worker.on_reset(self)
             self._is_reset = True
@@ -156,18 +173,18 @@ class WorkerRun:
             self._on_step()
 
         # worker policy
-        action, info = self._worker.policy(self)
+        self._prev_action, info = self._worker.policy(self)
         if self._config.enable_assertion_value:
-            self.assert_action(action)
+            self.assert_action(self._prev_action)
         elif self._config.enable_sanitize_value:
-            action = self.sanitize_action(action)
-        action = self.action_decode(action)
+            self._prev_action = self.sanitize_action(self._prev_action)
+        env_action = self.action_decode(self._prev_action)
         self._info.update(info)
 
         if self._rendering:
             self._render.cache_reset()
 
-        return action
+        return env_action
 
     def on_step(self) -> None:
         # 初期化前はskip
@@ -186,14 +203,16 @@ class WorkerRun:
 
     def _on_step(self):
         # encode -> set invalid -> on_step -> reward=0
+        self._set_invalid_actions()
+        self._prev_state = self._state
         self._state = self.state_encode(self._env.state, self._env, append_recent_state=True)
         self._reward = self.reward_encode(self._step_reward, self._env)
         self._env._done = self.done_encode(self._env._done, self._env)
-        self._set_invalid_actions()
         self._info = self._worker.on_step(self)
         self._step_reward = 0
 
     def _set_invalid_actions(self):
+        self._prev_invalid_actions = self._invalid_actions
         self._invalid_actions = cast(
             InvalidActionsType, [self.action_encode(a) for a in self._env.get_invalid_actions(self.player_index)]
         )

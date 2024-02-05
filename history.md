@@ -11,6 +11,23 @@
 1. RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 1. spaceの複数入力（画像+値の入力など）
 
+# v0.14.1
+
+**MainUpdates**
+
+1. [base.rl.worker_run] add: prev_state, prev_action, prev_invalid_actionを追加
+1. [algorithms.search_dynaq] update: 更新
+1. [runner.callbacks] add: historyのintervalにinterval_modeを追加し、間隔を選べるように変更
+
+**OtherUpdates**
+
+1. [envs.grid] update: print関係を修正
+
+**Bug Fixes**
+
+1. [runner.core_mp] fix: mp.QueueにてMACでqsizeが例外を出す不具合修正
+
+
 # v0.14.0
 
 **MainUpdates**

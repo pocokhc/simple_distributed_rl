@@ -767,6 +767,7 @@ class Runner:
     def set_history_on_memory(
         self,
         interval: int = 1,
+        interval_mode: str = "time",
         enable_eval: bool = False,
         eval_env_sharing: bool = False,
         eval_episode: int = 1,
@@ -778,7 +779,8 @@ class Runner:
         """学習履歴を保存する設定を指定します。
 
         Args:
-            interval (int, optional): 学習履歴を保存する間隔(秒). Defaults to 1.
+            interval (int, optional): 学習履歴を保存する間隔. Defaults to 1.
+            interval_mode (str, optional): 学習履歴を保存する間隔の単位(time:秒、step:step). Defaults to "time".
             enable_eval (bool, optional): 学習履歴の保存時に評価用のシミュレーションを実行します. Defaults to False.
             eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
             eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
@@ -790,6 +792,7 @@ class Runner:
 
         self._history_on_memory_kwargs = dict(
             interval=interval,
+            interval_mode=interval_mode,
             enable_eval=enable_eval,
             eval_env_sharing=eval_env_sharing,
             eval_episode=eval_episode,
@@ -803,6 +806,7 @@ class Runner:
         self,
         save_dir: str,
         interval: int = 1,
+        interval_mode: str = "time",
         add_history: bool = False,
         write_system: bool = False,
         enable_eval: bool = False,
@@ -817,7 +821,8 @@ class Runner:
 
         Args:
             save_dir (str): 保存するディレクトリ
-            interval (int, optional): 学習履歴を保存する間隔(秒). Defaults to 1.
+            interval (int, optional): 学習履歴を保存する間隔. Defaults to 1.
+            interval_mode (str, optional): 学習履歴を保存する間隔の単位(time:秒、step:step). Defaults to "time".
             add_history (bool, optional): 追記で学習履歴を保存. Defaults to False.
             write_system (bool, optional): CPU/memory情報も保存. Defaults to False.
             enable_eval (bool, optional): 学習履歴の保存時に評価用のシミュレーションを実行します. Defaults to False.
@@ -832,6 +837,7 @@ class Runner:
         self._history_on_file_kwargs = dict(
             save_dir=save_dir,
             interval=interval,
+            interval_mode=interval_mode,
             add_history=add_history,
             write_system=write_system,
             enable_eval=enable_eval,

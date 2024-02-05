@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from srl.base.exception import UndefinedError
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext
 from srl.base.run.core_play import RunStateActor
@@ -20,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
-    interval: int = 1  # s
+    interval: int = 1
+    interval_mode: str = "time"
 
     def on_runner_end(self, runner: Runner) -> None:
         runner.history_viewer = HistoryViewer()
@@ -132,9 +134,15 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self.t0 = time.time()
         self.t0_train = time.time()
         self.t0_train_count = 0
-        self.interval_t0 = time.time()
         self.train_infos = {}
         self.logs = []
+
+        if self.interval_mode == "time":
+            self.interval0 = self.t0
+        elif self.interval_mode == "step":
+            self.interval0 = 0
+        else:
+            raise UndefinedError(self.interval_mode)
 
         # eval, 分散の場合はevalをしない
         if context.distributed:
@@ -146,10 +154,18 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     def on_trainer_loop(self, context: RunContext, state: RunStateTrainer):
         self._add_info(self.train_infos, "trainer", state.trainer.train_info)
 
-        _time = time.time()
-        if _time - self.interval_t0 > self.interval:
-            self._save_trainer_log(context, state)
-            self.interval_t0 = _time  # last
+        if self.interval_mode == "time":
+            _time = time.time()
+            if _time - self.interval0 > self.interval:
+                self._save_trainer_log(context, state)
+                self.interval0 = _time  # last
+        elif self.interval_mode == "step":
+            self.interval0 += 1
+            if self.interval0 > self.interval:
+                self._save_trainer_log(context, state)
+                self.interval0 = 0
+        else:
+            raise UndefinedError(self.interval_mode)
 
     def _save_trainer_log(self, context: RunContext, state: RunStateTrainer):
         train_count = state.trainer.get_train_count()

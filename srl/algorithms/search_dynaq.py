@@ -24,45 +24,43 @@ from srl.rl.memories.sequence_memory import SequenceMemory
 logger = logging.getLogger(__name__)
 
 
-def symlog(x):
-    return np.sign(x) * np.log(np.abs(x) + 1.0)
-
-
 # ------------------------------------------------------
 # config
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig):
-    #:
+    #: 学習時の探索率
+    search_rate: float = 0.5
+    #: テスト時の探索率
+    test_search_rate: float = 0.01
+
+    #: アクション選択におけるUCBのペナルティ項の反映率
+    action_ucb_penalty_rate: float = 0.1
+
+    #: 近似モデルの学習時に内部報酬を割り引く率
+    int_reward_discount: float = 0.9
+    #: 方策反復法における最大実行回数
+    iteration_max_count: int = 100
+    #: 方策反復法の学習完了の閾値
+    iteration_threshold: float = 0.001
+    #: 方策反復法を実行する間隔(学習回数)
+    iteration_interval: int = 10_000
+
+    #: 外部報酬の割引率
     q_ext_discount: float = 0.9
+    #: 内部報酬の割引率
     q_int_discount: float = 0.9
-
-    value_iteration_threshold: float = 0.0001
-    q_model_update_interval: int = 1000
-
-    use_symlog: bool = True
-
-    q_ext_beta: float = 1.0
-    q_int_beta: float = 1.0
-
+    #: 外部報酬の学習率
     q_ext_lr: float = 0.1
+    #: 内部報酬の学習率
     q_int_lr: float = 0.1
-
+    #: 外部報酬の目標方策で、最大価値を選ぶ確率
     q_ext_target_policy_prob: float = 1.0
+    #: 内部報酬の目標方策で、最大価値を選ぶ確率
     q_int_target_policy_prob: float = 0.9
 
-    int_reward_discount: float = 0.9
-
-    q_max_iteration: int = 10_000
-    iteration_threshold: float = 0.01
-    iteration_interval: int = 1000
-
-    action_ucb_beta: float = math.sqrt(2)
-    episodic_memory_capacity: int = 30000
-    lifelong_decrement_rate: float = 0.99  # 減少割合
-
-    def __post_init__(self):
-        super().__post_init__()
+    #: lifelong rewardの減少率
+    lifelong_decrement_rate: float = 0.999
 
     @property
     def base_action_type(self) -> RLBaseTypes:
@@ -91,9 +89,6 @@ register(
 )
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
 class Memory(SequenceMemory):
     pass
 
@@ -120,6 +115,11 @@ class Parameter(RLParameter):
         self.q_int = {}
         self.action_count = {}
 
+        self.q_ext_min = np.inf
+        self.q_ext_max = -np.inf
+        self.q_int_min = np.inf
+        self.q_int_max = -np.inf
+
         # [state]
         self.lifelong = {}
 
@@ -131,9 +131,13 @@ class Parameter(RLParameter):
         self.done = d[3]
         self.invalid_actions = d[4]
         self.q_ext = d[5]
-        self.q_int = d[6]
-        self.action_count = d[7]
-        self.lifelong = d[8]
+        self.q_ext_min = d[6]
+        self.q_ext_max = d[7]
+        self.q_int = d[8]
+        self.q_int_min = d[9]
+        self.q_int_max = d[10]
+        self.action_count = d[11]
+        self.lifelong = d[12]
 
     def call_backup(self, **kwargs):
         return json.dumps(
@@ -144,7 +148,11 @@ class Parameter(RLParameter):
                 self.done,
                 self.invalid_actions,
                 self.q_ext,
+                self.q_ext_min,
+                self.q_ext_max,
                 self.q_int,
+                self.q_int_min,
+                self.q_int_max,
                 self.action_count,
                 self.lifelong,
             ]
@@ -159,9 +167,9 @@ class Parameter(RLParameter):
             self.invalid_actions[state] = invalid_actions
         if n_state is not None and n_state not in self.trans[state][action]:
             self.trans[state][action][n_state] = 0
-            self.reward_ext[state][action][n_state] = 0
-            self.reward_int[state][action][n_state] = 0
-            self.done[state][action][n_state] = 0
+            self.reward_ext[state][action][n_state] = 0.0
+            self.reward_int[state][action][n_state] = 1.0
+            self.done[state][action][n_state] = 0.0
             self.invalid_actions[n_state] = next_invalid_actions
 
     def init_q(self, state: str):
@@ -169,21 +177,33 @@ class Parameter(RLParameter):
             self.q_ext[state] = [0.0 for a in range(self.config.action_num)]
             self.q_int[state] = [0.0 for a in range(self.config.action_num)]
             self.action_count[state] = [0 for a in range(self.config.action_num)]
-            self.lifelong[state] = 1
+            self.lifelong[state] = 1.0
 
-    def iteration_q(self, mode: str):
+    def iteration_q(
+        self,
+        mode: str,
+        threshold: float = 0.0001,
+        max_count: int = 100,
+    ):
         if mode == "ext":
             discount = self.config.q_ext_discount
             q_tbl = self.q_ext
+            reward_tbl = self.reward_ext
             prob = self.config.q_ext_target_policy_prob
+            self.q_ext_min = np.inf
+            self.q_ext_max = -np.inf
         elif mode == "int":
             discount = self.config.q_int_discount
             q_tbl = self.q_int
+            reward_tbl = self.reward_int
             prob = self.config.q_int_target_policy_prob
+            self.q_int_min = np.inf
+            self.q_int_max = -np.inf
         else:
             raise UndefinedError(mode)
+
         delta = 0
-        for _ in range(self.config.q_max_iteration):  # for safety
+        for _ in range(max_count):  # for safety
             delta = 0
             for state in self.trans.keys():
                 for act in range(self.config.action_num):
@@ -198,7 +218,7 @@ class Parameter(RLParameter):
                         if self.trans[state][act][next_state] == 0:
                             continue
                         trans_prob = self.trans[state][act][next_state] / N
-                        reward = self.reward_ext[state][act][next_state]
+                        reward = reward_tbl[state][act][next_state]
                         done = self.done[state][act][next_state]
                         n_q = self.calc_next_q(q_tbl[next_state], prob, self.invalid_actions[next_state])
                         gain = reward + (1 - done) * discount * n_q
@@ -207,10 +227,26 @@ class Parameter(RLParameter):
                     delta = max(delta, abs(q_tbl[state][act] - q))
                     q_tbl[state][act] = q
 
-            if delta < self.config.iteration_threshold:
+            if delta < threshold:
                 break
         else:
-            logger.warning(f"iteration {self.config.q_max_iteration} over: {delta}, {mode}")
+            logger.warning(f"iteration {max_count} over: {delta}, {mode}")
+
+        # update range
+        for state in self.trans.keys():
+            for act in range(self.config.action_num):
+                if act in self.invalid_actions[state]:
+                    continue
+                if mode == "ext":
+                    if self.q_ext_min > self.q_ext[state][act]:
+                        self.q_ext_min = self.q_ext[state][act]
+                    if self.q_ext_max < self.q_ext[state][act]:
+                        self.q_ext_max = self.q_ext[state][act]
+                elif mode == "int":
+                    if self.q_int_min > self.q_int[state][act]:
+                        self.q_int_min = self.q_int[state][act]
+                    if self.q_int_max < self.q_int[state][act]:
+                        self.q_int_max = self.q_int[state][act]
 
     def calc_next_q(self, q_tbl, prob: float, invalid_actions):
         q_max = max(q_tbl)
@@ -238,7 +274,12 @@ class Parameter(RLParameter):
             n_q += p * q_tbl[a]
         return n_q
 
-    def sample_next_state(self, state, action):
+    def calc_q_normalize(self, q: np.ndarray, q_min: float, q_max: float):
+        if q_min >= q_max:
+            return q
+        return (q - q_min) / (q_max - q_min)
+
+    def sample_next_state(self, state: str, action: int):
         if state not in self.trans:
             return None
         n_s_list = list(self.trans[state][action].keys())
@@ -257,6 +298,8 @@ class Trainer(RLTrainer):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
+
+        self.iteration_num = 0
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
@@ -306,6 +349,11 @@ class Trainer(RLTrainer):
             td_error_ext = target_q - self.parameter.q_ext[state][action]
             self.parameter.q_ext[state][action] += self.config.q_ext_lr * td_error_ext
 
+            if self.parameter.q_ext_min > self.parameter.q_ext[state][action]:
+                self.parameter.q_ext_min = self.parameter.q_ext[state][action]
+            if self.parameter.q_ext_max < self.parameter.q_ext[state][action]:
+                self.parameter.q_ext_max = self.parameter.q_ext[state][action]
+
             # --- int (sarsa)
             n_q = self.parameter.calc_next_q(
                 self.parameter.q_int[n_state], self.config.q_int_target_policy_prob, next_invalid_actions
@@ -313,6 +361,11 @@ class Trainer(RLTrainer):
             target_q = reward_int + (1 - done) * self.config.q_int_discount * n_q
             td_error_int = target_q - self.parameter.q_int[state][action]
             self.parameter.q_int[state][action] += self.config.q_int_lr * td_error_int
+
+            if self.parameter.q_int_min > self.parameter.q_int[state][action]:
+                self.parameter.q_int_min = self.parameter.q_int[state][action]
+            if self.parameter.q_int_max < self.parameter.q_int[state][action]:
+                self.parameter.q_int_max = self.parameter.q_int[state][action]
 
             # --- lifelong
             self.parameter.lifelong[state] *= self.config.lifelong_decrement_rate
@@ -322,15 +375,17 @@ class Trainer(RLTrainer):
                 self.parameter.action_count[state][action] += 1
 
             if self.train_count % self.config.iteration_interval == 0:
-                self.parameter.iteration_q("ext")
-                self.parameter.iteration_q("int")
+                self.parameter.iteration_q("ext", self.config.iteration_threshold, self.config.iteration_max_count)
+                self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_max_count)
+                self.iteration_num += 1
 
             self.train_count += 1
 
         self.train_info = {
             "size": len(self.parameter.q_ext),
-            "td_error_ext": td_error_ext,
-            "td_error_int": td_error_int,
+            "td_error_ext": abs(td_error_ext),
+            "td_error_int": abs(td_error_int),
+            "iteration": self.iteration_num,
         }
 
 
@@ -344,8 +399,8 @@ class Worker(DiscreteActionWorker):
         self.parameter: Parameter = self.parameter
 
     def on_start(self, worker: WorkerRun) -> None:
-        self.parameter.iteration_q("ext")
-        self.parameter.iteration_q("int")
+        self.parameter.iteration_q("ext", self.config.iteration_threshold / 10, self.config.iteration_max_count * 10)
+        self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_max_count)
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self.episodic = {}
@@ -356,13 +411,17 @@ class Worker(DiscreteActionWorker):
         self.state = to_str_observation(_state)
         self.parameter.init_q(self.state)
 
-        q_ext = np.asarray(self.parameter.q_ext[self.state])
-        q_int = np.asarray(self.parameter.q_int[self.state])
-        q = self.config.q_ext_beta * q_ext + self.config.q_int_beta * q_int
+        q_ext = np.array(self.parameter.q_ext[self.state])
+        q_int = np.array(self.parameter.q_int[self.state])
+        q_ext = self.parameter.calc_q_normalize(q_ext, self.parameter.q_ext_min, self.parameter.q_ext_max)
+        q_int = self.parameter.calc_q_normalize(q_int, self.parameter.q_int_min, self.parameter.q_int_max)
 
         if self.training or self.rendering:
-            # UCBのスケールに合わせてざっくり0～1になるようにする
-            q = (q + 2) / 4
+            # 外部報酬が疎な場合は探索を優先
+            if self.parameter.q_ext_min >= self.parameter.q_ext_max:
+                q = q_int
+            else:
+                q = (1 - self.config.search_rate) * q_ext + self.config.search_rate * q_int
 
             # actionはUCBで決める
             N = sum(self.parameter.action_count[self.state])
@@ -375,13 +434,14 @@ class Worker(DiscreteActionWorker):
                 if n == 0:
                     self.ucb_list.append(np.inf)
                 else:
-                    ucb = q[a] + self.config.action_ucb_beta * np.sqrt(np.log(N) / n)
+                    ucb = q[a] + self.config.action_ucb_penalty_rate * np.sqrt(2 * np.log(N) / n)
                     self.ucb_list.append(ucb)
 
         if self.training:
             self.action = get_random_max_index(self.ucb_list, invalid_actions)
             self.parameter.action_count[self.state][self.action] += 1
         else:
+            q = (1 - self.config.test_search_rate) * q_ext + self.config.test_search_rate * q_int
             self.action = get_random_max_index(q, invalid_actions)
 
         return self.action, {}
@@ -401,10 +461,7 @@ class Worker(DiscreteActionWorker):
         # 内部報酬
         episodic_reward = self._calc_episodic_reward(next_state)
         lifelong_reward = self._calc_lifelong_reward(next_state)
-        reward_int = (episodic_reward * lifelong_reward) * 2 - 1
-
-        if self.config.use_symlog:
-            reward_ext = symlog(reward_ext)
+        reward_int = episodic_reward * lifelong_reward
 
         batch = {
             "state": self.state,
@@ -435,26 +492,39 @@ class Worker(DiscreteActionWorker):
         return self.parameter.lifelong[state]
 
     def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
-        self.parameter.init_state(self.state, self.action, None, self.invalid_actions, [])
-        episodic_reward = self._calc_episodic_reward(self.state, update=False)
-        lifelong_reward = self._calc_lifelong_reward(self.state)
+        prev_state = to_str_observation(worker.prev_state)
+        act = worker.prev_action
+        state = to_str_observation(worker.state)
+        self.parameter.init_state(prev_state, act, state, worker.prev_invalid_actions, worker.invalid_actions)
+        self.parameter.init_q(prev_state)
+        self.parameter.init_q(state)
+
+        r_ext = self.parameter.reward_ext[prev_state][act][state]
+        r_int = self.parameter.reward_int[prev_state][act][state]
+        done = self.parameter.done[prev_state][act][state]
+        s = f"reward_ext {r_ext:8.5f}"
+        s += f", reward_int {r_int:8.5f}"
+        s += f", done {100*done:.1f}%"
+        print(s)
+
+        episodic_reward = self._calc_episodic_reward(state, update=False)
+        lifelong_reward = self._calc_lifelong_reward(state)
         int_reward = episodic_reward * lifelong_reward
         print(f"int_reward {int_reward:.4f} = episodic {episodic_reward:.3f} * lifelong {lifelong_reward:.3f}")
 
-        q_ext = self.parameter.q_ext[self.state]
-        q_int = self.parameter.q_int[self.state]
-        maxa = np.argmax(q_ext)
+        q_ext = np.array(self.parameter.q_ext[state])
+        q_int = np.array(self.parameter.q_int[state])
+        q_ext_nor = self.parameter.calc_q_normalize(q_ext, self.parameter.q_ext_min, self.parameter.q_ext_max)
+        q_int_nor = self.parameter.calc_q_normalize(q_int, self.parameter.q_int_min, self.parameter.q_int_max)
+        q = (1 - self.config.test_search_rate) * q_ext_nor + self.config.test_search_rate * q_int_nor
+        maxa = np.argmax(q)
+        print(f"q_ext range[{self.parameter.q_ext_min:.3f}, {self.parameter.q_ext_max:.3f}]")
+        print(f"q_int range[{self.parameter.q_int_min:.3f}, {self.parameter.q_int_max:.3f}]")
 
         def _render_sub(a: int) -> str:
-            s = f"{q_ext[a]:8.5f}(ext), {q_int[a]:8.5f}(int)"
-            s += f", {self.parameter.action_count[self.state][a]}n"
+            s = f"{q_ext[a]:7.2f}->{q_ext_nor[a]:6.3f}(ext), {q_int[a]:6.3f}->{q_int_nor[a]:6.3f}(int)"
+            s += f", {self.parameter.action_count[self.state][a]:4d}n"
             s += f", ucb {self.ucb_list[a]:.3f}"
-            n_state = self.parameter.sample_next_state(self.state, a)
-            if n_state in self.parameter.reward_ext[self.state][a]:
-                s += f", next {n_state}"
-                s += f", reward_ext {self.parameter.reward_ext[self.state][a][n_state]:8.5f}"
-                s += f", reward_int {self.parameter.reward_int[self.state][a][n_state]:8.5f}"
-                s += f", done {100*self.parameter.done[self.state][a][n_state]:.1f}%"
             return s
 
         render_discrete_action(maxa, worker.env, self.config, _render_sub)

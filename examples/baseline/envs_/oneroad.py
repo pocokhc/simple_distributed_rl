@@ -6,7 +6,7 @@ import srl
 from srl.algorithms import ql, search_dynaq
 
 base_dir = os.path.dirname(__file__)
-BASE_TRAIN = 10_000_000
+BASE_TRAIN = 1_000_000
 ENV_PRE = "OneRoad"
 
 

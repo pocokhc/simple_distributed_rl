@@ -56,13 +56,18 @@ class _Board:
 # actor
 # --------------------
 class _ActorRLMemory(IRLMemoryWorker):
-    def __init__(self, remote_queue: mp.Queue, dist_queue_capacity: int, end_signal: ctypes.c_bool):
+    def __init__(self, remote_queue: mp.Queue, end_signal: ctypes.c_bool):
         self.remote_queue = remote_queue
-        self.dist_queue_capacity = dist_queue_capacity
         self.end_signal = end_signal
         self.q_send = 0
 
-        self.last_qsize = 0
+        # [1] qsizeはMACで例外が出る可能性がある
+        # https://docs.python.org/ja/3/library/multiprocessing.html#multiprocessing.Queue
+        try:
+            self.remote_queue.qsize()
+            self.used_qsize = True
+        except NotImplementedError:
+            self.used_qsize = False
 
     @property
     def memory_type(self) -> RLMemoryTypes:
@@ -71,8 +76,8 @@ class _ActorRLMemory(IRLMemoryWorker):
     def add(self, *args) -> None:
         t0 = time.time()
         while True:
-            self.last_qsize = self.remote_queue.qsize()
-            if 0 <= self.last_qsize < self.dist_queue_capacity:
+            # [1] qsizeはMACで例外が出る可能性があるので使用しない
+            if not self.remote_queue.full():
                 self.remote_queue.put(args)
                 self.q_send += 1
                 break
@@ -80,7 +85,10 @@ class _ActorRLMemory(IRLMemoryWorker):
                 break
             if time.time() - t0 > 10:
                 t0 = time.time()
-                s = f"queue capacity over: {self.last_qsize}/{self.dist_queue_capacity}"
+                if self.used_qsize:
+                    s = f"queue capacity over: {self.remote_queue.qsize()}"
+                else:
+                    s = "queue capacity over"
                 print(s)
                 logger.info(s)
                 break  # 終了条件用に1step進める
@@ -88,7 +96,10 @@ class _ActorRLMemory(IRLMemoryWorker):
             time.sleep(1)
 
     def length(self) -> int:
-        return self.last_qsize
+        if self.used_qsize:
+            return self.remote_queue.qsize()
+        else:
+            return -1
 
 
 class _ActorInterrupt(RunCallback):
@@ -162,11 +173,7 @@ def _run_actor(
         # --- memory
         memory = cast(
             RLMemory,
-            _ActorRLMemory(
-                remote_queue,
-                task_config.config.dist_queue_capacity,
-                end_signal,
-            ),
+            _ActorRLMemory(remote_queue, end_signal),
         )
 
         # --- callback
@@ -210,11 +217,10 @@ def _memory_communicate(
             if remote_queue.empty():
                 time.sleep(0.1)
             else:
-                qsize = remote_queue.qsize()
-                for _ in range(qsize):
-                    batch = remote_queue.get(timeout=5)
-                    memory.add(*batch)
-                    share_dict["q_recv"] += 1
+                # [1] qsizeはMACで例外が出る可能性があるので使用しない
+                batch = remote_queue.get(timeout=5)
+                memory.add(*batch)
+                share_dict["q_recv"] += 1
 
     except Exception:
         logger.error(traceback.format_exc())
@@ -364,10 +370,11 @@ def train(runner: srl.Runner, callbacks: List[CallbackType]):
             __is_set_start_method = True
 
     MPManager.register("Board", _Board)
+    mp_data = runner.create_task_config(callbacks)
 
     # --- share values
     end_signal = cast(ctypes.c_bool, mp.Value(ctypes.c_bool, False))
-    remote_queue = mp.Queue()
+    remote_queue = mp.Queue(mp_data.config.dist_queue_capacity)
     with MPManager() as manager:
         remote_board: _Board = cast(Any, manager).Board()
 
@@ -379,7 +386,6 @@ def train(runner: srl.Runner, callbacks: List[CallbackType]):
             remote_board.write(pickle.dumps(params))
 
         # --- actor ---
-        mp_data = runner.create_task_config(callbacks)
         actors_ps_list: List[mp.Process] = []
         for actor_id in range(runner.context.actor_num):
             params = (
@@ -414,7 +420,8 @@ def train(runner: srl.Runner, callbacks: List[CallbackType]):
         # --- プロセスの終了を待つ
         for w in actors_ps_list:
             # qが残っているとactorプロセスが終わらない
-            for _ in range(remote_queue.qsize()):
+            # [1] qsizeはMACで例外が出る可能性があるので使用しない
+            while not remote_queue.empty():
                 remote_queue.get(timeout=1)
 
             for _ in range(5):

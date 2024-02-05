@@ -1,6 +1,7 @@
 import enum
 import logging
 import os
+import random
 from dataclasses import dataclass, field
 from typing import Any, List, Tuple, cast
 
@@ -67,6 +68,13 @@ class Grid(SinglePlayEnv):
     )
 
     def __post_init__(self):
+        self.start_pos_list = []
+        for y in range(self.H):
+            for x in range(self.W):
+                if self.field[y][x] == 2:
+                    self.start_pos_list.append((x, y))
+        assert len(self.start_pos_list) > 0, "There is no initial position. Enter '2' locations in the field."
+
         # 遷移確率
         self.action_probs = {
             Action.UP: {
@@ -124,12 +132,7 @@ class Grid(SinglePlayEnv):
         }
 
     def call_reset(self) -> Tuple[List[int], dict]:
-        self.player_pos = (0, 0)
-        for y in range(self.H):
-            for x in range(self.W):
-                if self.field[y][x] == 2:
-                    self.player_pos = (x, y)
-                    break
+        self.player_pos = random.choice(self.start_pos_list)
         self.action = Action.DOWN
         return list(self.player_pos), {}
 
@@ -210,7 +213,7 @@ class Grid(SinglePlayEnv):
                         pw.draw_image(self.screen, "player_left", x_pos, y_pos)
                     elif self.action == Action.UP:
                         pw.draw_image(self.screen, "player_up", x_pos, y_pos)
-                elif n == 0:  # 道
+                elif n == 0 or n == 2:  # 道
                     pass
                 elif n == 1:  # goal
                     pw.draw_image(self.screen, "goal", x_pos, y_pos)
@@ -267,7 +270,7 @@ class Grid(SinglePlayEnv):
         return states
 
     def can_action_at(self, state):
-        if self.field[state[1]][state[0]] == 0:
+        if self.field[state[1]][state[0]] in [0, 2]:
             return True
         else:
             return False
@@ -389,7 +392,7 @@ class Grid(SinglePlayEnv):
                     r += state_prob * gain
                 Q[s][a.value] = r
 
-        return V, Q
+        return Q
 
     def print_state_values(self, V):
         for y in range(1, self.H - 1):
@@ -397,6 +400,8 @@ class Grid(SinglePlayEnv):
             for x in range(1, self.W - 1):
                 if (x, y) in V:
                     v = V[(x, y)]
+                elif f"{x},{y}" in V:
+                    v = V[f"{x},{y}"]
                 else:
                     v = 0
                 s += "{:9.6f} ".format(v)
@@ -406,27 +411,29 @@ class Grid(SinglePlayEnv):
         def _Q(x, y, a):
             if (x, y) in Q:
                 return Q[(x, y)][a.value]
+            elif f"{x},{y}" in Q:
+                return Q[f"{x},{y}"][a.value]
             else:
                 return 0
 
-        print("-" * 60)
-        for y in range(1, self.H - 1):
+        print("-" * self.W * 14)
+        for y in range(0, self.H):
             # 上
             s = ""
-            for x in range(1, self.W - 1):
+            for x in range(0, self.W):
                 s += "   {:6.3f}    |".format(_Q(x, y, Action.UP))
             print(s)
             # 左右
             s = ""
-            for x in range(1, self.W - 1):
+            for x in range(0, self.W):
                 s += "{:6.3f} {:6.3f}|".format(_Q(x, y, Action.LEFT), _Q(x, y, Action.RIGHT))
             print(s)
             # 下
             s = ""
-            for x in range(1, self.W - 1):
+            for x in range(0, self.W):
                 s += "   {:6.3f}    |".format(_Q(x, y, Action.DOWN))
             print(s)
-            print("-" * 60)
+            print("-" * self.W * 14)
 
     def reward_prediction(self, Q, times=1000):
         rewards = []

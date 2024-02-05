@@ -946,11 +946,12 @@ class RunnerFacade(Runner):
                 enable_generator=False,
             ),
         )
+        print(f"animation_save_gif step: {state.total_step}, reward: {state.episode_rewards_list[0]}")
         rendering.save_gif(path, render_interval, draw_info)
 
         self._base_run_play_after(callbacks=callbacks)
 
-        return state.episode_rewards_list[0]
+        return state
 
     def animation_display(
         self,
@@ -1040,12 +1041,12 @@ class RunnerFacade(Runner):
                 enable_generator=False,
             ),
         )
-
+        print(f"animation_display step: {state.total_step}, reward: {state.episode_rewards_list[0]}")
         rendering.display(render_interval, render_scale, draw_info)
 
         self._base_run_play_after(callbacks=callbacks)
 
-        return state.episode_rewards_list[0]
+        return state
 
     def replay_window(
         self,

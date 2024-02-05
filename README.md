@@ -244,9 +244,9 @@ while not env.done:
 |-----------|-----------|-----------|----------|----|---|
 |WorldModels|Continuous |Discrete   |Tensorflow|100%||
 |PlaNet     |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%||
-|Dreamer    |Continuous |Discrete   |Tensorflow,tensorflow-probability|-|merge DreamerV3|
-|DreamerV2  |Continuous |Discrete   |Tensorflow,tensorflow-probability|-|merge DreamerV3|
-|DreamerV3  |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%||
+|Dreamer    |Continuous |Both|-|-|merge DreamerV3|
+|DreamerV2  |Continuous |Both|-|-|merge DreamerV3|
+|DreamerV3  |Continuous |Both|Tensorflow,tensorflow-probability|100%||
 
 ## Offline
 

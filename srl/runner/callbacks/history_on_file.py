@@ -10,6 +10,7 @@ from typing import Optional
 
 import numpy as np
 
+from srl.base.exception import UndefinedError
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext
 from srl.base.run.core_play import RunStateActor
@@ -161,12 +162,14 @@ class HistoryOnFileBase:
 @dataclass
 class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     save_dir: str = "history"
-    interval: int = 1  # s
+    interval: int = 1
+    interval_mode: str = "time"
     add_history: bool = False
     write_system: bool = False
 
     def __post_init__(self):
         self._base = HistoryOnFileBase(self.save_dir, self.add_history)
+        assert self.interval_mode in ["time", "step"]
 
     def on_runner_start(self, runner: Runner) -> None:
         self._base.setup(runner.config, runner.context)
@@ -238,7 +241,13 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             self.enable_eval = self.enable_eval and (context.actor_id == 0)
 
         self.t0 = time.time()
-        self.interval_t0 = self.t0
+        if self.interval_mode == "time":
+            self.interval0 = self.t0
+        elif self.interval_mode == "step":
+            self.interval0 = 0
+        else:
+            raise UndefinedError(self.interval_mode)
+
         self.last_episode_result = {}
 
     def on_episodes_end(self, context: RunContext, state: RunStateActor):
@@ -263,11 +272,20 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             self._add_info(self.episode_infos, "trainer", state.trainer.train_info)
         [self._add_info(self.episode_infos, f"worker{i}", w.info) for i, w in enumerate(state.workers)]
 
-        _time = time.time()
-        if _time - self.interval_t0 > self.interval:
-            self._write_actor_log(context, state)
-            self._write_system()
-            self.interval_t0 = _time  # last
+        if self.interval_mode == "time":
+            _time = time.time()
+            if _time - self.interval0 > self.interval:
+                self._write_actor_log(context, state)
+                self._write_system()
+                self.interval0 = _time  # last
+        elif self.interval_mode == "step":
+            self.interval0 += 1
+            if self.interval0 > self.interval:
+                self._write_actor_log(context, state)
+                self._write_system()
+                self.interval0 = 0
+        else:
+            raise UndefinedError(self.interval_mode)
 
     def on_episode_end(self, context: RunContext, state: RunStateActor):
         d = {
@@ -322,8 +340,14 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self.t0 = time.time()
         self.t0_train = time.time()
         self.t0_train_count = 0
-        self.interval_t0 = time.time()
         self.train_infos = {}
+
+        if self.interval_mode == "time":
+            self.interval0 = self.t0
+        elif self.interval_mode == "step":
+            self.interval0 = 0
+        else:
+            raise UndefinedError(self.interval_mode)
 
         # eval, 分散の場合はevalをしない
         if context.distributed:
@@ -337,11 +361,20 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     def on_trainer_loop(self, context: RunContext, state: RunStateTrainer):
         self._add_info(self.train_infos, "trainer", state.trainer.train_info)
 
-        _time = time.time()
-        if _time - self.interval_t0 > self.interval:
-            self._write_trainer_log(context, state)
-            self._write_system()
-            self.interval_t0 = _time  # last
+        if self.interval_mode == "time":
+            _time = time.time()
+            if _time - self.interval0 > self.interval:
+                self._write_trainer_log(context, state)
+                self._write_system()
+                self.interval0 = _time  # last
+        elif self.interval_mode == "step":
+            self.interval0 += 1
+            if self.interval0 > self.interval:
+                self._write_trainer_log(context, state)
+                self._write_system()
+                self.interval0 = 0
+        else:
+            raise UndefinedError(self.interval_mode)
 
     def _write_trainer_log(self, context: RunContext, state: RunStateTrainer):
         if not self._base.is_fp("trainer"):

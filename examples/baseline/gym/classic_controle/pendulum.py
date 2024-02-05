@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 import srl
-from srl.algorithms import agent57, agent57_light, ddpg, dqn, ppo, r2d2, rainbow, sac
+from srl.algorithms import agent57, agent57_light, ddpg, dqn, dreamer_v3, ppo, r2d2, rainbow, sac
 
 base_dir = os.path.dirname(__file__)
 ENV_NAME = "Pendulum-v1"
@@ -120,6 +120,28 @@ def main_sac(is_mp):
     _run("SAC", rl_config, is_mp)
 
 
+def main_dreamer_v3(is_mp):
+    rl_config = dreamer_v3.Config(lr_model=BASE_LR, lr_critic=BASE_LR, lr_actor=BASE_LR)
+    rl_config.set_dreamer_v3()
+    rl_config.rssm_deter_size = 64
+    rl_config.rssm_stoch_size = 4
+    rl_config.rssm_classes = 4
+    rl_config.rssm_hidden_units = 256
+    rl_config.reward_layer_sizes = (256,)
+    rl_config.cont_layer_sizes = (256,)
+    rl_config.encoder_decoder_mlp = BASE_BLOCK
+    rl_config.critic_layer_sizes = BASE_BLOCK
+    rl_config.actor_layer_sizes = BASE_BLOCK
+    rl_config.batch_size = 32
+    rl_config.batch_length = 15
+    rl_config.horizon = 5
+    rl_config.memory.capacity = 10_000
+    rl_config.memory.warmup_size = 50
+    rl_config.free_nats = 0.1
+    rl_config.warmup_world_model = 1_000
+    _run("DreamerV3", rl_config, is_mp)
+
+
 def compare1():
     histories = srl.Runner.load_histories(
         [
@@ -131,6 +153,7 @@ def compare1():
             os.path.join(base_dir, f"_{ENV_NAME}_PPO"),
             os.path.join(base_dir, f"_{ENV_NAME}_DDPG"),
             os.path.join(base_dir, f"_{ENV_NAME}_SAC"),
+            os.path.join(base_dir, f"_{ENV_NAME}_DreamerV3"),
         ]
     )
     histories.plot(
@@ -156,6 +179,7 @@ def compare2():
             os.path.join(base_dir, f"_{ENV_NAME}_PPO_mp"),
             os.path.join(base_dir, f"_{ENV_NAME}_DDPG_mp"),
             os.path.join(base_dir, f"_{ENV_NAME}_SAC_mp"),
+            os.path.join(base_dir, f"_{ENV_NAME}_DreamerV3_mp"),
         ]
     )
     histories.plot(
@@ -187,5 +211,7 @@ if __name__ == "__main__":
     main_ddpg(is_mp=True)
     main_sac(is_mp=False)
     main_sac(is_mp=True)
+    main_dreamer_v3(is_mp=False)
+    main_dreamer_v3(is_mp=True)
     compare1()
     compare2()

@@ -37,15 +37,15 @@ gym の環境を利用
 | ただ、gym環境を利用する場合、一部本フレームワークに特化した内容にはならない点には注意してください。
 | ある程度自動で予測していますが、状態やアクションが連続か離散か等、学習に必要な情報が増えており、その予測が間違う可能性があります。
 
-※gym側の更新等により不正確な情報になる可能性があります。より正確な情報は公式(https://github.com/openai/gym)を見てください。
+※gym側の更新等により不正確な情報になる可能性があります。より正確な情報は公式(https://github.com/Farama-Foundation/Gymnasium)を見てください。
 
 具体的なコードは以下です。
 gym.Envを継承して作成します。
 
 .. code-block:: python
 
-   import gym
-   from gym import spaces
+   import gymnasium as gym
+   from gymnasium import spaces
    import numpy as np
 
    class MyGymEnv(gym.Env):
@@ -95,9 +95,9 @@ gym.Envを継承して作成します。
 
 .. code-block:: python
 
-   import gym.envs.registration
+   import gymnasium.envs.registration
 
-   gym.envs.registration.register(
+   gymnasium.envs.registration.register(
       id="MyGymEnv-v0",
       entry_point=__name__ + ":MyGymEnv",
       max_episode_steps=10,
@@ -107,7 +107,7 @@ gym.Envを継承して作成します。
 
 .. code-block:: python
 
-   import gym
+   import gymnasium as gym
    env = gym.make("MyGymEnv-v0")
 
    observation = env.reset()

@@ -245,12 +245,12 @@ class GymnasiumWrapper(EnvBase):
         logger.info("set SDL_VIDEODRIVER='dummy'")
 
         self.env = self.make_gymnasium_env()
-        logger.info(f"action_space: {self.env.action_space}")
-        logger.info(f"obs_space   : {self.env.observation_space}")
+        logger.info(f"gym gym action_space: {self.env.action_space}")
+        logger.info(f"gym gym obs_space   : {self.env.observation_space}")
 
         # metadata
         if hasattr(self.env, "metadata"):
-            logger.info(f"metadata    : {self.env.metadata}")
+            logger.info(f"gym metadata    : {self.env.metadata}")
 
             # fps
             self.fps = self.env.metadata.get("render_fps", 60)

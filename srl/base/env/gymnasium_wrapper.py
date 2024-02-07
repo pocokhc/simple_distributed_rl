@@ -452,12 +452,20 @@ class GymnasiumWrapper(EnvBase):
     def set_render_terminal_mode(self) -> None:
         # modeが違っていたら作り直す
         if self.render_mode != RenderModes.terminal and "ansi" in self.render_modes:
+            try:
+                self.env.close()
+            except Exception as e:
+                logger.warning(e)
             self.env = self.make_gymnasium_env(render_mode="ansi")
             self.render_mode = RenderModes.terminal
 
     def set_render_rgb_mode(self) -> None:
         # modeが違っていたら作り直す
         if self.render_mode != RenderModes.rgb_array and "rgb_array" in self.render_modes:
+            try:
+                self.env.close()
+            except Exception as e:
+                logger.warning(e)
             self.env = self.make_gymnasium_env(render_mode="rgb_array")
             self.render_mode = RenderModes.rgb_array
 

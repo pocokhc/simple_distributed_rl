@@ -15,7 +15,7 @@ def main_ql():
 
 def main_search_dynaq():
     runner = srl.Runner("Grid", search_dynaq.Config())
-    runner.train(max_train_count=int(BASE_TRAIN / 10))
+    runner.train(max_train_count=int(BASE_TRAIN))
     rewards = runner.evaluate(max_episodes=1000)
     print(f"evaluate episodes: {np.mean(rewards)} > 0.6")
 

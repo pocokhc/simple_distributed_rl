@@ -1050,6 +1050,7 @@ class RunnerFacade(Runner):
 
     def replay_window(
         self,
+        view_state: bool = True,
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
@@ -1100,7 +1101,7 @@ class RunnerFacade(Runner):
 
         from srl.runner.game_windows.replay_window import RePlayableGame
 
-        window = RePlayableGame(self, _is_test=_is_test)
+        window = RePlayableGame(self, view_state=view_state, _is_test=_is_test)
         window.play()
         self._base_run_play_after(callbacks=callbacks)
 
@@ -1176,6 +1177,7 @@ class RunnerFacade(Runner):
     def play_window(
         self,
         key_bind: Any = None,
+        view_state: bool = True,
         action_division_num: int = 5,
         enable_memory: bool = False,
         # --- stop config
@@ -1221,6 +1223,7 @@ class RunnerFacade(Runner):
 
         game = PlayableGame(
             runner=self,
+            view_state=view_state,
             action_division_num=action_division_num,
             key_bind=key_bind,
             enable_memory=enable_memory,

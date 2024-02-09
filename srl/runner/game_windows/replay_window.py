@@ -74,10 +74,12 @@ class RePlayableGame(GameWindow):
     def __init__(
         self,
         runner: Runner,
+        view_state: bool = True,
         _is_test: bool = False,  # for test
     ) -> None:
         super().__init__(_is_test=_is_test)
         self.runner = runner
+        self.view_state = view_state
 
         self.history = _GetRGBCallback()
         self.interval = self.runner.env.config.render_interval
@@ -104,7 +106,14 @@ class RePlayableGame(GameWindow):
                 enable_generator=False,
             )
 
-            self.episode_info = {"total_rewards": 0}
+            total_rewards = 0
+            if len(self.history.steps) > 0:
+                for h in self.history.steps:
+                    if total_rewards is None:
+                        total_rewards = h["rewards"]
+                    else:
+                        total_rewards += h["rewards"]
+            self.episode_info = {"total_rewards": total_rewards}
             self.episode_data = self.history.steps
             self.episodes_cache[self.episode] = [
                 self.episode_info,
@@ -172,8 +181,9 @@ class RePlayableGame(GameWindow):
 
         t = [
             "episode      : {}".format(self.episode),
-            # "total rewards: {}".format(self.episode_info["total_rewards"]),
+            "total rewards: {}".format(self.episode_info["total_rewards"]),
             "step         : {} / {}".format(step_data["step"], len(self.episode_data) - 1),
+            "state        : {}".format(step_data["state"] if self.view_state else "hidden"),
             "action       : {}".format(step_data.get("action", None)),
             "next_player_index: {}".format(step_data["next_player_index"]),
             "invalid_actions  : {}".format(step_data["invalid_actions"]),

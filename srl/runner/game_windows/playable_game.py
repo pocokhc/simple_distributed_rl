@@ -15,6 +15,7 @@ class PlayableGame(GameWindow):
     def __init__(
         self,
         runner: Runner,
+        view_state: bool = True,
         action_division_num: int = 5,
         key_bind: KeyBindType = None,
         enable_memory: bool = False,
@@ -22,6 +23,7 @@ class PlayableGame(GameWindow):
         _is_test: bool = False,  # for test
     ) -> None:
         super().__init__(_is_test=_is_test)
+        self.view_state = view_state
 
         self.noop = None
         self.step_time = 0
@@ -42,9 +44,9 @@ class PlayableGame(GameWindow):
             ),
         )
         self.gen_state = None
-        self.gen_status = ""
-        while self.gen_status != "policy":
-            self.gen_state, self.gen_status = next(self.gen_play)
+        gen_status = ""
+        while gen_status != "policy":
+            self.gen_state, gen_status = next(self.gen_play)
         # ---------------------------
 
         # 初期設定
@@ -88,13 +90,13 @@ class PlayableGame(GameWindow):
         t0 = time.time()
 
         # --- 1step
-        self.gen_state, self.gen_status = self.gen_play.send(action)
-        while self.gen_status != "policy":
-            if self.gen_status == "on_episode_end":
+        self.gen_state, gen_status = self.gen_play.send(action)
+        while gen_status != "policy":
+            if gen_status == "on_episode_end":
                 self.scene = "START"
                 break
             try:
-                self.gen_state, self.gen_status = next(self.gen_play)
+                self.gen_state, gen_status = next(self.gen_play)
             except StopIteration:
                 self.pygame_done = True
                 break
@@ -142,7 +144,6 @@ class PlayableGame(GameWindow):
                 self.mode = "RealTime"
             elif self.get_key(pygame.K_RETURN) == KeyStatus.PRESSED:
                 self.scene = "RESET"
-
             if self.mode == "Turn":
                 self.add_info_texts(["> Turn", "  RealTime"])
             else:
@@ -152,6 +153,16 @@ class PlayableGame(GameWindow):
             # --- RUNNING
             if self.get_key(pygame.K_r) == KeyStatus.PRESSED:
                 self.scene = "START"
+                # on_step_endまで進める
+                gen_status = ""
+                while gen_status != "on_step_end":
+                    try:
+                        self.gen_state, gen_status = next(self.gen_play)
+                    except StopIteration:
+                        break
+                assert self.gen_state is not None
+                assert self.gen_state.env is not None
+                self.gen_state.env.set_done()
             elif (self.mode == "RealTime") and (self.get_key(pygame.K_f) == KeyStatus.PRESSED):
                 self.frameadvance = True
                 self.is_pause = True
@@ -247,6 +258,7 @@ class PlayableGame(GameWindow):
             f"observation_space: {self.env.observation_space}",
             f"player_num       : {self.env.player_num}",
             f"step   : {self.env.step_num}",
+            f"state  : {self.env.state if self.view_state else 'hidden'}",
             f"next   : {self.env.next_player_index}",
             f"rewards: {self.env.step_rewards}",
             f"info   : {self.env.info}",

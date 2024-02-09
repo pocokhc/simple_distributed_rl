@@ -129,7 +129,7 @@ def _play(
     # --- 6 loop
     if context.run_name != RunNameTypes.eval:
         logger.info(f"[{context.run_name}] loop start")
-    env.init()
+    state.env.init()
     while True:
         # --- stop check
         if context.timeout > 0 and (time.time() - state.elapsed_t0) >= context.timeout:
@@ -309,7 +309,7 @@ def play_generator(
     # --- 6 loop
     if context.run_name != RunNameTypes.eval:
         logger.info(f"[{context.run_name}] loop start")
-    env.init()
+    state.env.init()
     while True:
         # --- stop check
         if context.timeout > 0 and (time.time() - state.elapsed_t0) >= context.timeout:
@@ -395,6 +395,7 @@ def play_generator(
             state.is_step_trained = state.trainer.get_train_count() > _prev_train
 
         _stop_flags = [c.on_step_end(context, state) for c in callbacks]
+        yield (state, "on_step_end")
         state.worker_idx = worker_idx
 
         if state.env.done:

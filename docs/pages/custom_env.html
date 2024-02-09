@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Make Original Environment &mdash; SimpleDistributedRL 0.13.3.3 ドキュメント</title>
+  <title>Make Original Environment &mdash; SimpleDistributedRL 0.14.0.2 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=f5b6cb61"></script>
+        <script src="../_static/documentation_options.js?v=5c722782"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -151,11 +151,11 @@
 <div class="line">ただ、gym環境を利用する場合、一部本フレームワークに特化した内容にはならない点には注意してください。</div>
 <div class="line">ある程度自動で予測していますが、状態やアクションが連続か離散か等、学習に必要な情報が増えており、その予測が間違う可能性があります。</div>
 </div>
-<p>※gym側の更新等により不正確な情報になる可能性があります。より正確な情報は公式(<a class="reference external" href="https://github.com/openai/gym">https://github.com/openai/gym</a>)を見てください。</p>
+<p>※gym側の更新等により不正確な情報になる可能性があります。より正確な情報は公式(<a class="reference external" href="https://github.com/Farama-Foundation/Gymnasium">https://github.com/Farama-Foundation/Gymnasium</a>)を見てください。</p>
 <p>具体的なコードは以下です。
 gym.Envを継承して作成します。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">gym</span>
-<span class="kn">from</span> <span class="nn">gym</span> <span class="kn">import</span> <span class="n">spaces</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">gymnasium</span> <span class="k">as</span> <span class="nn">gym</span>
+<span class="kn">from</span> <span class="nn">gymnasium</span> <span class="kn">import</span> <span class="n">spaces</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="k">class</span> <span class="nc">MyGymEnv</span><span class="p">(</span><span class="n">gym</span><span class="o">.</span><span class="n">Env</span><span class="p">):</span>
@@ -203,9 +203,9 @@ gym.Envを継承して作成します。</p>
 </div>
 <p>環境クラスを作成したら登録します。
 登録時のid名は &quot;名前-vX&quot; という形式である必要があります。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">gym.envs.registration</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">gymnasium.envs.registration</span>
 
-<span class="n">gym</span><span class="o">.</span><span class="n">envs</span><span class="o">.</span><span class="n">registration</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+<span class="n">gymnasium</span><span class="o">.</span><span class="n">envs</span><span class="o">.</span><span class="n">registration</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
    <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;MyGymEnv-v0&quot;</span><span class="p">,</span>
    <span class="n">entry_point</span><span class="o">=</span><span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;:MyGymEnv&quot;</span><span class="p">,</span>
    <span class="n">max_episode_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
@@ -213,7 +213,7 @@ gym.Envを継承して作成します。</p>
 </pre></div>
 </div>
 <p>以下のように呼び出せます。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">gym</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">gymnasium</span> <span class="k">as</span> <span class="nn">gym</span>
 <span class="n">env</span> <span class="o">=</span> <span class="n">gym</span><span class="o">.</span><span class="n">make</span><span class="p">(</span><span class="s2">&quot;MyGymEnv-v0&quot;</span><span class="p">)</span>
 
 <span class="n">observation</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>

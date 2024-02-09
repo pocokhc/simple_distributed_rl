@@ -30,11 +30,7 @@ class DoneTypes(enum.Enum):
     RESET = enum.auto()
     NONE = enum.auto()
     TERMINATED = enum.auto()
-    TIMEOUT = enum.auto()
-    EPISODE_STEP_OVER = enum.auto()
-    TRUNCATED_ENV = enum.auto()
-    TRUNCATED_ENV_SANITIZE = enum.auto()
-    TRUNCATED_RL = enum.auto()
+    TRUNCATED = enum.auto()
 
     @staticmethod
     def done(done: Union[bool, "DoneTypes"]) -> bool:

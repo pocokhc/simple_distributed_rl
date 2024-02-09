@@ -318,7 +318,8 @@ class RLWorker(ABC, IRender):
         return self.__worker_run._env
 
     def terminated(self) -> None:
-        self.__worker_run._env._done = DoneTypes.TRUNCATED_RL
+        self.__worker_run._env._done = DoneTypes.TRUNCATED
+        self.__worker_run._env._done_reason = "rl"
 
     # ------------------------------------
     # worker info (shortcut properties)

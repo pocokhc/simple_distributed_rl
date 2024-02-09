@@ -102,7 +102,7 @@ def _gym_space_flatten_sub(
 
 def gym_space_flatten(gym_space: gym_spaces.Space) -> Tuple[Union[BoxSpace, ArrayDiscreteSpace], bool]:
     low, high, is_discrete = _gym_space_flatten_sub(gym_space)
-    assert len(low) > 0, "Space flatten failed."
+    assert len(low) > 0, f"Space flatten failed. {gym_space}"
     assert len(low) == len(high)
     if is_discrete:
         low = [int(n) for n in low]
@@ -245,8 +245,8 @@ class GymnasiumWrapper(EnvBase):
         logger.info("set SDL_VIDEODRIVER='dummy'")
 
         self.env = self.make_gymnasium_env()
-        logger.info(f"gym gym action_space: {self.env.action_space}")
-        logger.info(f"gym gym obs_space   : {self.env.observation_space}")
+        logger.info(f"gym action_space: {self.env.action_space}")
+        logger.info(f"gym obs_space   : {self.env.observation_space}")
 
         # metadata
         if hasattr(self.env, "metadata"):

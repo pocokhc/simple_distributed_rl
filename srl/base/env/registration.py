@@ -2,8 +2,10 @@ import logging
 import traceback
 from typing import Dict, Union
 
+from srl.base.env.base import EnvBase
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
+from srl.base.exception import UndefinedError
 from srl.utils.common import is_package_installed, load_module
 
 logger = logging.getLogger(__name__)
@@ -11,7 +13,7 @@ logger = logging.getLogger(__name__)
 _registry = {}
 
 
-def make(config: Union[str, EnvConfig]) -> EnvRun:
+def make_base(config: Union[str, EnvConfig]) -> EnvBase:
     if isinstance(config, str):
         config = EnvConfig(config)
 
@@ -69,9 +71,15 @@ def make(config: Union[str, EnvConfig]) -> EnvRun:
             logger.warning(f"Gym failed to load. '{e}'")
 
     if env is None:
-        raise ValueError(f"'{env_name}' is not found.")
+        raise UndefinedError(f"'{env_name}' is not found.")
 
-    return EnvRun(env, config)
+    return env
+
+
+def make(config: Union[str, EnvConfig]) -> EnvRun:
+    if isinstance(config, str):
+        config = EnvConfig(config)
+    return EnvRun(config)
 
 
 def register(id: str, entry_point: str, kwargs: Dict = {}, enable_assert: bool = True) -> None:

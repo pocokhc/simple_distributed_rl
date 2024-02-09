@@ -29,10 +29,12 @@ logger = logging.getLogger(__name__)
 
 
 class EnvRun:
-    def __init__(self, env: EnvBase, config: EnvConfig) -> None:
-        self.env = env
+    def __init__(self, config: EnvConfig) -> None:
+        from srl.base.env.registration import make_base
+
         self.config = config
-        config._update_env_info(env)  # config update
+        self.env = make_base(self.config)
+        self.config._update_env_info(self.env)  # config update
 
         self._render = Render(self.env)
         self.set_render_options()
@@ -63,6 +65,12 @@ class EnvRun:
             import traceback
 
             logger.error(traceback.format_exc())
+
+    def remake(self):
+        from srl.base.env.registration import make_base
+
+        self.close()
+        self.env = make_base(self.config)
 
     # ------------------------------------
     # change internal state
@@ -119,8 +127,15 @@ class EnvRun:
         elif self.config.enable_sanitize_value:
             action = self.sanitize_action(action, "The format of 'action' entered in 'env.step' was wrong.")
         self._prev_player_index = self.env.next_player_index
-        state, rewards, env_done, info = self.env.step(action)
+
+        f_except = None
+        try:
+            state, rewards, env_done, info = self.env.step(action)
+        except Exception as e:
+            f_except = e
+
         if self.config.enable_assertion_value:
+            assert f_except is None, f_except
             self.assert_state(state)
             self.assert_rewards(rewards)
             self.assert_done(env_done)
@@ -128,6 +143,12 @@ class EnvRun:
             state = self.sanitize_state(state, "'state' in 'env.step' may not be SpaceType.")
             rewards = self.sanitize_rewards(rewards, "'rewards' in 'env.step' may not be List[float].")
             env_done = self.sanitize_done(env_done, "'done' in 'env.reset may' not be bool.")
+        else:
+            if f_except is not None:
+                self.remake()
+                self._done = DoneTypes.TRUNCATED
+                self._done_reason = "step exception"
+                return
 
         self._render.cache_reset()
         step_rewards = np.array(rewards, dtype=np.float32)
@@ -512,8 +533,7 @@ class EnvRun:
         return self.observation_space.sample(self.get_invalid_actions(player_index))
 
     def copy(self):
-        org_env = self.env.__class__()
-        env = self.__class__(org_env, self.config)
+        env = self.__class__(self.config)
         env.restore(self.backup())
         return env
 

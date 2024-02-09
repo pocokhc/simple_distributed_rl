@@ -443,7 +443,7 @@ class GymWrapper(EnvBase):
             if terminated:
                 done = DoneTypes.TERMINATED
             elif truncated:
-                done = DoneTypes.TRUNCATED_ENV
+                done = DoneTypes.TRUNCATED
             else:
                 done = DoneTypes.NONE
 

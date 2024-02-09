@@ -1,7 +1,7 @@
 .. _runner:
 
 Runner(Configuration related)
-=================================
+==================================================
 
 .. autoclass:: srl.runner.runner.Runner
    :members:
@@ -9,7 +9,7 @@ Runner(Configuration related)
 
 
 Runner(Runtime related)
-==========================
+==================================================
 
 .. autoclass:: srl.runner.runner_facade.RunnerFacade
    :members:

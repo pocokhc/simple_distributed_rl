@@ -47,6 +47,7 @@ def test_processor():
 def test_calc_action_values():
     env = cast(grid.Grid, srl.make_env("Grid").get_original_env())
 
-    V, Q = env.calc_action_values()
+    V = env.value_iteration()
+    Q = env.calc_action_values()
     env.print_state_values(V)
     env.print_action_values(Q)

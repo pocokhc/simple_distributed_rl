@@ -128,4 +128,5 @@ def test_play_step():
     np.testing.assert_array_equal(env.get_invalid_actions(), [0, 1, 2, 3, 4, 5, 6, 7, 8])
     np.testing.assert_array_equal(env.step_rewards, [1, -1])
     assert env.done
-    assert env.done_reason == DoneTypes.TERMINATED
+    assert env.done_type == DoneTypes.TERMINATED
+    assert env.done_reason == ""

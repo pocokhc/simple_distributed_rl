@@ -16,12 +16,17 @@
 **MainUpdates**
 
 1. [base.rl.worker_run] add: prev_state, prev_action, prev_invalid_actionを追加
+1. [base.define] change: DoneTypesをシンプルにし変更
+1. [base.env] change: EnvRunでenvのインスタンス管理も含めるように変更中（env側で強制終了したら再起動できるように）
 1. [algorithms.search_dynaq] update: 更新
 1. [runner.callbacks] add: historyのintervalにinterval_modeを追加し、間隔を選べるように変更
+1. [runner] add: play系のwindowにstateの状態を表示する引数を追加
 
 **OtherUpdates**
 
 1. [envs.grid] update: print関係を修正
+1. [base.env.gym] update: print関係を修正
+1. [base.env.gymnasium] fix: render_modeでcloseを追加
 
 **Bug Fixes**
 

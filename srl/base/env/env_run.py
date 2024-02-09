@@ -44,6 +44,7 @@ class EnvRun:
     def init(self):
         """reset前の状態を定義"""
         self._done = DoneTypes.RESET
+        self._done_reason = ""
 
     # --- with
     def __del__(self):
@@ -99,6 +100,7 @@ class EnvRun:
         self._step_num: int = 0
         self._state = self.env.observation_space.get_default()
         self._done: DoneTypes = DoneTypes.NONE
+        self._done_reason: str = ""
         self._prev_player_index: int = 0
         self._episode_rewards = np.zeros(self.player_num)
         self._step_rewards = np.zeros(self.player_num)
@@ -177,9 +179,11 @@ class EnvRun:
         # done step
         if self._done == DoneTypes.NONE:
             if self.step_num > self.max_episode_steps:
-                self._done = DoneTypes.EPISODE_STEP_OVER
+                self._done = DoneTypes.TRUNCATED
+                self._done_reason = "episode step over"
             elif self.config.episode_timeout > 0 and time.time() - self._t0 > self.config.episode_timeout:
-                self._done = DoneTypes.TIMEOUT
+                self._done = DoneTypes.TRUNCATED
+                self._done_reason = "timeout"
 
     def backup(self, include_env: bool = True) -> Any:
         logger.debug("env.backup")
@@ -189,13 +193,14 @@ class EnvRun:
             self._state,
             self._step_rewards,
             self._done,
+            self._done_reason,
             self._prev_player_index,
             self._invalid_actions_list,
             self._info,
             self._t0,
             self._is_direct_step,
         ]
-        data = [pickle.dumps(d)]
+        data: list = [pickle.dumps(d)]
         if include_env:
             data.append(self.env.backup())
         return data
@@ -208,11 +213,12 @@ class EnvRun:
         self._state = d[2]
         self._step_rewards = d[3]
         self._done = d[4]
-        self._prev_player_index = d[5]
-        self._invalid_actions_list = d[6]
-        self._info = d[7]
-        self._t0 = d[8]
-        self._is_direct_step = d[9]
+        self._done_reason = d[5]
+        self._prev_player_index = d[6]
+        self._invalid_actions_list = d[7]
+        self._info = d[8]
+        self._t0 = d[9]
+        self._is_direct_step = d[10]
         if self._is_direct_step:
             if not self.env.can_simulate_from_direct_step:
                 logger.warning("env does not support 'step' after 'direct_step'.")
@@ -270,7 +276,7 @@ class EnvRun:
             return DoneTypes.from_bool(done)
         except Exception as e:
             logger.error(f"{done}({type(done)}), {error_msg}, {e}")
-        return DoneTypes.TRUNCATED_ENV_SANITIZE
+        return DoneTypes.TRUNCATED
 
     def assert_done(self, done: Union[bool, DoneTypes]):
         if isinstance(done, bool):
@@ -353,8 +359,12 @@ class EnvRun:
         return self._done != DoneTypes.NONE
 
     @property
-    def done_reason(self) -> DoneTypes:
+    def done_type(self) -> DoneTypes:
         return self._done
+
+    @property
+    def done_reason(self) -> str:
+        return self._done_reason
 
     @property
     def episode_rewards(self) -> np.ndarray:
@@ -433,6 +443,10 @@ class EnvRun:
 
     def get_env_base(self) -> EnvBase:
         return self.env
+
+    def set_done(self):
+        self._done = DoneTypes.TRUNCATED
+        self._done_reason = "set_done"
 
     # ------------------------------------
     # render

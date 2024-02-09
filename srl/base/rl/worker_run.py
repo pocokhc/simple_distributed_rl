@@ -117,8 +117,12 @@ class WorkerRun:
         return self._env.done
 
     @property
-    def done_reason(self) -> DoneTypes:
-        return self._env.done_reason
+    def done_type(self) -> DoneTypes:
+        return self._env._done
+
+    @property
+    def done_reason(self) -> str:
+        return self._env._done_reason
 
     @property
     def prev_invalid_actions(self) -> InvalidActionsType:

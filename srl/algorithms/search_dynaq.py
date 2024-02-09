@@ -469,7 +469,7 @@ class Worker(DiscreteActionWorker):
             "action": self.action,
             "reward_ext": reward_ext,
             "reward_int": reward_int,
-            "done": self.worker.done_reason == DoneTypes.TERMINATED,
+            "done": self.worker.done_type == DoneTypes.TERMINATED,
             "invalid_actions": self.invalid_actions,
             "next_invalid_actions": next_invalid_actions,
         }

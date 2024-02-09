@@ -1693,7 +1693,7 @@ class Worker(RLWorker):
                 "actions": self._recent_actions,
                 "next_states": self._recent_next_states,
                 "rewards": self._recent_rewards,
-                "terminated": worker.done_reason == DoneTypes.TERMINATED,
+                "terminated": worker.done_type == DoneTypes.TERMINATED,
             }
             self.memory.add(batch)
 

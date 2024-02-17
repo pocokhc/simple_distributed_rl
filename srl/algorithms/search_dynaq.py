@@ -249,12 +249,11 @@ class Parameter(RLParameter):
                         self.q_int_max = self.q_int[state][act]
 
     def calc_next_q(self, q_tbl, prob: float, invalid_actions):
-        q_max = max(q_tbl)
-
         if self.config.action_num == len(invalid_actions):
             # 有効アクションがない場合
             return 0
 
+        q_max = max(q_tbl)
         if prob == 1:
             return q_max
 

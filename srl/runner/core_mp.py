@@ -76,23 +76,22 @@ class _ActorRLMemory(IRLMemoryWorker):
     def add(self, *args) -> None:
         t0 = time.time()
         while True:
+            if self.end_signal.value:
+                break
             # [1] qsizeはMACで例外が出る可能性があるので使用しない
             if not self.remote_queue.full():
                 self.remote_queue.put(args)
                 self.q_send += 1
                 break
-            if self.end_signal.value:
-                break
-            if time.time() - t0 > 10:
+            if time.time() - t0 > 9:
                 t0 = time.time()
                 if self.used_qsize:
-                    s = f"queue capacity over: {self.remote_queue.qsize()}"
+                    s = f"[actor] queue capacity over: {self.remote_queue.qsize()}"
                 else:
-                    s = "queue capacity over"
+                    s = "[actor] queue capacity over"
                 print(s)
                 logger.info(s)
                 break  # 終了条件用に1step進める
-
             time.sleep(1)
 
     def length(self) -> int:
@@ -126,7 +125,7 @@ class _ActorInterrupt(RunCallback):
             # getppid は重い
             if os.getppid() == 1:
                 self.end_signal.value = True
-                logger.info("end_signal: True")
+                logger.info("[actor] end_signal: True")
                 return True
             self.t0_health = time.time()
 
@@ -151,7 +150,7 @@ def _run_actor(
     end_signal: ctypes.c_bool,
 ):
     try:
-        logger.info(f"actor{actor_id} start.")
+        logger.info(f"[actor{actor_id}] start.")
         context = task_config.context
         context.run_name = RunNameTypes.actor
         context.actor_id = actor_id
@@ -199,8 +198,7 @@ def _run_actor(
         )
     finally:
         end_signal.value = True
-        logger.info("end_signal: True")
-        logger.info(f"actor{actor_id} end")
+        logger.info(f"[actor{actor_id}] end")
 
 
 # --------------------
@@ -226,7 +224,7 @@ def _memory_communicate(
         logger.error(traceback.format_exc())
     finally:
         end_signal.value = True
-        logger.info("trainer memory thread end.")
+        logger.info("[trainer] memory thread end.")
 
 
 def _parameter_communicate(
@@ -248,7 +246,7 @@ def _parameter_communicate(
         logger.error(traceback.format_exc())
     finally:
         end_signal.value = True
-        logger.info("trainer parameter thread end.")
+        logger.info("[trainer] parameter thread end.")
 
 
 class _TrainerInterrupt(TrainerCallback):
@@ -274,7 +272,7 @@ def _run_trainer(
     remote_board: _Board,
     end_signal: ctypes.c_bool,
 ):
-    logger.info("trainer start.")
+    logger.info("[trainer] start.")
     task_config.context.run_name = RunNameTypes.trainer
 
     # --- runner
@@ -322,11 +320,12 @@ def _run_trainer(
         callbacks=task_config.callbacks,
     )
     end_signal.value = True
-    logger.info("end_signal: True")
+    logger.info("[trainer] end_signal: True")
 
     # thread end
     memory_ps.join(timeout=10)
     parameter_ps.join(timeout=10)
+    logger.info("[trainer] end")
 
 
 # ----------------------------
@@ -400,7 +399,7 @@ def train(runner: srl.Runner, callbacks: List[CallbackType]):
         # -------------
 
         # --- start
-        logger.debug("process start")
+        logger.debug("[main] process start")
         [p.start() for p in actors_ps_list]
 
         # train
@@ -415,25 +414,30 @@ def train(runner: srl.Runner, callbacks: List[CallbackType]):
             )
         finally:
             end_signal.value = True
-            logger.info("end_signal: True")
+            logger.info("[main] end_signal: True")
 
         # --- プロセスの終了を待つ
-        for w in actors_ps_list:
-            # qが残っているとactorプロセスが終わらない
-            # [1] qsizeはMACで例外が出る可能性があるので使用しない
+        # qが残っているとactorプロセスが終わらない
+        # [1] qsizeはMACで例外が出る可能性がある
+        # print(remote_queue.qsize(), remote_queue.empty())
+        try:
+            for _ in range(remote_queue.qsize()):
+                remote_queue.get(timeout=1)
+        except NotImplementedError:
             while not remote_queue.empty():
                 remote_queue.get(timeout=1)
+        # print(remote_queue.qsize(), remote_queue.empty())
 
-            for _ in range(5):
+        for i, w in enumerate(actors_ps_list):
+            for _ in range(10):
                 if w.is_alive():
                     time.sleep(1)
                 else:
+                    # 子プロセスが正常終了していなければ例外を出す
+                    # exitcode: 0 正常, 1 例外, 負 シグナル
+                    if w.exitcode != 0 and w.exitcode is not None:
+                        raise RuntimeError(f"An exception has occurred in actor{i} process.(exitcode: {w.exitcode})")
                     break
             else:
+                logger.info(f"[main] actor{i} terminate")
                 w.terminate()
-
-    # 子プロセスが正常終了していなければ例外を出す
-    # exitcode: 0 正常, 1 例外, 負 シグナル
-    for i, w in enumerate(actors_ps_list):
-        if w.exitcode != 0 and w.exitcode is not None:
-            raise RuntimeError(f"An exception has occurred in actor {i} process.(exitcode: {w.exitcode})")

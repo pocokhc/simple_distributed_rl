@@ -1,12 +1,12 @@
 import numpy as np
 
 import srl
-import srl.rl.dummy
+from srl.base.rl.config import DummyRLConfig
 
 
 def test_play():
     env_config = srl.EnvConfig("Grid")
-    rl_config = srl.rl.dummy.Config()
+    rl_config = DummyRLConfig()
 
     runner = srl.Runner(env_config, rl_config)
     runner.set_seed(seed=1)

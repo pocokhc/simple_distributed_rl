@@ -172,21 +172,22 @@ def render_discrete_action(maxa, env, config, func) -> None:
         print("... Some invalid actions have been omitted.")
 
 
-def float_category_encode(val: float, v_min: int, v_max: int) -> np.ndarray:  # List[float]
-    transformed = np.clip(val, a_min=v_min, a_max=v_max)
-    floored = np.floor(transformed).astype(int)
-    prob = transformed - floored
+def twohot_encode(x, size: int, low: float, high: float) -> np.ndarray:  # List[float]
+    x = np.clip(x, a_min=low, a_max=high)
+    # 0-bins のサイズで正規化
+    x = (size - 1) * (x - low) / (high - low)
+    # 整数部:idx 小数部:weight
+    idx = np.floor(x).astype(np.int32)
+    w = (x - idx)[..., np.newaxis]
 
-    support_size = v_max - v_min + 1
-    bins = np.zeros(support_size)
-
-    bins[floored + v_max] = 1 - prob
-    if floored + v_max + 1 < len(bins):
-        bins[floored + v_max + 1] = prob
-
-    return bins
+    onehot = np.identity(size, dtype=np.float32)
+    onehot = np.vstack([onehot, np.zeros(size)])
+    onehot1 = onehot[idx]
+    onehot2 = onehot[idx + 1]
+    return onehot1 * (1 - w) + onehot2 * w
 
 
-def float_category_decode(category: np.ndarray, v_min: int, v_max: int) -> float:
-    bins = np.arange(v_min, v_max + 1)
-    return np.dot(category, bins)
+def twohot_decode(x, size: int, low: float, high: float):
+    bins = np.arange(0, size)
+    x = np.dot(x, bins)
+    return (x / (size - 1)) * (high - low) + low

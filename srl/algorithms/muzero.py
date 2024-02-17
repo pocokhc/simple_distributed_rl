@@ -14,12 +14,12 @@ from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.rl.functions.common import (
-    float_category_decode,
-    float_category_encode,
     inverse_rescaling,
     random_choice_by_probs,
     render_discrete_action,
     rescaling,
+    twohot_decode,
+    twohot_encode,
 )
 from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
 from srl.rl.models.alphazero_block import AlphaZeroBlockConfig
@@ -425,7 +425,12 @@ class Parameter(RLParameter):
         if state_str not in self.P:
             p, v_category = self.prediction_network(state)  # type:ignore , ignore check "None"
             self.P[state_str] = p[0].numpy()
-            self.V[state_str] = float_category_decode(v_category.numpy()[0], self.config.v_min, self.config.v_max)
+            self.V[state_str] = twohot_decode(
+                v_category.numpy()[0],
+                abs(self.config.v_max - self.config.v_min) + 1,
+                self.config.v_min,
+                self.config.v_max,
+            )
 
     def reset_cache(self):
         self.P = {}
@@ -644,8 +649,9 @@ class Worker(DiscreteActionWorker):
         # 次の状態を取得
         n_state, reward_category = self.parameter.dynamics_network.predict(state, [action])
         n_state_str = n_state.ref()
-        reward = float_category_decode(
+        reward = twohot_decode(
             reward_category.numpy()[0],  # type:ignore , ignore check "None"
+            abs(self.config.v_max - self.config.v_min) + 1,
             self.config.v_min,
             self.config.v_max,
         )
@@ -747,7 +753,9 @@ class Worker(DiscreteActionWorker):
         )
 
         if done:
-            zero_category = float_category_encode(0, self.config.v_min, self.config.v_max)
+            zero_category = twohot_encode(
+                0, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
+            )
 
             # calc MC reward
             reward = 0
@@ -778,7 +786,9 @@ class Worker(DiscreteActionWorker):
                     priority += v - self.history[idx + i]["state_v"]
                     self._v_min = min(self._v_min, v)
                     self._v_max = max(self._v_max, v)
-                    values[i] = float_category_encode(v, self.config.v_min, self.config.v_max)
+                    values[i] = twohot_encode(
+                        v, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
+                    )
                 priority /= self.config.unroll_steps + 1
 
                 # --- actions
@@ -798,7 +808,9 @@ class Worker(DiscreteActionWorker):
                         r = rescaling(r)
                     self._v_min = min(self._v_min, r)
                     self._v_max = max(self._v_max, r)
-                    rewards[i] = float_category_encode(r, self.config.v_min, self.config.v_max)
+                    rewards[i] = twohot_encode(
+                        r, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
+                    )
 
                 self.memory.add(
                     "memory",
@@ -835,8 +847,9 @@ class Worker(DiscreteActionWorker):
             p = self.step_policy[a]
 
             n_s, reward_category = self.parameter.dynamics_network.predict(self.s0, [a])
-            reward = float_category_decode(
+            reward = twohot_decode(
                 reward_category.numpy()[0],  # type:ignore , ignore check "None"
+                abs(self.config.v_max - self.config.v_min) + 1,
                 self.config.v_min,
                 self.config.v_max,
             )

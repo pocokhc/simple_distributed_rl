@@ -45,7 +45,7 @@ class WorkerRun:
         self._info: dict = {}
         self._prev_state: RLObservationType = self._config.create_dummy_state()
         self._state: RLObservationType = self._config.create_dummy_state()
-        self._prev_action: RLActionType
+        self._prev_action: RLActionType = 0
         self._reward: float = 0
         self._step_reward: float = 0
         self._prev_invalid_actions: InvalidActionsType = []
@@ -146,12 +146,13 @@ class WorkerRun:
         self._training = training
 
         self._is_reset = False
-        self._step_reward = 0
 
         self._info = {}
         self._prev_state = self._config.create_dummy_state()
         self._state = self._config.create_dummy_state()
+        self._prev_action = 0
         self._reward = 0
+        self._step_reward = 0
         self._set_invalid_actions()
 
         if self._config.window_length > 1:

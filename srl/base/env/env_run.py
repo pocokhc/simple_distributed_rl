@@ -2,6 +2,7 @@ import logging
 import pickle
 import random
 import time
+import traceback
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 
 import numpy as np
@@ -62,8 +63,6 @@ class EnvRun:
         try:
             self.env.close()
         except Exception:
-            import traceback
-
             logger.error(traceback.format_exc())
 
     def remake(self):

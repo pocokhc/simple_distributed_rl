@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from .context import RunContext
-    from .core import RunStateActor, RunStateTrainer
+    from .core_play import RunStateActor
+    from .core_train_only import RunStateTrainer
 
 
 class RunCallback(ABC):

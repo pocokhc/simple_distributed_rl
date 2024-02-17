@@ -21,9 +21,9 @@ def test_Grid(is_mp):
     runner = srl.Runner("Grid", rl_config)
     runner.set_seed(1)
     if is_mp:
-        runner.train_mp(max_train_count=5_000, queue_capacity=100_000)
+        runner.train_mp(max_train_count=10_000, queue_capacity=100_000)
     else:
-        runner.train(max_train_count=5_000)
+        runner.train(max_train_count=10_000)
     tester.eval(runner)
 
 

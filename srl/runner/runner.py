@@ -710,7 +710,7 @@ class Runner:
         worker: int = 0,
         max_actor: int = 5,
         # --- eval
-        eval_env_sharing: bool = False,
+        eval_env_sharing: bool = True,
         eval_shuffle_player: bool = False,
     ):
         """progress options
@@ -724,7 +724,7 @@ class Runner:
             worker_info (bool, optional): 進捗表示にworker infoを表示するか. Defaults to True.
             worker (int, optional): 進捗表示に表示するworker index. Defaults to 0.
             max_actor (int, optional): 進捗表示に表示するworker数. Defaults to 5.
-            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
+            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to True.
             eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
         """
         self._progress_kwargs = dict(
@@ -769,7 +769,7 @@ class Runner:
         interval: int = 1,
         interval_mode: str = "time",
         enable_eval: bool = False,
-        eval_env_sharing: bool = False,
+        eval_env_sharing: bool = True,
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
@@ -782,7 +782,7 @@ class Runner:
             interval (int, optional): 学習履歴を保存する間隔. Defaults to 1.
             interval_mode (str, optional): 学習履歴を保存する間隔の単位(time:秒、step:step). Defaults to "time".
             enable_eval (bool, optional): 学習履歴の保存時に評価用のシミュレーションを実行します. Defaults to False.
-            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
+            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to True.
             eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
             eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
             eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
@@ -810,7 +810,7 @@ class Runner:
         add_history: bool = False,
         write_system: bool = False,
         enable_eval: bool = False,
-        eval_env_sharing: bool = False,
+        eval_env_sharing: bool = True,
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
@@ -826,7 +826,7 @@ class Runner:
             add_history (bool, optional): 追記で学習履歴を保存. Defaults to False.
             write_system (bool, optional): CPU/memory情報も保存. Defaults to False.
             enable_eval (bool, optional): 学習履歴の保存時に評価用のシミュレーションを実行します. Defaults to False.
-            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
+            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to True.
             eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
             eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
             eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
@@ -878,7 +878,7 @@ class Runner:
         is_load: bool,
         interval: int = 60 * 20,
         enable_eval: bool = True,
-        eval_env_sharing: bool = False,
+        eval_env_sharing: bool = True,
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
@@ -891,7 +891,7 @@ class Runner:
             save_dir (int): 保存するディレクトリ
             interval (int, optional): 保存する間隔（秒）. Defaults to 60*20sec.
             enable_eval (bool, optional): モデル保存時に評価用のシミュレーションを実行します. Defaults to False.
-            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to False.
+            eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to True.
             eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
             eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
             eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.

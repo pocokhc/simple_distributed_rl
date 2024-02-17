@@ -15,12 +15,12 @@ from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.base.env.registration import make as make_env
 from srl.base.rl.base import RLConfig, RLMemory, RLParameter, RLTrainer
+from srl.base.rl.config import DummyRLConfig
 from srl.base.rl.registration import make_memory, make_parameter, make_trainer, make_worker
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run import core_play, core_train_only
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RLWorkerType, RunContext, RunNameTypes, StrWorkerType
-from srl.rl import dummy
 from srl.runner.callback import RunnerCallback
 from srl.utils import common
 from srl.utils.serialize import convert_for_json
@@ -104,7 +104,7 @@ class Runner:
         else:
             self.env_config: EnvConfig = self.name_or_env_config
         if self.rl_config is None:
-            self.rl_config: RLConfig = dummy.Config()
+            self.rl_config: RLConfig = DummyRLConfig()
         if self.config is None:
             self.config: RunnerConfig = RunnerConfig()
         if self.context is None:

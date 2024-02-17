@@ -1,10 +1,9 @@
 import numpy as np
 
 import srl
-import srl.rl.dummy
 from srl.base.define import EnvObservationType, EnvObservationTypes
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.config import RLConfig
+from srl.base.rl.config import DummyRLConfig, RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.spaces.space import SpaceBase
 
@@ -12,7 +11,7 @@ from srl.base.spaces.space import SpaceBase
 class TestProcessor:
     def run(self, processor: Processor, env_name: str) -> EnvRun:
         env_config = srl.EnvConfig(env_name)
-        rl_config = srl.rl.dummy.Config()
+        rl_config = DummyRLConfig()
         rl_config.processors = [processor]
 
         runner = srl.Runner(env_config, rl_config)
@@ -27,7 +26,7 @@ class TestProcessor:
         env_name: str,
         after_type: EnvObservationTypes,
         after_space: SpaceBase,
-        rl_config: RLConfig = srl.rl.dummy.Config(),
+        rl_config: RLConfig = DummyRLConfig(),
     ):
         env = srl.make_env(env_name)
 

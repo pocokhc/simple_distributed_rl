@@ -263,6 +263,11 @@ class RLTrainer(ABC):
         return self.__train_only
 
 
+class DummyRLTrainer(RLTrainer):
+    def train(self) -> None:
+        self.train_count += 1
+
+
 # ------------------------------------
 # Worker
 # ------------------------------------
@@ -364,3 +369,8 @@ class RLWorker(ABC, IRender):
     @property
     def step(self) -> int:
         return self.__worker_run._env.step_num
+
+
+class DummyRLWorker(RLWorker):
+    def policy(self, worker: "WorkerRun") -> Tuple[RLActionType, dict]:
+        return worker.sample_action(), {}

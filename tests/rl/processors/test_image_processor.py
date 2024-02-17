@@ -5,8 +5,8 @@ import pytest
 
 import srl
 import srl.envs.grid
-import srl.rl.dummy
 from srl.base.define import EnvObservationTypes
+from srl.base.rl.config import DummyRLConfig
 from srl.base.spaces.box import BoxSpace
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.test.processor import TestProcessor
@@ -46,7 +46,7 @@ def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val):
         space,
         env_img_type,
         env,
-        srl.rl.dummy.Config(),
+        DummyRLConfig(),
     )
     assert new_type == img_type
     assert isinstance(new_space, BoxSpace)
@@ -109,7 +109,7 @@ def test_trimming():
         space,
         EnvObservationTypes.COLOR,
         env,
-        srl.rl.dummy.Config(),
+        DummyRLConfig(),
     )
     assert new_type == EnvObservationTypes.GRAY_2ch
     assert isinstance(new_space, BoxSpace)

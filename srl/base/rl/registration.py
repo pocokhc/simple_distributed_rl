@@ -3,7 +3,19 @@ import os
 from typing import Optional, Type
 
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import IRLMemoryTrainer, IRLMemoryWorker, RLConfig, RLMemory, RLParameter, RLTrainer, RLWorker
+from srl.base.rl.base import (
+    DummyRLMemory,
+    DummyRLParameter,
+    DummyRLTrainer,
+    DummyRLWorker,
+    IRLMemoryTrainer,
+    IRLMemoryWorker,
+    RLConfig,
+    RLMemory,
+    RLParameter,
+    RLTrainer,
+    RLWorker,
+)
 from srl.base.rl.config import DummyRLConfig
 from srl.base.rl.worker_run import WorkerRun
 from srl.utils.common import load_module
@@ -28,7 +40,10 @@ def make_memory(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: bool
     _check_rl_config(rl_config, env)
 
     entry_point = _registry[rl_config.getName()][0]
-    memory: RLMemory = load_module(entry_point)(rl_config)
+    if entry_point == "dummy":
+        memory: RLMemory = DummyRLMemory(rl_config)
+    else:
+        memory: RLMemory = load_module(entry_point)(rl_config)
     if is_load and rl_config.memory_path != "":
         if not os.path.isfile(rl_config.memory_path):
             logger.info(f"The file was not found and was not loaded.({rl_config.memory_path})")
@@ -39,14 +54,22 @@ def make_memory(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: bool
 
 def make_memory_class(rl_config: RLConfig, env: Optional[EnvRun] = None) -> Type[RLMemory]:
     _check_rl_config(rl_config, env)
-    return load_module(_registry[rl_config.getName()][0])
+    entry_point = _registry[rl_config.getName()][0]
+    if entry_point == "dummy":
+        memory_cls = DummyRLMemory
+    else:
+        memory_cls = load_module(entry_point)
+    return memory_cls
 
 
 def make_parameter(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: bool = True) -> RLParameter:
     _check_rl_config(rl_config, env)
 
     entry_point = _registry[rl_config.getName()][1]
-    parameter: RLParameter = load_module(entry_point)(rl_config)
+    if entry_point == "dummy":
+        parameter: RLParameter = DummyRLParameter(rl_config)
+    else:
+        parameter: RLParameter = load_module(entry_point)(rl_config)
     if is_load and rl_config.parameter_path != "":
         if not os.path.isfile(rl_config.parameter_path):
             logger.info(f"The file was not found and was not loaded.({rl_config.parameter_path})")
@@ -65,7 +88,10 @@ def make_trainer(
 ) -> RLTrainer:
     _check_rl_config(rl_config, env)
     entry_point = _registry[rl_config.getName()][2]
-    return load_module(entry_point)(rl_config, parameter, memory, distributed, train_only)
+    if entry_point == "dummy":
+        return DummyRLTrainer(rl_config, parameter, memory, distributed, train_only)
+    else:
+        return load_module(entry_point)(rl_config, parameter, memory, distributed, train_only)
 
 
 def make_worker(
@@ -80,7 +106,10 @@ def make_worker(
     _check_rl_config(rl_config, env)
 
     entry_point = _registry[rl_config.getName()][3]
-    worker: RLWorker = load_module(entry_point)(rl_config, parameter, memory)
+    if entry_point == "dummy":
+        worker: RLWorker = DummyRLWorker(rl_config, parameter, memory)
+    else:
+        worker: RLWorker = load_module(entry_point)(rl_config, parameter, memory)
 
     # ExtendWorker
     if rl_config.extend_worker is not None:

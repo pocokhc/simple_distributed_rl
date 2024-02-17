@@ -3,39 +3,9 @@ from typing import Tuple
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.rl.functions.common_tf import symexp, symlog
+from srl.rl.functions.common_tf import symexp, symlog, twohot_decode, twohot_encode
 
 kl = keras.layers
-
-
-def _twohot_encode(x, bins, low, high):
-    x = tf.clip_by_value(x, low, high)
-    arr = tf.zeros(x.shape[:-1] + (bins,), dtype=tf.float32)
-
-    # 0-bins のサイズで正規化
-    x = (bins - 1) * (x - low) / (high - low)
-
-    # 整数部:idx 小数部:weight
-    idx = tf.floor(x)
-    w = x - idx
-
-    idx = tf.squeeze(idx, axis=-1)
-    onehot1 = tf.one_hot(tf.cast(idx, dtype=tf.int32), bins)
-    onehot2 = tf.one_hot(tf.cast(idx + 1, dtype=tf.int32), bins)
-    arr = onehot1 * (1 - w) + onehot2 * w
-    return arr
-
-
-def _twohot_decode(x, bins, low, high):
-    indices = tf.range(bins, dtype=tf.float32)
-    for _ in range(len(x.shape) - 1):
-        indices = tf.expand_dims(indices, 0)
-    tile_shape = list(x.shape[:])
-    tile_shape[-1] = 1
-    indices = tf.tile(indices, tile_shape)
-    x = tf.reduce_sum(x * indices, axis=-1, keepdims=True)
-    x = (x / (bins - 1)) * (high - low) + low
-    return x
 
 
 class TwoHotDist:
@@ -54,7 +24,7 @@ class TwoHotDist:
 
     def mode(self):
         x = tf.nn.softmax(self.logits, axis=-1)
-        x = _twohot_decode(x, self.bins, self.low, self.high)
+        x = twohot_decode(x, self.bins, self.low, self.high)
         if self.use_symlog:
             x = symexp(x)
         return x
@@ -111,7 +81,7 @@ class TwoHotDistBlock(keras.Model):
 
         if self.use_symlog:
             y = symlog(y)
-        y = _twohot_encode(y, self.bins, self.low, self.high)
+        y = twohot_encode(y, self.bins, self.low, self.high)
 
         if self.use_mse:
             return tf.reduce_mean(tf.square(y - probs))

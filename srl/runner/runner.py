@@ -927,25 +927,34 @@ class Runner:
         callbacks: List[CallbackType],
     ):
         # --- checkpoint ---
-        if enable_checkpoint and self._checkpoint_kwargs is not None:
-            from srl.runner.callbacks.checkpoint import Checkpoint
+        if self._checkpoint_kwargs is not None:
+            if enable_checkpoint:
+                from srl.runner.callbacks.checkpoint import Checkpoint
 
-            callbacks.append(Checkpoint(**self._checkpoint_kwargs))
-            logger.info(f"add callback Checkpoint: {self._checkpoint_kwargs['save_dir']}")
+                callbacks.append(Checkpoint(**self._checkpoint_kwargs))
+                logger.info(f"add callback Checkpoint: {self._checkpoint_kwargs['save_dir']}")
+            else:
+                logger.info("Checkpoint is disabled.")
         # -------------------
 
         # --- history ---
-        if enable_history_on_memory and self._history_on_memory_kwargs is not None:
-            from srl.runner.callbacks.history_on_memory import HistoryOnMemory
+        if self._history_on_memory_kwargs is not None:
+            if enable_history_on_memory:
+                from srl.runner.callbacks.history_on_memory import HistoryOnMemory
 
-            callbacks.append(HistoryOnMemory(**self._history_on_memory_kwargs))
-            logger.info("add callback HistoryOnMemory")
+                callbacks.append(HistoryOnMemory(**self._history_on_memory_kwargs))
+                logger.info("add callback HistoryOnMemory")
+            else:
+                logger.info("HistoryOnMemory is disabled.")
 
-        if enable_history_on_file and self._history_on_file_kwargs is not None:
-            from srl.runner.callbacks.history_on_file import HistoryOnFile
+        if self._history_on_file_kwargs is not None:
+            if enable_history_on_file:
+                from srl.runner.callbacks.history_on_file import HistoryOnFile
 
-            callbacks.append(HistoryOnFile(**self._history_on_file_kwargs))
-            logger.info(f"add callback HistoryOnFile: {self._history_on_file_kwargs['save_dir']}")
+                callbacks.append(HistoryOnFile(**self._history_on_file_kwargs))
+                logger.info(f"add callback HistoryOnFile: {self._history_on_file_kwargs['save_dir']}")
+            else:
+                logger.info("HistoryOnFile is disabled.")
         # ---------------
 
         # --- callback

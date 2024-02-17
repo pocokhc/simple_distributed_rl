@@ -52,23 +52,33 @@ def make_base(config: Union[str, EnvConfig]) -> EnvBase:
 
     # --- load gymnasium
     if env is None and is_package_installed("gymnasium"):
+        import gymnasium.error
+
         try:
             from srl.base.env.gymnasium_wrapper import GymnasiumWrapper
 
             env = GymnasiumWrapper(config)
-        except Exception as e:
-            logger.info(traceback.format_exc())
+        except gymnasium.error.NameNotFound as e:
             logger.warning(f"Gymnasium failed to load. '{e}'")
+        except gymnasium.error.NamespaceNotFound as e:
+            logger.warning(f"Gymnasium failed to load. '{e}'")
+        except Exception:
+            raise
 
     # --- load gym
     if env is None and is_package_installed("gym"):
+        import gym.error
+
         try:
             from srl.base.env.gym_wrapper import GymWrapper
 
             env = GymWrapper(config)
-        except Exception as e:
-            logger.info(traceback.format_exc())
+        except gym.error.NameNotFound as e:
             logger.warning(f"Gym failed to load. '{e}'")
+        except gym.error.NamespaceNotFound as e:
+            logger.warning(f"Gym failed to load. '{e}'")
+        except Exception:
+            raise
 
     if env is None:
         raise UndefinedError(f"'{env_name}' is not found.")

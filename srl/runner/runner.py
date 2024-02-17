@@ -876,7 +876,7 @@ class Runner:
         self,
         save_dir: str,
         is_load: bool,
-        interval: int = 60 * 20,
+        interval: int = 60 * 10,
         enable_eval: bool = True,
         eval_env_sharing: bool = True,
         eval_episode: int = 1,
@@ -889,7 +889,7 @@ class Runner:
 
         Args:
             save_dir (int): 保存するディレクトリ
-            interval (int, optional): 保存する間隔（秒）. Defaults to 60*20sec.
+            interval (int, optional): 保存する間隔（秒）. Defaults to 60*10sec.
             enable_eval (bool, optional): モデル保存時に評価用のシミュレーションを実行します. Defaults to False.
             eval_env_sharing (bool, optional): 評価時に学習時のenvを共有します. Defaults to True.
             eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.

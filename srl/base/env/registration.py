@@ -50,6 +50,22 @@ def make_base(config: Union[str, EnvConfig]) -> EnvBase:
         _kwargs.update(config.kwargs)
         env = env_cls(**_kwargs)
 
+    # --- use gym
+    if env is None and config.use_gym:
+        if is_package_installed("gym"):
+            import gym.error
+
+            try:
+                from srl.base.env.gym_wrapper import GymWrapper
+
+                env = GymWrapper(config)
+            except gym.error.NameNotFound as e:
+                logger.warning(f"Gym failed to load. '{e}'")
+            except gym.error.NamespaceNotFound as e:
+                logger.warning(f"Gym failed to load. '{e}'")
+            except Exception:
+                raise
+
     # --- load gymnasium
     if env is None and is_package_installed("gymnasium"):
         import gymnasium.error

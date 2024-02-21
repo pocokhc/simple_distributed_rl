@@ -64,6 +64,8 @@ class EnvConfig:
     #: gym/gymnasiumの環境に割り込むためのクラス
     #: (pickle化できる必要があります)
     gym_wrappers: List["GymUserWrapper"] = field(default_factory=list)
+    #: gymとgymnasium両方ある場合にgymを強制します
+    use_gym: bool = False
 
     # --- render option
     #: renderの間隔(ms)

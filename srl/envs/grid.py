@@ -3,7 +3,7 @@ import logging
 import os
 import random
 from dataclasses import dataclass, field
-from typing import Any, List, Tuple, cast
+from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 
@@ -235,7 +235,7 @@ class Grid(SinglePlayEnv):
             return "↑"
         return str(action)
 
-    def get_key_bind(self) -> KeyBindType:
+    def get_key_bind(self) -> Optional[KeyBindType]:
         return {
             "": Action.LEFT.value,
             "a": Action.LEFT.value,

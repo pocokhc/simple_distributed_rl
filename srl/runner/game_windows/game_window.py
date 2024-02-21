@@ -62,8 +62,10 @@ class GameWindow(ABC):
         self.base_info_x = self.env_w + self.padding
         self.base_info_y = self.padding
 
-        pygame.init()
+        result = pygame.init()
+        logger.info(f"pygame init: {result}")
         pygame.display.set_caption(self.title)
+        pygame.display.set_mode((1200, 900))
         self.resize(1.0)
         clock = pygame.time.Clock()
         pygame.key.set_repeat(500, 30)

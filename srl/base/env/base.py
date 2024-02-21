@@ -110,17 +110,15 @@ class EnvBase(ABC, IRender):
     def next_player_index(self) -> int:
         raise NotImplementedError()
 
-    @abstractmethod
-    def backup(self) -> Any:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def restore(self, data: Any) -> None:
-        raise NotImplementedError()
-
     # --------------------------------
     # options
     # --------------------------------
+    def backup(self) -> Any:
+        raise NotImplementedError()
+
+    def restore(self, data: Any) -> None:
+        raise NotImplementedError()
+
     def close(self) -> None:
         pass
 
@@ -130,7 +128,7 @@ class EnvBase(ABC, IRender):
     def action_to_str(self, action: Union[str, EnvActionType]) -> str:
         return str(action)
 
-    def get_key_bind(self) -> KeyBindType:
+    def get_key_bind(self) -> Optional[KeyBindType]:
         return None
 
     def make_worker(self, name: str, **kwargs) -> Optional["RLWorker"]:

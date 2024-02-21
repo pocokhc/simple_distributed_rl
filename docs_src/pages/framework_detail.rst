@@ -42,44 +42,50 @@ Class diagram
 Interface Type
 ----------------
 
-+ Env input/output type
++ Env type
 
 .. list-table::
    :widths: 10 10
    :header-rows: 0
 
-   * -  
+   * - Env
      - Type
    * - Action
-     - Space
+     - SpaceBase
    * - Observation
-     - Space
+     - SpaceBase
 
 
-+ RL input/output type
++ RL type
 
 .. list-table::
-   :widths: 10 10 10
+   :widths: 5 5 7
    :header-rows: 0
 
-   * - 
-     - 
+   * - RL
+     - RLTypes
      - Type
-   * - Discrete
-     - Action
+   * - Action
+     - Discrete
      - int
-   * - Discrete
-     - Observation
-     - NDArray[int]
-   * - Continuous
-     - Action
+   * - Action
+     - Continuous
      - list[float]
-   * - Continuous
-     - Observation
+   * - Action
+     - Image
+     - NDArray[np.uint8]
+   * - Observation
+     - Discrete
+     - list[int]
+   * - Observation
+     - Continuous
      - NDArray[np.float32]
+   * - Observation
+     - Image
+     - NDArray[np.float32]
+  
 
-
-+ Space(srl.base.env.spaces)
++ SpaceBase(srl.base.env.spaces)
 
 .. list-table::
    :widths: 20 10
@@ -96,4 +102,6 @@ Interface Type
    * - ArrayContinuousSpace
      - list[float]
    * - BoxSpace
-     - NDArray[np.float32]
+     - NDArray[AnyType]
+   * - ArraySpace
+     - list[SpaceBase]

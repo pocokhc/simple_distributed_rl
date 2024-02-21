@@ -18,8 +18,8 @@ abstract SpaceBase {
     n
     encode_to_int()
     decode_from_int()
-    encode_to_int_np()
-    decode_from_int_np()
+    encode_to_list_int()
+    decode_from_list_int()
     list_size
     list_low
     list_high

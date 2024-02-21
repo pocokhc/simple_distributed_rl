@@ -17,7 +17,7 @@ def test_get_env_init_state():
     assert env_state == [1, 3]
 
     rl_state = runner.get_env_init_state(encode=True)
-    rl_state = cast(np.ndarray, rl_state)
     print(rl_state)
-    assert rl_state.shape == (5, 6, 1)
-    assert rl_state[3][1][0] == 1
+    assert isinstance(rl_state, list)
+    assert len(rl_state) == 30
+    assert rl_state[19] == 1

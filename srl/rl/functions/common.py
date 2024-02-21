@@ -2,7 +2,6 @@ import random
 from typing import List, Union
 
 import numpy as np
-
 from srl.base.define import EnvObservationTypes
 
 
@@ -124,7 +123,12 @@ def calc_epsilon_greedy_probs(q, invalid_actions, epsilon, action_num):
     return probs
 
 
-def to_str_observation(state: np.ndarray, state_type: EnvObservationTypes = EnvObservationTypes.UNKNOWN) -> str:
+def to_str_observation(
+    state: Union[List[int], np.ndarray], state_type: EnvObservationTypes = EnvObservationTypes.UNKNOWN
+) -> str:
+    if isinstance(state, list):
+        return ",".join([str(s) for s in state])
+
     if state_type == EnvObservationTypes.UNKNOWN:
         pass
     else:

@@ -2,7 +2,7 @@ from abc import ABC
 from typing import TYPE_CHECKING, Any, Optional, Tuple, Union
 
 from srl.base.define import DoneTypes, EnvObservationTypes
-from srl.base.env.base import SpaceBase
+from srl.base.spaces.space import SpaceBase
 
 if TYPE_CHECKING:
     import gym

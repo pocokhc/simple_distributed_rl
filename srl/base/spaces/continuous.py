@@ -4,7 +4,7 @@ from typing import Any, List, Tuple
 
 import numpy as np
 
-from srl.base.define import InvalidActionsType, RLTypes
+from srl.base.define import RLTypes
 
 from .box import SpaceBase
 
@@ -26,14 +26,19 @@ class ContinuousSpace(SpaceBase[float]):
         self._is_inf = np.isinf(low) or np.isinf(high)
         self.division_tbl = None
 
-    def sample(self, invalid_actions: InvalidActionsType = []) -> float:
+        self._log_sanitize_count_low = 0
+        self._log_sanitize_count_high = 0
+
+    def sample(self, mask: List[float] = []) -> float:
+        if len(mask) > 0:
+            logger.info(f"mask is not support: {mask}")
         if self._is_inf:
             # infの場合は正規分布に従う乱数
             return float(np.random.normal(size=1))
         r = random.random()
         return self._low + r * (self._high - self._low)
 
-    def convert(self, val: Any) -> float:
+    def sanitize(self, val: Any) -> float:
         if isinstance(val, list):
             val = float(val[0])
         elif isinstance(val, tuple):
@@ -41,8 +46,14 @@ class ContinuousSpace(SpaceBase[float]):
         else:
             val = float(val)
         if val < self._low:
+            if self._log_sanitize_count_low < 5:
+                logger.info(f"The value was changed with sanitize. {val} -> {self._low}")
+                self._log_sanitize_count_low += 1
             val = self._low
         elif val > self._high:
+            if self._log_sanitize_count_high < 5:
+                logger.info(f"The value was changed with sanitize. {val} -> {self._high}")
+                self._log_sanitize_count_high += 1
             val = self._high
         return val
 
@@ -88,7 +99,7 @@ class ContinuousSpace(SpaceBase[float]):
         logger.info(f"created division: {division_num}(n={n})")
 
     # --------------------------------------
-    # discrete
+    # action discrete
     # --------------------------------------
     @property
     def n(self) -> int:
@@ -108,23 +119,23 @@ class ContinuousSpace(SpaceBase[float]):
             return self.division_tbl[val]
 
     # --------------------------------------
-    # discrete numpy
+    # observation discrete
     # --------------------------------------
-    def encode_to_int_np(self, val: float) -> np.ndarray:
+    def encode_to_list_int(self, val: float) -> List[int]:
         if self.division_tbl is None:
-            return np.round([val])
+            return [int(round(val))]
         else:
             n = self.encode_to_int(val)
-            return np.array([n])
+            return [n]
 
-    def decode_from_int_np(self, val: np.ndarray) -> float:
+    def decode_from_list_int(self, val: List[int]) -> float:
         if self.division_tbl is None:
             return float(val[0])
         else:
-            return self.division_tbl[int(val[0])]
+            return self.division_tbl[val[0]]
 
     # --------------------------------------
-    # continuous list
+    # action continuous
     # --------------------------------------
     @property
     def list_size(self) -> int:
@@ -145,7 +156,7 @@ class ContinuousSpace(SpaceBase[float]):
         return val[0]
 
     # --------------------------------------
-    # continuous numpy
+    # observation continuous, image
     # --------------------------------------
     @property
     def shape(self) -> Tuple[int, ...]:
@@ -159,8 +170,8 @@ class ContinuousSpace(SpaceBase[float]):
     def high(self) -> np.ndarray:
         return np.array([self._high])
 
-    def encode_to_np(self, val: float) -> np.ndarray:
-        return np.array([val], dtype=np.float32)
+    def encode_to_np(self, val: float, dtype) -> np.ndarray:
+        return np.array([val], dtype=dtype)
 
     def decode_from_np(self, val: np.ndarray) -> float:
         return float(val[0])

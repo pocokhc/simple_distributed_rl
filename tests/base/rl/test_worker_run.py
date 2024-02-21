@@ -172,7 +172,7 @@ def test_action_decode(rl_action_type, rl_action, env_action_space, true_env_act
     if isinstance(env_action, list):
         np.testing.assert_array_equal(env_action, true_env_action)
     elif isinstance(env_action, np.ndarray):
-        assert (env_action == true_env_action).all()
+        assert (env_action == np.array(true_env_action, np.float32)).all()
     else:
         assert env_action == true_env_action
 
@@ -180,19 +180,19 @@ def test_action_decode(rl_action_type, rl_action, env_action_space, true_env_act
 @pytest.mark.parametrize(
     "env_obs_space, env_state, rl_obs_type, true_obs_type, true_state",
     [
-        [DiscreteSpace(5), 1, RLBaseTypes.DISCRETE, RLTypes.DISCRETE, 1],
+        [DiscreteSpace(5), 1, RLBaseTypes.DISCRETE, RLTypes.DISCRETE, [1]],
         [DiscreteSpace(5), 1, RLBaseTypes.CONTINUOUS, RLTypes.CONTINUOUS, 1],
-        [DiscreteSpace(5), 1, RLBaseTypes.ANY, RLTypes.DISCRETE, 1],
+        [DiscreteSpace(5), 1, RLBaseTypes.ANY, RLTypes.DISCRETE, [1]],
         [ArrayDiscreteSpace(2, 0, 5), [0, 1], RLBaseTypes.DISCRETE, RLTypes.DISCRETE, [0, 1]],
         [ArrayDiscreteSpace(2, 0, 5), [0, 1], RLBaseTypes.CONTINUOUS, RLTypes.CONTINUOUS, [0, 1]],
         [ArrayDiscreteSpace(2, 0, 5), [0, 1], RLBaseTypes.ANY, RLTypes.DISCRETE, [0, 1]],
-        [ContinuousSpace(0, 5), 1.2, RLBaseTypes.DISCRETE, RLTypes.DISCRETE, 1],
+        [ContinuousSpace(0, 5), 1.2, RLBaseTypes.DISCRETE, RLTypes.DISCRETE, [1]],
         [ContinuousSpace(0, 5), 1.2, RLBaseTypes.CONTINUOUS, RLTypes.CONTINUOUS, 1.2],
         [ContinuousSpace(0, 5), 1.2, RLBaseTypes.ANY, RLTypes.CONTINUOUS, 1.2],
         [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], RLBaseTypes.DISCRETE, RLTypes.DISCRETE, [1, 2]],
         [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], RLBaseTypes.CONTINUOUS, RLTypes.CONTINUOUS, [1.1, 2.1]],
         [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], RLBaseTypes.ANY, RLTypes.CONTINUOUS, [1.1, 2.1]],
-        [BoxSpace((2, 1)), [[1.1], [2.1]], RLBaseTypes.DISCRETE, RLTypes.DISCRETE, [[1], [2]]],
+        [BoxSpace((2, 1)), [[1.1], [2.1]], RLBaseTypes.DISCRETE, RLTypes.DISCRETE, [1, 2]],
         [BoxSpace((2, 1)), [[1.1], [2.1]], RLBaseTypes.CONTINUOUS, RLTypes.CONTINUOUS, [[1.1], [2.1]]],
         [BoxSpace((2, 1)), [[1.1], [2.1]], RLBaseTypes.ANY, RLTypes.CONTINUOUS, [[1.1], [2.1]]],
     ],
@@ -220,15 +220,35 @@ def test_observation_encode(env_obs_space, env_state, rl_obs_type, true_obs_type
     action = worker_run.policy()
 
     print(worker.state)
-    assert isinstance(worker.state, np.ndarray)
-    assert np.allclose(worker.state, np.array(true_state))
+    if true_obs_type == RLTypes.DISCRETE:  # list int
+        assert isinstance(worker.state, list)
+        assert isinstance(worker.state[0], int)
+        assert worker.state == true_state
+    elif true_obs_type == RLTypes.CONTINUOUS:  # numpy float32
+        assert isinstance(worker.state, np.ndarray)
+        assert worker.state.dtype == np.float32
+        assert np.allclose(worker.state, np.array(true_state, np.float32))
+    elif true_obs_type == RLTypes.IMAGE:  # numpy float32
+        assert isinstance(worker.state, np.ndarray)
+        assert worker.state.dtype == np.float32
+        assert np.allclose(worker.state, np.array(true_state, np.float32))
 
     env.step(action)
     worker_run.on_step()
 
     print(worker.state)
-    assert isinstance(worker.state, np.ndarray)
-    assert np.allclose(worker.state, np.array(true_state))
+    if true_obs_type == RLTypes.DISCRETE:  # list int
+        assert isinstance(worker.state, list)
+        assert isinstance(worker.state[0], int)
+        assert worker.state == true_state
+    elif true_obs_type == RLTypes.CONTINUOUS:  # numpy float32
+        assert isinstance(worker.state, np.ndarray)
+        assert worker.state.dtype == np.float32
+        assert np.allclose(worker.state, np.array(true_state, np.float32))
+    elif true_obs_type == RLTypes.IMAGE:  # numpy float32
+        assert isinstance(worker.state, np.ndarray)
+        assert worker.state.dtype == np.float32
+        assert np.allclose(worker.state, np.array(true_state, np.float32))
 
 
 @pytest.mark.parametrize(
@@ -243,7 +263,7 @@ def test_observation_encode(env_obs_space, env_state, rl_obs_type, true_obs_type
 @pytest.mark.parametrize(
     " env_obs_space, env_state, rl_obs_type, true_obs_type, true_state",
     [
-        [BoxSpace((2, 1)), [[1.1], [2.1]], RLBaseTypes.DISCRETE, RLTypes.DISCRETE, [[1], [2]]],
+        [BoxSpace((2, 1)), [[1.1], [2.1]], RLBaseTypes.DISCRETE, RLTypes.DISCRETE, [1, 2]],
         [BoxSpace((2, 1)), [[1.1], [2.1]], RLBaseTypes.CONTINUOUS, RLTypes.IMAGE, [[1.1], [2.1]]],
         [BoxSpace((2, 1)), [[1.1], [2.1]], RLBaseTypes.ANY, RLTypes.IMAGE, [[1.1], [2.1]]],
     ],
@@ -271,15 +291,35 @@ def test_observation_img_encode(env_obs_type, env_obs_space, env_state, rl_obs_t
     action = worker_run.policy()
 
     print(worker.state)
-    assert isinstance(worker.state, np.ndarray)
-    assert np.allclose(worker.state, np.array(true_state))
+    if true_obs_type == RLTypes.DISCRETE:  # list int
+        assert isinstance(worker.state, list)
+        assert isinstance(worker.state[0], int)
+        assert worker.state == true_state
+    elif true_obs_type == RLTypes.CONTINUOUS:  # numpy float32
+        assert isinstance(worker.state, np.ndarray)
+        assert worker.state.dtype == np.float32
+        assert np.allclose(worker.state, np.array(true_state, np.float32))
+    elif true_obs_type == RLTypes.IMAGE:  # numpy float32
+        assert isinstance(worker.state, np.ndarray)
+        assert worker.state.dtype == np.float32
+        assert np.allclose(worker.state, np.array(true_state, np.float32))
 
     env.step(action)
     worker_run.on_step()
 
     print(worker.state)
-    assert isinstance(worker.state, np.ndarray)
-    assert np.allclose(worker.state, np.array(true_state))
+    if true_obs_type == RLTypes.DISCRETE:  # list int
+        assert isinstance(worker.state, list)
+        assert isinstance(worker.state[0], int)
+        assert worker.state == true_state
+    elif true_obs_type == RLTypes.CONTINUOUS:  # numpy float32
+        assert isinstance(worker.state, np.ndarray)
+        assert worker.state.dtype == np.float32
+        assert np.allclose(worker.state, np.array(true_state, np.float32))
+    elif true_obs_type == RLTypes.IMAGE:  # numpy float32
+        assert isinstance(worker.state, np.ndarray)
+        assert worker.state.dtype == np.float32
+        assert np.allclose(worker.state, np.array(true_state, np.float32))
 
 
 @pytest.mark.parametrize(

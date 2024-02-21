@@ -1,5 +1,5 @@
 import enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 
@@ -10,17 +10,14 @@ SpaceType = Union[int, List[int], float, List[float], np.ndarray]
 
 # --- action type
 EnvActionType = Union[SpaceType, None]
-RLActionType = Union[int, List[float], float]
-KeyBindType = Optional[Dict[Union[str, int, Tuple[Union[str, int], ...]], EnvActionType]]
+EnvInvalidActionType = Union[int, List[int], np.ndarray]
+RLActionType = Union[int, List[float], float, np.ndarray]
+RLInvalidActionType = Union[int, np.ndarray]  # discrete only
 
-# --- InvalidActionType
-# int型の場合のみ対応（拡張はTODO）
-InvalidActionType = int
-InvalidActionsType = List[int]
 
 # --- obs type
 EnvObservationType = SpaceType
-RLObservationType = np.ndarray
+RLObservationType = Union[List[int], np.ndarray]
 
 # --- info type
 InfoType = Dict[str, Union[float, int, str]]

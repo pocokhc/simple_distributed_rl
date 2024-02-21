@@ -3,20 +3,21 @@ from typing import Any, Generic, List, Tuple, TypeVar
 
 import numpy as np
 
-from srl.base.define import InvalidActionsType, RLTypes
+from srl.base.define import RLTypes
+from srl.base.exception import NotSupportedError
 
 T = TypeVar("T", int, List[int], float, List[float], np.ndarray, covariant=True)
 
 
 class SpaceBase(ABC, Generic[T]):
     @abstractmethod
-    def sample(self, invalid_actions: InvalidActionsType = []) -> T:
+    def sample(self, mask: List[T] = []) -> T:
         """Returns a random value"""
         raise NotImplementedError()
 
     @abstractmethod
-    def convert(self, val: Any) -> T:
-        """Convert as much as possible"""
+    def sanitize(self, val: Any) -> T:
+        """Sanitize as much as possible"""
         raise NotImplementedError()
 
     @abstractmethod
@@ -43,8 +44,12 @@ class SpaceBase(ABC, Generic[T]):
     def create_division_tbl(self, division_num: int) -> None:
         pass
 
+    def get_valid_actions(self, mask: List[T] = []) -> List[T]:
+        """Returns a valid actions"""
+        raise NotSupportedError()
+
     # --------------------------------------
-    # discrete
+    # action discrete
     # --------------------------------------
     @property
     @abstractmethod
@@ -63,20 +68,20 @@ class SpaceBase(ABC, Generic[T]):
         raise NotImplementedError()
 
     # --------------------------------------
-    # discrete numpy
+    # observation discrete
     # --------------------------------------
     @abstractmethod
-    def encode_to_int_np(self, val) -> np.ndarray:
+    def encode_to_list_int(self, val) -> List[int]:
         """SpaceVal -> int -> np.ndarray"""
         raise NotImplementedError()
 
     @abstractmethod
-    def decode_from_int_np(self, val: np.ndarray) -> T:
+    def decode_from_list_int(self, val: List[int]) -> T:
         """np.ndarray[int] -> SpaceVal"""
         raise NotImplementedError()
 
     # --------------------------------------
-    # continuous list
+    # action continuous
     # --------------------------------------
     @property
     @abstractmethod
@@ -107,7 +112,7 @@ class SpaceBase(ABC, Generic[T]):
         raise NotImplementedError()
 
     # --------------------------------------
-    # continuous numpy
+    # observation continuous, image
     # --------------------------------------
     @property
     @abstractmethod
@@ -128,7 +133,7 @@ class SpaceBase(ABC, Generic[T]):
         raise NotImplementedError()
 
     @abstractmethod
-    def encode_to_np(self, val) -> np.ndarray:
+    def encode_to_np(self, val, dtype) -> np.ndarray:
         """SpaceVal -> np.ndarray"""
         raise NotImplementedError()
 

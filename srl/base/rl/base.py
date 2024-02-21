@@ -3,11 +3,11 @@ import os
 import pickle
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 import numpy as np
 
-from srl.base.define import DoneTypes, InfoType, InvalidActionsType, RLActionType, RLMemoryTypes
+from srl.base.define import DoneTypes, InfoType, RLActionType, RLInvalidActionType, RLMemoryTypes
 from srl.base.render import IRender
 from srl.base.rl.config import DummyRLConfig, RLConfig
 
@@ -349,7 +349,7 @@ class RLWorker(ABC, IRender):
     def total_step(self) -> int:
         return self.__worker_run.total_step
 
-    def get_invalid_actions(self) -> InvalidActionsType:
+    def get_invalid_actions(self) -> List[RLInvalidActionType]:
         return self.__worker_run.get_invalid_actions()
 
     def sample_action(self) -> RLActionType:

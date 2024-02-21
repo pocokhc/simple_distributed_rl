@@ -1,10 +1,11 @@
 import logging
 import random
+import time
 from typing import Any, List, Tuple, Union, cast
 
 import numpy as np
 
-from srl.base.define import InvalidActionsType, RLTypes
+from srl.base.define import RLTypes
 
 from .space import SpaceBase
 
@@ -31,16 +32,36 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
 
         self.decode_tbl = None
 
-    def sample(self, invalid_actions: InvalidActionsType = []) -> List[int]:
+    def sample(self, mask: List[List[int]] = []) -> List[int]:
+        if len(mask) > 0:
+            self._create_tbl()
+            valid_acts = []
+            for a in [k for k in self.encode_tbl.keys()]:
+                f = True
+                for m in mask:
+                    if a == tuple(m):
+                        f = False
+                        break
+                if f:
+                    valid_acts.append(list(a))
+            return random.choice(valid_acts)
+        else:
+            return [random.randint(self._low[i], self._high[i]) for i in range(self._size)]
+
+    def get_valid_actions(self, mask: List[List[int]] = []) -> List[List[int]]:
         self._create_tbl()
-        assert self.decode_tbl is not None
+        valid_acts = []
+        for a in [k for k in self.encode_tbl.keys()]:
+            f = True
+            for m in mask:
+                if a == tuple(m):
+                    f = False
+                    break
+            if f:
+                valid_acts.append(list(a))
+        return valid_acts
 
-        # decode_tbl is all action
-        valid_actions = [a for a in self.decode_tbl if a not in invalid_actions]
-
-        return list(random.choice(valid_actions))
-
-    def convert(self, val: Any) -> List[int]:
+    def sanitize(self, val: Any) -> List[int]:
         if isinstance(val, list):
             val = [int(np.round(v)) for v in val]
         elif isinstance(val, tuple):
@@ -103,32 +124,24 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     def __str__(self) -> str:
         return f"ArrayDiscrete({self._size}, range[{int(np.min(self.low))}, {int(np.max(self.high))}])"
 
-    # --- test
-    def assert_params(self, true_size: int, true_low: List[int], true_high: List[int]):
-        assert self._size == true_size
-        assert self._low == true_low
-        assert self._high == true_high
-
     # --------------------------------------
-    # create_division_tbl
+    # create_tbl
     # --------------------------------------
     def _create_tbl(self) -> None:
         if self.decode_tbl is not None:
             return
         import itertools
 
-        if self._size > 10:
-            logger.warning("It may take some time.")
-
+        t0 = time.time()
         arr_list = [[a for a in range(self.low[i], self.high[i] + 1)] for i in range(self._size)]
-
         self.decode_tbl = list(itertools.product(*arr_list))
         self.encode_tbl = {}
         for i, v in enumerate(self.decode_tbl):
             self.encode_tbl[v] = i
+        logger.info(f"create table time: {time.time() - t0:.1f}s")
 
     # --------------------------------------
-    # discrete
+    # action discrete
     # --------------------------------------
     @property
     def n(self) -> int:
@@ -146,16 +159,16 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         return list(self.decode_tbl[val])
 
     # --------------------------------------
-    # discrete numpy
+    # observation discrete
     # --------------------------------------
-    def encode_to_int_np(self, val: List[int]) -> np.ndarray:
-        return np.array(val)
+    def encode_to_list_int(self, val: List[int]) -> List[int]:
+        return val
 
-    def decode_from_int_np(self, val: np.ndarray) -> List[int]:
-        return np.round(val).tolist()
+    def decode_from_list_int(self, val: List[int]) -> List[int]:
+        return val
 
     # --------------------------------------
-    # continuous list
+    # action continuous
     # --------------------------------------
     @property
     def list_size(self) -> int:
@@ -176,7 +189,7 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         return [int(round(v)) for v in val]
 
     # --------------------------------------
-    # continuous numpy
+    # observation continuous, image
     # --------------------------------------
     @property
     def shape(self) -> Tuple[int, ...]:
@@ -190,8 +203,8 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     def high(self) -> np.ndarray:
         return np.array(self._high)
 
-    def encode_to_np(self, val: List[int]) -> np.ndarray:
-        return np.array(val, dtype=np.float32)
+    def encode_to_np(self, val: List[int], dtype) -> np.ndarray:
+        return np.array(val, dtype=dtype)
 
     def decode_from_np(self, val: np.ndarray) -> List[int]:
-        return np.round(val).astype(np.int32).tolist()
+        return np.round(val).astype(np.int64).tolist()

@@ -1,41 +1,61 @@
+import logging
+import random
 from typing import Any, List, Tuple
 
 import numpy as np
 
-from srl.base.define import InvalidActionsType, RLTypes
+from srl.base.define import RLTypes
 
 from .space import SpaceBase
 
+logger = logging.getLogger(__name__)
+
 
 class DiscreteSpace(SpaceBase[int]):
-    def __init__(self, n: int) -> None:
+    def __init__(self, n: int, start: int = 0) -> None:
         self._n = n
+        self._start = start
+
+        self._log_sanitize_count_low = 0
+        self._log_sanitize_count_high = 0
 
         assert n > 0
 
-    def sample(self, invalid_actions: InvalidActionsType = []) -> int:
-        assert len(invalid_actions) < self.n, f"No valid actions. {invalid_actions}"
-        return int(np.random.choice([a for a in range(self.n) if a not in invalid_actions]))
+    def sample(self, mask: List[int] = []) -> int:
+        assert len(mask) < self._n, f"No valid actions. {mask}"
+        acts = [a + self._start for a in range(self.n)]
+        return random.choice([a for a in acts if a not in mask])
 
-    def convert(self, val: Any) -> int:
+    def get_valid_actions(self, mask: List[int] = []) -> List[int]:
+        acts = [a + self._start for a in range(self.n)]
+        return [a for a in acts if a not in mask]
+
+    def sanitize(self, val: Any) -> int:
         if isinstance(val, list):
             val = round(val[0])
         elif isinstance(val, tuple):
             val = round(val[0])
         else:
             val = round(val)
-        if val < 0:
-            val = 0
-        elif val >= self.n:
-            val = self.n - 1
+        if val < self._start:
+            if self._log_sanitize_count_low < 5:
+                logger.info(f"The value was changed with sanitize. {val} -> {self._start}")
+                self._log_sanitize_count_low += 1
+            val = self._start
+        elif val >= self.n + self._start:
+            _old_val = val
+            val = self.n - 1 + self._start
+            if self._log_sanitize_count_high < 5:
+                logger.info(f"The value was changed with sanitize. {_old_val} -> {val}")
+                self._log_sanitize_count_high += 1
         return val
 
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, int):
             return False
-        if val < 0:
+        if val < self._start:
             return False
-        if val >= self.n:
+        if val >= self.n + self._start:
             return False
         return True
 
@@ -44,38 +64,38 @@ class DiscreteSpace(SpaceBase[int]):
         return RLTypes.DISCRETE
 
     def get_default(self) -> int:
-        return 0
+        return self._start
 
     def __eq__(self, o: "DiscreteSpace") -> bool:
-        return self.n == o.n
+        return self._n == o._n and self._start == o._start
 
     def __str__(self) -> str:
-        return f"Discrete({self.n})"
+        return f"Discrete({self._n}, start={self._start})"
 
     # --------------------------------------
-    # int
+    # action discrete
     # --------------------------------------
     @property
     def n(self) -> int:
         return self._n
 
     def encode_to_int(self, val: int) -> int:
-        return val
+        return val - self._start
 
     def decode_from_int(self, val: int) -> int:
-        return val
+        return val + self._start
 
     # --------------------------------------
-    # discrete numpy
+    # observation discrete
     # --------------------------------------
-    def encode_to_int_np(self, val: int) -> np.ndarray:
-        return np.array([val])
+    def encode_to_list_int(self, val: int) -> List[int]:
+        return [val - self._start]
 
-    def decode_from_int_np(self, val: np.ndarray) -> int:
-        return int(round(val[0]))
+    def decode_from_list_int(self, val: List[int]) -> int:
+        return int(round(val[0])) + self._start
 
     # --------------------------------------
-    # continuous list
+    # action continuous
     # --------------------------------------
     @property
     def list_size(self) -> int:
@@ -90,13 +110,13 @@ class DiscreteSpace(SpaceBase[int]):
         return [self.n - 1]
 
     def encode_to_list_float(self, val: int) -> List[float]:
-        return [float(val)]
+        return [float(val - self._start)]
 
     def decode_from_list_float(self, val: List[float]) -> int:
-        return int(round(val[0]))
+        return int(round(val[0])) + self._start
 
     # --------------------------------------
-    # continuous numpy
+    # observation continuous, image
     # --------------------------------------
     @property
     def shape(self) -> Tuple[int, ...]:
@@ -110,8 +130,8 @@ class DiscreteSpace(SpaceBase[int]):
     def high(self) -> np.ndarray:
         return np.array([self.n - 1])
 
-    def encode_to_np(self, val: int) -> np.ndarray:
-        return np.array([val], dtype=np.float32)
+    def encode_to_np(self, val: int, dtype) -> np.ndarray:
+        return np.array([val - self._start], dtype=dtype)
 
     def decode_from_np(self, val: np.ndarray) -> int:
-        return int(round(val[0]))
+        return int(round(val[0])) + self._start

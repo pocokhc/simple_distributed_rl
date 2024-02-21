@@ -1,9 +1,9 @@
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Tuple
+from typing import List, Tuple
 
-from srl.base.define import InfoType, InvalidActionsType, RLActionType, RLBaseTypes, RLObservationType
+from srl.base.define import InfoType, RLActionType, RLBaseTypes, RLInvalidActionType, RLObservationType
 from srl.base.rl.base import RLConfig, RLWorker
 from srl.base.rl.worker_run import WorkerRun
 
@@ -22,7 +22,7 @@ class DiscreteActionWorker(RLWorker):
     def call_on_reset(
         self,
         state: RLObservationType,
-        invalid_actions: InvalidActionsType,
+        invalid_actions: List[RLInvalidActionType],
     ) -> InfoType:
         raise NotImplementedError()
 
@@ -30,7 +30,7 @@ class DiscreteActionWorker(RLWorker):
     def call_policy(
         self,
         state: RLObservationType,
-        invalid_actions: InvalidActionsType,
+        invalid_actions: List[RLInvalidActionType],
     ) -> Tuple[int, InfoType]:
         raise NotImplementedError()
 
@@ -40,7 +40,7 @@ class DiscreteActionWorker(RLWorker):
         next_state: RLObservationType,
         reward: float,
         done: bool,
-        next_invalid_actions: InvalidActionsType,
+        next_invalid_actions: List[RLInvalidActionType],
     ) -> InfoType:
         raise NotImplementedError()
 

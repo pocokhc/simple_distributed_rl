@@ -1,6 +1,7 @@
 import json
 import logging
 import math
+import time
 from dataclasses import dataclass
 from typing import Any, List, Tuple
 
@@ -39,12 +40,12 @@ class Config(RLConfig):
 
     #: 近似モデルの学習時に内部報酬を割り引く率
     int_reward_discount: float = 0.9
-    #: 方策反復法における最大実行回数
-    iteration_max_count: int = 100
+    #: 方策反復法におけるタイムアウト
+    iteration_timeout: float = 1
     #: 方策反復法の学習完了の閾値
     iteration_threshold: float = 0.001
     #: 方策反復法を実行する間隔(学習回数)
-    iteration_interval: int = 10_000
+    iteration_interval: int = 1_000
 
     #: 外部報酬の割引率
     q_ext_discount: float = 0.9
@@ -183,7 +184,7 @@ class Parameter(RLParameter):
         self,
         mode: str,
         threshold: float = 0.0001,
-        max_count: int = 100,
+        timeout: float = 1,
     ):
         if mode == "ext":
             discount = self.config.q_ext_discount
@@ -203,7 +204,8 @@ class Parameter(RLParameter):
             raise UndefinedError(mode)
 
         delta = 0
-        for _ in range(max_count):  # for safety
+        t0 = time.time()
+        while time.time() - t0 < timeout:  # for safety
             delta = 0
             for state in self.trans.keys():
                 for act in range(self.config.action_num):
@@ -230,7 +232,7 @@ class Parameter(RLParameter):
             if delta < threshold:
                 break
         else:
-            logger.warning(f"iteration {max_count} over: {delta}, {mode}")
+            logger.info(f"[{mode}] iteration timeout(delta={delta}, threshold={threshold})")
 
         # update range
         for state in self.trans.keys():
@@ -374,8 +376,8 @@ class Trainer(RLTrainer):
                 self.parameter.action_count[state][action] += 1
 
             if self.train_count % self.config.iteration_interval == 0:
-                self.parameter.iteration_q("ext", self.config.iteration_threshold, self.config.iteration_max_count)
-                self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_max_count)
+                self.parameter.iteration_q("ext", self.config.iteration_threshold, self.config.iteration_timeout)
+                self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_timeout)
                 self.iteration_num += 1
 
             self.train_count += 1
@@ -398,8 +400,8 @@ class Worker(DiscreteActionWorker):
         self.parameter: Parameter = self.parameter
 
     def on_start(self, worker: WorkerRun) -> None:
-        self.parameter.iteration_q("ext", self.config.iteration_threshold / 10, self.config.iteration_max_count * 10)
-        self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_max_count)
+        self.parameter.iteration_q("ext", self.config.iteration_threshold / 10, self.config.iteration_timeout * 2)
+        self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_timeout)
 
     def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
         self.episodic = {}

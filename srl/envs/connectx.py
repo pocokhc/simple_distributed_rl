@@ -205,7 +205,7 @@ class AlphaBeta(EnvWorker):
     def call_policy(self, env: EnvRun) -> Tuple[EnvActionType, dict]:
         self._count = 0
         self.t0 = time.time()
-        scores, action = self._alphabeta(cast(ConnectX, cast(ConnectX, env.get_original_env()).copy()))
+        scores, action = self._alphabeta(cast(ConnectX, cast(ConnectX, env.unwrapped).copy()))
 
         scores = np.array(scores)
         if self.player_index == 1:

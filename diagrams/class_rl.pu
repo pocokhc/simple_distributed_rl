@@ -1,9 +1,15 @@
 @startuml class_rl
 
-enum RLTypes {
+enum RLBaseTypes {
     ANY
     DISCRETE
     CONTINUOUS
+}
+enum RLTypes {
+    UNKNOWN
+    DISCRETE
+    CONTINUOUS
+    IMAGE
 }
 
 
@@ -88,11 +94,14 @@ abstract RLParameter {
 abstract RLConfig {
     getName() : str
     get_use_framework() : str
-    base_action_type : RLTypes
-    base_observation_type : RLTypes
+    base_action_type : RLBaseTypes
+    base_observation_type : RLBaseTypes
+    action_type : RLTypes
+    observation_type : RLTypes
 }
 
 
+RLBaseTypes .. RLConfig
 RLTypes .. RLConfig
 
 RLConfig --- RLWorker

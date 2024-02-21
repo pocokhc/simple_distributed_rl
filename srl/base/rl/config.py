@@ -107,7 +107,7 @@ class RLConfig(ABC):
     # RL config
     # ----------------------------
     @abstractmethod
-    def getName(self) -> str:
+    def getName(self) -> str:  # get_nameに変えたい…
         raise NotImplementedError()
 
     @property
@@ -135,6 +135,10 @@ class RLConfig(ABC):
 
     def get_changeable_parameters(self) -> List[str]:
         return []  # NotImplemented
+
+    @property
+    def use_backup_restore(self) -> bool:
+        return False
 
     # infoの情報のタイプを指定、出力形式等で使用を想定
     # 各行の句は省略可能
@@ -172,6 +176,15 @@ class RLConfig(ABC):
         self._env_action_space = env.action_space  # action_spaceはenvを使いまわす
         rl_observation_space = env.observation_space
         rl_env_observation_type = env.observation_type
+
+        # --- backup/restore check
+        if self.use_backup_restore:
+            try:
+                d = env.backup()
+                env.restore(d)
+            except Exception:
+                logger.error(f"'{self.getName()}' uses restore/backup, but it is not implemented in {env.name}.")
+                raise
 
         # -----------------------
         # observation

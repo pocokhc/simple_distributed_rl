@@ -113,6 +113,10 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         self.assert_params_memory()
 
     @property
+    def use_backup_restore(self) -> bool:
+        return True
+
+    @property
     def info_types(self) -> dict:
         return {
             "value_loss": {},

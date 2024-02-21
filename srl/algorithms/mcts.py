@@ -39,6 +39,10 @@ class Config(RLConfig):
         return "MCTS"
 
     @property
+    def use_backup_restore(self) -> bool:
+        return True
+
+    @property
     def info_types(self) -> dict:
         return {"size": {"type": int, "data": "last"}}
 

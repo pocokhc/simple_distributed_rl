@@ -8,6 +8,7 @@ class TestEnv:
     def play_test(
         self,
         env_name: str,
+        env_config_kwargs={},
         check_render: bool = True,
         check_restore: bool = True,
         max_step: int = 0,
@@ -17,6 +18,7 @@ class TestEnv:
             env_name,
             render_interval=1,
             enable_assertion_value=True,
+            **env_config_kwargs,
         )
         env = srl.make_env(env_config)
         assert issubclass(env.__class__, EnvRun), "The way env is created is wrong. (Mainly due to framework side)"

@@ -426,6 +426,42 @@ class GymnasiumWrapper(EnvBase):
     def set_seed(self, seed: Optional[int] = None) -> None:
         self.seed = seed
 
+    def backup(self) -> Any:
+        if hasattr(self.env.unwrapped, "backup"):
+            return self.env.unwrapped.backup()
+        else:
+            return pickle.dumps(self.env)
+
+    def restore(self, data: Any) -> None:
+        if hasattr(self.env.unwrapped, "restore"):
+            return self.env.unwrapped.restore(data)
+        else:
+            self.env: gymnasium.Env = pickle.loads(data)
+
+    def get_invalid_actions(self, player_index: int = -1) -> List[RLInvalidActionType]:
+        if hasattr(self.env.unwrapped, "get_invalid_actions"):
+            return self.env.unwrapped.get_invalid_actions()
+        else:
+            return []
+
+    def action_to_str(self, action: Union[str, EnvActionType]) -> str:
+        if hasattr(self.env.unwrapped, "action_to_str"):
+            return self.env.unwrapped.action_to_str(action)
+        else:
+            return str(action)
+
+    def get_key_bind(self) -> Optional[KeyBindType]:
+        if hasattr(self.env.unwrapped, "get_key_bind"):
+            return self.env.unwrapped.get_key_bind()
+        else:
+            return None
+
+    def make_worker(self, name: str, **kwargs) -> Optional["RLWorker"]:
+        if hasattr(self.env.unwrapped, "make_worker"):
+            return self.env.unwrapped.make_worker(name, **kwargs)
+        else:
+            return None
+
     @property
     def render_interval(self) -> float:
         return 1000 / self.fps

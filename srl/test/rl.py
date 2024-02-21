@@ -296,7 +296,7 @@ class TestRL:
         from srl.envs.grid import Grid
 
         env = srl.make_env("Grid")
-        env_org = cast(Grid, env.get_original_env())
+        env_org = cast(Grid, env.unwrapped)
         worker = runner.make_worker()
 
         V, _Q = env_org.calc_action_values()

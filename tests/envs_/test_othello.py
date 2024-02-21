@@ -71,7 +71,7 @@ def test_processor():
 # ------------------------
 def test_othello():
     env_run = srl.make_env("Othello")
-    env = cast(othello.Othello, env_run.get_original_env())
+    env = cast(othello.Othello, env_run.unwrapped)
     env_run.reset(render_mode="terminal")
     env_run.render()
 

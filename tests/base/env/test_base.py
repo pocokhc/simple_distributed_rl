@@ -72,7 +72,7 @@ registration.register(id="base_StubEnv", entry_point=__name__ + ":StubEnv")
 def test_EnvRun():
     env_config = srl.EnvConfig("base_StubEnv", frameskip=3)
     env = srl.make_env(env_config)
-    env_org = cast(StubEnv, env.get_original_env())
+    env_org = cast(StubEnv, env.unwrapped)
 
     with pytest.raises(AssertionError):
         env.step(0)
@@ -88,7 +88,7 @@ def test_EnvRun():
     env2 = srl.make_env("base_StubEnv")
     env2.restore(env.backup())
     assert env2.step_num == 1
-    assert cast(StubEnv, env2.get_original_env())._step == 4
+    assert cast(StubEnv, env2.unwrapped)._step == 4
 
 
 def test_EnvRun_max_steps():

@@ -383,7 +383,7 @@ class Cpu(EnvWorker):
     cache = {}
 
     def call_on_reset(self, env: EnvRun) -> dict:
-        _env = cast(Othello, env.get_original_env())
+        _env = cast(Othello, env.unwrapped)
         self.max_depth = 2
         self.eval_field = None
 
@@ -423,7 +423,7 @@ class Cpu(EnvWorker):
     def call_policy(self, env: EnvRun) -> Tuple[int, dict]:
         self._count = 0
         self.t0 = time.time()
-        _env = cast(Othello, env.get_original_env())
+        _env = cast(Othello, env.unwrapped)
         scores = self._negamax(cast(Othello, _env.copy()))
         self._render_scores = scores
         self._render_count = self._count
@@ -476,7 +476,7 @@ class Cpu(EnvWorker):
         return scores
 
     def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
-        _env = cast(Othello, worker.env.get_original_env())
+        _env = cast(Othello, worker.env.unwrapped)
         valid_actions = worker.env.get_valid_actions(_env._next_player_index)
 
         print(f"- MinMax count: {self._render_count}, {self._render_time:.3f}s -")
@@ -500,7 +500,7 @@ class LayerProcessor(Processor):
         env: EnvRun,
         rl_config: RLConfig,
     ) -> Tuple[SpaceBase, EnvObservationTypes]:
-        _env = cast(Othello, env.get_original_env())
+        _env = cast(Othello, env.unwrapped)
         observation_space = BoxSpace(
             low=0,
             high=1,
@@ -509,7 +509,7 @@ class LayerProcessor(Processor):
         return observation_space, EnvObservationTypes.IMAGE
 
     def preprocess_observation(self, observation: np.ndarray, env: Othello) -> np.ndarray:
-        _env = cast(Othello, env.get_original_env())
+        _env = cast(Othello, env.unwrapped)
 
         # Layer0: my_player field (0 or 1)
         # Layer1: enemy_player field (0 or 1)

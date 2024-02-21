@@ -148,7 +148,7 @@ def test_env_play():
 def test_action_decode(rl_action_type, rl_action, env_action_space, true_env_action):
     print(rl_action_type, rl_action, env_action_space, true_env_action)
     env = srl.make_env("Stub")
-    env_org = cast(StubEnv, env.get_original_env())
+    env_org = cast(StubEnv, env.unwrapped)
     env_org._action_space = env_action_space
 
     rl_config = StubRLConfig()
@@ -200,7 +200,7 @@ def test_action_decode(rl_action_type, rl_action, env_action_space, true_env_act
 def test_observation_encode(env_obs_space, env_state, rl_obs_type, true_obs_type, true_state):
     print(env_obs_space, env_state, rl_obs_type, true_obs_type, true_state)
     env = srl.make_env("Stub")
-    env_org = cast(StubEnv, env.get_original_env())
+    env_org = cast(StubEnv, env.unwrapped)
     env_org._observation_type = EnvObservationTypes.UNKNOWN
     env_org._observation_space = env_obs_space
     env_org.s_state = env_state
@@ -251,7 +251,7 @@ def test_observation_encode(env_obs_space, env_state, rl_obs_type, true_obs_type
 def test_observation_img_encode(env_obs_type, env_obs_space, env_state, rl_obs_type, true_obs_type, true_state):
     print(env_obs_type, env_obs_space, env_state, rl_obs_type, true_obs_type, true_state)
     env = srl.make_env("Stub")
-    env_org = cast(StubEnv, env.get_original_env())
+    env_org = cast(StubEnv, env.unwrapped)
     env_org._observation_type = env_obs_type
     env_org._observation_space = env_obs_space
     env_org.s_state = env_state
@@ -304,7 +304,7 @@ def test_observation_img_encode(env_obs_type, env_obs_space, env_state, rl_obs_t
 def test_sample_action(rl_action_type, env_action_space, true_type):
     print(rl_action_type, env_action_space, true_type)
     env = srl.make_env("Stub")
-    env_org = cast(StubEnv, env.get_original_env())
+    env_org = cast(StubEnv, env.unwrapped)
     env_org._action_space = env_action_space
 
     rl_config = StubRLConfig()
@@ -345,7 +345,7 @@ def test_sample_action(rl_action_type, env_action_space, true_type):
 def test_sample_action_for_env(env_action_space):
     print(env_action_space)
     env = srl.make_env("Stub")
-    env_org = cast(StubEnv, env.get_original_env())
+    env_org = cast(StubEnv, env.unwrapped)
     env_org._action_space = env_action_space
 
     rl_config = StubRLConfig()

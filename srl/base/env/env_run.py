@@ -458,11 +458,9 @@ class EnvRun:
 
         return WorkerRun(worker, self, distributed, actor_id)
 
-    def get_original_env(self) -> Any:
-        return self.env.get_original_env()
-
-    def get_env_base(self) -> EnvBase:
-        return self.env
+    @property
+    def unwrapped(self) -> object:
+        return self.env.unwrapped
 
     def set_done(self):
         self._done = DoneTypes.TRUNCATED

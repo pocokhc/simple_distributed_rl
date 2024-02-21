@@ -3,11 +3,15 @@ class SRLError(Exception):
         return "%s: An unspecified SRL error has occurred; %s" % (self.__class__.__name__, self.args)
 
 
-class TFLayerError(SRLError):
+class UndefinedError(SRLError):
     pass
 
 
-class UndefinedError(SRLError):
+class NotSupportedError(SRLError):
+    pass
+
+
+class TFLayerError(SRLError):
     pass
 
 

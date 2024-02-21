@@ -86,6 +86,7 @@ def get_random_max_index(arr: Union[np.ndarray, List[float]], invalid_actions: L
         return max_list[0] if len(max_list) == 1 else random.choice(max_list)
     else:
         arr = np.asarray(arr, dtype=float)
+        arr[invalid_actions] = -np.inf
         return random.choice(np.where(arr == arr.max())[0].tolist())
 
 

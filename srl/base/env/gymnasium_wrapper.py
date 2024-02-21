@@ -439,7 +439,8 @@ class GymnasiumWrapper(EnvBase):
     def close(self) -> None:
         self.env.close()
 
-    def get_original_env(self) -> object:
+    @property
+    def unwrapped(self) -> object:
         return self.env
 
     def set_seed(self, seed: Optional[int] = None) -> None:

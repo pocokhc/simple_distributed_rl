@@ -265,7 +265,7 @@ class OX(TurnBase2Player):
 
 class Cpu(EnvWorker):
     def call_policy(self, env: EnvRun) -> Tuple[int, dict]:
-        _env = cast(OX, env.get_original_env())
+        _env = cast(OX, env.unwrapped)
         scores = _env.calc_scores()
         self._render_scores = scores
         self._render_count = _env._scores_count
@@ -275,7 +275,7 @@ class Cpu(EnvWorker):
         return action, {}
 
     def render_render(self, worker, **kwargs) -> None:
-        _env = cast(OX, worker.env.get_original_env())
+        _env = cast(OX, worker.env.unwrapped)
 
         print(f"- alphabeta({self._render_count}, {self._render_time:.3f}s) -")
         print("-" * 10)
@@ -304,7 +304,7 @@ class LayerProcessor(Processor):
         return observation_space, EnvObservationTypes.IMAGE
 
     def preprocess_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
-        _env = cast(OX, env.get_original_env())
+        _env = cast(OX, env.unwrapped)
 
         # Layer0: player1 field (0 or 1)
         # Layer1: player2 field (0 or 1)

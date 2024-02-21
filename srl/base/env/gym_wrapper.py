@@ -472,7 +472,8 @@ class GymWrapper(EnvBase):
         # Fatal Python error: (pygame parachute) Segmentation Fault
         pass
 
-    def get_original_env(self) -> object:
+    @property
+    def unwrapped(self) -> object:
         return self.env
 
     def set_seed(self, seed: Optional[int] = None) -> None:

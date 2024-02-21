@@ -141,7 +141,8 @@ class KaggleWrapper(EnvBase):
         self.__state = d[0]
         self.__info = d[1]
 
-    def get_original_env(self) -> object:
+    @property
+    def unwrapped(self) -> object:
         return self.env
 
     def render_terminal(self, **kwargs) -> None:

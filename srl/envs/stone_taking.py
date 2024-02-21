@@ -106,7 +106,7 @@ class StoneTaking(TurnBase2Player):
 
 class CPU(EnvWorker):
     def call_policy(self, env: EnvRun) -> Tuple[EnvActionType, dict]:
-        _env = cast(StoneTaking, env.get_original_env())
+        _env = cast(StoneTaking, env.unwrapped)
         if _env.field == 1:
             return 0, {}
 

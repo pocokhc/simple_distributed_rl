@@ -465,7 +465,7 @@ class LayerProcessor(Processor):
         env: EnvRun,
         rl_config: RLConfig,
     ) -> Tuple[SpaceBase, EnvObservationTypes]:
-        _env = cast(Grid, env.get_original_env())
+        _env = cast(Grid, env.unwrapped)
         observation_space = BoxSpace(
             low=0,
             high=1,
@@ -474,7 +474,7 @@ class LayerProcessor(Processor):
         return observation_space, EnvObservationTypes.IMAGE
 
     def preprocess_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
-        _env = cast(Grid, env.get_original_env())
+        _env = cast(Grid, env.unwrapped)
 
         px = _env.player_pos[0]
         py = _env.player_pos[1]

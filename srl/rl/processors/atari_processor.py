@@ -9,17 +9,17 @@ class AtariProcessor(Processor):
         assert is_package_installed("ale_py")
 
     def setup(self, env: EnvRun, rl_config: RLConfig):
-        self.enable = "AtariEnv" in str(env.get_original_env())
+        self.enable = "AtariEnv" in str(env.unwrapped)
 
     def on_reset(self, env: EnvRun):
         if not self.enable:
             return
-        self.lives = env.get_original_env().env.unwrapped.ale.lives()
+        self.lives = env.unwrapped.env.unwrapped.ale.lives()
 
     def preprocess_done(self, done: bool, env: EnvRun) -> bool:
         if not self.enable:
             return done
-        new_lives = env.get_original_env().env.unwrapped.ale.lives()
+        new_lives = env.unwrapped.env.unwrapped.ale.lives()
         if new_lives < self.lives:
             return True
         self.lives = new_lives

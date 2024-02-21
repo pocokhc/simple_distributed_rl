@@ -4,14 +4,13 @@ from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 from srl.base.define import (
     DoneTypes,
     EnvActionType,
+    EnvInvalidActionType,
     EnvObservationType,
     EnvObservationTypes,
     InfoType,
-    InvalidActionsType,
     KeyBindType,
 )
 from srl.base.render import IRender
-from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
 
 if TYPE_CHECKING:
@@ -125,7 +124,7 @@ class EnvBase(ABC, IRender):
     def close(self) -> None:
         pass
 
-    def get_invalid_actions(self, player_index: int = -1) -> InvalidActionsType:
+    def get_invalid_actions(self, player_index: int = -1) -> List[EnvInvalidActionType]:
         return []
 
     def action_to_str(self, action: Union[str, EnvActionType]) -> str:
@@ -185,9 +184,5 @@ class EnvBase(ABC, IRender):
         env.restore(self.backup())
         return env
 
-    def get_valid_actions(self, player_index: int = -1) -> InvalidActionsType:
-        if isinstance(self.action_space, DiscreteSpace):
-            invalid_actions = self.get_invalid_actions(player_index)
-            return [a for a in range(self.action_space.n) if a not in invalid_actions]
-        else:
-            return []
+    def get_valid_actions(self, player_index: int = -1) -> List[EnvInvalidActionType]:
+        return self.action_space.get_valid_actions(self.get_invalid_actions(player_index))

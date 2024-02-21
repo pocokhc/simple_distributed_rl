@@ -31,7 +31,7 @@ def test_space():
     de = space.decode_from_np(np.array([1.2]))
     assert isinstance(de, float)
     assert de == 1.2
-    en = space.encode_to_np(1.2)
+    en = space.encode_to_np(1.2, np.float32)
     np.testing.assert_array_equal(en, np.array([1.2], dtype=np.float32))
 
     # --- sample
@@ -57,12 +57,12 @@ def test_discrete_no_division():
     de = space.decode_from_int(2)
     assert de == 2.0
 
-    # --- discrete numpy
-    en = space.encode_to_int_np(1.2)
-    assert en.shape == (1,)
-    np.testing.assert_array_equal(en, np.array([1]))
-    de = space.decode_from_int_np(np.array([1.2]))
-    assert de == 1.2
+    # --- discrete
+    en = space.encode_to_list_int(1.2)
+    assert len(en) == 1
+    assert en[0] == 1
+    de = space.decode_from_list_int([1])
+    assert de == 1.0
 
 
 def test_discrete_division():
@@ -88,10 +88,10 @@ def test_discrete_division():
     assert de == 1.0
 
     # --- discrete numpy
-    en = space.encode_to_int_np(1.2)
-    assert en.shape == (1,)
+    en = space.encode_to_list_int(1.2)
+    assert len(en) == 1
     assert en[0] == 2
-    de = space.decode_from_int_np(np.array([2]))
+    de = space.decode_from_list_int([2])
     assert de == 1.0
 
 
@@ -116,18 +116,18 @@ def test_inf():
     np.testing.assert_array_equal(space.list_high, [np.inf])
 
 
-def test_convert():
+def test_sanitize():
     space = ContinuousSpace(-1, 3)
 
-    val = space.convert(1)
+    val = space.sanitize(1)
     assert space.check_val(val)
     assert val == 1.0
 
-    val = space.convert([2])
+    val = space.sanitize([2])
     assert space.check_val(val)
     assert val == 2.0
 
-    val = space.convert((1,))
+    val = space.sanitize((1,))
     assert space.check_val(val)
     assert val == 1.0
 
@@ -136,13 +136,13 @@ def test_convert():
     assert not space.check_val(-1.1)
 
 
-def test_convert2():
+def test_sanitize2():
     space = ContinuousSpace(-1, 3)
 
-    val = space.convert([-2])
+    val = space.sanitize([-2])
     assert space.check_val(val)
     assert val == -1
 
-    val = space.convert((6, 99))
+    val = space.sanitize((6, 99))
     assert space.check_val(val)
     assert val == 3

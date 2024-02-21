@@ -2,15 +2,14 @@ import logging
 from typing import List, Optional, Tuple, Union, cast
 
 import numpy as np
-
 from srl.base.define import (
     DoneTypes,
     EnvActionType,
     EnvObservationType,
     InfoType,
-    InvalidActionsType,
     RenderModes,
     RLActionType,
+    RLInvalidActionType,
     RLObservationType,
     RLTypes,
 )
@@ -48,8 +47,8 @@ class WorkerRun:
         self._prev_action: RLActionType = 0
         self._reward: float = 0
         self._step_reward: float = 0
-        self._prev_invalid_actions: InvalidActionsType = []
-        self._invalid_actions: InvalidActionsType = []
+        self._prev_invalid_actions: List[RLInvalidActionType] = []
+        self._invalid_actions: List[RLInvalidActionType] = []
         self._render = Render(worker)
 
         self._total_step: int = 0
@@ -125,11 +124,11 @@ class WorkerRun:
         return self._env._done_reason
 
     @property
-    def prev_invalid_actions(self) -> InvalidActionsType:
+    def prev_invalid_actions(self) -> List[RLInvalidActionType]:
         return self._prev_invalid_actions
 
     @property
-    def invalid_actions(self) -> InvalidActionsType:
+    def invalid_actions(self) -> List[RLInvalidActionType]:
         return self._invalid_actions
 
     @property
@@ -218,9 +217,9 @@ class WorkerRun:
 
     def _set_invalid_actions(self):
         self._prev_invalid_actions = self._invalid_actions
-        self._invalid_actions = cast(
-            InvalidActionsType, [self.action_encode(a) for a in self._env.get_invalid_actions(self.player_index)]
-        )
+        self._invalid_actions = [
+            cast(RLInvalidActionType, self.action_encode(a)) for a in self._env.get_invalid_actions(self.player_index)
+        ]
 
     def on_start(self):
         self._worker.on_start(self)
@@ -237,23 +236,38 @@ class WorkerRun:
                 state = p.preprocess_observation(state, env)
 
             if self._config.observation_type == RLTypes.DISCRETE:
-                state = self._config.observation_one_step_space.encode_to_int_np(state)
+                state = self._config.observation_one_step_space.encode_to_list_int(state)
             elif self._config.observation_type == RLTypes.CONTINUOUS:
-                state = self._config.observation_one_step_space.encode_to_np(state)
+                state = self._config.observation_one_step_space.encode_to_np(state, np.float32)
+                if state.shape == ():
+                    state = state.reshape((1,))
+            elif self._config.observation_type == RLTypes.IMAGE:
+                state = self._config.observation_one_step_space.encode_to_np(state, np.float32)
+                if state.shape == ():
+                    state = state.reshape((1,))
             else:
-                # not coming
-                state = np.asarray(state, dtype=np.float32)
-            if state.shape == ():
-                state = state.reshape((1,))
+                # do nothing
+                state = cast(RLObservationType, state)
         else:
             state = cast(RLObservationType, state)
+
         if self._config.window_length > 1:
             if append_recent_state:
                 self._recent_states.pop(0)
                 self._recent_states.append(state)
-                state = np.asarray(self._recent_states)
+                _recent_state = self._recent_states
             else:
-                state = np.asarray(self._recent_states[:-1] + [state])
+                _recent_state = self._recent_states[1:] + [state]
+            if self._config.observation_type == RLTypes.DISCRETE:
+                state = cast(RLObservationType, _recent_state)
+            elif self._config.observation_type == RLTypes.CONTINUOUS:
+                state = np.asarray(_recent_state, np.float32)
+            elif self._config.observation_type == RLTypes.IMAGE:
+                state = np.asarray(_recent_state, np.float32)
+            else:
+                # not coming
+                state = np.asarray(_recent_state, np.float32)
+
         return state
 
     def action_encode(self, action: EnvActionType) -> RLActionType:
@@ -262,6 +276,8 @@ class WorkerRun:
                 action = self._config.action_space.encode_to_int(action)
             elif self._config.action_type == RLTypes.CONTINUOUS:
                 action = self._config.action_space.encode_to_list_float(action)
+            elif self._config.action_type == RLTypes.IMAGE:
+                action = self._config.action_space.encode_to_np(action, np.uint8)
             else:
                 # do nothing
                 action = cast(RLActionType, action)
@@ -280,6 +296,9 @@ class WorkerRun:
                 else:
                     action = [float(action)]
                 env_action = self._config.action_space.decode_from_list_float(action)
+            elif self._config.action_type == RLTypes.IMAGE:
+                assert isinstance(action, np.ndarray)
+                env_action = self._config.action_space.decode_from_np(action)
             else:
                 env_action: EnvActionType = action  # not coming
         else:
@@ -301,16 +320,16 @@ class WorkerRun:
     # ------------------------------------
     # invalid
     # ------------------------------------
-    def get_invalid_actions(self, env: Optional[EnvRun] = None) -> InvalidActionsType:
+    def get_invalid_actions(self, env: Optional[EnvRun] = None) -> List[RLInvalidActionType]:
         return self._invalid_actions
 
-    def get_valid_actions(self, env: Optional[EnvRun] = None) -> InvalidActionsType:
+    def get_valid_actions(self, env: Optional[EnvRun] = None) -> List[RLInvalidActionType]:
         if self.config.action_type == RLTypes.DISCRETE:
             return [a for a in range(self.config.action_num) if a not in self.get_invalid_actions(env)]
         else:
             raise NotImplementedError("not support")
 
-    def add_invalid_actions(self, invalid_actions: InvalidActionsType) -> None:
+    def add_invalid_actions(self, invalid_actions: List[RLInvalidActionType]) -> None:
         if self.config.action_type == RLTypes.DISCRETE:
             self._invalid_actions += invalid_actions
             self._invalid_actions = list(set(self._invalid_actions))

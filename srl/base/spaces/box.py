@@ -1,10 +1,12 @@
 import logging
+import random
 import time
 from typing import Any, List, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import InvalidActionsType, RLTypes
+from srl.base.define import RLTypes
+from srl.base.exception import NotSupportedError
 
 from .space import SpaceBase
 
@@ -17,10 +19,13 @@ class BoxSpace(SpaceBase[np.ndarray]):
         shape: Union[List[int], Tuple[int, ...]],
         low: Union[float, List[float], Tuple[float, ...], np.ndarray] = -np.inf,
         high: Union[float, List[float], Tuple[float, ...], np.ndarray] = np.inf,
+        dtype: Any = np.float32,
     ) -> None:
-        self._low: np.ndarray = np.full(shape, low, dtype=np.float32) if np.isscalar(low) else np.asarray(low)
-        self._high: np.ndarray = np.full(shape, high, dtype=np.float32) if np.isscalar(high) else np.asarray(high)
+        self._low: np.ndarray = np.full(shape, low, dtype=dtype) if np.isscalar(low) else np.asarray(low)
+        self._high: np.ndarray = np.full(shape, high, dtype=dtype) if np.isscalar(high) else np.asarray(high)
         self._shape = tuple(shape)
+        self._dtype = dtype
+        self._rl_type = RLTypes.DISCRETE if "int" in str(dtype) else RLTypes.CONTINUOUS
 
         assert self.shape == self.high.shape
         assert self.low.shape == self.high.shape
@@ -28,16 +33,47 @@ class BoxSpace(SpaceBase[np.ndarray]):
 
         self._is_inf = np.isinf(low).any() or np.isinf(high).any()
         self.division_tbl = None
+        self.decode_int_tbl = None
 
-    def sample(self, invalid_actions: InvalidActionsType = []) -> np.ndarray:
-        if self._is_inf:
-            # infの場合は正規分布に従う乱数
-            return np.random.normal(size=self.shape)
-        r = np.random.random_sample(self.shape)
-        return self.low + r * (self.high - self.low)
+    def sample(self, mask: List[np.ndarray] = []) -> np.ndarray:
+        if self._rl_type == RLTypes.DISCRETE:
+            if len(mask) > 0:
+                self._create_int_tbl()
+                mask2 = [tuple(m.flatten().tolist()) for m in mask]
+                valid_acts = [k for k in self.encode_int_tbl.keys() if k not in mask2]
+                a = random.choice(valid_acts)
+                return np.array(a, self._dtype).reshape(self._shape)
+            else:
+                return np.random.randint(self._low, self._high + 1, dtype=self._dtype)
+        else:
+            if len(mask) > 0:
+                logger.info(f"mask is not support: {mask}")
+            if self._is_inf:
+                # infの場合は正規分布に従う乱数
+                return np.random.normal(size=self.shape)
+            r = np.random.random_sample(self.shape)
+            return self.low + r * (self.high - self.low)
 
-    def convert(self, val: Any) -> np.ndarray:
-        return np.clip(val, self._low, self._high).astype(np.float32)
+    def get_valid_actions(self, mask: List[np.ndarray] = []) -> List[np.ndarray]:
+        if self._rl_type == RLTypes.DISCRETE:
+            self._create_int_tbl()
+            assert self.decode_int_tbl is not None
+            acts = [np.array(v, self._dtype).reshape(self._shape) for v in self.decode_int_tbl]
+            valid_acts = []
+            for a in acts:
+                f = True
+                for m in mask:
+                    if (a == m).all():
+                        f = False
+                        break
+                if f:
+                    valid_acts.append(a)
+            return valid_acts
+        else:
+            raise NotSupportedError()
+
+    def sanitize(self, val: Any) -> np.ndarray:
+        return np.clip(val, self._low, self._high).astype(self._dtype)
 
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, np.ndarray):
@@ -52,7 +88,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
 
     @property
     def rl_type(self) -> RLTypes:
-        return RLTypes.CONTINUOUS
+        return self._rl_type
 
     def get_default(self) -> np.ndarray:
         return np.zeros(self.shape)
@@ -66,12 +102,6 @@ class BoxSpace(SpaceBase[np.ndarray]):
         else:
             s = f", division({self.n})"
         return f"Box({self.shape}, range[{np.min(self.low)}, {np.max(self.high)}]){s}"
-
-    # --- test
-    def assert_params(self, true_shape: Tuple[int, ...], true_low: np.ndarray, true_high: np.ndarray):
-        assert self.shape == true_shape
-        assert (self.low == true_low).all()
-        assert (self.high == true_high).all()
 
     # --------------------------------------
     # create_division_tbl
@@ -104,47 +134,84 @@ class BoxSpace(SpaceBase[np.ndarray]):
 
         logger.info(f"created division: {division_num}(n={n})({time.time()-t0:.3f}s)")
 
+    def _create_int_tbl(self) -> None:
+        if self.decode_int_tbl is not None:
+            return
+        import itertools
+
+        # flattenしたのをkeyにする
+        t0 = time.time()
+        low = self.low.flatten()
+        high = self.high.flatten()
+        arr_list = [[a for a in range(low[i], high[i] + 1)] for i in range(len(low))]
+        self.decode_int_tbl = list(itertools.product(*arr_list))
+        self.encode_int_tbl = {}
+        for i, v in enumerate(self.decode_int_tbl):
+            self.encode_int_tbl[v] = i
+        logger.info(f"create table time: {time.time() - t0:.1f}s")
+
     # --------------------------------------
-    # discrete
+    # action discrete
     # --------------------------------------
     @property
     def n(self) -> int:
-        assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
-        return len(self.division_tbl)
+        if self._rl_type == RLTypes.DISCRETE:
+            self._create_int_tbl()
+            assert self.decode_int_tbl is not None
+            return len(self.decode_int_tbl)
+        else:
+            assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
+            return len(self.division_tbl)
 
     def encode_to_int(self, val: np.ndarray) -> int:
-        assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
-        # ユークリッド距離で一番近いものを選択
-        d = (self.division_tbl - val).reshape((self.division_tbl.shape[0], -1))
-        d = np.linalg.norm(d, axis=1)
-        return int(np.argmin(d))
+        if self._rl_type == RLTypes.DISCRETE:
+            self._create_int_tbl()
+            key = val.flatten().tolist()
+            return self.encode_int_tbl[tuple(key)]
+        else:
+            assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
+            # ユークリッド距離で一番近いものを選択
+            d = (self.division_tbl - val).reshape((self.division_tbl.shape[0], -1))
+            d = np.linalg.norm(d, axis=1)
+            return int(np.argmin(d))
 
     def decode_from_int(self, val: int) -> np.ndarray:
-        if self.division_tbl is None:
-            return np.full(self.shape, val, dtype=np.float32)
+        if self._rl_type == RLTypes.DISCRETE:
+            self._create_int_tbl()
+            assert self.decode_int_tbl is not None
+            return np.array(self.decode_int_tbl[val], self._dtype).reshape(self._shape)
         else:
-            return self.division_tbl[val]
+            if self.division_tbl is None:
+                return np.full(self.shape, val, dtype=self._dtype)
+            else:
+                return self.division_tbl[val]
 
     # --------------------------------------
-    # discrete numpy
+    # observation discrete
     # --------------------------------------
-    def encode_to_int_np(self, val: np.ndarray) -> np.ndarray:
-        if self.division_tbl is None:
-            # 分割してない場合は、roundで丸めるだけ
-            return np.round(val)
+    def encode_to_list_int(self, val: np.ndarray) -> List[int]:
+        if self._rl_type == RLTypes.DISCRETE:
+            return [int(s) for s in val.flatten().tolist()]
         else:
-            # 分割してある場合
-            n = self.encode_to_int(val)
-            return np.array([n])
+            if self.division_tbl is None:
+                # 分割してない場合は、roundで丸めるだけ
+                return [int(s) for s in np.round(val).flatten().tolist()]
+            else:
+                # 分割してある場合
+                n = self.encode_to_int(val)
+                return [n]
 
-    def decode_from_int_np(self, val: np.ndarray) -> np.ndarray:
-        if self.division_tbl is None:
-            return val
+    def decode_from_list_int(self, val: List[int]) -> np.ndarray:
+        if self._rl_type == RLTypes.DISCRETE:
+            return np.array(val, self._dtype).reshape(self._shape)
         else:
-            return self.division_tbl[int(val[0])]
+            if self.division_tbl is None:
+                return np.array(val, dtype=self._dtype).reshape(self.shape)
+            else:
+                return self.division_tbl[val[0]]
 
     # --------------------------------------
-    # continuous list
+    # action continuous
     # --------------------------------------
     @property
     def list_size(self) -> int:
@@ -159,13 +226,13 @@ class BoxSpace(SpaceBase[np.ndarray]):
         return self.high.flatten().tolist()
 
     def encode_to_list_float(self, val: np.ndarray) -> List[float]:
-        return val.flatten().tolist()
+        return [float(v) for v in val.flatten().tolist()]
 
     def decode_from_list_float(self, val: List[float]) -> np.ndarray:
-        return np.asarray(val).reshape(self.shape)
+        return np.array(val, dtype=self._dtype).reshape(self.shape)
 
     # --------------------------------------
-    # continuous numpy
+    # observation continuous, image
     # --------------------------------------
     @property
     def shape(self) -> Tuple[int, ...]:
@@ -179,8 +246,8 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def high(self) -> np.ndarray:
         return self._high
 
-    def encode_to_np(self, val: np.ndarray) -> np.ndarray:
-        return val.astype(np.float32)
+    def encode_to_np(self, val: np.ndarray, dtype) -> np.ndarray:
+        return val.astype(dtype)
 
     def decode_from_np(self, val: np.ndarray) -> np.ndarray:
-        return val
+        return val.astype(self._dtype)

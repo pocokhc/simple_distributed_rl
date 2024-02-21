@@ -35,7 +35,7 @@ def test_space():
     for n in de:
         assert isinstance(n, float)
     np.testing.assert_array_equal(de, [1.2, 1.2, 1.2])
-    en = space.encode_to_np([1.2, 1.2, 1.2])
+    en = space.encode_to_np([1.2, 1.2, 1.2], np.float32)
     np.testing.assert_array_equal(en, np.array([1.2, 1.2, 1.2], dtype=np.float32))
 
     # --- sample
@@ -66,10 +66,10 @@ def test_discrete_no_division():
     np.testing.assert_array_equal(de, [2.0, 2.0, 2.0])
 
     # --- discrete numpy
-    en = space.encode_to_int_np([1.2, 1.2, 1.2])
-    assert en.shape == (3,)
-    np.testing.assert_array_equal(en, np.array([1, 1, 1]))
-    de = space.decode_from_int_np(np.array([1, 1, 1]))
+    en = space.encode_to_list_int([1.2, 1.2, 1.2])
+    assert len(en) == 3
+    np.testing.assert_array_equal(en, [1, 1, 1])
+    de = space.decode_from_list_int([1, 1, 1])
     assert isinstance(de, list)
     for n in de:
         assert isinstance(n, float)
@@ -94,10 +94,10 @@ def test_discrete_division():
     np.testing.assert_array_equal(de, [-1.0, -1.0, 1.0])
 
     # --- discrete numpy
-    en = space.encode_to_int_np([-1, -1, 2])
-    assert en.shape == (1,)
+    en = space.encode_to_list_int([-1, -1, 2])
+    assert len(en) == 1
     assert en[0] == 3
-    de = space.decode_from_int_np(np.array([2]))
+    de = space.decode_from_list_int([2])
     assert isinstance(de, list)
     for n in de:
         assert isinstance(n, float)
@@ -126,22 +126,22 @@ def test_inf():
     np.testing.assert_array_equal(space.list_high, [np.inf, np.inf, np.inf])
 
 
-def test_convert():
+def test_sanitize():
     space = ArrayContinuousSpace(3, -1, 3)
 
-    val = space.convert(1)
+    val = space.sanitize(1)
     assert space.check_val(val)
     np.testing.assert_array_equal([1.0, 1.0, 1.0], val)
 
-    val = space.convert([1.2, 0.9, 0.8])
+    val = space.sanitize([1.2, 0.9, 0.8])
     assert space.check_val(val)
     np.testing.assert_array_equal([1.2, 0.9, 0.8], val)
 
-    val = space.convert((2, 1, True))
+    val = space.sanitize((2, 1, True))
     assert space.check_val(val)
     np.testing.assert_array_equal([2.0, 1.0, 1.0], val)
 
-    val = space.convert(np.array([1.2, 0.9, 0.8]))
+    val = space.sanitize(np.array([1.2, 0.9, 0.8]))
     assert space.check_val(val)
     np.testing.assert_array_equal([1.2, 0.9, 0.8], val)
 
@@ -152,9 +152,9 @@ def test_convert():
     assert not space.check_val([5.1, 1.1, 1.1])
 
 
-def test_convert2():
+def test_sanitize2():
     space = ArrayContinuousSpace(3, -1, 3)
 
-    val = space.convert([-2, 6, 2])
+    val = space.sanitize([-2, 6, 2])
     assert space.check_val(val)
     np.testing.assert_array_equal([-1, 3, 2], val)

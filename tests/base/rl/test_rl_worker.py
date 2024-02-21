@@ -28,7 +28,7 @@ class StubWorker(RLWorker):
             print(worker.state, inv_acts, worker.get_invalid_actions())
             assert inv_acts == worker.get_invalid_actions()
         print(self.prev_state, worker.state)
-        assert (self.prev_state != worker.state).any()
+        assert self.prev_state != worker.state
         return {}
 
 

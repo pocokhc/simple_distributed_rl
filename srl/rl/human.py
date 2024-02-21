@@ -49,4 +49,4 @@ class Worker(RLWorker):
         else:
             assert False, "Cannot input from terminal."
 
-        return self.config.action_space.convert(action), {}
+        return self.config.action_space.sanitize(action), {}

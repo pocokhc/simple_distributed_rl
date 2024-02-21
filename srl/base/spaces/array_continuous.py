@@ -4,7 +4,7 @@ from typing import Any, List, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import InvalidActionsType, RLTypes
+from srl.base.define import RLTypes
 
 from .box import SpaceBase
 
@@ -30,14 +30,16 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
         self._is_inf = np.isinf(low).any() or np.isinf(high).any()
         self.division_tbl = None
 
-    def sample(self, invalid_actions: InvalidActionsType = []) -> List[float]:
+    def sample(self, mask: List[List[float]] = []) -> List[float]:
+        if len(mask) > 0:
+            logger.info(f"mask is not support: {mask}")
         if self._is_inf:
             # infの場合は正規分布に従う乱数
             return np.random.normal(size=(self._size,)).tolist()
         r = np.random.random_sample((self._size,))
         return (self._low + r * (self._high - self._low)).tolist()
 
-    def convert(self, val: Any) -> List[float]:
+    def sanitize(self, val: Any) -> List[float]:
         if isinstance(val, list):
             val = [float(v) for v in val]
         elif isinstance(val, tuple):
@@ -84,12 +86,6 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
             s = f", division({self.n})"
         return f"ArrayContinuous({self._size}, range[{np.min(self.low)}, {np.max(self.high)}]){s}"
 
-    # --- test
-    def assert_params(self, true_size: int, true_low: np.ndarray, true_high: np.ndarray):
-        assert self._size == true_size
-        assert (self._low == true_low).all()
-        assert (self._high == true_high).all()
-
     # --------------------------------------
     # create_division_tbl
     # --------------------------------------
@@ -116,7 +112,7 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
         logger.info(f"created division: {division_num}(n={n})({time.time()-t0:.3f}s)")
 
     # --------------------------------------
-    # discrete
+    # action discrete
     # --------------------------------------
     @property
     def n(self) -> int:
@@ -135,24 +131,24 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
             return self.division_tbl[val].tolist()
 
     # --------------------------------------
-    # discrete numpy
+    # observation discrete
     # --------------------------------------
-    def encode_to_int_np(self, val: List[float]) -> np.ndarray:
+    def encode_to_list_int(self, val: List[float]) -> List[int]:
         if self.division_tbl is None:
-            return np.round(val)
+            return [int(round(v)) for v in val]
         else:
             # 分割してある場合
             n = self.encode_to_int(val)
-            return np.array([n])
+            return [n]
 
-    def decode_from_int_np(self, val: np.ndarray) -> List[float]:
+    def decode_from_list_int(self, val: List[int]) -> List[float]:
         if self.division_tbl is None:
-            return val.astype(np.float32).tolist()
+            return [float(v) for v in val]
         else:
-            return self.division_tbl[int(val[0])].tolist()
+            return self.division_tbl[val[0]].tolist()
 
     # --------------------------------------
-    # continuous list
+    # action continuous
     # --------------------------------------
     @property
     def list_size(self) -> int:
@@ -173,7 +169,7 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
         return val
 
     # --------------------------------------
-    # continuous numpy
+    # observation continuous, image
     # --------------------------------------
     @property
     def shape(self) -> Tuple[int, ...]:
@@ -187,8 +183,8 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
     def high(self) -> np.ndarray:
         return self._high
 
-    def encode_to_np(self, val: List[float]) -> np.ndarray:
-        return np.array(val, dtype=np.float32)
+    def encode_to_np(self, val: List[float], dtype) -> np.ndarray:
+        return np.array(val, dtype=dtype)
 
     def decode_from_np(self, val: np.ndarray) -> List[float]:
         return val.tolist()

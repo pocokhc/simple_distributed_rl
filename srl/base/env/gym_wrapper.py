@@ -8,11 +8,10 @@ import numpy as np
 from gym import spaces as gym_spaces
 from gym.spaces import flatten, flatten_space
 
-from srl.base.define import DoneTypes, EnvActionType, EnvObservationTypes, InfoType, RenderModes
+from srl.base import spaces as srl_spaces
+from srl.base.define import DoneTypes, EnvActionType, EnvObservationTypes, InfoType, RenderModes, RLTypes
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.config import EnvConfig
-from srl.base.spaces.array_discrete import ArrayDiscreteSpace
-from srl.base.spaces.box import BoxSpace
 from srl.utils.common import compare_less_version, is_package_installed
 
 logger = logging.getLogger(__name__)
@@ -21,136 +20,119 @@ logger = logging.getLogger(__name__)
 # v0.26.0 から大幅に変更
 # https://github.com/openai/gym/releases
 
-"""
-・gym_spaceを1次元にして管理する
-・decodeもあるので順序を保持する
-・変換できないものはエラーログを出力して無視する
-"""
 
-
-def _gym_space_flatten_sub(
-    gym_space: gym_spaces.Space,
-) -> Tuple[List[Union[int, float]], List[Union[int, float]], bool]:
-    """
-    Returns:
-        Tuple[
-            List[float]: low,
-            List[float]: high,
-            bool       : is_discrete,
-        ]
-    """
+def _space_change_from_gym_to_srl_sub(gym_space: gym_spaces.Space) -> Optional[Union[SpaceBase, List[SpaceBase]]]:
     if isinstance(gym_space, gym_spaces.Discrete):
         if hasattr(gym_space, "start"):
-            return [int(gym_space.start)], [int(gym_space.start + gym_space.n - 1)], True
+            return srl_spaces.DiscreteSpace(int(gym_space.n), start=int(gym_space.start))
         else:
-            return [0], [int(gym_space.n - 1)], True
+            return srl_spaces.DiscreteSpace(int(gym_space.n))
 
     if isinstance(gym_space, gym_spaces.MultiDiscrete):
-        nvec = gym_space.nvec.flatten()
-        return np.zeros(nvec.shape).tolist(), nvec.tolist(), True
+        return srl_spaces.BoxSpace(gym_space.shape, 0, gym_space.nvec, dtype=np.int64)
 
     if isinstance(gym_space, gym_spaces.MultiBinary):
-        shape = np.zeros(gym_space.shape).flatten().shape
-        return np.zeros(shape).tolist(), np.ones(shape).tolist(), True
+        return srl_spaces.BoxSpace(gym_space.shape, 0, 1, dtype=np.int8)
 
     if isinstance(gym_space, gym_spaces.Box):
-        return gym_space.low.flatten().tolist(), gym_space.high.flatten().tolist(), False
+        return srl_spaces.BoxSpace(gym_space.shape, gym_space.low, gym_space.high, gym_space.dtype)
 
     if isinstance(gym_space, gym_spaces.Tuple):
-        low = []
-        high = []
-        is_discrete = True
+        sub_spaces = []
         for c in gym_space.spaces:
-            _l, _h, _is_d = _gym_space_flatten_sub(c)
-            if len(_l) > 0:
-                low.extend(_l)
-                high.extend(_h)
-                if not _is_d:
-                    is_discrete = False
-        return low, high, is_discrete
+            sub_space = _space_change_from_gym_to_srl_sub(c)
+            if sub_space is None:
+                continue
+            if isinstance(sub_space, list):
+                sub_spaces.extend(sub_space)
+            else:
+                sub_spaces.append(sub_space)
+        return sub_spaces
 
     if isinstance(gym_space, gym_spaces.Dict):
-        low = []
-        high = []
-        is_discrete = True
+        sub_spaces = []
         for k in sorted(gym_space.spaces.keys()):
             space = gym_space.spaces[k]
-            _l, _h, _is_d = _gym_space_flatten_sub(space)
-            if len(_l) > 0:
-                low.extend(_l)
-                high.extend(_h)
-                if not _is_d:
-                    is_discrete = False
-        return low, high, is_discrete
+            sub_space = _space_change_from_gym_to_srl_sub(space)
+            if sub_space is None:
+                continue
+            if isinstance(sub_space, list):
+                sub_spaces.extend(sub_space)
+            else:
+                sub_spaces.append(sub_space)
+        return sub_spaces
 
     # if isinstance(gym_space, gym_spaces.Graph):
-    #    pass  # TODO
+    #    pass  # not support
 
-    if hasattr(gym_spaces, "Text") and isinstance(gym_space, gym_spaces.Text):
-        shape = (gym_space.max_length,)
-        return np.zeros(shape).tolist(), np.full(shape, len(gym_space.character_set)).tolist(), True
+    # if hasattr(gym_spaces, "Text") and isinstance(gym_space, gym_spaces.Text):
+    #    pass  # not support
 
     # if isinstance(gym_space, gym_spaces.Sequence):
-    #    pass  # TODO
+    #    pass  # not support
 
     # ---- other space
     try:
         flat_space = flatten_space(gym_space)
         if isinstance(flat_space, gym_spaces.Box):
-            return flat_space.low.tolist(), flat_space.high.tolist(), False
+            return srl_spaces.BoxSpace(flat_space.shape, flat_space.low, flat_space.high, flat_space.dtype)
     except NotImplementedError as e:
         logger.warning(f"Ignored for unsupported space. type '{type(gym_space)}', err_msg '{e}'")
 
-    return [], [], False
+    return None
 
 
-def gym_space_flatten(gym_space: gym_spaces.Space) -> Tuple[Union[BoxSpace, ArrayDiscreteSpace], bool]:
-    low, high, is_discrete = _gym_space_flatten_sub(gym_space)
-    assert len(low) > 0, "Space flatten failed."
-    assert len(low) == len(high)
-    if is_discrete:
-        low = [int(n) for n in low]
-        high = [int(n) for n in high]
-        return ArrayDiscreteSpace(len(low), low, high), is_discrete
-    else:
-        return BoxSpace((len(low),), low, high), is_discrete
+def space_change_from_gym_to_srl(gym_space: gym_spaces.Space) -> SpaceBase:
+    # tupleかdictがあればarrayにして管理、そうじゃない場合はそのまま
+    srl_space = _space_change_from_gym_to_srl_sub(gym_space)
+    assert srl_space is not None
+    if isinstance(srl_space, list):
+        srl_space = srl_spaces.ArraySpace(srl_space)
+    return srl_space
 
 
-def _gym_space_flatten_encode_sub(gym_space: gym_spaces.Space, x: Any):
+def _space_encode_from_gym_to_srl_sub(gym_space: gym_spaces.Space, x: Any):
+    # xは生データの可能性もあるので、最低限gymが期待している型に変換
     if isinstance(gym_space, gym_spaces.Discrete):
-        return np.array([x])
-
+        return int(x)
     if isinstance(gym_space, gym_spaces.MultiDiscrete):
-        return x.flatten()
-
+        return np.asarray(x, dtype=gym_space.dtype)
     if isinstance(gym_space, gym_spaces.MultiBinary):
-        return x.flatten()
-
+        return np.asarray(x, dtype=gym_space.dtype)
     if isinstance(gym_space, gym_spaces.Box):
-        return x.flatten()
-
+        return np.asarray(x, dtype=gym_space.dtype)
     if isinstance(gym_space, gym_spaces.Tuple):
-        x = cast(Any, x)
         s = cast(Any, gym_space.spaces)
-        x = [_gym_space_flatten_encode_sub(space, x_part) for space, x_part in zip(s, x)]
-        return np.concatenate([x for x in x if x is not None])
-
+        arr = []
+        for space, x_part in zip(s, x):
+            _x = _space_encode_from_gym_to_srl_sub(space, x_part)
+            if _x is None:
+                continue
+            if isinstance(_x, list):
+                arr.extend(_x)
+            else:
+                arr.append(_x)
+        return arr
     if isinstance(gym_space, gym_spaces.Dict):
-        keys = sorted(gym_space.spaces.keys())
-        x = [_gym_space_flatten_encode_sub(gym_space.spaces[key], x[key]) for key in keys]
-        return np.concatenate([x for x in x if x is not None])
-
-    # if isinstance(gym_space, gym_spaces.Graph):
-    #    pass  # TODO
-
-    if hasattr(gym_spaces, "Text") and isinstance(gym_space, gym_spaces.Text):
-        arr = np.full(shape=(gym_space.max_length,), fill_value=len(gym_space.character_set), dtype=np.int32)
-        for i, val in enumerate(x):
-            arr[i] = gym_space.character_index(val)
+        arr = []
+        for key in sorted(gym_space.spaces.keys()):
+            _x = _space_encode_from_gym_to_srl_sub(gym_space.spaces[key], x[key])
+            if _x is None:
+                continue
+            if isinstance(_x, list):
+                arr.extend(_x)
+            else:
+                arr.append(_x)
         return arr
 
+    # if isinstance(gym_space, gym_spaces.Graph):
+    #    pass  # not support
+
+    # if isinstance(gym_space, gym_spaces.Text):
+    #    pass  # not support
+
     # if isinstance(gym_space, gym_spaces.Sequence):
-    #    pass  # TODO
+    #    pass  # not support
 
     # ---- other space
     try:
@@ -163,59 +145,44 @@ def _gym_space_flatten_encode_sub(gym_space: gym_spaces.Space, x: Any):
     return None
 
 
-def gym_space_flatten_encode(gym_space: gym_spaces.Space, val: Any):
-    x = _gym_space_flatten_encode_sub(gym_space, val)
+def space_encode_from_gym_to_srl(gym_space: gym_spaces.Space, val: Any):
+    x = _space_encode_from_gym_to_srl_sub(gym_space, val)
     assert x is not None, "Space flatten encode failed."
     return x
 
 
-def _gym_space_flatten_decode_sub(gym_space: gym_spaces.Space, x: Any, idx: int = 0):
+def _space_decode_to_srl_from_gym_sub(gym_space: gym_spaces.Space, x: Any, idx=0):
     if isinstance(gym_space, gym_spaces.Discrete):
-        return int(x[idx]), idx + 1
-
+        return x[idx], idx + 1
     if isinstance(gym_space, gym_spaces.MultiDiscrete):
-        size = len(gym_space.nvec.flatten())
-        arr = x[idx : idx + size]
-        return np.asarray(arr).reshape(gym_space.shape).astype(gym_space.dtype), idx + size
-
+        return x[idx], idx + 1
     if isinstance(gym_space, gym_spaces.MultiBinary):
-        size = len(np.zeros(gym_space.shape).flatten())
-        arr = x[idx : idx + size]
-        return np.asarray(arr).reshape(gym_space.shape).astype(gym_space.dtype), idx + size
-
+        return x[idx], idx + 1
     if isinstance(gym_space, gym_spaces.Box):
-        if gym_space.shape == ():
-            size = 1
-            arr = x[idx : idx + size]
-            return np.asarray(arr).astype(gym_space.dtype), idx + size
-        else:
-            size = len(np.zeros(gym_space.shape).flatten())
-            arr = x[idx : idx + size]
-            return np.asarray(arr).reshape(gym_space.shape).astype(gym_space.dtype), idx + size
-
+        return x[idx], idx + 1
     if isinstance(gym_space, gym_spaces.Tuple):
         arr = []
         for space in gym_space.spaces:
-            n, idx = _gym_space_flatten_decode_sub(space, x, idx)
-            arr.append(n)
+            y, idx = _space_decode_to_srl_from_gym_sub(space, x, idx)
+            arr.append(y)
         return tuple(arr), idx
 
     if isinstance(gym_space, gym_spaces.Dict):
         keys = sorted(gym_space.spaces.keys())
         dic = {}
         for key in keys:
-            n, idx = _gym_space_flatten_decode_sub(gym_space.spaces[key], x, idx)
-            dic[key] = n
+            y, idx = _space_decode_to_srl_from_gym_sub(gym_space.spaces[key], x, idx)
+            dic[key] = y
         return dic, idx
 
     # if isinstance(gym_space, gym_spaces.Graph):
-    #    pass  # TODO
+    #    pass  # not support
 
     # if isinstance(gym_space, gym_spaces.Text):
     #    pass  # TODO
 
     # if isinstance(gym_space, gym_spaces.Sequence):
-    #    pass  # TODO
+    #    pass  # not support
 
     # 不明なのはsampleがあればそれを適用、なければNone
     if hasattr(gym_space, "sample"):
@@ -225,14 +192,10 @@ def _gym_space_flatten_decode_sub(gym_space: gym_spaces.Space, x: Any, idx: int 
     return y, idx
 
 
-def gym_space_flatten_decode(gym_space: gym_spaces.Space, val: Any) -> Any:
-    if isinstance(val, tuple):
-        val = list(val)
-    elif isinstance(val, np.ndarray):
-        pass
-    elif not isinstance(val, list):
+def space_decode_to_srl_from_gym(gym_space: gym_spaces.Space, srl_space: SpaceBase, val: Any) -> Any:
+    if not isinstance(srl_space, srl_spaces.ArraySpace):
         val = [val]
-    val, _ = _gym_space_flatten_decode_sub(gym_space, val)
+    val, _ = _space_decode_to_srl_from_gym_sub(gym_space, val)
     assert val is not None, "Space flatten decode failed."
     return val
 
@@ -255,20 +218,24 @@ class GymWrapper(EnvBase):
         logger.info("set SDL_VIDEODRIVER='dummy'")
 
         self.env = self.make_gym_env()
-        logger.info(f"gym metadata    : {self.env.metadata}")
         logger.info(f"gym action_space: {self.env.action_space}")
         logger.info(f"gym obs_space   : {self.env.observation_space}")
 
-        # fps
-        self.fps = self.env.metadata.get("render_fps", 60)
-
-        # render_modes
+        # metadata
+        self.fps = 60
         self.render_mode = RenderModes.none
         self.render_modes = ["ansi", "human", "rgb_array"]
-        if "render.modes" in self.env.metadata:
-            self.render_modes = self.env.metadata["render.modes"]
-        elif "render_modes" in self.env.metadata:
-            self.render_modes = self.env.metadata["render_modes"]
+        if hasattr(self.env, "metadata"):
+            logger.info(f"gym metadata    : {self.env.metadata}")
+            self.fps = self.env.metadata.get("render_fps", 60)
+            self.render_modes = self.env.metadata.get("render_modes", ["ansi", "human", "rgb_array"])
+
+            # render_modes
+            self.render_modes = ["ansi", "human", "rgb_array"]
+            if "render.modes" in self.env.metadata:
+                self.render_modes = self.env.metadata["render.modes"]
+            elif "render_modes" in self.env.metadata:
+                self.render_modes = self.env.metadata["render_modes"]
 
         _act_space = None
         _obs_type = EnvObservationTypes.UNKNOWN
@@ -296,11 +263,13 @@ class GymWrapper(EnvBase):
                             _obs_type = EnvObservationTypes.GRAY_3ch
                         elif ch == 3:
                             _obs_type = EnvObservationTypes.COLOR
+                        else:
+                            _obs_type = EnvObservationTypes.IMAGE
 
                     if _obs_type != EnvObservationTypes.UNKNOWN:
                         # 画像はそのままのshape
                         self.enable_flatten_observation = False
-                        _obs_space = BoxSpace(
+                        _obs_space = srl_spaces.BoxSpace(
                             self.env.observation_space.shape,
                             self.env.observation_space.low,
                             self.env.observation_space.high,
@@ -309,8 +278,8 @@ class GymWrapper(EnvBase):
             # --- space obs
             if _obs_type == EnvObservationTypes.UNKNOWN:
                 self.enable_flatten_observation = True
-                _obs_space, is_discrete = gym_space_flatten(self.env.observation_space)
-                if not is_discrete:
+                _obs_space = space_change_from_gym_to_srl(self.env.observation_space)
+                if _obs_space.rl_type != RLTypes.DISCRETE:
                     if self.config.gym_prediction_by_simulation and self._pred_space_discrete():
                         _obs_type = EnvObservationTypes.DISCRETE
                     else:
@@ -321,7 +290,7 @@ class GymWrapper(EnvBase):
         # --- space action
         if _act_space is None:
             self.enable_flatten_action = True
-            _act_space, _ = gym_space_flatten(self.env.action_space)
+            _act_space = space_change_from_gym_to_srl(self.env.action_space)
 
         assert _obs_space is not None
         self._action_space: SpaceBase = _act_space
@@ -420,9 +389,9 @@ class GymWrapper(EnvBase):
 
         # flatten
         if self.enable_flatten_observation:
-            state = gym_space_flatten_encode(self.env.observation_space, state)
+            state = space_encode_from_gym_to_srl(self.env.observation_space, state)
 
-        state = self.observation_space.convert(state)
+        state = self.observation_space.sanitize(state)
         return state, info
 
     def step(self, action: EnvActionType) -> Tuple[np.ndarray, List[float], Union[bool, DoneTypes], InfoType]:
@@ -432,7 +401,7 @@ class GymWrapper(EnvBase):
 
         # flatten
         if self.enable_flatten_action:
-            action = gym_space_flatten_decode(self.env.action_space, action)
+            action = space_decode_to_srl_from_gym(self.env.action_space, self.action_space, action)
 
         # step
         _t = self.env.step(action)
@@ -455,9 +424,9 @@ class GymWrapper(EnvBase):
 
         # flatten
         if self.enable_flatten_observation:
-            state = gym_space_flatten_encode(self.env.observation_space, state)
+            state = space_encode_from_gym_to_srl(self.env.observation_space, state)
 
-        state = self.observation_space.convert(state)
+        state = self.observation_space.sanitize(state)
         return state, [float(reward)], done, info
 
     def backup(self) -> Any:
@@ -467,9 +436,9 @@ class GymWrapper(EnvBase):
         self.env = pickle.loads(data)
 
     def close(self) -> None:
-        self.env.close()
         # render 内で使われている pygame に対して close -> init をするとエラーになる
         # Fatal Python error: (pygame parachute) Segmentation Fault
+        self.env.close()
         pass
 
     @property

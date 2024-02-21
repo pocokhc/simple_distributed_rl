@@ -14,6 +14,17 @@ EnvInvalidActionType = Union[int, List[int], np.ndarray]
 RLActionType = Union[int, List[float], float, np.ndarray]
 RLInvalidActionType = Union[int, np.ndarray]  # discrete only
 
+# --- KyeBind
+# ActionSpace == not Array
+#   {match key list : action}
+#
+# ActionSpace == Array
+#   {match key list : [index, action]}
+#
+KeyBindType = Dict[
+    Union[str, int, Tuple[Union[str, int], ...], List[Union[str, int]]],
+    Union[EnvActionType, Tuple[int, EnvActionType]],
+]
 
 # --- obs type
 EnvObservationType = SpaceType

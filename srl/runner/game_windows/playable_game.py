@@ -1,10 +1,11 @@
 import logging
 import time
-from typing import Dict, Generator, List, Optional, Tuple, cast
+from typing import Dict, Generator, List, Optional, Tuple, Union, cast
 
 import pygame
 
 from srl.base.define import EnvActionType, KeyBindType
+from srl.base.spaces.array import ArraySpace
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
 from srl.runner.runner import CallbackType, Runner
 
@@ -17,7 +18,7 @@ class PlayableGame(GameWindow):
         runner: Runner,
         view_state: bool = True,
         action_division_num: int = 5,
-        key_bind: KeyBindType = None,
+        key_bind: Optional[KeyBindType] = None,
         enable_memory: bool = False,
         callbacks: List[CallbackType] = [],
         _is_test: bool = False,  # for test
@@ -202,17 +203,20 @@ class PlayableGame(GameWindow):
 
             elif self.mode == "Turn":
                 # key bind があり、Turnの場合は押したら進める
-                key = tuple(sorted(self.get_pressed_keys()))
-                if key in self.key_bind:
-                    self.action = self.key_bind[key]
+                keys = self.get_pressed_keys()
+                if self._get_action_from_key_bind(keys) is not None:
+                    keys.extend(self.get_down_keys())
+                    self.action = self._get_action_from_key_bind(keys)
+                    if self.action is None:
+                        self.action = self._get_action_from_key_bind(self.get_pressed_keys())
                     self._step(self.action)
 
             if self.mode == "RealTime":
                 if self.key_bind is not None:
                     # 押してあるkeys
-                    key = tuple(sorted(self.get_down_keys()))
-                    if key in self.key_bind:
-                        self.action = self.key_bind[key]
+                    action = self._get_action_from_key_bind(self.get_down_keys())
+                    if action is not None:
+                        self.action = action
                     else:
                         self.action = self.noop
                 if self.is_pause:
@@ -286,3 +290,39 @@ class PlayableGame(GameWindow):
             else:
                 self.frameadvance = False
                 self.is_pause = False
+
+    def _get_action_from_key_bind(self, key):
+        key = tuple(sorted(key))
+        if isinstance(self.env.action_space, ArraySpace):
+            # {match key list : [index, action]}
+            self.key_bind = cast(
+                Dict[
+                    Union[str, int, Tuple[Union[str, int], ...], List[Union[str, int]]],
+                    Tuple[int, EnvActionType],
+                ],
+                self.key_bind,
+            )
+            acts = self.env.action_space.get_default()
+            f = False
+            for k in key:
+                k = (k,)
+                if k in self.key_bind:
+                    idx = self.key_bind[k][0]
+                    act = self.key_bind[k][1]
+                    acts[idx] = act
+                    f = True
+            if f:
+                return acts
+
+        else:
+            # {match key list : action}
+            self.key_bind = cast(
+                Dict[
+                    Union[str, int, Tuple[Union[str, int], ...], List[Union[str, int]]],
+                    EnvActionType,
+                ],
+                self.key_bind,
+            )
+            if key in self.key_bind:
+                return self.key_bind[key]
+        return None

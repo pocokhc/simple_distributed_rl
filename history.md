@@ -10,6 +10,50 @@
 1. (distribution)オリジナルrl/env対応
 1. RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 1. spaceの複数入力（画像+値の入力など）
+1. メモリの圧縮
+
+# v0.14.2
+
+**MainUpdates**
+
+1. [base.spaces] new: Spaceの配列を表現するArraySpaceを追加
+  1. 合わせてSpacesを大幅にリファクタリング
+  1. [docs_src.pages.framework_detail] update: InterfaceTypeを厳密に定義
+      + obsのdiscreteのみnp.ndarrayからlist[int]に変更
+      + np.ndarrayをdtypeによってdiscreteかcontinuousか判定
+  1. invalid_actionsを再定義、discreteのアクションで採用(int, list[int], NDArray(int))
+  1. rename: convertをsanitizeに変更
+  1. new: get_valid_actions関数を追加、discreteのみ実装
+  1. new: DiscreteSpaceにstart引数を追加
+  1. [runner.playable_game] update: ArraySpace用のkey_bindの仕様を追加
+1. [base.env.gymnasium_wrapper] update: ArraySpaceの追加に伴ってgymとの連携を強化
+1. [base.env.gymnasium_wrapper] new: gym実装でもbackup/restore等が実装されていればそれらを使うように変更
+1. [base.env.registration] update: gymのmake時に名前がない場合の例外だけを別処理に
+
+**OtherUpdates**
+
+1. [base.rl.registration] new: 登録に"dummy"を追加し、rl.dummyを削除
+  1. add/delete: DummyRLTrainer/DummyRLWorkerを追加し、rl.dummyを削除
+1. [runner] add: checkpointとhistoryが無効になった場合にログを追加
+1. [runner] change: eval時にenvの共有をデフォルトでTrueに変更
+1. [runner] change: checkpointのintervalを20分から10分に変更
+1. [runner] new: save_aviを追加
+1. [tests] new: base.coreのテストを追加
+1. [base.env.config] new: gymとgymnasium両方ある場合にgymを強制するuse_gym変数を追加
+1. [base.env.base] rename: get_original_envをunwrappedに変更
+1. [base.exception] new: NotSupportedErrorを追加 
+1. [rl.functions.common] rename: float_categoryの名前をtwohotに変更
+1. [rl.functions.common_tf] move: twohotをtwohot_dist_blockからcommon_tfに移動
+1. [algorithms.search_dynaq] update: iteration_qの終了判定を回数から時間に変更
+1. [algorithms] change: backup/restoreをオプション扱いに変更
+1. [dockers] update: バージョン更新とリファクタリング
+
+**Bug Fixes**
+
+1. [runner.core_mp] fix: 終了時にmemoryが大量に残っていると変な挙動をするバグ修正、プロセスをterminateで終了する場合のログを変更
+1. [rl.functions.common] fix: get_random_max_indexで要素が多いときにinvalid_actionsが反映されないバグ修正
+1. [tests.runner.distribution] fix: redisがinstallされていない場合でpytestが動くように修正
+1. [rl.processors.image_processor] fix: 最大1の場合normを実行しない処理を追加
 
 # v0.14.1
 

@@ -1,15 +1,15 @@
 import math
 import random
+from pprint import pprint
 from typing import Any, Optional, Tuple
 
 import numpy as np
 import pytest
 
 import srl
-from srl.base.define import EnvObservationTypes
+from srl.base import spaces as srl_spaces
+from srl.base.define import EnvObservationTypes, RLTypes
 from srl.base.env.gym_user_wrapper import GymUserWrapper
-from srl.base.spaces import ArrayDiscreteSpace, BoxSpace
-from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
 from srl.test import TestEnv
 
@@ -20,12 +20,10 @@ def test_play_FrozenLake():
     # observation_space: Discrete(16)
     # action_space     : Discrete(4)
     tester = TestEnv()
-    env = tester.play_test("FrozenLake-v1")
+    env = tester.play_test("FrozenLake-v1", env_config_kwargs={"use_gym": True}, check_render=False, check_restore=False)
     assert env.observation_type == EnvObservationTypes.DISCRETE
-    assert isinstance(env.observation_space, ArrayDiscreteSpace)
-    assert isinstance(env.action_space, ArrayDiscreteSpace)
-    env.observation_space.assert_params(1, [0], [15])
-    env.action_space.assert_params(1, [0], [3])
+    assert env.observation_space == srl_spaces.DiscreteSpace(16)
+    assert env.action_space == srl_spaces.DiscreteSpace(4)
 
 
 def test_play_CartPole():
@@ -34,12 +32,10 @@ def test_play_CartPole():
     # observation_space: Box((4,))
     # action_space     : Discrete(2)
     tester = TestEnv()
-    env = tester.play_test("CartPole-v1", max_step=10)
+    env = tester.play_test("CartPole-v1", max_step=10, env_config_kwargs={"use_gym": True}, check_render=False, check_restore=False)
     assert env.observation_type == EnvObservationTypes.CONTINUOUS
-    assert isinstance(env.observation_space, BoxSpace)
-    assert isinstance(env.action_space, ArrayDiscreteSpace)
-    assert env.observation_space.shape == (4,)
-    env.action_space.assert_params(1, [0], [1])
+    assert env.observation_space.shape == srl_spaces.BoxSpace((4,)).shape  # range skip
+    assert env.action_space == srl_spaces.DiscreteSpace(2)
 
 
 def test_play_Blackjack():
@@ -48,12 +44,16 @@ def test_play_Blackjack():
     # observation_space: Tuple(Discrete(32), Discrete(11), Discrete(2))
     # action_space     : Discrete(2)
     tester = TestEnv()
-    env = tester.play_test("Blackjack-v1", max_step=10)
+    env = tester.play_test("Blackjack-v1", max_step=10, env_config_kwargs={"use_gym": True}, check_render=False, check_restore=False)
     assert env.observation_type == EnvObservationTypes.DISCRETE
-    assert isinstance(env.observation_space, ArrayDiscreteSpace)
-    assert isinstance(env.action_space, ArrayDiscreteSpace)
-    env.observation_space.assert_params(3, [0, 0, 0], [31, 10, 1])
-    env.action_space.assert_params(1, [0], [1])
+    assert env.observation_space == srl_spaces.ArraySpace(
+        [
+            srl_spaces.DiscreteSpace(32),
+            srl_spaces.DiscreteSpace(11),
+            srl_spaces.DiscreteSpace(2),
+        ]
+    )
+    assert env.action_space == srl_spaces.DiscreteSpace(2)
 
 
 def test_play_Pendulum():
@@ -62,12 +62,10 @@ def test_play_Pendulum():
     # observation_space: Box([-1. -1. -8.], [1. 1. 8.], (3,), float32)
     # action_space     : Box(-2.0, 2.0, (1,), float32)
     tester = TestEnv()
-    env = tester.play_test("Pendulum-v1", max_step=10)
+    env = tester.play_test("Pendulum-v1", max_step=10, env_config_kwargs={"use_gym": True}, check_render=False, check_restore=False)
     assert env.observation_type == EnvObservationTypes.CONTINUOUS
-    assert isinstance(env.observation_space, BoxSpace)
-    assert isinstance(env.action_space, BoxSpace)
-    env.observation_space.assert_params((3,), np.array([-1, -1, -8]), np.array([1, 1, 8]))
-    env.action_space.assert_params((1,), np.array([-2]), np.array([2]))
+    assert env.observation_space == srl_spaces.BoxSpace((3,), [-1, -1, -8], [1, 1, 8])
+    assert env.action_space == srl_spaces.BoxSpace((1,), -2.0, 2.0)
 
 
 def test_play_Tetris():
@@ -77,12 +75,10 @@ def test_play_Tetris():
     # Box(0, 255, (210, 160, 3), uint8)
     # Discrete(5)
     tester = TestEnv()
-    env = tester.play_test("ALE/Tetris-v5", check_render=False, max_step=10)
+    env = tester.play_test("ALE/Tetris-v5", check_render=False, max_step=10, env_config_kwargs={"use_gym": True}, check_restore=False)
     assert env.observation_type == EnvObservationTypes.COLOR
-    assert isinstance(env.observation_space, BoxSpace)
-    assert isinstance(env.action_space, ArrayDiscreteSpace)
-    env.observation_space.assert_params((210, 160, 3), np.zeros((210, 160, 3)), np.full((210, 160, 3), 255))
-    env.action_space.assert_params(1, [0], [4])
+    assert env.observation_space == srl_spaces.BoxSpace((210, 160, 3), 0, 255, np.uint8)
+    assert env.action_space == srl_spaces.DiscreteSpace(5)
 
 
 def test_play_Tetris_ram():
@@ -92,12 +88,10 @@ def test_play_Tetris_ram():
     # Box(0, 255, (128,), uint8)
     # Discrete(5)
     tester = TestEnv()
-    env = tester.play_test("ALE/Tetris-ram-v5", check_render=False, max_step=10)
+    env = tester.play_test("ALE/Tetris-ram-v5", check_render=False, max_step=10, env_config_kwargs={"use_gym": True}, check_restore=False)
     assert env.observation_type == EnvObservationTypes.DISCRETE
-    assert isinstance(env.observation_space, BoxSpace)
-    assert isinstance(env.action_space, ArrayDiscreteSpace)
-    env.observation_space.assert_params((128,), np.array((0,) * 128), np.array((255,) * 128))
-    env.action_space.assert_params(1, [0], [4])
+    assert env.observation_space == srl_spaces.BoxSpace((128,), 0, 255, np.uint8)
+    assert env.action_space == srl_spaces.DiscreteSpace(5)
 
 
 # 時間がかかる割に有益じゃないのでコメントアウト
@@ -131,7 +125,9 @@ def test_space():
 
     from gym import spaces
 
-    from srl.base.env.gym_wrapper import gym_space_flatten, gym_space_flatten_decode, gym_space_flatten_encode
+    from srl.base.env.gym_wrapper import (space_change_from_gym_to_srl,
+                                          space_decode_to_srl_from_gym,
+                                          space_encode_from_gym_to_srl)
 
     space = spaces.Dict(
         {
@@ -157,52 +153,54 @@ def test_space():
         }
     )
 
-    flat_space, is_discrete = gym_space_flatten(space)
-    print(flat_space)
-    assert not is_discrete
-    assert isinstance(flat_space, BoxSpace)
-    assert flat_space.shape == (23,)
-    assert (flat_space.low == [0] * 23).all()
-    assert (
-        flat_space.high
-        == [
-            5.0,
-            2.0,
-            2.0,
-            99.0,
-            100.0,
-            4.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            6.0,
-            10.0,
-            10.0,
-            10.0,
-            10.0,
-            10.0,
-            10.0,
-        ]
-    ).all()
+    srl_space = space_change_from_gym_to_srl(space)
+    print(srl_space)
+    assert srl_space.rl_type == RLTypes.CONTINUOUS
+    assert isinstance(srl_space, srl_spaces.ArraySpace)
+    assert len(srl_space.spaces) == 7
+
+    assert isinstance(srl_space.spaces[0], srl_spaces.BoxSpace)
+    assert srl_space.spaces[0].shape == (3,)
+    assert (srl_space.spaces[0].low == (0, 0, 0)).all()
+    assert (srl_space.spaces[0].high == (5, 2, 2)).all()
+    assert srl_space.spaces[0]._dtype == np.int64
+
+    assert isinstance(srl_space.spaces[1], srl_spaces.DiscreteSpace)
+    assert srl_space.spaces[1].n == 100
+
+    assert isinstance(srl_space.spaces[2], srl_spaces.BoxSpace)
+    assert srl_space.spaces[2].shape == ()
+    assert srl_space.spaces[2]._dtype == np.float32
+
+    assert isinstance(srl_space.spaces[3], srl_spaces.DiscreteSpace)
+    assert srl_space.spaces[3].n == 5
+
+    assert isinstance(srl_space.spaces[4], srl_spaces.BoxSpace)
+    assert srl_space.spaces[4].shape == (10,)
+    assert (srl_space.spaces[4].low == (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)).all()
+    assert (srl_space.spaces[4].high == (1, 1, 1, 1, 1, 1, 1, 1, 1, 1)).all()
+    assert srl_space.spaces[4]._dtype == np.int8
+
+    assert isinstance(srl_space.spaces[5], srl_spaces.DiscreteSpace)
+    assert srl_space.spaces[5].n == 7
+
+    assert isinstance(srl_space.spaces[6], srl_spaces.BoxSpace)
+    assert srl_space.spaces[6].shape == (2, 3)
+    assert srl_space.spaces[6]._dtype == np.float32
 
     val = space.sample()
     print(val)
 
-    encode_val = gym_space_flatten_encode(space, val)
-    print(encode_val)
-    assert len(encode_val) == 23
+    encode_val = space_encode_from_gym_to_srl(space, val)
+    print("----")
+    pprint(encode_val)
+    assert isinstance(encode_val, list)
+    assert len(encode_val) == 7
 
-    decode_val = gym_space_flatten_decode(space, encode_val)
-    print(decode_val)
+    decode_val = space_decode_to_srl_from_gym(space, srl_space, encode_val)
+    print("----")
+    pprint(decode_val)
 
-    print(val["ext_controller"], decode_val["ext_controller"])
     assert (val["ext_controller"] == decode_val["ext_controller"]).all()
     assert val["inner_state"]["charge"] == decode_val["inner_state"]["charge"]
     assert val["inner_state"]["job_status"]["progress"] == decode_val["inner_state"]["job_status"]["progress"]
@@ -211,13 +209,47 @@ def test_space():
     assert val["other"][0] == decode_val["other"][0]
     assert (val["other"][1] == decode_val["other"][1]).all()
 
+    # ---------------------
+    val = {
+        "ext_controller": [3, 0, 0],
+        "inner_state": {
+            "charge": 68,
+            "job_status": {
+                "progress": [73.78551],
+                "task": 4,
+            },
+            "system_checks": [0, 0, 1, 0, 0, 0, 1, 1, 1, 0],
+        },
+        "other": [6, [[3.1046488, 5.9139466, 4.120618], [8.221998, 4.1012044, 7.6347136]]],
+    }
+    encode_val = space_encode_from_gym_to_srl(space, val)
+    print("----")
+    pprint(encode_val)
+    assert isinstance(encode_val, list)
+    assert len(encode_val) == 7
+    assert (encode_val[0] == [3, 0, 0]).all()
+    assert encode_val[1] == 68
+    assert (encode_val[2] == np.array([73.78551], np.float32)).all()
+    assert encode_val[3] == 4
+    assert (encode_val[4] == [0, 0, 1, 0, 0, 0, 1, 1, 1, 0]).all()
+    assert encode_val[5] == 6
+    assert (
+        encode_val[6] == np.array([[3.1046488, 5.9139466, 4.120618], [8.221998, 4.1012044, 7.6347136]], np.float32)
+    ).all()
+
+    decode_val = space_decode_to_srl_from_gym(space, srl_space, encode_val)
+    print("----")
+    pprint(decode_val)
+
 
 def test_space_discrete():
     pytest.importorskip("gym")
 
     from gym import spaces
 
-    from srl.base.env.gym_wrapper import gym_space_flatten, gym_space_flatten_decode, gym_space_flatten_encode
+    from srl.base.env.gym_wrapper import (space_change_from_gym_to_srl,
+                                          space_decode_to_srl_from_gym,
+                                          space_encode_from_gym_to_srl)
 
     space = spaces.Dict(
         {
@@ -241,36 +273,62 @@ def test_space_discrete():
         }
     )
 
-    flat_space, is_discrete = gym_space_flatten(space)
-    print(flat_space)
-    print(flat_space.high)
-    assert is_discrete
-    assert isinstance(flat_space, ArrayDiscreteSpace)
-    assert flat_space.list_size == 12
-    assert flat_space.list_low == [0] * 12
-    assert flat_space.list_high == [
-        5,
-        2,
-        2,
-        99,
-        4,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        6,
-    ]
+    space = spaces.Dict(
+        {
+            "ext_controller": spaces.MultiDiscrete([5, 2, 2]),
+            "inner_state": spaces.Dict(
+                {
+                    "charge": spaces.Discrete(100),
+                    "system_checks": spaces.MultiBinary([3, 2]),
+                    "job_status": spaces.Dict(
+                        {
+                            "task": spaces.Discrete(5),
+                        }
+                    ),
+                }
+            ),
+            "other": spaces.Tuple(
+                [
+                    spaces.Discrete(7, start=1),
+                ]
+            ),
+        }
+    )
+
+    srl_space = space_change_from_gym_to_srl(space)
+    print(srl_space)
+    assert srl_space.rl_type == RLTypes.DISCRETE
+    assert isinstance(srl_space, srl_spaces.ArraySpace)
+    assert len(srl_space.spaces) == 5
+
+    assert isinstance(srl_space.spaces[0], srl_spaces.BoxSpace)
+    assert srl_space.spaces[0].shape == (3,)
+    assert (srl_space.spaces[0].low == (0, 0, 0)).all()
+    assert (srl_space.spaces[0].high == (5, 2, 2)).all()
+    assert srl_space.spaces[0]._dtype == np.int64
+
+    assert isinstance(srl_space.spaces[1], srl_spaces.DiscreteSpace)
+    assert srl_space.spaces[1].n == 100
+
+    assert isinstance(srl_space.spaces[2], srl_spaces.DiscreteSpace)
+    assert srl_space.spaces[2].n == 5
+
+    assert isinstance(srl_space.spaces[3], srl_spaces.BoxSpace)
+    assert srl_space.spaces[3].shape == (3, 2)
+    assert srl_space.spaces[3]._dtype == np.int8
+
+    assert isinstance(srl_space.spaces[4], srl_spaces.DiscreteSpace)
+    assert srl_space.spaces[4].n == 7
+    assert srl_space.spaces[4]._start == 1
 
     val = space.sample()
     print(val)
 
-    encode_val = gym_space_flatten_encode(space, val)
+    encode_val = space_encode_from_gym_to_srl(space, val)
     print(encode_val)
-    assert len(encode_val) == 12
+    assert len(encode_val) == 5
 
-    decode_val = gym_space_flatten_decode(space, encode_val)
+    decode_val = space_decode_to_srl_from_gym(space, srl_space, encode_val)
     print(decode_val)
 
     print(val["ext_controller"], decode_val["ext_controller"])
@@ -290,11 +348,13 @@ def test_original_space():
         def sample(self, mask=None):
             return "a"
 
-    from srl.base.env.gym_wrapper import gym_space_flatten, gym_space_flatten_decode, gym_space_flatten_encode
+    from srl.base.env.gym_wrapper import (space_change_from_gym_to_srl,
+                                          space_decode_to_srl_from_gym,
+                                          space_encode_from_gym_to_srl)
 
     # --- fail pattern
     with pytest.raises(AssertionError):
-        gym_space_flatten(MyStrSpace())
+        space_change_from_gym_to_srl(MyStrSpace())
 
     # --- success pattern
     space = spaces.Dict(
@@ -304,22 +364,26 @@ def test_original_space():
             "c_info": spaces.Discrete(3),
         }
     )
-    flat_space, is_discrete = gym_space_flatten(space)
-    print(flat_space)
-    assert is_discrete
-    assert isinstance(flat_space, ArrayDiscreteSpace)
-    assert flat_space.shape == (2,)
-    assert (flat_space.low == [0, 0]).all()
-    assert (flat_space.high == [1, 2]).all()
+    srl_space = space_change_from_gym_to_srl(space)
+    print(srl_space)
+    assert srl_space.rl_type == RLTypes.DISCRETE
+    assert isinstance(srl_space, srl_spaces.ArraySpace)
+    assert len(srl_space.spaces) == 2
+
+    assert isinstance(srl_space.spaces[0], srl_spaces.DiscreteSpace)
+    assert srl_space.spaces[0].n == 2
+
+    assert isinstance(srl_space.spaces[1], srl_spaces.DiscreteSpace)
+    assert srl_space.spaces[1].n == 3
 
     val = space.sample()
     print(val)
 
-    encode_val = gym_space_flatten_encode(space, val)
+    encode_val = space_encode_from_gym_to_srl(space, val)
     print(encode_val)
     assert len(encode_val) == 2
 
-    decode_val = gym_space_flatten_decode(space, encode_val)
+    decode_val = space_decode_to_srl_from_gym(space, srl_space, encode_val)
     print(decode_val)
 
     assert val["a_info"] == decode_val["a_info"]
@@ -329,7 +393,9 @@ def test_original_space():
 def test_random():
     pytest.importorskip("gym")
 
-    env = srl.make_env("Pendulum-v1")
+    env = srl.make_env(srl.EnvConfig("Pendulum-v1", use_gym=True))
+    print(env.action_space)
+    print(env.observation_space)
 
     seed = 1
     true_reward = -2.4091601371765137
@@ -365,7 +431,7 @@ def test_wrapper():
             action_space: Optional[SpaceBase],
             env: gym.Env,
         ) -> Optional[SpaceBase]:
-            return DiscreteSpace(99)
+            return srl_spaces.DiscreteSpace(99)
 
         def action(self, action: Any, env: gym.Env) -> Any:
             return 0
@@ -376,7 +442,7 @@ def test_wrapper():
             observation_space: Optional[SpaceBase],
             env: gym.Env,
         ) -> Tuple[EnvObservationTypes, Optional[SpaceBase]]:
-            return EnvObservationTypes.DISCRETE, DiscreteSpace(99)
+            return EnvObservationTypes.DISCRETE, srl_spaces.DiscreteSpace(99)
 
         def observation(self, observation: Any, env: gym.Env) -> Any:
             return 1
@@ -388,13 +454,13 @@ def test_wrapper():
             return True
 
     wrapper = MyWrapper()
-    env_config = srl.EnvConfig("CliffWalking-v0", gym_wrappers=[wrapper])
+    env_config = srl.EnvConfig("CliffWalking-v0", gym_wrappers=[wrapper], use_gym=True)
     env = srl.make_env(env_config)
 
     print(env.action_space)
     print(env.observation_space)
-    assert isinstance(env.action_space, DiscreteSpace)
-    assert isinstance(env.observation_space, DiscreteSpace)
+    assert isinstance(env.action_space, srl_spaces.DiscreteSpace)
+    assert isinstance(env.observation_space, srl_spaces.DiscreteSpace)
     assert env.action_space.n == 99
     assert env.observation_space.n == 99
 

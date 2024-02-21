@@ -5,3 +5,4 @@ WORKDIR /code
 ENV PYTHONPATH="/code"
 COPY ./requirements_min.txt requirements.txt
 RUN pip install -U -r requirements.txt
+RUN pip install pytest pytest-mock pytest-timeout

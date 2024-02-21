@@ -11,6 +11,11 @@ _*.*
 !__init__.py
 _*/
 
+# --- vscode
+.vscode/
+!.vscode/extensions.json
+!.vscode/setting.json
+
 # --- sphinx
 !docs/_*/
 !docs/_static/_sphinx_javascript_frameworks_compat.js

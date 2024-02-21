@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from typing import Optional, Tuple, cast
 
@@ -9,6 +10,8 @@ from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import Processor
 from srl.base.spaces.box import BoxSpace
 from srl.utils.common import is_package_installed
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -91,6 +94,9 @@ class ImageProcessor(Processor):
 
         # norm
         self.max_val = np.max(high)
+        if self.max_val == 1:
+            self.enable_norm = False
+            logger.info("norm disable")
         if self.enable_norm:
             high = 1
         else:

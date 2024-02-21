@@ -353,6 +353,30 @@ class Rendering(RunCallback):
         image[0].save(path, save_all=True, append_images=image[1:], optimize=False, duration=interval, loop=0)
         logger.info(f"save gif(interval: {interval:.1f}ms, save time {time.time() - t0:.1f}s) {path}")
 
+    def save_avi(
+        self,
+        path: str,
+        interval: float = -1,  # ms
+        draw_info: bool = True,
+    ):
+        import cv2
+
+        if interval <= 0:
+            interval = self.render_interval
+        if interval <= 0:
+            interval = 1000 / 60
+
+        images = self.create_images(draw_info)
+        images = [cv2.cvtColor(img, cv2.COLOR_BGR2RGB) for img in images]
+        capSize = (images[0].shape[1], images[0].shape[0])
+        fps = 1000 / interval
+
+        fourcc = cv2.VideoWriter_fourcc(*"XVID")
+        writer = cv2.VideoWriter(path, fourcc, fps, capSize)
+        for img in images:
+            writer.write(img)
+        writer.release()
+
     def display(
         self,
         interval: float = -1,  # ms

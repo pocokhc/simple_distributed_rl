@@ -953,6 +953,101 @@ class RunnerFacade(Runner):
 
         return state
 
+    def animation_save_avi(
+        self,
+        path: str,
+        # rendering
+        render_kwargs: dict = {},
+        step_stop: bool = False,
+        render_skip_step: bool = True,
+        # render option
+        render_interval: float = -1,  # ms
+        render_scale: float = 1.0,
+        font_name: str = "",
+        font_size: int = 18,
+        #
+        draw_info: bool = True,
+        # --- stop config
+        timeout: float = -1,
+        max_steps: int = -1,
+        # --- progress
+        enable_progress: bool = True,
+        # --- other
+        callbacks: List[CallbackType] = [],
+    ):
+        callbacks = callbacks[:]
+        mode = RenderModes.rgb_array
+
+        # --- set context
+        self.context.run_name = RunNameTypes.main
+        # stop config
+        self.context.max_episodes = 1
+        self.context.timeout = timeout
+        self.context.max_steps = max_steps
+        self.context.max_train_count = 0
+        self.context.max_memory = 0
+        # play config
+        self.context.shuffle_player = False
+        self.context.disable_trainer = True
+        # play info
+        self.context.distributed = False
+        self.context.training = False
+        self.context.render_mode = mode
+
+        # --- rendering ---
+        from srl.runner.callbacks.rendering import Rendering
+
+        rendering = Rendering(
+            mode=mode,
+            kwargs=render_kwargs,
+            step_stop=step_stop,
+            render_skip_step=render_skip_step,
+            render_interval=render_interval,
+            render_scale=render_scale,
+            font_name=font_name,
+            font_size=font_size,
+        )
+        callbacks.append(rendering)
+        logger.info("add callback Rendering")
+        # -----------------
+
+        # --- progress ---
+        if enable_progress:
+            from srl.runner.callbacks.print_progress import PrintProgress
+
+            callbacks.append(
+                PrintProgress(
+                    enable_eval=False,
+                    **self._progress_kwargs,
+                )
+            )
+            logger.info("add callback PrintProgress")
+        # ----------------
+
+        self._base_run_play_before(
+            enable_checkpoint=False,
+            enable_history_on_memory=False,
+            enable_history_on_file=False,
+            callbacks=callbacks,
+        )
+        state = cast(
+            RunStateActor,
+            self.base_run_play(
+                parameter=None,
+                memory=None,
+                trainer=None,
+                workers=None,
+                callbacks=callbacks,
+                enable_generator=False,
+            ),
+        )
+        print(f"animation_save_avi step: {state.total_step}, reward: {state.episode_rewards_list[0]}")
+        rendering.save_avi(path, render_interval, draw_info)
+
+        self._base_run_play_after(callbacks=callbacks)
+
+        return state
+
     def animation_display(
         self,
         # rendering

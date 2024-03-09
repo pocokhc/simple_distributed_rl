@@ -343,7 +343,7 @@ class RLConfig(ABC):
             elif getattr(self, "_is_setup", False):
                 if name not in getattr(self, "_changeable_parameter_names", []):
                     s = f"Parameter has been rewritten. '{name}' : '{getattr(self,name)}' -> '{value}'"
-                    logger.warning(s)
+                    logger.info(s)
 
         object.__setattr__(self, name, value)
 

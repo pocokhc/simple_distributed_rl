@@ -4,6 +4,7 @@ import pickle
 import time
 import traceback
 import uuid
+import zlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional, Union, cast
 
@@ -114,8 +115,8 @@ class TaskManager:
 
         self._connector.set(f"{self.task_name}:id", self.params.task_id)
         self._connector.set(f"{self.task_name}:version", self.params.version)
-        self._connector.set(f"{self.task_name}:raw:config", pickle.dumps(task_config))
-        self._connector.set(f"{self.task_name}:raw:parameter", pickle.dumps(parameter.backup(to_cpu=True)))
+        self.write_config(task_config)
+        self.write_parameter(parameter)
         self._connector.set(f"{self.task_name}:actor_num", str(self.params.actor_num))
         self._connector.set(f"{self.task_name}:max_train_count", str(self.params.max_train_count))
         self._connector.set(f"{self.task_name}:timeout", str(self.params.timeout))
@@ -159,16 +160,21 @@ class TaskManager:
         except Exception as e:
             logger.info(f"SRL version check fail: {e}")
 
+    def write_config(self, config: TaskConfig):
+        val = zlib.compress(pickle.dumps(config))
+        self._connector.set(f"{self.task_name}:raw:config", val)
+
     def get_config(self) -> Optional[TaskConfig]:
         if self._config is not None:
             return self._config
         body = self._connector.get(f"{self.task_name}:raw:config")
         if body is None:
             return None
-        self._config = cast(TaskConfig, pickle.loads(body))
+        body = pickle.loads(zlib.decompress(body))
+        self._config = cast(TaskConfig, body)
 
         # device
-        self._config.context.create_controller().set_device(
+        self._config.context.set_device(
             self.params.framework,
             self.params.used_device_tf,
             self.params.used_device_torch,
@@ -306,6 +312,12 @@ class TaskManager:
     # ---------------------------------
     # runner
     # ---------------------------------
+    def write_parameter(self, parameter: RLParameter):
+        params = parameter.backup(to_cpu=True)
+        if params is None:
+            return
+        self._connector.parameter_update(params)
+
     def read_parameter(self, parameter: RLParameter) -> bool:
         params = self._connector.parameter_read()
         if params is None:
@@ -357,7 +369,8 @@ class TaskManager:
         callbacks = callbacks[:]
 
         if enable_progress:
-            from srl.runner.distribution.callbacks.print_progress import PrintProgress
+            from srl.runner.distribution.callbacks.print_progress import \
+                PrintProgress
 
             callbacks.append(
                 PrintProgress(
@@ -392,7 +405,8 @@ class TaskManager:
             logger.info(f"add callback Checkpoint: {checkpoint_save_dir}")
 
         if history_save_dir != "":
-            from srl.runner.distribution.callbacks.history_on_file import HistoryOnFile
+            from srl.runner.distribution.callbacks.history_on_file import \
+                HistoryOnFile
 
             callbacks.append(
                 HistoryOnFile(

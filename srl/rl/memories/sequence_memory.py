@@ -28,7 +28,7 @@ class SequenceMemory(RLMemory):
     def add(self, batch: Any) -> None:
         self.buffer.append(batch)
 
-    def sample(self, step: int = 0, batch_size: int = -1) -> List[Any]:
+    def sample(self) -> List[Any]:
         buffer = self.buffer
         self.buffer = []
         return buffer

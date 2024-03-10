@@ -1,3 +1,6 @@
+import pickle
+import zlib
+
 import pytest
 import pytest_mock
 import pytest_timeout  # noqa F401
@@ -144,21 +147,21 @@ def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
     # add batch
     memory_sender = memory_params2.create_memory_sender()
     for _ in range(100):
-        memory_sender.memory_add(
-            (
-                {
-                    "states": ["1,3", "1,3"],
-                    "actions": [0],
-                    "probs": [0.25],
-                    "ext_rewards": [-0.03999999910593033],
-                    "int_rewards": [5.0],
-                    "invalid_actions": [[], []],
-                    "done": False,
-                    "discount": 0.9999,
-                },
-                0,
-            )
+        dat = (
+            {
+                "states": ["1,3", "1,3"],
+                "actions": [0],
+                "probs": [0.25],
+                "ext_rewards": [-0.03999999910593033],
+                "int_rewards": [5.0],
+                "invalid_actions": [[], []],
+                "done": False,
+                "discount": 0.9999,
+            },
+            0,
         )
+        dat = zlib.compress(pickle.dumps(dat))
+        memory_sender.memory_add(dat)
 
     # --- run
     assert task_manager.get_trainer("train") == ""

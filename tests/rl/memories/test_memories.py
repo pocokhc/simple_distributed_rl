@@ -1,13 +1,15 @@
+from dataclasses import dataclass
+
 import numpy as np
 
-from srl.base.rl.base import RLMemory
+from srl.base.rl.base import DummyRLConfig, RLMemory
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
 from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
 from srl.rl.memories.sequence_memory import SequenceMemory
 
 
 def test_sequence_memory():
-    memory = SequenceMemory(None)
+    memory = SequenceMemory(DummyRLConfig())
     assert memory.length() == 0
     assert memory.is_warmup_needed()
 
@@ -59,15 +61,15 @@ def _play_memory_sub(
     # --- loop
     for i in range(100):
         if not is_priority:
-            batchs = memory.sample(batch_size, i)
+            batchs = memory.sample(batch_size)
             assert len(batchs) == 5
             assert memory.length() == capacity
         else:
-            (indices, batchs, weights) = memory.sample(batch_size, i)
+            indices, batchs, weights = memory.sample(batch_size, i)
             assert len(batchs) == 5
             assert len(weights) == 5
 
-            memory.update((indices, batchs, np.array([b[3] for b in batchs])))
+            memory.update(indices, batchs, np.array([b[3] for b in batchs]))
             assert memory.length() == capacity
             assert not memory.is_warmup_needed()
 
@@ -77,7 +79,11 @@ def test_experience_replay_buffer():
     warmup_size = 5
     batch_size = 5
 
-    conf = ExperienceReplayBufferConfig()
+    @dataclass
+    class C(DummyRLConfig, ExperienceReplayBufferConfig):
+        pass
+
+    conf = C()
     conf.memory.capacity = capacity
     conf.memory.warmup_size = warmup_size
     conf.batch_size = batch_size
@@ -99,25 +105,30 @@ def _play_priority_memories(conf: PriorityExperienceReplayConfig):
     _play_memory_sub(memory, capacity, warmup_size, batch_size, is_priority=True)
 
 
+@dataclass
+class _C_PER(DummyRLConfig, PriorityExperienceReplayConfig):
+    pass
+
+
 def test_replay_memory():
-    conf = PriorityExperienceReplayConfig()
+    conf = _C_PER()
     conf.memory.set_replay_memory()
     _play_priority_memories(conf)
 
 
 def test_proportional_memory():
-    conf = PriorityExperienceReplayConfig()
+    conf = _C_PER()
     conf.memory.set_proportional_memory()
     _play_priority_memories(conf)
 
 
 def test_rankbase_memory():
-    conf = PriorityExperienceReplayConfig()
+    conf = _C_PER()
     conf.memory.set_rankbase_memory()
     _play_priority_memories(conf)
 
 
 def test_rankbase_memory_linear():
-    conf = PriorityExperienceReplayConfig()
+    conf = _C_PER()
     conf.memory.set_rankbase_memory_linear()
     _play_priority_memories(conf)

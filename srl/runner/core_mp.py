@@ -18,6 +18,7 @@ from srl.base.run.context import RunContext, RunNameTypes
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.runner import CallbackType, TaskConfig
+import zlib
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ class _ActorRLMemory(IRLMemoryWorker):
             if self.end_signal.value:
                 break
             if self.remote_qsize.value < self.remote_q_capacity:
+                args = zlib.compress(pickle.dumps(args))
                 self.remote_queue.put(args)
                 with self.remote_qsize.get_lock():
                     self.remote_qsize.value += 1
@@ -193,6 +195,7 @@ def _run_actor(
             memory=memory,
             trainer=None,
             workers=None,
+            main_worker_idx=0,
             callbacks=task_config.callbacks,
             enable_generator=False,
         )
@@ -232,6 +235,7 @@ def _memory_communicate(
                 batch = remote_queue.get(timeout=5)
                 with remote_qsize.get_lock():
                     remote_qsize.value -= 1
+                batch = pickle.loads(zlib.decompress(batch))
                 memory.add(*batch)
                 share_dict["q_recv"] += 1
     except MemoryError:

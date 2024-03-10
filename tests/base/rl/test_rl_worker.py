@@ -46,7 +46,7 @@ def test_invalid_actions():
     play(
         context,
         env,
-        DummyRLParameter(),
-        DummyRLMemory(),
         workers=[worker, srl.make_worker_rulebase("random", env)],
+        main_worker_idx=0,
+        trainer=None,
     )

@@ -42,8 +42,7 @@ def test_to_dict():
     c.env_config.gym_make_func = _dummy  # type: ignore
     c.env_config.kwargs = {"a": 1, "not_json_class": NotJsonClass()}
 
-    controller = c.create_controller()
-    json_dict = controller.to_dict()
+    json_dict = c.to_dict()
     pprint(json_dict)
     json.dumps(json_dict)
 
@@ -94,11 +93,11 @@ def test_make_workers():
     memory = srl.make_memory(rl_config)
 
     c = RunContext(env_config, rl_config)
-    controller = c.create_controller()
 
     # --- non
-    workers = controller.make_workers(env, parameter, memory)
+    workers, main_worker_idx = c.make_workers(env, parameter, memory)
     assert len(workers) == 8
+    assert main_worker_idx == 0
     assert workers[0].config.getName() == "QL"
     for i in range(1, len(workers)):
         assert workers[i].config.getName() == "random"
@@ -117,8 +116,9 @@ def test_make_workers():
         None,  # share param
         None,  # out of index
     ]
-    workers = controller.make_workers(env, parameter, memory)
+    workers, main_worker_idx = c.make_workers(env, parameter, memory)
     assert len(workers) == 8
+    assert main_worker_idx == 6
     assert isinstance(workers[0].worker, StubEnvWorker)
     assert isinstance(workers[1].worker, StubEnvWorker)
     assert workers[0].worker != workers[1].worker

@@ -94,10 +94,10 @@ def main():
     env = srl.make_env(env_config)
     rl_config.setup(env)
     parameter = srl.make_parameter(rl_config)
-    remote_memory = srl.make_memory(rl_config)
-    trainer = srl.make_trainer(rl_config, parameter, remote_memory)
+    memory = srl.make_memory(rl_config)
+    trainer = srl.make_trainer(rl_config, parameter, memory)
     workers = [
-        srl.make_worker(rl_config, env, parameter, remote_memory),
+        srl.make_worker(rl_config, env, parameter, memory),
         srl.make_worker_rulebase("random", env),
     ]
 

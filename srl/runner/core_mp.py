@@ -1,13 +1,14 @@
 import ctypes
 import logging
 import multiprocessing as mp
-import os
 import pickle
+import queue
 import threading
 import time
 import traceback
-from multiprocessing.managers import BaseManager
-from typing import Any, List, cast
+from multiprocessing import sharedctypes
+from multiprocessing.managers import ValueProxy
+from typing import List, Optional, cast
 
 import srl
 from srl.base.define import RLMemoryTypes
@@ -39,35 +40,24 @@ RuntimeError:
 
 
 # --------------------
-# board
-# --------------------
-class _Board:
-    def __init__(self):
-        self.params = None
-
-    def write(self, params):
-        self.params = params
-
-    def read(self):
-        return self.params
-
-
-# --------------------
 # actor
 # --------------------
 class _ActorRLMemory(IRLMemoryWorker):
-    def __init__(self, remote_queue: mp.Queue, end_signal: ctypes.c_bool):
+    def __init__(
+        self,
+        remote_queue: queue.Queue,
+        remote_qsize: sharedctypes.Synchronized,
+        remote_q_capacity: int,
+        end_signal: ValueProxy[bool],
+        actor_id: int,
+    ):
         self.remote_queue = remote_queue
+        self.remote_qsize = remote_qsize
+        self.remote_q_capacity = remote_q_capacity
         self.end_signal = end_signal
+        self.actor_id = actor_id
         self.q_send = 0
-
-        # [1] qsizeはMACで例外が出る可能性がある
-        # https://docs.python.org/ja/3/library/multiprocessing.html#multiprocessing.Queue
-        try:
-            self.remote_queue.qsize()
-            self.used_qsize = True
-        except NotImplementedError:
-            self.used_qsize = False
+        self.t0_health = time.time()  # [2]
 
     @property
     def memory_type(self) -> RLMemoryTypes:
@@ -78,35 +68,41 @@ class _ActorRLMemory(IRLMemoryWorker):
         while True:
             if self.end_signal.value:
                 break
-            # [1] qsizeはMACで例外が出る可能性があるので使用しない
-            if not self.remote_queue.full():
+            if self.remote_qsize.value < self.remote_q_capacity:
                 self.remote_queue.put(args)
+                with self.remote_qsize.get_lock():
+                    self.remote_qsize.value += 1
                 self.q_send += 1
                 break
+
+            # [2] 親プロセスの生存確認
+            if time.time() - self.t0_health > 5:
+                pparent = mp.parent_process()
+                assert pparent is not None
+                if not pparent.is_alive():
+                    self.end_signal.value = True
+                    logger.info(f"[actor{self.actor_id}] end_signal=True (parent process dead)")
+                    break
+                self.t0_health = time.time()
+
             if time.time() - t0 > 9:
                 t0 = time.time()
-                if self.used_qsize:
-                    s = f"[actor] queue capacity over: {self.remote_queue.qsize()}"
-                else:
-                    s = "[actor] queue capacity over"
+                s = f"[actor{self.actor_id}] The queue is full so I will wait. {self.remote_qsize.value}"
                 print(s)
                 logger.info(s)
                 break  # 終了条件用に1step進める
             time.sleep(1)
 
     def length(self) -> int:
-        if self.used_qsize:
-            return self.remote_queue.qsize()
-        else:
-            return -1
+        return self.remote_qsize.value
 
 
 class _ActorInterrupt(RunCallback):
     def __init__(
         self,
-        remote_board: _Board,
+        remote_board: ValueProxy[Optional[bytes]],
         parameter: RLParameter,
-        end_signal: ctypes.c_bool,
+        end_signal: ValueProxy[bool],
         actor_parameter_sync_interval: int,
     ) -> None:
         self.remote_board = remote_board
@@ -115,17 +111,19 @@ class _ActorInterrupt(RunCallback):
         self.actor_parameter_sync_interval = actor_parameter_sync_interval
 
         self.t0 = time.time()
-        self.t0_health = time.time()
+        self.t0_health = time.time()  # [2]
 
     def on_episodes_begin(self, context: RunContext, state: RunStateActor):
         state.sync_actor = 0
 
     def on_step_end(self, context: RunContext, state: RunStateActor) -> bool:
-        if time.time() - self.t0_health > 10:
-            # getppid は重い
-            if os.getppid() == 1:
+        # [2] 親プロセスの生存確認
+        if time.time() - self.t0_health > 5:
+            pparent = mp.parent_process()
+            assert pparent is not None
+            if not pparent.is_alive():
                 self.end_signal.value = True
-                logger.info("[actor] end_signal: True")
+                logger.info(f"[actor{context.actor_id}] end_signal=True (parent process dead)")
                 return True
             self.t0_health = time.time()
 
@@ -134,7 +132,7 @@ class _ActorInterrupt(RunCallback):
         state.actor_send_q = cast(_ActorRLMemory, state.memory).q_send
 
         self.t0 = time.time()
-        params = self.remote_board.read()
+        params = self.remote_board.value
         if params is None:
             return self.end_signal.value
         self.parameter.restore(pickle.loads(params), from_cpu=True)
@@ -144,10 +142,12 @@ class _ActorInterrupt(RunCallback):
 
 def _run_actor(
     task_config: TaskConfig,
-    remote_queue: mp.Queue,
-    remote_board: _Board,
+    remote_queue: queue.Queue,
+    remote_qsize: sharedctypes.Synchronized,
+    remote_q_capacity: int,
+    remote_board: ValueProxy[Optional[bytes]],
     actor_id: int,
-    end_signal: ctypes.c_bool,
+    end_signal: ValueProxy[bool],
 ):
     try:
         logger.info(f"[actor{actor_id}] start.")
@@ -165,14 +165,14 @@ def _run_actor(
 
         # --- parameter
         parameter = runner.make_parameter(is_load=False)
-        params = remote_board.read()
+        params = remote_board.value
         if params is not None:
             parameter.restore(pickle.loads(params), from_cpu=True)
 
         # --- memory
         memory = cast(
             RLMemory,
-            _ActorRLMemory(remote_queue, end_signal),
+            _ActorRLMemory(remote_queue, remote_qsize, remote_q_capacity, end_signal, actor_id),
         )
 
         # --- callback
@@ -196,9 +196,22 @@ def _run_actor(
             callbacks=task_config.callbacks,
             enable_generator=False,
         )
+    except MemoryError:
+        import gc
+
+        gc.collect()
+
+        logger.error(traceback.format_exc())
+        logger.error(f"[actor{actor_id}] error")
+    except Exception:
+        logger.error(traceback.format_exc())
+        logger.error(f"[actor{actor_id}] error")
     finally:
-        end_signal.value = True
-        logger.info(f"[actor{actor_id}] end")
+        if not end_signal.value:
+            end_signal.value = True
+            logger.info(f"[actor{actor_id}] end_signal=True (actor thread end)")
+        else:
+            logger.info(f"[actor{actor_id}] end")
 
 
 # --------------------
@@ -206,8 +219,9 @@ def _run_actor(
 # --------------------
 def _memory_communicate(
     memory: RLMemory,
-    remote_queue: mp.Queue,
-    end_signal: ctypes.c_bool,
+    remote_queue: queue.Queue,
+    remote_qsize: sharedctypes.Synchronized,
+    end_signal: ValueProxy[bool],
     share_dict: dict,
 ):
     try:
@@ -215,22 +229,31 @@ def _memory_communicate(
             if remote_queue.empty():
                 time.sleep(0.1)
             else:
-                # [1] qsizeはMACで例外が出る可能性があるので使用しない
                 batch = remote_queue.get(timeout=5)
+                with remote_qsize.get_lock():
+                    remote_qsize.value -= 1
                 memory.add(*batch)
                 share_dict["q_recv"] += 1
+    except MemoryError:
+        import gc
 
+        gc.collect()
+
+        logger.error(traceback.format_exc())
+        end_signal.value = True
+        logger.info("[trainer] end_signal=True (memory thread MemoryError)")
     except Exception:
         logger.error(traceback.format_exc())
-    finally:
         end_signal.value = True
-        logger.info("[trainer] memory thread end.")
+        logger.info("[trainer] end_signal=True (memory thread error)")
+    finally:
+        logger.info("[trainer] memory thread end")
 
 
 def _parameter_communicate(
     parameter: RLParameter,
-    remote_board: _Board,
-    end_signal: ctypes.c_bool,
+    remote_board: ValueProxy[Optional[bytes]],
+    end_signal: ValueProxy[bool],
     share_dict: dict,
     trainer_parameter_send_interval: int,
 ):
@@ -239,26 +262,47 @@ def _parameter_communicate(
             time.sleep(trainer_parameter_send_interval)
             params = parameter.backup(to_cpu=True)
             if params is not None:
-                remote_board.write(pickle.dumps(params))
+                remote_board.set(pickle.dumps(params))
                 share_dict["sync_count"] += 1
+    except MemoryError:
+        import gc
 
+        gc.collect()
+
+        logger.error(traceback.format_exc())
+        end_signal.value = True
+        logger.info("[trainer] end_signal=True (parameter thread MemoryError)")
     except Exception:
         logger.error(traceback.format_exc())
-    finally:
         end_signal.value = True
-        logger.info("[trainer] parameter thread end.")
+        logger.info("[trainer] end_signal=True (parameter thread error)")
+    finally:
+        logger.info("[trainer] parameter thread end")
 
 
 class _TrainerInterrupt(TrainerCallback):
-    def __init__(self, end_signal: ctypes.c_bool, share_dict: dict) -> None:
+    def __init__(
+        self,
+        end_signal: ValueProxy[bool],
+        share_dict: dict,
+        memory_ps: threading.Thread,
+        parameter_ps: threading.Thread,
+    ) -> None:
         self.end_signal = end_signal
         self.share_dict = share_dict
+        self.memory_ps = memory_ps
+        self.parameter_ps = parameter_ps
+        self.t0_health = time.time()
 
     def on_trainer_loop(self, context: RunContext, state: RunStateTrainer) -> bool:
         if not state.is_step_trained:
-            # warmupなら待機
-            time.sleep(1)
-
+            time.sleep(1)  # warmupなら待機
+        if time.time() - self.t0_health > 5:
+            self.t0_health = time.time()
+            if not self.memory_ps.is_alive():
+                return True
+            if not self.parameter_ps.is_alive():
+                return True
         state.sync_trainer = self.share_dict["sync_count"]
         state.trainer_recv_q = self.share_dict["q_recv"]
         return self.end_signal.value
@@ -268,73 +312,81 @@ def _run_trainer(
     task_config: TaskConfig,
     parameter: RLParameter,
     memory: RLMemory,
-    remote_queue: mp.Queue,
-    remote_board: _Board,
-    end_signal: ctypes.c_bool,
+    remote_queue: queue.Queue,
+    remote_qsize: sharedctypes.Synchronized,
+    remote_board: ValueProxy[Optional[bytes]],
+    end_signal: ValueProxy[bool],
 ):
-    logger.info("[trainer] start.")
-    task_config.context.run_name = RunNameTypes.trainer
+    try:
+        logger.info("[trainer] start.")
+        task_config.context.run_name = RunNameTypes.trainer
 
-    # --- runner
-    runner = srl.Runner(
-        task_config.context.env_config,
-        task_config.context.rl_config,
-        task_config.config,
-        task_config.context,
-    )
+        # --- runner
+        runner = srl.Runner(
+            task_config.context.env_config,
+            task_config.context.rl_config,
+            task_config.config,
+            task_config.context,
+        )
 
-    # --- thread
-    share_dict = {
-        "sync_count": 0,
-        "q_recv": 0,
-    }
-    memory_ps = threading.Thread(
-        target=_memory_communicate,
-        args=(
-            memory,
-            remote_queue,
-            end_signal,
-            share_dict,
-        ),
-    )
-    parameter_ps = threading.Thread(
-        target=_parameter_communicate,
-        args=(
-            parameter,
-            remote_board,
-            end_signal,
-            share_dict,
-            task_config.config.trainer_parameter_send_interval,
-        ),
-    )
-    memory_ps.start()
-    parameter_ps.start()
+        # --- thread
+        share_dict = {
+            "sync_count": 0,
+            "q_recv": 0,
+        }
+        memory_ps = threading.Thread(
+            target=_memory_communicate,
+            args=(
+                memory,
+                remote_queue,
+                remote_qsize,
+                end_signal,
+                share_dict,
+            ),
+        )
+        parameter_ps = threading.Thread(
+            target=_parameter_communicate,
+            args=(
+                parameter,
+                remote_board,
+                end_signal,
+                share_dict,
+                task_config.config.trainer_parameter_send_interval,
+            ),
+        )
+        memory_ps.start()
+        parameter_ps.start()
 
-    # --- train
-    task_config.callbacks.append(_TrainerInterrupt(end_signal, share_dict))
-    runner.context.training = True
-    runner.base_run_play_trainer_only(
-        parameter=parameter,
-        memory=memory,
-        trainer=None,
-        callbacks=task_config.callbacks,
-    )
-    end_signal.value = True
-    logger.info("[trainer] end_signal: True")
+        # --- train
+        task_config.callbacks.append(
+            _TrainerInterrupt(
+                end_signal,
+                share_dict,
+                memory_ps,
+                parameter_ps,
+            )
+        )
+        runner.context.training = True
+        runner.base_run_play_trainer_only(
+            parameter=parameter,
+            memory=memory,
+            trainer=None,
+            callbacks=task_config.callbacks,
+        )
+        if not end_signal.value:
+            end_signal.value = True
+            logger.info("[trainer] end_signal=True (trainer end)")
 
-    # thread end
-    memory_ps.join(timeout=10)
-    parameter_ps.join(timeout=10)
-    logger.info("[trainer] end")
+        # thread end
+        memory_ps.join(timeout=10)
+        parameter_ps.join(timeout=10)
+    finally:
+        logger.info("[trainer] end")
 
 
 # ----------------------------
 # train
 # ----------------------------
-class MPManager(BaseManager):
-    pass
-
-
 __is_set_start_method = False
 
 
@@ -368,21 +420,30 @@ def train(runner: srl.Runner, callbacks: List[CallbackType]):
             mp.set_start_method("spawn", force=True)
             __is_set_start_method = True
 
-    MPManager.register("Board", _Board)
     mp_data = runner.create_task_config(callbacks)
 
-    # --- share values
-    end_signal = cast(ctypes.c_bool, mp.Value(ctypes.c_bool, False))
-    remote_queue = mp.Queue(mp_data.config.dist_queue_capacity)
-    with MPManager() as manager:
-        remote_board: _Board = cast(Any, manager).Board()
+    """ note
+    - mp.Queue + BaseManager
+      - qsizeはmacOSで例外が出る可能性あり(https://docs.python.org/ja/3/library/multiprocessing.html#multiprocessing.Queue)
+      - 終了時にqueueにデータがあると子プロセス(actor)が終了しない
+    - Manager.Queue
+      - 終了時のqueue.getがものすごい時間がかかる
+      - 終了時にqueueにデータがあっても終了する
+      - qsizeがmacOSで使えるかは未確認
+    """
+    with mp.Manager() as manager:
+        remote_queue = manager.Queue()
+        # manager.Value : https://github.com/python/cpython/issues/79967
+        remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
+        remote_board: ValueProxy[Optional[bytes]] = manager.Value(ctypes.c_char_p, None)
+        end_signal = manager.Value(ctypes.c_bool, False)
 
         # --- init remote_memory/parameter
         parameter = runner.make_parameter()
         memory = runner.make_memory()
         params = parameter.backup(to_cpu=True)
         if params is not None:
-            remote_board.write(pickle.dumps(params))
+            remote_board.set(pickle.dumps(params))
 
         # --- actor ---
         actors_ps_list: List[mp.Process] = []
@@ -390,6 +451,8 @@ def train(runner: srl.Runner, callbacks: List[CallbackType]):
             params = (
                 mp_data,
                 remote_queue,
+                remote_qsize,
+                mp_data.config.dist_queue_capacity,
                 remote_board,
                 actor_id,
                 end_signal,
@@ -399,7 +462,7 @@ def train(runner: srl.Runner, callbacks: List[CallbackType]):
         # -------------
 
         # --- start
-        logger.debug("[main] process start")
+        logger.info("[main] process start")
         [p.start() for p in actors_ps_list]
 
         # train
@@ -409,25 +472,16 @@ def train(runner: srl.Runner, callbacks: List[CallbackType]):
                 parameter,
                 memory,
                 remote_queue,
+                remote_qsize,
                 remote_board,
                 end_signal,
             )
         finally:
-            end_signal.value = True
-            logger.info("[main] end_signal: True")
+            if not end_signal.value:
+                end_signal.value = True
+                logger.info("[main] end_signal=True (trainer end)")
 
         # --- プロセスの終了を待つ
-        # qが残っているとactorプロセスが終わらない
-        # [1] qsizeはMACで例外が出る可能性がある
-        # print(remote_queue.qsize(), remote_queue.empty())
-        try:
-            for _ in range(remote_queue.qsize()):
-                remote_queue.get(timeout=1)
-        except NotImplementedError:
-            while not remote_queue.empty():
-                remote_queue.get(timeout=1)
-        # print(remote_queue.qsize(), remote_queue.empty())
-
         for i, w in enumerate(actors_ps_list):
             for _ in range(10):
                 if w.is_alive():

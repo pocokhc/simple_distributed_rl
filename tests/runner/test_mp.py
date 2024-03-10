@@ -1,7 +1,9 @@
 import ctypes
 import multiprocessing as mp
+from multiprocessing import sharedctypes
+from multiprocessing.managers import ValueProxy
 import queue
-from typing import cast
+from typing import Optional, cast
 
 import numpy as np
 import pytest
@@ -13,7 +15,7 @@ from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
-from srl.runner.core_mp import _Board, _run_actor, _run_trainer
+from srl.runner.core_mp import _run_actor, _run_trainer
 from srl.utils import common
 
 
@@ -30,10 +32,10 @@ class _AssertTrainCallbacks(RunCallback, TrainerCallback):
 def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     common.logger_print()
 
-    remote_queue = cast(mp.Queue, queue.Queue())
-    remote_board = mocker.Mock(spec=_Board)
-    remote_board.read.return_value = None
-    train_end_signal = cast(ctypes.c_bool, mp.Value(ctypes.c_bool, False))
+    remote_queue = queue.Queue()
+    remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
+    remote_board = cast(ValueProxy[Optional[bytes]], mp.Value(ctypes.c_char_p, False))
+    end_signal = cast(ValueProxy[bool], mp.Value(ctypes.c_bool, False))
 
     # --- create task
     c = mocker.Mock(spec=RunCallback)
@@ -50,18 +52,26 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     if interrupt_stop:
 
         class _c2(RunCallback):
-            def __init__(self, train_end_signal: ctypes.c_bool):
-                self.train_end_signal = train_end_signal
+            def __init__(self, end_signal: ValueProxy[bool]):
+                self.end_signal = end_signal
 
             def on_episode_end(self, context: RunContext, state: RunStateActor) -> None:
-                self.train_end_signal.value = True
+                self.end_signal.value = True
 
-        task_config.callbacks.append(_c2(train_end_signal))
+        task_config.callbacks.append(_c2(end_signal))
 
     # --- run
-    _run_actor(task_config, remote_queue, remote_board, 0, train_end_signal)
+    _run_actor(
+        task_config,
+        remote_queue,
+        remote_qsize,
+        1000,
+        remote_board,
+        0,
+        end_signal,
+    )
 
-    assert train_end_signal.value
+    assert end_signal.value
     assert c.on_episodes_begin.call_count > 0
     assert c.on_episodes_end.call_count > 0
     assert remote_queue.qsize() > 0
@@ -76,9 +86,10 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
 def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch, interrupt_stop: bool):
     common.logger_print()
 
-    remote_queue = cast(mp.Queue, queue.Queue())
-    remote_board = mocker.Mock(spec=_Board)
-    train_end_signal = cast(ctypes.c_bool, mp.Value(ctypes.c_bool, False))
+    remote_queue = queue.Queue()
+    remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
+    remote_board = cast(ValueProxy[Optional[bytes]], mp.Value(ctypes.c_char_p, False))
+    end_signal = cast(ValueProxy[bool], mp.Value(ctypes.c_bool, False))
 
     # --- create task
     c = mocker.Mock(spec=TrainerCallback)
@@ -100,7 +111,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
     if interrupt_stop:
 
         class _c2(TrainerCallback):
-            def __init__(self, train_end_signal: ctypes.c_bool):
+            def __init__(self, train_end_signal: ValueProxy[bool]):
                 self.train_end_signal = train_end_signal
 
             def on_trainer_loop(self, context: RunContext, state: RunStateTrainer) -> None:
@@ -108,7 +119,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
                 if state.trainer.get_train_count() > 10:
                     self.train_end_signal.value = True
 
-        task_config.callbacks.append(_c2(train_end_signal))
+        task_config.callbacks.append(_c2(end_signal))
 
     # --- add queue
     for _ in range(100):
@@ -134,11 +145,12 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
         runner.make_parameter(),
         runner.make_memory(),
         remote_queue,
+        remote_qsize,
         remote_board,
-        train_end_signal,
+        end_signal,
     )
 
-    assert train_end_signal.value
+    assert end_signal.value
     assert c.on_trainer_start.call_count > 0
     assert c.on_trainer_end.call_count > 0
 

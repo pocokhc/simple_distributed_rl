@@ -160,13 +160,16 @@ class PriorityExperienceReplay(RLMemory):
         return self.memory.length() < self.config.memory.warmup_size
 
     def add(self, batch: Any, priority: Optional[float] = None):
-        self.memory.add(batch, priority)
+        self.memory.add(self.conditional_compress(batch), priority)
 
     def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
-        return self.memory.sample(batch_size, step)
+        index_list, batchs, weights = self.memory.sample(batch_size, step)
+        batchs = [self.conditional_decompress(b) for b in batchs]
+        return index_list, batchs, weights
 
-    def update(self, memory_update_args: Tuple[List[int], List[Any], np.ndarray]) -> None:
-        self.memory.update(*memory_update_args)
+    def update(self, indices: List[int], batchs: List[Any], priorities: np.ndarray) -> None:
+        batchs = [self.conditional_compress(b) for b in batchs]
+        self.memory.update(indices, batchs, priorities)
 
     def call_backup(self, **kwargs):
         return self.memory.backup()

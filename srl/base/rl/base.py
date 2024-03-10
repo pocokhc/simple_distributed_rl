@@ -95,7 +95,7 @@ class IRLMemoryWorker(_IRLMemoryBase):
         raise NotImplementedError()
 
 
-class UnusedRLMemoryWorker(IRLMemoryWorker):
+class DummyRLMemoryWorker(IRLMemoryWorker):
     @property
     def memory_type(self) -> RLMemoryTypes:
         return RLMemoryTypes.NONE
@@ -110,16 +110,17 @@ class IRLMemoryTrainer(_IRLMemoryBase):
         raise NotImplementedError()
 
     @abstractmethod
-    def sample(self, batch_size: int, step: int) -> Any:
+    def sample(self, *args) -> Any:
         raise NotImplementedError()
 
-    def update(self, memory_update_args: Any) -> None:
+    def update(self, *args) -> None:
         raise NotImplementedError()
 
 
 class RLMemory(IRLMemoryWorker, IRLMemoryTrainer):
     def __init__(self, config: RLConfig):
         self.config = config
+        self.compress = self.config.memory_compress
 
     @abstractmethod
     def call_backup(self, **kwargs) -> Any:
@@ -186,6 +187,20 @@ class RLMemory(IRLMemoryWorker, IRLMemoryTrainer):
                 dat = pickle.load(f)
         self.call_restore(dat, **kwargs)
         logger.info(f"memory loaded (size: {self.length()}, time: {time.time() - t0:.1f}s): {path}")
+
+    def conditional_compress(self, dat: Any) -> bytes:
+        if not self.compress:
+            return dat
+        import zlib
+
+        return zlib.compress(pickle.dumps(dat))
+
+    def conditional_decompress(self, raw: bytes) -> Any:
+        if not self.compress:
+            return raw
+        import zlib
+
+        return pickle.loads(zlib.decompress(raw))
 
 
 class DummyRLMemory(RLMemory):
@@ -276,8 +291,8 @@ class RLWorker(ABC, IRender):
         self, config: RLConfig, parameter: Optional[RLParameter] = None, memory: Optional[IRLMemoryWorker] = None
     ) -> None:
         self.config = config
-        self.parameter = parameter
-        self.memory = UnusedRLMemoryWorker() if memory is None else memory
+        self.parameter: RLParameter = DummyRLParameter(config) if parameter is None else parameter
+        self.memory: IRLMemoryWorker = DummyRLMemoryWorker() if memory is None else memory
 
     def _set_worker_run(self, worker: "WorkerRun"):
         """WorkerRunの初期化で呼ばれる"""

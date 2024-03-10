@@ -1,6 +1,7 @@
 import logging
 import pickle
 import traceback
+import zlib
 from typing import Any, List, Optional, Union, cast
 
 import redis
@@ -91,12 +92,12 @@ class RedisConnector(IParameterWriter, IParameterReader, IMemoryReceiver, IMemor
         self.server.rpush(key, value)
 
     # --- IParameterWriter
-    def parameter_update(self, parameter: Any):
+    def parameter_update(self, params: Any):
         try:
             if self.server is None:
                 self.connect()
                 assert self.server is not None
-            self.server.set(self.parameter.parameter_name, pickle.dumps(parameter))
+            self.server.set(self.parameter.parameter_name, zlib.compress(pickle.dumps(params)))
         except redis.RedisError:
             self.close()
             raise
@@ -108,7 +109,7 @@ class RedisConnector(IParameterWriter, IParameterReader, IMemoryReceiver, IMemor
                 self.connect()
                 assert self.server is not None
             params = self.get(self.parameter.parameter_name)
-            return params if params is None else pickle.loads(params)
+            return params if params is None else pickle.loads(zlib.decompress(params))
         except redis.RedisError:
             self.close()
             raise

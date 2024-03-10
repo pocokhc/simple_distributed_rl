@@ -64,6 +64,7 @@ class ExperienceReplayBuffer(RLMemory):
         return len(self.memory) < self.config.memory.warmup_size
 
     def add(self, batch: Any) -> None:
+        batch = self.conditional_compress(batch)
         if len(self.memory) < self.capacity:
             self.memory.append(batch)
         else:
@@ -72,8 +73,9 @@ class ExperienceReplayBuffer(RLMemory):
         if self.idx >= self.capacity:
             self.idx = 0
 
-    def sample(self, batch_size: int, step: int) -> List[Any]:
-        return random.sample(self.memory, batch_size if batch_size > 0 else self.batch_size)
+    def sample(self, batch_size: int) -> List[Any]:
+        batchs = random.sample(self.memory, batch_size if batch_size > 0 else self.batch_size)
+        return [self.conditional_decompress(b) for b in batchs]
 
     def call_backup(self, **kwargs):
         return [

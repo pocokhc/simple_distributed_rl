@@ -1,10 +1,12 @@
 import datetime
 import logging
+import pickle
 import queue
 import random
 import threading
 import time
 import traceback
+import zlib
 from typing import List, Optional, cast
 
 import srl
@@ -55,6 +57,7 @@ class _ActorRLMemoryThread(IRLMemoryWorker):
         t0 = time.time()
         while True:
             if self.q.qsize() < self.dist_queue_capacity / 2:
+                args = zlib.compress(pickle.dumps(args))
                 self.q.put(args)
                 break
 
@@ -233,6 +236,7 @@ class _ActorRLMemoryNoThread(IRLMemoryWorker):
                 # --- qが一定以下のみ送信
                 if remote_qsize < self.dist_queue_capacity:
                     try:
+                        args = zlib.compress(pickle.dumps(args))
                         self.remote_memory.memory_add(args)
                         self.q_send_count += 1
                     except Exception as e:
@@ -286,9 +290,9 @@ class _ActorInterruptNoThread(RunCallback):
         if time.time() - self.t0 > self.actor_parameter_sync_interval:
             self.t0 = time.time()
 
-            body = self.parameter_reader.parameter_read()
-            if body is not None:
-                self.parameter.restore(body, from_cpu=True)
+            params = self.parameter_reader.parameter_read()
+            if params is not None:
+                self.parameter.restore(params, from_cpu=True)
                 state.sync_actor += 1
 
         state.actor_send_q = state.memory.length()
@@ -372,6 +376,7 @@ def _run_actor(manager: ServerManager, runner: srl.Runner):
             memory=cast(RLMemory, memory),
             trainer=None,
             workers=None,
+            main_worker_idx=0,
             callbacks=callbacks,
             enable_generator=False,
         )

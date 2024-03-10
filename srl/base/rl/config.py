@@ -73,6 +73,9 @@ class RLConfig(ABC):
     #: window_length指定時の存在しないstepでの状態の値
     dummy_state_val: float = 0.0
 
+    #: memoryデータを圧縮してやり取りするかどうか
+    memory_compress: bool = True
+
     # --- other
     #: action/observationの値をエラーが出ないように可能な限り変換します。
     #: ※エラー終了の可能性は減りますが、値の変換等による予期しない動作を引き起こす可能性が高くなります

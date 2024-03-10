@@ -20,23 +20,24 @@ def main():
     parameter = srl.make_parameter(rl_config, env)
     memory = srl.make_memory(rl_config, env)
     trainer = srl.make_trainer(rl_config, parameter, memory)
+    workers = [srl.make_worker(rl_config, env, parameter, memory)]
 
     # --- train
     context.max_episodes = 10000
     context.training = True
-    play(context, env, parameter, memory, trainer)
+    play(context, env, workers, 0, trainer)
 
     # --- evaluate
     context.max_episodes = 100
     context.training = False
-    state = play(context, env, parameter, memory)
+    state = play(context, env, workers, 0)
     print(f"Average reward for 100 episodes: {np.mean(state.episode_rewards_list, axis=0)}")
 
     # --- render
     context.max_episodes = 1
     context.training = False
     context.render_mode = "terminal"
-    play(context, env, parameter, memory)
+    state = play(context, env, workers, 0)
 
 
 if __name__ == "__main__":

@@ -144,4 +144,4 @@ def test_play_worker():
     memory = srl.make_memory(rl_config, env)
     trainer = srl.make_trainer(rl_config, parameter, memory)
     worker = srl.make_worker(rl_config, env, parameter, memory)
-    play(context, env, parameter, memory, trainer, [worker])
+    play(context, env, [worker], 0, trainer)

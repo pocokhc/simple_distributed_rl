@@ -102,6 +102,7 @@ class RePlayableGame(GameWindow):
                 memory=None,
                 trainer=None,
                 workers=None,
+                main_worker_idx=0,
                 callbacks=[self.history],
                 enable_generator=False,
             )

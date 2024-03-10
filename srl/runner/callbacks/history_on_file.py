@@ -117,7 +117,7 @@ class HistoryOnFileBase:
         for fn, dat in [
             ["env_config.json", context.env_config.to_dict()],
             ["rl_config.json", context.rl_config.to_dict()],
-            ["context.json", context.create_controller().to_dict(skip_config=True)],
+            ["context.json", context.to_dict(skip_config=True)],
             ["config.json", config.to_dict()],
         ]:
             path = os.path.join(self.save_dir, fn)

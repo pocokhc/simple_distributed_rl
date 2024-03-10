@@ -7,7 +7,7 @@ from typing import Generator, List, Optional, Tuple
 
 from srl.base.define import EnvActionType
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter, RLTrainer
+from srl.base.rl.base import IRLMemoryWorker, RLParameter, RLTrainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.context import RunContext, RunNameTypes, RunStateBase
 from srl.utils import common
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RunStateActor(RunStateBase):
     env: EnvRun
+    worker: WorkerRun  # main worker
     workers: List[WorkerRun]
     memory: IRLMemoryWorker
     parameter: RLParameter
@@ -49,10 +50,9 @@ class RunStateActor(RunStateBase):
 def play(
     context: RunContext,
     env: EnvRun,
-    parameter: RLParameter,
-    memory: RLMemory,
+    workers: List[WorkerRun],
+    main_worker_idx: int,
     trainer: Optional[RLTrainer] = None,
-    workers: Optional[List[WorkerRun]] = None,
     callbacks: List[RunCallback] = [],
 ):
     if not context.distributed:
@@ -64,18 +64,17 @@ def play(
             or context.max_memory > 0
         ), "Please specify 'max_episodes', 'timeout' , 'max_steps' or 'max_train_count' or 'max_memory'."
         if context.max_memory > 0:
+            memory = workers[main_worker_idx].worker.memory
             if hasattr(memory, "config"):
                 _m = getattr(memory.config, "memory", None)
                 if _m is not None:
                     assert context.max_memory <= getattr(_m, "capacity", 0)
 
-    # --- make instance
+    # --- check trainer
     if context.disable_trainer:
         trainer = None
     elif context.training:
         assert trainer is not None
-    if workers is None:
-        workers = context.create_controller().make_workers(env, parameter, memory)
 
     # --- play tf
     if context.enable_tf_device and context.framework == "tensorflow":
@@ -85,22 +84,28 @@ def play(
             if context.run_name != RunNameTypes.eval:
                 logger.info(f"tf.device({context.used_device_tf})")
             with tf.device(context.used_device_tf):  # type: ignore
-                return _play(context, env, parameter, memory, trainer, workers, callbacks)
-    return _play(context, env, parameter, memory, trainer, workers, callbacks)
+                return _play(context, env, workers, main_worker_idx, trainer, callbacks)
+    return _play(context, env, workers, main_worker_idx, trainer, callbacks)
 
 
 def _play(
     context: RunContext,
     env: EnvRun,
-    parameter: RLParameter,
-    memory: RLMemory,
-    trainer: Optional[RLTrainer],
     workers: List[WorkerRun],
+    main_worker_idx: int,
+    trainer: Optional[RLTrainer],
     callbacks: List[RunCallback],
 ) -> RunStateActor:
     assert env.player_num == len(workers)
-
-    state = RunStateActor(env, workers, memory, parameter, trainer)
+    main_worker = workers[main_worker_idx]
+    state = RunStateActor(
+        env,
+        main_worker,
+        workers,
+        main_worker.worker.memory,
+        main_worker.worker.parameter,
+        trainer,
+    )
 
     # --- 1 set_config_by_actor
     if context.distributed:
@@ -257,29 +262,35 @@ def _play(
 def play_generator(
     context: RunContext,
     env: EnvRun,
-    parameter: RLParameter,
-    memory: RLMemory,
+    workers: List[WorkerRun],
+    main_worker_idx: int,
     trainer: Optional[RLTrainer] = None,
-    workers: Optional[List[WorkerRun]] = None,
     callbacks: List[RunCallback] = [],
 ) -> Generator[Tuple[RunStateActor, str], EnvActionType, None]:
     if not context.distributed:
         if context.max_memory > 0:
+            memory = workers[main_worker_idx].worker.memory
             if hasattr(memory, "config"):
                 _m = getattr(memory.config, "memory", None)
                 if _m is not None:
                     assert context.max_memory <= getattr(_m, "capacity", 0)
 
-    # --- make instance
+    # --- check trainer
     if context.disable_trainer:
         trainer = None
     elif context.training:
         assert trainer is not None
-    if workers is None:
-        workers = context.create_controller().make_workers(env, parameter, memory)
 
     assert env.player_num == len(workers)
-    state = RunStateActor(env, workers, memory, parameter, trainer)
+    main_worker = workers[main_worker_idx]
+    state = RunStateActor(
+        env,
+        main_worker,
+        workers,
+        main_worker.worker.memory,
+        main_worker.worker.parameter,
+        trainer,
+    )
 
     # --- 1 set_config_by_actor
     if context.distributed:
@@ -425,7 +436,7 @@ def play_generator(
     if context.run_name != RunNameTypes.eval:
         logger.info(f"[{context.run_name}] loop end({state.end_reason})")
 
-    # 8 end
+    # 7 end
     [w.on_end() for w in state.workers]
     if state.trainer is not None:
         state.trainer.train_end()
@@ -437,6 +448,6 @@ def play_generator(
             worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
             state.episode_rewards_list.append(worker_rewards)
 
-    # 9 callbacks
+    # 8 callbacks
     [c.on_episodes_end(context, state) for c in callbacks]
     yield (state, "on_episodes_end")

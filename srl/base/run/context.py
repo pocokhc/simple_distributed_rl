@@ -7,7 +7,6 @@ from typing import Any, List, Optional, Tuple, Union, cast
 from srl.base.define import RenderModes
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
-from srl.base.env.registration import make as make_env
 from srl.base.rl.base import RLMemory, RLParameter
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import make_memory, make_parameter, make_worker, make_worker_rulebase
@@ -70,52 +69,46 @@ class RunContext:
     used_device_tf: str = "/CPU"
     used_device_torch: str = "cpu"
 
-    def create_controller(self) -> "RunContextController":
-        return RunContextController(self)
-
-
-class RunContextController:
-    def __init__(self, context: RunContext):
-        self.context = context
-
     def to_dict(self, skip_config: bool = False) -> dict:
         if skip_config:
             dat: dict = {}
-            for k, v in self.context.__dict__.items():
+            for k, v in self.__dict__.items():
                 if k in ["env_config", "rl_config"]:
                     continue
                 dat[k] = v
             dat: dict = convert_for_json(dat)
         else:
-            dat: dict = convert_for_json(self.context.__dict__)
+            dat: dict = convert_for_json(self.__dict__)
         return dat
 
     def copy(self) -> "RunContext":
-        return copy.deepcopy(self.context)
+        return copy.deepcopy(self)
 
     def set_device(self, framework, used_device_tf, used_device_torch):
-        self.context.framework = framework
-        self.context.used_device_tf = used_device_tf
-        self.context.used_device_torch = used_device_torch
-        self.context.rl_config._used_device_tf = used_device_tf
-        self.context.rl_config._used_device_torch = used_device_torch
+        self.framework = framework
+        self.used_device_tf = used_device_tf
+        self.used_device_torch = used_device_torch
+        self.rl_config._used_device_tf = used_device_tf
+        self.rl_config._used_device_torch = used_device_torch
 
-    def make_env(self) -> EnvRun:
-        env = make_env(self.context.env_config)
-        self.context.rl_config.setup(env)
-        return env
-
-    def make_workers(self, env: EnvRun, parameter: RLParameter, memory: RLMemory) -> List[WorkerRun]:
+    def make_workers(self, env: EnvRun, parameter: RLParameter, memory: RLMemory) -> Tuple[List[WorkerRun], int]:
         # 初期化されていない場合、一人目はNone、二人目以降はrandomにする
         players = []
         for i in range(env.player_num):
-            if i < len(self.context.players):
-                players.append(self.context.players[i])
+            if i < len(self.players):
+                players.append(self.players[i])
             else:
                 if i == 0:
                     players.append(None)
                 else:
                     players.append("random")
+
+        # 最初に現れたNoneをmainにする
+        main_worker_idx = 0
+        for i, worker_type in enumerate(players):
+            if worker_type is None:
+                main_worker_idx = i
+                break
 
         # --- make workers
         workers = []
@@ -123,12 +116,12 @@ class RunContextController:
             # --- none はベース
             if worker_type is None:
                 worker = make_worker(
-                    self.context.rl_config,
+                    self.rl_config,
                     env,
                     parameter,
                     memory,
-                    self.context.distributed,
-                    self.context.actor_id,
+                    self.distributed,
+                    self.actor_id,
                 )
                 workers.append(worker)
                 continue
@@ -146,8 +139,8 @@ class RunContextController:
                 worker = env.make_worker(
                     worker_type,
                     enable_raise=False,
-                    distributed=self.context.distributed,
-                    actor_id=self.context.actor_id,
+                    distributed=self.distributed,
+                    actor_id=self.actor_id,
                 )
                 if worker is not None:
                     workers.append(worker)
@@ -156,8 +149,8 @@ class RunContextController:
                     worker_type,
                     env,
                     worker_kwargs=worker_kwargs,
-                    distributed=self.context.distributed,
-                    actor_id=self.context.actor_id,
+                    distributed=self.distributed,
+                    actor_id=self.actor_id,
                 )
                 assert worker is not None, f"not registered: {worker_type}"
                 workers.append(worker)
@@ -175,15 +168,15 @@ class RunContextController:
                     env,
                     _parameter,
                     make_memory(_rl_config),
-                    self.context.distributed,
-                    self.context.actor_id,
+                    self.distributed,
+                    self.actor_id,
                 )
                 workers.append(worker)
                 continue
 
             raise ValueError(f"unknown worker: {worker_type}")
 
-        return workers
+        return workers, main_worker_idx
 
 
 class RunStateBase:

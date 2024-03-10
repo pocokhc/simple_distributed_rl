@@ -32,22 +32,22 @@ class PlayableGame(GameWindow):
 
         # --- play ---
         self.env = runner.make_env()
-        self.workers = runner.make_workers()
         self.gen_play = cast(
             Generator,
             runner.base_run_play(
                 parameter=None,
                 memory=None,
                 trainer=None,
-                workers=self.workers,
+                workers=None,
+                main_worker_idx=0,
                 callbacks=callbacks,
                 enable_generator=True,
             ),
         )
-        self.gen_state = None
         gen_status = ""
         while gen_status != "policy":
             self.gen_state, gen_status = next(self.gen_play)
+        self.worker = self.gen_state.worker
         # ---------------------------
 
         # 初期設定
@@ -103,7 +103,7 @@ class PlayableGame(GameWindow):
                 break
 
         # --- render
-        self.set_image(self.env.render_rgb_array(), self.workers[0].render_rgb_array())
+        self.set_image(self.env.render_rgb_array(), self.worker.render_rgb_array())
 
         # --- action
         self.valid_actions = self.env.get_valid_actions()

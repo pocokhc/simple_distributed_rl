@@ -115,7 +115,6 @@ class Runner:
             self.config: RunnerConfig = RunnerConfig()
         if self.context is None:
             self.context: RunContext = RunContext(self.env_config, self.rl_config)
-        self.context_controller = self.context.create_controller()
 
         self._env: Optional[EnvRun] = None
         self._parameter: Optional[RLParameter] = None
@@ -318,18 +317,19 @@ class Runner:
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
         use_cache: bool = False,
-    ) -> List[WorkerRun]:
+    ) -> Tuple[List[WorkerRun], int]:
         if use_cache and self._workers is not None:
-            return self._workers
+            return self._workers, self._main_worker_idx
 
         if parameter is None:
             parameter = self.make_parameter()
         if memory is None:
             memory = self.make_memory()
-        workers = self.context_controller.make_workers(self.make_env(), parameter, memory)
+        workers, main_worker_idx = self.context.make_workers(self.make_env(), parameter, memory)
 
         self._workers = workers
-        return workers
+        self._main_worker_idx = main_worker_idx
+        return workers, main_worker_idx
 
     # ------------------------------
     # process
@@ -373,7 +373,7 @@ class Runner:
 
         # --- GPU
         if self.config.enable_stats:
-            Runner.setup_nvidia()
+            Runner._setup_nvidia()
 
         # --- device
         if not Runner.__setup_device:
@@ -387,13 +387,13 @@ class Runner:
                 self.config.set_CUDA_VISIBLE_DEVICES_if_CPU,
                 self.config.tf_enable_memory_growth,
             )
-            self.context_controller.set_device(framework, used_device_tf, used_device_torch)
+            self.context.set_device(framework, used_device_tf, used_device_torch)
 
     # ------------------------------
     # nvidia
     # ------------------------------
     @staticmethod
-    def setup_nvidia():
+    def _setup_nvidia():
         if Runner.__used_nvidia is not None:
             return
         Runner.__used_nvidia = False
@@ -649,7 +649,7 @@ class Runner:
             self.env_config.copy(),
             self.rl_config.copy(),
             self.config.copy(),
-            self.context_controller.copy(),
+            self.context.copy(),
         )
         if env_share:
             runner._env = self._env
@@ -668,7 +668,7 @@ class Runner:
 
         return TaskConfig(
             self.config.copy(),
-            self.context_controller.copy(),
+            self.context.copy(),
             pickle.loads(pickle.dumps(c)),
         )
 
@@ -677,7 +677,7 @@ class Runner:
 
         print(f"env\n{pprint.pformat(self.env_config.to_dict())}")
         print(f"rl\n{pprint.pformat(self.rl_config.to_dict())}")
-        print(f"context\n{pprint.pformat(self.context_controller.to_dict())}")
+        print(f"context\n{pprint.pformat(self.context.to_dict())}")
 
     # ------------------------------
     # eval
@@ -714,14 +714,14 @@ class Runner:
     def callback_play_eval(self, parameter: RLParameter):
         env = self.make_env()
         memory = self.make_memory(is_load=False)
+        workers, main_worker_idx = self.make_workers(parameter, memory, use_cache=True)
         state = cast(
             core_play.RunStateActor,
             core_play.play(
                 self.context,
                 env,
-                parameter=parameter,
-                memory=memory,
-                workers=self.make_workers(parameter, memory, use_cache=True),
+                workers=workers,
+                main_worker_idx=main_worker_idx,
                 trainer=None,
             ),
         )
@@ -1012,6 +1012,7 @@ class Runner:
         memory: Optional[RLMemory],
         trainer: Optional[RLTrainer],
         workers: Optional[List[WorkerRun]],
+        main_worker_idx: int,
         callbacks: List[CallbackType],
         enable_generator: bool,
     ):
@@ -1038,25 +1039,23 @@ class Runner:
         if not self.context.disable_trainer and trainer is None:
             trainer = self.make_trainer(parameter, memory)
         if workers is None:
-            workers = self.make_workers(parameter, memory)
+            workers, main_worker_idx = self.make_workers(parameter, memory)
         if not enable_generator:
             state = core_play.play(
                 self.context,
                 self.make_env(),
-                parameter,
-                memory,
-                trainer,
                 workers,
+                main_worker_idx,
+                trainer,
                 cast(List[RunCallback], [c for c in _callbacks if issubclass(c.__class__, RunCallback)]),
             )
         else:
             return core_play.play_generator(
                 self.context,
                 self.make_env(),
-                parameter,
-                memory,
-                trainer,
                 workers,
+                main_worker_idx,
+                trainer,
                 cast(List[RunCallback], [c for c in _callbacks if issubclass(c.__class__, RunCallback)]),
             )
         # ----------------

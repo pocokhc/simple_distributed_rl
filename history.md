@@ -38,6 +38,7 @@
 1. [runner] change: eval時にenvの共有をデフォルトでTrueに変更
 1. [runner] change: checkpointのintervalを20分から10分に変更
 1. [runner] new: save_aviを追加
+1. [runner] new: linuxのみmemoryの上限サイズを設定し、メモリ枯渇したらエラー表示するように追加(resource)
 1. [tests] new: base.coreのテストを追加
 1. [base.env.config] new: gymとgymnasium両方ある場合にgymを強制するuse_gym変数を追加
 1. [base.env.base] rename: get_original_envをunwrappedに変更
@@ -50,7 +51,8 @@
 
 **Bug Fixes**
 
-1. [runner.core_mp] fix: 終了時にmemoryが大量に残っていると変な挙動をするバグ修正、プロセスをterminateで終了する場合のログを変更
+1. ([runner.core_mp] fix: 終了時にmemoryが大量に残っていると変な挙動をするバグ修正、プロセスをterminateで終了する場合のログを変更)
+1. [runner.core_mp] fix: remote_queueをmp.Queueからmanager.Queueに変更し、全体的に処理を見直し、上記bug fixも不要に
 1. [rl.functions.common] fix: get_random_max_indexで要素が多いときにinvalid_actionsが反映されないバグ修正
 1. [tests.runner.distribution] fix: redisがinstallされていない場合でpytestが動くように修正
 1. [rl.processors.image_processor] fix: 最大1の場合normを実行しない処理を追加

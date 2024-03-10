@@ -47,6 +47,12 @@ class RunnerConfig:
     dist_enable_actor_thread: bool = True
     device_actors: Union[str, List[str]] = "CPU"
 
+    # --- memory
+    #: None : not change
+    #: <=0  : auto
+    #: int  : 指定サイズで設定
+    memory_limit: Optional[int] = -1
+
     # --- stats
     enable_stats: bool = False
 
@@ -329,6 +335,43 @@ class Runner:
     # process
     # ------------------------------
     def _setup_process(self):
+        # --- memory
+        if self.config.memory_limit is not None:
+            try:
+                if common.is_package_installed("resource"):
+                    # linux only
+                    import resource
+
+                    m_soft, m_hard = resource.getrlimit(resource.RLIMIT_DATA)
+
+                    # 設定されていない場合のみ設定
+                    if m_soft == -1 and m_hard == -1:
+                        limits = None
+                        if self.config.memory_limit > 0:
+                            limits = (self.config.memory_limit, -1)
+                        else:
+                            # auto, container上はcgroupで制限をかけてるらしいのでそれを見る
+                            path = "/sys/fs/cgroup/memory/memory.limit_in_bytes"
+                            if os.path.isfile(path):
+                                with open(path, "r") as fp:
+                                    memory_limit_in_bytes = int(fp.read())
+                                limits = (memory_limit_in_bytes, -1)
+                            elif common.is_package_installed("psutil"):
+                                # psutilで取得
+                                import psutil
+
+                                limits = (psutil.virtual_memory().total, -1)
+
+                        if limits is not None:
+                            logger.info(f"set resource.RLIMIT_DATA: {limits}")
+                            resource.setrlimit(resource.RLIMIT_DATA, limits)
+                        else:
+                            logger.info("not set resource.RLIMIT_DATA")
+            except Exception:
+                logger.info(traceback.format_exc())
+                logger.warning("Failed to set resource.RLIMIT_DATA")
+
+        # --- GPU
         if self.config.enable_stats:
             Runner.setup_nvidia()
 
@@ -584,7 +627,6 @@ class Runner:
 
         import psutil
 
-        # CPU,memory
         memory_percent = psutil.virtual_memory().percent
         cpu_percent = self._psutil_process.cpu_percent(None) / psutil.cpu_count()
 

@@ -263,7 +263,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         # [info] , 速度優先して一番最新の状態をそのまま表示
         s_info = ""
         env_types = state.env.info_types
-        rl_types = context.rl_config.info_types
+        rl_types = context.rl_config.get_info_types()
         if self.progress_env_info:
             s_info += to_str_info(state.env.info, env_types)
         if self.progress_worker_info:
@@ -413,7 +413,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         s_info = ""
         if self.progress_train_info:
             if state.trainer is not None:
-                s_info += to_str_info(state.trainer.train_info, context.rl_config.info_types)
+                s_info += to_str_info(state.trainer.train_info, context.rl_config.get_info_types())
 
         if self.single_line:
             print(s + s_info)

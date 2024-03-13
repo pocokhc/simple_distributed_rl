@@ -1,27 +1,48 @@
 import logging
 import random
 import time
-from typing import Any, List, Tuple
+from typing import Any, List
 
 import numpy as np
-from srl.base.define import RLTypes
+
+from srl.base.define import EnvTypes, RLTypes
+from srl.base.exception import NotSupportedError
 
 from .space import SpaceBase
 
 logger = logging.getLogger(__name__)
 
 
-class ArraySpace(SpaceBase[list]):
+class MultiSpace(SpaceBase[list]):
     def __init__(self, spaces: List[SpaceBase]) -> None:
         self.spaces = spaces
         self.decode_tbl = None
 
-        # --- check type
-        self._rl_type = RLTypes.DISCRETE
-        for s in self.spaces:
-            if s.rl_type == RLTypes.CONTINUOUS:
-                self._rl_type = RLTypes.CONTINUOUS
-                break
+    @property
+    def space_size(self) -> int:
+        return len(self.spaces)
+
+    @property
+    def base_env_type(self) -> EnvTypes:
+        return EnvTypes.MULTI
+
+    @property
+    def env_type(self) -> EnvTypes:
+        return EnvTypes.MULTI
+
+    def set_env_type(self, env_type: EnvTypes):
+        raise NotSupportedError()
+
+    @property
+    def rl_type(self) -> RLTypes:
+        return RLTypes.MULTI
+
+    @property
+    def dtype(self):
+        raise NotSupportedError()
+
+    def set_rl_type(self, rl_type: RLTypes):
+        raise NotSupportedError()
 
     def sample(self, mask: List[list] = []) -> list:
         if len(mask) == 0:
@@ -58,14 +79,15 @@ class ArraySpace(SpaceBase[list]):
                 return False
         return True
 
-    @property
-    def rl_type(self) -> RLTypes:
-        return self._rl_type
-
     def get_default(self) -> list:
         return [s.get_default() for s in self.spaces]
 
-    def __eq__(self, o: "ArraySpace") -> bool:
+    def copy(self) -> "MultiSpace":
+        o = MultiSpace([s.copy() for s in self.spaces])
+        o.decode_tbl = self.decode_tbl
+        return o
+
+    def __eq__(self, o: "MultiSpace") -> bool:
         if len(self.spaces) != len(o.spaces):
             return False
         for i, s in enumerate(self.spaces):
@@ -74,8 +96,13 @@ class ArraySpace(SpaceBase[list]):
         return True
 
     def __str__(self) -> str:
-        s = ", ".join([str(s) for s in self.spaces])
-        return f"Array[{s}]"
+        s = f"MultiSpace({len(self.spaces)})"
+        for p in self.spaces:
+            s += f"\n {str(p)}"
+        return s
+
+    def create_division_tbl(self, division_num: int) -> None:
+        [s.create_division_tbl(division_num) for s in self.spaces]
 
     # --------------------------------------
     # create_tbl
@@ -171,20 +198,28 @@ class ArraySpace(SpaceBase[list]):
     # observation continuous, image
     # --------------------------------------
     @property
-    def shape(self) -> Tuple[int, ...]:  # List[Tuple]
+    def shape(self):
         return [s.shape for s in self.spaces]
 
     @property
-    def low(self) -> np.ndarray:  # List[np.ndarray]
+    def low(self):
         return [s.low for s in self.spaces]
 
     @property
-    def high(self) -> np.ndarray:  # List[np.ndarray]
+    def high(self):
         return [s.high for s in self.spaces]
 
-    def encode_to_np(self, val: list, dtype) -> np.ndarray:  # List[np.ndarray]
-        # shapeが違うのでnpに出来ない TODO
-        return [s.encode_to_np(val[i], dtype) for i, s in enumerate(self.spaces)]
+    def encode_to_np(self, val: list, dtype) -> np.ndarray:
+        raise NotImplementedError()
 
-    def decode_from_np(self, val: np.ndarray) -> list:  # List[np.ndarray]
-        return [s.decode_from_np(val[i]) for i, s in enumerate(self.spaces)]
+    def decode_from_np(self, val: np.ndarray) -> list:
+        raise NotImplementedError()
+
+    # --------------------------------------
+    # Multiple
+    # --------------------------------------
+    def encode_to_list_space(self, val: list) -> list:
+        return val
+
+    def decode_from_list_space(self, val: list) -> list:
+        return val

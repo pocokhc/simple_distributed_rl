@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from srl.base.rl.base import RLTrainer
+from srl.rl.models.torch_ import helper
 from srl.rl.models.torch_.input_block import InputBlock
 
 from .dqn import CommonInterfaceParameter, Config
@@ -19,26 +20,12 @@ class _QNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
-        if self.in_block.use_image_layer:
-            self.image_block = config.image_block.create_block_torch(
-                self.in_block.out_shape,
-                enable_time_distributed_layer=False,
-            )
-            self.flatten = nn.Flatten()
-            in_size = self.image_block.out_shape[0] * self.image_block.out_shape[1] * self.image_block.out_shape[2]
-        else:
-            flat_shape = np.zeros(config.observation_shape).flatten().shape
-            in_size = flat_shape[0]
-
-        self.hidden_block = config.hidden_block.create_block_torch(in_size)
+        self.input_block = InputBlock(config.input_value_block, config.input_image_block, config.observation_space)
+        self.hidden_block = config.hidden_block.create_block_torch(self.input_block.out_size)
         self.out_layer = nn.Linear(self.hidden_block.out_size, config.action_num)
 
     def forward(self, x):
-        x = self.in_block(x)
-        if self.in_block.use_image_layer:
-            x = self.image_block(x)
-            x = self.flatten(x)
+        x = self.input_block(x)
         x = self.hidden_block(x)
         return self.out_layer(x)
 
@@ -79,17 +66,19 @@ class Parameter(CommonInterfaceParameter):
         print(self.q_online)
 
     # -----------------------------------
+    def create_batch_data(self, state):
+        return helper.create_batch_data(state, self.config.observation_space, self.device)
 
-    def predict_q(self, state: np.ndarray) -> np.ndarray:
+    def predict_q(self, state) -> np.ndarray:
         self.q_online.eval()
         with torch.no_grad():
-            q = self.q_online(torch.tensor(state).to(self.device))
+            q = self.q_online(state)
             q = q.to("cpu").detach().numpy()
         return q
 
-    def predict_target_q(self, state: np.ndarray) -> np.ndarray:
+    def predict_target_q(self, state) -> np.ndarray:
         with torch.no_grad():
-            q = self.q_target(torch.tensor(state).to(self.device))
+            q = self.q_target(state)
             q = q.to("cpu").detach().numpy()
         return q
 
@@ -113,24 +102,33 @@ class Trainer(RLTrainer):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs = self.memory.sample(self.batch_size, self.train_count)
-
         device = self.parameter.device
-        self.parameter.q_online.to(device)
         self.parameter.q_target.to(device)
+        self.parameter.q_online.to(device)
 
-        target_q, states, onehot_actions = self.parameter.calc_target_q(batchs, training=True)
+        batchs = self.memory.sample(self.batch_size)
+        state, n_state, onehot_action, reward, done, next_invalid_actions = zip(*batchs)
+        state = helper.stack_batch_data(state, self.config.observation_space, device)
+        n_state = helper.stack_batch_data(n_state, self.config.observation_space, device)
+        onehot_action = torch.tensor(np.asarray(onehot_action, dtype=np.float32)).to(device)
+        reward = np.array(reward, dtype=np.float32)
+        done = np.array(done)
 
-        states = torch.tensor(states).to(device)
-        onehot_actions = torch.tensor(onehot_actions).to(device)
+        target_q = self.parameter.calc_target_q(
+            len(batchs),
+            n_state,
+            reward,
+            done,
+            next_invalid_actions,
+        )
         target_q = torch.from_numpy(target_q).to(dtype=torch.float32).to(device)
 
         # --- torch train
         self.parameter.q_online.train()
-        q = self.parameter.q_online(states)
+        q = self.parameter.q_online(state)
 
         # 現在選んだアクションのQ値
-        q = torch.sum(q * onehot_actions, dim=1)
+        q = torch.sum(q * onehot_action, dim=1)
 
         loss = self.criterion(target_q, q)
         self.optimizer.zero_grad()

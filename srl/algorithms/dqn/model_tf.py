@@ -4,9 +4,10 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLTypes
 from srl.base.rl.base import RLTrainer
-from srl.rl.models.tf.input_block import InputImageBlock
+from srl.rl.models.tf import helper
+from srl.rl.models.tf.input_block import InputBlock
+from srl.rl.models.tf.model import KerasModelAddedSummary
 
 from .dqn import CommonInterfaceParameter, Config
 
@@ -16,19 +17,15 @@ kl = keras.layers
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _QNetwork(keras.Model):
+class _QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
         # input
-        self.in_img_block = None
-        if config.observation_type == RLTypes.IMAGE:
-            self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
-            self.img_block = config.image_block.create_block_tf()
-        self.flat_layer = kl.Flatten()
+        self.input_block = InputBlock(config.input_value_block, config.input_image_block, config.observation_space)
 
         # hidden
-        self.h_block = config.hidden_block.create_block_tf()
+        self.hidden_block = config.hidden_block.create_block_tf()
 
         # out layer
         self.out_layer = kl.Dense(
@@ -40,15 +37,11 @@ class _QNetwork(keras.Model):
         self.loss_func = keras.losses.Huber()
 
         # build
-        self._in_shape = config.observation_shape
-        self.build((None,) + self._in_shape)
+        self.build(self.create_batch_shape(config.observation_shape, (None,)))
 
     def call(self, x, training=False):
-        if self.in_img_block is not None:
-            x = self.in_img_block(x, training)
-            x = self.img_block(x, training)
-        x = self.flat_layer(x)
-        x = self.h_block(x, training)
+        x = self.input_block(x, training)
+        x = self.hidden_block(x, training)
         return self.out_layer(x)
 
     @tf.function
@@ -58,17 +51,6 @@ class _QNetwork(keras.Model):
         loss = self.loss_func(target_q, q)
         loss += tf.reduce_sum(self.losses)  # 正則化項
         return loss
-
-    def summary(self, name="", **kwargs):
-        if self.in_img_block is not None:
-            self.in_img_block.init_model_graph()
-            self.img_block.init_model_graph()
-        self.h_block.init_model_graph()
-
-        x = kl.Input(shape=self._in_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        model.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -94,11 +76,13 @@ class Parameter(CommonInterfaceParameter):
         self.q_online.summary(**kwargs)
 
     # -------------------------------------
+    def create_batch_data(self, state):
+        return helper.create_batch_data(state, self.config.observation_space)
 
-    def predict_q(self, state: np.ndarray) -> np.ndarray:
+    def predict_q(self, state) -> np.ndarray:
         return self.q_online(state).numpy()
 
-    def predict_target_q(self, state: np.ndarray) -> np.ndarray:
+    def predict_target_q(self, state) -> np.ndarray:
         return self.q_target(state).numpy()
 
 
@@ -120,11 +104,24 @@ class Trainer(RLTrainer):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs = self.memory.sample(self.batch_size, self.train_count)
+        batchs = self.memory.sample(self.batch_size)
+        state, n_state, onehot_action, reward, done, next_invalid_actions = zip(*batchs)
+        state = helper.stack_batch_data(state, self.config.observation_space)
+        n_state = helper.stack_batch_data(n_state, self.config.observation_space)
+        onehot_action = np.asarray(onehot_action, dtype=np.float32)
+        reward = np.array(reward, dtype=np.float32)
+        done = np.array(done)
 
-        target_q, states, onehot_actions = self.parameter.calc_target_q(batchs, training=True)
+        target_q = self.parameter.calc_target_q(
+            len(batchs),
+            n_state,
+            reward,
+            done,
+            next_invalid_actions,
+        )
+
         with tf.GradientTape() as tape:
-            loss = self.parameter.q_online.compute_train_loss(states, onehot_actions, target_q)
+            loss = self.parameter.q_online.compute_train_loss(state, onehot_action, target_q)
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
 

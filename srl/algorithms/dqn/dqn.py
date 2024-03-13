@@ -1,21 +1,26 @@
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Tuple, cast
+from typing import List, Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, RLBaseTypes
+from srl.base.define import RLBaseTypes
 from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
 from srl.base.rl.base import RLParameter
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
-from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
+from srl.base.rl.processor import ObservationProcessor
+from srl.rl.functions.common import (
+    create_epsilon_list,
+    create_fancy_index_for_invalid_actions,
+    inverse_rescaling,
+    render_discrete_action,
+    rescaling,
+)
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
 from srl.rl.models.framework_config import FrameworkConfig
 from srl.rl.models.image_block import ImageBlockConfig
 from srl.rl.models.mlp_block import MLPBlockConfig
-from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 """
@@ -79,8 +84,10 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     #: <:ref:`Framework`>
     framework: FrameworkConfig = field(init=False, default_factory=lambda: FrameworkConfig())
+    #: <:ref:`MLPBlock`> This layer is only used when the input is an value.
+    input_value_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
     #: <:ref:`ImageBlock`> This layer is only used when the input is an image.
-    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
+    input_image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
     #: <:ref:`MLPBlock`> hidden layer
     hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
@@ -99,7 +106,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         self.batch_size = 32
         self.memory.capacity = 1_000_000
         self.memory.warmup_size = 50_000
-        self.image_block.set_dqn_image()
+        self.input_image_block.set_dqn_base()
         self.hidden_block.set_mlp((512,))
         self.target_model_update_interval = 10000
         self.discount = 0.99
@@ -112,21 +119,13 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     # -------------------------------
 
-    def set_processor(self) -> List[Processor]:
-        return [
-            ImageProcessor(
-                image_type=EnvObservationTypes.GRAY_2ch,
-                resize=(84, 84),
-                enable_norm=True,
-            )
-        ]
+    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+        return [self.input_image_block.get_processor()]
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
 
     def get_use_framework(self) -> str:
@@ -139,8 +138,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         super().assert_params()
         self.assert_params_memory()
 
-    @property
-    def info_types(self) -> dict:
+    def get_info_types(self) -> dict:
         return {
             "loss": {"data": "ave"},
             "sync": {"type": int, "data": "last"},
@@ -165,63 +163,51 @@ class CommonInterfaceParameter(RLParameter, ABC):
         self.config: Config = self.config
 
     @abstractmethod
-    def predict_q(self, state: np.ndarray) -> np.ndarray:
+    def create_batch_data(self, state):
         raise NotImplementedError()
 
     @abstractmethod
-    def predict_target_q(self, state: np.ndarray) -> np.ndarray:
+    def predict_q(self, state) -> np.ndarray:
         raise NotImplementedError()
 
-    def calc_target_q(self, batchs, training: bool):
+    @abstractmethod
+    def predict_target_q(self, state) -> np.ndarray:
+        raise NotImplementedError()
+
+    def calc_target_q(
+        self,
+        batch_size,
+        n_state,
+        reward,
+        done,
+        next_invalid_actions,
+    ):
         # ここの計算はtfで計算するよりnpで計算したほうが早い
 
-        batch_size = len(batchs)
+        n_inv_act_idx1, n_inv_act_idx2 = create_fancy_index_for_invalid_actions(next_invalid_actions)
 
-        states, n_states, onehot_actions, rewards, dones, _ = zip(*batchs)
-        states = np.asarray(states)
-        n_states = np.asarray(n_states)
-        onehot_actions = np.asarray(onehot_actions, dtype=np.float32)
-        rewards = np.array(rewards, dtype=np.float32)
-        dones = np.array(dones)
-        """ invalid actions
-        next_invalid_actions    : invalid action list
-        next_invalid_actions_idx: batch index list
-        ex. [
-            [1, 2, 5],
-            [2],
-            [2, 3],
-        ]
-        next_invalid_actions     = [1, 2, 5, 2, 2, 3]
-        next_invalid_actions_idx = [0, 0, 0, 1, 2, 2]
-        """
-        next_invalid_actions = [e for b in batchs for e in b[5]]
-        next_invalid_actions_idx = [i for i, b in enumerate(batchs) for e in b[5]]
-
-        n_q_target = self.predict_target_q(n_states)
+        n_q_target = self.predict_target_q(n_state)
 
         # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
         if self.config.enable_double_dqn:
-            n_q = self.predict_q(n_states)
-            n_q[next_invalid_actions_idx, next_invalid_actions] = np.min(n_q)
+            n_q = self.predict_q(n_state)
+            n_q[n_inv_act_idx1, n_inv_act_idx2] = np.min(n_q)
             n_act_idx = np.argmax(n_q, axis=1)
             maxq = n_q_target[np.arange(batch_size), n_act_idx]
         else:
-            n_q_target[next_invalid_actions_idx, next_invalid_actions] = np.min(n_q_target)
+            n_q_target[n_inv_act_idx1, n_inv_act_idx2] = np.min(n_q_target)
             maxq = np.max(n_q_target, axis=1)
 
         if self.config.enable_rescale:
             maxq = inverse_rescaling(maxq)
 
         # --- Q値を計算
-        target_q = rewards + dones * self.config.discount * maxq
+        target_q = reward + done * self.config.discount * maxq
 
         if self.config.enable_rescale:
             target_q = rescaling(target_q)
 
-        if training:
-            return target_q.astype(np.float32), states, onehot_actions
-        else:
-            return target_q.astype(np.float32)
+        return target_q.astype(np.float32)
 
 
 # ------------------------------------------------------
@@ -251,7 +237,8 @@ class Worker(DiscreteActionWorker):
             self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
             self.q = None
         else:
-            self.q = self.parameter.predict_q(state[np.newaxis, ...])[0]
+            state = self.parameter.create_batch_data(state)
+            self.q = self.parameter.predict_q(state)[0]
             self.q[invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないので無視）
@@ -288,20 +275,22 @@ class Worker(DiscreteActionWorker):
             next_invalid_actions,
         ]
         """
-        batch = [
-            self.state,
-            next_state,
-            np.identity(self.config.action_num, dtype=int)[self.action],
-            reward,
-            int(not done),
-            next_invalid_actions,
-        ]
-        self.memory.add(batch)
+        self.memory.add(
+            [
+                self.state,
+                next_state,
+                np.identity(self.config.action_num, dtype=int)[self.action],
+                reward,
+                int(not done),
+                next_invalid_actions,
+            ]
+        )
         return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.q is None:
-            q = self.parameter.predict_q(self.state[np.newaxis, ...])[0]
+            state = self.parameter.create_batch_data(self.state)
+            q = self.parameter.predict_q(state)[0]
         else:
             q = self.q
         maxa = np.argmax(q)

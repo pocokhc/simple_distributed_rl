@@ -1,8 +1,9 @@
 import copy
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
+from srl.base.define import RenderModes
 from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
@@ -86,6 +87,9 @@ class EnvConfig:
     #: action/observationの値を厳密にチェックし、おかしい場合は例外を出力します。
     #: enable_assertion_valueが有効な場合は、enable_sanitize_valueは無効です。
     enable_assertion_value: bool = False
+
+    def __post_init__(self):
+        self.override_render_mode: RenderModes = RenderModes.none
 
     def make_env(self) -> "EnvRun":
         """環境を生成します。 srl.make_env(env_config) と同じ動作です。"""

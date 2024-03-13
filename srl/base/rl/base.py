@@ -298,9 +298,7 @@ class RLWorker(ABC, IRender):
         """WorkerRunの初期化で呼ばれる"""
         self.__worker_run = worker
 
-    # ------------------------------
-    # implement
-    # ------------------------------
+    # --- implement
     def on_reset(self, worker: "WorkerRun") -> InfoType:
         return {}
 
@@ -317,18 +315,14 @@ class RLWorker(ABC, IRender):
     def on_end(self, worker: "WorkerRun") -> None:
         pass
 
-    # ------------------------------
-    # IRender
-    # ------------------------------
+    # --- IRender
     def render_terminal(self, worker: "WorkerRun", **kwargs) -> None:
         pass
 
     def render_rgb_array(self, worker: "WorkerRun", **kwargs) -> Optional[np.ndarray]:
         return None
 
-    # ------------------------------------
-    # instance
-    # ------------------------------------
+    # --- instance
     @property
     def worker(self) -> "WorkerRun":
         return self.__worker_run
@@ -341,9 +335,7 @@ class RLWorker(ABC, IRender):
         self.__worker_run._env._done = DoneTypes.TRUNCATED
         self.__worker_run._env._done_reason = "rl"
 
-    # ------------------------------------
-    # worker info (shortcut properties)
-    # ------------------------------------
+    # --- worker info (shortcut properties)
     @property
     def training(self) -> bool:
         return self.__worker_run.training
@@ -370,9 +362,7 @@ class RLWorker(ABC, IRender):
     def sample_action(self) -> RLActionType:
         return self.__worker_run.sample_action()
 
-    # ------------------------------------
-    # env info (shortcut properties)
-    # ------------------------------------
+    # --- env info (shortcut properties)
     @property
     def max_episode_steps(self) -> int:
         return self.__worker_run._env.max_episode_steps

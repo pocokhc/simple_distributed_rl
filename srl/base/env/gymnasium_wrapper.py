@@ -7,16 +7,16 @@ import gymnasium
 import numpy as np
 from gymnasium import spaces as gym_spaces
 from gymnasium.spaces import flatten, flatten_space
+
 from srl.base import spaces as srl_spaces
 from srl.base.define import (
     DoneTypes,
     EnvActionType,
-    EnvObservationTypes,
+    EnvInvalidActionType,
+    EnvTypes,
     InfoType,
     KeyBindType,
     RenderModes,
-    RLInvalidActionType,
-    RLTypes,
 )
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.config import EnvConfig
@@ -43,13 +43,27 @@ def _space_change_from_gym_to_srl_sub(gym_space: gym_spaces.Space) -> Optional[U
             return srl_spaces.DiscreteSpace(int(gym_space.n))
 
     if isinstance(gym_space, gym_spaces.MultiDiscrete):
-        return srl_spaces.BoxSpace(gym_space.shape, 0, gym_space.nvec, dtype=np.int64)
+        return srl_spaces.BoxSpace(gym_space.shape, 0, gym_space.nvec, np.int64, EnvTypes.DISCRETE)
 
     if isinstance(gym_space, gym_spaces.MultiBinary):
-        return srl_spaces.BoxSpace(gym_space.shape, 0, 1, dtype=np.int8)
+        return srl_spaces.BoxSpace(gym_space.shape, 0, 1, np.int8, EnvTypes.DISCRETE)
 
     if isinstance(gym_space, gym_spaces.Box):
-        return srl_spaces.BoxSpace(gym_space.shape, gym_space.low, gym_space.high, gym_space.dtype)
+        # image check
+        _obs_type = EnvTypes.UNKNOWN
+        if "uint" in str(gym_space.dtype):
+            if len(gym_space.shape) == 2:
+                _obs_type = EnvTypes.GRAY_2ch
+            elif len(gym_space.shape) == 3:
+                # w,h,ch 想定
+                ch = gym_space.shape[-1]
+                if ch == 1:
+                    _obs_type = EnvTypes.GRAY_3ch
+                elif ch == 3:
+                    _obs_type = EnvTypes.COLOR
+                else:
+                    _obs_type = EnvTypes.IMAGE
+        return srl_spaces.BoxSpace(gym_space.shape, gym_space.low, gym_space.high, gym_space.dtype, _obs_type)
 
     if isinstance(gym_space, gym_spaces.Tuple):
         sub_spaces = []
@@ -81,7 +95,8 @@ def _space_change_from_gym_to_srl_sub(gym_space: gym_spaces.Space) -> Optional[U
 
     if isinstance(gym_space, gym_spaces.Text):
         shape = (gym_space.max_length,)
-        return srl_spaces.BoxSpace(shape, 0, len(gym_space.character_set), np.int64)
+        # TODO TextSpace
+        return srl_spaces.BoxSpace(shape, 0, len(gym_space.character_set), np.int64, EnvTypes.DISCRETE)
 
     if isinstance(gym_space, gym_spaces.Sequence):
         pass  # not support
@@ -102,7 +117,7 @@ def space_change_from_gym_to_srl(gym_space: gym_spaces.Space) -> SpaceBase:
     srl_space = _space_change_from_gym_to_srl_sub(gym_space)
     assert srl_space is not None
     if isinstance(srl_space, list):
-        srl_space = srl_spaces.ArraySpace(srl_space)
+        srl_space = srl_spaces.MultiSpace(srl_space)
     return srl_space
 
 
@@ -209,7 +224,7 @@ def _space_decode_to_srl_from_gym_sub(gym_space: gym_spaces.Space, x: Any, idx=0
 
 
 def space_decode_to_srl_from_gym(gym_space: gym_spaces.Space, srl_space: SpaceBase, val: Any) -> Any:
-    if not isinstance(srl_space, srl_spaces.ArraySpace):
+    if not isinstance(srl_space, srl_spaces.MultiSpace):
         val = [val]
     val, _ = _space_decode_to_srl_from_gym_sub(gym_space, val)
     assert val is not None, "Space flatten decode failed."
@@ -237,99 +252,39 @@ class GymnasiumWrapper(EnvBase):
             self.fps = self.env.metadata.get("render_fps", 60)
             self.render_modes = self.env.metadata.get("render_modes", ["ansi", "human", "rgb_array"])
 
-        _act_space = None
-        _obs_type = EnvObservationTypes.UNKNOWN
-        _obs_space = None
+        act_space = None
+        obs_space = None
 
         # --- wrapper
         for wrapper in config.gym_wrappers:
-            _act_space = wrapper.action_space(_act_space, self.env)
-            _obs_type, _obs_space = wrapper.observation_space(_obs_type, _obs_space, self.env)
-
-        # --- space img
-        self.enable_flatten_observation = False
-        if _obs_space is None:
-            if config.gym_check_image:
-                if isinstance(self.env.observation_space, gym_spaces.Box) and (
-                    "uint" in str(self.env.observation_space.dtype)
-                ):
-                    if len(self.env.observation_space.shape) == 2:
-                        _obs_type = EnvObservationTypes.GRAY_2ch
-                    elif len(self.env.observation_space.shape) == 3:
-                        # w,h,ch 想定
-                        ch = self.env.observation_space.shape[-1]
-                        if ch == 1:
-                            _obs_type = EnvObservationTypes.GRAY_3ch
-                        elif ch == 3:
-                            _obs_type = EnvObservationTypes.COLOR
-                        else:
-                            _obs_type = EnvObservationTypes.IMAGE
-
-                    if _obs_type != EnvObservationTypes.UNKNOWN:
-                        # 画像はそのままのshape
-                        self.enable_flatten_observation = False
-                        _obs_space = srl_spaces.BoxSpace(
-                            self.env.observation_space.shape,
-                            self.env.observation_space.low,
-                            self.env.observation_space.high,
-                        )
-
-            # --- space obs
-            if _obs_type == EnvObservationTypes.UNKNOWN:
-                self.enable_flatten_observation = True
-                _obs_space = space_change_from_gym_to_srl(self.env.observation_space)
-                if _obs_space.rl_type != RLTypes.DISCRETE:
-                    if self.config.gym_prediction_by_simulation and self._pred_space_discrete():
-                        _obs_type = EnvObservationTypes.DISCRETE
-                    else:
-                        _obs_type = EnvObservationTypes.CONTINUOUS
-                else:
-                    _obs_type = EnvObservationTypes.DISCRETE
+            act_space = wrapper.action_space(act_space, self.env)
+            obs_space = wrapper.observation_space(obs_space, self.env)
+        self.use_wrapper_act = act_space is not None
+        self.use_wrapper_obs = obs_space is not None
 
         # --- space action
-        if _act_space is None:
-            self.enable_flatten_action = True
-            _act_space = space_change_from_gym_to_srl(self.env.action_space)
-        else:
-            self.enable_flatten_action = False
+        if act_space is None:
+            act_space = space_change_from_gym_to_srl(self.env.action_space)
 
-        assert _obs_space is not None
-        self._action_space: SpaceBase = _act_space
-        self._observation_type = _obs_type
-        self._observation_space: SpaceBase = _obs_space
+        # --- space obs
+        if obs_space is None:
+            obs_space = space_change_from_gym_to_srl(self.env.observation_space)
 
-        logger.info(f"obs_type   : {self._observation_type}")
-        logger.info(f"observation: {self._observation_space}")
-        logger.info(f"flatten_obs: {self.enable_flatten_observation}")
-        logger.info(f"action     : {self._action_space}")
-        logger.info(f"flatten_act: {self.enable_flatten_action}")
+        assert act_space is not None
+        assert obs_space is not None
+        self._action_space: SpaceBase = act_space
+        self._observation_space: SpaceBase = obs_space
+
+        logger.info(f"use wrapper act: {self.use_wrapper_act}")
+        logger.info(f"action         : {self._action_space}")
+        logger.info(f"use wrapper obs: {self.use_wrapper_obs}")
+        logger.info(f"observation    : {self._observation_space}")
 
     def make_gymnasium_env(self, **kwargs) -> gymnasium.Env:
-        if self.config.gymnasium_make_func is None:
+        if self.config.gym_make_func is None:
             return gymnasium.make(self.config.name, **self.config.kwargs, **kwargs)
-        return self.config.gymnasium_make_func(self.config.name, **self.config.kwargs, **kwargs)
-
-    def _pred_space_discrete(self):
-        # 実際に値を取得して予測
-        done = True
-        for _ in range(self.config.gym_prediction_step):
-            if done:
-                state, _ = self.env.reset()
-                done = False
-            else:
-                action = self.env.action_space.sample()
-                state, reward, terminated, truncated, info = self.env.step(action)
-                done = terminated or truncated
-            enc_state = space_encode_from_gym_to_srl(self.env.observation_space, state)
-            if isinstance(enc_state, list):
-                for e in enc_state:
-                    if "int" not in str(np.asarray(e).dtype):
-                        return False
-            else:
-                if "int" not in str(np.asarray(enc_state).dtype):
-                    return False
-
-        return True
+        env = self.config.gym_make_func(self.config.name, **self.config.kwargs, **kwargs)
+        return cast(gymnasium.Env, env)
 
     # --------------------------------
     # implement
@@ -342,10 +297,6 @@ class GymnasiumWrapper(EnvBase):
     @property
     def observation_space(self) -> SpaceBase:
         return self._observation_space
-
-    @property
-    def observation_type(self) -> EnvObservationTypes:
-        return self._observation_type
 
     @property
     def max_episode_steps(self) -> int:
@@ -374,24 +325,20 @@ class GymnasiumWrapper(EnvBase):
             self.env.observation_space.seed(self.seed)
             self.seed = None
 
-        # wrapper
-        for w in self.config.gym_wrappers:
-            state = w.observation(state, self.env)
-
-        # flatten
-        if self.enable_flatten_observation:
+        if self.use_wrapper_obs:
+            for w in self.config.gym_wrappers:
+                state = w.observation(state, self.env)
+        else:
             state = space_encode_from_gym_to_srl(self.env.observation_space, state)
 
         state = self.observation_space.sanitize(state)
         return state, info
 
     def step(self, action: EnvActionType) -> Tuple[np.ndarray, List[float], Union[bool, DoneTypes], InfoType]:
-        # wrapper
-        for w in self.config.gym_wrappers:
-            action = w.action(action, self.env)
-
-        # flatten
-        if self.enable_flatten_action:
+        if self.use_wrapper_act:
+            for w in self.config.gym_wrappers:
+                action = w.action(action, self.env)
+        else:
             action = space_decode_to_srl_from_gym(self.env.action_space, self.action_space, action)
 
         # step
@@ -403,15 +350,15 @@ class GymnasiumWrapper(EnvBase):
         else:
             done = DoneTypes.NONE
 
-        # wrapper
+        if self.use_wrapper_obs:
+            for w in self.config.gym_wrappers:
+                state = w.observation(state, self.env)
+        else:
+            state = space_encode_from_gym_to_srl(self.env.observation_space, state)
+
         for w in self.config.gym_wrappers:
-            state = w.observation(state, self.env)
             reward = w.reward(cast(float, reward), self.env)
             done = w.done(cast(DoneTypes, done), self.env)
-
-        # flatten
-        if self.enable_flatten_observation:
-            state = space_encode_from_gym_to_srl(self.env.observation_space, state)
 
         state = self.observation_space.sanitize(state)
         return state, [float(reward)], done, info
@@ -438,7 +385,7 @@ class GymnasiumWrapper(EnvBase):
         else:
             self.env: gymnasium.Env = pickle.loads(data)
 
-    def get_invalid_actions(self, player_index: int = -1) -> List[RLInvalidActionType]:
+    def get_invalid_actions(self, player_index: int = -1) -> List[EnvInvalidActionType]:
         if hasattr(self.env.unwrapped, "get_invalid_actions"):
             return self.env.unwrapped.get_invalid_actions()
         else:

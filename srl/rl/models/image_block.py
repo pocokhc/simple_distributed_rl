@@ -1,56 +1,64 @@
-from dataclasses import dataclass, field
-from typing import Any, Dict, Tuple
+from dataclasses import dataclass
+from typing import Optional, Tuple
 
+from srl.base.define import EnvTypes
 from srl.base.exception import UndefinedError
+from srl.base.rl.processor import ObservationProcessor
+from srl.rl.processors.image_processor import ImageProcessor
 
 
 @dataclass
 class ImageBlockConfig:
-    _name: str = field(init=False, default="DQN")
-    _kwargs: Dict[str, Any] = field(init=False, default_factory=lambda: {})
+    def __post_init__(self):
+        self.set_dqn_base()
 
-    def set_dqn_image(
+    def set_dqn_base(
         self,
+        image_type: EnvTypes = EnvTypes.GRAY_2ch,
+        resize: Tuple[int, int] = (84, 84),
         filters: int = 32,
         activation: str = "relu",
     ):
         """画像の入力に対してDQNで採用されたLayersを使用します。
 
         Args:
-            filters (int, optional): 基準となるfilterの数です. Defaults to 32.
-            activation (str, optional): activation function. Defaults to "relu".
+            image_type (EnvTypes): 画像のタイプ. Defaults to EnvTypes.GRAY_2ch
+            resize (Tuple[int, int]): 画像のサイズ. Defaults to (84, 84)
+            filters (int): 基準となるfilterの数です. Defaults to 32.
+            activation (str): activation function. Defaults to "relu".
         """
         self._name = "DQN"
-        self._kwargs = dict(
-            filters=filters,
-            activation=activation,
-        )
+        self._kwargs = dict(filters=filters, activation=activation)
+        self._processor = ImageProcessor(image_type, resize, enable_norm=True)
 
-    def set_r2d3_image(
+    def set_r2d3_base(
         self,
+        image_type: EnvTypes = EnvTypes.COLOR,
+        resize: Tuple[int, int] = (96, 72),
         filters: int = 16,
         activation: str = "relu",
     ):
         """画像の入力に対してR2D3で採用されたLayersを使用します。
 
         Args:
+            image_type (EnvTypes): 画像のタイプ. Defaults to EnvTypes.COLOR
+            resize (Tuple[int, int]): 画像のサイズ. Defaults to (96, 72)
             filters (int, optional): 基準となるfilterの数です. Defaults to 32.
             activation (str, optional): activation function. Defaults to "relu".
         """
         self._name = "R2D3"
-        self._kwargs = dict(
-            filters=filters,
-            activation=activation,
-        )
+        self._kwargs = dict(filters=filters, activation=activation)
+        self._processor = ImageProcessor(image_type, resize, enable_norm=True)
 
-    def set_custom_block(self, entry_point: str, kwargs: dict):
+    def set_custom_block(self, entry_point: str, kwargs: dict, processor: Optional[ObservationProcessor] = None):
         self._name = "custom"
-        self._kwargs = dict(
-            entry_point=entry_point,
-            kwargs=kwargs,
-        )
+        self._kwargs = dict(entry_point=entry_point, kwargs=kwargs)
+        self._processor = processor
 
     # ---------------------
+
+    def get_processor(self) -> Optional[ObservationProcessor]:
+        return self._processor
 
     def create_block_tf(self, enable_time_distributed_layer: bool = False):
         if self._name == "DQN":

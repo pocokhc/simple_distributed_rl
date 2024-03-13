@@ -1,10 +1,15 @@
 import logging
-from typing import Tuple
 
+import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes
+from srl.base.define import EnvTypes, RLTypes
 from srl.base.exception import TFLayerError, UndefinedError
+from srl.base.spaces.multi import MultiSpace
+from srl.base.spaces.space import SpaceBase
+from srl.rl.models.image_block import ImageBlockConfig
+from srl.rl.models.mlp_block import MLPBlockConfig
+from srl.rl.models.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
 
@@ -12,77 +17,96 @@ kl = keras.layers
 logger = logging.getLogger(__name__)
 
 
-class InputImageBlock(keras.Model):
+class InputBlock(KerasModelAddedSummary):
     def __init__(
         self,
-        observation_shape: Tuple[int, ...],
-        observation_type: EnvObservationTypes,
+        value_block_config: MLPBlockConfig,
+        image_block_config: ImageBlockConfig,
+        observation_space: SpaceBase,
         enable_time_distributed_layer: bool = False,
     ):
         super().__init__()
-        self._init_layer(observation_shape, observation_type)
 
-        if enable_time_distributed_layer:
-            self.in_layers = [kl.TimeDistributed(x) for x in self.in_layers]
+        if isinstance(observation_space, MultiSpace):
+            self.is_multi_input = True
+            self.in_multi_layers = []
+            self.in_multi_size = len(observation_space.spaces)
+            for space in observation_space.spaces:
+                if space.rl_type == RLTypes.IMAGE:
+                    layers = self._create_input_image_layers(space)
+                    layers.append(image_block_config.create_block_tf(enable_time_distributed_layer))
+                    layers.append(kl.Flatten())
+                    self.in_multi_layers.append(layers)
+                else:
+                    layers = [
+                        kl.Flatten(),
+                        value_block_config.create_block_tf(),
+                    ]
+                    self.in_multi_layers.append(layers)
+        else:
+            self.is_multi_input = False
+            if observation_space.rl_type == RLTypes.IMAGE:
+                self.in_layers = self._create_input_image_layers(observation_space)
+                self.in_layers.append(image_block_config.create_block_tf(enable_time_distributed_layer))
+                self.in_layers.append(kl.Flatten())
+            else:
+                self.in_layers = [
+                    kl.Flatten(),
+                    value_block_config.create_block_tf(),
+                ]
 
-    def _init_layer(self, observation_shape, observation_type):
-        err_msg = f"unknown observation_type: {observation_type}"
-        self.in_layers = []
+    def _create_input_image_layers(self, obs_space: SpaceBase):
+        err_msg = f"unknown observation_type: {obs_space}"
+        layers = []
 
-        # --- image head
-        if observation_type == EnvObservationTypes.GRAY_2ch:
-            if len(observation_shape) == 2:
+        if obs_space.env_type == EnvTypes.GRAY_2ch:
+            if len(obs_space.shape) == 2:
                 # (h, w) -> (h, w, 1)
-                self.in_layers.append(kl.Reshape(observation_shape + (1,)))
-            elif len(observation_shape) == 3:
+                layers.append(kl.Reshape(obs_space.shape + (1,)))
+            elif len(obs_space.shape) == 3:
                 # (len, h, w) -> (h, w, len)
-                self.in_layers.append(kl.Permute((2, 3, 1)))
+                layers.append(kl.Permute((2, 3, 1)))
             else:
                 raise TFLayerError(err_msg)
 
-        elif observation_type == EnvObservationTypes.GRAY_3ch:
-            assert observation_shape[-1] == 1
-            if len(observation_shape) == 3:
+        elif obs_space.env_type == EnvTypes.GRAY_3ch:
+            assert obs_space.shape[-1] == 1
+            if len(obs_space.shape) == 3:
                 # (h, w, 1)
                 pass
-            elif len(observation_shape) == 4:
+            elif len(obs_space.shape) == 4:
                 # (len, h, w, 1) -> (len, h, w)
                 # (len, h, w) -> (h, w, len)
-                self.in_layers.append(kl.Reshape(observation_shape[:3]))
-                self.in_layers.append(kl.Permute((2, 3, 1)))
+                layers.append(kl.Reshape(obs_space.shape[:3]))
+                layers.append(kl.Permute((2, 3, 1)))
             else:
                 raise TFLayerError(err_msg)
 
-        elif observation_type == EnvObservationTypes.COLOR:
-            if len(observation_shape) == 3:
+        elif obs_space.env_type == EnvTypes.COLOR:
+            if len(obs_space.shape) == 3:
                 # (h, w, ch)
                 pass
             else:
                 raise TFLayerError(err_msg)
 
-        elif observation_type == EnvObservationTypes.IMAGE:
+        elif obs_space.env_type == EnvTypes.IMAGE:
             # (h, w, ch)
             pass
         else:
-            raise UndefinedError(observation_type)
+            raise UndefinedError(obs_space.env_type)
+
+        return layers
 
     def call(self, x, training=False):
-        for layer in self.in_layers:
-            x = layer(x, training=training)
+        if self.is_multi_input:
+            _x = []
+            for i in range(self.in_multi_size):
+                _x2 = x[i]
+                for h in self.in_multi_layers[i]:
+                    _x2 = h(_x2)
+                _x.append(_x2)
+            x = tf.concat(_x, axis=-1)
+        else:
+            for h in self.in_layers:
+                x = h(x, training=training)
         return x
-
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
-    def init_model_graph(self, name: str = ""):
-        x = kl.Input(shape=self.__input_shape[1:])
-        name = self.__class__.__name__ if name == "" else name
-        keras.Model(inputs=x, outputs=self.call(x), name=name)
-
-
-if __name__ == "__main__":
-    m = InputImageBlock((1, 2, 3), EnvObservationTypes.COLOR)
-    m.build((None, 1, 2, 3))
-    m.init_model_graph()
-    m.summary()

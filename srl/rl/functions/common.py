@@ -195,3 +195,18 @@ def twohot_decode(x, size: int, low: float, high: float):
     bins = np.arange(0, size)
     x = np.dot(x, bins)
     return (x / (size - 1)) * (high - low) + low
+
+
+def create_fancy_index_for_invalid_actions(idx_list: List[List[int]]):
+    """ファンシーインデックス
+    idx_list = [
+        [1, 2, 5],
+        [2],
+        [2, 3],
+    ]
+    idx1 = [0, 0, 0, 1, 2, 2]
+    idx2 = [1, 2, 5, 2, 2, 3]
+    """
+    idx1 = [i for i, sublist in enumerate(idx_list) for _ in sublist]
+    idx2 = [item for sublist in idx_list for item in sublist]
+    return idx1, idx2

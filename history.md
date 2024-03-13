@@ -6,18 +6,44 @@
 // (jax) batch数(32)ぐらいの量だとnumpyの方が早かったので見送り
 1. (tf/torchの互換パラメータの作成)
 1. Async-SGD
-1. (distribution)memoryの仕様決め
 1. (distribution)オリジナルrl/env対応
 1. RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
-1. spaceの複数入力（画像+値の入力など）
-1. メモリの圧縮
 
-# v0.14.2
+train_infoの遅延評価
+RLworkerに統一
+
+# v0.15.0
+
+1. spacesにMultiSpaceを追加し、マルチモーダルな入力に対応（画像+値の入力など）
+1. Envの作成をgymnasiumにし、SRLはオプションで追加できる形に修正
 
 **MainUpdates**
 
-1. [base.spaces] new: Spaceの配列を表現するArraySpaceを追加
-  1. 合わせてSpacesを大幅にリファクタリング
+1. [base.spaces] new: spacesに配列を表現するMultiSpaceを追加
+  1. [base.env] change: EnvBaseのobservation_typeをspacesで保持するように変更。
+  1. [base.define] rename: EnvObservationTypesをEnvTypesに名前変更
+  1. [base.define] new: EnvTypesにTEXTとMULTIを追加
+  1. [base.define] new: RLTypesにMULTIを追加
+  1. [base.spaces] new: spacesでenv_typeとrl_typeを追加
+  1. [base.rl] big update: RLConfigのsetupとworker_runをMultiSpaceに対応
+      + [base.rl.config] new: use_render_image_for_observationを廃止し、代わりにobservation_modeを追加
+      　observation_modeはENVのstate+render_image等の入力に変更可能なパラメータ
+      + render_imageの入力をRenderImageProcessorではなくworker_runに実装
+      + [rl.processors] delete: 使わなくなったのでRenderImageProcessorを削除
+      + [base.rl.config] rename: base_action_type等のプロパティを先頭にgetを付けて関数化(カスタムRLへの影響あり)
+      　ハイパーパラメータ指定時に関係ない変数をなるべく非表示にするのが目的
+      + [base.rl.config] rename: set_processorをget_processorsに名前変更
+      + [base.rl.processor] update: 更新に合わせてリファクタリング、copy関数も追加
+      + [base.env] add: override_render_modeを追加し、renderを外部からいじれるように
+  1. [rl.models] big update: MultiSpaceに対応
+      + [rl.models] change: inputs_blockを改修
+         + NN系アルゴリズムのinputs_blockを修正予定
+         + NN系アルゴリズムのハイパーパラメータにinput_value_blockとinput_image_blockが追加
+      + [rl.models.helper] new: helper.pyを作成、state等をNNに渡す際の変換処理（データのバッチ化など）をここで管理予定
+      + [rl.models.image_block] change: 画像のサイズ等をアルゴリズム側からconfig側に移動しハイパーパラメータ化
+      + [rl.models.image_block] change: 関数名をset_dqn_imageからset_dqn_baseに変更
+      + [rl.models.tf] new: KerasModelAddedSummaryを作成、ややこしいsummary処理をここで管理（これに伴い全tf.kerasをKerasModelAddedSummaryを継承するように変更予定）
+      + [rl.functions.common] new: invalid_action用のファンシーインデックスを作成する関数 create_fancy_index_for_invalid_actions を追加
   1. [docs_src.pages.framework_detail] update: InterfaceTypeを厳密に定義
       + obsのdiscreteのみnp.ndarrayからlist[int]に変更
       + np.ndarrayをdtypeによってdiscreteかcontinuousか判定
@@ -25,13 +51,18 @@
   1. rename: convertをsanitizeに変更
   1. new: get_valid_actions関数を追加、discreteのみ実装
   1. new: DiscreteSpaceにstart引数を追加
-  1. [runner.playable_game] update: ArraySpace用のkey_bindの仕様を追加
-1. [base.env.gymnasium_wrapper] update: ArraySpaceの追加に伴ってgymとの連携を強化
+  1. [runner.playable_game] update: MultiSpace用のkey_bindの仕様を追加
+1. [base.env.gymnasium_wrapper] update: MultiSpaceの追加に伴ってgymとの連携を強化
 1. [base.env.gymnasium_wrapper] new: gym実装でもbackup/restore等が実装されていればそれらを使うように変更
+1. [base.env.gymnasium_wrapper/gym_wrapper] update: 全体的に見直してリファクタリング
+1. [base.env.gymnasium_wrapper/gym_wrapper] delete: Boxをdtype間で定義したのでgym_prediction_by_simulationの必要性が低くなったので削除
 1. [base.env.registration] update: gymのmake時に名前がない場合の例外だけを別処理に
+1. [runner] new: memoryに圧縮機能を追加
 
 **OtherUpdates**
 
+1. [base.spaces] add: copyとdtypeを追加
+1. [base.spaces] new: TextSpaceを追加(未完成)
 1. [base.rl.registration] new: 登録に"dummy"を追加し、rl.dummyを削除
   1. add/delete: DummyRLTrainer/DummyRLWorkerを追加し、rl.dummyを削除
 1. [runner] add: checkpointとhistoryが無効になった場合にログを追加
@@ -40,6 +71,7 @@
 1. [runner] new: save_aviを追加
 1. [runner] new: linuxのみmemoryの上限サイズを設定し、メモリ枯渇したらエラー表示するように追加(resource)
 1. [tests] new: base.coreのテストを追加
+1. [base.core] refactoring: リファクタリング
 1. [base.env.config] new: gymとgymnasium両方ある場合にgymを強制するuse_gym変数を追加
 1. [base.env.base] rename: get_original_envをunwrappedに変更
 1. [base.exception] new: NotSupportedErrorを追加 

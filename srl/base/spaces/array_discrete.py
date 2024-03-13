@@ -31,11 +31,15 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         self._high = [int(h) for h in self._high]
 
         self.decode_tbl = None
+        self.encode_tbl = None
 
     @property
     def base_env_type(self) -> EnvTypes:
         return EnvTypes.DISCRETE
 
+    @property
+    def dtype(self):
+        return np.int64
 
     def sample(self, mask: List[List[int]] = []) -> List[int]:
         if len(mask) > 0:
@@ -98,6 +102,12 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
 
     def get_default(self) -> List[int]:
         return [0 for _ in range(self._size)]
+
+    def copy(self) -> "ArrayDiscreteSpace":
+        o = ArrayDiscreteSpace(self._size, self._low, self._high)
+        o.decode_tbl = self.decode_tbl
+        o.encode_tbl = self.encode_tbl
+        return o
 
     def __eq__(self, o: "ArrayDiscreteSpace") -> bool:
         if self._size != o._size:

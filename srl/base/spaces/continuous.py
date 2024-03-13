@@ -33,6 +33,10 @@ class ContinuousSpace(SpaceBase[float]):
     def base_env_type(self) -> EnvTypes:
         return EnvTypes.CONTINUOUS
 
+    @property
+    def dtype(self):
+        return np.float32
+
     def sample(self, mask: List[float] = []) -> float:
         if len(mask) > 0:
             logger.info(f"mask is not support: {mask}")
@@ -73,15 +77,20 @@ class ContinuousSpace(SpaceBase[float]):
     def get_default(self) -> float:
         return 0.0
 
+    def copy(self) -> "ContinuousSpace":
+        o = ContinuousSpace(self._low, self._high)
+        o.division_tbl = self.division_tbl
+        return o
+
     def __eq__(self, o: "ContinuousSpace") -> bool:
         return (self._low == o._low) and (self._high == o._high)
 
     def __str__(self) -> str:
         if self.division_tbl is None:
-            s = ""
+            s = ")"
         else:
             s = f", division({self.n})"
-        return f"Continuous({self.low} - {self.high}){s}"
+        return f"Continuous({self.low} - {self.high}{s}"
 
     # --------------------------------------
     # create_division_tbl

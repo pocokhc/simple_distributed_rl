@@ -12,7 +12,6 @@ from srl.base.define import (
     EnvActionType,
     EnvInvalidActionType,
     EnvObservationType,
-    EnvObservationTypes,
     InfoType,
     KeyBindType,
     RenderModes,
@@ -82,6 +81,8 @@ class EnvRun:
         self.env.set_seed(seed)
 
         # --- render
+        if self.config.override_render_mode != RenderModes.none:
+            render_mode = self.config.override_render_mode
         self._render.reset(render_mode)
 
         # --- env reset

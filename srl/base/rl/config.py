@@ -6,11 +6,13 @@ from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Type
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, RLBaseTypes, RLObservationType, RLTypes
+from srl.base.define import EnvTypes, ObservationModes, RenderModes, RLBaseTypes, RLTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.exception import UndefinedError
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import EpisodeProcessor, ObservationProcessor, ProcessorType
 from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.multi import MultiSpace
+from srl.base.spaces.text import TextSpace
 from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
@@ -26,9 +28,12 @@ class RLConfig(ABC):
     アルゴリズム毎に別々のハイパーパラメータがありますが、ここはアルゴリズム共通のパラメータの定義となります。
     """
 
+    #: 状態の入力を指定、複数指定するとMultipleSpaceになる
+    observation_mode: ObservationModes = ObservationModes.ENV
+
     #: env_observation_type を上書きできます。
     #: 例えばgymの自動判定で想定外のTypeになった場合、ここで上書きできます。
-    override_env_observation_type: EnvObservationTypes = EnvObservationTypes.UNKNOWN
+    override_env_observation_type: EnvTypes = EnvTypes.UNKNOWN
     #: action_type を上書きできます。
     #: これはアルゴリズム側の base_action_type がANY(Discrete/Continuousどちらも対応できるアルゴリズム)の場合のみ有効になります。
     override_action_type: RLTypes = RLTypes.UNKNOWN
@@ -52,12 +57,8 @@ class RLConfig(ABC):
     #: Trueの場合、アルゴリズム側で指定されたprocessorを使用します
     use_rl_processor: bool = True
 
-    #: 状態の入力をrender_imageに変更します。環境からの状態は画像に上書きされます。
-    #: Change state input to render_image. Existing settings will be overwritten.
-    use_render_image_for_observation: bool = False
-
     #: Processorを使う場合、定義したProcessorのリスト
-    processors: List[Processor] = field(default_factory=list)
+    processors: List[ProcessorType] = field(default_factory=list)
 
     # --- Worker Config
     #: state_encodeを有効にするか
@@ -70,8 +71,6 @@ class RLConfig(ABC):
     enable_done_encode: bool = True
     #: 過去Nステップをまとめて状態とします
     window_length: int = 1
-    #: window_length指定時の存在しないstepでの状態の値
-    dummy_state_val: float = 0.0
 
     #: memoryデータを圧縮してやり取りするかどうか
     memory_compress: bool = True
@@ -86,9 +85,6 @@ class RLConfig(ABC):
 
     def __post_init__(self) -> None:
         self._is_setup = False
-        self._run_processors: List[Processor] = []
-        self._rl_action_type = self.override_action_type
-        self._input_is_image = False
 
         # The device used by the framework.
         self._used_device_tf: str = "/CPU"
@@ -113,14 +109,12 @@ class RLConfig(ABC):
     def getName(self) -> str:  # get_nameに変えたい…
         raise NotImplementedError()
 
-    @property
     @abstractmethod
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         raise NotImplementedError()
 
-    @property
     @abstractmethod
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         raise NotImplementedError()
 
     @abstractmethod
@@ -133,14 +127,13 @@ class RLConfig(ABC):
     def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
         pass  # NotImplemented
 
-    def set_processor(self) -> List[Processor]:
+    def get_processors(self) -> List[Optional[ObservationProcessor]]:
         return []  # NotImplemented
 
     def get_changeable_parameters(self) -> List[str]:
         return []  # NotImplemented
 
-    @property
-    def use_backup_restore(self) -> bool:
+    def get_used_backup_restore(self) -> bool:
         return False
 
     # infoの情報のタイプを指定、出力形式等で使用を想定
@@ -153,8 +146,7 @@ class RLConfig(ABC):
     #   "min" : 最小値
     #   "max" : 最大値
     # }
-    @property
-    def info_types(self) -> dict:
+    def get_info_types(self) -> dict:
         return {}  # NotImplemented
 
     # ----------------------------
@@ -169,137 +161,213 @@ class RLConfig(ABC):
             logger.info(f"--- {self.getName()}")
             logger.info(f"max_episode_steps     : {env.max_episode_steps}")
             logger.info(f"player_num            : {env.player_num}")
-            logger.info(f"observation_type(env) : {env.observation_type}")
+            logger.info(f"action_space(env)     : {env.action_space}")
             logger.info(f"observation_space(env): {env.observation_space}")
 
         # env property
         self.env_max_episode_steps = env.max_episode_steps
         self.env_player_num = env.player_num
 
-        self._env_action_space = env.action_space  # action_spaceはenvを使いまわす
-        rl_observation_space = env.observation_space
-        rl_env_observation_type = env.observation_type
-
         # --- backup/restore check
-        if self.use_backup_restore:
+        if self.get_used_backup_restore():
             try:
+                env.reset()
                 d = env.backup()
                 env.restore(d)
             except Exception:
                 logger.error(f"'{self.getName()}' uses restore/backup, but it is not implemented in {env.name}.")
                 raise
 
-        # -----------------------
-        # observation
-        # -----------------------
-
-        # --- observation_typeの上書き
-        if self.override_env_observation_type != EnvObservationTypes.UNKNOWN:
-            rl_env_observation_type = self.override_env_observation_type
-            if enable_log:
-                logger.info(f"override observation type: {rl_env_observation_type}")
-
-        # --- processor
-        self._run_processors = []
-        if self.enable_state_encode:
-            # render image
-            if self.use_render_image_for_observation:
-                from srl.rl.processors.render_image_processor import RenderImageProcessor
-
-                self._run_processors.append(RenderImageProcessor())
+        # -------------------------------------------------
+        # processor
+        # -------------------------------------------------
+        obs_processors: List[ObservationProcessor] = []
+        self._episode_processors: List[EpisodeProcessor] = []
 
         # user processor
-        self._run_processors.extend(self.processors)
+        for p in self.processors:
+            if isinstance(p, ObservationProcessor):
+                obs_processors.append(p)
+            elif isinstance(p, EpisodeProcessor):
+                self._episode_processors.append(p)
 
         # rl processor
         if self.use_rl_processor:
-            self._run_processors.extend(self.set_processor())
+            for p in self.get_processors():
+                if isinstance(p, ObservationProcessor):
+                    obs_processors.append(p)
+                elif isinstance(p, EpisodeProcessor):
+                    self._episode_processors.append(p)
 
+        # -------------------------------------------------
+        # observation
+        # -------------------------------------------------
+        env_obs_spaces: List[SpaceBase] = []
+        self._is_env_obs_multi = False
+        if self.observation_mode & ObservationModes.ENV:
+            env_obs_space = env.observation_space.copy()
+            if isinstance(env_obs_space, MultiSpace):
+                self._is_env_obs_multi = True
+                if self.override_env_observation_type != EnvTypes.UNKNOWN and enable_log:
+                    logger.info("override_env_observation_type is not supported in MultiSpace.")
+                env_obs_spaces.extend(env_obs_space.spaces)
+            else:
+                # --- observation_typeの上書き
+                if self.override_env_observation_type != EnvTypes.UNKNOWN:
+                    if enable_log:
+                        s = "override env observation type: "
+                        s += f"{env.observation_space.env_type} -> {self.override_env_observation_type}"
+                        logger.info(s)
+                    env_obs_space.set_env_type(self.override_env_observation_type)
+                env_obs_spaces.append(env_obs_space)
+
+        if self.observation_mode & ObservationModes.RENDER_IMAGE:
+            env.config.override_render_mode = RenderModes.rgb_array
+            env.reset(render_mode=RenderModes.rgb_array)
+            rgb_array = env.render_rgb_array()
+            env_obs_spaces.append(BoxSpace(rgb_array.shape, 0, 255, np.uint8, EnvTypes.COLOR))
+
+        if self.observation_mode & ObservationModes.RENDER_TERMINAL:
+            env_obs_spaces.append(TextSpace(TODO))
+
+        # --- apply processors
+        self._obs_processors_list: List[List[ObservationProcessor]] = []
         if self.enable_state_encode:
-            # change space
-            for p in self._run_processors:
-                _new_rl_observation_space, _new_rl_env_observation_type = p.preprocess_observation_space(
-                    rl_observation_space,
-                    rl_env_observation_type,
-                    env,
-                    self,
-                )
-                if enable_log:
-                    logger.info(f"apply observation processor: {repr(p)}")
-                    logger.info(f"  type : {rl_env_observation_type} -> {_new_rl_env_observation_type}")
-                    logger.info(f"  space: {rl_observation_space} -> {_new_rl_observation_space}")
-                rl_observation_space = _new_rl_observation_space
-                rl_env_observation_type = _new_rl_env_observation_type
-
-        [r.setup(env, self) for r in self._run_processors]
-
-        self._rl_observation_one_step_space = rl_observation_space
-        self._rl_observation_space = rl_observation_space
-        self._rl_env_observation_type = rl_env_observation_type
-
-        # --- window_length
-        if self.window_length > 1:
-            self._rl_observation_space = BoxSpace(
-                (self.window_length,) + self._rl_observation_one_step_space.shape,
-                np.min(self._rl_observation_one_step_space.low),
-                np.max(self._rl_observation_one_step_space.high),
-            )
+            # 各spaceに適用する
+            for i in range(len(env_obs_spaces)):
+                p_list = []
+                for p in obs_processors:
+                    p = p.copy()
+                    p.setup(env, self)  # processors setup
+                    new_env_obs_space = p.preprocess_observation_space(env_obs_spaces[i], env, self)
+                    if enable_log and (env_obs_spaces[i] != new_env_obs_space):
+                        logger.info(f"apply observation processor: {repr(p)}")
+                        logger.info(f"   {env_obs_spaces[i]}")
+                        logger.info(f" ->{new_env_obs_space}")
+                    env_obs_spaces[i] = new_env_obs_space
+                    p_list.append(p)
+                self._obs_processors_list.append(p_list)
 
         # --- obs type
         # 優先度
         # 1. RL
         # 2. obs_space
-        if self.base_observation_type == RLBaseTypes.DISCRETE:
-            self._rl_observation_type: RLTypes = RLTypes.DISCRETE
-        elif self.base_observation_type == RLBaseTypes.CONTINUOUS:
-            self._rl_observation_type: RLTypes = RLTypes.CONTINUOUS
-        elif self.base_observation_type == RLBaseTypes.ANY:
-            self._rl_observation_type: RLTypes = self._rl_observation_space.rl_type
+        for space in env_obs_spaces:
+            if self.get_base_observation_type() == RLBaseTypes.DISCRETE:
+                rl_type = RLTypes.DISCRETE
+            elif self.get_base_observation_type() == RLBaseTypes.CONTINUOUS:
+                rl_type = RLTypes.CONTINUOUS
+            elif self.get_base_observation_type() == RLBaseTypes.ANY:
+                if space.env_type == EnvTypes.DISCRETE:
+                    rl_type = RLTypes.DISCRETE
+                else:
+                    rl_type = RLTypes.CONTINUOUS
+            else:
+                raise UndefinedError(self.get_base_observation_type())
+
+            # CONTINUOUSなら画像チェックする
+            if rl_type == RLTypes.CONTINUOUS:
+                if space.env_type in [
+                    EnvTypes.GRAY_2ch,
+                    EnvTypes.GRAY_3ch,
+                    EnvTypes.COLOR,
+                    EnvTypes.IMAGE,
+                ]:
+                    rl_type = RLTypes.IMAGE
+
+            space.set_rl_type(rl_type)
+
+            # --- division
+            # RLが DISCRETE で Space が CONTINUOUS なら分割して DISCRETE にする
+            if rl_type == RLTypes.DISCRETE and space.env_type == EnvTypes.CONTINUOUS:
+                space.create_division_tbl(self.observation_division_num)
+
+        # --- window_length
+        env_obs_spaces_one_step_in_rl = env_obs_spaces
+        env_obs_spaces_in_rl = env_obs_spaces
+        if self.window_length > 1:
+            for i in range(len(env_obs_spaces_one_step_in_rl)):
+                one_space = env_obs_spaces_one_step_in_rl[i]
+                env_obs_spaces_in_rl[i] = BoxSpace(
+                    (self.window_length,) + one_space.shape,
+                    np.min(one_space.low),
+                    np.max(one_space.high),
+                    one_space.dtype,
+                    one_space.env_type,
+                )
+                env_obs_spaces_in_rl[i].set_rl_type(one_space.rl_type)
+
+        # --- multi space
+        # obsはMultiが1つなら展開される
+        assert len(env_obs_spaces_in_rl) > 0
+        if len(env_obs_spaces_in_rl) > 1:
+            self._env_obs_space_in_rl: SpaceBase = MultiSpace(env_obs_spaces_in_rl)
         else:
-            raise UndefinedError(self.base_observation_type)
-
-        # CONTINUOUSなら画像チェックする
-        if self._rl_observation_type == RLTypes.CONTINUOUS:
-            if self._rl_env_observation_type in [
-                EnvObservationTypes.GRAY_2ch,
-                EnvObservationTypes.GRAY_3ch,
-                EnvObservationTypes.COLOR,
-                EnvObservationTypes.IMAGE,
-            ]:
-                self._rl_observation_type = RLTypes.IMAGE
+            self._env_obs_space_in_rl: SpaceBase = env_obs_spaces_in_rl[0]
+        self._env_obs_space_one_step_in_rl: List[SpaceBase] = env_obs_spaces_one_step_in_rl
 
         # -----------------------
-        #  action type
+        #  action
         # -----------------------
+        env_act_spaces: List[SpaceBase] = []
+        env_act_space = env.action_space.copy()
+        if isinstance(env_act_space, MultiSpace):
+            env_act_spaces.extend(env_act_space.spaces)
+        else:
+            env_act_spaces.append(env_act_space)
+
+        # --- act type
         # 優先度
         # 1. RL
         # 2. override_action_type
         # 3. action_space
-        if self.base_action_type == RLBaseTypes.DISCRETE:
-            self._rl_action_type: RLTypes = RLTypes.DISCRETE
-        elif self.base_action_type == RLBaseTypes.CONTINUOUS:
-            self._rl_action_type: RLTypes = RLTypes.CONTINUOUS
-        elif self.base_action_type == RLBaseTypes.ANY:
-            if self.override_action_type != RLTypes.UNKNOWN:
-                self._rl_action_type: RLTypes = self.override_action_type
+        for space in env_act_spaces:
+            if self.get_base_action_type() == RLBaseTypes.DISCRETE:
+                rl_type = RLTypes.DISCRETE
+            elif self.get_base_action_type() == RLBaseTypes.CONTINUOUS:
+                rl_type = RLTypes.CONTINUOUS
+            elif self.get_base_action_type() == RLBaseTypes.ANY:
+                if self.override_action_type != RLTypes.UNKNOWN:
+                    rl_type = self.override_action_type
+                else:
+                    if space.env_type == EnvTypes.DISCRETE:
+                        rl_type = RLTypes.DISCRETE
+                    else:
+                        rl_type = RLTypes.CONTINUOUS
             else:
-                self._rl_action_type: RLTypes = self._env_action_space.rl_type
+                raise UndefinedError(self.get_base_action_type())
+
+            # CONTINUOUSなら画像チェックする
+            if rl_type == RLTypes.CONTINUOUS:
+                if space.env_type in [
+                    EnvTypes.GRAY_2ch,
+                    EnvTypes.GRAY_3ch,
+                    EnvTypes.COLOR,
+                    EnvTypes.IMAGE,
+                ]:
+                    rl_type = RLTypes.IMAGE
+
+            space.set_rl_type(rl_type)
+
+            # --- division
+            # RLが DISCRETE で Space が CONTINUOUS なら分割して DISCRETE にする
+            if rl_type == RLTypes.DISCRETE and space.env_type == EnvTypes.CONTINUOUS:
+                space.create_division_tbl(self.action_division_num)
+
+        # --- multi space
+        # actはMultiが1つでも保持される
+        assert len(env_act_spaces) > 0
+        if isinstance(env.action_space, MultiSpace):
+            self._env_act_space_in_rl: SpaceBase = MultiSpace(env_act_spaces)
+        elif len(env_act_spaces) > 1:
+            self._env_act_space_in_rl: SpaceBase = MultiSpace(env_act_spaces)
         else:
-            raise UndefinedError(self.base_action_type)
+            self._env_act_space_in_rl: SpaceBase = env_act_spaces[0]
 
         # ------------------------------
 
-        # --- division
-        # RLが DISCRETE で Space が CONTINUOUS なら分割して DISCRETE にする
-        if (self._rl_action_type == RLTypes.DISCRETE) and (self._env_action_space.rl_type == RLTypes.CONTINUOUS):
-            self._env_action_space.create_division_tbl(self.action_division_num)
-        if (self._rl_observation_type == RLTypes.DISCRETE) and (
-            self._rl_observation_space.rl_type == RLTypes.CONTINUOUS
-        ):
-            self._rl_observation_space.create_division_tbl(self.observation_division_num)
-
         # --- set rl property
-        if self._rl_action_type == RLTypes.DISCRETE:
+        if self._env_act_space_in_rl.rl_type == RLTypes.DISCRETE:
             self._action_num = self.action_space.n
             self._action_low = np.ndarray(0)
             self._action_high = np.ndarray(self._action_num - 1)
@@ -308,12 +376,6 @@ class RLConfig(ABC):
             self._action_num = self.action_space.list_size
             self._action_low = np.array(self.action_space.list_low)
             self._action_high = np.array(self.action_space.list_high)
-
-        self._input_is_image = self._rl_env_observation_type not in [
-            EnvObservationTypes.DISCRETE,
-            EnvObservationTypes.CONTINUOUS,
-            EnvObservationTypes.UNKNOWN,
-        ]
 
         # --- option
         self.set_config_by_env(env)
@@ -326,13 +388,56 @@ class RLConfig(ABC):
         self._check_parameter = True
         self._is_setup = True
         if enable_log:
-            logger.info(f"action_type(rl)               : {self._rl_action_type}")
-            logger.info(f"action_space(env)             : {self._env_action_space}")
-            logger.info(f"observation_env_type(rl)      : {self._rl_env_observation_type}")
-            logger.info(f"observation_type(rl)          : {self._rl_observation_type}")
-            logger.info(f"observation_space(rl)         : {self._rl_observation_space}")
+            logger.info(f"action_space(rl)     : {self._env_act_space_in_rl}")
+            logger.info(f"observation_space(rl): {self._env_obs_space_in_rl}")
             if self.window_length > 1:
-                logger.info(f"observation_one_step_space(rl): {self._rl_observation_one_step_space}")
+                logger.info(f"observation_spaces_one_step(rl): {self._env_obs_space_one_step_in_rl}")
+
+    # --- setup property
+
+    @property
+    def is_setup(self) -> bool:
+        return self._is_setup
+
+    @property
+    def observation_processors_list(self) -> List[List[ObservationProcessor]]:
+        return self._obs_processors_list
+
+    @property
+    def episode_processors(self) -> List[EpisodeProcessor]:
+        return self._episode_processors
+
+    @property
+    def is_env_obs_multi(self) -> bool:
+        return self._is_env_obs_multi
+
+    @property
+    def action_space(self) -> SpaceBase:
+        return self._env_act_space_in_rl
+
+    @property
+    def action_type(self) -> RLTypes:
+        return self._env_act_space_in_rl.rl_type
+
+    @property
+    def observation_spaces_one_step(self) -> List[SpaceBase]:
+        return self._env_obs_space_one_step_in_rl
+
+    @property
+    def observation_space(self) -> SpaceBase:
+        return self._env_obs_space_in_rl
+
+    @property
+    def observation_shape(self) -> Tuple[int, ...]:
+        return self._env_obs_space_in_rl.shape
+
+    @property
+    def observation_type(self) -> RLTypes:
+        return self._env_obs_space_in_rl.rl_type
+
+    @property
+    def observation_type_of_env(self) -> EnvTypes:
+        return self._env_obs_space_in_rl.env_type
 
     def __setattr__(self, name: str, value):
         if name == "_is_setup":
@@ -358,52 +463,12 @@ class RLConfig(ABC):
         return self.getName()
 
     @property
-    def is_setup(self) -> bool:
-        return self._is_setup
-
-    @property
-    def run_processors(self) -> List[Processor]:
-        return self._run_processors
-
-    @property
     def used_device_tf(self) -> str:
         return self._used_device_tf
 
     @property
     def used_device_torch(self) -> str:
         return self._used_device_torch
-
-    @property
-    def action_space(self) -> SpaceBase:
-        return self._env_action_space
-
-    @property
-    def action_type(self) -> RLTypes:
-        return self._rl_action_type
-
-    @property
-    def observation_one_step_space(self) -> SpaceBase:
-        return self._rl_observation_one_step_space
-
-    @property
-    def observation_space(self) -> SpaceBase:
-        return self._rl_observation_space
-
-    @property
-    def observation_shape(self) -> Tuple[int, ...]:
-        return self._rl_observation_space.shape
-
-    @property
-    def observation_type(self) -> RLTypes:
-        return self._rl_observation_type
-
-    @property
-    def env_observation_type(self) -> EnvObservationTypes:
-        return self._rl_env_observation_type
-
-    @property
-    def input_is_image(self) -> bool:
-        return self._input_is_image
 
     def to_dict(self) -> dict:
         dat: dict = convert_for_json(self.__dict__)
@@ -429,12 +494,6 @@ class RLConfig(ABC):
             config._is_setup = self._is_setup
         return config
 
-    def create_dummy_state(self, is_one: bool = False) -> RLObservationType:
-        if is_one:
-            return np.full(self._rl_observation_one_step_space.shape, self.dummy_state_val, dtype=np.float32)
-        else:
-            return np.full(self.observation_shape, self.dummy_state_val, dtype=np.float32)
-
     # ----------------------------------
     # rl use property(reset後に使えます)
     # ----------------------------------
@@ -455,12 +514,10 @@ class RLConfig(ABC):
 class DummyRLConfig(RLConfig):
     name: str = "dummy"
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.ANY
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.ANY
 
     def get_use_framework(self) -> str:

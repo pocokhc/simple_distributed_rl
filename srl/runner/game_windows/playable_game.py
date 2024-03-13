@@ -5,7 +5,7 @@ from typing import Dict, Generator, List, Optional, Tuple, Union, cast
 import pygame
 
 from srl.base.define import EnvActionType, KeyBindType
-from srl.base.spaces.array import ArraySpace
+from srl.base.spaces.multi import MultiSpace
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
 from srl.runner.runner import CallbackType, Runner
 
@@ -258,7 +258,6 @@ class PlayableGame(GameWindow):
             "",
             "- env infos -",
             f"action_space     : {self.env.action_space}",
-            f"observation_type : {self.env.observation_type.name}",
             f"observation_space: {self.env.observation_space}",
             f"player_num       : {self.env.player_num}",
             f"step   : {self.env.step_num}",
@@ -293,7 +292,7 @@ class PlayableGame(GameWindow):
 
     def _get_action_from_key_bind(self, key):
         key = tuple(sorted(key))
-        if isinstance(self.env.action_space, ArraySpace):
+        if isinstance(self.env.action_space, MultiSpace):
             # {match key list : [index, action]}
             self.key_bind = cast(
                 Dict[

@@ -95,6 +95,12 @@ class RLMemoryTypes(enum.Enum):
     PRIORITY = enum.auto()
 
 
+class ObservationModes(enum.Flag):
+    ENV = enum.auto()
+    RENDER_IMAGE = enum.auto()
+    RENDER_TERMINAL = enum.auto()
+
+
 class RenderModes(enum.Enum):
     none = 0
     terminal = enum.auto()

@@ -1,9 +1,11 @@
 from tensorflow import keras
 
+from srl.rl.models.tf.model import KerasModelAddedSummary
+
 kl = keras.layers
 
 
-class DQNImageBlock(keras.Model):
+class DQNImageBlock(KerasModelAddedSummary):
     def __init__(
         self,
         filters: int = 32,
@@ -27,18 +29,8 @@ class DQNImageBlock(keras.Model):
             x = layer(x, training=training)
         return x
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
-    def init_model_graph(self, name: str = ""):
-        x = kl.Input(shape=self.__input_shape[1:])
-        name = self.__class__.__name__ if name == "" else name
-        keras.Model(inputs=x, outputs=self.call(x), name=name)
-
 
 if __name__ == "__main__":
     m = DQNImageBlock()
     m.build((None, 64, 75, 19))
-    m.init_model_graph()
     m.summary()

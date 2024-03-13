@@ -34,6 +34,10 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
     def base_env_type(self) -> EnvTypes:
         return EnvTypes.CONTINUOUS
 
+    @property
+    def dtype(self):
+        return np.float32
+
     def sample(self, mask: List[List[float]] = []) -> List[float]:
         if len(mask) > 0:
             logger.info(f"mask is not support: {mask}")
@@ -75,6 +79,11 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
 
     def get_default(self) -> List[float]:
         return [0.0 for _ in range(self._size)]
+
+    def copy(self) -> "ArrayContinuousSpace":
+        o = ArrayContinuousSpace(self._size, self._low, self._high)
+        o.division_tbl = self.division_tbl
+        return o
 
     def __eq__(self, o: "ArrayContinuousSpace") -> bool:
         return self._size == o._size and (self._low == o._low).all() and (self._high == o._high).all()

@@ -38,11 +38,15 @@ class BoxSpace(SpaceBase[np.ndarray]):
         self._is_inf = np.isinf(low).any() or np.isinf(high).any()
         self.division_tbl = None
         self.decode_int_tbl = None
+        self.encode_int_tbl = None
 
     @property
     def base_env_type(self) -> EnvTypes:
         return self._env_type
 
+    @property
+    def dtype(self):
+        return self._dtype
 
     def sample(self, mask: List[np.ndarray] = []) -> np.ndarray:
         if self._env_type == EnvTypes.DISCRETE:
@@ -98,15 +102,28 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def get_default(self) -> np.ndarray:
         return np.zeros(self.shape)
 
+    def copy(self) -> "BoxSpace":
+        o = BoxSpace(self._shape, self._low, self._high, self._dtype, self._env_type)
+        o.division_tbl = self.division_tbl
+        o.decode_int_tbl = self.decode_int_tbl
+        o.encode_int_tbl = self.encode_int_tbl
+        return o
+
     def __eq__(self, o: "BoxSpace") -> bool:
-        return self.shape == o.shape and (self.low == o.low).all() and (self.high == o.high).all()
+        return (
+            (self._shape == o._shape)
+            and (self._low == o._low).all()
+            and (self._high == o._high).all()
+            and (self._dtype == o._dtype)
+            and (self._env_type == o._env_type)
+        )
 
     def __str__(self) -> str:
         if self.division_tbl is None:
             s = ""
         else:
             s = f", division({self.n})"
-        return f"Box({self.shape}, range[{np.min(self.low)}, {np.max(self.high)}]){s}"
+        return f"Box{self.shape}, range[{np.min(self.low)}, {np.max(self.high)}]{s}, {self._dtype}, {self._env_type}"
 
     # --------------------------------------
     # create_division_tbl
@@ -134,7 +151,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
             act_list.append([low + diff * j for j in range(division_num)])
 
         act_list = list(itertools.product(*act_list))
-        self.division_tbl = np.reshape(act_list, (-1,) + self.shape)
+        self.division_tbl = np.reshape(act_list, (-1,) + self.shape).astype(self._dtype)
         n = len(self.division_tbl)
 
         logger.info(f"created division: {division_num}(n={n})({time.time()-t0:.3f}s)")
@@ -146,8 +163,8 @@ class BoxSpace(SpaceBase[np.ndarray]):
 
         # flattenしたのをkeyにする
         t0 = time.time()
-        low = self.low.flatten()
-        high = self.high.flatten()
+        low = self._low.flatten().astype(np.int64)
+        high = self._high.flatten().astype(np.int64)
         arr_list = [[a for a in range(low[i], high[i] + 1)] for i in range(len(low))]
         self.decode_int_tbl = list(itertools.product(*arr_list))
         self.encode_int_tbl = {}
@@ -171,6 +188,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def encode_to_int(self, val: np.ndarray) -> int:
         if self._env_type == EnvTypes.DISCRETE:
             self._create_int_tbl()
+            assert self.encode_int_tbl is not None
             key = val.flatten().tolist()
             return self.encode_int_tbl[tuple(key)]
         else:
@@ -252,7 +270,10 @@ class BoxSpace(SpaceBase[np.ndarray]):
         return self._high
 
     def encode_to_np(self, val: np.ndarray, dtype) -> np.ndarray:
-        return val.astype(dtype)
+        val = val.astype(dtype)
+        if val.shape == ():
+            val = val.reshape((1,))
+        return val
 
     def decode_from_np(self, val: np.ndarray) -> np.ndarray:
         return val.astype(self._dtype)

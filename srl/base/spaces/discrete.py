@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class DiscreteSpace(SpaceBase[int]):
     def __init__(self, n: int, start: int = 0) -> None:
+        assert n > 0
         self._n = n
         self._start = start
 
@@ -23,6 +24,9 @@ class DiscreteSpace(SpaceBase[int]):
     def base_env_type(self) -> EnvTypes:
         return EnvTypes.DISCRETE
 
+    @property
+    def dtype(self):
+        return np.uint64 if self._start >= 0 else np.int64
 
     def sample(self, mask: List[int] = []) -> int:
         assert len(mask) < self._n, f"No valid actions. {mask}"
@@ -64,6 +68,9 @@ class DiscreteSpace(SpaceBase[int]):
 
     def get_default(self) -> int:
         return self._start
+
+    def copy(self) -> "DiscreteSpace":
+        return DiscreteSpace(self._n, self._start)
 
     def __eq__(self, o: "DiscreteSpace") -> bool:
         return self._n == o._n and self._start == o._start

@@ -6,13 +6,31 @@ import numpy as np
 # --- space type
 # DiscreteType  : int, List[int]
 # ContinuousType: float, List[float], NDarray[np.float32]
-SpaceType = Union[int, List[int], float, List[float], np.ndarray]
+SpaceType = Union[
+    int,
+    List[int],
+    float,
+    List[float],
+    np.ndarray,
+]
 
 # --- action type
 EnvActionType = Union[SpaceType, None]
 EnvInvalidActionType = Union[int, List[int], np.ndarray]
-RLActionType = Union[int, List[float], float, np.ndarray]
+RLActionType = Union[int, List[float], float, np.ndarray, List[SpaceType]]
 RLInvalidActionType = Union[int, np.ndarray]  # discrete only
+
+# --- obs type
+EnvObservationType = SpaceType
+RLObservationType = Union[
+    List[int],
+    np.ndarray,
+    List[np.ndarray],
+    List[Union[List[int], np.ndarray, List[np.ndarray]]],
+]
+
+# --- info type
+InfoType = Dict[str, Union[float, int, str]]
 
 # --- KyeBind
 # ActionSpace == not Array
@@ -25,13 +43,6 @@ KeyBindType = Dict[
     Union[str, int, Tuple[Union[str, int], ...], List[Union[str, int]]],
     Union[EnvActionType, Tuple[int, EnvActionType]],
 ]
-
-# --- obs type
-EnvObservationType = SpaceType
-RLObservationType = Union[List[int], np.ndarray]
-
-# --- info type
-InfoType = Dict[str, Union[float, int, str]]
 
 
 class DoneTypes(enum.Enum):
@@ -51,16 +62,16 @@ class DoneTypes(enum.Enum):
         return done
 
 
-class EnvObservationTypes(enum.Enum):
+class EnvTypes(enum.Enum):
     UNKNOWN = 0
-    # value
     DISCRETE = enum.auto()
     CONTINUOUS = enum.auto()
-    # image
     GRAY_2ch = enum.auto()  # (height, width)
     GRAY_3ch = enum.auto()  # (height, width, 1)
     COLOR = enum.auto()  # (height, width, 3)
     IMAGE = enum.auto()  # (height, width, ch)
+    TEXT = enum.auto()
+    MULTI = enum.auto()  # list
 
 
 class RLBaseTypes(enum.Enum):
@@ -72,8 +83,9 @@ class RLBaseTypes(enum.Enum):
 class RLTypes(enum.Enum):
     UNKNOWN = 0
     DISCRETE = enum.auto()
-    CONTINUOUS = enum.auto()  # np
+    CONTINUOUS = enum.auto()
     IMAGE = enum.auto()  # (height, width, ch)
+    MULTI = enum.auto()  # list[RLTypes]
 
 
 class RLMemoryTypes(enum.Enum):

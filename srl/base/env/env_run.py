@@ -341,10 +341,6 @@ class EnvRun:
         return self.env.observation_space
 
     @property
-    def observation_type(self) -> EnvObservationTypes:
-        return self.env.observation_type
-
-    @property
     def max_episode_steps(self) -> int:
         return self.config.max_episode_steps
 

@@ -3,7 +3,7 @@ from typing import Any, Generic, List, Tuple, TypeVar
 
 import numpy as np
 
-from srl.base.define import RLTypes
+from srl.base.define import EnvTypes, RLTypes
 from srl.base.exception import NotSupportedError
 
 T = TypeVar("T", int, List[int], float, List[float], np.ndarray, covariant=True)
@@ -25,12 +25,6 @@ class SpaceBase(ABC, Generic[T]):
         """Check if val is a valid value for space"""
         raise NotImplementedError()
 
-    @property
-    @abstractmethod
-    def rl_type(self) -> RLTypes:
-        """Return RLTypes"""
-        raise NotImplementedError()
-
     @abstractmethod
     def get_default(self) -> T:
         """Return default value"""
@@ -48,6 +42,24 @@ class SpaceBase(ABC, Generic[T]):
         """Returns a valid actions"""
         raise NotSupportedError()
 
+    @property
+    @abstractmethod
+    def base_env_type(self) -> EnvTypes:
+        raise NotImplementedError()
+
+    @property
+    def env_type(self) -> EnvTypes:
+        return self._env_type if hasattr(self, "_env_type") else self.base_env_type
+
+    def set_env_type(self, env_type: EnvTypes):
+        self._env_type = env_type
+
+    @property
+    def rl_type(self) -> RLTypes:
+        return self._rl_type if hasattr(self, "_rl_type") else RLTypes.UNKNOWN
+
+    def set_rl_type(self, rl_type: RLTypes):
+        self._rl_type = rl_type
     # --------------------------------------
     # action discrete
     # --------------------------------------

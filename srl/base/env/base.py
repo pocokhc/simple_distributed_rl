@@ -1,15 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
-from srl.base.define import (
-    DoneTypes,
-    EnvActionType,
-    EnvInvalidActionType,
-    EnvObservationType,
-    EnvObservationTypes,
-    InfoType,
-    KeyBindType,
-)
+from srl.base.define import DoneTypes, EnvActionType, EnvInvalidActionType, EnvObservationType, InfoType, KeyBindType
 from srl.base.render import IRender
 from srl.base.spaces.space import SpaceBase
 
@@ -32,11 +24,6 @@ class EnvBase(ABC, IRender):
     @property
     @abstractmethod
     def observation_space(self) -> SpaceBase:
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
-    def observation_type(self) -> EnvObservationTypes:
         raise NotImplementedError()
 
     # --- properties

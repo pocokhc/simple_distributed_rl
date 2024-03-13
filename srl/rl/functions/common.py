@@ -2,7 +2,8 @@ import random
 from typing import List, Union
 
 import numpy as np
-from srl.base.define import EnvObservationTypes
+
+from srl.base.define import EnvTypes
 
 
 def rescaling(x, eps=0.001):
@@ -123,23 +124,21 @@ def calc_epsilon_greedy_probs(q, invalid_actions, epsilon, action_num):
     return probs
 
 
-def to_str_observation(
-    state: Union[List[int], np.ndarray], state_type: EnvObservationTypes = EnvObservationTypes.UNKNOWN
-) -> str:
+def to_str_observation(state: Union[List[int], np.ndarray], state_type: EnvTypes = EnvTypes.UNKNOWN) -> str:
     if isinstance(state, list):
         return ",".join([str(s) for s in state])
 
-    if state_type == EnvObservationTypes.UNKNOWN:
+    if state_type == EnvTypes.UNKNOWN:
         pass
     else:
         state = state.astype(
             {
-                EnvObservationTypes.DISCRETE: np.int32,
-                EnvObservationTypes.CONTINUOUS: np.float32,
-                EnvObservationTypes.GRAY_2ch: np.int32,
-                EnvObservationTypes.GRAY_3ch: np.int32,
-                EnvObservationTypes.COLOR: np.int32,
-                EnvObservationTypes.IMAGE: np.int32,
+                EnvTypes.DISCRETE: np.int32,
+                EnvTypes.CONTINUOUS: np.float32,
+                EnvTypes.GRAY_2ch: np.int32,
+                EnvTypes.GRAY_3ch: np.int32,
+                EnvTypes.COLOR: np.int32,
+                EnvTypes.IMAGE: np.int32,
             }[state_type]
         )
     return str(state.flatten().tolist()).replace(" ", "")[1:-1]

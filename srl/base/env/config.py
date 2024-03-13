@@ -52,20 +52,12 @@ class EnvConfig:
     random_noop_max: int = 0
 
     # --- gym
-    #: gymの環境を生成する場合、Noneの場合は "gym.make" で生成されますが、関数を渡すとその関数で生成されます。
-    gym_make_func: Optional[Callable[..., "gym.Env"]] = None
-    #: gymnasiumの環境を生成する場合、Noneの場合は "gymnasium.make" で生成されますが、関数を渡すとその関数で生成されます。
-    gymnasium_make_func: Optional[Callable[..., "gymnasium.Env"]] = None
-    #: gym/gymnasium環境を生成する際に、observation_space が画像かどうかチェックします
-    gym_check_image: bool = True
-    #: gym/gymnasium環境を生成する際に space の確認を実際にシミュレートして確認する
-    gym_prediction_by_simulation: bool = True
-    #: gym_prediction_by_simulation のシミュレーションステップ数
-    gym_prediction_step: int = 10
+    #: gym/gymnasiumの環境を生成する場合、この関数を使って生成します。
+    gym_make_func: Optional[Callable[..., Union["gym.Env", "gymnasium.Env"]]] = None
     #: gym/gymnasiumの環境に割り込むためのクラス
     #: (pickle化できる必要があります)
     gym_wrappers: List["GymUserWrapper"] = field(default_factory=list)
-    #: gymとgymnasium両方ある場合にgymを強制します
+    #: gymとgymnasium両方ある場合にgymを使います。（デフォルトはgymnasium）
     use_gym: bool = False
 
     # --- render option

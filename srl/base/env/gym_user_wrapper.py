@@ -1,7 +1,7 @@
 from abc import ABC
-from typing import TYPE_CHECKING, Any, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
-from srl.base.define import DoneTypes, EnvObservationTypes
+from srl.base.define import DoneTypes
 from srl.base.spaces.space import SpaceBase
 
 if TYPE_CHECKING:
@@ -22,11 +22,10 @@ class GymUserWrapper(ABC):
 
     def observation_space(
         self,
-        observation_type: EnvObservationTypes,
         observation_space: Optional[SpaceBase],
         env: Union["gymnasium.Env", "gym.Env"],
-    ) -> Tuple[EnvObservationTypes, Optional[SpaceBase]]:
-        return observation_type, observation_space
+    ) -> Optional[SpaceBase]:
+        return observation_space
 
     def observation(self, observation: Any, env: Union["gymnasium.Env", "gym.Env"]) -> Any:
         return observation

@@ -4,7 +4,7 @@ from typing import Any, List, Tuple
 
 import numpy as np
 
-from srl.base.define import RLTypes
+from srl.base.define import EnvTypes
 
 from .box import SpaceBase
 
@@ -28,6 +28,10 @@ class ContinuousSpace(SpaceBase[float]):
 
         self._log_sanitize_count_low = 0
         self._log_sanitize_count_high = 0
+
+    @property
+    def base_env_type(self) -> EnvTypes:
+        return EnvTypes.CONTINUOUS
 
     def sample(self, mask: List[float] = []) -> float:
         if len(mask) > 0:
@@ -65,10 +69,6 @@ class ContinuousSpace(SpaceBase[float]):
         if val > self._high:
             return False
         return True
-
-    @property
-    def rl_type(self) -> RLTypes:
-        return RLTypes.CONTINUOUS
 
     def get_default(self) -> float:
         return 0.0

@@ -5,7 +5,7 @@ from typing import Any, List, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import RLTypes
+from srl.base.define import EnvTypes
 from srl.base.exception import NotSupportedError
 
 from .space import SpaceBase
@@ -20,12 +20,16 @@ class BoxSpace(SpaceBase[np.ndarray]):
         low: Union[float, List[float], Tuple[float, ...], np.ndarray] = -np.inf,
         high: Union[float, List[float], Tuple[float, ...], np.ndarray] = np.inf,
         dtype: Any = np.float32,
+        type: EnvTypes = EnvTypes.UNKNOWN,
     ) -> None:
         self._low: np.ndarray = np.full(shape, low, dtype=dtype) if np.isscalar(low) else np.asarray(low)
         self._high: np.ndarray = np.full(shape, high, dtype=dtype) if np.isscalar(high) else np.asarray(high)
         self._shape = tuple(shape)
         self._dtype = dtype
-        self._rl_type = RLTypes.DISCRETE if "int" in str(dtype) else RLTypes.CONTINUOUS
+        if type == EnvTypes.UNKNOWN:
+            self._env_type = EnvTypes.DISCRETE if "int" in str(dtype) else EnvTypes.CONTINUOUS
+        else:
+            self._env_type = type
 
         assert self.shape == self.high.shape
         assert self.low.shape == self.high.shape
@@ -35,8 +39,13 @@ class BoxSpace(SpaceBase[np.ndarray]):
         self.division_tbl = None
         self.decode_int_tbl = None
 
+    @property
+    def base_env_type(self) -> EnvTypes:
+        return self._env_type
+
+
     def sample(self, mask: List[np.ndarray] = []) -> np.ndarray:
-        if self._rl_type == RLTypes.DISCRETE:
+        if self._env_type == EnvTypes.DISCRETE:
             if len(mask) > 0:
                 self._create_int_tbl()
                 mask2 = [tuple(m.flatten().tolist()) for m in mask]
@@ -55,7 +64,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
             return self.low + r * (self.high - self.low)
 
     def get_valid_actions(self, mask: List[np.ndarray] = []) -> List[np.ndarray]:
-        if self._rl_type == RLTypes.DISCRETE:
+        if self._env_type == EnvTypes.DISCRETE:
             self._create_int_tbl()
             assert self.decode_int_tbl is not None
             acts = [np.array(v, self._dtype).reshape(self._shape) for v in self.decode_int_tbl]
@@ -85,10 +94,6 @@ class BoxSpace(SpaceBase[np.ndarray]):
         if (val > self.high).any():
             return False
         return True
-
-    @property
-    def rl_type(self) -> RLTypes:
-        return self._rl_type
 
     def get_default(self) -> np.ndarray:
         return np.zeros(self.shape)
@@ -155,7 +160,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
     # --------------------------------------
     @property
     def n(self) -> int:
-        if self._rl_type == RLTypes.DISCRETE:
+        if self._env_type == EnvTypes.DISCRETE:
             self._create_int_tbl()
             assert self.decode_int_tbl is not None
             return len(self.decode_int_tbl)
@@ -164,7 +169,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
             return len(self.division_tbl)
 
     def encode_to_int(self, val: np.ndarray) -> int:
-        if self._rl_type == RLTypes.DISCRETE:
+        if self._env_type == EnvTypes.DISCRETE:
             self._create_int_tbl()
             key = val.flatten().tolist()
             return self.encode_int_tbl[tuple(key)]
@@ -176,7 +181,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
             return int(np.argmin(d))
 
     def decode_from_int(self, val: int) -> np.ndarray:
-        if self._rl_type == RLTypes.DISCRETE:
+        if self._env_type == EnvTypes.DISCRETE:
             self._create_int_tbl()
             assert self.decode_int_tbl is not None
             return np.array(self.decode_int_tbl[val], self._dtype).reshape(self._shape)
@@ -190,7 +195,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
     # observation discrete
     # --------------------------------------
     def encode_to_list_int(self, val: np.ndarray) -> List[int]:
-        if self._rl_type == RLTypes.DISCRETE:
+        if self._env_type == EnvTypes.DISCRETE:
             return [int(s) for s in val.flatten().tolist()]
         else:
             if self.division_tbl is None:
@@ -202,7 +207,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
                 return [n]
 
     def decode_from_list_int(self, val: List[int]) -> np.ndarray:
-        if self._rl_type == RLTypes.DISCRETE:
+        if self._env_type == EnvTypes.DISCRETE:
             return np.array(val, self._dtype).reshape(self._shape)
         else:
             if self.division_tbl is None:

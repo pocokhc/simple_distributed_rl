@@ -4,7 +4,7 @@ from typing import Any, List, Tuple
 
 import numpy as np
 
-from srl.base.define import RLTypes
+from srl.base.define import EnvTypes
 
 from .space import SpaceBase
 
@@ -19,7 +19,10 @@ class DiscreteSpace(SpaceBase[int]):
         self._log_sanitize_count_low = 0
         self._log_sanitize_count_high = 0
 
-        assert n > 0
+    @property
+    def base_env_type(self) -> EnvTypes:
+        return EnvTypes.DISCRETE
+
 
     def sample(self, mask: List[int] = []) -> int:
         assert len(mask) < self._n, f"No valid actions. {mask}"
@@ -58,10 +61,6 @@ class DiscreteSpace(SpaceBase[int]):
         if val >= self.n + self._start:
             return False
         return True
-
-    @property
-    def rl_type(self) -> RLTypes:
-        return RLTypes.DISCRETE
 
     def get_default(self) -> int:
         return self._start

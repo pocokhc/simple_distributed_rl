@@ -5,7 +5,7 @@ from typing import Any, List, Tuple, Union, cast
 
 import numpy as np
 
-from srl.base.define import RLTypes
+from srl.base.define import EnvTypes
 
 from .space import SpaceBase
 
@@ -31,6 +31,11 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         self._high = [int(h) for h in self._high]
 
         self.decode_tbl = None
+
+    @property
+    def base_env_type(self) -> EnvTypes:
+        return EnvTypes.DISCRETE
+
 
     def sample(self, mask: List[List[int]] = []) -> List[int]:
         if len(mask) > 0:
@@ -90,10 +95,6 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
             if val[i] > self.high[i]:
                 return False
         return True
-
-    @property
-    def rl_type(self) -> RLTypes:
-        return RLTypes.DISCRETE
 
     def get_default(self) -> List[int]:
         return [0 for _ in range(self._size)]

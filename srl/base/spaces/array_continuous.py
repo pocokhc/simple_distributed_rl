@@ -4,7 +4,7 @@ from typing import Any, List, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import RLTypes
+from srl.base.define import EnvTypes
 
 from .box import SpaceBase
 
@@ -29,6 +29,10 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
 
         self._is_inf = np.isinf(low).any() or np.isinf(high).any()
         self.division_tbl = None
+
+    @property
+    def base_env_type(self) -> EnvTypes:
+        return EnvTypes.CONTINUOUS
 
     def sample(self, mask: List[List[float]] = []) -> List[float]:
         if len(mask) > 0:
@@ -68,10 +72,6 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
             if val[i] > self.high[i]:
                 return False
         return True
-
-    @property
-    def rl_type(self) -> RLTypes:
-        return RLTypes.CONTINUOUS
 
     def get_default(self) -> List[float]:
         return [0.0 for _ in range(self._size)]

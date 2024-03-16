@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from srl.rl.models.image_block import ImageBlockConfig
+from srl.rl.models.config.image_block import ImageBlockConfig
 
 
 @pytest.mark.parametrize("name", ["dqn", "r2d3", "alphazero", "muzero_atari"])

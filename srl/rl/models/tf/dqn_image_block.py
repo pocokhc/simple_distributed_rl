@@ -10,7 +10,6 @@ class DQNImageBlock(KerasModelAddedSummary):
         self,
         filters: int = 32,
         activation: str = "relu",
-        enable_time_distributed_layer: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -21,8 +20,9 @@ class DQNImageBlock(KerasModelAddedSummary):
             kl.Conv2D(filters * 2, (3, 3), strides=(1, 1), padding="same", activation=activation),
         ]
 
-        if enable_time_distributed_layer:
-            self.image_layers = [kl.TimeDistributed(x) for x in self.image_layers]
+        # Conv2Dはshape[-3:]を処理するのでTimeDistributedは不要
+        # if enable_time_distributed_layer:
+        #    self.image_layers = [kl.TimeDistributed(x) for x in self.image_layers]
 
     def call(self, x, training=False):
         for layer in self.image_layers:
@@ -32,5 +32,5 @@ class DQNImageBlock(KerasModelAddedSummary):
 
 if __name__ == "__main__":
     m = DQNImageBlock()
-    m.build((None, 64, 75, 19))
+    m.build((None, None, 64, 75, 19))
     m.summary()

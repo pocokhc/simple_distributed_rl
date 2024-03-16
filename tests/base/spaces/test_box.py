@@ -3,15 +3,14 @@ import itertools
 import numpy as np
 import pytest
 
-from srl.base.define import RLTypes
+from srl.base.define import EnvTypes, RLTypes
 from srl.base.spaces import BoxSpace
 
 
 def test_1dim():
     space = BoxSpace((1,), -1, 3)
-    assert space.rl_type == RLTypes.CONTINUOUS
-
     print(space)
+    assert space.env_type == EnvTypes.CONTINUOUS
 
     # --- continuous list
     assert space.list_size == 1
@@ -50,9 +49,8 @@ def test_1dim():
 
 def test_2dim():
     space = BoxSpace((3, 2), -1, 3)
-    assert space.rl_type == RLTypes.CONTINUOUS
-
     print(space)
+    assert space.env_type == EnvTypes.CONTINUOUS
 
     # --- continuous list
     assert space.list_size == 6
@@ -185,9 +183,9 @@ def test_sanitize2():
 # ------------------------------------
 def test_1dim_discrete():
     space = BoxSpace((3,), 0, (2, 5, 3), np.int64)
-    assert space.rl_type == RLTypes.DISCRETE
-
+    space.set_rl_type(RLTypes.DISCRETE)
     print(space)
+    assert space.env_type == EnvTypes.DISCRETE
 
     # --- discrete
     assert space.n == (2 + 1) * (5 + 1) * (3 + 1)
@@ -251,9 +249,9 @@ def test_1dim_discrete():
 
 def test_2dim_discrete():
     space = BoxSpace((3, 2), -1, 3, np.int64)
-    assert space.rl_type == RLTypes.DISCRETE
-
+    space.set_rl_type(RLTypes.DISCRETE)
     print(space)
+    assert space.env_type == EnvTypes.DISCRETE
 
     # --- continuous list
     assert space.list_size == 6

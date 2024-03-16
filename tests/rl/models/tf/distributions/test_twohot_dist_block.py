@@ -68,14 +68,14 @@ def test_twohot_encode(x, bins, low, high, idx1, val1, idx2, val2, decode_x):
     pytest.importorskip("tensorflow")
     import tensorflow as tf
 
-    from srl.rl.models.tf.distributions.twohot_dist_block import _twohot_decode, _twohot_encode
+    from srl.rl.functions.common_tf import twohot_decode, twohot_encode
 
-    y = _twohot_encode(tf.constant([[x], [x]], dtype=tf.float32), bins, low, high)
+    y = twohot_encode(tf.constant([[x], [x]], dtype=tf.float32), bins, low, high)
     print(y)
     assert y.shape == (2, bins)
     assert math.isclose(y.numpy()[0][idx1], val1, rel_tol=0.000001)
     assert math.isclose(y.numpy()[0][idx2], val2, rel_tol=0.000001)
-    x2 = _twohot_decode(y, bins, low, high)
+    x2 = twohot_decode(y, bins, low, high)
     print(x2)
     assert x2.shape == (2, 1)
     assert math.isclose(x2.numpy()[0][0], decode_x, rel_tol=0.000001)

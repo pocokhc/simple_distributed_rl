@@ -1,15 +1,14 @@
 import numpy as np
 import pytest
 
-from srl.base.define import RLTypes
+from srl.base.define import EnvTypes
 from srl.base.spaces import ArrayContinuousSpace
 
 
 def test_space():
     space = ArrayContinuousSpace(3, -1, 3)
-    assert space.rl_type == RLTypes.CONTINUOUS
-
     print(space)
+    assert space.env_type == EnvTypes.CONTINUOUS
 
     # --- continuous list
     assert space.list_size == 3

@@ -3,7 +3,7 @@ from typing import cast
 import numpy as np
 
 import srl
-from srl.base.define import EnvObservationTypes
+from srl.base.define import EnvTypes
 from srl.base.spaces.box import BoxSpace  # noqa F401
 from srl.envs import grid
 from srl.test import TestEnv
@@ -33,7 +33,7 @@ def test_processor():
     tester.preprocess_observation_space(
         processor,
         env_name,
-        after_type=EnvObservationTypes.IMAGE,
+        after_type=EnvTypes.IMAGE,
         after_space=BoxSpace((env.H, env.W, 1), 0, 1),
     )
     tester.preprocess_observation(

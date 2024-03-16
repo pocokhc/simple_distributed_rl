@@ -35,7 +35,7 @@ def test_pynvml():
 
     for _ in range(2):
         runner = srl.Runner("Grid", ql.Config())
-        runner.setup_nvidia()
+        runner._setup_nvidia()
 
         gpus = runner.read_nvml()
         assert len(gpus) > 0

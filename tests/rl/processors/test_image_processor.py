@@ -5,7 +5,7 @@ import pytest
 
 import srl
 import srl.envs.grid
-from srl.base.define import EnvObservationTypes
+from srl.base.define import EnvTypes
 from srl.base.rl.config import DummyRLConfig
 from srl.base.spaces.box import BoxSpace
 from srl.rl.processors.image_processor import ImageProcessor
@@ -17,15 +17,15 @@ image_resize = (84, 84)
 enable_norm = True
 
 test_pattens = (
-    (EnvObservationTypes.GRAY_2ch, (image_w, image_h), EnvObservationTypes.GRAY_2ch, (84, 84), True),
-    (EnvObservationTypes.GRAY_2ch, (image_w, image_h), EnvObservationTypes.GRAY_3ch, (84, 84, 1), True),
-    (EnvObservationTypes.GRAY_2ch, (image_w, image_h), EnvObservationTypes.COLOR, (84, 84, 3), False),
-    (EnvObservationTypes.GRAY_3ch, (image_w, image_h, 1), EnvObservationTypes.GRAY_2ch, (84, 84), True),
-    (EnvObservationTypes.GRAY_3ch, (image_w, image_h, 1), EnvObservationTypes.GRAY_3ch, (84, 84, 1), True),
-    (EnvObservationTypes.GRAY_3ch, (image_w, image_h, 1), EnvObservationTypes.COLOR, (84, 84, 3), False),
-    (EnvObservationTypes.COLOR, (image_w, image_h, 3), EnvObservationTypes.GRAY_2ch, (84, 84), True),
-    (EnvObservationTypes.COLOR, (image_w, image_h, 3), EnvObservationTypes.GRAY_3ch, (84, 84, 1), True),
-    (EnvObservationTypes.COLOR, (image_w, image_h, 3), EnvObservationTypes.COLOR, (84, 84, 3), True),
+    (EnvTypes.GRAY_2ch, (image_w, image_h), EnvTypes.GRAY_2ch, (84, 84), True),
+    (EnvTypes.GRAY_2ch, (image_w, image_h), EnvTypes.GRAY_3ch, (84, 84, 1), True),
+    (EnvTypes.GRAY_2ch, (image_w, image_h), EnvTypes.COLOR, (84, 84, 3), False),
+    (EnvTypes.GRAY_3ch, (image_w, image_h, 1), EnvTypes.GRAY_2ch, (84, 84), True),
+    (EnvTypes.GRAY_3ch, (image_w, image_h, 1), EnvTypes.GRAY_3ch, (84, 84, 1), True),
+    (EnvTypes.GRAY_3ch, (image_w, image_h, 1), EnvTypes.COLOR, (84, 84, 3), False),
+    (EnvTypes.COLOR, (image_w, image_h, 3), EnvTypes.GRAY_2ch, (84, 84), True),
+    (EnvTypes.COLOR, (image_w, image_h, 3), EnvTypes.GRAY_3ch, (84, 84, 1), True),
+    (EnvTypes.COLOR, (image_w, image_h, 3), EnvTypes.COLOR, (84, 84, 3), True),
 )
 
 
@@ -70,7 +70,7 @@ def test_image_atari():
 
     tester = TestProcessor()
     processor = ImageProcessor(
-        image_type=EnvObservationTypes.GRAY_2ch,
+        image_type=EnvTypes.GRAY_2ch,
         resize=(84, 84),
         enable_norm=True,
     )
@@ -82,7 +82,7 @@ def test_image_atari():
     tester.preprocess_observation_space(
         processor,
         env_name,
-        EnvObservationTypes.GRAY_2ch,
+        EnvTypes.GRAY_2ch,
         BoxSpace((84, 84), 0, 1),
     )
     tester.preprocess_observation(
@@ -99,7 +99,7 @@ def test_trimming():
     space = BoxSpace(low=0, high=255, shape=(210, 160, 3))
 
     processor = ImageProcessor(
-        image_type=EnvObservationTypes.GRAY_2ch,
+        image_type=EnvTypes.GRAY_2ch,
         trimming=(10, 10, 20, 20),
     )
     env = srl.make_env("Grid")
@@ -107,11 +107,11 @@ def test_trimming():
     # change info
     new_space, new_type = processor.preprocess_observation_space(
         space,
-        EnvObservationTypes.COLOR,
+        EnvTypes.COLOR,
         env,
         DummyRLConfig(),
     )
-    assert new_type == EnvObservationTypes.GRAY_2ch
+    assert new_type == EnvTypes.GRAY_2ch
     assert isinstance(new_space, BoxSpace)
     new_space = cast(BoxSpace, new_space)
     assert new_space.shape == (10, 10)

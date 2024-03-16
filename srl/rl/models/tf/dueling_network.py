@@ -4,11 +4,12 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.rl.models.tf.layers.noisy_dense import NoisyDense
+from srl.rl.models.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
 
 
-class DuelingNetworkBlock(keras.Model):
+class DuelingNetworkBlock(KerasModelAddedSummary):
     def __init__(
         self,
         action_num: int,
@@ -108,17 +109,8 @@ class DuelingNetworkBlock(keras.Model):
 
         return x
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
 
-    def init_model_graph(self, name: str = ""):
-        x = kl.Input(shape=self.__input_shape[1:])
-        name = self.__class__.__name__ if name == "" else name
-        keras.Model(inputs=x, outputs=self.call(x), name=name)
-
-
-class NoDuelingNetworkBlock(keras.Model):
+class NoDuelingNetworkBlock(KerasModelAddedSummary):
     def __init__(
         self,
         action_num: int,
@@ -169,15 +161,6 @@ class NoDuelingNetworkBlock(keras.Model):
         for layer in self.hidden_layers:
             x = layer(x, training=training)
         return x
-
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
-    def init_model_graph(self, name: str = ""):
-        x = kl.Input(shape=self.__input_shape[1:])
-        name = self.__class__.__name__ if name == "" else name
-        keras.Model(inputs=x, outputs=self.call(x), name=name)
 
 
 if __name__ == "__main__":

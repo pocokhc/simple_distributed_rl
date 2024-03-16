@@ -22,9 +22,9 @@ class KerasModelAddedSummary(keras.Model):
         name = self.__class__.__name__ if name == "" else name
         return keras.Model(inputs=x, outputs=self.call(x), name=name)
 
-    def summary(self, name="", **kwargs):
-        model = self.init_model_graph(name)
-        model.summary(**kwargs)
+    def summary(self, name="", expand_nested: bool = True, **kwargs):
+        model = self.init_model_graph(name=name)
+        model.summary(expand_nested=expand_nested, **kwargs)
 
     # --- utils
     def create_batch_shape(self, shape, prefix_shape: Tuple[Optional[int], ...]):

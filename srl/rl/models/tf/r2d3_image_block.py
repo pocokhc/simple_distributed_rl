@@ -1,5 +1,7 @@
 from tensorflow import keras
 
+from srl.rl.models.tf.model import KerasModelAddedSummary
+
 kl = keras.layers
 
 """
@@ -8,7 +10,7 @@ https://arxiv.org/abs/1909.01387
 """
 
 
-class R2D3ImageBlock(keras.Model):
+class R2D3ImageBlock(KerasModelAddedSummary):
     def __init__(
         self,
         filters: int = 16,
@@ -17,6 +19,8 @@ class R2D3ImageBlock(keras.Model):
         **kwargs,
     ):
         super().__init__(**kwargs)
+
+        # enable_time_distributed_layerはmax_pooling2dで必要
 
         self.res1 = _ResBlock(filters, activation, enable_time_distributed_layer)
         self.res2 = _ResBlock(filters * 2, activation, enable_time_distributed_layer)
@@ -30,21 +34,8 @@ class R2D3ImageBlock(keras.Model):
         x = self.act(x)
         return x
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
 
-    def init_model_graph(self, name: str = ""):
-        self.res1.init_model_graph()
-        self.res2.init_model_graph()
-        self.res3.init_model_graph()
-
-        x = kl.Input(shape=self.__input_shape[1:])
-        name = self.__class__.__name__ if name == "" else name
-        keras.Model(inputs=x, outputs=self.call(x), name=name)
-
-
-class _ResBlock(keras.Model):
+class _ResBlock(KerasModelAddedSummary):
     def __init__(
         self,
         filters,
@@ -70,20 +61,8 @@ class _ResBlock(keras.Model):
         x = self.res2(x, training=training)
         return x
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
 
-    def init_model_graph(self, name: str = ""):
-        self.res1.init_model_graph()
-        self.res2.init_model_graph()
-
-        x = kl.Input(shape=self.__input_shape[1:])
-        name = self.__class__.__name__ if name == "" else name
-        keras.Model(inputs=x, outputs=self.call(x), name=name)
-
-
-class _ResidualBlock(keras.Model):
+class _ResidualBlock(KerasModelAddedSummary):
     def __init__(
         self,
         n_filter,
@@ -110,18 +89,8 @@ class _ResidualBlock(keras.Model):
         x1 = self.conv2(x1, training=training)
         return self.add([x, x1])
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
-    def init_model_graph(self, name: str = ""):
-        x = kl.Input(shape=self.__input_shape[1:])
-        name = self.__class__.__name__ if name == "" else name
-        keras.Model(inputs=x, outputs=self.call(x), name=name)
-
 
 if __name__ == "__main__":
     m = R2D3ImageBlock(enable_time_distributed_layer=True)
     m.build((None, None, 96, 72, 3))
-    m.init_model_graph()
     m.summary(expand_nested=True)

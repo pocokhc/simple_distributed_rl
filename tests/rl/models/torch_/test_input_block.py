@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from srl.base.define import EnvObservationTypes
+from srl.base.define import EnvTypes
 
 
 def call_block_torch(
@@ -36,12 +36,12 @@ def call_block_torch(
 
 
 pattern0 = [
-    ((2, 4, 8), EnvObservationTypes.UNKNOWN, (2 * 4 * 8,), False),
-    ((2, 4, 8), EnvObservationTypes.DISCRETE, (2 * 4 * 8,), False),
-    ((2, 4, 8), EnvObservationTypes.CONTINUOUS, (2 * 4 * 8,), False),
-    ((4, 8), EnvObservationTypes.GRAY_2ch, (4, 8, 1), True),
-    ((4, 8, 1), EnvObservationTypes.GRAY_3ch, (4, 8, 1), True),
-    ((4, 8, 3), EnvObservationTypes.COLOR, (4, 8, 3), True),
+    ((2, 4, 8), EnvTypes.UNKNOWN, (2 * 4 * 8,), False),
+    ((2, 4, 8), EnvTypes.DISCRETE, (2 * 4 * 8,), False),
+    ((2, 4, 8), EnvTypes.CONTINUOUS, (2 * 4 * 8,), False),
+    ((4, 8), EnvTypes.GRAY_2ch, (4, 8, 1), True),
+    ((4, 8, 1), EnvTypes.GRAY_3ch, (4, 8, 1), True),
+    ((4, 8, 3), EnvTypes.COLOR, (4, 8, 3), True),
 ]
 
 
@@ -63,12 +63,12 @@ def _window_0(call_block, obs_shape, obs_type, true_shape, true_image):
 
 
 pattern10 = [
-    ((10, 2, 4, 8), EnvObservationTypes.UNKNOWN, (10 * 2 * 4 * 8,), False, False),
-    ((10, 2, 4, 8), EnvObservationTypes.DISCRETE, (10 * 2 * 4 * 8,), False, False),
-    ((10, 2, 4, 8), EnvObservationTypes.CONTINUOUS, (10 * 2 * 4 * 8,), False, False),
-    ((10, 4, 8), EnvObservationTypes.GRAY_2ch, (4, 8, 10), True, False),
-    ((10, 4, 8, 1), EnvObservationTypes.GRAY_3ch, (4, 8, 10), True, False),
-    ((10, 4, 8, 3), EnvObservationTypes.COLOR, None, None, True),
+    ((10, 2, 4, 8), EnvTypes.UNKNOWN, (10 * 2 * 4 * 8,), False, False),
+    ((10, 2, 4, 8), EnvTypes.DISCRETE, (10 * 2 * 4 * 8,), False, False),
+    ((10, 2, 4, 8), EnvTypes.CONTINUOUS, (10 * 2 * 4 * 8,), False, False),
+    ((10, 4, 8), EnvTypes.GRAY_2ch, (4, 8, 10), True, False),
+    ((10, 4, 8, 1), EnvTypes.GRAY_3ch, (4, 8, 10), True, False),
+    ((10, 4, 8, 3), EnvTypes.COLOR, None, None, True),
 ]
 
 
@@ -94,12 +94,12 @@ def _window_10(call_block, obs_shape, obs_type, true_shape, true_image, is_throw
 
 
 pattern_time = [
-    ((2, 4, 8), EnvObservationTypes.UNKNOWN, (2 * 4 * 8,), False),
-    ((2, 4, 8), EnvObservationTypes.DISCRETE, (2 * 4 * 8,), False),
-    ((2, 4, 8), EnvObservationTypes.CONTINUOUS, (2 * 4 * 8,), False),
-    ((4, 8), EnvObservationTypes.GRAY_2ch, (4, 8, 1), True),
-    ((4, 8, 1), EnvObservationTypes.GRAY_3ch, (4, 8, 1), True),
-    ((4, 8, 3), EnvObservationTypes.COLOR, (4, 8, 3), True),
+    ((2, 4, 8), EnvTypes.UNKNOWN, (2 * 4 * 8,), False),
+    ((2, 4, 8), EnvTypes.DISCRETE, (2 * 4 * 8,), False),
+    ((2, 4, 8), EnvTypes.CONTINUOUS, (2 * 4 * 8,), False),
+    ((4, 8), EnvTypes.GRAY_2ch, (4, 8, 1), True),
+    ((4, 8, 1), EnvTypes.GRAY_3ch, (4, 8, 1), True),
+    ((4, 8, 3), EnvTypes.COLOR, (4, 8, 3), True),
 ]
 
 

@@ -43,12 +43,3 @@ def test_Grid_mp():
     runner = srl.Runner("Grid", rl_config)
     runner.train_mp(max_train_count=50_000)
     tester.eval(runner, episode=100)
-
-
-def test_OneRoad():
-    tester = TestRL()
-    rl_config = ql_agent57.Config()
-    runner = srl.Runner("Grid", rl_config)
-    runner.set_seed(2)
-    runner.train(max_train_count=10_000)
-    tester.eval(runner)

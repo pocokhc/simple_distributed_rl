@@ -1,7 +1,7 @@
 from typing import List, Tuple
 
 import srl
-from srl.base.define import EnvActionType, EnvObservationType, EnvObservationTypes, InfoType, RenderModes, RLActionType
+from srl.base.define import EnvActionType, EnvObservationType, EnvTypes, InfoType, RenderModes, RLActionType
 from srl.base.env import registration as env_registration
 from srl.base.env.base import EnvBase
 from srl.base.rl.base import RLWorker
@@ -24,8 +24,8 @@ class StubEnv(EnvBase):
         return DiscreteSpace(5)
 
     @property
-    def observation_type(self) -> EnvObservationTypes:
-        return EnvObservationTypes.DISCRETE
+    def observation_type(self) -> EnvTypes:
+        return EnvTypes.DISCRETE
 
     # --- properties
     @property

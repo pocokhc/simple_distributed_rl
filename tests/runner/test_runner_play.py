@@ -111,6 +111,7 @@ def test_animation(tmp_path):
 
     runner = srl.Runner("Grid", ql.Config())
     runner.animation_save_gif(os.path.join(tmp_path, "a.gif"), max_steps=10)
+    runner.animation_save_avi(os.path.join(tmp_path, "a.avi"), max_steps=10)
 
 
 def test_replay_window():

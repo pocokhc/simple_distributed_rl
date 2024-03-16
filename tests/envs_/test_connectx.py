@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 import srl
-from srl.base.define import EnvObservationTypes
+from srl.base.define import EnvTypes
 from srl.base.spaces.box import BoxSpace
 from srl.envs import connectx  # noqa F401
 from srl.test import TestEnv
@@ -89,7 +89,7 @@ def test_processor():
     tester.preprocess_observation_space(
         processor,
         env_name,
-        EnvObservationTypes.IMAGE,
+        EnvTypes.IMAGE,
         BoxSpace((columns, rows, 2), 0, 1),
     )
     tester.preprocess_observation(

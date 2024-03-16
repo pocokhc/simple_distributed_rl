@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from srl.base.define import EnvObservationTypes
+from srl.base.define import EnvTypes
 from srl.rl.functions import common
 
 
@@ -127,12 +127,12 @@ def test_twohot2():
 @pytest.mark.parametrize(
     "state_type",
     [
-        EnvObservationTypes.UNKNOWN,
-        EnvObservationTypes.DISCRETE,
-        EnvObservationTypes.CONTINUOUS,
-        EnvObservationTypes.GRAY_2ch,
-        EnvObservationTypes.GRAY_3ch,
-        EnvObservationTypes.COLOR,
+        EnvTypes.UNKNOWN,
+        EnvTypes.DISCRETE,
+        EnvTypes.CONTINUOUS,
+        EnvTypes.GRAY_2ch,
+        EnvTypes.GRAY_3ch,
+        EnvTypes.COLOR,
     ],
 )
 def test_to_str_observation(state_type):
@@ -150,3 +150,16 @@ def test_to_str_observation(state_type):
     s1_str = common.to_str_observation(s1, state_type)
     s2_str = common.to_str_observation(s2, state_type)
     assert s1_str != s2_str
+
+
+def test_create_fancy_index_for_invalid_actions():
+    idx_list = [
+        [1, 2, 5],
+        [2],
+        [2, 3],
+    ]
+    idx1, idx2 = common.create_fancy_index_for_invalid_actions(idx_list)
+    print(idx1)
+    print(idx2)
+    assert idx1 == [0, 0, 0, 1, 2, 2]
+    assert idx2 == [1, 2, 5, 2, 2, 3]

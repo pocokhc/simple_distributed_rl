@@ -1,14 +1,13 @@
 import numpy as np
 
-from srl.base.define import RLTypes
+from srl.base.define import EnvTypes
 from srl.base.spaces import ArrayDiscreteSpace
 
 
 def test_space():
     space = ArrayDiscreteSpace(3, 0, [2, 5, 3])
-    assert space.rl_type == RLTypes.DISCRETE
-
     print(space)
+    assert space.env_type == EnvTypes.DISCRETE
 
     # --- discrete
     assert space.n == (2 + 1) * (5 + 1) * (3 + 1)

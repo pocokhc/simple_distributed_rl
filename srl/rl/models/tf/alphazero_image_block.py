@@ -1,5 +1,7 @@
 from tensorflow import keras
 
+from srl.rl.models.tf.model import KerasModelAddedSummary
+
 kl = keras.layers
 
 """
@@ -13,7 +15,7 @@ https://github.com/suragnair/alpha-zero-general
 """
 
 
-class AlphaZeroImageBlock(keras.Model):
+class AlphaZeroImageBlock(KerasModelAddedSummary):
     def __init__(
         self,
         n_blocks: int = 19,
@@ -44,19 +46,8 @@ class AlphaZeroImageBlock(keras.Model):
             x = resblock(x, training=training)
         return x
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
 
-    def init_model_graph(self, name: str = ""):
-        [r.init_model_graph() for r in self.resblocks]
-
-        x = kl.Input(shape=self.__input_shape[1:])
-        name = self.__class__.__name__ if name == "" else name
-        keras.Model(inputs=x, outputs=self.call(x), name=name)
-
-
-class _ResidualBlock(keras.Model):
+class _ResidualBlock(KerasModelAddedSummary):
     def __init__(
         self,
         filters: int,
@@ -92,18 +83,8 @@ class _ResidualBlock(keras.Model):
         x = self.act2(x)
         return x
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
-
-    def init_model_graph(self, name: str = ""):
-        x = kl.Input(shape=self.__input_shape[1:])
-        name = self.__class__.__name__ if name == "" else name
-        keras.Model(inputs=x, outputs=self.call(x), name=name)
-
 
 if __name__ == "__main__":
     m = AlphaZeroImageBlock(n_blocks=1)
     m.build((None, 96, 72, 3))
-    m.init_model_graph()
     m.summary(expand_nested=True)

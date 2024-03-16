@@ -54,10 +54,7 @@ class MLPBlockConfig:
         if self._name == "mlp":
             from .tf import mlp_block
 
-            return mlp_block.MLPBlock(
-                **self._kwargs,
-                enable_time_distributed_layer=False,
-            )
+            return mlp_block.MLPBlock(**self._kwargs)
 
         if self._name == "custom":
             from srl.utils.common import load_module
@@ -70,10 +67,7 @@ class MLPBlockConfig:
         if self._name == "mlp":
             from .torch_ import mlp_block
 
-            return mlp_block.MLPBlock(
-                in_size,
-                **self._kwargs,
-            )
+            return mlp_block.MLPBlock(in_size, **self._kwargs)
 
         if self._name == "custom":
             from srl.utils.common import load_module

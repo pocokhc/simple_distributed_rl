@@ -20,7 +20,6 @@ class MLPBlock(KerasModelAddedSummary):
         activity_regularizer=None,
         kernel_constraint=None,
         bias_constraint=None,
-        enable_time_distributed_layer: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -42,8 +41,9 @@ class MLPBlock(KerasModelAddedSummary):
                 )
             )
 
-        if enable_time_distributed_layer:
-            self.hidden_layers = [kl.TimeDistributed(x) for x in self.hidden_layers]
+        # Denseはshape[-1]を処理するのでTimeDistributedは不要
+        # if enable_time_distributed_layer:
+        #    self.hidden_layers = [kl.TimeDistributed(x) for x in self.hidden_layers]
 
     def call(self, x, training=False):
         for layer in self.hidden_layers:
@@ -53,5 +53,5 @@ class MLPBlock(KerasModelAddedSummary):
 
 if __name__ == "__main__":
     m = MLPBlock((512, 128, 256))
-    m.build((None, 64))
+    m.build((None, None, 64))
     m.summary()

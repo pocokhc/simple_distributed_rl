@@ -4,91 +4,47 @@ import pytest
 from srl.rl.models.image_block import ImageBlockConfig
 
 
-def test_torch_dqn_image():
+@pytest.mark.parametrize("name", ["dqn", "r2d3", "alphazero", "muzero_atari"])
+@pytest.mark.parametrize("rnn", [False, True])
+def test_torch_image(name, rnn):
     pytest.importorskip("torch")
 
     import torch
 
     config = ImageBlockConfig()
-    config.set_dqn_image()
-
-    # ---
+    if name == "dqn":
+        config.set_dqn_block()
+        in_shape = (19, 64, 75)
+        out_shape = (64, 9, 10)
+    elif name == "r2d3":
+        config.set_r2d3_block()
+        in_shape = (3, 96, 72)
+        out_shape = (32, 12, 9)
+    elif name == "alphazero":
+        config.set_alphazero_block()
+        in_shape = (3, 96, 72)
+        out_shape = (256, 96, 72)
+    elif name == "muzero_atari":
+        in_shape = (3, 96, 72)
+        out_shape = (256, 6, 5)
+    else:
+        raise ValueError(name)
 
     batch_size = 16
-    x = np.ones((batch_size, 19, 64, 75), dtype=np.float32)
+    if rnn:
+        seq_len = 7
+        in_shape2 = (seq_len, batch_size) + in_shape
+        out_shape2 = (seq_len, batch_size) + out_shape
+    else:
+        in_shape2 = (batch_size,) + in_shape
+        out_shape2 = (batch_size,) + out_shape
 
+    x = np.ones(in_shape2, dtype=np.float32)
     x = torch.tensor(x)
     block = config.create_block_torch(x.shape[1:], enable_time_distributed_layer=False)
     y = block(x)
     y = y.detach().numpy()
 
-    assert y.shape == (batch_size, 64, 9, 10)
-    assert block.out_shape == (64, 9, 10)
-
-
-def test_torch_dqn_image_lstm():
-    pytest.importorskip("torch")
-
-    import torch
-
-    config = ImageBlockConfig()
-    config.set_dqn_image()
-
-    # ---
-
-    batch_size = 16
-    seq_len = 7
-    x = np.ones((batch_size, seq_len, 19, 64, 75), dtype=np.float32)
-
-    x = torch.tensor(x)
-    block = config.create_block_torch(x.shape[1:], enable_time_distributed_layer=True)
-    y = block(x)
-    y = y.detach().numpy()
-
-    assert y.shape == (batch_size, seq_len, 64, 9, 10)
-    assert block.out_shape == (64, 9, 10)
-
-
-def test_torch_r2d3_image():
-    pytest.importorskip("torch")
-
-    import torch
-
-    config = ImageBlockConfig()
-    config.set_r2d3_image()
-
-    # ---
-
-    batch_size = 16
-    x = np.ones((batch_size, 3, 96, 72), dtype=np.float32)
-
-    x = torch.tensor(x)
-    block = config.create_block_torch(x.shape[1:], enable_time_distributed_layer=False)
-    y = block(x)
-    y = y.detach().numpy()
-
-    assert y.shape == (batch_size, 32, 12, 9)
-    assert block.out_shape == (32, 12, 9)
-
-
-def test_torch_r2d3_image_lstm():
-    pytest.importorskip("torch")
-
-    import torch
-
-    config = ImageBlockConfig()
-    config.set_r2d3_image()
-
-    # ---
-
-    batch_size = 16
-    seq_len = 7
-    x = np.ones((batch_size, seq_len, 3, 96, 72), dtype=np.float32)
-
-    x = torch.tensor(x)
-    block = config.create_block_torch(x.shape[1:], enable_time_distributed_layer=True)
-    y = block(x)
-    y = y.detach().numpy()
-
-    assert y.shape == (batch_size, seq_len, 32, 12, 9)
-    assert block.out_shape == (32, 12, 9)
+    assert y.shape == out_shape2
+    assert block.out_shape == out_shape
+    print(block)

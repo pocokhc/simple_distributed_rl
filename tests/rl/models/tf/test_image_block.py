@@ -4,75 +4,44 @@ import pytest
 from srl.rl.models.image_block import ImageBlockConfig
 
 
-def test_tf_dqn_image():
+@pytest.mark.parametrize("name", ["dqn", "r2d3", "alphazero", "muzero_atari"])
+@pytest.mark.parametrize("rnn", [False, True])
+def test_tf_image(name, rnn):
     pytest.importorskip("tensorflow")
 
     config = ImageBlockConfig()
-    config.set_dqn_image()
-
-    # ---
+    if name == "dqn":
+        config.set_dqn_block()
+        in_shape = (64, 75, 19)
+        out_shape = (8, 10, 64)
+    elif name == "r2d3":
+        config.set_r2d3_block()
+        in_shape = (96, 72, 3)
+        out_shape = (12, 9, 32)
+    elif name == "alphazero":
+        config.set_alphazero_block()
+        in_shape = (96, 72, 3)
+        out_shape = (96, 72, 256)
+    elif name == "muzero_atari":
+        in_shape = (96, 72, 3)
+        out_shape = (6, 5, 256)
+    else:
+        raise ValueError(name)
 
     batch_size = 16
-    x = np.ones((batch_size, 64, 75, 19), dtype=np.float32)
+    if rnn:
+        seq_len = 7
+        in_shape2 = (seq_len, batch_size) + in_shape
+        out_shape2 = (seq_len, batch_size) + out_shape
+    else:
+        in_shape2 = (batch_size,) + in_shape
+        out_shape2 = (batch_size,) + out_shape
 
-    block = config.create_block_tf(enable_time_distributed_layer=False)
+    x = np.ones(in_shape2, dtype=np.float32)
+    block = config.create_block_tf(enable_time_distributed_layer=rnn)
     y = block(x)
     assert y is not None
     y = y.numpy()
-    assert y.shape == (batch_size, 8, 10, 64)
+    assert y.shape == out_shape2
 
-
-def test_tf_dqn_image_lstm():
-    pytest.importorskip("tensorflow")
-
-    config = ImageBlockConfig()
-    config.set_dqn_image()
-
-    # ---
-
-    batch_size = 16
-    seq_len = 7
-    x = np.ones((batch_size, seq_len, 64, 75, 19), dtype=np.float32)
-
-    block = config.create_block_tf(enable_time_distributed_layer=True)
-    y = block(x)
-    assert y is not None
-    y = y.numpy()
-    assert y.shape == (batch_size, seq_len, 8, 10, 64)
-
-
-def test_tf_r2d3_image():
-    pytest.importorskip("tensorflow")
-
-    config = ImageBlockConfig()
-    config.set_r2d3_image()
-
-    # ---
-
-    batch_size = 16
-    x = np.ones((batch_size, 96, 72, 3), dtype=np.float32)
-
-    block = config.create_block_tf(enable_time_distributed_layer=False)
-    y = block(x)
-    assert y is not None
-    y = y.numpy()
-    assert y.shape == (batch_size, 12, 9, 32)
-
-
-def test_tf_r2d3_image_lstm():
-    pytest.importorskip("tensorflow")
-
-    config = ImageBlockConfig()
-    config.set_r2d3_image()
-
-    # ---
-
-    batch_size = 16
-    seq_len = 7
-    x = np.ones((batch_size, seq_len, 96, 72, 3), dtype=np.float32)
-
-    block = config.create_block_tf(enable_time_distributed_layer=True)
-    y = block(x)
-    assert y is not None
-    y = y.numpy()
-    assert y.shape == (batch_size, seq_len, 12, 9, 32)
+    block.summary()

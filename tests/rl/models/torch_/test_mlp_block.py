@@ -24,3 +24,26 @@ def test_torch_mlp():
 
     assert y.shape == (batch_size, 32)
     assert block.out_size == 32
+
+
+def test_torch_mlp_rnn():
+    pytest.importorskip("torch")
+
+    config = MLPBlockConfig()
+    config.set_mlp((64, 32))
+
+    # ---
+
+    import torch
+
+    batch_size = 16
+    seq_size = 8
+    x = np.ones((batch_size, seq_size, 256), dtype=np.float32)
+
+    x = torch.tensor(x)
+    block = config.create_block_torch(256)
+    y = block(x)
+    y = y.detach().numpy()
+
+    assert y.shape == (batch_size, seq_size, 32)
+    assert block.out_size == 32

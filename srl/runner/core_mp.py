@@ -6,8 +6,8 @@ import queue
 import threading
 import time
 import traceback
+import zlib
 from multiprocessing import sharedctypes
-from multiprocessing.managers import ValueProxy
 from typing import List, Optional, cast
 
 import srl
@@ -18,7 +18,8 @@ from srl.base.run.context import RunContext, RunNameTypes
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.runner import CallbackType, TaskConfig
-import zlib
+
+# from multiprocessing.managers import ValueProxy # ValueProxy[bool] -> ctypes.c_bool
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ class _ActorRLMemory(IRLMemoryWorker):
         remote_queue: queue.Queue,
         remote_qsize: sharedctypes.Synchronized,
         remote_q_capacity: int,
-        end_signal: ValueProxy[bool],
+        end_signal: ctypes.c_bool,
         actor_id: int,
     ):
         self.remote_queue = remote_queue
@@ -102,9 +103,9 @@ class _ActorRLMemory(IRLMemoryWorker):
 class _ActorInterrupt(RunCallback):
     def __init__(
         self,
-        remote_board: ValueProxy[Optional[bytes]],
+        remote_board: Optional[ctypes.c_char_p],
         parameter: RLParameter,
-        end_signal: ValueProxy[bool],
+        end_signal: ctypes.c_bool,
         actor_parameter_sync_interval: int,
     ) -> None:
         self.remote_board = remote_board
@@ -147,9 +148,9 @@ def _run_actor(
     remote_queue: queue.Queue,
     remote_qsize: sharedctypes.Synchronized,
     remote_q_capacity: int,
-    remote_board: ValueProxy[Optional[bytes]],
+    remote_board: Optional[ctypes.c_char_p],
     actor_id: int,
-    end_signal: ValueProxy[bool],
+    end_signal: ctypes.c_bool,
 ):
     try:
         logger.info(f"[actor{actor_id}] start.")
@@ -224,7 +225,7 @@ def _memory_communicate(
     memory: RLMemory,
     remote_queue: queue.Queue,
     remote_qsize: sharedctypes.Synchronized,
-    end_signal: ValueProxy[bool],
+    end_signal: ctypes.c_bool,
     share_dict: dict,
 ):
     try:
@@ -256,8 +257,8 @@ def _memory_communicate(
 
 def _parameter_communicate(
     parameter: RLParameter,
-    remote_board: ValueProxy[Optional[bytes]],
-    end_signal: ValueProxy[bool],
+    remote_board: Optional[ctypes.c_char_p],
+    end_signal: ctypes.c_bool,
     share_dict: dict,
     trainer_parameter_send_interval: int,
 ):
@@ -287,7 +288,7 @@ def _parameter_communicate(
 class _TrainerInterrupt(TrainerCallback):
     def __init__(
         self,
-        end_signal: ValueProxy[bool],
+        end_signal: ctypes.c_bool,
         share_dict: dict,
         memory_ps: threading.Thread,
         parameter_ps: threading.Thread,
@@ -318,8 +319,8 @@ def _run_trainer(
     memory: RLMemory,
     remote_queue: queue.Queue,
     remote_qsize: sharedctypes.Synchronized,
-    remote_board: ValueProxy[Optional[bytes]],
-    end_signal: ValueProxy[bool],
+    remote_board: Optional[Optional[ctypes.c_char_p]],
+    end_signal: ctypes.c_bool,
 ):
     try:
         logger.info("[trainer] start.")
@@ -435,12 +436,13 @@ def train(runner: srl.Runner, callbacks: List[CallbackType]):
       - 終了時にqueueにデータがあっても終了する
       - qsizeがmacOSで使えるかは未確認
     """
+    # manager.Value : https://github.com/python/cpython/issues/79967
+    remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
+    # manager.Valueだとなぜかうまくいかない時がある
+    end_signal = mp.Value(ctypes.c_bool, False)
     with mp.Manager() as manager:
         remote_queue = manager.Queue()
-        # manager.Value : https://github.com/python/cpython/issues/79967
-        remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
-        remote_board: ValueProxy[Optional[bytes]] = manager.Value(ctypes.c_char_p, None)
-        end_signal = manager.Value(ctypes.c_bool, False)
+        remote_board = manager.Value(ctypes.c_char_p, None)
 
         # --- init remote_memory/parameter
         parameter = runner.make_parameter()

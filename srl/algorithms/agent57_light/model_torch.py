@@ -7,9 +7,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from srl.base.define import InfoType
 from srl.base.rl.base import RLTrainer
 from srl.rl.functions import common
-from srl.rl.models.torch_.input_block import InputBlock
+from srl.rl.models.torch_.blocks.input_block import create_in_block_out_value
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 from .agent57_light import CommonInterfaceParameter, Config
 
@@ -26,18 +28,14 @@ class _QNetwork(nn.Module):
             self.input_int_reward = False
 
         # --- in block
-        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
-        if self.in_block.use_image_layer:
-            self.image_block = config.image_block.create_block_torch(
-                self.in_block.out_shape, enable_time_distributed_layer=False
-            )
-            self.image_flatten = nn.Flatten()
-            in_size = self.image_block.out_shape[0] * self.image_block.out_shape[1] * self.image_block.out_shape[2]
-        else:
-            flat_shape = np.zeros(config.observation_shape).flatten().shape
-            in_size = flat_shape[0]
+        self.input_block = create_in_block_out_value(
+            config.input_value_block,
+            config.input_image_block,
+            config.observation_space,
+        )
 
         # --- UVFA
+        in_size = self.input_block.out_size
         if self.input_ext_reward:
             in_size += 1
         if self.input_int_reward:
@@ -47,7 +45,10 @@ class _QNetwork(nn.Module):
         in_size += config.actor_num
 
         # out
-        self.dueling_block = config.dueling_network.create_block_torch(in_size, config.action_num)
+        self.hidden_block = config.hidden_block.create_block_torch(
+            in_size,
+            config.action_num,
+        )
 
     def forward(self, inputs):
         state = inputs[0]
@@ -57,13 +58,10 @@ class _QNetwork(nn.Module):
         onehot_actor = inputs[4]
 
         # input
-        x = self.in_block(state)
-        if self.in_block.use_image_layer:
-            x = self.image_block(x)
-            x = self.image_flatten(x)
+        state = self.input_block(state)
 
         # UVFA
-        uvfa_list = [x]
+        uvfa_list = [state]
         if self.input_ext_reward:
             uvfa_list.append(reward_ext)
         if self.input_int_reward:
@@ -73,7 +71,7 @@ class _QNetwork(nn.Module):
         uvfa_list.append(onehot_actor)
         x = torch.cat(uvfa_list, dim=1)
 
-        x = self.dueling_block(x)
+        x = self.hidden_block(x)
         return x
 
 
@@ -85,20 +83,14 @@ class _EmbeddingNetwork(nn.Module):
         super().__init__()
 
         # --- in block
-        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
-        if self.in_block.use_image_layer:
-            self.image_block = config.image_block.create_block_torch(
-                self.in_block.out_shape,
-                enable_time_distributed_layer=False,
-            )
-            self.image_flatten = nn.Flatten()
-            in_size = self.image_block.out_shape[0] * self.image_block.out_shape[1] * self.image_block.out_shape[2]
-        else:
-            flat_shape = np.zeros(config.observation_shape).flatten().shape
-            in_size = flat_shape[0]
+        self.input_block = create_in_block_out_value(
+            config.input_value_block,
+            config.input_image_block,
+            config.observation_space,
+        )
 
         # --- emb
-        self.emb_block = config.episodic_emb_block.create_block_torch(in_size)
+        self.emb_block = config.episodic_emb_block.create_block_torch(self.input_block.out_size)
 
         # --- out
         self.out_block = config.episodic_out_block.create_block_torch(self.emb_block.out_size * 2)
@@ -107,10 +99,7 @@ class _EmbeddingNetwork(nn.Module):
         self.out_block_out2 = nn.Softmax(dim=1)
 
     def _image_call(self, state):
-        x = self.in_block(state)
-        if self.in_block.use_image_layer:
-            x = self.image_block(x)
-            x = self.image_flatten(x)
+        x = self.input_block(state)
         return self.emb_block(x)
 
     def forward(self, x):
@@ -136,27 +125,18 @@ class _LifelongNetwork(nn.Module):
         super().__init__()
 
         # --- in block
-        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
-        if self.in_block.use_image_layer:
-            self.image_block = config.image_block.create_block_torch(
-                self.in_block.out_shape,
-                enable_time_distributed_layer=False,
-            )
-            self.image_flatten = nn.Flatten()
-            in_size = self.image_block.out_shape[0] * self.image_block.out_shape[1] * self.image_block.out_shape[2]
-        else:
-            flat_shape = np.zeros(config.observation_shape).flatten().shape
-            in_size = flat_shape[0]
+        self.input_block = create_in_block_out_value(
+            config.input_value_block,
+            config.input_image_block,
+            config.observation_space,
+        )
 
         # hidden
-        self.hidden_block = config.lifelong_hidden_block.create_block_torch(in_size)
+        self.hidden_block = config.lifelong_hidden_block.create_block_torch(self.input_block.out_size)
         self.hidden_normalize = nn.LayerNorm(self.hidden_block.out_size)
 
     def forward(self, x):
-        x = self.in_block(x)
-        if self.in_block.use_image_layer:
-            x = self.image_block(x)
-            x = self.image_flatten(x)
+        x = self.input_block(x)
         x = self.hidden_block(x)
         x = self.hidden_normalize(x)
         return x
@@ -323,10 +303,10 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_sch_ext = self.config.lr_ext.create_schedulers()
-        self.lr_sch_int = self.config.lr_int.create_schedulers()
-        self.lr_sch_emb = self.config.episodic_lr.create_schedulers()
-        self.lr_sch_ll = self.config.lifelong_lr.create_schedulers()
+        self.lr_sch_ext = SchedulerConfig.create_scheduler(self.config.lr_ext)
+        self.lr_sch_int = SchedulerConfig.create_scheduler(self.config.lr_int)
+        self.lr_sch_emb = SchedulerConfig.create_scheduler(self.config.episodic_lr)
+        self.lr_sch_ll = SchedulerConfig.create_scheduler(self.config.lifelong_lr)
 
         self.q_ext_optimizer = optim.Adam(self.parameter.q_ext_online.parameters(), lr=self.lr_sch_ext.get_rate())
         self.q_int_optimizer = optim.Adam(self.parameter.q_int_online.parameters(), lr=self.lr_sch_int.get_rate())
@@ -342,6 +322,10 @@ class Trainer(RLTrainer):
         self.discount_list = common.create_discount_list(self.config.actor_num)
 
         self.sync_count = 0
+        self.ext_loss = None
+        self.int_loss = None
+        self.emb_loss = None
+        self.lifelong_loss = None
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
@@ -395,7 +379,7 @@ class Trainer(RLTrainer):
         # --- update ext q
         self.parameter.q_ext_online.to(device)
         self.parameter.q_ext_target.to(device)
-        td_errors_ext, _loss = self._update_q(
+        td_errors_ext, self.ext_loss = self._update_q(
             True,
             self.parameter.q_ext_online,
             self.q_ext_optimizer,
@@ -403,13 +387,12 @@ class Trainer(RLTrainer):
             rewards_ext,
             *_params,
         )
-        self.train_info["ext_loss"] = _loss
 
         # --- intrinsic reward
         if self.config.enable_intrinsic_reward:
             self.parameter.q_int_online.to(device)
             self.parameter.q_int_target.to(device)
-            td_errors_int, _loss = self._update_q(
+            td_errors_int, self.int_loss = self._update_q(
                 False,
                 self.parameter.q_int_online,
                 self.q_int_optimizer,
@@ -417,19 +400,17 @@ class Trainer(RLTrainer):
                 rewards_int,
                 *_params,
             )
-            self.train_info["int_loss"] = _loss
 
             # ----------------------------------------
             # embedding network
             # ----------------------------------------
             self.parameter.emb_network.train()
             actions_probs = self.parameter.emb_network([states, n_states])
-            emb_loss = self.emb_criterion(actions_probs, onehot_actions)
+            self.emb_loss = self.emb_criterion(actions_probs, onehot_actions)
 
             self.emb_optimizer.zero_grad()
-            emb_loss.backward()
+            self.emb_loss.backward()
             self.emb_optimizer.step()
-            self.train_info["emb_loss"] = emb_loss.item()
 
             if self.lr_sch_emb.update(self.train_count):
                 lr = self.lr_sch_emb.get_rate()
@@ -443,12 +424,11 @@ class Trainer(RLTrainer):
                 lifelong_target_val = self.parameter.lifelong_target(states)
             self.parameter.lifelong_train.train()
             lifelong_train_val = self.parameter.lifelong_train(states)
-            lifelong_loss = self.lifelong_criterion(lifelong_target_val, lifelong_train_val)
+            self.lifelong_loss = self.lifelong_criterion(lifelong_target_val, lifelong_train_val)
 
             self.lifelong_optimizer.zero_grad()
-            lifelong_loss.backward()
+            self.lifelong_loss.backward()
             self.lifelong_optimizer.step()
-            self.train_info["lifelong_loss"] = lifelong_loss.item()
 
             if self.lr_sch_ll.update(self.train_count):
                 lr = self.lr_sch_ll.get_rate()
@@ -464,16 +444,31 @@ class Trainer(RLTrainer):
         else:
             batch_beta = np.array([self.beta_list[a] for a in actor_idx], np.float32)
             priorities = np.abs(td_errors_ext + batch_beta * td_errors_int)
-        self.memory.update((indices, batchs, priorities))
+        self.memory.update(indices, batchs, priorities)
 
         # --- sync target
         if self.train_count % self.config.target_model_update_interval == 0:
             self.parameter.q_ext_target.load_state_dict(self.parameter.q_ext_online.state_dict())
             self.parameter.q_int_target.load_state_dict(self.parameter.q_int_online.state_dict())
             self.sync_count += 1
-        self.train_info["sync"] = self.sync_count
 
         self.train_count += 1
+
+    def create_info(self) -> InfoType:
+        d = {"sync": self.sync_count}
+        if self.ext_loss is not None:
+            d["ext_loss"] = self.ext_loss.item()
+        if self.int_loss is not None:
+            d["int_loss"] = self.int_loss.item()
+        if self.emb_loss is not None:
+            d["emb_loss"] = self.emb_loss.item()
+        if self.lifelong_loss is not None:
+            d["lifelong_loss"] = self.lifelong_loss.item()
+        self.ext_loss = None
+        self.int_loss = None
+        self.emb_loss = None
+        self.lifelong_loss = None
+        return d
 
     def _update_q(
         self,

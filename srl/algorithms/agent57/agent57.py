@@ -2,15 +2,15 @@ import collections
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, RLBaseTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
-from srl.base.rl.base import RLParameter
+from srl.base.define import InfoType, RLBaseTypes
+from srl.base.rl.base import RLParameter, RLWorker
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import ObservationProcessor
+from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import (
     calc_epsilon_greedy_probs,
     create_beta_list,
@@ -21,12 +21,12 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
-from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
-from srl.rl.models.dueling_network import DuelingNetworkConfig
-from srl.rl.models.framework_config import FrameworkConfig
-from srl.rl.models.image_block import ImageBlockConfig
-from srl.rl.models.mlp_block import MLPBlockConfig
-from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.memories.priority_experience_replay import (
+    PriorityExperienceReplay,
+    RLConfigComponentPriorityExperienceReplay,
+)
+from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 """
@@ -67,27 +67,30 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, PriorityExperienceReplayConfig):
-    """<:ref:`PriorityExperienceReplay`>"""
+class Config(
+    RLConfig,
+    RLConfigComponentPriorityExperienceReplay,
+    RLConfigComponentFramework,
+):
+    """
+    <:ref:`RLConfigComponentPriorityExperienceReplay`>
+    <:ref:`RLConfigComponentFramework`>
+    """
 
     #: ε-greedy parameter for Test
     test_epsilon: float = 0
     #: intrinsic reward rate for Test
     test_beta: float = 0
 
-    #: <:ref:`Framework`>
-    framework: FrameworkConfig = field(init=False, default_factory=lambda: FrameworkConfig())
-    #: <:ref:`ImageBlock`> This layer is only used when the input is an image.
-    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
     #:  Lstm units
     lstm_units: int = 512
-    #: <:ref:`DuelingNetwork`> hidden layer
-    dueling_network: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
+    #: <:ref:`MLPBlock`> hidden layer
+    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     #: <:ref:`scheduler`> Learning rate
-    lr_ext: float = 0.0001  # type: ignore , type OK
+    lr_ext: Union[float, SchedulerConfig] = 0.0001
     #: <:ref:`scheduler`> Intrinsic network Learning rate
-    lr_int: float = 0.0001  # type: ignore , type OK
+    lr_int: Union[float, SchedulerConfig] = 0.0001
     #: Synchronization interval to Target network
     target_model_update_interval: int = 1500
 
@@ -116,7 +119,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     enable_intrinsic_reward: bool = True
 
     #: <:ref:`scheduler`> Episodic Learning rate
-    episodic_lr: float = 0.0005  # type: ignore , type OK
+    episodic_lr: Union[float, SchedulerConfig] = 0.0005
     #: [episodic] k
     episodic_count_max: int = 10
     #: [episodic] epsilon
@@ -133,7 +136,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     episodic_out_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     #: <:ref:`scheduler`> Lifelong Learning rate
-    lifelong_lr: float = 0.0005  # type: ignore , type OK
+    lifelong_lr: Union[float, SchedulerConfig] = 0.0005
     #: [lifelong] L
     lifelong_max: float = 5.0
     #: <:ref:`MLPBlock`> [lifelong] hidden block
@@ -153,33 +156,27 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
     def __post_init__(self):
         super().__post_init__()
-
-        self.lr_ext: SchedulerConfig = SchedulerConfig(cast(float, self.lr_ext))
-        self.lr_int: SchedulerConfig = SchedulerConfig(cast(float, self.lr_int))
-        self.episodic_lr: SchedulerConfig = SchedulerConfig(cast(float, self.episodic_lr))
-        self.lifelong_lr: SchedulerConfig = SchedulerConfig(cast(float, self.lifelong_lr))
         self.memory.set_proportional_memory()
-
-        self.dueling_network.set((512,), True)
-        self.episodic_emb_block.set_mlp(
+        self.hidden_block.set_dueling_network((512,))
+        self.episodic_emb_block.set(
             (32,),
             activation="relu",
             # kernel_initializer="he_normal",
             # dense_kwargs={"bias_initializer": keras.initializers.constant(0.001)},
         )
-        self.episodic_out_block.set_mlp((128,))
-        self.lifelong_hidden_block.set_mlp((128,))
+        self.episodic_out_block.set((128,))
+        self.lifelong_hidden_block.set((128,))
 
     def set_atari_config(self):
         """Set the Atari parameters written in the paper."""
-        self.lr_ext.set_constant(0.0001)
-        self.lr_int.set_constant(0.0001)
-        self.lifelong_lr.set_constant(0.0005)
-        self.episodic_lr.set_constant(0.0005)
+        self.lr_ext = 0.0001
+        self.lr_int = 0.0001
+        self.lifelong_lr = 0.0005
+        self.episodic_lr = 0.0005
         self.batch_size = 64
         self.lstm_units = 512
-        self.image_block.set_dqn_image()
-        self.dueling_network.set((512,), enable=True)
+        self.input_image_block.set_dqn_block()
+        self.hidden_block.set_dueling_network((512,))
         self.discount = 0.99
 
         self.burnin = 40
@@ -188,41 +185,39 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
         self.episodic_memory_capacity = 30_000
 
-        self.memory.set_replay_memory()
+        self.memory.set_proportional_memory()
         self.memory.capacity = 100_000
         self.memory.warmup_size = 6250
-        self.image_block.set_dqn_image()
 
         self.target_model_update_interval = 1500
 
-    def set_processor(self) -> List[Processor]:
-        return [
-            ImageProcessor(
-                image_type=EnvObservationTypes.GRAY_2ch,
-                resize=(84, 84),
-                enable_norm=True,
-            )
-        ]
+    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+        return [self.input_image_block.get_processor()]
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
 
-    def get_use_framework(self) -> str:
-        return self.framework.get_use_framework()
+    def get_framework(self) -> str:
+        return self.create_framework_str()
 
-    def getName(self) -> str:
-        return f"Agent57:{self.get_use_framework()}"
+    def get_name(self) -> str:
+        return f"Agent57:{self.get_framework()}"
 
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
+        self.assert_params_framework()
         assert self.burnin >= 0
         assert self.sequence_length >= 1
+
+    def get_changeable_parameters(self) -> List[str]:
+        return []
+
+    def get_info_types(self) -> dict:
+        return {}
 
 
 # ------------------------------------------------------
@@ -439,7 +434,7 @@ class CommonInterfaceParameter(RLParameter, ABC):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(DiscreteActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -459,7 +454,7 @@ class Worker(DiscreteActionWorker):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+    def on_reset(self, worker: WorkerRun) -> InfoType:
         self.q_ext = [0] * self.config.action_num
         self.q_int = [0] * self.config.action_num
         self.q = [0] * self.config.action_num
@@ -498,7 +493,7 @@ class Worker(DiscreteActionWorker):
         ]
 
         self.recent_states.pop(0)
-        self.recent_states.append(state.astype(np.float32))
+        self.recent_states.append(worker.state.astype(np.float32))
 
         # TD誤差を計算するか
         if not self.distributed:
@@ -575,7 +570,7 @@ class Worker(DiscreteActionWorker):
         # UCB値最大のポリシー（複数あればランダム）
         return np.random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
+    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
         prev_onehot_action = np.identity(self.config.action_num, dtype=np.float32)[self.action][
             np.newaxis, np.newaxis, ...
         ]
@@ -593,18 +588,14 @@ class Worker(DiscreteActionWorker):
         self.q_int = self.q_int[0][0]
         self.q = self.q_ext + self.beta * self.q_int
 
-        probs = calc_epsilon_greedy_probs(self.q, invalid_actions, self.epsilon, self.config.action_num)
+        probs = calc_epsilon_greedy_probs(self.q, worker.get_invalid_actions(), self.epsilon, self.config.action_num)
         self.action = random_choice_by_probs(probs)
         # self.prob = probs[self.action]  #[1]
         return self.action, {}
 
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward_ext: float,
-        done: bool,
-        next_invalid_actions: List[int],
-    ) -> Dict:
+    def on_step(self, worker: WorkerRun) -> InfoType:
+        next_state = worker.state
+        reward_ext = worker.reward
         self.episode_reward += reward_ext
         self.reward_ext = reward_ext
 
@@ -635,9 +626,9 @@ class Worker(DiscreteActionWorker):
         self.recent_rewards_int.pop(0)
         self.recent_rewards_int.append(self.reward_int)
         self.recent_done.pop(0)
-        self.recent_done.append(0 if done else 1)
+        self.recent_done.append(0 if worker.terminated else 1)
         self.recent_next_invalid_actions.pop(0)
-        self.recent_next_invalid_actions.append(next_invalid_actions)
+        self.recent_next_invalid_actions.append(worker.get_invalid_actions())
         self.recent_hidden_states_ext.pop(0)
         self.recent_hidden_states_ext.append(self.parameter.convert_numpy_from_hidden_state(self.hidden_state_ext))
         self.recent_hidden_states_int.pop(0)
@@ -657,7 +648,7 @@ class Worker(DiscreteActionWorker):
 
         self._add_memory(calc_info)
 
-        if done:
+        if worker.done:
             # 残りstepも追加
             for _ in range(len(self.recent_rewards_ext) - 1):
                 self.recent_states.pop(0)

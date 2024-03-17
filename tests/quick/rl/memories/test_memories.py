@@ -3,8 +3,11 @@ from dataclasses import dataclass
 import numpy as np
 
 from srl.base.rl.base import DummyRLConfig, RLMemory
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
-from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
+from srl.rl.memories.priority_experience_replay import (
+    PriorityExperienceReplay,
+    RLConfigComponentPriorityExperienceReplay,
+)
 from srl.rl.memories.sequence_memory import SequenceMemory
 
 
@@ -80,7 +83,7 @@ def test_experience_replay_buffer():
     batch_size = 5
 
     @dataclass
-    class C(DummyRLConfig, ExperienceReplayBufferConfig):
+    class C(DummyRLConfig, RLConfigComponentExperienceReplayBuffer):
         pass
 
     conf = C()
@@ -92,7 +95,7 @@ def test_experience_replay_buffer():
     _play_memory_sub(memory, capacity, warmup_size, batch_size, is_priority=False)
 
 
-def _play_priority_memories(conf: PriorityExperienceReplayConfig):
+def _play_priority_memories(conf: RLConfigComponentPriorityExperienceReplay):
     capacity = 10
     warmup_size = 5
     batch_size = 5
@@ -106,7 +109,7 @@ def _play_priority_memories(conf: PriorityExperienceReplayConfig):
 
 
 @dataclass
-class _C_PER(DummyRLConfig, PriorityExperienceReplayConfig):
+class _C_PER(DummyRLConfig, RLConfigComponentPriorityExperienceReplay):
     pass
 
 

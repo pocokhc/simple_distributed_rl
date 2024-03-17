@@ -100,6 +100,23 @@ class ObservationModes(enum.Flag):
     RENDER_IMAGE = enum.auto()
     RENDER_TERMINAL = enum.auto()
 
+    @staticmethod
+    def from_str(mode: Union[str, "ObservationModes"]) -> "ObservationModes":
+        if isinstance(mode, str):
+            mode = mode.strip().lower()
+            if mode == "":
+                mode = ObservationModes.ENV
+            elif mode in ["img", "image", "render", "render_img", "render_image"]:
+                mode = ObservationModes.RENDER_IMAGE
+            else:
+                mode = ObservationModes.ENV
+        return mode
+
+
+class MultiVariableTypes(enum.Enum):
+    VALUE = enum.auto()
+    IMAGE = enum.auto()
+
 
 class RenderModes(enum.Enum):
     none = 0

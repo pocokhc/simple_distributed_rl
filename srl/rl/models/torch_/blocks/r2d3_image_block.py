@@ -8,15 +8,8 @@ from srl.rl.models.torch_.converter import convert_activation_torch
 
 
 class R2D3ImageBlock(nn.Module):
-    def __init__(
-        self,
-        in_shape: Tuple[int, ...],
-        filters: int = 16,
-        activation="ReLU",
-        enable_time_distributed_layer: bool = False,
-    ):
+    def __init__(self, in_shape: Tuple[int, ...], filters: int = 16, activation="ReLU"):
         super().__init__()
-        self.enable_time_distributed_layer = enable_time_distributed_layer
 
         activation = convert_activation_torch(activation)
 
@@ -32,26 +25,10 @@ class R2D3ImageBlock(nn.Module):
         self.out_shape = y.shape[-3:]
 
     def forward(self, x):
-        if self.enable_time_distributed_layer:
-            # (batch, seq, c, h, w) -> (batch*seq, c, h, w)
-            batch_size, seq, channels, height, width = x.size()
-            x = x.reshape((batch_size * seq, channels, height, width))
-
-            x = self.res1(x)
-            x = self.res2(x)
-            x = self.res3(x)
-            x = self.act(x)
-
-            # (batch*seq, c, h, w) -> (batch, seq, c, h, w)
-            _, channels, height, width = x.size()
-            x = x.view(batch_size, seq, channels, height, width)
-
-        else:
-            x = self.res1(x)
-            x = self.res2(x)
-            x = self.res3(x)
-            x = self.act(x)
-
+        x = self.res1(x)
+        x = self.res2(x)
+        x = self.res3(x)
+        x = self.act(x)
         return x
 
 

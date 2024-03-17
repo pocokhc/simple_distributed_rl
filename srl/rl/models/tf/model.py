@@ -25,10 +25,3 @@ class KerasModelAddedSummary(keras.Model):
     def summary(self, name="", expand_nested: bool = True, **kwargs):
         model = self.init_model_graph(name=name)
         model.summary(expand_nested=expand_nested, **kwargs)
-
-    # --- utils
-    def create_batch_shape(self, shape, prefix_shape: Tuple[Optional[int], ...]):
-        if isinstance(shape, list):
-            return [prefix_shape + s for s in shape]
-        else:
-            return prefix_shape + shape

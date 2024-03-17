@@ -78,7 +78,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
                 return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
 
     def on_runner_start(self, runner: Runner) -> None:
-        s = f"### env: {runner.env_config.name}, rl: {runner.rl_config.getName()}"
+        s = f"### env: {runner.env_config.name}, rl: {runner.rl_config.get_name()}"
         if runner.context.max_episodes > 0:
             s += f", max episodes: {runner.context.max_episodes}"
         if runner.context.timeout > 0:
@@ -270,7 +270,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             s_info += to_str_info(state.workers[self.progress_worker].info, rl_types)
         if self.progress_train_info:
             if state.trainer is not None:
-                s_info += to_str_info(state.trainer.train_info, rl_types)
+                s_info += to_str_info(state.trainer.get_info(), rl_types)
 
         if self.single_line:
             print(s + s_info)
@@ -413,7 +413,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         s_info = ""
         if self.progress_train_info:
             if state.trainer is not None:
-                s_info += to_str_info(state.trainer.train_info, context.rl_config.get_info_types())
+                s_info += to_str_info(state.trainer.get_info(), context.rl_config.get_info_types())
 
         if self.single_line:
             print(s + s_info)

@@ -5,10 +5,13 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLTypes
+from srl.base.define import InfoType, RLTypes
 from srl.base.rl.base import RLTrainer
 from srl.rl.functions import common
-from srl.rl.models.tf.input_block import InputImageBlock
+from srl.rl.models.tf import helper
+from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
+from srl.rl.models.tf.model import KerasModelAddedSummary
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 from .agent57_light import CommonInterfaceParameter, Config
 
@@ -26,22 +29,22 @@ class _QNetwork(keras.Model):
             self.input_int_reward = False
 
         # --- input
-        self.in_img_block = None
-        if config.observation_type == RLTypes.IMAGE:
-            self.in_img_block = InputImageBlock(
-                config.observation_shape,
-                config.env_observation_type,
-                enable_time_distributed_layer=True,
-            )
-            self.img_block = config.image_block.create_block_tf(enable_time_distributed_layer=True)
-        self.flat_layer = kl.Flatten()
+        self.input_block = create_in_block_out_value(
+            config.input_value_block,
+            config.input_image_block,
+            config.observation_space,
+            enable_rnn=False,
+        )
 
         # out
-        self.dueling_block = config.dueling_network.create_block_tf(config.action_num)
+        self.hidden_block = config.hidden_block.create_block_tf(
+            config.action_num,
+            enable_rnn=False,
+        )
 
         # build
         self.build(
-            (None,) + config.observation_shape,
+            helper.create_batch_shape(config.observation_shape, (None,)),
             (None, 1),
             (None, config.action_num),
             (None, config.actor_num),
@@ -59,14 +62,10 @@ class _QNetwork(keras.Model):
         onehot_actor = inputs[4]
 
         # input
-        x = state
-        if self.in_img_block is not None:
-            x = self.in_img_block(x, training)
-            x = self.img_block(x, training)
-        x = self.flat_layer(x)
+        state = self.input_block(state, training)
 
         # UVFA
-        uvfa_list = [x]
+        uvfa_list = [state]
         if self.input_ext_reward:
             uvfa_list.append(reward_ext)
         if self.input_int_reward:
@@ -76,7 +75,7 @@ class _QNetwork(keras.Model):
         uvfa_list.append(onehot_actor)
         x = tf.concat(uvfa_list, axis=1)
 
-        x = self.dueling_block(x, training=training)
+        x = self.hidden_block(x, training=training)
         return x
 
     def build(
@@ -101,9 +100,6 @@ class _QNetwork(keras.Model):
         )
 
     def summary(self, name="", **kwargs):
-        if self.in_img_block is not None:
-            self.in_img_block.init_model_graph()
-        self.dueling_block.init_model_graph()
         x = [
             kl.Input(self.__in_state_shape[1:], name="state"),
             kl.Input(self.__in_reward_shape[1:], name="reward_ext"),
@@ -119,16 +115,16 @@ class _QNetwork(keras.Model):
 # ------------------------------------------------------
 # エピソード記憶部(episodic_reward)
 # ------------------------------------------------------
-class _EmbeddingNetwork(keras.Model):
+class _EmbeddingNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
         # input
-        self.in_img_block = None
-        if config.observation_type == RLTypes.IMAGE:
-            self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
-            self.img_block = config.image_block.create_block_tf()
-        self.flat_layer = kl.Flatten()
+        self.input_block = create_in_block_out_value(
+            config.input_value_block,
+            config.input_image_block,
+            config.observation_space,
+        )
 
         # emb_block
         self.emb_block = config.episodic_emb_block.create_block_tf()
@@ -144,10 +140,7 @@ class _EmbeddingNetwork(keras.Model):
         self.loss_func = keras.losses.MeanSquaredError()
 
     def _emb_block_call(self, x, training=False):
-        if self.in_img_block is not None:
-            x = self.in_img_block(x, training=training)
-            x = self.img_block(x, training=training)
-        x = self.flat_layer(x)
+        x = self.input_block(x, training=training)
         return self.emb_block(x, training=training)
 
     def call(self, x, training=False):
@@ -170,35 +163,20 @@ class _EmbeddingNetwork(keras.Model):
     def predict(self, state):
         return self._emb_block_call(state)
 
-    def summary(self, name: str = "", **kwargs):
-        if self.in_img_block is not None:
-            self.in_img_block.init_model_graph()
-            self.img_block.init_model_graph()
-        self.emb_block.init_model_graph()
-        self.out_block.init_model_graph()
-
-        x = [
-            kl.Input(shape=self._in_shape),
-            kl.Input(shape=self._in_shape),
-        ]
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        model.summary(**kwargs)
-
 
 # ------------------------------------------------------
 # 生涯記憶部(life long novelty module)
 # ------------------------------------------------------
-class _LifelongNetwork(keras.Model):
+class _LifelongNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
         # input
-        self.in_img_block = None
-        if config.observation_type == RLTypes.IMAGE:
-            self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
-            self.img_block = config.image_block.create_block_tf()
-        self.flat_layer = kl.Flatten()
+        self.input_block = create_in_block_out_value(
+            config.input_value_block,
+            config.input_image_block,
+            config.observation_space,
+        )
 
         # hidden
         self.hidden_block = config.lifelong_hidden_block.create_block_tf()
@@ -210,10 +188,7 @@ class _LifelongNetwork(keras.Model):
         self.loss_func = keras.losses.MeanSquaredError()
 
     def call(self, x, training=False):
-        if self.in_img_block is not None:
-            x = self.in_img_block(x, training)
-            x = self.img_block(x, training)
-        x = self.flat_layer(x)
+        x = self.input_block(x, training=training)
         x = self.hidden_block(x, training=training)
         x = self.hidden_normalize(x, training=training)
         return x
@@ -224,17 +199,6 @@ class _LifelongNetwork(keras.Model):
         loss = self.loss_func(target_val, val)
         loss += tf.reduce_sum(self.losses)  # 正則化項
         return loss
-
-    def summary(self, name: str = "", **kwargs):
-        if self.in_img_block is not None:
-            self.in_img_block.init_model_graph()
-            self.img_block.init_model_graph()
-        self.hidden_block.init_model_graph()
-
-        x = kl.Input(shape=self._in_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        model.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -311,10 +275,10 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_sch_ext = self.config.lr_ext.create_schedulers()
-        self.lr_sch_int = self.config.lr_int.create_schedulers()
-        self.lr_sch_emb = self.config.episodic_lr.create_schedulers()
-        self.lr_sch_ll = self.config.lifelong_lr.create_schedulers()
+        self.lr_sch_ext = SchedulerConfig.create_scheduler(self.config.lr_ext)
+        self.lr_sch_int = SchedulerConfig.create_scheduler(self.config.lr_int)
+        self.lr_sch_emb = SchedulerConfig.create_scheduler(self.config.episodic_lr)
+        self.lr_sch_ll = SchedulerConfig.create_scheduler(self.config.lifelong_lr)
 
         self.q_ext_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch_ext.get_rate())
         self.q_int_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch_int.get_rate())
@@ -327,13 +291,16 @@ class Trainer(RLTrainer):
         self.discount_list = common.create_discount_list(self.config.actor_num)
 
         self.sync_count = 0
+        self.ext_loss = None
+        self.int_loss = None
+        self.emb_loss = None
+        self.lifelong_loss = None
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
         indices, batchs, weights = self.memory.sample(self.batch_size, self.train_count)
 
-        _info = {}
         (
             states,
             n_states,
@@ -372,7 +339,7 @@ class Trainer(RLTrainer):
         ]
 
         # --- update ext q
-        td_errors_ext, _loss = self._update_q(
+        td_errors_ext, self.ext_loss = self._update_q(
             True,
             self.parameter.q_ext_online,
             self.q_ext_optimizer,
@@ -380,11 +347,10 @@ class Trainer(RLTrainer):
             rewards_ext,
             *_params,
         )
-        _info["ext_loss"] = _loss
 
         # --- intrinsic reward
         if self.config.enable_intrinsic_reward:
-            td_errors_int, _loss = self._update_q(
+            td_errors_int, self.int_loss = self._update_q(
                 False,
                 self.parameter.q_int_online,
                 self.q_int_optimizer,
@@ -392,16 +358,14 @@ class Trainer(RLTrainer):
                 rewards_int,
                 *_params,
             )
-            _info["int_loss"] = _loss
 
             # ----------------------------------------
             # embedding network
             # ----------------------------------------
             with tf.GradientTape() as tape:
-                emb_loss = self.parameter.emb_network.compute_train_loss(states, n_states, onehot_actions)
-            grads = tape.gradient(emb_loss, self.parameter.emb_network.trainable_variables)
+                self.emb_loss = self.parameter.emb_network.compute_train_loss(states, n_states, onehot_actions)
+            grads = tape.gradient(self.emb_loss, self.parameter.emb_network.trainable_variables)
             self.emb_optimizer.apply_gradients(zip(grads, self.parameter.emb_network.trainable_variables))
-            _info["emb_loss"] = emb_loss.numpy()
 
             if self.lr_sch_emb.update(self.train_count):
                 self.emb_optimizer.learning_rate = self.lr_sch_emb.get_rate()
@@ -411,10 +375,9 @@ class Trainer(RLTrainer):
             # ----------------------------------------
             lifelong_target_val = self.parameter.lifelong_target(states)
             with tf.GradientTape() as tape:
-                lifelong_loss = self.parameter.lifelong_train.compute_train_loss(states, lifelong_target_val)
-            grads = tape.gradient(lifelong_loss, self.parameter.lifelong_train.trainable_variables)
+                self.lifelong_loss = self.parameter.lifelong_train.compute_train_loss(states, lifelong_target_val)
+            grads = tape.gradient(self.lifelong_loss, self.parameter.lifelong_train.trainable_variables)
             self.lifelong_optimizer.apply_gradients(zip(grads, self.parameter.lifelong_train.trainable_variables))
-            _info["lifelong_loss"] = lifelong_loss.numpy()
 
             if self.lr_sch_ll.update(self.train_count):
                 self.lifelong_optimizer.learning_rate = self.lr_sch_ll.get_rate()
@@ -428,17 +391,31 @@ class Trainer(RLTrainer):
         else:
             batch_beta = np.array([self.beta_list[a] for a in actor_idx], np.float32)
             priorities = np.abs(td_errors_ext + batch_beta * td_errors_int)
-        self.memory.update((indices, batchs, priorities))
+        self.memory.update(indices, batchs, priorities)
 
         # --- sync target
         if self.train_count % self.config.target_model_update_interval == 0:
             self.parameter.q_ext_target.set_weights(self.parameter.q_ext_online.get_weights())
             self.parameter.q_int_target.set_weights(self.parameter.q_int_online.get_weights())
             self.sync_count += 1
-        _info["sync"] = self.sync_count
 
-        self.train_info = _info
         self.train_count += 1
+
+    def create_info(self) -> InfoType:
+        d = {"sync": self.sync_count}
+        if self.ext_loss is not None:
+            d["ext_loss"] = self.ext_loss.numpy()
+        if self.int_loss is not None:
+            d["int_loss"] = self.int_loss.numpy()
+        if self.emb_loss is not None:
+            d["emb_loss"] = self.emb_loss.numpy()
+        if self.lifelong_loss is not None:
+            d["lifelong_loss"] = self.lifelong_loss.numpy()
+        self.ext_loss = None
+        self.int_loss = None
+        self.emb_loss = None
+        self.lifelong_loss = None
+        return d
 
     def _update_q(
         self,

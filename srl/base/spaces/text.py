@@ -1,6 +1,6 @@
 import logging
 import random
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Tuple
 
 import numpy as np
 
@@ -8,7 +8,7 @@ from srl.base.define import EnvTypes
 
 from .space import SpaceBase
 
-alphanumeric: frozenset[str] = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+alphanumeric = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class TextSpace(SpaceBase[str]):
         self,
         max_length: int,
         min_length: int = 0,
-        sample_charset: Union[frozenset[str], str] = alphanumeric,
+        sample_charset: str = alphanumeric,
     ) -> None:
         self._max_length = max_length
         self._min_length = min_length

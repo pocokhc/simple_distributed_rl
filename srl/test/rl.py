@@ -6,7 +6,6 @@ import srl
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.config import DummyRLConfig, RLConfig
-from srl.envs import grid, ox
 from srl.rl.functions.common import to_str_observation
 from srl.utils.common import is_available_pygame_video_device, is_packages_installed
 
@@ -33,14 +32,14 @@ class TestRL:
             "Othello4x4": (50, [0.1, 0.5]),  # [0.3, 0.9] ぐらい
         }
 
-    def simple_check(
+    def test(
         self,
         rl_config: RLConfig,
         env_list: List[Union[str, EnvConfig]] = ["Grid", "OX"],
-        is_mp: bool = False,
         train_kwargs: dict = dict(max_train_count=2),
         use_layer_processor: bool = False,
-        check_render: bool = True,
+        test_mp: bool = False,
+        test_render: bool = True,
     ):
         env_list = env_list.copy()
         train_kwargs_ = {}
@@ -49,106 +48,42 @@ class TestRL:
         rl_config.enable_assertion_value = True
 
         for env_config in env_list:
-            rl_config2 = rl_config.copy(reset_env_config=True)
-            env_config = srl.EnvConfig(env_config) if isinstance(env_config, str) else env_config.copy()
+            test_rl_config = rl_config.copy(reset_env_config=True)
+            test_env_config = srl.EnvConfig(env_config) if isinstance(env_config, str) else env_config.copy()
 
             if use_layer_processor:
-                if env_config.name == "Grid":
-                    rl_config2.processors.append(grid.LayerProcessor())
-                elif env_config.name == "OX":
-                    rl_config2.processors.append(ox.LayerProcessor())
+                if test_env_config.name == "Grid":
+                    test_env_config.kwargs["obs_type"] = "layer"
+                elif test_env_config.name == "OX":
+                    test_env_config.kwargs["obs_type"] = "layer"
 
-            runner = srl.Runner(env_config, rl_config2)
+            runner = srl.Runner(test_env_config, test_rl_config)
             runner.set_device("CPU")
             device_actors = "CPU"
 
-            if not is_mp:
-                # --- check sequence
-                print(f"--- {env_config.name} sequence check start ---")
+            if not test_mp:
+                print(f"--- {test_env_config.name} sequence test start ---")
                 state = runner.train(**train_kwargs_)
                 assert state.trainer is not None
                 if train_kwargs_.get("max_train_count", 0) > 0:
                     assert state.trainer.get_train_count() > 0
 
-                # --- check render
-                if check_render:
+                if test_render:
                     runner.render_terminal(max_steps=10)
                     if is_packages_installed(["cv2", "PIL", "pygame"]):
                         if is_available_pygame_video_device():
                             runner.render_window(max_steps=10, render_interval=1)
                         runner.animation_save_gif("_tmp.gif", max_steps=10)
 
-                # --- check raw
-                print(f"--- {env_config.name} raw check start ---")
-                self.simple_check_raw(env_config, rl_config2, check_render)
-
             else:
-                print(f"--- {env_config.name} mp check start ---")
+                print(f"--- {test_env_config.name} mp check start ---")
                 if "max_steps" in train_kwargs_:
                     train_kwargs_["max_train_count"] = train_kwargs_["max_steps"]
                     del train_kwargs_["max_steps"]
                 runner.train_mp(actor_num=2, device_actors=device_actors, **train_kwargs_)
+
+            # --- test eval
             runner.evaluate(max_episodes=2, max_steps=10)
-
-    def simple_check_raw(
-        self,
-        env_config: EnvConfig,
-        rl_config: RLConfig,
-        check_render: bool,
-    ):
-        env = srl.make_env(env_config)
-        rl_config = rl_config.copy(reset_env_config=True)
-        rl_config.enable_assertion_value = True
-        rl_config.setup(env)
-        rl_config.assert_params()
-
-        parameter = srl.make_parameter(rl_config)
-        remote_memory = srl.make_memory(rl_config)
-        trainer = srl.make_trainer(rl_config, parameter, remote_memory)
-        workers = [srl.make_worker(rl_config, env, parameter, remote_memory) for _ in range(env.player_num)]
-
-        # --- episode
-        for _ in range(3):
-            env.reset()
-            render_mode = "terminal" if check_render else ""
-            [w.on_reset(i, training=True, render_mode=render_mode) for i, w in enumerate(workers)]
-
-            # --- step
-            for step in range(5):
-                # policy
-                action = workers[env.next_player_index].policy()
-                assert env.action_space.check_val(action), f"Checking action_space failed. action={action}"
-
-                for idx in range(env.player_num):
-                    assert (workers[idx].info is None) or isinstance(
-                        workers[idx].info, dict
-                    ), f"unknown info type. worker{idx} info={workers[idx].info}"
-
-                # render
-                if check_render:
-                    for w in workers:
-                        w.render()
-
-                # step
-                env.step(action)
-                [w.on_step() for w in workers]
-
-                if env.done:
-                    for idx in range(env.player_num):
-                        assert isinstance(
-                            workers[idx].info, dict
-                        ), f"unknown info type. worker{idx} info={workers[idx].info}"
-
-                    if check_render:
-                        for w in workers:
-                            w.render()
-
-                # train
-                trainer.train()
-                assert isinstance(trainer.train_info, dict), f"unknown info type. train info={trainer.train_info}"
-
-                if env.done:
-                    break
 
     def simple_check_rulebase(
         self,
@@ -175,9 +110,9 @@ class TestRL:
 
             if use_layer_processor:
                 if env_config.name == "Grid":
-                    rl_config.processors.append(grid.LayerProcessor())
+                    env_config.kwargs["obs_type"] = "layer"
                 elif env_config.name == "OX":
-                    rl_config.processors.append(ox.LayerProcessor())
+                    env_config.kwargs["obs_type"] = "layer"
 
             runner = srl.Runner(env_config, rl_config)
             runner.set_device(device="CPU")

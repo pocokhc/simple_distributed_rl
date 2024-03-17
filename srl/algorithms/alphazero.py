@@ -1,23 +1,26 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Tuple
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLBaseTypes, RLTypes
+from srl.base.define import InfoType, RLBaseTypes
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import UndefinedError
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
-from srl.rl.models.alphazero_block import AlphaZeroBlockConfig
-from srl.rl.models.mlp_block import MLPBlockConfig
-from srl.rl.models.tf.input_block import InputImageBlock
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
+from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.models.tf import helper
+from srl.rl.models.tf.blocks.input_block import create_in_block_out_image
+from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
@@ -38,28 +41,40 @@ https://github.com/AppliedDataSciencePartners/DeepReinforcementLearning
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, ExperienceReplayBufferConfig):
-    """<:ref:`ExperienceReplayBuffer`>"""
+class Config(
+    RLConfig,
+    RLConfigComponentExperienceReplayBuffer,
+    RLConfigComponentFramework,
+):
+    """
+    <:ref:`RLConfigComponentExperienceReplayBuffer`>
+    <:ref:`RLConfigComponentFramework`>
+    """
 
+    #: シミュレーション回数
     num_simulations: int = 100
+    #: 割引率
     discount: float = 1.0
 
+    #: エピソード序盤の確率移動のステップ数
     sampling_steps: int = 1
 
-    # 学習率
-    lr: SchedulerConfig = field(init=False, default_factory=lambda: SchedulerConfig())
+    #: <:ref:`scheduler`> Learning rate
+    lr: Union[float, SchedulerConfig] = 0.002
 
-    # Root prior exploration noise.
+    #: Root prior exploration noise.
     root_dirichlet_alpha: float = 0.3
+    #: Root prior exploration noise.
     root_exploration_fraction: float = 0.25
 
-    # PUCT
+    #: PUCT
     c_base: float = 19652
+    #: PUCT
     c_init: float = 1.25
 
-    # model
-    input_image_block: AlphaZeroBlockConfig = field(init=False, default_factory=lambda: AlphaZeroBlockConfig())
+    #: <:ref:`MLPBlock`> value block
     value_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    #: <:ref:`MLPBlock`> policy block
     policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     #: "rate" or "linear"
@@ -68,14 +83,9 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     def __post_init__(self):
         super().__post_init__()
 
-        self.lr.clear()
-        self.lr.add_constant(100, 0.02)
-        self.lr.add_constant(1000, 0.002)
-        self.lr.add_constant(1, 0.0002)
-
         self.input_image_block.set_alphazero_block(3, 64)
-        self.value_block.set_mlp((64,))
-        self.policy_block.set_mlp(())
+        self.value_block.set((64,))
+        self.policy_block.set(())
 
     def set_go_config(self):
         self.num_simulations = 800
@@ -86,38 +96,38 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         self.root_exploration_fraction = 0.25
         self.batch_size = 4096
         self.memory.warmup_size = 10000
-        self.lr.clear()
+        self.lr = self.create_scheduler()
         self.lr.add_constant(300_000, 0.02)
         self.lr.add_constant(200_000, 0.002)
         self.lr.add_constant(1, 0.0002)
         self.input_image_block.set_alphazero_block(19, 256)
-        self.value_block.set_mlp((256,))
-        self.policy_block.set_mlp(())
+        self.value_block.set((256,))
+        self.policy_block.set(())
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+        return [self.input_image_block.get_processor()]
+
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return "tensorflow"
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "AlphaZero"
 
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
+        self.assert_params_framework()
 
-    @property
-    def use_backup_restore(self) -> bool:
+    def get_used_backup_restore(self) -> bool:
         return True
 
-    @property
-    def info_types(self) -> dict:
+    def get_info_types(self) -> dict:
         return {
             "value_loss": {},
             "policy_loss": {},
@@ -144,44 +154,41 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _Network(keras.Model):
+class _Network(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
         self.value_type = config.value_type
 
-        # input
-        self.in_img_block = None
-        if config.observation_type == RLTypes.IMAGE:
-            self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
-            self.img_block = config.input_image_block.create_block_tf()
+        self.input_block = create_in_block_out_image(
+            config.input_image_block,
+            config.observation_space,
+        )
 
-            # --- policy image
-            self.input_image_policy_layers = [
-                kl.Conv2D(
-                    2,
-                    kernel_size=(1, 1),
-                    strides=1,
-                    padding="same",
-                ),
-                kl.BatchNormalization(),
-                kl.ReLU(),
-                kl.Flatten(),
-            ]
+        # --- policy image
+        self.input_image_policy_layers = [
+            kl.Conv2D(
+                2,
+                kernel_size=(1, 1),
+                strides=1,
+                padding="same",
+            ),
+            kl.BatchNormalization(),
+            kl.ReLU(),
+            kl.Flatten(),
+        ]
 
-            # --- value image
-            self.input_image_value_layers = [
-                kl.Conv2D(
-                    1,
-                    kernel_size=(1, 1),
-                    strides=1,
-                    padding="same",
-                ),
-                kl.BatchNormalization(),
-                kl.ReLU(),
-                kl.Flatten(),
-            ]
-        else:
-            self.flat_layer = kl.Flatten()
+        # --- value image
+        self.input_image_value_layers = [
+            kl.Conv2D(
+                1,
+                kernel_size=(1, 1),
+                strides=1,
+                padding="same",
+            ),
+            kl.BatchNormalization(),
+            kl.ReLU(),
+            kl.Flatten(),
+        ]
 
         # --- policy output
         self.policy_block = config.policy_block.create_block_tf()
@@ -205,27 +212,20 @@ class _Network(keras.Model):
             raise UndefinedError(config.value_type)
 
         # build
-        self._in_shape = config.observation_shape
-        self.build((None,) + self._in_shape)
+        self.build(helper.create_batch_shape(config.observation_shape, (None,)))
 
     def call(self, x, training=False):
-        if self.in_img_block is not None:
-            x = self.in_img_block(x)
-            x = self.img_block(x, training=training)
+        x = self.input_block(x, training)
 
-            # --- policy image
-            x1 = x
-            for layer in self.input_image_policy_layers:
-                x1 = layer(x1, training=training)
+        # --- policy image
+        x1 = x
+        for layer in self.input_image_policy_layers:
+            x1 = layer(x1, training=training)
 
-            # --- value image
-            x2 = x
-            for layer in self.input_image_value_layers:
-                x2 = layer(x2, training=training)
-        else:
-            x = self.flat_layer(x)
-            x1 = x
-            x2 = x
+        # --- value image
+        x2 = x
+        for layer in self.input_image_value_layers:
+            x2 = layer(x2, training=training)
 
         # --- policy output
         x1 = self.policy_block(x1, training=training)
@@ -256,20 +256,6 @@ class _Network(keras.Model):
         loss = value_loss + policy_loss
         loss += tf.reduce_sum(self.losses)  # 正則化項
         return loss, value_loss, policy_loss
-
-    def summary(self, name="", **kwargs):
-        if self.in_img_block is not None:
-            self.in_img_block.init_model_graph()
-            self.img_block.init_model_graph()
-        if hasattr(self.policy_block, "init_model_graph"):
-            self.policy_block.init_model_graph()
-        if hasattr(self.value_block, "init_model_graph"):
-            self.value_block.init_model_graph()
-
-        x = kl.Input(shape=self._in_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        model.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -318,14 +304,16 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_sch = self.config.lr.create_schedulers()
-
+        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
+
+        self.value_loss = tf.zeros((1,))
+        self.policy_loss = tf.zeros((1,))
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs = self.memory.sample(self.batch_size, self.train_count)
+        batchs = self.memory.sample(self.batch_size)
 
         states = []
         policies = []
@@ -339,22 +327,28 @@ class Trainer(RLTrainer):
         rewards = np.asarray(rewards, dtype=np.float32)
 
         with tf.GradientTape() as tape:
-            loss, value_loss, policy_loss = self.parameter.network.compute_train_loss(states, rewards, policies)
+            loss, self.value_loss, self.policy_loss = self.parameter.network.compute_train_loss(
+                states, rewards, policies
+            )
         grads = tape.gradient(loss, self.parameter.network.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.network.trainable_variables))
 
         self.train_count += 1
-        self.train_info["value_loss"] = value_loss.numpy()
-        self.train_info["policy_loss"] = policy_loss.numpy()
 
         # lr_schedule
         if self.lr_sch.update(self.train_count):
             lr = self.lr_sch.get_rate()
             self.optimizer.learning_rate = lr
-            self.train_info["lr"] = lr
 
         # 学習したらキャッシュは削除
         self.parameter.reset_cache()
+
+    def create_info(self) -> InfoType:
+        return {
+            "value_loss": self.value_loss.numpy(),
+            "policy_loss": self.policy_loss.numpy(),
+            "lr": self.lr_sch.get_rate(),
+        }
 
 
 # ------------------------------------------------------
@@ -382,7 +376,7 @@ class Worker(RLWorker):
 
     def policy(self, worker: WorkerRun) -> Tuple[int, dict]:
         self.state = worker.state
-        self.state_str = to_str_observation(self.state, self.config.env_observation_type)
+        self.state_str = to_str_observation(self.state, self.config.observation_space.env_type)
         self.invalid_actions = worker.get_invalid_actions()
         self._init_state(self.state_str)
 
@@ -421,7 +415,7 @@ class Worker(RLWorker):
         player_index = env.next_player_index
         n_state, rewards = self.worker.env_step(env, action)
         reward = rewards[player_index]
-        n_state_str = to_str_observation(n_state)
+        n_state_str = to_str_observation(n_state, self.config.observation_space.env_type)
         enemy_turn = player_index != env.next_player_index
 
         if env.done:

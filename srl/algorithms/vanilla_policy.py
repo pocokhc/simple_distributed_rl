@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Tuple, cast
+from typing import Any, Tuple, Union
 
 import numpy as np
 
@@ -21,32 +21,25 @@ from srl.rl.schedulers.scheduler import SchedulerConfig
 @dataclass
 class Config(RLConfig):
     discount: float = 0.9
-    lr: float = 0.1  # type: ignore , type OK
+    lr: Union[float, SchedulerConfig] = 0.1
 
     update_max_mean: float = 1
     update_max_stddev: float = 5
     update_stddev_rate: float = 0.1
 
-    def __post_init__(self):
-        super().__post_init__()
-        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
-
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.ANY
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return ""
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "VanillaPolicy"
 
-    @property
-    def info_types(self) -> dict:
+    def get_info_types(self) -> dict:
         return {
             "size": {"type": int, "data": "last"},
             "loss": {},
@@ -124,17 +117,17 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_sch = self.config.lr.create_schedulers()
+        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs = self.memory.sample(self.batch_size, self.train_count)
+        batchs = self.memory.sample()
 
         if self.config.action_type == RLTypes.DISCRETE:
-            self.train_info = self._train_discrete(batchs)
+            self.info = self._train_discrete(batchs)
         else:
-            self.train_info = self._train_continuous(batchs)
+            self.info = self._train_continuous(batchs)
         self.train_count += len(batchs)
 
     def _train_discrete(self, batchs):
@@ -213,13 +206,13 @@ class Worker(RLWorker):
         self.parameter: Parameter = self.parameter
 
     def on_reset(self, worker: WorkerRun) -> dict:
-        self.state = to_str_observation(worker.state)
+        self.state = to_str_observation(worker.state, self.config.observation_space.env_type)
         self.invalid_actions = worker.get_invalid_actions()
         self.history = []
         return {}
 
     def policy(self, worker: WorkerRun) -> Tuple[RLActionType, dict]:
-        self.state = to_str_observation(worker.state)
+        self.state = to_str_observation(worker.state, self.config.observation_space.env_type)
         self.invalid_actions = worker.get_invalid_actions()
 
         if self.config.action_type == RLTypes.DISCRETE:

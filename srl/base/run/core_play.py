@@ -107,9 +107,9 @@ def _play(
         trainer,
     )
 
-    # --- 1 set_config_by_actor
+    # --- 1 setup_from_actor
     if context.distributed:
-        context.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
+        context.rl_config.setup_from_actor(context.actor_num, context.actor_id)
 
     # --- 2 random
     if context.seed is not None:
@@ -208,9 +208,7 @@ def _play(
 
         # trainer
         if state.trainer is not None:
-            _prev_train = state.trainer.get_train_count()
-            state.trainer.train()
-            state.is_step_trained = state.trainer.get_train_count() > _prev_train
+            state.is_step_trained = state.trainer.core_train()
 
         _stop_flags = [c.on_step_end(context, state) for c in callbacks]
         state.worker_idx = worker_idx
@@ -292,9 +290,9 @@ def play_generator(
         trainer,
     )
 
-    # --- 1 set_config_by_actor
+    # --- 1 setup_from_actor
     if context.distributed:
-        context.rl_config.set_config_by_actor(context.actor_num, context.actor_id)
+        context.rl_config.setup_from_actor(context.actor_num, context.actor_id)
 
     # --- 2 random
     if context.seed is not None:
@@ -401,9 +399,7 @@ def play_generator(
 
         # trainer
         if state.trainer is not None:
-            _prev_train = state.trainer.get_train_count()
-            state.trainer.train()
-            state.is_step_trained = state.trainer.get_train_count() > _prev_train
+            state.is_step_trained = state.trainer.core_train()
 
         _stop_flags = [c.on_step_end(context, state) for c in callbacks]
         yield (state, "on_step_end")

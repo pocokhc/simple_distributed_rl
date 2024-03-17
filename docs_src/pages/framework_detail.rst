@@ -59,30 +59,24 @@ Interface Type
 + RL type
 
 .. list-table::
-   :widths: 5 5 7
+   :widths: 5 5 5 5 5
    :header-rows: 0
 
-   * - RL
-     - RLTypes
-     - Type
-   * - Action
+   * - 
      - Discrete
+     - Continuous
+     - Image
+     - Multiple
+   * - Action
      - int
-   * - Action
-     - Continuous
      - list[float]
-   * - Action
-     - Image
      - NDArray[np.uint8]
+     - list[RL type]
    * - Observation
-     - Discrete
      - list[int]
-   * - Observation
-     - Continuous
      - NDArray[np.float32]
-   * - Observation
-     - Image
      - NDArray[np.float32]
+     - list[NDArray[np.float32]]
   
 
 + SpaceBase(srl.base.env.spaces)

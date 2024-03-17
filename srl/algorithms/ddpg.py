@@ -1,21 +1,22 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple, Union, cast
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLBaseTypes, RLTypes
-from srl.base.rl.algorithms.continuous_action import ContinuousActionWorker
-from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.define import InfoType, RLBaseTypes
+from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
-from srl.rl.models.image_block import ImageBlockConfig
-from srl.rl.models.mlp_block import MLPBlockConfig
-from srl.rl.models.tf.input_block import InputImageBlock
-from srl.rl.processors.image_processor import ImageProcessor
+from srl.base.rl.worker_run import WorkerRun
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
+from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.models.tf import helper
+from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
+from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
@@ -40,17 +41,23 @@ TD3
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, ExperienceReplayBufferConfig):
-    # --- model
-    #: <:ref:`ImageBlock`> This layer is only used when the input is an image.
-    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
+class Config(
+    RLConfig,
+    RLConfigComponentExperienceReplayBuffer,
+    RLConfigComponentFramework,
+):
+    """
+    <:ref:`RLConfigComponentExperienceReplayBuffer`>
+    <:ref:`RLConfigComponentFramework`>
+    """
+
     #: <:ref:`MLPBlock`> policy layers
     policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
     #: <:ref:`MLPBlock`> q layers
     q_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     #: <:ref:`scheduler`> Learning rate
-    lr: float = 0.005  # type: ignore , type OK
+    lr: Union[float, SchedulerConfig] = 0.005
     #: discount
     discount: float = 0.9
     #: soft_target_update_tau
@@ -69,34 +76,26 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     def __post_init__(self):
         super().__post_init__()
-        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
 
-    def set_processor(self) -> List[Processor]:
-        return [
-            ImageProcessor(
-                image_type=EnvObservationTypes.GRAY_2ch,
-                resize=(84, 84),
-                enable_norm=True,
-            )
-        ]
+    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+        return [self.input_image_block.get_processor()]
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return "tensorflow"
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "DDPG"
 
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
+        self.assert_params_framework()
 
 
 register(
@@ -118,16 +117,16 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _ActorNetwork(keras.Model):
+class _ActorNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
         # --- input
-        self.in_img_block = None
-        if config.observation_type == RLTypes.IMAGE:
-            self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
-            self.img_block = config.image_block.create_block_tf()
-        self.flat_layer = kl.Flatten()
+        self.input_block = create_in_block_out_value(
+            config.input_value_block,
+            config.input_image_block,
+            config.observation_space,
+        )
 
         # --- hidden block
         self.hidden_block = config.policy_block.create_block_tf()
@@ -136,14 +135,10 @@ class _ActorNetwork(keras.Model):
         self.out_layer = kl.Dense(config.action_num, activation="tanh")
 
         # build
-        self._in_shape = config.observation_shape
-        self.build((None,) + config.observation_shape)
+        self.build(helper.create_batch_shape(config.observation_shape, (None,)))
 
     def call(self, x, training=False):
-        if self.in_img_block is not None:
-            x = self.in_img_block(x, training)
-            x = self.img_block(x, training)
-        x = self.flat_layer(x)
+        x = self.input_block(x, training)
         x = self.hidden_block(x, training=training)
         x = self.out_layer(x, training=training)
         return x
@@ -157,28 +152,16 @@ class _ActorNetwork(keras.Model):
         loss += tf.reduce_sum(self.losses)  # 正則化項
         return loss
 
-    def summary(self, name: str = "", **kwargs):
-        if self.in_img_block is not None:
-            self.in_img_block.init_model_graph()
-            self.img_block.init_model_graph()
-        self.hidden_block.init_model_graph()
 
-        x = kl.Input(shape=self._in_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        model.summary(**kwargs)
-
-
-class _CriticNetwork(keras.Model):
+class _CriticNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        # --- input
-        self.in_img_block = None
-        if config.observation_type == RLTypes.IMAGE:
-            self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
-            self.img_block = config.image_block.create_block_tf()
-        self.flat_layer = kl.Flatten()
+        self.input_block = create_in_block_out_value(
+            config.input_value_block,
+            config.input_image_block,
+            config.observation_space,
+        )
 
         # q1
         self.q1_block = config.q_block.create_block_tf()
@@ -199,18 +182,18 @@ class _CriticNetwork(keras.Model):
         )
 
         # build
-        self._in_shape1 = config.observation_shape
-        self._in_shape2 = (config.action_num,)
-        self.build([(None,) + self._in_shape1, (None,) + self._in_shape2])
+        self.build(
+            [
+                helper.create_batch_shape(config.observation_shape, (None,)),
+                (None, config.action_num),
+            ]
+        )
 
     def call(self, inputs, training=False):
         x = inputs[0]
         action = inputs[1]
 
-        if self.in_img_block is not None:
-            x = self.in_img_block(x, training)
-            x = self.img_block(x, training)
-        x = self.flat_layer(x)
+        x = self.input_block(x, training)
         x = tf.concat([x, action], axis=1)
 
         # q1
@@ -230,20 +213,6 @@ class _CriticNetwork(keras.Model):
         loss = (loss1 + loss2) / 2
         loss += tf.reduce_sum(self.losses)  # 正則化項
         return loss
-
-    def summary(self, name: str = "", **kwargs):
-        if self.in_img_block is not None:
-            self.in_img_block.init_model_graph()
-            self.img_block.init_model_graph()
-        if hasattr(self.q1_block, "init_model_graph"):
-            self.q1_block.init_model_graph()
-        if hasattr(self.q2_block, "init_model_graph"):
-            self.q2_block.init_model_graph()
-
-        x = [kl.Input(shape=self._in_shape1), kl.Input(shape=self._in_shape2)]
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        model.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -288,7 +257,7 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_sch = self.config.lr.create_schedulers()
+        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
         lr = self.lr_sch.get_rate()
 
         self.actor_optimizer = keras.optimizers.Adam(learning_rate=lr)
@@ -297,7 +266,8 @@ class Trainer(RLTrainer):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs = self.memory.sample(self.batch_size, self.train_count)
+        batchs = self.memory.sample(self.batch_size)
+        self.info = {}
 
         states = []
         actions = []
@@ -340,7 +310,7 @@ class Trainer(RLTrainer):
                 actor_loss = self.parameter.actor_online.compute_train_loss(self.parameter.critic_online, states)
             grads = tape.gradient(actor_loss, self.parameter.actor_online.trainable_variables)
             self.actor_optimizer.apply_gradients(zip(grads, self.parameter.actor_online.trainable_variables))
-            self.train_info["actor_loss"] = actor_loss.numpy()
+            self.info["actor_loss"] = actor_loss.numpy()
 
         # --- Qモデルの学習
         self.parameter.critic_online.trainable = True
@@ -348,14 +318,14 @@ class Trainer(RLTrainer):
             critic_loss = self.parameter.critic_online.compute_train_loss(states, actions, target_q)
         grads = tape.gradient(critic_loss, self.parameter.critic_online.trainable_variables)
         self.critic_optimizer.apply_gradients(zip(grads, self.parameter.critic_online.trainable_variables))
-        self.train_info["critic_loss"] = critic_loss.numpy()
+        self.info["critic_loss"] = critic_loss.numpy()
 
         # lr_schedule
         if self.lr_sch.update(self.train_count):
             lr = self.lr_sch.get_rate()
             self.actor_optimizer.learning_rate = lr
             self.critic_optimizer.learning_rate = lr
-            self.train_info["lr"] = lr
+            self.info["lr"] = lr
 
         # --- soft target update
         self.parameter.actor_target.set_weights(
@@ -380,18 +350,18 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(ContinuousActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-    def call_on_reset(self, state: np.ndarray) -> dict:
+    def on_reset(self, worker: WorkerRun) -> InfoType:
         return {}
 
-    def call_policy(self, state: np.ndarray) -> Tuple[List[float], dict]:
-        self.state = state
-        self.action = self.parameter.actor_online(state.reshape(1, -1)).numpy()[0]
+    def policy(self, worker: WorkerRun) -> Tuple[List[float], InfoType]:
+        state = helper.create_batch_data(worker.state, self.config.observation_space)
+        self.action = self.parameter.actor_online(state).numpy()[0]
 
         if self.training:
             # 学習用はノイズを混ぜる
@@ -404,28 +374,23 @@ class Worker(ContinuousActionWorker):
         env_action = env_action.tolist()
         return env_action, {}
 
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward: float,
-        done: bool,
-    ) -> Dict[str, Union[float, int]]:
+    def on_step(self, worker: WorkerRun) -> InfoType:
         if not self.training:
             return {}
 
         batch = {
-            "state": self.state,
+            "state": worker.prev_state,
             "action": self.action,
-            "next_state": next_state,
-            "reward": reward,
-            "done": done,
+            "next_state": worker.state,
+            "reward": worker.reward,
+            "done": worker.terminated,
         }
         self.memory.add(batch)
 
         return {}
 
-    def render_terminal(self, worker, **kwargs) -> None:
-        state = self.state.reshape(1, -1)
+    def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
+        state = worker.prev_state.reshape(1, -1)
         action = self.parameter.actor_online(state)
         q1, q2 = self.parameter.critic_online([state, action])
         q1 = q1.numpy()[0][0]

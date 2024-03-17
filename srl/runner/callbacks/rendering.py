@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, List, Union
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, RenderModes, RLTypes
+from srl.base.define import EnvTypes, RenderModes, RLTypes
 from srl.base.exception import UndefinedError
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.callback import RunCallback
@@ -156,17 +156,17 @@ class Rendering(RunCallback):
                     _img = worker.state.copy()
                 if _img.max() <= 1:
                     _img *= 255
-                if worker.config.env_observation_type == EnvObservationTypes.GRAY_2ch:
+                if worker.config.observation_space.env_type == EnvTypes.GRAY_2ch:
                     _img = _img[..., np.newaxis]
                     _img = np.tile(_img, (1, 1, 3))
-                elif worker.config.env_observation_type == EnvObservationTypes.GRAY_3ch:
+                elif worker.config.observation_space.env_type == EnvTypes.GRAY_3ch:
                     _img = np.tile(_img, (1, 1, 3))
-                elif worker.config.env_observation_type == EnvObservationTypes.COLOR:
+                elif worker.config.observation_space.env_type == EnvTypes.COLOR:
                     pass
-                elif worker.config.env_observation_type == EnvObservationTypes.IMAGE:
+                elif worker.config.observation_space.env_type == EnvTypes.IMAGE:
                     return
                 else:
-                    raise UndefinedError(worker.config.env_observation_type)
+                    raise UndefinedError(worker.config.observation_space)
                 self.rl_state_image = _img.astype(np.uint8)
                 self.rl_state_maxw = max(self.rl_state_maxw, self.rl_state_image.shape[1])
                 self.rl_state_maxh = max(self.rl_state_maxh, self.rl_state_image.shape[0])

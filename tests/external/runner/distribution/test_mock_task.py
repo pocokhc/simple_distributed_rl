@@ -6,8 +6,8 @@ from srl.algorithms import ql
 from srl.base.rl.base import DummyRLParameter
 from srl.base.run.context import RunContext
 from srl.runner.runner import RunnerConfig, TaskConfig
-from tests.runner.distribution.memory_test_functions import memory_connector_test
-from tests.runner.distribution.server_mock import (
+from tests.external.runner.distribution.memory_test_functions import memory_connector_test
+from tests.external.runner.distribution.server_mock import (
     create_gcp_mock,
     create_paho_mock,
     create_pika_mock,

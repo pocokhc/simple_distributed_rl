@@ -1,18 +1,18 @@
 import logging
 import random
-from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLBaseTypes, RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
-from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.define import InfoType, RLBaseTypes
+from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
+from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import (
     inverse_rescaling,
     random_choice_by_probs,
@@ -21,11 +21,15 @@ from srl.rl.functions.common import (
     twohot_decode,
     twohot_encode,
 )
-from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
-from srl.rl.models.alphazero_block import AlphaZeroBlockConfig
-from srl.rl.models.tf.alphazero_image_block import AlphaZeroImageBlock
-from srl.rl.models.tf.input_block import InputImageBlock
-from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.memories.priority_experience_replay import (
+    PriorityExperienceReplay,
+    RLConfigComponentPriorityExperienceReplay,
+)
+from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.tf import helper
+from srl.rl.models.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
+from srl.rl.models.tf.blocks.input_block import create_in_block_out_image
+from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.utils.common import compare_less_version
 
@@ -45,43 +49,61 @@ https://arxiv.org/src/1911.08265v2/anc/pseudocode.py
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, PriorityExperienceReplayConfig):
+class Config(
+    RLConfig,
+    RLConfigComponentPriorityExperienceReplay,
+    RLConfigComponentFramework,
+):
+    """
+    <:ref:`RLConfigComponentPriorityExperienceReplay`>
+    <:ref:`RLConfigComponentFramework`>
+    """
+
+    #: シミュレーション回数
     num_simulations: int = 20
+    #: 割引率
     discount: float = 0.99
 
-    lr: SchedulerConfig = field(init=False, default_factory=lambda: SchedulerConfig())
+    #: <:ref:`scheduler`> Learning rate
+    lr: Union[float, SchedulerConfig] = 0.001
 
-    # カテゴリ化する範囲
+    #: カテゴリ化する範囲
     v_min: int = -10
+    #: カテゴリ化する範囲
     v_max: int = 10
 
-    # policyの温度パラメータのリスト
-    policy_tau: SchedulerConfig = field(init=False, default_factory=lambda: SchedulerConfig())
+    #: policyの温度パラメータのリスト
+    policy_tau: Union[float, SchedulerConfig] = 0.25
 
     # td_steps: int = 5  # multisteps
-    unroll_steps: int = 3  # unroll_steps
+    #: unroll_steps
+    unroll_steps: int = 3
 
-    # Root prior exploration noise.
+    #: Root prior exploration noise.
     root_dirichlet_alpha: float = 0.3
+    #: Root prior exploration noise.
     root_exploration_fraction: float = 0.25
 
-    # PUCT
+    #: PUCT
     c_base: float = 19652
+    #: PUCT
     c_init: float = 1.25
 
-    # model
-    input_image_block: AlphaZeroBlockConfig = field(init=False, default_factory=lambda: AlphaZeroBlockConfig())
+    #: Dynamics networkのブロック数
     dynamics_blocks: int = 15
+    #: reward dense units
     reward_dense_units: int = 0
+    #: weight decay
     weight_decay: float = 0.0001
 
-    # rescale
+    #: rescale
     enable_rescale: bool = True
 
     def __post_init__(self):
         super().__post_init__()
-
-        self.lr.set_linear(100_000, 0.001, 0.0001)
+        self.input_image_block.set_alphazero_block()
+        self.lr = self.create_scheduler().set_linear(100_000, 0.001, 0.0001)
+        self.policy_tau = self.create_scheduler()
         self.policy_tau.clear()
         self.policy_tau.add_constant(50_000, 1.0)
         self.policy_tau.add_constant(25_000, 0.5)
@@ -92,11 +114,12 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         self.batch_size = 1024
         self.memory.warmup_size = 10_000
         self.discount = 0.997
-        self.lr.set_linear(350_000, 0.05, 0.005)
+        self.lr = self.create_scheduler().set_linear(350_000, 0.05, 0.005)
         self.v_min = -300
         self.v_max = 300
         # self.td_steps = 10
         self.unroll_steps = 5
+        self.policy_tau = self.create_scheduler()
         self.policy_tau.clear()
         self.policy_tau.add_constant(500_000, 1.0)
         self.policy_tau.add_constant(250_000, 0.5)
@@ -106,27 +129,19 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         self.weight_decay = 0.0001
         self.enable_rescale = True
 
-    def set_processor(self) -> List[Processor]:
-        return [
-            ImageProcessor(
-                image_type=EnvObservationTypes.GRAY_2ch,
-                resize=(96, 96),
-                enable_norm=True,
-            )
-        ]
+    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+        return [self.input_image_block.get_processor()]
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return "tensorflow"
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "MuZero"
 
     def assert_params(self) -> None:
@@ -157,7 +172,7 @@ class Memory(PriorityExperienceReplay):
 
     def add(self, key, batch: Any, priority: Optional[float] = None):
         if key == "memory":
-            self.memory.add(batch, priority)
+            super().add(batch, priority)
         else:
             q_min, q_max = batch
             self.q_min = min(self.q_min, q_min)
@@ -172,24 +187,23 @@ class Memory(PriorityExperienceReplay):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _RepresentationNetwork(keras.Model):
+class _RepresentationNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
-        assert config.observation_type == RLTypes.IMAGE, "Input supports only image format."
 
         # input
-        self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
-        self.img_block = config.input_image_block.create_block_tf()
+        self.input_block = create_in_block_out_image(
+            config.input_image_block,
+            config.observation_space,
+        )
 
         # build & 出力shapeを取得
-        self._in_shape = config.observation_shape
-        dummy_state = np.zeros(shape=(1,) + self._in_shape, dtype=np.float32)
+        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
         hidden_state = self(dummy_state)
         self.hidden_state_shape = hidden_state.shape[1:]
 
     def call(self, state, training=False):
-        x = self.in_img_block(state, training=training)
-        x = self.img_block(x, training=training)
+        x = self.input_block(state, training=training)
 
         # 隠れ状態はアクションとスケールを合わせるため0-1で正規化(一応batch毎)
         batch, h, w, d = x.shape
@@ -206,19 +220,8 @@ class _RepresentationNetwork(keras.Model):
 
         return x
 
-    def summary(self, name: str = "", **kwargs):
-        if hasattr(self.in_img_block, "init_model_graph"):
-            self.in_img_block.init_model_graph()
-        if hasattr(self.img_block, "init_model_graph"):
-            self.img_block.init_model_graph()
 
-        x = kl.Input(shape=self._in_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        model.summary(**kwargs)
-
-
-class _DynamicsNetwork(keras.Model):
+class _DynamicsNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, input_shape):
         super().__init__()
         self.action_num = config.action_num
@@ -300,17 +303,8 @@ class _DynamicsNetwork(keras.Model):
 
         return x, reward_category
 
-    def summary(self, name="", **kwargs):
-        if hasattr(self.image_block, "init_model_graph"):
-            self.image_block.init_model_graph()
 
-        x = kl.Input(shape=self._in_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        model.summary(**kwargs)
-
-
-class _PredictionNetwork(keras.Model):
+class _PredictionNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, input_shape):
         super().__init__()
         self._in_shape = input_shape
@@ -367,12 +361,6 @@ class _PredictionNetwork(keras.Model):
             value = layer(value, training=training)
 
         return policy, value
-
-    def summary(self, name: str = "", **kwargs):
-        x = kl.Input(shape=self._in_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        model.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -455,7 +443,7 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.memory: Memory = self.memory
 
-        self.lr_sch = self.config.lr.create_schedulers()
+        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
 
         if compare_less_version(tf.__version__, "2.11.0"):
             self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
@@ -534,7 +522,7 @@ class Trainer(RLTrainer):
         priorities = np.abs(value_loss.numpy())
 
         self.train_count += 1
-        self.train_info = {
+        self.info = {
             "value_loss": np.mean(value_loss),
             "policy_loss": np.mean(policy_loss),
             "reward_loss": np.mean(reward_loss),
@@ -545,7 +533,7 @@ class Trainer(RLTrainer):
         if self.lr_sch.update(self.train_count):
             lr = self.lr_sch.get_rate()
             self.optimizer.learning_rate = lr
-            self.train_info["lr"] = lr
+            self.info["lr"] = lr
 
         variables = [
             self.parameter.representation_network.trainable_variables,
@@ -557,7 +545,7 @@ class Trainer(RLTrainer):
             self.optimizer.apply_gradients(zip(grads[i], variables[i]))
 
         # memory update
-        self.memory.update((indices, batchs, priorities))
+        self.memory.update(indices, batchs, priorities)
 
         # 学習したらキャッシュは削除
         self.parameter.reset_cache()
@@ -571,18 +559,18 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(DiscreteActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.policy_tau_sch = self.config.policy_tau.create_schedulers()
+        self.policy_tau_sch = SchedulerConfig.create_scheduler(self.config.policy_tau)
 
         self._v_min = np.inf
         self._v_max = -np.inf
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+    def on_reset(self, worker: WorkerRun) -> InfoType:
         self.history = []
 
         self.N = {}  # 訪問回数(s,a)
@@ -597,12 +585,12 @@ class Worker(DiscreteActionWorker):
             self.W[state_str] = [0 for _ in range(self.config.action_num)]
             self.Q[state_str] = [0 for _ in range(self.config.action_num)]
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
-        self.state = state
-        self.invalid_actions = invalid_actions
+    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+        invalid_actions = worker.get_invalid_actions()
 
         # --- シミュレーションしてpolicyを作成
-        self.s0 = self.parameter.representation_network(state[np.newaxis, ...])
+        state = helper.create_batch_data(worker.state, self.config.observation_space)
+        self.s0 = self.parameter.representation_network(state)
         self.s0_str = self.s0.ref()  # type:ignore , ignore check "None"
         for _ in range(self.config.num_simulations):
             self._simulation(self.s0, self.s0_str, invalid_actions)
@@ -732,27 +720,21 @@ class Worker(DiscreteActionWorker):
             scores[a] = score
         return scores
 
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward: float,
-        done: bool,
-        next_invalid_actions: List[int],
-    ):
+    def on_step(self, worker: WorkerRun) -> InfoType:
         if not self.training:
             return {}
 
         self.history.append(
             {
-                "state": self.state,
+                "state": worker.prev_state,
                 "action": self.action,
                 "policy": self.step_policy,
-                "reward": reward,
+                "reward": worker.reward,
                 "state_v": self.state_v,
             }
         )
 
-        if done:
+        if worker.done:
             zero_category = twohot_encode(
                 0, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
             )
@@ -832,7 +814,7 @@ class Worker(DiscreteActionWorker):
     def render_terminal(self, worker, **kwargs) -> None:
         self._init_state(self.s0_str)
         self.parameter.pred_PV(self.s0, self.s0_str)
-        puct = self._calc_puct(self.s0_str, self.invalid_actions, False)
+        puct = self._calc_puct(self.s0_str, worker.prev_invalid_actions, False)
         maxa = self.action
 
         v = self.parameter.V[self.s0_str]

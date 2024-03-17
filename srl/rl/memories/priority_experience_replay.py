@@ -10,13 +10,14 @@ from srl.rl.memories.priority_memories.imemory import IPriorityMemory
 
 @dataclass
 class _PriorityExperienceReplayConfig:
-    capacity: int = 100_000
+    capacity: int = 10_000
     warmup_size: int = 1_000
     _name: str = field(init=False, default="ReplayMemory")
     _kwargs: dict = field(init=False, default_factory=dict)
 
     def set_replay_memory(self):
         self._name = "ReplayMemory"
+        return self
 
     def set_proportional_memory(
         self,
@@ -34,6 +35,7 @@ class _PriorityExperienceReplayConfig:
             has_duplicate=has_duplicate,
             epsilon=epsilon,
         )
+        return self
 
     def set_rankbase_memory(
         self,
@@ -47,6 +49,7 @@ class _PriorityExperienceReplayConfig:
             beta_initial=beta_initial,
             beta_steps=beta_steps,
         )
+        return self
 
     def set_rankbase_memory_linear(
         self,
@@ -60,6 +63,7 @@ class _PriorityExperienceReplayConfig:
             beta_initial=beta_initial,
             beta_steps=beta_steps,
         )
+        return self
 
     def set_custom_memory(self, entry_point: str, kwargs: dict):
         self._name = "custom"
@@ -67,6 +71,7 @@ class _PriorityExperienceReplayConfig:
             entry_point=entry_point,
             kwargs=kwargs,
         )
+        return self
 
     # ---------------------------
 
@@ -111,7 +116,7 @@ class _PriorityExperienceReplayConfig:
 
 
 @dataclass
-class PriorityExperienceReplayConfig:
+class RLConfigComponentPriorityExperienceReplay:
     """PriorityExperienceReplay
 
     これを継承しているアルゴリズムはbatch_size変数とmemory変数を持ちます。

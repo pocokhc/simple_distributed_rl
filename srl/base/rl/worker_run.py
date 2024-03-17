@@ -115,7 +115,11 @@ class WorkerRun:
 
     @property
     def done(self) -> bool:
-        return self._env.done
+        return self._env._done != DoneTypes.NONE
+
+    @property
+    def terminated(self) -> bool:
+        return self._env._done == DoneTypes.TERMINATED
 
     @property
     def done_type(self) -> DoneTypes:
@@ -183,9 +187,9 @@ class WorkerRun:
 
         # worker policy
         self._prev_action, info = self._worker.policy(self)
-        if self._config.enable_assertion_value:
+        if self._config.enable_assertion:
             self.assert_action(self._prev_action)
-        elif self._config.enable_sanitize_value:
+        elif self._config.enable_sanitize:
             self._prev_action = self.sanitize_action(self._prev_action)
         env_action = self.action_decode(self._prev_action)
         self._info.update(info)

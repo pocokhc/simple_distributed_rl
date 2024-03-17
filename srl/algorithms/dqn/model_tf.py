@@ -4,10 +4,12 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
+from srl.base.define import InfoType
 from srl.base.rl.base import RLTrainer
 from srl.rl.models.tf import helper
-from srl.rl.models.tf.input_block import InputBlock
+from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.models.tf.model import KerasModelAddedSummary
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 from .dqn import CommonInterfaceParameter, Config
 
@@ -21,32 +23,27 @@ class _QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        # input
-        self.input_block = InputBlock(config.input_value_block, config.input_image_block, config.observation_space)
-
-        # hidden
-        self.hidden_block = config.hidden_block.create_block_tf()
-
-        # out layer
-        self.out_layer = kl.Dense(
-            config.action_num,
-            kernel_initializer="truncated_normal",
-            bias_initializer="truncated_normal",
+        self.input_block = create_in_block_out_value(
+            config.input_value_block,
+            config.input_image_block,
+            config.observation_space,
         )
 
-        self.loss_func = keras.losses.Huber()
+        self.hidden_block = config.hidden_block.create_block_tf(config.action_num)
 
         # build
-        self.build(self.create_batch_shape(config.observation_shape, (None,)))
+        self.build(helper.create_batch_shape(config.observation_shape, (None,)))
+
+        self.loss_func = keras.losses.Huber()
 
     def call(self, x, training=False):
         x = self.input_block(x, training)
         x = self.hidden_block(x, training)
-        return self.out_layer(x)
+        return x
 
     @tf.function
     def compute_train_loss(self, state, onehot_action, target_q):
-        q = self(state)
+        q = self(state, training=True)
         q = tf.reduce_sum(q * onehot_action, axis=1)
         loss = self.loss_func(target_q, q)
         loss += tf.reduce_sum(self.losses)  # 正則化項
@@ -95,11 +92,12 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_sch = self.config.lr.create_schedulers()
+        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
         self.loss_func = keras.losses.Huber()
 
         self.sync_count = 0
+        self.loss = None
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
@@ -121,8 +119,8 @@ class Trainer(RLTrainer):
         )
 
         with tf.GradientTape() as tape:
-            loss = self.parameter.q_online.compute_train_loss(state, onehot_action, target_q)
-        grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
+            self.loss = self.parameter.q_online.compute_train_loss(state, onehot_action, target_q)
+        grads = tape.gradient(self.loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
 
         if self.lr_sch.update(self.train_count):
@@ -133,9 +131,14 @@ class Trainer(RLTrainer):
             self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
             self.sync_count += 1
 
-        self.train_info = {
-            "loss": loss.numpy(),
+        self.train_count += 1
+
+    def create_info(self) -> InfoType:
+        d = {
             "sync": self.sync_count,
             "lr": self.lr_sch.get_rate(),
         }
-        self.train_count += 1
+        if self.loss is not None:
+            d["loss"] = self.loss.numpy()
+        self.loss = None
+        return d

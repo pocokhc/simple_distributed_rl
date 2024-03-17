@@ -1,15 +1,15 @@
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, cast
+from typing import List, Optional, Tuple, Union, cast
 
 import numpy as np
 
-from srl.base.define import RLBaseTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
-from srl.base.rl.base import RLParameter
+from srl.base.define import InfoType, RLBaseTypes
+from srl.base.rl.base import RLParameter, RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import ObservationProcessor
+from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import (
     create_epsilon_list,
     create_fancy_index_for_invalid_actions,
@@ -17,10 +17,9 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
-from srl.rl.models.framework_config import FrameworkConfig
-from srl.rl.models.image_block import ImageBlockConfig
-from srl.rl.models.mlp_block import MLPBlockConfig
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
+from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 """
@@ -53,8 +52,15 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, ExperienceReplayBufferConfig):
-    """<:ref:`ExperienceReplayBuffer`>"""
+class Config(
+    RLConfig,
+    RLConfigComponentExperienceReplayBuffer,
+    RLConfigComponentFramework,
+):
+    """
+    <:ref:`RLConfigComponentExperienceReplayBuffer`>
+    <:ref:`RLConfigComponentFramework`>
+    """
 
     #: ε-greedy parameter for Test
     test_epsilon: float = 0
@@ -66,9 +72,9 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     actor_alpha: float = 7.0
 
     #: <:ref:`scheduler`> ε-greedy parameter for Train
-    epsilon: float = 0.1  # type: ignore , type OK
+    epsilon: Union[float, SchedulerConfig] = 0.1
     #: <:ref:`scheduler`> Learning rate
-    lr: float = 0.001  # type: ignore , type OK
+    lr: Union[float, SchedulerConfig] = 0.001
 
     #: Discount rate
     discount: float = 0.99
@@ -82,42 +88,31 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     #: enable rescaling
     enable_rescale: bool = False
 
-    #: <:ref:`Framework`>
-    framework: FrameworkConfig = field(init=False, default_factory=lambda: FrameworkConfig())
-    #: <:ref:`MLPBlock`> This layer is only used when the input is an value.
-    input_value_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
-    #: <:ref:`ImageBlock`> This layer is only used when the input is an image.
-    input_image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
     #: <:ref:`MLPBlock`> hidden layer
     hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     def __post_init__(self):
         super().__post_init__()
 
-        self.epsilon: SchedulerConfig = SchedulerConfig(cast(float, self.epsilon))
-        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
-
-    def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
+    def setup_from_actor(self, actor_num: int, actor_id: int) -> None:
         e = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
-        self.epsilon.set_constant(e)
+        self.epsilon = e
 
     def set_atari_config(self):
         """Set the Atari parameters written in the paper."""
         self.batch_size = 32
         self.memory.capacity = 1_000_000
         self.memory.warmup_size = 50_000
-        self.input_image_block.set_dqn_base()
-        self.hidden_block.set_mlp((512,))
+        self.input_image_block.set_dqn_block()
+        self.hidden_block.set((512,))
         self.target_model_update_interval = 10000
         self.discount = 0.99
-        self.lr.set_constant(0.00025)
-        self.epsilon.set_linear(1_000_000, 1.0, 0.1)
+        self.lr = 0.00025
+        self.epsilon = self.create_scheduler().set_linear(1_000_000, 1.0, 0.1)
 
         self.enable_reward_clip = True
         self.enable_double_dqn = False
         self.enable_rescale = False
-
-    # -------------------------------
 
     def get_processors(self) -> List[Optional[ObservationProcessor]]:
         return [self.input_image_block.get_processor()]
@@ -128,15 +123,19 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
 
-    def get_use_framework(self) -> str:
-        return self.framework.get_use_framework()
+    def get_framework(self) -> str:
+        return self.create_framework_str()
 
-    def getName(self) -> str:
-        return f"DQN:{self.get_use_framework()}"
+    def get_name(self) -> str:
+        return f"DQN:{self.get_framework()}"
 
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
+        self.assert_params_framework()
+
+    def get_changeable_parameters(self) -> List[str]:
+        return ["test_epsilon"]
 
     def get_info_types(self) -> dict:
         return {
@@ -213,19 +212,19 @@ class CommonInterfaceParameter(RLParameter, ABC):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(DiscreteActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: CommonInterfaceParameter = self.parameter
 
-        self.epsilon_sch = self.config.epsilon.create_schedulers()
+        self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+    def on_reset(self, worker: WorkerRun) -> InfoType:
         return {}
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
-        self.state = state
+    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+        invalid_actions = worker.get_invalid_actions()
 
         if self.training:
             epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
@@ -234,29 +233,24 @@ class Worker(DiscreteActionWorker):
 
         if random.random() < epsilon:
             # epsilonより低いならランダム
-            self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
             self.q = None
         else:
-            state = self.parameter.create_batch_data(state)
+            state = self.parameter.create_batch_data(worker.state)
             self.q = self.parameter.predict_q(state)[0]
             self.q[invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないので無視）
-            self.action = int(np.argmax(self.q))
+            action = int(np.argmax(self.q))
 
-        return self.action, {"epsilon": epsilon}
+        return action, {"epsilon": epsilon}
 
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward: float,
-        done: bool,
-        next_invalid_actions: List[int],
-    ):
+    def on_step(self, worker: WorkerRun) -> InfoType:
         if not self.training:
             return {}
 
         # reward clip
+        reward = worker.reward
         if self.config.enable_reward_clip:
             if reward < 0:
                 reward = -1
@@ -275,21 +269,22 @@ class Worker(DiscreteActionWorker):
             next_invalid_actions,
         ]
         """
-        self.memory.add(
-            [
-                self.state,
-                next_state,
-                np.identity(self.config.action_num, dtype=int)[self.action],
-                reward,
-                int(not done),
-                next_invalid_actions,
-            ]
-        )
+        action: int = cast(int, worker.prev_action)
+        # memory.add に直接入れるとなぜか遅くなる
+        batch = [
+            worker.prev_state,
+            worker.state,
+            np.identity(self.config.action_num, dtype=int)[action],
+            reward,
+            int(not worker.terminated),
+            worker.get_invalid_actions(),
+        ]
+        self.memory.add(batch)
         return {}
 
-    def render_terminal(self, worker, **kwargs) -> None:
+    def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
         if self.q is None:
-            state = self.parameter.create_batch_data(self.state)
+            state = self.parameter.create_batch_data(worker.prev_state)
             q = self.parameter.predict_q(state)[0]
         else:
             q = self.q

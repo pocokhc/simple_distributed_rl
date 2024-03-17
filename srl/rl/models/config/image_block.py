@@ -34,6 +34,7 @@ class ImageBlockConfig:
         self._name = "DQN"
         self._kwargs = dict(filters=filters, activation=activation)
         self._processor = ImageProcessor(image_type, resize, enable_norm=True)
+        return self
 
     def set_r2d3_block(
         self,
@@ -53,6 +54,7 @@ class ImageBlockConfig:
         self._name = "R2D3"
         self._kwargs = dict(filters=filters, activation=activation)
         self._processor = ImageProcessor(image_type, resize, enable_norm=True)
+        return self
 
     def set_alphazero_block(
         self,
@@ -75,6 +77,7 @@ class ImageBlockConfig:
             activation=activation,
         )
         self._processor = None
+        return self
 
     def set_muzero_atari_block(
         self,
@@ -99,76 +102,63 @@ class ImageBlockConfig:
             use_layer_normalization=use_layer_normalization,
         )
         self._processor = ImageProcessor(image_type, resize, enable_norm=True)
+        return self
 
     def set_custom_block(self, entry_point: str, kwargs: dict, processor: Optional[ObservationProcessor] = None):
         self._name = "custom"
         self._kwargs = dict(entry_point=entry_point, kwargs=kwargs)
         self._processor = processor
+        return self
 
     # ----------------------------------------------------------------
 
     def get_processor(self) -> Optional[ObservationProcessor]:
         return self._processor
 
-    def create_block_tf(self, enable_time_distributed_layer: bool = False):
+    def create_block_tf(self, enable_rnn: bool = False):
         if self._name == "DQN":
-            from .tf import dqn_image_block
+            from srl.rl.models.tf.blocks.dqn_image_block import DQNImageBlock
 
-            return dqn_image_block.DQNImageBlock(**self._kwargs)
+            return DQNImageBlock(**self._kwargs)
         if self._name == "R2D3":
-            from .tf import r2d3_image_block
+            from srl.rl.models.tf.blocks.r2d3_image_block import R2D3ImageBlock
 
-            return r2d3_image_block.R2D3ImageBlock(
-                enable_time_distributed_layer=enable_time_distributed_layer,
+            return R2D3ImageBlock(
+                enable_time_distributed_layer=enable_rnn,
                 **self._kwargs,
             )
         if self._name == "AlphaZero":
-            from .tf.alphazero_image_block import AlphaZeroImageBlock
+            from srl.rl.models.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
 
             return AlphaZeroImageBlock(**self._kwargs)
         if self._name == "MuzeroAtari":
-            from .tf.muzero_atari_block import MuZeroAtariBlock
+            from srl.rl.models.tf.blocks.muzero_atari_block import MuZeroAtariBlock
 
             return MuZeroAtariBlock(**self._kwargs)
 
         if self._name == "custom":
             from srl.utils.common import load_module
 
-            return load_module(self._kwargs["entry_point"])(
-                enable_time_distributed_layer=enable_time_distributed_layer,
-                **self._kwargs["kwargs"],
-            )
+            return load_module(self._kwargs["entry_point"])(enable_rnn=enable_rnn, **self._kwargs["kwargs"])
 
         raise UndefinedError(self._name)
 
-    def create_block_torch(
-        self,
-        in_shape: Tuple[int, ...],
-        enable_time_distributed_layer: bool = False,
-    ):
+    def create_block_torch(self, in_shape: Tuple[int, ...]):
         if self._name == "DQN":
-            from .torch_ import dqn_image_block
+            from srl.rl.models.torch_.blocks.dqn_image_block import DQNImageBlock
 
-            return dqn_image_block.DQNImageBlock(
-                in_shape,
-                enable_time_distributed_layer=enable_time_distributed_layer,
-                **self._kwargs,
-            )
+            return DQNImageBlock(in_shape, **self._kwargs)
         if self._name == "R2D3":
-            from .torch_ import r2d3_image_block
+            from srl.rl.models.torch_.blocks.r2d3_image_block import R2D3ImageBlock
 
-            return r2d3_image_block.R2D3ImageBlock(
-                in_shape,
-                enable_time_distributed_layer=enable_time_distributed_layer,
-                **self._kwargs,
-            )
+            return R2D3ImageBlock(in_shape, **self._kwargs)
 
         if self._name == "AlphaZero":
-            from .torch_.alphazero_image_block import AlphaZeroImageBlock
+            from srl.rl.models.torch_.blocks.alphazero_image_block import AlphaZeroImageBlock
 
             return AlphaZeroImageBlock(in_shape, **self._kwargs)
         if self._name == "MuzeroAtari":
-            from .torch_.muzero_atari_block import MuZeroAtariBlock
+            from srl.rl.models.torch_.blocks.muzero_atari_block import MuZeroAtariBlock
 
             return MuZeroAtariBlock(in_shape, **self._kwargs)
 

@@ -27,7 +27,7 @@ _registry_worker = {}
 
 
 def _check_rl_config(rl_config: RLConfig, env: Optional[EnvRun]) -> None:
-    name = rl_config.getName()
+    name = rl_config.get_name()
     if not isinstance(rl_config, DummyRLConfig):
         assert name in _registry, f"{name} is not registered."
     if env is None:
@@ -43,7 +43,7 @@ def make_memory(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: bool
     if isinstance(rl_config, DummyRLConfig):
         memory: RLMemory = DummyRLMemory(rl_config)
     else:
-        entry_point = _registry[rl_config.getName()][0]
+        entry_point = _registry[rl_config.get_name()][0]
         memory: RLMemory = load_module(entry_point)(rl_config)
     if is_load and rl_config.memory_path != "":
         if not os.path.isfile(rl_config.memory_path):
@@ -58,7 +58,7 @@ def make_memory_class(rl_config: RLConfig, env: Optional[EnvRun] = None) -> Type
     if isinstance(rl_config, DummyRLConfig):
         memory_cls = DummyRLMemory
     else:
-        entry_point = _registry[rl_config.getName()][0]
+        entry_point = _registry[rl_config.get_name()][0]
         memory_cls = load_module(entry_point)
     return memory_cls
 
@@ -69,7 +69,7 @@ def make_parameter(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: b
     if isinstance(rl_config, DummyRLConfig):
         parameter: RLParameter = DummyRLParameter(rl_config)
     else:
-        entry_point = _registry[rl_config.getName()][1]
+        entry_point = _registry[rl_config.get_name()][1]
         parameter: RLParameter = load_module(entry_point)(rl_config)
     if is_load and rl_config.parameter_path != "":
         if not os.path.isfile(rl_config.parameter_path):
@@ -92,7 +92,7 @@ def make_trainer(
     if isinstance(rl_config, DummyRLConfig):
         return DummyRLTrainer(rl_config, parameter, memory, distributed, train_only)
     else:
-        entry_point = _registry[rl_config.getName()][2]
+        entry_point = _registry[rl_config.get_name()][2]
         return load_module(entry_point)(rl_config, parameter, memory, distributed, train_only)
 
 
@@ -110,7 +110,7 @@ def make_worker(
     if isinstance(rl_config, DummyRLConfig):
         worker: RLWorker = DummyRLWorker(rl_config, parameter, memory)
     else:
-        entry_point = _registry[rl_config.getName()][3]
+        entry_point = _registry[rl_config.get_name()][3]
         worker: RLWorker = load_module(entry_point)(rl_config, parameter, memory)
 
     # ExtendWorker
@@ -153,7 +153,7 @@ def register(
 ) -> None:
     global _registry
 
-    name = config.getName()
+    name = config.get_name()
     if enable_assert:
         assert name not in _registry, f"{name} was already registered."
     else:

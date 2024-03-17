@@ -10,7 +10,7 @@ class MyConfig(RLConfig, ExperienceReplayBufferConfig):
     # RLConfig に加え、ExperienceReplayBufferConfig も継承する
     # (順番は RLConfig -> ExperienceReplayBufferConfig )
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "MyConfig"
 
     @property

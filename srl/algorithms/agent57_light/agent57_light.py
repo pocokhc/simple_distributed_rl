@@ -3,22 +3,22 @@ import logging
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Tuple, cast
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, RLBaseTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
-from srl.base.rl.base import RLParameter
+from srl.base.define import InfoType, RLBaseTypes
+from srl.base.rl.base import RLParameter, RLWorker
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import ObservationProcessor
+from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions import common
-from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
-from srl.rl.models.dueling_network import DuelingNetworkConfig
-from srl.rl.models.framework_config import FrameworkConfig
-from srl.rl.models.image_block import ImageBlockConfig
-from srl.rl.models.mlp_block import MLPBlockConfig
-from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.memories.priority_experience_replay import (
+    PriorityExperienceReplay,
+    RLConfigComponentPriorityExperienceReplay,
+)
+from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
@@ -59,106 +59,116 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, PriorityExperienceReplayConfig):
-    """<:ref:`PriorityExperienceReplay`>"""
+class Config(
+    RLConfig,
+    RLConfigComponentPriorityExperienceReplay,
+    RLConfigComponentFramework,
+):
+    """
+    <:ref:`RLConfigComponentPriorityExperienceReplay`>
+    <:ref:`RLConfigComponentFramework`>
+    """
 
+    #: ε-greedy parameter for Test
     test_epsilon: float = 0
+    #: intrinsic reward rate for Test
     test_beta: float = 0
 
-    # --- model
-    framework: FrameworkConfig = field(init=False, default_factory=lambda: FrameworkConfig())
-    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
-    lr_ext: float = 0.0001  # type: ignore , type OK
-    lr_int: float = 0.0001  # type: ignore , type OK
+    #: <:ref:`scheduler`> Learning rate
+    lr_ext: Union[float, SchedulerConfig] = 0.0001
+    #: <:ref:`scheduler`> Intrinsic network Learning rate
+    lr_int: Union[float, SchedulerConfig] = 0.0001
+    #: Synchronization interval to Target network
     target_model_update_interval: int = 1500
 
-    # rescale
+    #: enable DoubleDQN
+    enable_double_dqn: bool = True
+    #: enable rescaling
     enable_rescale: bool = False
 
-    # double dqn
-    enable_double_dqn: bool = True
+    #: <:ref:`MLPBlock`> hidden layer
+    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
-    # DuelingNetwork
-    dueling_network: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
-
-    # ucb(160,0.5 or 3600,0.01)
+    #: ucb(160,0.5 or 3600,0.01)
     actor_num: int = 32
-    ucb_window_size: int = 3600  # UCB上限
-    ucb_epsilon: float = 0.01  # UCBを使う確率
-    ucb_beta: float = 1  # UCBのβ
+    #: UCB上限
+    ucb_window_size: int = 3600
+    #: UCBを使う確率
+    ucb_epsilon: float = 0.01
+    #: UCBのβ
+    ucb_beta: float = 1
 
-    # intrinsic reward
+    #: enable intrinsic reward
     enable_intrinsic_reward: bool = True
 
-    # episodic
-    episodic_lr: float = 0.0005  # type: ignore , type OK
-    episodic_count_max: int = 10  # k
+    #: <:ref:`scheduler`> Episodic Learning rate
+    episodic_lr: Union[float, SchedulerConfig] = 0.0005
+    #: [episodic] k
+    episodic_count_max: int = 10
+    #: [episodic] epsilon
     episodic_epsilon: float = 0.001
+    #: [episodic] cluster_distance
     episodic_cluster_distance: float = 0.008
+    #: [episodic] capacity
     episodic_memory_capacity: int = 30000
-    episodic_pseudo_counts: float = 0.1  # 疑似カウント定数
+    #: [episodic] 疑似カウント定数(c)
+    episodic_pseudo_counts: float = 0.1
+    #: <:ref:`MLPBlock`> [episodic] emb block
     episodic_emb_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    #: <:ref:`MLPBlock`> [episodic] out block
     episodic_out_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
-    # lifelong
-    lifelong_lr: float = 0.00001  # type: ignore , type OK
-    lifelong_max: float = 5.0  # L
+    #: <:ref:`scheduler`> Lifelong Learning rate
+    lifelong_lr: Union[float, SchedulerConfig] = 0.0005
+    #: [lifelong] L
+    lifelong_max: float = 5.0
+    #: <:ref:`MLPBlock`> [lifelong] hidden block
     lifelong_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
-    # UVFA
-    input_ext_reward: bool = False
+    #: [UVFA] input ext reward
+    input_ext_reward: bool = True
+    #: [UVFA] input int reward
     input_int_reward: bool = False
+    #: [UVFA] input action
     input_action: bool = False
 
-    # other
-    disable_int_priority: bool = False  # Not use internal rewards to calculate priority
+    #: Not use internal rewards to calculate priority
+    disable_int_priority: bool = False
+    #: dummy_state_val
     dummy_state_val: float = 0.0
 
     def __post_init__(self):
         super().__post_init__()
-
-        self.lr_ext: SchedulerConfig = SchedulerConfig(cast(float, self.lr_ext))
-        self.lr_int: SchedulerConfig = SchedulerConfig(cast(float, self.lr_int))
-        self.episodic_lr: SchedulerConfig = SchedulerConfig(cast(float, self.episodic_lr))
-        self.lifelong_lr: SchedulerConfig = SchedulerConfig(cast(float, self.lifelong_lr))
         self.memory.set_proportional_memory()
-
-        self.dueling_network.set((512,), True)
-        self.episodic_emb_block.set_mlp(
+        self.hidden_block.set_dueling_network((512,))
+        self.episodic_emb_block.set(
             (32,),
             activation="relu",
             # kernel_initializer="he_normal",
             # dense_kwargs={"bias_initializer": keras.initializers.constant(0.001)},
         )
-        self.episodic_out_block.set_mlp((128,))
-        self.lifelong_hidden_block.set_mlp((128,))
+        self.episodic_out_block.set((128,))
+        self.lifelong_hidden_block.set((128,))
 
-    def set_processor(self) -> List[Processor]:
-        return [
-            ImageProcessor(
-                image_type=EnvObservationTypes.GRAY_2ch,
-                resize=(84, 84),
-                enable_norm=True,
-            )
-        ]
+    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+        return [self.input_image_block.get_processor()]
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
 
-    def get_use_framework(self) -> str:
-        return self.framework.get_use_framework()
+    def get_framework(self) -> str:
+        return self.create_framework_str()
 
-    def getName(self) -> str:
-        return f"Agent57_light:{self.get_use_framework()}"
+    def get_name(self) -> str:
+        return f"Agent57_light:{self.get_framework()}"
 
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
+        self.assert_params_framework()
 
 
 # ------------------------------------------------------
@@ -290,7 +300,7 @@ class CommonInterfaceParameter(RLParameter, ABC):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(DiscreteActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -310,7 +320,7 @@ class Worker(DiscreteActionWorker):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+    def on_reset(self, worker: WorkerRun) -> InfoType:
         if self.training:
             # エピソード毎に actor を決める
             self.actor_index = self._calc_actor_index()
@@ -380,11 +390,10 @@ class Worker(DiscreteActionWorker):
         # UCB値最大のポリシー（複数あればランダム）
         return common.get_random_max_index(ucbs)
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
-        self.state = state
+    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
 
         in_ = [
-            state[np.newaxis, ...],
+            worker.state[np.newaxis, ...],
             np.array([[self.prev_reward_ext]], dtype=np.float32),
             np.array([[self.prev_reward_int]], dtype=np.float32),
             self.prev_onehot_action[np.newaxis, ...],
@@ -394,22 +403,20 @@ class Worker(DiscreteActionWorker):
         self.q_int = self.parameter.predict_q_int_online(in_)[0]
         self.q = self.q_ext + self.beta * self.q_int
 
+        invalid_actions = worker.get_invalid_actions()
         if random.random() < self.epsilon:
-            self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
             self.q[invalid_actions] = -np.inf
-            self.action = int(np.argmax(self.q))
+            action = int(np.argmax(self.q))
 
-        self.onehot_action = np.identity(self.config.action_num, dtype=np.float32)[self.action]
-        return self.action, {}
+        self.onehot_action = np.identity(self.config.action_num, dtype=np.float32)[action]
+        return action, {}
 
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward_ext: float,
-        done: bool,
-        next_invalid_actions: List[int],
-    ):
+    def on_step(self, worker: WorkerRun) -> InfoType:
+        next_state = worker.state
+        reward_ext = worker.reward
+        next_invalid_actions = worker.get_invalid_actions()
         self.episode_reward += reward_ext
 
         # 内部報酬
@@ -454,13 +461,13 @@ class Worker(DiscreteActionWorker):
         ]
         """
         batch = [
-            self.state,
+            worker.prev_state,
             next_state,
             self.onehot_action,
             next_invalid_actions,
             reward_ext,
             reward_int,
-            int(not done),
+            int(not worker.terminated),
             prev_onehot_action,
             prev_reward_ext,
             prev_reward_int,
@@ -481,7 +488,7 @@ class Worker(DiscreteActionWorker):
                 self.onehot_actor_idx,
                 next_invalid_actions_idx,
                 next_invalid_actions,
-                np.array([int(not done)], dtype=np.float32),
+                np.array([int(not worker.terminated)], dtype=np.float32),
                 np.array([self.discount], dtype=np.float32),
             ]
             target_q_ext = self.parameter.calc_target_q(
@@ -491,9 +498,9 @@ class Worker(DiscreteActionWorker):
             )[0]
 
             if self.config.disable_int_priority or not self.config.enable_intrinsic_reward:
-                priority = abs(target_q_ext - self.q_ext[self.action])
+                priority = abs(target_q_ext - self.q_ext[worker.prev_action])
             elif self.beta == 0:
-                priority = abs(target_q_ext - self.q_ext[self.action])
+                priority = abs(target_q_ext - self.q_ext[worker.prev_action])
             else:
                 target_q_int = self.parameter.calc_target_q(
                     False,
@@ -501,7 +508,7 @@ class Worker(DiscreteActionWorker):
                     *_params,
                 )[0]
 
-                priority = abs((target_q_ext + self.beta * target_q_int) - self.q[self.action])
+                priority = abs((target_q_ext + self.beta * target_q_int) - self.q[worker.prev_action])
 
         self.memory.add(batch, priority)
         return _info

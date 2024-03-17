@@ -79,9 +79,7 @@ def _play_trainer_only(
             break
 
         # --- train
-        _prev_train = state.trainer.get_train_count()
-        state.trainer.train()
-        state.is_step_trained = state.trainer.get_train_count() > _prev_train
+        state.is_step_trained = state.trainer.core_train()
 
         # callbacks
         _stop_flags = [c.on_trainer_loop(context, state) for c in callbacks]

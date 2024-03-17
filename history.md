@@ -9,13 +9,16 @@
 1. (distribution)オリジナルrl/env対応
 1. RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 
-train_infoの遅延評価
-RLworkerに統一
+DemoMemory
+configのjson保存
+rlconfigのparam_pathは削除予定
 
 # v0.15.0
 
-1. spacesにMultiSpaceを追加し、マルチモーダルな入力に対応（画像+値の入力など）
-1. Envの作成をgymnasiumにし、SRLはオプションで追加できる形に修正
+・spacesにMultiSpaceを追加し、マルチモーダルな入力に対応（画像+値の入力など）
+・Envの作成をgymnasiumにし、SRLはオプションで追加できる形に修正
+・Envの作成に修正が入ったので自作環境を作成している場合は、ドキュメント "Make Original Environment" を見てください
+・base.rlに大幅な修正が入ったので自作アルゴリズムを作成している場合は、ドキュメントの "Make Original Algorithm" を見てください
 
 **MainUpdates**
 
@@ -34,15 +37,23 @@ RLworkerに統一
       　ハイパーパラメータ指定時に関係ない変数をなるべく非表示にするのが目的
       + [base.rl.config] rename: set_processorをget_processorsに名前変更
       + [base.rl.processor] update: 更新に合わせてリファクタリング、copy関数も追加
+      + [base.rl] update: RLConfigComponentという概念を追加（現状はframeworkとmemoryに影響）
+      + [base.rl.config] change: SchedulerConfigを改善し小数代入で指定できるように変更
       + [base.env] add: override_render_modeを追加し、renderを外部からいじれるように
+      + [base.rl.base] change: train_infoの生成タイミングを必要な場合のみに取得できるように修正
+      + [algorithms] change: タイミングがいいのでRLWorkerに統一
   1. [rl.models] big update: MultiSpaceに対応
       + [rl.models] change: inputs_blockを改修
-         + NN系アルゴリズムのinputs_blockを修正予定
+         + NN系アルゴリズムのinputs_blockを修正
          + NN系アルゴリズムのハイパーパラメータにinput_value_blockとinput_image_blockが追加
       + [rl.models.helper] new: helper.pyを作成、state等をNNに渡す際の変換処理（データのバッチ化など）をここで管理予定
       + [rl.models.image_block] change: 画像のサイズ等をアルゴリズム側からconfig側に移動しハイパーパラメータ化
-      + [rl.models.image_block] change: 関数名をset_dqn_imageからset_dqn_baseに変更
+      + [rl.models.image_block] change: 関数名をset_dqn_imageからset_dqn_blockに変更
+      + [rl.models] remove: alphazero_block configを廃止し、image_block configに統合
       + [rl.models.tf] new: KerasModelAddedSummaryを作成、ややこしいsummary処理をここで管理（これに伴い全tf.kerasをKerasModelAddedSummaryを継承するように変更予定）
+      + [rl.models] move: ディレクトリ構成を見直して整理
+      + [rl.models] change: dueling_networkをmlpに統合
+      + [rl.models] change: alphazero_blockをimage_blockに統合
       + [rl.functions.common] new: invalid_action用のファンシーインデックスを作成する関数 create_fancy_index_for_invalid_actions を追加
   1. [docs_src.pages.framework_detail] update: InterfaceTypeを厳密に定義
       + obsのdiscreteのみnp.ndarrayからlist[int]に変更
@@ -58,6 +69,7 @@ RLworkerに統一
 1. [base.env.gymnasium_wrapper/gym_wrapper] delete: Boxをdtype間で定義したのでgym_prediction_by_simulationの必要性が低くなったので削除
 1. [base.env.registration] update: gymのmake時に名前がない場合の例外だけを別処理に
 1. [runner] new: memoryに圧縮機能を追加
+1. [tests] move: 役割毎にディレクトリを分けて構成を大幅に変更
 
 **OtherUpdates**
 

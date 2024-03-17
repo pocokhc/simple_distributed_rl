@@ -1,8 +1,9 @@
 import logging
 import pickle
+import pprint
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Type, Union
 
 import numpy as np
 
@@ -17,7 +18,7 @@ from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
     from srl.base.rl.algorithms.extend_worker import ExtendWorker
-
+    from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class RLConfig(ABC):
     """
 
     #: 状態の入力を指定、複数指定するとMultipleSpaceになる
-    observation_mode: ObservationModes = ObservationModes.ENV
+    observation_mode: Union[str, ObservationModes] = ObservationModes.ENV
 
     #: env_observation_type を上書きできます。
     #: 例えばgymの自動判定で想定外のTypeになった場合、ここで上書きできます。
@@ -78,10 +79,10 @@ class RLConfig(ABC):
     # --- other
     #: action/observationの値をエラーが出ないように可能な限り変換します。
     #: ※エラー終了の可能性は減りますが、値の変換等による予期しない動作を引き起こす可能性が高くなります
-    enable_sanitize_value: bool = True
+    enable_sanitize: bool = True
     #: action/observationの値を厳密にチェックし、おかしい場合は例外を出力します。
-    #: enable_assertion_valueが有効な場合は、enable_sanitize_valueは無効です。
-    enable_assertion_value: bool = False
+    #: enable_assertionが有効な場合は、enable_sanitizeは無効です。
+    enable_assertion: bool = False
 
     def __post_init__(self) -> None:
         self._is_setup = False
@@ -93,8 +94,8 @@ class RLConfig(ABC):
         self._changeable_parameter_names_base = [
             "parameter_path",
             "memory_path",
-            "enable_sanitize_value",
-            "enable_assertion_value",
+            "enable_sanitize",
+            "enable_assertion",
         ]
         self._changeable_parameter_names: List[str] = []
         self._check_parameter = True  # last
@@ -102,11 +103,16 @@ class RLConfig(ABC):
     def assert_params(self) -> None:
         assert self.window_length > 0
 
+    def create_scheduler(self) -> "SchedulerConfig":
+        from srl.rl.schedulers.scheduler import SchedulerConfig
+
+        return SchedulerConfig()
+
     # ----------------------------
     # RL config
     # ----------------------------
     @abstractmethod
-    def getName(self) -> str:  # get_nameに変えたい…
+    def get_name(self) -> str:
         raise NotImplementedError()
 
     @abstractmethod
@@ -118,13 +124,13 @@ class RLConfig(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def get_use_framework(self) -> str:
-        raise NotImplementedError()
+    def get_framework(self) -> str:
+        return ""
 
-    def set_config_by_env(self, env: EnvRun) -> None:
+    def setup_from_env(self, env: EnvRun) -> None:
         pass  # NotImplemented
 
-    def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
+    def setup_from_actor(self, actor_num: int, actor_id: int) -> None:
         pass  # NotImplemented
 
     def get_processors(self) -> List[Optional[ObservationProcessor]]:
@@ -158,7 +164,7 @@ class RLConfig(ABC):
         self._check_parameter = False
 
         if enable_log:
-            logger.info(f"--- {self.getName()}")
+            logger.info(f"--- {self.get_name()}")
             logger.info(f"max_episode_steps     : {env.max_episode_steps}")
             logger.info(f"player_num            : {env.player_num}")
             logger.info(f"action_space(env)     : {env.action_space}")
@@ -175,7 +181,7 @@ class RLConfig(ABC):
                 d = env.backup()
                 env.restore(d)
             except Exception:
-                logger.error(f"'{self.getName()}' uses restore/backup, but it is not implemented in {env.name}.")
+                logger.error(f"'{self.get_name()}' uses restore/backup, but it is not implemented in {env.name}.")
                 raise
 
         # -------------------------------------------------
@@ -204,6 +210,7 @@ class RLConfig(ABC):
         # -------------------------------------------------
         env_obs_spaces: List[SpaceBase] = []
         self._is_env_obs_multi = False
+        self.observation_mode = ObservationModes.from_str(self.observation_mode)
         if self.observation_mode & ObservationModes.ENV:
             env_obs_space = env.observation_space.copy()
             if isinstance(env_obs_space, MultiSpace):
@@ -378,7 +385,7 @@ class RLConfig(ABC):
             self._action_high = np.array(self.action_space.list_high)
 
         # --- option
-        self.set_config_by_env(env)
+        self.setup_from_env(env)
 
         # --- changeable parameters
         self._changeable_parameter_names = self._changeable_parameter_names_base[:]
@@ -392,6 +399,7 @@ class RLConfig(ABC):
             logger.info(f"observation_space(rl): {self._env_obs_space_in_rl}")
             if self.window_length > 1:
                 logger.info(f"observation_spaces_one_step(rl): {self._env_obs_space_one_step_in_rl}")
+            logger.info("Configuration after setup" + "\n" + pprint.pformat(self.to_dict()))
 
     # --- setup property
 
@@ -460,7 +468,7 @@ class RLConfig(ABC):
     # ----------------------------
     @property
     def name(self) -> str:
-        return self.getName()
+        return self.get_name()
 
     @property
     def used_device_tf(self) -> str:
@@ -470,8 +478,13 @@ class RLConfig(ABC):
     def used_device_torch(self) -> str:
         return self._used_device_torch
 
-    def to_dict(self) -> dict:
-        dat: dict = convert_for_json(self.__dict__)
+    def to_dict(self, skip_private: bool = True) -> dict:
+        d = {}
+        for k, v in self.__dict__.items():
+            if skip_private and k.startswith("_"):
+                continue
+            d[k] = v
+        dat: dict = convert_for_json(d)
         return dat
 
     def copy(self, reset_env_config: bool = False) -> Any:
@@ -520,8 +533,8 @@ class DummyRLConfig(RLConfig):
     def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.ANY
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return ""
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return self.name

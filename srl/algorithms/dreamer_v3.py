@@ -1,28 +1,30 @@
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, cast
+from typing import Any, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow import keras
 
-from srl.base.define import DoneTypes, EnvObservationTypes, RLBaseTypes, RLTypes
+from srl.base.define import DoneTypes, EnvTypes, InfoType, RLBaseTypes, RLTypes
 from srl.base.exception import UndefinedError
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions import common
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
+from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.tf.distributions.bernoulli_dist_block import BernoulliDistBlock
 from srl.rl.models.tf.distributions.categorical_dist_block import CategoricalDistBlock, CategoricalGradDist
 from srl.rl.models.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
 from srl.rl.models.tf.distributions.linear_block import Linear, LinearBlock
 from srl.rl.models.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.rl.models.tf.distributions.twohot_dist_block import TwoHotDistBlock
+from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.utils.common import compare_less_version
@@ -42,7 +44,16 @@ ref: https://github.com/danijar/dreamerv3
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, ExperienceReplayBufferConfig):
+class Config(
+    RLConfig,
+    RLConfigComponentExperienceReplayBuffer,
+    RLConfigComponentFramework,
+):
+    """
+    <:ref:`RLConfigComponentExperienceReplayBuffer`>
+    <:ref:`RLConfigComponentFramework`>
+    """
+
     # --- RSSM
     #: 決定的な遷移のユニット数、内部的にはGRUのユニット数
     rssm_deter_size: int = 4096
@@ -192,12 +203,12 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     enable_train_actor: bool = True
     #: batch length
     batch_length: int = 64
-    #: dynamics model learning rate
-    lr_model: float = 1e-4  # type: ignore , type OK
-    #: critic model learning rate
-    lr_critic: float = 3e-5  # type: ignore , type OK
-    #: actor model learning rate
-    lr_actor: float = 3e-5  # type: ignore , type OK
+    #: <:ref:`scheduler`> dynamics model learning rate
+    lr_model: Union[float, SchedulerConfig] = 1e-4
+    #: <:ref:`scheduler`> critic model learning rate
+    lr_critic: Union[float, SchedulerConfig] = 3e-5
+    #:  <:ref:`scheduler`>actor model learning rate
+    lr_actor: Union[float, SchedulerConfig] = 3e-5
     #: loss計算の方法
     #:
     #: Parameters:
@@ -228,10 +239,6 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     def __post_init__(self):
         super().__post_init__()
-
-        self.lr_model: SchedulerConfig = SchedulerConfig(cast(float, self.lr_model))
-        self.lr_critic: SchedulerConfig = SchedulerConfig(cast(float, self.lr_critic))
-        self.lr_actor: SchedulerConfig = SchedulerConfig(cast(float, self.lr_actor))
 
     def get_changeable_parameters(self) -> List[str]:
         return [
@@ -307,9 +314,9 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         # Training
         self.batch_size = 50
         self.batch_length = 50
-        self.lr_model.set_constant(6e-4)
-        self.lr_critic.set_constant(8e-5)
-        self.lr_actor.set_constant(8e-5)
+        self.lr_model = 6e-4
+        self.lr_critic = 8e-5
+        self.lr_actor = 8e-5
         self.actor_loss_type = "dreamer_v1"
 
     def set_dreamer_v2(self):
@@ -359,9 +366,9 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         # Training
         self.batch_size = 16
         self.batch_length = 50
-        self.lr_model.set_constant(1e-4)
-        self.lr_critic.set_constant(2e-4)
-        self.lr_actor.set_constant(8e-5)
+        self.lr_model = 1e-4
+        self.lr_critic = 2e-4
+        self.lr_actor = 8e-5
         self.actor_loss_type = "dreamer_v2"
         self.entropy_rate: float = 2e-3
         self.reinforce_baseline: str = "v"
@@ -418,18 +425,18 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         # Training
         self.batch_size = 16
         self.batch_length = 64
-        self.lr_model.set_constant(1e-4)
-        self.lr_critic.set_constant(3e-5)
-        self.lr_actor.set_constant(3e-5)
+        self.lr_model = 1e-4
+        self.lr_critic = 3e-5
+        self.lr_actor = 3e-5
         self.actor_loss_type = "dreamer_v3"
         self.entropy_rate: float = 3e-4
         self.reinforce_baseline: str = "v"
 
-    def set_processor(self) -> List[Processor]:
+    def get_processors(self) -> List[ObservationProcessor]:
         if self.cnn_resize_type == "stride3":
             return [
                 ImageProcessor(
-                    image_type=EnvObservationTypes.COLOR,
+                    image_type=EnvTypes.COLOR,
                     resize=(96, 96),
                     enable_norm=True,
                 )
@@ -437,24 +444,22 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
         else:
             return [
                 ImageProcessor(
-                    image_type=EnvObservationTypes.COLOR,
+                    image_type=EnvTypes.COLOR,
                     resize=(64, 64),
                     enable_norm=True,
                 )
             ]
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.ANY
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.ANY
+    def get_base_observation_type(self) -> RLBaseTypes:
+        return RLBaseTypes.CONTINUOUS
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return "tensorflow"
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "DreamerV3"
 
     def assert_params(self) -> None:
@@ -482,7 +487,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _RSSM(keras.Model):
+class _RSSM(KerasModelAddedSummary):
     def __init__(
         self,
         deter: int,
@@ -832,7 +837,7 @@ class _ImageEncoder(keras.Model):
         return model.summary(**kwargs)
 
 
-class _ImageDecoder(keras.Model):
+class _ImageDecoder(KerasModelAddedSummary):
     def __init__(
         self,
         encoder: _ImageEncoder,
@@ -953,18 +958,8 @@ class _ImageDecoder(keras.Model):
         else:
             raise UndefinedError(self.dist_type)
 
-    def build(self, input_shape):
-        self.__input_shape = input_shape
-        super().build(self.__input_shape)
 
-    def summary(self, name="", **kwargs):
-        x = kl.Input(shape=self.__input_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        return model.summary(**kwargs)
-
-
-class _LinearEncoder(keras.Model):
+class _LinearEncoder(KerasModelAddedSummary):
     def __init__(
         self,
         hidden_layer_sizes: Tuple[int, ...],
@@ -1217,9 +1212,9 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_sch_model = self.config.lr_model.create_schedulers()
-        self.lr_sch_critic = self.config.lr_critic.create_schedulers()
-        self.lr_sch_actor = self.config.lr_actor.create_schedulers()
+        self.lr_sch_model = SchedulerConfig.create_scheduler(self.config.lr_model)
+        self.lr_sch_critic = SchedulerConfig.create_scheduler(self.config.lr_critic)
+        self.lr_sch_actor = SchedulerConfig.create_scheduler(self.config.lr_actor)
 
         if compare_less_version(tf.__version__, "2.11.0"):
             self._model_opt = keras.optimizers.Adam(learning_rate=self.lr_sch_model.get_rate())
@@ -1236,6 +1231,15 @@ class Trainer(RLTrainer):
         self.seq_undone = [[] for _ in range(self.config.batch_size)]
         self.seq_unterminated = [[] for _ in range(self.config.batch_size)]
         self.stoch, self.deter = self.parameter.dynamics.get_initial_state(self.batch_size)
+
+        self.decode_loss = None
+        self.reward_loss = None
+        self.cont_loss = None
+        self.kl_loss = None
+        self.act_v_loss = None
+        self.entropy_loss = None
+        self.actor_loss = None
+        self.critic_loss = None
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
@@ -1256,7 +1260,7 @@ class Trainer(RLTrainer):
 
         for i in range(self.config.batch_size):
             while len(self.seq_action[i]) < self.config.batch_length:
-                batch = self.memory.sample(1, self.train_count)[0]
+                batch = self.memory.sample(1)[0]
                 episode_len = len(batch["actions"])
                 self.seq_action[i].extend(batch["actions"])
                 self.seq_next_state[i].extend(batch["next_states"])
@@ -1329,15 +1333,16 @@ class Trainer(RLTrainer):
             )
 
             # --- embed loss
-            decode_loss = self.parameter.decode.compute_train_loss(feats, next_states)
-            reward_loss = self.parameter.reward.compute_train_loss(feats, rewards)
-            cont_loss = self.parameter.cont.compute_train_loss(feats, unterminated)
+            self.decode_loss = self.parameter.decode.compute_train_loss(feats, next_states)
+            self.reward_loss = self.parameter.reward.compute_train_loss(feats, rewards)
+            self.cont_loss = self.parameter.cont.compute_train_loss(feats, unterminated)
 
             loss = (
-                self.config.loss_scale_pred * (decode_loss + reward_loss + cont_loss)
+                self.config.loss_scale_pred * (self.decode_loss + self.reward_loss + self.cont_loss)
                 + self.config.loss_scale_kl_dyn * kl_loss_dyn
                 + self.config.loss_scale_kl_rep * kl_loss_rep
             )
+        self.kl_loss = kl_loss_dyn
 
         if self.config.enable_train_model:
             variables = [
@@ -1353,11 +1358,6 @@ class Trainer(RLTrainer):
 
             if self.lr_sch_model.update(self.train_count):
                 self._model_opt.learning_rate = self.lr_sch_model.get_rate()
-
-            self.train_info["decode_loss"] = np.mean(decode_loss.numpy())
-            self.train_info["reward_loss"] = np.mean(reward_loss.numpy())
-            self.train_info["cont_loss"] = np.mean(cont_loss.numpy())
-            self.train_info["kl_loss"] = np.mean(kl_loss_dyn.numpy())
 
         if (not self.config.enable_train_actor) and (not self.config.enable_train_critic):
             # WorldModelsのみ学習
@@ -1379,16 +1379,11 @@ class Trainer(RLTrainer):
             self.parameter.actor.trainable = True
             self.parameter.critic.trainable = False
             with tf.GradientTape() as tape:
-                actor_loss, act_v_loss, entropy_loss, horizon_feat, horizon_V = self._compute_horizon_step(
-                    stochs, deters, feats
+                self.actor_loss, self.act_v_loss, self.entropy_loss, horizon_feat, horizon_V = (
+                    self._compute_horizon_step(stochs, deters, feats)
                 )
-            grads = tape.gradient(actor_loss, self.parameter.actor.trainable_variables)
+            grads = tape.gradient(self.actor_loss, self.parameter.actor.trainable_variables)
             self._actor_opt.apply_gradients(zip(grads, self.parameter.actor.trainable_variables))
-            if act_v_loss is not None:
-                self.train_info["act_v_loss"] = act_v_loss.numpy()
-            if entropy_loss is not None:
-                self.train_info["entropy_loss"] = entropy_loss.numpy()
-            self.train_info["actor_loss"] = actor_loss.numpy()
 
             if self.lr_sch_actor.update(self.train_count):
                 self._actor_opt.learning_rate = self.lr_sch_actor.get_rate()
@@ -1405,10 +1400,9 @@ class Trainer(RLTrainer):
             self.parameter.actor.trainable = False
             self.parameter.critic.trainable = True
             with tf.GradientTape() as tape:
-                critic_loss = self.parameter.critic.compute_train_loss(horizon_feat, tf.stop_gradient(horizon_V))
-            grads = tape.gradient(critic_loss, self.parameter.critic.trainable_variables)
+                self.critic_loss = self.parameter.critic.compute_train_loss(horizon_feat, tf.stop_gradient(horizon_V))
+            grads = tape.gradient(self.critic_loss, self.parameter.critic.trainable_variables)
             self._critic_opt.apply_gradients(zip(grads, self.parameter.critic.trainable_variables))
-            self.train_info["critic_loss"] = critic_loss.numpy()
 
             if self.lr_sch_critic.update(self.train_count):
                 self._critic_opt.learning_rate = self.lr_sch_critic.get_rate()
@@ -1426,6 +1420,35 @@ class Trainer(RLTrainer):
                     )
 
         return
+
+    def create_info(self) -> InfoType:
+        d = {}
+        if self.decode_loss is not None:
+            d["decode_loss"] = np.mean(self.decode_loss.numpy())
+        if self.reward_loss is not None:
+            d["reward_loss"] = np.mean(self.reward_loss.numpy())
+        if self.cont_loss is not None:
+            d["cont_loss"] = np.mean(self.cont_loss.numpy())
+        if self.kl_loss is not None:
+            d["kl_loss"] = np.mean(self.kl_loss.numpy())
+        if self.act_v_loss is not None:
+            d["act_v_loss"] = self.act_v_loss.numpy()
+        if self.entropy_loss is not None:
+            d["entropy_loss"] = self.entropy_loss.numpy()
+        if self.actor_loss is not None:
+            d["actor_loss"] = self.actor_loss.numpy()
+        if self.critic_loss is not None:
+            d["critic_loss"] = self.critic_loss.numpy()
+
+        self.decode_loss = None
+        self.reward_loss = None
+        self.cont_loss = None
+        self.kl_loss = None
+        self.act_v_loss = None
+        self.entropy_loss = None
+        self.actor_loss = None
+        self.critic_loss = None
+        return d
 
     @tf.function
     def _compute_horizon_step(self, stoch, deter, feat, is_critic: bool = False):
@@ -1668,6 +1691,7 @@ class Worker(RLWorker):
             else:
                 env_action = env_action * (self.config.action_high - self.config.action_low) + self.config.action_low
                 env_action = np.clip(env_action, self.config.action_low, self.config.action_high).tolist()
+            env_action = env_action.tolist()
         else:
             raise UndefinedError(self.config.action_type)
 

@@ -3,6 +3,7 @@ from typing import Tuple
 import torch.nn as nn
 
 from srl.rl.models.torch_.converter import convert_activation_torch, set_initializer_torch
+from srl.rl.models.torch_.modules.noisy_linear import NoisyLinear
 
 
 class MLPBlock(nn.Module):
@@ -14,6 +15,7 @@ class MLPBlock(nn.Module):
         use_bias=True,
         kernel_initializer: str = "he_normal",
         bias_initializer="zeros",
+        enable_noisy_dense: bool = False,
     ):
         super().__init__()
 
@@ -21,7 +23,10 @@ class MLPBlock(nn.Module):
 
         self.hidden_layers = nn.ModuleList()
         for i in range(len(layer_sizes)):
-            m = nn.Linear(in_size, layer_sizes[i], bias=use_bias)
+            if enable_noisy_dense:
+                m = NoisyLinear(in_size, layer_sizes[i])
+            else:
+                m = nn.Linear(in_size, layer_sizes[i], bias=use_bias)
             if kernel_initializer != "":
                 set_initializer_torch(m.weight, kernel_initializer)
             if use_bias and bias_initializer != "":
@@ -32,6 +37,10 @@ class MLPBlock(nn.Module):
 
         # --- out shape
         self.out_size = in_size
+
+    def add_layer(self, layer, out_size):
+        self.hidden_layers.append(layer)
+        self.out_size = out_size
 
     def forward(self, x):
         for layer in self.hidden_layers:

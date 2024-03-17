@@ -3,14 +3,13 @@ import logging
 import math
 import time
 from dataclasses import dataclass
-from typing import Any, List, Tuple
+from typing import Any, Tuple
 
 import numpy as np
 
-from srl.base.define import DoneTypes, RLBaseTypes
+from srl.base.define import DoneTypes, InfoType, RLBaseTypes
 from srl.base.exception import UndefinedError
-from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
-from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
 from srl.base.rl.worker_run import WorkerRun
@@ -63,18 +62,16 @@ class Config(RLConfig):
     #: lifelong rewardの減少率
     lifelong_decrement_rate: float = 0.999
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return ""
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "SearchDynaQ"
 
     def assert_params(self) -> None:
@@ -305,7 +302,7 @@ class Trainer(RLTrainer):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs = self.memory.sample(self.batch_size, self.train_count)
+        batchs = self.memory.sample()
 
         td_error_ext = 0
         td_error_int = 0
@@ -393,7 +390,7 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(DiscreteActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -403,13 +400,13 @@ class Worker(DiscreteActionWorker):
         self.parameter.iteration_q("ext", self.config.iteration_threshold / 10, self.config.iteration_timeout * 2)
         self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_timeout)
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+    def on_reset(self, worker: WorkerRun) -> InfoType:
         self.episodic = {}
         return {}
 
-    def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
-        self.invalid_actions = invalid_actions
-        self.state = to_str_observation(_state)
+    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+        self.state = to_str_observation(worker.state, self.config.observation_space.env_type)
+        invalid_actions = worker.invalid_actions
         self.parameter.init_q(self.state)
 
         q_ext = np.array(self.parameter.q_ext[self.state])
@@ -447,16 +444,10 @@ class Worker(DiscreteActionWorker):
 
         return self.action, {}
 
-    def call_on_step(
-        self,
-        _next_state: np.ndarray,
-        reward_ext: float,
-        done: bool,
-        next_invalid_actions: List[int],
-    ) -> dict:
+    def on_step(self, worker: WorkerRun) -> InfoType:
         if not self.training:
             return {}
-        next_state = to_str_observation(_next_state)
+        next_state = to_str_observation(worker.state, self.config.observation_space.env_type)
         self.parameter.init_q(next_state)
 
         # 内部報酬
@@ -468,11 +459,11 @@ class Worker(DiscreteActionWorker):
             "state": self.state,
             "next_state": next_state,
             "action": self.action,
-            "reward_ext": reward_ext,
+            "reward_ext": worker.reward,
             "reward_int": reward_int,
             "done": self.worker.done_type == DoneTypes.TERMINATED,
-            "invalid_actions": self.invalid_actions,
-            "next_invalid_actions": next_invalid_actions,
+            "invalid_actions": worker.prev_invalid_actions,
+            "next_invalid_actions": worker.invalid_actions,
         }
         self.memory.add(batch)
         return {}
@@ -493,9 +484,9 @@ class Worker(DiscreteActionWorker):
         return self.parameter.lifelong[state]
 
     def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
-        prev_state = to_str_observation(worker.prev_state)
+        prev_state = to_str_observation(worker.prev_state, self.config.observation_space.env_type)
         act = worker.prev_action
-        state = to_str_observation(worker.state)
+        state = to_str_observation(worker.state, self.config.observation_space.env_type)
         self.parameter.init_state(prev_state, act, state, worker.prev_invalid_actions, worker.invalid_actions)
         self.parameter.init_q(prev_state)
         self.parameter.init_q(state)

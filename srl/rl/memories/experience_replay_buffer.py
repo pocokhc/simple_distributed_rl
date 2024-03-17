@@ -16,7 +16,7 @@ class _ExperienceReplayBufferConfig:
 
 
 @dataclass
-class ExperienceReplayBufferConfig:
+class RLConfigComponentExperienceReplayBuffer:
     """ExperienceReplayBuffer
 
     これを継承しているアルゴリズムはbatch_size変数とmemory変数を持ちます。

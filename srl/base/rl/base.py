@@ -248,10 +248,10 @@ class RLTrainer(ABC):
         self.__train_only = train_only
 
         self.batch_size: int = getattr(self.config, "batch_size", 1)
+        self.info: Optional[InfoType] = None
 
         # abstract value
         self.train_count: int = 0
-        self.train_info: InfoType = {}
 
     def get_train_count(self) -> int:
         return self.train_count
@@ -268,6 +268,15 @@ class RLTrainer(ABC):
     def train_end(self) -> None:
         pass
 
+    # abstract
+    def create_info(self) -> InfoType:
+        return {}
+
+    def get_info(self) -> InfoType:
+        if self.info is None:
+            self.info = self.create_info()
+        return self.info
+
     # --- properties
     @property
     def distributed(self) -> bool:
@@ -276,6 +285,13 @@ class RLTrainer(ABC):
     @property
     def train_only(self) -> bool:
         return self.__train_only
+
+    # ----------------
+    def core_train(self) -> bool:
+        self.info = None
+        _prev_train = self.train_count
+        self.train()
+        return self.train_count > _prev_train
 
 
 class DummyRLTrainer(RLTrainer):

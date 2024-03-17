@@ -93,10 +93,10 @@ class EnvRun:
                 self._state, rewards, env_done, self._info = self.env.step(self.env.action_space.get_default())
                 assert not DoneTypes.done(env_done), "Terminated during noop step."
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
-        if self.config.enable_assertion_value:
+        if self.config.enable_assertion:
             assert self.observation_space.check_val(self._state)
             [self.assert_invalid_actions(a) for a in self._invalid_actions_list]
-        elif self.config.enable_sanitize_value:
+        elif self.config.enable_sanitize:
             self._state = self.sanitize_state(self._state, "state in env.reset may not be SpaceType.")
             self._invalid_actions_list = [
                 self.sanitize_invalid_actions(a, "invalid_actions in env.reset may not be SpaceType.")
@@ -121,9 +121,9 @@ class EnvRun:
             assert self.env.can_simulate_from_direct_step, "env does not support 'step' after 'direct_step'."
 
         # --- env step
-        if self.config.enable_assertion_value:
+        if self.config.enable_assertion:
             self.assert_action(action)
-        elif self.config.enable_sanitize_value:
+        elif self.config.enable_sanitize:
             action = self.sanitize_action(action, "The format of 'action' entered in 'env.step' was wrong.")
         self._prev_player_index = self.env.next_player_index
 
@@ -133,12 +133,12 @@ class EnvRun:
         except Exception as e:
             f_except = e
 
-        if self.config.enable_assertion_value:
+        if self.config.enable_assertion:
             assert f_except is None, f_except
             self.assert_state(state)
             self.assert_rewards(rewards)
             self.assert_done(env_done)
-        elif self.config.enable_sanitize_value:
+        elif self.config.enable_sanitize:
             state = self.sanitize_state(state, "'state' in 'env.step' may not be SpaceType.")
             rewards = self.sanitize_rewards(rewards, "'rewards' in 'env.step' may not be List[float].")
             env_done = self.sanitize_done(env_done, "'done' in 'env.reset may' not be bool.")
@@ -156,11 +156,11 @@ class EnvRun:
         for _ in range(self.config.frameskip):
             assert self.player_num == 1, "not support"
             state, rewards, env_done, info = self.env.step(action)
-            if self.config.enable_assertion_value:
+            if self.config.enable_assertion:
                 self.assert_state(state)
                 self.assert_rewards(rewards)
                 self.assert_done(env_done)
-            elif self.config.enable_sanitize_value:
+            elif self.config.enable_sanitize:
                 state = self.sanitize_state(state, "'state' in 'env.step' may not be SpaceType.")
                 rewards = self.sanitize_rewards(rewards, "'rewards' in 'env.step' may not be List[float].")
                 env_done = self.sanitize_done(env_done, "'done' in 'env.reset may' not be bool.")
@@ -182,9 +182,9 @@ class EnvRun:
         self._info = info
 
         invalid_actions = self.env.get_invalid_actions(self.next_player_index)
-        if self.config.enable_assertion_value:
+        if self.config.enable_assertion:
             self.assert_invalid_actions(invalid_actions)
-        elif self.config.enable_sanitize_value:
+        elif self.config.enable_sanitize:
             invalid_actions = self.sanitize_invalid_actions(
                 invalid_actions, "invalid_actions in env.reset may not be SpaceType."
             )
@@ -419,9 +419,9 @@ class EnvRun:
         return [a for a in range(self.action_space.n) if a not in invalid_actions]
 
     def add_invalid_actions(self, invalid_actions: List[EnvInvalidActionType], player_index: int) -> None:
-        if self.config.enable_assertion_value:
+        if self.config.enable_assertion:
             self.assert_invalid_actions(invalid_actions)
-        elif self.config.enable_sanitize_value:
+        elif self.config.enable_sanitize:
             invalid_actions = self.sanitize_invalid_actions(
                 invalid_actions, "invalid_actions in 'env.add_invalid_actions' may not be SpaceType."
             )
@@ -501,10 +501,10 @@ class EnvRun:
     def direct_step(self, *args, **kwargs) -> None:
         self._is_direct_step = True
         self.is_start_episode, state, player_index, info = self.env.direct_step(*args, **kwargs)
-        if self.config.enable_assertion_value:
+        if self.config.enable_assertion:
             self.assert_done(self.is_start_episode)
             self.assert_state(state)
-        if self.config.enable_sanitize_value:
+        if self.config.enable_sanitize:
             s = "'is_start_episode' in 'env.direct_step may' not be bool."
             self.is_start_episode = self.sanitize_done(self.is_start_episode, s)
             state = self.sanitize_state(state, "'state' in 'env.direct_step' may not be SpaceType.")
@@ -514,9 +514,9 @@ class EnvRun:
         self._step(state, np.zeros((self.player_num,)), False, info)
 
     def decode_action(self, action: EnvActionType) -> Any:
-        if self.config.enable_assertion_value:
+        if self.config.enable_assertion:
             self.assert_action(action)
-        elif self.config.enable_sanitize_value:
+        elif self.config.enable_sanitize:
             action = self.sanitize_action(action, "The format of 'action' entered in 'env.decode_action' was wrong.")
         return self.env.decode_action(action)
 

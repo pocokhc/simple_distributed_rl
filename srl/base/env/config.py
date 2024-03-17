@@ -75,10 +75,10 @@ class EnvConfig:
     # --- other
     #: action/observationの値をエラーが出ないように可能な限り変換します。
     #: ※エラー終了の可能性は減りますが、値の変換等による予期しない動作を引き起こす可能性が高くなります
-    enable_sanitize_value: bool = True
+    enable_sanitize: bool = True
     #: action/observationの値を厳密にチェックし、おかしい場合は例外を出力します。
-    #: enable_assertion_valueが有効な場合は、enable_sanitize_valueは無効です。
-    enable_assertion_value: bool = False
+    #: enable_assertionが有効な場合は、enable_sanitizeは無効です。
+    enable_assertion: bool = False
 
     def __post_init__(self):
         self.override_render_mode: RenderModes = RenderModes.none

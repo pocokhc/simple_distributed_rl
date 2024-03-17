@@ -2,15 +2,15 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import RLBaseTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
-from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.define import InfoType, RLBaseTypes
+from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
+from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import render_discrete_action, to_str_observation
 from srl.rl.memories.sequence_memory import SequenceMemory
 from srl.rl.schedulers.scheduler import SchedulerConfig
@@ -29,33 +29,27 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig):
-    epsilon: float = 0.1  # type: ignore , type OK
+    epsilon: Union[float, SchedulerConfig] = 0.1
     test_epsilon: float = 0
     discount: float = 0.9
-    lr: float = 0.1  # type: ignore , type OK
+    lr: Union[float, SchedulerConfig] = 0.1
 
     def __post_init__(self):
         super().__post_init__()
 
-        self.epsilon: SchedulerConfig = SchedulerConfig(cast(float, self.epsilon))
-        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
-
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return ""
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "Dyna-Q"
 
-    @property
-    def info_types(self) -> dict:
+    def get_info_types(self) -> dict:
         return {
             "size": {"type": int, "data": "last"},
             "td_error": {},
@@ -90,6 +84,25 @@ class _A_MDP:
 
         # サンプリング用に実際にあった履歴を保存
         self.state_action_history = []
+
+    def backup(self):
+        return json.dumps(
+            [
+                self.trans,
+                self.reward,
+                self.done,
+                self.count,
+                self.state_action_history,
+            ]
+        )
+
+    def restore(self, data):
+        d = json.loads(data)
+        self.trans = d[0]
+        self.reward = d[1]
+        self.done = d[2]
+        self.count = d[3]
+        self.state_action_history = d[4]
 
     def _init_dict(self, state, action, n_state):
         if state not in self.count:
@@ -170,11 +183,12 @@ class Parameter(RLParameter):
         self.model = _A_MDP()
 
     def call_restore(self, data: Any, **kwargs) -> None:
-        self.Q = json.loads(data)
-        # model TODO
+        d = json.loads(data)
+        self.Q = d[0]
+        self.model.restore(d[1])
 
     def call_backup(self, **kwargs):
-        return json.dumps(self.Q)
+        return json.dumps([self.Q, self.model.backup()])
 
     def get_action_values(self, state, invalid_actions):
         if state not in self.Q:
@@ -191,12 +205,12 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_sch = self.config.lr.create_schedulers()
+        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs = self.memory.sample(self.batch_size, self.train_count)
+        batchs = self.memory.sample()
 
         # --- 近似モデルの学習
         model = self.parameter.model
@@ -243,7 +257,7 @@ class Trainer(RLTrainer):
         if len(batchs) > 0:
             td_error /= len(batchs)
 
-        self.train_info = {
+        self.info = {
             "size": len(self.parameter.Q),
             "td_error": td_error,
         }
@@ -252,23 +266,20 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(DiscreteActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.epsilon_sch = self.config.epsilon.create_schedulers()
+        self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
-        self.state = to_str_observation(state)
-        self.invalid_actions = invalid_actions
-
+    def on_reset(self, worker: WorkerRun) -> InfoType:
         return {}
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
-        self.state = to_str_observation(state)
-        self.invalid_actions = invalid_actions
+    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+        self.state = to_str_observation(worker.state, self.config.observation_space.env_type)
+        self.invalid_actions = worker.get_invalid_actions()
 
         if self.training:
             epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
@@ -278,31 +289,25 @@ class Worker(DiscreteActionWorker):
         if random.random() < epsilon:
             self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
         else:
-            q = self.parameter.get_action_values(self.state, invalid_actions)
+            q = self.parameter.get_action_values(self.state, self.invalid_actions)
             q = np.asarray(q)
-            q = [(-np.inf if a in invalid_actions else v) for a, v in enumerate(q)]
+            q = [(-np.inf if a in self.invalid_actions else v) for a, v in enumerate(q)]
             self.action = np.random.choice(np.where(q == np.max(q))[0])
 
         return int(self.action), {}
 
-    def call_on_step(
-        self,
-        next_state: Any,
-        reward: float,
-        done: bool,
-        next_invalid_actions: List[int],
-    ) -> Dict:
+    def on_step(self, worker: WorkerRun) -> InfoType:
         if not self.training:
             return {}
 
         batch = {
             "state": self.state,
-            "next_state": to_str_observation(next_state),
+            "next_state": to_str_observation(worker.state, self.config.observation_space.env_type),
             "action": self.action,
-            "reward": reward,
-            "done": done,
+            "reward": worker.reward,
+            "done": worker.terminated,
             "invalid_actions": self.invalid_actions,
-            "next_invalid_actions": next_invalid_actions,
+            "next_invalid_actions": worker.get_invalid_actions(),
         }
         self.memory.add(batch)
         return {}

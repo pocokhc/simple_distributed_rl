@@ -6,9 +6,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from srl.base.define import InfoType
 from srl.base.rl.base import RLTrainer
 from srl.rl.models.torch_ import helper
-from srl.rl.models.torch_.input_block import InputBlock
+from srl.rl.models.torch_.blocks.input_block import create_in_block_out_value
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 from .dqn import CommonInterfaceParameter, Config
 
@@ -20,14 +22,20 @@ class _QNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.input_block = InputBlock(config.input_value_block, config.input_image_block, config.observation_space)
-        self.hidden_block = config.hidden_block.create_block_torch(self.input_block.out_size)
-        self.out_layer = nn.Linear(self.hidden_block.out_size, config.action_num)
+        self.input_block = create_in_block_out_value(
+            config.input_value_block,
+            config.input_image_block,
+            config.observation_space,
+        )
+        self.hidden_block = config.hidden_block.create_block_torch(
+            self.input_block.out_size,
+            config.action_num,
+        )
 
     def forward(self, x):
         x = self.input_block(x)
         x = self.hidden_block(x)
-        return self.out_layer(x)
+        return x
 
 
 # ------------------------------------------------------
@@ -92,12 +100,12 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_sch = self.config.lr.create_schedulers()
-
+        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
         self.optimizer = optim.Adam(self.parameter.q_online.parameters(), lr=self.lr_sch.get_rate())
         self.criterion = nn.HuberLoss()
 
         self.sync_count = 0
+        self.loss = None
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
@@ -130,9 +138,9 @@ class Trainer(RLTrainer):
         # 現在選んだアクションのQ値
         q = torch.sum(q * onehot_action, dim=1)
 
-        loss = self.criterion(target_q, q)
+        self.loss = self.criterion(target_q, q)
         self.optimizer.zero_grad()
-        loss.backward()
+        self.loss.backward()
         self.optimizer.step()
 
         if self.lr_sch.update(self.train_count):
@@ -145,9 +153,14 @@ class Trainer(RLTrainer):
             self.parameter.q_target.load_state_dict(self.parameter.q_online.state_dict())
             self.sync_count += 1
 
-        self.train_info = {
-            "loss": loss.item(),
+        self.train_count += 1
+
+    def create_info(self) -> InfoType:
+        d = {
             "sync": self.sync_count,
             "lr": self.lr_sch.get_rate(),
         }
-        self.train_count += 1
+        if self.loss is not None:
+            d["loss"] = self.loss.item()
+        self.loss = None
+        return d

@@ -1,10 +1,18 @@
-from typing import cast
+from typing import Optional, Tuple, cast
 
 import numpy as np
+import tensorflow as tf
 
 from srl.base.define import RLTypes
 from srl.base.spaces.multi import MultiSpace
 from srl.base.spaces.space import SpaceBase
+
+
+def create_batch_shape(shape, prefix_shape: Tuple[Optional[int], ...]):
+    if isinstance(shape, list):
+        return [prefix_shape + s for s in shape]
+    else:
+        return prefix_shape + shape
 
 
 def create_batch_data(state, space: SpaceBase):

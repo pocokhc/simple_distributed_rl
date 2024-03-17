@@ -82,7 +82,7 @@ class StubRLConfig(RLConfig):
         self._action_type = _B_ANY
         self._observation_type = _B_ANY
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "Stub"
 
     def get_base_action_type(self) -> RLBaseTypes:
@@ -91,7 +91,7 @@ class StubRLConfig(RLConfig):
     def get_base_observation_type(self) -> RLBaseTypes:
         return self._observation_type
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return ""
 
 

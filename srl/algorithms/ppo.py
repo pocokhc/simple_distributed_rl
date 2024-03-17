@@ -1,26 +1,26 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLBaseTypes, RLTypes
+from srl.base.define import RLBaseTypes, RLTypes
 from srl.base.exception import UndefinedError
 from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import render_discrete_action
 from srl.rl.functions.common_tf import compute_kl_divergence, compute_kl_divergence_normal
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
-from srl.rl.models.image_block import ImageBlockConfig
-from srl.rl.models.mlp_block import MLPBlockConfig
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
+from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.models.tf.distributions.categorical_dist_block import CategoricalDistBlock
 from srl.rl.models.tf.distributions.normal_dist_block import NormalDistBlock
-from srl.rl.models.tf.input_block import InputImageBlock
-from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
@@ -50,10 +50,16 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, ExperienceReplayBufferConfig):
-    # --- model
-    #: <:ref:`ImageBlock`> This layer is only used when the input is an image.
-    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
+class Config(
+    RLConfig,
+    RLConfigComponentExperienceReplayBuffer,
+    RLConfigComponentFramework,
+):
+    """
+    <:ref:`RLConfigComponentExperienceReplayBuffer`>
+    <:ref:`RLConfigComponentFramework`>
+    """
+
     #: <:ref:`MLPBlock`> hidden layers
     hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
     #: <:ref:`MLPBlock`> value layers
@@ -99,7 +105,7 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     value_clip_range: float = 0.2
 
     #: <:ref:`scheduler`> Learning rate
-    lr: SchedulerConfig = field(init=False, default_factory=lambda: SchedulerConfig())
+    lr: Union[float, SchedulerConfig] = 0.01
     #: 状態価値の反映率
     value_loss_weight: float = 1.0
     #: エントロピーの反映率
@@ -122,41 +128,33 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
     def __post_init__(self):
         super().__post_init__()
 
-        self.lr.set_linear(2000, 0.02, 0.01)
+        self.lr = self.create_scheduler().set_linear(2000, 0.02, 0.01)
         self.memory.capacity = 2000
-        self.hidden_block.set_mlp((64, 64))
-        self.value_block.set_mlp((64,))
-        self.policy_block.set_mlp((64,))
+        self.hidden_block.set((64, 64))
+        self.value_block.set((64,))
+        self.policy_block.set((64,))
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.ANY
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return "tensorflow"
 
-    def set_processor(self) -> List[Processor]:
-        return [
-            ImageProcessor(
-                image_type=EnvObservationTypes.GRAY_2ch,
-                resize=(84, 84),
-                enable_norm=True,
-            )
-        ]
+    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+        return [self.input_image_block.get_processor()]
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "PPO"
 
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
+        self.assert_params_framework()
 
-    @property
-    def info_types(self) -> dict:
+    def get_info_types(self) -> dict:
         return {
             "policy_loss": {},
             "value_loss": {},
@@ -184,7 +182,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _ActorCriticNetwork(keras.Model):
+class _ActorCriticNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
         self.config = config
@@ -193,11 +191,11 @@ class _ActorCriticNetwork(keras.Model):
         kernel_initializer = "orthogonal"
 
         # --- input
-        self.in_img_block = None
-        if config.observation_type == RLTypes.IMAGE:
-            self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
-            self.img_block = config.image_block.create_block_tf()
-        self.flat_layer = kl.Flatten()
+        self.input_block = create_in_block_out_value(
+            config.input_value_block,
+            config.input_image_block,
+            config.observation_space,
+        )
 
         # --- hidden block
         self.hidden_block = config.hidden_block.create_block_tf()
@@ -224,10 +222,7 @@ class _ActorCriticNetwork(keras.Model):
         self.build((None,) + self._in_shape)
 
     def call(self, x, training=False):
-        if self.in_img_block is not None:
-            x = self.in_img_block(x, training)
-            x = self.img_block(x, training)
-        x = self.flat_layer(x)
+        x = self.input_block(x, training=training)
         x = self.hidden_block(x, training=training)
 
         # value
@@ -316,17 +311,6 @@ class _ActorCriticNetwork(keras.Model):
 
         return policy_loss, value_loss, entropy_loss, kl
 
-    def summary(self, name: str = "", **kwargs):
-        if self.in_img_block is not None:
-            self.in_img_block.init_model_graph()
-            self.img_block.init_model_graph()
-        self.hidden_block.init_model_graph()
-
-        x = kl.Input(shape=self._in_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        model.summary(**kwargs)
-
 
 # ------------------------------------------------------
 # Parameter
@@ -364,14 +348,14 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_sch = self.config.lr.create_schedulers()
-
+        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs = self.memory.sample(self.batch_size, self.train_count)
+        batchs = self.memory.sample(self.batch_size)
+        self.info = {}
 
         states = np.asarray([e["state"] for e in batchs])
         advantage = np.asarray([e["discounted_reward"] for e in batchs])[..., np.newaxis]
@@ -433,9 +417,9 @@ class Trainer(RLTrainer):
         if self.config.global_gradient_clip_norm != 0:
             grads, _ = tf.clip_by_global_norm(grads, self.config.global_gradient_clip_norm)
         self.optimizer.apply_gradients(zip(grads, self.parameter.model.trainable_variables))
-        self.train_info["policy_loss"] = policy_loss.numpy()
-        self.train_info["value_loss"] = value_loss.numpy()
-        self.train_info["entropy_loss"] = entropy_loss.numpy()
+        self.info["policy_loss"] = policy_loss.numpy()
+        self.info["value_loss"] = value_loss.numpy()
+        self.info["entropy_loss"] = entropy_loss.numpy()
 
         # --- KLペナルティβの調整
         if self.config.surrogate_type == "kl":
@@ -444,17 +428,17 @@ class Trainer(RLTrainer):
                 self.parameter.adaptive_kl_beta /= 2
             elif kl_mean > self.config.adaptive_kl_target * 1.5 and self.parameter.adaptive_kl_beta < 10:
                 self.parameter.adaptive_kl_beta *= 2
-            self.train_info["kl_mean"] = kl_mean
-            self.train_info["kl_beta"] = self.parameter.adaptive_kl_beta
+            self.info["kl_mean"] = kl_mean
+            self.info["kl_beta"] = self.parameter.adaptive_kl_beta
             # nanになる場合は adaptive_kl_target が小さすぎる可能性あり
-
-        self.train_count += 1
 
         # lr_schedule
         if self.lr_sch.update(self.train_count):
             lr = self.lr_sch.get_rate()
             self.optimizer.learning_rate = lr
-            self.train_info["lr"] = lr
+            self.info["lr"] = lr
+
+        self.train_count += 1
 
 
 # ------------------------------------------------------

@@ -83,7 +83,7 @@ RLConfig で実装が必要な関数・プロパティは以下です。
 
       # コンストラクタで使うハイパーパラメータを定義する
       
-      def getName(self) -> str:
+      def get_name(self) -> str:
          """ ユニークな名前を返す """
          raise NotImplementedError()
 

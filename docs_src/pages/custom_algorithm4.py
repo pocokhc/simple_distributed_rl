@@ -30,7 +30,7 @@ class Config(RLConfig):
     def get_use_framework(self) -> str:
         return ""
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "MyRL"
 
 

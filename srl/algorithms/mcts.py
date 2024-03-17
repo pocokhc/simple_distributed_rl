@@ -19,31 +19,31 @@ from srl.rl.memories.sequence_memory import SequenceMemory
 # ------------------------------------------------------
 @dataclass
 class Config(RLConfig):
+    #: シミュレーション回数
     num_simulations: int = 10
+    #: 展開の閾値
     expansion_threshold: int = 5
+    #: 割引率
     discount: float = 1.0
+    #: UCT C
     uct_c: float = np.sqrt(2.0)
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return ""
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "MCTS"
 
-    @property
-    def use_backup_restore(self) -> bool:
+    def get_used_backup_restore(self) -> bool:
         return True
 
-    @property
-    def info_types(self) -> dict:
+    def get_info_types(self) -> dict:
         return {"size": {"type": int, "data": "last"}}
 
 
@@ -107,7 +107,7 @@ class Trainer(RLTrainer):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs = self.memory.sample(self.batch_size, self.train_count)
+        batchs = self.memory.sample()
 
         for batch in batchs:
             state = batch["state"]
@@ -133,7 +133,7 @@ class Worker(RLWorker):
         self.parameter: Parameter = self.parameter
 
     def policy(self, worker: WorkerRun) -> Tuple[int, dict]:
-        self.state = to_str_observation(worker.state, self.config.env_observation_type)
+        self.state = to_str_observation(worker.state, self.config.observation_space.env_type)
         self.invalid_actions = worker.get_invalid_actions()
         self.parameter.init_state(self.state)
 
@@ -170,7 +170,7 @@ class Worker(RLWorker):
             if env.done:
                 pass  # 終了
             else:
-                n_state = to_str_observation(n_state)
+                n_state = to_str_observation(n_state, self.config.observation_space.env_type)
 
                 enemy_turn = player_index != env.next_player_index
 

@@ -2,15 +2,15 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, List, Tuple, cast
+from typing import Any, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import RLBaseTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
-from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.define import InfoType, RLBaseTypes
+from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register
+from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import (
     calc_epsilon_greedy_probs,
     create_beta_list,
@@ -22,7 +22,10 @@ from srl.rl.functions.common import (
     rescaling,
     to_str_observation,
 )
-from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.rl.memories.priority_experience_replay import (
+    PriorityExperienceReplay,
+    RLConfigComponentPriorityExperienceReplay,
+)
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
@@ -64,12 +67,12 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, PriorityExperienceReplayConfig):
+class Config(RLConfig, RLConfigComponentPriorityExperienceReplay):
     #: ε-greedy parameter for Test
     test_epsilon: float = 0.0
     test_beta: float = 0.0
 
-    lr_ext: float = 0.01  # type: ignore , type OK
+    lr_ext: Union[float, SchedulerConfig] = 0.01
     enable_rescale: bool = False
 
     # retrace
@@ -83,13 +86,13 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
     ucb_epsilon: float = 0.5  # UCBを使う確率
     ucb_beta: float = 1  # UCBのβ
     # actorを使わない場合の設定
-    epsilon: float = 0.1  # type: ignore , type OK
+    epsilon: Union[float, SchedulerConfig] = 0.1
     discount: float = 0.9
     beta: float = 0.1
 
     # intrinsic_reward
     enable_intrinsic_reward: bool = True  # 内部報酬を使うか
-    lr_int: float = 0.01  # type: ignore , type OK
+    lr_int: Union[float, SchedulerConfig] = 0.01
 
     # episodic
     episodic_memory_capacity: int = 30000
@@ -107,25 +110,19 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
     def __post_init__(self):
         super().__post_init__()
-
-        self.lr_ext: SchedulerConfig = SchedulerConfig(cast(float, self.lr_ext))
-        self.lr_int: SchedulerConfig = SchedulerConfig(cast(float, self.lr_int))
-        self.epsilon: SchedulerConfig = SchedulerConfig(cast(float, self.epsilon))
         self.memory.warmup_size = 10
         self.batch_size = 4
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return ""
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "QL_Agent57"
 
     def assert_params(self) -> None:
@@ -134,8 +131,7 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         assert self.actor_num > 0
         assert self.multisteps >= 1
 
-    @property
-    def info_types(self) -> dict:
+    def get_info_types(self) -> dict:
         return {
             "size": {"type": int, "data": "last"},
             "ext_td_error": {},
@@ -278,8 +274,8 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_ext_sch = self.config.lr_ext.create_schedulers()
-        self.lr_int_sch = self.config.lr_int.create_schedulers()
+        self.lr_ext_sch = SchedulerConfig.create_scheduler(self.config.lr_ext)
+        self.lr_int_sch = SchedulerConfig.create_scheduler(self.config.lr_int)
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
@@ -318,12 +314,12 @@ class Trainer(RLTrainer):
 
         # 外部Qを優先
         # priority = abs(ext_td_error) + batch["beta"] * abs(int_td_error)
-        self.memory.update((indices, batchs, np.abs(ext_td_errors)))
+        self.memory.update(indices, batchs, np.abs(ext_td_errors))
 
-        self.train_info = {
+        self.info = {
             "size": len(self.parameter.Q_ext),
-            "ext_td_error": np.mean(ext_td_errors),
-            "int_td_error": np.mean(int_td_errors),
+            "ext_td_error": float(np.mean(ext_td_errors)),
+            "int_td_error": float(np.mean(int_td_errors)),
             "lr_ext": lr_ext,
             "lr_int": lr_int,
         }
@@ -332,7 +328,7 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(DiscreteActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -342,7 +338,7 @@ class Worker(DiscreteActionWorker):
         self.discount_list = create_discount_list(self.config.actor_num)
         self.epsilon_list = create_epsilon_list(self.config.actor_num)
 
-        self.epsilon_scheduler = self.config.epsilon.create_schedulers()
+        self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
         # ucb
         self.actor_index = -1
@@ -350,8 +346,8 @@ class Worker(DiscreteActionWorker):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def call_on_reset(self, state_: np.ndarray, invalid_actions: List[int]) -> dict:
-        state = to_str_observation(state_)
+    def on_reset(self, worker: WorkerRun) -> InfoType:
+        state = to_str_observation(worker.state, self.config.observation_space.env_type)
 
         if self.training:
             if self.config.enable_actor:
@@ -361,7 +357,7 @@ class Worker(DiscreteActionWorker):
                 self.discount = self.discount_list[self.actor_index]
                 self.beta = self.beta_list[self.actor_index]
             else:
-                self.epsilon = self.epsilon_scheduler.get_and_update_rate(self.total_step)
+                self.epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
                 self.discount = self.config.discount
                 self.beta = self.config.beta
         else:
@@ -381,7 +377,7 @@ class Worker(DiscreteActionWorker):
         self._recent_states.pop(0)
         self._recent_states.append(state)
         self.recent_invalid_actions.pop(0)
-        self.recent_invalid_actions.append(invalid_actions)
+        self.recent_invalid_actions.append(worker.invalid_actions)
 
         # sliding-window UCB 用に報酬を保存
         self.prev_episode_reward = 0.0
@@ -429,8 +425,9 @@ class Worker(DiscreteActionWorker):
         # UCB値最大のポリシー（複数あればランダム）
         return np.random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def call_policy(self, _state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
+    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
         state = self._recent_states[-1]
+        invalid_actions = worker.invalid_actions
 
         self.parameter.init_state(state, invalid_actions)
         q_ext = np.asarray(self.parameter.Q_ext[state])
@@ -442,19 +439,13 @@ class Worker(DiscreteActionWorker):
         self.prob = probs[self.action]
         return self.action, {}
 
-    def call_on_step(
-        self,
-        next_state: Any,
-        reward: float,
-        done: bool,
-        next_invalid_actions: List[int],
-    ) -> dict:
-        self.prev_episode_reward += reward
-        n_state = to_str_observation(next_state)
+    def on_step(self, worker: WorkerRun) -> InfoType:
+        self.prev_episode_reward += worker.reward
+        n_state = to_str_observation(worker.state, self.config.observation_space.env_type)
         self._recent_states.pop(0)
         self._recent_states.append(n_state)
         self.recent_invalid_actions.pop(0)
-        self.recent_invalid_actions.append(next_invalid_actions)
+        self.recent_invalid_actions.append(worker.invalid_actions)
 
         if not self.training:
             return {}
@@ -474,13 +465,13 @@ class Worker(DiscreteActionWorker):
         self.recent_probs.pop(0)
         self.recent_probs.append(self.prob)
         self.recent_ext_rewards.pop(0)
-        self.recent_ext_rewards.append(reward)
+        self.recent_ext_rewards.append(worker.reward)
         self.recent_int_rewards.pop(0)
         self.recent_int_rewards.append(int_reward)
 
-        priority = self._add_memory(done)
+        priority = self._add_memory(worker.terminated)
 
-        if done:
+        if worker.done:
             # 残りstepも追加
             for _ in range(len(self.recent_ext_rewards) - 1):
                 self._recent_states.pop(0)
@@ -490,7 +481,7 @@ class Worker(DiscreteActionWorker):
                 self.recent_ext_rewards.pop(0)
                 self.recent_int_rewards.pop(0)
 
-                self._add_memory(done)
+                self._add_memory(worker.terminated)
 
         return {
             "episodic_reward": episodic_reward,

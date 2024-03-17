@@ -3,6 +3,7 @@ import datetime
 import logging
 import os
 import pickle
+import pprint
 import re
 import traceback
 from dataclasses import dataclass
@@ -377,7 +378,7 @@ class Runner:
 
         # --- device
         if not Runner.__setup_device:
-            framework = self.rl_config.get_use_framework()
+            framework = self.rl_config.get_framework()
             if framework == "":
                 return
             device = self.get_device(self.context.run_name, self.context.actor_id)
@@ -673,7 +674,6 @@ class Runner:
         )
 
     def print_config(self):
-        import pprint
 
         print(f"env\n{pprint.pformat(self.env_config.to_dict())}")
         print(f"rl\n{pprint.pformat(self.rl_config.to_dict())}")
@@ -731,7 +731,7 @@ class Runner:
     # path
     # ------------------------------
     def get_dirname1(self) -> str:
-        dir_name = f"{self.context.env_config.name}_{self.context.rl_config.getName()}"
+        dir_name = f"{self.context.env_config.name}_{self.context.rl_config.get_name()}"
         dir_name = re.sub(r'[\\/:?."<>\|]', "_", dir_name)
         return dir_name
 

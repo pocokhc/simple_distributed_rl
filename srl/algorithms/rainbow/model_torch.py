@@ -6,8 +6,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from srl.base.define import InfoType
 from srl.base.rl.base import RLTrainer
+from srl.rl.models.torch_ import helper
+from srl.rl.models.torch_.blocks.input_block import create_in_block_out_value
 from srl.rl.models.torch_.input_block import InputBlock
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 from .rainbow import CommonInterfaceParameter, Config
 from .rainbow_nomultisteps import calc_target_q
@@ -20,31 +24,21 @@ class _QNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.in_block = InputBlock(config.observation_shape, config.env_observation_type)
-        if self.in_block.use_image_layer:
-            self.image_block = config.image_block.create_block_torch(
-                self.in_block.out_shape,
-                enable_time_distributed_layer=False,
-            )
-            self.image_flatten = nn.Flatten()
-            in_size = self.image_block.out_shape[0] * self.image_block.out_shape[1] * self.image_block.out_shape[2]
-        else:
-            flat_shape = np.zeros(config.observation_shape).flatten().shape
-            in_size = flat_shape[0]
+        self.input_block = create_in_block_out_value(
+            config.input_value_block,
+            config.input_image_block,
+            config.observation_space,
+        )
 
-        # out
-        self.dueling_block = config.dueling_network.create_block_torch(
-            in_size,
+        self.hidden_block = config.hidden_block.create_block_torch(
+            self.input_block.out_size,
             config.action_num,
             enable_noisy_dense=config.enable_noisy_dense,
         )
 
     def forward(self, x):
-        x = self.in_block(x)
-        if self.in_block.use_image_layer:
-            x = self.image_block(x)
-            x = self.image_flatten(x)
-        x = self.dueling_block(x)
+        x = self.input_block(x)
+        x = self.hidden_block(x)
         return x
 
 
@@ -83,6 +77,8 @@ class Parameter(CommonInterfaceParameter):
         print(self.q_online)
 
     # ----------------------------------------------
+    def create_batch_data(self, state):
+        return helper.create_batch_data(state, self.config.observation_space, self.device)
 
     def predict_q(self, state: np.ndarray) -> np.ndarray:
         self.q_online.eval()
@@ -107,12 +103,12 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_sch = self.config.lr.create_schedulers()
-
+        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
         self.optimizer = optim.Adam(self.parameter.q_online.parameters(), lr=self.lr_sch.get_rate())
         self.criterion = nn.HuberLoss()
 
         self.sync_count = 0
+        self.loss = None
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
@@ -138,9 +134,9 @@ class Trainer(RLTrainer):
         q = self.parameter.q_online(states)
         q = torch.sum(q * onehot_actions, dim=1)
 
-        loss = self.criterion(target_q * weights, q * weights)
+        self.loss = self.criterion(target_q * weights, q * weights)
         self.optimizer.zero_grad()
-        loss.backward()
+        self.loss.backward()
         self.optimizer.step()
 
         if self.lr_sch.update(self.train_count):
@@ -150,7 +146,7 @@ class Trainer(RLTrainer):
 
         # --- update
         priorities = np.abs((target_q - q).to("cpu").detach().numpy())
-        self.memory.update((indices, batchs, priorities))
+        self.memory.update(indices, batchs, priorities)
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
@@ -158,8 +154,13 @@ class Trainer(RLTrainer):
             self.sync_count += 1
 
         self.train_count += 1
-        self.train_info = {
-            "loss": loss.item(),
+
+    def create_info(self) -> InfoType:
+        d = {
             "sync": self.sync_count,
             "lr": self.lr_sch.get_rate(),
         }
+        if self.loss is not None:
+            d["loss"] = self.loss.item()
+        self.loss = None
+        return d

@@ -2,20 +2,21 @@ import collections
 import random
 from dataclasses import dataclass
 from functools import reduce
-from typing import Any, List, Optional, Tuple, cast
+from typing import Any, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLBaseTypes, RLMemoryTypes, RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
-from srl.base.rl.base import RLMemory, RLParameter, RLTrainer
+from srl.base.define import EnvTypes, RLBaseTypes, RLMemoryTypes, RLTypes
+from srl.base.rl.base import RLMemory, RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.worker_run import WorkerRun
-from srl.rl.models.tf.input_block import InputImageBlock
+from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.tf.blocks.input_block import create_input_image_layers
+from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -31,10 +32,10 @@ ref: https://github.com/zacwellmer/WorldModels
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig, RLConfigComponentFramework):
     train_mode: int = 1
 
-    lr: float = 0.001  # type: ignore , type OK
+    lr: Union[float, SchedulerConfig] = 0.001
     batch_size: int = 32
     capacity: int = 100_000
     memory_warmup_size: int = 100
@@ -59,10 +60,6 @@ class Config(RLConfig):
     # other
     dummy_state_val: float = 0.0
 
-    def __post_init__(self):
-        super().__post_init__()
-        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
-
     def get_changeable_parameters(self) -> List[str]:
         return [
             "train_mode",
@@ -75,27 +72,25 @@ class Config(RLConfig):
             "blx_a",
         ]
 
-    def set_processor(self) -> List[Processor]:
+    def get_processors(self) -> List[ObservationProcessor]:
         return [
             ImageProcessor(
-                image_type=EnvObservationTypes.COLOR,
+                image_type=EnvTypes.COLOR,
                 resize=(64, 64),
                 enable_norm=True,
             )
         ]
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return "tensorflow"
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "WorldModels"
 
     def assert_params(self) -> None:
@@ -104,8 +99,7 @@ class Config(RLConfig):
         assert self.batch_size <= self.memory_warmup_size
         assert self.temperature >= 0
 
-    @property
-    def info_types(self) -> dict:
+    def get_info_types(self) -> dict:
         return {
             "vae_loss": {},
             "rc_loss": {},
@@ -202,7 +196,7 @@ class Memory(RLMemory):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _VAE(keras.Model):
+class _VAE(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -212,7 +206,7 @@ class _VAE(keras.Model):
 
         # --- encoder
         if self.use_image_head:
-            self.in_img_block = InputImageBlock(config.observation_shape, config.env_observation_type)
+            self.in_img_layers = create_input_image_layers(config.observation_space, enable_rnn=False)
 
             assert config.window_length == 1
             self.encoder_in_layers = [
@@ -259,7 +253,8 @@ class _VAE(keras.Model):
 
     def encode(self, x, training=False):
         if self.use_image_head:
-            x = self.in_img_block(x, training=training)
+            for h in self.in_img_layers:
+                x = h(x, training=training)
         for layer in self.encoder_in_layers:
             x = layer(x, training=training)
         z_mean = self.encoder_z_mean_layer(x, training=training)
@@ -286,17 +281,8 @@ class _VAE(keras.Model):
         z = np.random.normal(size=(size, self.z_size))
         return self.decode(z), z
 
-    def summary(self, name: str = "", **kwargs):
-        if self.use_image_head:
-            self.in_img_block.init_model_graph()
 
-        x = kl.Input(shape=self._in_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        model.summary(**kwargs)
-
-
-class _MDNRNN(keras.Model):
+class _MDNRNN(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -383,7 +369,7 @@ class _MDNRNN(keras.Model):
         return self.lstm_layer.cell.get_initial_state(batch_size=1, dtype=tf.float32)
 
 
-class _Controller(keras.Model):
+class _Controller(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -459,7 +445,7 @@ class Trainer(RLTrainer):
         self.parameter: Parameter = self.parameter
         self.memory = cast(Memory, self.memory)
 
-        self.lr_sch = self.config.lr.create_schedulers()
+        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
         self.q_loss = keras.losses.Huber()
@@ -472,22 +458,19 @@ class Trainer(RLTrainer):
         if self.memory.is_warmup_needed():
             return
         batchs = self.memory.sample(self.batch_size, self.train_count)
-
-        _info = {}
+        self.info = {}
 
         if self.config.train_mode == 1:
-            _info.update(self._train_vae(batchs))
+            self.info.update(self._train_vae(batchs))
             self.train_count += 1
         elif self.config.train_mode == 2:
-            _info.update(self._train_rnn(batchs))
+            self.info.update(self._train_rnn(batchs))
             self.train_count += 1
         elif self.config.train_mode == 3:
             params, score = self.memory.c_get()
             if params is not None and self.c_score < score:
                 self.c_score = score
                 self.parameter.controller.set_flat_params(params)
-
-        self.train_info = _info
 
     def _train_vae(self, states):
         x = np.asarray(states)
@@ -582,7 +565,7 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(DiscreteActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -606,10 +589,10 @@ class Worker(DiscreteActionWorker):
                 self.elite_params.append(p)
             self.params_idx = 0
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+    def on_reset(self, worker: WorkerRun) -> dict:
         if self.training and self.sample_collection:
-            self.memory.add("vae", state)
-            self._recent_states = [state]
+            self.memory.add("vae", worker.state)
+            self._recent_states = [worker.state]
             self.recent_actions = []
 
         self.hidden_state = self.parameter.rnn.get_initial_state()
@@ -621,10 +604,10 @@ class Worker(DiscreteActionWorker):
 
         return {}
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
-        self.invalid_actions = invalid_actions
-        self.state = state
-        self.z = self.parameter.vae.encode(state[np.newaxis, ...])
+    def policy(self, worker: WorkerRun) -> Tuple[Any, dict]:
+        self.invalid_actions = worker.invalid_actions
+        self.state = worker.state
+        self.z = self.parameter.vae.encode(worker.state[np.newaxis, ...])
 
         if self.training and self.sample_collection:
             action = cast(int, self.sample_action())
@@ -632,7 +615,7 @@ class Worker(DiscreteActionWorker):
                 self.recent_actions.append(action)
         else:
             q = self.parameter.controller(self.z, self.hidden_state)[0].numpy()  # type:ignore , ignore check "None"
-            q = np.array([(-np.inf if i in invalid_actions else v) for i, v in enumerate(q)])
+            q = np.array([(-np.inf if i in self.invalid_actions else v) for i, v in enumerate(q)])
             action = int(np.argmax(q))  # 複数はほぼないので無視
 
             self.prev_hidden_state = self.hidden_state
@@ -641,13 +624,7 @@ class Worker(DiscreteActionWorker):
         self.action = action
         return action, {}
 
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward: float,
-        done: bool,
-        next_invalid_actions: List[int],
-    ):
+    def on_step(self, worker: WorkerRun) -> dict:
         if not self.training:
             return {}
 
@@ -655,9 +632,9 @@ class Worker(DiscreteActionWorker):
             self.memory.add("vae", self.state)
 
             if len(self._recent_states) < self.config.sequence_length + 1:
-                self._recent_states.append(next_state)
+                self._recent_states.append(worker.state)
 
-            if done:
+            if worker.done:
                 # states : sequence_length + next_state
                 # actions: sequence_length
                 for _ in range(self.config.sequence_length - len(self.recent_actions)):
@@ -672,8 +649,8 @@ class Worker(DiscreteActionWorker):
                 )
 
         if self.config.train_mode == 3:
-            self.total_reward += reward
-            if done:
+            self.total_reward += worker.reward
+            if worker.done:
                 self.elite_rewards[self.params_idx].append(self.total_reward)
                 if len(self.elite_rewards[self.params_idx]) == self.config.num_simulations:
                     self.params_idx += 1
@@ -742,7 +719,7 @@ class Worker(DiscreteActionWorker):
         print(f"VAE RMSE: {rmse:.5f}")
 
     def render_rgb_array(self, worker: WorkerRun, **kwargs) -> Optional[np.ndarray]:
-        if self.config.env_observation_type != EnvObservationTypes.COLOR:
+        if self.config.observation_space.env_type != EnvTypes.COLOR:
             return None
 
         from srl.utils import pygame_wrapper as pw

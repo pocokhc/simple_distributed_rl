@@ -1,21 +1,22 @@
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Tuple, cast
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, RLBaseTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
-from srl.base.rl.base import RLParameter
+from srl.base.define import InfoType, RLBaseTypes
+from srl.base.rl.base import RLParameter, RLWorker
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import ObservationProcessor
+from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
-from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
-from srl.rl.models.dueling_network import DuelingNetworkConfig
-from srl.rl.models.framework_config import FrameworkConfig
-from srl.rl.models.image_block import ImageBlockConfig
-from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.memories.priority_experience_replay import (
+    PriorityExperienceReplay,
+    RLConfigComponentPriorityExperienceReplay,
+)
+from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 """
@@ -57,68 +58,75 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, PriorityExperienceReplayConfig):
-    """<:ref:`PriorityExperienceReplay`>"""
+class Config(
+    RLConfig,
+    RLConfigComponentPriorityExperienceReplay,
+    RLConfigComponentFramework,
+):
+    """
+    <:ref:`RLConfigComponentPriorityExperienceReplay`>
+    <:ref:`RLConfigComponentFramework`>
+    """
 
+    #: ε-greedy parameter for Test
     test_epsilon: float = 0
 
+    #: Learning rate during distributed learning
+    #: :math:`\epsilon_i = \epsilon^{1 + \frac{i}{N-1} \alpha}`
     actor_epsilon: float = 0.4
+    #: Look actor_epsilon
     actor_alpha: float = 7.0
 
-    epsilon: float = 0.1  # type: ignore , type OK
-    lr: float = 0.001  # type: ignore , type OK
+    #: <:ref:`scheduler`> ε-greedy parameter for Train
+    epsilon: Union[float, SchedulerConfig] = 0.1
+    #: Learning rate
+    lr: Union[float, SchedulerConfig] = 0.001
 
-    # --- model
-    framework: FrameworkConfig = field(init=False, default_factory=lambda: FrameworkConfig())
-    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
+    #: <:ref:`MLPBlock`> hidden layer
+    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+
+    #: Discount rate
     discount: float = 0.99
+    #: Synchronization interval to Target network
     target_model_update_interval: int = 1000
+    #: If True, clip the reward to three types [-1,0,1]
     enable_reward_clip: bool = False
 
-    # double dqn
+    #: enable DoubleDQN
     enable_double_dqn: bool = True
-
-    # DuelingNetwork
-    dueling_network: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
-
-    # Multi-step learning
-    multisteps: int = 3
-    retrace_h: float = 1.0
-
-    # noisy dense
+    #: noisy dense
     enable_noisy_dense: bool = False
-
-    # other
+    #: enable rescaling
     enable_rescale: bool = False
+
+    #: Multi-step learning
+    multisteps: int = 3
+    #: retrace parameter h
+    retrace_h: float = 1.0
 
     def __post_init__(self):
         super().__post_init__()
-
-        self.epsilon: SchedulerConfig = SchedulerConfig(cast(float, self.epsilon))
-        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
-
         self.memory.set_proportional_memory()
-        self.dueling_network.set((512,), True)
+        self.hidden_block.set_dueling_network((512,))
 
-    def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
+    def setup_from_actor(self, actor_num: int, actor_id: int) -> None:
         e = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
-        self.epsilon.set_constant(e)
+        self.epsilon = e
 
-    # 論文のハイパーパラメーター
     def set_atari_config(self):
         # Annealing e-greedy
-        self.epsilon.set_linear(1_000_000, 1.0, 0.1)
+        self.epsilon = self.create_scheduler().set_linear(1_000_000, 1.0, 0.1)
+
         # model
-        self.image_block.set_dqn_image()
-        self.dueling_network.set((512,), True, "average")
+        self.input_image_block.set_dqn_block()
+        self.hidden_block.set_dueling_network((512,), dueling_type="average")
+        self.enable_double_dqn = True
 
         self.discount = 0.99
-        self.lr.set_constant(0.0000625)
+        self.lr = 0.0000625
         self.batch_size = 32
         self.target_model_update_interval = 32000
         self.enable_reward_clip = True
-
-        self.enable_double_dqn = True
 
         # memory
         self.memory.warmup_size = 80_000
@@ -139,39 +147,31 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
         # other
         self.enable_rescale = False
 
-    def set_processor(self) -> List[Processor]:
-        return [
-            ImageProcessor(
-                image_type=EnvObservationTypes.GRAY_2ch,
-                resize=(84, 84),
-                enable_norm=True,
-            )
-        ]
+    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+        return [self.input_image_block.get_processor()]
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
 
-    def get_use_framework(self) -> str:
-        return self.framework.get_use_framework()
+    def get_framework(self) -> str:
+        return self.create_framework_str()
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         if self.multisteps == 1:
-            return f"Rainbow_no_multisteps:{self.get_use_framework()}"
+            return f"Rainbow_no_multisteps:{self.get_framework()}"
         else:
-            return f"Rainbow:{self.get_use_framework()}"
+            return f"Rainbow:{self.get_framework()}"
 
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
+        self.assert_params_framework()
         assert self.multisteps > 0
 
-    @property
-    def info_types(self) -> dict:
+    def get_info_types(self) -> dict:
         return {
             "loss": {},
             "sync": {"type": int, "data": "last"},
@@ -196,6 +196,10 @@ class CommonInterfaceParameter(RLParameter, ABC):
         self.config: Config = self.config
 
         self.multi_discounts = np.array([self.config.discount**n for n in range(self.config.multisteps)])
+
+    @abstractmethod
+    def create_batch_data(self, state):
+        raise NotImplementedError()
 
     @abstractmethod
     def predict_q(self, state: np.ndarray) -> np.ndarray:
@@ -312,7 +316,7 @@ class CommonInterfaceParameter(RLParameter, ABC):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(DiscreteActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -321,9 +325,9 @@ class Worker(DiscreteActionWorker):
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
         self.onehot_arr = np.identity(self.config.action_num, dtype=int)
 
-        self.epsilon_sch = self.config.epsilon.create_schedulers()
+        self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+    def on_reset(self, worker: WorkerRun) -> InfoType:
         self._recent_states = [self.dummy_state for _ in range(self.config.multisteps + 1)]
         self._recent_actions = [
             self.onehot_arr[random.randint(0, self.config.action_num - 1)] for _ in range(self.config.multisteps)
@@ -334,15 +338,17 @@ class Worker(DiscreteActionWorker):
         self._recent_invalid_actions = [[] for _ in range(self.config.multisteps)]
 
         self._recent_states.pop(0)
-        self._recent_states.append(state)
+        self._recent_states.append(worker.state)
 
         return {}
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
-        self.state = state
+    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+        self.state = worker.state
+        invalid_actions = worker.get_invalid_actions()
 
         if self.config.enable_noisy_dense:
-            self.q = self.parameter.predict_q(state[np.newaxis, ...])[0]
+            state = self.parameter.create_batch_data(self.state)
+            self.q = self.parameter.predict_q(state)[0]
             self.q[invalid_actions] = -np.inf
             self.action = int(np.argmax(self.q))
             # self.prob = 1.0 #[1]
@@ -359,7 +365,8 @@ class Worker(DiscreteActionWorker):
             self.q = None
             # self.prob = epsilon / valid_action_num #[1]
         else:
-            self.q = self.parameter.predict_q(state[np.newaxis, ...])[0]
+            state = self.parameter.create_batch_data(self.state)
+            self.q = self.parameter.predict_q(state)[0]
             self.q[invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないとして無視）
@@ -368,15 +375,10 @@ class Worker(DiscreteActionWorker):
 
         return self.action, {"epsilon": epsilon}
 
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward: float,
-        done: bool,
-        next_invalid_actions: List[int],
-    ):
+    def on_step(self, worker: WorkerRun) -> InfoType:
+        reward = worker.reward
         self._recent_states.pop(0)
-        self._recent_states.append(next_state)
+        self._recent_states.append(worker.state)
 
         if not self.training:
             return {}
@@ -397,12 +399,12 @@ class Worker(DiscreteActionWorker):
         self._recent_rewards.pop(0)
         self._recent_rewards.append(reward)
         self._recent_done.pop(0)
-        self._recent_done.append(int(not done))
+        self._recent_done.append(int(not worker.terminated))
         self._recent_invalid_actions.pop(0)
-        self._recent_invalid_actions.append(next_invalid_actions)
+        self._recent_invalid_actions.append(worker.get_invalid_actions())
         priority = self._add_memory(None)
 
-        if done:
+        if worker.done:
             # 残りstepも追加
             for _ in range(len(self._recent_rewards) - 1):
                 self._recent_states.pop(0)

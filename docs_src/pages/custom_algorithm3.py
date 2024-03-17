@@ -12,7 +12,7 @@ class MyConfig(RLConfig, PriorityExperienceReplayConfig):
     # RLConfig PriorityExperienceReplayConfig も継承する
     # (順番は RLConfig -> PriorityExperienceReplayConfig )
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "MyConfig"
 
     @property

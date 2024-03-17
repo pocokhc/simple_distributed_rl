@@ -1,17 +1,17 @@
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLBaseTypes, RLTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
-from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.define import InfoType, RLBaseTypes
+from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
+from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import (
     calc_epsilon_greedy_probs,
     create_epsilon_list,
@@ -20,11 +20,14 @@ from srl.rl.functions.common import (
     render_discrete_action,
     rescaling,
 )
-from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
-from srl.rl.models.dueling_network import DuelingNetworkConfig
-from srl.rl.models.image_block import ImageBlockConfig
-from srl.rl.models.tf.input_block import InputImageBlock
-from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.memories.priority_experience_replay import (
+    PriorityExperienceReplay,
+    RLConfigComponentPriorityExperienceReplay,
+)
+from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
+from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
@@ -64,23 +67,30 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, PriorityExperienceReplayConfig):
+class Config(
+    RLConfig,
+    RLConfigComponentPriorityExperienceReplay,
+    RLConfigComponentFramework,
+):
+    """
+    <:ref:`RLConfigComponentPriorityExperienceReplay`>
+    <:ref:`RLConfigComponentFramework`>
+    """
+
     test_epsilon: float = 0
-    epsilon: float = 0.1  # type: ignore , type OK
+    epsilon: Union[float, SchedulerConfig] = 0.1
     actor_epsilon: float = 0.4
     actor_alpha: float = 7.0
 
-    # model
-    image_block: ImageBlockConfig = field(init=False, default_factory=lambda: ImageBlockConfig())
     lstm_units: int = 512
-    dueling_network: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
+    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     # lstm
     burnin: int = 5
     sequence_length: int = 5
 
     discount: float = 0.997
-    lr: float = 0.001  # type: ignore , type OK
+    lr: Union[float, SchedulerConfig] = 0.001
     target_model_update_interval: int = 1000
 
     # double dqn
@@ -98,27 +108,24 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
 
     def __post_init__(self):
         super().__post_init__()
+        self.hidden_block.set_dueling_network()
 
-        self.epsilon: SchedulerConfig = SchedulerConfig(cast(float, self.epsilon))
-        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
-        self.dueling_network.set((512,), True)
-
-    def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
+    def setup_from_actor(self, actor_num: int, actor_id: int) -> None:
         e = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
-        self.epsilon.set_constant(e)
+        self.epsilon = e
 
     # 論文のハイパーパラメーター
     def set_atari_config(self):
         # model
         self.lstm_units = 512
-        self.dueling_network.set((512,), True)
+        self.hidden_block.set_dueling_network((512,))
 
         # lstm
         self.burnin = 40
         self.sequence_length = 80
 
         self.discount = 0.997
-        self.lr.set_constant(0.0001)
+        self.lr = 0.0001
         self.batch_size = 64
         self.target_model_update_interval = 2500
 
@@ -133,34 +140,27 @@ class Config(RLConfig, PriorityExperienceReplayConfig):
             beta_steps=1_000_000,
         )
 
-    def set_processor(self) -> List[Processor]:
-        return [
-            ImageProcessor(
-                image_type=EnvObservationTypes.GRAY_2ch,
-                resize=(84, 84),
-                enable_norm=True,
-            )
-        ]
+    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+        return [self.input_image_block.get_processor()]
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return "tensorflow"
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "R2D2"
 
     def assert_params(self) -> None:
         super().assert_params()
+        self.assert_params_memory()
+        self.assert_params_framework()
         assert self.burnin >= 0
         assert self.sequence_length >= 1
-        self.assert_params_memory()
 
 
 register(
@@ -182,26 +182,29 @@ class Memory(PriorityExperienceReplay):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _QNetwork(keras.Model):
+class _QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
         # --- in block
-        self.in_img_block = None
-        if config.observation_type == RLTypes.IMAGE:
-            self.in_img_block = InputImageBlock(
-                config.observation_shape, config.env_observation_type, enable_time_distributed_layer=True
-            )
-            self.img_block = config.image_block.create_block_tf(enable_time_distributed_layer=True)
-        self.flat_layer = kl.TimeDistributed(kl.Flatten())
+        self.input_block = create_in_block_out_value(
+            config.input_value_block,
+            config.input_image_block,
+            config.observation_space,
+            enable_rnn=True,
+        )
 
         # --- lstm
-        self.lstm_layer = kl.LSTM(config.lstm_units, return_sequences=True, return_state=True)
+        self.lstm_layer = kl.LSTM(
+            config.lstm_units,
+            return_sequences=True,
+            return_state=True,
+        )
 
         # out
-        self.dueling_block = config.dueling_network.create_block_tf(
+        self.hidden_block = config.hidden_block.create_block_tf(
             config.action_num,
-            enable_time_distributed_layer=True,
+            enable_rnn=True,
         )
 
         # build
@@ -213,30 +216,16 @@ class _QNetwork(keras.Model):
         return self._call(x, hidden_states, training)
 
     def _call(self, x, hidden_state=None, training=False):
-        if self.in_img_block is not None:
-            x = self.in_img_block(x, training)
-            x = self.img_block(x, training)
-        x = self.flat_layer(x)
+        x = self.input_block(x, training)
 
         # lstm
         x, h, c = self.lstm_layer(x, initial_state=hidden_state, training=training)
 
-        x = self.dueling_block(x, training=training)
+        x = self.hidden_block(x, training=training)
         return x, [h, c]
 
     def init_hidden_state(self):
         return self.lstm_layer.cell.get_initial_state(batch_size=1, dtype=tf.float32)
-
-    def summary(self, name="", **kwargs):
-        if self.in_img_block is not None:
-            self.in_img_block.init_model_graph()
-            self.img_block.init_model_graph()
-        self.dueling_block.init_model_graph()
-
-        x = kl.Input(self._in_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
-        model.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -271,8 +260,7 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_sch = self.config.lr.create_schedulers()
-
+        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
         self.loss = keras.losses.Huber()
 
@@ -284,7 +272,7 @@ class Trainer(RLTrainer):
         indices, batchs, weights = self.memory.sample(self.batch_size, self.train_count)
 
         td_errors, loss = self._train_on_batchs(batchs, np.array(weights).reshape(-1, 1))
-        self.memory.update((indices, batchs, np.array(td_errors)))
+        self.memory.update(indices, batchs, np.array(td_errors))
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
@@ -292,7 +280,7 @@ class Trainer(RLTrainer):
             self.sync_count += 1
 
         self.train_count += 1
-        self.train_info = {"loss": loss, "sync": self.sync_count}
+        self.info = {"loss": loss, "sync": self.sync_count}
 
     def _train_on_batchs(self, batchs, weights):
         # (batch, dict[x], step) -> (batch, step, x)
@@ -416,17 +404,16 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(DiscreteActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
+        self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
         self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
 
-        self.epsilon_sch = self.config.epsilon.create_schedulers()
-
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+    def on_reset(self, worker: WorkerRun) -> InfoType:
         # states : burnin + sequence_length + next_state
         # actions: sequence_length
         # probs  : sequence_length
@@ -451,9 +438,9 @@ class Worker(DiscreteActionWorker):
         ]
 
         self._recent_states.pop(0)
-        self._recent_states.append(state.astype(np.float32))
+        self._recent_states.append(worker.state.astype(np.float32))
         self.recent_invalid_actions.pop(0)
-        self.recent_invalid_actions.append(invalid_actions)
+        self.recent_invalid_actions.append(worker.invalid_actions)
 
         # TD誤差を計算するか
         if not self.distributed:
@@ -466,9 +453,9 @@ class Worker(DiscreteActionWorker):
 
         return {}
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
-        state = state[np.newaxis, np.newaxis, ...]  # (batch, time step, ...)
-        q, self.hidden_state = self.parameter.q_online(state, self.hidden_state)  # type:ignore , ignore check "None"
+    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+        state = worker.state[np.newaxis, np.newaxis, ...]  # (batch, time step, ...)
+        q, self.hidden_state = self.parameter.q_online(state, self.hidden_state)
         q = q[0][0].numpy()  # (batch, time step, action_num)
 
         if self.training:
@@ -476,35 +463,29 @@ class Worker(DiscreteActionWorker):
         else:
             epsilon = self.config.test_epsilon
 
-        probs = calc_epsilon_greedy_probs(q, invalid_actions, epsilon, self.config.action_num)
+        probs = calc_epsilon_greedy_probs(q, worker.invalid_actions, epsilon, self.config.action_num)
         self.action = random_choice_by_probs(probs)
 
         self.prob = probs[self.action]
         self.q = q
         return self.action, {}
 
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward: float,
-        done: bool,
-        next_invalid_actions: List[int],
-    ) -> Dict:
+    def on_step(self, worker: WorkerRun) -> InfoType:
         if not self.training:
             return {}
 
         self._recent_states.pop(0)
-        self._recent_states.append(next_state.astype(np.float32))
+        self._recent_states.append(worker.state.astype(np.float32))
         self.recent_actions.pop(0)
         self.recent_actions.append(self.action)
         self.recent_probs.pop(0)
         self.recent_probs.append(self.prob)
         self.recent_rewards.pop(0)
-        self.recent_rewards.append(reward)
+        self.recent_rewards.append(worker.reward)
         self.recent_done.pop(0)
-        self.recent_done.append(done)
+        self.recent_done.append(worker.terminated)
         self.recent_invalid_actions.pop(0)
-        self.recent_invalid_actions.append(next_invalid_actions)
+        self.recent_invalid_actions.append(worker.invalid_actions)
         self.recent_hidden_states.pop(0)
         self.recent_hidden_states.append(
             [
@@ -516,14 +497,14 @@ class Worker(DiscreteActionWorker):
         if self._calc_td_error:
             calc_info = {
                 "q": self.q[self.action],
-                "reward": reward,
+                "reward": worker.reward,
             }
         else:
             calc_info = None
 
         self._add_memory(calc_info)
 
-        if done:
+        if worker.done:
             # 残りstepも追加
             for _ in range(len(self.recent_rewards) - 1):
                 self._recent_states.pop(0)

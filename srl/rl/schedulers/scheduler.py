@@ -1,3 +1,5 @@
+from typing import Union
+
 from srl.rl.schedulers.schedulers.base import BaseScheduler
 
 
@@ -26,25 +28,34 @@ class SchedulerConfig:
 
     """
 
-    def __init__(self, rate: float = 0):
+    def __init__(self):
         self._schedulers: list = []
-        self.set_constant(rate)
 
     def clear(self):
         """配列を空にします"""
         self._schedulers = []
+        return self
 
     # --- constant
-    def set_rate(self, rate: float):  # other name
-        """固定値を使用 これはset_constantと同じ動作です。
+    def set(self, rate: float):
+        """固定値を使用
 
         y = rate
 
         Args:
             rate (float): val
         """
-        self.clear()
-        self.add_constant(0, rate)
+        return self.set_constant(rate)
+
+    def set_rate(self, rate: float):
+        """固定値を使用
+
+        y = rate
+
+        Args:
+            rate (float): val
+        """
+        return self.set_constant(rate)
 
     def set_constant(self, rate: float):
         """固定値を使用
@@ -56,6 +67,7 @@ class SchedulerConfig:
         """
         self.clear()
         self.add_constant(0, rate)
+        return self
 
     def add_constant(self, phase_steps: int, rate: float):
         """固定値を追加
@@ -67,6 +79,7 @@ class SchedulerConfig:
             rate (float): val
         """
         self._schedulers.append((phase_steps, "constant", dict(rate=rate)))
+        return self
 
     # --- linear
     def set_linear(self, phase_steps: int, start_rate: float, end_rate: float):
@@ -81,6 +94,7 @@ class SchedulerConfig:
         """
         self.clear()
         self.add_linear(phase_steps, start_rate, end_rate)
+        return self
 
     def add_linear(self, phase_steps: int, start_rate: float, end_rate: float):
         """線形に変化を追加
@@ -103,6 +117,7 @@ class SchedulerConfig:
                 ),
             )
         )
+        return self
 
     # --- cos
     def set_cosine(self, phase_steps: int, start_rate: float):
@@ -114,6 +129,7 @@ class SchedulerConfig:
         """
         self.clear()
         self.add_cosine(phase_steps, start_rate)
+        return self
 
     def add_cosine(self, phase_steps: int, start_rate: float):
         """cosに従って0へ変動
@@ -132,6 +148,7 @@ class SchedulerConfig:
                 ),
             )
         )
+        return self
 
     # --- cos restart
     def set_cosine_with_hard_restarts(self, phase_steps: int, start_rate: float, num_cycles: int):
@@ -144,6 +161,7 @@ class SchedulerConfig:
         """
         self.clear()
         self.add_cosine_with_hard_restarts(phase_steps, start_rate, num_cycles)
+        return self
 
     def add_cosine_with_hard_restarts(self, phase_steps: int, start_rate: float, num_cycles: int):
         """cosに従って0へ変動、ただしnum_cycles数繰り返す
@@ -164,6 +182,7 @@ class SchedulerConfig:
                 ),
             )
         )
+        return self
 
     # --- polynomial
     def set_polynomial(self, phase_steps: int, start_rate: float, power: float = 2):
@@ -178,6 +197,7 @@ class SchedulerConfig:
         """
         self.clear()
         self.add_polynomial(phase_steps, start_rate, power)
+        return self
 
     def add_polynomial(self, phase_steps: int, start_rate: float, power: float = 2):
         """多項式に従って0へ減少
@@ -200,27 +220,36 @@ class SchedulerConfig:
                 ),
             )
         )
+        return self
 
     # --- custom
     def set_custom(self, phase_steps: int, entry_point: str, kwargs: dict):
         self.clear()
         self.add_custom(phase_steps, entry_point, kwargs)
+        return self
 
     def add_custom(self, phase_steps: int, entry_point: str, kwargs: dict):
         self._schedulers.append((phase_steps, "custom", dict(entry_point=entry_point, kwargs=kwargs)))
+        return self
 
-    # ---------------------------
+    # ------------------------------------------------------
 
-    def create_schedulers(self) -> BaseScheduler:
-        assert len(self._schedulers) > 0, "Set at least one Scheduler."
+    @staticmethod
+    def create_scheduler(sch: Union[float, "SchedulerConfig"]) -> BaseScheduler:
+        if not isinstance(sch, SchedulerConfig):
+            o = SchedulerConfig()
+            o.set_constant(sch)
+            sch = o
+        assert len(sch._schedulers) > 0, "Set at least one Scheduler."
 
-        if len(self._schedulers) == 1:
-            c = self._schedulers[0]
-            return self.create_scheduler(c[1], c[2])
+        if len(sch._schedulers) == 1:
+            c = sch._schedulers[0]
+            return sch._create_scheduler(c[1], c[2])
         else:
-            return ListScheduler(self, self._schedulers)
+            return ListScheduler(sch, sch._schedulers)
 
-    def create_scheduler(self, name: str, kwargs) -> BaseScheduler:
+    @staticmethod
+    def _create_scheduler(name: str, kwargs) -> BaseScheduler:
         if name == "constant":
             from srl.rl.schedulers.schedulers.constant import Constant
 
@@ -262,7 +291,7 @@ class SchedulerConfig:
 
         import matplotlib.pyplot as plt
 
-        sch = self.create_schedulers()
+        sch = self.create_scheduler(self)
 
         max_steps = 0
         for phase_steps, name, kwargs in self._schedulers:

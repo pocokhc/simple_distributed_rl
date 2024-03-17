@@ -44,8 +44,7 @@ class _GetRGBCallback(RunCallback):
             "state": env.state,
             "invalid_actions": env.get_invalid_actions(),
             "rewards": env.step_rewards,
-            "done": env.done,
-            "done_reason": env.done_reason,
+            "done": env.done_type.name,
             "env_info": env.info,
         }
         # --- render info

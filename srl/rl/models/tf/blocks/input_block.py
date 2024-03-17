@@ -1,16 +1,15 @@
-import enum
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvTypes, RLTypes
+from srl.base.define import EnvTypes, MultiVariableTypes, RLTypes
 from srl.base.exception import NotSupportedError, TFLayerError, UndefinedError
 from srl.base.spaces.multi import MultiSpace
 from srl.base.spaces.space import SpaceBase
-from srl.rl.models.image_block import ImageBlockConfig
-from srl.rl.models.mlp_block import MLPBlockConfig
+from srl.rl.models.config.image_block import ImageBlockConfig
+from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
@@ -19,74 +18,79 @@ kl = keras.layers
 logger = logging.getLogger(__name__)
 
 
-class MultiVariableTypes(enum.Enum):
-    VALUE = enum.auto()
-    IMAGE = enum.auto()
-
-
 def create_in_block_out_multi(
     value_block_config: MLPBlockConfig,
     image_block_config: ImageBlockConfig,
     observation_space: SpaceBase,
-    enable_time_distributed_layer: bool = False,
+    enable_rnn: bool = False,
 ) -> Tuple[keras.Model, List[MultiVariableTypes]]:
     if isinstance(observation_space, MultiSpace):
         o = InputMultiBlock(
             value_block_config,
             image_block_config,
             observation_space,
-            enable_time_distributed_layer,
-            is_image_flatten=False,
             is_concat=False,
+            enable_rnn=enable_rnn,
         )
         return o, o.out_types
     elif observation_space.rl_type == RLTypes.IMAGE:
         return InputImageBlock(
             image_block_config,
             observation_space,
-            enable_time_distributed_layer,
+            enable_rnn,
             is_flatten=False,
             out_multi=True,
         ), [MultiVariableTypes.IMAGE]
     else:
-        return InputValueBlock(value_block_config, out_multi=True), [MultiVariableTypes.VALUE]
+        return InputValueBlock(
+            value_block_config,
+            enable_rnn,
+            out_multi=True,
+        ), [MultiVariableTypes.VALUE]
 
 
 def create_in_block_out_value(
     value_block_config: MLPBlockConfig,
     image_block_config: ImageBlockConfig,
     observation_space: SpaceBase,
-    enable_time_distributed_layer: bool = False,
+    enable_rnn: bool = False,
 ) -> keras.Model:
     if isinstance(observation_space, MultiSpace):
         return InputMultiBlock(
             value_block_config,
             image_block_config,
             observation_space,
-            enable_time_distributed_layer,
+            is_concat=True,
+            enable_rnn=enable_rnn,
         )
     elif observation_space.rl_type == RLTypes.IMAGE:
         return InputImageBlock(
             image_block_config,
             observation_space,
-            enable_time_distributed_layer,
+            enable_rnn,
+            is_flatten=True,
+            out_multi=False,
         )
     else:
-        return InputValueBlock(value_block_config)
+        return InputValueBlock(
+            value_block_config,
+            enable_rnn,
+            out_multi=False,
+        )
 
 
 def create_in_block_out_image(
-    image_block_config: Optional[ImageBlockConfig],
+    image_block_config: ImageBlockConfig,
     observation_space: SpaceBase,
-    enable_time_distributed_layer: bool = False,
+    enable_rnn: bool = False,
 ) -> keras.Model:
     if observation_space.rl_type == RLTypes.IMAGE:
-        assert image_block_config is not None
         return InputImageBlock(
             image_block_config,
             observation_space,
-            enable_time_distributed_layer,
+            enable_rnn,
             is_flatten=False,
+            out_multi=False,
         )
     else:
         raise NotSupportedError(observation_space.rl_type)
@@ -95,7 +99,7 @@ def create_in_block_out_image(
 # -------------
 
 
-def create_input_image_layers(obs_space: SpaceBase):
+def create_input_image_layers(obs_space: SpaceBase, enable_rnn: bool):
     err_msg = f"unknown observation_type: {obs_space}"
     layers = []
 
@@ -135,23 +139,30 @@ def create_input_image_layers(obs_space: SpaceBase):
     else:
         raise UndefinedError(obs_space.env_type)
 
+    if enable_rnn:
+        layers = [kl.TimeDistributed(x) for x in layers]
+
     return layers
 
 
 class InputValueBlock(KerasModelAddedSummary):
-    def __init__(self, value_block_config: MLPBlockConfig, out_multi: bool = False):
+    def __init__(self, value_block_config: MLPBlockConfig, enable_rnn: bool, out_multi: bool):
         super().__init__()
         self.out_multi = out_multi
 
-        self.in_layers = [
-            kl.Flatten(),
-            value_block_config.create_block_tf(),
-        ]
+        if enable_rnn:
+            self.flat = kl.TimeDistributed(kl.Flatten())
+        else:
+            self.flat = kl.Flatten()
+        self.val_block = value_block_config.create_block_tf(enable_rnn=enable_rnn)
 
     def call(self, x, training=False):
-        for h in self.in_layers:
-            x = h(x, training=training)
-        return [x] if self.out_multi else x
+        x = self.flat(x)
+        x = self.val_block(x, training=training)
+        if self.out_multi:
+            return [x]
+        else:
+            return x
 
 
 class InputImageBlock(KerasModelAddedSummary):
@@ -159,33 +170,42 @@ class InputImageBlock(KerasModelAddedSummary):
         self,
         image_block_config: ImageBlockConfig,
         observation_space: SpaceBase,
-        enable_time_distributed_layer: bool = False,
-        is_flatten: bool = True,
-        out_multi: bool = False,
+        enable_rnn: bool,
+        is_flatten: bool,
+        out_multi: bool,
     ):
         super().__init__()
         self.out_multi = out_multi
+        self.is_flatten = is_flatten
 
-        self.in_layers = create_input_image_layers(observation_space)
-        self.in_layers.append(image_block_config.create_block_tf(enable_time_distributed_layer))
+        self.in_layers = create_input_image_layers(observation_space, enable_rnn)
+        self.image_block = image_block_config.create_block_tf(enable_rnn)
         if is_flatten:
-            self.in_layers.append(kl.Flatten())
+            if enable_rnn:
+                self.flat = kl.TimeDistributed(kl.Flatten())
+            else:
+                self.flat = kl.Flatten()
 
     def call(self, x, training=False):
         for h in self.in_layers:
             x = h(x, training=training)
-        return [x] if self.out_multi else x
+        x = self.image_block(x, training=training)
+        if self.is_flatten:
+            x = self.flat(x, training=training)
+        if self.out_multi:
+            return [x]
+        else:
+            return x
 
 
 class InputMultiBlock(KerasModelAddedSummary):
     def __init__(
         self,
-        value_block_config: Optional[MLPBlockConfig],
-        image_block_config: Optional[ImageBlockConfig],
+        value_block_config: MLPBlockConfig,
+        image_block_config: ImageBlockConfig,
         observation_space: MultiSpace,
-        enable_time_distributed_layer: bool = False,
-        is_image_flatten: bool = True,
-        is_concat: bool = True,
+        is_concat: bool,
+        enable_rnn: bool,
     ):
         super().__init__()
         self.is_concat = is_concat
@@ -198,10 +218,13 @@ class InputMultiBlock(KerasModelAddedSummary):
                 if image_block_config is None:
                     logger.info("image space is skip")
                     continue
-                layers = create_input_image_layers(space)
-                layers.append(image_block_config.create_block_tf(enable_time_distributed_layer))
-                if is_image_flatten:
-                    layers.append(kl.Flatten())
+                layers = create_input_image_layers(space, enable_rnn)
+                layers.append(image_block_config.create_block_tf(enable_rnn))
+                if is_concat:
+                    if enable_rnn:
+                        layers.append(kl.TimeDistributed(kl.Flatten()))
+                    else:
+                        layers.append(kl.Flatten())
                 self.in_indices.append(i)
                 self.in_layers.append(layers)
                 self.out_types.append(MultiVariableTypes.IMAGE)
@@ -209,10 +232,12 @@ class InputMultiBlock(KerasModelAddedSummary):
                 if value_block_config is None:
                     logger.info("value space is skip")
                     continue
-                layers = [
-                    kl.Flatten(),
-                    value_block_config.create_block_tf(),
-                ]
+                layers = []
+                if enable_rnn:
+                    layers.append(kl.TimeDistributed(kl.Flatten()))
+                else:
+                    layers.append(kl.Flatten())
+                layers.append(value_block_config.create_block_tf(enable_rnn=enable_rnn))
                 self.in_indices.append(i)
                 self.in_layers.append(layers)
                 self.out_types.append(MultiVariableTypes.VALUE)

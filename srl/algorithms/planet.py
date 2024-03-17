@@ -1,22 +1,23 @@
 import random
 import time
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, cast
+from typing import Any, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow import keras
 
-from srl.base.define import EnvObservationTypes, RLBaseTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
-from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.define import EnvTypes, InfoType, RLBaseTypes
+from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.worker_run import WorkerRun
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
-from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
+from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.tf import helper
+from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.utils.common import compare_less_version
 
@@ -34,8 +35,18 @@ ref: https://github.com/danijar/dreamer
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, ExperienceReplayBufferConfig):
-    lr: float = 0.001  # type: ignore , type OK
+class Config(
+    RLConfig,
+    RLConfigComponentExperienceReplayBuffer,
+    RLConfigComponentFramework,
+):
+    """
+    <:ref:`RLConfigComponentExperienceReplayBuffer`>
+    <:ref:`RLConfigComponentFramework`>
+    """
+
+    #: <:ref:`scheduler`> Learning rate
+    lr: Union[float, SchedulerConfig] = 0.001
     batch_length: int = 50
 
     # Model
@@ -68,34 +79,26 @@ class Config(RLConfig, ExperienceReplayBufferConfig):
 
     def __post_init__(self):
         super().__post_init__()
-        self.lr: SchedulerConfig = SchedulerConfig(cast(float, self.lr))
 
-    def set_processor(self) -> List[Processor]:
-        return [
-            ImageProcessor(
-                image_type=EnvObservationTypes.COLOR,
-                resize=(64, 64),
-                enable_norm=True,
-            )
-        ]
+    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+        return [self.input_image_block.get_processor()]
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return "tensorflow"
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "PlaNet"
 
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
+        self.assert_params_framework()
 
 
 register(
@@ -117,7 +120,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _RSSM(keras.Model):
+class _RSSM(KerasModelAddedSummary):
     def __init__(self, stoch=30, deter=200, hidden=200, act=tf.nn.elu):
         super().__init__()
 
@@ -183,7 +186,7 @@ class _RSSM(keras.Model):
         return model.summary(**kwargs)
 
 
-class _ConvEncoder(keras.Model):
+class _ConvEncoder(KerasModelAddedSummary):
     def __init__(self, depth: int = 32, act=tf.nn.relu):
         super().__init__()
 
@@ -202,18 +205,8 @@ class _ConvEncoder(keras.Model):
         x = self.hout(x)
         return x
 
-    def build(self, input_shape):
-        self._input_shape = input_shape
-        super().build((1,) + self._input_shape)
 
-    def summary(self, name="", **kwargs):
-        x = kl.Input(shape=self._input_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        return model.summary(**kwargs)
-
-
-class _ConvDecoder(keras.Model):
+class _ConvDecoder(KerasModelAddedSummary):
     def __init__(self, depth: int = 32, act=tf.nn.relu):
         super().__init__()
 
@@ -242,18 +235,8 @@ class _ConvDecoder(keras.Model):
             reinterpreted_batch_ndims=len(x.shape) - 1,  # type:ignore , ignore check "None"
         )
 
-    def build(self, input_shape):
-        self._input_shape = input_shape
-        super().build((1,) + self._input_shape)
 
-    def summary(self, name="", **kwargs):
-        x = kl.Input(shape=self._input_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x, _summary=True), name=name)
-        return model.summary(**kwargs)
-
-
-class _DenseDecoder(keras.Model):
+class _DenseDecoder(KerasModelAddedSummary):
     def __init__(self, out_shape, layers: int, units: int, dist: str = "normal", act=tf.nn.elu):
         super().__init__()
         self._out_shape = out_shape
@@ -278,16 +261,6 @@ class _DenseDecoder(keras.Model):
         if self._dist == "binary":
             return tfd.Independent(tfd.Bernoulli(x), reinterpreted_batch_ndims=len(self._out_shape))
         raise NotImplementedError(self._dist)
-
-    def build(self, input_shape):
-        self._input_shape = input_shape
-        super().build((1,) + self._input_shape)
-
-    def summary(self, name="", **kwargs):
-        x = kl.Input(shape=self._input_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x, _summary=True), name=name)
-        return model.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -338,7 +311,7 @@ class Trainer(RLTrainer):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.lr_sch = self.config.lr.create_schedulers()
+        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
 
         if compare_less_version(tf.__version__, "2.11.0"):
             self.optimizer = keras.optimizers.Adam(self.lr_sch.get_rate())
@@ -348,12 +321,12 @@ class Trainer(RLTrainer):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs = self.memory.sample(self.batch_size, self.train_count)
+        batchs = self.memory.sample(self.batch_size)
 
         if self.config.enable_overshooting_loss:
-            self.train_info = self._train_latent_overshooting_loss(batchs)
+            self.info = self._train_latent_overshooting_loss(batchs)
         else:
-            self.train_info = self._train(batchs)
+            self.info = self._train(batchs)
 
         self.train_count += 1
 
@@ -560,7 +533,7 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(DiscreteActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -573,7 +546,7 @@ class Worker(DiscreteActionWorker):
         self._recent_actions = []
         self._recent_rewards = []
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+    def on_reset(self, worker: WorkerRun) -> InfoType:
         if self.config.experience_acquisition_method != "loop":
             self._recent_states = []
             self._recent_actions = []
@@ -585,16 +558,15 @@ class Worker(DiscreteActionWorker):
 
         return {}
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
-        self.invalid_actions = invalid_actions
-        self.state = state
+    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
 
         if self.training:
             self.action = cast(int, self.sample_action())
             return self.action, {}
 
         # --- rssm step
-        embed = self.parameter.encode(state[np.newaxis, ...])
+        state = helper.create_batch_data(worker.state, self.config.observation_space)
+        embed = self.parameter.encode(state)
         prev_action = tf.one_hot([self.action], self.config.action_num, axis=1)
         latent, deter, _ = self.parameter.dynamics.obs_step(self.stoch, self.deter, prev_action, embed)
         self.feat = tf.concat([latent["stoch"], deter], axis=1)
@@ -702,18 +674,13 @@ class Worker(DiscreteActionWorker):
             reward += _r.numpy()[0][0]
         return reward
 
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward: float,
-        done: bool,
-        next_invalid_actions: List[int],
-    ):
+    def on_step(self, worker: WorkerRun) -> InfoType:
         if not self.training:
             return {}
+        next_state = worker.state
 
         clip_rewards_fn = dict(none=lambda x: x, tanh=tf.tanh)[self.config.clip_rewards]
-        reward = clip_rewards_fn(reward)
+        reward = clip_rewards_fn(worker.reward)
 
         if self.config.experience_acquisition_method == "loop":
             self._recent_states.append(next_state)
@@ -736,7 +703,7 @@ class Worker(DiscreteActionWorker):
                 self._recent_actions.append(self.action)
                 self._recent_rewards.append(reward)
 
-            if done:
+            if worker.done:
                 for _ in range(self.config.batch_length - len(self._recent_states)):
                     self._recent_states.append(next_state)
                     self._recent_actions.append(random.randint(0, self.config.action_num - 1))
@@ -756,9 +723,11 @@ class Worker(DiscreteActionWorker):
         pass
 
     def render_rgb_array(self, worker: WorkerRun, **kwargs) -> Optional[np.ndarray]:
-        if self.config.env_observation_type != EnvObservationTypes.COLOR:
+        if self.config.observation_space.env_type != EnvTypes.COLOR:
             return None
         from srl.utils import pygame_wrapper as pw
+
+        state = worker.prev_state
 
         _view_action = 4
         _view_sample = 3
@@ -775,11 +744,11 @@ class Worker(DiscreteActionWorker):
 
         # --- decode
         pred_state = self.parameter.decode(self.feat).mode()[0].numpy()  # type:ignore , ignore check "None"
-        rmse = np.sqrt(np.mean((self.state - pred_state) ** 2))
+        rmse = np.sqrt(np.mean((state - pred_state) ** 2))
 
         pred_reward = self.parameter.reward(self.feat).mode()[0][0].numpy()  # type:ignore , ignore check "None"
 
-        img1 = self.state * 255
+        img1 = state * 255
         img2 = pred_state * 255
 
         pw.draw_text(self.screen, 0, 0, "original", color=(255, 255, 255))

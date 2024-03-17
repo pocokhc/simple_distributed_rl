@@ -98,9 +98,9 @@ def test_make_workers():
     workers, main_worker_idx = c.make_workers(env, parameter, memory)
     assert len(workers) == 8
     assert main_worker_idx == 0
-    assert workers[0].config.getName() == "QL"
+    assert workers[0].config.get_name() == "QL"
     for i in range(1, len(workers)):
-        assert workers[i].config.getName() == "random"
+        assert workers[i].config.get_name() == "random"
 
     # --- set
     other_rl = ql.Config()
@@ -126,7 +126,7 @@ def test_make_workers():
     assert isinstance(workers[3].worker, StubWorker)
     assert workers[2].worker != workers[3].worker
     for i in [4, 5, 6, 7]:
-        assert workers[i].config.getName() == "QL"
+        assert workers[i].config.get_name() == "QL"
         assert workers[i].worker.memory is not None
         assert workers[i].worker.parameter is not None
     # other rl

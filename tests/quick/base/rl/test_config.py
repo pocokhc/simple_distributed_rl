@@ -65,7 +65,7 @@ class TestConfig(RLConfig):
     set_base_action_type: RLBaseTypes = RLBaseTypes.ANY
     set_base_observation_type: RLBaseTypes = RLBaseTypes.ANY
 
-    def getName(self) -> str:
+    def get_name(self) -> str:
         return "test"
 
     def get_base_action_type(self) -> RLBaseTypes:

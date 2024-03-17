@@ -1,10 +1,13 @@
 import random
-from typing import List, Tuple
+from typing import Tuple
 
 import numpy as np
 
-from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
+from srl.base.define import InfoType
+from srl.base.rl.base import RLWorker
+from srl.base.rl.worker_run import WorkerRun
 from srl.rl.functions.common import inverse_rescaling, render_discrete_action, rescaling
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 from .rainbow import CommonInterfaceParameter, Config
 
@@ -54,7 +57,7 @@ def calc_target_q(self: CommonInterfaceParameter, batchs, training: bool):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(DiscreteActionWorker):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -64,16 +67,18 @@ class Worker(DiscreteActionWorker):
 
         self.step_epsilon = 0
 
-        self.epsilon_sch = self.config.epsilon.create_schedulers()
+        self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: List[int]) -> dict:
+    def on_reset(self, worker: WorkerRun) -> InfoType:
         return {}
 
-    def call_policy(self, state: np.ndarray, invalid_actions: List[int]) -> Tuple[int, dict]:
-        self.state = state
+    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+        state = worker.state
+        invalid_actions = worker.get_invalid_actions()
 
         if self.config.enable_noisy_dense:
-            self.q = self.parameter.predict_q(state[np.newaxis, ...])[0]
+            state = self.parameter.create_batch_data(state)
+            self.q = self.parameter.predict_q(state)[0]
             self.q[invalid_actions] = -np.inf
             self.action = int(np.argmax(self.q))
             return self.action, {}
@@ -87,7 +92,8 @@ class Worker(DiscreteActionWorker):
             self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
             self.q = None
         else:
-            self.q = self.parameter.predict_q(state[np.newaxis, ...])[0]
+            state = self.parameter.create_batch_data(state)
+            self.q = self.parameter.predict_q(state)[0]
             self.q[invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないとして無視）
@@ -95,15 +101,10 @@ class Worker(DiscreteActionWorker):
 
         return self.action, {"epsilon": epsilon}
 
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward: float,
-        done: bool,
-        next_invalid_actions: List[int],
-    ):
+    def on_step(self, worker: WorkerRun) -> InfoType:
         if not self.training:
             return {}
+        reward = worker.reward
         self.step_epsilon += 1
 
         # reward clip
@@ -126,12 +127,12 @@ class Worker(DiscreteActionWorker):
         ]
         """
         batch = [
-            self.state,
-            next_state,
+            worker.prev_state,
+            worker.state,
             np.identity(self.config.action_num, dtype=int)[self.action],
             reward,
-            int(not done),
-            next_invalid_actions,
+            int(not worker.terminated),
+            worker.get_invalid_actions(),
         ]
 
         if not self.distributed:
@@ -140,7 +141,7 @@ class Worker(DiscreteActionWorker):
             priority = None
         else:
             if self.q is None:
-                self.q = self.parameter.predict_q(self.state[np.newaxis, ...])[0]
+                self.q = self.parameter.predict_q(worker.prev_state[np.newaxis, ...])[0]
             select_q = self.q[self.action]
             target_q = calc_target_q(self.parameter, [batch], training=False)[0]
             priority = abs(target_q - select_q)
@@ -150,7 +151,7 @@ class Worker(DiscreteActionWorker):
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.q is None:
-            q = self.parameter.predict_q(self.state[np.newaxis, ...])[0]
+            q = self.parameter.predict_q(worker.prev_state[np.newaxis, ...])[0]
         else:
             q = self.q
         maxa = np.argmax(q)

@@ -3,15 +3,18 @@ import pickle
 import pprint
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Generic, List, Optional, Tuple, Type, TypeVar, Union, cast
 
 import numpy as np
 
-from srl.base.define import EnvTypes, ObservationModes, RenderModes, RLBaseTypes, RLTypes
+from srl.base.define import ObservationModes, RenderModes, RLBaseTypes, SpaceTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
-from srl.base.exception import UndefinedError
+from srl.base.exception import NotSupportedError, UndefinedError
 from srl.base.rl.processor import EpisodeProcessor, ObservationProcessor, ProcessorType
+from srl.base.spaces.array_continuous import ArrayContinuousSpace
+from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.multi import MultiSpace
 from srl.base.spaces.text import TextSpace
 from srl.utils.serialize import convert_for_json
@@ -22,22 +25,25 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_TActSpace = TypeVar("_TActSpace")
+_TObsSpace = TypeVar("_TObsSpace")
+
 
 @dataclass
-class RLConfig(ABC):
+class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
     """RLConfig はアルゴリズムの動作を定義します。
     アルゴリズム毎に別々のハイパーパラメータがありますが、ここはアルゴリズム共通のパラメータの定義となります。
     """
 
     #: 状態の入力を指定、複数指定するとMultipleSpaceになる
-    observation_mode: Union[str, ObservationModes] = ObservationModes.ENV
+    observation_mode: Union[str, ObservationModes] = ObservationModes.ENV  # type: ignore , type OK
 
-    #: env_observation_type を上書きできます。
+    #: env の observation_type を上書きできます。
     #: 例えばgymの自動判定で想定外のTypeになった場合、ここで上書きできます。
-    override_env_observation_type: EnvTypes = EnvTypes.UNKNOWN
+    override_observation_type: SpaceTypes = SpaceTypes.UNKNOWN
     #: action_type を上書きできます。
-    #: これはアルゴリズム側の base_action_type がANY(Discrete/Continuousどちらも対応できるアルゴリズム)の場合のみ有効になります。
-    override_action_type: RLTypes = RLTypes.UNKNOWN
+    #: これはアルゴリズム側の base_action_type がDiscrete/Continuousどちらも対応できるアルゴリズム)の場合のみ有効になります。
+    override_action_type: SpaceTypes = SpaceTypes.UNKNOWN
 
     #: 連続値から離散値に変換する場合の分割数です。-1の場合round変換で丸めます。
     #: The number of divisions when converting from continuous to discrete values.
@@ -165,10 +171,12 @@ class RLConfig(ABC):
 
         if enable_log:
             logger.info(f"--- {self.get_name()}")
-            logger.info(f"max_episode_steps     : {env.max_episode_steps}")
-            logger.info(f"player_num            : {env.player_num}")
-            logger.info(f"action_space(env)     : {env.action_space}")
-            logger.info(f"observation_space(env): {env.observation_space}")
+            logger.info(f"max_episode_steps      : {env.max_episode_steps}")
+            logger.info(f"player_num             : {env.player_num}")
+            logger.info(f"act_space(env)         : {env.action_space}")
+            logger.info(f"obs_space(env)         : {env.observation_space}")
+            logger.info(f"act_base_type(rl)      : {self.get_base_action_type()}")
+            logger.info(f"obs_base_type(rl)      : {self.get_base_observation_type()}")
 
         # env property
         self.env_max_episode_steps = env.max_episode_steps
@@ -206,33 +214,40 @@ class RLConfig(ABC):
                     self._episode_processors.append(p)
 
         # -------------------------------------------------
-        # observation
+        # observation space, 4種類
+        #  1. env space(original)
+        #  2. overrideやprocessor後のspace(env_obs_spaces_in_rl)
+        #  3. 2をRLへ変換した後の rl obs space
+        #  4. 3を(window length>1) windows length後のspace()
         # -------------------------------------------------
         env_obs_spaces: List[SpaceBase] = []
         self._is_env_obs_multi = False
-        self.observation_mode = ObservationModes.from_str(self.observation_mode)
+
+        # --- ObsMode
+        self.observation_mode: ObservationModes = ObservationModes.from_str(self.observation_mode)
         if self.observation_mode & ObservationModes.ENV:
             env_obs_space = env.observation_space.copy()
             if isinstance(env_obs_space, MultiSpace):
                 self._is_env_obs_multi = True
-                if self.override_env_observation_type != EnvTypes.UNKNOWN and enable_log:
-                    logger.info("override_env_observation_type is not supported in MultiSpace.")
+                if self.override_observation_type != SpaceTypes.UNKNOWN and enable_log:
+                    logger.info("override_observation_type is not supported in MultiSpace.")
                 env_obs_spaces.extend(env_obs_space.spaces)
             else:
                 # --- observation_typeの上書き
-                if self.override_env_observation_type != EnvTypes.UNKNOWN:
-                    if enable_log:
-                        s = "override env observation type: "
-                        s += f"{env.observation_space.env_type} -> {self.override_env_observation_type}"
-                        logger.info(s)
-                    env_obs_space.set_env_type(self.override_env_observation_type)
+                if isinstance(env_obs_space, BoxSpace):
+                    if self.override_observation_type != SpaceTypes.UNKNOWN:
+                        if enable_log:
+                            s = "override observation type: "
+                            s += f"{env.observation_space} -> {self.override_observation_type}"
+                            logger.info(s)
+                        env_obs_space._stype = self.override_observation_type
                 env_obs_spaces.append(env_obs_space)
 
         if self.observation_mode & ObservationModes.RENDER_IMAGE:
             env.config.override_render_mode = RenderModes.rgb_array
             env.reset(render_mode=RenderModes.rgb_array)
             rgb_array = env.render_rgb_array()
-            env_obs_spaces.append(BoxSpace(rgb_array.shape, 0, 255, np.uint8, EnvTypes.COLOR))
+            env_obs_spaces.append(BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.COLOR))
 
         if self.observation_mode & ObservationModes.RENDER_TERMINAL:
             env_obs_spaces.append(TextSpace(TODO))
@@ -255,134 +270,176 @@ class RLConfig(ABC):
                     p_list.append(p)
                 self._obs_processors_list.append(p_list)
 
-        # --- obs type
+        # one step はここで確定
+        assert len(env_obs_spaces) > 0
+        self._env_obs_spaces_in_rl = env_obs_spaces
+        if len(self._env_obs_spaces_in_rl) > 1:
+            self._env_obs_space_in_rl = MultiSpace(env_obs_spaces)
+        else:
+            self._env_obs_space_in_rl = env_obs_spaces[0]
+
+        # --- obs type & space
         # 優先度
-        # 1. RL
-        # 2. obs_space
-        for space in env_obs_spaces:
-            if self.get_base_observation_type() == RLBaseTypes.DISCRETE:
-                rl_type = RLTypes.DISCRETE
-            elif self.get_base_observation_type() == RLBaseTypes.CONTINUOUS:
-                rl_type = RLTypes.CONTINUOUS
-            elif self.get_base_observation_type() == RLBaseTypes.ANY:
-                if space.env_type == EnvTypes.DISCRETE:
-                    rl_type = RLTypes.DISCRETE
+        # 1. RL base type
+        # 2. env obs space type
+        def _create_rl_obs_space(env_spaces: List[SpaceBase]) -> Tuple[List[SpaceBase], SpaceBase]:
+            rl_spaces = []
+            for env_space in env_spaces:
+                if isinstance(env_space, MultiSpace):
+                    raise UndefinedError(env_space)
+
+                # --- type
+                if self.get_base_observation_type() == RLBaseTypes.DISCRETE:
+                    rl_type = SpaceTypes.DISCRETE
+                elif self.get_base_observation_type() == RLBaseTypes.CONTINUOUS:
+                    rl_type = SpaceTypes.CONTINUOUS
+                elif self.get_base_observation_type() == RLBaseTypes.IMAGE:
+                    if SpaceTypes.is_image(env_space.stype):
+                        rl_type = env_space.stype
+                    else:
+                        raise NotSupportedError("This algorithm only supports image formats.")
+                elif self.get_base_observation_type() & RLBaseTypes.DISCRETE:
+                    if env_space.stype == SpaceTypes.DISCRETE:
+                        rl_type = SpaceTypes.DISCRETE
+                    else:
+                        rl_type = SpaceTypes.CONTINUOUS
                 else:
-                    rl_type = RLTypes.CONTINUOUS
-            else:
-                raise UndefinedError(self.get_base_observation_type())
+                    rl_type = SpaceTypes.CONTINUOUS
 
-            # CONTINUOUSなら画像チェックする
-            if rl_type == RLTypes.CONTINUOUS:
-                if space.env_type in [
-                    EnvTypes.GRAY_2ch,
-                    EnvTypes.GRAY_3ch,
-                    EnvTypes.COLOR,
-                    EnvTypes.IMAGE,
-                ]:
-                    rl_type = RLTypes.IMAGE
+                # --- space
+                if rl_type == SpaceTypes.DISCRETE:
+                    # --- division
+                    # RLがDISCRETEで(ENVがCONTINUOUSなら)分割してDISCRETEにする
+                    env_space.create_division_tbl(self.observation_division_num)
 
-            space.set_rl_type(rl_type)
+                    rl_space = ArrayDiscreteSpace(
+                        env_space.list_int_size,
+                        env_space.list_int_low,
+                        env_space.list_int_high,
+                    )
+                else:
+                    if rl_type == SpaceTypes.CONTINUOUS:
+                        if (self.get_base_observation_type() & RLBaseTypes.IMAGE) and SpaceTypes.is_image(
+                            env_space.stype
+                        ):
+                            rl_type = env_space.stype
+                        else:
+                            rl_type = SpaceTypes.CONTINUOUS
+                    rl_space = BoxSpace(
+                        env_space.np_shape,
+                        env_space.np_low,
+                        env_space.np_high,
+                        np.float32,
+                        rl_type,
+                    )
+                rl_spaces.append(rl_space)
 
-            # --- division
-            # RLが DISCRETE で Space が CONTINUOUS なら分割して DISCRETE にする
-            if rl_type == RLTypes.DISCRETE and space.env_type == EnvTypes.CONTINUOUS:
-                space.create_division_tbl(self.observation_division_num)
+            if len(rl_spaces) > 1:
+                if not (self.get_base_observation_type() & RLBaseTypes.MULTI):
+                    raise UndefinedError("This algorithm is not MultiSpace compatible.")
+
+            if len(rl_spaces) == 1:
+                if self.get_base_observation_type() & RLBaseTypes.CONTINUOUS:
+                    return rl_spaces, rl_spaces[0]
+                elif self.get_base_observation_type() & RLBaseTypes.MULTI:
+                    return rl_spaces, MultiSpace(rl_spaces)
+            if self.get_base_observation_type() & RLBaseTypes.MULTI:
+                return rl_spaces, MultiSpace(rl_spaces)
+            return rl_spaces, rl_spaces[0]
+
+        self._rl_obs_spaces_one_step, self._rl_obs_space_one_step = _create_rl_obs_space(self._env_obs_spaces_in_rl)
 
         # --- window_length
-        env_obs_spaces_one_step_in_rl = env_obs_spaces
-        env_obs_spaces_in_rl = env_obs_spaces
         if self.window_length > 1:
-            for i in range(len(env_obs_spaces_one_step_in_rl)):
-                one_space = env_obs_spaces_one_step_in_rl[i]
-                env_obs_spaces_in_rl[i] = BoxSpace(
-                    (self.window_length,) + one_space.shape,
-                    np.min(one_space.low),
-                    np.max(one_space.high),
-                    one_space.dtype,
-                    one_space.env_type,
-                )
-                env_obs_spaces_in_rl[i].set_rl_type(one_space.rl_type)
-
-        # --- multi space
-        # obsはMultiが1つなら展開される
-        assert len(env_obs_spaces_in_rl) > 0
-        if len(env_obs_spaces_in_rl) > 1:
-            self._env_obs_space_in_rl: SpaceBase = MultiSpace(env_obs_spaces_in_rl)
+            self._rl_obs_spaces = [s.create_stack_space(self.window_length) for s in self._rl_obs_spaces_one_step]
+            if self._rl_obs_space_one_step.stype == SpaceTypes.MULTI:
+                self._rl_obs_space = MultiSpace(self._rl_obs_spaces)
+            else:
+                self._rl_obs_space = self._rl_obs_spaces[0]
         else:
-            self._env_obs_space_in_rl: SpaceBase = env_obs_spaces_in_rl[0]
-        self._env_obs_space_one_step_in_rl: List[SpaceBase] = env_obs_spaces_one_step_in_rl
+            self._rl_obs_spaces = self._rl_obs_spaces_one_step
+            self._rl_obs_space = self._rl_obs_space_one_step
 
         # -----------------------
-        #  action
+        # action space, 2種類、特に前処理とかはないのでそのままenvと同じになる
+        # 1. env space(original)
+        # 2. rl action space
         # -----------------------
-        env_act_spaces: List[SpaceBase] = []
         env_act_space = env.action_space.copy()
         if isinstance(env_act_space, MultiSpace):
-            env_act_spaces.extend(env_act_space.spaces)
+            self._env_act_spaces = env_act_space.spaces
         else:
-            env_act_spaces.append(env_act_space)
+            self._env_act_spaces = [env_act_space]
+        if len(self._env_act_spaces) > 1:
+            self._env_act_space = MultiSpace(self._env_act_spaces)
+        else:
+            self._env_act_space = self._env_act_spaces[0]
 
-        # --- act type
+        # --- act type & space
         # 優先度
-        # 1. RL
+        # 1. RL base type
         # 2. override_action_type
-        # 3. action_space
-        for space in env_act_spaces:
+        # 3. env action_space type
+        def _create_rl_act_space(env_spaces: List[SpaceBase]) -> Tuple[List[SpaceBase], SpaceBase]:
+            rl_spaces = []
+            for env_space in env_spaces:
+                rl_spaces.append(_create_rl_act_space_sub(env_space))
+
+            if len(rl_spaces) > 1:
+                if not (self.get_base_action_type() & RLBaseTypes.MULTI):
+                    raise UndefinedError("This algorithm is not MultiSpace compatible.")
+
+            if self.get_base_action_type() & RLBaseTypes.MULTI:
+                return rl_spaces, MultiSpace(rl_spaces)
+
+            return rl_spaces, rl_spaces[0]
+
+        def _create_rl_act_space_sub(env_space: SpaceBase):
+            if isinstance(env_space, MultiSpace):
+                raise UndefinedError(env_space)
+
+            # --- type
             if self.get_base_action_type() == RLBaseTypes.DISCRETE:
-                rl_type = RLTypes.DISCRETE
+                rl_type = SpaceTypes.DISCRETE
             elif self.get_base_action_type() == RLBaseTypes.CONTINUOUS:
-                rl_type = RLTypes.CONTINUOUS
-            elif self.get_base_action_type() == RLBaseTypes.ANY:
-                if self.override_action_type != RLTypes.UNKNOWN:
+                rl_type = SpaceTypes.CONTINUOUS
+            else:
+                if self.override_action_type != RLBaseTypes.NONE:
                     rl_type = self.override_action_type
                 else:
-                    if space.env_type == EnvTypes.DISCRETE:
-                        rl_type = RLTypes.DISCRETE
+                    if env_space.stype == SpaceTypes.DISCRETE:
+                        rl_type = SpaceTypes.DISCRETE
                     else:
-                        rl_type = RLTypes.CONTINUOUS
-            else:
-                raise UndefinedError(self.get_base_action_type())
+                        rl_type = SpaceTypes.CONTINUOUS
 
-            # CONTINUOUSなら画像チェックする
-            if rl_type == RLTypes.CONTINUOUS:
-                if space.env_type in [
-                    EnvTypes.GRAY_2ch,
-                    EnvTypes.GRAY_3ch,
-                    EnvTypes.COLOR,
-                    EnvTypes.IMAGE,
-                ]:
-                    rl_type = RLTypes.IMAGE
+            # --- space
+            if rl_type == SpaceTypes.DISCRETE:
+                # --- division
+                # RLがDISCRETEで(ENVがCONTINUOUSなら)分割してDISCRETEにする
+                env_space.create_division_tbl(self.action_division_num)
 
-            space.set_rl_type(rl_type)
+                return DiscreteSpace(env_space.int_size)
 
-            # --- division
-            # RLが DISCRETE で Space が CONTINUOUS なら分割して DISCRETE にする
-            if rl_type == RLTypes.DISCRETE and space.env_type == EnvTypes.CONTINUOUS:
-                space.create_division_tbl(self.action_division_num)
+            if rl_type == SpaceTypes.CONTINUOUS:
+                return ArrayContinuousSpace(
+                    env_space.list_float_size,
+                    env_space.list_float_low,
+                    env_space.list_float_high,
+                )
 
-        # --- multi space
-        # actはMultiが1つでも保持される
-        assert len(env_act_spaces) > 0
-        if isinstance(env.action_space, MultiSpace):
-            self._env_act_space_in_rl: SpaceBase = MultiSpace(env_act_spaces)
-        elif len(env_act_spaces) > 1:
-            self._env_act_space_in_rl: SpaceBase = MultiSpace(env_act_spaces)
-        else:
-            self._env_act_space_in_rl: SpaceBase = env_act_spaces[0]
+            if SpaceTypes.is_image(rl_type):
+                return BoxSpace(
+                    env_space.np_shape,
+                    env_space.np_low,
+                    env_space.np_high,
+                    stype=rl_type,
+                )
 
-        # ------------------------------
+            raise UndefinedError(self.get_base_action_type())
 
-        # --- set rl property
-        if self._env_act_space_in_rl.rl_type == RLTypes.DISCRETE:
-            self._action_num = self.action_space.n
-            self._action_low = np.ndarray(0)
-            self._action_high = np.ndarray(self._action_num - 1)
-        else:
-            # ANYの場合もCONTINUOUS
-            self._action_num = self.action_space.list_size
-            self._action_low = np.array(self.action_space.list_low)
-            self._action_high = np.array(self.action_space.list_high)
+        self._rl_act_spaces, self._rl_act_space = _create_rl_act_space(self._env_act_spaces)
+
+        # --------------------------------------------
 
         # --- option
         self.setup_from_env(env)
@@ -395,10 +452,12 @@ class RLConfig(ABC):
         self._check_parameter = True
         self._is_setup = True
         if enable_log:
-            logger.info(f"action_space(rl)     : {self._env_act_space_in_rl}")
-            logger.info(f"observation_space(rl): {self._env_obs_space_in_rl}")
+            logger.info(f"act_space(rl)          : {self._rl_act_space}")
+            _s = self._env_obs_spaces_in_rl[0] if len(self._env_obs_spaces_in_rl) == 1 else self._env_obs_spaces_in_rl
+            logger.info(f"obs_space(in rl)       : {_s}")
             if self.window_length > 1:
-                logger.info(f"observation_spaces_one_step(rl): {self._env_obs_space_one_step_in_rl}")
+                logger.info(f"obs_spaces_one_step(rl): {self._rl_obs_space_one_step}")
+            logger.info(f"obs_space(rl)          : {self._rl_obs_space}")
             logger.info("Configuration after setup" + "\n" + pprint.pformat(self.to_dict()))
 
     # --- setup property
@@ -420,32 +479,47 @@ class RLConfig(ABC):
         return self._is_env_obs_multi
 
     @property
-    def action_space(self) -> SpaceBase:
-        return self._env_act_space_in_rl
-
-    @property
-    def action_type(self) -> RLTypes:
-        return self._env_act_space_in_rl.rl_type
+    def observation_space_one_step(self) -> _TObsSpace:
+        # window length==1の時のspaceを返す
+        return cast(_TObsSpace, self._rl_obs_space_one_step)
 
     @property
     def observation_spaces_one_step(self) -> List[SpaceBase]:
-        return self._env_obs_space_one_step_in_rl
+        # window length==1の時のspaceを返す
+        return self._rl_obs_spaces_one_step
 
     @property
-    def observation_space(self) -> SpaceBase:
+    def observation_space(self) -> _TObsSpace:
+        return cast(_TObsSpace, self._rl_obs_space)
+
+    @property
+    def observation_spaces(self) -> List[SpaceBase]:
+        return self._rl_obs_spaces
+
+    @property
+    def observation_spaces_of_env(self) -> List[SpaceBase]:
+        # overrideやprocessor適用後のenv spaceを返す
+        return self._env_obs_spaces_in_rl
+
+    @property
+    def observation_space_of_env(self) -> SpaceBase:
         return self._env_obs_space_in_rl
 
     @property
-    def observation_shape(self) -> Tuple[int, ...]:
-        return self._env_obs_space_in_rl.shape
+    def action_space(self) -> _TActSpace:
+        return cast(_TActSpace, self._rl_act_space)
 
     @property
-    def observation_type(self) -> RLTypes:
-        return self._env_obs_space_in_rl.rl_type
+    def action_spaces(self) -> List[SpaceBase]:
+        return self._rl_act_spaces
 
     @property
-    def observation_type_of_env(self) -> EnvTypes:
-        return self._env_obs_space_in_rl.env_type
+    def action_spaces_of_env(self) -> List[SpaceBase]:
+        return self._env_act_spaces
+
+    @property
+    def action_space_of_env(self) -> SpaceBase:
+        return self._env_act_space
 
     def __setattr__(self, name: str, value):
         if name == "_is_setup":
@@ -507,31 +581,16 @@ class RLConfig(ABC):
             config._is_setup = self._is_setup
         return config
 
-    # ----------------------------------
-    # rl use property(reset後に使えます)
-    # ----------------------------------
-    @property
-    def action_num(self) -> int:
-        return self._action_num
-
-    @property
-    def action_low(self) -> np.ndarray:
-        return self._action_low
-
-    @property
-    def action_high(self) -> np.ndarray:
-        return self._action_high
-
 
 @dataclass
 class DummyRLConfig(RLConfig):
     name: str = "dummy"
 
     def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.ANY
+        return RLBaseTypes.DISCRETE
 
     def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.ANY
+        return RLBaseTypes.DISCRETE
 
     def get_framework(self) -> str:
         return ""

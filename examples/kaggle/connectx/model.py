@@ -22,7 +22,7 @@ class MyConnectXWorker(ExtendWorker):
         # MinMaxの探索数
         self.max_depth = 3
 
-    def call_on_reset(self, worker: WorkerRun) -> dict:
+    def call_on_reset(self, worker) -> dict:
         self.action_num = cast(connectx.ConnectX, worker.env.get_env_base()).action_space.n
         self._is_rl = False
         self.scores = [0] * self.action_num
@@ -30,11 +30,11 @@ class MyConnectXWorker(ExtendWorker):
         self.minmax_count = 0
         return {}
 
-    def call_policy(self, worker: WorkerRun) -> Tuple[int, dict]:
+    def call_policy(self, worker) -> Tuple[int, dict]:
         if worker.env.step_num == 0:
             # --- 先行1ターン目
             # DQNの探索率を0.5にして実行
-            self.rl_config.epsilon.set_constant(0.5)
+            self.rl_config.epsilon = 0.5
             action, info = self.base_worker.policy(worker)
             self._is_rl = True
             return cast(int, action), info
@@ -117,7 +117,7 @@ class MyConnectXWorker(ExtendWorker):
         return scores
 
     # 可視化用
-    def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         print(f"- MinMax count: {self.minmax_count}, {self.minmax_time:.3f}s -")
         print("+---+---+---+---+---+---+---+")
         s = "|"

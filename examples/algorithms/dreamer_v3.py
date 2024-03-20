@@ -28,9 +28,9 @@ def train_grid(mode: str):
     # lr
     rl_config.batch_size = 32
     rl_config.batch_length = 5
-    rl_config.lr_model.set_constant(0.0005)
-    rl_config.lr_critic.set_constant(0.0003)
-    rl_config.lr_actor.set_constant(0.0001)
+    rl_config.lr_model = 0.0005
+    rl_config.lr_critic = 0.0003
+    rl_config.lr_actor = 0.0001
     rl_config.horizon = 3
     # memory
     rl_config.memory.warmup_size = 50
@@ -73,9 +73,9 @@ def train_Pendulum():
     # lr
     rl_config.batch_size = 32
     rl_config.batch_length = 15
-    rl_config.lr_model.set_constant(0.0001)
-    rl_config.lr_critic.set_constant(0.0001)
-    rl_config.lr_actor.set_constant(0.00002)
+    rl_config.lr_model = 0.0001
+    rl_config.lr_critic = 0.0001
+    rl_config.lr_actor = 0.00002
     rl_config.horizon = 5
     # memory
     rl_config.memory.warmup_size = 50

@@ -4,7 +4,9 @@ from typing import Any, Optional
 import srl
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import RLConfig, RLMemory, RLParameter
+from srl.base.rl.config import RLConfig
+from srl.base.rl.memory import RLMemory
+from srl.base.rl.parameter import RLParameter
 
 
 def _run_episode(
@@ -51,7 +53,7 @@ def main(ip: str, port: int):
 
     max_actor = train_config.get("max_actor")
     actor_id = server_state.join_actor(max_actor)
-    rl_config.set_config_by_actor(max_actor, actor_id)
+    rl_config.setup_from_actor(max_actor, actor_id)
 
     env = srl.make_env(env_config)
     parameter = srl.make_parameter(rl_config)

@@ -4,8 +4,8 @@ from multiprocessing.managers import BaseManager
 from typing import Any, List, cast
 
 import srl
-from srl.base.rl.base import RLMemory
 from srl.base.rl.config import RLConfig
+from srl.base.rl.memory import RLMemory
 from srl.base.rl.registration import make_memory_class, make_parameter, make_trainer
 
 # --- env & algorithm
@@ -38,7 +38,7 @@ def _run_actor(
 ):
     env_config = config["env_config"]
     rl_config: RLConfig = config["rl_config"]
-    rl_config.set_config_by_actor(config["actor_num"], actor_id)
+    rl_config.setup_from_actor(config["actor_num"], actor_id)
 
     # make instance
     env = srl.make_env(env_config)

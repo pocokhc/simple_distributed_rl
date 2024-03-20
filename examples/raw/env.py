@@ -8,7 +8,6 @@ def main(env_name):
     env = srl.make_env(env_name)
 
     print(f"action_space     : {env.action_space}")
-    print(f"observation_type : {env.observation_type}")
     print(f"observation_space: {env.observation_space}")
     print(f"player_num       : {env.player_num}")
 

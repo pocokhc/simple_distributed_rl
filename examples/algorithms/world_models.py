@@ -6,6 +6,7 @@ import numpy as np
 
 import srl
 from srl.algorithms import world_models
+from srl.base.define import ObservationModes
 from srl.utils import common
 
 common.logger_print()
@@ -25,7 +26,7 @@ def _create_runner():
         batch_size=64,
         temperature=0.1,
     )
-    rl_config.use_render_image_for_observation = True
+    rl_config.observation_mode = ObservationModes.RENDER_IMAGE
 
     runner = srl.Runner(env_config, rl_config)
     if os.path.isfile(param_path):
@@ -48,7 +49,7 @@ def s1_collect_sample():
 def s2_train_vae():
     runner, rl_config = _create_runner()
     rl_config.train_mode = 1
-    rl_config.lr.set_constant(0.001)
+    rl_config.lr = 0.001
     rl_config.kl_tolerance = 4.0
     runner.train_only(max_train_count=20_000)
     runner.save_parameter(param_path)
@@ -58,7 +59,7 @@ def s2_train_vae():
 def s3_train_rnn():
     runner, rl_config = _create_runner()
     rl_config.train_mode = 2
-    rl_config.lr.set_constant(0.001)
+    rl_config.lr = 0.001
     rl_config.memory_warmup_size = 100
     runner.train_only(max_train_count=50_000)
     runner.save_parameter(param_path)

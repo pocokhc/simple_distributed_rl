@@ -19,7 +19,7 @@ def main():
         sequence_length=5,
         enable_retrace=False,
     )
-    r2d2_base.dueling_network.set((64,), enable=False)
+    r2d2_base.hidden_block.set((64,))
     r2d2_base.memory.capacity = 100_000
 
     # no retrace

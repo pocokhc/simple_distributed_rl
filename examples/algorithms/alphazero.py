@@ -16,23 +16,21 @@ def main():
         sampling_steps=1,
         batch_size=128,
     )
-    rl_config.lr.clear()
+    rl_config.lr = rl_config.create_scheduler()
     rl_config.lr.add_constant(1000, 0.001)
     rl_config.lr.add_constant(4000, 0.0005)
     rl_config.lr.add_constant(1, 0.0002)
     rl_config.memory.capacity = 100_000
     rl_config.memory.warmup_size = 500
     rl_config.input_image_block.set_alphazero_block(9, 64)
-    rl_config.value_block.set_mlp((128,))
-    rl_config.policy_block.set_mlp((128,))
-
-    env_config = srl.EnvConfig("Othello4x4")
+    rl_config.value_block.set((128,))
+    rl_config.policy_block.set((128,))
 
     """
-    othello.LayerProcessor を適用する事で入力形式を変えています。
+    othelloは入力形式を変えています。
     変更後は WxHx2 の画像レイヤーで、WxHが盤面に相当します。
     """
-    rl_config.processors = [othello.LayerProcessor()]
+    env_config = srl.EnvConfig("Othello4x4", {"obs_type": "layer"})
 
     runner = srl.Runner(env_config, rl_config)
 

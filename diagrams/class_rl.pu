@@ -1,17 +1,12 @@
 @startuml class_rl
 
 enum RLBaseTypes {
-    ANY
-    DISCRETE
-    CONTINUOUS
-}
-enum RLTypes {
-    UNKNOWN
     DISCRETE
     CONTINUOUS
     IMAGE
+    TEXT
+    MULTI
 }
-
 
 class WorkerRun {
     env : EnvRun
@@ -20,7 +15,7 @@ class WorkerRun {
     on_step()
     render()
     state_encode(env_state) : rl_state
-    action_encode(env_action) : rl_action
+    action_decode(rl_action) : env_action
 }
 note "Keeps run-time state.\nAbsorbs the difference with the environment." as WorkerRunMemo
 WorkerRun . WorkerRunMemo
@@ -30,7 +25,7 @@ abstract RLWorker {
     config : RLConfig
     parameter : RLParameter
     memory : <color red>IRLMemoryWorker</color>
-    on_reset(worker_run, env_run)
+    on_reset()
     policy()
     on_step()
     render_terminal()
@@ -39,35 +34,12 @@ abstract RLWorker {
 RLWorker -- WorkerRun
 
 
-abstract AlgorithmRLWorker {
-    call_on_reset()
-    call_policy()
-    call_on_step()
-}
-AlgorithmRLWorker -- RLWorker
-
-note as AlgorithmRLWorkerMemo
-Arguments modified by implementation algorithm
-- DiscreteActionWorker
-- ContinuousActionWorker
-- etc..
-end note
-AlgorithmRLWorker <|- AlgorithmRLWorkerMemo
-
-
 abstract RLTrainer {
     config : RLConfig
     parameter : RLParameter
     memory : <color red>IRLMemoryTrainer</color>
     train()
-    train_on_batchs()
 }
-note as RLTrainerMemo
-Use memory only for train,
-implement train_on_batchs for other processes
-end note
-RLTrainer <|-- RLTrainerMemo
-
 
 abstract RLMemory {
     config : RLConfig
@@ -92,17 +64,19 @@ abstract RLParameter {
 
 
 abstract RLConfig {
-    getName() : str
-    get_use_framework() : str
-    base_action_type : RLBaseTypes
-    base_observation_type : RLBaseTypes
-    action_type : RLTypes
-    observation_type : RLTypes
+    .. abstract ..
+    get_name() : str
+    get_base_action_type() : RLBaseTypes
+    get_base_observation_type() : RLBaseTypes
+    get_framework() : str
+    .. Runtime properties ..
+    action_space : SpaceBase
+    observation_space : SpaceBase
+    observation_space_of_env : SpaceBase
 }
 
 
-RLBaseTypes .. RLConfig
-RLTypes .. RLConfig
+RLBaseTypes . RLConfig
 
 RLConfig --- RLWorker
 RLConfig --- RLTrainer

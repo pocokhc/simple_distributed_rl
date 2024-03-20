@@ -1,38 +1,27 @@
 @startuml class_env
 
-enum EnvObservationType {
+enum SpaceTypes {
     DISCRETE
     CONTINUOUS
     GRAY_2ch
     GRAY_3ch
     COLOR
-    SHAPE2
-    SHAPE3
+    IMAGE
+    TEXT
+    MULTI
 }
 
-
 abstract SpaceBase {
-    sample()
-    get_default()
-    rl_type
-    n
+    stype : SpaceTypes
     encode_to_int()
     decode_from_int()
     encode_to_list_int()
     decode_from_list_int()
-    list_size
-    list_low
-    list_high
     encode_to_list_float()
     decode_from_list_float()
-    shape
-    low
-    high
     encode_to_np()
     decode_from_np()
 }
-
-
 note as SpaceMemo
 - DiscreteSpace
 - ArrayDiscreteSpace
@@ -40,28 +29,21 @@ note as SpaceMemo
 - ArrayContinuousSpace
 - BoxSpace
 end note
-
 SpaceBase <|-- SpaceMemo
 
+SpaceBase .. SpaceTypes
 
 abstract EnvBase {
     action_space : SpaceBase
     observation_space : SpaceBase
-    observation_type : EnvObservationType
-    max_episode_steps : int
     player_num : int
+    next_player_index: int
     reset()
     step(action)
-    next_player_index: int
-    backup()
-    restore()
-    close()
-    get_invalid_actions()
     render_terminal()
     render_rgb_array()
 } 
 
-EnvBase .. EnvObservationType
 EnvBase .. SpaceBase
 
 abstract gymnasium.Env {}
@@ -76,15 +58,13 @@ EnvBase -- GymWrapper
 
 
 class EnvRun {
+    config : EnvConfig
+    env : EnvBase
     reset(render_mode, seed)
     step(action)
-    backup()
-    restore()
     render()
-    sample()
-    property_infos
 }
-EnvRun o-- EnvBase
+EnvRun -- EnvBase
 
 note "Keeps run-time state." as EnvRunMemo
 EnvRun . EnvRunMemo

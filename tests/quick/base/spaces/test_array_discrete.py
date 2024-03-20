@@ -25,17 +25,20 @@ def test_space_basic():
     c = space.copy()
     assert space == c
 
-    # --- get_default
+    # --- stack
+    o = space.create_stack_space(3)
+    assert isinstance(o, ArrayDiscreteSpace)
+    assert o == ArrayDiscreteSpace(3 * 3, 0, [2, 5, 3] * 3)
+
+
+def test_space_get_default():
+    space = ArrayDiscreteSpace(3, 0, [2, 5, 3])
+
     assert space.get_default() == [0, 0, 0]
     space = ArrayDiscreteSpace(3, 1, [2, 5, 3])
     assert space.get_default() == [1, 1, 1]
     space = ArrayDiscreteSpace(3, -2, -1)
     assert space.get_default() == [-2, -2, -2]
-
-    # --- stack
-    o = space.create_stack_space(3)
-    assert isinstance(o, ArrayDiscreteSpace)
-    assert o == ArrayDiscreteSpace(3 * 3, 0, [2, 5, 3] * 3)
 
 
 def test_space():

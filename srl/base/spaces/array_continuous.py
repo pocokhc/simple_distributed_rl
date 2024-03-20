@@ -146,7 +146,7 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
         self.division_tbl = np.array(act_list)
         n = len(self.division_tbl)
 
-        logger.info(f"created division: {division_num}(n={n})({time.time()-t0:.3f}s)")
+        logger.info(f"created division: {division_num}(n={n})({time.time() - t0:.3f}s)")
 
     # --------------------------------------
     # action discrete

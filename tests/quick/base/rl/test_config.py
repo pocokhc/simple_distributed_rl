@@ -363,7 +363,7 @@ def test_setup_override():
 
     env_act_space = BoxSpace((2, 2, 2), 0, 1, stype=SpaceTypes.DISCRETE)
     rl_base_act_type = RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS
-    override_act_type = RLBaseTypes.CONTINUOUS
+    override_act_type = SpaceTypes.CONTINUOUS
     true_rl_act_space = ArrayContinuousSpace(2 * 2 * 2, 0, 1)
 
     env = srl.make_env(

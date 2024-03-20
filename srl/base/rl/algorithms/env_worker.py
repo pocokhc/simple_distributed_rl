@@ -3,8 +3,8 @@ from typing import Tuple
 
 from srl.base.define import EnvActionType, InfoType, RLActionType
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import RLWorker
 from srl.base.rl.config import DummyRLConfig
+from srl.base.rl.worker import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 
 

@@ -7,12 +7,12 @@ from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes, KeyBindType
+from srl.base.define import KeyBindType, SpaceTypes
 from srl.base.env import registration
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.genre import SinglePlayEnv
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import ObservationProcessor
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
@@ -67,6 +67,8 @@ class Grid(SinglePlayEnv):
         ],
     )
 
+    obs_type: str = ""  # "" or "layer"
+
     def __post_init__(self):
         self.start_pos_list = []
         for y in range(self.H):
@@ -110,12 +112,17 @@ class Grid(SinglePlayEnv):
         return DiscreteSpace(len(Action))
 
     @property
-    def observation_space(self) -> ArrayDiscreteSpace:
-        return ArrayDiscreteSpace(2, low=0, high=[self.W, self.H])
-
-    @property
-    def observation_type(self) -> EnvObservationTypes:
-        return EnvObservationTypes.DISCRETE
+    def observation_space(self) -> SpaceBase:
+        if self.obs_type == "layer":
+            return BoxSpace(
+                shape=(self.H, self.W, 1),
+                low=0,
+                high=1,
+                dtype=np.uint8,
+                stype=SpaceTypes.IMAGE,
+            )
+        else:
+            return ArrayDiscreteSpace(2, low=0, high=[self.W, self.H])
 
     @property
     def max_episode_steps(self) -> int:
@@ -131,10 +138,10 @@ class Grid(SinglePlayEnv):
             "baseline": self.reward_baseline,
         }
 
-    def call_reset(self) -> Tuple[List[int], dict]:
+    def call_reset(self) -> Tuple[Any, dict]:
         self.player_pos = random.choice(self.start_pos_list)
         self.action = Action.DOWN
-        return list(self.player_pos), {}
+        return self._create_obs(), {}
 
     def backup(self) -> Any:
         return self.player_pos
@@ -142,7 +149,21 @@ class Grid(SinglePlayEnv):
     def restore(self, data: Any) -> None:
         self.player_pos = data
 
-    def call_step(self, action_: int) -> Tuple[List[int], float, bool, dict]:
+    def _create_obs(self):
+        if self.obs_type == "layer":
+            px = self.player_pos[0]
+            py = self.player_pos[1]
+
+            _field = np.zeros((self.H, self.W, 1))
+            for y in range(self.H):
+                for x in range(self.W):
+                    if y == py and x == px:
+                        _field[y][x][0] = 1
+            return _field
+        else:
+            return list(self.player_pos)
+
+    def call_step(self, action_: int) -> Tuple[Any, float, bool, dict]:
         action = Action(action_)
 
         items = self.action_probs[action].items()
@@ -153,7 +174,7 @@ class Grid(SinglePlayEnv):
         self.player_pos = self._move(self.player_pos, self.action)
         reward, done = self.reward_done_func(self.player_pos)
 
-        return list(self.player_pos), reward, done, {}
+        return self._create_obs(), reward, done, {}
 
     def render_terminal(self):
         for y in range(self.H):
@@ -457,23 +478,24 @@ class Grid(SinglePlayEnv):
         return np.mean(rewards)
 
 
-class LayerProcessor(Processor):
+class LayerProcessor(ObservationProcessor):
     def preprocess_observation_space(
         self,
         env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationTypes,
         env: EnvRun,
         rl_config: RLConfig,
-    ) -> Tuple[SpaceBase, EnvObservationTypes]:
+    ) -> SpaceBase:
         _env = cast(Grid, env.unwrapped)
         observation_space = BoxSpace(
+            shape=(_env.H, _env.W, 1),
             low=0,
             high=1,
-            shape=(_env.H, _env.W, 1),
+            dtype=np.uint8,
+            stype=SpaceTypes.IMAGE,
         )
-        return observation_space, EnvObservationTypes.IMAGE
+        return observation_space
 
-    def preprocess_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
+    def preprocess_observation(self, state: np.ndarray, env: EnvRun) -> np.ndarray:
         _env = cast(Grid, env.unwrapped)
 
         px = _env.player_pos[0]

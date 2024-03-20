@@ -262,10 +262,10 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
 
         # [info] , 速度優先して一番最新の状態をそのまま表示
         s_info = ""
-        env_types = state.env.info_types
+        stypes = state.env.info_types
         rl_types = context.rl_config.get_info_types()
         if self.progress_env_info:
-            s_info += to_str_info(state.env.info, env_types)
+            s_info += to_str_info(state.env.info, stypes)
         if self.progress_worker_info:
             s_info += to_str_info(state.workers[self.progress_worker].info, rl_types)
         if self.progress_train_info:

@@ -27,10 +27,10 @@ class MLPBlock(nn.Module):
                 m = NoisyLinear(in_size, layer_sizes[i])
             else:
                 m = nn.Linear(in_size, layer_sizes[i], bias=use_bias)
-            if kernel_initializer != "":
-                set_initializer_torch(m.weight, kernel_initializer)
-            if use_bias and bias_initializer != "":
-                set_initializer_torch(m.bias, bias_initializer)
+                if kernel_initializer != "":
+                    set_initializer_torch(m.weight, kernel_initializer)
+                if use_bias and bias_initializer != "":
+                    set_initializer_torch(m.bias, bias_initializer)
             self.hidden_layers.append(m)
             self.hidden_layers.append(activation(inplace=True))
             in_size = layer_sizes[i]

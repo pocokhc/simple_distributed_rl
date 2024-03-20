@@ -4,7 +4,6 @@ import logging
 from dataclasses import dataclass
 from typing import Any, List, Tuple
 
-from srl.base.define import EnvObservationTypes
 from srl.base.env import registration
 from srl.base.env.genre import SinglePlayEnv
 from srl.base.spaces import ArrayDiscreteSpace, DiscreteSpace
@@ -58,10 +57,6 @@ class IGrid(SinglePlayEnv):
     @property
     def observation_space(self) -> ArrayDiscreteSpace:
         return ArrayDiscreteSpace(2, 0, [self.W, self.H])
-
-    @property
-    def observation_type(self) -> EnvObservationTypes:
-        return EnvObservationTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:

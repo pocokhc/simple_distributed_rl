@@ -1,26 +1,27 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLBaseTypes, RLTypes
+from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import UndefinedError
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions.common import render_discrete_action
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.array_continuous import ArrayContinuousSpace
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.rl.functions import helper
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
-from srl.rl.models.tf import helper
 from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.models.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
 from srl.rl.models.tf.distributions.normal_dist_block import NormalDistBlock
-from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.utils.common import compare_less_version
 
@@ -97,7 +98,7 @@ class Config(
         self.q_hidden_block.set((128, 128, 128))
 
     def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.ANY
+        return RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS
 
     def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
@@ -136,7 +137,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _PolicyNetwork(KerasModelAddedSummary):
+class _PolicyNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
         self.config = config
@@ -150,20 +151,20 @@ class _PolicyNetwork(KerasModelAddedSummary):
 
         # layers
         self.hidden_block = config.policy_hidden_block.create_block_tf()
-        if self.config.action_type == RLTypes.DISCRETE:
-            self.policy_dist_block = CategoricalGumbelDistBlock(config.action_num)
-        elif self.config.action_type == RLTypes.CONTINUOUS:
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
+            self.policy_dist_block = CategoricalGumbelDistBlock(config.action_space.n)
+        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
             self.policy_dist_block = NormalDistBlock(
-                config.action_num,
+                cast(ArrayContinuousSpace, config.action_space).size,
                 enable_squashed=self.config.enable_normal_squashed,
                 enable_stable_gradients=self.config.enable_stable_gradients,
                 stable_gradients_stddev_range=self.config.stable_gradients_stddev_range,
             )
         else:
-            raise UndefinedError(self.config.action_type)
+            raise UndefinedError(self.config.action_space.stype)
 
         # build
-        self.build(helper.create_batch_shape(config.observation_shape, (None,)))
+        self.build((None,) + config.observation_space.shape)
 
     def call(self, x, training=False) -> Any:
         x = self.input_block(x, training)
@@ -177,15 +178,15 @@ class _PolicyNetwork(KerasModelAddedSummary):
     def compute_train_loss(self, state, q1_model, q2_model, alpha):
         p_dist = self.policy_dist_block.get_grad_dist(self(state, training=True))
 
-        if self.config.action_type == RLTypes.DISCRETE:
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
             action = p_dist.sample()
             logpi = p_dist.log_probs()
             entropy = -tf.reduce_sum(tf.exp(logpi) * logpi, axis=1, keepdims=True)
-        elif self.config.action_type == RLTypes.CONTINUOUS:
+        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
             action, logpi = p_dist.sample_and_logprob()
             entropy = -logpi
         else:
-            raise UndefinedError(self.config.action_type)
+            raise UndefinedError(self.config.action_space.stype)
 
         # Q値を出力、小さいほうを使う
         q1 = q1_model([state, action])
@@ -198,7 +199,7 @@ class _PolicyNetwork(KerasModelAddedSummary):
         return policy_loss, logpi
 
 
-class _QNetwork(KerasModelAddedSummary):
+class _QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -213,8 +214,11 @@ class _QNetwork(KerasModelAddedSummary):
         self.q_out_layer = kl.Dense(1)
 
         # build
-        self._in_shape1 = config.observation_shape
-        self._in_shape2 = (config.action_num,)
+        self._in_shape1 = config.observation_space.shape
+        if config.action_space.stype == SpaceTypes.DISCRETE:
+            self._in_shape2 = (config.action_space.n,)
+        else:
+            self._in_shape2 = (config.action_space.size,)
         self.build([(None,) + self._in_shape1, (None,) + self._in_shape2])
 
     def call(self, x, training=False):
@@ -279,7 +283,7 @@ class Parameter(RLParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -301,13 +305,17 @@ class Trainer(RLTrainer):
             self.alpha_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_alpha_sch.get_rate())
 
         # エントロピーαの目標値、-1*アクション数が良いらしい
-        self.target_entropy = -1 * self.config.action_num
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
+            n = self.config.action_space.n
+        else:
+            n = self.config.action_space.size
+        self.target_entropy = -1 * n
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
         batchs = self.memory.sample(self.batch_size)
-        self.train = {}
+        self.info = {}
 
         states = []
         actions = []
@@ -331,15 +339,15 @@ class Trainer(RLTrainer):
 
         # ポリシーより次の状態のアクションを取得し、次の状態のアクションlogpiを取得
         n_p_dist = self.parameter.policy.policy(n_states)
-        if self.config.action_type == RLTypes.DISCRETE:
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
             n_action = n_p_dist.sample(onehot=True)
             n_logpi = n_p_dist.log_prob(n_action)
             entropy = -n_logpi
-        elif self.config.action_type == RLTypes.CONTINUOUS:
+        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
             n_action, n_logpi = n_p_dist.sample_and_logprob()
             entropy = -n_logpi
         else:
-            raise UndefinedError(self.config.action_type)
+            raise UndefinedError(self.config.action_space.stype)
 
         # 2つのQ値から小さいほうを採用(Clipped Double Q learning)
         n_q1 = self.parameter.q1_target([n_states, n_action])
@@ -426,14 +434,16 @@ class Worker(RLWorker):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-    def on_reset(self, worker: WorkerRun) -> dict:
+    def on_reset(self, worker) -> dict:
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[Any, dict]:
+    def policy(self, worker) -> Tuple[Any, dict]:
         self.state = worker.state
 
         p_dist = self.parameter.policy.policy(self.state[np.newaxis, ...])
-        if self.config.action_type == RLTypes.DISCRETE:  # int
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:  # int
+            act_space = cast(DiscreteSpace, self.config.action_space)
+
             self.action = p_dist.sample(onehot=True).numpy()[0]
             env_action = int(np.argmax(self.action))
             if self.rendering:
@@ -441,9 +451,11 @@ class Worker(RLWorker):
 
             # --- debug
             # env_action = self.sample_action()
-            # self.action = np.identity(self.config.action_num, dtype=np.float32)[env_action]
+            # self.action = np.identity(self.config.action_space.n, dtype=np.float32)[env_action]
 
-        elif self.config.action_type == RLTypes.CONTINUOUS:  # float,list[float]
+        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:  # float,list[float]
+            act_space = cast(ArrayContinuousSpace, self.config.action_space)
+
             if self.training:
                 self.action = p_dist.sample().numpy()[0]
             else:
@@ -452,9 +464,9 @@ class Worker(RLWorker):
             if self.config.enable_normal_squashed:
                 # Squashed Gaussian Policy (-1, 1) -> (action range)
                 env_action = (self.action + 1) / 2
-                env_action = self.config.action_low + env_action * (self.config.action_high - self.config.action_low)
+                env_action = act_space.low + env_action * (act_space.high - act_space.low)
             else:
-                env_action = np.clip(self.action, self.config.action_low, self.config.action_high)
+                env_action = np.clip(self.action, act_space.low, act_space.high)
             env_action = env_action.tolist()
 
             if self.rendering:
@@ -462,11 +474,11 @@ class Worker(RLWorker):
                 self.stddev = p_dist.stddev().numpy()[0]
 
         else:
-            raise UndefinedError(self.config.action_type)
+            raise UndefinedError(self.config.action_space.stype)
 
         return env_action, {}
 
-    def on_step(self, worker: WorkerRun) -> dict:
+    def on_step(self, worker) -> dict:
         if not self.training:
             return {}
 
@@ -482,11 +494,11 @@ class Worker(RLWorker):
         return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
-        if self.config.action_type == RLTypes.DISCRETE:
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
             maxa = np.argmax(self.probs)
 
             def _render_sub(a: int) -> str:
-                onehot_a = np.identity(self.config.action_num, dtype=np.float32)[a][np.newaxis, ...]
+                onehot_a = np.identity(self.config.action_space.n, dtype=np.float32)[a][np.newaxis, ...]
                 q1 = self.parameter.q1_online([self.state[np.newaxis, ...], onehot_a])
                 q2 = self.parameter.q2_online([self.state[np.newaxis, ...], onehot_a])
                 q1 = q1.numpy()[0][0]
@@ -495,9 +507,9 @@ class Worker(RLWorker):
                 s = f"{self.probs[a] * 100:5.1f}%, q1 {q1:.5f}, q2 {q2:.5f} "
                 return s
 
-            render_discrete_action(maxa, worker.env, self.config, _render_sub)
+            helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
 
-        elif self.config.action_type == RLTypes.CONTINUOUS:
+        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
             q1 = self.parameter.q1_online([self.state[np.newaxis, ...], self.action[np.newaxis, ...]])
             q2 = self.parameter.q2_online([self.state[np.newaxis, ...], self.action[np.newaxis, ...]])
             q1 = q1.numpy()[0][0]
@@ -509,4 +521,4 @@ class Worker(RLWorker):
             print(f"stddev: {self.stddev}")
 
         else:
-            raise UndefinedError(self.config.action_type)
+            raise UndefinedError(self.config.action_space.stype)

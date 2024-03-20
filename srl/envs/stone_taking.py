@@ -3,7 +3,7 @@ import random
 from dataclasses import dataclass
 from typing import Any, Optional, Tuple, cast
 
-from srl.base.define import EnvActionType, EnvObservationTypes
+from srl.base.define import EnvActionType
 from srl.base.env.env_run import EnvRun
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
@@ -35,10 +35,6 @@ class StoneTaking(TurnBase2Player):
     @property
     def observation_space(self) -> DiscreteSpace:
         return DiscreteSpace(self.stones + 1)
-
-    @property
-    def observation_type(self) -> EnvObservationTypes:
-        return EnvObservationTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:

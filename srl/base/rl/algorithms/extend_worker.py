@@ -2,8 +2,10 @@ from abc import abstractmethod
 from typing import Optional, Tuple
 
 from srl.base.define import InfoType, RLActionType
-from srl.base.rl.base import IRLMemoryWorker, RLParameter, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.memory import IRLMemoryWorker
+from srl.base.rl.parameter import RLParameter
+from srl.base.rl.worker import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 
 

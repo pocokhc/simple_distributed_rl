@@ -90,7 +90,7 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         if state.env is not None:
             self._add_info(self.episode_infos, "env", state.env.info)
         if state.trainer is not None:
-            self._add_info(self.episode_infos, "trainer", state.trainer.train_info)
+            self._add_info(self.episode_infos, "trainer", state.trainer.get_info())
         [self._add_info(self.episode_infos, f"worker{i}", w.info) for i, w in enumerate(state.workers)]
 
     def on_episode_end(self, context: RunContext, state: RunStateActor):
@@ -112,7 +112,7 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             memory = state.memory
             d["memory"] = 0 if memory is None else memory.length()
             if state.trainer is not None:
-                for k, v in state.trainer.train_info.items():
+                for k, v in state.trainer.get_info().items():
                     d[f"trainer_{k}"] = v
 
         assert self.runner is not None
@@ -152,7 +152,7 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self._save_trainer_log(context, state)
 
     def on_trainer_loop(self, context: RunContext, state: RunStateTrainer):
-        self._add_info(self.train_infos, "trainer", state.trainer.train_info)
+        self._add_info(self.train_infos, "trainer", state.trainer.get_info())
 
         if self.interval_mode == "time":
             _time = time.time()

@@ -8,15 +8,18 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvTypes, RLBaseTypes, RLMemoryTypes, RLTypes
-from srl.base.rl.base import RLMemory, RLParameter, RLTrainer, RLWorker
+from srl.base.define import RLBaseTypes, RLMemoryTypes, SpaceTypes
 from srl.base.rl.config import RLConfig
+from srl.base.rl.memory import RLMemory
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.discrete import DiscreteSpace
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.tf.blocks.input_block import create_input_image_layers
-from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -32,7 +35,7 @@ ref: https://github.com/zacwellmer/WorldModels
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, RLConfigComponentFramework):
+class Config(RLConfig[DiscreteSpace, BoxSpace], RLConfigComponentFramework):
     train_mode: int = 1
 
     lr: Union[float, SchedulerConfig] = 0.001
@@ -75,7 +78,7 @@ class Config(RLConfig, RLConfigComponentFramework):
     def get_processors(self) -> List[ObservationProcessor]:
         return [
             ImageProcessor(
-                image_type=EnvTypes.COLOR,
+                image_type=SpaceTypes.COLOR,
                 resize=(64, 64),
                 enable_norm=True,
             )
@@ -196,13 +199,13 @@ class Memory(RLMemory):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _VAE(KerasModelAddedSummary):
+class _VAE(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
         self.z_size = config.z_size
         self.kl_tolerance = config.kl_tolerance
-        self.use_image_head = config.observation_type == RLTypes.IMAGE
+        self.use_image_head = SpaceTypes.is_image(config.observation_space.stype)
 
         # --- encoder
         if self.use_image_head:
@@ -236,16 +239,16 @@ class _VAE(KerasModelAddedSummary):
                 kl.Conv2DTranspose(3, kernel_size=6, strides=2, padding="valid", activation="sigmoid"),
             ]
         else:
-            flatten_shape = np.zeros(config.observation_shape).flatten().shape
+            flatten_shape = np.zeros(config.observation_space.shape).flatten().shape
             self.decoder_in_layers = [
                 kl.Dense(256, activation="relu"),
                 kl.Dense(256, activation="relu"),
                 kl.Dense(flatten_shape[0]),
-                kl.Reshape(config.observation_shape),
+                kl.Reshape(config.observation_space.shape),
             ]
 
         # build
-        self._in_shape = config.observation_shape
+        self._in_shape = config.observation_space.shape
         self.build((None,) + self._in_shape)
 
     def call(self, x, training=False):
@@ -282,11 +285,11 @@ class _VAE(KerasModelAddedSummary):
         return self.decode(z), z
 
 
-class _MDNRNN(KerasModelAddedSummary):
+class _MDNRNN(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.action_num = config.action_num
+        self.action_num = config.action_space.n
         self.z_size = config.z_size
         self.num_mixture = config.num_mixture
         self.temperature = config.temperature
@@ -299,7 +302,7 @@ class _MDNRNN(KerasModelAddedSummary):
 
         # 重みを初期化
         dummy_z = np.zeros(shape=(1, 1, config.z_size), dtype=np.float32)
-        dummy_onehot_action = np.zeros(shape=(1, 1, config.action_num), dtype=np.float32)
+        dummy_onehot_action = np.zeros(shape=(1, 1, config.action_space.n), dtype=np.float32)
         self(dummy_z, dummy_onehot_action, None, return_rnn_only=False, training=False)
 
     def call(self, z, onehot_actions, hidden_state, return_rnn_only, training):
@@ -369,11 +372,11 @@ class _MDNRNN(KerasModelAddedSummary):
         return self.lstm_layer.cell.get_initial_state(batch_size=1, dtype=tf.float32)
 
 
-class _Controller(KerasModelAddedSummary):
+class _Controller(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.out_layer = kl.Dense(config.action_num)
+        self.out_layer = kl.Dense(config.action_space.n)
 
         # 重みを初期化
         dummy_z = np.zeros(shape=(1, config.z_size), dtype=np.float32)
@@ -408,10 +411,9 @@ class _Controller(KerasModelAddedSummary):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class Parameter(RLParameter):
+class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
 
         self.vae = _VAE(self.config)
         self.rnn = _MDNRNN(self.config)
@@ -438,11 +440,9 @@ class Parameter(RLParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
         self.memory = cast(Memory, self.memory)
 
         self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
@@ -526,7 +526,7 @@ class Trainer(RLTrainer):
     def _train_rnn(self, batchs):
         states = np.asarray([b["states"] for b in batchs])
         actions = [b["actions"] for b in batchs]
-        onehot_actions = tf.one_hot(actions, self.config.action_num, axis=2)
+        onehot_actions = tf.one_hot(actions, self.config.action_space.n, axis=2)
 
         # encode
         states = states.reshape((self.config.batch_size * (self.config.sequence_length + 1),) + states.shape[2:])
@@ -565,13 +565,11 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, Parameter, DiscreteSpace, BoxSpace]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
-        self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
+        self.dummy_state = np.full(self.config.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
         self.screen = None
 
         self.sample_collection = self.config.train_mode == 1 or self.config.train_mode == 2
@@ -589,7 +587,7 @@ class Worker(RLWorker):
                 self.elite_params.append(p)
             self.params_idx = 0
 
-    def on_reset(self, worker: WorkerRun) -> dict:
+    def on_reset(self, worker) -> dict:
         if self.training and self.sample_collection:
             self.memory.add("vae", worker.state)
             self._recent_states = [worker.state]
@@ -604,7 +602,7 @@ class Worker(RLWorker):
 
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[Any, dict]:
+    def policy(self, worker) -> Tuple[Any, dict]:
         self.invalid_actions = worker.invalid_actions
         self.state = worker.state
         self.z = self.parameter.vae.encode(worker.state[np.newaxis, ...])
@@ -624,7 +622,7 @@ class Worker(RLWorker):
         self.action = action
         return action, {}
 
-    def on_step(self, worker: WorkerRun) -> dict:
+    def on_step(self, worker) -> dict:
         if not self.training:
             return {}
 
@@ -639,7 +637,7 @@ class Worker(RLWorker):
                 # actions: sequence_length
                 for _ in range(self.config.sequence_length - len(self.recent_actions)):
                     self._recent_states.append(self.dummy_state)
-                    self.recent_actions.append(random.randint(0, self.config.action_num - 1))
+                    self.recent_actions.append(random.randint(0, self.config.action_space.n - 1))
                 self.memory.add(
                     "rnn",
                     {
@@ -718,8 +716,8 @@ class Worker(RLWorker):
         rmse = np.sqrt(np.mean((self.state - pred_state) ** 2))
         print(f"VAE RMSE: {rmse:.5f}")
 
-    def render_rgb_array(self, worker: WorkerRun, **kwargs) -> Optional[np.ndarray]:
-        if self.config.observation_space.env_type != EnvTypes.COLOR:
+    def render_rgb_array(self, worker, **kwargs) -> Optional[np.ndarray]:
+        if self.config.observation_space.stype != SpaceTypes.COLOR:
             return None
 
         from srl.utils import pygame_wrapper as pw
@@ -746,7 +744,7 @@ class Worker(RLWorker):
 
         # 横にアクション後の結果を表示
         invalid_actions = worker.get_invalid_actions()
-        for i, a in enumerate(range(self.config.action_num)):
+        for i, a in enumerate(range(self.config.action_space.n)):
             if a in invalid_actions:
                 continue
             if i > _view_action:

@@ -8,14 +8,16 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow import keras
 
-from srl.base.define import DoneTypes, EnvTypes, InfoType, RLBaseTypes, RLTypes
+from srl.base.define import DoneTypes, InfoType, RLBaseTypes, SpaceTypes
 from srl.base.exception import UndefinedError
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions import common
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.array_continuous import ArrayContinuousSpace
+from srl.rl.functions import helper
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.tf.distributions.bernoulli_dist_block import BernoulliDistBlock
@@ -24,7 +26,6 @@ from srl.rl.models.tf.distributions.categorical_gumbel_dist_block import Categor
 from srl.rl.models.tf.distributions.linear_block import Linear, LinearBlock
 from srl.rl.models.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.rl.models.tf.distributions.twohot_dist_block import TwoHotDistBlock
-from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.utils.common import compare_less_version
@@ -436,7 +437,7 @@ class Config(
         if self.cnn_resize_type == "stride3":
             return [
                 ImageProcessor(
-                    image_type=EnvTypes.COLOR,
+                    image_type=SpaceTypes.COLOR,
                     resize=(96, 96),
                     enable_norm=True,
                 )
@@ -444,17 +445,17 @@ class Config(
         else:
             return [
                 ImageProcessor(
-                    image_type=EnvTypes.COLOR,
+                    image_type=SpaceTypes.COLOR,
                     resize=(64, 64),
                     enable_norm=True,
                 )
             ]
 
     def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.ANY
+        return RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS
 
     def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS
+        return RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return "tensorflow"
@@ -487,7 +488,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _RSSM(KerasModelAddedSummary):
+class _RSSM(keras.Model):
     def __init__(
         self,
         deter: int,
@@ -689,7 +690,11 @@ class _RSSM(KerasModelAddedSummary):
     def build(self, config: Config, embed_size: int):
         self._embed_size = embed_size
         in_stoch, in_deter = self.get_initial_state()
-        in_onehot_action = np.zeros((1, config.action_num), dtype=np.float32)
+        if config.action_space.stype == SpaceTypes.DISCRETE:
+            n = config.action_space.n
+        else:
+            n = config.action_space.size
+        in_onehot_action = np.zeros((1, n), dtype=np.float32)
         in_embed = np.zeros((1, embed_size), dtype=np.float32)
         deter, prior = self.img_step(in_stoch, in_deter, in_onehot_action)
         post = self.obs_step(deter, in_embed)
@@ -700,7 +705,11 @@ class _RSSM(KerasModelAddedSummary):
         _stoch, _deter = self.get_initial_state()
         in_deter = kl.Input((_deter.shape[1],), batch_size=1)
         in_stoch = kl.Input((_stoch.shape[1],), batch_size=1)
-        in_onehot_action = kl.Input((config.action_num,), batch_size=1)
+        if config.action_space.stype == SpaceTypes.DISCRETE:
+            n = config.action_space.n
+        else:
+            n = config.action_space.size
+        in_onehot_action = kl.Input((n,), batch_size=1)
         in_embed = kl.Input((self._embed_size,), batch_size=1)
 
         deter, prior = self.img_step(in_stoch, in_deter, in_onehot_action)
@@ -837,7 +846,7 @@ class _ImageEncoder(keras.Model):
         return model.summary(**kwargs)
 
 
-class _ImageDecoder(KerasModelAddedSummary):
+class _ImageDecoder(keras.Model):
     def __init__(
         self,
         encoder: _ImageEncoder,
@@ -959,7 +968,7 @@ class _ImageDecoder(KerasModelAddedSummary):
             raise UndefinedError(self.dist_type)
 
 
-class _LinearEncoder(KerasModelAddedSummary):
+class _LinearEncoder(keras.Model):
     def __init__(
         self,
         hidden_layer_sizes: Tuple[int, ...],
@@ -988,9 +997,9 @@ class Parameter(RLParameter):
         self.config: Config = self.config
 
         # --- encode/decode
-        if self.config.observation_type == RLTypes.IMAGE:
+        if SpaceTypes.is_image(self.config.observation_space.stype):
             self.encode = _ImageEncoder(
-                self.config.observation_shape,
+                self.config.observation_space.shape,
                 self.config.cnn_depth,
                 self.config.cnn_blocks,
                 self.config.cnn_activation,
@@ -1016,7 +1025,7 @@ class Parameter(RLParameter):
             )
             if self.config.encoder_decoder_dist == "linear":
                 self.decode = LinearBlock(
-                    self.config.observation_shape[-1],
+                    self.config.observation_space.shape[-1],
                     list(reversed(self.config.encoder_decoder_mlp)),
                     activation=self.config.dense_act,
                     use_symlog=self.config.use_symlog,
@@ -1024,7 +1033,7 @@ class Parameter(RLParameter):
                 logger.info("Encoder/Decoder: Linear" + ("(symlog)" if self.config.use_symlog else ""))
             elif self.config.encoder_decoder_dist == "normal":
                 self.decode = NormalDistBlock(
-                    self.config.observation_shape[-1],
+                    self.config.observation_space.shape[-1],
                     list(reversed(self.config.encoder_decoder_mlp)),
                     activation=self.config.dense_act,
                 )
@@ -1133,34 +1142,34 @@ class Parameter(RLParameter):
 
         # --- actor
         logger.info(f"Actor loss: {self.config.actor_loss_type}")
-        if self.config.action_type == RLTypes.DISCRETE:
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
             if self.config.actor_discrete_type == "categorical":
                 self.actor = CategoricalDistBlock(
-                    self.config.action_num,
+                    self.config.action_space.n,
                     self.config.actor_layer_sizes,
                     unimix=self.config.actor_discrete_unimix,
                 )
                 logger.info(f"Actor: Categorical(unimix={self.config.actor_discrete_unimix})")
             elif self.config.actor_discrete_type == "gumbel_categorical":
                 self.actor = CategoricalGumbelDistBlock(
-                    self.config.action_num,
+                    self.config.action_space.n,
                     self.config.actor_layer_sizes,
                 )
                 logger.info("Actor: GumbelCategorical")
             else:
                 raise UndefinedError(self.config.actor_discrete_type)
-        elif self.config.action_type == RLTypes.CONTINUOUS:
+        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
             self.actor = NormalDistBlock(
-                self.config.action_num,
+                self.config.action_space.size,
                 self.config.actor_layer_sizes,
                 enable_squashed=self.config.actor_continuous_enable_normal_squashed,
             )
             logger.info("Actor: Normal")
         else:
-            raise ValueError(self.config.action_type)
+            raise ValueError(self.config.action_space.stype)
 
         # --- build
-        self.encode.build((None,) + self.config.observation_shape)
+        self.encode.build((None,) + self.config.observation_space.shape)
         embed = self.dynamics.build(self.config, self.encode.out_size)
         self.decode.build((None, embed.shape[1]))
         self.reward.build((None, embed.shape[1]))
@@ -1206,7 +1215,7 @@ class Parameter(RLParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -1458,17 +1467,17 @@ class Trainer(RLTrainer):
         entropy = tf.zeros(stoch.shape[0])
         for t in range(self.config.horizon):
             # --- calc action
-            if self.config.action_type == RLTypes.DISCRETE:
+            if self.config.action_space.stype == SpaceTypes.DISCRETE:
                 dist = self.parameter.actor.call_grad_dist(feat)
                 action = dist.sample()
                 if self.config.horizon_policy == "random":
                     action = tf.one_hot(
-                        np.random.randint(0, self.config.action_num - 1, size=stoch.shape[0]),
-                        self.config.action_num,
+                        np.random.randint(0, self.config.action_space.n - 1, size=stoch.shape[0]),
+                        self.config.action_space.n,
                     )
                 log_probs = dist.log_probs()
                 entropy += -tf.reduce_sum(tf.exp(log_probs) * log_probs, axis=-1)
-            elif self.config.action_type == RLTypes.CONTINUOUS:
+            elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
                 dist = self.parameter.actor.call_grad_dist(feat)
                 action, log_prob = dist.sample_and_logprob()
                 horizon_logpi.append(log_prob)
@@ -1476,7 +1485,7 @@ class Trainer(RLTrainer):
                 if self.config.horizon_policy == "random":
                     action = tf.random.normal(action.shape)
             else:
-                raise UndefinedError(self.config.action_type)
+                raise UndefinedError(self.config.action_space.stype)
 
             # --- rssm step
             deter, prior = self.parameter.dynamics.img_step(stoch, deter, action)
@@ -1516,10 +1525,10 @@ class Trainer(RLTrainer):
         elif self.config.actor_loss_type == "dreamer_v2":
             adv = horizon_V[1:]
 
-            if self.config.action_type == RLTypes.DISCRETE:
+            if self.config.action_space.stype == SpaceTypes.DISCRETE:
                 # dynamics backprop 最大化
                 act_v_loss = -tf.reduce_mean(tf.reduce_sum(adv, axis=0))
-            elif self.config.action_type == RLTypes.CONTINUOUS:
+            elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
                 # reinforce 最大化
                 if self.config.reinforce_baseline == "v":
                     adv = adv - horizon_v[1:]
@@ -1532,7 +1541,7 @@ class Trainer(RLTrainer):
                 act_v_loss = -tf.reduce_mean(adv)
 
             else:
-                raise UndefinedError(self.config.action_type)
+                raise UndefinedError(self.config.action_space.stype)
 
             # entropyの最大化
             entropy_loss = -self.config.entropy_rate * tf.reduce_mean(entropy)
@@ -1641,14 +1650,14 @@ class Worker(RLWorker):
 
         self.screen = None
 
-    def on_reset(self, worker: WorkerRun) -> dict:
+    def on_reset(self, worker) -> dict:
         self.stoch, self.deter = self.parameter.dynamics.get_initial_state()
-        if self.config.action_type == RLTypes.DISCRETE:
-            self.action = tf.one_hot([0], self.config.action_num, dtype=tf.float32)
-        elif self.config.action_type == RLTypes.CONTINUOUS:
-            self.action = tf.constant([[0 for _ in range(self.config.action_num)]], dtype=tf.float32)
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
+            self.action = tf.one_hot([0], self.config.action_space.n, dtype=tf.float32)
+        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
+            self.action = tf.constant([[0 for _ in range(self.config.action_space.size)]], dtype=tf.float32)
         else:
-            raise UndefinedError(self.config.action_type)
+            raise UndefinedError(self.config.action_space.stype)
         # 初期状態へのstep
         state = worker.state.astype(np.float32)
         self._recent_actions = [self.action.numpy()[0]]
@@ -1665,39 +1674,41 @@ class Worker(RLWorker):
         self.deter = deter
         self.stoch = post["stoch"]
 
-    def policy(self, worker: WorkerRun) -> Tuple[Any, dict]:
+    def policy(self, worker) -> Tuple[Any, dict]:
         # debug
         if random.random() < self.config.epsilon:
             env_action = self.sample_action()
-            if self.config.action_type == RLTypes.DISCRETE:
-                self.action = tf.one_hot([env_action], self.config.action_num, dtype=tf.float32)
-            elif self.config.action_type == RLTypes.CONTINUOUS:
+            if self.config.action_space.stype == SpaceTypes.DISCRETE:
+                self.action = tf.one_hot([env_action], self.config.action_space.n, dtype=tf.float32)
+            elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
                 self.action = tf.constant([env_action], dtype=tf.float32)
             else:
-                raise UndefinedError(self.config.action_type)
+                raise UndefinedError(self.config.action_space.stype)
             return env_action, {}
 
         dist = self.parameter.actor.call_dist(self.feat)
-        if self.config.action_type == RLTypes.DISCRETE:  # int
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:  # int
             self.action = dist.sample(onehot=True)
             env_action = int(np.argmax(self.action[0]))
-        elif self.config.action_type == RLTypes.CONTINUOUS:  # float,list[float]
+        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:  # float,list[float]
+            act_space = cast(ArrayContinuousSpace, self.config.action_space)
+
             self.action, self.logpi = dist.sample_and_logprob()
             env_action = self.action[0].numpy()
             if self.config.actor_continuous_enable_normal_squashed:
                 # Squashed Gaussian Policy (-1, 1) -> (action range)
                 env_action = (1 + env_action) / 2
-                env_action = self.config.action_low + env_action * (self.config.action_high - self.config.action_low)
+                env_action = act_space.low + env_action * (act_space.high - act_space.low)
             else:
-                env_action = env_action * (self.config.action_high - self.config.action_low) + self.config.action_low
-                env_action = np.clip(env_action, self.config.action_low, self.config.action_high).tolist()
+                env_action = env_action * (act_space.high - act_space.low) + act_space.low
+                env_action = np.clip(env_action, act_space.low, act_space.high).tolist()
             env_action = env_action.tolist()
         else:
-            raise UndefinedError(self.config.action_type)
+            raise UndefinedError(self.config.action_space.stype)
 
         return env_action, {}
 
-    def on_step(self, worker: WorkerRun) -> dict:
+    def on_step(self, worker) -> dict:
         next_state = worker.state.astype(np.float32)
         self._rssm_step(next_state, self.action)
 
@@ -1733,14 +1744,14 @@ class Worker(RLWorker):
         print(pred_state)
         print(f"reward: {pred_reward:.5f}, done: {(1-pred_cont)*100:4.1f}%, v: {value:.5f}")
 
-        if self.config.action_type == RLTypes.DISCRETE:
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
             act_dist = self.parameter.actor.call_dist(self.feat)
             act_probs = act_dist.probs().numpy()[0]
             maxa = np.argmax(act_probs)
 
             def _render_sub(a: int) -> str:
                 # rssm step
-                action = tf.one_hot([a], self.config.action_num, axis=1)
+                action = tf.one_hot([a], self.config.action_space.n, axis=1)
                 deter, prior = self.parameter.dynamics.img_step(self.stoch, self.deter, action)
                 feat = tf.concat([prior["stoch"], deter], axis=1)
 
@@ -1757,8 +1768,8 @@ class Worker(RLWorker):
                 s += f", value {value.numpy()[0][0]:.5f}"
                 return s
 
-            common.render_discrete_action(maxa, worker.env, self.config, _render_sub)
-        elif self.config.action_type == RLTypes.CONTINUOUS:
+            helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
             act_dist = cast(NormalDistBlock, self.parameter.actor).call_dist(self.feat)
             action = act_dist.mean()
             deter, prior = self.parameter.dynamics.img_step(self.stoch, self.deter, action)
@@ -1778,10 +1789,10 @@ class Worker(RLWorker):
             print(f"value : {value[0].numpy()}")
 
         else:
-            raise ValueError(self.config.action_type)
+            raise ValueError(self.config.action_space.stype)
 
     def render_rgb_array(self, worker, **kwargs) -> Optional[np.ndarray]:
-        if self.config.observation_type != RLTypes.IMAGE:
+        if not SpaceTypes.is_image(self.config.observation_space.stype):
             return None
         state = worker.state
 
@@ -1843,12 +1854,12 @@ class Worker(RLWorker):
             color=(255, 255, 255),
         )
 
-        if self.config.action_type == RLTypes.DISCRETE:
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
             act_dist = cast(CategoricalDistBlock, self.parameter.actor).call_dist(self.feat)
             act_probs = act_dist.probs().numpy()[0]
 
             # 横にアクション後の結果を表示
-            for a in range(self.config.action_num):
+            for a in range(self.config.action_space.n):
                 if a in self.get_invalid_actions():
                     continue
                 if a > _view_action:
@@ -1862,7 +1873,7 @@ class Worker(RLWorker):
                     color=(255, 255, 255),
                 )
 
-                action = tf.one_hot([a], self.config.action_num, axis=1)
+                action = tf.one_hot([a], self.config.action_space.n, axis=1)
                 deter, prior = self.parameter.dynamics.img_step(self.stoch, self.deter, action)
                 feat = tf.concat([prior["stoch"], deter], axis=1)
 
@@ -1901,7 +1912,7 @@ class Worker(RLWorker):
                 )
                 pw.draw_image_rgb_array(self.screen, x, y + STR_H * 3, n_img)
 
-        elif self.config.action_type == RLTypes.CONTINUOUS:
+        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
             act_dist = cast(NormalDistBlock, self.parameter.actor).call_dist(self.feat)
             action = act_dist.mean()
             deter, prior = self.parameter.dynamics.img_step(self.stoch, self.deter, action)
@@ -1924,6 +1935,6 @@ class Worker(RLWorker):
             pw.draw_image_rgb_array(self.screen, x, y + STR_H * 3, n_img)
 
         else:
-            raise ValueError(self.config.action_type)
+            raise ValueError(self.config.action_space.stype)
 
         return pw.get_rgb_array(self.screen)

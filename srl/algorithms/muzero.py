@@ -8,28 +8,21 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions.common import (
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-    twohot_decode,
-    twohot_encode,
-)
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.rl.functions import helper
+from srl.rl.functions.common import inverse_rescaling, rescaling, twohot_decode, twohot_encode
 from srl.rl.memories.priority_experience_replay import (
     PriorityExperienceReplay,
     RLConfigComponentPriorityExperienceReplay,
 )
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
-from srl.rl.models.tf import helper
 from srl.rl.models.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.models.tf.blocks.input_block import create_in_block_out_image
-from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.utils.common import compare_less_version
 
@@ -136,7 +129,7 @@ class Config(
         return RLBaseTypes.DISCRETE
 
     def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS
+        return RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return "tensorflow"
@@ -187,7 +180,7 @@ class Memory(PriorityExperienceReplay):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _RepresentationNetwork(KerasModelAddedSummary):
+class _RepresentationNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -198,7 +191,7 @@ class _RepresentationNetwork(KerasModelAddedSummary):
         )
 
         # build & 出力shapeを取得
-        dummy_state = np.zeros(shape=(1,) + config.observation_shape, dtype=np.float32)
+        dummy_state = np.zeros(shape=(1,) + config.observation_space.shape, dtype=np.float32)
         hidden_state = self(dummy_state)
         self.hidden_state_shape = hidden_state.shape[1:]
 
@@ -221,10 +214,10 @@ class _RepresentationNetwork(KerasModelAddedSummary):
         return x
 
 
-class _DynamicsNetwork(KerasModelAddedSummary):
+class _DynamicsNetwork(keras.Model):
     def __init__(self, config: Config, input_shape):
         super().__init__()
-        self.action_num = config.action_num
+        self.action_num = config.action_space.n
         v_num = config.v_max - config.v_min + 1
         h, w, ch = input_shape
 
@@ -304,7 +297,7 @@ class _DynamicsNetwork(KerasModelAddedSummary):
         return x, reward_category
 
 
-class _PredictionNetwork(KerasModelAddedSummary):
+class _PredictionNetwork(keras.Model):
     def __init__(self, config: Config, input_shape):
         super().__init__()
         self._in_shape = input_shape
@@ -323,7 +316,7 @@ class _PredictionNetwork(KerasModelAddedSummary):
             kl.ReLU(),
             kl.Flatten(),
             kl.Dense(
-                config.action_num,
+                config.action_space.n,
                 activation="softmax",
                 kernel_regularizer=keras.regularizers.l2(config.weight_decay),
             ),
@@ -436,7 +429,7 @@ def _scale_gradient(tensor, scale):
     return tensor * scale + tf.stop_gradient(tensor) * (1 - scale)
 
 
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -570,7 +563,7 @@ class Worker(RLWorker):
         self._v_min = np.inf
         self._v_max = -np.inf
 
-    def on_reset(self, worker: WorkerRun) -> InfoType:
+    def on_reset(self, worker) -> InfoType:
         self.history = []
 
         self.N = {}  # 訪問回数(s,a)
@@ -581,16 +574,15 @@ class Worker(RLWorker):
 
     def _init_state(self, state_str):
         if state_str not in self.N:
-            self.N[state_str] = [0 for _ in range(self.config.action_num)]
-            self.W[state_str] = [0 for _ in range(self.config.action_num)]
-            self.Q[state_str] = [0 for _ in range(self.config.action_num)]
+            self.N[state_str] = [0 for _ in range(self.config.action_space.n)]
+            self.W[state_str] = [0 for _ in range(self.config.action_space.n)]
+            self.Q[state_str] = [0 for _ in range(self.config.action_space.n)]
 
-    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> Tuple[int, InfoType]:
         invalid_actions = worker.get_invalid_actions()
 
         # --- シミュレーションしてpolicyを作成
-        state = helper.create_batch_data(worker.state, self.config.observation_space)
-        self.s0 = self.parameter.representation_network(state)
+        self.s0 = self.parameter.representation_network(worker.state[np.newaxis, ...])
         self.s0_str = self.s0.ref()  # type:ignore , ignore check "None"
         for _ in range(self.config.num_simulations):
             self._simulation(self.s0, self.s0_str, invalid_actions)
@@ -611,13 +603,15 @@ class Worker(RLWorker):
             counts = np.asarray(self.N[self.s0_str])
             action = np.random.choice(np.where(counts == counts.max())[0])
         else:
-            step_policy = np.array([self.N[self.s0_str][a] ** (1 / policy_tau) for a in range(self.config.action_num)])
+            step_policy = np.array(
+                [self.N[self.s0_str][a] ** (1 / policy_tau) for a in range(self.config.action_space.n)]
+            )
             step_policy /= step_policy.sum()
-            action = random_choice_by_probs(step_policy)
+            action = helper.random_choice_by_probs(step_policy)
 
         # 学習用のpolicyはtau=1
         N = sum(self.N[self.s0_str])
-        self.step_policy = [self.N[self.s0_str][a] / N for a in range(self.config.action_num)]
+        self.step_policy = [self.N[self.s0_str][a] / N for a in range(self.config.action_space.n)]
 
         self.action = int(action)
         return self.action, {"policy_tau": policy_tau}
@@ -672,13 +666,13 @@ class Worker(RLWorker):
     def _calc_puct(self, state_str, invalid_actions, is_root):
         # ディリクレノイズ
         if is_root:
-            noises = np.random.dirichlet([self.config.root_dirichlet_alpha] * self.config.action_num)
+            noises = np.random.dirichlet([self.config.root_dirichlet_alpha] * self.config.action_space.n)
         else:
             noises = []
 
         N = np.sum(self.N[state_str])
-        scores = np.zeros(self.config.action_num)
-        for a in range(self.config.action_num):
+        scores = np.zeros(self.config.action_space.n)
+        for a in range(self.config.action_space.n):
             if a in invalid_actions:
                 score = -np.inf
             else:
@@ -720,7 +714,7 @@ class Worker(RLWorker):
             scores[a] = score
         return scores
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         if not self.training:
             return {}
 
@@ -749,7 +743,8 @@ class Worker(RLWorker):
             for idx in range(len(self.history)):
                 # --- policies
                 policies = [
-                    [1 / self.config.action_num] * self.config.action_num for _ in range(self.config.unroll_steps + 1)
+                    [1 / self.config.action_space.n] * self.config.action_space.n
+                    for _ in range(self.config.unroll_steps + 1)
                 ]
                 for i in range(self.config.unroll_steps + 1):
                     if idx + i >= len(self.history):
@@ -774,7 +769,7 @@ class Worker(RLWorker):
                 priority /= self.config.unroll_steps + 1
 
                 # --- actions
-                actions = [random.randint(0, self.config.action_num - 1) for _ in range(self.config.unroll_steps)]
+                actions = [random.randint(0, self.config.action_space.n - 1) for _ in range(self.config.unroll_steps)]
                 for i in range(self.config.unroll_steps):
                     if idx + i >= len(self.history):
                         break
@@ -852,4 +847,4 @@ class Worker(RLWorker):
             )
             return s
 
-        render_discrete_action(maxa, worker.env, self.config, _render_sub)
+        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)

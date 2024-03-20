@@ -4,12 +4,11 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import InfoType, RLTypes
-from srl.base.rl.base import RLTrainer
+from srl.base.define import InfoType
+from srl.base.rl.trainer import RLTrainer
 from srl.rl.functions.common import create_beta_list, create_discount_list
 from srl.rl.models.tf import helper
 from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
-from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 from .agent57 import CommonInterfaceParameter, Config
@@ -29,8 +28,6 @@ class _QNetwork(keras.Model):
         if not config.enable_intrinsic_reward:
             self.input_int_reward = False
 
-        assert config.observation_space.rl_type != RLTypes.MULTI, "not supported"
-
         # --- input
         self.input_block = create_in_block_out_value(
             config.input_value_block,
@@ -48,15 +45,15 @@ class _QNetwork(keras.Model):
 
         # --- out
         self.hidden_block = config.hidden_block.create_block_tf(
-            config.action_num,
+            config.action_space.n,
             enable_rnn=True,
         )
 
         # build
         self.build(
-            helper.create_batch_shape(config.observation_shape, (None, config.sequence_length)),
+            helper.create_batch_shape(config.observation_space.shape, (None, config.sequence_length)),
             (None, config.sequence_length, 1),
-            (None, config.sequence_length, config.action_num),
+            (None, config.sequence_length, config.action_space.n),
             (None, config.sequence_length, config.actor_num),
         )
 
@@ -132,7 +129,7 @@ class _QNetwork(keras.Model):
 # ------------------------------------------------------
 # エピソード記憶部(episodic_reward)
 # ------------------------------------------------------
-class _EmbeddingNetwork(KerasModelAddedSummary):
+class _EmbeddingNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -149,10 +146,10 @@ class _EmbeddingNetwork(KerasModelAddedSummary):
         # out_block
         self.out_block = config.episodic_out_block.create_block_tf()
         self.out_block_normalize = kl.LayerNormalization()
-        self.out_block_out = kl.Dense(config.action_num, activation="softmax")
+        self.out_block_out = kl.Dense(config.action_space.n, activation="softmax")
 
         # build
-        self._in_shape = config.observation_shape
+        self._in_shape = config.observation_space.shape
         self.build([(None,) + self._in_shape, (None,) + self._in_shape])
         self.loss_func = keras.losses.MeanSquaredError()
 
@@ -184,7 +181,7 @@ class _EmbeddingNetwork(KerasModelAddedSummary):
 # ------------------------------------------------------
 # 生涯記憶部(life long novelty module)
 # ------------------------------------------------------
-class _LifelongNetwork(KerasModelAddedSummary):
+class _LifelongNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -200,7 +197,7 @@ class _LifelongNetwork(KerasModelAddedSummary):
         self.hidden_normalize = kl.LayerNormalization()
 
         # build
-        self._in_shape = config.observation_shape
+        self._in_shape = config.observation_space.shape
         self.build((None,) + self._in_shape)
         self.loss_func = keras.losses.MeanSquaredError()
 
@@ -293,7 +290,7 @@ class Parameter(CommonInterfaceParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config

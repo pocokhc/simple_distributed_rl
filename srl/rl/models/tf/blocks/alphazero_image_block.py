@@ -1,7 +1,5 @@
 from tensorflow import keras
 
-from srl.rl.models.tf.model import KerasModelAddedSummary
-
 kl = keras.layers
 
 """
@@ -15,12 +13,13 @@ https://github.com/suragnair/alpha-zero-general
 """
 
 
-class AlphaZeroImageBlock(KerasModelAddedSummary):
+class AlphaZeroImageBlock(keras.Model):
     def __init__(
         self,
         n_blocks: int = 19,
         filters: int = 256,
         activation: str = "relu",
+        enable_rnn: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -47,7 +46,7 @@ class AlphaZeroImageBlock(KerasModelAddedSummary):
         return x
 
 
-class _ResidualBlock(KerasModelAddedSummary):
+class _ResidualBlock(keras.Model):
     def __init__(
         self,
         filters: int,

@@ -3,7 +3,6 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Tuple
 
-from srl.base.define import EnvObservationTypes
 from srl.base.env import registration
 from srl.base.env.genre import SinglePlayEnv
 from srl.base.spaces import DiscreteSpace
@@ -37,10 +36,6 @@ class OneRoad(SinglePlayEnv):
     @property
     def observation_space(self) -> DiscreteSpace:
         return DiscreteSpace(self.N)
-
-    @property
-    def observation_type(self) -> EnvObservationTypes:
-        return EnvObservationTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:

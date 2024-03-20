@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from srl.base.define import InfoType
-from srl.base.rl.base import RLTrainer
+from srl.base.rl.trainer import RLTrainer
 from srl.rl.functions import common
 from srl.rl.models.torch_.blocks.input_block import create_in_block_out_value
 from srl.rl.schedulers.scheduler import SchedulerConfig
@@ -41,13 +41,13 @@ class _QNetwork(nn.Module):
         if self.input_int_reward:
             in_size += 1
         if self.input_action:
-            in_size += config.action_num
+            in_size += config.action_space.n
         in_size += config.actor_num
 
         # out
         self.hidden_block = config.hidden_block.create_block_torch(
             in_size,
-            config.action_num,
+            config.action_space.n,
         )
 
     def forward(self, inputs):
@@ -95,7 +95,7 @@ class _EmbeddingNetwork(nn.Module):
         # --- out
         self.out_block = config.episodic_out_block.create_block_torch(self.emb_block.out_size * 2)
         self.out_block_normalize = nn.LayerNorm(self.out_block.out_size)
-        self.out_block_out1 = nn.Linear(self.out_block.out_size, config.action_num)
+        self.out_block_out1 = nn.Linear(self.out_block.out_size, config.action_space.n)
         self.out_block_out2 = nn.Softmax(dim=1)
 
     def _image_call(self, state):
@@ -297,7 +297,7 @@ class Parameter(CommonInterfaceParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -535,4 +535,4 @@ class Trainer(RLTrainer):
                 param_group["lr"] = lr
 
         td_errors = (target_q - q).to("cpu").detach().numpy()
-        return td_errors, loss.item()
+        return td_errors, loss

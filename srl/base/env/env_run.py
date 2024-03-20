@@ -459,7 +459,7 @@ class EnvRun:
         return WorkerRun(worker, self, distributed, actor_id)
 
     @property
-    def unwrapped(self) -> object:
+    def unwrapped(self) -> Any:
         return self.env.unwrapped
 
     def set_done(self):

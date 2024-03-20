@@ -5,10 +5,9 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import InfoType
-from srl.base.rl.base import RLTrainer
+from srl.base.rl.trainer import RLTrainer
 from srl.rl.models.tf import helper
 from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
-from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 from .dqn import CommonInterfaceParameter, Config
@@ -19,7 +18,7 @@ kl = keras.layers
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _QNetwork(KerasModelAddedSummary):
+class _QNetwork(keras.Model):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
@@ -29,16 +28,16 @@ class _QNetwork(KerasModelAddedSummary):
             config.observation_space,
         )
 
-        self.hidden_block = config.hidden_block.create_block_tf(config.action_num)
+        self.hidden_block = config.hidden_block.create_block_tf(config.action_space.n)
 
         # build
-        self.build(helper.create_batch_shape(config.observation_shape, (None,)))
+        self.build(helper.create_batch_shape(config.observation_space.shape, (None,)))
 
         self.loss_func = keras.losses.Huber()
 
     def call(self, x, training=False):
-        x = self.input_block(x, training)
-        x = self.hidden_block(x, training)
+        x = self.input_block(x, training=training)
+        x = self.hidden_block(x, training=training)
         return x
 
     @tf.function
@@ -86,7 +85,7 @@ class Parameter(CommonInterfaceParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config

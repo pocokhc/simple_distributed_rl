@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, List, Union
 
 import numpy as np
 
-from srl.base.define import EnvTypes, RenderModes, RLTypes
+from srl.base.define import RenderModes, SpaceTypes
 from srl.base.exception import UndefinedError
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.callback import RunCallback
@@ -148,7 +148,7 @@ class Rendering(RunCallback):
             self.rl_maxh = max(self.rl_maxh, self.rl_img.shape[0])
 
             # rlへの入力が画像なら表示
-            if worker.config.observation_type == RLTypes.IMAGE:
+            if SpaceTypes.is_image(worker.config.observation_space.stype):
                 # COLOR画像に変換
                 if worker.config.window_length > 1:
                     _img = worker._recent_states[-1].copy()
@@ -156,14 +156,14 @@ class Rendering(RunCallback):
                     _img = worker.state.copy()
                 if _img.max() <= 1:
                     _img *= 255
-                if worker.config.observation_space.env_type == EnvTypes.GRAY_2ch:
+                if worker.config.observation_space.stype == SpaceTypes.GRAY_2ch:
                     _img = _img[..., np.newaxis]
                     _img = np.tile(_img, (1, 1, 3))
-                elif worker.config.observation_space.env_type == EnvTypes.GRAY_3ch:
+                elif worker.config.observation_space.stype == SpaceTypes.GRAY_3ch:
                     _img = np.tile(_img, (1, 1, 3))
-                elif worker.config.observation_space.env_type == EnvTypes.COLOR:
+                elif worker.config.observation_space.stype == SpaceTypes.COLOR:
                     pass
-                elif worker.config.observation_space.env_type == EnvTypes.IMAGE:
+                elif worker.config.observation_space.stype == SpaceTypes.IMAGE:
                     return
                 else:
                     raise UndefinedError(worker.config.observation_space)

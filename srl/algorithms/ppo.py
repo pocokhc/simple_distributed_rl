@@ -1,18 +1,21 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLBaseTypes, RLTypes
+from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import UndefinedError
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions.common import render_discrete_action
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.array_continuous import ArrayContinuousSpace
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.rl.functions import helper
 from srl.rl.functions.common_tf import compute_kl_divergence, compute_kl_divergence_normal
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
@@ -20,7 +23,6 @@ from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.models.tf.distributions.categorical_dist_block import CategoricalDistBlock
 from srl.rl.models.tf.distributions.normal_dist_block import NormalDistBlock
-from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
@@ -135,7 +137,7 @@ class Config(
         self.policy_block.set((64,))
 
     def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.ANY
+        return RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS
 
     def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.CONTINUOUS
@@ -182,7 +184,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _ActorCriticNetwork(KerasModelAddedSummary):
+class _ActorCriticNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
         self.config = config
@@ -206,19 +208,19 @@ class _ActorCriticNetwork(KerasModelAddedSummary):
 
         # --- policy
         self.policy_block = config.policy_block.create_block_tf()
-        if self.config.action_type == RLTypes.DISCRETE:
-            self.policy_dist_block = CategoricalDistBlock(config.action_num)
-        elif self.config.action_type == RLTypes.CONTINUOUS:
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
+            self.policy_dist_block = CategoricalDistBlock(config.action_space.n)
+        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
             self.policy_dist_block = NormalDistBlock(
-                config.action_num,
+                config.action_space.size,
                 enable_stable_gradients=self.config.enable_stable_gradients,
                 stable_gradients_stddev_range=self.config.stable_gradients_stddev_range,
             )
         else:
-            raise UndefinedError(self.config.action_type)
+            raise UndefinedError(self.config.action_space)
 
         # build
-        self._in_shape = config.observation_shape
+        self._in_shape = config.observation_space.shape
         self.build((None,) + self._in_shape)
 
     def call(self, x, training=False):
@@ -277,15 +279,15 @@ class _ActorCriticNetwork(KerasModelAddedSummary):
             policy_loss = tf.minimum(loss_unclipped, loss_clipped)
 
         elif self.config.surrogate_type == "kl":
-            if self.config.action_type == RLTypes.DISCRETE:
+            if self.config.action_space.stype == SpaceTypes.DISCRETE:
                 new_probs = policy_dist.probs()
                 kl = compute_kl_divergence(old_probs, new_probs)
-            elif self.config.action_type == RLTypes.CONTINUOUS:
+            elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
                 new_mean = policy_dist.mean()
                 new_stddev = policy_dist.stddev()
                 kl = compute_kl_divergence_normal(old_mean, old_stddev, new_mean, new_stddev)
             else:
-                raise UndefinedError(self.config.action_type)
+                raise UndefinedError(self.config.action_space.stype)
             policy_loss = ratio * advantage - adaptive_kl_beta * kl
         elif self.config.surrogate_type == "":
             policy_loss = ratio * advantage
@@ -342,7 +344,7 @@ class Parameter(RLParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -383,7 +385,7 @@ class Trainer(RLTrainer):
         old_mean = 0
         old_stddev = 0
         old_v = 0
-        if self.config.action_type == RLTypes.DISCRETE:
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
             actions = np.asarray([e["action"] for e in batchs])
             old_logpi = np.asarray([e["log_prob"] for e in batchs])[..., np.newaxis]
             if self.config.surrogate_type == "kl":
@@ -450,19 +452,20 @@ class Worker(RLWorker):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-    def on_reset(self, worker: WorkerRun) -> dict:
+    def on_reset(self, worker) -> dict:
         self.recent_batch = []
         self.recent_rewards = []
         self.recent_next_states = []
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[Any, dict]:
+    def policy(self, worker) -> Tuple[Any, dict]:
         state = worker.state
         if self.config.state_clip is not None:
             state = np.clip(state, self.config.state_clip[0], self.config.state_clip[1])
 
         v, policy_dist = self.parameter.model.policy(state[np.newaxis, ...])
-        if self.config.action_type == RLTypes.DISCRETE:  # int
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:  # int
+            act_space = cast(DiscreteSpace, self.config.action_space)
             onehot_action = policy_dist.sample(onehot=True)
             env_action = int(np.argmax(onehot_action))
             batch = {
@@ -474,7 +477,8 @@ class Worker(RLWorker):
             if self.config.surrogate_type == "kl" or self.rendering:
                 batch["probs"] = policy_dist.probs().numpy()[0]
             self.recent_batch.append(batch)
-        elif self.config.action_type == RLTypes.CONTINUOUS:  # float,list[float]
+        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:  # float,list[float]
+            act_space = cast(ArrayContinuousSpace, self.config.action_space)
             action = policy_dist.sample().numpy()[0]
             batch = {
                 "state": state,
@@ -487,14 +491,14 @@ class Worker(RLWorker):
                 batch["stddev"] = policy_dist.stddev().numpy()[0]
             self.recent_batch.append(batch)
 
-            env_action = np.clip(action, self.config.action_low, self.config.action_high)
+            env_action = np.clip(action, act_space.low, act_space.high)
             env_action = env_action.tolist()
         else:
-            raise UndefinedError(self.config.action_type)
+            raise UndefinedError(self.config.action_space)
 
         return env_action, {}
 
-    def on_step(self, worker: WorkerRun) -> dict:
+    def on_step(self, worker) -> dict:
         if not self.training:
             return {}
 
@@ -553,7 +557,7 @@ class Worker(RLWorker):
         v = batch["v"]
         print(f"V: {v:.5f}")
 
-        if self.config.action_type == RLTypes.DISCRETE:
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
             probs = batch["probs"]
             maxa = np.argmax(probs)
 
@@ -561,8 +565,8 @@ class Worker(RLWorker):
                 s = "{:5.1f}%".format(probs[a] * 100)
                 return s
 
-            render_discrete_action(maxa, worker.env, self.config, _render_sub)
-        elif self.config.action_type == RLTypes.CONTINUOUS:
+            helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
             action = batch["action"]
             prob = np.exp(batch["log_prob"])
             mean = batch["mean"]
@@ -573,4 +577,4 @@ class Worker(RLWorker):
             print(f"mean  : {mean}")
             print(f"stddev: {stddev}")
         else:
-            raise UndefinedError(self.config.action_type)
+            raise UndefinedError(self.config.action_space.stype)

@@ -1,15 +1,14 @@
 from tensorflow import keras
 
-from srl.rl.models.tf.model import KerasModelAddedSummary
-
 kl = keras.layers
 
 
-class DQNImageBlock(KerasModelAddedSummary):
+class DQNImageBlock(keras.Model):
     def __init__(
         self,
         filters: int = 32,
         activation: str = "relu",
+        enable_rnn: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -21,8 +20,8 @@ class DQNImageBlock(KerasModelAddedSummary):
         ]
 
         # Conv2Dはshape[-3:]を処理するのでTimeDistributedは不要
-        # if enable_time_distributed_layer:
-        #    self.image_layers = [kl.TimeDistributed(x) for x in self.image_layers]
+        if enable_rnn:
+            self.image_layers = [kl.TimeDistributed(x) for x in self.image_layers]
 
     def call(self, x, training=False):
         for layer in self.image_layers:

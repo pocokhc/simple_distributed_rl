@@ -7,11 +7,14 @@ from typing import Any, List, Tuple, Union
 import numpy as np
 
 from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions import common
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.rl.functions import helper
 from srl.rl.memories.sequence_memory import SequenceMemory
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -28,7 +31,7 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig[DiscreteSpace, ArrayDiscreteSpace]):
     #: ε-greedy parameter for Test
     test_epsilon: float = 0
     #: <:ref:`scheduler`> ε-greedy parameter for Train
@@ -87,10 +90,9 @@ class Memory(SequenceMemory):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class Parameter(RLParameter):
+class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
 
         self.Q = {}
 
@@ -103,11 +105,11 @@ class Parameter(RLParameter):
     def get_action_values(self, state: str, update_invalid_actions: list = []) -> List[float]:
         if state not in self.Q:
             if self.config.q_init == "random":
-                self.Q[state] = [random.random() for a in range(self.config.action_num)]
+                self.Q[state] = [random.random() for a in range(self.config.action_space.n)]
             elif self.config.q_init == "normal":
-                self.Q[state] = [np.random.normal() for a in range(self.config.action_num)]
+                self.Q[state] = [np.random.normal() for a in range(self.config.action_space.n)]
             else:
-                self.Q[state] = [0.0 for a in range(self.config.action_num)]
+                self.Q[state] = [0.0 for a in range(self.config.action_space.n)]
         for a in update_invalid_actions:
             self.Q[state][a] = -np.inf
         return self.Q[state]
@@ -116,11 +118,9 @@ class Parameter(RLParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
         self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
 
@@ -158,19 +158,17 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, Parameter, DiscreteSpace, ArrayDiscreteSpace]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-    def on_reset(self, worker: WorkerRun) -> InfoType:
+    def on_reset(self, worker) -> InfoType:
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
-        self.state = common.to_str_observation(worker.state, self.config.observation_space.env_type)
+    def policy(self, worker) -> Tuple[int, InfoType]:
+        self.state = self.observation_space.to_str(worker.state)
         invalid_actions = worker.get_invalid_actions()
 
         if self.training:
@@ -180,15 +178,15 @@ class Worker(RLWorker):
 
         if random.random() < epsilon:
             # epsilonより低いならランダムに移動
-            self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            self.action = random.choice([a for a in range(self.action_space.n) if a not in invalid_actions])
         else:
             # 最大値を選択
             q = self.parameter.get_action_values(self.state)
-            self.action = common.get_random_max_index(q, invalid_actions)
+            self.action = helper.get_random_max_index(q, invalid_actions)
 
         return self.action, {"epsilon": epsilon}
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         if not self.training:
             return {}
         """
@@ -203,7 +201,7 @@ class Worker(RLWorker):
         """
         batch = [
             self.state,
-            common.to_str_observation(worker.state, self.config.observation_space.env_type),
+            self.observation_space.to_str(worker.state),
             self.action,
             worker.reward,
             worker.terminated,
@@ -219,4 +217,4 @@ class Worker(RLWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        common.render_discrete_action(maxa, worker.env, self.config, _render_sub)
+        helper.render_discrete_action(int(maxa), self.action_space.n, worker.env, _render_sub)

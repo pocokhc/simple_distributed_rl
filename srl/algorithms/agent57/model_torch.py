@@ -6,8 +6,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from srl.base.define import InfoType, RLTypes
-from srl.base.rl.base import RLTrainer
+from srl.base.define import InfoType
+from srl.base.rl.trainer import RLTrainer
 from srl.rl.functions.common import create_beta_list, create_discount_list
 from srl.rl.models.torch_ import helper
 from srl.rl.models.torch_.blocks.input_block import create_in_block_out_value
@@ -28,8 +28,6 @@ class _QNetwork(nn.Module):
         if not config.enable_intrinsic_reward:
             self.input_int_reward = False
 
-        assert config.observation_space.rl_type != RLTypes.MULTI, "not supported"
-
         self.input_block = create_in_block_out_value(
             config.input_value_block,
             config.input_image_block,
@@ -43,7 +41,7 @@ class _QNetwork(nn.Module):
         if self.input_int_reward:
             in_size += 1
         if self.input_action:
-            in_size += config.action_num
+            in_size += config.action_space.n
         in_size += config.actor_num
 
         # --- lstm
@@ -58,7 +56,7 @@ class _QNetwork(nn.Module):
         # out
         self.hidden_block = config.hidden_block.create_block_torch(
             in_size,
-            config.action_num,
+            config.action_space.n,
         )
 
     def forward(self, inputs, hidden_states):
@@ -119,7 +117,7 @@ class _EmbeddingNetwork(nn.Module):
         # --- out
         self.out_block = config.episodic_out_block.create_block_torch(self.emb_block.out_size * 2)
         self.out_block_normalize = nn.LayerNorm(self.out_block.out_size)
-        self.out_block_out1 = nn.Linear(self.out_block.out_size, config.action_num)
+        self.out_block_out1 = nn.Linear(self.out_block.out_size, config.action_space.n)
         self.out_block_out2 = nn.Softmax(dim=1)
 
     def _image_call(self, state):
@@ -309,7 +307,7 @@ class Parameter(CommonInterfaceParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config

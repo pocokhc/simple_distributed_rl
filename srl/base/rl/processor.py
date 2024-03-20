@@ -1,7 +1,7 @@
 import logging
 import pickle
 from abc import ABC
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Union
 
 from srl.base.define import DoneTypes, EnvObservationType
 from srl.base.env.env_run import SpaceBase

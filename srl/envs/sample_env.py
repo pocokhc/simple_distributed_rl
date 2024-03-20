@@ -2,7 +2,7 @@ import enum
 from dataclasses import dataclass
 from typing import Any, Optional, Tuple
 
-from srl.base.define import EnvObservationTypes, KeyBindType
+from srl.base.define import KeyBindType
 from srl.base.env import registration
 from srl.base.env.genre.singleplay import SinglePlayEnv
 from srl.base.spaces.discrete import DiscreteSpace
@@ -36,10 +36,6 @@ class SampleEnv(SinglePlayEnv):
     @property
     def observation_space(self) -> DiscreteSpace:
         return DiscreteSpace(len(self.field))
-
-    @property
-    def observation_type(self) -> EnvObservationTypes:
-        return EnvObservationTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:

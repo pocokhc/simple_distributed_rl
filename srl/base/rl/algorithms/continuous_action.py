@@ -6,8 +6,8 @@ from typing import List, Tuple
 import numpy as np
 
 from srl.base.define import InfoType, RLActionType, RLBaseTypes
-from srl.base.rl.base import RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.worker import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 
 logger = logging.getLogger(__name__)

@@ -9,16 +9,14 @@ import numpy as np
 
 from srl.base.define import DoneTypes, InfoType, RLBaseTypes
 from srl.base.exception import UndefinedError
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions.common import (
-    get_random_max_index,
-    random_choice_by_probs,
-    render_discrete_action,
-    to_str_observation,
-)
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.rl.functions import helper
 from srl.rl.memories.sequence_memory import SequenceMemory
 
 logger = logging.getLogger(__name__)
@@ -28,7 +26,7 @@ logger = logging.getLogger(__name__)
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig[DiscreteSpace, ArrayDiscreteSpace]):
     #: 学習時の探索率
     search_rate: float = 0.5
     #: テスト時の探索率
@@ -94,10 +92,9 @@ class Memory(SequenceMemory):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class Parameter(RLParameter):
+class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
 
         # [state][action][next_state]
         self.trans = {}
@@ -158,10 +155,11 @@ class Parameter(RLParameter):
 
     def init_state(self, state, action, n_state, invalid_actions, next_invalid_actions):
         if state not in self.trans:
-            self.trans[state] = [{} for _ in range(self.config.action_num)]
-            self.reward_ext[state] = [{} for _ in range(self.config.action_num)]
-            self.reward_int[state] = [{} for _ in range(self.config.action_num)]
-            self.done[state] = [{} for _ in range(self.config.action_num)]
+            n = self.config.action_space.n
+            self.trans[state] = [{} for _ in range(n)]
+            self.reward_ext[state] = [{} for _ in range(n)]
+            self.reward_int[state] = [{} for _ in range(n)]
+            self.done[state] = [{} for _ in range(n)]
             self.invalid_actions[state] = invalid_actions
         if n_state is not None and n_state not in self.trans[state][action]:
             self.trans[state][action][n_state] = 0
@@ -172,9 +170,10 @@ class Parameter(RLParameter):
 
     def init_q(self, state: str):
         if state not in self.q_ext:
-            self.q_ext[state] = [0.0 for a in range(self.config.action_num)]
-            self.q_int[state] = [0.0 for a in range(self.config.action_num)]
-            self.action_count[state] = [0 for a in range(self.config.action_num)]
+            n = self.config.action_space.n
+            self.q_ext[state] = [0.0 for a in range(n)]
+            self.q_int[state] = [0.0 for a in range(n)]
+            self.action_count[state] = [0 for a in range(n)]
             self.lifelong[state] = 1.0
 
     def iteration_q(
@@ -205,7 +204,7 @@ class Parameter(RLParameter):
         while time.time() - t0 < timeout:  # for safety
             delta = 0
             for state in self.trans.keys():
-                for act in range(self.config.action_num):
+                for act in range(self.config.action_space.n):
                     if act in self.invalid_actions[state]:
                         continue
                     N = sum(self.trans[state][act].values())
@@ -233,7 +232,7 @@ class Parameter(RLParameter):
 
         # update range
         for state in self.trans.keys():
-            for act in range(self.config.action_num):
+            for act in range(self.config.action_space.n):
                 if act in self.invalid_actions[state]:
                     continue
                 if mode == "ext":
@@ -248,7 +247,7 @@ class Parameter(RLParameter):
                         self.q_int_max = self.q_int[state][act]
 
     def calc_next_q(self, q_tbl, prob: float, invalid_actions):
-        if self.config.action_num == len(invalid_actions):
+        if self.config.action_space.n == len(invalid_actions):
             # 有効アクションがない場合
             return 0
 
@@ -257,12 +256,12 @@ class Parameter(RLParameter):
             return q_max
 
         q_max_idx = [a for a, q in enumerate(q_tbl) if q == q_max and (a not in invalid_actions)]
-        valid_actions = self.config.action_num - len(invalid_actions)
+        valid_actions = self.config.action_space.n - len(invalid_actions)
         if valid_actions == len(q_max_idx):
             prob = 1.0
 
         n_q = 0
-        for a in range(self.config.action_num):
+        for a in range(self.config.action_space.n):
             if a in invalid_actions:
                 continue
             elif a in q_max_idx:
@@ -284,14 +283,14 @@ class Parameter(RLParameter):
         if len(n_s_list) == 0:
             return None
         weights = list(self.trans[state][action].values())
-        r_idx = random_choice_by_probs(weights)
+        r_idx = helper.random_choice_by_probs(weights)
         return n_s_list[r_idx]
 
 
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -390,22 +389,22 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, Parameter, DiscreteSpace, ArrayDiscreteSpace]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-    def on_start(self, worker: WorkerRun) -> None:
+    def on_start(self, worker) -> None:
         self.parameter.iteration_q("ext", self.config.iteration_threshold / 10, self.config.iteration_timeout * 2)
         self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_timeout)
 
-    def on_reset(self, worker: WorkerRun) -> InfoType:
+    def on_reset(self, worker) -> InfoType:
         self.episodic = {}
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
-        self.state = to_str_observation(worker.state, self.config.observation_space.env_type)
+    def policy(self, worker) -> Tuple[int, InfoType]:
+        self.state = self.observation_space.to_str(worker.state)
         invalid_actions = worker.invalid_actions
         self.parameter.init_q(self.state)
 
@@ -424,7 +423,7 @@ class Worker(RLWorker):
             # actionはUCBで決める
             N = sum(self.parameter.action_count[self.state])
             self.ucb_list = []
-            for a in range(self.config.action_num):
+            for a in range(self.action_space.n):
                 if a in invalid_actions:
                     self.ucb_list.append(-np.inf)
                     continue
@@ -436,18 +435,18 @@ class Worker(RLWorker):
                     self.ucb_list.append(ucb)
 
         if self.training:
-            self.action = get_random_max_index(self.ucb_list, invalid_actions)
+            self.action = helper.get_random_max_index(self.ucb_list, invalid_actions)
             self.parameter.action_count[self.state][self.action] += 1
         else:
             q = (1 - self.config.test_search_rate) * q_ext + self.config.test_search_rate * q_int
-            self.action = get_random_max_index(q, invalid_actions)
+            self.action = helper.get_random_max_index(q, invalid_actions)
 
         return self.action, {}
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         if not self.training:
             return {}
-        next_state = to_str_observation(worker.state, self.config.observation_space.env_type)
+        next_state = self.observation_space.to_str(worker.state)
         self.parameter.init_q(next_state)
 
         # 内部報酬
@@ -483,10 +482,10 @@ class Worker(RLWorker):
     def _calc_lifelong_reward(self, state):
         return self.parameter.lifelong[state]
 
-    def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
-        prev_state = to_str_observation(worker.prev_state, self.config.observation_space.env_type)
+    def render_terminal(self, worker, **kwargs) -> None:
+        prev_state = self.observation_space.to_str(worker.prev_state)
         act = worker.prev_action
-        state = to_str_observation(worker.state, self.config.observation_space.env_type)
+        state = self.observation_space.to_str(worker.state)
         self.parameter.init_state(prev_state, act, state, worker.prev_invalid_actions, worker.invalid_actions)
         self.parameter.init_q(prev_state)
         self.parameter.init_q(state)
@@ -496,7 +495,7 @@ class Worker(RLWorker):
         done = self.parameter.done[prev_state][act][state]
         s = f"reward_ext {r_ext:8.5f}"
         s += f", reward_int {r_int:8.5f}"
-        s += f", done {100*done:.1f}%"
+        s += f", done {done:.1%}"
         print(s)
 
         episodic_reward = self._calc_episodic_reward(state, update=False)
@@ -519,4 +518,4 @@ class Worker(RLWorker):
             s += f", ucb {self.ucb_list[a]:.3f}"
             return s
 
-        render_discrete_action(maxa, worker.env, self.config, _render_sub)
+        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)

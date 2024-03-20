@@ -1,10 +1,9 @@
 import logging
 from typing import Tuple
 
-from srl.base.define import EnvActionType, RLTypes
-from srl.base.rl.base import RLWorker
+from srl.base.define import EnvActionType, SpaceTypes
 from srl.base.rl.registration import register_rulebase
-from srl.base.rl.worker_run import WorkerRun
+from srl.base.rl.worker import RLWorker
 from srl.base.spaces import ContinuousSpace
 
 logger = logging.getLogger(__name__)
@@ -14,8 +13,8 @@ register_rulebase("human", __name__ + ":Worker")
 
 
 class Worker(RLWorker):
-    def policy(self, worker: WorkerRun) -> Tuple[EnvActionType, dict]:
-        if self.config.action_type == RLTypes.DISCRETE:
+    def policy(self, worker) -> Tuple[EnvActionType, dict]:
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
             invalid_actions = worker.get_invalid_actions()
             action_num = self.config.action_space.n
 
@@ -42,7 +41,7 @@ class Worker(RLWorker):
             else:
                 raise ValueError()
 
-        elif isinstance(self.config.action_type, ContinuousSpace):
+        elif isinstance(self.config.action_space.stype, ContinuousSpace):
             print(f"{self.config.action_space.low} - {self.config.action_space.high} >", end="")
             action = float(input())
 

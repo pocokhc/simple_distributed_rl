@@ -7,19 +7,16 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions.common import (
-    calc_epsilon_greedy_probs,
-    create_epsilon_list,
-    inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
-    rescaling,
-)
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.rl.functions import helper
+from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, rescaling
 from srl.rl.memories.priority_experience_replay import (
     PriorityExperienceReplay,
     RLConfigComponentPriorityExperienceReplay,
@@ -27,7 +24,6 @@ from srl.rl.memories.priority_experience_replay import (
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
-from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
@@ -68,7 +64,7 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig,
+    RLConfig[DiscreteSpace, BoxSpace],
     RLConfigComponentPriorityExperienceReplay,
     RLConfigComponentFramework,
 ):
@@ -182,7 +178,7 @@ class Memory(PriorityExperienceReplay):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _QNetwork(KerasModelAddedSummary):
+class _QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -203,12 +199,12 @@ class _QNetwork(KerasModelAddedSummary):
 
         # out
         self.hidden_block = config.hidden_block.create_block_tf(
-            config.action_num,
+            config.action_space.n,
             enable_rnn=True,
         )
 
         # build
-        self._in_shape = (config.sequence_length,) + config.observation_shape
+        self._in_shape = (config.sequence_length,) + config.observation_space.shape
         self.build((None,) + self._in_shape)
 
     @tf.function()
@@ -231,10 +227,9 @@ class _QNetwork(KerasModelAddedSummary):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class Parameter(RLParameter):
+class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
 
         self.q_online = _QNetwork(self.config)
         self.q_target = _QNetwork(self.config)
@@ -254,7 +249,7 @@ class Parameter(RLParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -295,7 +290,7 @@ class Trainer(RLTrainer):
         step_states = np.asarray(step_states)
 
         # (batch, step, x)
-        step_actions_onehot = tf.one_hot(step_actions, self.config.action_num, axis=2)
+        step_actions_onehot = tf.one_hot(step_actions, self.config.action_space.n, axis=2)
 
         # (batch, list, hidden) -> (list, batch, hidden)
         states_h = []
@@ -373,11 +368,11 @@ class Trainer(RLTrainer):
                         next_td_error = td_error
 
                         # retrace
-                        pi_probs = calc_epsilon_greedy_probs(
+                        pi_probs = helper.calc_epsilon_greedy_probs(
                             frozen_q[idx][t],
                             invalid_actions,
                             0.0,
-                            self.config.action_num,
+                            self.config.action_space.n,
                         )
                         pi_prob = pi_probs[action]
                         _r = self.config.retrace_h * np.minimum(1, pi_prob / mu_prob)
@@ -404,16 +399,14 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, Parameter, DiscreteSpace, BoxSpace]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
-        self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
+        self.dummy_state = np.full(self.config.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
 
-    def on_reset(self, worker: WorkerRun) -> InfoType:
+    def on_reset(self, worker) -> InfoType:
         # states : burnin + sequence_length + next_state
         # actions: sequence_length
         # probs  : sequence_length
@@ -424,9 +417,9 @@ class Worker(RLWorker):
 
         self._recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.sequence_length + 1)]
         self.recent_actions = [
-            random.randint(0, self.config.action_num - 1) for _ in range(self.config.sequence_length)
+            random.randint(0, self.config.action_space.n - 1) for _ in range(self.config.sequence_length)
         ]
-        self.recent_probs = [1.0 / self.config.action_num for _ in range(self.config.sequence_length)]
+        self.recent_probs = [1.0 / self.config.action_space.n for _ in range(self.config.sequence_length)]
         self.recent_rewards = [0.0 for _ in range(self.config.sequence_length)]
         self.recent_done = [False for _ in range(self.config.sequence_length)]
         self.recent_invalid_actions = [[] for _ in range(self.config.sequence_length + 1)]
@@ -453,7 +446,7 @@ class Worker(RLWorker):
 
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> Tuple[int, InfoType]:
         state = worker.state[np.newaxis, np.newaxis, ...]  # (batch, time step, ...)
         q, self.hidden_state = self.parameter.q_online(state, self.hidden_state)
         q = q[0][0].numpy()  # (batch, time step, action_num)
@@ -463,14 +456,14 @@ class Worker(RLWorker):
         else:
             epsilon = self.config.test_epsilon
 
-        probs = calc_epsilon_greedy_probs(q, worker.invalid_actions, epsilon, self.config.action_num)
-        self.action = random_choice_by_probs(probs)
+        probs = helper.calc_epsilon_greedy_probs(q, worker.invalid_actions, epsilon, self.config.action_space.n)
+        self.action = helper.random_choice_by_probs(probs)
 
         self.prob = probs[self.action]
         self.q = q
         return self.action, {}
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         if not self.training:
             return {}
 
@@ -510,9 +503,9 @@ class Worker(RLWorker):
                 self._recent_states.pop(0)
                 self._recent_states.append(self.dummy_state)
                 self.recent_actions.pop(0)
-                self.recent_actions.append(random.randint(0, self.config.action_num - 1))
+                self.recent_actions.append(random.randint(0, self.config.action_space.n - 1))
                 self.recent_probs.pop(0)
-                self.recent_probs.append(1.0 / self.config.action_num)
+                self.recent_probs.append(1.0 / self.config.action_space.n)
                 self.recent_rewards.pop(0)
                 self.recent_rewards.append(0.0)
                 self.recent_done.pop(0)
@@ -574,4 +567,4 @@ class Worker(RLWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        render_discrete_action(maxa, worker.env, self.config, _render_sub)
+        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)

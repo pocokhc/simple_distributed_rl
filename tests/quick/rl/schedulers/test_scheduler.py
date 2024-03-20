@@ -8,7 +8,7 @@ from srl.rl.schedulers.scheduler import SchedulerConfig
 def test_constant():
     config = SchedulerConfig()
     config.set_constant(0.2)
-    sch = config.create_schedulers()
+    sch = SchedulerConfig.create_scheduler(config)
 
     for i in range(10):
         rate = sch.get_and_update_rate(i)
@@ -18,7 +18,7 @@ def test_constant():
 def test_linear_up():
     config = SchedulerConfig()
     config.set_linear(10, 0.0, 1.0)
-    sch = config.create_schedulers()
+    sch = SchedulerConfig.create_scheduler(config)
 
     for i in range(10):
         rate = sch.get_and_update_rate(i)
@@ -34,7 +34,7 @@ def test_linear_up():
 def test_linear_down():
     config = SchedulerConfig()
     config.set_linear(10, 1.0, 0.0)
-    sch = config.create_schedulers()
+    sch = SchedulerConfig.create_scheduler(config)
 
     for i in range(10):
         rate = sch.get_and_update_rate(i)
@@ -50,7 +50,7 @@ def test_linear_down():
 def test_cosine():
     config = SchedulerConfig()
     config.set_cosine(10, 1.0)
-    sch = config.create_schedulers()
+    sch = SchedulerConfig.create_scheduler(config)
 
     for i in range(10):
         rate = sch.get_and_update_rate(i)
@@ -67,7 +67,7 @@ def test_cosine():
 def test_cosine_with_hard_restarts():
     config = SchedulerConfig()
     config.set_cosine_with_hard_restarts(10, 1.0, 2)
-    sch = config.create_schedulers()
+    sch = SchedulerConfig.create_scheduler(config)
 
     for i in range(5):
         rate = sch.get_and_update_rate(i)
@@ -90,7 +90,7 @@ def test_cosine_with_hard_restarts():
 def test_polynomial():
     config = SchedulerConfig()
     config.set_polynomial(10, 1.0, power=2)
-    sch = config.create_schedulers()
+    sch = SchedulerConfig.create_scheduler(config)
 
     for i in range(10):
         rate = sch.get_and_update_rate(i)

@@ -1,16 +1,13 @@
-from typing import cast
-
-import numpy as np
-
 import srl
 from srl.algorithms import ql
 from srl.envs import grid
 
 
 def test_get_env_init_state():
+    env_config = srl.EnvConfig("Grid")
     rl_config = ql.Config()
-    rl_config.processors.append(grid.LayerProcessor())
-    runner = srl.Runner("Grid", rl_config)
+    rl_config.processors = [grid.LayerProcessor()]
+    runner = srl.Runner(env_config, rl_config)
 
     env_state = runner.get_env_init_state(encode=False)
     print(env_state)

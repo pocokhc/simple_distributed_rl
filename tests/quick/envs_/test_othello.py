@@ -3,11 +3,8 @@ from typing import cast
 import numpy as np
 
 import srl
-from srl.base.define import EnvTypes
-from srl.base.spaces.box import BoxSpace
-from srl.envs import othello  # noqa F401
-from srl.test import TestEnv
-from srl.test.processor import TestProcessor
+from srl.envs import othello
+from srl.test.env import TestEnv  # noqa F401
 
 
 def test_play():
@@ -27,12 +24,12 @@ def test_play4x4():
 
 def test_player():
     tester = TestEnv()
-    tester.player_test("Othello", "cpu")
+    tester.player_test("Othello", "cpu", timeout=2)
 
 
 def test_player6x6():
     tester = TestEnv()
-    tester.player_test("Othello6x6", "cpu")
+    tester.player_test("Othello6x6", "cpu", timeout=1)
 
 
 def test_player4x4():
@@ -41,31 +38,16 @@ def test_player4x4():
 
 
 def test_processor():
-    tester = TestProcessor()
-    processor = othello.LayerProcessor()
-    env_name = "Othello"
+    env = srl.make_env(srl.EnvConfig("Othello", {"obs_type": "layer"}))
+    env.reset()
 
-    in_state = [0] * (8 * 8)
     out_state = np.zeros((8, 8, 2))
+    out_state[3][3][0] = 1
+    out_state[4][4][0] = 1
+    out_state[3][4][1] = 1
+    out_state[4][3][1] = 1
 
-    in_state[0] = 1
-    in_state[1] = -1
-    out_state[0][0][0] = 1
-    out_state[0][1][1] = 1
-
-    tester.run(processor, env_name)
-    tester.preprocess_observation_space(
-        processor,
-        env_name,
-        EnvTypes.IMAGE,
-        BoxSpace((8, 8, 2), 0, 1),
-    )
-    tester.preprocess_observation(
-        processor,
-        env_name,
-        in_observation=in_state,
-        out_observation=out_state,
-    )
+    assert (out_state == env.state).all()
 
 
 # ------------------------

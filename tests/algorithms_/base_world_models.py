@@ -2,6 +2,8 @@ from typing import Tuple
 
 import pytest
 
+import srl
+from srl.base.define import ObservationModes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -32,7 +34,7 @@ class BaseCase(CommonBaseCase):
     def test_Grid(self):
         self.check_skip()
         rl_config = self._create_rl_config()
-        rl_config.use_render_image_for_observation = True
+        rl_config.observation_mode = ObservationModes.RENDER_IMAGE
 
         env_config = srl.EnvConfig("Grid")
         runner, tester = self.create_runner(env_config, rl_config)
@@ -42,13 +44,13 @@ class BaseCase(CommonBaseCase):
 
         # vae
         rl_config.train_mode = 1
-        rl_config.lr.set_constant(0.001)
+        rl_config.lr = 0.001
         rl_config.kl_tolerance = 4.0
         runner.train_only(max_train_count=20_000)
 
         # rnn
         rl_config.train_mode = 2
-        rl_config.lr.set_constant(0.001)
+        rl_config.lr = 0.001
         rl_config.memory.warmup_size = 100
         runner.train_only(max_train_count=40_000)
 

@@ -5,8 +5,7 @@ from srl.rl.models.config.image_block import ImageBlockConfig
 
 
 @pytest.mark.parametrize("name", ["dqn", "r2d3", "alphazero", "muzero_atari"])
-@pytest.mark.parametrize("rnn", [False, True])
-def test_torch_image(name, rnn):
+def test_torch_image(name):
     pytest.importorskip("torch")
 
     import torch
@@ -26,22 +25,17 @@ def test_torch_image(name, rnn):
         out_shape = (256, 96, 72)
     elif name == "muzero_atari":
         in_shape = (3, 96, 72)
-        out_shape = (256, 6, 5)
+        out_shape = (64, 13, 10)
     else:
         raise ValueError(name)
 
     batch_size = 16
-    if rnn:
-        seq_len = 7
-        in_shape2 = (seq_len, batch_size) + in_shape
-        out_shape2 = (seq_len, batch_size) + out_shape
-    else:
-        in_shape2 = (batch_size,) + in_shape
-        out_shape2 = (batch_size,) + out_shape
+    in_shape2 = (batch_size,) + in_shape
+    out_shape2 = (batch_size,) + out_shape
 
     x = np.ones(in_shape2, dtype=np.float32)
     x = torch.tensor(x)
-    block = config.create_block_torch(x.shape[1:], enable_time_distributed_layer=False)
+    block = config.create_block_torch(x.shape[1:])
     y = block(x)
     y = y.detach().numpy()
 

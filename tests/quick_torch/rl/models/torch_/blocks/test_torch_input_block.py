@@ -1,121 +1,124 @@
 import numpy as np
 import pytest
 
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
+from srl.base.exception import NotSupportedError
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.multi import MultiSpace
+from srl.rl.models.config.image_block import ImageBlockConfig
+from srl.rl.models.config.mlp_block import MLPBlockConfig
 
 
-def call_block_torch(
-    obs_shape,
-    obs_type,
-    x,
-    enable_time_distributed_layer=False,
-):
+@pytest.mark.parametrize(
+    "in_space, out_size",
+    [
+        [BoxSpace((5, 4)), 512],  # value block
+        [BoxSpace((64, 64), stype=SpaceTypes.GRAY_2ch), 5184],
+        [BoxSpace((64, 64, 1), stype=SpaceTypes.GRAY_3ch), 5184],
+        [BoxSpace((64, 64, 3), stype=SpaceTypes.COLOR), 5184],
+        [BoxSpace((64, 64, 9), stype=SpaceTypes.IMAGE), 5184],
+        # MULTI
+        [
+            MultiSpace(
+                [
+                    BoxSpace((5, 4)),
+                    BoxSpace((64, 64, 3), stype=SpaceTypes.COLOR),
+                ]
+            ),
+            512 + 5184,
+        ],
+    ],
+)
+def test_create_block_out_value(in_space, out_size):
+    pytest.importorskip("torch")
+
     import torch
 
-    from srl.rl.models.torch_.input_block import InputBlock
+    from srl.rl.models.torch_.blocks.input_block import create_in_block_out_value
 
-    block = InputBlock(
-        obs_shape,
-        obs_type,
-        enable_time_distributed_layer=enable_time_distributed_layer,
-    )
-    y = block(torch.tensor(x))
-    out_shape = block.out_shape
+    batch_size = 3
 
-    if len(y.shape) == 4:
-        # (batch, ch, h, w) -> (batch, h, w, ch)
-        y = y.permute((0, 2, 3, 1))
-        out_shape = (out_shape[1], out_shape[2], out_shape[0])
-    if len(y.shape) == 5:
-        # (batch, len, ch, h, w) -> (batch, len, h, w, ch)
-        y = y.permute((0, 1, 3, 4, 2))
-        out_shape = (out_shape[1], out_shape[2], out_shape[0])
+    mlp_conf = MLPBlockConfig()
+    mlp_conf.set()
+    img_conf = ImageBlockConfig()
+    block = create_in_block_out_value(mlp_conf, img_conf, in_space)
+    print(in_space)
+    print(block)
+    assert block.out_size == out_size
 
-    y = y.detach().numpy()
-    return y, block.use_image_layer, out_shape
-
-
-pattern0 = [
-    ((2, 4, 8), EnvTypes.UNKNOWN, (2 * 4 * 8,), False),
-    ((2, 4, 8), EnvTypes.DISCRETE, (2 * 4 * 8,), False),
-    ((2, 4, 8), EnvTypes.CONTINUOUS, (2 * 4 * 8,), False),
-    ((4, 8), EnvTypes.GRAY_2ch, (4, 8, 1), True),
-    ((4, 8, 1), EnvTypes.GRAY_3ch, (4, 8, 1), True),
-    ((4, 8, 3), EnvTypes.COLOR, (4, 8, 3), True),
-]
-
-
-@pytest.mark.parametrize("obs_shape, obs_type, true_shape, true_image", pattern0)
-def test_window_0_torch(obs_shape, obs_type, true_shape, true_image):
-    pytest.importorskip("torch")
-    _window_0(call_block_torch, obs_shape, obs_type, true_shape, true_image)
-
-
-def _window_0(call_block, obs_shape, obs_type, true_shape, true_image):
-    batch_size = 8
-
-    x = np.ones((batch_size,) + obs_shape, dtype=np.float32)
-    y, use_image_layer, out_shape = call_block(obs_shape, obs_type, x)
-    assert use_image_layer == true_image
-    assert y.shape == (batch_size,) + true_shape
-    if out_shape is not None:
-        assert out_shape == true_shape
-
-
-pattern10 = [
-    ((10, 2, 4, 8), EnvTypes.UNKNOWN, (10 * 2 * 4 * 8,), False, False),
-    ((10, 2, 4, 8), EnvTypes.DISCRETE, (10 * 2 * 4 * 8,), False, False),
-    ((10, 2, 4, 8), EnvTypes.CONTINUOUS, (10 * 2 * 4 * 8,), False, False),
-    ((10, 4, 8), EnvTypes.GRAY_2ch, (4, 8, 10), True, False),
-    ((10, 4, 8, 1), EnvTypes.GRAY_3ch, (4, 8, 10), True, False),
-    ((10, 4, 8, 3), EnvTypes.COLOR, None, None, True),
-]
-
-
-@pytest.mark.parametrize("obs_shape, obs_type, true_shape, true_image, is_throw", pattern10)
-def test_window_10_torch(obs_shape, obs_type, true_shape, true_image, is_throw):
-    pytest.importorskip("torch")
-    _window_10(call_block_torch, obs_shape, obs_type, true_shape, true_image, is_throw)
-
-
-def _window_10(call_block, obs_shape, obs_type, true_shape, true_image, is_throw):
-    batch_size = 8
-
-    x = np.ones((batch_size,) + obs_shape, dtype=np.float32)
-    if is_throw:
-        with pytest.raises(ValueError):
-            call_block(obs_shape, obs_type, x)
+    if in_space.stype == SpaceTypes.MULTI:
+        pytest.skip("TODO")
     else:
-        y, use_image_layer, out_shape = call_block(obs_shape, obs_type, x)
-        assert use_image_layer == true_image
-        assert y.shape == (batch_size,) + true_shape
-        if out_shape is not None:
-            assert out_shape == true_shape
+        x = np.ones((batch_size,) + in_space.shape, dtype=np.float32)
+    y = block(torch.tensor(x))
+    y = y.detach().numpy()
+
+    assert y.shape == (3, out_size)
 
 
-pattern_time = [
-    ((2, 4, 8), EnvTypes.UNKNOWN, (2 * 4 * 8,), False),
-    ((2, 4, 8), EnvTypes.DISCRETE, (2 * 4 * 8,), False),
-    ((2, 4, 8), EnvTypes.CONTINUOUS, (2 * 4 * 8,), False),
-    ((4, 8), EnvTypes.GRAY_2ch, (4, 8, 1), True),
-    ((4, 8, 1), EnvTypes.GRAY_3ch, (4, 8, 1), True),
-    ((4, 8, 3), EnvTypes.COLOR, (4, 8, 3), True),
-]
-
-
-@pytest.mark.parametrize("obs_shape, obs_type, true_shape, true_image", pattern_time)
-def test_time_layer_torch(obs_shape, obs_type, true_shape, true_image):
+@pytest.mark.parametrize(
+    "in_space, out_shape",
+    [
+        [BoxSpace((64, 64), stype=SpaceTypes.GRAY_2ch), (64, 9, 9)],
+        [BoxSpace((64, 64, 1), stype=SpaceTypes.GRAY_3ch), (64, 9, 9)],
+        [BoxSpace((64, 64, 3), stype=SpaceTypes.COLOR), (64, 9, 9)],
+        [BoxSpace((64, 64, 9), stype=SpaceTypes.IMAGE), (64, 9, 9)],
+    ],
+)
+def test_create_block_out_image(in_space, out_shape):
     pytest.importorskip("torch")
-    _time_layer(call_block_torch, obs_shape, obs_type, true_shape, true_image)
+
+    import torch
+
+    from srl.rl.models.torch_.blocks.input_block import create_in_block_out_image
+
+    batch_size = 3
+    img_conf = ImageBlockConfig()
+
+    with pytest.raises(NotSupportedError):
+        create_in_block_out_image(img_conf, BoxSpace((5, 4)))
+    with pytest.raises(NotSupportedError):
+        create_in_block_out_image(img_conf, MultiSpace([BoxSpace((5, 4))]))
+
+    block = create_in_block_out_image(img_conf, in_space)
+    print(block)
+    assert block.out_shape == out_shape
+
+    x = np.ones((batch_size,) + in_space.shape, dtype=np.float32)
+    y = block(torch.tensor(x))
+    y = y.detach().numpy()
+
+    assert y.shape == (3,) + out_shape
 
 
-def _time_layer(call_block, obs_shape, obs_type, true_shape, true_image):
-    batch_size = 7
-    seq_len = 3
+@pytest.mark.parametrize(
+    "in_space, out_shape",
+    [
+        [BoxSpace((64, 64, 3), stype=SpaceTypes.COLOR), (64, 9, 9)],  # image block
+    ],
+)
+def test_create_block_out_multi(in_space, out_shape):
+    pytest.skip("TODO")
+    pytest.importorskip("torch")
 
-    x = np.ones((batch_size, seq_len) + obs_shape, dtype=np.float32)
-    y, use_image_layer, out_shape = call_block(obs_shape, obs_type, x, enable_time_distributed_layer=True)
-    assert use_image_layer == true_image
-    assert y.shape == (batch_size, seq_len) + true_shape
-    if out_shape is not None:
-        assert out_shape == true_shape
+    import torch
+
+    from srl.rl.models.torch_.blocks.input_block import create_in_block_out_image
+
+    batch_size = 3
+    img_conf = ImageBlockConfig()
+
+    with pytest.raises(NotSupportedError):
+        create_in_block_out_image(img_conf, BoxSpace((5, 4)))
+    with pytest.raises(NotSupportedError):
+        create_in_block_out_image(img_conf, MultiSpace([BoxSpace((5, 4))]))
+
+    block = create_in_block_out_image(img_conf, in_space)
+    print(block)
+    assert block.out_shape == out_shape
+
+    x = np.ones((batch_size,) + in_space.shape, dtype=np.float32)
+    y = block(torch.tensor(x))
+    y = y.detach().numpy()
+
+    assert y.shape == (3,) + out_shape

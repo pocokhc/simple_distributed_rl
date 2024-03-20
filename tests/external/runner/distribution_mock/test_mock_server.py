@@ -9,7 +9,7 @@ import srl
 from srl.algorithms import ql_agent57
 from srl.base.exception import DistributionError
 from srl.utils import common
-from tests.runner.distribution.server_mock import (
+from tests.external.runner.distribution_mock.server_mock import (
     create_gcp_mock,
     create_paho_mock,
     create_pika_mock,

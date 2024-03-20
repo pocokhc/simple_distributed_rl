@@ -27,6 +27,7 @@ class CommonBaseCase(ABC):
             pytest.importorskip("torch")
 
     def create_runner(self, env_config: Union[str, EnvConfig], rl_config: RLConfig):
+        common.logger_print()
         if isinstance(env_config, str):
             env_config = EnvConfig(env_config)
 
@@ -41,6 +42,12 @@ class CommonBaseCase(ABC):
 
             device = "GPU"
 
+        if self.get_framework() == "tensorflow":
+            rl_config.set_tensorflow()
+        elif self.get_framework() == "torch":
+            rl_config.set_torch()
+
+        rl_config.memory_compress = False
         env_config.enable_sanitize = False
         rl_config.enable_sanitize = False
         runner = srl.Runner(env_config, rl_config)

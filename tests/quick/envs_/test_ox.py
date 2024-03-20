@@ -1,11 +1,8 @@
 import numpy as np
 
 import srl
-from srl.base.define import DoneTypes, EnvTypes
-from srl.base.spaces.box import BoxSpace
-from srl.envs import ox  # noqa F401
-from srl.test import TestEnv
-from srl.test.processor import TestProcessor
+from srl.base.define import DoneTypes
+from srl.test.env import TestEnv
 
 
 def test_play():
@@ -19,26 +16,12 @@ def test_player():
 
 
 def test_processor():
-    tester = TestProcessor()
-    processor = ox.LayerProcessor()
-    env_name = "OX"
+    env = srl.make_env(srl.EnvConfig("OX", {"obs_type": "layer"}))
+    env.reset()
 
-    in_state = [0] * 9
     out_state = np.zeros((3, 3, 2))
 
-    tester.run(processor, env_name)
-    tester.preprocess_observation_space(
-        processor,
-        env_name,
-        EnvTypes.IMAGE,
-        BoxSpace((3, 3, 2), 0, 1),
-    )
-    tester.preprocess_observation(
-        processor,
-        env_name,
-        in_observation=in_state,
-        out_observation=out_state,
-    )
+    assert (out_state == env.state).all()
 
 
 def test_play_step():

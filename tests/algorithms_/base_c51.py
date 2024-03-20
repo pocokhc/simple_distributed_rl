@@ -30,9 +30,9 @@ class BaseCase(CommonBaseCase):
     def test_Grid(self):
         self.check_skip()
         rl_config = self._create_rl_config()
-        rl_config.epsilon.set_constant(0.5)
-        rl_config.lr.set_constant(0.002)
-        rl_config.hidden_block.set_mlp((16, 16))
+        rl_config.epsilon = 0.5
+        rl_config.lr = 0.002
+        rl_config.hidden_block.set((16, 16))
         rl_config.categorical_num_atoms = 11
         rl_config.categorical_v_min = -2
         rl_config.categorical_v_max = 2
@@ -46,8 +46,8 @@ class BaseCase(CommonBaseCase):
         rl_config.categorical_v_min = -100
         rl_config.categorical_v_max = 100
         rl_config.batch_size = 64
-        rl_config.lr.set_constant(0.001)
-        rl_config.hidden_block.set_mlp((32, 32, 32))
+        rl_config.lr = 0.001
+        rl_config.hidden_block.set((32, 32, 32))
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
         runner.train(max_train_count=200 * 600)
         tester.eval(runner)
@@ -58,8 +58,8 @@ class BaseCase(CommonBaseCase):
         rl_config.categorical_v_min = -100
         rl_config.categorical_v_max = 100
         rl_config.batch_size = 64
-        rl_config.lr.set_constant(0.001)
-        rl_config.hidden_block.set_mlp((32, 32, 32))
+        rl_config.lr = 0.001
+        rl_config.hidden_block.set((32, 32, 32))
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
         runner.train_mp(max_train_count=200 * 600)
         tester.eval(runner)

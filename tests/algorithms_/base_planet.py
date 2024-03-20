@@ -1,5 +1,9 @@
 from typing import Tuple
 
+import pytest
+
+import srl
+from srl.base.define import ObservationModes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -24,6 +28,7 @@ class QuickCase(CommonQuickCase):
         )
         rl_config.memory.warmup_size = 2
 
+        rl_config.observation_mode = ObservationModes.RENDER_IMAGE
         return rl_config, {}
 
 
@@ -57,12 +62,12 @@ class BaseCase(CommonBaseCase):
 
         rl_config = self._create_rl_config()
         rl_config.memory.warmup_size = rl_config.batch_size + 1
-        rl_config.use_render_image_for_observation = True
+        rl_config.observation_mode = ObservationModes.RENDER_IMAGE
 
         runner, tester = self.create_runner(env_config, rl_config)
 
         # --- train
-        runner.train(max_episodes=1000, disable_trainer=True)
+        runner.rollout(max_episodes=1000)
         runner.train_only(max_train_count=5_000)
 
         # --- eval
@@ -75,12 +80,12 @@ class BaseCase(CommonBaseCase):
 
         rl_config = self._create_rl_config()
         rl_config.memory.warmup_size = rl_config.batch_size + 1
-        rl_config.use_render_image_for_observation = True
+        rl_config.observation_mode = ObservationModes.RENDER_IMAGE
 
         runner, tester = self.create_runner(env_config, rl_config)
 
         # train
-        runner.train(max_episodes=1000, disable_trainer=True)
+        runner.rollout(max_episodes=1000)
         runner.train_only(max_train_count=20_000)
 
         # eval
@@ -111,12 +116,12 @@ class BaseCase(CommonBaseCase):
             print_ga_debug=False,
         )
         rl_config.memory.warmup_size = rl_config.batch_size + 1
-        rl_config.use_render_image_for_observation = True
+        rl_config.observation_mode = ObservationModes.RENDER_IMAGE
 
         runner, tester = self.create_runner(env_config, rl_config)
 
         # train
-        runner.train(max_episodes=1000, disable_trainer=True)
+        runner.rollout(max_episodes=1000)
         runner.train_only(max_train_count=10_000)
 
         # eval

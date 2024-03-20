@@ -4,7 +4,7 @@ from typing import Tuple
 import pytest
 
 import srl
-from srl.base.define import RLTypes
+from srl.base.define import ObservationModes, RLBaseTypes, SpaceTypes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -15,7 +15,7 @@ class QuickCase(CommonQuickCase):
         params=list(
             itertools.product(
                 ["", "v1", "v2", "v3"],
-                [RLTypes.DISCRETE, RLTypes.CONTINUOUS],  # action
+                [SpaceTypes.DISCRETE, SpaceTypes.CONTINUOUS],  # action
             )
         )
     )
@@ -100,9 +100,9 @@ class BaseCase(CommonBaseCase):
         # lr
         rl_config.batch_size = 32
         rl_config.batch_length = 5
-        rl_config.lr_model.set_constant(0.0005)
-        rl_config.lr_critic.set_constant(0.0003)
-        rl_config.lr_actor.set_constant(0.0001)
+        rl_config.lr_model = 0.0005
+        rl_config.lr_critic = 0.0003
+        rl_config.lr_actor = 0.0001
         rl_config.horizon = 3
 
         rl_config.encoder_decoder_dist = "linear"
@@ -139,14 +139,14 @@ class BaseCase(CommonBaseCase):
         # lr
         rl_config.batch_size = 32
         rl_config.batch_length = 5
-        rl_config.lr_model.set_constant(0.0005)
-        rl_config.lr_critic.set_constant(0.0005)
-        rl_config.lr_actor.set_constant(0.0001)
+        rl_config.lr_model = 0.0005
+        rl_config.lr_critic = 0.0005
+        rl_config.lr_actor = 0.0001
         rl_config.horizon = 5
 
         rl_config.encoder_decoder_dist = "linear"
         rl_config.free_nats = 0.01
-        rl_config.override_action_type = RLTypes.CONTINUOUS
+        rl_config.override_action_type = SpaceTypes.CONTINUOUS
         rl_config.actor_reinforce_rate = 1.0
 
         runner, tester = self.create_runner(env_config, rl_config)
@@ -185,9 +185,9 @@ class BaseCase(CommonBaseCase):
         # lr
         rl_config.batch_size = 16
         rl_config.batch_length = 20
-        rl_config.lr_model.set_constant(0.0001)
-        rl_config.lr_critic.set_constant(0.0001)
-        rl_config.lr_actor.set_constant(0.00005)
+        rl_config.lr_model = 0.0001
+        rl_config.lr_critic = 0.0001
+        rl_config.lr_actor = 0.00005
         rl_config.horizon = 5
 
         # other
@@ -198,7 +198,7 @@ class BaseCase(CommonBaseCase):
         rl_config.cnn_use_sigmoid = False
 
         rl_config.warmup_world_model = 10_000
-        rl_config.use_render_image_for_observation = True
+        rl_config.observation_mode = ObservationModes.RENDER_IMAGE
 
         runner, tester = self.create_runner(env_config, rl_config)
         runner.train(max_train_count=12_000)

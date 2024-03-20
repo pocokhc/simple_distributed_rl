@@ -1,5 +1,5 @@
 from srl.envs import sample_env  # noqa F401
-from srl.test import TestEnv
+from srl.test.env import TestEnv
 
 
 def test_env():

@@ -4,11 +4,12 @@ import pytest
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 
 
-def test_torch_mlp():
+@pytest.mark.parametrize("enable_noisy_dense", [False, True])
+def test_torch_mlp(enable_noisy_dense):
     pytest.importorskip("torch")
 
     config = MLPBlockConfig()
-    config.set_mlp((64, 32))
+    config.set((64, 32))
 
     # ---
 
@@ -18,7 +19,7 @@ def test_torch_mlp():
     x = np.ones((batch_size, 256), dtype=np.float32)
 
     x = torch.tensor(x)
-    block = config.create_block_torch(256)
+    block = config.create_block_torch(256, enable_noisy_dense=enable_noisy_dense)
     y = block(x)
     y = y.detach().numpy()
 
@@ -26,24 +27,24 @@ def test_torch_mlp():
     assert block.out_size == 32
 
 
-def test_torch_mlp_rnn():
+@pytest.mark.parametrize("enable_noisy_dense", [False, True])
+def test_torch_dueling_network(enable_noisy_dense):
     pytest.importorskip("torch")
-
-    config = MLPBlockConfig()
-    config.set_mlp((64, 32))
-
-    # ---
-
     import torch
 
+    action_num = 5
+    dense_units = 32
     batch_size = 16
-    seq_size = 8
-    x = np.ones((batch_size, seq_size, 256), dtype=np.float32)
 
-    x = torch.tensor(x)
-    block = config.create_block_torch(256)
-    y = block(x)
+    from srl.rl.models.config.mlp_block import MLPBlockConfig
+
+    config = MLPBlockConfig()
+    config.set_dueling_network((dense_units,))
+
+    block = config.create_block_torch(128, action_num, enable_noisy_dense=enable_noisy_dense)
+
+    x = np.ones((batch_size, 128), dtype=np.float32)
+    y = block(torch.tensor(x))
     y = y.detach().numpy()
 
-    assert y.shape == (batch_size, seq_size, 32)
-    assert block.out_size == 32
+    assert y.shape == (batch_size, action_num)

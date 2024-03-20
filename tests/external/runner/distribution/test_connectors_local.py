@@ -1,10 +1,7 @@
 import pytest
 
 from srl.utils import common
-try:
-    from tests.runner.distribution.memory_test_functions import memory_connector_error_test, memory_connector_test
-except ModuleNotFoundError as e:
-    print(e)
+from tests.external.runner.distribution.memory_test_functions import memory_connector_error_test, memory_connector_test
 
 
 def test_redis():

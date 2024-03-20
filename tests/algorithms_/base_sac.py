@@ -2,7 +2,7 @@ from typing import Tuple
 
 import pytest
 
-from srl.base.define import RLTypes
+from srl.base.define import SpaceTypes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -11,10 +11,10 @@ from tests.algorithms_.common_quick_case import CommonQuickCase
 class QuickCase(CommonQuickCase):
     @pytest.fixture(
         params=[
-            dict(override_action_type=RLTypes.DISCRETE, entropy_bonus_exclude_q=False),
-            dict(override_action_type=RLTypes.DISCRETE, entropy_bonus_exclude_q=True),
-            dict(override_action_type=RLTypes.CONTINUOUS, enable_normal_squashed=False),
-            dict(override_action_type=RLTypes.CONTINUOUS, enable_normal_squashed=True),
+            dict(override_action_type=SpaceTypes.DISCRETE, entropy_bonus_exclude_q=False),
+            dict(override_action_type=SpaceTypes.DISCRETE, entropy_bonus_exclude_q=True),
+            dict(override_action_type=SpaceTypes.CONTINUOUS, enable_normal_squashed=False),
+            dict(override_action_type=SpaceTypes.CONTINUOUS, enable_normal_squashed=True),
         ]
     )
     def rl_param(self, request):
@@ -47,12 +47,12 @@ class BaseCase(CommonBaseCase):
         rl_config = self._create_rl_config()
 
         rl_config.batch_size = 32
-        rl_config.lr_policy.set_constant(0.0002)
-        rl_config.lr_q.set_constant(0.001)
+        rl_config.lr_policy = 0.0002
+        rl_config.lr_q = 0.001
         rl_config.memory.capacity = 10000
         rl_config.memory.warmup_size = 1000
-        rl_config.policy_hidden_block.set_mlp((32, 32, 32))
-        rl_config.q_hidden_block.set_mlp((32, 32, 32))
+        rl_config.policy_hidden_block.set((32, 32, 32))
+        rl_config.q_hidden_block.set((32, 32, 32))
         rl_config.entropy_bonus_exclude_q = True
         rl_config.entropy_alpha = 0.1
         rl_config.entropy_alpha_auto_scale = False
@@ -67,12 +67,12 @@ class BaseCase(CommonBaseCase):
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
 
         rl_config.batch_size = 32
-        rl_config.lr_policy.set_constant(0.003)
-        rl_config.lr_q.set_constant(0.003)
+        rl_config.lr_policy = 0.003
+        rl_config.lr_q = 0.003
         rl_config.memory.capacity = 10000
         rl_config.memory.warmup_size = 1000
-        rl_config.policy_hidden_block.set_mlp((64, 64, 64))
-        rl_config.q_hidden_block.set_mlp((128, 128, 128))
+        rl_config.policy_hidden_block.set((64, 64, 64))
+        rl_config.q_hidden_block.set((128, 128, 128))
 
         runner.train(max_train_count=200 * 30)
         tester.eval(runner)

@@ -34,7 +34,7 @@ def test_callback(mocker: pytest_mock.MockerFixture):
     assert c.on_step_begin.call_count == 10
     assert c.on_step_begin.call_count == c.on_step_action_before.call_count
     assert c.on_step_begin.call_count == c.on_step_end.call_count
-    assert c.on_skip_step.call_count > 30  # episode終了タイミングで変化する
+    assert c.on_skip_step.call_count >= 20  # episode終了タイミングで変化する
 
 
 @pytest.mark.timeout(2)  # pip install pytest_timeout

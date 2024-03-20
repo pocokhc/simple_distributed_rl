@@ -4,7 +4,7 @@ import pytest
 
 import srl
 from srl.algorithms import ql
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.utils import common
 
@@ -16,10 +16,10 @@ def test_1():
 
     rl_config = ql.Config()
     rl_config.window_length = 4
-    rl_config.use_render_image_for_observation = True
+    rl_config.observation_mode = "image"
     rl_config.processors = [
         ImageProcessor(
-            image_type=EnvTypes.GRAY_2ch,
+            image_type=SpaceTypes.GRAY_2ch,
             resize=(84, 84),
             enable_norm=True,
         )

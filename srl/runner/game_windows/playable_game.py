@@ -261,12 +261,12 @@ class PlayableGame(GameWindow):
             f"observation_space: {self.env.observation_space}",
             f"player_num       : {self.env.player_num}",
             f"step   : {self.env.step_num}",
-            f"state  : {self.env.state if self.view_state else 'hidden'}",
+            f"state  : {str(self.env.state)[:50] if self.view_state else 'hidden'}",
             f"next   : {self.env.next_player_index}",
             f"rewards: {self.env.step_rewards}",
             f"info   : {self.env.info}",
             f"done   : {self.env.done}({self.env.done_reason})",
-            f"time   : {self.step_time*1000:.1f}ms",
+            f"time   : {self.step_time * 1000:.1f}ms",
         ]
         self.add_info_texts(s)
 

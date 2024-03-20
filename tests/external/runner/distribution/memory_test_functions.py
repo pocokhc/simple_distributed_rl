@@ -1,11 +1,13 @@
 import time
 
 import pytest
+from typing import TYPE_CHECKING
 
-from srl.runner.distribution.interface import IMemoryServerParameters
+if TYPE_CHECKING:
+    from srl.runner.distribution.interface import IMemoryServerParameters
 
 
-def memory_connector_test(params: IMemoryServerParameters):
+def memory_connector_test(params: "IMemoryServerParameters"):
     receiver = params.create_memory_receiver()
     sender = params.create_memory_sender()
 
@@ -43,7 +45,7 @@ def memory_connector_test(params: IMemoryServerParameters):
         assert n == 0
 
 
-def memory_connector_error_test(params: IMemoryServerParameters):
+def memory_connector_error_test(params: "IMemoryServerParameters"):
     receiver = params.create_memory_receiver()
     sender = params.create_memory_sender()
 

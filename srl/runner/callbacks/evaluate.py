@@ -12,10 +12,10 @@ from srl.runner.runner import Runner
 logger = logging.getLogger(__name__)
 
 
+# envを共有すると状態が変わるのでやめる
 @dataclass
 class Evaluate:
     enable_eval: bool = True
-    eval_env_sharing: bool = False
     eval_episode: int = 1
     eval_timeout: float = -1
     eval_max_steps: int = -1
@@ -30,7 +30,6 @@ class Evaluate:
         if self._eval_runner is not None:
             return True
         self._eval_runner = runner.create_eval_runner(
-            self.eval_env_sharing,
             self.eval_episode,
             self.eval_timeout,
             self.eval_max_steps,

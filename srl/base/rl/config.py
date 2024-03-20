@@ -403,14 +403,13 @@ class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
                 rl_type = SpaceTypes.DISCRETE
             elif self.get_base_action_type() == RLBaseTypes.CONTINUOUS:
                 rl_type = SpaceTypes.CONTINUOUS
+            elif self.override_action_type != SpaceTypes.UNKNOWN:
+                rl_type = self.override_action_type
             else:
-                if self.override_action_type != RLBaseTypes.NONE:
-                    rl_type = self.override_action_type
+                if env_space.stype == SpaceTypes.DISCRETE:
+                    rl_type = SpaceTypes.DISCRETE
                 else:
-                    if env_space.stype == SpaceTypes.DISCRETE:
-                        rl_type = SpaceTypes.DISCRETE
-                    else:
-                        rl_type = SpaceTypes.CONTINUOUS
+                    rl_type = SpaceTypes.CONTINUOUS
 
             # --- space
             if rl_type == SpaceTypes.DISCRETE:

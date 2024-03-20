@@ -26,17 +26,19 @@ def test_space_basic():
     c = space.copy()
     assert space == c
 
-    # --- get_default
+    # --- stack
+    o = space.create_stack_space(3)
+    assert isinstance(o, ArrayContinuousSpace)
+    assert o == ArrayContinuousSpace(3 * 3, -1.8, 3.1)
+
+
+def test_space_get_default():
+    space = ArrayContinuousSpace(3, -1.8, 3.1)
     assert space.get_default() == [0, 0, 0]
     space = ArrayContinuousSpace(3, 1, [2, 5, 3])
     assert space.get_default() == [1, 1, 1]
     space = ArrayContinuousSpace(3, -2, -1)
     assert space.get_default() == [-2, -2, -2]
-
-    # --- stack
-    o = space.create_stack_space(3)
-    assert isinstance(o, ArrayContinuousSpace)
-    assert o == ArrayContinuousSpace(3 * 3, -1.8, 3.1)
 
 
 def test_no_division():

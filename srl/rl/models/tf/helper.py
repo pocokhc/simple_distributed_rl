@@ -1,9 +1,8 @@
 from typing import Optional, Tuple, cast
 
 import numpy as np
-import tensorflow as tf
 
-from srl.base.define import RLTypes
+from srl.base.define import SpaceTypes
 from srl.base.spaces.multi import MultiSpace
 from srl.base.spaces.space import SpaceBase
 
@@ -16,7 +15,7 @@ def create_batch_shape(shape, prefix_shape: Tuple[Optional[int], ...]):
 
 
 def create_batch_data(state, space: SpaceBase):
-    if space.rl_type == RLTypes.MULTI:
+    if space.stype == SpaceTypes.MULTI:
         return [s[np.newaxis, ...] for s in state]
     else:
         return state[np.newaxis, ...]
@@ -25,7 +24,7 @@ def create_batch_data(state, space: SpaceBase):
 def stack_batch_data(state, space: SpaceBase):
     # stackはnpが早い
 
-    if space.rl_type == RLTypes.MULTI:
+    if space.stype == SpaceTypes.MULTI:
         space = cast(MultiSpace, space)
         # state: [batch_list, multi_list, state_shape]
         states = []

@@ -17,7 +17,14 @@ SpaceType = Union[
 # --- action type
 EnvActionType = Union[SpaceType, None]
 EnvInvalidActionType = Union[int, List[int], np.ndarray]
-RLActionType = Union[int, List[float], float, np.ndarray, List[SpaceType]]
+RLActionType = Union[
+    int,
+    List[float],
+    float,
+    np.ndarray,
+    List[SpaceType],
+    List["RLActionType"],
+]
 RLInvalidActionType = Union[int, np.ndarray]  # discrete only
 
 # --- obs type
@@ -26,7 +33,7 @@ RLObservationType = Union[
     List[int],
     np.ndarray,
     List[np.ndarray],
-    List[Union[List[int], np.ndarray, List[np.ndarray]]],
+    List["RLObservationType"],
 ]
 
 # --- info type
@@ -62,7 +69,7 @@ class DoneTypes(enum.Enum):
         return done
 
 
-class EnvTypes(enum.Enum):
+class SpaceTypes(enum.Enum):
     UNKNOWN = 0
     DISCRETE = enum.auto()
     CONTINUOUS = enum.auto()
@@ -73,19 +80,23 @@ class EnvTypes(enum.Enum):
     TEXT = enum.auto()
     MULTI = enum.auto()  # list
 
+    @staticmethod
+    def is_image(t: "SpaceTypes") -> bool:
+        return t in [
+            SpaceTypes.GRAY_2ch,
+            SpaceTypes.GRAY_3ch,
+            SpaceTypes.COLOR,
+            SpaceTypes.IMAGE,
+        ]
 
-class RLBaseTypes(enum.Enum):
-    ANY = enum.auto()
+
+class RLBaseTypes(enum.Flag):
+    NONE = enum.auto()
     DISCRETE = enum.auto()
     CONTINUOUS = enum.auto()
-
-
-class RLTypes(enum.Enum):
-    UNKNOWN = 0
-    DISCRETE = enum.auto()
-    CONTINUOUS = enum.auto()
-    IMAGE = enum.auto()  # (height, width, ch)
-    MULTI = enum.auto()  # list[RLTypes]
+    IMAGE = enum.auto()
+    TEXT = enum.auto()
+    MULTI = enum.auto()
 
 
 class RLMemoryTypes(enum.Enum):
@@ -111,11 +122,6 @@ class ObservationModes(enum.Flag):
             else:
                 mode = ObservationModes.ENV
         return mode
-
-
-class MultiVariableTypes(enum.Enum):
-    VALUE = enum.auto()
-    IMAGE = enum.auto()
 
 
 class RenderModes(enum.Enum):

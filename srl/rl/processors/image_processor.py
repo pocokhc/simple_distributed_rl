@@ -4,7 +4,7 @@ from typing import Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationType, EnvTypes
+from srl.base.define import EnvObservationType, SpaceTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import ObservationProcessor
@@ -16,13 +16,13 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ImageProcessor(ObservationProcessor):
-    image_type: EnvTypes = EnvTypes.GRAY_2ch
+    image_type: SpaceTypes = SpaceTypes.GRAY_2ch
     resize: Optional[Tuple[int, int]] = None  # (w, h)
     enable_norm: bool = False
     trimming: Optional[Tuple[int, int, int, int]] = None  # (top, left, bottom, right)
 
     def __post_init__(self):
-        self.before_observation_type = EnvTypes.UNKNOWN
+        self.before_observation_type = SpaceTypes.UNKNOWN
         self.max_val = 0
 
     def preprocess_observation_space(
@@ -40,28 +40,28 @@ class ImageProcessor(ObservationProcessor):
 
         # Imageのみ対象
         assert self.image_type in [
-            EnvTypes.GRAY_2ch,
-            EnvTypes.GRAY_3ch,
-            EnvTypes.COLOR,
+            SpaceTypes.GRAY_2ch,
+            SpaceTypes.GRAY_3ch,
+            SpaceTypes.COLOR,
         ]
-        if env_observation_space.env_type not in [
-            EnvTypes.GRAY_2ch,
-            EnvTypes.GRAY_3ch,
-            EnvTypes.COLOR,
+        if env_observation_space.stype not in [
+            SpaceTypes.GRAY_2ch,
+            SpaceTypes.GRAY_3ch,
+            SpaceTypes.COLOR,
         ]:
             return env_observation_space
 
         # 予測する
-        if self.before_observation_type == EnvTypes.UNKNOWN:
+        if self.before_observation_type == SpaceTypes.UNKNOWN:
             if len(env_observation_space.shape) == 2:
-                self.before_observation_type = EnvTypes.GRAY_2ch
+                self.before_observation_type = SpaceTypes.GRAY_2ch
             elif len(env_observation_space.shape) == 3:
                 # w,h,ch 想定
                 ch = env_observation_space.shape[-1]
                 if ch == 1:
-                    self.before_observation_type = EnvTypes.GRAY_3ch
+                    self.before_observation_type = SpaceTypes.GRAY_3ch
                 elif ch == 3:
-                    self.before_observation_type = EnvTypes.COLOR
+                    self.before_observation_type = SpaceTypes.COLOR
 
         shape = env_observation_space.shape
         low = env_observation_space.low
@@ -106,9 +106,9 @@ class ImageProcessor(ObservationProcessor):
         low = np.min(low)
 
         # shape
-        if self.image_type == EnvTypes.GRAY_3ch:
+        if self.image_type == SpaceTypes.GRAY_3ch:
             new_shape = new_shape + (1,)
-        elif self.image_type == EnvTypes.COLOR:
+        elif self.image_type == SpaceTypes.COLOR:
             new_shape = new_shape + (3,)
 
         self.is_valid = True
@@ -122,13 +122,13 @@ class ImageProcessor(ObservationProcessor):
 
         state = np.asarray(state).astype(np.uint8)
 
-        if self.image_type == EnvTypes.COLOR and (
-            self.before_observation_type == EnvTypes.GRAY_2ch or self.before_observation_type == EnvTypes.GRAY_3ch
+        if self.image_type == SpaceTypes.COLOR and (
+            self.before_observation_type == SpaceTypes.GRAY_2ch or self.before_observation_type == SpaceTypes.GRAY_3ch
         ):
             # gray -> color
             state = cv2.applyColorMap(state, cv2.COLORMAP_HOT)
-        elif self.before_observation_type == EnvTypes.COLOR and (
-            self.image_type == EnvTypes.GRAY_2ch or self.image_type == EnvTypes.GRAY_3ch
+        elif self.before_observation_type == SpaceTypes.COLOR and (
+            self.image_type == SpaceTypes.GRAY_2ch or self.image_type == SpaceTypes.GRAY_3ch
         ):
             # color -> gray
             state = cv2.cvtColor(state, cv2.COLOR_RGB2GRAY)
@@ -145,7 +145,7 @@ class ImageProcessor(ObservationProcessor):
             state = state.astype(np.float32)
             state /= self.max_val
 
-        if len(state.shape) == 2 and self.image_type == EnvTypes.GRAY_3ch:
+        if len(state.shape) == 2 and self.image_type == SpaceTypes.GRAY_3ch:
             state = state[..., np.newaxis]
 
         return state

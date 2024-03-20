@@ -8,11 +8,13 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 
 from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.base import RLParameter, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions import common
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.rl.functions import common, helper
 from srl.rl.memories.priority_experience_replay import (
     PriorityExperienceReplay,
     RLConfigComponentPriorityExperienceReplay,
@@ -60,7 +62,7 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig,
+    RLConfig[DiscreteSpace, BoxSpace],
     RLConfigComponentPriorityExperienceReplay,
     RLConfigComponentFramework,
 ):
@@ -181,7 +183,7 @@ class Memory(PriorityExperienceReplay):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class CommonInterfaceParameter(RLParameter, ABC):
+class CommonInterfaceParameter(RLParameter[Config], ABC):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -306,7 +308,7 @@ class Worker(RLWorker):
         self.config: Config = self.config
         self.parameter: CommonInterfaceParameter = self.parameter
 
-        self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
+        self.dummy_state = np.full(self.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
         self.discount = 0
 
         # actor
@@ -320,7 +322,7 @@ class Worker(RLWorker):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def on_reset(self, worker: WorkerRun) -> InfoType:
+    def on_reset(self, worker) -> InfoType:
         if self.training:
             # エピソード毎に actor を決める
             self.actor_index = self._calc_actor_index()
@@ -332,8 +334,8 @@ class Worker(RLWorker):
             self.epsilon = self.config.test_epsilon
             self.beta = self.config.test_beta
 
-        a0 = random.randint(0, self.config.action_num - 1)
-        self.prev_onehot_action = np.identity(self.config.action_num, dtype=np.float32)[a0]
+        a0 = random.randint(0, self.config.action_space.n - 1)
+        self.prev_onehot_action = np.identity(self.config.action_space.n, dtype=np.float32)[a0]
         self.prev_reward_ext = 0
         self.prev_reward_int = 0
 
@@ -388,9 +390,9 @@ class Worker(RLWorker):
             ucbs.append(ucb)
 
         # UCB値最大のポリシー（複数あればランダム）
-        return common.get_random_max_index(ucbs)
+        return helper.get_random_max_index(ucbs)
 
-    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> Tuple[int, InfoType]:
 
         in_ = [
             worker.state[np.newaxis, ...],
@@ -405,15 +407,15 @@ class Worker(RLWorker):
 
         invalid_actions = worker.get_invalid_actions()
         if random.random() < self.epsilon:
-            action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            action = random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
         else:
             self.q[invalid_actions] = -np.inf
             action = int(np.argmax(self.q))
 
-        self.onehot_action = np.identity(self.config.action_num, dtype=np.float32)[action]
+        self.onehot_action = np.identity(self.config.action_space.n, dtype=np.float32)[action]
         return action, {}
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         next_state = worker.state
         reward_ext = worker.reward
         next_invalid_actions = worker.get_invalid_actions()
@@ -585,4 +587,4 @@ class Worker(RLWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:6.3f} = {q_ext[a]:6.3f} + {self.beta:.3f} * {q_int[a]:6.3f}"
 
-        common.render_discrete_action(maxa, worker.env, self.config, _render_sub)
+        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)

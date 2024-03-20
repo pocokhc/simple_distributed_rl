@@ -6,17 +6,14 @@ from typing import List, Optional, Tuple, Union, cast
 import numpy as np
 
 from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.base import RLParameter, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions.common import (
-    create_epsilon_list,
-    create_fancy_index_for_invalid_actions,
-    inverse_rescaling,
-    render_discrete_action,
-    rescaling,
-)
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.rl.functions import helper
+from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, rescaling
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
@@ -53,7 +50,7 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig,
+    RLConfig[DiscreteSpace, BoxSpace],
     RLConfigComponentExperienceReplayBuffer,
     RLConfigComponentFramework,
 ):
@@ -121,7 +118,7 @@ class Config(
         return RLBaseTypes.DISCRETE
 
     def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS
+        return RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return self.create_framework_str()
@@ -156,11 +153,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class CommonInterfaceParameter(RLParameter, ABC):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
+class CommonInterfaceParameter(RLParameter[Config], ABC):
     @abstractmethod
     def create_batch_data(self, state):
         raise NotImplementedError()
@@ -183,7 +176,7 @@ class CommonInterfaceParameter(RLParameter, ABC):
     ):
         # ここの計算はtfで計算するよりnpで計算したほうが早い
 
-        n_inv_act_idx1, n_inv_act_idx2 = create_fancy_index_for_invalid_actions(next_invalid_actions)
+        n_inv_act_idx1, n_inv_act_idx2 = helper.create_fancy_index_for_invalid_actions(next_invalid_actions)
 
         n_q_target = self.predict_target_q(n_state)
 
@@ -212,18 +205,16 @@ class CommonInterfaceParameter(RLParameter, ABC):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, CommonInterfaceParameter, DiscreteSpace, BoxSpace]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: CommonInterfaceParameter = self.parameter
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-    def on_reset(self, worker: WorkerRun) -> InfoType:
+    def on_reset(self, worker) -> InfoType:
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> Tuple[int, InfoType]:
         invalid_actions = worker.get_invalid_actions()
 
         if self.training:
@@ -233,7 +224,7 @@ class Worker(RLWorker):
 
         if random.random() < epsilon:
             # epsilonより低いならランダム
-            action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            action = random.choice([a for a in range(self.action_space.n) if a not in invalid_actions])
             self.q = None
         else:
             state = self.parameter.create_batch_data(worker.state)
@@ -245,7 +236,7 @@ class Worker(RLWorker):
 
         return action, {"epsilon": epsilon}
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         if not self.training:
             return {}
 
@@ -274,7 +265,7 @@ class Worker(RLWorker):
         batch = [
             worker.prev_state,
             worker.state,
-            np.identity(self.config.action_num, dtype=int)[action],
+            np.identity(self.action_space.n, dtype=int)[action],
             reward,
             int(not worker.terminated),
             worker.get_invalid_actions(),
@@ -282,7 +273,7 @@ class Worker(RLWorker):
         self.memory.add(batch)
         return {}
 
-    def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         if self.q is None:
             state = self.parameter.create_batch_data(worker.prev_state)
             q = self.parameter.predict_q(state)[0]
@@ -295,4 +286,4 @@ class Worker(RLWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        render_discrete_action(maxa, worker.env, self.config, _render_sub)
+        helper.render_discrete_action(int(maxa), self.action_space.n, worker.env, _render_sub)

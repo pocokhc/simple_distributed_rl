@@ -1,16 +1,19 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Tuple, Union
+from typing import Any, Tuple, Union, cast
 
 import numpy as np
 
-from srl.base.define import RLActionType, RLBaseTypes, RLTypes
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
+from srl.base.define import RLActionType, RLBaseTypes, SpaceTypes
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions import common
-from srl.rl.functions.common import render_discrete_action, to_str_observation
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.array_continuous import ArrayContinuousSpace
+from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.rl.functions import helper
 from srl.rl.memories.sequence_memory import SequenceMemory
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -19,7 +22,7 @@ from srl.rl.schedulers.scheduler import SchedulerConfig
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig[Union[DiscreteSpace, ArrayContinuousSpace], ArrayDiscreteSpace]):
     discount: float = 0.9
     lr: Union[float, SchedulerConfig] = 0.1
 
@@ -28,7 +31,7 @@ class Config(RLConfig):
     update_stddev_rate: float = 0.1
 
     def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.ANY
+        return RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS
 
     def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
@@ -67,10 +70,9 @@ class Memory(SequenceMemory):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class Parameter(RLParameter):
+class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
 
         # パラメータ
         self.policy = {}
@@ -85,7 +87,7 @@ class Parameter(RLParameter):
 
     def get_probs(self, state_str: str, invalid_actions):
         if state_str not in self.policy:
-            self.policy[state_str] = [None if a in invalid_actions else 0.0 for a in range(self.config.action_num)]
+            self.policy[state_str] = [None if a in invalid_actions else 0.0 for a in range(self.config.action_space.n)]
 
         probs = []
         for val in self.policy[state_str]:
@@ -111,11 +113,9 @@ class Parameter(RLParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
         self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
 
@@ -124,7 +124,7 @@ class Trainer(RLTrainer):
             return
         batchs = self.memory.sample()
 
-        if self.config.action_type == RLTypes.DISCRETE:
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
             self.info = self._train_discrete(batchs)
         else:
             self.info = self._train_continuous(batchs)
@@ -199,33 +199,35 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, Parameter, Union[DiscreteSpace, ArrayDiscreteSpace], ArrayDiscreteSpace]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-    def on_reset(self, worker: WorkerRun) -> dict:
-        self.state = to_str_observation(worker.state, self.config.observation_space.env_type)
+    def on_reset(self, worker) -> dict:
+        self.state = self.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
         self.history = []
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[RLActionType, dict]:
-        self.state = to_str_observation(worker.state, self.config.observation_space.env_type)
+    def policy(self, worker) -> Tuple[RLActionType, dict]:
+        self.state = self.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
 
-        if self.config.action_type == RLTypes.DISCRETE:
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
+            act_space = cast(DiscreteSpace, self.config.action_space)
             # --- 離散
             probs = self.parameter.get_probs(self.state, self.invalid_actions)
             if self.training:
-                action = np.random.choice([a for a in range(self.config.action_num)], p=probs)
+                action = np.random.choice([a for a in range(act_space.n)], p=probs)
                 self.action = env_action = int(action)
                 self.prob = probs[self.action]
             else:
-                env_action = common.get_random_max_index(probs, worker.invalid_actions)
+                env_action = helper.get_random_max_index(probs, worker.invalid_actions)
 
         else:
+            act_space = cast(ArrayContinuousSpace, self.config.action_space)
             # --- 連続
             # パラメータ
             mean, stddev = self.parameter.get_normal(self.state)
@@ -238,11 +240,12 @@ class Worker(RLWorker):
 
             # -inf～infの範囲を取るので実際に環境に渡すアクションはlowとhighで切り取る
             # 本当はポリシーが変化しちゃうのでよくない（暫定対処）
-            env_action = np.clip(env_action, self.config.action_low[0], self.config.action_high[0])
+            env_action = np.clip(env_action, act_space.low[0], act_space.high[0])
+            env_action = [env_action]  # list float
 
         return env_action, {}
 
-    def on_step(self, worker: WorkerRun) -> dict:
+    def on_step(self, worker) -> dict:
         if not self.training:
             return {}
         self.history.append(
@@ -268,16 +271,16 @@ class Worker(RLWorker):
 
         return {}
 
-    def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
-        if self.config.action_type == RLTypes.DISCRETE:
+    def render_terminal(self, worker, **kwargs) -> None:
+        if self.config.action_space.stype == SpaceTypes.DISCRETE:
             probs = self.parameter.get_probs(self.state, self.invalid_actions)
             vals = [0 if v is None else v for v in self.parameter.policy[self.state]]
             maxa = np.argmax(vals)
 
             def _render_sub(action: int) -> str:
-                return f"{probs[action]*100:5.1f}% ({vals[action]:.5f})"
+                return f"{probs[action] * 100:5.1f}% ({vals[action]:.5f})"
 
-            render_discrete_action(maxa, worker.env, self.config, _render_sub)
+            helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
 
         else:
             mean, stddev = self.parameter.get_normal(self.state)

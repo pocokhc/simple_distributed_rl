@@ -4,9 +4,9 @@ from typing import Tuple
 import numpy as np
 
 from srl.base.define import InfoType
-from srl.base.rl.base import RLWorker
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions.common import inverse_rescaling, render_discrete_action, rescaling
+from srl.base.rl.worker import RLWorker
+from srl.rl.functions import helper
+from srl.rl.functions.common import inverse_rescaling, rescaling
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 from .rainbow import CommonInterfaceParameter, Config
@@ -69,10 +69,10 @@ class Worker(RLWorker):
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-    def on_reset(self, worker: WorkerRun) -> InfoType:
+    def on_reset(self, worker) -> InfoType:
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> Tuple[int, InfoType]:
         state = worker.state
         invalid_actions = worker.get_invalid_actions()
 
@@ -89,7 +89,7 @@ class Worker(RLWorker):
             epsilon = self.config.test_epsilon
 
         if random.random() < epsilon:
-            self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            self.action = random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
             self.q = None
         else:
             state = self.parameter.create_batch_data(state)
@@ -101,7 +101,7 @@ class Worker(RLWorker):
 
         return self.action, {"epsilon": epsilon}
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         if not self.training:
             return {}
         reward = worker.reward
@@ -129,7 +129,7 @@ class Worker(RLWorker):
         batch = [
             worker.prev_state,
             worker.state,
-            np.identity(self.config.action_num, dtype=int)[self.action],
+            np.identity(self.config.action_space.n, dtype=int)[self.action],
             reward,
             int(not worker.terminated),
             worker.get_invalid_actions(),
@@ -161,4 +161,4 @@ class Worker(RLWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        render_discrete_action(maxa, worker.env, self.config, _render_sub)
+        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)

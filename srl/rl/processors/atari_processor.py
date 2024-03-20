@@ -1,10 +1,10 @@
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import EpisodeProcessor
 from srl.utils.common import is_package_installed
 
 
-class AtariProcessor(Processor):
+class AtariProcessor(EpisodeProcessor):
     def __init__(self):
         assert is_package_installed("ale_py")
 

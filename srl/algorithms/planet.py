@@ -8,16 +8,17 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow import keras
 
-from srl.base.define import EnvTypes, InfoType, RLBaseTypes
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
+from srl.base.define import InfoType, RLBaseTypes, SpaceTypes
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.tf import helper
-from srl.rl.models.tf.model import KerasModelAddedSummary
+from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.utils.common import compare_less_version
 
@@ -81,13 +82,19 @@ class Config(
         super().__post_init__()
 
     def get_processors(self) -> List[Optional[ObservationProcessor]]:
-        return [self.input_image_block.get_processor()]
+        return [
+            ImageProcessor(
+                image_type=SpaceTypes.COLOR,
+                resize=(64, 64),
+                enable_norm=True,
+            )
+        ]
 
     def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
     def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS
+        return RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return "tensorflow"
@@ -120,7 +127,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _RSSM(KerasModelAddedSummary):
+class _RSSM(keras.Model):
     def __init__(self, stoch=30, deter=200, hidden=200, act=tf.nn.elu):
         super().__init__()
 
@@ -167,7 +174,7 @@ class _RSSM(KerasModelAddedSummary):
     def build(self, config):
         in_stoch = np.zeros((1, config.stoch_size), dtype=np.float32)
         in_deter = self.get_initial_state()
-        in_action = np.zeros((1, config.action_num), dtype=np.float32)
+        in_action = np.zeros((1, config.action_space.n), dtype=np.float32)
         in_embed = np.zeros((1, 32 * config.cnn_depth), dtype=np.float32)
         self.obs_step(in_stoch, in_deter, in_action, in_embed)
         self.built = True
@@ -175,7 +182,7 @@ class _RSSM(KerasModelAddedSummary):
     def summary(self, config, **kwargs):
         in_stoch = kl.Input((config.stoch_size,))
         in_deter = kl.Input((config.deter_size,))
-        in_action = kl.Input((config.action_num,))
+        in_action = kl.Input((config.action_space.n,))
         in_embed = kl.Input((32 * config.cnn_depth,))
 
         model = keras.Model(
@@ -186,7 +193,7 @@ class _RSSM(KerasModelAddedSummary):
         return model.summary(**kwargs)
 
 
-class _ConvEncoder(KerasModelAddedSummary):
+class _ConvEncoder(keras.Model):
     def __init__(self, depth: int = 32, act=tf.nn.relu):
         super().__init__()
 
@@ -205,8 +212,18 @@ class _ConvEncoder(KerasModelAddedSummary):
         x = self.hout(x)
         return x
 
+    def build(self, input_shape):
+        self._input_shape = input_shape
+        super().build((1,) + self._input_shape)
 
-class _ConvDecoder(KerasModelAddedSummary):
+    def summary(self, name="", **kwargs):
+        x = kl.Input(shape=self._input_shape)
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
+        return model.summary(**kwargs)
+
+
+class _ConvDecoder(keras.Model):
     def __init__(self, depth: int = 32, act=tf.nn.relu):
         super().__init__()
 
@@ -235,8 +252,18 @@ class _ConvDecoder(KerasModelAddedSummary):
             reinterpreted_batch_ndims=len(x.shape) - 1,  # type:ignore , ignore check "None"
         )
 
+    def build(self, input_shape):
+        self._input_shape = input_shape
+        super().build((1,) + self._input_shape)
 
-class _DenseDecoder(KerasModelAddedSummary):
+    def summary(self, name="", **kwargs):
+        x = kl.Input(shape=self._input_shape)
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x, _summary=True), name=name)
+        return model.summary(**kwargs)
+
+
+class _DenseDecoder(keras.Model):
     def __init__(self, out_shape, layers: int, units: int, dist: str = "normal", act=tf.nn.elu):
         super().__init__()
         self._out_shape = out_shape
@@ -262,6 +289,16 @@ class _DenseDecoder(KerasModelAddedSummary):
             return tfd.Independent(tfd.Bernoulli(x), reinterpreted_batch_ndims=len(self._out_shape))
         raise NotImplementedError(self._dist)
 
+    def build(self, input_shape):
+        self._input_shape = input_shape
+        super().build((1,) + self._input_shape)
+
+    def summary(self, name="", **kwargs):
+        x = kl.Input(shape=self._input_shape)
+        name = self.__class__.__name__ if name == "" else name
+        model = keras.Model(inputs=x, outputs=self.call(x, _summary=True), name=name)
+        return model.summary(**kwargs)
+
 
 # ------------------------------------------------------
 # Parameter
@@ -276,10 +313,10 @@ class Parameter(RLParameter):
         self.decode = _ConvDecoder(self.config.cnn_depth, self.config.cnn_act)
         self.reward = _DenseDecoder((1,), 2, self.config.num_units, "normal", self.config.dense_act)
 
-        self.encode.build(self.config.observation_shape)
+        self.encode.build((None,) + self.config.observation_space.shape)
         self.dynamics.build(self.config)
-        self.decode.build((self.config.deter_size + self.config.stoch_size,))
-        self.reward.build((self.config.deter_size + self.config.stoch_size,))
+        self.decode.build((None,) + (self.config.deter_size + self.config.stoch_size,))
+        self.reward.build((None,) + (self.config.deter_size + self.config.stoch_size,))
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.encode.set_weights(data[0])
@@ -305,7 +342,7 @@ class Parameter(RLParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -336,7 +373,7 @@ class Trainer(RLTrainer):
         rewards = np.asarray([b["rewards"] for b in batchs], dtype=np.float32)[..., np.newaxis]
 
         # onehot action
-        actions = tf.one_hot(actions, self.config.action_num, axis=2)
+        actions = tf.one_hot(actions, self.config.action_space.n, axis=2)
 
         # (batch, seq, shape) -> (batch * seq, shape)
         states = tf.reshape(states, (self.config.batch_size * self.config.batch_length,) + states.shape[2:])
@@ -436,7 +473,7 @@ class Trainer(RLTrainer):
         rewards = np.asarray([b["rewards"] for b in batchs], dtype=np.float32)[..., np.newaxis]
 
         # onehot action
-        actions = tf.one_hot(actions, self.config.action_num, axis=2)
+        actions = tf.one_hot(actions, self.config.action_space.n, axis=2)
 
         # (batch, seq, shape) -> (batch * seq, shape)
         states = tf.reshape(states, (self.config.batch_size * self.config.batch_length,) + states.shape[2:])
@@ -539,14 +576,14 @@ class Worker(RLWorker):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
+        self.dummy_state = np.full(self.config.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
         self.screen = None
 
         self._recent_states = []
         self._recent_actions = []
         self._recent_rewards = []
 
-    def on_reset(self, worker: WorkerRun) -> InfoType:
+    def on_reset(self, worker) -> InfoType:
         if self.config.experience_acquisition_method != "loop":
             self._recent_states = []
             self._recent_actions = []
@@ -558,7 +595,7 @@ class Worker(RLWorker):
 
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> Tuple[int, InfoType]:
 
         if self.training:
             self.action = cast(int, self.sample_action())
@@ -567,7 +604,7 @@ class Worker(RLWorker):
         # --- rssm step
         state = helper.create_batch_data(worker.state, self.config.observation_space)
         embed = self.parameter.encode(state)
-        prev_action = tf.one_hot([self.action], self.config.action_num, axis=1)
+        prev_action = tf.one_hot([self.action], self.config.action_space.n, axis=1)
         latent, deter, _ = self.parameter.dynamics.obs_step(self.stoch, self.deter, prev_action, embed)
         self.feat = tf.concat([latent["stoch"], deter], axis=1)
         self.deter = deter
@@ -585,7 +622,7 @@ class Worker(RLWorker):
     def _ga_policy(self, deter, stoch):
         # --- 初期個体
         elite_actions = [
-            [random.randint(0, self.config.action_num - 1) for a in range(self.config.pred_action_length)]
+            [random.randint(0, self.config.action_space.n - 1) for a in range(self.config.pred_action_length)]
             for _ in range(self.config.num_individual)
         ]
         best_actions = []
@@ -649,9 +686,9 @@ class Worker(RLWorker):
 
                     # 突然変異
                     if random.random() < self.config.mutation:
-                        _c1 = random.randint(0, self.config.action_num - 1)
+                        _c1 = random.randint(0, self.config.action_space.n - 1)
                     if random.random() < self.config.mutation:
-                        _c2 = random.randint(0, self.config.action_num - 1)
+                        _c2 = random.randint(0, self.config.action_space.n - 1)
 
                     c1.append(_c1)
                     c2.append(_c2)
@@ -666,7 +703,7 @@ class Worker(RLWorker):
     def _eval_actions(self, deter, stoch, action_list):
         reward = 0
         for step in range(len(action_list)):
-            action = tf.one_hot([action_list[step]], self.config.action_num, axis=1)
+            action = tf.one_hot([action_list[step]], self.config.action_space.n, axis=1)
             deter, prior = self.parameter.dynamics.img_step(stoch, deter, action)
             stoch = prior["stoch"]
             feat = tf.concat([stoch, deter], -1)
@@ -674,7 +711,7 @@ class Worker(RLWorker):
             reward += _r.numpy()[0][0]
         return reward
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         if not self.training:
             return {}
         next_state = worker.state
@@ -706,7 +743,7 @@ class Worker(RLWorker):
             if worker.done:
                 for _ in range(self.config.batch_length - len(self._recent_states)):
                     self._recent_states.append(next_state)
-                    self._recent_actions.append(random.randint(0, self.config.action_num - 1))
+                    self._recent_actions.append(random.randint(0, self.config.action_space.n - 1))
                     self._recent_rewards.append(reward)
 
                 self.memory.add(
@@ -719,11 +756,11 @@ class Worker(RLWorker):
 
         return {}
 
-    def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         pass
 
-    def render_rgb_array(self, worker: WorkerRun, **kwargs) -> Optional[np.ndarray]:
-        if self.config.observation_space.env_type != EnvTypes.COLOR:
+    def render_rgb_array(self, worker, **kwargs) -> Optional[np.ndarray]:
+        if self.config.observation_space.stype != SpaceTypes.COLOR:
             return None
         from srl.utils import pygame_wrapper as pw
 
@@ -761,7 +798,7 @@ class Worker(RLWorker):
         # 横にアクション後の結果を表示
         invalid_actions = worker.get_invalid_actions()
         i = -1
-        for a in range(self.config.action_num):
+        for a in range(self.config.action_space.n):
             if a in invalid_actions:
                 continue
             i += 1
@@ -771,7 +808,7 @@ class Worker(RLWorker):
             a_str = worker.env.action_to_str(a)
             pw.draw_text(self.screen, (IMG_W + PADDING) * i, 20 + IMG_H, f"action {a_str}", color=(255, 255, 255))
 
-            action = tf.one_hot([a], self.config.action_num, axis=1)
+            action = tf.one_hot([a], self.config.action_space.n, axis=1)
             deter, prior = self.parameter.dynamics.img_step(self.stoch, self.deter, action)
             feat = tf.concat([prior["stoch"], deter], axis=1)
 

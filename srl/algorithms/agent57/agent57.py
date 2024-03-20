@@ -7,18 +7,18 @@ from typing import Any, List, Optional, Tuple, Union
 import numpy as np
 
 from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.base import RLParameter, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
-from srl.base.rl.worker_run import WorkerRun
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.rl.functions import helper
 from srl.rl.functions.common import (
-    calc_epsilon_greedy_probs,
     create_beta_list,
     create_discount_list,
     create_epsilon_list,
     inverse_rescaling,
-    random_choice_by_probs,
-    render_discrete_action,
     rescaling,
 )
 from srl.rl.memories.priority_experience_replay import (
@@ -68,7 +68,7 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig,
+    RLConfig[DiscreteSpace, BoxSpace],
     RLConfigComponentPriorityExperienceReplay,
     RLConfigComponentFramework,
 ):
@@ -230,7 +230,7 @@ class Memory(PriorityExperienceReplay):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class CommonInterfaceParameter(RLParameter, ABC):
+class CommonInterfaceParameter(RLParameter[Config], ABC):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -434,14 +434,14 @@ class CommonInterfaceParameter(RLParameter, ABC):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, CommonInterfaceParameter, DiscreteSpace, BoxSpace]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: CommonInterfaceParameter = self.parameter
 
-        self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
-        self.act_onehot_arr = np.identity(self.config.action_num, dtype=int)
+        self.dummy_state = np.full(self.config.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
+        self.act_onehot_arr = np.identity(self.config.action_space.n, dtype=int)
 
         # actor
         self.beta_list = create_beta_list(self.config.actor_num)
@@ -454,10 +454,10 @@ class Worker(RLWorker):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def on_reset(self, worker: WorkerRun) -> InfoType:
-        self.q_ext = [0] * self.config.action_num
-        self.q_int = [0] * self.config.action_num
-        self.q = [0] * self.config.action_num
+    def on_reset(self, worker) -> InfoType:
+        self.q_ext = [0] * self.config.action_space.n
+        self.q_int = [0] * self.config.action_space.n
+        self.q = [0] * self.config.action_space.n
         self.episodic_reward = 0
         self.lifelong_reward = 0
         self.reward_int = 0
@@ -472,10 +472,10 @@ class Worker(RLWorker):
 
         self.recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.sequence_length + 1)]
         self.recent_actions = [
-            self.act_onehot_arr[random.randint(0, self.config.action_num - 1)]
+            self.act_onehot_arr[random.randint(0, self.config.action_space.n - 1)]
             for _ in range(self.config.burnin + self.config.sequence_length + 1)
         ]
-        # self.recent_probs = [1.0 / self.config.action_num for _ in range(self.config.sequence_length)] #[1]
+        # self.recent_probs = [1.0 / self.config.action_space.n for _ in range(self.config.sequence_length)] #[1]
         self.recent_rewards_ext = [0.0 for _ in range(self.config.burnin + self.config.sequence_length + 1)]
         self.recent_rewards_int = [0.0 for _ in range(self.config.burnin + self.config.sequence_length + 1)]
         self.recent_done = [1 for _ in range(self.config.sequence_length)]
@@ -515,7 +515,7 @@ class Worker(RLWorker):
             self.epsilon = self.config.test_epsilon
             self.beta = self.config.test_beta
 
-        self.action = random.randint(0, self.config.action_num - 1)
+        self.action = random.randint(0, self.config.action_space.n - 1)
         self.reward_ext = 0
         self.reward_int = 0
 
@@ -570,8 +570,8 @@ class Worker(RLWorker):
         # UCB値最大のポリシー（複数あればランダム）
         return np.random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
-        prev_onehot_action = np.identity(self.config.action_num, dtype=np.float32)[self.action][
+    def policy(self, worker) -> Tuple[int, InfoType]:
+        prev_onehot_action = np.identity(self.config.action_space.n, dtype=np.float32)[self.action][
             np.newaxis, np.newaxis, ...
         ]
 
@@ -588,12 +588,14 @@ class Worker(RLWorker):
         self.q_int = self.q_int[0][0]
         self.q = self.q_ext + self.beta * self.q_int
 
-        probs = calc_epsilon_greedy_probs(self.q, worker.get_invalid_actions(), self.epsilon, self.config.action_num)
-        self.action = random_choice_by_probs(probs)
+        probs = helper.calc_epsilon_greedy_probs(
+            self.q, worker.get_invalid_actions(), self.epsilon, self.config.action_space.n
+        )
+        self.action = helper.random_choice_by_probs(probs)
         # self.prob = probs[self.action]  #[1]
         return self.action, {}
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         next_state = worker.state
         reward_ext = worker.reward
         self.episode_reward += reward_ext
@@ -654,9 +656,9 @@ class Worker(RLWorker):
                 self.recent_states.pop(0)
                 self.recent_states.append(self.dummy_state)
                 self.recent_actions.pop(0)
-                self.recent_actions.append(self.act_onehot_arr[random.randint(0, self.config.action_num - 1)])
+                self.recent_actions.append(self.act_onehot_arr[random.randint(0, self.config.action_space.n - 1)])
                 # self.recent_probs.pop(0)
-                # self.recent_probs.append(1.0 / self.config.action_num) #[1]
+                # self.recent_probs.append(1.0 / self.config.action_space.n) #[1]
                 self.recent_rewards_ext.pop(0)
                 self.recent_rewards_ext.append(0.0)
                 self.recent_rewards_int.pop(0)
@@ -816,4 +818,4 @@ class Worker(RLWorker):
             s += f"{a:2d}: {q[a]:5.3f} = {q_ext[a]:5.3f} + {self.beta} * {q_int[a]:5.3f}"
             return s
 
-        render_discrete_action(maxa, worker.env, self.config, _render_sub)
+        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)

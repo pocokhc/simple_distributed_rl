@@ -6,11 +6,12 @@ import numpy as np
 
 from srl.base.define import RLBaseTypes
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions.common import render_discrete_action, to_str_observation
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.rl.functions import helper
 from srl.rl.memories.sequence_memory import SequenceMemory
 
 
@@ -91,14 +92,14 @@ class Parameter(RLParameter):
 
     def init_state(self, state):
         if state not in self.N:
-            self.W[state] = [0 for _ in range(self.config.action_num)]
-            self.N[state] = [0 for _ in range(self.config.action_num)]
+            self.W[state] = [0 for _ in range(self.config.action_space.n)]
+            self.N[state] = [0 for _ in range(self.config.action_space.n)]
 
 
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -132,8 +133,8 @@ class Worker(RLWorker):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-    def policy(self, worker: WorkerRun) -> Tuple[int, dict]:
-        self.state = to_str_observation(worker.state, self.config.observation_space.env_type)
+    def policy(self, worker) -> Tuple[int, dict]:
+        self.state = self.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
         self.parameter.init_state(self.state)
 
@@ -145,7 +146,7 @@ class Worker(RLWorker):
 
         # 試行回数のもっとも多いアクションを採用
         c = self.parameter.N[self.state]
-        c = [-np.inf if a in self.invalid_actions else c[a] for a in range(self.config.action_num)]  # mask
+        c = [-np.inf if a in self.invalid_actions else c[a] for a in range(self.config.action_space.n)]  # mask
         action = int(np.random.choice(np.where(c == np.max(c))[0]))
 
         return action, {}
@@ -170,7 +171,7 @@ class Worker(RLWorker):
             if env.done:
                 pass  # 終了
             else:
-                n_state = to_str_observation(n_state, self.config.observation_space.env_type)
+                n_state = self.observation_space.to_str(n_state)
 
                 enemy_turn = player_index != env.next_player_index
 
@@ -203,7 +204,7 @@ class Worker(RLWorker):
 
         N = np.sum(self.parameter.N[state])
         uct_list = []
-        for a in range(self.config.action_num):
+        for a in range(self.config.action_space.n):
             if a in invalid_actions:
                 uct = -np.inf
             else:
@@ -243,4 +244,4 @@ class Worker(RLWorker):
                 q /= c
             return f"{c:7d}(N), {q:9.4f}(Q), {uct_list[a]:.5f}(UCT)"
 
-        render_discrete_action(maxa, worker.env, self.config, _render_sub)
+        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)

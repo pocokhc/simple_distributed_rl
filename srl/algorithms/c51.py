@@ -7,18 +7,19 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions.common import render_discrete_action
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.rl.functions import helper
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
-from srl.rl.models.tf import helper
 from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
-from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
@@ -38,7 +39,7 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig,
+    RLConfig[DiscreteSpace, BoxSpace],
     RLConfigComponentExperienceReplayBuffer,
     RLConfigComponentFramework,
 ):
@@ -98,7 +99,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class _QNetwork(KerasModelAddedSummary):
+class _QNetwork(keras.Model):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
@@ -111,12 +112,12 @@ class _QNetwork(KerasModelAddedSummary):
         self.hidden_block = config.hidden_block.create_block_tf()
 
         self.out_layers = [
-            kl.Dense(config.action_num * config.categorical_num_atoms),
-            kl.Reshape((config.action_num, config.categorical_num_atoms)),
+            kl.Dense(config.action_space.n * config.categorical_num_atoms),
+            kl.Reshape((config.action_space.n, config.categorical_num_atoms)),
         ]
 
         # build
-        self.build(helper.create_batch_shape(config.observation_shape, (None,)))
+        self.build((None,) + config.observation_space.shape)
 
     def call(self, x, training=False):
         x = self.input_block(x, training)
@@ -126,7 +127,7 @@ class _QNetwork(KerasModelAddedSummary):
         return x
 
 
-class Parameter(RLParameter):
+class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -146,7 +147,7 @@ class Parameter(RLParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -189,8 +190,8 @@ class Trainer(RLTrainer):
         next_actions = tf.argmax(q_means, axis=1)
 
         #: 選択されたaction軸だけ抽出する
-        mask = np.ones((self.config.batch_size, self.config.action_num, self.n_atoms))
-        onehot_mask = tf.one_hot(next_actions, self.config.action_num, axis=1)
+        mask = np.ones((self.config.batch_size, self.config.action_space.n, self.n_atoms))
+        onehot_mask = tf.one_hot(next_actions, self.config.action_space.n, axis=1)
         onehot_mask = onehot_mask * mask
         next_dists = tf.reduce_sum(next_probs * onehot_mask, axis=1).numpy()
 
@@ -215,7 +216,7 @@ class Trainer(RLTrainer):
                 if ratio != 0:
                     target_dists[i][idx + 1] += next_dists[i][j] * ratio
 
-        onehot_mask = tf.one_hot(actions, self.config.action_num, axis=1)
+        onehot_mask = tf.one_hot(actions, self.config.action_space.n, axis=1)
         onehot_mask = onehot_mask * mask
 
         with tf.GradientTape() as tape:
@@ -245,11 +246,9 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, Parameter, DiscreteSpace, BoxSpace]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
@@ -257,10 +256,10 @@ class Worker(RLWorker):
             self.config.categorical_v_min, self.config.categorical_v_max, self.config.categorical_num_atoms
         )
 
-    def on_reset(self, worker: WorkerRun) -> InfoType:
+    def on_reset(self, worker) -> InfoType:
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> Tuple[int, InfoType]:
         state = worker.state
         invalid_actions = worker.get_invalid_actions()
 
@@ -271,7 +270,7 @@ class Worker(RLWorker):
 
         if random.random() < epsilon:
             # epsilonより低いならランダム
-            action = np.random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            action = np.random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
         else:
             logits = self.parameter.Q(np.asarray([state]))
             probs = tf.nn.softmax(logits, axis=2)
@@ -287,7 +286,7 @@ class Worker(RLWorker):
         self.action = action
         return int(action), {"epsilon": epsilon}
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         if not self.training:
             return {}
 
@@ -301,7 +300,7 @@ class Worker(RLWorker):
         self.memory.add(batch)
         return {}
 
-    def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         logits = self.parameter.Q(worker.prev_state[np.newaxis, ...])
         probs = tf.nn.softmax(logits, axis=2)
         q_means = tf.reduce_sum(probs * self.Z, axis=2, keepdims=True)
@@ -311,4 +310,4 @@ class Worker(RLWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        render_discrete_action(maxa, worker.env, self.config, _render_sub)
+        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)

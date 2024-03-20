@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 from srl.base.define import InfoType, RLActionType, RLBaseTypes, RLInvalidActionType, RLObservationType
-from srl.base.rl.base import RLConfig, RLWorker
+from srl.base.rl.config import RLConfig
+from srl.base.rl.worker import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 
 logger = logging.getLogger(__name__)

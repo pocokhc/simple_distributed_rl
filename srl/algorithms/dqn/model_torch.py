@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from srl.base.define import InfoType
-from srl.base.rl.base import RLTrainer
+from srl.base.rl.trainer import RLTrainer
 from srl.rl.models.torch_ import helper
 from srl.rl.models.torch_.blocks.input_block import create_in_block_out_value
 from srl.rl.schedulers.scheduler import SchedulerConfig
@@ -29,7 +29,7 @@ class _QNetwork(nn.Module):
         )
         self.hidden_block = config.hidden_block.create_block_torch(
             self.input_block.out_size,
-            config.action_num,
+            config.action_space.n,
         )
 
     def forward(self, x):
@@ -94,7 +94,7 @@ class Parameter(CommonInterfaceParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config

@@ -4,7 +4,6 @@ from typing import List, Optional, Tuple
 
 from kaggle_environments.envs.hungry_geese.hungry_geese import Action, greedy_agent
 
-from srl.base.define import EnvObservationTypes
 from srl.base.env import registration
 from srl.base.env.kaggle_wrapper import KaggleWorker, KaggleWrapper
 from srl.base.spaces import ArrayDiscreteSpace, DiscreteSpace
@@ -68,10 +67,6 @@ class HungryGeese(KaggleWrapper):
     @property
     def observation_space(self) -> ArrayDiscreteSpace:
         return ArrayDiscreteSpace(11 * 7, low=0, high=9)
-
-    @property
-    def observation_type(self) -> EnvObservationTypes:
-        return EnvObservationTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:

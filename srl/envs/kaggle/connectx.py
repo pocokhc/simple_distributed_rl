@@ -4,12 +4,12 @@ from typing import List, Optional, Tuple, cast
 import numpy as np
 from kaggle_environments.envs.connectx.connectx import negamax_agent
 
-from srl.base.define import EnvObservationTypes
+from srl.base.define import SpaceTypes
 from srl.base.env import registration
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.kaggle_wrapper import KaggleWorker, KaggleWrapper
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import ObservationProcessor
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
@@ -59,10 +59,6 @@ class ConnectX(KaggleWrapper):
         return ArrayDiscreteSpace(self.columns * self.rows, low=0, high=2)
 
     @property
-    def observation_type(self) -> EnvObservationTypes:
-        return EnvObservationTypes.DISCRETE
-
-    @property
     def max_episode_steps(self) -> int:
         return self.columns * self.rows + 2
 
@@ -98,28 +94,28 @@ class NegaMax(KaggleWorker):
         return negamax_agent(observation, configuration)
 
 
-class LayerProcessor(Processor):
+class LayerProcessor(ObservationProcessor):
     def preprocess_observation_space(
         self,
         env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationTypes,
         env: EnvRun,
         rl_config: RLConfig,
-    ) -> Tuple[SpaceBase, EnvObservationTypes]:
+    ) -> Tuple[SpaceBase, SpaceTypes]:
         _env = cast(ConnectX, env.env)
         observation_space = BoxSpace(
             low=0,
             high=1,
             shape=(2, _env.columns, _env.rows),
+            stype=SpaceTypes.IMAGE,
         )
-        return observation_space, EnvObservationTypes.SHAPE3
+        return observation_space
 
     def preprocess_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
         _env = cast(ConnectX, env.env)
 
         # Layer0: my player field (0 or 1)
         # Layer1: enemy player field (0 or 1)
-        _field = np.zeros((2, _env.columns, _env.rows))
+        _field = np.zeros((_env.columns, _env.rows, 2))
         if env.next_player_index == 0:
             my_player = 1
             enemy_player = 2
@@ -130,9 +126,9 @@ class LayerProcessor(Processor):
             for x in range(_env.rows):
                 idx = x + y * _env.rows
                 if _env.board[idx] == my_player:
-                    _field[0][y][x] = 1
+                    _field[y][x][0] = 1
                 elif _env.board[idx] == enemy_player:
-                    _field[1][y][x] = 1
+                    _field[y][x][1] = 1
         return _field
 
 

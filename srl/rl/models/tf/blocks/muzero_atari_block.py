@@ -1,7 +1,5 @@
 from tensorflow import keras
 
-from srl.rl.models.tf.model import KerasModelAddedSummary
-
 kl = keras.layers
 
 """
@@ -13,7 +11,7 @@ https://github.com/horoiwa/deep_reinforcement_learning_gallery
 """
 
 
-class MuZeroAtariBlock(KerasModelAddedSummary):
+class MuZeroAtariBlock(keras.Model):
     def __init__(
         self,
         filters: int = 128,
@@ -21,6 +19,7 @@ class MuZeroAtariBlock(KerasModelAddedSummary):
         l2: float = 0.0001,
         activation: str = "relu",
         use_layer_normalization: bool = True,
+        enable_rnn: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -72,7 +71,7 @@ class MuZeroAtariBlock(KerasModelAddedSummary):
         return x
 
 
-class _ResidualBlock(KerasModelAddedSummary):
+class _ResidualBlock(keras.Model):
     def __init__(
         self,
         filters,

@@ -168,7 +168,7 @@ class HistoryViewer:
         left_ymax: Optional[float] = None,
         right_ymin: Optional[float] = None,
         right_ymax: Optional[float] = None,
-        _no_plot: bool = False,  # for test
+        _for_test: bool = False,
     ):
         ylabel_left = ylabel_left[:]
         ylabel_right = ylabel_right[:]
@@ -177,8 +177,6 @@ class HistoryViewer:
             ["matplotlib", "pandas"]
         ), "To use plot you need to install the 'matplotlib', 'pandas'. (pip install matplotlib pandas)"
         assert len(ylabel_left) > 0
-
-        import matplotlib.pyplot as plt
 
         df = self.get_df()
         if len(df) == 0:
@@ -221,6 +219,8 @@ class HistoryViewer:
             rolling_n = 0
             xlabel_plot = xlabel
 
+        import matplotlib.pyplot as plt
+
         x = _df[xlabel]
         fig, ax1 = plt.subplots()
         color_idx = 0
@@ -257,10 +257,13 @@ class HistoryViewer:
                 ax1.set_ylim(top=right_ymax)
 
         ax1.set_xlabel(xlabel_plot)
+
+        if _for_test:
+            return
+
         plt.grid()
         plt.tight_layout()
-        if not _no_plot:
-            plt.show()
+        plt.show()
 
 
 class HistoryViewers:

@@ -1,15 +1,12 @@
-from typing import Tuple
-
 import tensorflow as tf
 from tensorflow import keras
 
 from srl.rl.models.tf.layers.noisy_dense import NoisyDense
-from srl.rl.models.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
 
 
-class DuelingNetworkBlock(KerasModelAddedSummary):
+class DuelingNetworkBlock(keras.Model):
     def __init__(
         self,
         hidden_units: int,

@@ -6,14 +6,11 @@ from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes
+from srl.base.define import SpaceTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
 from srl.base.rl.algorithms.env_worker import EnvWorker
-from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
-from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
@@ -42,6 +39,7 @@ register(
 class Othello(TurnBase2Player):
     W: int = 8
     H: int = 8
+    obs_type: str = ""  # "" or "layer"
 
     def __post_init__(self):
         self._next_player_index = 0
@@ -74,12 +72,11 @@ class Othello(TurnBase2Player):
         return DiscreteSpace(self.W * self.H)
 
     @property
-    def observation_space(self) -> ArrayDiscreteSpace:
-        return ArrayDiscreteSpace(self.W * self.H, low=-1, high=1)
-
-    @property
-    def observation_type(self) -> EnvObservationTypes:
-        return EnvObservationTypes.DISCRETE
+    def observation_space(self) -> SpaceBase:
+        if self.obs_type == "layer":
+            return BoxSpace(low=0, high=1, shape=(self.H, self.W, 2), stype=SpaceTypes.IMAGE)
+        else:
+            return ArrayDiscreteSpace(self.W * self.H, low=-1, high=1)
 
     @property
     def max_episode_steps(self) -> int:
@@ -96,7 +93,7 @@ class Othello(TurnBase2Player):
     def next_player_index(self) -> int:
         return self._next_player_index
 
-    def call_reset(self) -> Tuple[List[int], dict]:
+    def call_reset(self) -> Tuple[Any, dict]:
         self.action = 0
 
         self._next_player_index = 0
@@ -112,7 +109,7 @@ class Othello(TurnBase2Player):
             self._calc_movable_dirs(1),
         ]
 
-        return self.field, {}
+        return self._create_obs(), {}
 
     def backup(self) -> Any:
         return pickle.dumps(
@@ -132,6 +129,28 @@ class Othello(TurnBase2Player):
         self.H = d[2]
         self.field = d[3]
         self.movable_dirs = d[4]
+
+    def _create_obs(self):
+        if self.obs_type == "layer":
+            # Layer0: my_player field (0 or 1)
+            # Layer1: enemy_player field (0 or 1)
+            if self._next_player_index == 0:
+                my_field = 1
+                enemy_field = -1
+            else:
+                my_field = -1
+                enemy_field = 1
+            _field = np.zeros((self.H, self.W, 2))
+            for y in range(self.H):
+                for x in range(self.W):
+                    idx = x + y * self.W
+                    if self.field[idx] == my_field:
+                        _field[y][x][0] = 1
+                    elif self.field[idx] == enemy_field:
+                        _field[y][x][1] = 1
+            return _field
+        else:
+            return self.field
 
     def _calc_movable_dirs(self, player_index) -> List[List[int]]:
         my_color = 1 if player_index == 0 else -1
@@ -175,15 +194,15 @@ class Othello(TurnBase2Player):
 
         return dirs_list
 
-    def call_step(self, action: int) -> Tuple[List[int], float, float, bool, dict]:
+    def call_step(self, action: int) -> Tuple[Any, float, float, bool, dict]:
         self.action = action
 
         # --- error action
         if len(self.movable_dirs[self._next_player_index][action]) == 0:
             if self._next_player_index == 0:
-                return self.field, -1.0, 0.0, True, {}
+                return self._create_obs(), -1.0, 0.0, True, {}
             else:
-                return self.field, 0.0, -1.0, True, {}
+                return self._create_obs(), 0.0, -1.0, True, {}
 
         # --- step
         self._step(action)
@@ -205,15 +224,15 @@ class Othello(TurnBase2Player):
                 r2 = 1.0
             else:
                 r1 = r2 = 0.0
-            return self.field, r1, r2, True, {"P1": p1_count, "P2": p2_count}
+            return self._create_obs(), r1, r2, True, {"P1": p1_count, "P2": p2_count}
 
         # 相手が置けないならpass
         if enemy_put_num == 0:
-            return self.field, 0.0, 0.0, False, {}
+            return self._create_obs(), 0.0, 0.0, False, {}
 
         # 手番交代
         self._next_player_index = enemy_player
-        return self.field, 0.0, 0.0, False, {}
+        return self._create_obs(), 0.0, 0.0, False, {}
 
     def _step(self, action):
         # --- update
@@ -475,7 +494,7 @@ class Cpu(EnvWorker):
         Cpu.cache[key] = scores
         return scores
 
-    def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         _env = cast(Othello, worker.env.unwrapped)
         valid_actions = worker.env.get_valid_actions(_env._next_player_index)
 
@@ -490,41 +509,3 @@ class Cpu(EnvWorker):
                     s += " " * 6 + "|"
             print(s)
         print()
-
-
-class LayerProcessor(Processor):
-    def preprocess_observation_space(
-        self,
-        env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationTypes,
-        env: EnvRun,
-        rl_config: RLConfig,
-    ) -> Tuple[SpaceBase, EnvObservationTypes]:
-        _env = cast(Othello, env.unwrapped)
-        observation_space = BoxSpace(
-            low=0,
-            high=1,
-            shape=(_env.H, _env.W, 2),
-        )
-        return observation_space, EnvObservationTypes.IMAGE
-
-    def preprocess_observation(self, observation: np.ndarray, env: Othello) -> np.ndarray:
-        _env = cast(Othello, env.unwrapped)
-
-        # Layer0: my_player field (0 or 1)
-        # Layer1: enemy_player field (0 or 1)
-        if _env._next_player_index == 0:
-            my_field = 1
-            enemy_field = -1
-        else:
-            my_field = -1
-            enemy_field = 1
-        _field = np.zeros((_env.H, _env.W, 2))
-        for y in range(_env.H):
-            for x in range(_env.W):
-                idx = x + y * _env.W
-                if observation[idx] == my_field:
-                    _field[y][x][0] = 1
-                elif observation[idx] == enemy_field:
-                    _field[y][x][1] = 1
-        return _field

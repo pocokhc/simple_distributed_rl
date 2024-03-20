@@ -5,14 +5,11 @@ from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvActionType, EnvObservationTypes
+from srl.base.define import EnvActionType, SpaceTypes
 from srl.base.env import registration
-from srl.base.env.env_run import EnvRun, SpaceBase
+from srl.base.env.env_run import EnvRun
 from srl.base.env.genre import TurnBase2Player
 from srl.base.rl.algorithms.env_worker import EnvWorker
-from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
-from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
@@ -37,8 +34,12 @@ def board_reverse(board):
 
 
 class ConnectX(TurnBase2Player):
-    def __init__(self):
+    def __init__(
+        self,
+        obs_type: str = "",  # "" or "layer"
+    ):
         super().__init__()
+        self.obs_type = obs_type
 
         self.columns = 7
         self.rows = 6
@@ -49,12 +50,16 @@ class ConnectX(TurnBase2Player):
         return DiscreteSpace(self.columns)
 
     @property
-    def observation_space(self) -> ArrayDiscreteSpace:
-        return ArrayDiscreteSpace(self.columns * self.rows, low=0, high=2)
-
-    @property
-    def observation_type(self) -> EnvObservationTypes:
-        return EnvObservationTypes.DISCRETE
+    def observation_space(self):
+        if self.obs_type == "layer":
+            return BoxSpace(
+                shape=(self.columns, self.rows, 2),
+                low=0,
+                high=1,
+                stype=SpaceTypes.IMAGE,
+            )
+        else:
+            return ArrayDiscreteSpace(self.columns * self.rows, low=0, high=2)
 
     @property
     def max_episode_steps(self) -> int:
@@ -67,7 +72,29 @@ class ConnectX(TurnBase2Player):
     def call_reset(self) -> Tuple[List[int], dict]:
         self.board = [0] * self.columns * self.rows
         self._next_player_index = 0
-        return self.board, {}
+        return self._create_state(), {}
+
+    def _create_state(self):
+        if self.obs_type == "layer":
+            # Layer0: my player field (0 or 1)
+            # Layer1: enemy player field (0 or 1)
+            _field = np.zeros((self.columns, self.rows, 2))
+            if self._next_player_index == 0:
+                my_player = 1
+                enemy_player = 2
+            else:
+                my_player = 2
+                enemy_player = 1
+            for y in range(self.columns):
+                for x in range(self.rows):
+                    idx = x + y * self.rows
+                    if self.board[idx] == my_player:
+                        _field[y][x][0] = 1
+                    elif self.board[idx] == enemy_player:
+                        _field[y][x][1] = 1
+            return _field
+        else:
+            return self.board
 
     def call_step(self, action: int) -> Tuple[List[int], float, float, bool, dict]:
         column = action
@@ -85,11 +112,11 @@ class ConnectX(TurnBase2Player):
                 reward1 = -1.0
                 reward2 = 1.0
 
-            return self.board, reward1, reward2, True, {}
+            return self._create_state(), reward1, reward2, True, {}
 
         # Check for a tie.
         if all(mark != 0 for mark in self.board):
-            return self.board, 0.0, 0.0, True, {}
+            return self._create_state(), 0.0, 0.0, True, {}
 
         # change player
         if self._next_player_index == 0:
@@ -97,7 +124,7 @@ class ConnectX(TurnBase2Player):
         else:
             self._next_player_index = 0
 
-        return self.board, 0.0, 0.0, False, {}
+        return self._create_state(), 0.0, 0.0, False, {}
 
     def _is_win(self, column, row):
         inarow = 4 - 1
@@ -287,7 +314,7 @@ class AlphaBeta(EnvWorker):
 
         return scores, select_action
 
-    def render_terminal(self, env: EnvRun, worker: WorkerRun, **kwargs) -> None:
+    def render_terminal(self, env: EnvRun, worker, **kwargs) -> None:
         print(f"- alphabeta act: {self._action}, count: {self._count}, {self._time:.3f}s) -")
         print("+---+---+---+---+---+---+---+")
         s = "|"
@@ -295,41 +322,3 @@ class AlphaBeta(EnvWorker):
             s += "{:2d} |".format(int(self._scores[a]))
         print(s)
         print("+---+---+---+---+---+---+---+")
-
-
-class LayerProcessor(Processor):
-    def preprocess_observation_space(
-        self,
-        env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationTypes,
-        env: EnvRun,
-        rl_config: RLConfig,
-    ) -> Tuple[SpaceBase, EnvObservationTypes]:
-        _env = cast(ConnectX, env.env)
-        observation_space = BoxSpace(
-            low=0,
-            high=1,
-            shape=(_env.columns, _env.rows, 2),
-        )
-        return observation_space, EnvObservationTypes.IMAGE
-
-    def preprocess_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
-        _env = cast(ConnectX, env.env)
-
-        # Layer0: my player field (0 or 1)
-        # Layer1: enemy player field (0 or 1)
-        _field = np.zeros((_env.columns, _env.rows, 2))
-        if env.next_player_index == 0:
-            my_player = 1
-            enemy_player = 2
-        else:
-            my_player = 2
-            enemy_player = 1
-        for y in range(_env.columns):
-            for x in range(_env.rows):
-                idx = x + y * _env.rows
-                if _env.board[idx] == my_player:
-                    _field[y][x][0] = 1
-                elif _env.board[idx] == enemy_player:
-                    _field[y][x][1] = 1
-        return _field

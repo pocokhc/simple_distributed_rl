@@ -320,7 +320,7 @@ class ListScheduler(BaseScheduler):
         self.schedulers_idx = {}
         step = 0
         for phase_steps, name, kwargs in schedulers:
-            sch = config.create_scheduler(name, kwargs)
+            sch = config._create_scheduler(name, kwargs)
             self.schedulers_idx[step] = sch
             step += phase_steps
 

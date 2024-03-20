@@ -9,18 +9,20 @@ from tensorflow import keras
 from srl.base.define import InfoType, RLBaseTypes
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import UndefinedError
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions.common import random_choice_by_probs, render_discrete_action, to_str_observation
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.rl.functions import helper
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
-from srl.rl.models.tf import helper
+from srl.rl.models.tf import helper as helper_tf
 from srl.rl.models.tf.blocks.input_block import create_in_block_out_image
-from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
@@ -42,7 +44,7 @@ https://github.com/AppliedDataSciencePartners/DeepReinforcementLearning
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig,
+    RLConfig[DiscreteSpace, BoxSpace],
     RLConfigComponentExperienceReplayBuffer,
     RLConfigComponentFramework,
 ):
@@ -111,7 +113,7 @@ class Config(
         return RLBaseTypes.DISCRETE
 
     def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS
+        return RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return "tensorflow"
@@ -154,7 +156,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _Network(KerasModelAddedSummary):
+class _Network(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
         self.value_type = config.value_type
@@ -193,7 +195,7 @@ class _Network(KerasModelAddedSummary):
         # --- policy output
         self.policy_block = config.policy_block.create_block_tf()
         self.policy_out_layer = kl.Dense(
-            config.action_num,
+            config.action_space.n,
             activation="softmax",
             kernel_initializer="zeros",
         )
@@ -212,7 +214,7 @@ class _Network(KerasModelAddedSummary):
             raise UndefinedError(config.value_type)
 
         # build
-        self.build(helper.create_batch_shape(config.observation_shape, (None,)))
+        self.build(helper_tf.create_batch_shape(config.observation_space.shape, (None,)))
 
     def call(self, x, training=False):
         x = self.input_block(x, training)
@@ -261,10 +263,9 @@ class _Network(KerasModelAddedSummary):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class Parameter(RLParameter):
+class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
 
         self.network = _Network(self.config)
 
@@ -298,7 +299,7 @@ class Parameter(RLParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -354,13 +355,11 @@ class Trainer(RLTrainer):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, Parameter, DiscreteSpace, BoxSpace]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
-    def on_reset(self, worker: WorkerRun) -> dict:
+    def on_reset(self, worker) -> dict:
         self.sampling_step = 0
         self.history = []
 
@@ -371,12 +370,12 @@ class Worker(RLWorker):
 
     def _init_state(self, state_str):
         if state_str not in self.N:
-            self.N[state_str] = [0 for _ in range(self.config.action_num)]
-            self.W[state_str] = [0 for _ in range(self.config.action_num)]
+            self.N[state_str] = [0 for _ in range(self.config.action_space.n)]
+            self.W[state_str] = [0 for _ in range(self.config.action_space.n)]
 
-    def policy(self, worker: WorkerRun) -> Tuple[int, dict]:
+    def policy(self, worker) -> Tuple[int, dict]:
         self.state = worker.state
-        self.state_str = to_str_observation(self.state, self.config.observation_space.env_type)
+        self.state_str = self.observation_space.to_str(self.state)
         self.invalid_actions = worker.get_invalid_actions()
         self._init_state(self.state_str)
 
@@ -388,11 +387,11 @@ class Worker(RLWorker):
 
         # --- (教師データ) 試行回数を元に確率を計算
         N = np.sum(self.N[self.state_str])
-        self.step_policy = [self.N[self.state_str][a] / N for a in range(self.config.action_num)]
+        self.step_policy = [self.N[self.state_str][a] / N for a in range(self.config.action_space.n)]
 
         # --- episodeの序盤は試行回数に比例した確率でアクションを選択、それ以外は最大試行回数
         if self.sampling_step < self.config.sampling_steps:
-            action = random_choice_by_probs(self.N[self.state_str])
+            action = helper.random_choice_by_probs(self.N[self.state_str])
         else:
             counts = np.asarray(self.N[self.state_str])
             action = np.random.choice(np.where(counts == counts.max())[0])
@@ -415,7 +414,7 @@ class Worker(RLWorker):
         player_index = env.next_player_index
         n_state, rewards = self.worker.env_step(env, action)
         reward = rewards[player_index]
-        n_state_str = to_str_observation(n_state, self.config.observation_space.env_type)
+        n_state_str = self.observation_space.to_str(n_state)
         enemy_turn = player_index != env.next_player_index
 
         if env.done:
@@ -444,13 +443,13 @@ class Worker(RLWorker):
     def _calc_puct(self, state_str, invalid_actions, is_root):
         # ディリクレノイズ
         if is_root:
-            noises = np.random.dirichlet([self.config.root_dirichlet_alpha] * self.config.action_num)
+            noises = np.random.dirichlet([self.config.root_dirichlet_alpha] * self.config.action_space.n)
         else:
             noises = []
 
         N = np.sum(self.N[state_str])
-        scores = np.zeros(self.config.action_num)
-        for a in range(self.config.action_num):
+        scores = np.zeros(self.config.action_space.n)
+        for a in range(self.config.action_space.n):
             if a in invalid_actions:
                 score = -np.inf
             else:
@@ -486,7 +485,7 @@ class Worker(RLWorker):
             scores[a] = score
         return scores
 
-    def on_step(self, worker: WorkerRun) -> dict:
+    def on_step(self, worker) -> dict:
         self.sampling_step += 1
 
         if not self.training:
@@ -542,4 +541,4 @@ class Worker(RLWorker):
             )
             return s
 
-        render_discrete_action(maxa, worker.env, self.config, _render_sub)
+        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)

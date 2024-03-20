@@ -4,13 +4,11 @@ from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvObservationTypes
+from srl.base.define import SpaceTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
 from srl.base.rl.algorithms.env_worker import EnvWorker
-from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
@@ -26,7 +24,12 @@ register(
 class OX(TurnBase2Player):
     _scores_cache = {}
 
-    def __init__(self):
+    def __init__(
+        self,
+        obs_type: str = "",  # "" or "layer"
+    ):
+        self.obs_type = obs_type
+
         self.W = 3
         self.H = 3
 
@@ -38,12 +41,11 @@ class OX(TurnBase2Player):
         return DiscreteSpace(self.W * self.H)
 
     @property
-    def observation_space(self) -> ArrayDiscreteSpace:
-        return ArrayDiscreteSpace(self.H * self.W, low=-1, high=1)
-
-    @property
-    def observation_type(self) -> EnvObservationTypes:
-        return EnvObservationTypes.DISCRETE
+    def observation_space(self) -> SpaceBase:
+        if self.obs_type == "layer":
+            return BoxSpace(low=0, high=1, shape=(3, 3, 2), dtype=np.float32, stype=SpaceTypes.IMAGE)
+        else:
+            return ArrayDiscreteSpace(self.H * self.W, low=-1, high=1)
 
     @property
     def max_episode_steps(self) -> int:
@@ -61,10 +63,10 @@ class OX(TurnBase2Player):
     def next_player_index(self) -> int:
         return self._next_player_index
 
-    def call_reset(self) -> Tuple[List[int], dict]:
+    def call_reset(self) -> Tuple[Any, dict]:
         self.field = [0 for _ in range(self.W * self.H)]
         self._next_player_index = 0
-        return self.field, {}
+        return self._create_obs(), {}
 
     def backup(self) -> Any:
         return [self.field[:], self._next_player_index]
@@ -73,7 +75,29 @@ class OX(TurnBase2Player):
         self.field = data[0][:]
         self._next_player_index = data[1]
 
-    def call_step(self, action: int) -> Tuple[List[int], float, float, bool, dict]:
+    def _create_obs(self):
+        if self.obs_type == "layer":
+            # Layer0: player1 field (0 or 1)
+            # Layer1: player2 field (0 or 1)
+            if self.next_player_index == 0:
+                my_field = 1
+                enemy_field = -1
+            else:
+                my_field = -1
+                enemy_field = 1
+            _field = np.zeros((self.H, self.W, 2))
+            for y in range(self.H):
+                for x in range(self.W):
+                    idx = x + y * self.W
+                    if self.field[idx] == my_field:
+                        _field[y][x][0] = 1
+                    elif self.field[idx] == enemy_field:
+                        _field[y][x][1] = 1
+            return _field
+        else:
+            return self.field
+
+    def call_step(self, action: int) -> Tuple[Any, float, float, bool, dict]:
         reward1, reward2, done = self._step(action)
 
         if not done:
@@ -82,7 +106,7 @@ class OX(TurnBase2Player):
             else:
                 self._next_player_index = 0
 
-        return self.field, reward1, reward2, done, {}
+        return self._create_obs(), reward1, reward2, done, {}
 
     def _step(self, action):
         # error action
@@ -286,40 +310,3 @@ class Cpu(EnvWorker):
                 s += "{:2.0f}|".format(self._render_scores[a])
             print(s)
             print("-" * 10)
-
-
-class LayerProcessor(Processor):
-    def preprocess_observation_space(
-        self,
-        env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationTypes,
-        env: EnvRun,
-        rl_config: RLConfig,
-    ) -> Tuple[SpaceBase, EnvObservationTypes]:
-        observation_space = BoxSpace(
-            low=0,
-            high=1,
-            shape=(3, 3, 2),
-        )
-        return observation_space, EnvObservationTypes.IMAGE
-
-    def preprocess_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
-        _env = cast(OX, env.unwrapped)
-
-        # Layer0: player1 field (0 or 1)
-        # Layer1: player2 field (0 or 1)
-        if _env.next_player_index == 0:
-            my_field = 1
-            enemy_field = -1
-        else:
-            my_field = -1
-            enemy_field = 1
-        _field = np.zeros((_env.H, _env.W, 2))
-        for y in range(_env.H):
-            for x in range(_env.W):
-                idx = x + y * _env.W
-                if observation[idx] == my_field:
-                    _field[y][x][0] = 1
-                elif observation[idx] == enemy_field:
-                    _field[y][x][1] = 1
-        return _field

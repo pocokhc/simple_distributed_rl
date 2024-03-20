@@ -1,5 +1,5 @@
-import json
 import logging
+import pickle
 import random
 from dataclasses import dataclass
 from typing import Any, Tuple, Union
@@ -7,11 +7,12 @@ from typing import Any, Tuple, Union
 import numpy as np
 
 from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions.common import render_discrete_action, to_str_observation
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.rl.functions import helper
 from srl.rl.memories.sequence_memory import SequenceMemory
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -86,18 +87,16 @@ class _A_MDP:
         self.state_action_history = []
 
     def backup(self):
-        return json.dumps(
-            [
-                self.trans,
-                self.reward,
-                self.done,
-                self.count,
-                self.state_action_history,
-            ]
-        )
+        return [
+            self.trans,
+            self.reward,
+            self.done,
+            self.count,
+            self.state_action_history,
+        ]
 
     def restore(self, data):
-        d = json.loads(data)
+        d = data
         self.trans = d[0]
         self.reward = d[1]
         self.done = d[2]
@@ -183,23 +182,23 @@ class Parameter(RLParameter):
         self.model = _A_MDP()
 
     def call_restore(self, data: Any, **kwargs) -> None:
-        d = json.loads(data)
+        d = pickle.loads(data)
         self.Q = d[0]
         self.model.restore(d[1])
 
     def call_backup(self, **kwargs):
-        return json.dumps([self.Q, self.model.backup()])
+        return pickle.dumps([self.Q, self.model.backup()])
 
     def get_action_values(self, state, invalid_actions):
         if state not in self.Q:
-            self.Q[state] = [-np.inf if a in invalid_actions else 0 for a in range(self.config.action_num)]
+            self.Q[state] = [-np.inf if a in invalid_actions else 0 for a in range(self.config.action_space.n)]
         return self.Q[state]
 
 
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -274,11 +273,11 @@ class Worker(RLWorker):
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-    def on_reset(self, worker: WorkerRun) -> InfoType:
+    def on_reset(self, worker) -> InfoType:
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
-        self.state = to_str_observation(worker.state, self.config.observation_space.env_type)
+    def policy(self, worker) -> Tuple[int, InfoType]:
+        self.state = self.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
 
         if self.training:
@@ -287,7 +286,7 @@ class Worker(RLWorker):
             epsilon = self.config.test_epsilon
 
         if random.random() < epsilon:
-            self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            self.action = random.choice([a for a in range(self.action_space.n) if a not in self.invalid_actions])
         else:
             q = self.parameter.get_action_values(self.state, self.invalid_actions)
             q = np.asarray(q)
@@ -296,13 +295,13 @@ class Worker(RLWorker):
 
         return int(self.action), {}
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         if not self.training:
             return {}
 
         batch = {
             "state": self.state,
-            "next_state": to_str_observation(worker.state, self.config.observation_space.env_type),
+            "next_state": self.observation_space.to_str(worker.state),
             "action": self.action,
             "reward": worker.reward,
             "done": worker.terminated,
@@ -323,9 +322,9 @@ class Worker(RLWorker):
             else:
                 s = " "
             s += f"{worker.env.action_to_str(a)}: Q {q[a]:7.5f}"
-            s += f", n_s{model.sample_next_state(self.state, a)}"
+            s += f", n_s{str(model.sample_next_state(self.state, a)):10s}"
             s += f", reward {model.sample_reward(self.state, a):.3f}"
             s += f", done {model.sample_done(self.state, a)}"
             return s
 
-        render_discrete_action(maxa, worker.env, self.config, _render_sub)
+        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)

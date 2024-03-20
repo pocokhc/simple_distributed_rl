@@ -1,4 +1,3 @@
-import enum
 import logging
 from dataclasses import dataclass
 from typing import Tuple

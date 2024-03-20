@@ -6,11 +6,14 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 
 from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.base import RLParameter, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
-from srl.base.rl.worker_run import WorkerRun
-from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, render_discrete_action, rescaling
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.rl.functions import helper
+from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, rescaling
 from srl.rl.memories.priority_experience_replay import (
     PriorityExperienceReplay,
     RLConfigComponentPriorityExperienceReplay,
@@ -59,7 +62,7 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig,
+    RLConfig[DiscreteSpace, BoxSpace],
     RLConfigComponentPriorityExperienceReplay,
     RLConfigComponentFramework,
 ):
@@ -103,6 +106,8 @@ class Config(
     multisteps: int = 3
     #: retrace parameter h
     retrace_h: float = 1.0
+
+    dummy_state_val: float = 0
 
     def __post_init__(self):
         super().__post_init__()
@@ -190,7 +195,7 @@ class Memory(PriorityExperienceReplay):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class CommonInterfaceParameter(RLParameter, ABC):
+class CommonInterfaceParameter(RLParameter[Config], ABC):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -316,23 +321,23 @@ class CommonInterfaceParameter(RLParameter, ABC):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, CommonInterfaceParameter, DiscreteSpace, BoxSpace]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: CommonInterfaceParameter = self.parameter
 
-        self.dummy_state = np.full(self.config.observation_shape, self.config.dummy_state_val, dtype=np.float32)
-        self.onehot_arr = np.identity(self.config.action_num, dtype=int)
+        self.dummy_state = np.full(self.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
+        self.onehot_arr = np.identity(self.config.action_space.n, dtype=int)
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-    def on_reset(self, worker: WorkerRun) -> InfoType:
+    def on_reset(self, worker) -> InfoType:
         self._recent_states = [self.dummy_state for _ in range(self.config.multisteps + 1)]
         self._recent_actions = [
-            self.onehot_arr[random.randint(0, self.config.action_num - 1)] for _ in range(self.config.multisteps)
+            self.onehot_arr[random.randint(0, self.config.action_space.n - 1)] for _ in range(self.config.multisteps)
         ]
-        # self._recent_probs = [1.0 / self.config.action_num for _ in range(self.config.multisteps)] #[1]
+        # self._recent_probs = [1.0 / self.config.action_space.n for _ in range(self.config.multisteps)] #[1]
         self._recent_rewards = [0.0 for _ in range(self.config.multisteps)]
         self._recent_done = [1 for _ in range(self.config.multisteps)]
         self._recent_invalid_actions = [[] for _ in range(self.config.multisteps)]
@@ -342,7 +347,7 @@ class Worker(RLWorker):
 
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> Tuple[int, InfoType]:
         self.state = worker.state
         invalid_actions = worker.get_invalid_actions()
 
@@ -359,9 +364,9 @@ class Worker(RLWorker):
         else:
             epsilon = self.config.test_epsilon
 
-        # valid_action_num = self.config.action_num - len(invalid_actions)
+        # valid_action_num = self.config.action_space.n - len(invalid_actions)
         if random.random() < epsilon:
-            self.action = random.choice([a for a in range(self.config.action_num) if a not in invalid_actions])
+            self.action = random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
             self.q = None
             # self.prob = epsilon / valid_action_num #[1]
         else:
@@ -375,7 +380,7 @@ class Worker(RLWorker):
 
         return self.action, {"epsilon": epsilon}
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         reward = worker.reward
         self._recent_states.pop(0)
         self._recent_states.append(worker.state)
@@ -410,7 +415,7 @@ class Worker(RLWorker):
                 self._recent_states.pop(0)
                 self._recent_states.append(self.dummy_state)
                 self._recent_actions.pop(0)
-                self._recent_actions.append(self.onehot_arr[random.randint(0, self.config.action_num - 1)])
+                self._recent_actions.append(self.onehot_arr[random.randint(0, self.config.action_space.n - 1)])
                 # self._recent_probs.pop(0)
                 # self._recent_probs.append(1.0) #[1]
                 self._recent_rewards.pop(0)
@@ -470,4 +475,4 @@ class Worker(RLWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        render_discrete_action(maxa, worker.env, self.config, _render_sub)
+        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)

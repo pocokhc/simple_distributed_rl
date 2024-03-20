@@ -6,17 +6,18 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.base import RLParameter, RLTrainer, RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
-from srl.base.rl.worker_run import WorkerRun
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.array_continuous import ArrayContinuousSpace
+from srl.base.spaces.box import BoxSpace
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
-from srl.rl.models.tf import helper
 from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
-from srl.rl.models.tf.model import KerasModelAddedSummary
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 kl = keras.layers
@@ -42,7 +43,7 @@ TD3
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig,
+    RLConfig[ArrayContinuousSpace, BoxSpace],
     RLConfigComponentExperienceReplayBuffer,
     RLConfigComponentFramework,
 ):
@@ -117,7 +118,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _ActorNetwork(KerasModelAddedSummary):
+class _ActorNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -132,10 +133,10 @@ class _ActorNetwork(KerasModelAddedSummary):
         self.hidden_block = config.policy_block.create_block_tf()
 
         # --- out layer
-        self.out_layer = kl.Dense(config.action_num, activation="tanh")
+        self.out_layer = kl.Dense(config.action_space.size, activation="tanh")
 
         # build
-        self.build(helper.create_batch_shape(config.observation_shape, (None,)))
+        self.build((None,) + config.observation_space.shape)
 
     def call(self, x, training=False):
         x = self.input_block(x, training)
@@ -153,7 +154,7 @@ class _ActorNetwork(KerasModelAddedSummary):
         return loss
 
 
-class _CriticNetwork(KerasModelAddedSummary):
+class _CriticNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -184,8 +185,8 @@ class _CriticNetwork(KerasModelAddedSummary):
         # build
         self.build(
             [
-                helper.create_batch_shape(config.observation_shape, (None,)),
-                (None, config.action_num),
+                (None,) + config.observation_space.shape,
+                (None, config.action_space.size),
             ]
         )
 
@@ -218,10 +219,9 @@ class _CriticNetwork(KerasModelAddedSummary):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class Parameter(RLParameter):
+class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
 
         self.actor_online = _ActorNetwork(self.config)
         self.actor_target = _ActorNetwork(self.config)
@@ -251,11 +251,9 @@ class Parameter(RLParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
         self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
         lr = self.lr_sch.get_rate()
@@ -353,28 +351,27 @@ class Trainer(RLTrainer):
 class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
-    def on_reset(self, worker: WorkerRun) -> InfoType:
+    def on_reset(self, worker) -> InfoType:
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[List[float], InfoType]:
-        state = helper.create_batch_data(worker.state, self.config.observation_space)
-        self.action = self.parameter.actor_online(state).numpy()[0]
+    def policy(self, worker) -> Tuple[List[float], InfoType]:
+        self.action = self.parameter.actor_online(worker.state[np.newaxis, ...]).numpy()[0]
 
         if self.training:
             # 学習用はノイズを混ぜる
-            noise = np.random.normal(0, self.config.noise_stddev, size=self.config.action_num)
+            noise = np.random.normal(0, self.config.noise_stddev, size=self.config.action_space.size)
             self.action = np.clip(self.action + noise, -1, 1)
 
         # (-1, 1) -> (action range)
         env_action = (self.action + 1) / 2
-        env_action = self.config.action_low + env_action * (self.config.action_high - self.config.action_low)
+        env_action = self.config.action_space.low + env_action * (
+            self.config.action_space.high - self.config.action_space.low
+        )
         env_action = env_action.tolist()
         return env_action, {}
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         if not self.training:
             return {}
 
@@ -389,7 +386,7 @@ class Worker(RLWorker):
 
         return {}
 
-    def render_terminal(self, worker: WorkerRun, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs) -> None:
         state = worker.prev_state.reshape(1, -1)
         action = self.parameter.actor_online(state)
         q1, q2 = self.parameter.critic_online([state, action])

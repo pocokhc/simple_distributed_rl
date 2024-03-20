@@ -6,7 +6,7 @@ from srl.base.render import IRender
 from srl.base.spaces.space import SpaceBase
 
 if TYPE_CHECKING:
-    from srl.base.rl.base import RLWorker
+    from srl.base.rl.worker import RLWorker
 
 
 class EnvBase(ABC, IRender):
@@ -122,7 +122,7 @@ class EnvBase(ABC, IRender):
         return None
 
     @property
-    def unwrapped(self) -> object:
+    def unwrapped(self) -> Any:
         return self
 
     def set_seed(self, seed: Optional[int] = None) -> None:

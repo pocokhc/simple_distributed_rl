@@ -42,60 +42,57 @@ Class diagram
 Interface Type
 ----------------
 
-+ Env type
++ SpaceBase(srl.base.spaces)
 
 .. list-table::
-   :widths: 10 10
    :header-rows: 0
 
-   * - Env
+   * - Class
      - Type
-   * - Action
-     - SpaceBase
-   * - Observation
-     - SpaceBase
+     - SpaceType
+   * - DiscreteSpace
+     - int
+     - DISCRETE
+   * - ArrayDiscreteSpace
+     - list[int]
+     - DISCRETE
+   * - ContinuousSpace
+     - float
+     - CONTINUOUS
+   * - ArrayContinuousSpace
+     - list[float]
+     - CONTINUOUS
+   * - BoxSpace
+     - NDArray[AnyType]
+     - srl.base.define.SpaceTypes
+   * - MultiSpace
+     - list[SpaceBase]
+     - MULTI
 
 
 + RL type
 
 .. list-table::
-   :widths: 5 5 5 5 5
    :header-rows: 0
-
+  
    * - 
-     - Discrete
-     - Continuous
-     - Image
-     - Multiple
-   * - Action
-     - int
-     - list[float]
-     - NDArray[np.uint8]
+     - Action
+     - Observation
+   * - Discrete
+     - | int  
+       | DiscreteSpace
+     - | list[int]
+       | ArrayDiscreteSpace
+   * - Continuous
+     - | list[float]
+       | ArrayContinuousSpace
+     - | NDArray[np.float32]
+       | BoxSpace
+   * - Image
+     - | NDArray[np.uint8]
+       | BoxSpace
+     - same Continuous
+   * - Multiple
      - list[RL type]
-   * - Observation
-     - list[int]
-     - NDArray[np.float32]
-     - NDArray[np.float32]
      - list[NDArray[np.float32]]
   
-
-+ SpaceBase(srl.base.env.spaces)
-
-.. list-table::
-   :widths: 20 10
-   :header-rows: 0
-
-   * - Class
-     - Type
-   * - DiscreteSpace
-     - int
-   * - ArrayDiscreteSpace
-     - list[int]
-   * - ContinuousSpace
-     - float
-   * - ArrayContinuousSpace
-     - list[float]
-   * - BoxSpace
-     - NDArray[AnyType]
-   * - ArraySpace
-     - list[SpaceBase]

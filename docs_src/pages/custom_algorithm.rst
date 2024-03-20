@@ -14,6 +14,7 @@ Make Original Algorithm
     #. Trainer
     #. Worker
 #. 自作アルゴリズムの登録
+#. 型アノテーション
 #. Q学習実装例
 
 
@@ -28,22 +29,22 @@ Make Original Algorithm
 | それぞれの役割は以下です。
 
 .. list-table::
-   :widths: 10 30
+   :widths: 8 30
    :header-rows: 0
 
    * - Config
      - + ハイパーパラメータを管理するクラス
+   * - Memory
+     - + Workerが収集したサンプルを管理
+   * - Parameter
+     - + 学習パラメータを保持
+   * - Trainer
+     - + Memoryからサンプルを取得し学習する
+       + 学習後、Parameterを更新する
    * - Worker
      - + Environmentと連携しサンプルを収集
        + 収集したサンプルをMemoryに送信（add only）
        + 行動決定に必要な情報をParameterから読む（read only）
-   * - Trainer
-     - + Memoryからサンプルを取得し学習する
-       + 学習後、Parameterを更新する
-   * - Memory
-     - + サンプルを管理
-   * - Parameter
-     - + 学習パラメータを保持
 
 
 分散学習は以下となり各クラスが非同期で動作します。
@@ -73,7 +74,7 @@ RLConfig で実装が必要な関数・プロパティは以下です。
 .. code-block:: python
 
    from dataclasses import dataclass
-   from srl.base.rl.base import RLConfig
+   from srl.base.rl.config import RLConfig
    from srl.base.define import RLBaseTypes
    from srl.base.rl.processor import Processor
 
@@ -81,59 +82,59 @@ RLConfig で実装が必要な関数・プロパティは以下です。
    @dataclass
    class MyConfig(RLConfig):
 
-      # コンストラクタで使うハイパーパラメータを定義する
+      # 任意のハイパーパラメータを定義
+      hoo_param: float = 0
       
+      def __post_init__(self):
+         super().__post_init__()  # 親のコンストラクタも呼んでください
+
       def get_name(self) -> str:
          """ ユニークな名前を返す """
          raise NotImplementedError()
 
-      @property
-      def base_action_type(self) -> RLBaseTypes:
+      def get_base_action_type(self) -> RLBaseTypes:
          """
-         アルゴリズムが想定するアクションのタイプを返してください。
-         DISCRETE  : 離散値
-         CONTINUOUS: 連続値
-         ANY       : どちらでも
+         アルゴリズムが想定するアクションのタイプ(srl.base.define.RLBaseTypes)を返してください。
          """
          raise NotImplementedError()
 
-      @property
-      def base_observation_type(self) -> RLBaseTypes:
+      def get_base_observation_type(self) -> RLBaseTypes:
          """
-         アルゴリズムが想定する環境から受け取る状態のタイプを返してください。
-         DISCRETE  : 離散値
-         CONTINUOUS: 連続値
-         ANY       : どちらでも
+         アルゴリズムが想定する環境から受け取る状態のタイプ(srl.base.define.RLBaseTypes)を返してください。
          """
          raise NotImplementedError()
 
-      def get_use_framework(self) -> str:
+      def get_framework(self) -> str:
          """
          使うフレームワークを指定してください。
-         return ""           : 何もなし
+         return ""           : なし
          return "tensorflow" : Tensorflow
          return "torch"      : Torch
          """
          raise NotImplementedError()
 
       # ------------------------------------
-      # 以下は option です。（必須ではない）
+      # 以下は option です。（なくても問題ありません）
       # ------------------------------------
       def assert_params(self) -> None:
          """ パラメータのassertを記載 """
          super().assert_params()  # 親クラスも呼び出してください
 
-      def set_config_by_env(self, env: EnvRun) -> None:
+      def setup_from_env(self, env: EnvRun) -> None:
          """ env初期化後に呼び出されます。env関係の初期化がある場合は記載してください。 """
          pass
          
-      def set_config_by_actor(self, actor_num: int, actor_id: int) -> None:
+      def setup_from_actor(self, actor_num: int, actor_id: int) -> None:
          """ 分散学習でactorが指定されたときに呼び出されます。Actor関係の初期化がある場合は記載してください。 """
          pass
 
-      def set_processor(self, actor_num: int, actor_id: int) -> list[Processor]:
+      def get_processors(self) -> List[Optional[ObservationProcessor]]:
          """ 前処理を追加したい場合設定してください """
          return []
+
+      def get_used_backup_restore(self) -> bool:
+         """ MCTSなど、envのbackup/restoreを使う場合はTrueを返してください"""
+         return False
 
 
 
@@ -169,7 +170,7 @@ ExperienceReplayBuffer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 | ランダムにサンプルを取り出すMemoryです。
-| これを使う場合は、Configにも `ExperienceReplayBufferConfig` を継承する必要があります。
+| これを使う場合は、Configに `RLConfigComponentExperienceReplayBuffer` を継承する必要があります。
 
 .. literalinclude:: custom_algorithm2.py
 
@@ -178,9 +179,9 @@ PriorityExperienceReplay
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 | 優先順位に従ってサンプルを取り出すMemoryです。
-| これを使う場合は、Configにも `PriorityExperienceReplayConfig` を継承する必要があります。
+| これを使う場合は、Configにも `RLConfigComponentPriorityExperienceReplay` を継承する必要があります。
 
-PriorityExperienceReplayはConfigにより以下のアルゴリズムに切り替えることができます。
+このアルゴリズムはConfigにより切り替えることができます。
 
 .. list-table::
    :widths: 15 50
@@ -208,7 +209,7 @@ Parameter
 
 .. code-block:: python
 
-   from srl.base.rl.base import RLParameter
+   from srl.base.rl.parameter import RLParameter
 
    import numpy as np
 
@@ -218,7 +219,7 @@ Parameter
          super().__init__(*args)
 
          # self.config に上で定義した MyConfig が入ります
-         self.config:MyConfig = self.config
+         self.config: MyConfig
 
       # call_restore/call_backupでパラメータが復元できるように作成
       def call_restore(self, data, **kwargs) -> None:
@@ -227,7 +228,7 @@ Parameter
          raise NotImplementedError()
 
       # その他任意の関数を作成できます
-      # （パラメータに関するTrainer/Workerで共通する処理など）
+      # （分散学習ではTrainer/Worker間で値を保持できない点に注意）
 
 
 Trainer
@@ -239,17 +240,17 @@ Trainer
 
 .. code-block:: python
 
-   from srl.base.rl.base import RLTrainer
+   from srl.base.rl.trainer import RLTrainer
 
    class MyTrainer(RLTrainer):
       def __init__(self, *args):
          """ コントラクタの引数は親に渡してください """
          super().__init__(*args)
 
-         # config,parameter がそれぞれ入ります。
-         self.config: MyConfig = self.config
-         self.parameter: MyParameter = self.parameter
-         self.memory: IRLMemoryTrainer = self.memory
+         # 以下の変数を持ちます。
+         self.config: MyConfig
+         self.parameter: MyParameter
+         self.memory: IRLMemoryTrainer
 
       def train(self) -> None:
          """
@@ -257,16 +258,26 @@ Trainer
          self.memory は以下の関数が定義されています。
 
          self.memory.is_warmup_needed() : warmup中かどうかを返します
-         self.memory.sample(self.batch_size, self.train_count) : batchを返します
-         self.memory.update(memory_update_args) : ProportionalMemory の場合 update で使います
+         self.memory.sample()           : batchを返します
+         self.memory.update()           : ProportionalMemory の場合 update で使います
 
          ・学習したら回数を数えてください
          self.train_count += 1
 
          ・(option)必要に応じてinfoを設定します
-         self.train_info = {"loss": 0.0}
+         self.info = {"loss": 0.0}
          """
          raise NotImplementedError()
+      
+      # (option)
+      def create_info(self):
+         """ infoの設定をします。こちらは必要な場合のみ取得します """
+         return {"loss": 0.0}
+
+   # --- 実装時に関数内で使う事を想定しているプロパティ・関数となります
+   trainer = MyTrainer()
+   trainer.distributed  # property, bool : 分散実行中かどうかを返します
+   trainer.train_only   # property, bool : 学習のみかどうかを返します
 
 
 Worker
@@ -275,7 +286,7 @@ Worker
 | 実際に環境と連携して経験を収集するクラスです。
 | 役割は、Parameterを参照してアクションを決める事と、サンプルをMemoryに送信する事です。
 
-RLWorkerとRLTrainerのフローをすごく簡単に書くと以下です。
+フローをすごく簡単に書くと以下です。
 
 .. code-block:: python
 
@@ -287,251 +298,49 @@ RLWorkerとRLTrainerのフローをすごく簡単に書くと以下です。
       worker.on_step()
       trainer.train()
 
-| RLWorkerはアルゴリズムに合わせたインタフェースのクラスを用意しています。
-| 基本はそちらを使用してください。
-| 現状あるクラスは以下です。
+※v0.15.0からRLWorkerを直接継承する方法に変更しました
 
-.. list-table::
-   :widths: 15 30 10
-   :header-rows: 1
-
-   * - クラス名
-     - 説明
-     - 
-   * - DiscreteActionWorker
-     - モデルフリーでアクションが離散値のアルゴリズム
-     - Q学習,DQN等
-   * - ContinuousActionWorker
-     - モデルフリーでアクションが連続値のアルゴリズム
-     - DDPG,SAC等
-   * - RLWorker
-     - 上記以外のアルゴリズム
-     - 
-   * - EnvWorker
-     - Envと直接やり取りするアルゴリズム（ルールベース等）
-     - 
-   * - ExtendWorker
-     - RLWorkerとルールベースを混ぜて使う用
-     - 
-
-
-DiscreteActionWorker
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-DiscreteActionWorkerで実装が必要な関数は以下です。
 
 .. code-block:: python
 
-   from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
-
-   class MyWorker(DiscreteActionWorker):
-      def __init__(self, *args):
-         """ コントラクタの引数は親に渡してください """
-         super().__init__(*args)
-
-         # config,parameter,memory がそれぞれ入ります。
-         # memoryはaddしか使えません。
-         self.config: MyConfig = self.config
-         self.parameter: MyParameter = self.parameter
-         self.memory: IRLMemoryWorker = self.memory
-
-      def call_on_reset(self, state: np.ndarray, invalid_actions: list[int]) -> dict:
-         """ エピソードの最初に呼ばれる関数
-
-         Args:
-               state (np.ndarray): 環境の初期状態
-               invalid_actions (List[int]): 初期状態での有効でないアクションのリスト
-         
-         Returns:
-               Info: 任意の情報
-         """
-         raise NotImplementedError()
-
-      def call_policy(self, state: np.ndarray, invalid_actions: list[int]) -> tuple[int, dict]:
-         """ このターンで実行するアクションを返す関数
-
-         Args:
-               state (np.ndarray): 現在の状態
-               invalid_actions (List[int]): 現在の有効でないアクションのリスト
-
-         Returns: (
-               int : 実行するアクション
-               Info: 任意の情報
-         )
-         """
-         raise NotImplementedError()
-
-      def call_on_step(
-         self,
-         next_state: np.ndarray,
-         reward: float,
-         done: bool,
-         next_invalid_actions: list[int],
-      ) -> dict:
-         """ Envが1step実行した後に呼ばれる関数
-
-         Args:
-               next_state (np.ndarray): アクション実行後の状態
-               reward (float): アクション実行後の報酬
-               done (bool): アクション実行後の終了状態
-               next_invalid_actions (List[int]): アクション実行後の有効でないアクションのリスト
-
-         Returns:
-               dict: 情報(任意)
-         """
-         raise NotImplementedError()
-
-
-ContinuousActionWorker
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-ContinuousActionWorkerで実装が必要な関数は以下です。
-
-.. code-block:: python
-
-   from srl.base.rl.algorithms.continuous_action import ContinuousActionWorker
-
-   class MyWorker(ContinuousActionWorker):
-      def __init__(self, *args):
-         """ コントラクタの引数は親に渡してください """
-         super().__init__(*args)
-
-         # config,parameter,memory がそれぞれ入ります。
-         # memoryはaddしか使えません。
-         self.config: MyConfig = self.config
-         self.parameter: MyParameter = self.parameter
-         self.memory: IRLMemoryWorker = self.memory
-
-      def call_on_reset(self, state: np.ndarray) -> Info:
-         """ エピソードの最初に呼ばれる関数
-
-         Args:
-               state (np.ndarray): 環境の初期状態
-         
-         Returns:
-               Info: 任意の情報
-         """
-         raise NotImplementedError()
-
-      def call_policy(self, state: np.ndarray) -> Tuple[List[float], Info]:
-         """ このターンで実行するアクションを返す関数
-
-         Args:
-               state (np.ndarray): 現在の状態
-
-         Returns: (
-               List[float]: 実行するアクション(小数の配列)
-               Info       : 任意の情報
-         )
-         """
-         raise NotImplementedError()
-
-      def call_on_step(self, next_state: np.ndarray, reward: float, done: bool) -> dict:
-         """ Envが1step実行した後に呼ばれる関数
-
-         Args:
-               next_state (np.ndarray): アクション実行後の状態
-               reward (float): アクション実行後の報酬
-               done (bool): アクション実行後の終了状態
-
-         Returns:
-               dict: 情報(任意)
-         """
-         raise NotImplementedError()
-
-
-RLWorker
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-RLWorker は実行時のクラスである WorkerRun を直接操作して実装するクラスです。  
-出来ることが多いのと、仕様が変わる可能性大きいので詳細は一旦保留します。(TODO)
-
-実装が必要な関数は以下です。
-
-.. code-block:: python
-
-   from srl.base.rl.algorithms.modelbase import ModelBaseWorker
-
-   from srl.base.env.env_run import EnvRun
    from srl.base.rl.worker import RLWorker
    from srl.base.rl.worker_run import WorkerRun
-   
-   class MyWorker(ModelBaseWorker):
+
+   class MyWorker(RLWorker):
       def __init__(self, *args):
          """ コントラクタの引数は親に渡してください """
          super().__init__(*args)
 
-         # config,parameter,memory がそれぞれ入ります。
-         # memoryはaddしか使えません。
-         self.config: MyConfig = self.config
-         self.parameter: MyParameter = self.parameter
-         self.memory: IRLMemoryWorker = self.memory
+         # 以下の変数が設定されます
+         self.config: MyConfig 
+         self.parameter: MyParameter
+         self.memory: IRLMemoryWorker
 
-      def call_on_reset(self, worker: WorkerRun) -> dict:
-         """ エピソードの最初に呼ばれる関数
-
-         Args:
-               worker: WorkerRun
-            
-         Returns:
-               Info: 任意の情報
+      def on_reset(self, worker: WorkerRun) -> dict:
+         """ エピソードの最初に呼ばれる関数 
+         
+         Returns: 
+               Info         : 任意の情報
          """
-         state = worker.state
          raise NotImplementedError()
 
-      def call_policy(self, worker: WorkerRun) -> tuple[RLActionType, dict]:
-         """ このターンで実行するアクションを返す関数
-
-         Args:
-               worker: WorkerRun
+      def policy(self, worker: WorkerRun) -> RLActionType | dict:
+         """ このターンで実行するアクションを返す関数、この関数のみ実装が必須になります
 
          Returns: (
-               RLAction: 実行するアクション
-               Info    : 任意の情報
+               RLActionType : 実行するアクション
+               Info         : 任意の情報
          )
          """
          raise NotImplementedError()
 
-      def call_on_step(self, worker: WorkerRun) -> dict:
+      def on_step(self, worker: WorkerRun) -> dict:
          """ Envが1step実行した後に呼ばれる関数
-
-         Args:
-               worker: WorkerRun
 
          Returns:
                dict: 情報(任意)
          """
-         next_state = worker.state
-         reward = worker.reward
-         done = worker.done
          raise NotImplementedError()
-
-
-Worker共通のプロパティ・関数
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Workerで共通して持っているプロパティ・関数は以下となります。
-
-.. code-block:: python
-
-   from typing import Optional
-   from srl.base.define import RLAction
-
-   class RLWorker:
-      @property
-      def training(self) -> bool:
-         """ training かどうかを返します """
-         return self._training
-
-      @property
-      def distributed(self) -> bool:
-         """ 分散実行中かどうかを返します """
-         return self._distributed
-
-      @property
-      def rendering(self) -> bool:
-         """ renderがあるエピソードかどうかを返します """
-         return self._rendering
 
       def render_terminal(self, worker, **kwargs) -> None:
          """ 
@@ -547,33 +356,43 @@ Workerで共通して持っているプロパティ・関数は以下となり�
          """
          return None
 
-      @property
-      def player_index(self) -> int:
-         """ 複数人実行する環境にて、自分のプレイヤー番号を返します """
-         return self._player_index
+   # --- 実装時に関数内で使う事を想定しているプロパティ・関数となります
+   worker = MyWorker()
+   worker.training     # property, bool : training かどうかを返します
+   worker.distributed  # property, bool : 分散実行中かどうかを返します
+   worker.rendering    # property, bool : renderがあるエピソードかどうかを返します
+   worker.observation_space  # property , SpaceBase : RLWorkerが受け取るobservation_spaceを返します
+   worker.action_space       # property , SpaceBase : RLWorkerが受け取るaction_spaceを返します
+   worker.get_invalid_actions() # function , List[RLAction] : 有効でないアクションを返します(離散限定)
+   worker.sample_action()       # function , RLAction : ランダムなアクションを返します
 
-      def get_invalid_actions(self, env=None) -> List[RLAction]:
-         """ 有効でないアクションを返します(離散限定) """
-         return invalid_actions
+また、情報は WorkerRun から基本取り出して使います。
+情報の例は以下です。
 
-      def sample_action(self, env=None) -> RLAction:
-         """ ランダムなアクションを返します """
-         return action
+.. code-block:: python
 
-      @property
-      def max_episode_steps(self) -> int:
-         """ 最大steps数を返します """
-         return self.__worker_run.env.max_episode_steps
+   class MyWorker(RLWorker):
+      def on_reset(self, worker):
+         worker.state           # 初期状態
+         worker.player_index    # 初期プレイヤーのindex
+         worker.invalid_action  # 初期有効ではないアクションリスト
 
-      @property
-      def player_num(self) -> int:
-         """ プレイヤー数を返します """
-         return self.__worker_run.env.player_num
+      def policy(self, worker) :
+         worker.state           # 状態
+         worker.player_index    # プレイヤーのindex
+         worker.invalid_action  # 有効ではないアクションリスト
 
-      @property
-      def step(self) -> int:
-         """ 現在のstepを返します """
-         return self.__worker_run.env.step_num
+      def on_step(self, worker: "WorkerRun") -> dict:
+         worker.prev_state      # step前の状態(policyのworker.stateと等価)
+         worker.state           # step後の状態
+         worker.prev_action     # step前のアクション(policyで返したアクションと等価)
+         worker.reward          # step後の即時報酬
+         worker.done            # step後に終了フラグが立ったか
+         worker.terminated      # step後にenvが終了フラグを立てたか
+         worker.player_index    # 次のプレイヤーのindex
+         worker.prev_invalid_action  # step前の有効ではないアクションリスト
+         worker.invalid_action       # step後の有効ではないアクションリスト
+
 
 
 自作アルゴリズムの登録
@@ -593,6 +412,43 @@ Workerで共通して持っているプロパティ・関数は以下となり�
       __name__ + ":MyTrainer",
       __name__ + ":MyWorker",
    )
+
+
+型アノテーション
+=========================
+
+動作に影響はないですが、ジェネリック型を追加し実装を簡単にしています。
+適用方法は以下です。
+
+
+.. code-block:: python
+
+   # RLConfig[_TActSpace, _TObsSpace] と指定できます。
+   #   _TActSpace : ActionSpaceを表すSpaceBase型
+   #   _TObsSpace : ObservationSpaceを表すSpaceBase型
+   # 実装例
+   from srl.base.spaces.box import BoxSpace
+   from srl.base.spaces.discrete import DiscreteSpace
+   @dataclass
+   class Config(RLConfig[DiscreteSpace, BoxSpace]):
+      pass
+
+   # RLParameter[_TConfig]
+   #   _TConfig : RLConfig型
+   class Parameter(RLParameter[Config]):
+      pass
+
+   # RLTrainer[_TConfig, _TParameter]
+   #   _TConfig    : RLConfig型
+   #   _TParameter : RLParameter型
+   class Trainer(RLTrainer[Config, Parameter]):
+      pass
+
+   # RLWorker[_TConfig, _TParameter, _TActSpace, _TObsSpace]
+   #   _TActSpace, _TObsSpace はConfigと同じである必要があります
+   class Worker(RLWorker[Config, Parameter, DiscreteSpace, BoxSpace]):
+      pass
+
 
 
 実装例(Q学習)

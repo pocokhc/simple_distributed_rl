@@ -1,27 +1,28 @@
 from dataclasses import dataclass
 
 from srl.base.define import RLBaseTypes
-from srl.base.rl.base import RLConfig
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, ExperienceReplayBufferConfig
+from srl.base.rl.config import RLConfig
+from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 
 
 @dataclass
-class MyConfig(RLConfig, ExperienceReplayBufferConfig):
-    # RLConfig に加え、ExperienceReplayBufferConfig も継承する
-    # (順番は RLConfig -> ExperienceReplayBufferConfig )
+class MyConfig(
+    RLConfig,
+    RLConfigComponentExperienceReplayBuffer,
+):
+    # RLConfig に加え、RLConfigComponentExperienceReplayBuffer も継承する
+    # 順番は RLConfig -> RLConfigComponentExperienceReplayBuffer
 
     def get_name(self) -> str:
         return "MyConfig"
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return ""
 
 
@@ -35,5 +36,5 @@ memory.add(1)
 memory.add(2)
 memory.add(3)
 memory.add(4)
-dat = memory.sample(batch_size=2, step=0)
+dat = memory.sample(batch_size=2)
 print(dat)  # [3, 2]

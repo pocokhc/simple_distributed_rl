@@ -1,10 +1,12 @@
 from dataclasses import dataclass
-from typing import Tuple
+from typing import List, Tuple, cast
 
-from srl.base.define import EnvObservationType, EnvObservationTypes
+import numpy as np
+
+from srl.base.define import EnvObservationType
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import ObservationProcessor
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
@@ -13,49 +15,74 @@ from srl.base.spaces.discrete import DiscreteSpace
 
 
 @dataclass
-class NormalizeProcessor(Processor):
+class NormalizeProcessor(ObservationProcessor):
     feature_rang: Tuple[float, float] = (0, 1)
-
-    def __post_init__(self):
-        pass
 
     def preprocess_observation_space(
         self,
         env_observation_space: SpaceBase,
-        env_observation_type: EnvObservationTypes,
         env: EnvRun,
         rl_config: RLConfig,
-    ) -> Tuple[SpaceBase, EnvObservationTypes]:
-        self.obs_min = env_observation_space.low
-        self.obs_max = env_observation_space.high
-        self.old_range = self.obs_max - self.obs_min
-        self.new_range = self.feature_rang[1] - self.feature_rang[0]
+    ) -> SpaceBase:
+        self._old_space = env_observation_space
+        assert self.feature_rang[0] <= self.feature_rang[1]
 
         if isinstance(env_observation_space, DiscreteSpace):
-            return ContinuousSpace(self.feature_rang[0], self.feature_rang[1]), EnvObservationTypes.CONTINUOUS
+            return ContinuousSpace(self.feature_rang[0], self.feature_rang[1])
 
         if isinstance(env_observation_space, ContinuousSpace):
-            return ContinuousSpace(self.feature_rang[0], self.feature_rang[1]), env_observation_type
+            return ContinuousSpace(self.feature_rang[0], self.feature_rang[1])
 
         if isinstance(env_observation_space, ArrayDiscreteSpace):
-            return (
-                ArrayContinuousSpace(env_observation_space._size, self.feature_rang[0], self.feature_rang[1]),
-                EnvObservationTypes.CONTINUOUS,
-            )
+            return ArrayContinuousSpace(env_observation_space._size, self.feature_rang[0], self.feature_rang[1])
 
         if isinstance(env_observation_space, ArrayContinuousSpace):
-            return (
-                ArrayContinuousSpace(env_observation_space._size, self.feature_rang[0], self.feature_rang[1]),
-                env_observation_type,
-            )
+            return ArrayContinuousSpace(env_observation_space._size, self.feature_rang[0], self.feature_rang[1])
 
         if isinstance(env_observation_space, BoxSpace):
-            return (
-                BoxSpace(env_observation_space.shape, self.feature_rang[0], self.feature_rang[1]),
-                env_observation_type,
-            )
+            return BoxSpace(env_observation_space.shape, self.feature_rang[0], self.feature_rang[1])
 
-        return env_observation_space, env_observation_type
+        return env_observation_space
 
-    def preprocess_observation(self, observation: EnvObservationType, env: EnvRun) -> EnvObservationType:
-        return self.feature_rang[0] + ((observation - self.obs_min) / self.old_range) * self.new_range
+    def preprocess_observation(self, state: EnvObservationType, env: EnvRun) -> EnvObservationType:
+        _min = self.feature_rang[0]
+        _max = self.feature_rang[1]
+
+        if isinstance(self._old_space, DiscreteSpace):
+            state = cast(int, state)
+            state = state / (self._old_space.n - 1)
+            return float(state * (_max - _min) + _min)
+
+        if isinstance(self._old_space, ContinuousSpace):
+            state = cast(float, state)
+            _low = self._old_space.low
+            _high = self._old_space.high
+            state = ((state - _low) / (_high - _low)) * (_max - _min) + _min
+            return state
+
+        if isinstance(self._old_space, ArrayDiscreteSpace):
+            state = cast(List[int], state)
+            state = state[:]  # copy
+            for i in range(self._old_space.size):
+                _low = self._old_space.low[i]
+                _high = self._old_space.high[i]
+                state[i] = ((state[i] - _low) / (_high - _low)) * (_max - _min) + _min
+            return state
+
+        if isinstance(self._old_space, ArrayContinuousSpace):
+            state = cast(List[float], state)
+            state = state[:]  # copy
+            for i in range(self._old_space.size):
+                _low = self._old_space.low[i]
+                _high = self._old_space.high[i]
+                state[i] = ((state[i] - _low) / (_high - _low)) * (_max - _min) + _min
+            return state
+
+        if isinstance(self._old_space, BoxSpace):
+            state = cast(np.ndarray, state)
+            _low = self._old_space.low
+            _high = self._old_space.high
+            state = ((state - _low) / (_high - _low)) * (_max - _min) + _min
+            return state
+
+        return state

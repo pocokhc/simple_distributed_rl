@@ -9,15 +9,14 @@
 1. (distribution)オリジナルrl/env対応
 1. RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 1. RLWorkerからworker_run.stateで特定の型を指定する方法が分からない…
-
-DemoMemory
-configのjson保存
-rlconfigのparam_pathは削除予定
+1. DemoMemory
+1. configのjson保存
 
 
 # v0.15.0
 
 ・spacesにMultiSpaceを追加し、マルチモーダルな入力に対応（画像+値の入力など）
+※試験導入です
 ・base.rlに大幅な修正が入ったので自作アルゴリズムを作成している場合は、ドキュメントの "Make Original Algorithm" を見てください
 ・Envのspaceの定義を変更しました（observation_typeがなくなりました）自作環境を作成している場合はドキュメントを参照してください
 ・Envの作成をgymnasiumでもできるようにし、SRLはオプションで追加できる形に修正
@@ -105,7 +104,7 @@ rlconfigのparam_pathは削除予定
 1. [runner.evaluate] fix: envを共有するとenvの状態がバグるので処理を無効に
 1. [utils.render_functions] fix: text_to_rgb_arrayで長い文字列に制限を付けて大きすぎる画像の生成を抑止
 
-# v0.14.　1
+# v0.14.1
 
 **MainUpdates**
 

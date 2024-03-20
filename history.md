@@ -8,26 +8,27 @@
 1. Async-SGD
 1. (distribution)オリジナルrl/env対応
 1. RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
+1. RLWorkerからworker_run.stateで特定の型を指定する方法が分からない…
 
 DemoMemory
 configのjson保存
 rlconfigのparam_pathは削除予定
 
+
 # v0.15.0
 
 ・spacesにMultiSpaceを追加し、マルチモーダルな入力に対応（画像+値の入力など）
-・Envの作成をgymnasiumにし、SRLはオプションで追加できる形に修正
-・Envの作成に修正が入ったので自作環境を作成している場合は、ドキュメント "Make Original Environment" を見てください
 ・base.rlに大幅な修正が入ったので自作アルゴリズムを作成している場合は、ドキュメントの "Make Original Algorithm" を見てください
+・Envのspaceの定義を変更しました（observation_typeがなくなりました）自作環境を作成している場合はドキュメントを参照してください
+・Envの作成をgymnasiumでもできるようにし、SRLはオプションで追加できる形に修正
 
 **MainUpdates**
 
 1. [base.spaces] new: spacesに配列を表現するMultiSpaceを追加
-  1. [base.env] change: EnvBaseのobservation_typeをspacesで保持するように変更。
-  1. [base.define] rename: EnvObservationTypesをEnvTypesに名前変更
-  1. [base.define] new: EnvTypesにTEXTとMULTIを追加
-  1. [base.define] new: RLTypesにMULTIを追加
-  1. [base.spaces] new: spacesでenv_typeとrl_typeを追加
+  1. [base.define] change: EnvObservationTypes,EnvTypes,RLTypesを統一し、SpaceTypesを作成
+  1. [base.define] new: SpaceTypesにTEXTとMULTIを追加
+  1. [base.spaces] new: spacesにstype: SpaceTypesを追加
+  1. [base.env] change/remove: EnvBaseのobservation_typeをobservation_spaceで指定するように変更し、削除
   1. [base.rl] big update: RLConfigのsetupとworker_runをMultiSpaceに対応
       + [base.rl.config] new: use_render_image_for_observationを廃止し、代わりにobservation_modeを追加
       　observation_modeはENVのstate+render_image等の入力に変更可能なパラメータ
@@ -41,6 +42,7 @@ rlconfigのparam_pathは削除予定
       + [base.rl.config] change: SchedulerConfigを改善し小数代入で指定できるように変更
       + [base.env] add: override_render_modeを追加し、renderを外部からいじれるように
       + [base.rl.base] change: train_infoの生成タイミングを必要な場合のみに取得できるように修正
+      + [base.rl.base] change: RL基底クラスにジェネリック型を導入
       + [algorithms] change: タイミングがいいのでRLWorkerに統一
   1. [rl.models] big update: MultiSpaceに対応
       + [rl.models] change: inputs_blockを改修
@@ -100,8 +102,10 @@ rlconfigのparam_pathは削除予定
 1. [rl.functions.common] fix: get_random_max_indexで要素が多いときにinvalid_actionsが反映されないバグ修正
 1. [tests.runner.distribution] fix: redisがinstallされていない場合でpytestが動くように修正
 1. [rl.processors.image_processor] fix: 最大1の場合normを実行しない処理を追加
+1. [runner.evaluate] fix: envを共有するとenvの状態がバグるので処理を無効に
+1. [utils.render_functions] fix: text_to_rgb_arrayで長い文字列に制限を付けて大きすぎる画像の生成を抑止
 
-# v0.14.1
+# v0.14.　1
 
 **MainUpdates**
 

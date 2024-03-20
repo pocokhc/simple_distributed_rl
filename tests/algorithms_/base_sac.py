@@ -21,7 +21,6 @@ class QuickCase(CommonQuickCase):
         return request.param
 
     def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
-        pytest.importorskip("tensorflow")
 
         from srl.algorithms import sac
 

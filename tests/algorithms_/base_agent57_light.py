@@ -9,8 +9,6 @@ from tests.algorithms_.common_quick_case import CommonQuickCase
 
 class QuickCase(CommonQuickCase):
     def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
-        pytest.importorskip("tensorflow")
-
         from srl.algorithms import agent57_light
 
         rl_config = agent57_light.Config()

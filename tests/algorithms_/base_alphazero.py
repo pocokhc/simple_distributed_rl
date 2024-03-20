@@ -1,9 +1,7 @@
 from typing import Tuple
 
-import pytest
 
 import srl
-from srl.base.define import ObservationModes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -11,7 +9,6 @@ from tests.algorithms_.common_quick_case import CommonQuickCase
 
 class QuickCase(CommonQuickCase):
     def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
-        pytest.importorskip("tensorflow")
 
         from srl.algorithms import alphazero
 

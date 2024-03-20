@@ -34,10 +34,15 @@ Welcome to SimpleDistributedRL's documentation!
 
    pages/algorithms/ql
    pages/algorithms/dqn
+   pages/algorithms/rainbow
    pages/algorithms/agent57
+   pages/algorithms/agent57_light
    pages/algorithms/ppo
    pages/algorithms/ddpg
    pages/algorithms/sac
+   pages/algorithms/mcts
+   pages/algorithms/alphazero
+   pages/algorithms/muzero
    pages/algorithms/dreamer_v3
 
 

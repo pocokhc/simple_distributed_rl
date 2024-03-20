@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to SimpleDistributedRL&#39;s documentation! &mdash; SimpleDistributedRL 0.14.0.2 ドキュメント</title>
+  <title>Welcome to SimpleDistributedRL&#39;s documentation! &mdash; SimpleDistributedRL 0.14.1.6 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="_static/jquery.js?v=5d32c60e"></script>
         <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="_static/documentation_options.js?v=5c722782"></script>
+        <script src="_static/documentation_options.js?v=d1d6777c"></script>
         <script src="_static/doctools.js?v=888ff710"></script>
         <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="_static/translations.js?v=4dbe4bdc"></script>
@@ -68,10 +68,15 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/rainbow.html">Rainbow</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/agent57_light.html">Agent57 light</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/ppo.html">PPO(Proximal Policy Optimization)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/mcts.html">Monte Carlo tree search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/alphazero.html">AlphaZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/muzero.html">MuZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/dreamer_v3.html">DreamerV3</a></li>
 </ul>
 
@@ -131,18 +136,18 @@
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="pages/custom_env.html">Make Original Environment</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id1">実装クラス</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#space">Spaceクラスについて</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id6">自作環境の登録</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id7">実装例</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id8">テスト</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#q">Q学習による学習</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id1">1. 実装クラス</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#space">2. Spaceクラスについて</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id7">3. 自作環境の登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id8">4. 実装例</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#q">5. Q学習による学習例</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pages/custom_algorithm.html">Make Original Algorithm</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id1">概要</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id2">実装する各クラスの説明</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id4">自作アルゴリズムの登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id3">自作アルゴリズムの登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id4">型アノテーション</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#q">実装例(Q学習)</a></li>
 </ul>
 </li>
@@ -171,9 +176,7 @@
 <li class="toctree-l2"><a class="reference internal" href="pages/rl_config_memory.html">Memory</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html">Framework</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#mlpblock">MLPBlock</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#duelingnetwork">DuelingNetwork</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#imageblock">ImageBlock</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#alphazeroblock">AlphaZeroBlock</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pages/rl_config_scheduler.html">Scheduler</a></li>
 </ul>
 </li>
@@ -198,8 +201,16 @@
 <li class="toctree-l2"><a class="reference internal" href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/rainbow.html">Rainbow</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/rainbow.html#srl.algorithms.rainbow.rainbow.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/agent57.html">Agent57</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/agent57.html#srl.algorithms.agent57.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/agent57.html#srl.algorithms.agent57.agent57.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/agent57_light.html">Agent57 light</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/agent57_light.html#srl.algorithms.agent57_light.agent57_light.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/ppo.html">PPO(Proximal Policy Optimization)</a><ul>
@@ -212,6 +223,18 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/sac.html">SAC(Soft-Actor-Critic)</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="pages/algorithms/sac.html#srl.algorithms.sac.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/mcts.html">Monte Carlo tree search</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/mcts.html#srl.algorithms.mcts.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/alphazero.html">AlphaZero</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/alphazero.html#srl.algorithms.alphazero.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/muzero.html">MuZero</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/dreamer_v3.html">DreamerV3</a><ul>
@@ -240,7 +263,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2022, poco_cpp.</p>
+    <p>&#169; Copyright 2022, poco.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

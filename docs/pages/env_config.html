@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EnvConfig &mdash; SimpleDistributedRL 0.14.0.2 ドキュメント</title>
+  <title>EnvConfig &mdash; SimpleDistributedRL 0.14.1.6 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=5c722782"></script>
+        <script src="../_static/documentation_options.js?v=d1d6777c"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -68,17 +68,14 @@
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.frameskip"><code class="docutils literal notranslate"><span class="pre">EnvConfig.frameskip</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.random_noop_max"><code class="docutils literal notranslate"><span class="pre">EnvConfig.random_noop_max</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.gym_make_func"><code class="docutils literal notranslate"><span class="pre">EnvConfig.gym_make_func</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.gymnasium_make_func"><code class="docutils literal notranslate"><span class="pre">EnvConfig.gymnasium_make_func</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.gym_check_image"><code class="docutils literal notranslate"><span class="pre">EnvConfig.gym_check_image</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.gym_prediction_by_simulation"><code class="docutils literal notranslate"><span class="pre">EnvConfig.gym_prediction_by_simulation</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.gym_prediction_step"><code class="docutils literal notranslate"><span class="pre">EnvConfig.gym_prediction_step</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.gym_wrappers"><code class="docutils literal notranslate"><span class="pre">EnvConfig.gym_wrappers</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.use_gym"><code class="docutils literal notranslate"><span class="pre">EnvConfig.use_gym</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.render_interval"><code class="docutils literal notranslate"><span class="pre">EnvConfig.render_interval</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.render_scale"><code class="docutils literal notranslate"><span class="pre">EnvConfig.render_scale</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.font_name"><code class="docutils literal notranslate"><span class="pre">EnvConfig.font_name</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.font_size"><code class="docutils literal notranslate"><span class="pre">EnvConfig.font_size</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.enable_sanitize_value"><code class="docutils literal notranslate"><span class="pre">EnvConfig.enable_sanitize_value</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.enable_assertion_value"><code class="docutils literal notranslate"><span class="pre">EnvConfig.enable_assertion_value</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.enable_sanitize"><code class="docutils literal notranslate"><span class="pre">EnvConfig.enable_sanitize</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.enable_assertion"><code class="docutils literal notranslate"><span class="pre">EnvConfig.enable_assertion</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.make_env"><code class="docutils literal notranslate"><span class="pre">EnvConfig.make_env()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">EnvConfig.to_dict()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.copy"><code class="docutils literal notranslate"><span class="pre">EnvConfig.copy()</span></code></a></li>
@@ -95,10 +92,15 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/rainbow.html">Rainbow</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/agent57_light.html">Agent57 light</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ppo.html">PPO(Proximal Policy Optimization)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/mcts.html">Monte Carlo tree search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/alphazero.html">AlphaZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/muzero.html">MuZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
 </ul>
 
@@ -130,7 +132,7 @@
 <span id="env-config"></span><h1>EnvConfig<a class="headerlink" href="#envconfig" title="Link to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.base.env.config.</span></span><span class="sig-name descname"><span class="pre">EnvConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">name:</span> <span class="pre">str,</span> <span class="pre">kwargs:</span> <span class="pre">~typing.Dict</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">max_episode_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">episode_timeout:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">frameskip:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">random_noop_max:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">gym_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gym.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gymnasium_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gymnasium.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gym_check_image:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">gym_prediction_by_simulation:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">gym_prediction_step:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">10,</span> <span class="pre">gym_wrappers:</span> <span class="pre">~typing.List[GymUserWrapper]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">render_interval:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">render_scale:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0,</span> <span class="pre">font_name:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'',</span> <span class="pre">font_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">18,</span> <span class="pre">enable_sanitize_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">enable_assertion_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.base.env.config.EnvConfig" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.base.env.config.</span></span><span class="sig-name descname"><span class="pre">EnvConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">name:</span> <span class="pre">str,</span> <span class="pre">kwargs:</span> <span class="pre">~typing.Dict</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">max_episode_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">episode_timeout:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">frameskip:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">random_noop_max:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">gym_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gym.Env</span> <span class="pre">|</span> <span class="pre">gymnasium.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gym_wrappers:</span> <span class="pre">~typing.List[GymUserWrapper]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">use_gym:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">render_interval:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">render_scale:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0,</span> <span class="pre">font_name:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'',</span> <span class="pre">font_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">18,</span> <span class="pre">enable_sanitize:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True,</span> <span class="pre">enable_assertion:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.base.env.config.EnvConfig" title="Link to this definition"></a></dt>
 <dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>EnvConfig は環境を定義します。</p>
 <p>環境は、基本は名前だけで呼び出せます。</p>
@@ -182,32 +184,8 @@
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.gym_make_func">
-<span class="sig-name descname"><span class="pre">gym_make_func</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">gym.Env</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_make_func" title="Link to this definition"></a></dt>
-<dd><p>gymの環境を生成する場合、Noneの場合は &quot;gym.make&quot; で生成されますが、関数を渡すとその関数で生成されます。</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.gymnasium_make_func">
-<span class="sig-name descname"><span class="pre">gymnasium_make_func</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">gymnasium.Env</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gymnasium_make_func" title="Link to this definition"></a></dt>
-<dd><p>gymnasiumの環境を生成する場合、Noneの場合は &quot;gymnasium.make&quot; で生成されますが、関数を渡すとその関数で生成されます。</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.gym_check_image">
-<span class="sig-name descname"><span class="pre">gym_check_image</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_check_image" title="Link to this definition"></a></dt>
-<dd><p>gym/gymnasium環境を生成する際に、observation_space が画像かどうかチェックします</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.gym_prediction_by_simulation">
-<span class="sig-name descname"><span class="pre">gym_prediction_by_simulation</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_prediction_by_simulation" title="Link to this definition"></a></dt>
-<dd><p>gym/gymnasium環境を生成する際に space の確認を実際にシミュレートして確認する</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.gym_prediction_step">
-<span class="sig-name descname"><span class="pre">gym_prediction_step</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_prediction_step" title="Link to this definition"></a></dt>
-<dd><p>gym_prediction_by_simulation のシミュレーションステップ数</p>
+<span class="sig-name descname"><span class="pre">gym_make_func</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">gym.Env</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">gymnasium.Env</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_make_func" title="Link to this definition"></a></dt>
+<dd><p>gym/gymnasiumの環境を生成する場合、この関数を使って生成します。</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -215,6 +193,12 @@
 <span class="sig-name descname"><span class="pre">gym_wrappers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">GymUserWrapper</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.gym_wrappers" title="Link to this definition"></a></dt>
 <dd><p>gym/gymnasiumの環境に割り込むためのクラス
 (pickle化できる必要があります)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.use_gym">
+<span class="sig-name descname"><span class="pre">use_gym</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.use_gym" title="Link to this definition"></a></dt>
+<dd><p>gymとgymnasium両方ある場合にgymを使います。（デフォルトはgymnasium）</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -244,17 +228,17 @@
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.enable_sanitize_value">
-<span class="sig-name descname"><span class="pre">enable_sanitize_value</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.enable_sanitize_value" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.enable_sanitize">
+<span class="sig-name descname"><span class="pre">enable_sanitize</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.enable_sanitize" title="Link to this definition"></a></dt>
 <dd><p>action/observationの値をエラーが出ないように可能な限り変換します。
 ※エラー終了の可能性は減りますが、値の変換等による予期しない動作を引き起こす可能性が高くなります</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.enable_assertion_value">
-<span class="sig-name descname"><span class="pre">enable_assertion_value</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.enable_assertion_value" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.enable_assertion">
+<span class="sig-name descname"><span class="pre">enable_assertion</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.enable_assertion" title="Link to this definition"></a></dt>
 <dd><p>action/observationの値を厳密にチェックし、おかしい場合は例外を出力します。
-enable_assertion_valueが有効な場合は、enable_sanitize_valueは無効です。</p>
+enable_assertionが有効な場合は、enable_sanitizeは無効です。</p>
 </dd></dl>
 
 <dl class="py method">
@@ -288,7 +272,7 @@ enable_assertion_valueが有効な場合は、enable_sanitize_valueは無効で�
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2022, poco_cpp.</p>
+    <p>&#169; Copyright 2022, poco.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

@@ -2,7 +2,7 @@
 
 Framework
 ===============
-.. autoclass:: srl.rl.models.framework_config.FrameworkConfig
+.. autoclass:: srl.rl.models.config.framework_config.RLConfigComponentFramework
    :members:
    :show-inheritance:
 
@@ -12,17 +12,7 @@ Framework
 MLPBlock
 ===============
 
-.. autoclass:: srl.rl.models.mlp_block.MLPBlockConfig
-   :members:
-   :show-inheritance:
-
-
-.. _DuelingNetwork:
-
-DuelingNetwork
-===============
-
-.. autoclass:: srl.rl.models.dueling_network.DuelingNetworkConfig
+.. autoclass:: srl.rl.models.config.mlp_block.MLPBlockConfig
    :members:
    :show-inheritance:
 
@@ -32,17 +22,6 @@ DuelingNetwork
 ImageBlock
 ===============
 
-.. autoclass:: srl.rl.models.image_block.ImageBlockConfig
+.. autoclass:: srl.rl.models.config.image_block.ImageBlockConfig
    :members:
    :show-inheritance:
-
-
-.. _AlphaZeroBlock:
-
-AlphaZeroBlock
-===============
-
-.. autoclass:: srl.rl.models.alphazero_block.AlphaZeroBlockConfig
-   :members:
-   :show-inheritance:
-

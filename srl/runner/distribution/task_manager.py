@@ -356,7 +356,6 @@ class TaskManager:
         history_add_history: bool = True,
         # --- eval
         enable_eval: bool = True,
-        eval_env_sharing: bool = True,
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
@@ -369,14 +368,12 @@ class TaskManager:
         callbacks = callbacks[:]
 
         if enable_progress:
-            from srl.runner.distribution.callbacks.print_progress import \
-                PrintProgress
+            from srl.runner.distribution.callbacks.print_progress import PrintProgress
 
             callbacks.append(
                 PrintProgress(
                     interval=progress_interval,
                     enable_eval=enable_eval,
-                    eval_env_sharing=eval_env_sharing,
                     eval_episode=eval_episode,
                     eval_timeout=eval_timeout,
                     eval_max_steps=eval_max_steps,
@@ -394,7 +391,6 @@ class TaskManager:
                     save_dir=checkpoint_save_dir,
                     interval=checkpoint_interval,
                     enable_eval=enable_eval,
-                    eval_env_sharing=eval_env_sharing,
                     eval_episode=eval_episode,
                     eval_timeout=eval_timeout,
                     eval_max_steps=eval_max_steps,
@@ -405,8 +401,7 @@ class TaskManager:
             logger.info(f"add callback Checkpoint: {checkpoint_save_dir}")
 
         if history_save_dir != "":
-            from srl.runner.distribution.callbacks.history_on_file import \
-                HistoryOnFile
+            from srl.runner.distribution.callbacks.history_on_file import HistoryOnFile
 
             callbacks.append(
                 HistoryOnFile(
@@ -414,7 +409,6 @@ class TaskManager:
                     interval=history_interval,
                     add_history=history_add_history,
                     enable_eval=enable_eval,
-                    eval_env_sharing=eval_env_sharing,
                     eval_episode=eval_episode,
                     eval_timeout=eval_timeout,
                     eval_max_steps=eval_max_steps,

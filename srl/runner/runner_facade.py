@@ -359,7 +359,6 @@ class RunnerFacade(Runner):
     #     progress_max_actor: int = 5,
     #     # --- eval
     #     enable_eval: bool = False,
-    #     eval_env_sharing: bool = False,
     #     eval_episode: int = 1,
     #     eval_timeout: float = -1,
     #     eval_max_steps: int = -1,
@@ -415,7 +414,6 @@ class RunnerFacade(Runner):
     #                 progress_worker=progress_worker,
     #                 progress_max_actor=progress_max_actor,
     #                 enable_eval=enable_eval,
-    #                 eval_env_sharing=eval_env_sharing,
     #                 eval_episode=eval_episode,
     #                 eval_timeout=eval_timeout,
     #                 eval_max_steps=eval_max_steps,
@@ -461,7 +459,6 @@ class RunnerFacade(Runner):
         progress_interval: int = 60 * 1,
         # --- eval
         enable_eval: bool = True,
-        eval_env_sharing: bool = True,
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
@@ -539,7 +536,6 @@ class RunnerFacade(Runner):
                 progress_interval=progress_interval,
                 **_train_wait_kwargs,
                 enable_eval=enable_eval,
-                eval_env_sharing=eval_env_sharing,
                 eval_episode=eval_episode,
                 eval_timeout=eval_timeout,
                 eval_max_steps=eval_max_steps,

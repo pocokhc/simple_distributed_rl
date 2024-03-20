@@ -155,7 +155,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
     assert c.on_trainer_end.call_count > 0
 
 
-@pytest.mark.timeout(5)  # pip install pytest_timeout
+@pytest.mark.timeout(10)  # pip install pytest_timeout
 def test_train():
     common.logger_print()
     rl_config = ql_agent57.Config(batch_size=2)

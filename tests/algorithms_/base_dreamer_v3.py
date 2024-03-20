@@ -4,7 +4,7 @@ from typing import Tuple
 import pytest
 
 import srl
-from srl.base.define import ObservationModes, RLBaseTypes, SpaceTypes
+from srl.base.define import ObservationModes, SpaceTypes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -23,7 +23,6 @@ class QuickCase(CommonQuickCase):
         return request.param
 
     def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
-        pytest.importorskip("tensorflow")
         pytest.importorskip("tensorflow_probability")
         pytest.importorskip("pygame")
 

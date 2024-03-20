@@ -13,16 +13,16 @@ from srl.base.define import (
     DoneTypes,
     EnvActionType,
     EnvInvalidActionType,
-    EnvTypes,
     InfoType,
     KeyBindType,
     RenderModes,
+    SpaceTypes,
 )
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.config import EnvConfig
 
 if TYPE_CHECKING:
-    from srl.base.rl.base import RLWorker
+    from srl.base.rl.worker import RLWorker
 
 
 logger = logging.getLogger(__name__)
@@ -43,26 +43,26 @@ def _space_change_from_gym_to_srl_sub(gym_space: gym_spaces.Space) -> Optional[U
             return srl_spaces.DiscreteSpace(int(gym_space.n))
 
     if isinstance(gym_space, gym_spaces.MultiDiscrete):
-        return srl_spaces.BoxSpace(gym_space.shape, 0, gym_space.nvec, np.int64, EnvTypes.DISCRETE)
+        return srl_spaces.BoxSpace(gym_space.shape, 0, gym_space.nvec, np.int64, SpaceTypes.DISCRETE)
 
     if isinstance(gym_space, gym_spaces.MultiBinary):
-        return srl_spaces.BoxSpace(gym_space.shape, 0, 1, np.int8, EnvTypes.DISCRETE)
+        return srl_spaces.BoxSpace(gym_space.shape, 0, 1, np.int8, SpaceTypes.DISCRETE)
 
     if isinstance(gym_space, gym_spaces.Box):
         # image check
-        _obs_type = EnvTypes.UNKNOWN
+        _obs_type = SpaceTypes.UNKNOWN
         if "uint" in str(gym_space.dtype):
             if len(gym_space.shape) == 2:
-                _obs_type = EnvTypes.GRAY_2ch
+                _obs_type = SpaceTypes.GRAY_2ch
             elif len(gym_space.shape) == 3:
                 # w,h,ch 想定
                 ch = gym_space.shape[-1]
                 if ch == 1:
-                    _obs_type = EnvTypes.GRAY_3ch
+                    _obs_type = SpaceTypes.GRAY_3ch
                 elif ch == 3:
-                    _obs_type = EnvTypes.COLOR
+                    _obs_type = SpaceTypes.COLOR
                 else:
-                    _obs_type = EnvTypes.IMAGE
+                    _obs_type = SpaceTypes.IMAGE
         return srl_spaces.BoxSpace(gym_space.shape, gym_space.low, gym_space.high, gym_space.dtype, _obs_type)
 
     if isinstance(gym_space, gym_spaces.Tuple):
@@ -96,7 +96,7 @@ def _space_change_from_gym_to_srl_sub(gym_space: gym_spaces.Space) -> Optional[U
     if isinstance(gym_space, gym_spaces.Text):
         shape = (gym_space.max_length,)
         # TODO TextSpace
-        return srl_spaces.BoxSpace(shape, 0, len(gym_space.character_set), np.int64, EnvTypes.DISCRETE)
+        return srl_spaces.BoxSpace(shape, 0, len(gym_space.character_set), np.int64, SpaceTypes.DISCRETE)
 
     if isinstance(gym_space, gym_spaces.Sequence):
         pass  # not support

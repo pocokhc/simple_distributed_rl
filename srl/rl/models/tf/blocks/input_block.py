@@ -4,13 +4,13 @@ from typing import List, Tuple
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import EnvTypes, MultiVariableTypes, RLTypes
+from srl.base.define import SpaceTypes
 from srl.base.exception import NotSupportedError, TFLayerError, UndefinedError
+from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.multi import MultiSpace
 from srl.base.spaces.space import SpaceBase
 from srl.rl.models.config.image_block import ImageBlockConfig
 from srl.rl.models.config.mlp_block import MLPBlockConfig
-from srl.rl.models.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
 
@@ -23,7 +23,7 @@ def create_in_block_out_multi(
     image_block_config: ImageBlockConfig,
     observation_space: SpaceBase,
     enable_rnn: bool = False,
-) -> Tuple[keras.Model, List[MultiVariableTypes]]:
+) -> Tuple[keras.Model, List[SpaceTypes]]:
     if isinstance(observation_space, MultiSpace):
         o = InputMultiBlock(
             value_block_config,
@@ -32,21 +32,21 @@ def create_in_block_out_multi(
             is_concat=False,
             enable_rnn=enable_rnn,
         )
-        return o, o.out_types
-    elif observation_space.rl_type == RLTypes.IMAGE:
+        return o, o.out_stypes
+    elif SpaceTypes.is_image(observation_space.stype):
         return InputImageBlock(
             image_block_config,
             observation_space,
             enable_rnn,
             is_flatten=False,
             out_multi=True,
-        ), [MultiVariableTypes.IMAGE]
+        ), [observation_space.stype]
     else:
         return InputValueBlock(
             value_block_config,
             enable_rnn,
             out_multi=True,
-        ), [MultiVariableTypes.VALUE]
+        ), [observation_space.stype]
 
 
 def create_in_block_out_value(
@@ -63,7 +63,7 @@ def create_in_block_out_value(
             is_concat=True,
             enable_rnn=enable_rnn,
         )
-    elif observation_space.rl_type == RLTypes.IMAGE:
+    elif SpaceTypes.is_image(observation_space.stype):
         return InputImageBlock(
             image_block_config,
             observation_space,
@@ -84,7 +84,7 @@ def create_in_block_out_image(
     observation_space: SpaceBase,
     enable_rnn: bool = False,
 ) -> keras.Model:
-    if observation_space.rl_type == RLTypes.IMAGE:
+    if SpaceTypes.is_image(observation_space.stype):
         return InputImageBlock(
             image_block_config,
             observation_space,
@@ -93,7 +93,7 @@ def create_in_block_out_image(
             out_multi=False,
         )
     else:
-        raise NotSupportedError(observation_space.rl_type)
+        raise NotSupportedError(observation_space)
 
 
 # -------------
@@ -103,7 +103,8 @@ def create_input_image_layers(obs_space: SpaceBase, enable_rnn: bool):
     err_msg = f"unknown observation_type: {obs_space}"
     layers = []
 
-    if obs_space.env_type == EnvTypes.GRAY_2ch:
+    assert isinstance(obs_space, BoxSpace)
+    if obs_space.stype == SpaceTypes.GRAY_2ch:
         if len(obs_space.shape) == 2:
             # (h, w) -> (h, w, 1)
             layers.append(kl.Reshape(obs_space.shape + (1,)))
@@ -113,7 +114,7 @@ def create_input_image_layers(obs_space: SpaceBase, enable_rnn: bool):
         else:
             raise TFLayerError(err_msg)
 
-    elif obs_space.env_type == EnvTypes.GRAY_3ch:
+    elif obs_space.stype == SpaceTypes.GRAY_3ch:
         assert obs_space.shape[-1] == 1
         if len(obs_space.shape) == 3:
             # (h, w, 1)
@@ -126,18 +127,18 @@ def create_input_image_layers(obs_space: SpaceBase, enable_rnn: bool):
         else:
             raise TFLayerError(err_msg)
 
-    elif obs_space.env_type == EnvTypes.COLOR:
+    elif obs_space.stype == SpaceTypes.COLOR:
         if len(obs_space.shape) == 3:
             # (h, w, ch)
             pass
         else:
             raise TFLayerError(err_msg)
 
-    elif obs_space.env_type == EnvTypes.IMAGE:
+    elif obs_space.stype == SpaceTypes.IMAGE:
         # (h, w, ch)
         pass
     else:
-        raise UndefinedError(obs_space.env_type)
+        raise UndefinedError(obs_space.stype)
 
     if enable_rnn:
         layers = [kl.TimeDistributed(x) for x in layers]
@@ -145,7 +146,7 @@ def create_input_image_layers(obs_space: SpaceBase, enable_rnn: bool):
     return layers
 
 
-class InputValueBlock(KerasModelAddedSummary):
+class InputValueBlock(keras.Model):
     def __init__(self, value_block_config: MLPBlockConfig, enable_rnn: bool, out_multi: bool):
         super().__init__()
         self.out_multi = out_multi
@@ -165,7 +166,7 @@ class InputValueBlock(KerasModelAddedSummary):
             return x
 
 
-class InputImageBlock(KerasModelAddedSummary):
+class InputImageBlock(keras.Model):
     def __init__(
         self,
         image_block_config: ImageBlockConfig,
@@ -198,7 +199,7 @@ class InputImageBlock(KerasModelAddedSummary):
             return x
 
 
-class InputMultiBlock(KerasModelAddedSummary):
+class InputMultiBlock(keras.Model):
     def __init__(
         self,
         value_block_config: MLPBlockConfig,
@@ -212,9 +213,9 @@ class InputMultiBlock(KerasModelAddedSummary):
 
         self.in_indices = []
         self.in_layers = []
-        self.out_types = []
+        self.out_stypes = []
         for i, space in enumerate(observation_space.spaces):
-            if space.rl_type == RLTypes.IMAGE:
+            if SpaceTypes.is_image(space.stype):
                 if image_block_config is None:
                     logger.info("image space is skip")
                     continue
@@ -227,7 +228,7 @@ class InputMultiBlock(KerasModelAddedSummary):
                         layers.append(kl.Flatten())
                 self.in_indices.append(i)
                 self.in_layers.append(layers)
-                self.out_types.append(MultiVariableTypes.IMAGE)
+                self.out_stypes.append(space.stype)
             else:
                 if value_block_config is None:
                     logger.info("value space is skip")
@@ -240,7 +241,7 @@ class InputMultiBlock(KerasModelAddedSummary):
                 layers.append(value_block_config.create_block_tf(enable_rnn=enable_rnn))
                 self.in_indices.append(i)
                 self.in_layers.append(layers)
-                self.out_types.append(MultiVariableTypes.VALUE)
+                self.out_stypes.append(space.stype)
         assert len(self.in_indices) > 0
 
     def call(self, x, training=False):

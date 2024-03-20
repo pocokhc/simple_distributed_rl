@@ -5,8 +5,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from srl.base.define import EnvTypes, MultiVariableTypes, RLTypes
+from srl.base.define import SpaceTypes
 from srl.base.exception import NotSupportedError
+from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.multi import MultiSpace
 from srl.base.spaces.space import SpaceBase
 from srl.rl.models.config.image_block import ImageBlockConfig
@@ -19,7 +20,7 @@ def create_in_block_out_multi(
     value_block_config: MLPBlockConfig,
     image_block_config: ImageBlockConfig,
     observation_space: SpaceBase,
-) -> Tuple[nn.Module, List[MultiVariableTypes]]:
+) -> Tuple[nn.Module, List[SpaceTypes]]:
     if isinstance(observation_space, MultiSpace):
         o = InputMultiBlock(
             value_block_config,
@@ -28,19 +29,19 @@ def create_in_block_out_multi(
             is_concat=False,
         )
         return o, o.out_types
-    elif observation_space.rl_type == RLTypes.IMAGE:
+    elif SpaceTypes.is_image(observation_space.stype):
         return InputImageBlock(
             image_block_config,
             observation_space,
             is_flatten=False,
             out_multi=True,
-        ), [MultiVariableTypes.IMAGE]
+        ), [observation_space.stype]
     else:
         return InputValueBlock(
             value_block_config,
             observation_space,
             out_multi=True,
-        ), [MultiVariableTypes.VALUE]
+        ), [observation_space.stype]
 
 
 def create_in_block_out_value(
@@ -55,7 +56,7 @@ def create_in_block_out_value(
             observation_space,
             is_concat=True,
         )
-    elif observation_space.rl_type == RLTypes.IMAGE:
+    elif SpaceTypes.is_image(observation_space.stype):
         return InputImageBlock(image_block_config, observation_space)
     else:
         return InputValueBlock(value_block_config, observation_space)
@@ -65,21 +66,21 @@ def create_in_block_out_image(
     image_block_config: ImageBlockConfig,
     observation_space: SpaceBase,
 ) -> nn.Module:
-    if observation_space.rl_type == RLTypes.IMAGE:
+    if SpaceTypes.is_image(observation_space.stype):
         return InputImageBlock(
             image_block_config,
             observation_space,
             is_flatten=False,
         )
     else:
-        raise NotSupportedError(observation_space.rl_type)
+        raise NotSupportedError(observation_space)
 
 
 # -------------
 
 
 class _InputImageBlock(nn.Module):
-    def __init__(self, obs_space: SpaceBase):
+    def __init__(self, obs_space: BoxSpace):
         super().__init__()
         self.obs_space = obs_space
 
@@ -90,7 +91,7 @@ class _InputImageBlock(nn.Module):
     def forward(self, x: torch.Tensor):
         err_msg = f"unknown observation_type: {self.obs_space}"
 
-        if self.obs_space.env_type == EnvTypes.GRAY_2ch:
+        if self.obs_space.stype == SpaceTypes.GRAY_2ch:
             if len(self.obs_space.shape) == 2:
                 # (batch, h, w) -> (batch, h, w, 1)
                 # (batch, h, w, 1) -> (batch, 1, h, w)
@@ -102,7 +103,7 @@ class _InputImageBlock(nn.Module):
             else:
                 raise ValueError(err_msg)
 
-        elif self.obs_space.env_type == EnvTypes.GRAY_3ch:
+        elif self.obs_space.stype == SpaceTypes.GRAY_3ch:
             assert self.obs_space.shape[-1] == 1
             if len(self.obs_space.shape) == 3:
                 # (batch, h, w, 1) -> (batch, 1, h, w)
@@ -113,14 +114,14 @@ class _InputImageBlock(nn.Module):
             else:
                 raise ValueError(err_msg)
 
-        elif self.obs_space.env_type == EnvTypes.COLOR:
+        elif self.obs_space.stype == SpaceTypes.COLOR:
             if len(self.obs_space.shape) == 3:
                 # (batch, h, w, ch) -> (batch, ch, h, w)
                 x = x.permute((0, 3, 1, 2))
             else:
                 raise ValueError(err_msg)
 
-        elif self.obs_space.env_type == EnvTypes.IMAGE:
+        elif self.obs_space.stype == SpaceTypes.IMAGE:
             if len(self.obs_space.shape) == 3:
                 # (batch, h, w, ch) -> (batch, ch, h, w)
                 x = x.permute((0, 3, 1, 2))
@@ -205,7 +206,7 @@ class InputMultiBlock(nn.Module):
             self.out_shapes = []
         for i, space in enumerate(observation_space.spaces):
             layers = nn.ModuleList()
-            if space.rl_type == RLTypes.IMAGE:
+            if SpaceTypes.is_image(space.stype):
                 in_img_block = _InputImageBlock(space)
                 layers.append(in_img_block)
                 img_block = image_block_config.create_block_torch(in_img_block.out_shape)
@@ -217,7 +218,7 @@ class InputMultiBlock(nn.Module):
                     self.out_shapes.append(img_block.out_shape)
                 self.in_indices.append(i)
                 self.in_layers.append(layers)
-                self.out_types.append(MultiVariableTypes.IMAGE)
+                self.out_types.append(SpaceTypes.IMAGE)
             else:
                 layers.append(nn.Flatten())
                 flat_size = np.zeros(space.shape).flatten().shape[0]
@@ -229,7 +230,7 @@ class InputMultiBlock(nn.Module):
                     self.out_shapes.append((val_block.out_size,))
                 self.in_indices.append(i)
                 self.in_layers.append(layers)
-                self.out_types.append(MultiVariableTypes.VALUE)
+                self.out_types.append(SpaceTypes.CONTINUOUS)
         assert len(self.in_indices) > 0
 
     def forward(self, x: torch.Tensor):

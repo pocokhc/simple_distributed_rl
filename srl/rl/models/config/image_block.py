@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
 from srl.base.exception import UndefinedError
 from srl.base.rl.processor import ObservationProcessor
 from srl.rl.processors.image_processor import ImageProcessor
@@ -18,7 +18,7 @@ class ImageBlockConfig:
 
     def set_dqn_block(
         self,
-        image_type: EnvTypes = EnvTypes.GRAY_2ch,
+        image_type: SpaceTypes = SpaceTypes.GRAY_2ch,
         resize: Tuple[int, int] = (84, 84),
         filters: int = 32,
         activation: str = "relu",
@@ -26,7 +26,7 @@ class ImageBlockConfig:
         """画像の入力に対してDQNで採用されたLayersを使用します。
 
         Args:
-            image_type (EnvTypes): 画像のタイプ. Defaults to EnvTypes.GRAY_2ch
+            image_type (SpaceTypes): 画像のタイプ. Defaults to SpaceTypes.GRAY_2ch
             resize (Tuple[int, int]): 画像のサイズ. Defaults to (84, 84)
             filters (int): 基準となるfilterの数です. Defaults to 32.
             activation (str): activation function. Defaults to "relu".
@@ -38,7 +38,7 @@ class ImageBlockConfig:
 
     def set_r2d3_block(
         self,
-        image_type: EnvTypes = EnvTypes.COLOR,
+        image_type: SpaceTypes = SpaceTypes.COLOR,
         resize: Tuple[int, int] = (96, 72),
         filters: int = 16,
         activation: str = "relu",
@@ -46,7 +46,7 @@ class ImageBlockConfig:
         """画像の入力に対してR2D3で採用されたLayersを使用します。
 
         Args:
-            image_type (EnvTypes): 画像のタイプ. Defaults to EnvTypes.COLOR
+            image_type (SpaceTypes): 画像のタイプ. Defaults to SpaceTypes.COLOR
             resize (Tuple[int, int]): 画像のサイズ. Defaults to (96, 72)
             filters (int, optional): 基準となるfilterの数です. Defaults to 32.
             activation (str, optional): activation function. Defaults to "relu".
@@ -81,7 +81,7 @@ class ImageBlockConfig:
 
     def set_muzero_atari_block(
         self,
-        image_type: EnvTypes = EnvTypes.GRAY_2ch,
+        image_type: SpaceTypes = SpaceTypes.GRAY_2ch,
         resize: Tuple[int, int] = (96, 96),
         filters: int = 128,
         activation: str = "relu",
@@ -119,22 +119,31 @@ class ImageBlockConfig:
         if self._name == "DQN":
             from srl.rl.models.tf.blocks.dqn_image_block import DQNImageBlock
 
-            return DQNImageBlock(**self._kwargs)
+            return DQNImageBlock(
+                enable_rnn=enable_rnn,
+                **self._kwargs,
+            )
         if self._name == "R2D3":
             from srl.rl.models.tf.blocks.r2d3_image_block import R2D3ImageBlock
 
             return R2D3ImageBlock(
-                enable_time_distributed_layer=enable_rnn,
+                enable_rnn=enable_rnn,
                 **self._kwargs,
             )
         if self._name == "AlphaZero":
             from srl.rl.models.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
 
-            return AlphaZeroImageBlock(**self._kwargs)
+            return AlphaZeroImageBlock(
+                enable_rnn=enable_rnn,
+                **self._kwargs,
+            )
         if self._name == "MuzeroAtari":
             from srl.rl.models.tf.blocks.muzero_atari_block import MuZeroAtariBlock
 
-            return MuZeroAtariBlock(**self._kwargs)
+            return MuZeroAtariBlock(
+                enable_rnn=enable_rnn,
+                **self._kwargs,
+            )
 
         if self._name == "custom":
             from srl.utils.common import load_module

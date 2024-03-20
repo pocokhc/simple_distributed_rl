@@ -16,7 +16,7 @@ SequenceMemory
 ExperienceReplayBuffer
 ----------------------------------
 
-.. autoclass:: srl.rl.memories.experience_replay_buffer.ExperienceReplayBufferConfig
+.. autoclass:: srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer
    :members:
 
 
@@ -25,7 +25,7 @@ ExperienceReplayBuffer
 PriorityExperienceReplay
 ----------------------------------
 
-.. autoclass:: srl.rl.memories.priority_experience_replay.PriorityExperienceReplayConfig
+.. autoclass:: srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay
    :members:
 
 .. autoclass:: srl.rl.memories.priority_memories.replay_memory.ReplayMemory

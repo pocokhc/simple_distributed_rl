@@ -207,6 +207,10 @@ def test_setup(
     rl_base_act_type,
     true_rl_act_space,
 ):
+    if observation_mode == ObservationModes.RENDER_IMAGE:
+        pytest.importorskip("PIL")
+        pytest.importorskip("pygame")
+
     common.logger_print()
     env = srl.make_env(
         srl.EnvConfig(
@@ -335,6 +339,10 @@ def test_setup_window(
     true_rl_obs_space_one_step,
     true_rl_obs_space,
 ):
+    if observation_mode == ObservationModes.RENDER_IMAGE:
+        pytest.importorskip("PIL")
+        pytest.importorskip("pygame")
+
     common.logger_print()
     env = srl.make_env(
         srl.EnvConfig(

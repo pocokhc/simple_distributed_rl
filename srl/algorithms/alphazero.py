@@ -156,7 +156,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _Network(keras.Model):
+class Network(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
         self.value_type = config.value_type
@@ -217,7 +217,7 @@ class _Network(keras.Model):
         self.build(helper_tf.create_batch_shape(config.observation_space.shape, (None,)))
 
     def call(self, x, training=False):
-        x = self.input_block(x, training)
+        x = self.input_block(x, training=training)
 
         # --- policy image
         x1 = x
@@ -267,7 +267,7 @@ class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
 
-        self.network = _Network(self.config)
+        self.network = Network(self.config)
 
         # cache用 (simulationで何回も使うので)
         self.P = {}

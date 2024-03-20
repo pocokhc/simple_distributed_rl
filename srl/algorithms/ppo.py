@@ -184,7 +184,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _ActorCriticNetwork(keras.Model):
+class ActorCriticNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
         self.config = config
@@ -322,7 +322,7 @@ class Parameter(RLParameter):
         super().__init__(*args)
         self.config: Config = self.config
 
-        self.model = _ActorCriticNetwork(self.config)
+        self.model = ActorCriticNetwork(self.config)
 
         # Adaptive KL penalty
         self.adaptive_kl_beta = 0.5

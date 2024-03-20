@@ -118,7 +118,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _ActorNetwork(keras.Model):
+class ActorNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -139,7 +139,7 @@ class _ActorNetwork(keras.Model):
         self.build((None,) + config.observation_space.shape)
 
     def call(self, x, training=False):
-        x = self.input_block(x, training)
+        x = self.input_block(x, training=training)
         x = self.hidden_block(x, training=training)
         x = self.out_layer(x, training=training)
         return x
@@ -154,7 +154,7 @@ class _ActorNetwork(keras.Model):
         return loss
 
 
-class _CriticNetwork(keras.Model):
+class CriticNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -194,7 +194,7 @@ class _CriticNetwork(keras.Model):
         x = inputs[0]
         action = inputs[1]
 
-        x = self.input_block(x, training)
+        x = self.input_block(x, training=training)
         x = tf.concat([x, action], axis=1)
 
         # q1
@@ -223,10 +223,10 @@ class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
 
-        self.actor_online = _ActorNetwork(self.config)
-        self.actor_target = _ActorNetwork(self.config)
-        self.critic_online = _CriticNetwork(self.config)
-        self.critic_target = _CriticNetwork(self.config)
+        self.actor_online = ActorNetwork(self.config)
+        self.actor_target = ActorNetwork(self.config)
+        self.critic_online = CriticNetwork(self.config)
+        self.critic_target = CriticNetwork(self.config)
 
         self.actor_target.set_weights(self.actor_online.get_weights())
         self.critic_target.set_weights(self.critic_online.get_weights())

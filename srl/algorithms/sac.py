@@ -167,7 +167,7 @@ class _PolicyNetwork(keras.Model):
         self.build((None,) + config.observation_space.shape)
 
     def call(self, x, training=False) -> Any:
-        x = self.input_block(x, training)
+        x = self.input_block(x, training=training)
         x = self.hidden_block(x, training=training)
         return self.policy_dist_block(x)
 
@@ -199,7 +199,7 @@ class _PolicyNetwork(keras.Model):
         return policy_loss, logpi
 
 
-class _QNetwork(keras.Model):
+class QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -225,7 +225,7 @@ class _QNetwork(keras.Model):
         state = x[0]
         onehot_action = x[1]
 
-        state = self.input_block(state, training)
+        state = self.input_block(state, training=training)
         x = tf.concat([state, onehot_action], axis=1)
 
         x = self.q_block(x, training=training)
@@ -249,11 +249,11 @@ class Parameter(RLParameter):
         self.config: Config = self.config
 
         self.policy = _PolicyNetwork(self.config)
-        self.q1_online = _QNetwork(self.config)
-        self.q1_target = _QNetwork(self.config)
+        self.q1_online = QNetwork(self.config)
+        self.q1_target = QNetwork(self.config)
         self.q1_target.set_weights(self.q1_online.get_weights())
-        self.q2_online = _QNetwork(self.config)
-        self.q2_target = _QNetwork(self.config)
+        self.q2_online = QNetwork(self.config)
+        self.q2_target = QNetwork(self.config)
         self.q2_target.set_weights(self.q2_online.get_weights())
 
         # エントロピーα自動調整用

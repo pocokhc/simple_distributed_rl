@@ -18,7 +18,7 @@ kl = keras.layers
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _QNetwork(keras.Model):
+class QNetwork(keras.Model):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
@@ -57,8 +57,8 @@ class Parameter(CommonInterfaceParameter):
         super().__init__(*args)
         self.config: Config = self.config
 
-        self.q_online = _QNetwork(self.config, name="Q_online")
-        self.q_target = _QNetwork(self.config, name="Q_target")
+        self.q_online = QNetwork(self.config, name="Q_online")
+        self.q_target = QNetwork(self.config, name="Q_target")
         self.q_target.set_weights(self.q_online.get_weights())
 
     def call_restore(self, data: Any, **kwargs) -> None:

@@ -19,7 +19,7 @@ kl = keras.layers
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _QNetwork(keras.Model):
+class QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
         self.input_ext_reward = config.input_ext_reward
@@ -59,7 +59,7 @@ class _QNetwork(keras.Model):
 
     @tf.function()
     def call(self, x, hidden_states=None, training=False):
-        return self._call(x, hidden_states, training)
+        return self._call(x, hidden_states, training=training)
 
     def _call(self, inputs, hidden_states=None, training=False):
         state = inputs[0]
@@ -69,7 +69,7 @@ class _QNetwork(keras.Model):
         onehot_actor = inputs[4]
 
         # input
-        state = self.input_block(state, training)
+        state = self.input_block(state, training=training)
 
         # UVFA
         uvfa_list = [state]
@@ -223,10 +223,10 @@ class Parameter(CommonInterfaceParameter):
         super().__init__(*args)
         self.config: Config = self.config
 
-        self.q_ext_online = _QNetwork(self.config)
-        self.q_ext_target = _QNetwork(self.config)
-        self.q_int_online = _QNetwork(self.config)
-        self.q_int_target = _QNetwork(self.config)
+        self.q_ext_online = QNetwork(self.config)
+        self.q_ext_target = QNetwork(self.config)
+        self.q_int_online = QNetwork(self.config)
+        self.q_int_target = QNetwork(self.config)
         self.emb_network = _EmbeddingNetwork(self.config)
         self.lifelong_target = _LifelongNetwork(self.config)
         self.lifelong_train = _LifelongNetwork(self.config)

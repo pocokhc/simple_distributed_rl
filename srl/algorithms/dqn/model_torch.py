@@ -18,7 +18,7 @@ from .dqn import CommonInterfaceParameter, Config
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _QNetwork(nn.Module):
+class QNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -48,8 +48,8 @@ class Parameter(CommonInterfaceParameter):
 
         self.device = torch.device(self.config.used_device_torch)
 
-        self.q_online = _QNetwork(self.config).to(self.device)
-        self.q_target = _QNetwork(self.config).to(self.device)
+        self.q_online = QNetwork(self.config).to(self.device)
+        self.q_target = QNetwork(self.config).to(self.device)
         self.q_target.eval()
         self.q_target.load_state_dict(self.q_online.state_dict())
 

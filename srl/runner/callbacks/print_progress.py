@@ -54,8 +54,8 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             self.progress_timeout = 5
         else:
             self.progress_timeout *= 2
-            if self.progress_timeout > self.interval_limit:
-                self.progress_timeout = self.interval_limit
+        if self.progress_timeout > self.interval_limit:
+            self.progress_timeout = self.interval_limit
 
     def _eval_str(self, context: RunContext, parameter: RLParameter) -> str:
         assert self.runner is not None

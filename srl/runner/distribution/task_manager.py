@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional, Union, cast
 
 import srl
-from srl.base.rl.base import RLParameter
+from srl.base.rl.parameter import RLParameter
 from srl.base.run.context import RLWorkerType, StrWorkerType
 from srl.runner.distribution.connectors.parameters import RedisParameters
 from srl.runner.distribution.connectors.redis_ import RedisConnector

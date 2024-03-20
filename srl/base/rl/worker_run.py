@@ -17,8 +17,10 @@ from srl.base.define import (
 )
 from srl.base.env.env_run import EnvRun
 from srl.base.render import Render
-from srl.base.rl.base import RLWorker
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.space import SpaceBase
 
 logger = logging.getLogger(__name__)
 

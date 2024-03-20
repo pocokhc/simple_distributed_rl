@@ -4,7 +4,7 @@ from typing import Any, List, Optional, Tuple
 import numpy as np
 
 from srl.base.define import RLMemoryTypes
-from srl.base.rl.base import RLMemory
+from srl.base.rl.memory import RLMemory
 from srl.rl.memories.priority_memories.imemory import IPriorityMemory
 
 

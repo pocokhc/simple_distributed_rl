@@ -15,9 +15,11 @@ from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.base.env.registration import make as make_env
-from srl.base.rl.base import RLConfig, RLMemory, RLParameter, RLTrainer
-from srl.base.rl.config import DummyRLConfig
+from srl.base.rl.config import DummyRLConfig, RLConfig
+from srl.base.rl.memory import RLMemory
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import make_memory, make_parameter, make_trainer, make_worker
+from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run import core_play, core_train_only
 from srl.base.run.callback import RunCallback, TrainerCallback

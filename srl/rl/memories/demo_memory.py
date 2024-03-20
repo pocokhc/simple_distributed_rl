@@ -5,7 +5,7 @@ from typing import Any, List, Tuple
 
 import numpy as np
 
-from srl.base.rl.base import RLMemory
+from srl.base.rl.memory import RLMemory
 
 logger = logging.getLogger(__name__)
 

@@ -7,8 +7,9 @@ from typing import Any, List, Optional, Tuple, Union, cast
 from srl.base.define import RenderModes
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import RLMemory, RLParameter
 from srl.base.rl.config import RLConfig
+from srl.base.rl.memory import RLMemory
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import make_memory, make_parameter, make_worker, make_worker_rulebase
 from srl.base.rl.worker_run import WorkerRun
 from srl.utils.serialize import convert_for_json

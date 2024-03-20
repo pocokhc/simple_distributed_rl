@@ -4,7 +4,7 @@ from typing import Any, List, Tuple
 
 import numpy as np
 
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
 
 from .box import SpaceBase
 
@@ -20,8 +20,7 @@ class ContinuousSpace(SpaceBase[float]):
         self._low = float(low)
         self._high = float(high)
 
-        assert self.low.shape == self.high.shape
-        assert self.low < self.high
+        assert self.low <= self.high
 
         self._is_inf = np.isinf(low) or np.isinf(high)
         self.division_tbl = None
@@ -30,8 +29,16 @@ class ContinuousSpace(SpaceBase[float]):
         self._log_sanitize_count_high = 0
 
     @property
-    def base_env_type(self) -> EnvTypes:
-        return EnvTypes.CONTINUOUS
+    def low(self):
+        return self._low
+
+    @property
+    def high(self):
+        return self._high
+
+    @property
+    def stype(self) -> SpaceTypes:
+        return SpaceTypes.CONTINUOUS
 
     @property
     def dtype(self):
@@ -74,8 +81,11 @@ class ContinuousSpace(SpaceBase[float]):
             return False
         return True
 
+    def to_str(self, val: float) -> str:
+        return str(int(val) if val.is_integer() else val)
+
     def get_default(self) -> float:
-        return 0.0
+        return 0.0 if self._low <= 0 <= self._high else self._low
 
     def copy(self) -> "ContinuousSpace":
         o = ContinuousSpace(self._low, self._high)
@@ -83,14 +93,25 @@ class ContinuousSpace(SpaceBase[float]):
         return o
 
     def __eq__(self, o: "ContinuousSpace") -> bool:
+        if not isinstance(o, ContinuousSpace):
+            return False
         return (self._low == o._low) and (self._high == o._high)
 
     def __str__(self) -> str:
         if self.division_tbl is None:
             s = ")"
         else:
-            s = f", division({self.n})"
+            s = f", division({self.int_size})"
         return f"Continuous({self.low} - {self.high}{s}"
+
+    # --- stack
+    def create_stack_space(self, length: int):
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+
+        return ArrayContinuousSpace(length, self._low, self._high)
+
+    def encode_stack(self, val: List[float]) -> List[float]:
+        return val
 
     # --------------------------------------
     # create_division_tbl
@@ -111,7 +132,7 @@ class ContinuousSpace(SpaceBase[float]):
     # action discrete
     # --------------------------------------
     @property
-    def n(self) -> int:
+    def int_size(self) -> int:
         assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
         return len(self.division_tbl)
 
@@ -130,6 +151,24 @@ class ContinuousSpace(SpaceBase[float]):
     # --------------------------------------
     # observation discrete
     # --------------------------------------
+    @property
+    def list_int_size(self) -> int:
+        return 1
+
+    @property
+    def list_int_low(self) -> List[int]:
+        if self.division_tbl is None:
+            return [int(round(self._low))]
+        else:
+            return [0]
+
+    @property
+    def list_int_high(self) -> List[int]:
+        if self.division_tbl is None:
+            return [int(round(self._high))]
+        else:
+            return [len(self.division_tbl)]
+
     def encode_to_list_int(self, val: float) -> List[int]:
         if self.division_tbl is None:
             return [int(round(val))]
@@ -147,15 +186,15 @@ class ContinuousSpace(SpaceBase[float]):
     # action continuous
     # --------------------------------------
     @property
-    def list_size(self) -> int:
+    def list_float_size(self) -> int:
         return 1
 
     @property
-    def list_low(self) -> List[float]:
+    def list_float_low(self) -> List[float]:
         return [self._low]
 
     @property
-    def list_high(self) -> List[float]:
+    def list_float_high(self) -> List[float]:
         return [self._high]
 
     def encode_to_list_float(self, val: float) -> List[float]:
@@ -168,15 +207,15 @@ class ContinuousSpace(SpaceBase[float]):
     # observation continuous, image
     # --------------------------------------
     @property
-    def shape(self) -> Tuple[int, ...]:
+    def np_shape(self) -> Tuple[int, ...]:
         return (1,)
 
     @property
-    def low(self) -> np.ndarray:
+    def np_low(self) -> np.ndarray:
         return np.array([self._low])
 
     @property
-    def high(self) -> np.ndarray:
+    def np_high(self) -> np.ndarray:
         return np.array([self._high])
 
     def encode_to_np(self, val: float, dtype) -> np.ndarray:

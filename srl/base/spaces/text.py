@@ -4,7 +4,7 @@ from typing import Any, List, Tuple
 
 import numpy as np
 
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
 
 from .space import SpaceBase
 
@@ -29,8 +29,8 @@ class TextSpace(SpaceBase[str]):
         assert min_length <= max_length
 
     @property
-    def base_env_type(self) -> EnvTypes:
-        return EnvTypes.DISCRETE
+    def base_stype(self) -> SpaceTypes:
+        return SpaceTypes.DISCRETE
 
     @property
     def dtype(self):
@@ -82,7 +82,7 @@ class TextSpace(SpaceBase[str]):
     # action discrete
     # --------------------------------------
     @property
-    def n(self) -> int:
+    def int_size(self) -> int:
         self._create_tbl()
         assert self.decode_tbl is not None
         return len(self.decode_tbl)
@@ -99,6 +99,21 @@ class TextSpace(SpaceBase[str]):
     # --------------------------------------
     # observation discrete
     # --------------------------------------
+    @property
+    def list_int_size(self) -> int:
+        """continuous list length"""
+        raise NotImplementedError()
+
+    @property
+    def list_int_low(self) -> List[int]:
+        """continuous list length range"""
+        raise NotImplementedError()
+
+    @property
+    def list_int_high(self) -> List[int]:
+        """continuous list length range"""
+        raise NotImplementedError()
+
     def encode_to_list_int(self, val: str) -> List[int]:
         # 長さ揃えTODO
         return [ord(c) for c in val]
@@ -110,15 +125,15 @@ class TextSpace(SpaceBase[str]):
     # action continuous
     # --------------------------------------
     @property
-    def list_size(self) -> int:
+    def list_float_size(self) -> int:
         return TODO
 
     @property
-    def list_low(self) -> List[float]:
+    def list_float_low(self) -> List[float]:
         return TODO
 
     @property
-    def list_high(self) -> List[float]:
+    def list_float_high(self) -> List[float]:
         return TODO
 
     def encode_to_list_float(self, val: str) -> List[float]:
@@ -132,15 +147,15 @@ class TextSpace(SpaceBase[str]):
     # observation continuous, image
     # --------------------------------------
     @property
-    def shape(self) -> Tuple[int, ...]:
+    def np_shape(self) -> Tuple[int, ...]:
         return (self.list_size,)
 
     @property
-    def low(self) -> np.ndarray:
+    def np_low(self) -> np.ndarray:
         return np.array(self.list_low)
 
     @property
-    def high(self) -> np.ndarray:
+    def np_high(self) -> np.ndarray:
         return np.array(self.list_high)
 
     def encode_to_np(self, val: str, dtype) -> np.ndarray:

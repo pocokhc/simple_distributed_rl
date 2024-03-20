@@ -5,7 +5,7 @@ from typing import Any, List
 
 import numpy as np
 
-from srl.base.define import EnvTypes, RLTypes
+from srl.base.define import SpaceTypes
 from srl.base.exception import NotSupportedError
 
 from .space import SpaceBase
@@ -23,25 +23,11 @@ class MultiSpace(SpaceBase[list]):
         return len(self.spaces)
 
     @property
-    def base_env_type(self) -> EnvTypes:
-        return EnvTypes.MULTI
-
-    @property
-    def env_type(self) -> EnvTypes:
-        return EnvTypes.MULTI
-
-    def set_env_type(self, env_type: EnvTypes):
-        raise NotSupportedError()
-
-    @property
-    def rl_type(self) -> RLTypes:
-        return RLTypes.MULTI
+    def stype(self) -> SpaceTypes:
+        return SpaceTypes.MULTI
 
     @property
     def dtype(self):
-        raise NotSupportedError()
-
-    def set_rl_type(self, rl_type: RLTypes):
         raise NotSupportedError()
 
     def sample(self, mask: List[list] = []) -> list:
@@ -79,6 +65,9 @@ class MultiSpace(SpaceBase[list]):
                 return False
         return True
 
+    def to_str(self, val: list) -> str:
+        return "_".join([v.to_str() for v in val])
+
     def get_default(self) -> list:
         return [s.get_default() for s in self.spaces]
 
@@ -88,6 +77,8 @@ class MultiSpace(SpaceBase[list]):
         return o
 
     def __eq__(self, o: "MultiSpace") -> bool:
+        if not isinstance(o, MultiSpace):
+            return False
         if len(self.spaces) != len(o.spaces):
             return False
         for i, s in enumerate(self.spaces):
@@ -103,6 +94,13 @@ class MultiSpace(SpaceBase[list]):
 
     def create_division_tbl(self, division_num: int) -> None:
         [s.create_division_tbl(division_num) for s in self.spaces]
+
+    # --- stack
+    def create_stack_space(self, length: int) -> "SpaceBase":
+        raise NotImplementedError()
+
+    def encode_stack(self, val, length: int):
+        raise NotImplementedError()
 
     # --------------------------------------
     # create_tbl
@@ -124,7 +122,7 @@ class MultiSpace(SpaceBase[list]):
     # action discrete
     # --------------------------------------
     @property
-    def n(self) -> int:
+    def int_size(self) -> int:
         self._create_tbl()
         assert self.decode_tbl is not None
         return len(self.decode_tbl)
@@ -143,6 +141,18 @@ class MultiSpace(SpaceBase[list]):
     # --------------------------------------
     # observation discrete
     # --------------------------------------
+    @property
+    def list_int_size(self) -> int:
+        raise NotImplementedError()
+
+    @property
+    def list_int_low(self) -> List[int]:
+        raise NotImplementedError()
+
+    @property
+    def list_int_high(self) -> List[int]:
+        raise NotImplementedError()
+
     def encode_to_list_int(self, val: list) -> List[int]:
         arr = []
         for i, s in enumerate(self.spaces):
@@ -162,18 +172,18 @@ class MultiSpace(SpaceBase[list]):
     # action continuous
     # --------------------------------------
     @property
-    def list_size(self) -> int:
+    def list_float_size(self) -> int:
         return sum([s.list_size for s in self.spaces])
 
     @property
-    def list_low(self) -> List[float]:
+    def list_float_low(self) -> List[float]:
         arr = []
         for s in self.spaces:
             arr.extend(s.list_low)
         return arr
 
     @property
-    def list_high(self) -> List[float]:
+    def list_float_high(self) -> List[float]:
         arr = []
         for s in self.spaces:
             arr.extend(s.list_high)
@@ -198,15 +208,15 @@ class MultiSpace(SpaceBase[list]):
     # observation continuous, image
     # --------------------------------------
     @property
-    def shape(self):
+    def np_shape(self):
         return [s.shape for s in self.spaces]
 
     @property
-    def low(self):
+    def np_low(self):
         return [s.low for s in self.spaces]
 
     @property
-    def high(self):
+    def np_high(self):
         return [s.high for s in self.spaces]
 
     def encode_to_np(self, val: list, dtype) -> np.ndarray:

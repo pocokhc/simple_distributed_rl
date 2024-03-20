@@ -4,7 +4,7 @@ from typing import Any, List, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
 
 from .box import SpaceBase
 
@@ -31,8 +31,20 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
         self.division_tbl = None
 
     @property
-    def base_env_type(self) -> EnvTypes:
-        return EnvTypes.CONTINUOUS
+    def size(self):
+        return self._size
+
+    @property
+    def low(self):
+        return self._low
+
+    @property
+    def high(self):
+        return self._high
+
+    @property
+    def stype(self) -> SpaceTypes:
+        return SpaceTypes.CONTINUOUS
 
     @property
     def dtype(self):
@@ -77,8 +89,11 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
                 return False
         return True
 
+    def to_str(self, val: List[float]) -> str:
+        return ",".join([str(int(v) if v.is_integer() else v) for v in val])
+
     def get_default(self) -> List[float]:
-        return [0.0 for _ in range(self._size)]
+        return [0 if self._low[i] <= 0 <= self._high[i] else self._low[i] for i in range(self._size)]
 
     def copy(self) -> "ArrayContinuousSpace":
         o = ArrayContinuousSpace(self._size, self._low, self._high)
@@ -86,14 +101,27 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
         return o
 
     def __eq__(self, o: "ArrayContinuousSpace") -> bool:
+        if not isinstance(o, ArrayContinuousSpace):
+            return False
         return self._size == o._size and (self._low == o._low).all() and (self._high == o._high).all()
 
     def __str__(self) -> str:
         if self.division_tbl is None:
             s = ""
         else:
-            s = f", division({self.n})"
+            s = f", division({self.int_size})"
         return f"ArrayContinuous({self._size}, range[{np.min(self.low)}, {np.max(self.high)}]){s}"
+
+    # --- stack
+    def create_stack_space(self, length: int):
+        return ArrayContinuousSpace(
+            length * self._size,
+            length * self._low.tolist(),
+            length * self._high.tolist(),
+        )
+
+    def encode_stack(self, val: List[List[float]]) -> List[float]:
+        return [e for sublist in val for e in sublist]
 
     # --------------------------------------
     # create_division_tbl
@@ -124,7 +152,7 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
     # action discrete
     # --------------------------------------
     @property
-    def n(self) -> int:
+    def int_size(self) -> int:
         assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
         return len(self.division_tbl)
 
@@ -142,13 +170,32 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
     # --------------------------------------
     # observation discrete
     # --------------------------------------
+    @property
+    def list_int_size(self) -> int:
+        if self.division_tbl is None:
+            return self._size
+        else:
+            return 1
+
+    @property
+    def list_int_low(self) -> List[int]:
+        if self.division_tbl is None:
+            return [int(n) for n in np.round(self._low).tolist()]
+        else:
+            return [0]
+
+    @property
+    def list_int_high(self) -> List[int]:
+        if self.division_tbl is None:
+            return [int(n) for n in np.round(self._high).tolist()]
+        else:
+            return [self.int_size]
+
     def encode_to_list_int(self, val: List[float]) -> List[int]:
         if self.division_tbl is None:
             return [int(round(v)) for v in val]
         else:
-            # 分割してある場合
-            n = self.encode_to_int(val)
-            return [n]
+            return [self.encode_to_int(val)]
 
     def decode_from_list_int(self, val: List[int]) -> List[float]:
         if self.division_tbl is None:
@@ -160,15 +207,15 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
     # action continuous
     # --------------------------------------
     @property
-    def list_size(self) -> int:
+    def list_float_size(self) -> int:
         return self._size
 
     @property
-    def list_low(self) -> List[float]:
+    def list_float_low(self) -> List[float]:
         return self._low.tolist()
 
     @property
-    def list_high(self) -> List[float]:
+    def list_float_high(self) -> List[float]:
         return self._high.tolist()
 
     def encode_to_list_float(self, val: List[float]) -> List[float]:
@@ -181,15 +228,15 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
     # observation continuous, image
     # --------------------------------------
     @property
-    def shape(self) -> Tuple[int, ...]:
+    def np_shape(self) -> Tuple[int, ...]:
         return (self._size,)
 
     @property
-    def low(self) -> np.ndarray:
+    def np_low(self) -> np.ndarray:
         return self._low
 
     @property
-    def high(self) -> np.ndarray:
+    def np_high(self) -> np.ndarray:
         return self._high
 
     def encode_to_np(self, val: List[float], dtype) -> np.ndarray:

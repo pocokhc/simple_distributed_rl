@@ -5,7 +5,7 @@ from typing import Any, List, Tuple, Union, cast
 
 import numpy as np
 
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
 
 from .space import SpaceBase
 
@@ -34,8 +34,20 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         self.encode_tbl = None
 
     @property
-    def base_env_type(self) -> EnvTypes:
-        return EnvTypes.DISCRETE
+    def size(self) -> int:
+        return self._size
+
+    @property
+    def low(self) -> List[int]:
+        return self._low
+
+    @property
+    def high(self) -> List[int]:
+        return self._high
+
+    @property
+    def stype(self) -> SpaceTypes:
+        return SpaceTypes.DISCRETE
 
     @property
     def dtype(self):
@@ -100,8 +112,11 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
                 return False
         return True
 
+    def to_str(self, val: List[int]) -> str:
+        return ",".join([str(v) for v in val])
+
     def get_default(self) -> List[int]:
-        return [0 for _ in range(self._size)]
+        return [0 if self._low[i] <= 0 <= self._high[i] else self._low[i] for i in range(self._size)]
 
     def copy(self) -> "ArrayDiscreteSpace":
         o = ArrayDiscreteSpace(self._size, self._low, self._high)
@@ -110,6 +125,8 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         return o
 
     def __eq__(self, o: "ArrayDiscreteSpace") -> bool:
+        if not isinstance(o, ArrayDiscreteSpace):
+            return False
         if self._size != o._size:
             return False
         if self.low is None:
@@ -135,6 +152,17 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     def __str__(self) -> str:
         return f"ArrayDiscrete({self._size}, range[{int(np.min(self.low))}, {int(np.max(self.high))}])"
 
+    # --- stack
+    def create_stack_space(self, length: int):
+        return ArrayDiscreteSpace(
+            length * self._size,
+            length * self._low,
+            length * self._high,
+        )
+
+    def encode_stack(self, val: List[List[int]]) -> List[int]:
+        return [e for sublist in val for e in sublist]
+
     # --------------------------------------
     # create_tbl
     # --------------------------------------
@@ -155,7 +183,7 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     # action discrete
     # --------------------------------------
     @property
-    def n(self) -> int:
+    def int_size(self) -> int:
         self._create_tbl()
         assert self.decode_tbl is not None
         return len(self.decode_tbl)
@@ -172,6 +200,18 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     # --------------------------------------
     # observation discrete
     # --------------------------------------
+    @property
+    def list_int_size(self) -> int:
+        return self._size
+
+    @property
+    def list_int_low(self) -> List[int]:
+        return self._low
+
+    @property
+    def list_int_high(self) -> List[int]:
+        return self._high
+
     def encode_to_list_int(self, val: List[int]) -> List[int]:
         return val
 
@@ -182,15 +222,15 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     # action continuous
     # --------------------------------------
     @property
-    def list_size(self) -> int:
+    def list_float_size(self) -> int:
         return self._size
 
     @property
-    def list_low(self) -> List[float]:
+    def list_float_low(self) -> List[float]:
         return cast(List[float], self._low)
 
     @property
-    def list_high(self) -> List[float]:
+    def list_float_high(self) -> List[float]:
         return cast(List[float], self._high)
 
     def encode_to_list_float(self, val: List[int]) -> List[float]:
@@ -203,15 +243,15 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     # observation continuous, image
     # --------------------------------------
     @property
-    def shape(self) -> Tuple[int, ...]:
+    def np_shape(self) -> Tuple[int, ...]:
         return (self._size,)
 
     @property
-    def low(self) -> np.ndarray:
+    def np_low(self) -> np.ndarray:
         return np.array(self._low)
 
     @property
-    def high(self) -> np.ndarray:
+    def np_high(self) -> np.ndarray:
         return np.array(self._high)
 
     def encode_to_np(self, val: List[int], dtype) -> np.ndarray:

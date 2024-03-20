@@ -3,21 +3,21 @@ from typing import Any, Generic, List, Tuple, TypeVar
 
 import numpy as np
 
-from srl.base.define import EnvTypes, RLTypes
+from srl.base.define import SpaceTypes
 from srl.base.exception import NotSupportedError
 
-T = TypeVar("T", int, List[int], float, List[float], np.ndarray, str, covariant=True)
+_T = TypeVar("_T")
 
 
-class SpaceBase(ABC, Generic[T]):
+class SpaceBase(ABC, Generic[_T]):
 
     @abstractmethod
-    def sample(self, mask: List[T] = []) -> T:
+    def sample(self, mask: List[_T] = []) -> _T:
         """Returns a random value"""
         raise NotImplementedError()
 
     @abstractmethod
-    def sanitize(self, val: Any) -> T:
+    def sanitize(self, val: Any) -> _T:
         """Sanitize as much as possible"""
         raise NotImplementedError()
 
@@ -27,7 +27,11 @@ class SpaceBase(ABC, Generic[T]):
         raise NotImplementedError()
 
     @abstractmethod
-    def get_default(self) -> T:
+    def to_str(self, val: _T) -> str:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_default(self) -> _T:
         """Return default value"""
         raise NotImplementedError()
 
@@ -47,58 +51,68 @@ class SpaceBase(ABC, Generic[T]):
     def create_division_tbl(self, division_num: int) -> None:
         pass
 
-    def get_valid_actions(self, mask: List[T] = []) -> List[T]:
+    def get_valid_actions(self, mask: List[_T] = []) -> List[_T]:
         """Returns a valid actions"""
         raise NotSupportedError()
 
     @property
     @abstractmethod
-    def base_env_type(self) -> EnvTypes:
+    def stype(self) -> SpaceTypes:
         raise NotImplementedError()
-
-    @property
-    def env_type(self) -> EnvTypes:
-        return self._env_type if hasattr(self, "_env_type") else self.base_env_type
-
-    def set_env_type(self, env_type: EnvTypes):
-        self._env_type = env_type
-
-    @property
-    def rl_type(self) -> RLTypes:
-        return self._rl_type if hasattr(self, "_rl_type") else RLTypes.UNKNOWN
-
-    def set_rl_type(self, rl_type: RLTypes):
-        self._rl_type = rl_type
 
     @property
     @abstractmethod
     def dtype(self):
         raise NotImplementedError()
 
+    # --- stack
+    @abstractmethod
+    def create_stack_space(self, length: int) -> "SpaceBase":
+        raise NotImplementedError()
+
+    @abstractmethod
+    def encode_stack(self, val: _T):
+        raise NotImplementedError()
+
     # --------------------------------------
     # action discrete
     # --------------------------------------
     @property
-    def n(self) -> int:
+    def int_size(self) -> int:
         """discrete range"""
         raise NotImplementedError()
 
-    def encode_to_int(self, val) -> int:
+    def encode_to_int(self, val: _T) -> int:
         """SpaceVal -> int"""
         raise NotImplementedError()
 
-    def decode_from_int(self, val: int) -> T:
+    def decode_from_int(self, val: int) -> _T:
         """int -> SpaceVal"""
         raise NotImplementedError()
 
     # --------------------------------------
     # observation discrete
     # --------------------------------------
-    def encode_to_list_int(self, val) -> List[int]:
+    @property
+    def list_int_size(self) -> int:
+        """continuous list length"""
+        raise NotImplementedError()
+
+    @property
+    def list_int_low(self) -> List[int]:
+        """continuous list length range"""
+        raise NotImplementedError()
+
+    @property
+    def list_int_high(self) -> List[int]:
+        """continuous list length range"""
+        raise NotImplementedError()
+
+    def encode_to_list_int(self, val: _T) -> List[int]:
         """SpaceVal -> int -> np.ndarray"""
         raise NotImplementedError()
 
-    def decode_from_list_int(self, val: List[int]) -> T:
+    def decode_from_list_int(self, val: List[int]) -> _T:
         """np.ndarray[int] -> SpaceVal"""
         raise NotImplementedError()
 
@@ -106,25 +120,25 @@ class SpaceBase(ABC, Generic[T]):
     # action continuous
     # --------------------------------------
     @property
-    def list_size(self) -> int:
+    def list_float_size(self) -> int:
         """continuous list length"""
         raise NotImplementedError()
 
     @property
-    def list_low(self) -> List[float]:
+    def list_float_low(self) -> List[float]:
         """continuous list length range"""
         raise NotImplementedError()
 
     @property
-    def list_high(self) -> List[float]:
+    def list_float_high(self) -> List[float]:
         """continuous list length range"""
         raise NotImplementedError()
 
-    def encode_to_list_float(self, val) -> List[float]:
+    def encode_to_list_float(self, val: _T) -> List[float]:
         """SpaceVal -> list[float]"""
         raise NotImplementedError()
 
-    def decode_from_list_float(self, val: List[float]) -> T:
+    def decode_from_list_float(self, val: List[float]) -> _T:
         """list[float] -> SpaceVal"""
         raise NotImplementedError()
 
@@ -132,25 +146,25 @@ class SpaceBase(ABC, Generic[T]):
     # observation continuous, image
     # --------------------------------------
     @property
-    def shape(self) -> Tuple[int, ...]:
+    def np_shape(self) -> Tuple[int, ...]:
         """numpy shape"""
         raise NotImplementedError()
 
     @property
-    def low(self) -> np.ndarray:
+    def np_low(self) -> np.ndarray:
         """numpy range"""
         raise NotImplementedError()
 
     @property
-    def high(self) -> np.ndarray:
+    def np_high(self) -> np.ndarray:
         """numpy range"""
         raise NotImplementedError()
 
-    def encode_to_np(self, val, dtype) -> np.ndarray:
+    def encode_to_np(self, val: _T, dtype) -> np.ndarray:
         """SpaceVal -> np.ndarray"""
         raise NotImplementedError()
 
-    def decode_from_np(self, val: np.ndarray) -> T:
+    def decode_from_np(self, val: np.ndarray) -> _T:
         """np.ndarray -> SpaceVal"""
         raise NotImplementedError()
 
@@ -158,8 +172,12 @@ class SpaceBase(ABC, Generic[T]):
     # Multiple
     # --------------------------------------
     # action
-    def encode_to_list_space(self, val) -> list:
+    @property
+    def list_space_size(self) -> int:
         raise NotImplementedError()
 
-    def decode_from_list_space(self, val: list) -> T:
+    def encode_to_list_space(self, val: _T) -> list:
+        raise NotImplementedError()
+
+    def decode_from_list_space(self, val: list) -> _T:
         raise NotImplementedError()

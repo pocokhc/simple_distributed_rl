@@ -1,16 +1,51 @@
 import numpy as np
 
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
+from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.discrete import DiscreteSpace
+
+
+def test_space_basic():
+    space = DiscreteSpace(5, start=1)
+
+    assert space.n == 5
+    assert space.start == 1
+    assert space.stype == SpaceTypes.DISCRETE
+
+    # --- check_val
+    assert space.check_val(3)
+    assert not space.check_val(0)
+
+    # --- to_str
+    assert space.to_str(3) == "3"
+
+    # --- get_default
+    assert space.get_default() == 1
+
+    # --- copy
+    c = space.copy()
+    assert space == c
+
+    # --- stack
+    o = space.create_stack_space(3)
+    assert isinstance(o, ArrayDiscreteSpace)
+    assert o == ArrayDiscreteSpace(3, 1, 5)
+
+
+def test_dtype():
+    space = DiscreteSpace(5, start=1)
+    assert space.dtype == np.uint64
+
+    space = DiscreteSpace(5, start=-1)
+    assert space.dtype == np.int64
 
 
 def test_space():
     space = DiscreteSpace(5, start=1)
     print(space)
-    assert space.env_type == EnvTypes.DISCRETE
 
     # --- discrete
-    assert space.n == 5
+    assert space.int_size == 5
     de = space.decode_from_int(2)
     assert isinstance(de, int)
     assert de == 3
@@ -27,10 +62,23 @@ def test_space():
     assert len(en) == 1
     assert en[0] == 2
 
-    # --- continuous list
-    assert space.list_size == 1
-    np.testing.assert_array_equal(space.list_low, [0])
-    np.testing.assert_array_equal(space.list_high, [4])
+    # --- list int
+    assert space.list_int_size == 1
+    np.testing.assert_array_equal(space.list_int_low, [0])
+    np.testing.assert_array_equal(space.list_int_high, [4])
+    de = space.decode_from_list_int([3.3, 1.2])  # type: ignore
+    assert isinstance(de, int)
+    assert de == 4
+    en = space.encode_to_list_int(3)
+    assert isinstance(en, list)
+    for n in en:
+        assert isinstance(n, int)
+    assert en[0] == 2
+
+    # --- list float
+    assert space.list_float_size == 1
+    np.testing.assert_array_equal(space.list_float_low, [0])
+    np.testing.assert_array_equal(space.list_float_high, [4])
     de = space.decode_from_list_float([3.3, 1.2])
     assert isinstance(de, int)
     assert de == 4
@@ -41,9 +89,9 @@ def test_space():
     assert en[0] == 2.0
 
     # --- continuous numpy
-    assert space.shape == (1,)
-    np.testing.assert_array_equal(space.low, [0])
-    np.testing.assert_array_equal(space.high, [4])
+    assert space.np_shape == (1,)
+    np.testing.assert_array_equal(space.np_low, [0])
+    np.testing.assert_array_equal(space.np_high, [4])
     de = space.decode_from_np(np.array([3.3, 1.2]))
     assert isinstance(de, int)
     assert de == 4

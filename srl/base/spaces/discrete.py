@@ -4,7 +4,7 @@ from typing import Any, List, Tuple
 
 import numpy as np
 
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
 
 from .space import SpaceBase
 
@@ -21,8 +21,16 @@ class DiscreteSpace(SpaceBase[int]):
         self._log_sanitize_count_high = 0
 
     @property
-    def base_env_type(self) -> EnvTypes:
-        return EnvTypes.DISCRETE
+    def n(self):
+        return self._n
+
+    @property
+    def start(self):
+        return self._start
+
+    @property
+    def stype(self) -> SpaceTypes:
+        return SpaceTypes.DISCRETE
 
     @property
     def dtype(self):
@@ -30,7 +38,7 @@ class DiscreteSpace(SpaceBase[int]):
 
     def sample(self, mask: List[int] = []) -> int:
         assert len(mask) < self._n, f"No valid actions. {mask}"
-        acts = [a + self._start for a in range(self.n)]
+        acts = [a + self._start for a in range(self._n)]
         return random.choice([a for a in acts if a not in mask])
 
     def get_valid_actions(self, mask: List[int] = []) -> List[int]:
@@ -66,6 +74,9 @@ class DiscreteSpace(SpaceBase[int]):
             return False
         return True
 
+    def to_str(self, val: int) -> str:
+        return str(val)
+
     def get_default(self) -> int:
         return self._start
 
@@ -73,16 +84,27 @@ class DiscreteSpace(SpaceBase[int]):
         return DiscreteSpace(self._n, self._start)
 
     def __eq__(self, o: "DiscreteSpace") -> bool:
+        if not isinstance(o, DiscreteSpace):
+            return False
         return self._n == o._n and self._start == o._start
 
     def __str__(self) -> str:
         return f"Discrete({self._n}, start={self._start})"
 
+    # --- stack
+    def create_stack_space(self, length: int):
+        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+
+        return ArrayDiscreteSpace(length, self._start, self._n + self._start - 1)
+
+    def encode_stack(self, val: List[int]) -> List[int]:
+        return val
+
     # --------------------------------------
     # action discrete
     # --------------------------------------
     @property
-    def n(self) -> int:
+    def int_size(self) -> int:
         return self._n
 
     def encode_to_int(self, val: int) -> int:
@@ -94,6 +116,18 @@ class DiscreteSpace(SpaceBase[int]):
     # --------------------------------------
     # observation discrete
     # --------------------------------------
+    @property
+    def list_int_size(self) -> int:
+        return 1
+
+    @property
+    def list_int_low(self) -> List[int]:
+        return [0]
+
+    @property
+    def list_int_high(self) -> List[int]:
+        return [self.n - 1]
+
     def encode_to_list_int(self, val: int) -> List[int]:
         return [val - self._start]
 
@@ -104,15 +138,15 @@ class DiscreteSpace(SpaceBase[int]):
     # action continuous
     # --------------------------------------
     @property
-    def list_size(self) -> int:
+    def list_float_size(self) -> int:
         return 1
 
     @property
-    def list_low(self) -> List[float]:
+    def list_float_low(self) -> List[float]:
         return [0]
 
     @property
-    def list_high(self) -> List[float]:
+    def list_float_high(self) -> List[float]:
         return [self.n - 1]
 
     def encode_to_list_float(self, val: int) -> List[float]:
@@ -125,15 +159,15 @@ class DiscreteSpace(SpaceBase[int]):
     # observation continuous, image
     # --------------------------------------
     @property
-    def shape(self) -> Tuple[int, ...]:
+    def np_shape(self) -> Tuple[int, ...]:
         return (1,)
 
     @property
-    def low(self) -> np.ndarray:
+    def np_low(self) -> np.ndarray:
         return np.array([0])
 
     @property
-    def high(self) -> np.ndarray:
+    def np_high(self) -> np.ndarray:
         return np.array([self.n - 1])
 
     def encode_to_np(self, val: int, dtype) -> np.ndarray:

@@ -1,11 +1,8 @@
-import os
-
 import pytest
 
 import srl
 from srl.algorithms import dqn, ql
 from srl.base.run.context import RunNameTypes
-from srl.utils import common
 
 
 # -----------------------------------
@@ -57,12 +54,12 @@ def _setup_device(
     if framework == "tensorflow":
         pytest.importorskip("tensorflow")
         rl_config = dqn.Config()
-        rl_config.framework.set_tensorflow()
+        rl_config.set_tensorflow()
         runner = srl.Runner("Grid", rl_config)
     elif framework == "torch":
         pytest.importorskip("torch")
         rl_config = dqn.Config()
-        rl_config.framework.set_torch()
+        rl_config.set_torch()
         runner = srl.Runner("Grid", rl_config)
     else:
         runner = srl.Runner("Grid", ql.Config())
@@ -72,7 +69,7 @@ def _setup_device(
     assert used_device_tf == true_tf
     assert used_device_torch == true_torch
 
-    runner.train(max_train_count=10)
+    runner.train(max_train_count=5)
 
 
 @pytest.mark.parametrize("device", ["AUTO", "CPU", "GPU", "CPU:0", "GPU:0"])

@@ -2,11 +2,10 @@ import numpy as np
 import pytest
 
 import srl
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
 from srl.base.spaces.box import BoxSpace
-from srl.envs import connectx  # noqa F401
-from srl.test import TestEnv
-from srl.test.processor import TestProcessor
+from srl.envs import connectx
+from srl.test.env import TestEnv
 
 
 def test_play():
@@ -76,28 +75,12 @@ def test_player(player):
 
 
 def test_processor():
-    tester = TestProcessor()
-    processor = connectx.LayerProcessor()
-    env_name = "connectx"
-    columns = 7
-    rows = 6
+    env = srl.make_env(srl.EnvConfig("connectx", {"obs_type": "layer"}))
+    env.reset()
 
-    in_state = [0] * 42
-    out_state = np.zeros((columns, rows, 2))
+    out_state = np.zeros((7, 6, 2))
 
-    tester.run(processor, env_name)
-    tester.preprocess_observation_space(
-        processor,
-        env_name,
-        EnvTypes.IMAGE,
-        BoxSpace((columns, rows, 2), 0, 1),
-    )
-    tester.preprocess_observation(
-        processor,
-        env_name,
-        in_observation=in_state,
-        out_observation=out_state,
-    )
+    assert (out_state == env.state).all()
 
 
 def test_kaggle_connectx():

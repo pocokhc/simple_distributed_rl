@@ -1,5 +1,7 @@
 from typing import Tuple
 
+import pytest
+
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -37,7 +39,7 @@ class BaseCase(CommonBaseCase):
             sequence_length=5,
             enable_retrace=False,
         )
-        rl_config.dueling_network.set((16, 16), False)
+        rl_config.hidden_block.set((16, 16))
         rl_config.memory.set_replay_memory()
         return rl_config
 

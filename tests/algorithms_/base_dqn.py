@@ -33,11 +33,7 @@ class BaseCase(CommonBaseCase):
         from srl.algorithms import dqn
 
         rl_config = dqn.Config(enable_double_dqn=False)
-        rl_config.hidden_block.set_mlp((64, 64))
-        if self.get_framework() == "tensorflow":
-            rl_config.framework.set_tensorflow()
-        elif self.get_framework() == "torch":
-            rl_config.framework.set_torch()
+        rl_config.hidden_block.set((64, 64))
         return rl_config
 
     def test_Pendulum(self):
@@ -77,8 +73,8 @@ class BaseCase(CommonBaseCase):
     def test_OX(self):
         self.check_skip()
         rl_config = self._create_rl_config()
-        rl_config.hidden_block.set_mlp((32, 32, 16))
-        rl_config.epsilon.set_constant(0)
+        rl_config.hidden_block.set((32, 32, 16))
+        rl_config.epsilon = 0
 
         runner, tester = self.create_runner("OX", rl_config)
         runner.set_seed(2)

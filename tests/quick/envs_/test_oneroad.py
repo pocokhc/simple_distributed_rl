@@ -1,5 +1,5 @@
-from srl.envs import oneroad  # noqa F401
-from srl.test import TestEnv
+from srl.envs import oneroad
+from srl.test.env import TestEnv  # noqa F401
 
 
 def test_play():

@@ -192,7 +192,6 @@ def test_compute_kl_divergence(prob1, prob2):
 def test_compute_kl_divergence_normal(mean1, stddev1, mean2, stddev2):
     pytest.importorskip("tensorflow")
     pytest.importorskip("tensorflow_probability")
-
     import tensorflow as tf
     import tensorflow_probability as tfp
 

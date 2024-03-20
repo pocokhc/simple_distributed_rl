@@ -1,100 +1,123 @@
 import numpy as np
 import pytest
 
-from srl.base.define import EnvTypes
-from srl.base.exception import TFLayerError
+from srl.base.define import SpaceTypes
+from srl.base.exception import NotSupportedError
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.multi import MultiSpace
+from srl.rl.models.config.image_block import ImageBlockConfig
+from srl.rl.models.config.mlp_block import MLPBlockConfig
 
 
-def call_block_tf(
-    obs_shape,
-    obs_type,
-    x,
-    enable_time_distributed_layer=False,
-):
-    from srl.rl.models.tf.input_block import InputImageBlock
+@pytest.mark.parametrize("rnn", [False, True])
+@pytest.mark.parametrize(
+    "in_space, out_size",
+    [
+        [BoxSpace((5, 4)), 512],  # value block
+        [BoxSpace((64, 64), stype=SpaceTypes.GRAY_2ch), 4096],
+        [BoxSpace((64, 64, 1), stype=SpaceTypes.GRAY_3ch), 4096],
+        [BoxSpace((64, 64, 3), stype=SpaceTypes.COLOR), 4096],
+        [BoxSpace((64, 64, 9), stype=SpaceTypes.IMAGE), 4096],
+        # MULTI
+        [
+            MultiSpace(
+                [
+                    BoxSpace((5, 4)),
+                    BoxSpace((64, 64, 3), stype=SpaceTypes.COLOR),
+                ]
+            ),
+            512 + 4096,
+        ],
+    ],
+)
+def test_create_block_out_value(in_space, out_size, rnn):
+    pytest.importorskip("tensorflow")
 
-    block = InputImageBlock(
-        obs_shape,
-        obs_type,
-        enable_time_distributed_layer=enable_time_distributed_layer,
-    )
+    from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
+
+    batch_size = 3
+    seq_size = 5
+
+    mlp_conf = MLPBlockConfig()
+    mlp_conf.set()
+    img_conf = ImageBlockConfig()
+    block = create_in_block_out_value(mlp_conf, img_conf, in_space, enable_rnn=rnn)
+    print(in_space)
+    print(block)
+
+    if in_space.stype == SpaceTypes.MULTI:
+        pytest.skip("TODO")
+    else:
+        if rnn:
+            x = np.ones((seq_size, batch_size) + in_space.shape, dtype=np.float32)
+        else:
+            x = np.ones((batch_size,) + in_space.shape, dtype=np.float32)
     y = block(x)
     assert y is not None
-    return y.numpy()
-
-
-pattern0 = [
-    # ((2, 4, 8), EnvObservationTypes.UNKNOWN, (2 * 4 * 8,)),
-    # ((2, 4, 8), EnvObservationTypes.DISCRETE, (2 * 4 * 8,)),
-    # ((2, 4, 8), EnvObservationTypes.CONTINUOUS, (2 * 4 * 8,)),
-    ((4, 8), EnvTypes.GRAY_2ch, (4, 8, 1)),
-    ((4, 8, 1), EnvTypes.GRAY_3ch, (4, 8, 1)),
-    ((4, 8, 3), EnvTypes.COLOR, (4, 8, 3)),
-]
-
-
-@pytest.mark.parametrize("obs_shape, obs_type, true_shape", pattern0)
-def test_window_0_tf(obs_shape, obs_type, true_shape):
-    pytest.importorskip("tensorflow")
-    _window_0(call_block_tf, obs_shape, obs_type, true_shape)
-
-
-def _window_0(call_block, obs_shape, obs_type, true_shape):
-    batch_size = 8
-
-    x = np.ones((batch_size,) + obs_shape, dtype=np.float32)
-    y = call_block(obs_shape, obs_type, x)
-    assert y.shape == (batch_size,) + true_shape
-
-
-pattern10 = [
-    # ((10, 2, 4, 8), EnvObservationTypes.UNKNOWN, (10 * 2 * 4 * 8,), False),
-    # ((10, 2, 4, 8), EnvObservationTypes.DISCRETE, (10 * 2 * 4 * 8,), False),
-    # ((10, 2, 4, 8), EnvObservationTypes.CONTINUOUS, (10 * 2 * 4 * 8,), False),
-    ((10, 4, 8), EnvTypes.GRAY_2ch, (4, 8, 10), False),
-    ((10, 4, 8, 1), EnvTypes.GRAY_3ch, (4, 8, 10), False),
-    ((10, 4, 8, 3), EnvTypes.COLOR, None, True),
-]
-
-
-@pytest.mark.parametrize("obs_shape, obs_type, true_shape, is_throw", pattern10)
-def test_window_10_tf(obs_shape, obs_type, true_shape, is_throw):
-    pytest.importorskip("tensorflow")
-    _window_10(call_block_tf, obs_shape, obs_type, true_shape, is_throw)
-
-
-def _window_10(call_block, obs_shape, obs_type, true_shape, is_throw):
-    batch_size = 8
-
-    x = np.ones((batch_size,) + obs_shape, dtype=np.float32)
-    if is_throw:
-        with pytest.raises(TFLayerError):
-            call_block(obs_shape, obs_type, x)
+    if rnn:
+        assert y.numpy().shape == (seq_size, batch_size, out_size)
     else:
-        y = call_block(obs_shape, obs_type, x)
-        assert y.shape == (batch_size,) + true_shape
+        assert y.numpy().shape == (batch_size, out_size)
 
 
-pattern_time = [
-    # ((2, 4, 8), EnvObservationTypes.UNKNOWN, (2 * 4 * 8,)),
-    # ((2, 4, 8), EnvObservationTypes.DISCRETE, (2 * 4 * 8,)),
-    # ((2, 4, 8), EnvObservationTypes.CONTINUOUS, (2 * 4 * 8,)),
-    ((4, 8), EnvTypes.GRAY_2ch, (4, 8, 1)),
-    ((4, 8, 1), EnvTypes.GRAY_3ch, (4, 8, 1)),
-    ((4, 8, 3), EnvTypes.COLOR, (4, 8, 3)),
-]
-
-
-@pytest.mark.parametrize("obs_shape, obs_type, true_shape", pattern_time)
-def test_time_layer_tf(obs_shape, obs_type, true_shape):
+@pytest.mark.parametrize("rnn", [False, True])
+@pytest.mark.parametrize(
+    "in_space, out_shape",
+    [
+        [BoxSpace((64, 64), stype=SpaceTypes.GRAY_2ch), (8, 8, 64)],
+        [BoxSpace((64, 64, 1), stype=SpaceTypes.GRAY_3ch), (8, 8, 64)],
+        [BoxSpace((64, 64, 3), stype=SpaceTypes.COLOR), (8, 8, 64)],
+        [BoxSpace((64, 64, 9), stype=SpaceTypes.IMAGE), (8, 8, 64)],
+    ],
+)
+def test_create_block_out_image(in_space, out_shape, rnn):
     pytest.importorskip("tensorflow")
-    _time_layer(call_block_tf, obs_shape, obs_type, true_shape)
+
+    from srl.rl.models.tf.blocks.input_block import create_in_block_out_image
+
+    batch_size = 3
+    seq_size = 5
+    img_conf = ImageBlockConfig()
+
+    with pytest.raises(NotSupportedError):
+        create_in_block_out_image(img_conf, BoxSpace((5, 4)))
+    with pytest.raises(NotSupportedError):
+        create_in_block_out_image(img_conf, MultiSpace([BoxSpace((5, 4))]))
+
+    block = create_in_block_out_image(img_conf, in_space, enable_rnn=rnn)
+    print(block)
+
+    if rnn:
+        x = np.ones(
+            (
+                seq_size,
+                batch_size,
+            )
+            + in_space.shape,
+            dtype=np.float32,
+        )
+    else:
+        x = np.ones((batch_size,) + in_space.shape, dtype=np.float32)
+    y = block(x)
+    assert y is not None
+    if rnn:
+        assert (
+            y.numpy().shape
+            == (
+                seq_size,
+                batch_size,
+            )
+            + out_shape
+        )
+    else:
+        assert y.numpy().shape == (batch_size,) + out_shape
 
 
-def _time_layer(call_block, obs_shape, obs_type, true_shape):
-    batch_size = 7
-    seq_len = 3
-
-    x = np.ones((batch_size, seq_len) + obs_shape, dtype=np.float32)
-    y = call_block(obs_shape, obs_type, x, enable_time_distributed_layer=True)
-    assert y.shape == (batch_size, seq_len) + true_shape
+@pytest.mark.parametrize(
+    "in_space, out_shape",
+    [
+        [BoxSpace((64, 64, 3), stype=SpaceTypes.COLOR), (64, 9, 9)],  # image block
+    ],
+)
+def test_create_block_out_multi(in_space, out_shape):
+    pytest.skip("TODO")

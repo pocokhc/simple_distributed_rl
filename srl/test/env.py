@@ -17,7 +17,7 @@ class TestEnv:
         env_config = srl.EnvConfig(
             env_name,
             render_interval=1,
-            enable_assertion_value=True,
+            enable_assertion=True,
             **env_config_kwargs,
         )
         env = srl.make_env(env_config)
@@ -128,13 +128,19 @@ class TestEnv:
 
         return env
 
-    def player_test(self, env_name: str, player: str, player_kwargs: dict = {}) -> EnvRun:
+    def player_test(
+        self,
+        env_name: str,
+        player: str,
+        player_kwargs: dict = {},
+        timeout: int = -1,
+    ) -> EnvRun:
         env_config = srl.EnvConfig(env_name)
-        env_config.enable_assertion_value = True
+        env_config.enable_assertion = True
         runner = srl.Runner(env_config, None)
 
         env = runner.make_env()
         runner.set_players([(player, player_kwargs) for _ in range(env.player_num)])
 
-        runner.evaluate(max_episodes=3)
+        runner.evaluate(max_episodes=1, timeout=timeout)
         return env

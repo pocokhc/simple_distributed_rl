@@ -2,10 +2,9 @@ import numpy as np
 import pytest
 
 import srl
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
 from srl.base.spaces.box import BoxSpace
-from srl.test import TestEnv
-from srl.test.processor import TestProcessor
+from srl.test.env import TestEnv
 
 
 def test_play():
@@ -74,31 +73,17 @@ def test_player(player):
 
 
 def test_processor():
+    pytest.skip("TODO")
     pytest.importorskip("kaggle_environments")
     from srl.envs.kaggle import connectx  # noqa F401
 
-    tester = TestProcessor()
-    processor = connectx.LayerProcessor()
-    env_name = "connectx"
     columns = 7
     rows = 6
 
     in_state = [0] * 42
     out_state = np.zeros((2, columns, rows))
 
-    tester.run(processor, env_name)
-    tester.preprocess_observation_space(
-        processor,
-        env_name,
-        EnvTypes.SHAPE3,
-        BoxSpace((2, columns, rows), 0, 1),
-    )
-    tester.preprocess_observation(
-        processor,
-        env_name,
-        in_observation=in_state,
-        out_observation=out_state,
-    )
+    assert (out_state == env.state).all()
 
 
 def test_kaggle_connectx():

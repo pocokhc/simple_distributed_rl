@@ -1,5 +1,7 @@
 from typing import Tuple
 
+import pytest
+
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -51,7 +53,7 @@ class BaseCase(CommonBaseCase):
             enable_rescale=False,
             weight_decay=0,
         )
-        rl_config.lr.set_constant(0.001)
+        rl_config.lr = 0.001
         rl_config.input_image_block.set_alphazero_block(1, 16)
         rl_config.memory.warmup_size = 200
         rl_config.memory.set_replay_memory()
@@ -77,7 +79,7 @@ class BaseCase(CommonBaseCase):
             weight_decay=0,
         )
         rl_config.memory.warmup_size = 200
-        rl_config.lr.set_linear(10_000, 0.002, 0.0001)
+        rl_config.lr = rl_config.create_scheduler().set_linear(10_000, 0.002, 0.0001)
         rl_config.input_image_block.set_alphazero_block(1, 16)
         rl_config.processors = [grid.LayerProcessor()]
         runner, tester = self.create_runner("EasyGrid", rl_config)

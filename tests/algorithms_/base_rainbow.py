@@ -35,16 +35,12 @@ class BaseCase(CommonBaseCase):
         from srl.algorithms import rainbow
 
         rl_config = rainbow.Config()
-        if self.get_framework() == "tensorflow":
-            rl_config.framework.set_tensorflow()
-        elif self.get_framework() == "torch":
-            rl_config.framework.set_torch()
         return rl_config
 
     def test_Pendulum(self):
         self.check_skip()
         rl_config = self._create_rl_config()
-        rl_config.dueling_network.set((64, 64), False)
+        rl_config.hidden_block.set((64, 64))
         rl_config.multisteps = 3
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
         runner.train(max_train_count=200 * 70)
@@ -53,7 +49,7 @@ class BaseCase(CommonBaseCase):
     def test_Pendulum_mp(self):
         self.check_skip()
         rl_config = self._create_rl_config()
-        rl_config.dueling_network.set((64, 64), False)
+        rl_config.hidden_block.set((64, 64))
         rl_config.multisteps = 3
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
         runner.train_mp(max_train_count=200 * 70)
@@ -63,7 +59,7 @@ class BaseCase(CommonBaseCase):
         self.check_skip()
 
         rl_config = self._create_rl_config()
-        rl_config.dueling_network.set((64, 64), False)
+        rl_config.hidden_block.set((64, 64))
         rl_config.multisteps = 1
         rl_config.enable_noisy_dense = True
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
@@ -73,7 +69,7 @@ class BaseCase(CommonBaseCase):
     def test_Pendulum_no_multi(self):
         self.check_skip()
         rl_config = self._create_rl_config()
-        rl_config.dueling_network.set((64, 64), False)
+        rl_config.hidden_block.set((64, 64))
         rl_config.multisteps = 1
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
         runner.train(max_train_count=200 * 70)
@@ -82,7 +78,7 @@ class BaseCase(CommonBaseCase):
     def test_Pendulum_no_multi_mp(self):
         self.check_skip()
         rl_config = self._create_rl_config()
-        rl_config.dueling_network.set((64, 64), False)
+        rl_config.hidden_block.set((64, 64))
         rl_config.multisteps = 1
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
         runner.train_mp(max_train_count=200 * 70)
@@ -92,7 +88,7 @@ class BaseCase(CommonBaseCase):
         self.check_skip()
 
         rl_config = self._create_rl_config()
-        rl_config.dueling_network.set((64, 64), False)
+        rl_config.hidden_block.set((64, 64))
         rl_config.multisteps = 1
         rl_config.enable_noisy_dense = True
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
@@ -103,8 +99,8 @@ class BaseCase(CommonBaseCase):
         self.check_skip()
         # invalid action test
         rl_config = self._create_rl_config()
-        rl_config.dueling_network.set((64, 32, 16), False)
-        rl_config.epsilon.set_constant(0)
+        rl_config.hidden_block.set((64, 32, 16))
+        rl_config.epsilon = 0
         rl_config.multisteps = 3
         rl_config.memory.set_replay_memory()
 
@@ -119,11 +115,11 @@ class BaseCase(CommonBaseCase):
 
     def _create_pendulum_config(self):
         rl_config = self._create_rl_config()
-        rl_config.epsilon.set_constant(0.1)
+        rl_config.epsilon = 0.1
         rl_config.discount = 0.9
-        rl_config.lr.set_constant(0.001)
+        rl_config.lr = 0.001
         rl_config.batch_size = 32
-        rl_config.dueling_network.set((64, 64), False)
+        rl_config.hidden_block.set((64, 64))
         rl_config.enable_double_dqn = False
         rl_config.enable_noisy_dense = False
         rl_config.multisteps = 1
@@ -158,7 +154,7 @@ class BaseCase(CommonBaseCase):
     def test_Pendulum_dueling(self):
         self.check_skip()
         rl_config = self._create_pendulum_config()
-        rl_config.dueling_network.set((64, 64), True)
+        rl_config.hidden_block.set_dueling_network((64, 64))
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
         runner.train(max_train_count=200 * 70)
         tester.eval(runner)
@@ -200,7 +196,7 @@ class BaseCase(CommonBaseCase):
 
         rl_config = self._create_pendulum_config()
         rl_config.enable_double_dqn = True
-        rl_config.dueling_network.set((64, 64), True)
+        rl_config.hidden_block.set_dueling_network((64, 64))
         rl_config.enable_noisy_dense = True
         rl_config.multisteps = 10
         rl_config.memory.set_proportional_memory(alpha=1.0, beta_initial=1.0)

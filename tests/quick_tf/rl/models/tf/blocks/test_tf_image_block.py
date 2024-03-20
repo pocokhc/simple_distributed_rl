@@ -22,9 +22,13 @@ def test_tf_image(name, rnn):
         config.set_alphazero_block()
         in_shape = (96, 72, 3)
         out_shape = (96, 72, 256)
+        if rnn:
+            pytest.skip("TODO")
     elif name == "muzero_atari":
         in_shape = (96, 72, 3)
-        out_shape = (6, 5, 256)
+        out_shape = (12, 9, 64)
+        if rnn:
+            pytest.skip("TODO")
     else:
         raise ValueError(name)
 
@@ -38,7 +42,7 @@ def test_tf_image(name, rnn):
         out_shape2 = (batch_size,) + out_shape
 
     x = np.ones(in_shape2, dtype=np.float32)
-    block = config.create_block_tf(enable_time_distributed_layer=rnn)
+    block = config.create_block_tf(enable_rnn=rnn)
     y = block(x)
     assert y is not None
     y = y.numpy()

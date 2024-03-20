@@ -1,5 +1,5 @@
-from srl.envs import igrid  # noqa F401
-from srl.test import TestEnv
+from srl.envs import igrid
+from srl.test.env import TestEnv  # noqa F401
 
 
 def test_play():

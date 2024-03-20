@@ -1,7 +1,5 @@
 import pytest
 
-from srl.test import TestEnv
-
 
 def test_play():
     pytest.importorskip("kaggle_environments")

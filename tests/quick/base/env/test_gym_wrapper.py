@@ -8,10 +8,10 @@ import pytest
 
 import srl
 from srl.base import spaces as srl_spaces
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
 from srl.base.env.gym_user_wrapper import GymUserWrapper
 from srl.base.spaces.space import SpaceBase
-from srl.test import TestEnv
+from srl.test.env import TestEnv
 
 
 def test_play_FrozenLake():
@@ -47,7 +47,7 @@ def test_play_CartPole():
     assert isinstance(env.observation_space, srl_spaces.BoxSpace)
     assert env.observation_space.shape == (4,)
     assert env.observation_space.dtype == np.float32
-    assert env.observation_space.env_type == EnvTypes.CONTINUOUS
+    assert env.observation_space.stype == SpaceTypes.CONTINUOUS
     assert env.action_space == srl_spaces.DiscreteSpace(2)
 
 
@@ -87,8 +87,10 @@ def test_play_Pendulum():
         check_render=False,
         check_restore=False,
     )
-    assert env.observation_space == srl_spaces.BoxSpace((3,), [-1, -1, -8], [1, 1, 8], np.float32, EnvTypes.CONTINUOUS)
-    assert env.action_space == srl_spaces.BoxSpace((1,), -2.0, 2.0, np.float32, EnvTypes.CONTINUOUS)
+    assert env.observation_space == srl_spaces.BoxSpace(
+        (3,), [-1, -1, -8], [1, 1, 8], np.float32, SpaceTypes.CONTINUOUS
+    )
+    assert env.action_space == srl_spaces.BoxSpace((1,), -2.0, 2.0, np.float32, SpaceTypes.CONTINUOUS)
 
 
 def test_play_Tetris():
@@ -105,7 +107,7 @@ def test_play_Tetris():
         env_config_kwargs={"use_gym": True},
         check_restore=False,
     )
-    assert env.observation_space == srl_spaces.BoxSpace((210, 160, 3), 0, 255, np.uint8, EnvTypes.COLOR)
+    assert env.observation_space == srl_spaces.BoxSpace((210, 160, 3), 0, 255, np.uint8, SpaceTypes.COLOR)
     assert env.action_space == srl_spaces.DiscreteSpace(5)
 
 
@@ -123,7 +125,7 @@ def test_play_Tetris_ram():
         env_config_kwargs={"use_gym": True},
         check_restore=False,
     )
-    assert env.observation_space == srl_spaces.BoxSpace((128,), 0, 255, np.uint8, EnvTypes.DISCRETE)
+    assert env.observation_space == srl_spaces.BoxSpace((128,), 0, 255, np.uint8, SpaceTypes.DISCRETE)
     assert env.action_space == srl_spaces.DiscreteSpace(5)
 
 
@@ -190,7 +192,7 @@ def test_space():
 
     srl_space = space_change_from_gym_to_srl(space)
     print(srl_space)
-    assert srl_space.env_type == EnvTypes.MULTI
+    assert srl_space.stype == SpaceTypes.MULTI
     assert isinstance(srl_space, srl_spaces.MultiSpace)
     assert len(srl_space.spaces) == 7
 
@@ -199,7 +201,7 @@ def test_space():
     assert (srl_space.spaces[0].low == (0, 0, 0)).all()
     assert (srl_space.spaces[0].high == (5, 2, 2)).all()
     assert srl_space.spaces[0]._dtype == np.int64
-    assert srl_space.spaces[0].env_type == EnvTypes.DISCRETE
+    assert srl_space.spaces[0].stype == SpaceTypes.DISCRETE
 
     assert isinstance(srl_space.spaces[1], srl_spaces.DiscreteSpace)
     assert srl_space.spaces[1].n == 100
@@ -207,7 +209,7 @@ def test_space():
     assert isinstance(srl_space.spaces[2], srl_spaces.BoxSpace)
     assert srl_space.spaces[2].shape == ()
     assert srl_space.spaces[2]._dtype == np.float32
-    assert srl_space.spaces[2].env_type == EnvTypes.CONTINUOUS
+    assert srl_space.spaces[2].stype == SpaceTypes.CONTINUOUS
 
     assert isinstance(srl_space.spaces[3], srl_spaces.DiscreteSpace)
     assert srl_space.spaces[3].n == 5
@@ -217,7 +219,7 @@ def test_space():
     assert (srl_space.spaces[4].low == (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)).all()
     assert (srl_space.spaces[4].high == (1, 1, 1, 1, 1, 1, 1, 1, 1, 1)).all()
     assert srl_space.spaces[4]._dtype == np.int8
-    assert srl_space.spaces[4].env_type == EnvTypes.DISCRETE
+    assert srl_space.spaces[4].stype == SpaceTypes.DISCRETE
 
     assert isinstance(srl_space.spaces[5], srl_spaces.DiscreteSpace)
     assert srl_space.spaces[5].n == 7
@@ -225,7 +227,7 @@ def test_space():
     assert isinstance(srl_space.spaces[6], srl_spaces.BoxSpace)
     assert srl_space.spaces[6].shape == (2, 3)
     assert srl_space.spaces[6]._dtype == np.float32
-    assert srl_space.spaces[6].env_type == EnvTypes.CONTINUOUS
+    assert srl_space.spaces[6].stype == SpaceTypes.CONTINUOUS
 
     val = space.sample()
     print(val)
@@ -310,7 +312,7 @@ def test_original_space():
     )
     srl_space = space_change_from_gym_to_srl(space)
     print(srl_space)
-    assert srl_space.env_type == EnvTypes.MULTI
+    assert srl_space.stype == SpaceTypes.MULTI
     assert isinstance(srl_space, srl_spaces.MultiSpace)
     assert len(srl_space.spaces) == 2
 

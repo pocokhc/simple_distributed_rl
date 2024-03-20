@@ -1,4 +1,4 @@
-from srl.test import TestEnv
+from srl.test.env import TestEnv
 
 
 def test_play():

@@ -41,7 +41,7 @@ class BaseCase(CommonBaseCase):
             codebook_size=4,
         )
         rl_config.memory.warmup_size = 200
-        rl_config.lr.set_constant(0.001)
+        rl_config.lr = 0.001
         rl_config.memory.set_replay_memory()
         rl_config.input_image_block.set_alphazero_block(1, 16)
         return rl_config

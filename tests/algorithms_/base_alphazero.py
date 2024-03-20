@@ -2,6 +2,8 @@ from typing import Tuple
 
 import pytest
 
+import srl
+from srl.base.define import ObservationModes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -24,7 +26,7 @@ class QuickCase(CommonQuickCase):
         rl_config.input_image_block.set_alphazero_block(1, 2)
         rl_config.value_block.set((2, 2))
 
-        return rl_config, {}
+        return rl_config, dict(use_layer_processor=True)
 
 
 class BaseCase(CommonBaseCase):
@@ -37,12 +39,12 @@ class BaseCase(CommonBaseCase):
             batch_size=32,
             discount=1.0,
         )
-        rl_config.lr.clear()
+        rl_config.lr = rl_config.create_scheduler()
         rl_config.lr.add_constant(100, 0.02)
         rl_config.lr.add_constant(1000, 0.002)
         rl_config.lr.add_constant(1, 0.0002)
         rl_config.input_image_block.set_alphazero_block(1, 32)
-        rl_config.value_block.set_mlp((32,))
+        rl_config.value_block.set((32,))
         return rl_config
 
     def test_Grid(self):
@@ -99,26 +101,21 @@ class BaseCase(CommonBaseCase):
 
     def test_Othello4x4(self):
         self.check_skip()
-        from srl.envs import othello
 
         rl_config = self._create_rl_config()
         rl_config.value_type = "rate"
         rl_config.batch_size = 32
         rl_config.memory.warmup_size = 500
-        rl_config.lr.clear()
-        rl_config.lr.add_constant(1000, 0.001)
-        rl_config.lr.add_constant(5000, 0.0005)
-        rl_config.lr.add_constant(0, 0.0002)
-        rl_config.lr.clear()
+        rl_config.lr = rl_config.create_scheduler()
         rl_config.lr.add_constant(1000, 0.001)
         rl_config.lr.add_constant(5000, 0.0005)
         rl_config.lr.add_constant(1, 0.0002)
         rl_config.input_image_block.set_alphazero_block(9, 32)
-        rl_config.value_block.set_mlp((16, 16))
-        rl_config.policy_block.set_mlp((32,))
-        rl_config.processors = [othello.LayerProcessor()]
+        rl_config.value_block.set((16, 16))
+        rl_config.policy_block.set((32,))
 
-        runner, tester = self.create_runner("Othello4x4", rl_config)
+        env_config = srl.EnvConfig("Othello4x4", {"obs_type": "layer"})
+        runner, tester = self.create_runner(env_config, rl_config)
         runner.train(max_train_count=20_000)
 
         runner.set_players([None, "random"])

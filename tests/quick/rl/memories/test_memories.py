@@ -2,7 +2,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from srl.base.rl.base import DummyRLConfig, RLMemory
+from srl.base.rl.config import DummyRLConfig
+from srl.base.rl.memory import RLMemory
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.memories.priority_experience_replay import (
     PriorityExperienceReplay,

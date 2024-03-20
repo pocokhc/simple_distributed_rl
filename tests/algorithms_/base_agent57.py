@@ -48,15 +48,11 @@ class BaseCase(CommonBaseCase):
             input_action=False,
             enable_intrinsic_reward=True,
         )
-        rl_config.dueling_network.set((64, 64), False)
-        rl_config.lr_ext.set_constant(0.001)
-        rl_config.lr_int.set_constant(0.001)
+        rl_config.hidden_block.set((64, 64))
+        rl_config.lr_ext = 0.001
+        rl_config.lr_int = 0.001
         rl_config.memory.set_replay_memory()
 
-        if self.get_framework() == "tensorflow":
-            rl_config.framework.set_tensorflow()
-        elif self.get_framework() == "torch":
-            rl_config.framework.set_torch()
         return rl_config
 
     def test_Pendulum(self):
@@ -104,7 +100,7 @@ class BaseCase(CommonBaseCase):
         rl_config = self._create_rl_config()
         rl_config.burnin = 3
         rl_config.sequence_length = 3
-        rl_config.dueling_network.set((64, 32, 16), False)
+        rl_config.hidden_block.set((64, 32, 16))
 
         runner, tester = self.create_runner("OX", rl_config)
         runner.train(max_train_count=10_000)

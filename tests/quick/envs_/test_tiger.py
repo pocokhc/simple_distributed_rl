@@ -1,5 +1,5 @@
 from srl.envs import tiger  # noqa F401
-from srl.test import TestEnv
+from srl.test.env import TestEnv
 
 
 def test_play():

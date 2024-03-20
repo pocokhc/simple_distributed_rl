@@ -3,11 +3,11 @@ from typing import cast
 import numpy as np
 
 import srl
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
+from srl.base.rl.config import DummyRLConfig
 from srl.base.spaces.box import BoxSpace  # noqa F401
 from srl.envs import grid
-from srl.test import TestEnv
-from srl.test.processor import TestProcessor
+from srl.test.env import TestEnv
 
 
 def test_grid():
@@ -21,27 +21,22 @@ def test_easy_grid():
 
 
 def test_processor():
-    tester = TestProcessor()
     processor = grid.LayerProcessor()
-    env_name = "Grid"
+    env = srl.make_env("Grid")
+    env.reset()
 
-    env = grid.Grid()
-    field = np.zeros((env.H, env.W, 1))
+    env_org: grid.Grid = env.unwrapped
+    field = np.zeros((env_org.H, env_org.W, 1))
     field[3][1][0] = 1
 
-    tester.run(processor, env_name)
-    tester.preprocess_observation_space(
-        processor,
-        env_name,
-        after_type=EnvTypes.IMAGE,
-        after_space=BoxSpace((env.H, env.W, 1), 0, 1),
-    )
-    tester.preprocess_observation(
-        processor,
-        env_name,
-        in_observation=[1, 3],
-        out_observation=field,
-    )
+    # --- space
+    new_space = processor.preprocess_observation_space(env.observation_space, env, DummyRLConfig())
+    assert new_space == BoxSpace((env_org.H, env_org.W, 1), 0, 1, np.uint8, SpaceTypes.IMAGE)
+
+    # --- decode
+    new_state = processor.preprocess_observation([1, 3], env)
+    assert isinstance(new_state, np.ndarray)
+    assert (new_state == field).all()
 
 
 def test_calc_action_values():

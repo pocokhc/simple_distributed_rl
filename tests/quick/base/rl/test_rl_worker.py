@@ -2,27 +2,27 @@ from typing import Tuple
 
 import srl
 from srl.base.define import InfoType, RLActionType
-from srl.base.rl.base import RLWorker
 from srl.base.rl.config import DummyRLConfig
+from srl.base.rl.worker import RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.context import RunContext
 from srl.base.run.core_play import play
 
 
 class StubWorker(RLWorker):
-    def on_reset(self, worker: WorkerRun) -> InfoType:
+    def on_reset(self, worker) -> InfoType:
         inv_acts = [i for i, s in enumerate(worker.state) if s != 0]
         assert inv_acts == worker.get_invalid_actions()
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[RLActionType, InfoType]:
+    def policy(self, worker) -> Tuple[RLActionType, InfoType]:
         inv_acts = [i for i, s in enumerate(worker.state) if s != 0]
         self.prev_state = worker.state
         print(worker.state, inv_acts, worker.get_invalid_actions())
         assert inv_acts == worker.get_invalid_actions()
         return self.sample_action(), {}
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         if not worker.done:
             inv_acts = [i for i, s in enumerate(worker.state) if s != 0]
             print(worker.state, inv_acts, worker.get_invalid_actions())

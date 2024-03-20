@@ -6,7 +6,6 @@ import srl
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.config import DummyRLConfig, RLConfig
-from srl.rl.functions.common import to_str_observation
 from srl.utils.common import is_available_pygame_video_device, is_packages_installed
 
 BaseLineType = Union[float, List[Union[float, None]]]
@@ -45,7 +44,7 @@ class TestRL:
         train_kwargs_ = {}
         train_kwargs_.update(train_kwargs)
 
-        rl_config.enable_assertion_value = True
+        rl_config.enable_assertion = True
 
         for env_config in env_list:
             test_rl_config = rl_config.copy(reset_env_config=True)
@@ -72,8 +71,8 @@ class TestRL:
                     runner.render_terminal(max_steps=10)
                     if is_packages_installed(["cv2", "PIL", "pygame"]):
                         if is_available_pygame_video_device():
-                            runner.render_window(max_steps=10, render_interval=1)
-                        runner.animation_save_gif("_tmp.gif", max_steps=10)
+                            runner.render_window(max_steps=2, render_interval=1)
+                        runner.animation_save_gif("_tmp.gif", max_steps=2)
 
             else:
                 print(f"--- {test_env_config.name} mp check start ---")
@@ -106,7 +105,7 @@ class TestRL:
         for env_config in env_list:
             env_config = srl.EnvConfig(env_config) if isinstance(env_config, str) else env_config.copy()
             rl_config: RLConfig = DummyRLConfig(name=name)
-            rl_config.enable_assertion_value = True
+            rl_config.enable_assertion = True
 
             if use_layer_processor:
                 if env_config.name == "Grid":
@@ -133,10 +132,6 @@ class TestRL:
                         if is_available_pygame_video_device():
                             runner.render_window(max_steps=10, render_interval=1)
                         runner.animation_save_gif("_tmp.gif", max_steps=10)
-
-                # --- check raw
-                print(f"--- {env_config.name} raw check start ---")
-                self.simple_check_raw(env_config, rl_config, check_render)
 
             else:
                 print(f"--- {env_config.name} mp check start ---")

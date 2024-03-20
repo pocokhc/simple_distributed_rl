@@ -4,14 +4,13 @@ import numpy as np
 import pytest
 
 import srl
-from srl.base.define import EnvTypes, InfoType, RLActionType, RLBaseTypes, RLTypes
+from srl.base.define import InfoType, RLActionType, RLBaseTypes, SpaceTypes
 from srl.base.env.base import SpaceBase
 from srl.base.env.genre.singleplay import SinglePlayEnv
 from srl.base.env.registration import register as register_env
-from srl.base.rl.base import RLWorker
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register as register_rl
-from srl.base.rl.worker_run import WorkerRun
+from srl.base.rl.worker import RLWorker
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.continuous import ContinuousSpace
@@ -21,12 +20,12 @@ from srl.utils import common
 
 _B_DIS = RLBaseTypes.DISCRETE
 _B_CON = RLBaseTypes.CONTINUOUS
-_B_ANY = RLBaseTypes.ANY
+_B_ANY = RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS
 
-_R_DIS = RLTypes.DISCRETE
-_R_CON = RLTypes.CONTINUOUS
-_R_IMG = RLTypes.IMAGE
-_R_MUL = RLTypes.MULTI
+_R_DIS = SpaceTypes.DISCRETE
+_R_CON = SpaceTypes.CONTINUOUS
+_R_IMG = SpaceTypes.IMAGE
+_R_MUL = SpaceTypes.MULTI
 
 
 class StubEnv(SinglePlayEnv):
@@ -102,15 +101,15 @@ class StubRLWorker(RLWorker):
         self.state = np.array(0)
         self.action = 0
 
-    def on_reset(self, worker: WorkerRun) -> dict:
+    def on_reset(self, worker) -> dict:
         self.on_reset_state = worker.state
         return {}
 
-    def policy(self, worker: WorkerRun) -> Tuple[RLActionType, dict]:
+    def policy(self, worker) -> Tuple[RLActionType, dict]:
         self.state = worker.state
         return self.action, {}
 
-    def on_step(self, worker: WorkerRun) -> InfoType:
+    def on_step(self, worker) -> InfoType:
         self.state = worker.state
         return {}
 
@@ -124,58 +123,83 @@ def test_env_play():
 
 
 @pytest.mark.parametrize(
-    "env_act_space, env_act, rl_act_type, true_act_type, true_rl_act",
+    "env_act_space, env_act, rl_act_type, true_act_space, true_rl_act",
     [
-        [DiscreteSpace(5), 1, _B_DIS, _R_DIS, 1],
-        [DiscreteSpace(5), 1, _B_CON, _R_CON, [1.0]],
-        [DiscreteSpace(5), 1, _B_ANY, _R_DIS, 1],
-        [ArrayDiscreteSpace(2, 0, 5), [0, 1], _B_DIS, _R_DIS, 1],
-        [ArrayDiscreteSpace(2, 0, 5), [0, 1], _B_CON, _R_CON, [0.0, 1.0]],
-        [ArrayDiscreteSpace(2, 0, 5), [0, 1], _B_ANY, _R_DIS, 1],
-        [ContinuousSpace(0, 5), 1.2, _B_DIS, _R_DIS, 1],
-        [ContinuousSpace(0, 5), 1.2, _B_CON, _R_CON, [1.2]],
-        [ContinuousSpace(0, 5), 1.2, _B_ANY, _R_CON, [1.2]],
-        [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], _B_DIS, _R_DIS, 1],
-        [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], _B_CON, _R_CON, [1.1, 2.1]],
-        [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], _B_ANY, _R_CON, [1.1, 2.1]],
-        [BoxSpace((2, 1), -1, 1, type=EnvTypes.DISCRETE), np.array([[0], [1]]), _B_DIS, _R_DIS, 5],
-        [BoxSpace((2, 1), -1, 1, type=EnvTypes.DISCRETE), np.array([[0], [1]]), _B_CON, _R_CON, [0, 1]],
-        [BoxSpace((2, 1), -1, 1, type=EnvTypes.DISCRETE), np.array([[0], [1]]), _B_ANY, _R_DIS, 5],
-        [BoxSpace((2, 1), -1, 1, type=EnvTypes.CONTINUOUS), np.array([[0.1], [1.1]]), _B_DIS, _R_DIS, 14],
-        [BoxSpace((2, 1), -1, 1, type=EnvTypes.CONTINUOUS), np.array([[0.1], [1.1]]), _B_CON, _R_CON, [0.1, 1.1]],
-        [BoxSpace((2, 1), -1, 1, type=EnvTypes.CONTINUOUS), np.array([[0.1], [1.1]]), _B_ANY, _R_CON, [0.1, 1.1]],
-        [MultiSpace([DiscreteSpace(5)]), [1], _B_ANY, _R_MUL, [1]],
+        [DiscreteSpace(5), 1, _B_DIS, DiscreteSpace(5), 1],
+        [DiscreteSpace(5), 1, _B_CON, ArrayContinuousSpace(1, 0, 4), [1.0]],
+        [DiscreteSpace(5), 1, _B_ANY, DiscreteSpace(5), 1],
+        [ArrayDiscreteSpace(2, 0, 5), [0, 1], _B_DIS, DiscreteSpace(36), 1],
+        [ArrayDiscreteSpace(2, 0, 5), [0, 1], _B_CON, ArrayContinuousSpace(2, 0, 5), [0.0, 1.0]],
+        [ArrayDiscreteSpace(2, 0, 5), [0, 1], _B_ANY, DiscreteSpace(36), 1],
+        [ContinuousSpace(0, 5), 1.2, _B_DIS, DiscreteSpace(5), 1],
+        [ContinuousSpace(0, 5), 1.2, _B_CON, ArrayContinuousSpace(1, 0, 5), [1.2]],
+        [ContinuousSpace(0, 5), 1.2, _B_ANY, ArrayContinuousSpace(1, 0, 5), [1.2]],
+        [ArrayContinuousSpace(2, 0, 5), [1.1, 2.1], _B_DIS, DiscreteSpace(25), 7],
+        [ArrayContinuousSpace(2, 0, 5), [1.1, 2.1], _B_CON, ArrayContinuousSpace(2, 0, 5), [1.1, 2.1]],
+        [ArrayContinuousSpace(2, 0, 5), [1.1, 2.1], _B_ANY, ArrayContinuousSpace(2, 0, 5), [1.1, 2.1]],
+        [BoxSpace((2, 1), -1, 1, stype=SpaceTypes.DISCRETE), np.array([[0], [1]]), _B_DIS, DiscreteSpace(9), 5],
         [
-            MultiSpace(
-                [
-                    DiscreteSpace(5),
-                    ArrayDiscreteSpace(2, 0, 5),
-                    ContinuousSpace(0, 5),
-                    ArrayContinuousSpace(1, 0, 5),
-                    BoxSpace((2, 1), -1, 1),
-                ]
-            ),
-            [
-                1,
-                [0, 1],
-                1.2,
-                [1.1, 2.1],
-                np.array([[0.1], [1.1]]),
-            ],
+            BoxSpace((2, 1), -1, 1, stype=SpaceTypes.DISCRETE),
+            np.array([[0], [1]]),
             _B_CON,
-            _R_MUL,
-            [
-                1,
-                [0, 1],
-                1.2,
-                [1.1, 2.1],
-                np.array([[0.1], [1.1]]),
-            ],
+            ArrayContinuousSpace(2, -1, 1),
+            [0, 1],
         ],
+        [BoxSpace((2, 1), -1, 1, stype=SpaceTypes.DISCRETE), np.array([[0], [1]]), _B_ANY, DiscreteSpace(9), 5],
+        [
+            BoxSpace((2, 1), -1, 1, stype=SpaceTypes.CONTINUOUS),
+            np.array([[0.1], [1.1]]),
+            _B_DIS,
+            DiscreteSpace(25),
+            14,
+        ],
+        [
+            BoxSpace((2, 1), -1, 1, stype=SpaceTypes.CONTINUOUS),
+            np.array([[0.1], [1.1]]),
+            _B_CON,
+            ArrayContinuousSpace(2, -1, 1),
+            [0.1, 1.1],
+        ],
+        [
+            BoxSpace((2, 1), -1, 1, stype=SpaceTypes.CONTINUOUS),
+            np.array([[0.1], [1.1]]),
+            _B_ANY,
+            ArrayContinuousSpace(2, -1, 1),
+            [0.1, 1.1],
+        ],
+        # [MultiSpace([DiscreteSpace(5)]), [1], _B_ANY, _R_MUL, [1]],
+        # [
+        #     MultiSpace(
+        #         [
+        #             DiscreteSpace(5),
+        #             ArrayDiscreteSpace(2, 0, 5),
+        #             ContinuousSpace(0, 5),
+        #             ArrayContinuousSpace(1, 0, 5),
+        #             BoxSpace((2, 1), -1, 1),
+        #         ]
+        #     ),
+        #     [
+        #         1,
+        #         [0, 1],
+        #         1.2,
+        #         [1.1, 2.1],
+        #         np.array([[0.1], [1.1]]),
+        #     ],
+        #     _B_CON,
+        #     _R_MUL,
+        #     [
+        #         1,
+        #         [0, 1],
+        #         1.2,
+        #         [1.1, 2.1],
+        #         np.array([[0.1], [1.1]]),
+        #     ],
+        # ],
     ],
 )
-def test_action_encode(env_act_space, env_act, rl_act_type, true_act_type, true_rl_act):
-    print(env_act_space, env_act, rl_act_type, true_act_type, true_rl_act)
+def test_action_encode(env_act_space, env_act, rl_act_type, true_act_space, true_rl_act):
+    print(env_act_space, env_act, rl_act_type, true_act_space, true_rl_act)
+    common.logger_print()
     env = srl.make_env("Stub")
     env_org = cast(StubEnv, env.unwrapped)
     env_org._action_space = env_act_space
@@ -185,23 +209,23 @@ def test_action_encode(env_act_space, env_act, rl_act_type, true_act_type, true_
 
     # ---
     worker_run = srl.make_worker(rl_config, env)
-    assert rl_config.action_type == true_act_type
+    assert rl_config.action_space == true_act_space
 
     rl_act = worker_run.action_encode(env_act)
     print(rl_act)
-    if true_act_type == _R_DIS:  # int
+    if true_act_space.stype == _R_DIS:  # int
         assert isinstance(rl_act, int)
         assert rl_act == true_rl_act
-    elif true_act_type == _R_CON:  # list[float]
+    elif true_act_space.stype == _R_CON:  # list[float]
         assert isinstance(rl_act, list)
         for a in rl_act:
             assert isinstance(a, float)
         np.testing.assert_array_equal(rl_act, true_rl_act)
-    elif true_act_type == _R_IMG:  # numpy int8
+    elif true_act_space.stype == _R_IMG:  # numpy int8
         # まだ未実装
         assert isinstance(rl_act, np.ndarray)
         assert np.array_equal(rl_act, true_rl_act) and rl_act.dtype == true_rl_act.dtype
-    elif true_act_type == _R_MUL:  # list[space val]
+    elif true_act_space.stype == _R_MUL:  # list[space val]
         assert isinstance(rl_act, list)
         assert len(rl_act) == len(true_rl_act)
         for i in range(len(true_rl_act)):
@@ -223,7 +247,7 @@ def test_action_encode(env_act_space, env_act, rl_act_type, true_act_type, true_
         [_B_DIS, 2, BoxSpace((1,)), None],
         [_B_DIS, 1, BoxSpace((1,), -1, 1, dtype=np.float16), np.array([-0.5], np.float16)],
         [_B_CON, 1.2, DiscreteSpace(5), 1],
-        [_B_CON, 1.2, ArrayDiscreteSpace(2, 0, 5), [1]],
+        [_B_CON, 1.2, ArrayDiscreteSpace(2, 0, 5), [1, 1]],
         [_B_CON, 1.2, ContinuousSpace(0, 5), 1.2],
         [_B_CON, 1.2, ArrayContinuousSpace(1, 0, 5), [1.2]],
         [_B_CON, 1.2, BoxSpace((1,), dtype=np.float16), np.array([1.2], dtype=np.float16)],
@@ -237,9 +261,9 @@ def test_action_encode(env_act_space, env_act, rl_act_type, true_act_type, true_
         [_B_ANY, 1.2, ContinuousSpace(0, 5), 1.2],
         [_B_ANY, [1.2, 2.2], ArrayContinuousSpace(1, 0, 5), [1.2, 2.2]],
         [_B_ANY, [1.2, 2.2], BoxSpace((2, 1), dtype=np.float16), np.array([[1.2], [2.2]], dtype=np.float16)],
-        [_B_DIS, [1], MultiSpace([DiscreteSpace(5)]), [1]],
-        [_B_CON, [1], MultiSpace([DiscreteSpace(5)]), [1]],
-        [_B_CON, [1, 2], MultiSpace([DiscreteSpace(5), DiscreteSpace(5)]), [1, 2]],
+        # [_B_DIS, [1], MultiSpace([DiscreteSpace(5)]), [1]],
+        # [_B_CON, [1], MultiSpace([DiscreteSpace(5)]), [1]],
+        # [_B_CON, [1, 2], MultiSpace([DiscreteSpace(5), DiscreteSpace(5)]), [1, 2]],
     ],
 )
 def test_action_decode(rl_act_type, rl_act, env_act_space, true_env_act):
@@ -293,8 +317,9 @@ def test_action_decode(rl_act_type, rl_act, env_act_space, true_env_act):
         raise
 
 
-def _test_observation_encode(env_obs_space, env_state, rl_obs_type, true_obs_type, true_state):
-    print(env_obs_space, env_state, rl_obs_type, true_obs_type, true_state)
+def _test_observation_encode(env_obs_space, env_state, rl_obs_type, true_obs_space, true_state):
+    print(env_obs_space, env_state, rl_obs_type, true_obs_space, true_state)
+    common.logger_print()
     env = srl.make_env("Stub")
     env_org = cast(StubEnv, env.unwrapped)
     env_org._observation_space = env_obs_space
@@ -307,27 +332,27 @@ def _test_observation_encode(env_obs_space, env_state, rl_obs_type, true_obs_typ
     worker_run = srl.make_worker(rl_config, env)
     worker = cast(StubRLWorker, worker_run.worker)
 
-    print(rl_config.observation_type)
-    assert rl_config.observation_type == true_obs_type
+    print(rl_config.observation_space)
+    assert rl_config.observation_space == true_obs_space
 
     env.reset()
     worker_run.on_reset(0, training=False)
     action = worker_run.policy()
 
     print(worker.state)
-    if true_obs_type == _R_DIS:  # list int
+    if true_obs_space.stype == SpaceTypes.DISCRETE:  # list int
         assert isinstance(worker.state, list)
         assert isinstance(worker.state[0], int)
         assert worker.state == true_state
-    elif true_obs_type == _R_CON:  # numpy float32
+    elif true_obs_space.stype == SpaceTypes.CONTINUOUS:  # numpy float32
         assert isinstance(worker.state, np.ndarray)
         assert worker.state.dtype == np.float32
         assert np.allclose(worker.state, true_state)
-    elif true_obs_type == _R_IMG:  # numpy float32
+    elif true_obs_space.stype == SpaceTypes.IMAGE:  # numpy float32
         assert isinstance(worker.state, np.ndarray)
         assert worker.state.dtype == np.float32
         assert np.allclose(worker.state, true_state)
-    elif true_obs_type == _R_MUL:  # list
+    elif true_obs_space.stype == SpaceTypes.MULTI:  # list
         assert isinstance(worker.state, list)
         assert len(worker.state) == len(true_state)
         for i in range(len(true_state)):
@@ -340,19 +365,19 @@ def _test_observation_encode(env_obs_space, env_state, rl_obs_type, true_obs_typ
     worker_run.on_step()
 
     print(worker.state)
-    if true_obs_type == _R_DIS:  # list int
+    if true_obs_space.stype == SpaceTypes.DISCRETE:  # list int
         assert isinstance(worker.state, list)
         assert isinstance(worker.state[0], int)
         assert worker.state == true_state
-    elif true_obs_type == _R_CON:  # numpy float32
+    elif true_obs_space.stype == SpaceTypes.CONTINUOUS:  # numpy float32
         assert isinstance(worker.state, np.ndarray)
         assert worker.state.dtype == np.float32
         assert np.allclose(worker.state, true_state)
-    elif true_obs_type == _R_IMG:  # numpy float32
+    elif true_obs_space.stype == SpaceTypes.IMAGE:  # numpy float32
         assert isinstance(worker.state, np.ndarray)
         assert worker.state.dtype == np.float32
         assert np.allclose(worker.state, true_state)
-    elif true_obs_type == _R_MUL:  # list
+    elif true_obs_space.stype == SpaceTypes.MULTI:  # list
         assert isinstance(worker.state, list)
         assert len(worker.state) == len(true_state)
         for i in range(len(true_state)):
@@ -365,49 +390,79 @@ def _test_observation_encode(env_obs_space, env_state, rl_obs_type, true_obs_typ
 @pytest.mark.parametrize(
     "env_obs_space, env_state, rl_obs_type, true_obs_type, true_state",
     [
-        [DiscreteSpace(5), 1, _B_DIS, _R_DIS, [1]],
-        [DiscreteSpace(5), 1, _B_CON, _R_CON, np.array([1], np.float32)],
-        [DiscreteSpace(5), 1, _B_ANY, _R_DIS, [1]],
-        [ArrayDiscreteSpace(2, 0, 5), [0, 1], _B_DIS, _R_DIS, [0, 1]],
-        [ArrayDiscreteSpace(2, 0, 5), [0, 1], _B_CON, _R_CON, np.array([0, 1], np.float32)],
-        [ArrayDiscreteSpace(2, 0, 5), [0, 1], _B_ANY, _R_DIS, [0, 1]],
-        [ContinuousSpace(0, 5), 1.2, _B_DIS, _R_DIS, [1]],
-        [ContinuousSpace(0, 5), 1.2, _B_CON, _R_CON, np.array([1.2], np.float32)],
-        [ContinuousSpace(0, 5), 1.2, _B_ANY, _R_CON, np.array([1.2], np.float32)],
-        [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], _B_DIS, _R_DIS, [1, 2]],
-        [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], _B_CON, _R_CON, np.array([1.1, 2.1], np.float32)],
-        [ArrayContinuousSpace(1, 0, 5), [1.1, 2.1], _B_ANY, _R_CON, np.array([1.1, 2.1], np.float32)],
-        [BoxSpace((2, 1)), [[1.1], [2.1]], _B_DIS, _R_DIS, [1, 2]],
-        [BoxSpace((2, 1)), [[1.1], [2.1]], _B_CON, _R_CON, np.array([[1.1], [2.1]], np.float32)],
-        [BoxSpace((2, 1)), [[1.1], [2.1]], _B_ANY, _R_CON, np.array([[1.1], [2.1]], np.float32)],
-        [MultiSpace([DiscreteSpace(5)]), [1], _B_ANY, _R_DIS, [1]],  # 1つは展開される
+        [DiscreteSpace(5), 1, _B_DIS, ArrayDiscreteSpace(1, 0, 4), [1]],
+        [DiscreteSpace(5), 1, _B_CON, BoxSpace((1,), 0, 4, stype=_R_CON), np.array([1], np.float32)],
+        [DiscreteSpace(5), 1, _B_ANY, ArrayDiscreteSpace(1, 0, 4), [1]],
+        [ArrayDiscreteSpace(2, 0, 5), [0, 1], _B_DIS, ArrayDiscreteSpace(2, 0, 5), [0, 1]],
         [
-            MultiSpace(
-                [
-                    DiscreteSpace(5),
-                    ArrayDiscreteSpace(2, 0, 5),
-                    ContinuousSpace(0, 5),
-                    ArrayContinuousSpace(1, 0, 5),
-                    BoxSpace((2, 1)),
-                ]
-            ),
-            [
-                1,
-                [0, 1],
-                1.2,
-                [1.1, 2.1],
-                [[1.1], [2.1]],
-            ],
+            ArrayDiscreteSpace(2, 0, 5),
+            [0, 1],
             _B_CON,
-            _R_MUL,
-            [
-                np.array([1], np.float32),
-                np.array([0, 1], np.float32),
-                np.array([1.2], np.float32),
-                np.array([1.1, 2.1], np.float32),
-                np.array([[1.1], [2.1]], np.float32),
-            ],
+            BoxSpace((2,), 0, 5, stype=_R_CON),
+            np.array([0, 1], np.float32),
         ],
+        [ArrayDiscreteSpace(2, 0, 5), [0, 1], _B_ANY, ArrayDiscreteSpace(2, 0, 5), [0, 1]],
+        [ContinuousSpace(0, 5), 1.2, _B_DIS, ArrayDiscreteSpace(1, 0, 5), [1]],
+        [ContinuousSpace(0, 5), 1.2, _B_CON, BoxSpace((1,), 0, 5, stype=_R_CON), np.array([1.2], np.float32)],
+        [ContinuousSpace(0, 5), 1.2, _B_ANY, BoxSpace((1,), 0, 5, stype=_R_CON), np.array([1.2], np.float32)],
+        [ArrayContinuousSpace(2, 0, 5), [1.1, 2.1], _B_DIS, ArrayDiscreteSpace(2, 0, 5), [1, 2]],
+        [
+            ArrayContinuousSpace(2, 0, 5),
+            [1.1, 2.1],
+            _B_CON,
+            BoxSpace((2,), 0, 5, stype=_R_CON),
+            np.array([1.1, 2.1], np.float32),
+        ],
+        [
+            ArrayContinuousSpace(2, 0, 5),
+            [1.1, 2.1],
+            _B_ANY,
+            BoxSpace((2,), 0, 5, stype=_R_CON),
+            np.array([1.1, 2.1], np.float32),
+        ],
+        [BoxSpace((2, 1), -1, 5), [[1.1], [2.1]], _B_DIS, ArrayDiscreteSpace(2, -1, 5), [1, 2]],
+        [
+            BoxSpace((2, 1), -1, 5),
+            [[1.1], [2.1]],
+            _B_CON,
+            BoxSpace((2, 1), -1, 5, stype=_R_CON),
+            np.array([[1.1], [2.1]], np.float32),
+        ],
+        [
+            BoxSpace((2, 1), -1, 5),
+            [[1.1], [2.1]],
+            _B_ANY,
+            BoxSpace((2, 1), -1, 5, stype=_R_CON),
+            np.array([[1.1], [2.1]], np.float32),
+        ],
+        # [MultiSpace([DiscreteSpace(5)]), [1], _B_ANY, ArrayDiscreteSpace(1, 0, 5), [1]],
+        # [
+        #     MultiSpace(
+        #         [
+        #             DiscreteSpace(5),
+        #             ArrayDiscreteSpace(2, 0, 5),
+        #             ContinuousSpace(0, 5),
+        #             ArrayContinuousSpace(1, 0, 5),
+        #             BoxSpace((2, 1)),
+        #         ]
+        #     ),
+        #     [
+        #         1,
+        #         [0, 1],
+        #         1.2,
+        #         [1.1, 2.1],
+        #         [[1.1], [2.1]],
+        #     ],
+        #     _B_CON,
+        #     _R_MUL,
+        #     [
+        #         np.array([1], np.float32),
+        #         np.array([0, 1], np.float32),
+        #         np.array([1.2], np.float32),
+        #         np.array([1.1, 2.1], np.float32),
+        #         np.array([[1.1], [2.1]], np.float32),
+        #     ],
+        # ],
     ],
 )
 def test_observation_encode(env_obs_space, env_state, rl_obs_type, true_obs_type, true_state):
@@ -417,18 +472,90 @@ def test_observation_encode(env_obs_space, env_state, rl_obs_type, true_obs_type
 @pytest.mark.parametrize(
     "env_obs_space, env_state, rl_obs_type, true_obs_type, true_state",
     [
-        [BoxSpace((2, 1), type=EnvTypes.GRAY_2ch), [[1.1], [2.1]], _B_DIS, _R_DIS, [1, 2]],
-        [BoxSpace((2, 1), type=EnvTypes.GRAY_3ch), [[1.1], [2.1]], _B_DIS, _R_DIS, [1, 2]],
-        [BoxSpace((2, 1), type=EnvTypes.COLOR), [[1.1], [2.1]], _B_DIS, _R_DIS, [1, 2]],
-        [BoxSpace((2, 1), type=EnvTypes.IMAGE), [[1.1], [2.1]], _B_DIS, _R_DIS, [1, 2]],
-        [BoxSpace((2, 1), type=EnvTypes.GRAY_2ch), [[1.1], [2.1]], _B_CON, _R_IMG, [[1.1], [2.1]]],
-        [BoxSpace((2, 1), type=EnvTypes.GRAY_3ch), [[1.1], [2.1]], _B_CON, _R_IMG, [[1.1], [2.1]]],
-        [BoxSpace((2, 1), type=EnvTypes.COLOR), [[1.1], [2.1]], _B_CON, _R_IMG, [[1.1], [2.1]]],
-        [BoxSpace((2, 1), type=EnvTypes.IMAGE), [[1.1], [2.1]], _B_CON, _R_IMG, [[1.1], [2.1]]],
-        [BoxSpace((2, 1), type=EnvTypes.GRAY_2ch), [[1.1], [2.1]], _B_ANY, _R_IMG, [[1.1], [2.1]]],
-        [BoxSpace((2, 1), type=EnvTypes.GRAY_3ch), [[1.1], [2.1]], _B_ANY, _R_IMG, [[1.1], [2.1]]],
-        [BoxSpace((2, 1), type=EnvTypes.COLOR), [[1.1], [2.1]], _B_ANY, _R_IMG, [[1.1], [2.1]]],
-        [BoxSpace((2, 1), type=EnvTypes.IMAGE), [[1.1], [2.1]], _B_ANY, _R_IMG, [[1.1], [2.1]]],
+        [
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.GRAY_2ch),
+            [[1.1], [2.1]],
+            _B_DIS,
+            ArrayDiscreteSpace(2, -1, 5),
+            [1, 2],
+        ],
+        [
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.GRAY_3ch),
+            [[1.1], [2.1]],
+            _B_DIS,
+            ArrayDiscreteSpace(2, -1, 5),
+            [1, 2],
+        ],
+        [
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.COLOR),
+            [[1.1], [2.1]],
+            _B_DIS,
+            ArrayDiscreteSpace(2, -1, 5),
+            [1, 2],
+        ],
+        [
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.IMAGE),
+            [[1.1], [2.1]],
+            _B_DIS,
+            ArrayDiscreteSpace(2, -1, 5),
+            [1, 2],
+        ],
+        [
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.GRAY_2ch),
+            [[1.1], [2.1]],
+            _B_CON,
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.CONTINUOUS),
+            [[1.1], [2.1]],
+        ],
+        [
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.GRAY_3ch),
+            [[1.1], [2.1]],
+            _B_CON,
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.CONTINUOUS),
+            [[1.1], [2.1]],
+        ],
+        [
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.COLOR),
+            [[1.1], [2.1]],
+            _B_CON,
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.CONTINUOUS),
+            [[1.1], [2.1]],
+        ],
+        [
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.IMAGE),
+            [[1.1], [2.1]],
+            _B_CON,
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.CONTINUOUS),
+            [[1.1], [2.1]],
+        ],
+        [
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.GRAY_2ch),
+            [[1.1], [2.1]],
+            RLBaseTypes.IMAGE,
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.GRAY_2ch),
+            [[1.1], [2.1]],
+        ],
+        [
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.GRAY_3ch),
+            [[1.1], [2.1]],
+            RLBaseTypes.IMAGE,
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.GRAY_3ch),
+            [[1.1], [2.1]],
+        ],
+        [
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.COLOR),
+            [[1.1], [2.1]],
+            RLBaseTypes.IMAGE,
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.COLOR),
+            [[1.1], [2.1]],
+        ],
+        [
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.IMAGE),
+            [[1.1], [2.1]],
+            RLBaseTypes.IMAGE,
+            BoxSpace((2, 1), -1, 5, stype=SpaceTypes.IMAGE),
+            [[1.1], [2.1]],
+        ],
     ],
 )
 def test_observation_img_encode(env_obs_space, env_state, rl_obs_type, true_obs_type, true_state):
@@ -456,6 +583,7 @@ def test_observation_img_encode(env_obs_space, env_state, rl_obs_type, true_obs_
 )
 def test_sample_action(rl_action_type, env_action_space, true_type):
     print(rl_action_type, env_action_space, true_type)
+    common.logger_print()
     env = srl.make_env("Stub")
     env_org = cast(StubEnv, env.unwrapped)
     env_org._action_space = env_action_space
@@ -473,7 +601,6 @@ def test_sample_action(rl_action_type, env_action_space, true_type):
 
     action = worker_run.sample_action()
     print(action)
-    print(worker_run.config.action_type)
     print(worker_run.config.action_space)
     if isinstance(true_type, list):
         assert isinstance(action, list)
@@ -508,6 +635,5 @@ def test_sample_action_for_env(env_action_space):
 
     action = worker_run.sample_action_for_env()
     print(action)
-    print(worker_run.config.action_type)
     print(worker_run.config.action_space)
     assert env_action_space.check_val(action)

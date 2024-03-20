@@ -5,32 +5,31 @@ import pytest
 
 import srl
 import srl.envs.grid
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
 from srl.base.rl.config import DummyRLConfig
 from srl.base.spaces.box import BoxSpace
 from srl.rl.processors.image_processor import ImageProcessor
-from srl.test.processor import TestProcessor
 
 image_w = 32
 image_h = 64
 image_resize = (84, 84)
-enable_norm = True
 
 test_pattens = (
-    (EnvTypes.GRAY_2ch, (image_w, image_h), EnvTypes.GRAY_2ch, (84, 84), True),
-    (EnvTypes.GRAY_2ch, (image_w, image_h), EnvTypes.GRAY_3ch, (84, 84, 1), True),
-    (EnvTypes.GRAY_2ch, (image_w, image_h), EnvTypes.COLOR, (84, 84, 3), False),
-    (EnvTypes.GRAY_3ch, (image_w, image_h, 1), EnvTypes.GRAY_2ch, (84, 84), True),
-    (EnvTypes.GRAY_3ch, (image_w, image_h, 1), EnvTypes.GRAY_3ch, (84, 84, 1), True),
-    (EnvTypes.GRAY_3ch, (image_w, image_h, 1), EnvTypes.COLOR, (84, 84, 3), False),
-    (EnvTypes.COLOR, (image_w, image_h, 3), EnvTypes.GRAY_2ch, (84, 84), True),
-    (EnvTypes.COLOR, (image_w, image_h, 3), EnvTypes.GRAY_3ch, (84, 84, 1), True),
-    (EnvTypes.COLOR, (image_w, image_h, 3), EnvTypes.COLOR, (84, 84, 3), True),
+    (SpaceTypes.GRAY_2ch, (image_w, image_h), SpaceTypes.GRAY_2ch, (84, 84), True),
+    (SpaceTypes.GRAY_2ch, (image_w, image_h), SpaceTypes.GRAY_3ch, (84, 84, 1), True),
+    (SpaceTypes.GRAY_2ch, (image_w, image_h), SpaceTypes.COLOR, (84, 84, 3), False),
+    (SpaceTypes.GRAY_3ch, (image_w, image_h, 1), SpaceTypes.GRAY_2ch, (84, 84), True),
+    (SpaceTypes.GRAY_3ch, (image_w, image_h, 1), SpaceTypes.GRAY_3ch, (84, 84, 1), True),
+    (SpaceTypes.GRAY_3ch, (image_w, image_h, 1), SpaceTypes.COLOR, (84, 84, 3), False),
+    (SpaceTypes.COLOR, (image_w, image_h, 3), SpaceTypes.GRAY_2ch, (84, 84), True),
+    (SpaceTypes.COLOR, (image_w, image_h, 3), SpaceTypes.GRAY_3ch, (84, 84, 1), True),
+    (SpaceTypes.COLOR, (image_w, image_h, 3), SpaceTypes.COLOR, (84, 84, 3), True),
 )
 
 
 @pytest.mark.parametrize("env_img_type, env_img_shape, img_type, true_shape, check_val", test_pattens)
-def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val):
+@pytest.mark.parametrize("enable_norm", [False, True])
+def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val, enable_norm):
     pytest.importorskip("cv2")
 
     processor = ImageProcessor(
@@ -38,26 +37,38 @@ def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val):
         resize=image_resize,
         enable_norm=enable_norm,
     )
-    space = BoxSpace(low=0, high=255, shape=env_img_shape)
+    space = BoxSpace(
+        low=0,
+        high=255,
+        shape=env_img_shape,
+        dtype=np.uint8,
+        stype=env_img_type,
+    )
     env = srl.make_env("Grid")
 
-    # change info
-    new_space, new_type = processor.preprocess_observation_space(
-        space,
-        env_img_type,
-        env,
-        DummyRLConfig(),
-    )
-    assert new_type == img_type
+    # --- change space
+    new_space = processor.preprocess_observation_space(space, env, DummyRLConfig())
+    assert new_space.stype == img_type
+    if enable_norm:
+        assert new_space.dtype == np.float32
+    else:
+        assert new_space.dtype == np.uint8
     assert isinstance(new_space, BoxSpace)
     new_space = cast(BoxSpace, new_space)
     assert new_space.shape == true_shape
-    np.testing.assert_array_equal(new_space.low, np.full(true_shape, 0))
-    np.testing.assert_array_equal(new_space.high, np.full(true_shape, 1))
+    if enable_norm:
+        np.testing.assert_array_equal(new_space.low, np.full(true_shape, 0))
+        np.testing.assert_array_equal(new_space.high, np.full(true_shape, 1))
+    else:
+        np.testing.assert_array_equal(new_space.low, np.full(true_shape, 0))
+        np.testing.assert_array_equal(new_space.high, np.full(true_shape, 255))
 
-    # decode
+    # --- decode
     image = np.ones(env_img_shape).astype(np.float32)  # image
-    true_state = np.ones(true_shape).astype(np.float32) / 255
+    if enable_norm:
+        true_state = np.ones(true_shape).astype(np.float32) / 255
+    else:
+        true_state = np.ones(true_shape).astype(np.uint8)
     new_obs = cast(np.ndarray, processor.preprocess_observation(image, env))
     assert true_state.shape == new_obs.shape
     if check_val:
@@ -68,58 +79,54 @@ def test_image_atari():
     pytest.importorskip("cv2")
     pytest.importorskip("ale_py")
 
-    tester = TestProcessor()
     processor = ImageProcessor(
-        image_type=EnvTypes.GRAY_2ch,
+        image_type=SpaceTypes.GRAY_2ch,
         resize=(84, 84),
         enable_norm=True,
     )
-    env_name = "ALE/Tetris-v5"
-    in_image = np.ones((210, 160, 3)).astype(np.float32)
+    env = srl.make_env("ALE/Tetris-v5")
+    env.reset()
+    in_image = np.ones((210, 160, 3))
     out_image = np.ones((84, 84)).astype(np.float32) / 255
 
-    tester.run(processor, env_name)
-    tester.preprocess_observation_space(
-        processor,
-        env_name,
-        EnvTypes.GRAY_2ch,
-        BoxSpace((84, 84), 0, 1),
-    )
-    tester.preprocess_observation(
-        processor,
-        env_name,
-        in_observation=in_image,
-        out_observation=out_image,
-    )
+    assert in_image.shape == env.state.shape
+
+    # --- space
+    new_space = processor.preprocess_observation_space(env.observation_space, env, DummyRLConfig())
+    assert new_space.stype == SpaceTypes.GRAY_2ch
+    assert new_space.dtype == np.float32
+    assert isinstance(new_space, BoxSpace)
+    assert new_space.shape == out_image.shape
+
+    # --- decode
+    new_state = processor.preprocess_observation(env.state, env)
+    assert isinstance(new_state, np.ndarray)
+    assert new_state.shape == out_image.shape
 
 
 def test_trimming():
     pytest.importorskip("cv2")
 
-    space = BoxSpace(low=0, high=255, shape=(210, 160, 3))
+    space = BoxSpace(low=0, high=255, shape=(210, 160, 3), stype=SpaceTypes.COLOR)
 
     processor = ImageProcessor(
-        image_type=EnvTypes.GRAY_2ch,
+        image_type=SpaceTypes.GRAY_2ch,
         trimming=(10, 10, 20, 20),
     )
     env = srl.make_env("Grid")
 
-    # change info
-    new_space, new_type = processor.preprocess_observation_space(
-        space,
-        EnvTypes.COLOR,
-        env,
-        DummyRLConfig(),
-    )
-    assert new_type == EnvTypes.GRAY_2ch
+    # --- space
+    new_space = processor.preprocess_observation_space(space, env, DummyRLConfig())
+    assert new_space.stype == SpaceTypes.GRAY_2ch
     assert isinstance(new_space, BoxSpace)
     new_space = cast(BoxSpace, new_space)
     assert new_space.shape == (10, 10)
     np.testing.assert_array_equal(new_space.low, np.full((10, 10), 0))
     np.testing.assert_array_equal(new_space.high, np.full((10, 10), 255))
 
-    # decode
+    # --- decode
     image = np.ones((210, 160, 3)).astype(np.uint8)  # image
     true_state = np.ones((10, 10)).astype(np.float32) / 255
-    new_obs = cast(np.ndarray, processor.preprocess_observation(image, env))
-    assert true_state.shape == new_obs.shape
+    new_state = processor.preprocess_observation(image, env)
+    assert isinstance(new_state, np.ndarray)
+    assert true_state.shape == new_state.shape

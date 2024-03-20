@@ -9,9 +9,10 @@ from srl.base.env import registration as env_registration
 from srl.base.env.config import EnvConfig
 from srl.base.rl import registration as rl_registration
 from srl.base.rl.algorithms.env_worker import EnvWorker
-from srl.base.rl.base import RLWorker
+from srl.base.rl.worker import RLWorker
 from srl.base.run.context import RunContext
 from srl.envs import grid
+from srl.utils import common
 
 
 class NotJsonClass:
@@ -21,6 +22,7 @@ class NotJsonClass:
 
 def test_to_dict():
     pytest.importorskip("tensorflow")
+    common.logger_print()
 
     env_config = EnvConfig("Grid")
     rl_config = ql.Config()

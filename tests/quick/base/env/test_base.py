@@ -4,7 +4,7 @@ from typing import cast
 import pytest
 
 import srl
-from srl.base.define import EnvTypes
+from srl.base.define import SpaceTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvBase
 from srl.base.spaces.discrete import DiscreteSpace
@@ -20,8 +20,8 @@ class StubEnv(EnvBase):
         return DiscreteSpace(4)
 
     @property
-    def observation_type(self) -> EnvTypes:
-        return EnvTypes.DISCRETE
+    def observation_type(self) -> SpaceTypes:
+        return SpaceTypes.DISCRETE
 
     @property
     def max_episode_steps(self) -> int:

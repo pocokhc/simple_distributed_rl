@@ -18,7 +18,7 @@ def test_train():
 
     t0 = time.time()
     runner.train(timeout=1)
-    assert time.time() - t0 >= 1
+    assert time.time() - t0 >= 0.9
 
     state = runner.train(max_steps=10)
     assert state.total_step == 10

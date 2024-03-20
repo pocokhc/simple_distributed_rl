@@ -2,7 +2,7 @@ from typing import Tuple
 
 import pytest
 
-from srl.base.define import RLTypes
+from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -11,11 +11,11 @@ from tests.algorithms_.common_quick_case import CommonQuickCase
 class QuickCase(CommonQuickCase):
     @pytest.fixture(
         params=[
-            [RLTypes.DISCRETE, "MC", "", ""],
-            [RLTypes.DISCRETE, "MC", "ave", "clip"],
-            [RLTypes.DISCRETE, "GAE", "std", "kl"],
-            [RLTypes.CONTINUOUS, "GAE", "normal", "kl"],
-            [RLTypes.CONTINUOUS, "MC", "advantage", "clip"],
+            [SpaceTypes.DISCRETE, "MC", "", ""],
+            [SpaceTypes.DISCRETE, "MC", "ave", "clip"],
+            [SpaceTypes.DISCRETE, "GAE", "std", "kl"],
+            [SpaceTypes.CONTINUOUS, "GAE", "normal", "kl"],
+            [SpaceTypes.CONTINUOUS, "MC", "advantage", "clip"],
         ]
     )
     def rl_param(self, request):
@@ -52,10 +52,10 @@ class BaseCase(CommonBaseCase):
             enable_value_clip=False,
             enable_state_normalized=False,
         )
-        rl_config.lr.set_constant(0.005)
-        rl_config.hidden_block.set_mlp((64, 64))
-        rl_config.value_block.set_mlp(())
-        rl_config.policy_block.set_mlp(())
+        rl_config.lr = 0.005
+        rl_config.hidden_block.set((64, 64))
+        rl_config.value_block.set(())
+        rl_config.policy_block.set(())
         rl_config.memory.capacity = 1000
         rl_config.memory.warmup_size = 1000
         return rl_config
@@ -111,14 +111,14 @@ class BaseCase(CommonBaseCase):
     def test_EasyGrid_continue(self):
         self.check_skip()
         rl_config = self._create_rl_config()
-        rl_config.lr.set_constant(0.001)
+        rl_config.lr = 0.001
         rl_config.experience_collection_method = "GAE"
         rl_config.baseline_type = ""
         rl_config.surrogate_type = "clip"
         rl_config.enable_value_clip = False
         rl_config.enable_state_normalized = False
         rl_config.entropy_weight = 1.0
-        rl_config.override_action_type = RLTypes.CONTINUOUS
+        rl_config.override_action_type = SpaceTypes.CONTINUOUS
         runner, tester = self.create_runner("EasyGrid", rl_config)
         runner.train(max_train_count=40000)
         tester.eval(runner)

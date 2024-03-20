@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Agent57 &mdash; SimpleDistributedRL 0.14.0.2 ドキュメント</title>
+  <title>Agent57 &mdash; SimpleDistributedRL 0.14.1.6 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
 
@@ -15,15 +15,15 @@
   
         <script src="../../_static/jquery.js?v=5d32c60e"></script>
         <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=5c722782"></script>
+        <script src="../../_static/documentation_options.js?v=d1d6777c"></script>
         <script src="../../_static/doctools.js?v=888ff710"></script>
         <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../../_static/translations.js?v=4dbe4bdc"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="索引" href="../../genindex.html" />
     <link rel="search" title="検索" href="../../search.html" />
-    <link rel="next" title="PPO(Proximal Policy Optimization)" href="ppo.html" />
-    <link rel="prev" title="Deep Q-Networks" href="dqn.html" /> 
+    <link rel="next" title="Agent57 light" href="agent57_light.html" />
+    <link rel="prev" title="Rainbow" href="rainbow.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -69,51 +69,54 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rainbow.html">Rainbow</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Agent57</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#srl.algorithms.agent57.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.test_epsilon"><code class="docutils literal notranslate"><span class="pre">Config.test_epsilon</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.test_beta"><code class="docutils literal notranslate"><span class="pre">Config.test_beta</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.framework"><code class="docutils literal notranslate"><span class="pre">Config.framework</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.image_block"><code class="docutils literal notranslate"><span class="pre">Config.image_block</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.lstm_units"><code class="docutils literal notranslate"><span class="pre">Config.lstm_units</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.dueling_network"><code class="docutils literal notranslate"><span class="pre">Config.dueling_network</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.lr_ext"><code class="docutils literal notranslate"><span class="pre">Config.lr_ext</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.lr_int"><code class="docutils literal notranslate"><span class="pre">Config.lr_int</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.target_model_update_interval"><code class="docutils literal notranslate"><span class="pre">Config.target_model_update_interval</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.burnin"><code class="docutils literal notranslate"><span class="pre">Config.burnin</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.sequence_length"><code class="docutils literal notranslate"><span class="pre">Config.sequence_length</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.retrace_h"><code class="docutils literal notranslate"><span class="pre">Config.retrace_h</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.enable_double_dqn"><code class="docutils literal notranslate"><span class="pre">Config.enable_double_dqn</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.enable_rescale"><code class="docutils literal notranslate"><span class="pre">Config.enable_rescale</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.actor_num"><code class="docutils literal notranslate"><span class="pre">Config.actor_num</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.ucb_window_size"><code class="docutils literal notranslate"><span class="pre">Config.ucb_window_size</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.ucb_epsilon"><code class="docutils literal notranslate"><span class="pre">Config.ucb_epsilon</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.ucb_beta"><code class="docutils literal notranslate"><span class="pre">Config.ucb_beta</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.enable_intrinsic_reward"><code class="docutils literal notranslate"><span class="pre">Config.enable_intrinsic_reward</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.episodic_lr"><code class="docutils literal notranslate"><span class="pre">Config.episodic_lr</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.episodic_count_max"><code class="docutils literal notranslate"><span class="pre">Config.episodic_count_max</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.episodic_epsilon"><code class="docutils literal notranslate"><span class="pre">Config.episodic_epsilon</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.episodic_cluster_distance"><code class="docutils literal notranslate"><span class="pre">Config.episodic_cluster_distance</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.episodic_memory_capacity"><code class="docutils literal notranslate"><span class="pre">Config.episodic_memory_capacity</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.episodic_pseudo_counts"><code class="docutils literal notranslate"><span class="pre">Config.episodic_pseudo_counts</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.episodic_emb_block"><code class="docutils literal notranslate"><span class="pre">Config.episodic_emb_block</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.episodic_out_block"><code class="docutils literal notranslate"><span class="pre">Config.episodic_out_block</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.lifelong_lr"><code class="docutils literal notranslate"><span class="pre">Config.lifelong_lr</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.lifelong_max"><code class="docutils literal notranslate"><span class="pre">Config.lifelong_max</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.lifelong_hidden_block"><code class="docutils literal notranslate"><span class="pre">Config.lifelong_hidden_block</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.input_ext_reward"><code class="docutils literal notranslate"><span class="pre">Config.input_ext_reward</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.input_int_reward"><code class="docutils literal notranslate"><span class="pre">Config.input_int_reward</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.input_action"><code class="docutils literal notranslate"><span class="pre">Config.input_action</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.disable_int_priority"><code class="docutils literal notranslate"><span class="pre">Config.disable_int_priority</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.dummy_state_val"><code class="docutils literal notranslate"><span class="pre">Config.dummy_state_val</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.Config.set_atari_config"><code class="docutils literal notranslate"><span class="pre">Config.set_atari_config()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.test_epsilon"><code class="docutils literal notranslate"><span class="pre">Config.test_epsilon</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.test_beta"><code class="docutils literal notranslate"><span class="pre">Config.test_beta</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.lstm_units"><code class="docutils literal notranslate"><span class="pre">Config.lstm_units</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.hidden_block"><code class="docutils literal notranslate"><span class="pre">Config.hidden_block</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.lr_ext"><code class="docutils literal notranslate"><span class="pre">Config.lr_ext</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.lr_int"><code class="docutils literal notranslate"><span class="pre">Config.lr_int</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.target_model_update_interval"><code class="docutils literal notranslate"><span class="pre">Config.target_model_update_interval</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.burnin"><code class="docutils literal notranslate"><span class="pre">Config.burnin</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.sequence_length"><code class="docutils literal notranslate"><span class="pre">Config.sequence_length</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.retrace_h"><code class="docutils literal notranslate"><span class="pre">Config.retrace_h</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.enable_double_dqn"><code class="docutils literal notranslate"><span class="pre">Config.enable_double_dqn</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.enable_rescale"><code class="docutils literal notranslate"><span class="pre">Config.enable_rescale</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.actor_num"><code class="docutils literal notranslate"><span class="pre">Config.actor_num</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.ucb_window_size"><code class="docutils literal notranslate"><span class="pre">Config.ucb_window_size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.ucb_epsilon"><code class="docutils literal notranslate"><span class="pre">Config.ucb_epsilon</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.ucb_beta"><code class="docutils literal notranslate"><span class="pre">Config.ucb_beta</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.enable_intrinsic_reward"><code class="docutils literal notranslate"><span class="pre">Config.enable_intrinsic_reward</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.episodic_lr"><code class="docutils literal notranslate"><span class="pre">Config.episodic_lr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.episodic_count_max"><code class="docutils literal notranslate"><span class="pre">Config.episodic_count_max</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.episodic_epsilon"><code class="docutils literal notranslate"><span class="pre">Config.episodic_epsilon</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.episodic_cluster_distance"><code class="docutils literal notranslate"><span class="pre">Config.episodic_cluster_distance</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.episodic_memory_capacity"><code class="docutils literal notranslate"><span class="pre">Config.episodic_memory_capacity</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.episodic_pseudo_counts"><code class="docutils literal notranslate"><span class="pre">Config.episodic_pseudo_counts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.episodic_emb_block"><code class="docutils literal notranslate"><span class="pre">Config.episodic_emb_block</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.episodic_out_block"><code class="docutils literal notranslate"><span class="pre">Config.episodic_out_block</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.lifelong_lr"><code class="docutils literal notranslate"><span class="pre">Config.lifelong_lr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.lifelong_max"><code class="docutils literal notranslate"><span class="pre">Config.lifelong_max</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.lifelong_hidden_block"><code class="docutils literal notranslate"><span class="pre">Config.lifelong_hidden_block</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.input_ext_reward"><code class="docutils literal notranslate"><span class="pre">Config.input_ext_reward</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.input_int_reward"><code class="docutils literal notranslate"><span class="pre">Config.input_int_reward</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.input_action"><code class="docutils literal notranslate"><span class="pre">Config.input_action</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.disable_int_priority"><code class="docutils literal notranslate"><span class="pre">Config.disable_int_priority</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.dummy_state_val"><code class="docutils literal notranslate"><span class="pre">Config.dummy_state_val</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.agent57.agent57.Config.set_atari_config"><code class="docutils literal notranslate"><span class="pre">Config.set_atari_config()</span></code></a></li>
 </ul>
 </li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="agent57_light.html">Agent57 light</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ppo.html">PPO(Proximal Policy Optimization)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mcts.html">Monte Carlo tree search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="alphazero.html">AlphaZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="muzero.html">MuZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dreamer_v3.html">DreamerV3</a></li>
 </ul>
 
@@ -144,222 +147,211 @@
   <section id="agent57">
 <h1>Agent57<a class="headerlink" href="#agent57" title="Link to this heading"></a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.algorithms.agent57.</span></span><span class="sig-name descname"><span class="pre">Config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_env_observation_type:</span> <span class="pre">~srl.base.define.EnvObservationTypes</span> <span class="pre">=</span> <span class="pre">EnvObservationTypes.UNKNOWN</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_action_type:</span> <span class="pre">~srl.base.define.RLTypes</span> <span class="pre">=</span> <span class="pre">RLTypes.UNKNOWN</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observation_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extend_worker:</span> <span class="pre">~typing.Type[ExtendWorker]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameter_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_rl_processor:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_render_image_for_observation:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">processors:</span> <span class="pre">~typing.List[~srl.base.rl.processor.Processor]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_state_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_action_decode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_reward_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_done_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dummy_state_val:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_sanitize_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_assertion_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_beta:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lstm_units:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">512</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr_ext:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr_int:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_model_update_interval:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burnin:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sequence_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">retrace_h:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_double_dqn:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_rescale:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">actor_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ucb_window_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">3600</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ucb_epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ucb_beta:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_intrinsic_reward:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">episodic_lr:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0005</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">episodic_count_max:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">episodic_epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">episodic_cluster_distance:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.008</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">episodic_memory_capacity:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">30000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">episodic_pseudo_counts:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lifelong_lr:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0005</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lifelong_max:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_ext_reward:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_int_reward:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_action:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disable_int_priority:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.algorithms.agent57.Config" title="Link to this definition"></a></dt>
-<dd><p>&lt;<a class="reference internal" href="../rl_config_memory.html#priorityexperiencereplay"><span class="std std-ref">PriorityExperienceReplay</span></a>&gt;</p>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.algorithms.agent57.agent57.</span></span><span class="sig-name descname"><span class="pre">Config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">framework:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observation_mode:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">~srl.base.define.ObservationModes</span> <span class="pre">=</span> <span class="pre">ObservationModes.ENV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_observation_type:</span> <span class="pre">~srl.base.define.SpaceTypes</span> <span class="pre">=</span> <span class="pre">SpaceTypes.UNKNOWN</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_action_type:</span> <span class="pre">~srl.base.define.SpaceTypes</span> <span class="pre">=</span> <span class="pre">SpaceTypes.UNKNOWN</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observation_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extend_worker:</span> <span class="pre">~typing.Type[ExtendWorker]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameter_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_rl_processor:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">processors:</span> <span class="pre">~typing.List[ObservationProcessor</span> <span class="pre">|</span> <span class="pre">EpisodeProcessor]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_state_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_action_decode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_reward_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_done_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_sanitize:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_assertion:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_beta:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lstm_units:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">512</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr_ext:</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">~srl.rl.schedulers.scheduler.SchedulerConfig</span> <span class="pre">=</span> <span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr_int:</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">~srl.rl.schedulers.scheduler.SchedulerConfig</span> <span class="pre">=</span> <span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_model_update_interval:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burnin:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sequence_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">retrace_h:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_double_dqn:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_rescale:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">actor_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ucb_window_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">3600</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ucb_epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ucb_beta:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_intrinsic_reward:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">episodic_lr:</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">~srl.rl.schedulers.scheduler.SchedulerConfig</span> <span class="pre">=</span> <span class="pre">0.0005</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">episodic_count_max:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">episodic_epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">episodic_cluster_distance:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.008</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">episodic_memory_capacity:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">30000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">episodic_pseudo_counts:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lifelong_lr:</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">~srl.rl.schedulers.scheduler.SchedulerConfig</span> <span class="pre">=</span> <span class="pre">0.0005</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lifelong_max:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_ext_reward:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_int_reward:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_action:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disable_int_priority:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dummy_state_val:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config" title="Link to this definition"></a></dt>
+<dd><p>&lt;<span class="xref std std-ref">RLConfigComponentPriorityExperienceReplay</span>&gt;
+&lt;<span class="xref std std-ref">RLConfigComponentFramework</span>&gt;</p>
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.test_epsilon">
-<span class="sig-name descname"><span class="pre">test_epsilon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.test_epsilon" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.test_epsilon">
+<span class="sig-name descname"><span class="pre">test_epsilon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.test_epsilon" title="Link to this definition"></a></dt>
 <dd><p>ε-greedy parameter for Test</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.test_beta">
-<span class="sig-name descname"><span class="pre">test_beta</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.test_beta" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.test_beta">
+<span class="sig-name descname"><span class="pre">test_beta</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.test_beta" title="Link to this definition"></a></dt>
 <dd><p>intrinsic reward rate for Test</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.framework">
-<span class="sig-name descname"><span class="pre">framework</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_model.html#srl.rl.models.framework_config.FrameworkConfig" title="srl.rl.models.framework_config.FrameworkConfig"><span class="pre">FrameworkConfig</span></a></em><a class="headerlink" href="#srl.algorithms.agent57.Config.framework" title="Link to this definition"></a></dt>
-<dd><p>&lt;<a class="reference internal" href="../rl_config_model.html#framework"><span class="std std-ref">Framework</span></a>&gt;</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.image_block">
-<span class="sig-name descname"><span class="pre">image_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_model.html#srl.rl.models.image_block.ImageBlockConfig" title="srl.rl.models.image_block.ImageBlockConfig"><span class="pre">ImageBlockConfig</span></a></em><a class="headerlink" href="#srl.algorithms.agent57.Config.image_block" title="Link to this definition"></a></dt>
-<dd><p>&lt;<a class="reference internal" href="../rl_config_model.html#imageblock"><span class="std std-ref">ImageBlock</span></a>&gt; This layer is only used when the input is an image.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.lstm_units">
-<span class="sig-name descname"><span class="pre">lstm_units</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">512</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.lstm_units" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.lstm_units">
+<span class="sig-name descname"><span class="pre">lstm_units</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">512</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.lstm_units" title="Link to this definition"></a></dt>
 <dd><p>Lstm units</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.dueling_network">
-<span class="sig-name descname"><span class="pre">dueling_network</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_model.html#srl.rl.models.dueling_network.DuelingNetworkConfig" title="srl.rl.models.dueling_network.DuelingNetworkConfig"><span class="pre">DuelingNetworkConfig</span></a></em><a class="headerlink" href="#srl.algorithms.agent57.Config.dueling_network" title="Link to this definition"></a></dt>
-<dd><p>&lt;<a class="reference internal" href="../rl_config_model.html#duelingnetwork"><span class="std std-ref">DuelingNetwork</span></a>&gt; hidden layer</p>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.hidden_block">
+<span class="sig-name descname"><span class="pre">hidden_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">MLPBlockConfig</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.hidden_block" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_model.html#mlpblock"><span class="std std-ref">MLPBlock</span></a>&gt; hidden layer</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.lr_ext">
-<span class="sig-name descname"><span class="pre">lr_ext</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0001</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.lr_ext" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.lr_ext">
+<span class="sig-name descname"><span class="pre">lr_ext</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig" title="srl.rl.schedulers.scheduler.SchedulerConfig"><span class="pre">SchedulerConfig</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0001</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.lr_ext" title="Link to this definition"></a></dt>
 <dd><p>&lt;<a class="reference internal" href="../rl_config_scheduler.html#scheduler"><span class="std std-ref">Scheduler</span></a>&gt; Learning rate</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.lr_int">
-<span class="sig-name descname"><span class="pre">lr_int</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0001</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.lr_int" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.lr_int">
+<span class="sig-name descname"><span class="pre">lr_int</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig" title="srl.rl.schedulers.scheduler.SchedulerConfig"><span class="pre">SchedulerConfig</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0001</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.lr_int" title="Link to this definition"></a></dt>
 <dd><p>&lt;<a class="reference internal" href="../rl_config_scheduler.html#scheduler"><span class="std std-ref">Scheduler</span></a>&gt; Intrinsic network Learning rate</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.target_model_update_interval">
-<span class="sig-name descname"><span class="pre">target_model_update_interval</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1500</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.target_model_update_interval" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.target_model_update_interval">
+<span class="sig-name descname"><span class="pre">target_model_update_interval</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1500</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.target_model_update_interval" title="Link to this definition"></a></dt>
 <dd><p>Synchronization interval to Target network</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.burnin">
-<span class="sig-name descname"><span class="pre">burnin</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.burnin" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.burnin">
+<span class="sig-name descname"><span class="pre">burnin</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.burnin" title="Link to this definition"></a></dt>
 <dd><p>Burn-in steps</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.sequence_length">
-<span class="sig-name descname"><span class="pre">sequence_length</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.sequence_length" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.sequence_length">
+<span class="sig-name descname"><span class="pre">sequence_length</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.sequence_length" title="Link to this definition"></a></dt>
 <dd><p>LSTM input length</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.retrace_h">
-<span class="sig-name descname"><span class="pre">retrace_h</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.retrace_h" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.retrace_h">
+<span class="sig-name descname"><span class="pre">retrace_h</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.retrace_h" title="Link to this definition"></a></dt>
 <dd><p>retrace parameter h</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.enable_double_dqn">
-<span class="sig-name descname"><span class="pre">enable_double_dqn</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.enable_double_dqn" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.enable_double_dqn">
+<span class="sig-name descname"><span class="pre">enable_double_dqn</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.enable_double_dqn" title="Link to this definition"></a></dt>
 <dd><p>enable DoubleDQN</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.enable_rescale">
-<span class="sig-name descname"><span class="pre">enable_rescale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.enable_rescale" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.enable_rescale">
+<span class="sig-name descname"><span class="pre">enable_rescale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.enable_rescale" title="Link to this definition"></a></dt>
 <dd><p>enable rescaling</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.actor_num">
-<span class="sig-name descname"><span class="pre">actor_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.actor_num" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.actor_num">
+<span class="sig-name descname"><span class="pre">actor_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.actor_num" title="Link to this definition"></a></dt>
 <dd><p>[sliding-window UCB] actor num</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.ucb_window_size">
-<span class="sig-name descname"><span class="pre">ucb_window_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3600</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.ucb_window_size" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.ucb_window_size">
+<span class="sig-name descname"><span class="pre">ucb_window_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3600</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.ucb_window_size" title="Link to this definition"></a></dt>
 <dd><p>[sliding-window UCB] UCBで使う直近のエピソード数</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.ucb_epsilon">
-<span class="sig-name descname"><span class="pre">ucb_epsilon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.01</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.ucb_epsilon" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.ucb_epsilon">
+<span class="sig-name descname"><span class="pre">ucb_epsilon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.01</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.ucb_epsilon" title="Link to this definition"></a></dt>
 <dd><p>[sliding-window UCB] UCBを使う確率</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.ucb_beta">
-<span class="sig-name descname"><span class="pre">ucb_beta</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.ucb_beta" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.ucb_beta">
+<span class="sig-name descname"><span class="pre">ucb_beta</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.ucb_beta" title="Link to this definition"></a></dt>
 <dd><p>[sliding-window UCB] UCB β</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.enable_intrinsic_reward">
-<span class="sig-name descname"><span class="pre">enable_intrinsic_reward</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.enable_intrinsic_reward" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.enable_intrinsic_reward">
+<span class="sig-name descname"><span class="pre">enable_intrinsic_reward</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.enable_intrinsic_reward" title="Link to this definition"></a></dt>
 <dd><p>enable intrinsic reward</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.episodic_lr">
-<span class="sig-name descname"><span class="pre">episodic_lr</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0005</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.episodic_lr" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.episodic_lr">
+<span class="sig-name descname"><span class="pre">episodic_lr</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig" title="srl.rl.schedulers.scheduler.SchedulerConfig"><span class="pre">SchedulerConfig</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0005</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.episodic_lr" title="Link to this definition"></a></dt>
 <dd><p>&lt;<a class="reference internal" href="../rl_config_scheduler.html#scheduler"><span class="std std-ref">Scheduler</span></a>&gt; Episodic Learning rate</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.episodic_count_max">
-<span class="sig-name descname"><span class="pre">episodic_count_max</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.episodic_count_max" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.episodic_count_max">
+<span class="sig-name descname"><span class="pre">episodic_count_max</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.episodic_count_max" title="Link to this definition"></a></dt>
 <dd><p>[episodic] k</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.episodic_epsilon">
-<span class="sig-name descname"><span class="pre">episodic_epsilon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.001</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.episodic_epsilon" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.episodic_epsilon">
+<span class="sig-name descname"><span class="pre">episodic_epsilon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.001</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.episodic_epsilon" title="Link to this definition"></a></dt>
 <dd><p>[episodic] epsilon</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.episodic_cluster_distance">
-<span class="sig-name descname"><span class="pre">episodic_cluster_distance</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.008</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.episodic_cluster_distance" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.episodic_cluster_distance">
+<span class="sig-name descname"><span class="pre">episodic_cluster_distance</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.008</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.episodic_cluster_distance" title="Link to this definition"></a></dt>
 <dd><p>[episodic] cluster_distance</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.episodic_memory_capacity">
-<span class="sig-name descname"><span class="pre">episodic_memory_capacity</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">30000</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.episodic_memory_capacity" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.episodic_memory_capacity">
+<span class="sig-name descname"><span class="pre">episodic_memory_capacity</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">30000</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.episodic_memory_capacity" title="Link to this definition"></a></dt>
 <dd><p>[episodic] capacity</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.episodic_pseudo_counts">
-<span class="sig-name descname"><span class="pre">episodic_pseudo_counts</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.1</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.episodic_pseudo_counts" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.episodic_pseudo_counts">
+<span class="sig-name descname"><span class="pre">episodic_pseudo_counts</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.1</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.episodic_pseudo_counts" title="Link to this definition"></a></dt>
 <dd><p>[episodic] 疑似カウント定数(c)</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.episodic_emb_block">
-<span class="sig-name descname"><span class="pre">episodic_emb_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_model.html#srl.rl.models.mlp_block.MLPBlockConfig" title="srl.rl.models.mlp_block.MLPBlockConfig"><span class="pre">MLPBlockConfig</span></a></em><a class="headerlink" href="#srl.algorithms.agent57.Config.episodic_emb_block" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.episodic_emb_block">
+<span class="sig-name descname"><span class="pre">episodic_emb_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">MLPBlockConfig</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.episodic_emb_block" title="Link to this definition"></a></dt>
 <dd><p>&lt;<a class="reference internal" href="../rl_config_model.html#mlpblock"><span class="std std-ref">MLPBlock</span></a>&gt; [episodic] emb block</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.episodic_out_block">
-<span class="sig-name descname"><span class="pre">episodic_out_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_model.html#srl.rl.models.mlp_block.MLPBlockConfig" title="srl.rl.models.mlp_block.MLPBlockConfig"><span class="pre">MLPBlockConfig</span></a></em><a class="headerlink" href="#srl.algorithms.agent57.Config.episodic_out_block" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.episodic_out_block">
+<span class="sig-name descname"><span class="pre">episodic_out_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">MLPBlockConfig</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.episodic_out_block" title="Link to this definition"></a></dt>
 <dd><p>&lt;<a class="reference internal" href="../rl_config_model.html#mlpblock"><span class="std std-ref">MLPBlock</span></a>&gt; [episodic] out block</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.lifelong_lr">
-<span class="sig-name descname"><span class="pre">lifelong_lr</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0005</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.lifelong_lr" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.lifelong_lr">
+<span class="sig-name descname"><span class="pre">lifelong_lr</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig" title="srl.rl.schedulers.scheduler.SchedulerConfig"><span class="pre">SchedulerConfig</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0005</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.lifelong_lr" title="Link to this definition"></a></dt>
 <dd><p>&lt;<a class="reference internal" href="../rl_config_scheduler.html#scheduler"><span class="std std-ref">Scheduler</span></a>&gt; Lifelong Learning rate</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.lifelong_max">
-<span class="sig-name descname"><span class="pre">lifelong_max</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5.0</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.lifelong_max" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.lifelong_max">
+<span class="sig-name descname"><span class="pre">lifelong_max</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5.0</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.lifelong_max" title="Link to this definition"></a></dt>
 <dd><p>[lifelong] L</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.lifelong_hidden_block">
-<span class="sig-name descname"><span class="pre">lifelong_hidden_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_model.html#srl.rl.models.mlp_block.MLPBlockConfig" title="srl.rl.models.mlp_block.MLPBlockConfig"><span class="pre">MLPBlockConfig</span></a></em><a class="headerlink" href="#srl.algorithms.agent57.Config.lifelong_hidden_block" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.lifelong_hidden_block">
+<span class="sig-name descname"><span class="pre">lifelong_hidden_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">MLPBlockConfig</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.lifelong_hidden_block" title="Link to this definition"></a></dt>
 <dd><p>&lt;<a class="reference internal" href="../rl_config_model.html#mlpblock"><span class="std std-ref">MLPBlock</span></a>&gt; [lifelong] hidden block</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.input_ext_reward">
-<span class="sig-name descname"><span class="pre">input_ext_reward</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.input_ext_reward" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.input_ext_reward">
+<span class="sig-name descname"><span class="pre">input_ext_reward</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.input_ext_reward" title="Link to this definition"></a></dt>
 <dd><p>[UVFA] input ext reward</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.input_int_reward">
-<span class="sig-name descname"><span class="pre">input_int_reward</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.input_int_reward" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.input_int_reward">
+<span class="sig-name descname"><span class="pre">input_int_reward</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.input_int_reward" title="Link to this definition"></a></dt>
 <dd><p>[UVFA] input int reward</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.input_action">
-<span class="sig-name descname"><span class="pre">input_action</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.input_action" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.input_action">
+<span class="sig-name descname"><span class="pre">input_action</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.input_action" title="Link to this definition"></a></dt>
 <dd><p>[UVFA] input action</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.disable_int_priority">
-<span class="sig-name descname"><span class="pre">disable_int_priority</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.disable_int_priority" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.disable_int_priority">
+<span class="sig-name descname"><span class="pre">disable_int_priority</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.disable_int_priority" title="Link to this definition"></a></dt>
 <dd><p>Not use internal rewards to calculate priority</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.dummy_state_val">
-<span class="sig-name descname"><span class="pre">dummy_state_val</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#srl.algorithms.agent57.Config.dummy_state_val" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.dummy_state_val">
+<span class="sig-name descname"><span class="pre">dummy_state_val</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.dummy_state_val" title="Link to this definition"></a></dt>
 <dd><p>dummy_state_val</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="srl.algorithms.agent57.Config.set_atari_config">
-<span class="sig-name descname"><span class="pre">set_atari_config</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#srl.algorithms.agent57.Config.set_atari_config" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.algorithms.agent57.agent57.Config.set_atari_config">
+<span class="sig-name descname"><span class="pre">set_atari_config</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#srl.algorithms.agent57.agent57.Config.set_atari_config" title="Link to this definition"></a></dt>
 <dd><p>Set the Atari parameters written in the paper.</p>
 </dd></dl>
 
@@ -371,14 +363,14 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="dqn.html" class="btn btn-neutral float-left" title="Deep Q-Networks" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="ppo.html" class="btn btn-neutral float-right" title="PPO(Proximal Policy Optimization)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="rainbow.html" class="btn btn-neutral float-left" title="Rainbow" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="agent57_light.html" class="btn btn-neutral float-right" title="Agent57 light" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2022, poco_cpp.</p>
+    <p>&#169; Copyright 2022, poco.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

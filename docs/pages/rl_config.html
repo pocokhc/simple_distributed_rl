@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RLConfig &mdash; SimpleDistributedRL 0.14.0.2 ドキュメント</title>
+  <title>RLConfig &mdash; SimpleDistributedRL 0.14.1.6 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=5c722782"></script>
+        <script src="../_static/documentation_options.js?v=d1d6777c"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -62,7 +62,8 @@
 <li class="toctree-l1"><a class="reference internal" href="env_config.html">EnvConfig</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">RLConfig</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#srl.base.rl.config.RLConfig"><code class="docutils literal notranslate"><span class="pre">RLConfig</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.override_env_observation_type"><code class="docutils literal notranslate"><span class="pre">RLConfig.override_env_observation_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.observation_mode"><code class="docutils literal notranslate"><span class="pre">RLConfig.observation_mode</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.override_observation_type"><code class="docutils literal notranslate"><span class="pre">RLConfig.override_observation_type</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.override_action_type"><code class="docutils literal notranslate"><span class="pre">RLConfig.override_action_type</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.action_division_num"><code class="docutils literal notranslate"><span class="pre">RLConfig.action_division_num</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.observation_division_num"><code class="docutils literal notranslate"><span class="pre">RLConfig.observation_division_num</span></code></a></li>
@@ -70,16 +71,15 @@
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.parameter_path"><code class="docutils literal notranslate"><span class="pre">RLConfig.parameter_path</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.memory_path"><code class="docutils literal notranslate"><span class="pre">RLConfig.memory_path</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.use_rl_processor"><code class="docutils literal notranslate"><span class="pre">RLConfig.use_rl_processor</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.use_render_image_for_observation"><code class="docutils literal notranslate"><span class="pre">RLConfig.use_render_image_for_observation</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.processors"><code class="docutils literal notranslate"><span class="pre">RLConfig.processors</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.enable_state_encode"><code class="docutils literal notranslate"><span class="pre">RLConfig.enable_state_encode</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.enable_action_decode"><code class="docutils literal notranslate"><span class="pre">RLConfig.enable_action_decode</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.enable_reward_encode"><code class="docutils literal notranslate"><span class="pre">RLConfig.enable_reward_encode</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.enable_done_encode"><code class="docutils literal notranslate"><span class="pre">RLConfig.enable_done_encode</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.window_length"><code class="docutils literal notranslate"><span class="pre">RLConfig.window_length</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.dummy_state_val"><code class="docutils literal notranslate"><span class="pre">RLConfig.dummy_state_val</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.enable_sanitize_value"><code class="docutils literal notranslate"><span class="pre">RLConfig.enable_sanitize_value</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.enable_assertion_value"><code class="docutils literal notranslate"><span class="pre">RLConfig.enable_assertion_value</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.memory_compress"><code class="docutils literal notranslate"><span class="pre">RLConfig.memory_compress</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.enable_sanitize"><code class="docutils literal notranslate"><span class="pre">RLConfig.enable_sanitize</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.enable_assertion"><code class="docutils literal notranslate"><span class="pre">RLConfig.enable_assertion</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -92,10 +92,15 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/rainbow.html">Rainbow</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/agent57_light.html">Agent57 light</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ppo.html">PPO(Proximal Policy Optimization)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/mcts.html">Monte Carlo tree search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/alphazero.html">AlphaZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/muzero.html">MuZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
 </ul>
 
@@ -127,21 +132,27 @@
 <span id="rl-config"></span><h1>RLConfig<a class="headerlink" href="#rlconfig" title="Link to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.base.rl.config.RLConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.base.rl.config.</span></span><span class="sig-name descname"><span class="pre">RLConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">override_env_observation_type:</span> <span class="pre">~srl.base.define.EnvObservationTypes</span> <span class="pre">=</span> <span class="pre">EnvObservationTypes.UNKNOWN</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_action_type:</span> <span class="pre">~srl.base.define.RLTypes</span> <span class="pre">=</span> <span class="pre">RLTypes.UNKNOWN</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observation_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extend_worker:</span> <span class="pre">~typing.Type[ExtendWorker]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameter_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_rl_processor:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_render_image_for_observation:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">processors:</span> <span class="pre">~typing.List[~srl.base.rl.processor.Processor]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_state_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_action_decode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_reward_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_done_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dummy_state_val:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_sanitize_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_assertion_value:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.base.rl.config.RLConfig" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.base.rl.config.</span></span><span class="sig-name descname"><span class="pre">RLConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">observation_mode:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">~srl.base.define.ObservationModes</span> <span class="pre">=</span> <span class="pre">ObservationModes.ENV</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_observation_type:</span> <span class="pre">~srl.base.define.SpaceTypes</span> <span class="pre">=</span> <span class="pre">SpaceTypes.UNKNOWN</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_action_type:</span> <span class="pre">~srl.base.define.SpaceTypes</span> <span class="pre">=</span> <span class="pre">SpaceTypes.UNKNOWN</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observation_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extend_worker:</span> <span class="pre">~typing.Type[ExtendWorker]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameter_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_rl_processor:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">processors:</span> <span class="pre">~typing.List[ObservationProcessor</span> <span class="pre">|</span> <span class="pre">EpisodeProcessor]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_state_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_action_decode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_reward_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_done_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_sanitize:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_assertion:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.base.rl.config.RLConfig" title="Link to this definition"></a></dt>
 <dd><p>RLConfig はアルゴリズムの動作を定義します。
 アルゴリズム毎に別々のハイパーパラメータがありますが、ここはアルゴリズム共通のパラメータの定義となります。</p>
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.override_env_observation_type">
-<span class="sig-name descname"><span class="pre">override_env_observation_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">EnvObservationTypes</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.override_env_observation_type" title="Link to this definition"></a></dt>
-<dd><p>env_observation_type を上書きできます。
+<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.observation_mode">
+<span class="sig-name descname"><span class="pre">observation_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ObservationModes</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.observation_mode" title="Link to this definition"></a></dt>
+<dd><p>状態の入力を指定、複数指定するとMultipleSpaceになる</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.override_observation_type">
+<span class="sig-name descname"><span class="pre">override_observation_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">SpaceTypes</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.override_observation_type" title="Link to this definition"></a></dt>
+<dd><p>env の observation_type を上書きできます。
 例えばgymの自動判定で想定外のTypeになった場合、ここで上書きできます。</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.override_action_type">
-<span class="sig-name descname"><span class="pre">override_action_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">RLTypes</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.override_action_type" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">override_action_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">SpaceTypes</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.override_action_type" title="Link to this definition"></a></dt>
 <dd><p>action_type を上書きできます。
-これはアルゴリズム側の base_action_type がANY(Discrete/Continuousどちらも対応できるアルゴリズム)の場合のみ有効になります。</p>
+これはアルゴリズム側の base_action_type がDiscrete/Continuousどちらも対応できるアルゴリズム)の場合のみ有効になります。</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -185,15 +196,8 @@ If -1, round by round transform.</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.use_render_image_for_observation">
-<span class="sig-name descname"><span class="pre">use_render_image_for_observation</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.use_render_image_for_observation" title="Link to this definition"></a></dt>
-<dd><p>状態の入力をrender_imageに変更します。環境からの状態は画像に上書きされます。
-Change state input to render_image. Existing settings will be overwritten.</p>
-</dd></dl>
-
-<dl class="py attribute">
 <dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.processors">
-<span class="sig-name descname"><span class="pre">processors</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Processor</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.processors" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">processors</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">ObservationProcessor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">EpisodeProcessor</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.processors" title="Link to this definition"></a></dt>
 <dd><p>Processorを使う場合、定義したProcessorのリスト</p>
 </dd></dl>
 
@@ -228,23 +232,23 @@ Change state input to render_image. Existing settings will be overwritten.</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.dummy_state_val">
-<span class="sig-name descname"><span class="pre">dummy_state_val</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.dummy_state_val" title="Link to this definition"></a></dt>
-<dd><p>window_length指定時の存在しないstepでの状態の値</p>
+<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.memory_compress">
+<span class="sig-name descname"><span class="pre">memory_compress</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.memory_compress" title="Link to this definition"></a></dt>
+<dd><p>memoryデータを圧縮してやり取りするかどうか</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.enable_sanitize_value">
-<span class="sig-name descname"><span class="pre">enable_sanitize_value</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.enable_sanitize_value" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.enable_sanitize">
+<span class="sig-name descname"><span class="pre">enable_sanitize</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.enable_sanitize" title="Link to this definition"></a></dt>
 <dd><p>action/observationの値をエラーが出ないように可能な限り変換します。
 ※エラー終了の可能性は減りますが、値の変換等による予期しない動作を引き起こす可能性が高くなります</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.enable_assertion_value">
-<span class="sig-name descname"><span class="pre">enable_assertion_value</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.enable_assertion_value" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.enable_assertion">
+<span class="sig-name descname"><span class="pre">enable_assertion</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.enable_assertion" title="Link to this definition"></a></dt>
 <dd><p>action/observationの値を厳密にチェックし、おかしい場合は例外を出力します。
-enable_assertion_valueが有効な場合は、enable_sanitize_valueは無効です。</p>
+enable_assertionが有効な場合は、enable_sanitizeは無効です。</p>
 </dd></dl>
 
 </dd></dl>
@@ -262,7 +266,7 @@ enable_assertion_valueが有効な場合は、enable_sanitize_valueは無効で�
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2022, poco_cpp.</p>
+    <p>&#169; Copyright 2022, poco.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

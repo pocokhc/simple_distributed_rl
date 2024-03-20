@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Memory &mdash; SimpleDistributedRL 0.14.0.2 ドキュメント</title>
+  <title>Memory &mdash; SimpleDistributedRL 0.14.1.6 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=5c722782"></script>
+        <script src="../_static/documentation_options.js?v=d1d6777c"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -68,11 +68,11 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#experiencereplaybuffer">ExperienceReplayBuffer</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.experience_replay_buffer.ExperienceReplayBufferConfig"><code class="docutils literal notranslate"><span class="pre">ExperienceReplayBufferConfig</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentExperienceReplayBuffer</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#priorityexperiencereplay">PriorityExperienceReplay</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_experience_replay.PriorityExperienceReplayConfig"><code class="docutils literal notranslate"><span class="pre">PriorityExperienceReplayConfig</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentPriorityExperienceReplay</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.replay_memory.ReplayMemory"><code class="docutils literal notranslate"><span class="pre">ReplayMemory</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory"><code class="docutils literal notranslate"><span class="pre">RankBaseMemory</span></code></a></li>
@@ -83,7 +83,6 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_model.html">Framework</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#mlpblock">MLPBlock</a></li>
-<li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#duelingnetwork">DuelingNetwork</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#imageblock">ImageBlock</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#alphazeroblock">AlphaZeroBlock</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_scheduler.html">Scheduler</a></li>
@@ -96,10 +95,15 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/rainbow.html">Rainbow</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/agent57_light.html">Agent57 light</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ppo.html">PPO(Proximal Policy Optimization)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/mcts.html">Monte Carlo tree search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/alphazero.html">AlphaZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/muzero.html">MuZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
 </ul>
 
@@ -143,8 +147,8 @@
 <section id="experiencereplaybuffer">
 <span id="id2"></span><h2>ExperienceReplayBuffer<a class="headerlink" href="#experiencereplaybuffer" title="Link to this heading"></a></h2>
 <dl class="py class">
-<dt class="sig sig-object py" id="srl.rl.memories.experience_replay_buffer.ExperienceReplayBufferConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.experience_replay_buffer.</span></span><span class="sig-name descname"><span class="pre">ExperienceReplayBufferConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">32</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.ExperienceReplayBufferConfig" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.experience_replay_buffer.</span></span><span class="sig-name descname"><span class="pre">RLConfigComponentExperienceReplayBuffer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">32</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer" title="Link to this definition"></a></dt>
 <dd><p>ExperienceReplayBuffer</p>
 <p>これを継承しているアルゴリズムはbatch_size変数とmemory変数を持ちます。
 memory変数からパラメータを設定できます。</p>
@@ -168,8 +172,8 @@ batch_size(int): Batch size. default is 32</p>
 <section id="priorityexperiencereplay">
 <span id="id3"></span><h2>PriorityExperienceReplay<a class="headerlink" href="#priorityexperiencereplay" title="Link to this heading"></a></h2>
 <dl class="py class">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_experience_replay.PriorityExperienceReplayConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_experience_replay.</span></span><span class="sig-name descname"><span class="pre">PriorityExperienceReplayConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">32</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.PriorityExperienceReplayConfig" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_experience_replay.</span></span><span class="sig-name descname"><span class="pre">RLConfigComponentPriorityExperienceReplay</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">32</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay" title="Link to this definition"></a></dt>
 <dd><p>PriorityExperienceReplay</p>
 <p>これを継承しているアルゴリズムはbatch_size変数とmemory変数を持ちます。
 memory変数から関数を呼ぶことで各memoryを設定できます。
@@ -271,7 +275,7 @@ memory変数から関数を呼ぶことで各memoryを設定できます。
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2022, poco_cpp.</p>
+    <p>&#169; Copyright 2022, poco.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Detailed Framework &mdash; SimpleDistributedRL 0.14.0.2 ドキュメント</title>
+  <title>Detailed Framework &mdash; SimpleDistributedRL 0.14.1.6 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=5c722782"></script>
+        <script src="../_static/documentation_options.js?v=d1d6777c"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -76,10 +76,15 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/rainbow.html">Rainbow</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/agent57_light.html">Agent57 light</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ppo.html">PPO(Proximal Policy Optimization)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/mcts.html">Monte Carlo tree search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/alphazero.html">AlphaZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/muzero.html">MuZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
 </ul>
 
@@ -139,83 +144,84 @@
 <section id="interface-type">
 <h2>Interface Type<a class="headerlink" href="#interface-type" title="Link to this heading"></a></h2>
 <ul class="simple">
-<li><p>Env input/output type</p></li>
+<li><p>SpaceBase(srl.base.spaces)</p></li>
 </ul>
 <table class="docutils align-default">
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
-<tbody>
-<tr class="row-odd"><td></td>
-<td><p>Type</p></td>
-</tr>
-<tr class="row-even"><td><p>Action</p></td>
-<td><p>Space</p></td>
-</tr>
-<tr class="row-odd"><td><p>Observation</p></td>
-<td><p>Space</p></td>
-</tr>
-</tbody>
-</table>
-<ul class="simple">
-<li><p>RL input/output type</p></li>
-</ul>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
-<tbody>
-<tr class="row-odd"><td></td>
-<td></td>
-<td><p>Type</p></td>
-</tr>
-<tr class="row-even"><td><p>Discrete</p></td>
-<td><p>Action</p></td>
-<td><p>int</p></td>
-</tr>
-<tr class="row-odd"><td><p>Discrete</p></td>
-<td><p>Observation</p></td>
-<td><p>NDArray[int]</p></td>
-</tr>
-<tr class="row-even"><td><p>Continuous</p></td>
-<td><p>Action</p></td>
-<td><p>list[float]</p></td>
-</tr>
-<tr class="row-odd"><td><p>Continuous</p></td>
-<td><p>Observation</p></td>
-<td><p>NDArray[np.float32]</p></td>
-</tr>
-</tbody>
-</table>
-<ul class="simple">
-<li><p>Space(srl.base.env.spaces)</p></li>
-</ul>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 67%" />
-<col style="width: 33%" />
-</colgroup>
 <tbody>
 <tr class="row-odd"><td><p>Class</p></td>
 <td><p>Type</p></td>
+<td><p>SpaceType</p></td>
 </tr>
 <tr class="row-even"><td><p>DiscreteSpace</p></td>
 <td><p>int</p></td>
+<td><p>DISCRETE</p></td>
 </tr>
 <tr class="row-odd"><td><p>ArrayDiscreteSpace</p></td>
 <td><p>list[int]</p></td>
+<td><p>DISCRETE</p></td>
 </tr>
 <tr class="row-even"><td><p>ContinuousSpace</p></td>
 <td><p>float</p></td>
+<td><p>CONTINUOUS</p></td>
 </tr>
 <tr class="row-odd"><td><p>ArrayContinuousSpace</p></td>
 <td><p>list[float]</p></td>
+<td><p>CONTINUOUS</p></td>
 </tr>
 <tr class="row-even"><td><p>BoxSpace</p></td>
-<td><p>NDArray[np.float32]</p></td>
+<td><p>NDArray[AnyType]</p></td>
+<td><p>srl.base.define.SpaceTypes</p></td>
+</tr>
+<tr class="row-odd"><td><p>MultiSpace</p></td>
+<td><p>list[SpaceBase]</p></td>
+<td><p>MULTI</p></td>
+</tr>
+</tbody>
+</table>
+<ul class="simple">
+<li><p>RL type</p></li>
+</ul>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td></td>
+<td><p>Action</p></td>
+<td><p>Observation</p></td>
+</tr>
+<tr class="row-even"><td><p>Discrete</p></td>
+<td><div class="line-block">
+<div class="line">int</div>
+<div class="line">DiscreteSpace</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">list[int]</div>
+<div class="line">ArrayDiscreteSpace</div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Continuous</p></td>
+<td><div class="line-block">
+<div class="line">list[float]</div>
+<div class="line">ArrayContinuousSpace</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">NDArray[np.float32]</div>
+<div class="line">BoxSpace</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td><p>Image</p></td>
+<td><div class="line-block">
+<div class="line">NDArray[np.uint8]</div>
+<div class="line">BoxSpace</div>
+</div>
+</td>
+<td><p>same Continuous</p></td>
+</tr>
+<tr class="row-odd"><td><p>Multiple</p></td>
+<td><p>list[RL type]</p></td>
+<td><p>list[NDArray[np.float32]]</p></td>
 </tr>
 </tbody>
 </table>
@@ -233,7 +239,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2022, poco_cpp.</p>
+    <p>&#169; Copyright 2022, poco.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

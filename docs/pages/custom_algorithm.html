@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Make Original Algorithm &mdash; SimpleDistributedRL 0.14.0.2 ドキュメント</title>
+  <title>Make Original Algorithm &mdash; SimpleDistributedRL 0.14.1.6 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=5c722782"></script>
+        <script src="../_static/documentation_options.js?v=d1d6777c"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -66,16 +66,11 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#parameter">Parameter</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#trainer">Trainer</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#worker">Worker</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#discreteactionworker">DiscreteActionWorker</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#continuousactionworker">ContinuousActionWorker</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#rlworker">RLWorker</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id3">Worker共通のプロパティ・関数</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#worker">Worker</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#id4">自作アルゴリズムの登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id3">自作アルゴリズムの登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id4">型アノテーション</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#q">実装例(Q学習)</a></li>
 </ul>
 </li>
@@ -93,10 +88,15 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/rainbow.html">Rainbow</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/agent57_light.html">Agent57 light</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ppo.html">PPO(Proximal Policy Optimization)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/mcts.html">Monte Carlo tree search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/alphazero.html">AlphaZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/muzero.html">MuZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
 </ul>
 
@@ -141,6 +141,7 @@
 </dl>
 </li>
 <li><p>自作アルゴリズムの登録</p></li>
+<li><p>型アノテーション</p></li>
 <li><p>Q学習実装例</p></li>
 </ol>
 <section id="id1">
@@ -153,8 +154,8 @@
 </div>
 <table class="docutils align-default">
 <colgroup>
-<col style="width: 25%" />
-<col style="width: 75%" />
+<col style="width: 21%" />
+<col style="width: 79%" />
 </colgroup>
 <tbody>
 <tr class="row-odd"><td><p>Config</p></td>
@@ -163,30 +164,30 @@
 </ul>
 </td>
 </tr>
-<tr class="row-even"><td><p>Worker</p></td>
-<td><ul class="simple">
-<li><p>Environmentと連携しサンプルを収集</p></li>
-<li><p>収集したサンプルをMemoryに送信（add only）</p></li>
-<li><p>行動決定に必要な情報をParameterから読む（read only）</p></li>
-</ul>
-</td>
-</tr>
-<tr class="row-odd"><td><p>Trainer</p></td>
-<td><ul class="simple">
-<li><p>Memoryからサンプルを取得し学習する</p></li>
-<li><p>学習後、Parameterを更新する</p></li>
-</ul>
-</td>
-</tr>
 <tr class="row-even"><td><p>Memory</p></td>
 <td><ul class="simple">
-<li><p>サンプルを管理</p></li>
+<li><p>Workerが収集したサンプルを管理</p></li>
 </ul>
 </td>
 </tr>
 <tr class="row-odd"><td><p>Parameter</p></td>
 <td><ul class="simple">
 <li><p>学習パラメータを保持</p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-even"><td><p>Trainer</p></td>
+<td><ul class="simple">
+<li><p>Memoryからサンプルを取得し学習する</p></li>
+<li><p>学習後、Parameterを更新する</p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Worker</p></td>
+<td><ul class="simple">
+<li><p>Environmentと連携しサンプルを収集</p></li>
+<li><p>収集したサンプルをMemoryに送信（add only）</p></li>
+<li><p>行動決定に必要な情報をParameterから読む（read only）</p></li>
 </ul>
 </td>
 </tr>
@@ -209,7 +210,7 @@
 基底クラスは <cite>srl.base.rl.base.RLConfig</cite> でこれを継承して作成します。</p>
 <p>RLConfig で実装が必要な関数・プロパティは以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLConfig</span>
+<span class="kn">from</span> <span class="nn">srl.base.rl.config</span> <span class="kn">import</span> <span class="n">RLConfig</span>
 <span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLBaseTypes</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.processor</span> <span class="kn">import</span> <span class="n">Processor</span>
 
@@ -217,59 +218,59 @@
 <span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">MyConfig</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">):</span>
 
-   <span class="c1"># コンストラクタで使うハイパーパラメータを定義する</span>
+   <span class="c1"># 任意のハイパーパラメータを定義</span>
+   <span class="n">hoo_param</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span>
 
-   <span class="k">def</span> <span class="nf">getName</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+      <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__post_init__</span><span class="p">()</span>  <span class="c1"># 親のコンストラクタも呼んでください</span>
+
+   <span class="k">def</span> <span class="nf">get_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; ユニークな名前を返す &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="nd">@property</span>
-   <span class="k">def</span> <span class="nf">base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">      アルゴリズムが想定するアクションのタイプを返してください。</span>
-<span class="sd">      DISCRETE  : 離散値</span>
-<span class="sd">      CONTINUOUS: 連続値</span>
-<span class="sd">      ANY       : どちらでも</span>
+<span class="sd">      アルゴリズムが想定するアクションのタイプ(srl.base.define.RLBaseTypes)を返してください。</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="nd">@property</span>
-   <span class="k">def</span> <span class="nf">base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">      アルゴリズムが想定する環境から受け取る状態のタイプを返してください。</span>
-<span class="sd">      DISCRETE  : 離散値</span>
-<span class="sd">      CONTINUOUS: 連続値</span>
-<span class="sd">      ANY       : どちらでも</span>
+<span class="sd">      アルゴリズムが想定する環境から受け取る状態のタイプ(srl.base.define.RLBaseTypes)を返してください。</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span> <span class="nf">get_use_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">get_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">      使うフレームワークを指定してください。</span>
-<span class="sd">      return &quot;&quot;           : 何もなし</span>
+<span class="sd">      return &quot;&quot;           : なし</span>
 <span class="sd">      return &quot;tensorflow&quot; : Tensorflow</span>
 <span class="sd">      return &quot;torch&quot;      : Torch</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
    <span class="c1"># ------------------------------------</span>
-   <span class="c1"># 以下は option です。（必須ではない）</span>
+   <span class="c1"># 以下は option です。（なくても問題ありません）</span>
    <span class="c1"># ------------------------------------</span>
    <span class="k">def</span> <span class="nf">assert_params</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; パラメータのassertを記載 &quot;&quot;&quot;</span>
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">assert_params</span><span class="p">()</span>  <span class="c1"># 親クラスも呼び出してください</span>
 
-   <span class="k">def</span> <span class="nf">set_config_by_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">EnvRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">setup_from_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">EnvRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; env初期化後に呼び出されます。env関係の初期化がある場合は記載してください。 &quot;&quot;&quot;</span>
       <span class="k">pass</span>
 
-   <span class="k">def</span> <span class="nf">set_config_by_actor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">actor_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">actor_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">setup_from_actor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">actor_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">actor_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 分散学習でactorが指定されたときに呼び出されます。Actor関係の初期化がある場合は記載してください。 &quot;&quot;&quot;</span>
       <span class="k">pass</span>
 
-   <span class="k">def</span> <span class="nf">set_processor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">actor_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">actor_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Processor</span><span class="p">]:</span>
+   <span class="k">def</span> <span class="nf">get_processors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">ObservationProcessor</span><span class="p">]]:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 前処理を追加したい場合設定してください &quot;&quot;&quot;</span>
       <span class="k">return</span> <span class="p">[]</span>
+
+   <span class="k">def</span> <span class="nf">get_used_backup_restore</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; MCTSなど、envのbackup/restoreを使う場合はTrueを返してください&quot;&quot;&quot;</span>
+      <span class="k">return</span> <span class="kc">False</span>
 </pre></div>
 </div>
 </section>
@@ -322,32 +323,33 @@
 <h4>ExperienceReplayBuffer<a class="headerlink" href="#experiencereplaybuffer" title="Link to this heading"></a></h4>
 <div class="line-block">
 <div class="line">ランダムにサンプルを取り出すMemoryです。</div>
-<div class="line">これを使う場合は、Configにも <cite>ExperienceReplayBufferConfig</cite> を継承する必要があります。</div>
+<div class="line">これを使う場合は、Configに <cite>RLConfigComponentExperienceReplayBuffer</cite> を継承する必要があります。</div>
 </div>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 
 <span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLBaseTypes</span>
-<span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLConfig</span>
-<span class="kn">from</span> <span class="nn">srl.rl.memories.experience_replay_buffer</span> <span class="kn">import</span> <span class="n">ExperienceReplayBuffer</span><span class="p">,</span> <span class="n">ExperienceReplayBufferConfig</span>
+<span class="kn">from</span> <span class="nn">srl.base.rl.config</span> <span class="kn">import</span> <span class="n">RLConfig</span>
+<span class="kn">from</span> <span class="nn">srl.rl.memories.experience_replay_buffer</span> <span class="kn">import</span> <span class="n">ExperienceReplayBuffer</span><span class="p">,</span> <span class="n">RLConfigComponentExperienceReplayBuffer</span>
 
 
 <span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">MyConfig</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">,</span> <span class="n">ExperienceReplayBufferConfig</span><span class="p">):</span>
-    <span class="c1"># RLConfig に加え、ExperienceReplayBufferConfig も継承する</span>
-    <span class="c1"># (順番は RLConfig -&gt; ExperienceReplayBufferConfig )</span>
+<span class="k">class</span> <span class="nc">MyConfig</span><span class="p">(</span>
+    <span class="n">RLConfig</span><span class="p">,</span>
+    <span class="n">RLConfigComponentExperienceReplayBuffer</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="c1"># RLConfig に加え、RLConfigComponentExperienceReplayBuffer も継承する</span>
+    <span class="c1"># 順番は RLConfig -&gt; RLConfigComponentExperienceReplayBuffer</span>
 
-    <span class="k">def</span> <span class="nf">getName</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;MyConfig&quot;</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RLBaseTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RLBaseTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
-    <span class="k">def</span> <span class="nf">get_use_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;&quot;</span>
 
 
@@ -361,7 +363,7 @@
 <span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 <span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
 <span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
-<span class="n">dat</span> <span class="o">=</span> <span class="n">memory</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">dat</span> <span class="o">=</span> <span class="n">memory</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">dat</span><span class="p">)</span>  <span class="c1"># [3, 2]</span>
 </pre></div>
 </div>
@@ -370,9 +372,9 @@
 <h4>PriorityExperienceReplay<a class="headerlink" href="#priorityexperiencereplay" title="Link to this heading"></a></h4>
 <div class="line-block">
 <div class="line">優先順位に従ってサンプルを取り出すMemoryです。</div>
-<div class="line">これを使う場合は、Configにも <cite>PriorityExperienceReplayConfig</cite> を継承する必要があります。</div>
+<div class="line">これを使う場合は、Configにも <cite>RLConfigComponentPriorityExperienceReplay</cite> を継承する必要があります。</div>
 </div>
-<p>PriorityExperienceReplayはConfigにより以下のアルゴリズムに切り替えることができます。</p>
+<p>このアルゴリズムはConfigにより切り替えることができます。</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 23%" />
@@ -400,27 +402,28 @@
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLBaseTypes</span>
-<span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLConfig</span>
-<span class="kn">from</span> <span class="nn">srl.rl.memories.priority_experience_replay</span> <span class="kn">import</span> <span class="n">PriorityExperienceReplay</span><span class="p">,</span> <span class="n">PriorityExperienceReplayConfig</span>
+<span class="kn">from</span> <span class="nn">srl.base.rl.config</span> <span class="kn">import</span> <span class="n">RLConfig</span>
+<span class="kn">from</span> <span class="nn">srl.rl.memories.priority_experience_replay</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">PriorityExperienceReplay</span><span class="p">,</span>
+    <span class="n">RLConfigComponentPriorityExperienceReplay</span><span class="p">,</span>
+<span class="p">)</span>
 
 
 <span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">MyConfig</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">,</span> <span class="n">PriorityExperienceReplayConfig</span><span class="p">):</span>
-    <span class="c1"># RLConfig PriorityExperienceReplayConfig も継承する</span>
-    <span class="c1"># (順番は RLConfig -&gt; PriorityExperienceReplayConfig )</span>
+<span class="k">class</span> <span class="nc">MyConfig</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">,</span> <span class="n">RLConfigComponentPriorityExperienceReplay</span><span class="p">):</span>
+    <span class="c1"># RLConfig に加え、RLConfigComponentPriorityExperienceReplay も継承する</span>
+    <span class="c1"># 順番は RLConfig -&gt; RLConfigComponentPriorityExperienceReplay</span>
 
-    <span class="k">def</span> <span class="nf">getName</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;MyConfig&quot;</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RLBaseTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RLBaseTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
-    <span class="k">def</span> <span class="nf">get_use_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;&quot;</span>
 
 
@@ -442,7 +445,7 @@
 <span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 <span class="n">indices</span><span class="p">,</span> <span class="n">batchs</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">memory</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">batchs</span><span class="p">)</span>  <span class="c1"># [2]</span>
-<span class="n">memory</span><span class="o">.</span><span class="n">update</span><span class="p">((</span><span class="n">indices</span><span class="p">,</span> <span class="n">batchs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">11</span><span class="p">])))</span>
+<span class="n">memory</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">batchs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">11</span><span class="p">]))</span>
 </pre></div>
 </div>
 </section>
@@ -451,7 +454,7 @@
 <h3>Parameter<a class="headerlink" href="#parameter" title="Link to this heading"></a></h3>
 <p>パラメータを管理するクラスです。深層学習の場合はここにニューラルネットワークを定義することを想定しています。</p>
 <p>実装が必要な関数は以下です。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLParameter</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.parameter</span> <span class="kn">import</span> <span class="n">RLParameter</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
@@ -461,7 +464,7 @@
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
       <span class="c1"># self.config に上で定義した MyConfig が入ります</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span><span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span>
 
    <span class="c1"># call_restore/call_backupでパラメータが復元できるように作成</span>
    <span class="k">def</span> <span class="nf">call_restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -470,7 +473,7 @@
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
    <span class="c1"># その他任意の関数を作成できます</span>
-   <span class="c1"># （パラメータに関するTrainer/Workerで共通する処理など）</span>
+   <span class="c1"># （分散学習ではTrainer/Worker間で値を保持できない点に注意）</span>
 </pre></div>
 </div>
 </section>
@@ -478,17 +481,17 @@
 <h3>Trainer<a class="headerlink" href="#trainer" title="Link to this heading"></a></h3>
 <p>学習を定義する部分です。Memoryから経験を受け取ってParameterを更新します。</p>
 <p>実装が必要な関数は以下です。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLTrainer</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.trainer</span> <span class="kn">import</span> <span class="n">RLTrainer</span>
 
 <span class="k">class</span> <span class="nc">MyTrainer</span><span class="p">(</span><span class="n">RLTrainer</span><span class="p">):</span>
    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; コントラクタの引数は親に渡してください &quot;&quot;&quot;</span>
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
-      <span class="c1"># config,parameter がそれぞれ入ります。</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">:</span> <span class="n">IRLMemoryTrainer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span>
+      <span class="c1"># 以下の変数を持ちます。</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">:</span> <span class="n">IRLMemoryTrainer</span>
 
    <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
@@ -496,16 +499,26 @@
 <span class="sd">      self.memory は以下の関数が定義されています。</span>
 
 <span class="sd">      self.memory.is_warmup_needed() : warmup中かどうかを返します</span>
-<span class="sd">      self.memory.sample(self.batch_size, self.train_count) : batchを返します</span>
-<span class="sd">      self.memory.update(memory_update_args) : ProportionalMemory の場合 update で使います</span>
+<span class="sd">      self.memory.sample()           : batchを返します</span>
+<span class="sd">      self.memory.update()           : ProportionalMemory の場合 update で使います</span>
 
 <span class="sd">      ・学習したら回数を数えてください</span>
 <span class="sd">      self.train_count += 1</span>
 
 <span class="sd">      ・(option)必要に応じてinfoを設定します</span>
-<span class="sd">      self.train_info = {&quot;loss&quot;: 0.0}</span>
+<span class="sd">      self.info = {&quot;loss&quot;: 0.0}</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="c1"># (option)</span>
+   <span class="k">def</span> <span class="nf">create_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; infoの設定をします。こちらは必要な場合のみ取得します &quot;&quot;&quot;</span>
+      <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">}</span>
+
+<span class="c1"># --- 実装時に関数内で使う事を想定しているプロパティ・関数となります</span>
+<span class="n">trainer</span> <span class="o">=</span> <span class="n">MyTrainer</span><span class="p">()</span>
+<span class="n">trainer</span><span class="o">.</span><span class="n">distributed</span>  <span class="c1"># property, bool : 分散実行中かどうかを返します</span>
+<span class="n">trainer</span><span class="o">.</span><span class="n">train_only</span>   <span class="c1"># property, bool : 学習のみかどうかを返します</span>
 </pre></div>
 </div>
 </section>
@@ -515,7 +528,7 @@
 <div class="line">実際に環境と連携して経験を収集するクラスです。</div>
 <div class="line">役割は、Parameterを参照してアクションを決める事と、サンプルをMemoryに送信する事です。</div>
 </div>
-<p>RLWorkerとRLTrainerのフローをすごく簡単に書くと以下です。</p>
+<p>フローをすごく簡単に書くと以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 <span class="n">worker</span><span class="o">.</span><span class="n">on_reset</span><span class="p">()</span>
 <span class="k">while</span><span class="p">:</span>
@@ -525,249 +538,45 @@
    <span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
 </pre></div>
 </div>
-<div class="line-block">
-<div class="line">RLWorkerはアルゴリズムに合わせたインタフェースのクラスを用意しています。</div>
-<div class="line">基本はそちらを使用してください。</div>
-<div class="line">現状あるクラスは以下です。</div>
-</div>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 27%" />
-<col style="width: 55%" />
-<col style="width: 18%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>クラス名</p></th>
-<th class="head"><p>説明</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>DiscreteActionWorker</p></td>
-<td><p>モデルフリーでアクションが離散値のアルゴリズム</p></td>
-<td><p>Q学習,DQN等</p></td>
-</tr>
-<tr class="row-odd"><td><p>ContinuousActionWorker</p></td>
-<td><p>モデルフリーでアクションが連続値のアルゴリズム</p></td>
-<td><p>DDPG,SAC等</p></td>
-</tr>
-<tr class="row-even"><td><p>RLWorker</p></td>
-<td><p>上記以外のアルゴリズム</p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>EnvWorker</p></td>
-<td><p>Envと直接やり取りするアルゴリズム（ルールベース等）</p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>ExtendWorker</p></td>
-<td><p>RLWorkerとルールベースを混ぜて使う用</p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<section id="discreteactionworker">
-<h4>DiscreteActionWorker<a class="headerlink" href="#discreteactionworker" title="Link to this heading"></a></h4>
-<p>DiscreteActionWorkerで実装が必要な関数は以下です。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.algorithms.discrete_action</span> <span class="kn">import</span> <span class="n">DiscreteActionWorker</span>
-
-<span class="k">class</span> <span class="nc">MyWorker</span><span class="p">(</span><span class="n">DiscreteActionWorker</span><span class="p">):</span>
-   <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; コントラクタの引数は親に渡してください &quot;&quot;&quot;</span>
-      <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-
-      <span class="c1"># config,parameter,memory がそれぞれ入ります。</span>
-      <span class="c1"># memoryはaddしか使えません。</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">:</span> <span class="n">IRLMemoryWorker</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span>
-
-   <span class="k">def</span> <span class="nf">call_on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">invalid_actions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; エピソードの最初に呼ばれる関数</span>
-
-<span class="sd">      Args:</span>
-<span class="sd">            state (np.ndarray): 環境の初期状態</span>
-<span class="sd">            invalid_actions (List[int]): 初期状態での有効でないアクションのリスト</span>
-
-<span class="sd">      Returns:</span>
-<span class="sd">            Info: 任意の情報</span>
-<span class="sd">      &quot;&quot;&quot;</span>
-      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-
-   <span class="k">def</span> <span class="nf">call_policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">invalid_actions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; このターンで実行するアクションを返す関数</span>
-
-<span class="sd">      Args:</span>
-<span class="sd">            state (np.ndarray): 現在の状態</span>
-<span class="sd">            invalid_actions (List[int]): 現在の有効でないアクションのリスト</span>
-
-<span class="sd">      Returns: (</span>
-<span class="sd">            int : 実行するアクション</span>
-<span class="sd">            Info: 任意の情報</span>
-<span class="sd">      )</span>
-<span class="sd">      &quot;&quot;&quot;</span>
-      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-
-   <span class="k">def</span> <span class="nf">call_on_step</span><span class="p">(</span>
-      <span class="bp">self</span><span class="p">,</span>
-      <span class="n">next_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-      <span class="n">reward</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-      <span class="n">done</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
-      <span class="n">next_invalid_actions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
-   <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; Envが1step実行した後に呼ばれる関数</span>
-
-<span class="sd">      Args:</span>
-<span class="sd">            next_state (np.ndarray): アクション実行後の状態</span>
-<span class="sd">            reward (float): アクション実行後の報酬</span>
-<span class="sd">            done (bool): アクション実行後の終了状態</span>
-<span class="sd">            next_invalid_actions (List[int]): アクション実行後の有効でないアクションのリスト</span>
-
-<span class="sd">      Returns:</span>
-<span class="sd">            dict: 情報(任意)</span>
-<span class="sd">      &quot;&quot;&quot;</span>
-      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-</pre></div>
-</div>
-</section>
-<section id="continuousactionworker">
-<h4>ContinuousActionWorker<a class="headerlink" href="#continuousactionworker" title="Link to this heading"></a></h4>
-<p>ContinuousActionWorkerで実装が必要な関数は以下です。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.algorithms.continuous_action</span> <span class="kn">import</span> <span class="n">ContinuousActionWorker</span>
-
-<span class="k">class</span> <span class="nc">MyWorker</span><span class="p">(</span><span class="n">ContinuousActionWorker</span><span class="p">):</span>
-   <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; コントラクタの引数は親に渡してください &quot;&quot;&quot;</span>
-      <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-
-      <span class="c1"># config,parameter,memory がそれぞれ入ります。</span>
-      <span class="c1"># memoryはaddしか使えません。</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">:</span> <span class="n">IRLMemoryWorker</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span>
-
-   <span class="k">def</span> <span class="nf">call_on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Info</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; エピソードの最初に呼ばれる関数</span>
-
-<span class="sd">      Args:</span>
-<span class="sd">            state (np.ndarray): 環境の初期状態</span>
-
-<span class="sd">      Returns:</span>
-<span class="sd">            Info: 任意の情報</span>
-<span class="sd">      &quot;&quot;&quot;</span>
-      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-
-   <span class="k">def</span> <span class="nf">call_policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">Info</span><span class="p">]:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; このターンで実行するアクションを返す関数</span>
-
-<span class="sd">      Args:</span>
-<span class="sd">            state (np.ndarray): 現在の状態</span>
-
-<span class="sd">      Returns: (</span>
-<span class="sd">            List[float]: 実行するアクション(小数の配列)</span>
-<span class="sd">            Info       : 任意の情報</span>
-<span class="sd">      )</span>
-<span class="sd">      &quot;&quot;&quot;</span>
-      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-
-   <span class="k">def</span> <span class="nf">call_on_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">next_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">reward</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">done</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; Envが1step実行した後に呼ばれる関数</span>
-
-<span class="sd">      Args:</span>
-<span class="sd">            next_state (np.ndarray): アクション実行後の状態</span>
-<span class="sd">            reward (float): アクション実行後の報酬</span>
-<span class="sd">            done (bool): アクション実行後の終了状態</span>
-
-<span class="sd">      Returns:</span>
-<span class="sd">            dict: 情報(任意)</span>
-<span class="sd">      &quot;&quot;&quot;</span>
-      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-</pre></div>
-</div>
-</section>
-<section id="rlworker">
-<h4>RLWorker<a class="headerlink" href="#rlworker" title="Link to this heading"></a></h4>
-<p>RLWorker は実行時のクラスである WorkerRun を直接操作して実装するクラスです。
-出来ることが多いのと、仕様が変わる可能性大きいので詳細は一旦保留します。(TODO)</p>
-<p>実装が必要な関数は以下です。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.algorithms.modelbase</span> <span class="kn">import</span> <span class="n">ModelBaseWorker</span>
-
-<span class="kn">from</span> <span class="nn">srl.base.env.env_run</span> <span class="kn">import</span> <span class="n">EnvRun</span>
-<span class="kn">from</span> <span class="nn">srl.base.rl.worker</span> <span class="kn">import</span> <span class="n">RLWorker</span>
+<p>※v0.15.0からRLWorkerを直接継承する方法に変更しました</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.worker</span> <span class="kn">import</span> <span class="n">RLWorker</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.worker_run</span> <span class="kn">import</span> <span class="n">WorkerRun</span>
 
-<span class="k">class</span> <span class="nc">MyWorker</span><span class="p">(</span><span class="n">ModelBaseWorker</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">MyWorker</span><span class="p">(</span><span class="n">RLWorker</span><span class="p">):</span>
    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; コントラクタの引数は親に渡してください &quot;&quot;&quot;</span>
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
-      <span class="c1"># config,parameter,memory がそれぞれ入ります。</span>
-      <span class="c1"># memoryはaddしか使えません。</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">:</span> <span class="n">IRLMemoryWorker</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span>
+      <span class="c1"># 以下の変数が設定されます</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">MyConfig</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">:</span> <span class="n">IRLMemoryWorker</span>
 
-   <span class="k">def</span> <span class="nf">call_on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; エピソードの最初に呼ばれる関数</span>
 
-<span class="sd">      Args:</span>
-<span class="sd">            worker: WorkerRun</span>
-
 <span class="sd">      Returns:</span>
-<span class="sd">            Info: 任意の情報</span>
+<span class="sd">            Info         : 任意の情報</span>
 <span class="sd">      &quot;&quot;&quot;</span>
-      <span class="n">state</span> <span class="o">=</span> <span class="n">worker</span><span class="o">.</span><span class="n">state</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span> <span class="nf">call_policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RLActionType</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; このターンで実行するアクションを返す関数</span>
-
-<span class="sd">      Args:</span>
-<span class="sd">            worker: WorkerRun</span>
+   <span class="k">def</span> <span class="nf">policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLActionType</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; このターンで実行するアクションを返す関数、この関数のみ実装が必須になります</span>
 
 <span class="sd">      Returns: (</span>
-<span class="sd">            RLAction: 実行するアクション</span>
-<span class="sd">            Info    : 任意の情報</span>
+<span class="sd">            RLActionType : 実行するアクション</span>
+<span class="sd">            Info         : 任意の情報</span>
 <span class="sd">      )</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span> <span class="nf">call_on_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">on_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; Envが1step実行した後に呼ばれる関数</span>
-
-<span class="sd">      Args:</span>
-<span class="sd">            worker: WorkerRun</span>
 
 <span class="sd">      Returns:</span>
 <span class="sd">            dict: 情報(任意)</span>
 <span class="sd">      &quot;&quot;&quot;</span>
-      <span class="n">next_state</span> <span class="o">=</span> <span class="n">worker</span><span class="o">.</span><span class="n">state</span>
-      <span class="n">reward</span> <span class="o">=</span> <span class="n">worker</span><span class="o">.</span><span class="n">reward</span>
-      <span class="n">done</span> <span class="o">=</span> <span class="n">worker</span><span class="o">.</span><span class="n">done</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-</pre></div>
-</div>
-</section>
-<section id="id3">
-<h4>Worker共通のプロパティ・関数<a class="headerlink" href="#id3" title="Link to this heading"></a></h4>
-<p>Workerで共通して持っているプロパティ・関数は以下となります。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
-<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLAction</span>
-
-<span class="k">class</span> <span class="nc">RLWorker</span><span class="p">:</span>
-   <span class="nd">@property</span>
-   <span class="k">def</span> <span class="nf">training</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; training かどうかを返します &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_training</span>
-
-   <span class="nd">@property</span>
-   <span class="k">def</span> <span class="nf">distributed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 分散実行中かどうかを返します &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_distributed</span>
-
-   <span class="nd">@property</span>
-   <span class="k">def</span> <span class="nf">rendering</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; renderがあるエピソードかどうかを返します &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rendering</span>
 
    <span class="k">def</span> <span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
@@ -783,40 +592,46 @@
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">return</span> <span class="kc">None</span>
 
-   <span class="nd">@property</span>
-   <span class="k">def</span> <span class="nf">player_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 複数人実行する環境にて、自分のプレイヤー番号を返します &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_player_index</span>
+<span class="c1"># --- 実装時に関数内で使う事を想定しているプロパティ・関数となります</span>
+<span class="n">worker</span> <span class="o">=</span> <span class="n">MyWorker</span><span class="p">()</span>
+<span class="n">worker</span><span class="o">.</span><span class="n">training</span>     <span class="c1"># property, bool : training かどうかを返します</span>
+<span class="n">worker</span><span class="o">.</span><span class="n">distributed</span>  <span class="c1"># property, bool : 分散実行中かどうかを返します</span>
+<span class="n">worker</span><span class="o">.</span><span class="n">rendering</span>    <span class="c1"># property, bool : renderがあるエピソードかどうかを返します</span>
+<span class="n">worker</span><span class="o">.</span><span class="n">observation_space</span>  <span class="c1"># property , SpaceBase : RLWorkerが受け取るobservation_spaceを返します</span>
+<span class="n">worker</span><span class="o">.</span><span class="n">action_space</span>       <span class="c1"># property , SpaceBase : RLWorkerが受け取るaction_spaceを返します</span>
+<span class="n">worker</span><span class="o">.</span><span class="n">get_invalid_actions</span><span class="p">()</span> <span class="c1"># function , List[RLAction] : 有効でないアクションを返します(離散限定)</span>
+<span class="n">worker</span><span class="o">.</span><span class="n">sample_action</span><span class="p">()</span>       <span class="c1"># function , RLAction : ランダムなアクションを返します</span>
+</pre></div>
+</div>
+<p>また、情報は WorkerRun から基本取り出して使います。
+情報の例は以下です。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyWorker</span><span class="p">(</span><span class="n">RLWorker</span><span class="p">):</span>
+   <span class="k">def</span> <span class="nf">on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">):</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">state</span>           <span class="c1"># 初期状態</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">player_index</span>    <span class="c1"># 初期プレイヤーのindex</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">invalid_action</span>  <span class="c1"># 初期有効ではないアクションリスト</span>
 
-   <span class="k">def</span> <span class="nf">get_invalid_actions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">RLAction</span><span class="p">]:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 有効でないアクションを返します(離散限定) &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="n">invalid_actions</span>
+   <span class="k">def</span> <span class="nf">policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">)</span> <span class="p">:</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">state</span>           <span class="c1"># 状態</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">player_index</span>    <span class="c1"># プレイヤーのindex</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">invalid_action</span>  <span class="c1"># 有効ではないアクションリスト</span>
 
-   <span class="k">def</span> <span class="nf">sample_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLAction</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; ランダムなアクションを返します &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="n">action</span>
-
-   <span class="nd">@property</span>
-   <span class="k">def</span> <span class="nf">max_episode_steps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 最大steps数を返します &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__worker_run</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">max_episode_steps</span>
-
-   <span class="nd">@property</span>
-   <span class="k">def</span> <span class="nf">player_num</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; プレイヤー数を返します &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__worker_run</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">player_num</span>
-
-   <span class="nd">@property</span>
-   <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 現在のstepを返します &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__worker_run</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">step_num</span>
+   <span class="k">def</span> <span class="nf">on_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="s2">&quot;WorkerRun&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">prev_state</span>      <span class="c1"># step前の状態(policyのworker.stateと等価)</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">state</span>           <span class="c1"># step後の状態</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">prev_action</span>     <span class="c1"># step前のアクション(policyで返したアクションと等価)</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">reward</span>          <span class="c1"># step後の即時報酬</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">done</span>            <span class="c1"># step後に終了フラグが立ったか</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">terminated</span>      <span class="c1"># step後にenvが終了フラグを立てたか</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">player_index</span>    <span class="c1"># 次のプレイヤーのindex</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">prev_invalid_action</span>  <span class="c1"># step前の有効ではないアクションリスト</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">invalid_action</span>       <span class="c1"># step後の有効ではないアクションリスト</span>
 </pre></div>
 </div>
 </section>
 </section>
-</section>
-<section id="id4">
-<h2>自作アルゴリズムの登録<a class="headerlink" href="#id4" title="Link to this heading"></a></h2>
+<section id="id3">
+<h2>自作アルゴリズムの登録<a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
 <p>以下で登録します。
 第2引数以降の entry_point は、<cite>モジュールパス + &quot;:&quot; + クラス名`で、
 モジュールパスは `importlib.import_module</cite> で呼び出せる形式である必要があります。</p>
@@ -831,41 +646,75 @@
 </pre></div>
 </div>
 </section>
+<section id="id4">
+<h2>型アノテーション<a class="headerlink" href="#id4" title="Link to this heading"></a></h2>
+<p>動作に影響はないですが、ジェネリック型を追加し実装を簡単にしています。
+適用方法は以下です。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># RLConfig[_TActSpace, _TObsSpace] と指定できます。</span>
+<span class="c1">#   _TActSpace : ActionSpaceを表すSpaceBase型</span>
+<span class="c1">#   _TObsSpace : ObservationSpaceを表すSpaceBase型</span>
+<span class="c1"># 実装例</span>
+<span class="kn">from</span> <span class="nn">srl.base.spaces.box</span> <span class="kn">import</span> <span class="n">BoxSpace</span>
+<span class="kn">from</span> <span class="nn">srl.base.spaces.discrete</span> <span class="kn">import</span> <span class="n">DiscreteSpace</span>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Config</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">[</span><span class="n">DiscreteSpace</span><span class="p">,</span> <span class="n">BoxSpace</span><span class="p">]):</span>
+   <span class="k">pass</span>
+
+<span class="c1"># RLParameter[_TConfig]</span>
+<span class="c1">#   _TConfig : RLConfig型</span>
+<span class="k">class</span> <span class="nc">Parameter</span><span class="p">(</span><span class="n">RLParameter</span><span class="p">[</span><span class="n">Config</span><span class="p">]):</span>
+   <span class="k">pass</span>
+
+<span class="c1"># RLTrainer[_TConfig, _TParameter]</span>
+<span class="c1">#   _TConfig    : RLConfig型</span>
+<span class="c1">#   _TParameter : RLParameter型</span>
+<span class="k">class</span> <span class="nc">Trainer</span><span class="p">(</span><span class="n">RLTrainer</span><span class="p">[</span><span class="n">Config</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]):</span>
+   <span class="k">pass</span>
+
+<span class="c1"># RLWorker[_TConfig, _TParameter, _TActSpace, _TObsSpace]</span>
+<span class="c1">#   _TActSpace, _TObsSpace はConfigと同じである必要があります</span>
+<span class="k">class</span> <span class="nc">Worker</span><span class="p">(</span><span class="n">RLWorker</span><span class="p">[</span><span class="n">Config</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">,</span> <span class="n">DiscreteSpace</span><span class="p">,</span> <span class="n">BoxSpace</span><span class="p">]):</span>
+   <span class="k">pass</span>
+</pre></div>
+</div>
+</section>
 <section id="q">
 <h2>実装例(Q学習)<a class="headerlink" href="#q" title="Link to this heading"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
-<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLBaseTypes</span>
-<span class="kn">from</span> <span class="nn">srl.base.rl.algorithms.discrete_action</span> <span class="kn">import</span> <span class="n">DiscreteActionWorker</span>
-<span class="kn">from</span> <span class="nn">srl.base.rl.base</span> <span class="kn">import</span> <span class="n">RLParameter</span><span class="p">,</span> <span class="n">RLTrainer</span>
+<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">InfoType</span><span class="p">,</span> <span class="n">RLBaseTypes</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.config</span> <span class="kn">import</span> <span class="n">RLConfig</span>
+<span class="kn">from</span> <span class="nn">srl.base.rl.parameter</span> <span class="kn">import</span> <span class="n">RLParameter</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.registration</span> <span class="kn">import</span> <span class="n">register</span>
+<span class="kn">from</span> <span class="nn">srl.base.rl.trainer</span> <span class="kn">import</span> <span class="n">RLTrainer</span>
+<span class="kn">from</span> <span class="nn">srl.base.rl.worker</span> <span class="kn">import</span> <span class="n">RLWorker</span>
+<span class="kn">from</span> <span class="nn">srl.base.spaces.array_discrete</span> <span class="kn">import</span> <span class="n">ArrayDiscreteSpace</span>
+<span class="kn">from</span> <span class="nn">srl.base.spaces.discrete</span> <span class="kn">import</span> <span class="n">DiscreteSpace</span>
 <span class="kn">from</span> <span class="nn">srl.rl.memories.sequence_memory</span> <span class="kn">import</span> <span class="n">SequenceMemory</span>
 
 
 <span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">Config</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">Config</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">[</span><span class="n">DiscreteSpace</span><span class="p">,</span> <span class="n">ArrayDiscreteSpace</span><span class="p">]):</span>
     <span class="n">epsilon</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span>
     <span class="n">test_epsilon</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">gamma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.9</span>
     <span class="n">lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RLBaseTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">RLBaseTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
-    <span class="k">def</span> <span class="nf">get_use_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">getName</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;MyRL&quot;</span>
 
 
@@ -873,10 +722,9 @@
     <span class="k">pass</span>
 
 
-<span class="k">class</span> <span class="nc">Parameter</span><span class="p">(</span><span class="n">RLParameter</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">Parameter</span><span class="p">(</span><span class="n">RLParameter</span><span class="p">[</span><span class="n">Config</span><span class="p">]):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">Config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">Q</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Q学習用のテーブル</span>
 
@@ -889,20 +737,18 @@
     <span class="c1"># Q値を取得する関数</span>
     <span class="k">def</span> <span class="nf">get_action_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">Q</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">Q</span><span class="p">[</span><span class="n">state</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">action_num</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">Q</span><span class="p">[</span><span class="n">state</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">action_space</span><span class="o">.</span><span class="n">n</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">Q</span><span class="p">[</span><span class="n">state</span><span class="p">]</span>
 
 
-<span class="k">class</span> <span class="nc">Trainer</span><span class="p">(</span><span class="n">RLTrainer</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">Trainer</span><span class="p">(</span><span class="n">RLTrainer</span><span class="p">[</span><span class="n">Config</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">Config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">Parameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
 
     <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">is_warmup_needed</span><span class="p">():</span>
             <span class="k">return</span>
-        <span class="n">batchs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_count</span><span class="p">)</span>
+        <span class="n">batchs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>
 
         <span class="n">td_error</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">batchs</span><span class="p">:</span>
@@ -931,23 +777,21 @@
             <span class="n">td_error</span> <span class="o">/=</span> <span class="nb">len</span><span class="p">(</span><span class="n">batchs</span><span class="p">)</span>
 
         <span class="c1"># 学習結果(任意)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">train_info</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;Q&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="o">.</span><span class="n">Q</span><span class="p">),</span>
             <span class="s2">&quot;td_error&quot;</span><span class="p">:</span> <span class="n">td_error</span><span class="p">,</span>
         <span class="p">}</span>
 
 
-<span class="k">class</span> <span class="nc">Worker</span><span class="p">(</span><span class="n">DiscreteActionWorker</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">Worker</span><span class="p">(</span><span class="n">RLWorker</span><span class="p">[</span><span class="n">Config</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">,</span> <span class="n">DiscreteSpace</span><span class="p">,</span> <span class="n">ArrayDiscreteSpace</span><span class="p">]):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">Config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">Parameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span>
 
-    <span class="k">def</span> <span class="nf">call_on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">invalid_actions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">InfoType</span><span class="p">:</span>
         <span class="k">return</span> <span class="p">{}</span>
 
-    <span class="k">def</span> <span class="nf">call_policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">invalid_actions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+    <span class="k">def</span> <span class="nf">policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">InfoType</span><span class="p">]:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">observation_space</span><span class="o">.</span><span class="n">to_str</span><span class="p">(</span><span class="n">worker</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
 
         <span class="c1"># 学習中かどうかで探索率を変える</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span><span class="p">:</span>
@@ -967,22 +811,16 @@
 
         <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">action</span><span class="p">),</span> <span class="p">{}</span>
 
-    <span class="k">def</span> <span class="nf">call_on_step</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">next_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-        <span class="n">reward</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-        <span class="n">done</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
-        <span class="n">next_invalid_actions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">on_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">InfoType</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">{}</span>
 
         <span class="n">batch</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">,</span>
-            <span class="s2">&quot;next_state&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">next_state</span><span class="o">.</span><span class="n">tolist</span><span class="p">()),</span>
+            <span class="s2">&quot;next_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">observation_space</span><span class="o">.</span><span class="n">to_str</span><span class="p">(</span><span class="n">worker</span><span class="o">.</span><span class="n">state</span><span class="p">),</span>
             <span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">action</span><span class="p">,</span>
-            <span class="s2">&quot;reward&quot;</span><span class="p">:</span> <span class="n">reward</span><span class="p">,</span>
-            <span class="s2">&quot;done&quot;</span><span class="p">:</span> <span class="n">done</span><span class="p">,</span>
+            <span class="s2">&quot;reward&quot;</span><span class="p">:</span> <span class="n">worker</span><span class="o">.</span><span class="n">reward</span><span class="p">,</span>
+            <span class="s2">&quot;done&quot;</span><span class="p">:</span> <span class="n">worker</span><span class="o">.</span><span class="n">terminated</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>  <span class="c1"># memoryはaddのみ</span>
         <span class="k">return</span> <span class="p">{}</span>
@@ -991,7 +829,7 @@
     <span class="k">def</span> <span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="o">.</span><span class="n">get_action_values</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
         <span class="n">maxa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">action_num</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">action_space</span><span class="o">.</span><span class="n">n</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">a</span> <span class="o">==</span> <span class="n">maxa</span><span class="p">:</span>
                 <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;*&quot;</span>
             <span class="k">else</span><span class="p">:</span>
@@ -1015,10 +853,10 @@
 <span class="c1"># ---------------------------------</span>
 <span class="c1"># テスト</span>
 <span class="c1"># ---------------------------------</span>
-<span class="kn">from</span> <span class="nn">srl.test</span> <span class="kn">import</span> <span class="n">TestRL</span>
+<span class="kn">from</span> <span class="nn">srl.test.rl</span> <span class="kn">import</span> <span class="n">TestRL</span>
 
 <span class="n">tester</span> <span class="o">=</span> <span class="n">TestRL</span><span class="p">()</span>
-<span class="n">tester</span><span class="o">.</span><span class="n">simple_check</span><span class="p">(</span><span class="n">Config</span><span class="p">())</span>
+<span class="n">tester</span><span class="o">.</span><span class="n">test</span><span class="p">(</span><span class="n">Config</span><span class="p">())</span>
 
 
 <span class="c1"># ---------------------------------</span>
@@ -1159,7 +997,7 @@ work0 {}
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2022, poco_cpp.</p>
+    <p>&#169; Copyright 2022, poco.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

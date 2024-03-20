@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scheduler &mdash; SimpleDistributedRL 0.14.0.2 ドキュメント</title>
+  <title>Scheduler &mdash; SimpleDistributedRL 0.14.1.6 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=5c722782"></script>
+        <script src="../_static/documentation_options.js?v=d1d6777c"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -71,6 +71,7 @@
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Scheduler</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#srl.rl.schedulers.scheduler.SchedulerConfig"><code class="docutils literal notranslate"><span class="pre">SchedulerConfig</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.schedulers.scheduler.SchedulerConfig.clear"><code class="docutils literal notranslate"><span class="pre">SchedulerConfig.clear()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set"><code class="docutils literal notranslate"><span class="pre">SchedulerConfig.set()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_rate"><code class="docutils literal notranslate"><span class="pre">SchedulerConfig.set_rate()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_constant"><code class="docutils literal notranslate"><span class="pre">SchedulerConfig.set_constant()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_constant"><code class="docutils literal notranslate"><span class="pre">SchedulerConfig.add_constant()</span></code></a></li>
@@ -95,10 +96,15 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/rainbow.html">Rainbow</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/agent57_light.html">Agent57 light</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ppo.html">PPO(Proximal Policy Optimization)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/mcts.html">Monte Carlo tree search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/alphazero.html">AlphaZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/muzero.html">MuZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
 </ul>
 
@@ -131,7 +137,7 @@
 <span id="id1"></span><h1>Scheduler<a class="headerlink" href="#scheduler" title="Link to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.schedulers.scheduler.</span></span><span class="sig-name descname"><span class="pre">SchedulerConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.schedulers.scheduler.</span></span><span class="sig-name descname"><span class="pre">SchedulerConfig</span></span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig" title="Link to this definition"></a></dt>
 <dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>数値のハイパーパラメータに対してスケジュールによる変更を提供します。
 主に学習率に使われることを想定していますが、それ以外でも使用できます。</p>
@@ -160,9 +166,21 @@ clear後、addから始まる関数を使ってください。</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.set">
+<span class="sig-name descname"><span class="pre">set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set" title="Link to this definition"></a></dt>
+<dd><p>固定値を使用</p>
+<p>y = rate</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>rate</strong> (<em>float</em>) -- val</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.set_rate">
 <span class="sig-name descname"><span class="pre">set_rate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_rate" title="Link to this definition"></a></dt>
-<dd><p>固定値を使用 これはset_constantと同じ動作です。</p>
+<dd><p>固定値を使用</p>
 <p>y = rate</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -335,7 +353,7 @@ clear後、addから始まる関数を使ってください。</p>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2022, poco_cpp.</p>
+    <p>&#169; Copyright 2022, poco.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

@@ -159,20 +159,6 @@ EnvBase を継承した後に実装が必要な関数・プロパティは以下
          raise NotImplementedError()
 
       @property
-      def observation_type(self) -> EnvObservationTypes:
-         """ 状態の種類を返します。
-         EnvObservationType は列挙型で以下です。
-         DISCRETE  : 離散
-         CONTINUOUS: 連続
-         GRAY_2ch  : グレー画像(2ch)
-         GRAY_3ch  : グレー画像(3ch)
-         COLOR     : カラー画像
-         SHAPE2    : 2次元空間
-         SHAPE3    : 3次元空間
-         """
-         raise NotImplementedError()
-
-      @property
       def max_episode_steps(self) -> int:
          """ 1エピソードの最大ステップ数 """
          raise NotImplementedError()
@@ -250,20 +236,6 @@ EnvBase を継承した後に実装が必要な関数・プロパティは以下
          raise NotImplementedError()
 
       @property
-      def observation_type(self) -> EnvObservationTypes:
-         """ 状態の種類を返します。
-         EnvObservationType は列挙型で以下です。
-         DISCRETE  : 離散
-         CONTINUOUS: 連続
-         GRAY_2ch  : グレー画像(2ch)
-         GRAY_3ch  : グレー画像(3ch)
-         COLOR     : カラー画像
-         SHAPE2    : 2次元空間
-         SHAPE3    : 3次元空間
-         """
-         raise NotImplementedError()
-
-      @property
       def max_episode_steps(self) -> int:
          """ 1エピソードの最大ステップ数 """
          raise NotImplementedError()
@@ -320,20 +292,6 @@ EnvBase を継承した後に実装が必要な関数・プロパティは以下
       @property
       def observation_space(self) -> SpaceBase:
          """ 状態の取りうる範囲を返します(SpaceBaseは後述) """
-         raise NotImplementedError()
-
-      @property
-      def observation_type(self) -> EnvObservationTypes:
-         """ 状態の種類を返します。
-         EnvObservationType は列挙型で以下です。
-         DISCRETE  : 離散
-         CONTINUOUS: 連続
-         GRAY_2ch  : グレー画像(2ch)
-         GRAY_3ch  : グレー画像(3ch)
-         COLOR     : カラー画像
-         SHAPE2    : 2次元空間
-         SHAPE3    : 3次元空間
-         """
          raise NotImplementedError()
 
       @property
@@ -469,6 +427,22 @@ Spaceクラスは、アクション・状態の取りうる範囲を決めるク
      - NDArray[np.float32]
      - numpy配列を指定の範囲内で取り扱います。
        例えば BoxSpace(shape=(1, 2), low=-1, high=1) とした場合、[[-0.1, 1.0]] や [[0.1, 0.2] 等の値を取ります。
+
+
+      @property
+      def observation_type(self) -> EnvObservationTypes:
+         """ 状態の種類を返します。
+         EnvObservationType は列挙型で以下です。
+         DISCRETE  : 離散
+         CONTINUOUS: 連続
+         GRAY_2ch  : グレー画像(2ch)
+         GRAY_3ch  : グレー画像(3ch)
+         COLOR     : カラー画像
+         SHAPE2    : 2次元空間
+         SHAPE3    : 3次元空間
+         """
+         raise NotImplementedError()
+
 
 詳細はコード(`srl.base.env.spaces`)を見てください。
 

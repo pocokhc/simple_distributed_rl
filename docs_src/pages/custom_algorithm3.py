@@ -3,27 +3,28 @@ from dataclasses import dataclass
 import numpy as np
 
 from srl.base.define import RLBaseTypes
-from srl.base.rl.base import RLConfig
-from srl.rl.memories.priority_experience_replay import PriorityExperienceReplay, PriorityExperienceReplayConfig
+from srl.base.rl.config import RLConfig
+from srl.rl.memories.priority_experience_replay import (
+    PriorityExperienceReplay,
+    RLConfigComponentPriorityExperienceReplay,
+)
 
 
 @dataclass
-class MyConfig(RLConfig, PriorityExperienceReplayConfig):
-    # RLConfig PriorityExperienceReplayConfig も継承する
-    # (順番は RLConfig -> PriorityExperienceReplayConfig )
+class MyConfig(RLConfig, RLConfigComponentPriorityExperienceReplay):
+    # RLConfig に加え、RLConfigComponentPriorityExperienceReplay も継承する
+    # 順番は RLConfig -> RLConfigComponentPriorityExperienceReplay
 
     def get_name(self) -> str:
         return "MyConfig"
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return ""
 
 
@@ -45,4 +46,4 @@ memory.add(3, priority=3)
 memory.add(4, priority=4)
 indices, batchs, weights = memory.sample(batch_size=1, step=0)
 print(batchs)  # [2]
-memory.update((indices, batchs, np.array([5, 10, 15, 20, 11])))
+memory.update(indices, batchs, np.array([5, 10, 15, 20, 11]))

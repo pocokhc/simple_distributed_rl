@@ -199,54 +199,51 @@ while not env.done:
 
 ### ValueBase
 
-|Algorithm |Observation|Action  |Framework|ProgressRate||
-|----------|-----------|--------|----------|----|---|
-|QL        |Discrete   |Discrete|-         |100%|Basic Q Learning|
-|DQN       |Continuous |Discrete|Tensorflow|100%||
-|DQN       |Continuous |Discrete|Torch|100%||
-|C51       |Continuous |Discrete|Tensorflow| 99%|CategoricalDQN|
-|Rainbow   |Continuous |Discrete|Tensorflow|100%||
-|Rainbow   |Continuous |Discrete|Torch|100%||
-|R2D2      |Continuous |Discrete|Tensorflow|100%||
-|R2D2      |Continuous |Discrete|Torch|0%||
-|Agent57   |Continuous |Discrete|Tensorflow|100%||
-|Agent57   |Continuous |Discrete|Torch|100%||
+|Algorithm |Observation|Action  |Tensorflow|Torch|ProgressRate||
+|----------|-----------|--------|----------|-----|------------|---|
+|QL        |Discrete   |Discrete|-         |- |100%|Basic Q Learning|
+|DQN       |Continuous |Discrete|✔        |✔|100%||
+|C51       |Continuous |Discrete|✔        |- |99%|CategoricalDQN|
+|Rainbow   |Continuous |Discrete|✔        |✔|100%||
+|R2D2      |Continuous |Discrete|✔        |- |100%||
+|Agent57   |Continuous |Discrete|✔        |✔|100%||
+
 
 ### PolicyBase/ActorCritic
 
-|Algorithm              |Observation|Action    |Framework|ProgressRate||
-|-----------------------|-----------|----------|----------|----|---|
-|VanillaPolicy          |Discrete   |Both      |-|100%||
-|A3C/A2C                |           |          ||  0%||
-|TRPO                   |Continuous |          ||   -||
-|PPO                    |Continuous |Both      |Tensorflow|100%||
-|DDPG/TD3               |Continuous |Continuous|Tensorflow|100%||
-|SAC                    |Continuous |Both      |Tensorflow|100%||
+|Algorithm     |Observation|Action    |Tensorflow|Torch|ProgressRate||
+|--------------|-----------|----------|----------|-----|---|---|
+|VanillaPolicy |Discrete   |Both      |-         |-    |100%||
+|A3C/A2C       |-          |-         |-         |-    |-   ||
+|TRPO          |-          |-         |-         |-    |-   ||
+|PPO           |Continuous |Both      |✔        |-    |100%||
+|DDPG/TD3      |Continuous |Continuous|✔        |-    |100%||
+|SAC           |Continuous |Both      |✔        |-    |100%||
 
 ## AlphaSeries
 
-|Algorithm  |Observation|Action  |Framework|ProgressRate||
-|-----------|-----------|--------|----------|----|---|
-|MCTS       |Discrete   |Discrete|          |100%|MDP base|
-|AlphaZero  |Image      |Discrete|Tensorflow|100%|MDP base|
-|MuZero     |Image      |Discrete|Tensorflow|100%|MDP base|
-|StochasticMuZero|Image |Discrete|Tensorflow|100%|MDP base|
+|Algorithm  |Observation|Action  |Tensorflow|Torch|ProgressRate||
+|-----------|-----------|--------|----------|-----|---|---|
+|MCTS       |Discrete   |Discrete|-         |-    |100%|MDP base|
+|AlphaZero  |Image      |Discrete|✔        |-    |100%|MDP base|
+|MuZero     |Image      |Discrete|✔        |-    |100%|MDP base|
+|StochasticMuZero|Image |Discrete|✔        |-    |100%|MDP base|
 
 ## ModelBase
 
 |Algorithm  |Observation|Action     |Framework|ProgressRate|
-|-----------|-----------|-----------|----------|----|
-|DynaQ      |Discrete   |Discrete   |100%|
+|-----------|-----------|-----------|---------|----|
+|DynaQ      |Discrete   |Discrete   |-        |100%|
 
 ### WorldModels
 
-|Algorithm  |Observation|Action     |Framework|ProgressRate||
-|-----------|-----------|-----------|----------|----|---|
-|WorldModels|Continuous |Discrete   |Tensorflow|100%||
-|PlaNet     |Continuous |Discrete   |Tensorflow,tensorflow-probability|100%||
-|Dreamer    |Continuous |Both|-|-|merge DreamerV3|
-|DreamerV2  |Continuous |Both|-|-|merge DreamerV3|
-|DreamerV3  |Continuous |Both|Tensorflow,tensorflow-probability|100%||
+|Algorithm  |Observation|Action     |Tensorflow|Torch|ProgressRate||
+|-----------|-----------|-----------|----------|-----|---|---|
+|WorldModels|Continuous |Discrete   |✔        |-    |100%||
+|PlaNet     |Continuous |Discrete   |✔(+tensorflow-probability)|-|100%||
+|Dreamer    |Continuous |Both       |-|-|merge DreamerV3|
+|DreamerV2  |Continuous |Both       |-|-|merge DreamerV3|
+|DreamerV3  |Continuous |Both       |✔(+tensorflow-probability)|-|100%||
 
 ## Offline
 
@@ -254,14 +251,14 @@ while not env.done:
 |-----------|-----------|-----------|----------|----|
 |CQL        |Discrete   |Discrete   |          |  0%|
 
-## その他(Original)
+## Original
 
-|Algorithm    |Observation|Action  |Type     |Framework|ProgressRate||
-|-------------|-----------|--------|---------|----------|----|---|
-|QL_agent57   |Discrete   |Discrete|ValueBase|          | 80%|QL + Agent57|
-|Agent57_light|Continuous |Discrete|ValueBase|Tensorflow|100%|Agent57 - (LSTM,MultiStep)|
-|SearchDynaQ  |Discrete   |Discrete|ModelBase||100%|original|
-|SearchDreamer|Continuous |Discrete|ModelBase|Tensorflow| 0%|original|
+|Algorithm    |Observation|Action  |Type     |Tensorflow|Torch|ProgressRate||
+|-------------|-----------|--------|---------|----------|-----|---|---|
+|QL_agent57   |Discrete   |Discrete|ValueBase|-         |-    |80%|QL + Agent57|
+|Agent57_light|Continuous |Discrete|ValueBase|✔        |✔   |100%|Agent57 - (LSTM,MultiStep)|
+|SearchDynaQ  |Discrete   |Discrete|ModelBase|-         |-    |100%|original|
+|SearchDreamer|Continuous |Discrete|ModelBase|✔        |-    |0%|original|
 
 # 5. Customize
 

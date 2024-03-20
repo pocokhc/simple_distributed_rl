@@ -1,33 +1,35 @@
 import json
 import random
 from dataclasses import dataclass
+from typing import Tuple
 
 import numpy as np
 
-from srl.base.define import RLBaseTypes
-from srl.base.rl.algorithms.discrete_action import DiscreteActionWorker
-from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.define import InfoType, RLBaseTypes
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker import RLWorker
+from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+from srl.base.spaces.discrete import DiscreteSpace
 from srl.rl.memories.sequence_memory import SequenceMemory
 
 
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig[DiscreteSpace, ArrayDiscreteSpace]):
     epsilon: float = 0.1
     test_epsilon: float = 0
     gamma: float = 0.9
     lr: float = 0.1
 
-    @property
-    def base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    @property
-    def base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.DISCRETE
 
-    def get_use_framework(self) -> str:
+    def get_framework(self) -> str:
         return ""
 
     def get_name(self) -> str:
@@ -38,10 +40,9 @@ class Memory(SequenceMemory):
     pass
 
 
-class Parameter(RLParameter):
+class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
 
         self.Q = {}  # Q学習用のテーブル
 
@@ -54,20 +55,18 @@ class Parameter(RLParameter):
     # Q値を取得する関数
     def get_action_values(self, state: str):
         if state not in self.Q:
-            self.Q[state] = [0] * self.config.action_num
+            self.Q[state] = [0] * self.config.action_space.n
         return self.Q[state]
 
 
-class Trainer(RLTrainer):
+class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs = self.memory.sample(self.batch_size, self.train_count)
+        batchs = self.memory.sample()
 
         td_error = 0
         for batch in batchs:
@@ -96,23 +95,21 @@ class Trainer(RLTrainer):
             td_error /= len(batchs)
 
         # 学習結果(任意)
-        self.train_info = {
+        self.info = {
             "Q": len(self.parameter.Q),
             "td_error": td_error,
         }
 
 
-class Worker(DiscreteActionWorker):
+class Worker(RLWorker[Config, Parameter, DiscreteSpace, ArrayDiscreteSpace]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
-    def call_on_reset(self, state: np.ndarray, invalid_actions: list[int]) -> dict:
+    def on_reset(self, worker) -> InfoType:
         return {}
 
-    def call_policy(self, state: np.ndarray, invalid_actions: list[int]) -> tuple[int, dict]:
-        self.state = str(state.tolist())
+    def policy(self, worker) -> Tuple[int, InfoType]:
+        self.state = self.observation_space.to_str(worker.state)
 
         # 学習中かどうかで探索率を変える
         if self.training:
@@ -132,22 +129,16 @@ class Worker(DiscreteActionWorker):
 
         return int(self.action), {}
 
-    def call_on_step(
-        self,
-        next_state: np.ndarray,
-        reward: float,
-        done: bool,
-        next_invalid_actions: list[int],
-    ) -> dict:
+    def on_step(self, worker) -> InfoType:
         if not self.training:
             return {}
 
         batch = {
             "state": self.state,
-            "next_state": str(next_state.tolist()),
+            "next_state": self.observation_space.to_str(worker.state),
             "action": self.action,
-            "reward": reward,
-            "done": done,
+            "reward": worker.reward,
+            "done": worker.terminated,
         }
         self.memory.add(batch)  # memoryはaddのみ
         return {}
@@ -156,7 +147,7 @@ class Worker(DiscreteActionWorker):
     def render_terminal(self, worker, **kwargs) -> None:
         q = self.parameter.get_action_values(self.state)
         maxa = np.argmax(q)
-        for a in range(self.config.action_num):
+        for a in range(self.action_space.n):
             if a == maxa:
                 s = "*"
             else:
@@ -180,10 +171,10 @@ register(
 # ---------------------------------
 # テスト
 # ---------------------------------
-from srl.test import TestRL
+from srl.test.rl import TestRL
 
 tester = TestRL()
-tester.simple_check(Config())
+tester.test(Config())
 
 
 # ---------------------------------

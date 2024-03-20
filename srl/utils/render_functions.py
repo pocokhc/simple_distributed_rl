@@ -29,7 +29,7 @@ def print_to_text(print_function: Callable[[], None]) -> str:
     return text
 
 
-_fonts = {}
+_g_fonts = {}
 
 
 def text_to_rgb_array(
@@ -41,19 +41,24 @@ def text_to_rgb_array(
     import PIL.ImageDraw
     import PIL.ImageFont
 
-    global _fonts
+    global _g_fonts
 
     if text == "":
         return np.zeros((1, 1, 3), dtype=np.uint8)
 
     if font_name == "":
         font_name = get_font_path()
-    if font_name in _fonts:
-        font = _fonts[font_name]
+    if font_name in _g_fonts:
+        font = _g_fonts[font_name]
     else:
-        logger.debug(f"load font: {font_name}")
+        logger.info(f"load font: {font_name}")
         font = PIL.ImageFont.truetype(font_name, size=font_size)
-        _fonts[font_name] = font
+        _g_fonts[font_name] = font
+
+    texts = text.split("\n")
+    texts = texts[:49] + ["..."] if len(texts) >= 50 else texts
+    texts = [t[:197] + "..." if len(t) > 200 else t for t in texts]
+    text = "\n".join(texts)
 
     canvas_size = (640, 480)
     img = PIL.Image.new("RGB", canvas_size)

@@ -3,20 +3,11 @@ import os
 from typing import Optional, Type
 
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import (
-    DummyRLMemory,
-    DummyRLParameter,
-    DummyRLTrainer,
-    DummyRLWorker,
-    IRLMemoryTrainer,
-    IRLMemoryWorker,
-    RLConfig,
-    RLMemory,
-    RLParameter,
-    RLTrainer,
-    RLWorker,
-)
-from srl.base.rl.config import DummyRLConfig
+from srl.base.rl.config import DummyRLConfig, RLConfig
+from srl.base.rl.memory import DummyRLMemory, IRLMemoryTrainer, IRLMemoryWorker, RLMemory
+from srl.base.rl.parameter import DummyRLParameter, RLParameter
+from srl.base.rl.trainer import DummyRLTrainer, RLTrainer
+from srl.base.rl.worker import DummyRLWorker, RLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.utils.common import load_module
 

@@ -7,7 +7,9 @@ from typing import Generator, List, Optional, Tuple
 
 from srl.base.define import EnvActionType
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.base import IRLMemoryWorker, RLParameter, RLTrainer
+from srl.base.rl.memory import IRLMemoryWorker
+from srl.base.rl.parameter import RLParameter
+from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.context import RunContext, RunNameTypes, RunStateBase
 from srl.utils import common

@@ -12,7 +12,8 @@ from typing import List, Optional, cast
 
 import srl
 from srl.base.define import RLMemoryTypes
-from srl.base.rl.base import IRLMemoryWorker, RLMemory, RLParameter
+from srl.base.rl.memory import IRLMemoryWorker, RLMemory
+from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext, RunNameTypes
 from srl.base.run.core_play import RunStateActor

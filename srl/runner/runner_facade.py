@@ -3,7 +3,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, List, Optional, Union, cast
 
 from srl.base.define import RenderModes
-from srl.base.rl.base import RLMemory, RLParameter, RLTrainer
+from srl.base.rl.memory import RLMemory
+from srl.base.rl.parameter import RLParameter
+from srl.base.rl.trainer import RLTrainer
 from srl.base.run.context import RLWorkerType, RunNameTypes, StrWorkerType
 from srl.base.run.core_play import RunStateActor
 from srl.runner.runner import CallbackType, Runner

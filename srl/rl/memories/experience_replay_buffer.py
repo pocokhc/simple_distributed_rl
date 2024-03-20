@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, List
 
 from srl.base.define import RLMemoryTypes
-from srl.base.rl.base import RLMemory
+from srl.base.rl.memory import RLMemory
 
 logger = logging.getLogger(__name__)
 

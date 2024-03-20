@@ -6,7 +6,8 @@ import time
 import traceback
 from dataclasses import dataclass
 
-from srl.base.rl.base import RLParameter, RLTrainer
+from srl.base.rl.parameter import RLParameter
+from srl.base.rl.trainer import RLTrainer
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext
 from srl.base.run.core_play import RunStateActor

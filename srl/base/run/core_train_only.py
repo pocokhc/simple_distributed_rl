@@ -3,7 +3,9 @@ import time
 from dataclasses import dataclass
 from typing import List
 
-from srl.base.rl.base import IRLMemoryTrainer, RLParameter, RLTrainer
+from srl.base.rl.memory import IRLMemoryTrainer
+from srl.base.rl.parameter import RLParameter
+from srl.base.rl.trainer import RLTrainer
 from srl.base.run.context import RunContext, RunStateBase
 from srl.utils import common
 

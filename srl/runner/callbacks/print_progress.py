@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from srl.base.rl.base import RLParameter
+from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import RunCallback, TrainerCallback
 from srl.base.run.context import RunContext
 from srl.base.run.core_play import RunStateActor

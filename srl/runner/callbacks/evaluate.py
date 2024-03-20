@@ -5,7 +5,7 @@ from typing import List, Optional, Union
 
 import numpy as np
 
-from srl.base.rl.base import RLParameter
+from srl.base.rl.parameter import RLParameter
 from srl.base.run.context import RLWorkerType, StrWorkerType
 from srl.runner.runner import Runner
 

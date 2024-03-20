@@ -178,7 +178,7 @@ class Memory(PriorityExperienceReplay):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _QNetwork(keras.Model):
+class QNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -209,10 +209,10 @@ class _QNetwork(keras.Model):
 
     @tf.function()
     def call(self, x, hidden_states=None, training=False):
-        return self._call(x, hidden_states, training)
+        return self._call(x, hidden_states, training=training)
 
     def _call(self, x, hidden_state=None, training=False):
-        x = self.input_block(x, training)
+        x = self.input_block(x, training=training)
 
         # lstm
         x, h, c = self.lstm_layer(x, initial_state=hidden_state, training=training)
@@ -231,8 +231,8 @@ class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
 
-        self.q_online = _QNetwork(self.config)
-        self.q_target = _QNetwork(self.config)
+        self.q_online = QNetwork(self.config)
+        self.q_target = QNetwork(self.config)
         self.q_target.set_weights(self.q_online.get_weights())
 
     def call_restore(self, data: Any, **kwargs) -> None:

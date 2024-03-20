@@ -99,7 +99,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class _QNetwork(keras.Model):
+class QNetwork(keras.Model):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
@@ -120,8 +120,8 @@ class _QNetwork(keras.Model):
         self.build((None,) + config.observation_space.shape)
 
     def call(self, x, training=False):
-        x = self.input_block(x, training)
-        x = self.hidden_block(x, training)
+        x = self.input_block(x, training=training)
+        x = self.hidden_block(x, training=training)
         for h in self.out_layers:
             x = h(x)
         return x
@@ -132,7 +132,7 @@ class Parameter(RLParameter[Config]):
         super().__init__(*args)
         self.config: Config = self.config
 
-        self.Q = _QNetwork(self.config)
+        self.Q = QNetwork(self.config)
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.Q.set_weights(data)

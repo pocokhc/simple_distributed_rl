@@ -199,7 +199,7 @@ class Memory(RLMemory):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _VAE(keras.Model):
+class VAE(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -252,7 +252,7 @@ class _VAE(keras.Model):
         self.build((None,) + self._in_shape)
 
     def call(self, x, training=False):
-        return self.decode(self.encode(x, training), training)
+        return self.decode(self.encode(x, training=training), training=training)
 
     def encode(self, x, training=False):
         if self.use_image_head:
@@ -285,7 +285,7 @@ class _VAE(keras.Model):
         return self.decode(z), z
 
 
-class _MDNRNN(keras.Model):
+class MDNRNN(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -305,7 +305,7 @@ class _MDNRNN(keras.Model):
         dummy_onehot_action = np.zeros(shape=(1, 1, config.action_space.n), dtype=np.float32)
         self(dummy_z, dummy_onehot_action, None, return_rnn_only=False, training=False)
 
-    def call(self, z, onehot_actions, hidden_state, return_rnn_only, training):
+    def call(self, z, onehot_actions, hidden_state, return_rnn_only, training=False):
         batch_size = z.shape[0]
         timesteps = z.shape[1]
 
@@ -372,7 +372,7 @@ class _MDNRNN(keras.Model):
         return self.lstm_layer.cell.get_initial_state(batch_size=1, dtype=tf.float32)
 
 
-class _Controller(keras.Model):
+class Controller(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -415,9 +415,9 @@ class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
 
-        self.vae = _VAE(self.config)
-        self.rnn = _MDNRNN(self.config)
-        self.controller = _Controller(self.config)
+        self.vae = VAE(self.config)
+        self.rnn = MDNRNN(self.config)
+        self.controller = Controller(self.config)
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.vae.set_weights(data[0])

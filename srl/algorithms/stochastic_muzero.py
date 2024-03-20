@@ -259,7 +259,7 @@ class _DynamicsNetwork(keras.Model):
         code_image = tf.transpose(code_image, perm=[0, 2, 3, 1])  # (b, c_size, h, w)->(b, h, w, c_size)
 
         in_state = tf.concat([as_state, code_image], axis=3)
-        x, reward_category = self.call(in_state, training)
+        x, reward_category = self.call(in_state, training=training)
 
         # 隠れ状態はアクションとスケールを合わせるため0-1で正規化(一応batch毎)
         batch, h, w, d = x.shape
@@ -365,7 +365,7 @@ class _AfterstateDynamicsNetwork(keras.Model):
 
         # hidden_state + action_space
         in_state = tf.concat([hidden_state, action_image], axis=3)
-        return self.call(in_state, training)
+        return self.call(in_state, training=training)
 
 
 class _AfterstatePredictionNetwork(keras.Model):
@@ -429,7 +429,7 @@ class _AfterstatePredictionNetwork(keras.Model):
         return code, q
 
 
-class _VQ_VAE(keras.Model):
+class _VQVAE(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -508,7 +508,7 @@ class Parameter(RLParameter):
         self.prediction_network = _PredictionNetwork(self.config, hidden_state_shape)
         self.afterstate_dynamics_network = _AfterstateDynamicsNetwork(self.config, hidden_state_shape)
         self.afterstate_prediction_network = _AfterstatePredictionNetwork(self.config, hidden_state_shape)
-        self.vq_vae = _VQ_VAE(self.config)
+        self.vq_vae = _VQVAE(self.config)
 
         self.q_min = np.inf
         self.q_max = -np.inf

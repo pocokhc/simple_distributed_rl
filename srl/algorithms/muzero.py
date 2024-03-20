@@ -281,7 +281,7 @@ class _DynamicsNetwork(keras.Model):
         action_image = tf.transpose(action_image, perm=[0, 2, 3, 1])  # (batch, h, w, action)
 
         in_state = tf.concat([hidden_state, action_image], axis=3)
-        x, reward_category = self.call(in_state, training)
+        x, reward_category = self.call(in_state, training=training)
 
         # 隠れ状態はアクションとスケールを合わせるため0-1で正規化(一応batch毎)
         batch, h, w, d = x.shape

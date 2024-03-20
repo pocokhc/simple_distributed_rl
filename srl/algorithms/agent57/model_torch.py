@@ -19,7 +19,7 @@ from .agent57 import CommonInterfaceParameter, Config
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _QNetwork(nn.Module):
+class QNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
         self.input_ext_reward = config.input_ext_reward
@@ -174,10 +174,10 @@ class Parameter(CommonInterfaceParameter):
 
         self.device = torch.device(self.config.used_device_torch)
 
-        self.q_ext_online = _QNetwork(self.config).to(self.device)
-        self.q_ext_target = _QNetwork(self.config).to(self.device)
-        self.q_int_online = _QNetwork(self.config).to(self.device)
-        self.q_int_target = _QNetwork(self.config).to(self.device)
+        self.q_ext_online = QNetwork(self.config).to(self.device)
+        self.q_ext_target = QNetwork(self.config).to(self.device)
+        self.q_int_online = QNetwork(self.config).to(self.device)
+        self.q_int_target = QNetwork(self.config).to(self.device)
         self.q_ext_target.eval()
         self.q_int_target.eval()
         self.q_ext_target.load_state_dict(self.q_ext_online.state_dict())

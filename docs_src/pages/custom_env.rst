@@ -15,12 +15,11 @@ Make Original Environment
 + 2.Spaceクラスの説明
 + 3.登録
 + 4.実装例(singleplay)
-+ 5.テスト
-+ 6.Q学習による学習
++ 5.Q学習による学習例
 
 
-実装クラス
-==========
+1. 実装クラス
+=====================
 
 自作環境を作成する方法は現在以下の二つがあります。
 
@@ -30,7 +29,7 @@ Make Original Environment
 それぞれについて説明します。
 
 
-gym の環境を利用
+1-1. Gym環境の実装
 --------------------------------------------
 
 | gymの環境を利用を利用する場合は別途 `pip install gym` が必要です。
@@ -122,7 +121,40 @@ gym.Envを継承して作成します。
    env.close()
 
 
-EnvBaseクラスを利用する方法
+Gym環境の実装に本フレームワークの実装を追加する方法
+---------------------------------------------------
+
+Gym環境を実装したクラスに以下の関数を追加すると本フレームワークが認識します。
+（バージョンにより対応する項目は追加・変更する可能性があります）
+
+.. code-block:: python
+
+   class MyGymEnv(gym.Env):
+
+      # backup/restore機能が追加されます
+      def backup(self) -> Any:
+         return data
+      def restore(self, data: Any) -> None:
+         pass
+
+      def get_invalid_actions(self, player_index: int = -1) -> list[int]:
+         """ 有効でないアクションのリストを指定できます。これはアクションがintの場合のみ有効です """
+         return []
+
+      def action_to_str(self, action) -> str:
+         """ アクションの文字列を実装します。これは主に描画関係で使われます """
+         return str(action)
+
+      def get_key_bind(self) -> Optional[KeyBindType]:
+         """ 手動入力時のキーのマップを指定できます """
+         return None
+
+      def make_worker(self, name: str, **kwargs) -> Optional["RLWorker"]:
+         """ 別途作成したWorkerを指定できます。主にルールベースのAIを想定 """
+         return None
+
+
+1-2. EnvBaseクラスを利用する方法
 --------------------------------------------
 
 | 本フレームワーク共通で使用する基底クラス(`srl.base.env.EnvBase`)の説明です。
@@ -394,8 +426,8 @@ EnvBase を継承した後に実装が必要な関数・プロパティは以下
       return None
 
 
-Spaceクラスについて
-====================
+2. Spaceクラスについて
+=================================
 
 Spaceクラスは、アクション・状態の取りうる範囲を決めるクラスとなります。
 現状5種類あり以下となります。
@@ -424,30 +456,37 @@ Spaceクラスは、アクション・状態の取りうる範囲を決めるク
      - 小数の配列を取ります。
        例えば ArrayContinuousSpace(3, low=-1, high=1) とした場合、[0.1, -0.5, 0.9] 等の値を取ります。
    * - BoxSpace
-     - NDArray[np.float32]
+     - NDArray
      - numpy配列を指定の範囲内で取り扱います。
        例えば BoxSpace(shape=(1, 2), low=-1, high=1) とした場合、[[-0.1, 1.0]] や [[0.1, 0.2] 等の値を取ります。
 
-
-      @property
-      def observation_type(self) -> EnvObservationTypes:
-         """ 状態の種類を返します。
-         EnvObservationType は列挙型で以下です。
-         DISCRETE  : 離散
-         CONTINUOUS: 連続
-         GRAY_2ch  : グレー画像(2ch)
-         GRAY_3ch  : グレー画像(3ch)
-         COLOR     : カラー画像
-         SHAPE2    : 2次元空間
-         SHAPE3    : 3次元空間
-         """
-         raise NotImplementedError()
+BoxSpaceはコンストラクタでstypeを指定できます。
+stypeはアルゴリズム側が認識する型となり、以下があります。
 
 
-詳細はコード(`srl.base.env.spaces`)を見てください。
+.. list-table::
+    :header-rows: 1
+
+    * - SpaceTypes
+      -
+    * - DISCRETE
+      - 離散
+    * - CONTINUOUS
+      - 連続
+    * - GRAY_2ch
+      - グレー画像(2ch)
+    * - GRAY_3ch
+      - グレー画像(3ch)
+    * - COLOR
+      - カラー画像(3ch)
+    * - IMAGE
+      - 画像形式
+
+例えば `BoxSpace((64,64,3), stype=SpaceTypes.COLOR)` とすればカラー画像になります。
+詳細はコード `srl.base.env.spaces`、 `srl.base.define` を見てください。
 
 
-自作環境の登録
+3. 自作環境の登録
 ====================
 
 作成した環境は以下で登録して使います。
@@ -482,7 +521,7 @@ Spaceクラスは、アクション・状態の取りうる範囲を決めるク
    )
 
 
-実装例
+4. 実装例
 ====================
 
 左右に動け、左が穴で右がゴールなシンプルな環境を実装します。
@@ -495,15 +534,15 @@ Spaceクラスは、アクション・状態の取りうる範囲を決めるク
 
 
 テスト
-====================
+----------------
 
 最低限ですが、ちゃんと動くか以下でテストできます。
 
 .. literalinclude:: custom_env2.py
 
 
-Q学習による学習
-====================
+5. Q学習による学習例
+=======================
 
 以下のように学習できます。
 

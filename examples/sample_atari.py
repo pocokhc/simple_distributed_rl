@@ -2,7 +2,7 @@ import numpy as np
 
 import srl
 from srl.algorithms import dqn  # algorithm load
-from srl.base.define import EnvObservationTypes
+from srl.base.define import SpaceTypes
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.utils import common
 
@@ -32,16 +32,16 @@ def _create_runner():
         enable_rescale=False,
     )
     rl_config.memory.warmup_size = 1_000
-    rl_config.epsilon.set_linear(TRAIN_COUNT, 1.0, 0.1)
+    rl_config.epsilon = rl_config.create_scheduler().set_linear(TRAIN_COUNT, 1.0, 0.1)
     rl_config.memory.capacity = 10_000
-    rl_config.image_block.set_r2d3_image()
-    rl_config.hidden_block.set_mlp((512,))
+    rl_config.input_image_block.set_r2d3_block()
+    rl_config.hidden_block.set((512,))
     rl_config.window_length = 4
 
     # カスタムしたprocessorを追加
     rl_config.processors = [
         ImageProcessor(
-            image_type=EnvObservationTypes.GRAY_2ch,
+            image_type=SpaceTypes.GRAY_2ch,
             trimming=(30, 0, 210, 160),
             resize=(84, 84),
             enable_norm=True,

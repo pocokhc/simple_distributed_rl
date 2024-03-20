@@ -15,7 +15,7 @@ def main():
         enable_double_dqn=False,
         enable_rescale=False,
     )
-    _c_dqn.hidden_block.set_mlp((64, 64))
+    _c_dqn.hidden_block.set((64, 64))
     rl_configs.append(("DQN", _c_dqn))
 
     rainbow_base_config = rainbow.Config(
@@ -25,7 +25,7 @@ def main():
         multisteps=1,
         enable_rescale=False,
     )
-    rainbow_base_config.dueling_network.set((64, 64), enable=False)
+    rainbow_base_config.hidden_block.set((64, 64))
     rainbow_base_config.memory.set_replay_memory()
 
     rl_configs.append(("base", rainbow_base_config.copy()))
@@ -35,7 +35,7 @@ def main():
     rl_configs.append(("double_dqn", _c))
 
     _c = rainbow_base_config.copy()
-    _c.dueling_network.set((64, 64), enable=True)
+    _c.hidden_block.set_dueling_network((64, 64))
     rl_configs.append(("dueling_network", _c))
 
     _c = rainbow_base_config.copy()
@@ -52,7 +52,7 @@ def main():
 
     _c = rainbow_base_config.copy()
     _c.enable_double_dqn = True
-    _c.dueling_network.set((64, 64), enable=True)
+    _c.hidden_block.set_dueling_network((64, 64))
     _c.enable_noisy_dense = True
     _c.multisteps = 10
     _c.memory.set_proportional_memory(alpha=1.0, beta_initial=0.8, beta_steps=200 * 50)

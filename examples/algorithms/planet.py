@@ -5,6 +5,7 @@ import numpy as np
 
 import srl
 from srl.algorithms import planet
+from srl.base.define import ObservationModes
 
 _parameter_path = os.path.join(os.path.dirname(__file__), "_planet_param.dat")
 
@@ -29,7 +30,7 @@ def _create_runner():
         print_ga_debug=False,
         # action_algorithm="random",
     )
-    rl_config.use_render_image_for_observation = True
+    rl_config.observation_mode = ObservationModes.RENDER_IMAGE
     rl_config.parameter_path = _parameter_path
     env_config = srl.EnvConfig("EasyGrid")
     env_config.max_episode_steps = 10

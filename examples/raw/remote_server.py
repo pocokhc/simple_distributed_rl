@@ -8,8 +8,8 @@ import numpy as np
 import srl
 from srl.algorithms import ql
 from srl.base.env.config import EnvConfig
-from srl.base.rl.base import RLParameter
 from srl.base.rl.config import RLConfig
+from srl.base.rl.parameter import RLParameter
 
 
 class Board:

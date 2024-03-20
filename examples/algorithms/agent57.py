@@ -28,7 +28,7 @@ def main():
         input_int_reward=False,
         input_action=False,
     )
-    base_config.dueling_network.set((64, 64), enable=False)
+    base_config.hidden_block.set((64, 64))
     base_config.memory.capacity = 100_000
 
     # base

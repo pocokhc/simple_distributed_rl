@@ -13,6 +13,14 @@
 1. configのjson保存
 
 
+# v0.15.1
+
+
+**MainUpdates**
+
+1. [base.rl] update: MultiSpace,RLConfig,WorkerRunをテストも含めて見直して改善
+
+
 # v0.15.0
 
 ・spacesにMultiSpaceを追加し、マルチモーダルな入力に対応（画像+値の入力など）

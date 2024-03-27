@@ -30,6 +30,8 @@ def test_space_basic():
     o = space.create_stack_space(3)
     assert isinstance(o, ArrayContinuousSpace)
     assert o == ArrayContinuousSpace(3, -1, 3)
+    v = space.encode_stack([1, 1, 0])
+    assert v == [1, 1, 0]
 
 
 def test_space_get_default():

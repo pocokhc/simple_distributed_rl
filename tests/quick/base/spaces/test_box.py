@@ -30,10 +30,26 @@ def test_space_basic():
     # --- get_default
     assert (space.get_default() == np.zeros((3, 1))).all()
 
-    # --- stack
-    o = space.create_stack_space(3)
+
+def test_stack():
+    space = BoxSpace((3, 1), -1, 3)
+
+    o = space.create_stack_space(2)
     assert isinstance(o, BoxSpace)
-    assert o == BoxSpace((3, 3, 1), -1, 3)
+    assert o == BoxSpace((2, 3, 1), -1, 3)
+
+    v = space.encode_stack([np.ones((3, 1)), np.ones((3, 1))])
+    assert v.shape == (2, 3, 1)
+
+    # --- gray
+    space = BoxSpace((64, 32), 0, 255, stype=SpaceTypes.GRAY_2ch)
+
+    o = space.create_stack_space(2)
+    assert isinstance(o, BoxSpace)
+    assert o == BoxSpace((64, 32, 2), 0, 255, stype=SpaceTypes.IMAGE)
+
+    v = space.encode_stack([np.ones((64, 32)), np.ones((64, 32))])
+    assert v.shape == (64, 32, 2)
 
 
 def test_space_type():

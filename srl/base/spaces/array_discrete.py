@@ -56,6 +56,7 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     def sample(self, mask: List[List[int]] = []) -> List[int]:
         if len(mask) > 0:
             self._create_tbl()
+            assert self.encode_tbl is not None
             valid_acts = []
             for a in [k for k in self.encode_tbl.keys()]:
                 f = True
@@ -69,12 +70,13 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         else:
             return [random.randint(self._low[i], self._high[i]) for i in range(self._size)]
 
-    def get_valid_actions(self, mask: List[List[int]] = []) -> List[List[int]]:
+    def get_valid_actions(self, masks: List[List[int]] = []) -> List[List[int]]:
         self._create_tbl()
+        assert self.encode_tbl is not None
         valid_acts = []
         for a in [k for k in self.encode_tbl.keys()]:
             f = True
-            for m in mask:
+            for m in masks:
                 if a == tuple(m):
                     f = False
                     break
@@ -190,6 +192,7 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
 
     def encode_to_int(self, val: List[int]) -> int:
         self._create_tbl()
+        assert self.encode_tbl is not None
         return self.encode_tbl[tuple(val)]
 
     def decode_from_int(self, val: int) -> List[int]:

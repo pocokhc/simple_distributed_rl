@@ -41,9 +41,9 @@ class DiscreteSpace(SpaceBase[int]):
         acts = [a + self._start for a in range(self._n)]
         return random.choice([a for a in acts if a not in mask])
 
-    def get_valid_actions(self, mask: List[int] = []) -> List[int]:
+    def get_valid_actions(self, masks: List[int] = []) -> List[int]:
         acts = [a + self._start for a in range(self.n)]
-        return [a for a in acts if a not in mask]
+        return [a for a in acts if a not in masks]
 
     def sanitize(self, val: Any) -> int:
         if isinstance(val, list):

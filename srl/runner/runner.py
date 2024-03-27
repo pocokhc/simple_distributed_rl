@@ -650,6 +650,7 @@ class Runner:
                 create_env_sate=True,
                 enable_state_encode=True,
                 append_recent_state=False,
+                is_dummy=False,
             )
         return state
 

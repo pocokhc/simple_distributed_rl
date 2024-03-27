@@ -65,6 +65,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
         if self._stype == SpaceTypes.DISCRETE:
             if len(mask) > 0:
                 self._create_int_tbl()
+                assert self.encode_int_tbl is not None
                 mask2 = [tuple(m.flatten().tolist()) for m in mask]
                 valid_acts = [k for k in self.encode_int_tbl.keys() if k not in mask2]
                 a = random.choice(valid_acts)
@@ -80,7 +81,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
             r = np.random.random_sample(self.shape)
             return self.low + r * (self.high - self.low)
 
-    def get_valid_actions(self, mask: List[np.ndarray] = []) -> List[np.ndarray]:
+    def get_valid_actions(self, masks: List[np.ndarray] = []) -> List[np.ndarray]:
         if self._stype == SpaceTypes.DISCRETE:
             self._create_int_tbl()
             assert self.decode_int_tbl is not None
@@ -88,7 +89,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
             valid_acts = []
             for a in acts:
                 f = True
-                for m in mask:
+                for m in masks:
                     if (a == m).all():
                         f = False
                         break
@@ -99,7 +100,8 @@ class BoxSpace(SpaceBase[np.ndarray]):
             raise NotSupportedError()
 
     def sanitize(self, val: Any) -> np.ndarray:
-        return np.clip(val, self._low, self._high).astype(self._dtype)
+        val = np.asarray(val, self._dtype).reshape(self._shape)
+        return np.clip(val, self._low, self._high)
 
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, np.ndarray):
@@ -123,6 +125,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
         o.division_tbl = self.division_tbl
         o.decode_int_tbl = self.decode_int_tbl
         o.encode_int_tbl = self.encode_int_tbl
+        o._f_stack_gray_2ch_shape = self._f_stack_gray_2ch_shape
         return o
 
     def __eq__(self, o: "BoxSpace") -> bool:
@@ -140,7 +143,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
         if self.division_tbl is None:
             s = ""
         else:
-            s = f", division({self.n})"
+            s = f", division({self.int_size})"
         return f"Box{self.shape}, range[{np.min(self.low)}, {np.max(self.high)}]{s}, {self._dtype}, {self._stype}"
 
     # --- stack
@@ -198,7 +201,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
         self.division_tbl = np.reshape(act_list, (-1,) + self.shape).astype(self._dtype)
         n = len(self.division_tbl)
 
-        logger.info(f"created division: {division_num}(n={n})({time.time()-t0:.3f}s)")
+        logger.info(f"created division: {division_num}(n={n})({time.time() - t0:.3f}s)")
 
     def _create_int_tbl(self) -> None:
         if self.decode_int_tbl is not None:
@@ -264,7 +267,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
             if self.division_tbl is None:
                 return len(self.low.flatten())
             else:
-                return len(self.division_tbl)
+                return 1
 
     @property
     def list_int_low(self) -> List[int]:
@@ -274,7 +277,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
             if self.division_tbl is None:
                 return np.round(self.low.flatten()).tolist()
             else:
-                raise NotImplementedError("TODO")
+                return [0]
 
     @property
     def list_int_high(self) -> List[int]:
@@ -284,7 +287,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
             if self.division_tbl is None:
                 return np.round(self.high.flatten()).tolist()
             else:
-                raise NotImplementedError("TODO")
+                return [self.int_size]
 
     def encode_to_list_int(self, val: np.ndarray) -> List[int]:
         if self._stype == SpaceTypes.DISCRETE:

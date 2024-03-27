@@ -51,7 +51,7 @@ class SpaceBase(ABC, Generic[_T]):
     def create_division_tbl(self, division_num: int) -> None:
         pass
 
-    def get_valid_actions(self, mask: List[_T] = []) -> List[_T]:
+    def get_valid_actions(self, masks: List[_T] = []) -> List[_T]:
         """Returns a valid actions"""
         raise NotSupportedError()
 
@@ -71,7 +71,7 @@ class SpaceBase(ABC, Generic[_T]):
         raise NotImplementedError()
 
     @abstractmethod
-    def encode_stack(self, val: _T):
+    def encode_stack(self, val: List[_T]):
         raise NotImplementedError()
 
     # --------------------------------------
@@ -166,18 +166,4 @@ class SpaceBase(ABC, Generic[_T]):
 
     def decode_from_np(self, val: np.ndarray) -> _T:
         """np.ndarray -> SpaceVal"""
-        raise NotImplementedError()
-
-    # --------------------------------------
-    # Multiple
-    # --------------------------------------
-    # action
-    @property
-    def list_space_size(self) -> int:
-        raise NotImplementedError()
-
-    def encode_to_list_space(self, val: _T) -> list:
-        raise NotImplementedError()
-
-    def decode_from_list_space(self, val: list) -> _T:
         raise NotImplementedError()

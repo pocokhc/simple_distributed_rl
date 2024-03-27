@@ -30,6 +30,8 @@ def test_space_basic():
     o = space.create_stack_space(3)
     assert isinstance(o, ArrayDiscreteSpace)
     assert o == ArrayDiscreteSpace(3, 1, 5)
+    v = space.encode_stack([1, 1, 0])
+    assert v == [1, 1, 0]
 
 
 def test_dtype():
@@ -99,9 +101,9 @@ def test_space():
     np.testing.assert_array_equal(en, [2.0])
 
     # --- sample
-    actions = [space.sample([3]) for _ in range(100)]
+    actions = [space.sample([3, 4]) for _ in range(100)]
     actions = sorted(list(set(actions)))
-    np.testing.assert_array_equal(actions, [1, 2, 4, 5])
+    np.testing.assert_array_equal(actions, [1, 2, 5])
 
     # --- eq
     assert space == DiscreteSpace(5, start=1)

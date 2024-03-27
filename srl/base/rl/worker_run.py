@@ -20,6 +20,7 @@ from srl.base.render import Render
 from srl.base.rl.config import RLConfig
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.worker import RLWorker
+from srl.base.spaces.multi import MultiSpace
 from srl.base.spaces.space import SpaceBase
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,7 @@ class WorkerRun(Generic[_TActSpace, _TObsSpace]):
         self._render = Render(worker)
 
         self._total_step: int = 0
-        self._dummy_rl_states_one_step = [s.get_default() for s in self._config.observation_spaces_one_step]
+        self._dummy_rl_states_one_step = self._config.observation_space_one_step.get_default()
 
     # ------------------------------------
     # episode functions
@@ -155,7 +156,7 @@ class WorkerRun(Generic[_TActSpace, _TObsSpace]):
         self._is_reset = False
 
         if self._config.window_length > 1:
-            self._recent_states: List[List[RLObservationType]] = [
+            self._recent_states: List[RLObservationType] = [
                 self._dummy_rl_states_one_step for _ in range(self._config.window_length)
             ]
 
@@ -166,6 +167,7 @@ class WorkerRun(Generic[_TActSpace, _TObsSpace]):
             create_env_sate=False,
             enable_state_encode=False,
             append_recent_state=True,
+            is_dummy=True,
         )
         self._prev_state = self._state
         self._prev_action = 0
@@ -189,6 +191,7 @@ class WorkerRun(Generic[_TActSpace, _TObsSpace]):
                 create_env_sate=True,
                 enable_state_encode=self._config.enable_state_encode,
                 append_recent_state=True,
+                is_dummy=False,
             )
             self._info = self._worker.on_reset(self)
             self._is_reset = True
@@ -235,6 +238,7 @@ class WorkerRun(Generic[_TActSpace, _TObsSpace]):
             create_env_sate=True,
             enable_state_encode=self._config.enable_state_encode,
             append_recent_state=True,
+            is_dummy=False,
         )
         self._reward = self.reward_encode(self._step_reward, self._env)
         self._env._done = self.done_encode(self._env._done, self._env)
@@ -256,6 +260,17 @@ class WorkerRun(Generic[_TActSpace, _TObsSpace]):
     # ------------------------------
     # encode/decode
     # ------------------------------
+    def _state_encode_sub(self, rl_stype: SpaceTypes, env_space: SpaceBase, env_state) -> RLObservationType:
+        if rl_stype == SpaceTypes.DISCRETE:
+            return env_space.encode_to_list_int(env_state)
+        elif rl_stype == SpaceTypes.CONTINUOUS:
+            return env_space.encode_to_np(env_state, np.float32)
+        elif SpaceTypes.is_image(rl_stype):
+            return env_space.encode_to_np(env_state, np.float32)
+        elif rl_stype == SpaceTypes.MULTI:
+            pass
+        return cast(RLObservationType, env_state)
+
     def state_encode(
         self,
         env_state: EnvObservationType,
@@ -263,133 +278,178 @@ class WorkerRun(Generic[_TActSpace, _TObsSpace]):
         create_env_sate: bool,
         enable_state_encode: bool,
         append_recent_state: bool,
+        is_dummy: bool,
     ) -> RLObservationType:
 
-        # --- create env state
-        if create_env_sate:
-            env_states = []
-            if self._config.observation_mode & ObservationModes.ENV:
-                if self._config.is_env_obs_multi:
-                    assert isinstance(env_state, list)
-                    env_states.extend(env_state)
-                else:
-                    env_states.append(env_state)
-            if self._config.observation_mode & ObservationModes.RENDER_IMAGE:
-                env_states.append(self._env.render_rgb_array())
-            if self._config.observation_mode & ObservationModes.RENDER_TERMINAL:
-                env_states.append(self._env.render_ansi())
+        if is_dummy:
+            rl_state = cast(RLObservationType, env_state)
         else:
-            env_states = cast(List[EnvObservationType], env_state)
+            # --- create env state
+            # listにして処理する
+            if create_env_sate:
+                env_states = []
+                if self._config.observation_mode & ObservationModes.ENV:
+                    if self._config._is_env_obs_multi:
+                        assert isinstance(env_state, list)
+                        env_states.extend(env_state)
+                    else:
+                        env_states.append(env_state)
+                if self._config.observation_mode & ObservationModes.RENDER_IMAGE:
+                    env_states.append(self._env.render_rgb_array())
+                if self._config.observation_mode & ObservationModes.RENDER_TERMINAL:
+                    env_states.append(self._env.render_ansi())
+            else:
+                env_states = cast(List[EnvObservationType], [env_state])
 
-        # --- encode
-        if enable_state_encode:
-            rl_states = []
+            # --- processor
             for i in range(len(env_states)):
                 for p in self._config.observation_processors_list[i]:
                     env_states[i] = p.preprocess_observation(env_states[i], env)
 
-                env_space = self._config.observation_spaces_of_env[i]
-                rl_space = self._config.observation_spaces_one_step[i]
-                if rl_space.stype == SpaceTypes.DISCRETE:
-                    rl_states.append(env_space.encode_to_list_int(env_states[i]))
-                elif rl_space.stype == SpaceTypes.CONTINUOUS:
-                    rl_states.append(env_space.encode_to_np(env_states[i], np.float32))
-                elif rl_space.stype == SpaceTypes.IMAGE:
-                    rl_states.append(env_space.encode_to_np(env_states[i], np.float32))
+            # --- encode
+            env_space = self._config.observation_space_of_env
+            if not isinstance(env_space, MultiSpace):
+                env_states = env_states[0]
+            if enable_state_encode:
+                rl_space = self._config.observation_space_one_step
+                if isinstance(rl_space, MultiSpace):
+                    if isinstance(env_space, MultiSpace):
+                        # : assert len(rl_spaces) == len(env_spaces)
+                        rl_state = []
+                        for i in range(rl_space.space_size):
+                            rl_state.append(
+                                self._state_encode_sub(
+                                    rl_space.spaces[i].stype,
+                                    env_space.spaces[i],
+                                    env_states[i],
+                                )
+                            )
+                    else:
+                        # : assert len(rl_spaces) == 1
+                        rl_state = [
+                            self._state_encode_sub(
+                                rl_space.spaces[0].stype,
+                                env_space,
+                                env_states,
+                            )
+                        ]
                 else:
-                    # do nothing
-                    rl_states.append(cast(RLObservationType, env_states[i]))
-        else:
-            rl_states = cast(List[RLObservationType], env_states)
+                    rl_state = self._state_encode_sub(
+                        rl_space.stype,
+                        env_space,
+                        env_states,
+                    )
+            else:
+                rl_state = cast(RLObservationType, env_states)
 
         # --- create rl state
         if self._config.window_length > 1:
             if append_recent_state:
                 self._recent_states.pop(0)
-                self._recent_states.append(rl_states)
+                self._recent_states.append(rl_state)
                 _recent_state = self._recent_states
             else:
-                _recent_state = self._recent_states[1:] + [rl_states]
+                _recent_state = self._recent_states[1:] + [rl_state]
 
             # 各配列毎に積み重ねる
-            rl_states2 = []
-            for i in range(len(rl_states)):
-                space = self._config.observation_spaces_one_step[i]
-                s = space.encode_stack([r[i] for r in _recent_state])
-                rl_states2.append(s)
-            rl_states = rl_states2
+            rl_state = self._config.observation_space_one_step.encode_stack(_recent_state)
 
-        if self._config.observation_space.stype == SpaceTypes.MULTI:
-            return rl_states
-        else:
-            return rl_states[0]
+        return rl_state
+
+    def _action_encode_sub(self, rl_stype: SpaceTypes, env_space: SpaceBase, env_act) -> RLActionType:
+        if rl_stype == SpaceTypes.DISCRETE:
+            return env_space.encode_to_int(env_act)
+        elif rl_stype == SpaceTypes.CONTINUOUS:
+            return env_space.encode_to_list_float(env_act)
+        elif SpaceTypes.is_image(rl_stype):
+            return env_space.encode_to_np(env_act, np.uint8)
+        elif rl_stype == SpaceTypes.MULTI:
+            pass
+        return cast(RLActionType, env_act)
 
     def action_encode(self, env_action: EnvActionType) -> RLActionType:
         if self._config.enable_action_decode:
-            env_actions = []
-            if self._config.action_space.stype == SpaceTypes.MULTI:
-                assert isinstance(env_action, list)
-                env_actions = env_action
-            else:
-                env_actions = [env_action]
-
-            rl_actions = []
-            for i in range(len(env_actions)):
-                env_space = self._config.action_spaces_of_env[i]
-                rl_space = self._config.action_spaces[i]
-                if rl_space.stype == SpaceTypes.DISCRETE:
-                    a = env_space.encode_to_int(env_actions[i])
-                elif rl_space.stype == SpaceTypes.CONTINUOUS:
-                    a = env_space.encode_to_list_float(env_actions[i])
-                elif rl_space.stype == SpaceTypes.IMAGE:
-                    a = env_space.encode_to_np(env_actions[i], np.uint8)
+            env_space = self._config.action_space_of_env
+            rl_space = self._config.action_space
+            if isinstance(rl_space, MultiSpace):
+                if isinstance(env_space, MultiSpace):
+                    # : assert len(rl_spaces) == len(env_spaces)
+                    rl_act = []
+                    for i in range(rl_space.space_size):
+                        rl_act.append(
+                            self._action_encode_sub(
+                                rl_space.spaces[i].stype,
+                                env_space.spaces[i],
+                                env_action[i],
+                            )
+                        )
                 else:
-                    # do nothing
-                    a = cast(RLActionType, env_action)
-                rl_actions.append(a)
-
-            if self._config.action_space.stype == SpaceTypes.MULTI:
-                return rl_actions
+                    # : assert len(rl_spaces) == 1
+                    rl_act = [
+                        self._action_encode_sub(
+                            rl_space.spaces[0].stype,
+                            env_space,
+                            env_action,
+                        )
+                    ]
             else:
-                return rl_actions[0]
+                rl_act = self._action_encode_sub(
+                    rl_space.stype,
+                    env_space,
+                    env_action,
+                )
+        else:
+            rl_act = cast(RLActionType, env_action)
+        return rl_act
 
-        return cast(RLActionType, env_action)
+    def _action_decode_sub(self, rl_stype: SpaceTypes, env_space: SpaceBase, rl_act) -> EnvActionType:
+        if rl_stype == SpaceTypes.DISCRETE:
+            return env_space.decode_from_int(int(rl_act))
+        elif rl_stype == SpaceTypes.CONTINUOUS:
+            if isinstance(rl_act, list):
+                rl_act = [float(a2) for a2 in rl_act]
+            else:
+                rl_act = [float(rl_act)]
+            return env_space.decode_from_list_float(rl_act)
+        elif SpaceTypes.is_image(rl_stype):
+            return env_space.decode_from_np(np.asarray(rl_act))
+        elif rl_stype == SpaceTypes.MULTI:
+            pass
+        return cast(EnvActionType, rl_act)
 
     def action_decode(self, rl_action: RLActionType) -> EnvActionType:
         if self._config.enable_action_decode:
-            if self._config.action_space.stype == SpaceTypes.MULTI:
-                assert isinstance(rl_action, list)
-                rl_actions = rl_action
-            else:
-                rl_actions = [rl_action]
-
-            env_actions = []
-            for i in range(len(rl_actions)):
-                env_space = self._config.action_spaces_of_env[i]
-                rl_space = self._config.action_spaces[i]
-                a = rl_actions[i]
-                if rl_space.stype == SpaceTypes.DISCRETE:
-                    a = env_space.decode_from_int(int(a))
-                elif rl_space.stype == SpaceTypes.CONTINUOUS:
-                    if isinstance(a, list):
-                        a = [float(a2) for a2 in a]
-                    else:
-                        a = [float(a)]
-                    a = env_space.decode_from_list_float(a)
-                elif SpaceTypes.is_image(rl_space.stype):
-                    a = env_space.decode_from_np(np.asarray(a))
+            env_space = self._config.action_space_of_env
+            rl_space = self._config.action_space
+            if isinstance(rl_space, MultiSpace):
+                if isinstance(env_space, MultiSpace):
+                    # : assert len(rl_spaces) == len(env_spaces)
+                    env_act = []
+                    for i in range(rl_space.space_size):
+                        env_act.append(
+                            self._action_decode_sub(
+                                rl_space.spaces[i].stype,
+                                env_space.spaces[i],
+                                rl_action[i],
+                            )
+                        )
                 else:
-                    # do nothing
-                    a = cast(EnvActionType, a)
-                env_actions.append(a)
+                    # : assert len(rl_spaces) == 1
+                    env_act = self._action_decode_sub(
+                        rl_space.spaces[0].stype,
+                        env_space,
+                        rl_action[0],
+                    )
 
-            if len(self._config.action_spaces_of_env) > 1:
-                # MULTI
-                return env_actions
             else:
-                return env_actions[0]
-
-        return cast(EnvActionType, rl_action)
+                env_act = self._action_decode_sub(
+                    rl_space.stype,
+                    env_space,
+                    rl_action,
+                )
+        else:
+            env_act = cast(EnvActionType, rl_action)
+        return env_act
 
     def reward_encode(self, reward: float, env: EnvRun) -> float:
         if self._config.enable_reward_encode:
@@ -470,6 +530,7 @@ class WorkerRun(Generic[_TActSpace, _TObsSpace]):
             create_env_sate=True,
             enable_state_encode=self._config.enable_state_encode,
             append_recent_state=False,
+            is_dummy=False,
         )
         rewards = [self.reward_encode(r, env) for r in env.step_rewards.tolist()]
 

@@ -1,7 +1,7 @@
 import logging
 import random
 import time
-from typing import Any, List
+from typing import Any, List, Tuple
 
 import numpy as np
 
@@ -17,6 +17,13 @@ class MultiSpace(SpaceBase[list]):
     def __init__(self, spaces: List[SpaceBase]) -> None:
         self.spaces = spaces
         self.decode_tbl = None
+        self.encode_tbl = None
+
+        self._is_discrete = True
+        for s in self.spaces:
+            if s.stype != SpaceTypes.DISCRETE:
+                self._is_discrete = False
+                break
 
     @property
     def space_size(self) -> int:
@@ -31,19 +38,50 @@ class MultiSpace(SpaceBase[list]):
         raise NotSupportedError()
 
     def sample(self, mask: List[list] = []) -> list:
-        if len(mask) == 0:
-            return [s.sample() for s in self.spaces]
+        if self._is_discrete:
+            if len(mask) > 0:
+                acts = self.get_valid_actions(mask)
+                return random.choice(acts)
+            else:
+                return [s.sample() for s in self.spaces]
         else:
-            # 方針、discreteで値を出してdecodeする
-            en_mask = [self.encode_to_int(m) for m in mask]
-            valid_acts = [a for a in range(self.n) if a not in en_mask]
-            a = random.choice(valid_acts)
-            return self.decode_from_int(a)
+            if len(mask) > 0:
+                logger.info(f"mask is not support: {mask}")
+            return [s.sample() for s in self.spaces]
 
-    def get_valid_actions(self, mask: List[list] = []) -> List[list]:
-        en_mask = [self.encode_to_int(m) for m in mask]
-        valid_acts = [a for a in range(self.n) if a not in en_mask]
-        return [self.decode_from_int(a) for a in valid_acts]
+    def get_valid_actions(self, masks: List[list] = []) -> list:
+        if not self._is_discrete:
+            raise NotSupportedError()
+
+        import itertools
+
+        valid_acts = [s.get_valid_actions() for s in self.spaces]
+        valid_acts = list(itertools.product(*valid_acts))
+        if len(masks) == 0:
+            return valid_acts
+
+        # maskを除外
+        valid_acts2 = []
+        for acts in valid_acts:
+            in_mask = False
+            for mask in masks:
+                is_mask = True
+                for i in range(len(acts)):
+                    if isinstance(acts[i], np.ndarray):
+                        if not (acts[i] == mask[i]).all():
+                            is_mask = False
+                            break
+                    else:
+                        if acts[i] != mask[i]:
+                            is_mask = False
+                            break
+                if is_mask:
+                    in_mask = True
+                    break
+            if not in_mask:
+                valid_acts2.append(acts)
+
+        return valid_acts2
 
     def sanitize(self, val: Any) -> list:
         if isinstance(val, list):
@@ -66,7 +104,7 @@ class MultiSpace(SpaceBase[list]):
         return True
 
     def to_str(self, val: list) -> str:
-        return "_".join([v.to_str() for v in val])
+        return "_".join([s.to_str(v) for v, s in zip(val, self.spaces)])
 
     def get_default(self) -> list:
         return [s.get_default() for s in self.spaces]
@@ -74,6 +112,7 @@ class MultiSpace(SpaceBase[list]):
     def copy(self) -> "MultiSpace":
         o = MultiSpace([s.copy() for s in self.spaces])
         o.decode_tbl = self.decode_tbl
+        o.encode_tbl = self.encode_tbl
         return o
 
     def __eq__(self, o: "MultiSpace") -> bool:
@@ -81,8 +120,8 @@ class MultiSpace(SpaceBase[list]):
             return False
         if len(self.spaces) != len(o.spaces):
             return False
-        for i, s in enumerate(self.spaces):
-            if s != o.spaces[i]:
+        for i in range(len(self.spaces)):
+            if self.spaces[i] != o.spaces[i]:
                 return False
         return True
 
@@ -96,11 +135,12 @@ class MultiSpace(SpaceBase[list]):
         [s.create_division_tbl(division_num) for s in self.spaces]
 
     # --- stack
-    def create_stack_space(self, length: int) -> "SpaceBase":
-        raise NotImplementedError()
+    def create_stack_space(self, length: int):
+        spaces = [_s.create_stack_space(length) for _s in self.spaces]
+        return MultiSpace(spaces)
 
-    def encode_stack(self, val, length: int):
-        raise NotImplementedError()
+    def encode_stack(self, val: list):
+        return [self.spaces[i].encode_stack([v[i] for v in val]) for i in range(self.space_size)]
 
     # --------------------------------------
     # create_tbl
@@ -111,7 +151,7 @@ class MultiSpace(SpaceBase[list]):
         import itertools
 
         t0 = time.time()
-        arr_list = [[a for a in range(s.n)] for s in self.spaces]
+        arr_list = [[a for a in range(s.int_size)] for s in self.spaces]
         self.decode_tbl = list(itertools.product(*arr_list))
         self.encode_tbl = {}
         for i, v in enumerate(self.decode_tbl):
@@ -129,6 +169,7 @@ class MultiSpace(SpaceBase[list]):
 
     def encode_to_int(self, val: list) -> int:
         self._create_tbl()
+        assert self.encode_tbl is not None
         key = [s.encode_to_int(val[i]) for i, s in enumerate(self.spaces)]
         return self.encode_tbl[tuple(key)]
 
@@ -139,33 +180,30 @@ class MultiSpace(SpaceBase[list]):
         return [s.decode_from_int(vals[i]) for i, s in enumerate(self.spaces)]
 
     # --------------------------------------
-    # observation discrete
+    # list int
     # --------------------------------------
     @property
     def list_int_size(self) -> int:
-        raise NotImplementedError()
+        return sum([s.list_int_size for s in self.spaces])
 
     @property
     def list_int_low(self) -> List[int]:
-        raise NotImplementedError()
+        return [x for space in self.spaces for x in space.list_int_low]
 
     @property
     def list_int_high(self) -> List[int]:
-        raise NotImplementedError()
+        return [x for space in self.spaces for x in space.list_int_high]
 
     def encode_to_list_int(self, val: list) -> List[int]:
-        arr = []
-        for i, s in enumerate(self.spaces):
-            arr.extend(s.encode_to_list_int(val[i]))
-        return arr
+        return [x for i, space in enumerate(self.spaces) for x in space.encode_to_list_int(val[i])]
 
     def decode_from_list_int(self, val: List[int]) -> list:
         arr = []
         n = 0
         for s in self.spaces:
-            val2 = val[n : n + s.list_size]
+            val2 = val[n : n + s.list_int_size]
             arr.append(s.decode_from_list_int(val2))
-            n += s.list_size
+            n += s.list_int_size
         return arr
 
     # --------------------------------------
@@ -173,63 +211,45 @@ class MultiSpace(SpaceBase[list]):
     # --------------------------------------
     @property
     def list_float_size(self) -> int:
-        return sum([s.list_size for s in self.spaces])
+        return sum([s.list_float_size for s in self.spaces])
 
     @property
     def list_float_low(self) -> List[float]:
-        arr = []
-        for s in self.spaces:
-            arr.extend(s.list_low)
-        return arr
+        return [x for space in self.spaces for x in space.list_float_low]
 
     @property
     def list_float_high(self) -> List[float]:
-        arr = []
-        for s in self.spaces:
-            arr.extend(s.list_high)
-        return arr
+        return [x for space in self.spaces for x in space.list_float_high]
 
     def encode_to_list_float(self, val: list) -> List[float]:
-        arr = []
-        for i, s in enumerate(self.spaces):
-            arr.extend(s.encode_to_list_float(val[i]))
-        return arr
+        return [x for i, space in enumerate(self.spaces) for x in space.encode_to_list_float(val[i])]
 
     def decode_from_list_float(self, val: List[float]) -> list:
         arr = []
         n = 0
         for s in self.spaces:
-            val2 = val[n : n + s.list_size]
+            val2 = val[n : n + s.list_float_size]
             arr.append(s.decode_from_list_float(val2))
-            n += s.list_size
+            n += s.list_float_size
         return arr
 
     # --------------------------------------
     # observation continuous, image
     # --------------------------------------
     @property
-    def np_shape(self):
-        return [s.shape for s in self.spaces]
+    def np_shape(self) -> Tuple[int, ...]:
+        return (self.list_float_size,)
 
     @property
-    def np_low(self):
-        return [s.low for s in self.spaces]
+    def np_low(self) -> np.ndarray:
+        return np.array(self.list_float_low)
 
     @property
-    def np_high(self):
-        return [s.high for s in self.spaces]
+    def np_high(self) -> np.ndarray:
+        return np.array(self.list_float_high)
 
     def encode_to_np(self, val: list, dtype) -> np.ndarray:
-        raise NotImplementedError()
+        return np.array(self.encode_to_list_float(val), dtype)
 
     def decode_from_np(self, val: np.ndarray) -> list:
-        raise NotImplementedError()
-
-    # --------------------------------------
-    # Multiple
-    # --------------------------------------
-    def encode_to_list_space(self, val: list) -> list:
-        return val
-
-    def decode_from_list_space(self, val: list) -> list:
-        return val
+        return self.decode_from_list_float(val.tolist())

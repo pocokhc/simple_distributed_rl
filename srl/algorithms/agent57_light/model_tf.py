@@ -8,7 +8,6 @@ from tensorflow import keras
 from srl.base.define import InfoType
 from srl.base.rl.trainer import RLTrainer
 from srl.rl.functions import common
-from srl.rl.models.tf import helper
 from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -43,7 +42,7 @@ class QNetwork(keras.Model):
 
         # build
         self.build(
-            helper.create_batch_shape(config.observation_space.shape, (None,)),
+            (None,) + config.observation_space.shape,
             (None, 1),
             (None, config.action_space.n),
             (None, config.actor_num),

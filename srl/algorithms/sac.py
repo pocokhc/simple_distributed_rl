@@ -101,7 +101,7 @@ class Config(
         return RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS
 
     def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS
+        return RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return "tensorflow"

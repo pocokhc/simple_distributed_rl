@@ -118,7 +118,7 @@ class Config(
         return RLBaseTypes.DISCRETE
 
     def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE
+        return RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE | RLBaseTypes.MULTI
 
     def get_framework(self) -> str:
         return self.create_framework_str()
@@ -155,15 +155,15 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 class CommonInterfaceParameter(RLParameter[Config], ABC):
     @abstractmethod
-    def create_batch_data(self, state):
+    def pred_single_q(self, state) -> np.ndarray:
         raise NotImplementedError()
 
     @abstractmethod
-    def predict_q(self, state) -> np.ndarray:
+    def pred_batch_q(self, state) -> np.ndarray:
         raise NotImplementedError()
 
     @abstractmethod
-    def predict_target_q(self, state) -> np.ndarray:
+    def pred_batch_target_q(self, state) -> np.ndarray:
         raise NotImplementedError()
 
     def calc_target_q(
@@ -178,11 +178,11 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
 
         n_inv_act_idx1, n_inv_act_idx2 = helper.create_fancy_index_for_invalid_actions(next_invalid_actions)
 
-        n_q_target = self.predict_target_q(n_state)
+        n_q_target = self.pred_batch_target_q(n_state)
 
         # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
         if self.config.enable_double_dqn:
-            n_q = self.predict_q(n_state)
+            n_q = self.pred_batch_q(n_state)
             n_q[n_inv_act_idx1, n_inv_act_idx2] = np.min(n_q)
             n_act_idx = np.argmax(n_q, axis=1)
             maxq = n_q_target[np.arange(batch_size), n_act_idx]
@@ -227,8 +227,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             action = random.choice([a for a in range(self.action_space.n) if a not in invalid_actions])
             self.q = None
         else:
-            state = self.parameter.create_batch_data(worker.state)
-            self.q = self.parameter.predict_q(state)[0]
+            self.q = self.parameter.pred_single_q(worker.state)
             self.q[invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないので無視）
@@ -274,9 +273,9 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
+        # policy -> render -> env.step
         if self.q is None:
-            state = self.parameter.create_batch_data(worker.prev_state)
-            q = self.parameter.predict_q(state)[0]
+            q = self.parameter.pred_single_q(worker.state)
         else:
             q = self.q
         maxa = np.argmax(q)

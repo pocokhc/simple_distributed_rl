@@ -159,7 +159,7 @@ class Config(
         return RLBaseTypes.DISCRETE
 
     def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS
+        return RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return self.create_framework_str()

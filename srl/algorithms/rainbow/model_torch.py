@@ -8,7 +8,6 @@ import torch.optim as optim
 
 from srl.base.define import InfoType
 from srl.base.rl.trainer import RLTrainer
-from srl.rl.models.torch_ import helper
 from srl.rl.models.torch_.blocks.input_block import create_in_block_out_value
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -76,19 +75,24 @@ class Parameter(CommonInterfaceParameter):
         print(self.q_online)
 
     # ----------------------------------------------
-    def create_batch_data(self, state):
-        return helper.create_batch_data(state, self.config.observation_space, self.device)
-
-    def predict_q(self, state: np.ndarray) -> np.ndarray:
-        self.q_online.eval()
+    def pred_single_q(self, state) -> np.ndarray:
+        state = self.q_online.input_block.create_batch_single_data(state, self.device)
         with torch.no_grad():
-            q = self.q_online(torch.tensor(state).to(self.device))
+            q = self.q_online(state)
+            q = q.to("cpu").detach().numpy()
+        return q[0]
+
+    def pred_batch_q(self, state) -> np.ndarray:
+        state = self.q_online.input_block.create_batch_stack_data(state, self.device)
+        with torch.no_grad():
+            q = self.q_online(state)
             q = q.to("cpu").detach().numpy()
         return q
 
-    def predict_target_q(self, state: np.ndarray) -> np.ndarray:
+    def pred_batch_target_q(self, state) -> np.ndarray:
+        state = self.q_online.input_block.create_batch_stack_data(state, self.device)
         with torch.no_grad():
-            q = self.q_target(torch.tensor(state).to(self.device))
+            q = self.q_target(state)
             q = q.to("cpu").detach().numpy()
         return q
 

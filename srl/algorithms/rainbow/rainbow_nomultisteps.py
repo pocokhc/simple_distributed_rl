@@ -27,11 +27,11 @@ def calc_target_q(self: CommonInterfaceParameter, batchs, training: bool):
     next_invalid_actions = [e for b in batchs for e in b[5]]
     next_invalid_actions_idx = [i for i, b in enumerate(batchs) for e in b[5]]
 
-    n_q_target = self.predict_target_q(n_states)
+    n_q_target = self.pred_batch_target_q(n_states)
 
     # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
     if self.config.enable_double_dqn:
-        n_q = self.predict_q(n_states)
+        n_q = self.pred_batch_q(n_states)
         n_q[next_invalid_actions_idx, next_invalid_actions] = np.min(n_q)
         n_act_idx = np.argmax(n_q, axis=1)
         maxq = n_q_target[np.arange(batch_size), n_act_idx]
@@ -77,8 +77,7 @@ class Worker(RLWorker):
         invalid_actions = worker.get_invalid_actions()
 
         if self.config.enable_noisy_dense:
-            state = self.parameter.create_batch_data(state)
-            self.q = self.parameter.predict_q(state)[0]
+            self.q = self.parameter.pred_single_q(worker.state)
             self.q[invalid_actions] = -np.inf
             self.action = int(np.argmax(self.q))
             return self.action, {}
@@ -92,8 +91,7 @@ class Worker(RLWorker):
             self.action = random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
             self.q = None
         else:
-            state = self.parameter.create_batch_data(state)
-            self.q = self.parameter.predict_q(state)[0]
+            self.q = self.parameter.pred_single_q(worker.state)
             self.q[invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないとして無視）
@@ -141,7 +139,7 @@ class Worker(RLWorker):
             priority = None
         else:
             if self.q is None:
-                self.q = self.parameter.predict_q(worker.prev_state[np.newaxis, ...])[0]
+                self.q = self.parameter.pred_single_q(worker.prev_state)
             select_q = self.q[self.action]
             target_q = calc_target_q(self.parameter, [batch], training=False)[0]
             priority = abs(target_q - select_q)
@@ -151,7 +149,7 @@ class Worker(RLWorker):
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.q is None:
-            q = self.parameter.predict_q(worker.prev_state[np.newaxis, ...])[0]
+            q = self.parameter.pred_single_q(worker.prev_state)
         else:
             q = self.q
         maxa = np.argmax(q)

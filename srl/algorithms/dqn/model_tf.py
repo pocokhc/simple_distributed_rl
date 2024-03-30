@@ -6,7 +6,6 @@ from tensorflow import keras
 
 from srl.base.define import InfoType
 from srl.base.rl.trainer import RLTrainer
-from srl.rl.models.tf import helper
 from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -31,7 +30,7 @@ class QNetwork(keras.Model):
         self.hidden_block = config.hidden_block.create_block_tf(config.action_space.n)
 
         # build
-        self.build(helper.create_batch_shape(config.observation_space.shape, (None,)))
+        self.build(self.input_block.create_batch_shape((None,)))
 
         self.loss_func = keras.losses.Huber()
 
@@ -72,13 +71,16 @@ class Parameter(CommonInterfaceParameter):
         self.q_online.summary(**kwargs)
 
     # -------------------------------------
-    def create_batch_data(self, state):
-        return helper.create_batch_data(state, self.config.observation_space)
+    def pred_single_q(self, state) -> np.ndarray:
+        state = self.q_online.input_block.create_batch_single_data(state)
+        return self.q_online(state).numpy()[0]
 
-    def predict_q(self, state) -> np.ndarray:
+    def pred_batch_q(self, state) -> np.ndarray:
+        state = self.q_online.input_block.create_batch_stack_data(state)
         return self.q_online(state).numpy()
 
-    def predict_target_q(self, state) -> np.ndarray:
+    def pred_batch_target_q(self, state) -> np.ndarray:
+        state = self.q_online.input_block.create_batch_stack_data(state)
         return self.q_target(state).numpy()
 
 
@@ -103,8 +105,7 @@ class Trainer(RLTrainer[Config, Parameter]):
             return
         batchs = self.memory.sample(self.batch_size)
         state, n_state, onehot_action, reward, done, next_invalid_actions = zip(*batchs)
-        state = helper.stack_batch_data(state, self.config.observation_space)
-        n_state = helper.stack_batch_data(n_state, self.config.observation_space)
+        state = self.parameter.q_online.input_block.create_batch_stack_data(state)
         onehot_action = np.asarray(onehot_action, dtype=np.float32)
         reward = np.array(reward, dtype=np.float32)
         done = np.array(done)
@@ -119,8 +120,8 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         with tf.GradientTape() as tape:
             self.loss = self.parameter.q_online.compute_train_loss(state, onehot_action, target_q)
-        grads = tape.gradient(self.loss, self.parameter.q_online.trainable_variables)
-        self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
+        grad = tape.gradient(self.loss, self.parameter.q_online.trainable_variables)
+        self.optimizer.apply_gradients(zip(grad, self.parameter.q_online.trainable_variables))
 
         if self.lr_sch.update(self.train_count):
             self.optimizer.learning_rate = self.lr_sch.get_rate()

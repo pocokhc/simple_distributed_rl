@@ -198,7 +198,7 @@ class Config(
         return RLBaseTypes.DISCRETE
 
     def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS
+        return RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return self.create_framework_str()
@@ -434,11 +434,9 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker[Config, CommonInterfaceParameter, DiscreteSpace, BoxSpace]):
+class Worker(RLWorker[Config, CommonInterfaceParameter]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: CommonInterfaceParameter = self.parameter
 
         self.dummy_state = np.full(self.config.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
         self.act_onehot_arr = np.identity(self.config.action_space.n, dtype=int)

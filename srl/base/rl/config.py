@@ -400,17 +400,41 @@ class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
         else:
             # 1 IMAGE
             # - TEXT
-            # 2 CONTINUOUS
-            # 3 DISCRETE
+            # 2 DISCRETE
+            # 3 CONTINUOUS
             # 4 MULTI
-            if (base_type & RLBaseTypes.IMAGE) and SpaceTypes.is_image(self._env_act_space.stype):
+            if SpaceTypes.is_image(self._env_act_space.stype) and (base_type & RLBaseTypes.IMAGE):
                 rl_type = self._env_act_space.stype
-            elif base_type & RLBaseTypes.CONTINUOUS:
-                rl_type = SpaceTypes.CONTINUOUS
-            elif base_type & RLBaseTypes.DISCRETE:
-                rl_type = SpaceTypes.DISCRETE
-            elif base_type & RLBaseTypes.MULTI:
-                rl_type = SpaceTypes.MULTI
+            elif self._env_act_space.stype == SpaceTypes.DISCRETE:
+                if base_type & RLBaseTypes.DISCRETE:
+                    rl_type = SpaceTypes.DISCRETE
+                elif base_type & RLBaseTypes.CONTINUOUS:
+                    rl_type = SpaceTypes.CONTINUOUS
+                elif base_type & RLBaseTypes.MULTI:
+                    rl_type = SpaceTypes.MULTI
+                else:
+                    logger.warning(f"Undefined space. {self._env_act_space}")
+                    rl_type = SpaceTypes.UNKNOWN
+            elif self._env_act_space.stype == SpaceTypes.CONTINUOUS:
+                if base_type & RLBaseTypes.CONTINUOUS:
+                    rl_type = SpaceTypes.CONTINUOUS
+                elif base_type & RLBaseTypes.DISCRETE:
+                    rl_type = SpaceTypes.DISCRETE
+                elif base_type & RLBaseTypes.MULTI:
+                    rl_type = SpaceTypes.MULTI
+                else:
+                    logger.warning(f"Undefined space. {self._env_act_space}")
+                    rl_type = SpaceTypes.UNKNOWN
+            elif self._env_act_space.stype == SpaceTypes.MULTI:
+                if base_type & RLBaseTypes.MULTI:
+                    rl_type = SpaceTypes.MULTI
+                elif base_type & RLBaseTypes.CONTINUOUS:
+                    rl_type = SpaceTypes.CONTINUOUS
+                elif base_type & RLBaseTypes.DISCRETE:
+                    rl_type = SpaceTypes.DISCRETE
+                else:
+                    logger.warning(f"Undefined space. {self._env_act_space}")
+                    rl_type = SpaceTypes.UNKNOWN
             else:
                 logger.warning(f"Undefined space. {self._env_act_space}")
                 rl_type = SpaceTypes.UNKNOWN

@@ -158,6 +158,7 @@ def _test_action(
     # --- encode
     enc_rl_act = worker_run.action_encode(env_act)
     print(enc_rl_act)
+    print(rl_act)
     assert rl_config.action_space.check_val(enc_rl_act)
     if isinstance(enc_rl_act, np.ndarray):
         assert (rl_act == enc_rl_act).all()
@@ -214,13 +215,13 @@ def test_action_discrete(env_act_space, n, rl_act, env_act):
 
 
 @pytest.mark.parametrize(
-    "env_act_space, true_space_args, env_act, rl_act",
+    "env_act_space, true_space_args, rl_act, env_act",
     [
-        [_D(5), [1, 0, 4], 2, [2.0]],
-        [_AD(2, -1, 1), [2, -1, 1], [1, 1], [1.0, 1.0]],
-        [_C(0, 1), [1, 0, 1], 1.0, [1.0]],
+        [_D(5), [1, 0, 4], [2.0], 2],
+        [_AD(2, -1, 1), [2, -1, 1], [1.0, 1.0], [1, 1]],
+        [_C(0, 1), [1, 0, 1], [1.0], 1.0],
         [_AC(2, -1, 1), [2, -1, 1], [1.0, 1.0], [1.0, 1.0]],
-        [_B((2, 1), -1, 1), [2, -1, 1], np.array([[1.0], [1.0]], np.float32), [1.0, 1.0]],
+        [_B((2, 1), -1, 1), [2, -1, 1], [1.0, 1.0], np.array([[1.0], [1.0]], np.float32)],
         [
             MultiSpace(
                 [
@@ -232,12 +233,12 @@ def test_action_discrete(env_act_space, n, rl_act, env_act):
                 ]
             ),
             [5, 0, [2, 1, 1, 1, 1]],
-            [0, [0], 0.0, [0.0], np.array([[0.5]], np.float32)],
             [0.0, 0.0, 0.0, 0.0, 0.5],
+            [0, [0], 0.0, [0.0], np.array([[0.5]], np.float32)],
         ],
     ],
 )
-def test_action_continuous(env_act_space, true_space_args, env_act, rl_act):
+def test_action_continuous(env_act_space, true_space_args, rl_act, env_act):
     # list[float] ArrayContinuousSpace
     _test_action(
         env_act_space,
@@ -313,6 +314,41 @@ def test_action_multi(env_act_space, rl_act_space, is_multi, env_act, rl_act):
     _test_action(
         env_act_space,
         rl_act_type=RLBaseTypes.MULTI,
+        rl_act_type_override=SpaceTypes.UNKNOWN,
+        true_act_space=true_act_space,
+        rl_act=rl_act,
+        env_act=env_act,
+    )
+
+
+@pytest.mark.parametrize(
+    "env_act_space, true_act_space, rl_act, env_act",
+    [
+        [_D(5), _D(5), 2, 2],
+        [_AD(2, -1, 1), _D(3 * 3), 2, [-1, 1]],
+        [_C(0, 1), _AC(1, 0, 1), [1.0], 1.0],
+        [_AC(2, -1, 1), _AC(2, -1, 1), [-1.0, -0.5], [-1.0, -0.5]],
+        [_B((2, 1), -1, 1), _AC(2, -1, 1), [-1.0, -0.5], np.array([[-1], [-0.5]], np.float32)],
+        [
+            MultiSpace(
+                [
+                    DiscreteSpace(2),
+                    ArrayDiscreteSpace(1, 0, 1),
+                    ContinuousSpace(0, 1),
+                    ArrayContinuousSpace(1, 0, 1),
+                    BoxSpace((1, 1), 0, 1),
+                ]
+            ),
+            ArrayContinuousSpace(5, 0, 1),
+            [0.0, 0.0, 0.0, 0.0, 0.5],
+            [0, [0], 0.0, [0.0], np.array([[0.5]], np.float32)],
+        ],
+    ],
+)
+def test_action_disc_cont(env_act_space, true_act_space, rl_act, env_act):
+    _test_action(
+        env_act_space,
+        rl_act_type=RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS,
         rl_act_type_override=SpaceTypes.UNKNOWN,
         true_act_space=true_act_space,
         rl_act=rl_act,

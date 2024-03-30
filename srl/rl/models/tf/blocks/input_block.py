@@ -1,6 +1,7 @@
 import logging
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
+import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
@@ -23,7 +24,7 @@ def create_in_block_out_multi(
     image_block_config: ImageBlockConfig,
     observation_space: SpaceBase,
     enable_rnn: bool = False,
-) -> Tuple[keras.Model, List[SpaceTypes]]:
+):
     if isinstance(observation_space, MultiSpace):
         o = InputMultiBlock(
             value_block_config,
@@ -33,7 +34,8 @@ def create_in_block_out_multi(
             enable_rnn=enable_rnn,
         )
         return o, o.out_stypes
-    elif SpaceTypes.is_image(observation_space.stype):
+    assert isinstance(observation_space, BoxSpace)
+    if SpaceTypes.is_image(observation_space.stype):
         return InputImageBlock(
             image_block_config,
             observation_space,
@@ -44,6 +46,7 @@ def create_in_block_out_multi(
     else:
         return InputValueBlock(
             value_block_config,
+            observation_space,
             enable_rnn,
             out_multi=True,
         ), [observation_space.stype]
@@ -54,7 +57,7 @@ def create_in_block_out_value(
     image_block_config: ImageBlockConfig,
     observation_space: SpaceBase,
     enable_rnn: bool = False,
-) -> keras.Model:
+):
     if isinstance(observation_space, MultiSpace):
         return InputMultiBlock(
             value_block_config,
@@ -63,7 +66,8 @@ def create_in_block_out_value(
             is_concat=True,
             enable_rnn=enable_rnn,
         )
-    elif SpaceTypes.is_image(observation_space.stype):
+    assert isinstance(observation_space, BoxSpace)
+    if SpaceTypes.is_image(observation_space.stype):
         return InputImageBlock(
             image_block_config,
             observation_space,
@@ -74,6 +78,7 @@ def create_in_block_out_value(
     else:
         return InputValueBlock(
             value_block_config,
+            observation_space,
             enable_rnn,
             out_multi=False,
         )
@@ -83,7 +88,9 @@ def create_in_block_out_image(
     image_block_config: ImageBlockConfig,
     observation_space: SpaceBase,
     enable_rnn: bool = False,
-) -> keras.Model:
+):
+    if not isinstance(observation_space, BoxSpace):
+        raise NotSupportedError(observation_space)
     if SpaceTypes.is_image(observation_space.stype):
         return InputImageBlock(
             image_block_config,
@@ -99,11 +106,47 @@ def create_in_block_out_image(
 # -------------
 
 
-def create_input_image_layers(obs_space: SpaceBase, enable_rnn: bool):
+class InputValueBlock(keras.Model):
+    def __init__(
+        self,
+        value_block_config: MLPBlockConfig,
+        observation_space: BoxSpace,
+        enable_rnn: bool,
+        out_multi: bool,
+    ):
+        super().__init__()
+        self.out_multi = out_multi
+        self.in_shape = observation_space.shape
+
+        if enable_rnn:
+            self.flat = kl.TimeDistributed(kl.Flatten())
+        else:
+            self.flat = kl.Flatten()
+        self.val_block = value_block_config.create_block_tf(enable_rnn=enable_rnn)
+
+    def call(self, x, training=False):
+        x = self.flat(x)
+        x = self.val_block(x, training=training)
+        if self.out_multi:
+            return [x]
+        else:
+            return x
+
+    def create_batch_shape(self, prefix_shape: Tuple[Optional[int], ...] = ()) -> tuple:
+        return prefix_shape + self.in_shape
+
+    def create_batch_single_data(self, data: np.ndarray):
+        return data[np.newaxis, ...]
+
+    def create_batch_stack_data(self, data: np.ndarray):
+        # [batch_list, shape], stackはnpが早い
+        return np.asarray(data)
+
+
+def create_input_image_layers(obs_space: BoxSpace, enable_rnn: bool):
     err_msg = f"unknown observation_type: {obs_space}"
     layers = []
 
-    assert isinstance(obs_space, BoxSpace)
     if obs_space.stype == SpaceTypes.GRAY_2ch:
         if len(obs_space.shape) == 2:
             # (h, w) -> (h, w, 1)
@@ -146,31 +189,11 @@ def create_input_image_layers(obs_space: SpaceBase, enable_rnn: bool):
     return layers
 
 
-class InputValueBlock(keras.Model):
-    def __init__(self, value_block_config: MLPBlockConfig, enable_rnn: bool, out_multi: bool):
-        super().__init__()
-        self.out_multi = out_multi
-
-        if enable_rnn:
-            self.flat = kl.TimeDistributed(kl.Flatten())
-        else:
-            self.flat = kl.Flatten()
-        self.val_block = value_block_config.create_block_tf(enable_rnn=enable_rnn)
-
-    def call(self, x, training=False):
-        x = self.flat(x)
-        x = self.val_block(x, training=training)
-        if self.out_multi:
-            return [x]
-        else:
-            return x
-
-
 class InputImageBlock(keras.Model):
     def __init__(
         self,
         image_block_config: ImageBlockConfig,
-        observation_space: SpaceBase,
+        observation_space: BoxSpace,
         enable_rnn: bool,
         is_flatten: bool,
         out_multi: bool,
@@ -178,6 +201,7 @@ class InputImageBlock(keras.Model):
         super().__init__()
         self.out_multi = out_multi
         self.is_flatten = is_flatten
+        self.in_shape = observation_space.shape
 
         self.in_layers = create_input_image_layers(observation_space, enable_rnn)
         self.image_block = image_block_config.create_block_tf(enable_rnn)
@@ -198,12 +222,22 @@ class InputImageBlock(keras.Model):
         else:
             return x
 
+    def create_batch_shape(self, prefix_shape: Tuple[Optional[int], ...] = ()) -> tuple:
+        return prefix_shape + self.in_shape
+
+    def create_batch_single_data(self, data: np.ndarray):
+        return data[np.newaxis, ...]
+
+    def create_batch_stack_data(self, data: np.ndarray):
+        # [batch_list, shape], stackはnpが早い
+        return np.asarray(data)
+
 
 class InputMultiBlock(keras.Model):
     def __init__(
         self,
-        value_block_config: MLPBlockConfig,
-        image_block_config: ImageBlockConfig,
+        value_block_config: Optional[MLPBlockConfig],
+        image_block_config: Optional[ImageBlockConfig],
         observation_space: MultiSpace,
         is_concat: bool,
         enable_rnn: bool,
@@ -213,34 +247,39 @@ class InputMultiBlock(keras.Model):
 
         self.in_indices = []
         self.in_layers = []
+        self.in_shapes = []
         self.out_stypes = []
         for i, space in enumerate(observation_space.spaces):
+            if not isinstance(space, BoxSpace):
+                continue
             if SpaceTypes.is_image(space.stype):
                 if image_block_config is None:
                     logger.info("image space is skip")
                     continue
-                layers = create_input_image_layers(space, enable_rnn)
-                layers.append(image_block_config.create_block_tf(enable_rnn))
-                if is_concat:
-                    if enable_rnn:
-                        layers.append(kl.TimeDistributed(kl.Flatten()))
-                    else:
-                        layers.append(kl.Flatten())
+                b = InputImageBlock(
+                    image_block_config,
+                    space,
+                    enable_rnn=enable_rnn,
+                    is_flatten=is_concat,
+                    out_multi=False,
+                )
                 self.in_indices.append(i)
-                self.in_layers.append(layers)
+                self.in_layers.append(b)
+                self.in_shapes.append(space.shape)
                 self.out_stypes.append(space.stype)
             else:
                 if value_block_config is None:
                     logger.info("value space is skip")
                     continue
-                layers = []
-                if enable_rnn:
-                    layers.append(kl.TimeDistributed(kl.Flatten()))
-                else:
-                    layers.append(kl.Flatten())
-                layers.append(value_block_config.create_block_tf(enable_rnn=enable_rnn))
+                b = InputValueBlock(
+                    value_block_config,
+                    space,
+                    enable_rnn=enable_rnn,
+                    out_multi=False,
+                )
                 self.in_indices.append(i)
-                self.in_layers.append(layers)
+                self.in_layers.append(b)
+                self.in_shapes.append(space.shape)
                 self.out_stypes.append(space.stype)
         assert len(self.in_indices) > 0
 
@@ -250,9 +289,21 @@ class InputMultiBlock(keras.Model):
         for idx in self.in_indices:
             i += 1
             _x = x[idx]
-            for h in self.in_layers[i]:
-                _x = h(_x, training=training)
+            _x = self.in_layers[i](_x, training=training)
             x_arr.append(_x)
         if self.is_concat:
             x_arr = tf.concat(x_arr, axis=-1)
         return x_arr
+
+    def create_batch_shape(self, prefix_shape: Tuple[Optional[int], ...] = ()):
+        return [prefix_shape + s for s in self.in_shapes]
+
+    def create_batch_single_data(self, data: List[np.ndarray]):
+        return [d[np.newaxis, ...] for d in data]
+
+    def create_batch_stack_data(self, data: np.ndarray):
+        # [batch_list, multi_list, shape], stackはnpが早い
+        arr = []
+        for idx in self.in_indices:
+            arr.append(np.asarray([d[idx] for d in data]))
+        return arr

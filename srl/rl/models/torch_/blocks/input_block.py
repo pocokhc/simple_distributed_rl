@@ -1,5 +1,5 @@
 import logging
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -20,7 +20,7 @@ def create_in_block_out_multi(
     value_block_config: MLPBlockConfig,
     image_block_config: ImageBlockConfig,
     observation_space: SpaceBase,
-) -> Tuple[nn.Module, List[SpaceTypes]]:
+):
     if isinstance(observation_space, MultiSpace):
         o = InputMultiBlock(
             value_block_config,
@@ -29,7 +29,8 @@ def create_in_block_out_multi(
             is_concat=False,
         )
         return o, o.out_types
-    elif SpaceTypes.is_image(observation_space.stype):
+    assert isinstance(observation_space, BoxSpace)
+    if SpaceTypes.is_image(observation_space.stype):
         return InputImageBlock(
             image_block_config,
             observation_space,
@@ -48,7 +49,7 @@ def create_in_block_out_value(
     value_block_config: MLPBlockConfig,
     image_block_config: ImageBlockConfig,
     observation_space: SpaceBase,
-) -> nn.Module:
+):
     if isinstance(observation_space, MultiSpace):
         return InputMultiBlock(
             value_block_config,
@@ -56,7 +57,8 @@ def create_in_block_out_value(
             observation_space,
             is_concat=True,
         )
-    elif SpaceTypes.is_image(observation_space.stype):
+    assert isinstance(observation_space, BoxSpace)
+    if SpaceTypes.is_image(observation_space.stype):
         return InputImageBlock(image_block_config, observation_space)
     else:
         return InputValueBlock(value_block_config, observation_space)
@@ -65,7 +67,8 @@ def create_in_block_out_value(
 def create_in_block_out_image(
     image_block_config: ImageBlockConfig,
     observation_space: SpaceBase,
-) -> nn.Module:
+):
+    assert isinstance(observation_space, BoxSpace)
     if SpaceTypes.is_image(observation_space.stype):
         return InputImageBlock(
             image_block_config,
@@ -77,6 +80,43 @@ def create_in_block_out_image(
 
 
 # -------------
+
+
+class InputValueBlock(nn.Module):
+    def __init__(
+        self,
+        value_block_config: MLPBlockConfig,
+        observation_space: BoxSpace,
+        out_multi: bool = False,
+    ):
+        super().__init__()
+        self.out_multi = out_multi
+        self.in_shape = observation_space.shape
+
+        self.in_layers = nn.ModuleList()
+        self.in_layers.append(nn.Flatten())
+        flat_size = np.zeros(observation_space.shape).flatten().shape[0]
+        val_block = value_block_config.create_block_torch(flat_size)
+        self.in_layers.append(val_block)
+        self.out_size = val_block.out_size
+
+    def forward(self, x: torch.Tensor):
+        for h in self.in_layers:
+            x = h(x)
+        if self.out_multi:
+            return [x]
+        else:
+            return x
+
+    def create_batch_shape(self, prefix_shape: Tuple[Optional[int], ...]):
+        return prefix_shape + self.in_shape
+
+    def create_batch_single_data(self, data: np.ndarray, device):
+        return torch.tensor(data[np.newaxis, ...]).to(device)
+
+    def create_batch_stack_data(self, data: np.ndarray, device):
+        # [batch_list, shape], stackはnpが早い
+        return torch.tensor(np.asarray(data)).to(device)
 
 
 class _InputImageBlock(nn.Module):
@@ -134,37 +174,17 @@ class _InputImageBlock(nn.Module):
         return x
 
 
-class InputValueBlock(nn.Module):
-    def __init__(self, value_block_config: MLPBlockConfig, observation_space: SpaceBase, out_multi: bool = False):
-        super().__init__()
-        self.out_multi = out_multi
-
-        self.in_layers = nn.ModuleList()
-        self.in_layers.append(nn.Flatten())
-        flat_size = np.zeros(observation_space.shape).flatten().shape[0]
-        val_block = value_block_config.create_block_torch(flat_size)
-        self.in_layers.append(val_block)
-        self.out_size = val_block.out_size
-
-    def forward(self, x: torch.Tensor):
-        for h in self.in_layers:
-            x = h(x)
-        if self.out_multi:
-            return [x]
-        else:
-            return x
-
-
 class InputImageBlock(nn.Module):
     def __init__(
         self,
         image_block_config: ImageBlockConfig,
-        observation_space: SpaceBase,
+        observation_space: BoxSpace,
         is_flatten: bool = True,
         out_multi: bool = False,
     ):
         super().__init__()
         self.out_multi = out_multi
+        self.in_shape = observation_space.shape
 
         self.in_layers = nn.ModuleList()
         in_img_block = _InputImageBlock(observation_space)
@@ -185,12 +205,22 @@ class InputImageBlock(nn.Module):
         else:
             return x
 
+    def create_batch_shape(self, prefix_shape: Tuple[Optional[int], ...]):
+        return prefix_shape + self.in_shape
+
+    def create_batch_single_data(self, data: np.ndarray, device):
+        return torch.tensor(data[np.newaxis, ...]).to(device)
+
+    def create_batch_stack_data(self, data: np.ndarray, device):
+        # [batch_list, shape], stackはnpが早い
+        return torch.tensor(np.asarray(data)).to(device)
+
 
 class InputMultiBlock(nn.Module):
     def __init__(
         self,
-        value_block_config: MLPBlockConfig,
-        image_block_config: ImageBlockConfig,
+        value_block_config: Optional[MLPBlockConfig],
+        image_block_config: Optional[ImageBlockConfig],
         observation_space: MultiSpace,
         is_concat: bool = True,
     ):
@@ -199,38 +229,50 @@ class InputMultiBlock(nn.Module):
 
         self.in_indices = []
         self.in_layers = nn.ModuleList()
+        self.in_shapes = []
         self.out_types = []
         if is_concat:
             self.out_size = 0
         else:
             self.out_shapes = []
         for i, space in enumerate(observation_space.spaces):
-            layers = nn.ModuleList()
+            if not isinstance(space, BoxSpace):
+                continue
             if SpaceTypes.is_image(space.stype):
-                in_img_block = _InputImageBlock(space)
-                layers.append(in_img_block)
-                img_block = image_block_config.create_block_torch(in_img_block.out_shape)
-                layers.append(img_block)
-                if is_concat:
-                    layers.append(nn.Flatten())
-                    self.out_size += np.zeros(img_block.out_shape).flatten().shape[0]
-                else:
-                    self.out_shapes.append(img_block.out_shape)
+                if image_block_config is None:
+                    logger.info("image space is skip")
+                    continue
+                b = InputImageBlock(
+                    image_block_config,
+                    space,
+                    is_flatten=is_concat,
+                    out_multi=False,
+                )
                 self.in_indices.append(i)
-                self.in_layers.append(layers)
-                self.out_types.append(SpaceTypes.IMAGE)
+                self.in_layers.append(b)
+                self.in_shapes.append(space.shape)
+                self.out_types.append(space.stype)
+                if is_concat:
+                    self.out_size += b.out_size
+                else:
+                    self.out_shapes.append(b.out_shape)
             else:
-                layers.append(nn.Flatten())
-                flat_size = np.zeros(space.shape).flatten().shape[0]
-                val_block = value_block_config.create_block_torch(flat_size)
-                layers.append(val_block)
-                if is_concat:
-                    self.out_size += val_block.out_size
-                else:
-                    self.out_shapes.append((val_block.out_size,))
+                if value_block_config is None:
+                    logger.info("value space is skip")
+                    continue
+                b = InputValueBlock(
+                    value_block_config,
+                    space,
+                    out_multi=False,
+                )
                 self.in_indices.append(i)
-                self.in_layers.append(layers)
-                self.out_types.append(SpaceTypes.CONTINUOUS)
+                self.in_layers.append(b)
+                self.in_shapes.append(space.shape)
+                self.out_types.append(space.stype)
+                if is_concat:
+                    self.out_size += b.out_size
+                else:
+                    self.out_shapes.append(b.out_size)
         assert len(self.in_indices) > 0
 
     def forward(self, x: torch.Tensor):
@@ -239,9 +281,21 @@ class InputMultiBlock(nn.Module):
         for idx in self.in_indices:
             i += 1
             _x = x[idx]
-            for h in self.in_layers[i]:
-                _x = h(_x)
+            _x = self.in_layers[i](_x)
             x_arr.append(_x)
         if self.is_concat:
             x_arr = torch.cat(x_arr, dim=-1)
         return x_arr
+
+    def create_batch_shape(self, prefix_shape: Tuple[Optional[int], ...]):
+        return [prefix_shape + s for s in self.in_shapes]
+
+    def create_batch_single_data(self, data: List[np.ndarray], device):
+        return [torch.tensor(d[np.newaxis, ...]).to(device) for d in data]
+
+    def create_batch_stack_data(self, data: np.ndarray, device):
+        # [batch_list, multi_list, shape], stackはnpが早い
+        arr = []
+        for idx in self.in_indices:
+            arr.append(torch.tensor(np.asarray([d[idx] for d in data])).to(device))
+        return arr

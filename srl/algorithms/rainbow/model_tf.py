@@ -33,7 +33,7 @@ class QNetwork(keras.Model):
         self.hidden_block = config.hidden_block.create_block_tf(config.action_space.n)
 
         # build
-        self.build(helper.create_batch_shape(config.observation_space.shape, (None,)))
+        self.build(self.input_block.create_batch_shape((None,)))
 
         self.loss_func = keras.losses.Huber()
 
@@ -74,14 +74,17 @@ class Parameter(CommonInterfaceParameter):
         self.q_online.summary(**kwargs)
 
     # ----------------------------------------------
-    def create_batch_data(self, state):
-        return helper.create_batch_data(state, self.config.observation_space)
+    def pred_single_q(self, state) -> np.ndarray:
+        state = self.q_online.input_block.create_batch_single_data(state)
+        return self.q_online(state).numpy()[0]
 
-    def predict_q(self, state: np.ndarray) -> np.ndarray:
-        return self.q_online(state).numpy()  # type:ignore , "numpy" is not a known member of "None"
+    def pred_batch_q(self, state) -> np.ndarray:
+        state = self.q_online.input_block.create_batch_stack_data(state)
+        return self.q_online(state).numpy()
 
-    def predict_target_q(self, state: np.ndarray) -> np.ndarray:
-        return self.q_target(state).numpy()  # type:ignore , "numpy" is not a known member of "None"
+    def pred_batch_target_q(self, state) -> np.ndarray:
+        state = self.q_online.input_block.create_batch_stack_data(state)
+        return self.q_target(state).numpy()
 
 
 # ------------------------------------------------------
@@ -110,8 +113,8 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         with tf.GradientTape() as tape:
             self.loss, q = self.parameter.q_online.compute_train_loss(states, onehot_actions, target_q, weights)
-        grads = tape.gradient(self.loss, self.parameter.q_online.trainable_variables)
-        self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
+        grad = tape.gradient(self.loss, self.parameter.q_online.trainable_variables)
+        self.optimizer.apply_gradients(zip(grad, self.parameter.q_online.trainable_variables))
 
         if self.lr_sch.update(self.train_count):
             self.optimizer.learning_rate = self.lr_sch.get_rate()

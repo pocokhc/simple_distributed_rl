@@ -159,7 +159,7 @@ class Config(
         return RLBaseTypes.DISCRETE
 
     def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS
+        return RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return self.create_framework_str()
@@ -203,15 +203,15 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         self.multi_discounts = np.array([self.config.discount**n for n in range(self.config.multisteps)])
 
     @abstractmethod
-    def create_batch_data(self, state):
+    def pred_single_q(self, state) -> np.ndarray:
         raise NotImplementedError()
 
     @abstractmethod
-    def predict_q(self, state: np.ndarray) -> np.ndarray:
+    def pred_batch_q(self, state) -> np.ndarray:
         raise NotImplementedError()
 
     @abstractmethod
-    def predict_target_q(self, state: np.ndarray) -> np.ndarray:
+    def pred_batch_target_q(self, state) -> np.ndarray:
         raise NotImplementedError()
 
     def calc_target_q(self, batchs, training: bool):
@@ -253,8 +253,8 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         online_states = np.reshape(online_states, (batch_size * online_shape1,) + online_states.shape[2:])
         target_states = np.reshape(target_states, (batch_size * self.config.multisteps,) + target_states.shape[2:])
 
-        q_online = self.predict_q(online_states)
-        q_target = self.predict_target_q(target_states)
+        q_online = self.pred_batch_q(online_states)
+        q_target = self.pred_batch_target_q(target_states)
 
         # (batch * multistep, shape) -> (batch, multistep, shape)
         q_online = np.reshape(q_online, (batch_size, online_shape1) + q_online.shape[1:])
@@ -350,8 +350,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         invalid_actions = worker.get_invalid_actions()
 
         if self.config.enable_noisy_dense:
-            state = self.parameter.create_batch_data(self.state)
-            self.q = self.parameter.predict_q(state)[0]
+            self.q = self.parameter.pred_single_q(self.state)
             self.q[invalid_actions] = -np.inf
             self.action = int(np.argmax(self.q))
             # self.prob = 1.0 #[1]
@@ -368,8 +367,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             self.q = None
             # self.prob = epsilon / valid_action_num #[1]
         else:
-            state = self.parameter.create_batch_data(self.state)
-            self.q = self.parameter.predict_q(state)[0]
+            self.q = self.parameter.pred_single_q(self.state)
             self.q[invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないとして無視）
@@ -453,7 +451,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
                 priority = None
             else:
                 if self.q is None:
-                    self.q = self.parameter.predict_q(self.state[np.newaxis, ...])[0]
+                    self.q = self.parameter.pred_single_q(self.state)
                 select_q = self.q[self.action]
                 target_q = self.parameter.calc_target_q([batch], training=False)[0]
                 priority = abs(target_q - select_q)
@@ -463,7 +461,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.q is None:
-            q = self.parameter.predict_q(self.state[np.newaxis, ...])[0]
+            q = self.parameter.pred_single_q(self.state)
         else:
             q = self.q
         maxa = np.argmax(q)

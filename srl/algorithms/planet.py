@@ -17,7 +17,6 @@ from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker import RLWorker
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
-from srl.rl.models.tf import helper
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.utils.common import compare_less_version
@@ -602,8 +601,7 @@ class Worker(RLWorker):
             return self.action, {}
 
         # --- rssm step
-        state = helper.create_batch_data(worker.state, self.config.observation_space)
-        embed = self.parameter.encode(state)
+        embed = self.parameter.encode(worker.state[np.newaxis, ...])
         prev_action = tf.one_hot([self.action], self.config.action_space.n, axis=1)
         latent, deter, _ = self.parameter.dynamics.obs_step(self.stoch, self.deter, prev_action, embed)
         self.feat = tf.concat([latent["stoch"], deter], axis=1)

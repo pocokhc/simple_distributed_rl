@@ -23,6 +23,13 @@ class CommonQuickCase(ABC):
     def use_framework(self) -> str:
         raise NotImplementedError()
 
+    def check_skip(self):
+        if self.use_framework() == "tensorflow":
+            pytest.importorskip("tensorflow")
+
+        if self.use_framework() == "torch":
+            pytest.importorskip("torch")
+
     def _setup_rl_config(self, rl_config: RLConfig):
         common.logger_print()
 
@@ -33,6 +40,7 @@ class CommonQuickCase(ABC):
             rl_config.set_torch()
 
     def test_simple(self, rl_param):
+        self.check_skip()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)
 
@@ -40,6 +48,7 @@ class CommonQuickCase(ABC):
         tester.test(rl_config, **test_kwargs)
 
     def test_simple_mp(self, rl_param):
+        self.check_skip()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)
 
@@ -47,6 +56,7 @@ class CommonQuickCase(ABC):
         tester.test(rl_config, test_mp=True, **test_kwargs)
 
     def test_input_image(self, rl_param):
+        self.check_skip()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)
 
@@ -55,6 +65,7 @@ class CommonQuickCase(ABC):
         tester.test(rl_config, **test_kwargs)
 
     def test_input_multi(self, rl_param):
+        self.check_skip()
         pytest.skip("TODO")
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)
@@ -64,6 +75,7 @@ class CommonQuickCase(ABC):
         tester.test(rl_config, **test_kwargs)
 
     def test_summary(self, rl_param):
+        self.check_skip()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)
 

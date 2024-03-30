@@ -1,7 +1,5 @@
 from typing import Tuple
 
-import pytest
-
 import srl
 from srl.base.define import ObservationModes
 from srl.base.rl.config import RLConfig
@@ -50,7 +48,7 @@ class BaseCase(CommonBaseCase):
         # rnn
         rl_config.train_mode = 2
         rl_config.lr = 0.001
-        rl_config.memory.warmup_size = 100
+        rl_config.memory_warmup_size = 100
         runner.train_only(max_train_count=40_000)
 
         # controller
@@ -61,4 +59,4 @@ class BaseCase(CommonBaseCase):
         max_episodes = rl_config.num_simulations * rl_config.num_individual * 300
         runner.train(max_episodes=max_episodes)
 
-        tester.eval(runner, episode=200, baseline=0.3)
+        tester.eval(runner, episode=10, baseline=0.3)

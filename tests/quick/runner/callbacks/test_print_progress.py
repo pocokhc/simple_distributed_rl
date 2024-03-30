@@ -14,8 +14,8 @@ def test_train():
     rl_config.memory.warmup_size = 10
     runner = srl.Runner("OX", rl_config)
 
-    runner.set_progress_options(start_time=1, interval_limit=1, env_info=True)
-    runner.train(timeout=3, enable_progress=True, enable_eval=True)
+    runner.set_progress_options(start_time=1, interval_limit=1, env_info=True, enable_eval=True)
+    runner.train(timeout=3, enable_progress=True)
 
 
 def test_train_only():

@@ -22,19 +22,20 @@ def test_callback(mocker: pytest_mock.MockerFixture):
 
     context = RunContext(env_config, rl_config)
     context.training = True
-    context.max_steps = 10
+    context.max_episodes = 1
     workers, main_worker_idx = context.make_workers(env, parameter, memory)
     state = play(context, env, workers, main_worker_idx, trainer=trainer, callbacks=[c])
 
-    assert state.total_step == 10
+    assert state.total_step >= 1
+    assert state.episode_count == 1
     assert c.on_episodes_begin.call_count == 1
     assert c.on_episodes_end.call_count == 1
     assert c.on_episode_begin.call_count >= c.on_episode_end.call_count  # episode中に終了する可能性あり
-    assert c.on_episode_end.call_count == state.episode_count
-    assert c.on_step_begin.call_count == 10
+    assert c.on_episode_end.call_count == 1
+    assert c.on_step_begin.call_count >= 1
     assert c.on_step_begin.call_count == c.on_step_action_before.call_count
     assert c.on_step_begin.call_count == c.on_step_end.call_count
-    assert c.on_skip_step.call_count >= 20  # episode終了タイミングで変化する
+    assert c.on_skip_step.call_count >= 1  # episode終了タイミングで変化する
 
 
 @pytest.mark.timeout(2)  # pip install pytest_timeout

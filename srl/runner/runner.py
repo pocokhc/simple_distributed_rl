@@ -131,6 +131,7 @@ class Runner:
         self.history_viewer: Optional["HistoryViewer"] = None
 
         self._progress_kwargs: dict = {}
+        self.set_progress_options()
 
         self._is_setup_psutil: bool = False
         self._psutil_process: Optional["psutil.Process"] = None
@@ -760,7 +761,12 @@ class Runner:
         worker: int = 0,
         max_actor: int = 5,
         # --- eval
+        enable_eval: bool = False,
         eval_shuffle_player: bool = False,
+        eval_episode: int = 1,
+        eval_timeout: float = -1,
+        eval_max_steps: int = -1,
+        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
     ):
         """progress options
 
@@ -774,6 +780,10 @@ class Runner:
             worker (int, optional): 進捗表示に表示するworker index. Defaults to 0.
             max_actor (int, optional): 進捗表示に表示するworker数. Defaults to 5.
             eval_shuffle_player (bool, optional): 評価時にplayersをシャッフルするか. Defaults to False.
+            eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
+            eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
+            eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
+            eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
         """
         self._progress_kwargs = dict(
             start_time=start_time,
@@ -785,6 +795,11 @@ class Runner:
             progress_worker=worker,
             progress_max_actor=max_actor,
             eval_shuffle_player=eval_shuffle_player,
+            enable_eval=enable_eval,
+            eval_episode=eval_episode,
+            eval_timeout=eval_timeout,
+            eval_max_steps=eval_max_steps,
+            eval_players=eval_players,
         )
 
     # ------------------------------

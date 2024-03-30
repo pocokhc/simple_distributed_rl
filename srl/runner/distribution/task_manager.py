@@ -347,21 +347,10 @@ class TaskManager:
         # --- progress
         enable_progress: bool = True,
         progress_interval: int = 60 * 1,
-        # --- checkpoint
-        checkpoint_save_dir: str = "",
-        checkpoint_interval: int = 60 * 20,
-        # --- history
-        history_save_dir: str = "",
-        history_interval: int = 10,
-        history_add_history: bool = True,
-        # --- eval
-        enable_eval: bool = True,
-        eval_episode: int = 1,
-        eval_timeout: float = -1,
-        eval_max_steps: int = -1,
-        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
-        eval_shuffle_player: bool = False,
         # --- other
+        progress_kwargs: dict = {},
+        checkpoint_kwargs: Optional[dict] = None,
+        history_on_file_kwargs: Optional[dict] = None,
         callbacks: List["DistributionCallback"] = [],
         raise_exception: bool = True,
     ):
@@ -373,50 +362,27 @@ class TaskManager:
             callbacks.append(
                 PrintProgress(
                     interval=progress_interval,
-                    enable_eval=enable_eval,
-                    eval_episode=eval_episode,
-                    eval_timeout=eval_timeout,
-                    eval_max_steps=eval_max_steps,
-                    eval_players=eval_players,
-                    eval_shuffle_player=eval_shuffle_player,
+                    enable_eval=progress_kwargs.get("enable_eval", False),
+                    eval_episode=progress_kwargs.get("eval_episode", 1),
+                    eval_timeout=progress_kwargs.get("eval_timeout", -1),
+                    eval_max_steps=progress_kwargs.get("eval_max_steps", -1),
+                    eval_players=progress_kwargs.get("eval_players", []),
+                    eval_shuffle_player=progress_kwargs.get("eval_shuffle_player", False),
                 )
             )
             logger.info("add callback PrintProgress")
 
-        if checkpoint_save_dir != "":
+        if checkpoint_kwargs is not None:
             from srl.runner.distribution.callbacks.checkpoint import Checkpoint
 
-            callbacks.append(
-                Checkpoint(
-                    save_dir=checkpoint_save_dir,
-                    interval=checkpoint_interval,
-                    enable_eval=enable_eval,
-                    eval_episode=eval_episode,
-                    eval_timeout=eval_timeout,
-                    eval_max_steps=eval_max_steps,
-                    eval_players=eval_players,
-                    eval_shuffle_player=eval_shuffle_player,
-                )
-            )
-            logger.info(f"add callback Checkpoint: {checkpoint_save_dir}")
+            callbacks.append(Checkpoint(**checkpoint_kwargs))
+            logger.info(f"add callback Checkpoint: {checkpoint_kwargs['save_dir']}")
 
-        if history_save_dir != "":
+        if history_on_file_kwargs is not None:
             from srl.runner.distribution.callbacks.history_on_file import HistoryOnFile
 
-            callbacks.append(
-                HistoryOnFile(
-                    save_dir=history_save_dir,
-                    interval=history_interval,
-                    add_history=history_add_history,
-                    enable_eval=enable_eval,
-                    eval_episode=eval_episode,
-                    eval_timeout=eval_timeout,
-                    eval_max_steps=eval_max_steps,
-                    eval_players=eval_players,
-                    eval_shuffle_player=eval_shuffle_player,
-                )
-            )
-            logger.info(f"add callback Checkpoint: {checkpoint_save_dir}")
+            callbacks.append(HistoryOnFile(**history_on_file_kwargs))
+            logger.info(f"add callback Checkpoint: {history_on_file_kwargs['save_dir']}")
 
         # callbacks
         [c.on_start(self) for c in callbacks]

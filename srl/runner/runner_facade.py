@@ -31,11 +31,6 @@ class RunnerFacade(Runner):
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
-        enable_eval: bool = False,
-        eval_episode: int = 1,
-        eval_timeout: float = -1,
-        eval_max_steps: int = -1,
-        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         # --- other
         callbacks: List[CallbackType] = [],
         parameter: Optional[RLParameter] = None,
@@ -53,10 +48,6 @@ class RunnerFacade(Runner):
             shuffle_player (bool, optional): playersをシャッフルするかどうか. Defaults to True.
             enable_progress (bool, optional): 進捗を表示するか. Defaults to True.
             enable_eval (bool, optional): 評価用のシミュレーションを実行します. Defaults to False.
-            eval_episode (int, optional): 評価時のエピソード数. Defaults to 1.
-            eval_timeout (int, optional): 評価時の1エピソードの制限時間. Defaults to -1.
-            eval_max_steps (int, optional): 評価時の1エピソードの最大ステップ数. Defaults to -1.
-            eval_players (List[Union[None, str, Tuple[str, dict], RLConfig]], optional): 評価時のplayers. Defaults to [].
             callbacks (List[CallbackType], optional): callbacks. Defaults to [].
         """
         callbacks = callbacks[:]
@@ -81,16 +72,7 @@ class RunnerFacade(Runner):
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            callbacks.append(
-                PrintProgress(
-                    enable_eval=enable_eval,
-                    eval_episode=eval_episode,
-                    eval_timeout=eval_timeout,
-                    eval_max_steps=eval_max_steps,
-                    eval_players=eval_players,
-                    **self._progress_kwargs,
-                )
-            )
+            callbacks.append(PrintProgress(**self._progress_kwargs))
             logger.info("add callback PrintProgress")
         # ----------------
 
@@ -154,12 +136,9 @@ class RunnerFacade(Runner):
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            callbacks.append(
-                PrintProgress(
-                    enable_eval=False,
-                    **self._progress_kwargs,
-                )
-            )
+            _kwargs = self._progress_kwargs.copy()
+            _kwargs["enable_eval"] = False
+            callbacks.append(PrintProgress(**_kwargs))
             logger.info("add callback PrintProgress")
         # ----------------
 
@@ -191,11 +170,6 @@ class RunnerFacade(Runner):
         max_train_count: int = -1,
         # --- progress
         enable_progress: bool = True,
-        enable_eval: bool = False,
-        eval_episode: int = 1,
-        eval_timeout: float = -1,
-        eval_max_steps: int = -1,
-        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         # --- other
         callbacks: List[CallbackType] = [],
         parameter: Optional[RLParameter] = None,
@@ -225,16 +199,7 @@ class RunnerFacade(Runner):
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            callbacks.append(
-                PrintProgress(
-                    enable_eval=enable_eval,
-                    eval_episode=eval_episode,
-                    eval_timeout=eval_timeout,
-                    eval_max_steps=eval_max_steps,
-                    eval_players=eval_players,
-                    **self._progress_kwargs,
-                )
-            )
+            callbacks.append(PrintProgress(**self._progress_kwargs))
             logger.info("add callback PrintProgress")
         # ----------------
 
@@ -269,11 +234,6 @@ class RunnerFacade(Runner):
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
-        enable_eval: bool = False,
-        eval_episode: int = 1,
-        eval_timeout: float = -1,
-        eval_max_steps: int = -1,
-        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
         # --- other
         callbacks: List[CallbackType] = [],
     ):
@@ -306,16 +266,7 @@ class RunnerFacade(Runner):
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            callbacks.append(
-                PrintProgress(
-                    enable_eval=enable_eval,
-                    eval_episode=eval_episode,
-                    eval_timeout=eval_timeout,
-                    eval_max_steps=eval_max_steps,
-                    eval_players=eval_players,
-                    **self._progress_kwargs,
-                )
-            )
+            callbacks.append(PrintProgress(**self._progress_kwargs))
             logger.info("add callback PrintProgress")
 
         self._base_run_play_before(
@@ -457,13 +408,6 @@ class RunnerFacade(Runner):
         # --- progress
         enable_progress: bool = True,
         progress_interval: int = 60 * 1,
-        # --- eval
-        enable_eval: bool = True,
-        eval_episode: int = 1,
-        eval_timeout: float = -1,
-        eval_max_steps: int = -1,
-        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
-        eval_shuffle_player: bool = False,
         # --- other
         callbacks: List[Union[CallbackType, "DistributionCallback"]] = [],
     ):
@@ -502,12 +446,9 @@ class RunnerFacade(Runner):
         if True:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            callbacks_run.append(
-                PrintProgress(
-                    enable_eval=False,
-                    **self._progress_kwargs,
-                )
-            )
+            _kwargs = self._progress_kwargs.copy()
+            _kwargs["enable_eval"] = False
+            callbacks_run.append(PrintProgress(**_kwargs))
             logger.info("add callback PrintProgress")
         # ----------------
 
@@ -522,25 +463,13 @@ class RunnerFacade(Runner):
 
         task_manager = TaskManager(redis_params, "client")
         task_manager.create_task(self.create_task_config(callbacks=callbacks_run), self.make_parameter(is_load=False))
-        _train_wait_kwargs = {}
-        if self._checkpoint_kwargs is not None:
-            _train_wait_kwargs["checkpoint_save_dir"] = self._checkpoint_kwargs["save_dir"]
-            _train_wait_kwargs["checkpoint_interval"] = self._checkpoint_kwargs["interval"]
-        if self._history_on_file_kwargs is not None:
-            _train_wait_kwargs["history_save_dir"] = self._history_on_file_kwargs["save_dir"]
-            _train_wait_kwargs["history_interval"] = self._history_on_file_kwargs["interval"]
-            _train_wait_kwargs["history_add_history"] = self._history_on_file_kwargs["add_history"]
         try:
             task_manager.train_wait(
                 enable_progress=enable_progress,
                 progress_interval=progress_interval,
-                **_train_wait_kwargs,
-                enable_eval=enable_eval,
-                eval_episode=eval_episode,
-                eval_timeout=eval_timeout,
-                eval_max_steps=eval_max_steps,
-                eval_players=eval_players,
-                eval_shuffle_player=eval_shuffle_player,
+                progress_kwargs=self._progress_kwargs,
+                checkpoint_kwargs=self._checkpoint_kwargs,
+                history_on_file_kwargs=self._history_on_file_kwargs,
                 callbacks=callbacks_dist,
                 raise_exception=False,
             )
@@ -599,12 +528,9 @@ class RunnerFacade(Runner):
         if True:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            callbacks.append(
-                PrintProgress(
-                    enable_eval=False,
-                    **self._progress_kwargs,
-                )
-            )
+            _kwargs = self._progress_kwargs.copy()
+            _kwargs["enable_eval"] = False
+            callbacks.append(PrintProgress(**_kwargs))
             logger.info("add callback PrintProgress")
         # ----------------
 
@@ -673,7 +599,9 @@ class RunnerFacade(Runner):
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            callbacks.append(PrintProgress(enable_eval=False, **self._progress_kwargs))
+            _kwargs = self._progress_kwargs.copy()
+            _kwargs["enable_eval"] = False
+            callbacks.append(PrintProgress(**_kwargs))
             logger.info("add callback PrintProgress")
         # ----------------
 
@@ -830,12 +758,9 @@ class RunnerFacade(Runner):
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            callbacks.append(
-                PrintProgress(
-                    enable_eval=False,
-                    **self._progress_kwargs,
-                )
-            )
+            _kwargs = self._progress_kwargs.copy()
+            _kwargs["enable_eval"] = False
+            callbacks.append(PrintProgress(**_kwargs))
             logger.info("add callback PrintProgress")
         # ----------------
 
@@ -923,12 +848,9 @@ class RunnerFacade(Runner):
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            callbacks.append(
-                PrintProgress(
-                    enable_eval=False,
-                    **self._progress_kwargs,
-                )
-            )
+            _kwargs = self._progress_kwargs.copy()
+            _kwargs["enable_eval"] = False
+            callbacks.append(PrintProgress(**_kwargs))
             logger.info("add callback PrintProgress")
         # ----------------
 
@@ -1019,12 +941,9 @@ class RunnerFacade(Runner):
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            callbacks.append(
-                PrintProgress(
-                    enable_eval=False,
-                    **self._progress_kwargs,
-                )
-            )
+            _kwargs = self._progress_kwargs.copy()
+            _kwargs["enable_eval"] = False
+            callbacks.append(PrintProgress(**_kwargs))
             logger.info("add callback PrintProgress")
         # ----------------
 
@@ -1114,12 +1033,9 @@ class RunnerFacade(Runner):
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            callbacks.append(
-                PrintProgress(
-                    enable_eval=False,
-                    **self._progress_kwargs,
-                )
-            )
+            _kwargs = self._progress_kwargs.copy()
+            _kwargs["enable_eval"] = False
+            callbacks.append(PrintProgress(**_kwargs))
             logger.info("add callback PrintProgress")
         # ----------------
 
@@ -1184,12 +1100,9 @@ class RunnerFacade(Runner):
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
 
-            callbacks.append(
-                PrintProgress(
-                    enable_eval=False,
-                    **self._progress_kwargs,
-                )
-            )
+            _kwargs = self._progress_kwargs.copy()
+            _kwargs["enable_eval"] = False
+            callbacks.append(PrintProgress(**_kwargs))
             logger.info("add callback PrintProgress")
         # ----------------
 

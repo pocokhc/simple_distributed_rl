@@ -444,9 +444,10 @@ Worker
    class Trainer(RLTrainer[Config, Parameter]):
       pass
 
-   # RLWorker[_TConfig, _TParameter, _TActSpace, _TObsSpace]
-   #   _TActSpace, _TObsSpace はConfigと同じである必要があります
-   class Worker(RLWorker[Config, Parameter, DiscreteSpace, BoxSpace]):
+   # RLWorker[_TConfig, _TParameter]
+   #   _TConfig    : RLConfig型
+   #   _TParameter : RLParameter型
+   class Worker(RLWorker[Config, Parameter]):
       pass
 
 

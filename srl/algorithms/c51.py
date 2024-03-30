@@ -130,7 +130,6 @@ class QNetwork(keras.Model):
 class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
 
         self.Q = QNetwork(self.config)
 
@@ -150,8 +149,6 @@ class Parameter(RLParameter[Config]):
 class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
         self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
@@ -246,7 +243,7 @@ class Trainer(RLTrainer[Config, Parameter]):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter, DiscreteSpace, BoxSpace]):
+class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
 

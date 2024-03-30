@@ -158,7 +158,7 @@ class Trainer(RLTrainer[Config, Parameter]):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter, DiscreteSpace, ArrayDiscreteSpace]):
+class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
 

@@ -199,11 +199,9 @@ class Trainer(RLTrainer[Config, Parameter]):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter, Union[DiscreteSpace, ArrayDiscreteSpace], ArrayDiscreteSpace]):
+class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
     def on_reset(self, worker) -> dict:
         self.state = self.observation_space.to_str(worker.state)

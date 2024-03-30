@@ -205,7 +205,7 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker[Config, CommonInterfaceParameter, DiscreteSpace, BoxSpace]):
+class Worker(RLWorker[Config, CommonInterfaceParameter]):
     def __init__(self, *args):
         super().__init__(*args)
 

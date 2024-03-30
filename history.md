@@ -4,7 +4,8 @@
 // (SEED RL) 大量のActor向けなのでいったん見送り
 // (MARL) マルコフ過程みたいなモデルがある？Actor同士の通信方法の定義が見当たらずに保留
 // (jax) batch数(32)ぐらいの量だとnumpyの方が早かったので見送り
-1. (tf/torchの互換パラメータの作成)
+// (tf/torchの互換パラメータの作成)
+1. keras3対応？
 1. Async-SGD
 1. (distribution)オリジナルrl/env対応
 1. RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
@@ -15,10 +16,12 @@
 
 # v0.15.1
 
-
 **MainUpdates**
 
+1. [base.rl] change: RLWorkerの型アノテーション引数を4個から2個に変更
 1. [base.rl] update: MultiSpace,RLConfig,WorkerRunをテストも含めて見直して改善
+1. [rl] update: multiに合わせて修正
+1. [runner.callbacks] change: print_progressのevalをtrainの引数ではなくset側に移動
 
 
 # v0.15.0

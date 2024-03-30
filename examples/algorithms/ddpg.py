@@ -6,6 +6,8 @@ from srl.algorithms import ddpg
 def main():
     env_config = srl.EnvConfig("Pendulum-v1")
     rl_config = ddpg.Config()
+    rl_config.q_block.set((64, 64, 64))
+    rl_config.policy_block.set((64, 64, 64))
 
     runner = srl.Runner(env_config, rl_config)
     runner.model_summary()

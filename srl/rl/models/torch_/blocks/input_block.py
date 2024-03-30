@@ -68,7 +68,8 @@ def create_in_block_out_image(
     image_block_config: ImageBlockConfig,
     observation_space: SpaceBase,
 ):
-    assert isinstance(observation_space, BoxSpace)
+    if not isinstance(observation_space, BoxSpace):
+        raise NotSupportedError(observation_space)
     if SpaceTypes.is_image(observation_space.stype):
         return InputImageBlock(
             image_block_config,

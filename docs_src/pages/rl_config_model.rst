@@ -1,4 +1,4 @@
-.. _Framework:
+.. _RLConfigComponentFramework:
 
 Framework
 ===============

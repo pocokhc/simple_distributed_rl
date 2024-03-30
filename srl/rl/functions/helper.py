@@ -97,3 +97,8 @@ def create_fancy_index_for_invalid_actions(idx_list: List[List[int]]):
     idx1 = [i for i, sublist in enumerate(idx_list) for _ in sublist]
     idx2 = [item for sublist in idx_list for item in sublist]
     return idx1, idx2
+
+
+def one_hot(x, size: int, dtype=np.float32):
+    x = np.asarray(x)
+    return np.identity(size, dtype=dtype)[x]

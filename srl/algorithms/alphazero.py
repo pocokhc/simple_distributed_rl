@@ -18,10 +18,10 @@ from srl.base.rl.worker import RLWorker
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.rl.functions import helper
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
+from srl.rl.memories.experience_replay_buffer import (
+    ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer)
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
-from srl.rl.models.tf import helper as helper_tf
 from srl.rl.models.tf.blocks.input_block import create_in_block_out_image
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -214,7 +214,7 @@ class Network(keras.Model):
             raise UndefinedError(config.value_type)
 
         # build
-        self.build(helper_tf.create_batch_shape(config.observation_space.shape, (None,)))
+        self.build((None,) + config.observation_space.shape)
 
     def call(self, x, training=False):
         x = self.input_block(x, training=training)
@@ -355,7 +355,7 @@ class Trainer(RLTrainer[Config, Parameter]):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter, DiscreteSpace, BoxSpace]):
+class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
 

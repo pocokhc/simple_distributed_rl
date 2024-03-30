@@ -321,11 +321,9 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker[Config, CommonInterfaceParameter, DiscreteSpace, BoxSpace]):
+class Worker(RLWorker[Config, CommonInterfaceParameter]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: CommonInterfaceParameter = self.parameter
 
         self.dummy_state = np.full(self.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
         self.onehot_arr = np.identity(self.config.action_space.n, dtype=int)

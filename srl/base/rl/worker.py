@@ -19,11 +19,9 @@ logger = logging.getLogger(__name__)
 
 _TConfig = TypeVar("_TConfig")
 _TParameter = TypeVar("_TParameter")
-_TActSpace = TypeVar("_TActSpace")
-_TObsSpace = TypeVar("_TObsSpace")
 
 
-class RLWorker(ABC, IRender, Generic[_TConfig, _TParameter, _TActSpace, _TObsSpace]):
+class RLWorker(ABC, IRender, Generic[_TConfig, _TParameter]):
     def __init__(
         self,
         config: _TConfig,
@@ -37,37 +35,37 @@ class RLWorker(ABC, IRender, Generic[_TConfig, _TParameter, _TActSpace, _TObsSpa
         )
         self.memory: IRLMemoryWorker = cast(IRLMemoryWorker, DummyRLMemoryWorker() if memory is None else memory)
 
-    def _set_worker_run(self, worker: "WorkerRun[_TActSpace, _TObsSpace]"):
+    def _set_worker_run(self, worker: "WorkerRun"):
         """WorkerRunの初期化で呼ばれる"""
         self.__worker_run = worker
 
     # --- implement
-    def on_reset(self, worker: "WorkerRun[_TActSpace, _TObsSpace]") -> InfoType:
+    def on_reset(self, worker: "WorkerRun") -> InfoType:
         return {}
 
     @abstractmethod
-    def policy(self, worker: "WorkerRun[_TActSpace, _TObsSpace]") -> Tuple[RLActionType, InfoType]:
+    def policy(self, worker: "WorkerRun") -> Tuple[RLActionType, InfoType]:
         raise NotImplementedError()
 
-    def on_step(self, worker: "WorkerRun[_TActSpace, _TObsSpace]") -> InfoType:
+    def on_step(self, worker: "WorkerRun") -> InfoType:
         return {}
 
-    def on_start(self, worker: "WorkerRun[_TActSpace, _TObsSpace]") -> None:
+    def on_start(self, worker: "WorkerRun") -> None:
         pass
 
-    def on_end(self, worker: "WorkerRun[_TActSpace, _TObsSpace]") -> None:
+    def on_end(self, worker: "WorkerRun") -> None:
         pass
 
     # --- IRender
-    def render_terminal(self, worker: "WorkerRun[_TActSpace, _TObsSpace]", **kwargs) -> None:
+    def render_terminal(self, worker: "WorkerRun", **kwargs) -> None:
         pass
 
-    def render_rgb_array(self, worker: "WorkerRun[_TActSpace, _TObsSpace]", **kwargs) -> Optional[np.ndarray]:
+    def render_rgb_array(self, worker: "WorkerRun", **kwargs) -> Optional[np.ndarray]:
         return None
 
     # --- instance
     @property
-    def worker(self) -> "WorkerRun[_TActSpace, _TObsSpace]":
+    def worker(self) -> "WorkerRun":
         return self.__worker_run
 
     @property
@@ -106,11 +104,11 @@ class RLWorker(ABC, IRender, Generic[_TConfig, _TParameter, _TActSpace, _TObsSpa
         return self.__worker_run.sample_action()
 
     @property
-    def observation_space(self) -> _TObsSpace:
+    def observation_space(self):
         return cast(RLConfig, self.config).observation_space
 
     @property
-    def action_space(self) -> _TActSpace:
+    def action_space(self):
         return cast(RLConfig, self.config).action_space
 
     # --- env info (shortcut properties)

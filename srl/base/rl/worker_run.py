@@ -1,20 +1,12 @@
 import logging
-from typing import Generic, List, Optional, Tuple, TypeVar, Union, cast
+from typing import List, Optional, Tuple, Union, cast
 
 import numpy as np
 
-from srl.base.define import (
-    DoneTypes,
-    EnvActionType,
-    EnvObservationType,
-    InfoType,
-    ObservationModes,
-    RenderModes,
-    RLActionType,
-    RLInvalidActionType,
-    RLObservationType,
-    SpaceTypes,
-)
+from srl.base.define import (DoneTypes, EnvActionType, EnvObservationType,
+                             InfoType, ObservationModes, RenderModes,
+                             RLActionType, RLInvalidActionType,
+                             RLObservationType, SpaceTypes)
 from srl.base.env.env_run import EnvRun
 from srl.base.render import Render
 from srl.base.rl.config import RLConfig
@@ -25,14 +17,11 @@ from srl.base.spaces.space import SpaceBase
 
 logger = logging.getLogger(__name__)
 
-_TActSpace = TypeVar("_TActSpace")
-_TObsSpace = TypeVar("_TObsSpace")
 
-
-class WorkerRun(Generic[_TActSpace, _TObsSpace]):
+class WorkerRun:
     def __init__(
         self,
-        worker: RLWorker[RLConfig, RLParameter, _TActSpace, _TObsSpace],
+        worker: RLWorker[RLConfig, RLParameter],
         env: EnvRun,
         distributed: bool = False,
         actor_id: int = 0,

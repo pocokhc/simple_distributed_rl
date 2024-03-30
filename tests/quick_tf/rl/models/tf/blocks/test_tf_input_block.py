@@ -120,11 +120,7 @@ def test_create_block_out_image(in_space, out_shape, rnn):
 
     if rnn:
         x = np.ones(
-            (
-                seq_size,
-                batch_size,
-            )
-            + in_space.shape,
+            (seq_size, batch_size) + in_space.shape,
             dtype=np.float32,
         )
     else:

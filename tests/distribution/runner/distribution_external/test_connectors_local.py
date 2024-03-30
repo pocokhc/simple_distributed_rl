@@ -1,7 +1,10 @@
 import pytest
 
 from srl.utils import common
-from tests.external.runner.distribution.memory_test_functions import memory_connector_error_test, memory_connector_test
+from tests.distribution.runner.distribution_external.memory_test_functions import (
+    memory_connector_error_test,
+    memory_connector_test,
+)
 
 
 def test_redis():

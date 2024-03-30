@@ -11,7 +11,7 @@ SequenceMemory
    :members:
 
 
-.. _ExperienceReplayBuffer:
+.. _RLConfigComponentExperienceReplayBuffer:
 
 ExperienceReplayBuffer
 ----------------------------------
@@ -20,7 +20,7 @@ ExperienceReplayBuffer
    :members:
 
 
-.. _PriorityExperienceReplay:
+.. _RLConfigComponentPriorityExperienceReplay:
 
 PriorityExperienceReplay
 ----------------------------------

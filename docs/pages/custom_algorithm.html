@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Make Original Algorithm &mdash; SimpleDistributedRL 0.14.1.6 ドキュメント</title>
+  <title>Make Original Algorithm &mdash; SimpleDistributedRL 0.15.0.2 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=d1d6777c"></script>
+        <script src="../_static/documentation_options.js?v=a10218c4"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -671,9 +671,10 @@
 <span class="k">class</span> <span class="nc">Trainer</span><span class="p">(</span><span class="n">RLTrainer</span><span class="p">[</span><span class="n">Config</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]):</span>
    <span class="k">pass</span>
 
-<span class="c1"># RLWorker[_TConfig, _TParameter, _TActSpace, _TObsSpace]</span>
-<span class="c1">#   _TActSpace, _TObsSpace はConfigと同じである必要があります</span>
-<span class="k">class</span> <span class="nc">Worker</span><span class="p">(</span><span class="n">RLWorker</span><span class="p">[</span><span class="n">Config</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">,</span> <span class="n">DiscreteSpace</span><span class="p">,</span> <span class="n">BoxSpace</span><span class="p">]):</span>
+<span class="c1"># RLWorker[_TConfig, _TParameter]</span>
+<span class="c1">#   _TConfig    : RLConfig型</span>
+<span class="c1">#   _TParameter : RLParameter型</span>
+<span class="k">class</span> <span class="nc">Worker</span><span class="p">(</span><span class="n">RLWorker</span><span class="p">[</span><span class="n">Config</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]):</span>
    <span class="k">pass</span>
 </pre></div>
 </div>
@@ -783,7 +784,7 @@
         <span class="p">}</span>
 
 
-<span class="k">class</span> <span class="nc">Worker</span><span class="p">(</span><span class="n">RLWorker</span><span class="p">[</span><span class="n">Config</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">,</span> <span class="n">DiscreteSpace</span><span class="p">,</span> <span class="n">ArrayDiscreteSpace</span><span class="p">]):</span>
+<span class="k">class</span> <span class="nc">Worker</span><span class="p">(</span><span class="n">RLWorker</span><span class="p">[</span><span class="n">Config</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 

@@ -78,9 +78,12 @@ Interface Type
    * - 
      - Action
      - Observation
+     - Observation window
    * - Discrete
      - | int  
        | DiscreteSpace
+     - | list[int]
+       | ArrayDiscreteSpace
      - | list[int]
        | ArrayDiscreteSpace
    * - Continuous
@@ -88,11 +91,12 @@ Interface Type
        | ArrayContinuousSpace
      - | NDArray[np.float32]
        | BoxSpace
+     - | NDArray[np.float32]
+       | BoxSpace
    * - Image
      - | NDArray[np.uint8]
        | BoxSpace
-     - same Continuous
-   * - Multiple
-     - list[RL type]
-     - list[NDArray[np.float32]]
-  
+     - | NDArray[np.float32]
+       | BoxSpace
+     - | NDArray[np.float32]
+       | BoxSpace

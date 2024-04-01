@@ -393,7 +393,7 @@ class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
 
-    def on_start(self, worker) -> None:
+    def on_start(self, worker, context) -> None:
         self.parameter.iteration_q("ext", self.config.iteration_threshold / 10, self.config.iteration_timeout * 2)
         self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_timeout)
 

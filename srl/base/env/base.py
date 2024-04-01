@@ -11,22 +11,18 @@ if TYPE_CHECKING:
 
 class EnvBase(ABC, IRender):
     # --------------------------------
-    # implement properties
+    # implement
     # --------------------------------
-
-    # --- action
     @property
     @abstractmethod
     def action_space(self) -> SpaceBase:
         raise NotImplementedError()
 
-    # --- observation
     @property
     @abstractmethod
     def observation_space(self) -> SpaceBase:
         raise NotImplementedError()
 
-    # --- properties
     @property
     @abstractmethod
     def max_episode_steps(self) -> int:
@@ -37,7 +33,6 @@ class EnvBase(ABC, IRender):
     def player_num(self) -> int:
         raise NotImplementedError()
 
-    # --- reward(option)
     @property
     def reward_info(self) -> dict:
         return {
@@ -61,9 +56,12 @@ class EnvBase(ABC, IRender):
         """
         return {}  # NotImplemented
 
-    # --------------------------------
-    # implement functions
-    # --------------------------------
+    def setup(self, **kwargs) -> None:
+        """run.core_play の文脈で最初に呼ばれます
+        引数は RunContext の変数が入ります
+        """
+        pass
+
     @abstractmethod
     def reset(self) -> Tuple[EnvObservationType, InfoType]:
         """reset
@@ -97,9 +95,6 @@ class EnvBase(ABC, IRender):
     def next_player_index(self) -> int:
         raise NotImplementedError()
 
-    # --------------------------------
-    # options
-    # --------------------------------
     def backup(self) -> Any:
         raise NotImplementedError()
 

@@ -11,11 +11,11 @@ from multiprocessing import sharedctypes
 from typing import List, Optional, cast
 
 import srl
+from srl.base.context import RunContext, RunNameTypes
 from srl.base.define import RLMemoryTypes
 from srl.base.rl.memory import IRLMemoryWorker, RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import RunCallback, TrainerCallback
-from srl.base.run.context import RunContext, RunNameTypes
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.runner import CallbackType, TaskConfig
@@ -155,14 +155,13 @@ def _run_actor(
 ):
     try:
         logger.info(f"[actor{actor_id}] start.")
-        context = task_config.context
-        context.run_name = RunNameTypes.actor
-        context.actor_id = actor_id
+        task_config.context.run_name = RunNameTypes.actor
+        task_config.context.actor_id = actor_id
 
         # --- runner
         runner = srl.Runner(
-            context.env_config,
-            context.rl_config,
+            task_config.env_config,
+            task_config.rl_config,
             task_config.config,
             task_config.context,
         )
@@ -329,8 +328,8 @@ def _run_trainer(
 
         # --- runner
         runner = srl.Runner(
-            task_config.context.env_config,
-            task_config.context.rl_config,
+            task_config.env_config,
+            task_config.rl_config,
             task_config.config,
             task_config.context,
         )

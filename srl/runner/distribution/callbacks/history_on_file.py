@@ -24,7 +24,7 @@ class HistoryOnFile(DistributionCallback, Evaluate):
     def on_start(self, task_manager: TaskManager):
         task_config = task_manager.get_config()
         if task_config is not None:
-            self._base.setup(task_config.config, task_config.context)
+            self._base.setup(task_config.config, task_config.context, task_config.env_config, task_config.rl_config)
 
         self.runner = task_manager.create_runner(read_parameter=False)
 

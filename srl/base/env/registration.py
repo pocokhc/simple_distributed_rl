@@ -1,5 +1,4 @@
 import logging
-import traceback
 from typing import Dict, Union
 
 from srl.base.env.base import EnvBase
@@ -121,10 +120,9 @@ def register(id: str, entry_point: str, kwargs: Dict = {}, enable_assert: bool =
 
     if enable_assert:
         assert id not in _registry, f"{id} was already registered. entry_point={entry_point}"
-    else:
-        if id in _registry:
-            logger.warn(f"{id} was already registered. Not registered. entry_point={entry_point}")
-            return
+    elif id in _registry:
+        # 既にあれば上書き
+        logger.warning(f"{id} was already registered, but I overwrote it. entry_point={entry_point}")
 
     _registry[id] = {
         "entry_point": entry_point,

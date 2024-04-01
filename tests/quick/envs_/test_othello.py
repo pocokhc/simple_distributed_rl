@@ -39,6 +39,7 @@ def test_player4x4():
 
 def test_processor():
     env = srl.make_env(srl.EnvConfig("Othello", {"obs_type": "layer"}))
+    env.setup()
     env.reset()
 
     out_state = np.zeros((8, 8, 2))
@@ -54,7 +55,9 @@ def test_processor():
 def test_othello():
     env_run = srl.make_env("Othello")
     env = cast(othello.Othello, env_run.unwrapped)
-    env_run.reset(render_mode="terminal")
+
+    env_run.setup(srl.RunContext(render_mode="terminal"))
+    env_run.reset()
     env_run.render()
 
     # common func

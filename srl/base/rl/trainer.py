@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Generic, Optional, TypeVar
 
+from srl.base.context import RunContext
 from srl.base.define import InfoType
 from srl.base.rl.memory import IRLMemoryTrainer
 
@@ -40,7 +41,7 @@ class RLTrainer(ABC, Generic[_TConfig, _TParameter]):
         raise NotImplementedError()
 
     # abstract
-    def train_start(self) -> None:
+    def train_start(self, context: RunContext) -> None:
         pass
 
     # abstract

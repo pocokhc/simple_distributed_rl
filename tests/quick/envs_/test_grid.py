@@ -23,6 +23,7 @@ def test_easy_grid():
 def test_processor():
     processor = grid.LayerProcessor()
     env = srl.make_env("Grid")
+    env.setup()
     env.reset()
 
     env_org: grid.Grid = env.unwrapped

@@ -6,11 +6,10 @@ import traceback
 import uuid
 import zlib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Union, cast
+from typing import TYPE_CHECKING, List, Optional, cast
 
 import srl
 from srl.base.rl.parameter import RLParameter
-from srl.base.run.context import RLWorkerType, StrWorkerType
 from srl.runner.distribution.connectors.parameters import RedisParameters
 from srl.runner.distribution.connectors.redis_ import RedisConnector
 from srl.runner.distribution.interface import IMemoryReceiver
@@ -178,6 +177,7 @@ class TaskManager:
             self.params.framework,
             self.params.used_device_tf,
             self.params.used_device_torch,
+            self._config.rl_config,
         )
 
         # local
@@ -330,8 +330,8 @@ class TaskManager:
         if task_config is None:
             return None
         runner = srl.Runner(
-            task_config.context.env_config,
-            task_config.context.rl_config,
+            task_config.env_config,
+            task_config.rl_config,
             task_config.config,
             task_config.context,
         )

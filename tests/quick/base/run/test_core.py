@@ -1,13 +1,15 @@
 from typing import List, Tuple
 
+import pytest
+
 import srl
+from srl.base.context import RunContext
 from srl.base.define import EnvActionType, EnvObservationType, InfoType, RenderModes, RLActionType, SpaceTypes
 from srl.base.env import registration as env_registration
 from srl.base.env.base import EnvBase
 from srl.base.rl.config import DummyRLConfig
 from srl.base.rl.registration import register as rl_register
 from srl.base.rl.worker import RLWorker
-from srl.base.run.context import RunContext
 from srl.base.run.core_play import play
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
@@ -44,9 +46,6 @@ class StubEnv(EnvBase):
 
     def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], bool, InfoType]:
         return 2, [10.0], False, {}
-
-
-env_registration.register("StubEnvCore", entry_point=__name__ + ":StubEnv")
 
 
 class StubWorker(RLWorker):
@@ -117,13 +116,18 @@ class StubWorker(RLWorker):
             assert worker.invalid_actions == []
 
 
-rl_register(
-    DummyRLConfig(name="StubWorker"),
-    memory_entry_point="dummy",
-    parameter_entry_point="dummy",
-    trainer_entry_point="dummy",
-    worker_entry_point=__name__ + ":StubWorker",
-)
+@pytest.fixture(scope="function", autouse=True)
+def scope_function():
+    env_registration.register("StubEnvCore", entry_point=__name__ + ":StubEnv", enable_assert=False)
+    rl_register(
+        DummyRLConfig(name="StubWorker"),
+        memory_entry_point="dummy",
+        parameter_entry_point="dummy",
+        trainer_entry_point="dummy",
+        worker_entry_point=__name__ + ":StubWorker",
+        enable_assert=False,
+    )
+    yield
 
 
 def test_play_worker():
@@ -132,8 +136,6 @@ def test_play_worker():
     rl_config = DummyRLConfig(name="StubWorker")
 
     context = RunContext(
-        env_config,
-        rl_config,
         max_episodes=1,
         max_steps=2,
         render_mode=RenderModes.terminal,

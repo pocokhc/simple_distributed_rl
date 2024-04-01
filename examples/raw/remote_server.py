@@ -7,9 +7,9 @@ import numpy as np
 
 import srl
 from srl.algorithms import ql
-from srl.base.env.config import EnvConfig
-from srl.base.rl.config import RLConfig
-from srl.base.rl.parameter import RLParameter
+from srl.base.context import RunContext
+from srl.base.env.env_run import EnvRun
+from srl.base.rl.worker_run import WorkerRun
 
 
 class Board:
@@ -50,39 +50,40 @@ class MPManager(BaseManager):
     pass
 
 
-def run_trainer(queue, train_config):
-    MPManager.register("get_train_config")
-    MPManager.register("get_rl_config")
+def run_trainer(queue, ip, port):
+    MPManager.register("get_config")
     MPManager.register("get_server_state")
     MPManager.register("RemoteMemory")
     MPManager.register("Board")
     MPManager.register("server_stop")
 
-    manager: Any = MPManager(address=(train_config["ip"], train_config["port"]), authkey=b"abracadabra")
+    manager: Any = MPManager(address=(ip, port), authkey=b"abracadabra")
     manager.connect()
 
-    train_config = manager.get_train_config()
-    rl_config = manager.get_rl_config().copy()
+    config = manager.get_config().copy()
+    rl_config = config["rl_config"]
+    context = config["context"]
     server_state: ServerState = manager.get_server_state()
     remote_board = manager.Board()
     remote_memory = manager.RemoteMemory()
 
     parameter = srl.make_parameter(rl_config)
     trainer = srl.make_trainer(rl_config, parameter, remote_memory, distributed=True)
+    trainer.train_start(context)
 
     train_count = 0
     while True:
         if server_state.get_end_signal():
             break
 
-        if train_count >= train_config.get("max_train_count"):
+        if train_count >= context.max_train_count:
             break
 
         trainer.train()
         train_count = trainer.get_train_count()
 
         # send parameter
-        if train_count % train_config.get("trainer_parameter_send_interval_by_train_count") == 0:
+        if train_count % config["trainer_parameter_send_interval_by_train_count"] == 0:
             remote_board.write(parameter.backup())
 
         if train_count > 0 and train_count % 10000 == 0:
@@ -93,20 +94,16 @@ def run_trainer(queue, train_config):
     manager.server_stop()
 
 
-def run_server(train_config, env_config: EnvConfig, rl_config: RLConfig):
-    env = srl.make_env(env_config)
-    rl_config.setup(env)
+def run_server(config):
     server_state = ServerState()
     board = Board()
-    remote_memory = srl.make_memory(rl_config)
-    MPManager.register("get_train_config", callable=lambda: train_config)
-    MPManager.register("get_rl_config", callable=lambda: rl_config)
-    MPManager.register("get_env_config", callable=lambda: env_config)
+    remote_memory = srl.make_memory(config["rl_config"])
+    MPManager.register("get_config", callable=lambda: config)
     MPManager.register("get_server_state", callable=lambda: server_state)
     MPManager.register("RemoteMemory", callable=lambda: remote_memory)
     MPManager.register("Board", callable=lambda: board)
 
-    manager = MPManager(address=("", 50000), authkey=b"abracadabra")
+    manager = MPManager(address=("", config["port"]), authkey=b"abracadabra")
     server: Any = manager.get_server()
 
     # add server stop function
@@ -117,17 +114,17 @@ def run_server(train_config, env_config: EnvConfig, rl_config: RLConfig):
     server.serve_forever()
 
 
-def train(train_config, env_config: EnvConfig, rl_config: RLConfig):
-    env = srl.make_env(env_config)
-    rl_config.setup(env)
+def train(config):
+    env = srl.make_env(config["env_config"])
+    config["rl_config"].setup(env)
 
     # bug fix
     mp.set_start_method("spawn")
 
     # -- server & trainer
     queue = mp.Queue()
-    ps_trainer = mp.Process(target=run_trainer, args=(queue, train_config))
-    ps_server = mp.Process(target=run_server, args=(train_config, env_config, rl_config))
+    ps_trainer = mp.Process(target=run_trainer, args=(queue, config["ip"], config["port"]))
+    ps_server = mp.Process(target=run_server, args=(config,))
 
     # --- run
     ps_server.start()
@@ -143,19 +140,13 @@ def train(train_config, env_config: EnvConfig, rl_config: RLConfig):
     return parameter
 
 
-def _run_episode(env_config: EnvConfig, rl_config: RLConfig, parameter: RLParameter):
-    env = srl.make_env(env_config)
-    assert env.player_num == 1
-    worker = srl.make_worker(rl_config, env, parameter)
-
+def _run_episode(env: EnvRun, worker: WorkerRun):
     env.reset()
-    worker.on_reset(0, training=False)
-
+    worker.on_reset(0)
     while not env.done:
         action = worker.policy()
         env.step(action)
         worker.on_step()
-
     return env.episode_rewards[0]
 
 
@@ -163,20 +154,34 @@ if __name__ == "__main__":
     # --- config
     env_config = srl.EnvConfig("Grid")
     rl_config = ql.Config()
-    train_config = {
+    context = RunContext(
+        actor_num=2,
+        max_train_count=50000,
+        distributed=True,
+        training=True,
+    )
+    config = {
         "ip": "127.0.0.1",
         "port": 50000,
-        "max_train_count": 50000,
+        "env_config": env_config,
+        "rl_config": rl_config,
+        "context": context,
         "trainer_parameter_send_interval_by_train_count": 100,
-        "max_actor": 2,
     }
 
     # --- remote train
-    parameter = train(train_config, env_config, rl_config)
+    parameter = train(config)
 
     # --- evaluate
+    context = RunContext()
+    env = srl.make_env(env_config)
+    assert env.player_num == 1
+    worker = srl.make_worker(rl_config, env, parameter)
+    env.setup(context)
+    worker.on_start(context)
+
     reward_list = []
     for episode in range(100):
-        reward = _run_episode(env_config, rl_config, parameter)
+        reward = _run_episode(env, worker)
         reward_list.append(reward)
     print(f"Average reward for 100 episodes: {np.mean(reward_list):.5f}")

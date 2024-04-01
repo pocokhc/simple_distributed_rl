@@ -2,7 +2,8 @@ from abc import ABC
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from .context import RunContext
+    from srl.base.context import RunContext
+
     from .core_play import RunStateActor
     from .core_train_only import RunStateTrainer
 

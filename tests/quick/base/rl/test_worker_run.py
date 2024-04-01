@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 import srl
+from srl.base.context import RunContext
 from srl.base.define import InfoType, ObservationModes, RLActionType, RLBaseTypes, SpaceTypes
 from srl.base.env.base import SpaceBase
 from srl.base.env.genre.singleplay import SinglePlayEnv
@@ -73,12 +74,6 @@ class StubEnv(SinglePlayEnv):
         return np.ones((64, 32, 3))
 
 
-register_env(
-    id="Stub",
-    entry_point=__name__ + ":StubEnv",
-)
-
-
 class StubRLConfig(RLConfig):
     def __init__(self) -> None:
         super().__init__()
@@ -118,7 +113,11 @@ class StubRLWorker(RLWorker):
         return {}
 
 
-register_rl(StubRLConfig(), "", "", "", __name__ + ":StubRLWorker")
+@pytest.fixture(scope="function", autouse=True)
+def scope_function():
+    register_env(id="Stub", entry_point=__name__ + ":StubEnv", enable_assert=False)
+    register_rl(StubRLConfig(), "", "", "", __name__ + ":StubRLWorker", enable_assert=False)
+    yield
 
 
 def test_env_play():
@@ -150,6 +149,10 @@ def _test_action(
     worker_run = srl.make_worker(rl_config, env)
     worker = cast(StubRLWorker, worker_run.worker)
 
+    context = RunContext()
+    env.setup(context)
+    worker_run.on_start(context)
+
     # --- check act space
     print(rl_config.action_space)
     print(true_act_space)
@@ -167,7 +170,7 @@ def _test_action(
 
     # --- decode
     env.reset()
-    worker_run.on_reset(0, training=False)
+    worker_run.on_reset(0)
     worker.action = rl_act
     dec_env_action = worker_run.policy()
     print(dec_env_action)
@@ -394,6 +397,10 @@ def _test_obs(
     worker_run = srl.make_worker(rl_config, env)
     worker = cast(StubRLWorker, worker_run.worker)
 
+    context = RunContext()
+    env.setup(context)
+    worker_run.on_start(context)
+
     # --- check obs space
     print(rl_config.observation_space)
     print(true_obs_space)
@@ -407,7 +414,7 @@ def _test_obs(
 
     # --- check val
     env.reset()
-    worker_run.on_reset(0, training=False)
+    worker_run.on_reset(0)
     env_action = worker_run.policy()
 
     print(worker.state)

@@ -4,9 +4,11 @@ from typing import cast
 import pytest
 
 import srl
+from srl.base.context import RunContext
 from srl.base.define import SpaceTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvBase
+from srl.base.exception import SRLError
 from srl.base.spaces.discrete import DiscreteSpace
 
 
@@ -66,7 +68,10 @@ class StubEnv(EnvBase):
         print(self._step)
 
 
-registration.register(id="base_StubEnv", entry_point=__name__ + ":StubEnv")
+@pytest.fixture(scope="function", autouse=True)
+def scope_function():
+    registration.register(id="base_StubEnv", entry_point=__name__ + ":StubEnv", enable_assert=False)
+    yield
 
 
 def test_EnvRun():
@@ -74,9 +79,13 @@ def test_EnvRun():
     env = srl.make_env(env_config)
     env_org = cast(StubEnv, env.unwrapped)
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(SRLError):
+        env.reset()
+
+    with pytest.raises(SRLError):
         env.step(0)
 
+    env.setup(RunContext())
     env.reset()
     assert env.step_num == 0
 
@@ -95,6 +104,7 @@ def test_EnvRun_max_steps():
     env_config = srl.EnvConfig("base_StubEnv", max_episode_steps=10)
     env = srl.make_env(env_config)
 
+    env.setup(RunContext())
     env.reset()
     for _ in range(10):
         env.step(0)
@@ -103,7 +113,7 @@ def test_EnvRun_max_steps():
     env.step(0)
     assert env.done
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(SRLError):
         env.step(0)
 
 
@@ -111,10 +121,11 @@ def test_EnvRun_timeout():
     env_config = srl.EnvConfig("base_StubEnv", episode_timeout=1)
     env = srl.make_env(env_config)
 
+    env.setup(RunContext())
     env.reset()
     time.sleep(2)
     env.step(0)
     assert env.done
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(SRLError):
         env.step(0)

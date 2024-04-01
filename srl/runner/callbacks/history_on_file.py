@@ -10,9 +10,9 @@ from typing import Optional
 
 import numpy as np
 
+from srl.base.context import RunContext
 from srl.base.exception import UndefinedError
 from srl.base.run.callback import RunCallback, TrainerCallback
-from srl.base.run.context import RunContext
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callback import RunnerCallback
@@ -100,7 +100,7 @@ class HistoryOnFileBase:
         fp.write(json.dumps(d, cls=JsonNumpyEncoder) + "\n")
         fp.flush()
 
-    def setup(self, config: RunnerConfig, context: RunContext):
+    def setup(self, config: RunnerConfig, context: RunContext, env_config, rl_config):
         import srl
 
         # --- make dir
@@ -115,9 +115,9 @@ class HistoryOnFileBase:
 
         # --- config
         for fn, dat in [
-            ["env_config.json", context.env_config.to_dict()],
-            ["rl_config.json", context.rl_config.to_dict()],
-            ["context.json", context.to_dict(skip_config=True)],
+            ["env_config.json", env_config.to_dict()],
+            ["rl_config.json", rl_config.to_dict()],
+            ["context.json", context.to_dict()],
             ["config.json", config.to_dict()],
         ]:
             path = os.path.join(self.save_dir, fn)
@@ -172,7 +172,7 @@ class HistoryOnFile(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         assert self.interval_mode in ["time", "step"]
 
     def on_runner_start(self, runner: Runner) -> None:
-        self._base.setup(runner.config, runner.context)
+        self._base.setup(runner.config, runner.context, runner.env_config, runner.rl_config)
 
     def on_runner_end(self, runner: Runner) -> None:
         runner.history_viewer = HistoryViewer()

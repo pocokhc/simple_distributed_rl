@@ -10,12 +10,12 @@ import zlib
 from typing import List, Optional, cast
 
 import srl
+from srl.base.context import RunContext, RunNameTypes
 from srl.base.define import RLMemoryTypes
 from srl.base.exception import DistributionError
 from srl.base.rl.memory import IRLMemoryWorker, RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import RunCallback
-from srl.base.run.context import RunContext, RunNameTypes
 from srl.base.run.core_play import RunStateActor
 from srl.runner.distribution.callback import ActorServerCallback
 from srl.runner.distribution.connectors.parameters import RedisParameters

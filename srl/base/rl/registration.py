@@ -92,8 +92,6 @@ def make_worker(
     env: EnvRun,
     parameter: Optional[RLParameter] = None,
     memory: Optional[IRLMemoryWorker] = None,
-    distributed: bool = False,
-    actor_id: int = 0,
 ) -> WorkerRun:
     rl_config.setup(env, enable_log=True)
     _check_rl_config(rl_config, env)
@@ -108,16 +106,10 @@ def make_worker(
     if rl_config.extend_worker is not None:
         worker = rl_config.extend_worker(worker, rl_config, parameter, memory)
 
-    return WorkerRun(worker, env, distributed, actor_id)
+    return WorkerRun(worker, env)
 
 
-def make_worker_rulebase(
-    name: str,
-    env: EnvRun,
-    worker_kwargs: dict = {},
-    distributed: bool = False,
-    actor_id: int = 0,
-) -> WorkerRun:
+def make_worker_rulebase(name: str, env: EnvRun, worker_kwargs: dict = {}) -> WorkerRun:
     # --- srl内はloadする
     if name not in _registry_worker:
         if name == "human":
@@ -131,7 +123,7 @@ def make_worker_rulebase(
 
     assert name in _registry_worker, f"{name} is not registered."
     worker = load_module(_registry_worker[name])(config=rl_config, **worker_kwargs)
-    return WorkerRun(worker, env, distributed, actor_id)
+    return WorkerRun(worker, env)
 
 
 def register(
@@ -147,10 +139,9 @@ def register(
     name = config.get_name()
     if enable_assert:
         assert name not in _registry, f"{name} was already registered."
-    else:
-        if name in _registry:
-            logger.warn(f"{name} was already registered. Not registered. entry_point={worker_entry_point}")
-            return
+    elif name in _registry:
+        # 既にあれば上書き
+        logger.warning(f"{name} was already registered, but I overwrote it. entry_point={worker_entry_point}")
 
     _registry[name] = [
         memory_entry_point,
@@ -169,9 +160,8 @@ def register_rulebase(
 
     if enable_assert:
         assert name not in _registry, f"{name} was already registered."
-    else:
-        if name in _registry:
-            logger.warn(f"{name} was already registered. Not registered. entry_point={entry_point}")
-            return
+    elif name in _registry:
+        # 既にあれば上書き
+        logger.warning(f"{name} was already registered, but I overwrote it. entry_point={entry_point}")
 
     _registry_worker[name] = entry_point

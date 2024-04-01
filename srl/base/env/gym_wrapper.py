@@ -398,6 +398,41 @@ class GymWrapper(EnvBase):
     def set_seed(self, seed: Optional[int] = None) -> None:
         self.seed = seed
 
+    def setup(self, **kwargs):
+        if not self.v0260_older:
+            render_mode = kwargs.get("render_mode", RenderModes.none)
+            # --- terminal
+            # modeが違っていたら作り直す
+            if (
+                (render_mode in [RenderModes.terminal, RenderModes.ansi])
+                and (self.render_mode != RenderModes.terminal)
+                and ("ansi" in self.render_modes)
+            ):
+                try:
+                    self.env.close()
+                except Exception as e:
+                    logger.warning(e)
+                self.env = self.make_gym_env(render_mode="ansi")
+                self.render_mode = RenderModes.terminal
+
+            # --- rgb_array
+            # modeが違っていたら作り直す
+            if (
+                (render_mode in [RenderModes.terminal, RenderModes.ansi])
+                and (self.render_mode != RenderModes.rgb_array)
+                and ("rgb_array" in self.render_modes)
+            ):
+                try:
+                    self.env.close()
+                except Exception as e:
+                    logger.warning(e)
+                self.env = self.make_gym_env(render_mode="rgb_array")
+                self.render_mode = RenderModes.rgb_array
+
+        # --- unwrapped function
+        if hasattr(self.env.unwrapped, "setup"):
+            return self.env.unwrapped.setup(**kwargs)
+
     def backup(self) -> Any:
         if hasattr(self.env.unwrapped, "backup"):
             return self.env.unwrapped.backup()
@@ -438,28 +473,10 @@ class GymWrapper(EnvBase):
     def render_interval(self) -> float:
         return 1000 / self.fps
 
-    def set_render_terminal_mode(self) -> None:
-        if self.v0260_older:
-            return
-
-        # modeが違っていたら作り直す
-        if self.render_mode != RenderModes.terminal and "ansi" in self.render_modes:
-            self.env = self.make_gym_env(render_mode="ansi")
-            self.render_mode = RenderModes.terminal
-
-    def set_render_rgb_mode(self) -> None:
-        if self.v0260_older:
-            return
-
-        # modeが違っていたら作り直す
-        if self.render_mode != RenderModes.rgb_array and "rgb_array" in self.render_modes:
-            self.env = self.make_gym_env(render_mode="rgb_array")
-            self.render_mode = RenderModes.rgb_array
-
     def render_terminal(self, **kwargs) -> None:
         if self.v0260_older:
             if "ansi" in self.render_modes:
-                print(self.env.render(mode="ansi", **kwargs))  # type: ignore
+                print(self.env.render(mode="ansi", **kwargs))
         else:
             if self.render_mode == RenderModes.terminal:
                 print(self.env.render(**kwargs))

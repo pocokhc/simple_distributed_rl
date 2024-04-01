@@ -4,8 +4,8 @@ import pytest_timeout  # noqa F401
 
 import srl
 from srl.algorithms import ql, ql_agent57
+from srl.base.context import RunContext
 from srl.base.run.callback import RunCallback, TrainerCallback
-from srl.base.run.context import RunContext
 from srl.base.run.core_play import play
 from srl.base.run.core_train_only import play_trainer_only
 
@@ -20,10 +20,10 @@ def test_callback(mocker: pytest_mock.MockerFixture):
     trainer = srl.make_trainer(rl_config, parameter, memory)
     c = mocker.Mock(spec=RunCallback)
 
-    context = RunContext(env_config, rl_config)
+    context = RunContext()
     context.training = True
     context.max_episodes = 1
-    workers, main_worker_idx = context.make_workers(env, parameter, memory)
+    workers, main_worker_idx = context.make_workers(env, parameter, memory, rl_config)
     state = play(context, env, workers, main_worker_idx, trainer=trainer, callbacks=[c])
 
     assert state.total_step >= 1
@@ -49,15 +49,15 @@ def test_trainer_callback(mocker: pytest_mock.MockerFixture):
     parameter = srl.make_parameter(rl_config, env)
     memory = srl.make_memory(rl_config, env)
 
-    context = RunContext(env_config, rl_config)
+    context = RunContext()
     context.training = True
     context.max_memory = 100
     context.disable_trainer = True
-    workers, main_worker_idx = context.make_workers(env, parameter, memory)
+    workers, main_worker_idx = context.make_workers(env, parameter, memory, rl_config)
     play(context, env, workers, main_worker_idx)
     assert memory.length() == 100
 
-    context = RunContext(env_config, rl_config)
+    context = RunContext()
     context.training = True
     context.max_train_count = 10
     trainer = srl.make_trainer(rl_config, parameter, memory, env=env)

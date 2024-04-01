@@ -13,12 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 class IRender:
-    def set_render_terminal_mode(self) -> None:
-        pass
-
-    def set_render_rgb_mode(self) -> None:
-        pass
-
     def render_terminal(self, **kwargs) -> None:
         pass
 
@@ -35,10 +29,9 @@ class Render:
         self._cache_rgb_array = None
 
         self._screen = None
-
         self.set_render_options()
 
-    def reset(self, mode: Union[str, RenderModes]):
+    def set_render_mode(self, mode: Union[str, RenderModes]):
         self.cache_reset()
         self._mode = RenderModes.from_str(mode)
 
@@ -47,17 +40,6 @@ class Render:
                 ["PIL", "pygame"]
             ), "This run requires installation of 'PIL', 'pygame'. (pip install pillow pygame)"
             # PIL use 'text_to_rgb_array'
-
-            self._render_obj.set_render_rgb_mode()
-
-        if self._mode in [RenderModes.terminal, RenderModes.ansi]:
-            self._render_obj.set_render_terminal_mode()
-
-    def cache_reset(self):
-        self.print_str = ""
-        self.rgb_array = None
-
-    # ----------------------------
 
     def set_render_options(
         self,
@@ -70,6 +52,10 @@ class Render:
         self.scale = scale
         self.font_name = font_name
         self.font_size = font_size
+
+    def cache_reset(self):
+        self.print_str = ""
+        self.rgb_array = None
 
     def render(self, render_window: bool = True, **kwargs) -> None:
         if self._mode == RenderModes.terminal:

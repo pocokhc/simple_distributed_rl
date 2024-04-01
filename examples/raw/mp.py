@@ -4,6 +4,7 @@ from multiprocessing.managers import BaseManager
 from typing import Any, List, cast
 
 import srl
+from srl.base.context import RunContext
 from srl.base.rl.config import RLConfig
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.registration import make_memory_class, make_parameter, make_trainer
@@ -38,17 +39,20 @@ def _run_actor(
 ):
     env_config = config["env_config"]
     rl_config: RLConfig = config["rl_config"]
-    rl_config.setup_from_actor(config["actor_num"], actor_id)
+    context = config["context"]
+    rl_config.setup_from_actor(context.actor_num, actor_id)
+    context.actor_id = actor_id
 
     # make instance
     env = srl.make_env(env_config)
     parameter = make_parameter(rl_config)
-    workers = [srl.make_worker(rl_config, env, parameter, remote_memory, distributed=True, actor_id=actor_id)]
-
-    prev_update_count = 0
-    episode = 0
+    workers = [srl.make_worker(rl_config, env, parameter, remote_memory)]
+    env.setup(context)
+    [w.on_start(context) for w in workers]
 
     # episode loop
+    prev_update_count = 0
+    episode = 0
     while True:
         if train_end_signal.value:
             break
@@ -56,7 +60,7 @@ def _run_actor(
         # --- 1 episode
         # reset
         env.reset()
-        [w.on_reset(i, training=True) for i, w in enumerate(workers)]
+        [w.on_reset(i) for i, w in enumerate(workers)]
 
         while not env.done:
             # action
@@ -87,16 +91,18 @@ def _run_trainer(
     train_end_signal: ctypes.c_bool,
 ):
     rl_config = config["rl_config"]
+    context = config["context"]
 
     parameter = make_parameter(rl_config)
     trainer = make_trainer(rl_config, parameter, remote_memory, distributed=True)
+    trainer.train_start(context)
 
     train_count = 0
     while True:
         if train_end_signal.value:
             break
 
-        if train_count >= config["max_train_count"]:
+        if train_count >= context.max_train_count:
             break
 
         trainer.train()
@@ -123,13 +129,17 @@ def main():
     # --- config
     env_config = srl.EnvConfig("Grid")
     rl_config = ql.Config()
-    actor_num = 2
+    context = RunContext(
+        actor_num=2,
+        max_train_count=100000,
+        distributed=True,
+        training=True,
+    )
     config = {
         "env_config": env_config,
         "rl_config": rl_config,
-        "max_train_count": 100000,
+        "context": context,
         "trainer_parameter_send_interval_by_train_count": 100,
-        "actor_num": actor_num,
     }
 
     # init
@@ -153,7 +163,7 @@ def main():
 
         # --- actor
         actors_ps_list: List[mp.Process] = []
-        for actor_id in range(actor_num):
+        for actor_id in range(context.actor_num):
             params = (
                 config,
                 remote_memory,
@@ -192,13 +202,15 @@ def main():
     # rendering
     # --------------------
     workers = [srl.make_worker(rl_config, env, parameter)]
+    context = RunContext(render_mode="terminal")
+    env.setup(context)
+    [w.on_start(context) for w in workers]
 
-    env.reset(render_mode="terminal")
-    [w.on_reset(i, training=False, render_mode="terminal") for i, w in enumerate(workers)]
+    env.reset()
+    [w.on_reset(i) for i, w in enumerate(workers)]
 
     print("step 0")
     env.render()
-
     while not env.done:
         action = workers[env.next_player_index].policy()
 

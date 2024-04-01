@@ -9,11 +9,11 @@ import zlib
 from typing import Any, List, Optional, cast
 
 import srl
+from srl.base.context import RunContext, RunNameTypes
 from srl.base.define import RLMemoryTypes
 from srl.base.rl.memory import IRLMemoryTrainer, RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import TrainerCallback
-from srl.base.run.context import RunContext, RunNameTypes
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.distribution.callback import TrainerServerCallback
 from srl.runner.distribution.connectors.parameters import RedisParameters
@@ -297,7 +297,7 @@ def _run_trainer(manager: ServerManager, runner: srl.Runner):
         if runner.config.dist_enable_trainer_thread:
             share_data = _ShareData()
             if runner.config.dist_enable_prepare_sample_batch:
-                batch_size = getattr(runner.context.rl_config, "batch_size", 1)
+                batch_size = getattr(runner.rl_config, "batch_size", 1)
                 memory = _TrainerRLMemoryThreadPrepareBatch(memory, batch_size, share_data)
 
             _manager_copy_args = manager._copy_args()

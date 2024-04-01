@@ -6,9 +6,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from srl.base.context import RunContext
 from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import RunCallback, TrainerCallback
-from srl.base.run.context import RunContext
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callback import RunnerCallback
@@ -219,7 +219,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         # [sync]
         if context.distributed:
             diff_q = state.actor_send_q - self.t0_actor_send_q
-            s += f", Q {int(diff_q/diff_time):4d}send/s({state.actor_send_q:8d})"
+            s += f", Q {int(diff_q / diff_time):4d}send/s({state.actor_send_q:8d})"
             self.t0_actor_send_q = state.actor_send_q
             s += f", {state.sync_actor:4d} recv Param"
 
@@ -263,7 +263,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         # [info] , 速度優先して一番最新の状態をそのまま表示
         s_info = ""
         stypes = state.env.info_types
-        rl_types = context.rl_config.get_info_types()
+        rl_types = state.worker.config.get_info_types()
         if self.progress_env_info:
             s_info += to_str_info(state.env.info, stypes)
         if self.progress_worker_info:
@@ -395,7 +395,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         # [distributed]
         if context.distributed:
             diff_q = state.trainer_recv_q - self.t0_trainer_recv_q
-            s += f", Q {int(diff_q/diff_time):4d}recv/s({state.trainer_recv_q:8d})"
+            s += f", Q {int(diff_q / diff_time):4d}recv/s({state.trainer_recv_q:8d})"
             self.t0_trainer_recv_q = state.trainer_recv_q
             s += f", {state.sync_trainer:4d} send Param"
 
@@ -413,7 +413,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         s_info = ""
         if self.progress_train_info:
             if state.trainer is not None:
-                s_info += to_str_info(state.trainer.get_info(), context.rl_config.get_info_types())
+                s_info += to_str_info(state.trainer.get_info(), state.trainer.config.get_info_types())
 
         if self.single_line:
             print(s + s_info)

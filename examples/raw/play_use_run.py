@@ -1,7 +1,7 @@
 import numpy as np
 
 import srl
-from srl.base.run.context import RunContext
+from srl.base.context import RunContext
 from srl.base.run.core_play import play
 from srl.utils import common
 
@@ -13,7 +13,7 @@ from srl.algorithms import ql  # isort: skip
 def main():
     env_config = srl.EnvConfig("Grid")
     rl_config = ql.Config()
-    context = RunContext(env_config, rl_config)
+    context = RunContext()
 
     # --- setup
     env = srl.make_env(env_config)

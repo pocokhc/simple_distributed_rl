@@ -4,6 +4,7 @@ import numpy as np
 
 import srl
 import srl.rl.random_play
+from srl.base.context import RunContext
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
@@ -18,20 +19,39 @@ def _run_episode(
     env: EnvRun,
     workers: List[WorkerRun],
     trainer: Optional[RLTrainer],
+    rendering: bool,
 ):
-    training = trainer is not None
-
     # 1. reset
     env.reset()
-    [w.on_reset(player_index=i, training=training) for i, w in enumerate(workers)]
+    [w.on_reset(player_index=i) for i, w in enumerate(workers)]
+
+    # --- env render
+    if rendering:
+        print("step 0")
+        env.render()
 
     while not env.done:
         # 2. action
         action = workers[env.next_player_index].policy()
 
+        # --- worker render
+        if rendering:
+            print(f"player {env.next_player_index}")
+            workers[env.next_player_index].render()
+
         # 3. step
         env.step(action)
         [w.on_step() for w in workers]
+
+        # --- env render
+        if rendering:
+            print(
+                "--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(
+                    env.step_num, action, env.step_rewards, env.done, env.next_player_index, env.info
+                )
+            )
+            print("player {} info: {}".format(env.next_player_index, workers[env.next_player_index].info))
+            env.render()
 
         # 4. train
         if trainer is not None:
@@ -49,41 +69,10 @@ def _run_episode(
             print(workers[1].info)
             print(train_info)
 
+    if rendering:
+        print(f"step: {env.step_num}, reward: {env.episode_rewards}")
+
     return env.step_num, env.episode_rewards
-
-
-def _render(env: EnvRun, workers: List[WorkerRun]):
-    # 1. reset
-    # (Only one of the window mode)
-    env.reset(render_mode="terminal")
-    [w.on_reset(i, training=False, render_mode="terminal") for i, w in enumerate(workers)]
-
-    # --- render
-    print("step 0")
-    env.render()
-
-    while not env.done:
-        # 2. action
-        action = workers[env.next_player_index].policy()
-
-        # --- worker render
-        print(f"player {env.next_player_index}")
-        workers[env.next_player_index].render()
-
-        # 3. step
-        env.step(action)
-        [w.on_step() for w in workers]
-
-        # --- env render
-        print(
-            "--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(
-                env.step_num, action, env.step_rewards, env.done, env.next_player_index, env.info
-            )
-        )
-        print("player {} info: {}".format(env.next_player_index, workers[env.next_player_index].info))
-        env.render()
-
-    print(f"step: {env.step_num}, reward: {env.episode_rewards}")
 
 
 def main():
@@ -101,21 +90,39 @@ def main():
         srl.make_worker_rulebase("random", env),
     ]
 
-    # --- train loop
+    # --- train
+    # set context
+    context = RunContext(training=True)
+    env.setup(context)
+    [w.on_start(context) for w in workers]
+    trainer.train_start(context)
+    # loop
     for episode in range(10000):
-        step, rewards = _run_episode(env, workers, trainer)
+        step, rewards = _run_episode(env, workers, trainer, rendering=False)
         if episode % 1000 == 0:
             print(f"{episode} / 10000 episode, {step} step, {rewards} reward")
 
     # --- evaluate
+    # set context
+    context = RunContext()
+    env.setup(context)
+    [w.on_start(context) for w in workers]
+    trainer.train_start(context)
+    # run
     rewards_list = []
     for episode in range(100):
-        _, rewards = _run_episode(env, workers, None)
+        _, rewards = _run_episode(env, workers, None, rendering=False)
         rewards_list.append(rewards)
     print(f"Average reward for 100 episodes: {np.mean(rewards_list, axis=0)}")
 
     # --- render
-    _render(env, workers)
+    # set context
+    context = RunContext(render_mode="terminal")
+    env.setup(context)
+    [w.on_start(context) for w in workers]
+    trainer.train_start(context)
+    # run
+    _run_episode(env, workers, None, rendering=True)
 
 
 def play_cpu():
@@ -129,10 +136,16 @@ def play_cpu():
     cpu = env.make_worker("cpu")
     assert cpu is not None
 
+    # set context
+    context = RunContext(render_mode="terminal")
+    env.setup(context)
+    player.on_start(context)
+    cpu.on_start(context)
+
     # reset
-    env.reset(render_mode="terminal")
-    player.on_reset(player_index=0, training=False)
-    cpu.on_reset(player_index=1, training=False)
+    env.reset()
+    player.on_reset(player_index=0)
+    cpu.on_reset(player_index=1)
 
     env.render()
 

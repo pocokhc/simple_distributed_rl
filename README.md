@@ -162,6 +162,10 @@ if __name__ == "__main__":
 
 ``` python
 # Initializing phase
+env.setup()
+worker.on_start()
+
+# 1 episode initializing phase
 env.reset()
 worker.on_reset()
 
@@ -180,6 +184,10 @@ while not env.done:
 
 ``` python
 # Initializing phase
+env.setup()
+worker.on_start()
+
+# 1 episode initializing phase
 env.reset()
 worker.on_reset()
 env.render()

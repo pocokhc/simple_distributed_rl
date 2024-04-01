@@ -3,8 +3,8 @@ import pytest_mock
 
 import srl
 from srl.algorithms import ql
+from srl.base.context import RunContext
 from srl.base.rl.parameter import DummyRLParameter
-from srl.base.run.context import RunContext
 from srl.runner.runner import RunnerConfig, TaskConfig
 from tests.distribution.runner.distribution_external.memory_test_functions import memory_connector_test
 from tests.distribution.runner.distribution_mock.server_mock import (
@@ -84,7 +84,9 @@ def test_task(mocker: pytest_mock.MockerFixture):
     create_redis_mock(mocker)
 
     client = TaskManager(RedisParameters(host="test"), "client")
-    task_config = TaskConfig(RunnerConfig(), RunContext(srl.EnvConfig("Grid"), ql.Config()), [])
+    env_config = srl.EnvConfig("Grid")
+    rl_config = ql.Config()
+    task_config = TaskConfig(env_config, rl_config, RunnerConfig(), RunContext(), [])
     task_config.context.actor_num = 2
     task_config.context.max_train_count = 10
     client.create_task(task_config, DummyRLParameter())

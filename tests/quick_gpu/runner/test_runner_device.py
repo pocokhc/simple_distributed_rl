@@ -2,7 +2,7 @@ import pytest
 
 import srl
 from srl.algorithms import dqn, ql
-from srl.base.run.context import RunNameTypes
+from srl.base.context import RunNameTypes
 
 
 # -----------------------------------

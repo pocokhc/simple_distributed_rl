@@ -6,13 +6,14 @@ from srl.envs import grid, ox  # isort: skip # noqa F401
 
 def main(env_name):
     env = srl.make_env(env_name)
+    env.set_render_options(interval=1000 / 5)
 
     print(f"action_space     : {env.action_space}")
     print(f"observation_space: {env.observation_space}")
     print(f"player_num       : {env.player_num}")
 
-    env.set_render_options(interval=1000 / 10)
-    env.reset(render_mode="window")  # "terminal" or "rgb_array" or "window"
+    env.setup(srl.RunContext(render_mode="window"))  # "terminal" or "rgb_array" or "window"
+    env.reset()
     env.render()
 
     while not env.done:

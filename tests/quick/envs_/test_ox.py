@@ -17,6 +17,7 @@ def test_player():
 
 def test_processor():
     env = srl.make_env(srl.EnvConfig("OX", {"obs_type": "layer"}))
+    env.setup()
     env.reset()
 
     out_state = np.zeros((3, 3, 2))
@@ -26,7 +27,7 @@ def test_processor():
 
 def test_play_step():
     env = srl.make_env("OX")
-
+    env.setup()
     env.reset()
     np.testing.assert_array_equal(env.state, [0, 0, 0, 0, 0, 0, 0, 0, 0])
     assert env.next_player_index == 0

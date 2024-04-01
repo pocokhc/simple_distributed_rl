@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 
 import numpy as np
 
+from srl.base.context import RunContext
 from srl.base.define import (
     DoneTypes,
     EnvActionType,
@@ -17,6 +18,7 @@ from srl.base.define import (
     RenderModes,
 )
 from srl.base.env.config import EnvConfig
+from srl.base.exception import SRLError
 from srl.base.render import Render
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
@@ -34,18 +36,11 @@ class EnvRun:
         self.config = config
         self.env = make_base(self.config)
         self.config._update_env_info(self.env)  # config update
-
         self._render = Render(self.env)
-        self.set_render_options()
-
         self._reset_vals()
-        self._is_direct_step = False
-        self.init()
-
-    def init(self):
-        """reset前の状態を定義"""
         self._done = DoneTypes.RESET
-        self._done_reason = ""
+        self._is_direct_step = False
+        self._has_start = False
 
     # --- with
     def __del__(self):
@@ -70,20 +65,32 @@ class EnvRun:
         self.env = make_base(self.config)
 
     # ------------------------------------
-    # change internal state
+    # run functions
     # ------------------------------------
-    def reset(
-        self,
-        render_mode: Union[str, RenderModes] = "",
-        seed: Optional[int] = None,
-    ) -> None:
-        # --- seed
-        self.env.set_seed(seed)
+    def setup(self, context: Optional[RunContext] = None):
+        if context is None:
+            context = RunContext()
+
+        # --- reset前の状態を設定
+        self._done = DoneTypes.RESET
+        self._done_reason = ""
 
         # --- render
+        render_mode = context.render_mode
         if self.config.override_render_mode != RenderModes.none:
             render_mode = self.config.override_render_mode
-        self._render.reset(render_mode)
+        self._render.set_render_mode(render_mode)
+
+        # --- env
+        self.env.setup(**context.to_dict())
+        self._has_start = True
+
+    def reset(self, seed: Optional[int] = None) -> None:
+        if not self._has_start:
+            raise SRLError("Cannot call env.reset() before calling env.setup()")
+
+        # --- seed
+        self.env.set_seed(seed)
 
         # --- env reset
         self._reset_vals()
@@ -116,9 +123,10 @@ class EnvRun:
         self._info: dict = {}
 
     def step(self, action: EnvActionType, frameskip_function: Optional[Callable[[], None]] = None) -> None:
-        assert self._done == DoneTypes.NONE, f"It is in the done state. Please execute reset(). ({self._done})"
-        if self._is_direct_step:
-            assert self.env.can_simulate_from_direct_step, "env does not support 'step' after 'direct_step'."
+        if self._done != DoneTypes.NONE:
+            raise SRLError(f"It is in the done state. Please execute reset(). ({self._done})")
+        if self._is_direct_step and (not self.env.can_simulate_from_direct_step):
+            raise SRLError("env does not support 'step' after 'direct_step'.")
 
         # --- env step
         if self.config.enable_assertion:
@@ -415,6 +423,7 @@ class EnvRun:
         return self._invalid_actions_list[player_index]
 
     def get_valid_actions(self, player_index: int = -1) -> List[EnvInvalidActionType]:
+        assert isinstance(self.action_space, DiscreteSpace)
         invalid_actions = self.get_invalid_actions(player_index)
         return [a for a in range(self.action_space.n) if a not in invalid_actions]
 
@@ -444,8 +453,6 @@ class EnvRun:
         name: str,
         env_worker_kwargs: dict = {},
         enable_raise: bool = True,
-        distributed: bool = False,
-        actor_id: int = 0,
     ) -> Optional["WorkerRun"]:
         env_worker_kwargs = env_worker_kwargs.copy()
         worker = self.env.make_worker(name, **env_worker_kwargs)
@@ -456,7 +463,7 @@ class EnvRun:
 
         from srl.base.rl.worker_run import WorkerRun
 
-        return WorkerRun(worker, self, distributed, actor_id)
+        return WorkerRun(worker, self)
 
     @property
     def unwrapped(self) -> Any:

@@ -27,9 +27,8 @@ def create_task():
 def wait_task():
     task_manager = TaskManager(redis_params)
     task_manager.train_wait(
-        checkpoint_save_dir=checkpoint_dir,
-        checkpoint_interval=10,
-        history_save_dir=history_dir,
+        checkpoint_kwargs=dict(save_dir=checkpoint_dir, interval=10),
+        history_on_file_kwargs=dict(save_dir=history_dir),
     )
 
 

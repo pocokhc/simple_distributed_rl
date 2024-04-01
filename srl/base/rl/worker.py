@@ -11,6 +11,7 @@ from srl.base.rl.memory import DummyRLMemoryWorker, IRLMemoryWorker
 from srl.base.rl.parameter import DummyRLParameter
 
 if TYPE_CHECKING:
+    from srl.base.context import RunContext
     from srl.base.env.env_run import EnvRun
     from srl.base.rl.worker_run import WorkerRun
 
@@ -40,6 +41,9 @@ class RLWorker(ABC, IRender, Generic[_TConfig, _TParameter]):
         self.__worker_run = worker
 
     # --- implement
+    def on_start(self, worker: "WorkerRun", context: "RunContext") -> None:
+        pass
+
     def on_reset(self, worker: "WorkerRun") -> InfoType:
         return {}
 
@@ -49,9 +53,6 @@ class RLWorker(ABC, IRender, Generic[_TConfig, _TParameter]):
 
     def on_step(self, worker: "WorkerRun") -> InfoType:
         return {}
-
-    def on_start(self, worker: "WorkerRun") -> None:
-        pass
 
     def on_end(self, worker: "WorkerRun") -> None:
         pass

@@ -1,4 +1,5 @@
 import srl
+from srl.base.context import RunContext
 from srl.base.define import RenderModes
 from srl.base.env.env_run import EnvRun
 from srl.utils.common import is_available_pygame_video_device, is_packages_installed
@@ -61,16 +62,19 @@ class TestEnv:
     def _play_test(
         self,
         env: EnvRun,
-        render_mode,
-        check_restore,
-        max_step,
-        print_enable,
+        render_mode: RenderModes,
+        check_restore: bool,
+        max_step: int,
+        print_enable: bool,
     ):
         player_num = env.player_num
         assert player_num > 0, "player_num is greater than or equal to 1."
 
+        context = RunContext(render_mode=render_mode)
+        env.setup(context)
+
         # --- reset
-        env.reset(render_mode)
+        env.reset()
         assert env.observation_space.check_val(env.state), f"Checking observation_space failed. state={env.state}"
         assert (
             0 <= env.next_player_index < player_num

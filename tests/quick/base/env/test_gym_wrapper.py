@@ -8,6 +8,7 @@ import pytest
 
 import srl
 from srl.base import spaces as srl_spaces
+from srl.base.context import RunContext
 from srl.base.define import SpaceTypes
 from srl.base.env.gym_user_wrapper import GymUserWrapper
 from srl.base.spaces.space import SpaceBase
@@ -340,6 +341,7 @@ def test_random():
     pytest.importorskip("gym")
 
     env = srl.make_env(srl.EnvConfig("Pendulum-v1", use_gym=True))
+    env.setup()
     print(env.action_space)
     print(env.observation_space)
 
@@ -393,6 +395,7 @@ def test_wrapper():
     wrapper = MyWrapper()
     env_config = srl.EnvConfig("CliffWalking-v0", gym_wrappers=[wrapper], use_gym=True)
     env = srl.make_env(env_config)
+    env.setup(RunContext(render_mode="terminal"))
 
     print(env.action_space)
     print(env.observation_space)
@@ -401,7 +404,7 @@ def test_wrapper():
     assert env.action_space.n == 99
     assert env.observation_space.n == 99
 
-    env.reset(render_mode="terminal")
+    env.reset()
     assert env.state == 1
     while not env.done:
         env.step(None)

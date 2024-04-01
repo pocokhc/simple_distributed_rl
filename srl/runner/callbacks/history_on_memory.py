@@ -5,9 +5,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from srl.base.context import RunContext
 from srl.base.exception import UndefinedError
 from srl.base.run.callback import RunCallback, TrainerCallback
-from srl.base.run.context import RunContext
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callback import RunnerCallback

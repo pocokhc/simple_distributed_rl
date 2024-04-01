@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, List, Optional, Tuple, Union, cast
 
 import numpy as np
 
+from srl.base.context import RLWorkerType, RunContext, RunNameTypes, StrWorkerType
 from srl.base.define import EnvObservationType, RLObservationType
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
@@ -23,7 +24,6 @@ from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run import core_play, core_train_only
 from srl.base.run.callback import RunCallback, TrainerCallback
-from srl.base.run.context import RLWorkerType, RunContext, RunNameTypes, StrWorkerType
 from srl.runner.callback import RunnerCallback
 from srl.utils import common
 from srl.utils.serialize import convert_for_json
@@ -80,6 +80,8 @@ class RunnerConfig:
 
 @dataclass
 class TaskConfig:
+    env_config: EnvConfig
+    rl_config: RLConfig
     config: RunnerConfig
     context: RunContext
     callbacks: List[CallbackType]
@@ -117,7 +119,7 @@ class Runner:
         if self.config is None:
             self.config: RunnerConfig = RunnerConfig()
         if self.context is None:
-            self.context: RunContext = RunContext(self.env_config, self.rl_config)
+            self.context: RunContext = RunContext()
 
         self._env: Optional[EnvRun] = None
         self._parameter: Optional[RLParameter] = None
@@ -243,12 +245,10 @@ class Runner:
     # ------------------------------
     # make functions
     # ------------------------------
-    def make_env(self, is_init: bool = False) -> EnvRun:
+    def make_env(self) -> EnvRun:
         if self._env is None:
             self._env = make_env(self.env_config)
             logger.info(f"make env: {self._env.name}")
-        if is_init:
-            self._env.init()
         return self._env
 
     def make_parameter(self, is_load: bool = True) -> RLParameter:
@@ -307,14 +307,7 @@ class Runner:
             parameter = self.make_parameter()
         if memory is None:
             memory = self.make_memory()
-        return make_worker(
-            self.rl_config,
-            env,
-            parameter,
-            memory,
-            self.context.distributed,
-            self.context.actor_id,
-        )
+        return make_worker(self.rl_config, env, parameter, memory)
 
     def make_workers(
         self,
@@ -329,7 +322,7 @@ class Runner:
             parameter = self.make_parameter()
         if memory is None:
             memory = self.make_memory()
-        workers, main_worker_idx = self.context.make_workers(self.make_env(), parameter, memory)
+        workers, main_worker_idx = self.context.make_workers(self.make_env(), parameter, memory, self.rl_config)
 
         self._workers = workers
         self._main_worker_idx = main_worker_idx
@@ -391,7 +384,7 @@ class Runner:
                 self.config.set_CUDA_VISIBLE_DEVICES_if_CPU,
                 self.config.tf_enable_memory_growth,
             )
-            self.context.set_device(framework, used_device_tf, used_device_torch)
+            self.context.set_device(framework, used_device_tf, used_device_torch, self.rl_config)
 
     # ------------------------------
     # nvidia
@@ -641,6 +634,7 @@ class Runner:
     # ------------------------------
     def get_env_init_state(self, encode: bool = True) -> Union[EnvObservationType, RLObservationType]:
         env = self.make_env()
+        env.setup()
         env.reset()
         state = env.state
         if encode:
@@ -678,6 +672,8 @@ class Runner:
                 c.append(c2)
 
         return TaskConfig(
+            self.env_config.copy(),
+            self.rl_config.copy(),
             self.config.copy(),
             self.context.copy(),
             pickle.loads(pickle.dumps(c)),
@@ -717,6 +713,7 @@ class Runner:
         # play info
         r.context.distributed = False
         r.context.training = False
+        r.context.rendering = False
         r.context.seed = None  # mainと競合するのでNone
         return r
 
@@ -740,7 +737,7 @@ class Runner:
     # path
     # ------------------------------
     def get_dirname1(self) -> str:
-        dir_name = f"{self.context.env_config.name}_{self.context.rl_config.get_name()}"
+        dir_name = f"{self.env_config.name}_{self.rl_config.get_name()}"
         dir_name = re.sub(r'[\\/:?."<>\|]', "_", dir_name)
         return dir_name
 

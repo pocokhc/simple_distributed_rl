@@ -5,12 +5,12 @@ import pytest
 
 import srl
 from srl.algorithms import dqn, ql
+from srl.base.context import RunContext
 from srl.base.env import registration as env_registration
 from srl.base.env.config import EnvConfig
 from srl.base.rl import registration as rl_registration
 from srl.base.rl.algorithms.env_worker import EnvWorker
 from srl.base.rl.worker import RLWorker
-from srl.base.run.context import RunContext
 from srl.envs import grid
 from srl.utils import common
 
@@ -25,24 +25,23 @@ def test_to_dict():
     common.logger_print()
 
     env_config = EnvConfig("Grid")
-    rl_config = ql.Config()
-    rl_config2 = dqn.Config()
-    rl_config2.setup(srl.make_env(env_config))
-    c = RunContext(env_config, rl_config)
+    rl_config = dqn.Config()
+    rl_config.setup(srl.make_env(env_config))
+    c = RunContext()
 
     c.players = [
         None,
         "AAA",
         ("aa", {"bb": "cc"}),
         dqn.Config(),
-        (dqn.Config(), srl.make_parameter(rl_config2).backup()),
+        (dqn.Config(), srl.make_parameter(rl_config).backup()),
     ]
 
     def _dummy():
         return 1
 
-    c.env_config.gym_make_func = _dummy  # type: ignore
-    c.env_config.kwargs = {"a": 1, "not_json_class": NotJsonClass()}
+    env_config.gym_make_func = _dummy  # type: ignore
+    env_config.kwargs = {"a": 1, "not_json_class": NotJsonClass()}
 
     json_dict = c.to_dict()
     pprint(json_dict)
@@ -70,9 +69,6 @@ class StubEnv(grid.Grid):
         return StubEnvWorker()
 
 
-env_registration.register("StubEnv", entry_point=__name__ + ":StubEnv")
-
-
 class StubWorker(RLWorker):
     def __init__(self, b=0, **kwargs):
         super().__init__(**kwargs)
@@ -83,7 +79,11 @@ class StubWorker(RLWorker):
         pass
 
 
-rl_registration.register_rulebase("StubWorker", entry_point=__name__ + ":StubWorker")
+@pytest.fixture(scope="function", autouse=True)
+def scope_function():
+    env_registration.register("StubEnv", entry_point=__name__ + ":StubEnv", enable_assert=False)
+    rl_registration.register_rulebase("StubWorker", entry_point=__name__ + ":StubWorker", enable_assert=False)
+    yield
 
 
 def test_make_workers():
@@ -94,10 +94,10 @@ def test_make_workers():
     parameter = srl.make_parameter(rl_config)
     memory = srl.make_memory(rl_config)
 
-    c = RunContext(env_config, rl_config)
+    c = RunContext()
 
     # --- non
-    workers, main_worker_idx = c.make_workers(env, parameter, memory)
+    workers, main_worker_idx = c.make_workers(env, parameter, memory, rl_config)
     assert len(workers) == 8
     assert main_worker_idx == 0
     assert workers[0].config.get_name() == "QL"
@@ -118,7 +118,7 @@ def test_make_workers():
         None,  # share param
         None,  # out of index
     ]
-    workers, main_worker_idx = c.make_workers(env, parameter, memory)
+    workers, main_worker_idx = c.make_workers(env, parameter, memory, rl_config)
     assert len(workers) == 8
     assert main_worker_idx == 6
     assert isinstance(workers[0].worker, StubEnvWorker)

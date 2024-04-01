@@ -5,14 +5,15 @@ import traceback
 from dataclasses import dataclass, field
 from typing import Generator, List, Optional, Tuple
 
+from srl.base.context import RunContext, RunNameTypes
 from srl.base.define import EnvActionType
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.memory import IRLMemoryWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
-from srl.base.run.context import RunContext, RunNameTypes, RunStateBase
 from srl.utils import common
+from srl.utils.serialize import convert_for_json
 
 from .callback import RunCallback
 
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class RunStateActor(RunStateBase):
+class RunStateActor:
     env: EnvRun
     worker: WorkerRun  # main worker
     workers: List[WorkerRun]
@@ -47,6 +48,10 @@ class RunStateActor(RunStateBase):
     # distributed
     sync_actor: int = 0
     actor_send_q: int = 0
+
+    def to_dict(self) -> dict:
+        dat: dict = convert_for_json(self.__dict__)
+        return dat
 
 
 def play(
@@ -111,7 +116,7 @@ def _play(
 
     # --- 1 setup_from_actor
     if context.distributed:
-        context.rl_config.setup_from_actor(context.actor_num, context.actor_id)
+        main_worker.config.setup_from_actor(context.actor_num, context.actor_id)
 
     # --- 2 random
     if context.seed is not None:
@@ -119,24 +124,24 @@ def _play(
         logger.info(f"set_seed: {context.seed}, 1st episode seed: {state.episode_seed}")
 
     # --- 3 start
-    [w.on_start() for w in state.workers]
+    [w.on_start(context) for w in state.workers]
     if state.trainer is not None:
-        state.trainer.train_start()
+        state.trainer.train_start(context)
+    state.env.setup(context)
 
     # --- 4 callbacks
     [c.on_episodes_begin(context, state) for c in callbacks]
 
-    # --- 5 init
-    state.elapsed_t0 = time.time()
-    state.worker_indices = [i for i in range(state.env.player_num)]
-
     def __skip_func():
         [c.on_skip_step(context, state) for c in callbacks]
+
+    # --- 5 init
+    state.worker_indices = [i for i in range(state.env.player_num)]
+    state.elapsed_t0 = time.time()
 
     # --- 6 loop
     if context.run_name != RunNameTypes.eval:
         logger.info(f"[{context.run_name}] loop start")
-    state.env.init()
     while True:
         # --- stop check
         if context.timeout > 0 and (time.time() - state.elapsed_t0) >= context.timeout:
@@ -168,7 +173,7 @@ def _play(
                 break  # end
 
             # env reset
-            state.env.reset(render_mode=context.render_mode, seed=state.episode_seed)
+            state.env.reset(seed=state.episode_seed)
 
             if state.episode_seed is not None:
                 state.episode_seed += 1
@@ -179,10 +184,7 @@ def _play(
             state.worker_idx = state.worker_indices[state.env.next_player_index]
 
             # worker reset
-            [
-                w.on_reset(state.worker_indices[i], context.training, context.render_mode)
-                for i, w in enumerate(state.workers)
-            ]
+            [w.on_reset(state.worker_indices[i]) for i, w in enumerate(state.workers)]
 
             # callbacks
             [c.on_episode_begin(context, state) for c in callbacks]
@@ -294,7 +296,7 @@ def play_generator(
 
     # --- 1 setup_from_actor
     if context.distributed:
-        context.rl_config.setup_from_actor(context.actor_num, context.actor_id)
+        main_worker.config.setup_from_actor(context.actor_num, context.actor_id)
 
     # --- 2 random
     if context.seed is not None:
@@ -302,25 +304,25 @@ def play_generator(
         logger.info(f"set_seed: {context.seed}, 1st episode seed: {state.episode_seed}")
 
     # --- 3 start
-    [w.on_start() for w in state.workers]
+    [w.on_start(context) for w in state.workers]
     if state.trainer is not None:
-        state.trainer.train_start()
+        state.trainer.train_start(context)
+    state.env.setup(context)
 
     # --- 4 callbacks
     [c.on_episodes_begin(context, state) for c in callbacks]
     yield (state, "on_episodes_begin")
 
-    # --- 5 init
-    state.elapsed_t0 = time.time()
-    state.worker_indices = [i for i in range(state.env.player_num)]
-
     def __skip_func():
         [c.on_skip_step(context, state) for c in callbacks]
+
+    # --- 5 init
+    state.worker_indices = [i for i in range(state.env.player_num)]
+    state.elapsed_t0 = time.time()
 
     # --- 6 loop
     if context.run_name != RunNameTypes.eval:
         logger.info(f"[{context.run_name}] loop start")
-    state.env.init()
     while True:
         # --- stop check
         if context.timeout > 0 and (time.time() - state.elapsed_t0) >= context.timeout:
@@ -352,7 +354,7 @@ def play_generator(
                 break  # end
 
             # env reset
-            state.env.reset(render_mode=context.render_mode, seed=state.episode_seed)
+            state.env.reset(seed=state.episode_seed)
 
             if state.episode_seed is not None:
                 state.episode_seed += 1
@@ -363,10 +365,7 @@ def play_generator(
             state.worker_idx = state.worker_indices[state.env.next_player_index]
 
             # worker reset
-            [
-                w.on_reset(state.worker_indices[i], context.training, context.render_mode)
-                for i, w in enumerate(state.workers)
-            ]
+            [w.on_reset(state.worker_indices[i]) for i, w in enumerate(state.workers)]
 
             # callbacks
             [c.on_episode_begin(context, state) for c in callbacks]

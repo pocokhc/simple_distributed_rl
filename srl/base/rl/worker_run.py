@@ -1,13 +1,22 @@
 import logging
-from typing import List, Optional, Tuple, Union, cast
+from typing import List, Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import (DoneTypes, EnvActionType, EnvObservationType,
-                             InfoType, ObservationModes, RenderModes,
-                             RLActionType, RLInvalidActionType,
-                             RLObservationType, SpaceTypes)
+from srl.base.context import RunContext
+from srl.base.define import (
+    DoneTypes,
+    EnvActionType,
+    EnvObservationType,
+    InfoType,
+    ObservationModes,
+    RLActionType,
+    RLInvalidActionType,
+    RLObservationType,
+    SpaceTypes,
+)
 from srl.base.env.env_run import EnvRun
+from srl.base.exception import SRLError
 from srl.base.render import Render
 from srl.base.rl.config import RLConfig
 from srl.base.rl.parameter import RLParameter
@@ -19,24 +28,17 @@ logger = logging.getLogger(__name__)
 
 
 class WorkerRun:
-    def __init__(
-        self,
-        worker: RLWorker[RLConfig, RLParameter],
-        env: EnvRun,
-        distributed: bool = False,
-        actor_id: int = 0,
-    ):
+    def __init__(self, worker: RLWorker[RLConfig, RLParameter], env: EnvRun):
         worker.config.setup(env, enable_log=False)
         worker._set_worker_run(self)
 
         self._worker = worker
         self._config: RLConfig[SpaceBase, SpaceBase] = worker.config
         self._env = env
-        self._distributed = distributed
-        self._actor_id = actor_id
+        self._context = RunContext()
+        self._render = Render(worker)
+        self._has_start = False
 
-        self._training: bool = False
-        self._rendering: bool = False
         self._player_index: int = 0
         self._info: dict = {}
         self._prev_state: RLObservationType = []  # None
@@ -46,8 +48,6 @@ class WorkerRun:
         self._step_reward: float = 0
         self._prev_invalid_actions: List[RLInvalidActionType] = []
         self._invalid_actions: List[RLInvalidActionType] = []
-        self._render = Render(worker)
-
         self._total_step: int = 0
         self._dummy_rl_states_one_step = self._config.observation_space_one_step.get_default()
 
@@ -67,20 +67,24 @@ class WorkerRun:
         return self._env
 
     @property
+    def context(self) -> RunContext:
+        return self._context
+
+    @property
     def training(self) -> bool:
-        return self._training
+        return self._context.training
 
     @property
     def distributed(self) -> bool:
-        return self._distributed
+        return self._context.distributed
 
     @property
     def rendering(self) -> bool:
-        return self._rendering
+        return self._context.rendering
 
     @property
     def actor_id(self) -> int:
-        return self._actor_id
+        return self._context.actor_id
 
     @property
     def player_index(self) -> int:
@@ -134,14 +138,19 @@ class WorkerRun:
     def total_step(self) -> int:
         return self._total_step
 
-    def on_reset(
-        self,
-        player_index: int,
-        training: bool,
-        render_mode: Union[str, RenderModes] = "",
-    ) -> None:
+    def on_start(self, context: RunContext):
+        self._context = context
+        self._render.set_render_mode(context.render_mode)
+
+        # --- worker
+        self._worker.on_start(self, context)
+        self._has_start = True
+
+    def on_reset(self, player_index: int) -> None:
+        if not self._has_start:
+            raise SRLError("Cannot call worker.on_reset() before calling worker.on_start(context)")
+
         self._player_index = player_index
-        self._training = training
         self._is_reset = False
 
         if self._config.window_length > 1:
@@ -165,9 +174,6 @@ class WorkerRun:
         self._set_invalid_actions()
 
         [r.on_reset(self._env) for r in self._config.episode_processors]
-
-        self._rendering = RenderModes.is_rendering(render_mode)
-        self._render.reset(render_mode)
 
     def policy(self) -> EnvActionType:
         if not self._is_reset:
@@ -197,7 +203,7 @@ class WorkerRun:
         env_action = self.action_decode(self._prev_action)
         self._info.update(info)
 
-        if self._rendering:
+        if self._context.rendering:
             self._render.cache_reset()
 
         return env_action
@@ -214,7 +220,7 @@ class WorkerRun:
         # 終了ならon_step実行
         if self.done:
             self._on_step()
-            if self._rendering:
+            if self._context.rendering:
                 self._render.cache_reset()
 
     def _on_step(self):
@@ -239,9 +245,6 @@ class WorkerRun:
         self._invalid_actions = [
             cast(RLInvalidActionType, self.action_encode(a)) for a in self._env.get_invalid_actions(self.player_index)
         ]
-
-    def on_start(self):
-        self._worker.on_start(self)
 
     def on_end(self):
         self._worker.on_end(self)

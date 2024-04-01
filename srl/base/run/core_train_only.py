@@ -3,11 +3,12 @@ import time
 from dataclasses import dataclass
 from typing import List
 
+from srl.base.context import RunContext
 from srl.base.rl.memory import IRLMemoryTrainer
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
-from srl.base.run.context import RunContext, RunStateBase
 from srl.utils import common
+from srl.utils.serialize import convert_for_json
 
 from .callback import TrainerCallback
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class RunStateTrainer(RunStateBase):
+class RunStateTrainer:
     trainer: RLTrainer
     memory: IRLMemoryTrainer
     parameter: RLParameter
@@ -29,6 +30,10 @@ class RunStateTrainer(RunStateBase):
     # distributed
     sync_trainer: int = 0
     trainer_recv_q: int = 0
+
+    def to_dict(self) -> dict:
+        dat: dict = convert_for_json(self.__dict__)
+        return dat
 
 
 def play_trainer_only(
@@ -58,7 +63,7 @@ def _play_trainer_only(
     state = RunStateTrainer(trainer, trainer.memory, trainer.parameter)
 
     # --- 1 start
-    state.trainer.train_start()
+    state.trainer.train_start(context)
 
     # 2 callbacks
     [c.on_trainer_start(context, state) for c in callbacks]

@@ -3,13 +3,14 @@ import pickle
 import pprint
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Generic, List, Optional, Tuple, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Generic, List, Optional, Type, TypeVar, Union, cast
 
 import numpy as np
 
+from srl.base.context import RunContext
 from srl.base.define import ObservationModes, RenderModes, RLBaseTypes, SpaceTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
-from srl.base.exception import NotSupportedError, UndefinedError
+from srl.base.exception import NotSupportedError
 from srl.base.rl.processor import EpisodeProcessor, ObservationProcessor, ProcessorType
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
@@ -167,6 +168,7 @@ class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
         if self._is_setup:
             return
         self._check_parameter = False
+        self.observation_mode: ObservationModes = ObservationModes.from_str(self.observation_mode)
 
         if enable_log:
             logger.info(f"--- {self.get_name()}")
@@ -184,6 +186,7 @@ class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
         # --- backup/restore check
         if self.get_used_backup_restore():
             try:
+                env.setup()
                 env.reset()
                 d = env.backup()
                 env.restore(d)
@@ -232,7 +235,6 @@ class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
             _is_env_obs_multi2 = True
 
         # --- ObsMode
-        self.observation_mode: ObservationModes = ObservationModes.from_str(self.observation_mode)
         if self.observation_mode & ObservationModes.ENV:
             env_obs_space = env.observation_space.copy()
             if isinstance(env_obs_space, MultiSpace):
@@ -254,7 +256,8 @@ class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
 
         if self.observation_mode & ObservationModes.RENDER_IMAGE:
             env.config.override_render_mode = RenderModes.rgb_array
-            env.reset(render_mode=RenderModes.rgb_array)
+            env.setup(RunContext(render_mode=RenderModes.rgb_array))
+            env.reset()
             rgb_array = env.render_rgb_array()
             env_obs_space_list.append(BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.COLOR))
 

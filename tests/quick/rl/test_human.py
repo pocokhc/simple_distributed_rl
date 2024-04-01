@@ -1,6 +1,7 @@
 import io
 
 import srl
+from srl.base.context import RunContext
 
 
 def test_raw(monkeypatch):
@@ -10,8 +11,12 @@ def test_raw(monkeypatch):
     env = srl.make_env("EasyGrid")
     worker = srl.make_worker_rulebase("human", env)
 
-    env.reset(render_mode="terminal")
-    worker.on_reset(0, training=False)
+    context = RunContext(render_mode="terminal")
+    env.setup(context)
+    worker.on_start(context)
+
+    env.reset()
+    worker.on_reset(0)
     env.render()
     while not env.done:
         env.step(worker.policy())

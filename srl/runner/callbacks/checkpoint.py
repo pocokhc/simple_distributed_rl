@@ -6,10 +6,10 @@ import time
 import traceback
 from dataclasses import dataclass
 
+from srl.base.context import RunContext
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
 from srl.base.run.callback import RunCallback, TrainerCallback
-from srl.base.run.context import RunContext
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callback import RunnerCallback

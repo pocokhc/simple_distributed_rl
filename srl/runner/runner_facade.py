@@ -2,11 +2,11 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, List, Optional, Union, cast
 
+from srl.base.context import RLWorkerType, RunNameTypes, StrWorkerType
 from srl.base.define import RenderModes
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
-from srl.base.run.context import RLWorkerType, RunNameTypes, StrWorkerType
 from srl.base.run.core_play import RunStateActor
 from srl.runner.runner import CallbackType, Runner
 
@@ -66,6 +66,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = False
         self.context.training = True
+        self.context.rendering = False
         self.context.render_mode = RenderModes.none
 
         # --- progress ---
@@ -130,6 +131,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = False
         self.context.training = True
+        self.context.rendering = False
         self.context.render_mode = RenderModes.none
 
         # --- progress ---
@@ -193,6 +195,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = False
         self.context.training = True
+        self.context.rendering = False
         self.context.render_mode = RenderModes.none
 
         # --- progress ---
@@ -261,6 +264,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = True
         self.context.training = True
+        self.context.rendering = False
         self.context.render_mode = RenderModes.none
 
         if enable_progress:
@@ -349,6 +353,7 @@ class RunnerFacade(Runner):
     #     # play info
     #     self.context.distributed = True
     #     self.context.training = True
+    #    self.context.rendering = False
     #     self.context.render_mode = RenderModes.none
 
     #     # --- progress ---
@@ -440,6 +445,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = True
         self.context.training = True
+        self.context.rendering = False
         self.context.render_mode = RenderModes.none
 
         # --- remote progress ---
@@ -522,6 +528,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = True
         self.context.training = True
+        self.context.rendering = False
         self.context.render_mode = RenderModes.none
 
         # --- remote progress ---
@@ -593,6 +600,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = False
         self.context.training = False
+        self.context.rendering = False
         self.context.render_mode = RenderModes.none
 
         # --- progress ---
@@ -661,6 +669,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = False
         self.context.training = False
+        self.context.rendering = True
         self.context.render_mode = mode
 
         # --- rendering ---
@@ -735,6 +744,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = False
         self.context.training = False
+        self.context.rendering = True
         self.context.render_mode = mode
 
         # --- rendering
@@ -825,6 +835,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = False
         self.context.training = False
+        self.context.rendering = True
         self.context.render_mode = mode
 
         # --- rendering ---
@@ -918,6 +929,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = False
         self.context.training = False
+        self.context.rendering = True
         self.context.render_mode = mode
 
         # --- rendering ---
@@ -1010,6 +1022,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = False
         self.context.training = False
+        self.context.rendering = True
         self.context.render_mode = mode
 
         # --- rendering ---
@@ -1094,6 +1107,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = False
         self.context.training = False
+        self.context.rendering = True
         self.context.render_mode = mode
 
         # --- progress ---
@@ -1150,6 +1164,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = False
         self.context.training = False
+        self.context.rendering = True
         self.context.render_mode = mode
 
         # --- rendering ---
@@ -1219,6 +1234,7 @@ class RunnerFacade(Runner):
         # play info
         self.context.distributed = False
         self.context.training = enable_memory
+        self.context.rendering = True
         self.context.render_mode = mode
 
         self._base_run_play_before(

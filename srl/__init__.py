@@ -1,3 +1,4 @@
+from .base.context import RunContext  # noqa F401
 from .base.env.config import EnvConfig  # noqa F401
 from .base.env.registration import make as make_env  # noqa F401
 from .base.rl.registration import make_memory  # noqa F401

@@ -76,6 +76,7 @@ def test_player(player):
 
 def test_processor():
     env = srl.make_env(srl.EnvConfig("connectx", {"obs_type": "layer"}))
+    env.setup()
     env.reset()
 
     out_state = np.zeros((7, 6, 2))

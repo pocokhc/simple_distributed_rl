@@ -36,8 +36,8 @@ class PrintProgress(DistributionCallback, Evaluate):
     def _eval_str(self, task_manager: TaskManager, task_config: TaskConfig) -> str:
         if self._eval_runner is None:
             runner = srl.Runner(
-                task_config.context.env_config,
-                task_config.context.rl_config,
+                task_config.env_config,
+                task_config.rl_config,
                 task_config.config,
                 task_config.context,
             )

@@ -2,17 +2,17 @@ import copy
 import enum
 import logging
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union, cast
 
 from srl.base.define import RenderModes
-from srl.base.env.config import EnvConfig
-from srl.base.env.env_run import EnvRun
-from srl.base.rl.config import RLConfig
-from srl.base.rl.memory import RLMemory
-from srl.base.rl.parameter import RLParameter
-from srl.base.rl.registration import make_memory, make_parameter, make_worker, make_worker_rulebase
-from srl.base.rl.worker_run import WorkerRun
 from srl.utils.serialize import convert_for_json
+
+if TYPE_CHECKING:
+    from srl.base.env.env_run import EnvRun
+    from srl.base.rl.config import RLConfig
+    from srl.base.rl.memory import RLMemory
+    from srl.base.rl.parameter import RLParameter
+    from srl.base.rl.worker_run import WorkerRun
 
 logger = logging.getLogger(__name__)
 
@@ -25,18 +25,15 @@ class RunNameTypes(enum.Enum):
 
 
 StrWorkerType = Union[str, Tuple[str, dict]]
-RLWorkerType = Union[RLConfig, Tuple[RLConfig, Any]]  # [RLConfig, RLParameter]
+RLWorkerType = Union["RLConfig", Tuple["RLConfig", Any]]  # [RLConfig, RLParameter]
 
 
 @dataclass
 class RunContext:
     """
-    実行時の状態ををまとめたクラス
+    実行時の状態をまとめたクラス
     A class that summarizes the runtime state
     """
-
-    env_config: EnvConfig
-    rl_config: RLConfig
 
     # playersという変数名だけど、役割はworkersの方が正しい
     players: List[Union[None, StrWorkerType, RLWorkerType]] = field(default_factory=list)
@@ -55,6 +52,7 @@ class RunContext:
     # play info
     distributed: bool = False
     training: bool = False
+    rendering: bool = False
     render_mode: Union[str, RenderModes] = RenderModes.none
 
     # --- mp
@@ -70,29 +68,35 @@ class RunContext:
     used_device_tf: str = "/CPU"
     used_device_torch: str = "cpu"
 
-    def to_dict(self, skip_config: bool = False) -> dict:
-        if skip_config:
-            dat: dict = {}
-            for k, v in self.__dict__.items():
-                if k in ["env_config", "rl_config"]:
-                    continue
-                dat[k] = v
-            dat: dict = convert_for_json(dat)
-        else:
-            dat: dict = convert_for_json(self.__dict__)
-        return dat
+    def to_dict(self) -> dict:
+        return convert_for_json(self.__dict__)
 
     def copy(self) -> "RunContext":
         return copy.deepcopy(self)
 
-    def set_device(self, framework, used_device_tf, used_device_torch):
+    def set_device(
+        self,
+        framework: str,
+        used_device_tf: str,
+        used_device_torch: str,
+        rl_config: "RLConfig",
+    ):
         self.framework = framework
         self.used_device_tf = used_device_tf
         self.used_device_torch = used_device_torch
-        self.rl_config._used_device_tf = used_device_tf
-        self.rl_config._used_device_torch = used_device_torch
+        rl_config._used_device_tf = used_device_tf
+        rl_config._used_device_torch = used_device_torch
 
-    def make_workers(self, env: EnvRun, parameter: RLParameter, memory: RLMemory) -> Tuple[List[WorkerRun], int]:
+    def make_workers(
+        self,
+        env: "EnvRun",
+        parameter: "RLParameter",
+        memory: "RLMemory",
+        rl_config: Optional["RLConfig"] = None,
+    ) -> Tuple[List["WorkerRun"], int]:
+        from srl.base.rl.config import RLConfig
+        from srl.base.rl.registration import make_memory, make_parameter, make_worker, make_worker_rulebase
+
         # 初期化されていない場合、一人目はNone、二人目以降はrandomにする
         players = []
         for i in range(env.player_num):
@@ -116,13 +120,12 @@ class RunContext:
         for worker_type in players:
             # --- none はベース
             if worker_type is None:
+                assert rl_config is not None
                 worker = make_worker(
-                    self.rl_config,
+                    rl_config,
                     env,
                     parameter,
                     memory,
-                    self.distributed,
-                    self.actor_id,
                 )
                 workers.append(worker)
                 continue
@@ -137,22 +140,11 @@ class RunContext:
                 if worker_kwargs is None:
                     worker_kwargs = {}
                 worker_kwargs = cast(dict, worker_kwargs)
-                worker = env.make_worker(
-                    worker_type,
-                    enable_raise=False,
-                    distributed=self.distributed,
-                    actor_id=self.actor_id,
-                )
+                worker = env.make_worker(worker_type, enable_raise=False)
                 if worker is not None:
                     workers.append(worker)
                     continue
-                worker = make_worker_rulebase(
-                    worker_type,
-                    env,
-                    worker_kwargs=worker_kwargs,
-                    distributed=self.distributed,
-                    actor_id=self.actor_id,
-                )
+                worker = make_worker_rulebase(worker_type, env, worker_kwargs=worker_kwargs)
                 assert worker is not None, f"not registered: {worker_type}"
                 workers.append(worker)
                 continue
@@ -169,8 +161,6 @@ class RunContext:
                     env,
                     _parameter,
                     make_memory(_rl_config),
-                    self.distributed,
-                    self.actor_id,
                 )
                 workers.append(worker)
                 continue
@@ -178,14 +168,3 @@ class RunContext:
             raise ValueError(f"unknown worker: {worker_type}")
 
         return workers, main_worker_idx
-
-
-class RunStateBase:
-    """
-    実行中に変動する変数をまとめたクラス
-    Class that summarizes variables that change during execution
-    """
-
-    def to_dict(self) -> dict:
-        dat: dict = convert_for_json(self.__dict__)
-        return dat

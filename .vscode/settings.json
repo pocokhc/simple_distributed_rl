@@ -5,7 +5,8 @@
     // lint
     "flake8.args": [
         "--max-line-length=119",
-        "--ignore=E203"  // E203 whitespace before ':'
+        "--ignore=E203",  // E203 whitespace before ':'
+        "--ignore=W503"  // W503 line break before binary operator
     ],
     // format
     "[python]": {

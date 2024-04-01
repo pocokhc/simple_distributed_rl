@@ -13,6 +13,19 @@
 1. DemoMemory
 1. configのjson保存
 
+# v0.15.2
+
+**MainUpdates**
+
+1. [base] new/change: train等、実行単位をまとめたcontextを正式にbase/coreに組み込み
+   + [base.env] new: EnvBase/EnvRunにsetup関数を追加
+   + [base.rl] new: RLWorker/WorkerRunにon_start関数を追加
+   + [base.rl] new: RLTrainerにtrain_start関数を追加
+   + [base.run] add: playのメインループ前に上記関数を実行
+   + [raw] change: rawでも呼ぶ必要あり、runnerがラップするので影響はない予定
+   + [base.context] move/new: base.runから一つ上の階層に移動し、他のクラスの影響がない実装に変更
+   + [base.render] refactoring: setup/on_startのタイミングだとrenderが自然な形になるのでマージ
+
 
 # v0.15.1
 

@@ -1,8 +1,9 @@
 import random
-from typing import List, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
+from srl.base.define import SpaceTypes
 from srl.base.env.env_run import EnvRun
 
 
@@ -102,3 +103,59 @@ def create_fancy_index_for_invalid_actions(idx_list: List[List[int]]):
 def one_hot(x, size: int, dtype=np.float32):
     x = np.asarray(x)
     return np.identity(size, dtype=dtype)[x]
+
+
+def image_processor(
+    rgb_array: np.ndarray,  # (H,W,C)
+    from_space_type: SpaceTypes,
+    to_space_type: SpaceTypes,
+    resize: Optional[Tuple[int, int]] = None,  # resize: (w, h)
+    trimming: Optional[Tuple[int, int, int, int]] = None,  # (top, left, bottom, right)
+    shape_order: str = "HWC",  # "HWC": tf(H,W,C), "CHW": torch(C,H,W)
+):
+    assert from_space_type in [
+        SpaceTypes.GRAY_2ch,
+        SpaceTypes.GRAY_3ch,
+        SpaceTypes.COLOR,
+    ]
+    import cv2
+
+    if to_space_type == SpaceTypes.COLOR and (
+        from_space_type == SpaceTypes.GRAY_2ch or from_space_type == SpaceTypes.GRAY_3ch
+    ):
+        # gray -> color
+        rgb_array = cv2.applyColorMap(rgb_array, cv2.COLORMAP_HOT)
+    elif from_space_type == SpaceTypes.COLOR and (
+        to_space_type == SpaceTypes.GRAY_2ch or to_space_type == SpaceTypes.GRAY_3ch
+    ):
+        # color -> gray
+        rgb_array = cv2.cvtColor(rgb_array, cv2.COLOR_RGB2GRAY)
+
+    if trimming is not None:
+        top, left, bottom, right = trimming
+        assert top < bottom
+        assert left < right
+        w = rgb_array.shape[1]
+        h = rgb_array.shape[0]
+        if top < 0:
+            top = 0
+        if left < 0:
+            left = 0
+        if bottom > h:
+            bottom = h
+        if right > w:
+            right = w
+        rgb_array = rgb_array[top:bottom, left:right]
+
+    if resize is not None:
+        rgb_array = cv2.resize(rgb_array, resize)
+
+    if from_space_type == SpaceTypes.GRAY_3ch and to_space_type == SpaceTypes.GRAY_2ch and len(rgb_array.shape) == 3:
+        rgb_array = np.squeeze(rgb_array, axis=-1)
+    elif len(rgb_array.shape) == 2 and to_space_type == SpaceTypes.GRAY_3ch:
+        rgb_array = rgb_array[..., np.newaxis]
+
+    if len(rgb_array.shape) == 3 and shape_order == "CHW":
+        rgb_array = np.transpose(rgb_array, (2, 0, 1))
+
+    return rgb_array

@@ -76,6 +76,12 @@ class Render:
             if text == "":
                 return np.zeros((4, 4, 3), dtype=np.uint8)  # dummy
             self.rgb_array = text_to_rgb_array(text, self.font_name, self.font_size)
+        if self.scale != 1.0:
+            import cv2
+
+            w = int(self.rgb_array.shape[1] * self.scale)
+            h = int(self.rgb_array.shape[0] * self.scale)
+            self.rgb_array = cv2.resize(self.rgb_array, (w, h))
         return self.rgb_array.astype(np.uint8)
 
     def _render_window(self, **kwargs) -> np.ndarray:
@@ -91,11 +97,9 @@ class Render:
                 del os.environ["SDL_VIDEODRIVER"]
 
             pygame.init()
-            w = int(rgb_array.shape[1] * self.scale)
-            h = int(rgb_array.shape[0] * self.scale)
+            w = min(rgb_array.shape[1], 1200)
+            h = min(rgb_array.shape[0], 900)
 
-            w = min(w, 1900)
-            h = min(h, 1600)
             logger.info(f"create pygame({w},{h}), interval {self.interval}ms")
             self._screen = pygame.display.set_mode((w, h))
             self._t0 = time.time()

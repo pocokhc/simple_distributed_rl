@@ -70,10 +70,7 @@ class ImageProcessor(ObservationProcessor):
 
         # trimming
         if self.trimming is not None:
-            self.top = self.trimming[0]
-            self.left = self.trimming[1]
-            self.bottom = self.trimming[2]
-            self.right = self.trimming[3]
+            self.top, self.left, self.bottom, self.right = self.trimming
             assert self.top < self.bottom
             assert self.left < self.right
             w = shape[1]
@@ -138,7 +135,7 @@ class ImageProcessor(ObservationProcessor):
             state = state[self.top : self.bottom, self.left : self.right]
 
         if self.resize is not None:
-            state = cv2.resize(state, self.resize)  # type: ignore , MAT module
+            state = cv2.resize(state, self.resize)
 
         state = cast(np.ndarray, state)
         if self.enable_norm:

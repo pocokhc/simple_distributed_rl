@@ -65,7 +65,7 @@ class GameWindow(ABC):
         result = pygame.init()
         logger.info(f"pygame init: {result}")
         pygame.display.set_caption(self.title)
-        pygame.display.set_mode((1200, 900))
+        pygame.display.set_mode((900, 600))
         self.resize(1.0)
         clock = pygame.time.Clock()
         pygame.key.set_repeat(500, 30)
@@ -209,8 +209,8 @@ class GameWindow(ABC):
         window_w = self.env_w + self.padding + self.rl_w + self.padding + self.info_w
         window_h = max(max(self.env_h, self.rl_h), self.info_h) + self.padding * 2
 
-        window_w = min(window_w, 1900)
-        window_h = min(window_h, 1600)
+        window_w = min(window_w, 1400)
+        window_h = min(window_h, 1000)
         self.screen = pygame.display.set_mode((window_w, window_h))
 
     def draw_texts(

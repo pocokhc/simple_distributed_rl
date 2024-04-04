@@ -374,6 +374,7 @@ class GymnasiumWrapper(EnvBase):
 
     def setup(self, **kwargs):
         render_mode = kwargs.get("render_mode", RenderModes.none)
+        render_mode = RenderModes.from_str(render_mode)
         # --- terminal
         # modeが違っていたら作り直す
         if (
@@ -391,7 +392,7 @@ class GymnasiumWrapper(EnvBase):
         # --- rgb_array
         # modeが違っていたら作り直す
         if (
-            (render_mode in [RenderModes.terminal, RenderModes.ansi])
+            (render_mode in [RenderModes.rgb_array, RenderModes.window])
             and (self.render_mode != RenderModes.rgb_array)
             and ("rgb_array" in self.render_modes)
         ):

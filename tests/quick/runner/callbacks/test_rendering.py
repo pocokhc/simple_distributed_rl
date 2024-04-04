@@ -9,7 +9,7 @@ from srl.rl.processors.image_processor import ImageProcessor
 from srl.utils import common
 
 
-def test_1():
+def test_1(tmp_path):
     pytest.importorskip("pygame")
 
     common.logger_print()
@@ -26,7 +26,5 @@ def test_1():
     ]
     runner = srl.Runner("Grid", rl_config)
 
-    os.makedirs("tmp_test", exist_ok=True)
-
-    path = os.path.join("tmp_test", "a.gif")
+    path = os.path.join(tmp_path, "a.gif")
     runner.animation_save_gif(path)

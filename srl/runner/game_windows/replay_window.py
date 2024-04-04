@@ -185,7 +185,7 @@ class RePlayableGame(GameWindow):
             "episode      : {}".format(self.episode),
             "total rewards: {}".format(self.episode_info["total_rewards"]),
             "step         : {} / {}".format(step_data["step"], len(self.episode_data) - 1),
-            "state        : {}".format(step_data["state"] if self.view_state else "hidden"),
+            "state        : {}".format(str(step_data["state"])[:20] if self.view_state else "hidden"),
             "action       : {}".format(step_data.get("action", None)),
             "next_player_index: {}".format(step_data["next_player_index"]),
             "invalid_actions  : {}".format(step_data["invalid_actions"]),

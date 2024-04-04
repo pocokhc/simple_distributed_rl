@@ -255,7 +255,6 @@ class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
                 env_obs_space_list.append(env_obs_space)
 
         if self.observation_mode & ObservationModes.RENDER_IMAGE:
-            env.config.override_render_mode = RenderModes.rgb_array
             env.setup(RunContext(render_mode=RenderModes.rgb_array))
             env.reset()
             rgb_array = env.render_rgb_array()

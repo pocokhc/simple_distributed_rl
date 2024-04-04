@@ -1129,7 +1129,7 @@ class RunnerFacade(Runner):
 
         from srl.runner.game_windows.replay_window import RePlayableGame
 
-        window = RePlayableGame(self, view_state=view_state, _is_test=_is_test)
+        window = RePlayableGame(self, view_state=view_state, callbacks=callbacks, _is_test=_is_test)
         window.play()
         self._base_run_play_after(callbacks=callbacks)
 

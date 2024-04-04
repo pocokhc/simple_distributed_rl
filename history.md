@@ -26,6 +26,20 @@
    + [base.context] move/new: base.runから一つ上の階層に移動し、他のクラスの影響がない実装に変更
    + [base.render] refactoring: setup/on_startのタイミングだとrenderが自然な形になるのでマージ
 
+**OtherUpdates**
+
+1. [utils.seriarize] change: convert_for_jsonでenumをnameのみ出力に
+1. [rl.functions.helper] new: image_processorを追加
+1. [runner.game_window] change: 最大画面サイズを少し小さく
+
+**Bug Fixes**
+
+1. [runner] fix: replay_windowでcallbacksが反映されない不具合修正
+1. [base.env.config] fix: env.config.override_render_modeが反映されない場合がある不具合修正
+1. [base.env.gym] fix: rgb_arrayが反映されない不具合修正
+1. [base.render] fix: rgb_arrayでscaleが反映されない不具合修正
+
+
 
 # v0.15.1
 

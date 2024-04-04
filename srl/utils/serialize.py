@@ -42,7 +42,8 @@ def convert_for_json(data: Any) -> Any:
     elif isinstance(data, dict):
         data2 = {k2: convert_for_json(v2) for k2, v2 in data.items()}
     elif issubclass(type(data), enum.Enum):
-        data2 = [data.name, f"{data.__class__.__module__}.{data.__class__.__name__}"]
+        data2 = data.name
+        # data2 = [data.name, f"{data.__class__.__module__}.{data.__class__.__name__}"]
     elif dataclasses.is_dataclass(data):
         data2 = [
             {k2: convert_for_json(v2) for k2, v2 in dataclasses.asdict(data).items()},

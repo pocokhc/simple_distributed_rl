@@ -1,6 +1,11 @@
 import torch
 
 
+def unimix(probs, unimix: float):
+    uniform = torch.ones_like(probs) / probs.shape[-1]
+    return (1 - unimix) * probs + unimix * uniform
+
+
 def encode_sequence_batch(x: torch.Tensor):
     # (batch, seq, shape) -> (batch*seq, shape)
     size = x.size()

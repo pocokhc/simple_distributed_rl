@@ -115,7 +115,7 @@ class ImageBlockConfig:
     def get_processor(self) -> Optional[ObservationProcessor]:
         return self._processor
 
-    def create_block_tf(self, enable_rnn: bool = False):
+    def create_block_tf(self, enable_rnn: bool = False, flatten: bool = False):
         if self._name == "DQN":
             from srl.rl.models.tf.blocks.dqn_image_block import DQNImageBlock
 
@@ -152,15 +152,15 @@ class ImageBlockConfig:
 
         raise UndefinedError(self._name)
 
-    def create_block_torch(self, in_shape: Tuple[int, ...]):
+    def create_block_torch(self, in_shape: Tuple[int, ...], flatten: bool = False):
         if self._name == "DQN":
             from srl.rl.models.torch_.blocks.dqn_image_block import DQNImageBlock
 
-            return DQNImageBlock(in_shape, **self._kwargs)
+            return DQNImageBlock(in_shape, flatten=flatten, **self._kwargs)
         if self._name == "R2D3":
             from srl.rl.models.torch_.blocks.r2d3_image_block import R2D3ImageBlock
 
-            return R2D3ImageBlock(in_shape, **self._kwargs)
+            return R2D3ImageBlock(in_shape, flatten=flatten, **self._kwargs)
 
         if self._name == "AlphaZero":
             from srl.rl.models.torch_.blocks.alphazero_image_block import AlphaZeroImageBlock

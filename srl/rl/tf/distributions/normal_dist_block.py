@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.rl.functions.common_tf import compute_normal_logprob_in_log, compute_normal_logprob_sgp_in_log
+from srl.rl.tf.common_tf import compute_normal_logprob_in_log, compute_normal_logprob_sgp_in_log
 
 kl = keras.layers
 

@@ -68,7 +68,7 @@ def test_twohot_encode(x, bins, low, high, idx1, val1, idx2, val2, decode_x):
     pytest.importorskip("tensorflow")
     import tensorflow as tf
 
-    from srl.rl.functions.common_tf import twohot_decode, twohot_encode
+    from srl.rl.tf.common_tf import twohot_decode, twohot_encode
 
     y = twohot_encode(tf.constant([[x], [x]], dtype=tf.float32), bins, low, high)
     print(y)

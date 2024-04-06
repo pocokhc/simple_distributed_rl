@@ -3,7 +3,7 @@ from typing import Tuple
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.rl.functions.common_tf import symexp, symlog
+from srl.rl.tf.common_tf import symexp, symlog
 
 kl = keras.layers
 

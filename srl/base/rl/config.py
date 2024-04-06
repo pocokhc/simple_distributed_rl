@@ -55,6 +55,10 @@ class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
     #: If -1, round by round transform.
     observation_division_num: int = -1
 
+    #: 1stepあたり、環境内で余分に進めるstep数
+    #: 例えばframeskip=3の場合、1step実行すると、環境内では4frame進みます。
+    frameskip: int = 0
+
     #: ExtendWorkerを使う場合に指定
     extend_worker: Optional[Type["ExtendWorker"]] = None
     #: 指定されていた場合、Parameter生成時にpathファイルをロードします

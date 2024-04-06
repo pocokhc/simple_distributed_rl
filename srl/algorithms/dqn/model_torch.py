@@ -8,8 +8,8 @@ import torch.optim as optim
 
 from srl.base.define import InfoType
 from srl.base.rl.trainer import RLTrainer
-from srl.rl.models.torch_.blocks.input_block import create_in_block_out_value
 from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.torch_.blocks.input_block import create_in_block_out_value
 
 from .dqn import CommonInterfaceParameter, Config
 

@@ -13,7 +13,7 @@ def test_loss():
     import tensorflow as tf
     from tensorflow import keras
 
-    from srl.rl.models.tf.distributions.bernoulli_dist_block import BernoulliDistBlock
+    from srl.rl.tf.distributions.bernoulli_dist_block import BernoulliDistBlock
 
     block = BernoulliDistBlock(1, (32, 32))
     block.build((None, 1))
@@ -46,7 +46,7 @@ def test_loss():
 def test_dist():
     pytest.importorskip("tensorflow")
 
-    from srl.rl.models.tf.distributions.bernoulli_dist_block import BernoulliDist
+    from srl.rl.tf.distributions.bernoulli_dist_block import BernoulliDist
 
     x = np.array([0.2, 0.5, 0.7], dtype=np.float32)
     logits = np.log(x / (1 - x))

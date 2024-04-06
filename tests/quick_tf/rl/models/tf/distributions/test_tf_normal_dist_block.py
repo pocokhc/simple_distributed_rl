@@ -16,7 +16,7 @@ def test_loss(fixed_stddev, enable_squashed, is_plot=False):
     import tensorflow as tf
     from tensorflow import keras
 
-    from srl.rl.models.tf.distributions.normal_dist_block import NormalDistBlock
+    from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
 
     block = NormalDistBlock(1, (64, 64, 64), (), (), fixed_stddev=fixed_stddev, enable_squashed=enable_squashed)
     block.build((None, 1))
@@ -56,7 +56,7 @@ def test_loss(fixed_stddev, enable_squashed, is_plot=False):
 
 def test_inf():
     pytest.importorskip("tensorflow")
-    from srl.rl.models.tf.distributions.normal_dist_block import NormalDist
+    from srl.rl.tf.distributions.normal_dist_block import NormalDist
 
     m = NormalDist(
         np.array(
@@ -98,7 +98,7 @@ def test_inf():
 
 def test_inf2():
     pytest.importorskip("tensorflow")
-    from srl.rl.models.tf.distributions.normal_dist_block import NormalDist
+    from srl.rl.tf.distributions.normal_dist_block import NormalDist
 
     m = NormalDist(
         np.array(

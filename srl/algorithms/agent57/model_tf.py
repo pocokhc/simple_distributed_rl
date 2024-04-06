@@ -7,8 +7,8 @@ from tensorflow import keras
 from srl.base.define import InfoType
 from srl.base.rl.trainer import RLTrainer
 from srl.rl.functions.common import create_beta_list, create_discount_list
-from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.tf.blocks.input_block import create_in_block_out_value
 
 from .agent57 import CommonInterfaceParameter, Config
 

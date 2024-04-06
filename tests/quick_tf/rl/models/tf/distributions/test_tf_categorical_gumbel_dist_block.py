@@ -14,7 +14,7 @@ def test_loss(use_mse):
     import tensorflow as tf
     from tensorflow import keras
 
-    from srl.rl.models.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
+    from srl.rl.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
 
     m = CategoricalGumbelDistBlock(5, (32, 32, 32), use_mse=use_mse)
     m.build((None, 1))
@@ -50,7 +50,7 @@ def test_loss_grad():
     import tensorflow as tf
     from tensorflow import keras
 
-    from srl.rl.models.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
+    from srl.rl.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
 
     m = CategoricalGumbelDistBlock(10, (64, 64))
     m2 = keras.Sequential(

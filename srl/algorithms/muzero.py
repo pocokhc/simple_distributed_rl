@@ -21,9 +21,9 @@ from srl.rl.memories.priority_experience_replay import (
     RLConfigComponentPriorityExperienceReplay,
 )
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
-from srl.rl.models.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
-from srl.rl.models.tf.blocks.input_block import create_in_block_out_image
 from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
+from srl.rl.tf.blocks.input_block import create_in_block_out_image
 from srl.utils.common import compare_less_version
 
 kl = keras.layers

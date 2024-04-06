@@ -103,7 +103,7 @@ class MLPBlockConfig:
         if self._name == "MLP":
             from tensorflow import keras
 
-            from srl.rl.models.tf.blocks.mlp_block import MLPBlock
+            from srl.rl.tf.blocks.mlp_block import MLPBlock
 
             block = MLPBlock(enable_noisy_dense=enable_noisy_dense, **self._kwargs)
             if out_units > 0:
@@ -118,8 +118,8 @@ class MLPBlockConfig:
             return block
 
         if self._name == "DuelingNetwork":
-            from srl.rl.models.tf.blocks.dueling_network import DuelingNetworkBlock
-            from srl.rl.models.tf.blocks.mlp_block import MLPBlock
+            from srl.rl.tf.blocks.dueling_network import DuelingNetworkBlock
+            from srl.rl.tf.blocks.mlp_block import MLPBlock
 
             layer_sizes = self._kwargs["layer_sizes"]
             if out_units > 0:
@@ -161,7 +161,7 @@ class MLPBlockConfig:
         if self._name == "MLP":
             import torch.nn as nn
 
-            from srl.rl.models.torch_.blocks.mlp_block import MLPBlock
+            from srl.rl.torch_.blocks.mlp_block import MLPBlock
 
             block = MLPBlock(in_size, enable_noisy_dense=enable_noisy_dense, **self._kwargs)
             if out_units > 0:
@@ -170,8 +170,8 @@ class MLPBlockConfig:
             return block
 
         if self._name == "DuelingNetwork":
-            from srl.rl.models.torch_.blocks.dueling_network import DuelingNetworkBlock
-            from srl.rl.models.torch_.blocks.mlp_block import MLPBlock
+            from srl.rl.torch_.blocks.dueling_network import DuelingNetworkBlock
+            from srl.rl.torch_.blocks.mlp_block import MLPBlock
 
             layer_sizes = self._kwargs["layer_sizes"]
             if out_units > 0:

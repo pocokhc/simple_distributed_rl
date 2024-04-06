@@ -34,7 +34,7 @@ def test_create_block_out_value(in_space, out_size):
 
     import torch
 
-    from srl.rl.models.torch_.blocks.input_block import create_in_block_out_value
+    from srl.rl.torch_.blocks.input_block import create_in_block_out_value
 
     batch_size = 3
 
@@ -70,7 +70,7 @@ def test_create_block_out_image(in_space, out_shape):
 
     import torch
 
-    from srl.rl.models.torch_.blocks.input_block import create_in_block_out_image
+    from srl.rl.torch_.blocks.input_block import create_in_block_out_image
 
     batch_size = 3
     img_conf = ImageBlockConfig()
@@ -103,7 +103,7 @@ def test_create_block_out_multi(in_space, out_shape):
 
     import torch
 
-    from srl.rl.models.torch_.blocks.input_block import create_in_block_out_image
+    from srl.rl.torch_.blocks.input_block import create_in_block_out_image
 
     batch_size = 3
     img_conf = ImageBlockConfig()

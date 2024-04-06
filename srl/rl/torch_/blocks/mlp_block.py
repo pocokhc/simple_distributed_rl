@@ -2,8 +2,8 @@ from typing import Tuple
 
 import torch.nn as nn
 
-from srl.rl.models.torch_.converter import convert_activation_torch, set_initializer_torch
-from srl.rl.models.torch_.modules.noisy_linear import NoisyLinear
+from srl.rl.torch_.converter import convert_activation_torch, set_initializer_torch
+from srl.rl.torch_.modules.noisy_linear import NoisyLinear
 
 
 class MLPBlock(nn.Module):

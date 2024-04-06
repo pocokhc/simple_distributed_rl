@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from srl.rl.models.torch_.converter import convert_activation_torch
+from srl.rl.torch_.converter import convert_activation_torch
 
 
 class MuZeroAtariBlock(nn.Module):

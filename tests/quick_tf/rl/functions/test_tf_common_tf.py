@@ -35,7 +35,7 @@ def test_compute_normal_logprob(x, mean, stddev):
 
     import tensorflow as tf
 
-    from srl.rl.functions.common_tf import compute_normal_logprob
+    from srl.rl.tf.common_tf import compute_normal_logprob
 
     np_pi = _normal(x, mean, stddev)
     np_logpi = np.log(np_pi).astype(np.float32)
@@ -68,7 +68,7 @@ def test_compute_normal_logprob_in_log(x, mean, log_stddev):
     pytest.importorskip("tensorflow")
     import tensorflow as tf
 
-    from srl.rl.functions.common_tf import compute_normal_logprob_in_log
+    from srl.rl.tf.common_tf import compute_normal_logprob_in_log
 
     np_log_likelihood = _normal_log(x, mean, log_stddev)
 
@@ -95,7 +95,7 @@ def test_compute_normal_logprob_sgp(action, mean, stddev):
 
     import tensorflow as tf
 
-    from srl.rl.functions.common_tf import compute_normal_logprob_sgp
+    from srl.rl.tf.common_tf import compute_normal_logprob_sgp
 
     np_mu = _normal(action, mean, stddev)
     np_logmu = np.log(np_mu)
@@ -130,7 +130,7 @@ def test_compute_normal_logprob_sgp_in_log(x, mean, log_stddev):
 
     import tensorflow as tf
 
-    from srl.rl.functions.common_tf import compute_normal_logprob_sgp_in_log
+    from srl.rl.tf.common_tf import compute_normal_logprob_sgp_in_log
 
     np_logmu = _normal_log(x, mean, log_stddev)
     np_logpi = np_logmu - np.log(1 - np.tanh(x) ** 2)
@@ -163,7 +163,7 @@ def test_compute_kl_divergence(prob1, prob2):
 
     import tensorflow as tf
 
-    from srl.rl.functions.common_tf import compute_kl_divergence
+    from srl.rl.tf.common_tf import compute_kl_divergence
 
     epsilon = 1e-10
 
@@ -195,7 +195,7 @@ def test_compute_kl_divergence_normal(mean1, stddev1, mean2, stddev2):
     import tensorflow as tf
     import tensorflow_probability as tfp
 
-    from srl.rl.functions.common_tf import compute_kl_divergence_normal
+    from srl.rl.tf.common_tf import compute_kl_divergence_normal
 
     p1 = tfp.distributions.Normal(loc=mean1, scale=stddev1)
     p2 = tfp.distributions.Normal(loc=mean2, scale=stddev2)
@@ -220,7 +220,7 @@ def test_twohot():
 
     import tensorflow as tf
 
-    from srl.rl.functions.common_tf import twohot_decode, twohot_encode
+    from srl.rl.tf.common_tf import twohot_decode, twohot_encode
 
     # plus
     x = tf.constant(np.array([[2.4]], dtype=np.float32))

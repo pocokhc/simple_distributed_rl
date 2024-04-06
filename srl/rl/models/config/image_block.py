@@ -117,28 +117,28 @@ class ImageBlockConfig:
 
     def create_block_tf(self, enable_rnn: bool = False, flatten: bool = False):
         if self._name == "DQN":
-            from srl.rl.models.tf.blocks.dqn_image_block import DQNImageBlock
+            from srl.rl.tf.blocks.dqn_image_block import DQNImageBlock
 
             return DQNImageBlock(
                 enable_rnn=enable_rnn,
                 **self._kwargs,
             )
         if self._name == "R2D3":
-            from srl.rl.models.tf.blocks.r2d3_image_block import R2D3ImageBlock
+            from srl.rl.tf.blocks.r2d3_image_block import R2D3ImageBlock
 
             return R2D3ImageBlock(
                 enable_rnn=enable_rnn,
                 **self._kwargs,
             )
         if self._name == "AlphaZero":
-            from srl.rl.models.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
+            from srl.rl.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
 
             return AlphaZeroImageBlock(
                 enable_rnn=enable_rnn,
                 **self._kwargs,
             )
         if self._name == "MuzeroAtari":
-            from srl.rl.models.tf.blocks.muzero_atari_block import MuZeroAtariBlock
+            from srl.rl.tf.blocks.muzero_atari_block import MuZeroAtariBlock
 
             return MuZeroAtariBlock(
                 enable_rnn=enable_rnn,
@@ -154,20 +154,20 @@ class ImageBlockConfig:
 
     def create_block_torch(self, in_shape: Tuple[int, ...], flatten: bool = False):
         if self._name == "DQN":
-            from srl.rl.models.torch_.blocks.dqn_image_block import DQNImageBlock
+            from srl.rl.torch_.blocks.dqn_image_block import DQNImageBlock
 
             return DQNImageBlock(in_shape, flatten=flatten, **self._kwargs)
         if self._name == "R2D3":
-            from srl.rl.models.torch_.blocks.r2d3_image_block import R2D3ImageBlock
+            from srl.rl.torch_.blocks.r2d3_image_block import R2D3ImageBlock
 
             return R2D3ImageBlock(in_shape, flatten=flatten, **self._kwargs)
 
         if self._name == "AlphaZero":
-            from srl.rl.models.torch_.blocks.alphazero_image_block import AlphaZeroImageBlock
+            from srl.rl.torch_.blocks.alphazero_image_block import AlphaZeroImageBlock
 
             return AlphaZeroImageBlock(in_shape, **self._kwargs)
         if self._name == "MuzeroAtari":
-            from srl.rl.models.torch_.blocks.muzero_atari_block import MuZeroAtariBlock
+            from srl.rl.torch_.blocks.muzero_atari_block import MuZeroAtariBlock
 
             return MuZeroAtariBlock(in_shape, **self._kwargs)
 

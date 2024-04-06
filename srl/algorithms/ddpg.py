@@ -17,8 +17,8 @@ from srl.base.spaces.box import BoxSpace
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
-from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.tf.blocks.input_block import create_in_block_out_value
 
 kl = keras.layers
 

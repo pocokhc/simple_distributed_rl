@@ -19,9 +19,9 @@ from srl.base.rl.worker import RLWorker
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
-from srl.rl.models.tf.blocks.input_block import create_input_image_layers
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.tf.blocks.input_block import create_input_image_layers
 
 kl = keras.layers
 

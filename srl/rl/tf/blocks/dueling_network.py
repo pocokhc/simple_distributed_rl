@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.rl.models.tf.layers.noisy_dense import NoisyDense
+from srl.rl.tf.layers.noisy_dense import NoisyDense
 
 kl = keras.layers
 

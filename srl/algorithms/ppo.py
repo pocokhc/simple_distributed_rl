@@ -16,14 +16,14 @@ from srl.base.rl.worker import RLWorker
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.rl.functions import helper
-from srl.rl.functions.common_tf import compute_kl_divergence, compute_kl_divergence_normal
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
-from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
-from srl.rl.models.tf.distributions.categorical_dist_block import CategoricalDistBlock
-from srl.rl.models.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.tf.blocks.input_block import create_in_block_out_value
+from srl.rl.tf.common_tf import compute_kl_divergence, compute_kl_divergence_normal
+from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
+from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
 
 kl = keras.layers
 

@@ -17,7 +17,7 @@ def test_loss(use_symlog, use_mse):
     import tensorflow as tf
     from tensorflow import keras
 
-    from srl.rl.models.tf.distributions.twohot_dist_block import TwoHotDistBlock
+    from srl.rl.tf.distributions.twohot_dist_block import TwoHotDistBlock
 
     m = TwoHotDistBlock(
         200,

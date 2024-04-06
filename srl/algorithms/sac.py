@@ -19,10 +19,10 @@ from srl.rl.functions import helper
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
-from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
-from srl.rl.models.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
-from srl.rl.models.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.tf.blocks.input_block import create_in_block_out_value
+from srl.rl.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
+from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.utils.common import compare_less_version
 
 kl = keras.layers
@@ -161,7 +161,7 @@ class _PolicyNetwork(keras.Model):
                 stable_gradients_stddev_range=self.config.stable_gradients_stddev_range,
             )
         else:
-            raise UndefinedError(self.config.action_space.stype)
+            raise UndefinedError(self.config.action_space)
 
         # build
         self.build((None,) + config.observation_space.shape)

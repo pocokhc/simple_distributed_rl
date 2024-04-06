@@ -6,7 +6,7 @@ def test_model_soft_sync():
     pytest.importorskip("torch")
     import torch
 
-    from srl.rl.models.torch_ import helper
+    from srl.rl.torch_ import helper
 
     class Model(torch.nn.Module):
         def __init__(self):

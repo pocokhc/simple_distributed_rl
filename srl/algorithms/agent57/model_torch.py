@@ -9,9 +9,9 @@ import torch.optim as optim
 from srl.base.define import InfoType
 from srl.base.rl.trainer import RLTrainer
 from srl.rl.functions.common import create_beta_list, create_discount_list
-from srl.rl.models.torch_ import helper
-from srl.rl.models.torch_.blocks.input_block import create_in_block_out_value
 from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.torch_ import helper
+from srl.rl.torch_.blocks.input_block import create_in_block_out_value
 
 from .agent57 import CommonInterfaceParameter, Config
 

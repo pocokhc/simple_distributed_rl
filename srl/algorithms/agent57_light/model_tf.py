@@ -8,8 +8,8 @@ from tensorflow import keras
 from srl.base.define import InfoType
 from srl.base.rl.trainer import RLTrainer
 from srl.rl.functions import common
-from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.tf.blocks.input_block import create_in_block_out_value
 
 from .agent57_light import CommonInterfaceParameter, Config
 

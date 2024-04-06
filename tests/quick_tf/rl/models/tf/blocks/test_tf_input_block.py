@@ -34,7 +34,7 @@ from srl.rl.models.config.mlp_block import MLPBlockConfig
 def test_create_block_out_value(in_space: SpaceBase, out_size, rnn):
     pytest.importorskip("tensorflow")
 
-    from srl.rl.models.tf.blocks.input_block import create_in_block_out_value
+    from srl.rl.tf.blocks.input_block import create_in_block_out_value
 
     batch_size = 3
     seq_size = 7
@@ -104,7 +104,7 @@ def test_create_block_out_value(in_space: SpaceBase, out_size, rnn):
 def test_create_block_out_image(in_space, out_shape, rnn):
     pytest.importorskip("tensorflow")
 
-    from srl.rl.models.tf.blocks.input_block import create_in_block_out_image
+    from srl.rl.tf.blocks.input_block import create_in_block_out_image
 
     batch_size = 3
     seq_size = 5

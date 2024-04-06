@@ -15,7 +15,7 @@ def test_loss(unimix, use_mse):
     import tensorflow as tf
     from tensorflow import keras
 
-    from srl.rl.models.tf.distributions.categorical_dist_block import CategoricalDistBlock
+    from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 
     m = CategoricalDistBlock(
         5,
@@ -57,7 +57,7 @@ def test_loss_grad(unimix):
     import tensorflow as tf
     from tensorflow import keras
 
-    from srl.rl.models.tf.distributions.categorical_dist_block import CategoricalDistBlock
+    from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 
     m = CategoricalDistBlock(20, (128, 128, 128), unimix=unimix)
     m2 = keras.Sequential(
@@ -101,7 +101,7 @@ def test_loss_grad(unimix):
 
 def test_inf():
     pytest.importorskip("tensorflow")
-    from srl.rl.models.tf.distributions.categorical_dist_block import CategoricalDist
+    from srl.rl.tf.distributions.categorical_dist_block import CategoricalDist
 
     m = CategoricalDist(
         np.array(

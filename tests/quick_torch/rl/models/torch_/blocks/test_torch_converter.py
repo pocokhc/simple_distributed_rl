@@ -1,6 +1,6 @@
 import pytest
 
-import srl.rl.models.torch_.converter as conv
+import srl.rl.torch_.converter as conv
 
 
 @pytest.mark.parametrize(

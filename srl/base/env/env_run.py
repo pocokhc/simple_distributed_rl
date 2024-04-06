@@ -122,7 +122,12 @@ class EnvRun:
         self._t0 = time.time()
         self._info: dict = {}
 
-    def step(self, action: EnvActionType, frameskip_function: Optional[Callable[[], None]] = None) -> None:
+    def step(
+        self,
+        action: EnvActionType,
+        frameskip: int = 0,
+        frameskip_function: Optional[Callable[[], None]] = None,
+    ) -> None:
         if self._done != DoneTypes.NONE:
             raise SRLError(f"It is in the done state. Please execute reset(). ({self._done})")
         if self._is_direct_step and (not self.env.can_simulate_from_direct_step):
@@ -161,7 +166,7 @@ class EnvRun:
         step_rewards = np.array(rewards, dtype=np.float32)
 
         # --- skip frame
-        for _ in range(self.config.frameskip):
+        for _ in range(self.config.frameskip + frameskip):
             assert self.player_num == 1, "not support"
             state, rewards, env_done, info = self.env.step(action)
             if self.config.enable_assertion:

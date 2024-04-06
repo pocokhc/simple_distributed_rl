@@ -201,7 +201,7 @@ def _play(
         # env step
         state.workers[state.worker_idx].render()
         [c.on_step_begin(context, state) for c in callbacks]
-        state.env.step(state.action, __skip_func)
+        state.env.step(state.action, state.workers[state.worker_idx].config.frameskip, __skip_func)
         worker_idx = state.worker_indices[state.env.next_player_index]
 
         # rl step
@@ -389,7 +389,7 @@ def play_generator(
         state.workers[state.worker_idx].render()
         [c.on_step_begin(context, state) for c in callbacks]
         yield (state, "on_step_begin")
-        state.env.step(state.action, __skip_func)
+        state.env.step(state.action, state.workers[state.worker_idx].config.frameskip, __skip_func)
         worker_idx = state.worker_indices[state.env.next_player_index]
 
         # rl step

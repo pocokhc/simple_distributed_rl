@@ -61,28 +61,32 @@ def calc_epsilon_greedy_probs(q, invalid_actions, epsilon, action_num):
 
 def render_discrete_action(maxa: int, action_num: int, env: EnvRun, func) -> None:
     invalid_actions = env.get_invalid_actions()
+    view_actions_num = 10
     for action in range(action_num):
         if action in invalid_actions:
             continue
+        if action > view_actions_num:
+            break
         s = "*" if action == maxa else " "
         rl_s = func(action)
         s += f"{env.action_to_str(action):3s}: {rl_s}"
         print(s)
+    if action_num > view_actions_num:
+        print("... Some actions have been omitted.")
 
-    # invalid actions
-    view_invalid_actions_num = 0
-    for action in range(action_num):
-        if action not in invalid_actions:
-            continue
-        if view_invalid_actions_num > 2:
-            continue
-        s = "x"
-        view_invalid_actions_num += 1
-        rl_s = func(action)
-        s += f"{env.action_to_str(action):3s}: {rl_s}"
-        print(s)
-    if view_invalid_actions_num > 2:
-        print("... Some invalid actions have been omitted.")
+    if len(invalid_actions) > 0:
+        view_invalid_actions_num = 2
+        for action in range(action_num):
+            if action not in invalid_actions:
+                continue
+            if action > view_invalid_actions_num:
+                break
+            s = "x"
+            rl_s = func(action)
+            s += f"{env.action_to_str(action):3s}: {rl_s}"
+            print(s)
+        if action_num > view_invalid_actions_num:
+            print("... Some invalid actions have been omitted.")
 
 
 def create_fancy_index_for_invalid_actions(idx_list: List[List[int]]):

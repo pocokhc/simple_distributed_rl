@@ -6,7 +6,6 @@ import traceback
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 
 import numpy as np
-
 from srl.base.context import RunContext
 from srl.base.define import (
     DoneTypes,
@@ -169,6 +168,9 @@ class EnvRun:
 
         # --- skip frame
         for _ in range(self.config.frameskip + frameskip):
+            if DoneTypes.done(env_done):
+                break
+
             assert self.player_num == 1, "not support"
             state, rewards, env_done, info = self.env.step(action)
             if self.config.enable_assertion:
@@ -179,11 +181,8 @@ class EnvRun:
                 state = self.sanitize_state(state, "'state' in 'env.step' may not be SpaceType.")
                 rewards = self.sanitize_rewards(rewards, "'rewards' in 'env.step' may not be List[float].")
                 env_done = self.sanitize_done(env_done, "'done' in 'env.reset may' not be bool.")
-
             step_rewards += np.array(rewards, dtype=np.float32)
             self._render.cache_reset()
-            if DoneTypes.done(env_done):
-                break
 
             if frameskip_function is not None:
                 frameskip_function()
@@ -205,7 +204,7 @@ class EnvRun:
             )
         self._invalid_actions_list[self.next_player_index] = invalid_actions
         self._step_num += 1
-        self._episode_rewards += self.step_rewards
+        self._episode_rewards += self._step_rewards
 
         # action check
         if not self._done and len(invalid_actions) > 0:

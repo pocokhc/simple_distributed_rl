@@ -143,24 +143,26 @@ class EnvRun:
         f_except = None
         try:
             state, rewards, env_done, info = self.env.step(action)
-        except Exception as e:
-            f_except = e
+        except Exception:
+            f_except = traceback.format_exc()
 
         if self.config.enable_assertion:
             assert f_except is None, f_except
             self.assert_state(state)
             self.assert_rewards(rewards)
             self.assert_done(env_done)
+        elif f_except is not None:
+            self.remake()
+            self._done = DoneTypes.TRUNCATED
+            self._done_reason = "step exception"
+            s = "An exception occurred in env.step. Recreate.\n" + f_except
+            print(s)
+            logger.warning(s)
+            return
         elif self.config.enable_sanitize:
             state = self.sanitize_state(state, "'state' in 'env.step' may not be SpaceType.")
             rewards = self.sanitize_rewards(rewards, "'rewards' in 'env.step' may not be List[float].")
             env_done = self.sanitize_done(env_done, "'done' in 'env.reset may' not be bool.")
-        else:
-            if f_except is not None:
-                self.remake()
-                self._done = DoneTypes.TRUNCATED
-                self._done_reason = "step exception"
-                return
 
         self._render.cache_reset()
         step_rewards = np.array(rewards, dtype=np.float32)

@@ -13,6 +13,33 @@
 1. DemoMemory
 1. configのjson保存
 
+
+# v0.15.3
+
+**MainUpdates**
+
+1. [base] change: make_workersをbase.contextからbase.rl.registrationに移動
+1. [base.rl.config] add: RLConfig側にもframeskipを追加
+1. [runner.play_window] update
+1. [base.run] update: callbacksの処理を変更（多分少し早くなる）
+1. [base.run.callback] add: on_step_action_afterを追加
+1. [base.rl.registration] change: rulebaseにRLConfigを設定できるように変更 
+
+**OtherUpdates**
+
+1. [rl] move: rl.models.torchとrl.models.tfをrl配下に移動
+1. [rl.torch] new: helperにmodel soft updateとrestoreとbackupを追加
+1. [base.env.env_run] fix: stepで例外終了した場合の処理を分かりやすく変更
+1. [rl.functions.helper] update: render_discrete_actionでactionが多い場合に非表示
+1. [base.env.env_run] update: get_valid_actionsの処理を更新
+
+**Bug Fixes**
+
+1. [base.render] fix: scaleのresizeがキャッシュにも適用される不具合修正
+1. [base.env.env_run] fix: frameskipで最初にdoneの場合stepが余分に実行される不具合修正
+1. [base.spaces.multi] fix: multiの中身がDiscreteの場合の処理がContではなくDiscになるように変更
+
+
 # v0.15.2
 
 **MainUpdates**

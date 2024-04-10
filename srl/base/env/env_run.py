@@ -429,9 +429,10 @@ class EnvRun:
         return self._invalid_actions_list[player_index]
 
     def get_valid_actions(self, player_index: int = -1) -> List[EnvInvalidActionType]:
-        assert isinstance(self.action_space, DiscreteSpace)
-        invalid_actions = self.get_invalid_actions(player_index)
-        return [a for a in range(self.action_space.n) if a not in invalid_actions]
+        if isinstance(self.action_space, DiscreteSpace):
+            invalid_actions = self.get_invalid_actions(player_index)
+            return [a for a in range(self.action_space.n) if a not in invalid_actions]
+        return []
 
     def add_invalid_actions(self, invalid_actions: List[EnvInvalidActionType], player_index: int) -> None:
         if self.config.enable_assertion:

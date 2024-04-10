@@ -26,6 +26,10 @@ class MultiSpace(SpaceBase[list]):
                 break
 
     @property
+    def is_discrete(self) -> bool:
+        return self._is_discrete
+
+    @property
     def space_size(self) -> int:
         return len(self.spaces)
 

@@ -346,6 +346,19 @@ def test_action_multi(env_act_space, rl_act_space, is_multi, env_act, rl_act):
             [0.0, 0.0, 0.0, 0.0, 0.5],
             [0, [0], 0.0, [0.0], np.array([[0.5]], np.float32)],
         ],
+        # disc only
+        [
+            MultiSpace(
+                [
+                    DiscreteSpace(2),
+                    ArrayDiscreteSpace(1, 0, 1),
+                    BoxSpace((1, 1), 0, 1, np.uint8),
+                ]
+            ),
+            DiscreteSpace(8),
+            0,
+            [0, [0], np.array([[0]], np.uint8)],
+        ],
     ],
 )
 def test_action_disc_cont(env_act_space, true_act_space, rl_act, env_act):
@@ -402,8 +415,9 @@ def _test_obs(
     worker_run.on_start(context)
 
     # --- check obs space
-    print(rl_config.observation_space)
     print(true_obs_space)
+    print(rl_config.observation_space)
+    print(rl_config.observation_space_of_env)
     assert rl_config.observation_space == true_obs_space
     assert rl_config.observation_space_of_env == true_obs_env_space
     if window_length == 1:
@@ -885,7 +899,7 @@ def test_obs_render_image():
         rl_obs_mode=ObservationModes.RENDER_IMAGE,
         rl_obs_type_override=SpaceTypes.UNKNOWN,
         rl_obs_div_num=-1,
-        true_obs_space=BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
+        true_obs_space=BoxSpace((64, 32, 3), 0, 255, np.float32, stype=SpaceTypes.COLOR),
         true_obs_env_space=BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
         window_length=1,
         true_obs_space_one_step=None,
@@ -896,10 +910,16 @@ def test_obs_render_image():
 
 
 def test_obs_env_render_image():
-    true_space = MultiSpace(
+    true_obs_space = MultiSpace(
         [
             ArrayDiscreteSpace(3, 0, 5),
-            BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
+            BoxSpace((64, 32, 3), 0.0, 255.0, np.float32, stype=SpaceTypes.COLOR),
+        ]
+    )
+    true_obs_env_space = MultiSpace(
+        [
+            ArrayDiscreteSpace(3, 0, 5),
+            BoxSpace((64, 32, 3), 0.0, 255.0, np.uint8, stype=SpaceTypes.COLOR),
         ]
     )
     _test_obs(
@@ -908,8 +928,8 @@ def test_obs_env_render_image():
         rl_obs_mode=ObservationModes.ENV | ObservationModes.RENDER_IMAGE,
         rl_obs_type_override=SpaceTypes.UNKNOWN,
         rl_obs_div_num=-1,
-        true_obs_space=true_space,
-        true_obs_env_space=true_space,
+        true_obs_space=true_obs_space,
+        true_obs_env_space=true_obs_env_space,
         window_length=1,
         true_obs_space_one_step=None,
         env_state=[0, 1, 2],

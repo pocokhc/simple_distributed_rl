@@ -1,11 +1,11 @@
 import logging
 import traceback
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import List, Optional
 
 import numpy as np
 
-from srl.base.context import RLWorkerType, StrWorkerType
+from srl.base.define import PlayerType
 from srl.base.rl.parameter import RLParameter
 from srl.runner.runner import Runner
 
@@ -19,7 +19,7 @@ class Evaluate:
     eval_episode: int = 1
     eval_timeout: float = -1
     eval_max_steps: int = -1
-    eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = field(default_factory=list)
+    eval_players: List[PlayerType] = field(default_factory=list)
     eval_shuffle_player: bool = False
 
     _eval_runner: Optional[Runner] = field(init=False, default=None)

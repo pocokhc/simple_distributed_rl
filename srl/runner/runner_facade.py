@@ -2,8 +2,8 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, List, Optional, Union, cast
 
-from srl.base.context import RLWorkerType, RunNameTypes, StrWorkerType
-from srl.base.define import RenderModes
+from srl.base.context import RunNameTypes
+from srl.base.define import PlayerType, RenderModes
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
@@ -317,7 +317,7 @@ class RunnerFacade(Runner):
     #     eval_episode: int = 1,
     #     eval_timeout: float = -1,
     #     eval_max_steps: int = -1,
-    #     eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
+    #     eval_players: List[PlayerType] = [],
     #     eval_shuffle_player: bool = False,
     #     # --- other
     #     callbacks: List[CallbackType] = [],
@@ -1135,7 +1135,7 @@ class RunnerFacade(Runner):
 
     def play_terminal(
         self,
-        players: List[Union[None, StrWorkerType, RLWorkerType]] = ["human"],
+        players: List[PlayerType] = ["human"],
         # Rendering
         render_kwargs: dict = {},
         step_stop: bool = False,

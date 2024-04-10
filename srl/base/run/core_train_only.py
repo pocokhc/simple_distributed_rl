@@ -1,7 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass
-from typing import List
+from typing import Any, List
 
 from srl.base.context import RunContext
 from srl.base.rl.memory import IRLMemoryTrainer
@@ -66,6 +66,7 @@ def _play_trainer_only(
     state.trainer.train_start(context)
 
     # 2 callbacks
+    _calls_on_trainer_loop: List[Any] = [c for c in callbacks if hasattr(c, "on_trainer_loop")]
     [c.on_trainer_start(context, state) for c in callbacks]
 
     # --- 3 init
@@ -89,7 +90,7 @@ def _play_trainer_only(
         state.is_step_trained = state.trainer.core_train()
 
         # callbacks
-        _stop_flags = [c.on_trainer_loop(context, state) for c in callbacks]
+        _stop_flags = [c.on_trainer_loop(context, state) for c in _calls_on_trainer_loop]
         if True in _stop_flags:
             state.end_reason = "callback.trainer_intermediate_stop"
             break

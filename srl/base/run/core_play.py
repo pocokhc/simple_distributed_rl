@@ -1,9 +1,8 @@
 import logging
 import random
 import time
-import traceback
 from dataclasses import dataclass, field
-from typing import Generator, List, Optional, Tuple
+from typing import Any, Generator, List, Optional, Tuple
 
 from srl.base.context import RunContext, RunNameTypes
 from srl.base.define import EnvActionType
@@ -102,7 +101,7 @@ def _play(
     main_worker_idx: int,
     trainer: Optional[RLTrainer],
     callbacks: List[RunCallback],
-) -> RunStateActor:
+):
     assert env.player_num == len(workers)
     main_worker = workers[main_worker_idx]
     state = RunStateActor(
@@ -129,15 +128,28 @@ def _play(
         state.trainer.train_start(context)
     state.env.setup(context)
 
-    # --- 4 callbacks
-    [c.on_episodes_begin(context, state) for c in callbacks]
-
-    def __skip_func():
-        [c.on_skip_step(context, state) for c in callbacks]
-
-    # --- 5 init
+    # --- 4 init
     state.worker_indices = [i for i in range(state.env.player_num)]
     state.elapsed_t0 = time.time()
+
+    # --- 5 callbacks
+    _calls_on_episode_begin: List[Any] = [c for c in callbacks if hasattr(c, "on_episode_begin")]
+    _calls_on_episode_end: List[Any] = [c for c in callbacks if hasattr(c, "on_episode_end")]
+    _calls_on_step_action_before: List[Any] = [c for c in callbacks if hasattr(c, "on_step_action_before")]
+    _calls_on_step_action_after: List[Any] = [c for c in callbacks if hasattr(c, "on_step_action_after")]
+    _calls_on_step_begin: List[Any] = [c for c in callbacks if hasattr(c, "on_step_begin")]
+    _calls_on_step_end: List[Any] = [c for c in callbacks if hasattr(c, "on_step_end")]
+    _calls_on_skip_step: List[Any] = [c for c in callbacks if hasattr(c, "on_skip_step")]
+    if len(_calls_on_skip_step) > 0:
+
+        def __skip_func():
+            [c.on_skip_step(context, state) for c in _calls_on_skip_step]
+
+        __skip_func_arg = __skip_func
+    else:
+        __skip_func_arg = None
+
+    [c.on_episodes_begin(context, state) for c in callbacks]
 
     # --- 6 loop
     if context.run_name != RunNameTypes.eval:
@@ -167,7 +179,6 @@ def _play(
         # ------------------------
         if state.env.done:
             state.episode_count += 1
-
             if context.max_episodes > 0 and state.episode_count >= context.max_episodes:
                 state.end_reason = "episode_count over."
                 break  # end
@@ -187,7 +198,7 @@ def _play(
             [w.on_reset(state.worker_indices[i]) for i, w in enumerate(state.workers)]
 
             # callbacks
-            [c.on_episode_begin(context, state) for c in callbacks]
+            [c.on_episode_begin(context, state) for c in _calls_on_episode_begin]
 
         # ------------------------
         # step
@@ -195,14 +206,18 @@ def _play(
 
         # action
         state.env.render()
-        [c.on_step_action_before(context, state) for c in callbacks]
+        [c.on_step_action_before(context, state) for c in _calls_on_step_action_before]
         state.action = state.workers[state.worker_idx].policy()
+        state.workers[state.worker_idx].render()
+        [c.on_step_action_after(context, state) for c in _calls_on_step_action_after]
 
         # env step
-        state.workers[state.worker_idx].render()
-        [c.on_step_begin(context, state) for c in callbacks]
-        state.env.step(state.action, state.workers[state.worker_idx].config.frameskip, __skip_func)
-        worker_idx = state.worker_indices[state.env.next_player_index]
+        [c.on_step_begin(context, state) for c in _calls_on_step_begin]
+        state.env.step(
+            state.action,
+            state.workers[state.worker_idx].config.frameskip,
+            __skip_func_arg,
+        )
 
         # rl step
         [w.on_step() for w in state.workers]
@@ -214,8 +229,8 @@ def _play(
         if state.trainer is not None:
             state.is_step_trained = state.trainer.core_train()
 
-        _stop_flags = [c.on_step_end(context, state) for c in callbacks]
-        state.worker_idx = worker_idx
+        _stop_flags = [c.on_step_end(context, state) for c in _calls_on_step_end]
+        state.worker_idx = state.worker_indices[state.env.next_player_index]  # on_step_end の後
 
         if state.env.done:
             state.env.render()
@@ -236,7 +251,7 @@ def _play(
                 ]
                 state.episode_rewards_list.append(worker_rewards)
 
-            [c.on_episode_end(context, state) for c in callbacks]
+            [c.on_episode_end(context, state) for c in _calls_on_episode_end]
 
         if True in _stop_flags:
             state.end_reason = "callback.intermediate_stop"
@@ -268,7 +283,9 @@ def play_generator(
     main_worker_idx: int,
     trainer: Optional[RLTrainer] = None,
     callbacks: List[RunCallback] = [],
-) -> Generator[Tuple[RunStateActor, str], EnvActionType, None]:
+) -> Generator[Tuple[str, RunContext, RunStateActor], None, None]:
+    # Generator[YieldType, SendType, ReturnType]
+
     if not context.distributed:
         if context.max_memory > 0:
             memory = workers[main_worker_idx].worker.memory
@@ -309,16 +326,28 @@ def play_generator(
         state.trainer.train_start(context)
     state.env.setup(context)
 
-    # --- 4 callbacks
-    [c.on_episodes_begin(context, state) for c in callbacks]
-    yield (state, "on_episodes_begin")
-
-    def __skip_func():
-        [c.on_skip_step(context, state) for c in callbacks]
-
-    # --- 5 init
+    # --- 4 init
     state.worker_indices = [i for i in range(state.env.player_num)]
     state.elapsed_t0 = time.time()
+
+    # --- 5 callbacks
+    _calls_on_episode_begin: List[Any] = [c for c in callbacks if hasattr(c, "on_episode_begin")]
+    _calls_on_episode_end: List[Any] = [c for c in callbacks if hasattr(c, "on_episode_end")]
+    _calls_on_step_action_before: List[Any] = [c for c in callbacks if hasattr(c, "on_step_action_before")]
+    _calls_on_step_action_after: List[Any] = [c for c in callbacks if hasattr(c, "on_step_action_after")]
+    _calls_on_step_begin: List[Any] = [c for c in callbacks if hasattr(c, "on_step_begin")]
+    _calls_on_step_end: List[Any] = [c for c in callbacks if hasattr(c, "on_step_end")]
+    _calls_on_skip_step: List[Any] = [c for c in callbacks if hasattr(c, "on_skip_step")]
+    if len(_calls_on_skip_step) > 0:
+
+        def __skip_func():
+            [c.on_skip_step(context, state) for c in _calls_on_skip_step]
+
+        __skip_func_arg = __skip_func
+    else:
+        __skip_func_arg = None
+
+    [c.on_episodes_begin(context, state) for c in callbacks]
 
     # --- 6 loop
     if context.run_name != RunNameTypes.eval:
@@ -368,8 +397,8 @@ def play_generator(
             [w.on_reset(state.worker_indices[i]) for i, w in enumerate(state.workers)]
 
             # callbacks
-            [c.on_episode_begin(context, state) for c in callbacks]
-            yield (state, "on_episode_begin")
+            [c.on_episode_begin(context, state) for c in _calls_on_episode_begin]
+            yield ("on_episode_begin", context, state)
 
         # ------------------------
         # step
@@ -377,20 +406,21 @@ def play_generator(
 
         # action
         state.env.render()
-        [c.on_step_action_before(context, state) for c in callbacks]
-        yield (state, "on_step_action_before")
+        [c.on_step_action_before(context, state) for c in _calls_on_step_action_before]
+        yield ("on_step_action_before", context, state)
         state.action = state.workers[state.worker_idx].policy()
-
-        _act = yield (state, "policy")
-        if _act is not None:
-            state.action = _act
+        state.workers[state.worker_idx].render()
+        [c.on_step_action_after(context, state) for c in _calls_on_step_action_after]
+        yield ("on_step_action_after", context, state)
 
         # env step
-        state.workers[state.worker_idx].render()
-        [c.on_step_begin(context, state) for c in callbacks]
-        yield (state, "on_step_begin")
-        state.env.step(state.action, state.workers[state.worker_idx].config.frameskip, __skip_func)
-        worker_idx = state.worker_indices[state.env.next_player_index]
+        [c.on_step_begin(context, state) for c in _calls_on_step_begin]
+        yield ("on_step_begin", context, state)
+        state.env.step(
+            state.action,
+            state.workers[state.worker_idx].config.frameskip,
+            __skip_func_arg,
+        )
 
         # rl step
         [w.on_step() for w in state.workers]
@@ -402,19 +432,14 @@ def play_generator(
         if state.trainer is not None:
             state.is_step_trained = state.trainer.core_train()
 
-        _stop_flags = [c.on_step_end(context, state) for c in callbacks]
-        yield (state, "on_step_end")
-        state.worker_idx = worker_idx
+        _stop_flags = [c.on_step_end(context, state) for c in _calls_on_step_end]
+        yield ("on_step_end", context, state)
+        state.worker_idx = state.worker_indices[state.env.next_player_index]  # on_step_end の後
 
         if state.env.done:
             state.env.render()
             for w in state.workers:
                 if w.rendering:
-                    try:
-                        # rendering用に実行、終了状態のpolicyは未定義
-                        w.policy()
-                    except Exception:
-                        logger.error(traceback.format_exc())
                     w.render()
 
             # rewardは学習中は不要
@@ -424,8 +449,8 @@ def play_generator(
                 ]
                 state.episode_rewards_list.append(worker_rewards)
 
-            [c.on_episode_end(context, state) for c in callbacks]
-            yield (state, "on_episode_end")
+            [c.on_episode_end(context, state) for c in _calls_on_episode_end]
+            yield ("on_episode_end", context, state)
 
         if True in _stop_flags:
             state.end_reason = "callback.intermediate_stop"
@@ -447,4 +472,4 @@ def play_generator(
 
     # 8 callbacks
     [c.on_episodes_end(context, state) for c in callbacks]
-    yield (state, "on_episodes_end")
+    yield ("on_episodes_end", context, state)

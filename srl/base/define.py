@@ -1,7 +1,10 @@
 import enum
-from typing import Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from srl.base.rl.config import RLConfig
 
 # --- space type
 # DiscreteType  : int, List[int]
@@ -49,6 +52,15 @@ InfoType = Dict[str, Union[float, int, str]]
 KeyBindType = Dict[
     Union[str, int, Tuple[Union[str, int], ...], List[Union[str, int]]],
     Union[EnvActionType, Tuple[int, EnvActionType]],
+]
+
+# --- workers
+PlayerType = Union[
+    None,
+    str,  # name
+    Tuple[str, dict],  # [name, kwargs]
+    "RLConfig",  # RLConfig
+    Tuple["RLConfig", Any],  # [RLConfig, RLParameter]
 ]
 
 

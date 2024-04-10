@@ -11,15 +11,15 @@ from typing import TYPE_CHECKING, List, Optional, Tuple, Union, cast
 
 import numpy as np
 
-from srl.base.context import RLWorkerType, RunContext, RunNameTypes, StrWorkerType
-from srl.base.define import EnvObservationType, RLObservationType
+from srl.base.context import RunContext, RunNameTypes
+from srl.base.define import EnvObservationType, PlayerType, RLObservationType
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.base.env.registration import make as make_env
 from srl.base.rl.config import DummyRLConfig, RLConfig
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.registration import make_memory, make_parameter, make_trainer, make_worker
+from srl.base.rl.registration import make_memory, make_parameter, make_trainer, make_worker, make_workers
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run import core_play, core_train_only
@@ -161,7 +161,7 @@ class Runner:
     # ------------------------------
     # set config
     # ------------------------------
-    def set_players(self, players: List[Union[None, StrWorkerType, RLWorkerType]] = []):
+    def set_players(self, players: List[PlayerType] = []):
         """multi player option
         マルチプレイヤーゲームでのプレイヤーを指定します。
 
@@ -322,7 +322,13 @@ class Runner:
             parameter = self.make_parameter()
         if memory is None:
             memory = self.make_memory()
-        workers, main_worker_idx = self.context.make_workers(self.make_env(), parameter, memory, self.rl_config)
+        workers, main_worker_idx = make_workers(
+            self.context.players,
+            self.make_env(),
+            parameter,
+            memory,
+            self.rl_config,
+        )
 
         self._workers = workers
         self._main_worker_idx = main_worker_idx
@@ -693,7 +699,7 @@ class Runner:
         eval_episode: int,
         eval_timeout: float,
         eval_max_steps: int,
-        eval_players: List[Union[None, StrWorkerType, RLWorkerType]],
+        eval_players: List[PlayerType],
         eval_shuffle_player: bool,
     ) -> "Runner":
         r = self.copy(env_share=False)
@@ -763,7 +769,7 @@ class Runner:
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
-        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
+        eval_players: List[PlayerType] = [],
     ):
         """progress options
 
@@ -831,7 +837,7 @@ class Runner:
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
-        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
+        eval_players: List[PlayerType] = [],
         eval_shuffle_player: bool = False,
     ):
         """学習履歴を保存する設定を指定します。
@@ -869,7 +875,7 @@ class Runner:
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
-        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
+        eval_players: List[PlayerType] = [],
         eval_shuffle_player: bool = False,
     ):
         """学習履歴を保存する設定を指定します。
@@ -934,7 +940,7 @@ class Runner:
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
-        eval_players: List[Union[None, StrWorkerType, RLWorkerType]] = [],
+        eval_players: List[PlayerType] = [],
         eval_shuffle_player: bool = False,
     ):
         """一定間隔でモデルを保存します。

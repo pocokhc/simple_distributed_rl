@@ -2,17 +2,13 @@ import copy
 import enum
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, List, Optional, Union
 
-from srl.base.define import RenderModes
+from srl.base.define import PlayerType, RenderModes
 from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
-    from srl.base.env.env_run import EnvRun
     from srl.base.rl.config import RLConfig
-    from srl.base.rl.memory import RLMemory
-    from srl.base.rl.parameter import RLParameter
-    from srl.base.rl.worker_run import WorkerRun
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +20,6 @@ class RunNameTypes(enum.Enum):
     eval = enum.auto()
 
 
-StrWorkerType = Union[str, Tuple[str, dict]]
-RLWorkerType = Union["RLConfig", Tuple["RLConfig", Any]]  # [RLConfig, RLParameter]
-
-
 @dataclass
 class RunContext:
     """
@@ -35,8 +27,7 @@ class RunContext:
     A class that summarizes the runtime state
     """
 
-    # playersという変数名だけど、役割はworkersの方が正しい
-    players: List[Union[None, StrWorkerType, RLWorkerType]] = field(default_factory=list)
+    players: List[PlayerType] = field(default_factory=list)
 
     # --- play context
     run_name: RunNameTypes = RunNameTypes.main
@@ -86,85 +77,3 @@ class RunContext:
         self.used_device_torch = used_device_torch
         rl_config._used_device_tf = used_device_tf
         rl_config._used_device_torch = used_device_torch
-
-    def make_workers(
-        self,
-        env: "EnvRun",
-        parameter: "RLParameter",
-        memory: "RLMemory",
-        rl_config: Optional["RLConfig"] = None,
-    ) -> Tuple[List["WorkerRun"], int]:
-        from srl.base.rl.config import RLConfig
-        from srl.base.rl.registration import make_memory, make_parameter, make_worker, make_worker_rulebase
-
-        # 初期化されていない場合、一人目はNone、二人目以降はrandomにする
-        players = []
-        for i in range(env.player_num):
-            if i < len(self.players):
-                players.append(self.players[i])
-            else:
-                if i == 0:
-                    players.append(None)
-                else:
-                    players.append("random")
-
-        # 最初に現れたNoneをmainにする
-        main_worker_idx = 0
-        for i, worker_type in enumerate(players):
-            if worker_type is None:
-                main_worker_idx = i
-                break
-
-        # --- make workers
-        workers = []
-        for worker_type in players:
-            # --- none はベース
-            if worker_type is None:
-                assert rl_config is not None
-                worker = make_worker(
-                    rl_config,
-                    env,
-                    parameter,
-                    memory,
-                )
-                workers.append(worker)
-                continue
-
-            if isinstance(worker_type, tuple) or isinstance(worker_type, list):
-                worker_type, worker_kwargs = worker_type
-            else:
-                worker_kwargs = None
-
-            # --- 文字列はenv側またはルールベースのアルゴリズム
-            if isinstance(worker_type, str):
-                if worker_kwargs is None:
-                    worker_kwargs = {}
-                worker_kwargs = cast(dict, worker_kwargs)
-                worker = env.make_worker(worker_type, enable_raise=False)
-                if worker is not None:
-                    workers.append(worker)
-                    continue
-                worker = make_worker_rulebase(worker_type, env, worker_kwargs=worker_kwargs)
-                assert worker is not None, f"not registered: {worker_type}"
-                workers.append(worker)
-                continue
-
-            # --- RLConfigは専用のWorkerを作成
-            if isinstance(worker_type, object) and issubclass(worker_type.__class__, RLConfig):
-                _rl_config = cast(RLConfig, worker_type)
-                _rl_config.setup(env)
-                _parameter = make_parameter(_rl_config)
-                if worker_kwargs is not None:
-                    _parameter.restore(worker_kwargs)
-                worker = make_worker(
-                    _rl_config,
-                    env,
-                    _parameter,
-                    make_memory(_rl_config),
-                )
-                workers.append(worker)
-                continue
-
-            raise ValueError(f"unknown worker: {worker_type}")
-
-        return workers, main_worker_idx

@@ -1,7 +1,8 @@
 import logging
 import os
-from typing import Optional, Type
+from typing import List, Optional, Tuple, Type, Union, cast
 
+from srl.base.define import PlayerType
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.config import DummyRLConfig, RLConfig
 from srl.base.rl.memory import DummyRLMemory, IRLMemoryTrainer, IRLMemoryWorker, RLMemory
@@ -124,6 +125,86 @@ def make_worker_rulebase(name: str, env: EnvRun, worker_kwargs: dict = {}) -> Wo
     assert name in _registry_worker, f"{name} is not registered."
     worker = load_module(_registry_worker[name])(config=rl_config, **worker_kwargs)
     return WorkerRun(worker, env)
+
+
+def make_workers(
+    players: List[PlayerType],
+    env: EnvRun,
+    parameter: RLParameter,
+    memory: RLMemory,
+    rl_config: Optional[RLConfig] = None,
+) -> Tuple[List[WorkerRun], int]:
+    players = players[:]
+
+    # 初期化されていない場合、一人目はNone、二人目以降はrandomにする
+    for i in range(env.player_num):
+        if i < len(players):
+            continue
+        if i == 0:
+            players.append(None)
+        else:
+            players.append("random")
+
+    # 最初に現れたNoneをmainにする
+    main_worker_idx = 0
+    for i, worker_type in enumerate(players):
+        if worker_type is None:
+            main_worker_idx = i
+            break
+
+    # --- make workers
+    workers = []
+    for worker_type in players:
+        # --- none はベース
+        if worker_type is None:
+            assert rl_config is not None
+            worker = make_worker(
+                rl_config,
+                env,
+                parameter,
+                memory,
+            )
+            workers.append(worker)
+            continue
+
+        if isinstance(worker_type, tuple) or isinstance(worker_type, list):
+            worker_type, worker_kwargs = worker_type
+        else:
+            worker_kwargs = None
+
+        # --- 文字列はenv側またはルールベースのアルゴリズム
+        if isinstance(worker_type, str):
+            if worker_kwargs is None:
+                worker_kwargs = {}
+            worker_kwargs = cast(dict, worker_kwargs)
+            worker = env.make_worker(worker_type, enable_raise=False)
+            if worker is not None:
+                workers.append(worker)
+                continue
+            worker = make_worker_rulebase(worker_type, env, worker_kwargs=worker_kwargs)
+            assert worker is not None, f"not registered: {worker_type}"
+            workers.append(worker)
+            continue
+
+        # --- RLConfigは専用のWorkerを作成
+        if isinstance(worker_type, object) and issubclass(worker_type.__class__, RLConfig):
+            _rl_config = cast(RLConfig, worker_type)
+            _rl_config.setup(env)
+            _parameter = make_parameter(_rl_config)
+            if worker_kwargs is not None:
+                _parameter.restore(worker_kwargs)
+            worker = make_worker(
+                _rl_config,
+                env,
+                _parameter,
+                make_memory(_rl_config),
+            )
+            workers.append(worker)
+            continue
+
+        raise ValueError(f"unknown worker: {worker_type}")
+
+    return workers, main_worker_idx
 
 
 def register(

@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
 その他の使い方は以下ドキュメントを見てください。
 
-+ [SimpleDistributedRL Getting Started](https://pocokhc.github.io/simple_distributed_rl/pages/quickstart.html)
++ [How To Use](https://pocokhc.github.io/simple_distributed_rl/pages/howtouse.html)
 
 
 ## Distributed Learning (Online)

@@ -35,10 +35,10 @@ def test_image(img_shape, from_space_type, to_space_type, resize, trimming, shap
     if to_space_type == SpaceTypes.GRAY_3ch:
         true_shape = true_shape + (1,)
         if shape_order == "CHW":
-            true_shape = (true_shape[0], true_shape[2], true_shape[1])
+            true_shape = (true_shape[2], true_shape[0], true_shape[1])
     elif to_space_type == SpaceTypes.COLOR:
         true_shape = true_shape + (3,)
         if shape_order == "CHW":
-            true_shape = (true_shape[0], true_shape[2], true_shape[1])
+            true_shape = (true_shape[2], true_shape[0], true_shape[1])
 
     assert img.shape == true_shape

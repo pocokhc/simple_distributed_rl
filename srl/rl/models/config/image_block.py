@@ -115,7 +115,8 @@ class ImageBlockConfig:
     def get_processor(self) -> Optional[ObservationProcessor]:
         return self._processor
 
-    def create_block_tf(self, enable_rnn: bool = False, flatten: bool = False):
+    def create_block_tf(self, enable_rnn: bool = False):
+        # flatten TODO
         if self._name == "DQN":
             from srl.rl.tf.blocks.dqn_image_block import DQNImageBlock
 
@@ -165,15 +166,15 @@ class ImageBlockConfig:
         if self._name == "AlphaZero":
             from srl.rl.torch_.blocks.alphazero_image_block import AlphaZeroImageBlock
 
-            return AlphaZeroImageBlock(in_shape, **self._kwargs)
+            return AlphaZeroImageBlock(in_shape, flatten=flatten, **self._kwargs)
         if self._name == "MuzeroAtari":
             from srl.rl.torch_.blocks.muzero_atari_block import MuZeroAtariBlock
 
-            return MuZeroAtariBlock(in_shape, **self._kwargs)
+            return MuZeroAtariBlock(in_shape, flatten=flatten, **self._kwargs)
 
         if self._name == "custom":
             from srl.utils.common import load_module
 
-            return load_module(self._kwargs["entry_point"])(**self._kwargs["kwargs"])
+            return load_module(self._kwargs["entry_point"])(in_shape, flatten=flatten, **self._kwargs["kwargs"])
 
         raise UndefinedError(self._name)

@@ -8,27 +8,40 @@ from srl.rl.torch_.converter import convert_activation_torch
 
 
 class R2D3ImageBlock(nn.Module):
-    def __init__(self, in_shape: Tuple[int, ...], filters: int = 16, activation="ReLU"):
+    def __init__(
+        self,
+        in_shape: Tuple[int, ...],
+        filters: int = 16,
+        activation="ReLU",
+        flatten: bool = False,
+    ):
         super().__init__()
 
         activation = convert_activation_torch(activation)
 
         in_ch = in_shape[-3]
-        self.res1 = _ResBlock(in_ch, filters, activation)
-        self.res2 = _ResBlock(filters, filters * 2, activation)
-        self.res3 = _ResBlock(filters * 2, filters * 2, activation)
-        self.act = activation(inplace=True)
+        self.h_layers = nn.ModuleList(
+            [
+                _ResBlock(in_ch, filters, activation),
+                _ResBlock(filters, filters * 2, activation),
+                _ResBlock(filters * 2, filters * 2, activation),
+                activation(inplace=True),
+            ]
+        )
+        if flatten:
+            self.h_layers.append(nn.Flatten())
 
         # --- out shape
         x = np.ones((1,) + in_shape, dtype=np.float32)
         y = self.forward(torch.tensor(x))
-        self.out_shape = y.shape[-3:]
+        if flatten:
+            self.out_size = y.shape[-1]
+        else:
+            self.out_shape = y.shape[-3:]
 
     def forward(self, x):
-        x = self.res1(x)
-        x = self.res2(x)
-        x = self.res3(x)
-        x = self.act(x)
+        for layer in self.h_layers:
+            x = layer(x)
         return x
 
 

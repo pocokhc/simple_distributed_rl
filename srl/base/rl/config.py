@@ -310,6 +310,8 @@ class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
                 raise NotSupportedError("This algorithm only supports image formats.")
         elif base_type == RLBaseTypes.MULTI:
             rl_type = SpaceTypes.MULTI
+        elif base_type == RLBaseTypes.NONE:
+            rl_type = self._env_obs_space_in_rl.stype
         else:
             # 1 IMAGE
             # - TEXT
@@ -318,12 +320,46 @@ class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
             # 4 MULTI
             if (base_type & RLBaseTypes.IMAGE) and SpaceTypes.is_image(self._env_obs_space_in_rl.stype):
                 rl_type = self._env_obs_space_in_rl.stype
-            elif base_type & RLBaseTypes.CONTINUOUS:
-                rl_type = SpaceTypes.CONTINUOUS
-            elif base_type & RLBaseTypes.DISCRETE:
-                rl_type = SpaceTypes.DISCRETE
-            elif base_type & RLBaseTypes.MULTI:
-                rl_type = SpaceTypes.MULTI
+            elif self._env_obs_space_in_rl.stype == SpaceTypes.CONTINUOUS:
+                if base_type & RLBaseTypes.CONTINUOUS:
+                    rl_type = SpaceTypes.CONTINUOUS
+                elif base_type & RLBaseTypes.DISCRETE:
+                    rl_type = SpaceTypes.DISCRETE
+                elif base_type & RLBaseTypes.MULTI:
+                    rl_type = SpaceTypes.MULTI
+                else:
+                    logger.warning(f"Undefined space. {self._env_obs_space_in_rl}")
+                    rl_type = SpaceTypes.UNKNOWN
+            elif self._env_obs_space_in_rl.stype == SpaceTypes.DISCRETE:
+                if base_type & RLBaseTypes.DISCRETE:
+                    rl_type = SpaceTypes.DISCRETE
+                elif base_type & RLBaseTypes.CONTINUOUS:
+                    rl_type = SpaceTypes.CONTINUOUS
+                elif base_type & RLBaseTypes.MULTI:
+                    rl_type = SpaceTypes.MULTI
+                else:
+                    logger.warning(f"Undefined space. {self._env_obs_space_in_rl}")
+                    rl_type = SpaceTypes.UNKNOWN
+            elif isinstance(self._env_obs_space_in_rl, MultiSpace):
+                if base_type & RLBaseTypes.MULTI:
+                    rl_type = SpaceTypes.MULTI
+                else:
+                    if self._env_obs_space_in_rl.is_discrete:
+                        if base_type & RLBaseTypes.DISCRETE:
+                            rl_type = SpaceTypes.DISCRETE
+                        elif base_type & RLBaseTypes.CONTINUOUS:
+                            rl_type = SpaceTypes.CONTINUOUS
+                        else:
+                            logger.warning(f"Undefined space. {self._env_act_space}")
+                            rl_type = SpaceTypes.UNKNOWN
+                    else:
+                        if base_type & RLBaseTypes.CONTINUOUS:
+                            rl_type = SpaceTypes.CONTINUOUS
+                        elif base_type & RLBaseTypes.DISCRETE:
+                            rl_type = SpaceTypes.DISCRETE
+                        else:
+                            logger.warning(f"Undefined space. {self._env_act_space}")
+                            rl_type = SpaceTypes.UNKNOWN
             else:
                 logger.warning(f"Undefined space. {self._env_obs_space_in_rl}")
                 rl_type = SpaceTypes.UNKNOWN
@@ -403,13 +439,15 @@ class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
                 raise NotSupportedError("This algorithm only supports image formats.")
         elif base_type == RLBaseTypes.MULTI:
             rl_type = SpaceTypes.MULTI
+        elif base_type == RLBaseTypes.NONE:
+            rl_type = self._env_act_space.stype
         else:
             # 1 IMAGE
             # - TEXT
             # 2 DISCRETE
             # 3 CONTINUOUS
             # 4 MULTI
-            if SpaceTypes.is_image(self._env_act_space.stype) and (base_type & RLBaseTypes.IMAGE):
+            if (base_type & RLBaseTypes.IMAGE) and SpaceTypes.is_image(self._env_act_space.stype):
                 rl_type = self._env_act_space.stype
             elif self._env_act_space.stype == SpaceTypes.DISCRETE:
                 if base_type & RLBaseTypes.DISCRETE:
@@ -431,16 +469,26 @@ class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
                 else:
                     logger.warning(f"Undefined space. {self._env_act_space}")
                     rl_type = SpaceTypes.UNKNOWN
-            elif self._env_act_space.stype == SpaceTypes.MULTI:
+            elif isinstance(self._env_act_space, MultiSpace):
                 if base_type & RLBaseTypes.MULTI:
                     rl_type = SpaceTypes.MULTI
-                elif base_type & RLBaseTypes.CONTINUOUS:
-                    rl_type = SpaceTypes.CONTINUOUS
-                elif base_type & RLBaseTypes.DISCRETE:
-                    rl_type = SpaceTypes.DISCRETE
                 else:
-                    logger.warning(f"Undefined space. {self._env_act_space}")
-                    rl_type = SpaceTypes.UNKNOWN
+                    if self._env_act_space.is_discrete:
+                        if base_type & RLBaseTypes.DISCRETE:
+                            rl_type = SpaceTypes.DISCRETE
+                        elif base_type & RLBaseTypes.CONTINUOUS:
+                            rl_type = SpaceTypes.CONTINUOUS
+                        else:
+                            logger.warning(f"Undefined space. {self._env_act_space}")
+                            rl_type = SpaceTypes.UNKNOWN
+                    else:
+                        if base_type & RLBaseTypes.CONTINUOUS:
+                            rl_type = SpaceTypes.CONTINUOUS
+                        elif base_type & RLBaseTypes.DISCRETE:
+                            rl_type = SpaceTypes.DISCRETE
+                        else:
+                            logger.warning(f"Undefined space. {self._env_act_space}")
+                            rl_type = SpaceTypes.UNKNOWN
             else:
                 logger.warning(f"Undefined space. {self._env_act_space}")
                 rl_type = SpaceTypes.UNKNOWN
@@ -604,10 +652,10 @@ class DummyRLConfig(RLConfig):
     name: str = "dummy"
 
     def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
+        return RLBaseTypes.NONE
 
     def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
+        return RLBaseTypes.NONE
 
     def get_framework(self) -> str:
         return ""

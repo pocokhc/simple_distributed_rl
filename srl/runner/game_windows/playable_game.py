@@ -1,59 +1,86 @@
 import logging
 import time
-from typing import Dict, Generator, List, Optional, Tuple, Union, cast
+from typing import Dict, List, Optional, Tuple, Union, cast
 
 import pygame
 
+from srl.base.context import RunContext
 from srl.base.define import EnvActionType, KeyBindType
+from srl.base.env.env_run import EnvRun
+from srl.base.rl.worker_run import WorkerRun
+from srl.base.run.callback import RunCallback
+from srl.base.run.core_play import RunStateActor
+from srl.base.run.core_play import play_generator as core_play
 from srl.base.spaces.multi import MultiSpace
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
-from srl.runner.runner import CallbackType, Runner
 
 logger = logging.getLogger(__name__)
+
+
+class _PlayableCallback(RunCallback):
+    def __init__(self, env: EnvRun, action_division_num: int):
+        self.env = env
+        self.valid_actions: list = []
+        self.action: int = 0
+        self.env.action_space.create_division_tbl(action_division_num)
+        self.action_num = self.env.action_space.int_size
+
+    def on_step_action_after(self, context: RunContext, state: RunStateActor) -> None:
+        invalid_actions = [self.env.action_space.encode_to_int(a) for a in self.env.invalid_actions]
+        self.valid_actions = [a for a in range(self.action_num) if a not in invalid_actions]
+
+    def on_step_begin(self, context: RunContext, state: RunStateActor) -> None:
+        state.action = self.env.action_space.decode_from_int(self.action)
+
+    def get_env_action(self):
+        return self.env.action_space.decode_from_int(self.action)
 
 
 class PlayableGame(GameWindow):
     def __init__(
         self,
-        runner: Runner,
+        env: EnvRun,
+        context: RunContext,
+        workers: List[WorkerRun] = [],
         view_state: bool = True,
         action_division_num: int = 5,
         key_bind: Optional[KeyBindType] = None,
-        enable_memory: bool = False,
-        callbacks: List[CallbackType] = [],
+        # enable_memory: bool = False,  TODO
+        callbacks: List[RunCallback] = [],
         _is_test: bool = False,  # for test
     ) -> None:
         super().__init__(_is_test=_is_test)
+        self.env = env
         self.view_state = view_state
-
-        self.noop = None
+        self.noop = 0
         self.step_time = 0
-        self.enable_memory = enable_memory
+        # self.enable_memory = enable_memory
+
+        self.playable_callback = _PlayableCallback(self.env, action_division_num)
 
         # --- play ---
-        self.env = runner.make_env()
-        self.gen_play = cast(
-            Generator,
-            runner.base_run_play(
-                parameter=None,
-                memory=None,
-                trainer=None,
-                workers=None,
-                main_worker_idx=0,
-                callbacks=callbacks,
-                enable_generator=True,
-            ),
+        self.gen_play = core_play(
+            context,
+            env,
+            workers,
+            0,
+            callbacks=[self.playable_callback] + callbacks,
         )
-        gen_status = ""
-        while gen_status != "policy":
-            self.gen_state, gen_status = next(self.gen_play)
-        self.worker = self.gen_state.worker
+        # on_episode_beginまで進める
+        while True:
+            gen_status, _, gen_state = next(self.gen_play)
+            if gen_status == "on_episode_begin":
+                self.run_worker = gen_state.worker
+                break
         # ---------------------------
 
         # 初期設定
         self.set_image(self.env.render_rgb_array(), None)
         self.env_interval = self.env.config.render_interval
-        self.env.action_space.create_division_tbl(action_division_num)
+        self.scene = "START"
+        self.mode = "Turn"  # "Turn" or "RealTime"
+        self.is_pause = False
+        self.cursor_action = 0
 
         # --- key bind (扱いやすいように変形) ---
         if key_bind is None:
@@ -80,46 +107,19 @@ class PlayableGame(GameWindow):
         self.key_bind = cast(Dict[Optional[Tuple[int]], EnvActionType], self.key_bind)
         # ----------------------------------------
 
-        self.scene = "START"
-        self.mode = "Turn"  # "Turn" or "RealTime"
-        self.is_pause = False
-        self.action = 0
-        self.cursor_action = 0
-        self.valid_actions = []
-
-    def _step(self, action):
-        t0 = time.time()
-
-        # --- 1step
-        self.gen_state, gen_status = self.gen_play.send(action)
-        while gen_status != "policy":
-            if gen_status == "on_episode_end":
-                self.scene = "START"
-                break
-            try:
-                self.gen_state, gen_status = next(self.gen_play)
-            except StopIteration:
-                self.pygame_done = True
-                break
-
-        # --- render
-        self.set_image(self.env.render_rgb_array(), self.worker.render_rgb_array())
-
-        # --- action
-        self.valid_actions = self.env.get_valid_actions()
-        if self.cursor_action >= len(self.valid_actions):
-            self.cursor_action = len(self.valid_actions) - 1
-            self.action = self.valid_actions[self.cursor_action]
-            self.action = self.env.action_space.decode_from_int(self.action)
-
-        self.step_time = time.time() - t0
+    def _set_cursor_action(self):
+        if self.cursor_action < 0:
+            self.cursor_action = 0
+        if self.cursor_action >= len(self.playable_callback.valid_actions):
+            self.cursor_action = len(self.playable_callback.valid_actions) - 1
+        self.playable_callback.action = self.playable_callback.valid_actions[self.cursor_action]
 
     def on_loop(self, events: List[pygame.event.Event]):
-        # --- 全体
+        # --- add hotkey texts
         t = []
         t.append("r  : Reset")
         if self.mode == "RealTime":
-            t.append(f"-+ : change speed ({self.env_interval:.0f}ms; {1000/self.env_interval:.1f}fps)")
+            t.append(f"-+ : change speed ({self.env_interval:.0f}ms; {1000 / self.env_interval:.1f}fps)")
             if self.is_pause:
                 t.append("p  : pause/unpause (Pause)")
             else:
@@ -127,6 +127,7 @@ class PlayableGame(GameWindow):
             t.append("f  : FrameAdvance")
         self.add_hotkey_texts(t)
 
+        # --- change RealTime option
         if self.mode == "RealTime":
             if self.get_key("-") == KeyStatus.PRESSED:
                 self.env_interval *= 2
@@ -138,110 +139,31 @@ class PlayableGame(GameWindow):
                 self.is_pause = not self.is_pause
 
         if self.scene == "START":
-            # --- START
-            if self.get_key(pygame.K_UP) == KeyStatus.PRESSED:
-                self.mode = "Turn"
-            elif self.get_key(pygame.K_DOWN) == KeyStatus.PRESSED:
-                self.mode = "RealTime"
-            elif self.get_key(pygame.K_RETURN) == KeyStatus.PRESSED:
-                self.scene = "RESET"
-            if self.mode == "Turn":
-                self.add_info_texts(["> Turn", "  RealTime"])
-            else:
-                self.add_info_texts(["  Turn", "> RealTime"])
-
+            self._on_loop_start()
         elif self.scene == "RUNNING":
-            # --- RUNNING
-            if self.get_key(pygame.K_r) == KeyStatus.PRESSED:
-                self.scene = "START"
-                # on_step_endまで進める
-                gen_status = ""
-                while gen_status != "on_step_end":
-                    try:
-                        self.gen_state, gen_status = next(self.gen_play)
-                    except StopIteration:
-                        break
-                assert self.gen_state is not None
-                assert self.gen_state.env is not None
-                self.gen_state.env.set_done()
-            elif (self.mode == "RealTime") and (self.get_key(pygame.K_f) == KeyStatus.PRESSED):
-                self.frameadvance = True
-                self.is_pause = True
-            elif self.key_bind is None:
-                # key_bindがない場合のアクションを決定
-                if self.get_key(pygame.K_LEFT) == KeyStatus.PRESSED:
-                    self.cursor_action -= 1
-                    if self.cursor_action < 0:
-                        self.cursor_action = 0
-                    self.action = self.valid_actions[self.cursor_action]
-                    self.action = self.env.action_space.decode_from_int(self.action)
-                elif self.get_key(pygame.K_RIGHT) == KeyStatus.PRESSED:
-                    self.cursor_action += 1
-                    if self.cursor_action >= len(self.valid_actions):
-                        self.cursor_action = len(self.valid_actions) - 1
-                    self.action = self.valid_actions[self.cursor_action]
-                    self.action = self.env.action_space.decode_from_int(self.action)
-
+            self._on_loop_running()
+            # sceneが変わっていなければstepを進める
+            if self.scene == "RUNNING":
                 if self.mode == "Turn":
-                    # key_bindがない、Turnはアクション決定で1frame進める
-                    is_step = False
-                    for event in events:
-                        if event.type == pygame.KEYDOWN:
-                            if event.key == pygame.K_RETURN:
-                                is_step = True
-                                break
-                            elif event.key == pygame.K_z:
-                                is_step = True
-                                break
-                            elif event.key == pygame.K_f:
-                                is_step = True
-                                break
-                    if is_step:
-                        self._step(self.action)
-                        self.action = self.valid_actions[self.cursor_action]
-                        self.action = self.env.action_space.decode_from_int(self.action)
+                    self._on_loop_turn_key(events)
+                else:
+                    self._on_loop_realtime_key(events)
 
-            elif self.mode == "Turn":
-                # key bind があり、Turnの場合は押したら進める
-                keys = self.get_pressed_keys()
-                if self._get_action_from_key_bind(keys) is not None:
-                    keys.extend(self.get_down_keys())
-                    self.action = self._get_action_from_key_bind(keys)
-                    if self.action is None:
-                        self.action = self._get_action_from_key_bind(self.get_pressed_keys())
-                    self._step(self.action)
-
-            if self.mode == "RealTime":
-                if self.key_bind is not None:
-                    # 押してあるkeys
-                    action = self._get_action_from_key_bind(self.get_down_keys())
-                    if action is not None:
-                        self.action = action
-                    else:
-                        self.action = self.noop
-                if self.is_pause:
-                    if self.frameadvance:
-                        self._step(self.action)
-                        self.frameadvance = False
-                elif time.time() - self.step_t0 > self.env_interval / 1000:
-                    self.step_t0 = time.time()
-                    self._step(self.action)
-
-            self.add_info_texts([f"Select Action {self.valid_actions}"])
-
+            # --- add_info_texts 1, key info
+            self.add_info_texts([f"Select Action {self.playable_callback.valid_actions}"])
             s = " "
-            s1 = str(self.action)
-            s2 = self.env.action_to_str(self.action)
+            s1 = str(self.playable_callback.action)
+            s2 = self.env.action_to_str(self.playable_callback.get_env_action())
             if s1 == s2:
                 s += s1
             else:
                 s += f"{s1}({s2})"
             self.add_info_texts([s])
 
-        # --- key bind
+        # --- add_info_texts 2, key bind text
         if self.key_bind is not None:
             t = ["", "- ActionKeys -"]
-            if self.noop is not None:
+            if self.mode == "RealTime":
                 t.append(f"no: {self.noop}")
             for key, val in self.key_bind_str.items():
                 s1 = str(val)
@@ -253,7 +175,7 @@ class PlayableGame(GameWindow):
                 t.append(f"{key}: {s}")
             self.add_info_texts(t)
 
-        # --- step info
+        # --- add_info_texts 3, add step info texts
         s = [
             "",
             "- env infos -",
@@ -261,7 +183,7 @@ class PlayableGame(GameWindow):
             f"observation_space: {self.env.observation_space}",
             f"player_num       : {self.env.player_num}",
             f"step   : {self.env.step_num}",
-            f"state  : {str(self.env.state)[:50] if self.view_state else 'hidden'}",
+            f"state  : {str(self.env.state)[:30] if self.view_state else 'hidden'}",
             f"next   : {self.env.next_player_index}",
             f"rewards: {self.env.step_rewards}",
             f"info   : {self.env.info}",
@@ -270,17 +192,17 @@ class PlayableGame(GameWindow):
         ]
         self.add_info_texts(s)
 
-        # --- RESET は最後
+        # --- RESETは最後
         if self.scene == "RESET":
-            self.scene = "RUNNING"
-            if self.noop is None:
-                self.noop = self.env.action_space.decode_from_int(0)
+            # on_step_action_afterまで進める
+            while True:
+                gen_status, _, _ = next(self.gen_play)
+                if gen_status == "on_step_action_after":
+                    break
+
+            self.env._render.cache_reset()
             self.set_image(self.env.render_rgb_array(), None)
-            self.valid_actions = self.env.get_valid_actions()
-            if self.cursor_action >= len(self.valid_actions):
-                self.cursor_action = len(self.valid_actions) - 1
-            self.action = self.valid_actions[self.cursor_action]
-            self.action = self.env.action_space.decode_from_int(self.action)
+            self._set_cursor_action()
 
             self.step_t0 = time.time()
             if self.mode == "Turn":
@@ -289,6 +211,125 @@ class PlayableGame(GameWindow):
             else:
                 self.frameadvance = False
                 self.is_pause = False
+
+            self.scene = "RUNNING"
+
+    def _step(self):
+
+        # --- 1step
+        t0 = time.time()
+        while True:
+            try:
+                gen_status, _, _ = next(self.gen_play)
+            except StopIteration:
+                self.pygame_done = True
+                break
+            if gen_status == "on_episode_end":
+                self.scene = "START"
+                break
+            if gen_status == "on_step_action_after":
+                break
+        self.step_time = time.time() - t0
+
+        self.set_image(self.env.render_rgb_array(), self.run_worker.render_rgb_array())
+        self._set_cursor_action()
+
+    def _on_loop_start(self):
+        if self.get_key(pygame.K_UP) == KeyStatus.PRESSED:
+            self.mode = "Turn"
+        elif self.get_key(pygame.K_DOWN) == KeyStatus.PRESSED:
+            self.mode = "RealTime"
+        elif self.get_key(pygame.K_RETURN) == KeyStatus.PRESSED:
+            self.scene = "RESET"
+        if self.mode == "Turn":
+            self.add_info_texts(["> Turn", "  RealTime"])
+        else:
+            self.add_info_texts(["  Turn", "> RealTime"])
+
+    def _on_loop_running(self):
+        # --- r, reset
+        if self.get_key(pygame.K_r) == KeyStatus.PRESSED:
+            # on_step_endまで進めてenv done
+            while True:
+                try:
+                    gen_status, _, gen_state = next(self.gen_play)
+                    if gen_status == "on_step_end":
+                        gen_state.env.set_done()
+                        break
+                except StopIteration:
+                    self.pygame_done = True
+                    break
+
+            self.scene = "START"
+            return
+
+        # --- f, RealTime frameadvance
+        if (self.mode == "RealTime") and (self.get_key(pygame.K_f) == KeyStatus.PRESSED):
+            self.frameadvance = True
+            self.is_pause = True
+            return
+
+    def _on_loop_turn_key(self, events):
+        if self.key_bind is None:
+            if self.get_key(pygame.K_LEFT) == KeyStatus.PRESSED:
+                self.cursor_action -= 1
+                self._set_cursor_action()
+            elif self.get_key(pygame.K_RIGHT) == KeyStatus.PRESSED:
+                self.cursor_action += 1
+                self._set_cursor_action()
+
+            # key_bindがない場合はアクション決定で1frame進める
+            is_step = False
+            for event in events:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN:
+                        is_step = True
+                        break
+                    elif event.key == pygame.K_z:
+                        is_step = True
+                        break
+                    elif event.key == pygame.K_f:
+                        is_step = True
+                        break
+            if is_step:
+                self._set_cursor_action()
+                self._step()
+
+        else:
+            # key bind がある場合は押したら進める
+            keys = self.get_pressed_keys()
+            if self._get_action_from_key_bind(keys) is not None:
+                keys.extend(self.get_down_keys())
+                action = self._get_action_from_key_bind(keys)
+                if action is None:
+                    action = self._get_action_from_key_bind(self.get_pressed_keys())
+                if action is not None:
+                    self.playable_callback.action = action
+                    self._step()
+
+    def _on_loop_realtime_key(self, events):
+        if self.key_bind is None:
+            # key bind がない場合は選ぶ
+            if self.get_key(pygame.K_LEFT) == KeyStatus.PRESSED:
+                self.cursor_action -= 1
+                self._set_cursor_action()
+            elif self.get_key(pygame.K_RIGHT) == KeyStatus.PRESSED:
+                self.cursor_action += 1
+                self._set_cursor_action()
+        else:
+            # key bind がある場合は押してあるkeyでなければnoop
+            action = self._get_action_from_key_bind(self.get_down_keys())
+            if action is None:
+                action = self.noop
+            self.playable_callback.action = action
+
+        if self.is_pause:
+            if self.frameadvance:
+                self._step()
+                self.frameadvance = False
+        elif time.time() - self.step_t0 > self.env_interval / 1000:
+            self.step_t0 = time.time()
+            self._step()
 
     def _get_action_from_key_bind(self, key):
         key = tuple(sorted(key))

@@ -1237,13 +1237,6 @@ class RunnerFacade(Runner):
         self.context.rendering = True
         self.context.render_mode = mode
 
-        self._base_run_play_before(
-            enable_checkpoint=False,
-            enable_history_on_memory=False,
-            enable_history_on_file=False,
-            callbacks=callbacks,
-        )
-
         from srl.utils.common import is_packages_installed
 
         error_text = "This run requires installation of 'PIL', 'pygame'. "
@@ -1252,15 +1245,15 @@ class RunnerFacade(Runner):
 
         from srl.runner.game_windows.playable_game import PlayableGame
 
+        workers, main_worker_idx = self.make_workers()
         game = PlayableGame(
-            runner=self,
+            env=self.make_env(),
+            context=self.context,
+            workers=workers,
             view_state=view_state,
             action_division_num=action_division_num,
             key_bind=key_bind,
-            enable_memory=enable_memory,
             callbacks=callbacks,
             _is_test=_is_test,
         )
         game.play()
-
-        self._base_run_play_after(callbacks=callbacks)

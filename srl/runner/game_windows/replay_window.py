@@ -165,7 +165,7 @@ class RePlayableGame(GameWindow):
         else:
             t.append("p  : pause/unpause (UnPause)")
         t.append("r  : Reset")
-        t.append(f"-+ : change speed ({self.interval:.0f}ms; {1000/self.interval:.1f}fps)")
+        t.append(f"-+ : change speed ({self.interval:.0f}ms; {1000 / self.interval:.1f}fps)")
         self.add_hotkey_texts(t)
 
         if len(self.episode_data) == 0:

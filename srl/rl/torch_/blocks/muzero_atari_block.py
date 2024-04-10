@@ -14,62 +14,57 @@ class MuZeroAtariBlock(nn.Module):
         filters: int = 128,
         activation="ReLU",
         use_layer_normalization: bool = False,
-        **kwargs,
+        flatten: bool = False,
     ):
-        super().__init__(**kwargs)
+        super().__init__()
 
         activation = convert_activation_torch(activation)
 
-        in_ch = in_shape[0]
-        self.conv1 = nn.Conv2d(
-            in_channels=in_ch,
-            out_channels=filters,
-            kernel_size=(3, 3),
-            stride=2,
-            padding=1,
-            bias=False,
+        in_ch = in_shape[-3]
+        self.h_layers = nn.ModuleList(
+            [
+                nn.Conv2d(
+                    in_channels=in_ch,
+                    out_channels=filters,
+                    kernel_size=(3, 3),
+                    stride=2,
+                    padding=1,
+                    bias=False,
+                ),
+                activation(inplace=True),
+                _ResidualBlock(filters, activation, use_layer_normalization),
+                _ResidualBlock(filters, activation, use_layer_normalization),
+                nn.Conv2d(
+                    in_channels=filters,
+                    out_channels=filters * 2,
+                    kernel_size=(3, 3),
+                    stride=2,
+                    padding=1,
+                    bias=False,
+                ),
+                activation(inplace=True),
+                _ResidualBlock(filters * 2, activation, use_layer_normalization),
+                _ResidualBlock(filters * 2, activation, use_layer_normalization),
+                _ResidualBlock(filters * 2, activation, use_layer_normalization),
+                nn.AvgPool2d(kernel_size=3, stride=2, padding=1),
+                _ResidualBlock(filters * 2, activation, use_layer_normalization),
+                _ResidualBlock(filters * 2, activation, use_layer_normalization),
+                _ResidualBlock(filters * 2, activation, use_layer_normalization),
+                nn.AvgPool2d(kernel_size=3, stride=2, padding=1),
+            ]
         )
-        self.act1 = activation(inplace=True)
-        self.resblock1 = _ResidualBlock(filters, activation, use_layer_normalization)
-        self.resblock2 = _ResidualBlock(filters, activation, use_layer_normalization)
-        self.conv2 = nn.Conv2d(
-            in_channels=filters,
-            out_channels=filters * 2,
-            kernel_size=(3, 3),
-            stride=2,
-            padding=1,
-            bias=False,
-        )
-        self.act2 = activation(inplace=True)
-        self.resblock3 = _ResidualBlock(filters * 2, activation, use_layer_normalization)
-        self.resblock4 = _ResidualBlock(filters * 2, activation, use_layer_normalization)
-        self.resblock5 = _ResidualBlock(filters * 2, activation, use_layer_normalization)
-        self.pool1 = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
-        self.resblock6 = _ResidualBlock(filters * 2, activation, use_layer_normalization)
-        self.resblock7 = _ResidualBlock(filters * 2, activation, use_layer_normalization)
-        self.resblock8 = _ResidualBlock(filters * 2, activation, use_layer_normalization)
-        self.pool2 = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
 
         # --- out shape
         x = np.ones((1,) + in_shape, dtype=np.float32)
         y = self.forward(torch.tensor(x))
-        self.out_shape = y.shape[1:]
+        if flatten:
+            self.out_size = y.shape[-1]
+        else:
+            self.out_shape = y.shape[-3:]
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.act1(x)
-        x = self.resblock1(x)
-        x = self.resblock2(x)
-        x = self.conv2(x)
-        x = self.act2(x)
-        x = self.resblock3(x)
-        x = self.resblock4(x)
-        x = self.resblock5(x)
-        x = self.pool1(x)
-        x = self.resblock6(x)
-        x = self.resblock7(x)
-        x = self.resblock8(x)
-        x = self.pool2(x)
+        for layer in self.h_layers:
+            x = layer(x)
         return x
 
 

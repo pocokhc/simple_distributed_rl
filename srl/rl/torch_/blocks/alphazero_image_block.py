@@ -14,36 +14,42 @@ class AlphaZeroImageBlock(nn.Module):
         n_blocks: int = 19,
         filters: int = 256,
         activation="ReLU",
-        **kwargs,
+        flatten: bool = False,
     ):
-        super().__init__(**kwargs)
+        super().__init__()
 
         activation = convert_activation_torch(activation)
 
-        in_ch = in_shape[0]
-        self.conv1 = nn.Conv2d(
-            in_channels=in_ch,
-            out_channels=filters,
-            kernel_size=(3, 3),
-            padding=1,
-            bias=False,
+        in_ch = in_shape[-3]
+        self.h_layers = nn.ModuleList(
+            [
+                nn.Conv2d(
+                    in_channels=in_ch,
+                    out_channels=filters,
+                    kernel_size=(3, 3),
+                    padding=1,
+                    bias=False,
+                ),
+                nn.BatchNorm2d(filters),
+                activation(inplace=True),
+            ]
         )
-        self.bn1 = nn.BatchNorm2d(filters)
-        self.act1 = activation(inplace=True)
-
-        self.resblocks = nn.ModuleList([_ResidualBlock(filters, filters, activation) for _ in range(n_blocks)])
+        for _ in range(n_blocks):
+            self.h_layers.append(_ResidualBlock(filters, filters, activation))
+        if flatten:
+            self.h_layers.append(nn.Flatten())
 
         # --- out shape
         x = np.ones((1,) + in_shape, dtype=np.float32)
         y = self.forward(torch.tensor(x))
-        self.out_shape = y.shape[1:]
+        if flatten:
+            self.out_size = y.shape[-1]
+        else:
+            self.out_shape = y.shape[-3:]
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.act1(x)
-        for resblock in self.resblocks:
-            x = resblock(x)
+        for layer in self.h_layers:
+            x = layer(x)
         return x
 
 

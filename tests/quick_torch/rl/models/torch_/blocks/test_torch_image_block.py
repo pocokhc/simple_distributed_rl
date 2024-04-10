@@ -38,7 +38,7 @@ def test_torch_image(name):
     block = config.create_block_torch(x.shape[1:])
     y = block(x)
     y = y.detach().numpy()
+    print(block)
 
     assert y.shape == out_shape2
     assert block.out_shape == out_shape
-    print(block)

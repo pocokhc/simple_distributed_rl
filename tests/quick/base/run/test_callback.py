@@ -1,3 +1,5 @@
+from typing import Optional
+
 import pytest
 import pytest_mock
 import pytest_timeout  # noqa F401
@@ -6,8 +8,31 @@ import srl
 from srl.algorithms import ql, ql_agent57
 from srl.base.context import RunContext
 from srl.base.run.callback import RunCallback, TrainerCallback
-from srl.base.run.core_play import play
-from srl.base.run.core_train_only import play_trainer_only
+from srl.base.run.core_play import RunStateActor, play
+from srl.base.run.core_train_only import RunStateTrainer, play_trainer_only
+
+
+class DummyCallback(RunCallback):
+    def on_episode_begin(self, context: RunContext, state: RunStateActor) -> None:
+        pass  # do nothing
+
+    def on_episode_end(self, context: RunContext, state: RunStateActor) -> None:
+        pass  # do nothing
+
+    def on_step_action_before(self, context: RunContext, state: RunStateActor) -> None:
+        pass  # do nothing
+
+    def on_step_action_after(self, context: RunContext, state: RunStateActor) -> None:
+        pass  # do nothing
+
+    def on_step_begin(self, context: RunContext, state: RunStateActor) -> None:
+        pass  # do nothing
+
+    def on_step_end(self, context: RunContext, state: RunStateActor) -> Optional[bool]:
+        return False
+
+    def on_skip_step(self, context: RunContext, state: RunStateActor) -> None:
+        pass  # do nothing
 
 
 def test_callback(mocker: pytest_mock.MockerFixture):
@@ -18,12 +43,12 @@ def test_callback(mocker: pytest_mock.MockerFixture):
     parameter = srl.make_parameter(rl_config, env)
     memory = srl.make_memory(rl_config, env)
     trainer = srl.make_trainer(rl_config, parameter, memory)
-    c = mocker.Mock(spec=RunCallback)
+    workers, main_worker_idx = srl.make_workers([], env, parameter, memory, rl_config)
+    c = mocker.Mock(spec=DummyCallback)
 
     context = RunContext()
     context.training = True
     context.max_episodes = 1
-    workers, main_worker_idx = context.make_workers(env, parameter, memory, rl_config)
     state = play(context, env, workers, main_worker_idx, trainer=trainer, callbacks=[c])
 
     assert state.total_step >= 1
@@ -34,8 +59,14 @@ def test_callback(mocker: pytest_mock.MockerFixture):
     assert c.on_episode_end.call_count == 1
     assert c.on_step_begin.call_count >= 1
     assert c.on_step_begin.call_count == c.on_step_action_before.call_count
+    assert c.on_step_begin.call_count == c.on_step_action_after.call_count
     assert c.on_step_begin.call_count == c.on_step_end.call_count
     assert c.on_skip_step.call_count >= 1  # episode終了タイミングで変化する
+
+
+class DummyTrainerCallback(TrainerCallback):
+    def on_trainer_loop(self, context: RunContext, state: RunStateTrainer) -> Optional[bool]:
+        return False
 
 
 @pytest.mark.timeout(2)  # pip install pytest_timeout
@@ -48,12 +79,12 @@ def test_trainer_callback(mocker: pytest_mock.MockerFixture):
     env = srl.make_env(env_config)
     parameter = srl.make_parameter(rl_config, env)
     memory = srl.make_memory(rl_config, env)
+    workers, main_worker_idx = srl.make_workers([], env, parameter, memory, rl_config)
 
     context = RunContext()
     context.training = True
     context.max_memory = 100
     context.disable_trainer = True
-    workers, main_worker_idx = context.make_workers(env, parameter, memory, rl_config)
     play(context, env, workers, main_worker_idx)
     assert memory.length() == 100
 
@@ -61,7 +92,7 @@ def test_trainer_callback(mocker: pytest_mock.MockerFixture):
     context.training = True
     context.max_train_count = 10
     trainer = srl.make_trainer(rl_config, parameter, memory, env=env)
-    c = mocker.Mock(spec=TrainerCallback)
+    c = mocker.Mock(spec=DummyTrainerCallback)
     play_trainer_only(context, trainer, callbacks=[c])
 
     assert c.on_trainer_start.call_count == 1

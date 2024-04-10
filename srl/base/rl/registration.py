@@ -110,20 +110,29 @@ def make_worker(
     return WorkerRun(worker, env)
 
 
-def make_worker_rulebase(name: str, env: EnvRun, worker_kwargs: dict = {}) -> WorkerRun:
-    # --- srl内はloadする
-    if name not in _registry_worker:
-        if name == "human":
-            import srl.rl.human  # noqa F401
-        elif name == "random":
-            import srl.rl.random_play  # noqa F401
+def make_worker_rulebase(
+    name_or_config: Union[str, RLConfig],
+    env: EnvRun,
+    worker_kwargs: dict = {},
+) -> WorkerRun:
+    # --- 特殊
+    if name_or_config == "human":
+        import srl.rl.human
 
-    # dummy config
-    rl_config = DummyRLConfig(name=name)
-    rl_config.setup(env, enable_log=False)
+        config: RLConfig = srl.rl.human.Config()
 
-    assert name in _registry_worker, f"{name} is not registered."
-    worker = load_module(_registry_worker[name])(config=rl_config, **worker_kwargs)
+    elif name_or_config == "random":
+        import srl.rl.random_play
+
+        config: RLConfig = srl.rl.random_play.Config()
+    else:
+        config: RLConfig = DummyRLConfig(name=name_or_config) if isinstance(name_or_config, str) else name_or_config
+
+    # setup
+    config.setup(env, enable_log=False)
+
+    assert config.get_name() in _registry_worker, f"{config.get_name()} is not registered."
+    worker = load_module(_registry_worker[config.get_name()])(config=config, **worker_kwargs)
     return WorkerRun(worker, env)
 
 
@@ -233,16 +242,17 @@ def register(
 
 
 def register_rulebase(
-    name: str,
+    name_or_config: Union[str, RLConfig],
     entry_point: str,
     enable_assert: bool = True,
 ) -> None:
     global _registry_worker
+    config: RLConfig = DummyRLConfig(name=name_or_config) if isinstance(name_or_config, str) else name_or_config
 
     if enable_assert:
-        assert name not in _registry, f"{name} was already registered."
-    elif name in _registry:
+        assert config.get_name() not in _registry, f"{config.get_name()} was already registered."
+    elif config.get_name() in _registry:
         # 既にあれば上書き
-        logger.warning(f"{name} was already registered, but I overwrote it. entry_point={entry_point}")
+        logger.warning(f"{config.get_name()} was already registered, but I overwrote it. entry_point={entry_point}")
 
-    _registry_worker[name] = entry_point
+    _registry_worker[config.get_name()] = entry_point

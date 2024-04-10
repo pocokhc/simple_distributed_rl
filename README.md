@@ -190,15 +190,16 @@ worker.on_start()
 # 1 episode initializing phase
 env.reset()
 worker.on_reset()
-env.render()
 
 # 1 episode loop
 while not env.done:
+    env.render()
     action = worker.policy()  # parameter reference
     worker.render()
     env.step(action)
     worker.on_step()
-    env.render()
+env.render()
+worker.render()
 ```
 
 # 4. Algorithms

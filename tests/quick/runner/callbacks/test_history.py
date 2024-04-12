@@ -22,24 +22,27 @@ def test_on_memory_train(interval_mode):
 
     runner.set_history_on_memory(interval_mode=interval_mode, enable_eval=True)
     if interval_mode == "step":
-        runner.train(max_episodes=10)
+        runner.train(max_steps=10)
     else:
         runner.train(timeout=1.2)
 
     history = runner.get_history()
     pprint(history.logs[-1])
     if interval_mode == "step":
-        assert len(history.logs) == 10
+        assert len(history.logs) == 10 + 1
     assert history.logs[0]["name"] == "actor0"
     assert history.logs[0]["time"] >= 0
+    assert history.logs[0]["step"] >= 0
+    assert history.logs[0]["episode"] >= 0
+    assert history.logs[0]["episode_step"] >= 0
     assert history.logs[0]["episode_time"] >= 0
-    assert history.logs[0]["reward0"] > -2
-    assert history.logs[0]["reward1"] > -2
     assert history.logs[0]["eval_reward0"] > -2
     assert history.logs[0]["eval_reward1"] > -2
     assert history.logs[0]["memory"] >= 0
     for i, h in enumerate(history.logs):
-        assert h["episode"] == i
+        if h["episode"] > 0:
+            assert h["reward0"] > -2
+            assert h["reward1"] > -2
 
 
 def test_on_memory_train_plot():
@@ -134,6 +137,7 @@ def test_on_file_train(tmp_path, interval_mode):
 
     # actor
     actor_log = [h for h in history.logs if h["name"] == "actor0"]
+    pprint(actor_log)
     if interval_mode == "step":
         assert len(actor_log) >= 1
     else:
@@ -142,9 +146,12 @@ def test_on_file_train(tmp_path, interval_mode):
         assert h["time"] >= 0
         assert h["train"] >= 0
         assert h["memory"] >= 0
-        if "episode_time" in h:
+        assert h["step"] >= 0
+        assert h["episode"] >= 0
+        assert h["episode_time"] >= 0
+        assert h["episode_step"] >= 0
+        if h["episode"] > 0:
             assert h["episode_time"] >= 0
-            assert h["episode"] >= 0
             assert h["reward0"] > -2
             assert h["reward1"] > -2
             assert h["eval_reward0"] > -2

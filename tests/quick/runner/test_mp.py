@@ -114,7 +114,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
             def __init__(self, train_end_signal: ValueProxy[bool]):
                 self.train_end_signal = train_end_signal
 
-            def on_trainer_loop(self, context: RunContext, state: RunStateTrainer) -> None:
+            def on_train_after(self, context: RunContext, state: RunStateTrainer) -> None:
                 assert state.trainer is not None
                 if state.trainer.get_train_count() > 10:
                     self.train_end_signal.value = True

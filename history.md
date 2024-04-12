@@ -12,6 +12,7 @@
 1. RLWorkerからworker_run.stateで特定の型を指定する方法が分からない…
 1. DemoMemory
 1. configのjson保存
+1. RLTrainerでinfoの計算コストをどうするか
 
 
 # v0.15.3
@@ -21,9 +22,16 @@
 1. [base] change: make_workersをbase.contextからbase.rl.registrationに移動
 1. [base.rl.config] add: RLConfig側にもframeskipを追加
 1. [runner.play_window] update
+1. [base.rl.registration] change: rulebaseにRLConfigを設定できるように変更 
 1. [base.run] update: callbacksの処理を変更（多分少し早くなる）
 1. [base.run.callback] add: on_step_action_afterを追加
-1. [base.rl.registration] change: rulebaseにRLConfigを設定できるように変更 
+1. [base.run.callbacks] change: on_tainer_loopをon_train_afterに変更し、on_train_beforeを追加
+1. [runner.callbacks] history をリファクタリング
+   1. change: history_on_fileでdirを指定しない場合tmpに出力するように変更
+   1. change: on_filetとon_memoryのinfo参照をprintと同じで取得時のみに変更し軽量化
+   1. add: historyにstep情報も追加
+   1. add: base.run.core_play.RunStateActorにlast_episode_step等の簡易情報を追加
+   1. delete: RLTrainerからget_infoを削除、infoの生成方法は保留
 
 **OtherUpdates**
 
@@ -32,6 +40,8 @@
 1. [base.env.env_run] fix: stepで例外終了した場合の処理を分かりやすく変更
 1. [rl.functions.helper] update: render_discrete_actionでactionが多い場合に非表示
 1. [base.env.env_run] update: get_valid_actionsの処理を更新
+1. [rl.functions] move: twohotの位置をcommonからhelperに移動
+1. [rl.torch.helper] add: twohotを追加
 
 **Bug Fixes**
 

@@ -44,7 +44,10 @@ class TrainerCallback(ABC):
         pass  # do nothing
 
     # --- 実装されている場合に実行
-    # def on_trainer_loop(self, context: "RunContext", state: "RunStateTrainer") -> Optional[bool]:
+    # def on_train_before(self, context: "RunContext", state: "RunStateTrainer") -> None:
+    #    pass  # do nothing
+
+    # def on_train_after(self, context: "RunContext", state: "RunStateTrainer") -> Optional[bool]:
     #    """If return is True, it will end intermediate stop."""
     #    return False
 

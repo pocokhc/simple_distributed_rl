@@ -14,7 +14,7 @@ from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callback import RunnerCallback
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.runner import Runner
-from srl.utils.util_str import to_str_info, to_str_reward, to_str_time
+from srl.utils.util_str import to_str_env_info, to_str_reward, to_str_time, to_str_trainer_info, to_str_worker_info
 
 logger = logging.getLogger(__name__)
 
@@ -262,15 +262,12 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
 
         # [info] , 速度優先して一番最新の状態をそのまま表示
         s_info = ""
-        stypes = state.env.info_types
-        rl_types = state.worker.config.get_info_types()
         if self.progress_env_info:
-            s_info += to_str_info(state.env.info, stypes)
+            s_info += to_str_env_info(state.env)
         if self.progress_worker_info:
-            s_info += to_str_info(state.workers[self.progress_worker].info, rl_types)
+            s_info += to_str_worker_info(state.workers[self.progress_worker])
         if self.progress_train_info:
-            if state.trainer is not None:
-                s_info += to_str_info(state.trainer.get_info(), rl_types)
+            s_info += to_str_trainer_info(state.trainer)
 
         if self.single_line:
             print(s + s_info)
@@ -332,15 +329,17 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self.t0_train_time = _time
         self.t0_train_count = 0
         self.t0_trainer_recv_q = 0
+        self._run_print = False
 
     def on_trainer_end(self, context: RunContext, state: RunStateTrainer) -> None:
         self._print_trainer(context, state)
 
-    def on_trainer_loop(self, context: RunContext, state: RunStateTrainer) -> None:
+    def on_train_after(self, context: RunContext, state: RunStateTrainer) -> bool:
         if time.time() - self.progress_t0 > self.progress_timeout:
             self._print_trainer(context, state)
             self._update_progress()
             self.progress_t0 = time.time()  # last
+        return False
 
     def _print_trainer(self, context: RunContext, state: RunStateTrainer):
         _time = time.time()
@@ -412,8 +411,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         # [info] , 速度優先して一番最新の状態をそのまま表示
         s_info = ""
         if self.progress_train_info:
-            if state.trainer is not None:
-                s_info += to_str_info(state.trainer.get_info(), state.trainer.config.get_info_types())
+            s_info += to_str_trainer_info(state.trainer)
 
         if self.single_line:
             print(s + s_info)

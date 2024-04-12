@@ -1,8 +1,14 @@
-from typing import List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 
 import numpy as np
 
-from srl.base.define import InfoType
+if TYPE_CHECKING:
+    from srl.base.define import InfoType
+    from srl.base.env.env_run import EnvRun
+    from srl.base.rl.config import RLConfig
+    from srl.base.rl.parameter import RLParameter
+    from srl.base.rl.trainer import RLTrainer
+    from srl.base.rl.worker_run import WorkerRun
 
 
 def to_str_time(sec: float) -> str:
@@ -33,7 +39,7 @@ def to_str_reward(reward: Union[int, float], check_skip: bool = False) -> str:
             return "{:6.1f}".format(float(reward))
 
 
-def to_str_info(info: Optional[InfoType], types={}) -> str:
+def to_str_info(info: Optional["InfoType"], types={}) -> str:
     if info is None:
         return ""
 
@@ -72,7 +78,25 @@ def to_str_info(info: Optional[InfoType], types={}) -> str:
     return s
 
 
-def to_str_from_list_info(infos: List[InfoType], types={}) -> str:
+def to_str_env_info(env: Optional["EnvRun"]) -> str:
+    if env is None:
+        return ""
+    return to_str_info(env.info, env.info_types)
+
+
+def to_str_worker_info(worker: Optional["WorkerRun"]) -> str:
+    if worker is None:
+        return ""
+    return to_str_info(worker.info, worker.config.get_info_types())
+
+
+def to_str_trainer_info(trainer: Optional["RLTrainer[RLConfig, RLParameter]"]) -> str:
+    if trainer is None:
+        return ""
+    return to_str_info(trainer.info, trainer.config.get_info_types())
+
+
+def to_str_from_list_info(infos: List["InfoType"], types={}) -> str:
     info2 = {}
     for info in infos:
         if info is None:

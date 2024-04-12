@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class HistoryOnFile(DistributionCallback, Evaluate):
     # redisサーバへの情報取得なので、keepalive以上の情報は取得できません
-    save_dir: str = "history"
+    save_dir: str = ""
     interval: int = 10  # s
     add_history: bool = False
 

@@ -6,6 +6,7 @@ import traceback
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 
 import numpy as np
+
 from srl.base.context import RunContext
 from srl.base.define import (
     DoneTypes,
@@ -387,6 +388,10 @@ class EnvRun:
     @property
     def step_num(self) -> int:
         return self._step_num
+
+    @property
+    def elapsed_time(self) -> float:
+        return time.time() - self._t0
 
     @property
     def done(self) -> bool:

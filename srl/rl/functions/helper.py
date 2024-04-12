@@ -109,6 +109,27 @@ def one_hot(x, size: int, dtype=np.float32):
     return np.identity(size, dtype=dtype)[x]
 
 
+def twohot_encode(x, size: int, low: float, high: float) -> np.ndarray:  # List[float]
+    x = np.clip(x, a_min=low, a_max=high)
+    # 0-bins のサイズで正規化
+    x = (size - 1) * (x - low) / (high - low)
+    # 整数部:idx 小数部:weight
+    idx = np.floor(x).astype(np.int32)
+    w = (x - idx)[..., np.newaxis]
+
+    onehot = np.identity(size, dtype=np.float32)
+    onehot = np.vstack([onehot, np.zeros(size)])
+    onehot1 = onehot[idx]
+    onehot2 = onehot[idx + 1]
+    return onehot1 * (1 - w) + onehot2 * w
+
+
+def twohot_decode(x, size: int, low: float, high: float):
+    bins = np.arange(0, size)
+    x = np.dot(x, bins)
+    return (x / (size - 1)) * (high - low) + low
+
+
 def image_processor(
     rgb_array: np.ndarray,  # (H,W,C)
     from_space_type: SpaceTypes,

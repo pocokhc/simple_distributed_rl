@@ -1,6 +1,7 @@
 import os
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 import srl
 from srl.algorithms import agent57
@@ -10,6 +11,35 @@ common.logger_print()
 
 
 def main():
+    env_config = srl.EnvConfig("Pendulum-v1")
+    rl_config = agent57.Config(
+        lstm_units=128,
+        batch_size=64,
+        lr_ext=0.001,
+        lr_int=0.001,
+        target_model_update_interval=100,
+        enable_rescale=False,
+        burnin=5,
+        sequence_length=5,
+        actor_num=1,
+    )
+    rl_config.hidden_block.set((64, 64))
+    rl_config.memory.capacity = 100_000
+    runner = srl.Runner(env_config, rl_config)
+    runner.model_summary()
+
+    # --- train
+    runner.set_history_on_memory()
+    runner.train(max_episodes=200)
+    history = runner.get_history()
+    history.plot()
+
+    # --- evaluate
+    rewards = runner.evaluate(max_episodes=10)
+    print(f"Average reward for 10 episodes: {np.mean(rewards)}")
+
+
+def main_compare():
     env_config = srl.EnvConfig("Pendulum-v1")
     rl_configs = []
 
@@ -56,8 +86,8 @@ def main():
     for name, rl_config in rl_configs:
         print(name)
         runner = srl.Runner(env_config, rl_config)
-        runner.set_history_on_memory()
-        runner.train(max_train_count=200 * 100)
+        runner.set_history_on_file()
+        runner.train_mp(max_train_count=200 * 100)
         df = runner.get_history().get_df()
         results.append((name, df))
 
@@ -77,3 +107,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # main_compare()

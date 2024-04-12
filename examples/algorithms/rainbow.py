@@ -1,12 +1,39 @@
 import os
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 import srl
 from srl.algorithms import dqn, rainbow
 
 
 def main():
+    env_config = srl.EnvConfig("Pendulum-v1")
+    rl_config = rainbow.Config(
+        lr=0.0005,
+        enable_double_dqn=True,
+        enable_noisy_dense=False,
+        multisteps=1,
+        enable_rescale=False,
+    )
+    rl_config.hidden_block.set_dueling_network((64, 64))
+    rl_config.memory.set_proportional_memory()
+    runner = srl.Runner(env_config, rl_config)
+    runner.set_device("CPU")
+    runner.model_summary()
+
+    # --- train
+    runner.set_history_on_memory()
+    runner.train(max_episodes=200)
+    history = runner.get_history()
+    history.plot(ylabel_right=["trainer_loss"])
+
+    # --- evaluate
+    rewards = runner.evaluate(max_episodes=20)
+    print(f"Average reward for 20 episodes: {np.mean(rewards)}")
+
+
+def main_compare():
     env_config = srl.EnvConfig("Pendulum-v1")
     rl_configs = []
 
@@ -61,17 +88,18 @@ def main():
     results = []
     for name, rl_config in rl_configs:
         runner = srl.Runner(env_config, rl_config)
+        runner.set_device("CPU")
         print(name)
 
         # --- train
-        runner.set_history_on_memory(enable_eval=True)
+        runner.set_history_on_memory(enable_eval=True, interval=200, interval_mode="step")
         runner.train(max_episodes=200)
         results.append((name, runner.get_history().get_df()))
 
-    plt.xlabel("episode")
+    plt.xlabel("step")
     plt.ylabel("valid reward")
     for name, df in results:
-        plt.plot(df["episode"], df["eval_reward0"].rolling(50).mean(), label=name)
+        plt.plot(df["step"], df["eval_reward0"].rolling(50).mean(), label=name)
     plt.grid()
     plt.legend()
     plt.tight_layout()
@@ -81,3 +109,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    main_compare()

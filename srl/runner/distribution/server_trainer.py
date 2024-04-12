@@ -184,7 +184,7 @@ class _TrainerInterruptThread(TrainerCallback):
         self.parameter_ps = parameter_ps
         self.share_data = share_data
 
-    def on_trainer_loop(self, context: RunContext, state: RunStateTrainer) -> bool:
+    def on_train_before(self, context: RunContext, state: RunStateTrainer) -> bool:
         if not state.is_step_trained:
             # warmupなら待機
             time.sleep(1)
@@ -218,7 +218,7 @@ class _TrainerInterruptNoThread(TrainerCallback):
         self.sync_parameter_t0 = time.time()
         self.start_train_count = self.task_manager.get_train_count()
 
-    def on_trainer_loop(self, context: RunContext, state: RunStateTrainer) -> bool:
+    def on_train_before(self, context: RunContext, state: RunStateTrainer) -> bool:
         state.memory = cast(RLMemory, state.memory)
 
         # --- recv memory

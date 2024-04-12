@@ -299,7 +299,7 @@ class _TrainerInterrupt(TrainerCallback):
         self.parameter_ps = parameter_ps
         self.t0_health = time.time()
 
-    def on_trainer_loop(self, context: RunContext, state: RunStateTrainer) -> bool:
+    def on_train_after(self, context: RunContext, state: RunStateTrainer) -> bool:
         if not state.is_step_trained:
             time.sleep(1)  # warmupなら待機
         if time.time() - self.t0_health > 5:

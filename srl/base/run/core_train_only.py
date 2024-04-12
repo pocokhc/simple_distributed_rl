@@ -66,7 +66,8 @@ def _play_trainer_only(
     state.trainer.train_start(context)
 
     # 2 callbacks
-    _calls_on_trainer_loop: List[Any] = [c for c in callbacks if hasattr(c, "on_trainer_loop")]
+    _calls_on_train_before: List[Any] = [c for c in callbacks if hasattr(c, "on_train_before")]
+    _calls_on_train_after: List[Any] = [c for c in callbacks if hasattr(c, "on_train_after")]
     [c.on_trainer_start(context, state) for c in callbacks]
 
     # --- 3 init
@@ -86,11 +87,14 @@ def _play_trainer_only(
             state.end_reason = "max_train_count over."
             break
 
+        # callbacks
+        [c.on_train_before(context, state) for c in _calls_on_train_before]
+
         # --- train
         state.is_step_trained = state.trainer.core_train()
 
         # callbacks
-        _stop_flags = [c.on_trainer_loop(context, state) for c in _calls_on_trainer_loop]
+        _stop_flags = [c.on_train_after(context, state) for c in _calls_on_train_after]
         if True in _stop_flags:
             state.end_reason = "callback.trainer_intermediate_stop"
             break

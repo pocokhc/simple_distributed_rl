@@ -65,7 +65,10 @@ def test_callback(mocker: pytest_mock.MockerFixture):
 
 
 class DummyTrainerCallback(TrainerCallback):
-    def on_trainer_loop(self, context: RunContext, state: RunStateTrainer) -> Optional[bool]:
+    def on_train_before(self, context: RunContext, state: RunStateTrainer):
+        pass
+
+    def on_train_after(self, context: RunContext, state: RunStateTrainer) -> Optional[bool]:
         return False
 
 
@@ -96,5 +99,6 @@ def test_trainer_callback(mocker: pytest_mock.MockerFixture):
     play_trainer_only(context, trainer, callbacks=[c])
 
     assert c.on_trainer_start.call_count == 1
-    assert c.on_trainer_loop.call_count == 10
+    assert c.on_train_before.call_count == 10
+    assert c.on_train_after.call_count == 10
     assert c.on_trainer_end.call_count == 1

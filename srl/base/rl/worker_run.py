@@ -91,7 +91,7 @@ class WorkerRun:
         return self._player_index
 
     @property
-    def info(self) -> Optional[InfoType]:
+    def info(self) -> InfoType:
         return self._info
 
     @property
@@ -189,6 +189,8 @@ class WorkerRun:
                 is_dummy=False,
             )
             self._info = self._worker.on_reset(self)
+            if self._info is None:
+                self._info = {}
             self._is_reset = True
         else:
             # 2週目以降は step -> policy
@@ -238,6 +240,8 @@ class WorkerRun:
         self._reward = self.reward_encode(self._step_reward, self._env)
         self._env._done = self.done_encode(self._env._done, self._env)
         self._info = self._worker.on_step(self)
+        if self._info is None:
+            self._info = {}
         self._step_reward = 0
 
     def _set_invalid_actions(self):

@@ -19,7 +19,8 @@ from srl.base.env.registration import make as make_env
 from srl.base.rl.config import DummyRLConfig, RLConfig
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.registration import make_memory, make_parameter, make_trainer, make_worker, make_workers
+from srl.base.rl.registration import (make_memory, make_parameter,
+                                      make_trainer, make_worker, make_workers)
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run import core_play, core_train_only
@@ -31,7 +32,8 @@ from srl.utils.serialize import convert_for_json
 if TYPE_CHECKING:
     import psutil
 
-    from srl.runner.callbacks.history_viewer import HistoryViewer, HistoryViewers
+    from srl.runner.callbacks.history_viewer import (HistoryViewer,
+                                                     HistoryViewers)
 
 logger = logging.getLogger(__name__)
 
@@ -462,7 +464,7 @@ class Runner:
             tf_enable_memory_growth (bool, optional): tensorflowにて、'set_memory_growth(True)' を実行する. Defaults to True.
         """
         if Runner.__setup_device:
-            logger.warning("Device cannot be changed after initialization.")
+            logger.warning(f"Device cannot be changed after initialization.(Run device: {Runner.__setup_device})")
             return
 
         self.config.device = device
@@ -821,11 +823,6 @@ class Runner:
         return HistoryViewers(history_dirs)
 
     def get_history(self) -> "HistoryViewer":
-        if self._history_on_file_kwargs is not None:
-            from srl.runner.callbacks.history_viewer import HistoryViewer
-
-            return HistoryViewer(self._history_on_file_kwargs["save_dir"])
-
         assert self.history_viewer is not None
         return self.history_viewer
 
@@ -866,7 +863,7 @@ class Runner:
 
     def set_history_on_file(
         self,
-        save_dir: str,
+        save_dir: str = "",
         interval: int = 1,
         interval_mode: str = "time",
         add_history: bool = False,
@@ -881,7 +878,7 @@ class Runner:
         """学習履歴を保存する設定を指定します。
 
         Args:
-            save_dir (str): 保存するディレクトリ
+            save_dir (str, optional): 保存するディレクトリ、""の場合tmpフォルダを作成
             interval (int, optional): 学習履歴を保存する間隔. Defaults to 1.
             interval_mode (str, optional): 学習履歴を保存する間隔の単位(time:秒、step:step). Defaults to "time".
             add_history (bool, optional): 追記で学習履歴を保存. Defaults to False.
@@ -996,7 +993,8 @@ class Runner:
         # --- history ---
         if self._history_on_memory_kwargs is not None:
             if enable_history_on_memory:
-                from srl.runner.callbacks.history_on_memory import HistoryOnMemory
+                from srl.runner.callbacks.history_on_memory import \
+                    HistoryOnMemory
 
                 callbacks.append(HistoryOnMemory(**self._history_on_memory_kwargs))
                 logger.info("add callback HistoryOnMemory")

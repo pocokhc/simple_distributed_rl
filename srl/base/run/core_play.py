@@ -48,6 +48,16 @@ class RunStateActor:
     sync_actor: int = 0
     actor_send_q: int = 0
 
+    # info(簡単な情報はここに保存)
+    last_episode_step: float = 0
+    last_episode_time: float = 0
+
+    @property
+    def last_episode_rewards(self) -> List[float]:
+        if len(self.episode_rewards_list) == 0:
+            return []
+        return self.episode_rewards_list[-1]
+
     def to_dict(self) -> dict:
         dat: dict = convert_for_json(self.__dict__)
         return dat
@@ -244,13 +254,12 @@ def _play(
                     #    logger.info("Policy error in termination status (for rendering)")
                     w.render()
 
-            # rewardは学習中は不要
-            if not context.training:
-                worker_rewards = [
-                    state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)
-                ]
-                state.episode_rewards_list.append(worker_rewards)
+            # reward
+            worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
+            state.episode_rewards_list.append(worker_rewards)
 
+            state.last_episode_step = state.env.step_num
+            state.last_episode_time = state.env.elapsed_time
             [c.on_episode_end(context, state) for c in _calls_on_episode_end]
 
         if True in _stop_flags:
@@ -442,13 +451,12 @@ def play_generator(
                 if w.rendering:
                     w.render()
 
-            # rewardは学習中は不要
-            if not context.training:
-                worker_rewards = [
-                    state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)
-                ]
-                state.episode_rewards_list.append(worker_rewards)
+            # reward
+            worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
+            state.episode_rewards_list.append(worker_rewards)
 
+            state.last_episode_step = state.env.step_num
+            state.last_episode_time = state.env.elapsed_time
             [c.on_episode_end(context, state) for c in _calls_on_episode_end]
             yield ("on_episode_end", context, state)
 

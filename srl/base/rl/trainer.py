@@ -28,7 +28,7 @@ class RLTrainer(ABC, Generic[_TConfig, _TParameter]):
         self.__train_only = train_only
 
         self.batch_size: int = getattr(self.config, "batch_size", 1)
-        self.info: Optional[InfoType] = None
+        self.info: InfoType = {}
 
         # abstract value
         self.train_count: int = 0
@@ -48,15 +48,6 @@ class RLTrainer(ABC, Generic[_TConfig, _TParameter]):
     def train_end(self) -> None:
         pass
 
-    # abstract
-    def create_info(self) -> InfoType:
-        return {}
-
-    def get_info(self) -> InfoType:
-        if self.info is None:
-            self.info = self.create_info()
-        return self.info
-
     # --- properties
     @property
     def distributed(self) -> bool:
@@ -68,7 +59,6 @@ class RLTrainer(ABC, Generic[_TConfig, _TParameter]):
 
     # ----------------
     def core_train(self) -> bool:
-        self.info = None
         _prev_train = self.train_count
         self.train()
         return self.train_count > _prev_train

@@ -18,6 +18,7 @@ logs = [
         "time" : 学習実行時からの経過時間
 
         # --- episode関係
+        "step"         : 総ステップ数
         "episode"      : 総エピソード数
         "episode_step" : 1エピソードの総step
         "episode_time" : 1エピソードのtime

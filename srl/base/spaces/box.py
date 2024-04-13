@@ -176,6 +176,8 @@ class BoxSpace(SpaceBase[np.ndarray]):
     # create_division_tbl
     # --------------------------------------
     def create_division_tbl(self, division_num: int) -> None:
+        if self._stype == SpaceTypes.DISCRETE:
+            return
         if self._is_inf:  # infは定義できない
             return
         if division_num <= 0:
@@ -186,8 +188,9 @@ class BoxSpace(SpaceBase[np.ndarray]):
         low_flatten = self.low.flatten()
         high_flatten = self.high.flatten()
 
-        if len(low_flatten) ** division_num > 100_000:
-            logger.warn("It may take some time.")
+        N = len(low_flatten) ** division_num
+        if N > 100_000:
+            logger.warning(f"It may take some time.(N={N}={len(low_flatten)}**{division_num})")
 
         t0 = time.time()
         act_list = []

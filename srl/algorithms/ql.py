@@ -148,7 +148,7 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.parameter.Q[state][action] += lr * td_error
             self.train_count += 1
 
-        self.train_info = {
+        self.info = {
             "size": len(self.parameter.Q),
             "td_error": td_error,
             "lr": lr,

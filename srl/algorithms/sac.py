@@ -441,9 +441,7 @@ class Worker(RLWorker):
         self.state = worker.state
 
         p_dist = self.parameter.policy.policy(self.state[np.newaxis, ...])
-        if self.config.action_space.stype == SpaceTypes.DISCRETE:  # int
-            act_space = cast(DiscreteSpace, self.config.action_space)
-
+        if isinstance(self.config.action_space, DiscreteSpace):
             self.action = p_dist.sample(onehot=True).numpy()[0]
             env_action = int(np.argmax(self.action))
             if self.rendering:
@@ -453,9 +451,8 @@ class Worker(RLWorker):
             # env_action = self.sample_action()
             # self.action = np.identity(self.config.action_space.n, dtype=np.float32)[env_action]
 
-        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:  # float,list[float]
-            act_space = cast(ArrayContinuousSpace, self.config.action_space)
-
+        elif isinstance(self.config.action_space, ArrayContinuousSpace):
+            act_space = self.config.action_space
             if self.training:
                 self.action = p_dist.sample().numpy()[0]
             else:
@@ -474,7 +471,7 @@ class Worker(RLWorker):
                 self.stddev = p_dist.stddev().numpy()[0]
 
         else:
-            raise UndefinedError(self.config.action_space.stype)
+            raise UndefinedError(self.config.action_space)
 
         return env_action, {}
 

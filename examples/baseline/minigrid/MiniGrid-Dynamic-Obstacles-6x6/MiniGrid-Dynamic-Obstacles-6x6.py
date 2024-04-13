@@ -13,6 +13,7 @@ ENV_PRE = "MG_DO_6x6"
 
 def _train(name, rl_config):
     runner = srl.Runner("MiniGrid-Dynamic-Obstacles-6x6-v0", rl_config)
+    runner.set_device("CPU")
     runner.set_history_on_file(
         os.path.join(base_dir, f"_{ENV_PRE}_{name}"),
         enable_eval=True,
@@ -28,7 +29,14 @@ def main_ql():
 
 
 def main_search_dynaq():
-    _train("SearchDynaQ", search_dynaq.Config(q_ext_lr=BASE_LR, q_int_lr=BASE_LR))
+    _train(
+        "SearchDynaQ",
+        search_dynaq.Config(
+            q_ext_lr=BASE_LR,
+            q_int_lr=BASE_LR,
+            iteration_interval=50_000,
+        ),
+    )
 
 
 def compare():

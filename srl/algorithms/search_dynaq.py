@@ -42,7 +42,7 @@ class Config(RLConfig[DiscreteSpace, ArrayDiscreteSpace]):
     #: 方策反復法の学習完了の閾値
     iteration_threshold: float = 0.001
     #: 方策反復法を実行する間隔(学習回数)
-    iteration_interval: int = 1_000
+    iteration_interval: int = 10_000
 
     #: 外部報酬の割引率
     q_ext_discount: float = 0.9
@@ -378,7 +378,7 @@ class Trainer(RLTrainer[Config, Parameter]):
 
             self.train_count += 1
 
-        self.train_info = {
+        self.info = {
             "size": len(self.parameter.q_ext),
             "td_error_ext": abs(td_error_ext),
             "td_error_int": abs(td_error_int),

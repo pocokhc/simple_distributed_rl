@@ -121,7 +121,7 @@ class Trainer(RLTrainer[Config, Parameter]):
 
             self.train_count += 1
 
-        self.train_info = {"size": len(self.parameter.N)}
+        self.info = {"size": len(self.parameter.N)}
 
 
 # ------------------------------------------------------

@@ -26,7 +26,7 @@ def main():
     runner.set_history_on_memory()
     runner.train(max_episodes=200)
     history = runner.get_history()
-    history.plot(ylabel_right=["trainer_loss"])
+    history.plot()
 
     # --- evaluate
     rewards = runner.evaluate(max_episodes=20)

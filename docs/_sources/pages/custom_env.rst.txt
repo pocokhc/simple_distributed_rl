@@ -131,6 +131,10 @@ Gym環境を実装したクラスに以下の関数を追加すると本フレ�
 
    class MyGymEnv(gym.Env):
 
+      def setup(self, **kwargs):
+         """ srlのrunnerで、train等の実行単位の最初に呼ばれる関数 """
+         pass
+
       # backup/restore機能が追加されます
       def backup(self) -> Any:
          return data
@@ -233,12 +237,6 @@ EnvBase を継承した後に実装が必要な関数・プロパティは以下
          """ 次のプレイヤーindex """
          raise NotImplementedError()
 
-      # backup/restore で現環境を復元できるように実装
-      def backup(self) -> Any:
-         raise NotImplementedError()
-      def restore(self, data: Any) -> None:
-         raise NotImplementedError()
-
 
 一人プレイ用のクラス
 --------------------------
@@ -290,12 +288,6 @@ EnvBase を継承した後に実装が必要な関数・プロパティは以下
                info       : 任意の情報
          )
          """
-         raise NotImplementedError()
-
-      # backup/restore で現環境を復元できるように実装
-      def backup(self) -> Any:
-         raise NotImplementedError()
-      def restore(self, data: Any) -> None:
          raise NotImplementedError()
 
 
@@ -358,11 +350,6 @@ EnvBase を継承した後に実装が必要な関数・プロパティは以下
          """
          raise NotImplementedError()
 
-      # backup/restore で現環境を復元できるように実装
-      def backup(self) -> Any:
-         raise NotImplementedError()
-      def restore(self, data: Any) -> None:
-         raise NotImplementedError()
 
 
 その他オプション
@@ -371,6 +358,18 @@ EnvBase を継承した後に実装が必要な関数・プロパティは以下
 その他必須ではないですが、設定できる関数・プロパティとなります。
 
 .. code-block:: python
+
+   def start(self, **kwargs):
+      """ srlのrunnerで、train等の実行単位の最初に呼ばれる関数 
+      引数 kwargs は `srl.base.run.context.RunContext` の変数が入ります """
+      pass
+
+   # backup/restore で現環境を復元できるように実装
+   # MCTS等のアルゴリズムで使用します
+   def backup(self) -> Any:
+      raise NotImplementedError()
+   def restore(self, data: Any) -> None:
+      raise NotImplementedError()
 
    # --- 追加情報
    @property

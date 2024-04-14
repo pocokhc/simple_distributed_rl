@@ -1,6 +1,7 @@
 import pytest
 
 import srl
+import srl.runner
 
 
 def test_gym_retro():
@@ -10,8 +11,5 @@ def test_gym_retro():
 
     env_config = srl.EnvConfig("Airstriker-Genesis", gym_make_func=retro.make)
 
-    env = srl.make_env(env_config)
-    env.reset()
-    while not env.done:
-        env.step(env.sample_action())
-    env.close()
+    runner = srl.Runner(env_config)
+    runner.render_window()

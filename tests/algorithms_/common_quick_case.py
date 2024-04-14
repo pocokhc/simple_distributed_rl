@@ -56,6 +56,8 @@ class CommonQuickCase(ABC):
         tester.test(rl_config, test_mp=True, **test_kwargs)
 
     def test_input_image(self, rl_param):
+        pytest.importorskip("PIL")
+        pytest.importorskip("pygame")
         self.check_skip()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)

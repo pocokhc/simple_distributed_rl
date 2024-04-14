@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="ja" data-content_root="../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Make Original Environment &mdash; SimpleDistributedRL 0.15.0.2 ドキュメント</title>
+  <title>Make Original Environment &mdash; SimpleDistributedRL 0.15.3.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=a10218c4"></script>
+        <script src="../_static/documentation_options.js?v=a0fdc85c"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -242,6 +242,10 @@ gym.Envを継承して作成します。</p>
 （バージョンにより対応する項目は追加・変更する可能性があります）</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyGymEnv</span><span class="p">(</span><span class="n">gym</span><span class="o">.</span><span class="n">Env</span><span class="p">):</span>
 
+   <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; srlのrunnerで、train等の実行単位の最初に呼ばれる関数 &quot;&quot;&quot;</span>
+      <span class="k">pass</span>
+
    <span class="c1"># backup/restore機能が追加されます</span>
    <span class="k">def</span> <span class="nf">backup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
       <span class="k">return</span> <span class="n">data</span>
@@ -343,12 +347,6 @@ gym.Envを継承して作成します。</p>
    <span class="k">def</span> <span class="nf">next_player_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 次のプレイヤーindex &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-
-   <span class="c1"># backup/restore で現環境を復元できるように実装</span>
-   <span class="k">def</span> <span class="nf">backup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-   <span class="k">def</span> <span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 </pre></div>
 </div>
 </section>
@@ -398,12 +396,6 @@ gym.Envを継承して作成します。</p>
 <span class="sd">            info       : 任意の情報</span>
 <span class="sd">      )</span>
 <span class="sd">      &quot;&quot;&quot;</span>
-      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-
-   <span class="c1"># backup/restore で現環境を復元できるように実装</span>
-   <span class="k">def</span> <span class="nf">backup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-   <span class="k">def</span> <span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -462,19 +454,25 @@ gym.Envを継承して作成します。</p>
 <span class="sd">      )</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-
-   <span class="c1"># backup/restore で現環境を復元できるように実装</span>
-   <span class="k">def</span> <span class="nf">backup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-   <span class="k">def</span> <span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 </pre></div>
 </div>
 </section>
 <section id="id6">
 <h3>その他オプション<a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
 <p>その他必須ではないですが、設定できる関数・プロパティとなります。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- 追加情報</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot; srlのrunnerで、train等の実行単位の最初に呼ばれる関数</span>
+<span class="sd">   引数 kwargs は `srl.base.run.context.RunContext` の変数が入ります &quot;&quot;&quot;</span>
+   <span class="k">pass</span>
+
+<span class="c1"># backup/restore で現環境を復元できるように実装</span>
+<span class="c1"># MCTS等のアルゴリズムで使用します</span>
+<span class="k">def</span> <span class="nf">backup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+   <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+   <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+<span class="c1"># --- 追加情報</span>
 <span class="nd">@property</span>
 <span class="k">def</span> <span class="nf">reward_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">   </span><span class="sd">&quot;&quot;&quot; 報酬に関する情報を返す &quot;&quot;&quot;</span>
@@ -536,9 +534,9 @@ gym.Envを継承して作成します。</p>
 現状5種類あり以下となります。</p>
 <table class="docutils align-default">
 <colgroup>
-<col style="width: 8%" />
-<col style="width: 31%" />
-<col style="width: 62%" />
+<col style="width: 7.7%" />
+<col style="width: 30.8%" />
+<col style="width: 61.5%" />
 </colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>SpaceClass</p></th>
@@ -612,9 +610,9 @@ stypeはアルゴリズム側が認識する型となり、以下があります
 引数は以下です。</p>
 <table class="docutils align-default">
 <colgroup>
-<col style="width: 8%" />
-<col style="width: 31%" />
-<col style="width: 62%" />
+<col style="width: 7.7%" />
+<col style="width: 30.8%" />
+<col style="width: 61.5%" />
 </colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>引数</p></th>

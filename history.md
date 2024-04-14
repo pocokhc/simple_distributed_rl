@@ -13,7 +13,7 @@
 1. DemoMemory
 1. configのjson保存
 1. RLTrainerでinfoの計算コストをどうするか
-
+1. metrics?
 
 # v0.15.3
 
@@ -48,7 +48,7 @@
 1. [base.render] fix: scaleのresizeがキャッシュにも適用される不具合修正
 1. [base.env.env_run] fix: frameskipで最初にdoneの場合stepが余分に実行される不具合修正
 1. [base.spaces.multi] fix: multiの中身がDiscreteの場合の処理がContではなくDiscになるように変更
-
+1. [base.spaces.box] fix: Discreteの時にcreate_division_tblを実行するとエラーになる不具合修正
 
 # v0.15.2
 

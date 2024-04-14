@@ -15,7 +15,7 @@ from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker import RLWorker
 from srl.rl.functions import helper
-from srl.rl.functions.common import inverse_rescaling, rescaling, twohot_decode, twohot_encode
+from srl.rl.functions.common import inverse_rescaling, rescaling
 from srl.rl.memories.priority_experience_replay import (
     PriorityExperienceReplay,
     RLConfigComponentPriorityExperienceReplay,
@@ -406,7 +406,7 @@ class Parameter(RLParameter):
         if state_str not in self.P:
             p, v_category = self.prediction_network(state)  # type:ignore , ignore check "None"
             self.P[state_str] = p[0].numpy()
-            self.V[state_str] = twohot_decode(
+            self.V[state_str] = helper.twohot_decode(
                 v_category.numpy()[0],
                 abs(self.config.v_max - self.config.v_min) + 1,
                 self.config.v_min,
@@ -631,7 +631,7 @@ class Worker(RLWorker):
         # 次の状態を取得
         n_state, reward_category = self.parameter.dynamics_network.predict(state, [action])
         n_state_str = n_state.ref()
-        reward = twohot_decode(
+        reward = helper.twohot_decode(
             reward_category.numpy()[0],  # type:ignore , ignore check "None"
             abs(self.config.v_max - self.config.v_min) + 1,
             self.config.v_min,
@@ -729,7 +729,7 @@ class Worker(RLWorker):
         )
 
         if worker.done:
-            zero_category = twohot_encode(
+            zero_category = helper.twohot_encode(
                 0, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
             )
 
@@ -763,7 +763,7 @@ class Worker(RLWorker):
                     priority += v - self.history[idx + i]["state_v"]
                     self._v_min = min(self._v_min, v)
                     self._v_max = max(self._v_max, v)
-                    values[i] = twohot_encode(
+                    values[i] = helper.twohot_encode(
                         v, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
                     )
                 priority /= self.config.unroll_steps + 1
@@ -785,7 +785,7 @@ class Worker(RLWorker):
                         r = rescaling(r)
                     self._v_min = min(self._v_min, r)
                     self._v_max = max(self._v_max, r)
-                    rewards[i] = twohot_encode(
+                    rewards[i] = helper.twohot_encode(
                         r, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
                     )
 
@@ -824,7 +824,7 @@ class Worker(RLWorker):
             p = self.step_policy[a]
 
             n_s, reward_category = self.parameter.dynamics_network.predict(self.s0, [a])
-            reward = twohot_decode(
+            reward = helper.twohot_decode(
                 reward_category.numpy()[0],  # type:ignore , ignore check "None"
                 abs(self.config.v_max - self.config.v_min) + 1,
                 self.config.v_min,

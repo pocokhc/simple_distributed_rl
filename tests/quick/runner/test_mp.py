@@ -2,7 +2,6 @@ import ctypes
 import multiprocessing as mp
 import queue
 from multiprocessing import sharedctypes
-from multiprocessing.managers import ValueProxy
 from typing import Optional, cast
 
 import numpy as np
@@ -27,6 +26,11 @@ class _AssertTrainCallbacks(RunCallback, TrainerCallback):
         assert state.sync_trainer > 1
 
 
+class _DummyValue:
+    def __init__(self, v) -> None:
+        self.value = v
+
+
 @pytest.mark.parametrize("interrupt_stop", [False, True])
 @pytest.mark.timeout(5)  # pip install pytest_timeout
 def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
@@ -34,8 +38,8 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
 
     remote_queue = queue.Queue()
     remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
-    remote_board = cast(ValueProxy[Optional[bytes]], mp.Value(ctypes.c_char_p, False))
-    end_signal = cast(ValueProxy[bool], mp.Value(ctypes.c_bool, False))
+    remote_board = _DummyValue(None)
+    end_signal = _DummyValue(False)
 
     # --- create task
     c = mocker.Mock(spec=RunCallback)
@@ -52,7 +56,7 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     if interrupt_stop:
 
         class _c2(RunCallback):
-            def __init__(self, end_signal: ValueProxy[bool]):
+            def __init__(self, end_signal):
                 self.end_signal = end_signal
 
             def on_episode_end(self, context: RunContext, state: RunStateActor) -> None:
@@ -88,8 +92,8 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
 
     remote_queue = queue.Queue()
     remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
-    remote_board = cast(ValueProxy[Optional[bytes]], mp.Value(ctypes.c_char_p, False))
-    end_signal = cast(ValueProxy[bool], mp.Value(ctypes.c_bool, False))
+    remote_board = _DummyValue(None)
+    end_signal = _DummyValue(False)
 
     # --- create task
     c = mocker.Mock(spec=TrainerCallback)
@@ -111,7 +115,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
     if interrupt_stop:
 
         class _c2(TrainerCallback):
-            def __init__(self, train_end_signal: ValueProxy[bool]):
+            def __init__(self, train_end_signal):
                 self.train_end_signal = train_end_signal
 
             def on_train_after(self, context: RunContext, state: RunStateTrainer) -> None:

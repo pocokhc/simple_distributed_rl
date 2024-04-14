@@ -3,7 +3,9 @@
 import retro
 
 import srl
-from srl.algorithms import ql
+from srl.utils import common
+
+common.logger_print()
 
 env_config = srl.EnvConfig(
     "Airstriker-Genesis",
@@ -11,6 +13,5 @@ env_config = srl.EnvConfig(
     gym_make_func=retro.make,
 )
 
-runner = srl.Runner(env_config, ql.Config())
-
+runner = srl.Runner(env_config)
 runner.render_window()

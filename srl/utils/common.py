@@ -348,7 +348,8 @@ def is_available_pygame_video_device() -> bool:
         pygame.display.init()
         pygame.display.set_mode((1, 1))
         flag = True
-    except pygame.error:
+    except pygame.error as e:
+        logger.warning(f"pygame.error: {e}")
         flag = False
     finally:
         pygame.display.quit()

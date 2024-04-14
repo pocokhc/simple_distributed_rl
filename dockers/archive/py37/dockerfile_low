@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.8-slim
+FROM python:3.7-slim
 WORKDIR /code
 
 # import cv2
@@ -7,6 +7,12 @@ WORKDIR /code
 RUN apt-get update
 RUN apt-get install -y libsm6 libxext6 libxrender-dev libglib2.0-0
 
+# import matplotlib.pyplot as plt
+# import _tkinter # If this fails your Python may not be configured for Tk
+# ImportError: libtk8.6.so: cannot open shared object file: No such file or directory
+RUN apt-get install -y tk
+
 ENV PYTHONPATH="/code"
 COPY ./requirements_low.txt requirements.txt
 RUN pip install -U -r requirements.txt
+RUN pip install pytest pytest-mock pytest-timeout

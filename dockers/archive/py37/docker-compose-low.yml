@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  srl-low:
+    build:
+      dockerfile: ./dockerfile_low
+    volumes:
+      - ../:/code/
+    command: /bin/bash
+    tty: true

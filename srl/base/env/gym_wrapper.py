@@ -9,15 +9,7 @@ from gym import spaces as gym_spaces
 from gym.spaces import flatten, flatten_space
 
 from srl.base import spaces as srl_spaces
-from srl.base.define import (
-    DoneTypes,
-    EnvActionType,
-    EnvInvalidActionType,
-    InfoType,
-    KeyBindType,
-    RenderModes,
-    SpaceTypes,
-)
+from srl.base.define import DoneTypes, EnvActionType, InfoType, KeyBindType, RenderModes, SpaceTypes
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.config import EnvConfig
 from srl.utils.common import compare_less_version, is_package_installed
@@ -447,7 +439,7 @@ class GymWrapper(EnvBase):
         else:
             self.env: gym.Env = pickle.loads(data)
 
-    def get_invalid_actions(self, player_index: int = -1) -> List[EnvInvalidActionType]:
+    def get_invalid_actions(self, player_index: int = -1) -> List[EnvActionType]:
         if hasattr(self.env.unwrapped, "get_invalid_actions"):
             return self.env.unwrapped.get_invalid_actions()
         else:

@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Generic, Optional, TypeVar
+from typing import Generic, TypeVar
 
 from srl.base.context import RunContext
 from srl.base.define import InfoType

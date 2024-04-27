@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Tuple, cast
+from typing import Generic, List, Optional, Tuple, cast
 
 import numpy as np
 
@@ -10,25 +10,30 @@ from srl.base.define import (
     EnvObservationType,
     InfoType,
     ObservationModes,
-    RLActionType,
-    RLInvalidActionType,
-    RLObservationType,
     SpaceTypes,
+    TActSpace,
+    TActType,
+    TObsSpace,
+    TObsType,
 )
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import SRLError
 from srl.base.render import Render
 from srl.base.rl.config import RLConfig
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.worker import RLWorker
+from srl.base.rl.worker import RLWorkerGeneric
 from srl.base.spaces.multi import MultiSpace
 from srl.base.spaces.space import SpaceBase
 
 logger = logging.getLogger(__name__)
 
 
-class WorkerRun:
-    def __init__(self, worker: RLWorker[RLConfig, RLParameter], env: EnvRun):
+class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
+    def __init__(
+        self,
+        worker: RLWorkerGeneric[RLConfig, RLParameter, TActSpace, TActType, TObsSpace, TObsType],
+        env: EnvRun,
+    ):
         worker.config.setup(env, enable_log=False)
         worker._set_worker_run(self)
 
@@ -41,13 +46,13 @@ class WorkerRun:
 
         self._player_index: int = 0
         self._info: dict = {}
-        self._prev_state: RLObservationType = []  # None
-        self._state: RLObservationType = []  # None
-        self._prev_action: RLActionType = 0
+        self._prev_state: TObsType = cast(TObsType, [])  # None
+        self._state: TObsType = cast(TObsType, [])  # None
+        self._prev_action: TActType = cast(TActType, 0)
         self._reward: float = 0
         self._step_reward: float = 0
-        self._prev_invalid_actions: List[RLInvalidActionType] = []
-        self._invalid_actions: List[RLInvalidActionType] = []
+        self._prev_invalid_actions: List[TActType] = []
+        self._invalid_actions: List[TActType] = []
         self._total_step: int = 0
         self._dummy_rl_states_one_step = self._config.observation_space_one_step.get_default()
 
@@ -55,7 +60,7 @@ class WorkerRun:
     # episode functions
     # ------------------------------------
     @property
-    def worker(self) -> RLWorker:
+    def worker(self):
         return self._worker
 
     @property
@@ -95,15 +100,15 @@ class WorkerRun:
         return self._info
 
     @property
-    def prev_state(self) -> RLObservationType:
+    def prev_state(self) -> TObsType:
         return self._prev_state
 
     @property
-    def state(self):
+    def state(self) -> TObsType:
         return self._state
 
     @property
-    def prev_action(self) -> RLActionType:
+    def prev_action(self) -> TActType:
         return self._prev_action
 
     @property
@@ -127,11 +132,11 @@ class WorkerRun:
         return self._env._done_reason
 
     @property
-    def prev_invalid_actions(self) -> List[RLInvalidActionType]:
+    def prev_invalid_actions(self) -> List[TActType]:
         return self._prev_invalid_actions
 
     @property
-    def invalid_actions(self) -> List[RLInvalidActionType]:
+    def invalid_actions(self) -> List[TActType]:
         return self._invalid_actions
 
     @property
@@ -154,7 +159,7 @@ class WorkerRun:
         self._is_reset = False
 
         if self._config.window_length > 1:
-            self._recent_states: List[RLObservationType] = [
+            self._recent_states: List[TObsType] = [
                 self._dummy_rl_states_one_step for _ in range(self._config.window_length)
             ]
 
@@ -168,7 +173,7 @@ class WorkerRun:
             is_dummy=True,
         )
         self._prev_state = self._state
-        self._prev_action = 0
+        self._prev_action = cast(TActType, 0)
         self._reward = 0
         self._step_reward = 0
         self._set_invalid_actions()
@@ -197,7 +202,8 @@ class WorkerRun:
             self._on_step()
 
         # worker policy
-        self._prev_action, info = self._worker.policy(self)
+        action, info = self._worker.policy(self)
+        self._prev_action = cast(TActType, action)
         if self._config.enable_assertion:
             assert self._config.action_space.check_val(self._prev_action)
         elif self._config.enable_sanitize:
@@ -246,9 +252,7 @@ class WorkerRun:
 
     def _set_invalid_actions(self):
         self._prev_invalid_actions = self._invalid_actions
-        self._invalid_actions = [
-            cast(RLInvalidActionType, self.action_encode(a)) for a in self._env.get_invalid_actions(self.player_index)
-        ]
+        self._invalid_actions = [self.action_encode(a) for a in self._env.get_invalid_actions(self.player_index)]
 
     def on_end(self):
         self._worker.on_end(self)
@@ -256,16 +260,18 @@ class WorkerRun:
     # ------------------------------
     # encode/decode
     # ------------------------------
-    def _state_encode_sub(self, rl_stype: SpaceTypes, env_space: SpaceBase, env_state) -> RLObservationType:
+    def _state_encode_sub(self, rl_stype: SpaceTypes, env_space: SpaceBase, env_state: EnvObservationType) -> TObsType:
         if rl_stype == SpaceTypes.DISCRETE:
-            return env_space.encode_to_list_int(env_state)
+            rl_state = env_space.encode_to_list_int(env_state)
         elif rl_stype == SpaceTypes.CONTINUOUS:
-            return env_space.encode_to_np(env_state, np.float32)
+            rl_state = env_space.encode_to_np(env_state, np.float32)
         elif SpaceTypes.is_image(rl_stype):
-            return env_space.encode_to_np(env_state, np.float32)
+            rl_state = env_space.encode_to_np(env_state, np.float32)
         elif rl_stype == SpaceTypes.MULTI:
-            pass
-        return cast(RLObservationType, env_state)
+            rl_state = env_state
+        else:
+            rl_state = env_state
+        return cast(TObsType, rl_state)
 
     def state_encode(
         self,
@@ -275,10 +281,10 @@ class WorkerRun:
         enable_state_encode: bool,
         append_recent_state: bool,
         is_dummy: bool,
-    ) -> RLObservationType:
+    ) -> TObsType:
 
         if is_dummy:
-            rl_state = cast(RLObservationType, env_state)
+            rl_state = env_state
         else:
             # --- create env state
             # listにして処理する
@@ -336,7 +342,8 @@ class WorkerRun:
                         env_states,
                     )
             else:
-                rl_state = cast(RLObservationType, env_states)
+                rl_state = env_states
+        rl_state = cast(TObsType, rl_state)
 
         # --- create rl state
         if self._config.window_length > 1:
@@ -352,23 +359,27 @@ class WorkerRun:
 
         return rl_state
 
-    def _action_encode_sub(self, rl_stype: SpaceTypes, env_space: SpaceBase, env_act) -> RLActionType:
+    def _action_encode_sub(self, rl_stype: SpaceTypes, env_space: SpaceBase, env_act) -> TActType:
         if rl_stype == SpaceTypes.DISCRETE:
-            return env_space.encode_to_int(env_act)
+            rl_act = env_space.encode_to_int(env_act)
         elif rl_stype == SpaceTypes.CONTINUOUS:
-            return env_space.encode_to_list_float(env_act)
+            rl_act = env_space.encode_to_list_float(env_act)
         elif SpaceTypes.is_image(rl_stype):
-            return env_space.encode_to_np(env_act, np.uint8)
+            rl_act = env_space.encode_to_np(env_act, np.uint8)
         elif rl_stype == SpaceTypes.MULTI:
-            pass
-        return cast(RLActionType, env_act)
+            rl_act = env_act
+        else:
+            rl_act = env_act
+        return cast(TActType, rl_act)
 
-    def action_encode(self, env_action: EnvActionType) -> RLActionType:
+    def action_encode(self, env_action: EnvActionType) -> TActType:
         if self._config.enable_action_decode:
             env_space = self._config.action_space_of_env
             rl_space = self._config.action_space
             if isinstance(rl_space, MultiSpace):
                 if isinstance(env_space, MultiSpace):
+                    env_action_multi = cast(list, env_action)
+
                     # : assert len(rl_spaces) == len(env_spaces)
                     rl_act = []
                     for i in range(rl_space.space_size):
@@ -376,7 +387,7 @@ class WorkerRun:
                             self._action_encode_sub(
                                 rl_space.spaces[i].stype,
                                 env_space.spaces[i],
-                                env_action[i],
+                                env_action_multi[i],
                             )
                         )
                 else:
@@ -395,8 +406,8 @@ class WorkerRun:
                     env_action,
                 )
         else:
-            rl_act = cast(RLActionType, env_action)
-        return rl_act
+            rl_act = env_action
+        return cast(TActType, rl_act)
 
     def _action_decode_sub(self, rl_stype: SpaceTypes, env_space: SpaceBase, rl_act) -> EnvActionType:
         if rl_stype == SpaceTypes.DISCRETE:
@@ -413,11 +424,12 @@ class WorkerRun:
             pass
         return cast(EnvActionType, rl_act)
 
-    def action_decode(self, rl_action: RLActionType) -> EnvActionType:
+    def action_decode(self, rl_action: TActType) -> EnvActionType:
         if self._config.enable_action_decode:
             env_space = self._config.action_space_of_env
             rl_space = self._config.action_space
             if isinstance(rl_space, MultiSpace):
+                rl_action_multi = cast(list, rl_action)
                 if isinstance(env_space, MultiSpace):
                     # : assert len(rl_spaces) == len(env_spaces)
                     env_act = []
@@ -426,7 +438,7 @@ class WorkerRun:
                             self._action_decode_sub(
                                 rl_space.spaces[i].stype,
                                 env_space.spaces[i],
-                                rl_action[i],
+                                rl_action_multi[i],
                             )
                         )
                 else:
@@ -434,7 +446,7 @@ class WorkerRun:
                     env_act = self._action_decode_sub(
                         rl_space.spaces[0].stype,
                         env_space,
-                        rl_action[0],
+                        rl_action_multi[0],
                     )
 
             else:
@@ -462,13 +474,13 @@ class WorkerRun:
     # ------------------------------------
     # invalid
     # ------------------------------------
-    def get_invalid_actions(self, env: Optional[EnvRun] = None) -> List[RLInvalidActionType]:
+    def get_invalid_actions(self, env: Optional[EnvRun] = None) -> List[TActType]:
         return self._invalid_actions
 
-    def get_valid_actions(self, env: Optional[EnvRun] = None) -> List[RLInvalidActionType]:
+    def get_valid_actions(self, env: Optional[EnvRun] = None) -> List[TActType]:
         return self.config.action_space.get_valid_actions(self.get_invalid_actions(env))
 
-    def add_invalid_actions(self, invalid_actions: List[RLInvalidActionType]) -> None:
+    def add_invalid_actions(self, invalid_actions: List[TActType]) -> None:
         self._invalid_actions += invalid_actions
         self._invalid_actions = list(set(self._invalid_actions))
 
@@ -503,14 +515,14 @@ class WorkerRun:
     # ------------------------------------
     # utils
     # ------------------------------------
-    def sample_action(self) -> RLActionType:
+    def sample_action(self) -> TActType:
         action = self._config.action_space_of_env.sample(self.get_invalid_actions())
         return self.action_encode(action)
 
     def sample_action_for_env(self) -> EnvActionType:
         return self._env.sample_action()
 
-    def env_step(self, env: EnvRun, action: RLActionType, **step_kwargs) -> Tuple[RLObservationType, List[float]]:
+    def env_step(self, env: EnvRun, action: TActType, **step_kwargs) -> Tuple[TObsType, List[float]]:
         """RLActionを入力として、envを1step進める。戻り値はRL側の状態。
         Worker自身の内部状態は変更しない
         """

@@ -1,5 +1,5 @@
 import enum
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple, TypeVar, Union
 
 import numpy as np
 
@@ -19,7 +19,6 @@ SpaceType = Union[
 
 # --- action type
 EnvActionType = Union[SpaceType, None]
-EnvInvalidActionType = Union[int, List[int], np.ndarray]
 RLActionType = Union[
     int,
     List[float],
@@ -28,7 +27,6 @@ RLActionType = Union[
     List[SpaceType],
     List["RLActionType"],
 ]
-RLInvalidActionType = Union[int, np.ndarray]  # discrete only
 
 # --- obs type
 EnvObservationType = SpaceType
@@ -62,6 +60,14 @@ PlayerType = Union[
     "RLConfig",  # RLConfig
     Tuple["RLConfig", Any],  # [RLConfig, RLParameter]
 ]
+
+# --- Generic ---
+TConfig = TypeVar("TConfig")
+TParameter = TypeVar("TParameter")
+TActSpace = TypeVar("TActSpace")
+TActType = TypeVar("TActType")
+TObsSpace = TypeVar("TObsSpace")
+TObsType = TypeVar("TObsType")
 
 
 class DoneTypes(enum.Enum):

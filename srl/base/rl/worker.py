@@ -1,14 +1,26 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, List, Optional, Tuple, TypeVar, cast
+from typing import TYPE_CHECKING, Generic, List, Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import DoneTypes, InfoType, RLActionType, RLInvalidActionType
+from srl.base.define import (
+    DoneTypes,
+    InfoType,
+    RLActionType,
+    RLObservationType,
+    TActSpace,
+    TActType,
+    TConfig,
+    TObsSpace,
+    TObsType,
+    TParameter,
+)
 from srl.base.render import IRender
 from srl.base.rl.config import RLConfig
 from srl.base.rl.memory import DummyRLMemoryWorker, IRLMemoryWorker
 from srl.base.rl.parameter import DummyRLParameter
+from srl.base.spaces.space import SpaceBase
 
 if TYPE_CHECKING:
     from srl.base.context import RunContext
@@ -18,55 +30,58 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_TConfig = TypeVar("_TConfig")
-_TParameter = TypeVar("_TParameter")
 
-
-class RLWorker(ABC, IRender, Generic[_TConfig, _TParameter]):
+class RLWorkerGeneric(
+    ABC,
+    IRender,
+    Generic[TConfig, TParameter, TActSpace, TActType, TObsSpace, TObsType],
+):
     def __init__(
         self,
-        config: _TConfig,
-        parameter: Optional[_TParameter] = None,
+        config: TConfig,
+        parameter: Optional[TParameter] = None,
         memory: Optional[IRLMemoryWorker] = None,
     ) -> None:
         self.config = config
-        self.parameter: _TParameter = cast(
-            _TParameter,
+        self.parameter: TParameter = cast(
+            TParameter,
             DummyRLParameter(cast(RLConfig, config)) if parameter is None else parameter,
         )
         self.memory: IRLMemoryWorker = cast(IRLMemoryWorker, DummyRLMemoryWorker() if memory is None else memory)
 
-    def _set_worker_run(self, worker: "WorkerRun"):
+    def _set_worker_run(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]"):
         """WorkerRunの初期化で呼ばれる"""
         self.__worker_run = worker
 
     # --- implement
-    def on_start(self, worker: "WorkerRun", context: "RunContext") -> None:
+    def on_start(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]", context: "RunContext") -> None:
         pass
 
-    def on_reset(self, worker: "WorkerRun") -> InfoType:
+    def on_reset(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> InfoType:
         return {}
 
     @abstractmethod
-    def policy(self, worker: "WorkerRun") -> Tuple[RLActionType, InfoType]:
+    def policy(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> Tuple[TActType, InfoType]:
         raise NotImplementedError()
 
-    def on_step(self, worker: "WorkerRun") -> InfoType:
+    def on_step(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> InfoType:
         return {}
 
-    def on_end(self, worker: "WorkerRun") -> None:
+    def on_end(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> None:
         pass
 
     # --- IRender
-    def render_terminal(self, worker: "WorkerRun", **kwargs) -> None:
+    def render_terminal(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]", **kwargs) -> None:
         pass
 
-    def render_rgb_array(self, worker: "WorkerRun", **kwargs) -> Optional[np.ndarray]:
+    def render_rgb_array(
+        self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]", **kwargs
+    ) -> Optional[np.ndarray]:
         return None
 
     # --- instance
     @property
-    def worker(self) -> "WorkerRun":
+    def worker(self) -> "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]":
         return self.__worker_run
 
     @property
@@ -98,19 +113,11 @@ class RLWorker(ABC, IRender, Generic[_TConfig, _TParameter]):
     def total_step(self) -> int:
         return self.__worker_run.total_step
 
-    def get_invalid_actions(self) -> List[RLInvalidActionType]:
+    def get_invalid_actions(self) -> List[TActType]:
         return self.__worker_run.get_invalid_actions()
 
-    def sample_action(self) -> RLActionType:
+    def sample_action(self) -> TActType:
         return self.__worker_run.sample_action()
-
-    @property
-    def observation_space(self):
-        return cast(RLConfig, self.config).observation_space
-
-    @property
-    def action_space(self):
-        return cast(RLConfig, self.config).action_space
 
     # --- env info (shortcut properties)
     @property
@@ -124,6 +131,20 @@ class RLWorker(ABC, IRender, Generic[_TConfig, _TParameter]):
     @property
     def step(self) -> int:
         return self.__worker_run._env.step_num
+
+
+class RLWorker(
+    Generic[TConfig, TParameter],
+    RLWorkerGeneric[
+        TConfig,
+        TParameter,
+        SpaceBase,
+        RLActionType,
+        SpaceBase,
+        RLObservationType,
+    ],
+):
+    pass
 
 
 class DummyRLWorker(RLWorker):

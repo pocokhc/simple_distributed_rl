@@ -9,12 +9,11 @@ import tensorflow_probability as tfp
 from tensorflow import keras
 
 from srl.base.define import InfoType, RLBaseTypes, SpaceTypes
-from srl.base.rl.config import RLConfig
+from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker import RLWorker
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.processors.image_processor import ImageProcessor
@@ -88,9 +87,6 @@ class Config(
                 enable_norm=True,
             )
         ]
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
 
     def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.IMAGE

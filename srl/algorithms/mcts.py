@@ -4,14 +4,12 @@ from typing import Any, Tuple
 
 import numpy as np
 
-from srl.base.define import RLBaseTypes
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.config import RLConfig
+from srl.base.rl.algorithms.base_ql import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker import RLWorker
-from srl.rl.functions import helper
+from srl.rl import functions as funcs
 from srl.rl.memories.sequence_memory import SequenceMemory
 
 
@@ -28,12 +26,6 @@ class Config(RLConfig):
     discount: float = 1.0
     #: UCT C
     uct_c: float = np.sqrt(2.0)
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
 
     def get_framework(self) -> str:
         return ""
@@ -67,7 +59,7 @@ class Memory(SequenceMemory):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class Parameter(RLParameter):
+class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -127,14 +119,14 @@ class Trainer(RLTrainer[Config, Parameter]):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
     def policy(self, worker) -> Tuple[int, dict]:
-        self.state = self.observation_space.to_str(worker.state)
+        self.state = self.config.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
         self.parameter.init_state(self.state)
 
@@ -171,7 +163,7 @@ class Worker(RLWorker):
             if env.done:
                 pass  # 終了
             else:
-                n_state = self.observation_space.to_str(n_state)
+                n_state = self.config.observation_space.to_str(n_state)
 
                 enemy_turn = player_index != env.next_player_index
 
@@ -244,4 +236,4 @@ class Worker(RLWorker):
                 q /= c
             return f"{c:7d}(N), {q:9.4f}(Q), {uct_list[a]:.5f}(UCT)"
 
-        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)

@@ -4,9 +4,8 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import InfoType
 from srl.base.rl.trainer import RLTrainer
-from srl.rl.functions.common import create_beta_list, create_discount_list
+from srl.rl.functions import create_beta_list, create_discount_list
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
 
@@ -313,10 +312,6 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.discount_list = create_discount_list(self.config.actor_num)
 
         self.sync_count = 0
-        self.ext_loss = None
-        self.int_loss = None
-        self.emb_loss = None
-        self.lifelong_loss = None
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
@@ -381,7 +376,7 @@ class Trainer(RLTrainer[Config, Parameter]):
             discount_list,
             weights,
         ]
-        td_error_ext, self.ext_loss = self._train_q(
+        td_error_ext, ext_loss = self._train_q(
             self.parameter.q_ext_online,
             self.parameter.q_ext_target,
             self.q_ext_optimizer,
@@ -391,9 +386,10 @@ class Trainer(RLTrainer[Config, Parameter]):
             hidden_states_ext_t,
             *_params,
         )
+        self.info["ext_loss"] = ext_loss.numpy()
 
         if self.config.enable_intrinsic_reward:
-            td_error_int, self.int_loss = self._train_q(
+            td_error_int, int_loss = self._train_q(
                 self.parameter.q_int_online,
                 self.parameter.q_int_target,
                 self.q_int_optimizer,
@@ -403,6 +399,7 @@ class Trainer(RLTrainer[Config, Parameter]):
                 hidden_states_int_t,
                 *_params,
             )
+            self.info["int_loss"] = int_loss.numpy()
 
             # embedding lifelong (batch, step, x) -> (batch, x)
             one_states = instep_states[:, 0, ...]
@@ -413,11 +410,10 @@ class Trainer(RLTrainer[Config, Parameter]):
             # embedding network
             # ----------------------------------------
             with tf.GradientTape() as tape:
-                self.emb_loss = self.parameter.emb_network.compute_train_loss(
-                    one_states, one_n_states, one_actions_onehot
-                )
-            grads = tape.gradient(self.emb_loss, self.parameter.emb_network.trainable_variables)
+                emb_loss = self.parameter.emb_network.compute_train_loss(one_states, one_n_states, one_actions_onehot)
+            grads = tape.gradient(emb_loss, self.parameter.emb_network.trainable_variables)
             self.emb_optimizer.apply_gradients(zip(grads, self.parameter.emb_network.trainable_variables))
+            self.info["emb_loss"] = emb_loss.numpy()
 
             if self.lr_sch_emb.update(self.train_count):
                 self.emb_optimizer.learning_rate = self.lr_sch_emb.get_rate()
@@ -427,9 +423,10 @@ class Trainer(RLTrainer[Config, Parameter]):
             # ----------------------------------------
             lifelong_target_val = self.parameter.lifelong_target(one_states)
             with tf.GradientTape() as tape:
-                self.lifelong_loss = self.parameter.lifelong_train.compute_train_loss(one_states, lifelong_target_val)
-            grads = tape.gradient(self.lifelong_loss, self.parameter.lifelong_train.trainable_variables)
+                lifelong_loss = self.parameter.lifelong_train.compute_train_loss(one_states, lifelong_target_val)
+            grads = tape.gradient(lifelong_loss, self.parameter.lifelong_train.trainable_variables)
             self.lifelong_optimizer.apply_gradients(zip(grads, self.parameter.lifelong_train.trainable_variables))
+            self.info["lifelong_loss"] = lifelong_loss.numpy()
 
             if self.lr_sch_ll.update(self.train_count):
                 self.lifelong_optimizer.learning_rate = self.lr_sch_ll.get_rate()
@@ -450,23 +447,8 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.parameter.q_int_target.set_weights(self.parameter.q_int_online.get_weights())
             self.sync_count += 1
 
+        self.info["sync"] = self.sync_count
         self.train_count += 1
-
-    def create_info(self) -> InfoType:
-        d = {"sync": self.sync_count}
-        if self.ext_loss is not None:
-            d["ext_loss"] = self.ext_loss.numpy()
-        if self.int_loss is not None:
-            d["int_loss"] = self.int_loss.numpy()
-        if self.emb_loss is not None:
-            d["emb_loss"] = self.emb_loss.numpy()
-        if self.lifelong_loss is not None:
-            d["lifelong_loss"] = self.lifelong_loss.numpy()
-        self.ext_loss = None
-        self.int_loss = None
-        self.emb_loss = None
-        self.lifelong_loss = None
-        return d
 
     def _train_q(
         self,

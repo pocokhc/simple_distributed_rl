@@ -6,7 +6,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from srl.base.define import InfoType
 from srl.base.rl.trainer import RLTrainer
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.torch_.blocks.input_block import create_in_block_out_value
@@ -109,7 +108,6 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.criterion = nn.HuberLoss()
 
         self.sync_count = 0
-        self.loss = None
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
@@ -140,10 +138,11 @@ class Trainer(RLTrainer[Config, Parameter]):
         # 現在選んだアクションのQ値
         q = torch.sum(q * onehot_action, dim=1)
 
-        self.loss = self.criterion(target_q, q)
+        loss = self.criterion(target_q, q)
         self.optimizer.zero_grad()
-        self.loss.backward()
+        loss.backward()
         self.optimizer.step()
+        self.info["loss"] = loss.item()
 
         if self.lr_sch.update(self.train_count):
             lr = self.lr_sch.get_rate()
@@ -155,14 +154,5 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.parameter.q_target.load_state_dict(self.parameter.q_online.state_dict())
             self.sync_count += 1
 
+        self.info["sync"] = self.sync_count
         self.train_count += 1
-
-    def create_info(self) -> InfoType:
-        d = {
-            "sync": self.sync_count,
-            "lr": self.lr_sch.get_rate(),
-        }
-        if self.loss is not None:
-            d["loss"] = self.loss.item()
-        self.loss = None
-        return d

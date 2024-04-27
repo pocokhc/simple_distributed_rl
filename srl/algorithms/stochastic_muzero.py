@@ -8,18 +8,17 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.config import RLConfig
+from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker import RLWorker
-from srl.base.spaces.box import BoxSpace
-from srl.base.spaces.discrete import DiscreteSpace
-from srl.rl.functions import helper
-from srl.rl.functions.common import inverse_rescaling, rescaling
+from srl.rl import functions as funcs
+from srl.rl.functions import inverse_rescaling, rescaling
 from srl.rl.memories.priority_experience_replay import (
-    PriorityExperienceReplay, RLConfigComponentPriorityExperienceReplay)
+    PriorityExperienceReplay,
+    RLConfigComponentPriorityExperienceReplay,
+)
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
@@ -40,7 +39,7 @@ https://openreview.net/forum?id=X6D9bAHhBQ1
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig[DiscreteSpace, BoxSpace],
+    RLConfig,
     RLConfigComponentPriorityExperienceReplay,
     RLConfigComponentFramework,
 ):
@@ -95,9 +94,6 @@ class Config(
 
     def get_processors(self) -> List[Optional[ObservationProcessor]]:
         return [self.input_image_block.get_processor()]
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
 
     def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.IMAGE
@@ -554,7 +550,7 @@ class Parameter(RLParameter):
         if state_str not in self.P:
             p, v_category = self.prediction_network(state)  # type:ignore , ignore check "None"
             self.P[state_str] = p[0].numpy()
-            self.V[state_str] = helper.twohot_decode(
+            self.V[state_str] = funcs.twohot_decode(
                 v_category.numpy()[0],
                 abs(self.config.v_max - self.config.v_min) + 1,
                 self.config.v_min,
@@ -564,7 +560,7 @@ class Parameter(RLParameter):
     def afterstate_prediction(self, as_state, state_str):
         if state_str not in self.C:
             c, q_category = self.afterstate_prediction_network(as_state)  # type:ignore , ignore check "None"
-            self.Q[state_str] = helper.twohot_decode(
+            self.Q[state_str] = funcs.twohot_decode(
                 q_category.numpy()[0],
                 abs(self.config.v_max - self.config.v_min) + 1,
                 self.config.v_min,
@@ -737,7 +733,7 @@ class Trainer(RLTrainer[Config, Parameter]):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -793,7 +789,7 @@ class Worker(RLWorker):
                 [self.N[self.s0_str][a] ** (1 / policy_tau) for a in range(self.config.action_space.n)]
             )
             step_policy /= step_policy.sum()
-            action = helper.random_choice_by_probs(step_policy)
+            action = funcs.random_choice_by_probs(step_policy)
 
         # 学習用のpolicyはtau=1
         N = sum(self.N[self.s0_str])
@@ -827,7 +823,7 @@ class Worker(RLWorker):
 
             # 次の状態を取得
             n_state, reward_category = self.parameter.dynamics_network.predict(state, c)
-            reward = helper.twohot_decode(
+            reward = funcs.twohot_decode(
                 reward_category.numpy()[0],
                 abs(self.config.v_max - self.config.v_min) + 1,
                 self.config.v_min,
@@ -935,7 +931,7 @@ class Worker(RLWorker):
         )
 
         if worker.done:
-            zero_category = helper.twohot_encode(
+            zero_category = funcs.twohot_encode(
                 0, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
             )
             zero_state = np.zeros(self.config.observation_space.shape)
@@ -970,7 +966,7 @@ class Worker(RLWorker):
                     priority += v - self.history[idx + i]["state_v"]
                     self._v_min = min(self._v_min, v)
                     self._v_max = max(self._v_max, v)
-                    values[i] = helper.twohot_encode(
+                    values[i] = funcs.twohot_encode(
                         v, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
                     )
                 priority /= self.config.unroll_steps + 1
@@ -999,7 +995,7 @@ class Worker(RLWorker):
                         r = rescaling(r)
                     self._v_min = min(self._v_min, r)
                     self._v_max = max(self._v_max, r)
-                    rewards[i] = helper.twohot_encode(
+                    rewards[i] = funcs.twohot_encode(
                         r, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
                     )
 
@@ -1034,10 +1030,8 @@ class Worker(RLWorker):
 
         def _render_sub(a: int) -> str:
             after_state = self.parameter.afterstate_dynamics_network.predict(self.s0, [a])
-            c, q_category = self.parameter.afterstate_prediction_network(
-                after_state
-            )
-            q = helper.twohot_decode(
+            c, q_category = self.parameter.afterstate_prediction_network(after_state)
+            q = funcs.twohot_decode(
                 q_category.numpy()[0],
                 abs(self.config.v_max - self.config.v_min) + 1,
                 self.config.v_min,
@@ -1045,7 +1039,7 @@ class Worker(RLWorker):
             )
             c = self.parameter.vq_vae.encode(c)
             _, reward_category = self.parameter.dynamics_network.predict(after_state, c)
-            reward = helper.twohot_decode(
+            reward = funcs.twohot_decode(
                 reward_category.numpy()[0],
                 abs(self.config.v_max - self.config.v_min) + 1,
                 self.config.v_min,
@@ -1067,4 +1061,4 @@ class Worker(RLWorker):
             s += f", {reward:9.5f}(reward)"
             return s
 
-        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)

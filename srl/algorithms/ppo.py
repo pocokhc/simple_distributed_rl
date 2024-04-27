@@ -5,23 +5,22 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLBaseTypes, SpaceTypes
+from srl.base.define import SpaceTypes
 from srl.base.exception import UndefinedError
-from srl.base.rl.config import RLConfig
+from srl.base.rl.algorithms.base_ppo import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker import RLWorker
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
-from srl.rl.functions import helper
+from srl.rl import functions as funcs
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.tf import functions as tf_funcs
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
-from srl.rl.tf.common_tf import compute_kl_divergence, compute_kl_divergence_normal
 from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
 
@@ -125,7 +124,7 @@ class Config(
     #: 勾配爆発の対策, 平均、分散、ランダムアクションで大きい値を出さないようにclipする
     enable_stable_gradients: bool = True
     #: enable_stable_gradients状態での標準偏差のclip
-    stable_gradients_stddev_range: tuple = (1e-10, 10)
+    stable_gradients_scale_range: tuple = (1e-10, 10)
 
     def __post_init__(self):
         super().__post_init__()
@@ -135,12 +134,6 @@ class Config(
         self.hidden_block.set((64, 64))
         self.value_block.set((64,))
         self.policy_block.set((64,))
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS
 
     def get_framework(self) -> str:
         return "tensorflow"
@@ -208,13 +201,14 @@ class ActorCriticNetwork(keras.Model):
 
         # --- policy
         self.policy_block = config.policy_block.create_block_tf()
-        if self.config.action_space.stype == SpaceTypes.DISCRETE:
+        if isinstance(config.action_space, DiscreteSpace):
             self.policy_dist_block = CategoricalDistBlock(config.action_space.n)
-        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
+        elif isinstance(config.action_space, ArrayContinuousSpace):
             self.policy_dist_block = NormalDistBlock(
                 config.action_space.size,
+                enable_squashed=False,
                 enable_stable_gradients=self.config.enable_stable_gradients,
-                stable_gradients_stddev_range=self.config.stable_gradients_stddev_range,
+                stable_gradients_scale_range=self.config.stable_gradients_scale_range,
             )
         else:
             raise UndefinedError(self.config.action_space)
@@ -236,10 +230,6 @@ class ActorCriticNetwork(keras.Model):
         p = self.policy_dist_block(p, training=training)
         return v, p
 
-    def policy(self, state):
-        v, p = self(state, training=False)
-        return v, self.policy_dist_block.get_dist(p)
-
     @tf.function
     def compute_train_loss(
         self,
@@ -254,9 +244,8 @@ class ActorCriticNetwork(keras.Model):
         adaptive_kl_beta,
     ):
         # --- 現在の方策
-        v, p = self(state, training=True)
-        policy_dist = self.policy_dist_block.get_grad_dist(p)
-        new_logpi = policy_dist.log_prob(action)
+        v, p_dist = self(state, training=True)
+        new_logpi = p_dist.log_prob(action)
 
         # advantage
         if self.config.baseline_type == "advantage":
@@ -265,6 +254,7 @@ class ActorCriticNetwork(keras.Model):
         # --- policy
         kl = 0
         ratio = tf.exp(new_logpi - old_logpi)
+        ratio = tf.where(tf.math.is_inf(ratio), 0.0, ratio)  # for safety
         if self.config.surrogate_type == "clip":
             # Clipped Surrogate Objective
             ratio_clipped = tf.clip_by_value(
@@ -280,12 +270,12 @@ class ActorCriticNetwork(keras.Model):
 
         elif self.config.surrogate_type == "kl":
             if self.config.action_space.stype == SpaceTypes.DISCRETE:
-                new_probs = policy_dist.probs()
-                kl = compute_kl_divergence(old_probs, new_probs)
+                new_probs = p_dist.probs()
+                kl = tf_funcs.compute_kl_divergence(old_probs, new_probs)
             elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
-                new_mean = policy_dist.mean()
-                new_stddev = policy_dist.stddev()
-                kl = compute_kl_divergence_normal(old_mean, old_stddev, new_mean, new_stddev)
+                new_mean = p_dist.mean()
+                new_stddev = p_dist.stddev()
+                kl = tf_funcs.compute_kl_divergence_normal(old_mean, old_stddev, new_mean, new_stddev)
             else:
                 raise UndefinedError(self.config.action_space.stype)
             policy_loss = ratio * advantage - adaptive_kl_beta * kl
@@ -446,7 +436,7 @@ class Trainer(RLTrainer[Config, Parameter]):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -456,43 +446,48 @@ class Worker(RLWorker):
         self.recent_batch = []
         self.recent_rewards = []
         self.recent_next_states = []
+
+        self.v = None
+        self.p_dist = None
         return {}
 
-    def policy(self, worker) -> Tuple[Any, dict]:
+    def policy(self, worker):
         state = worker.state
         if self.config.state_clip is not None:
             state = np.clip(state, self.config.state_clip[0], self.config.state_clip[1])
 
-        v, policy_dist = self.parameter.model.policy(state[np.newaxis, ...])
-        if self.config.action_space.stype == SpaceTypes.DISCRETE:  # int
+        v, p_dist = self.parameter.model(state[np.newaxis, ...])
+        if self.rendering:
+            self.v = v
+            self.p_dist = p_dist
+        if isinstance(self.config.action_space, DiscreteSpace):
             act_space = cast(DiscreteSpace, self.config.action_space)
-            onehot_action = policy_dist.sample(onehot=True)
+            onehot_action = p_dist.sample(onehot=True)
             env_action = int(np.argmax(onehot_action))
             batch = {
                 "state": state,
                 "action": onehot_action.numpy()[0],
                 "v": v.numpy()[0][0],
-                "log_prob": policy_dist.log_prob(onehot_action).numpy()[0][0],
+                "log_prob": p_dist.log_prob(onehot_action).numpy()[0][0],
             }
-            if self.config.surrogate_type == "kl" or self.rendering:
-                batch["probs"] = policy_dist.probs().numpy()[0]
+            if self.config.surrogate_type == "kl":
+                batch["probs"] = p_dist.probs().numpy()[0]
             self.recent_batch.append(batch)
-        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:  # float,list[float]
+        elif isinstance(self.config.action_space, ArrayContinuousSpace):
             act_space = cast(ArrayContinuousSpace, self.config.action_space)
-            action = policy_dist.sample().numpy()[0]
+            action, env_action = p_dist.policy((act_space.low, act_space.high), self.training)
             batch = {
                 "state": state,
-                "action": action[0],
+                "action": action.numpy()[0][0],
                 "v": v.numpy()[0][0],
-                "log_prob": policy_dist.log_prob(action).numpy()[0][0],
+                "log_prob": p_dist.log_prob(action).numpy()[0][0],
             }
-            if self.config.surrogate_type == "kl" or self.rendering:
-                batch["mean"] = policy_dist.mean().numpy()[0]
-                batch["stddev"] = policy_dist.stddev().numpy()[0]
+            if self.config.surrogate_type == "kl":
+                batch["mean"] = p_dist.mean().numpy()[0]
+                batch["stddev"] = p_dist.stddev().numpy()[0]
             self.recent_batch.append(batch)
 
-            env_action = np.clip(action, act_space.low, act_space.high)
-            env_action = env_action.tolist()
+            env_action = env_action.numpy()[0].tolist()
         else:
             raise UndefinedError(self.config.action_space)
 
@@ -553,28 +548,23 @@ class Worker(RLWorker):
         return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
-        batch = self.recent_batch[-1]
-        v = batch["v"]
-        print(f"V: {v:.5f}")
+        # policy -> render -> env.step
+        if self.v is None:
+            return
+        assert self.p_dist is not None
+        print(f"V: {self.v.numpy()[0][0]:.5f}")
 
-        if self.config.action_space.stype == SpaceTypes.DISCRETE:
-            probs = batch["probs"]
+        if isinstance(self.config.action_space, DiscreteSpace):
+            probs = self.p_dist.probs().numpy()[0]
             maxa = np.argmax(probs)
 
             def _render_sub(a: int) -> str:
                 s = "{:5.1f}%".format(probs[a] * 100)
                 return s
 
-            helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
-        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
-            action = batch["action"]
-            prob = np.exp(batch["log_prob"])
-            mean = batch["mean"]
-            stddev = batch["stddev"]
-
-            print(f"action: {action}")
-            print(f"prob  : {prob}")
-            print(f"mean  : {mean}")
-            print(f"stddev: {stddev}")
+            funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)
+        elif isinstance(self.config.action_space, ArrayContinuousSpace):
+            print(f"mean  : {self.p_dist.mean().numpy()[0][0]}")
+            print(f"stddev: {self.p_dist.stddev().numpy()[0][0]}")
         else:
-            raise UndefinedError(self.config.action_space.stype)
+            raise UndefinedError(self.config.action_space)

@@ -1,19 +1,17 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Tuple, Union, cast
+from typing import Any, Tuple, Union
 
 import numpy as np
 
 from srl.base.define import RLActionType, RLBaseTypes, SpaceTypes
-from srl.base.rl.config import RLConfig
+from srl.base.rl.algorithms.base_vanilla_policy import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker import RLWorker
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
-from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.discrete import DiscreteSpace
-from srl.rl.functions import helper
+from srl.rl import functions as funcs
 from srl.rl.memories.sequence_memory import SequenceMemory
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -22,7 +20,7 @@ from srl.rl.schedulers.scheduler import SchedulerConfig
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig[Union[DiscreteSpace, ArrayContinuousSpace], ArrayDiscreteSpace]):
+class Config(RLConfig):
     discount: float = 0.9
     lr: Union[float, SchedulerConfig] = 0.1
 
@@ -204,17 +202,17 @@ class Worker(RLWorker[Config, Parameter]):
         super().__init__(*args)
 
     def on_reset(self, worker) -> dict:
-        self.state = self.observation_space.to_str(worker.state)
+        self.state = self.config.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
         self.history = []
         return {}
 
     def policy(self, worker) -> Tuple[RLActionType, dict]:
-        self.state = self.observation_space.to_str(worker.state)
+        self.state = self.config.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
 
-        if self.config.action_space.stype == SpaceTypes.DISCRETE:
-            act_space = cast(DiscreteSpace, self.config.action_space)
+        if isinstance(self.config.action_space, DiscreteSpace):
+            act_space = self.config.action_space
             # --- 離散
             probs = self.parameter.get_probs(self.state, self.invalid_actions)
             if self.training:
@@ -222,10 +220,10 @@ class Worker(RLWorker[Config, Parameter]):
                 self.action = env_action = int(action)
                 self.prob = probs[self.action]
             else:
-                env_action = helper.get_random_max_index(probs, worker.invalid_actions)
+                env_action = funcs.get_random_max_index(probs, worker.invalid_actions)
 
-        else:
-            act_space = cast(ArrayContinuousSpace, self.config.action_space)
+        elif isinstance(self.config.action_space, ArrayContinuousSpace):
+            act_space = self.config.action_space
             # --- 連続
             # パラメータ
             mean, stddev = self.parameter.get_normal(self.state)
@@ -270,7 +268,7 @@ class Worker(RLWorker[Config, Parameter]):
         return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
-        if self.config.action_space.stype == SpaceTypes.DISCRETE:
+        if isinstance(self.config.action_space, DiscreteSpace):
             probs = self.parameter.get_probs(self.state, self.invalid_actions)
             vals = [0 if v is None else v for v in self.parameter.policy[self.state]]
             maxa = np.argmax(vals)
@@ -278,8 +276,8 @@ class Worker(RLWorker[Config, Parameter]):
             def _render_sub(action: int) -> str:
                 return f"{probs[action] * 100:5.1f}% ({vals[action]:.5f})"
 
-            helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+            funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)
 
-        else:
+        elif isinstance(self.config.action_space, ArrayContinuousSpace):
             mean, stddev = self.parameter.get_normal(self.state)
             print(f"mean {mean:.5f}, stddev {stddev:.5f}")

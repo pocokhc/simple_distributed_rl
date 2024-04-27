@@ -6,20 +6,12 @@ from typing import Any, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.config import RLConfig
+from srl.base.define import InfoType
+from srl.base.rl.algorithms.base_ql import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker import RLWorker
-from srl.rl.functions import helper
-from srl.rl.functions.common import (
-    create_beta_list,
-    create_discount_list,
-    create_epsilon_list,
-    inverse_rescaling,
-    rescaling,
-)
+from srl.rl import functions as funcs
 from srl.rl.memories.priority_experience_replay import (
     PriorityExperienceReplay,
     RLConfigComponentPriorityExperienceReplay,
@@ -111,12 +103,6 @@ class Config(RLConfig, RLConfigComponentPriorityExperienceReplay):
         self.memory.warmup_size = 10
         self.batch_size = 4
 
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
-
     def get_framework(self) -> str:
         return ""
 
@@ -163,7 +149,7 @@ class Memory(PriorityExperienceReplay):
 # ------------------------------------------------------
 # Parameter
 # ------------------------------------------------------
-class Parameter(RLParameter):
+class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
@@ -206,7 +192,7 @@ class Parameter(RLParameter):
                 ]
             L = self.config.lifelong_reward_L
             if self.config.enable_rescale:
-                L = rescaling(L)
+                L = funcs.rescaling(L)
             self.Q_int[state] = [0.0 if a in invalid_actions else L for a in range(self.config.action_space.n)]
             self.Q_C[state] = 0
 
@@ -254,10 +240,10 @@ class Parameter(RLParameter):
                 # ---
 
                 if self.config.enable_rescale:
-                    maxq = inverse_rescaling(maxq)
+                    maxq = funcs.inverse_rescaling(maxq)
                 target_q = reward + discount * maxq
             if self.config.enable_rescale:
-                target_q = rescaling(target_q)
+                target_q = funcs.rescaling(target_q)
 
             td_error = target_q - q_tbl[state][action]
             TQ += (discount**n) * _retrace * td_error
@@ -328,15 +314,15 @@ class Trainer(RLTrainer[Config, Parameter]):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-        self.beta_list = create_beta_list(self.config.actor_num)
-        self.discount_list = create_discount_list(self.config.actor_num)
-        self.epsilon_list = create_epsilon_list(self.config.actor_num)
+        self.beta_list = funcs.create_beta_list(self.config.actor_num)
+        self.discount_list = funcs.create_discount_list(self.config.actor_num)
+        self.epsilon_list = funcs.create_epsilon_list(self.config.actor_num)
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
@@ -347,7 +333,7 @@ class Worker(RLWorker):
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
     def on_reset(self, worker) -> InfoType:
-        state = self.observation_space.to_str(worker.state)
+        state = self.config.observation_space.to_str(worker.state)
 
         if self.training:
             if self.config.enable_actor:
@@ -436,14 +422,14 @@ class Worker(RLWorker):
         q_int = np.asarray(self.parameter.Q_int[state])
         q = q_ext + self.beta * q_int
 
-        probs = helper.calc_epsilon_greedy_probs(q, invalid_actions, self.epsilon, self.config.action_space.n)
-        self.action = helper.random_choice_by_probs(probs)
+        probs = funcs.calc_epsilon_greedy_probs(q, invalid_actions, self.epsilon, self.config.action_space.n)
+        self.action = funcs.random_choice_by_probs(probs)
         self.prob = probs[self.action]
         return self.action, {}
 
     def on_step(self, worker) -> InfoType:
         self.prev_episode_reward += worker.reward
-        n_state = self.observation_space.to_str(worker.state)
+        n_state = self.config.observation_space.to_str(worker.state)
         self._recent_states.pop(0)
         self._recent_states.append(n_state)
         self.recent_invalid_actions.pop(0)
@@ -560,12 +546,12 @@ class Worker(RLWorker):
         q_int = np.asarray(self.parameter.Q_int[state])
         q = q_ext + self.beta * q_int
         if self.config.enable_rescale:
-            q_ext = inverse_rescaling(q_ext)
-            q_int = inverse_rescaling(q_int)
-            q = inverse_rescaling(q)
+            q_ext = funcs.inverse_rescaling(q_ext)
+            q_int = funcs.inverse_rescaling(q_int)
+            q = funcs.inverse_rescaling(q)
         maxa = np.argmax(q)
 
         def _render_sub(a: int) -> str:
             return f"{q[a]:8.5f} = {q_ext[a]:8.5f} + {self.beta:.3f} * {q_int[a]:8.5f}"
 
-        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)

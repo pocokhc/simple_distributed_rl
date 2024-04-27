@@ -6,21 +6,12 @@ from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.config import RLConfig
+from srl.base.define import InfoType
+from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
-from srl.base.rl.worker import RLWorker
-from srl.base.spaces.box import BoxSpace
-from srl.base.spaces.discrete import DiscreteSpace
-from srl.rl.functions import helper
-from srl.rl.functions.common import (
-    create_beta_list,
-    create_discount_list,
-    create_epsilon_list,
-    inverse_rescaling,
-    rescaling,
-)
+from srl.rl import functions as funcs
+from srl.rl.functions import create_beta_list, create_discount_list, create_epsilon_list, inverse_rescaling, rescaling
 from srl.rl.memories.priority_experience_replay import (
     PriorityExperienceReplay,
     RLConfigComponentPriorityExperienceReplay,
@@ -68,7 +59,7 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig[DiscreteSpace, BoxSpace],
+    RLConfig,
     RLConfigComponentPriorityExperienceReplay,
     RLConfigComponentFramework,
 ):
@@ -193,12 +184,6 @@ class Config(
 
     def get_processors(self) -> List[Optional[ObservationProcessor]]:
         return [self.input_image_block.get_processor()]
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return self.create_framework_str()
@@ -586,10 +571,10 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         self.q_int = self.q_int[0][0]
         self.q = self.q_ext + self.beta * self.q_int
 
-        probs = helper.calc_epsilon_greedy_probs(
+        probs = funcs.calc_epsilon_greedy_probs(
             self.q, worker.get_invalid_actions(), self.epsilon, self.config.action_space.n
         )
-        self.action = helper.random_choice_by_probs(probs)
+        self.action = funcs.random_choice_by_probs(probs)
         # self.prob = probs[self.action]  #[1]
         return self.action, {}
 
@@ -816,4 +801,4 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             s += f"{a:2d}: {q[a]:5.3f} = {q_ext[a]:5.3f} + {self.beta} * {q_int[a]:5.3f}"
             return s
 
-        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)

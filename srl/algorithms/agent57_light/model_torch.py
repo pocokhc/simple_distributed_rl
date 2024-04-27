@@ -7,9 +7,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from srl.base.define import InfoType
 from srl.base.rl.trainer import RLTrainer
-from srl.rl.functions import common
+from srl.rl import functions as funcs
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.torch_.blocks.input_block import create_in_block_out_value
 
@@ -318,14 +317,10 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.lifelong_optimizer = optim.Adam(self.parameter.lifelong_train.parameters(), lr=self.lr_sch_ll.get_rate())
         self.lifelong_criterion = nn.MSELoss()
 
-        self.beta_list = common.create_beta_list(self.config.actor_num)
-        self.discount_list = common.create_discount_list(self.config.actor_num)
+        self.beta_list = funcs.create_beta_list(self.config.actor_num)
+        self.discount_list = funcs.create_discount_list(self.config.actor_num)
 
         self.sync_count = 0
-        self.ext_loss = None
-        self.int_loss = None
-        self.emb_loss = None
-        self.lifelong_loss = None
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
@@ -379,7 +374,7 @@ class Trainer(RLTrainer[Config, Parameter]):
         # --- update ext q
         self.parameter.q_ext_online.to(device)
         self.parameter.q_ext_target.to(device)
-        td_errors_ext, self.ext_loss = self._update_q(
+        td_errors_ext, ext_loss = self._update_q(
             True,
             self.parameter.q_ext_online,
             self.q_ext_optimizer,
@@ -387,12 +382,13 @@ class Trainer(RLTrainer[Config, Parameter]):
             rewards_ext,
             *_params,
         )
+        self.info["ext_loss"] = ext_loss.item()
 
         # --- intrinsic reward
         if self.config.enable_intrinsic_reward:
             self.parameter.q_int_online.to(device)
             self.parameter.q_int_target.to(device)
-            td_errors_int, self.int_loss = self._update_q(
+            td_errors_int, int_loss = self._update_q(
                 False,
                 self.parameter.q_int_online,
                 self.q_int_optimizer,
@@ -400,17 +396,19 @@ class Trainer(RLTrainer[Config, Parameter]):
                 rewards_int,
                 *_params,
             )
+            self.info["int_loss"] = int_loss.item()
 
             # ----------------------------------------
             # embedding network
             # ----------------------------------------
             self.parameter.emb_network.train()
             actions_probs = self.parameter.emb_network([states, n_states])
-            self.emb_loss = self.emb_criterion(actions_probs, onehot_actions)
+            emb_loss = self.emb_criterion(actions_probs, onehot_actions)
 
             self.emb_optimizer.zero_grad()
-            self.emb_loss.backward()
+            emb_loss.backward()
             self.emb_optimizer.step()
+            self.info["emb_loss"] = emb_loss.item()
 
             if self.lr_sch_emb.update(self.train_count):
                 lr = self.lr_sch_emb.get_rate()
@@ -424,11 +422,12 @@ class Trainer(RLTrainer[Config, Parameter]):
                 lifelong_target_val = self.parameter.lifelong_target(states)
             self.parameter.lifelong_train.train()
             lifelong_train_val = self.parameter.lifelong_train(states)
-            self.lifelong_loss = self.lifelong_criterion(lifelong_target_val, lifelong_train_val)
+            lifelong_loss = self.lifelong_criterion(lifelong_target_val, lifelong_train_val)
 
             self.lifelong_optimizer.zero_grad()
-            self.lifelong_loss.backward()
+            lifelong_loss.backward()
             self.lifelong_optimizer.step()
+            self.info["lifelong_loss"] = lifelong_loss.item()
 
             if self.lr_sch_ll.update(self.train_count):
                 lr = self.lr_sch_ll.get_rate()
@@ -452,23 +451,8 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.parameter.q_int_target.load_state_dict(self.parameter.q_int_online.state_dict())
             self.sync_count += 1
 
+        self.info["sync"] = self.sync_count
         self.train_count += 1
-
-    def create_info(self) -> InfoType:
-        d = {"sync": self.sync_count}
-        if self.ext_loss is not None:
-            d["ext_loss"] = self.ext_loss.item()
-        if self.int_loss is not None:
-            d["int_loss"] = self.int_loss.item()
-        if self.emb_loss is not None:
-            d["emb_loss"] = self.emb_loss.item()
-        if self.lifelong_loss is not None:
-            d["lifelong_loss"] = self.lifelong_loss.item()
-        self.ext_loss = None
-        self.int_loss = None
-        self.emb_loss = None
-        self.lifelong_loss = None
-        return d
 
     def _update_q(
         self,

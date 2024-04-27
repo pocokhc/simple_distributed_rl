@@ -7,16 +7,13 @@ from typing import Any, Tuple
 
 import numpy as np
 
-from srl.base.define import DoneTypes, InfoType, RLBaseTypes
+from srl.base.define import DoneTypes, InfoType
 from srl.base.exception import UndefinedError
-from srl.base.rl.config import RLConfig
+from srl.base.rl.algorithms.base_ql import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker import RLWorker
-from srl.base.spaces.array_discrete import ArrayDiscreteSpace
-from srl.base.spaces.discrete import DiscreteSpace
-from srl.rl.functions import helper
+from srl.rl import functions as funcs
 from srl.rl.memories.sequence_memory import SequenceMemory
 
 logger = logging.getLogger(__name__)
@@ -26,7 +23,7 @@ logger = logging.getLogger(__name__)
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig[DiscreteSpace, ArrayDiscreteSpace]):
+class Config(RLConfig):
     #: 学習時の探索率
     search_rate: float = 0.5
     #: テスト時の探索率
@@ -59,12 +56,6 @@ class Config(RLConfig[DiscreteSpace, ArrayDiscreteSpace]):
 
     #: lifelong rewardの減少率
     lifelong_decrement_rate: float = 0.999
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
 
     def get_framework(self) -> str:
         return ""
@@ -283,7 +274,7 @@ class Parameter(RLParameter[Config]):
         if len(n_s_list) == 0:
             return None
         weights = list(self.trans[state][action].values())
-        r_idx = helper.random_choice_by_probs(weights)
+        r_idx = funcs.random_choice_by_probs(weights)
         return n_s_list[r_idx]
 
 
@@ -402,7 +393,7 @@ class Worker(RLWorker[Config, Parameter]):
         return {}
 
     def policy(self, worker) -> Tuple[int, InfoType]:
-        self.state = self.observation_space.to_str(worker.state)
+        self.state = self.config.observation_space.to_str(worker.state)
         invalid_actions = worker.invalid_actions
         self.parameter.init_q(self.state)
 
@@ -421,7 +412,7 @@ class Worker(RLWorker[Config, Parameter]):
             # actionはUCBで決める
             N = sum(self.parameter.action_count[self.state])
             self.ucb_list = []
-            for a in range(self.action_space.n):
+            for a in range(self.config.action_space.n):
                 if a in invalid_actions:
                     self.ucb_list.append(-np.inf)
                     continue
@@ -433,18 +424,18 @@ class Worker(RLWorker[Config, Parameter]):
                     self.ucb_list.append(ucb)
 
         if self.training:
-            self.action = helper.get_random_max_index(self.ucb_list, invalid_actions)
+            self.action = funcs.get_random_max_index(self.ucb_list, invalid_actions)
             self.parameter.action_count[self.state][self.action] += 1
         else:
             q = (1 - self.config.test_search_rate) * q_ext + self.config.test_search_rate * q_int
-            self.action = helper.get_random_max_index(q, invalid_actions)
+            self.action = funcs.get_random_max_index(q, invalid_actions)
 
         return self.action, {}
 
     def on_step(self, worker) -> InfoType:
         if not self.training:
             return {}
-        next_state = self.observation_space.to_str(worker.state)
+        next_state = self.config.observation_space.to_str(worker.state)
         self.parameter.init_q(next_state)
 
         # 内部報酬
@@ -481,9 +472,9 @@ class Worker(RLWorker[Config, Parameter]):
         return self.parameter.lifelong[state]
 
     def render_terminal(self, worker, **kwargs) -> None:
-        prev_state = self.observation_space.to_str(worker.prev_state)
+        prev_state = self.config.observation_space.to_str(worker.prev_state)
         act = worker.prev_action
-        state = self.observation_space.to_str(worker.state)
+        state = self.config.observation_space.to_str(worker.state)
         self.parameter.init_state(prev_state, act, state, worker.prev_invalid_actions, worker.invalid_actions)
         self.parameter.init_q(prev_state)
         self.parameter.init_q(state)
@@ -516,4 +507,4 @@ class Worker(RLWorker[Config, Parameter]):
             s += f", ucb {self.ucb_list[a]:.3f}"
             return s
 
-        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)

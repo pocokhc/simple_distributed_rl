@@ -6,14 +6,13 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 
 from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.config import RLConfig
+from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
-from srl.base.rl.worker import RLWorker
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.discrete import DiscreteSpace
-from srl.rl.functions import helper
-from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, rescaling
+from srl.rl import functions as funcs
+from srl.rl.functions import create_epsilon_list, inverse_rescaling, rescaling
 from srl.rl.memories.priority_experience_replay import (
     PriorityExperienceReplay,
     RLConfigComponentPriorityExperienceReplay,
@@ -62,7 +61,7 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig[DiscreteSpace, BoxSpace],
+    RLConfig,
     RLConfigComponentPriorityExperienceReplay,
     RLConfigComponentFramework,
 ):
@@ -154,12 +153,6 @@ class Config(
 
     def get_processors(self) -> List[Optional[ObservationProcessor]]:
         return [self.input_image_block.get_processor()]
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return self.create_framework_str()
@@ -325,7 +318,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
     def __init__(self, *args):
         super().__init__(*args)
 
-        self.dummy_state = np.full(self.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
+        self.dummy_state = np.full(self.config.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
         self.onehot_arr = np.identity(self.config.action_space.n, dtype=int)
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
@@ -471,4 +464,4 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)

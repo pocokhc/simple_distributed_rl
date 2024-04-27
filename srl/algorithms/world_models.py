@@ -8,16 +8,13 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLBaseTypes, RLMemoryTypes, SpaceTypes
-from srl.base.rl.config import RLConfig
+from srl.base.define import RLMemoryTypes, SpaceTypes
+from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker import RLWorker
-from srl.base.spaces.box import BoxSpace
-from srl.base.spaces.discrete import DiscreteSpace
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
@@ -35,7 +32,7 @@ ref: https://github.com/zacwellmer/WorldModels
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig[DiscreteSpace, BoxSpace], RLConfigComponentFramework):
+class Config(RLConfig, RLConfigComponentFramework):
     train_mode: int = 1
 
     lr: Union[float, SchedulerConfig] = 0.001
@@ -83,12 +80,6 @@ class Config(RLConfig[DiscreteSpace, BoxSpace], RLConfigComponentFramework):
                 enable_norm=True,
             )
         ]
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS
 
     def get_framework(self) -> str:
         return "tensorflow"

@@ -5,8 +5,8 @@ import numpy as np
 
 from srl.base.define import InfoType
 from srl.base.rl.worker import RLWorker
-from srl.rl.functions import helper
-from srl.rl.functions.common import inverse_rescaling, rescaling
+from srl.rl import functions as funcs
+from srl.rl.functions import inverse_rescaling, rescaling
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 from .rainbow import CommonInterfaceParameter, Config
@@ -73,7 +73,6 @@ class Worker(RLWorker):
         return {}
 
     def policy(self, worker) -> Tuple[int, InfoType]:
-        state = worker.state
         invalid_actions = worker.get_invalid_actions()
 
         if self.config.enable_noisy_dense:
@@ -159,4 +158,4 @@ class Worker(RLWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)

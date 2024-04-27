@@ -1,19 +1,15 @@
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Union, cast
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.config import RLConfig
+from srl.base.define import InfoType
+from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
-from srl.base.rl.worker import RLWorker
-from srl.base.spaces.box import BoxSpace
-from srl.base.spaces.discrete import DiscreteSpace
-from srl.rl.functions import helper
-from srl.rl.functions.common import create_epsilon_list, inverse_rescaling, rescaling
+from srl.rl import functions as funcs
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
@@ -39,7 +35,6 @@ Image preprocessor : -
 
 Other
     Double DQN                 : o (config selection)
-    Priority Experience Replay : o (config selection)
     Value function rescaling   : o (config selection)
     invalid_actions            : o
 """
@@ -50,7 +45,7 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig[DiscreteSpace, BoxSpace],
+    RLConfig,
     RLConfigComponentExperienceReplayBuffer,
     RLConfigComponentFramework,
 ):
@@ -61,12 +56,6 @@ class Config(
 
     #: ε-greedy parameter for Test
     test_epsilon: float = 0
-
-    #: Learning rate during distributed learning
-    #: :math:`\epsilon_i = \epsilon^{1 + \frac{i}{N-1} \alpha}`
-    actor_epsilon: float = 0.4
-    #: Look actor_epsilon
-    actor_alpha: float = 7.0
 
     #: <:ref:`scheduler`> ε-greedy parameter for Train
     epsilon: Union[float, SchedulerConfig] = 0.1
@@ -91,10 +80,6 @@ class Config(
     def __post_init__(self):
         super().__post_init__()
 
-    def setup_from_actor(self, actor_num: int, actor_id: int) -> None:
-        e = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
-        self.epsilon = e
-
     def set_atari_config(self):
         """Set the Atari parameters written in the paper."""
         self.batch_size = 32
@@ -113,12 +98,6 @@ class Config(
 
     def get_processors(self) -> List[Optional[ObservationProcessor]]:
         return [self.input_image_block.get_processor()]
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE | RLBaseTypes.MULTI
 
     def get_framework(self) -> str:
         return self.create_framework_str()
@@ -176,7 +155,7 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
     ):
         # ここの計算はtfで計算するよりnpで計算したほうが早い
 
-        n_inv_act_idx1, n_inv_act_idx2 = helper.create_fancy_index_for_invalid_actions(next_invalid_actions)
+        n_inv_act_idx1, n_inv_act_idx2 = funcs.create_fancy_index_for_invalid_actions(next_invalid_actions)
 
         n_q_target = self.pred_batch_target_q(n_state)
 
@@ -191,13 +170,13 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
             maxq = np.max(n_q_target, axis=1)
 
         if self.config.enable_rescale:
-            maxq = inverse_rescaling(maxq)
+            maxq = funcs.inverse_rescaling(maxq)
 
         # --- Q値を計算
         target_q = reward + done * self.config.discount * maxq
 
         if self.config.enable_rescale:
-            target_q = rescaling(target_q)
+            target_q = funcs.rescaling(target_q)
 
         return target_q.astype(np.float32)
 
@@ -224,14 +203,13 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
 
         if random.random() < epsilon:
             # epsilonより低いならランダム
-            action = random.choice([a for a in range(self.action_space.n) if a not in invalid_actions])
-            self.q = None
+            action = random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
         else:
-            self.q = self.parameter.pred_single_q(worker.state)
-            self.q[invalid_actions] = -np.inf
+            q = self.parameter.pred_single_q(worker.state)
+            q[invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないので無視）
-            action = int(np.argmax(self.q))
+            action = int(np.argmax(q))
 
         return action, {"epsilon": epsilon}
 
@@ -259,12 +237,11 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             next_invalid_actions,
         ]
         """
-        action: int = cast(int, worker.prev_action)
         # memory.add に直接入れるとなぜか遅くなる
         batch = [
             worker.prev_state,
             worker.state,
-            np.identity(self.action_space.n, dtype=int)[action],
+            funcs.one_hot(worker.prev_action, self.config.action_space.n),
             reward,
             int(not worker.terminated),
             worker.get_invalid_actions(),
@@ -274,15 +251,13 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
 
     def render_terminal(self, worker, **kwargs) -> None:
         # policy -> render -> env.step
-        if self.q is None:
-            q = self.parameter.pred_single_q(worker.state)
-        else:
-            q = self.q
+        q = self.parameter.pred_single_q(worker.state)
+        print(q, worker.state)
         maxa = np.argmax(q)
         if self.config.enable_rescale:
-            q = inverse_rescaling(q)
+            q = funcs.inverse_rescaling(q)
 
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        helper.render_discrete_action(int(maxa), self.action_space.n, worker.env, _render_sub)
+        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)

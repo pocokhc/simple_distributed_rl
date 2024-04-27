@@ -6,16 +6,13 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.config import RLConfig
+from srl.base.define import InfoType
+from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker import RLWorker
-from srl.base.spaces.box import BoxSpace
-from srl.base.spaces.discrete import DiscreteSpace
-from srl.rl.functions import helper
+from srl.rl import functions as funcs
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
@@ -39,7 +36,7 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig[DiscreteSpace, BoxSpace],
+    RLConfig,
     RLConfigComponentExperienceReplayBuffer,
     RLConfigComponentFramework,
 ):
@@ -61,12 +58,6 @@ class Config(
 
     def get_processors(self) -> List[Optional[ObservationProcessor]]:
         return [self.input_image_block.get_processor()]
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS
 
     def get_framework(self) -> str:
         return "tensorflow"
@@ -307,4 +298,4 @@ class Worker(RLWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)

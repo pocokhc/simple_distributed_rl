@@ -4,7 +4,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import InfoType
 from srl.base.rl.trainer import RLTrainer
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
@@ -98,7 +97,6 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
         self.sync_count = 0
-        self.loss = None
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
@@ -111,9 +109,10 @@ class Trainer(RLTrainer[Config, Parameter]):
             target_q, states, onehot_actions = self.parameter.calc_target_q(batchs, training=True)
 
         with tf.GradientTape() as tape:
-            self.loss, q = self.parameter.q_online.compute_train_loss(states, onehot_actions, target_q, weights)
-        grad = tape.gradient(self.loss, self.parameter.q_online.trainable_variables)
+            loss, q = self.parameter.q_online.compute_train_loss(states, onehot_actions, target_q, weights)
+        grad = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grad, self.parameter.q_online.trainable_variables))
+        self.info["loss"] = loss.numpy()
 
         if self.lr_sch.update(self.train_count):
             self.optimizer.learning_rate = self.lr_sch.get_rate()
@@ -127,14 +126,5 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
             self.sync_count += 1
 
+        self.info["sync"] = self.sync_count
         self.train_count += 1
-
-    def create_info(self) -> InfoType:
-        d = {
-            "sync": self.sync_count,
-            "lr": self.lr_sch.get_rate(),
-        }
-        if self.loss is not None:
-            d["loss"] = self.loss.numpy()
-        self.loss = None
-        return d

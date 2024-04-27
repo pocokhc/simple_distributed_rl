@@ -8,15 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 import numpy as np
 
 from srl.base.context import RunContext
-from srl.base.define import (
-    DoneTypes,
-    EnvActionType,
-    EnvInvalidActionType,
-    EnvObservationType,
-    InfoType,
-    KeyBindType,
-    RenderModes,
-)
+from srl.base.define import DoneTypes, EnvActionType, EnvObservationType, InfoType, KeyBindType, RenderModes
 from srl.base.env.config import EnvConfig
 from srl.base.exception import SRLError
 from srl.base.render import Render
@@ -324,8 +316,8 @@ class EnvRun:
             assert False, f"The type of reward is different. {done}({type(done)})"
 
     def sanitize_invalid_actions(
-        self, invalid_actions: List[EnvInvalidActionType], error_msg: str = ""
-    ) -> List[EnvInvalidActionType]:
+        self, invalid_actions: List[EnvActionType], error_msg: str = ""
+    ) -> List[EnvActionType]:
         try:
             for j in range(len(invalid_actions)):
                 invalid_actions[j] = self.action_space.sanitize(invalid_actions[j])
@@ -334,7 +326,7 @@ class EnvRun:
             logger.error(f"{invalid_actions}, {error_msg}, {e}")
         return []
 
-    def assert_invalid_actions(self, invalid_actions: List[EnvInvalidActionType]):
+    def assert_invalid_actions(self, invalid_actions: List[EnvActionType]):
         assert isinstance(
             invalid_actions, list
         ), f"invalid_actions must be arrayed. {invalid_actions}({type(invalid_actions)})"
@@ -423,23 +415,23 @@ class EnvRun:
         return self.step_rewards[self.prev_player_index]
 
     @property
-    def invalid_actions(self) -> List[EnvInvalidActionType]:
+    def invalid_actions(self) -> List[EnvActionType]:
         """現プレイヤーのinvalid actionsを返す"""
         return self._invalid_actions_list[self.next_player_index]
 
     # invalid actions
-    def get_invalid_actions(self, player_index: int = -1) -> List[EnvInvalidActionType]:
+    def get_invalid_actions(self, player_index: int = -1) -> List[EnvActionType]:
         if player_index == -1:
             player_index = self.next_player_index
         return self._invalid_actions_list[player_index]
 
-    def get_valid_actions(self, player_index: int = -1) -> List[EnvInvalidActionType]:
+    def get_valid_actions(self, player_index: int = -1) -> List[EnvActionType]:
         if isinstance(self.action_space, DiscreteSpace):
             invalid_actions = self.get_invalid_actions(player_index)
             return [a for a in range(self.action_space.n) if a not in invalid_actions]
         return []
 
-    def add_invalid_actions(self, invalid_actions: List[EnvInvalidActionType], player_index: int) -> None:
+    def add_invalid_actions(self, invalid_actions: List[EnvActionType], player_index: int) -> None:
         if self.config.enable_assertion:
             self.assert_invalid_actions(invalid_actions)
         elif self.config.enable_sanitize:

@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import List, Tuple
 
-from srl.base.define import EnvActionType, EnvObservationType, InfoType, RLInvalidActionType
+from srl.base.define import EnvActionType, EnvObservationType, InfoType, RLActionType
 from srl.base.env import EnvBase
 
 
@@ -16,7 +16,7 @@ class SinglePlayEnv(EnvBase):
         # state, reward, done, info
         raise NotImplementedError()
 
-    def call_get_invalid_actions(self) -> List[RLInvalidActionType]:
+    def call_get_invalid_actions(self) -> List[RLActionType]:
         return []
 
     # -----------------------------------------------------
@@ -37,5 +37,5 @@ class SinglePlayEnv(EnvBase):
         n_state, reward, done, info = self.call_step(action)
         return n_state, [reward], done, info
 
-    def get_invalid_actions(self, player_index: int) -> List[RLInvalidActionType]:
+    def get_invalid_actions(self, player_index: int) -> List[RLActionType]:
         return self.call_get_invalid_actions()

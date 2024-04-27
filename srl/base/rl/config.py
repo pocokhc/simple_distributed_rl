@@ -3,12 +3,12 @@ import pickle
 import pprint
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Generic, List, Optional, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Generic, List, Optional, Type, Union, cast
 
 import numpy as np
 
 from srl.base.context import RunContext
-from srl.base.define import ObservationModes, RenderModes, RLBaseTypes, SpaceTypes
+from srl.base.define import ObservationModes, RenderModes, RLBaseTypes, SpaceTypes, TActSpace, TObsSpace
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.exception import NotSupportedError
 from srl.base.rl.processor import EpisodeProcessor, ObservationProcessor, ProcessorType
@@ -26,12 +26,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_TActSpace = TypeVar("_TActSpace")
-_TObsSpace = TypeVar("_TObsSpace")
-
 
 @dataclass
-class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
+class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     """RLConfig はアルゴリズムの動作を定義します。
     アルゴリズム毎に別々のハイパーパラメータがありますが、ここはアルゴリズム共通のパラメータの定義となります。
     """
@@ -566,21 +563,21 @@ class RLConfig(ABC, Generic[_TActSpace, _TObsSpace]):
         return self._episode_processors
 
     @property
-    def observation_space_one_step(self) -> _TObsSpace:
+    def observation_space_one_step(self) -> TObsSpace:
         # window length==1の時のspaceを返す
-        return cast(_TObsSpace, self._rl_obs_space_one_step)
+        return cast(TObsSpace, self._rl_obs_space_one_step)
 
     @property
-    def observation_space(self) -> _TObsSpace:
-        return cast(_TObsSpace, self._rl_obs_space)
+    def observation_space(self) -> TObsSpace:
+        return cast(TObsSpace, self._rl_obs_space)
 
     @property
     def observation_space_of_env(self) -> SpaceBase:
         return self._env_obs_space_in_rl
 
     @property
-    def action_space(self) -> _TActSpace:
-        return cast(_TActSpace, self._rl_act_space)
+    def action_space(self) -> TActSpace:
+        return cast(TActSpace, self._rl_act_space)
 
     @property
     def action_space_of_env(self) -> SpaceBase:

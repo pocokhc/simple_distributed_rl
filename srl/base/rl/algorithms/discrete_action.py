@@ -3,7 +3,7 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from srl.base.define import InfoType, RLActionType, RLBaseTypes, RLInvalidActionType, RLObservationType
+from srl.base.define import InfoType, RLActionType, RLBaseTypes, RLObservationType
 from srl.base.rl.config import RLConfig
 from srl.base.rl.worker import RLWorker
 from srl.base.rl.worker_run import WorkerRun
@@ -23,7 +23,7 @@ class DiscreteActionWorker(RLWorker):
     def call_on_reset(
         self,
         state: RLObservationType,
-        invalid_actions: List[RLInvalidActionType],
+        invalid_actions: List[RLActionType],
     ) -> InfoType:
         raise NotImplementedError()
 
@@ -31,7 +31,7 @@ class DiscreteActionWorker(RLWorker):
     def call_policy(
         self,
         state: RLObservationType,
-        invalid_actions: List[RLInvalidActionType],
+        invalid_actions: List[RLActionType],
     ) -> Tuple[int, InfoType]:
         raise NotImplementedError()
 
@@ -41,7 +41,7 @@ class DiscreteActionWorker(RLWorker):
         next_state: RLObservationType,
         reward: float,
         done: bool,
-        next_invalid_actions: List[RLInvalidActionType],
+        next_invalid_actions: List[RLActionType],
     ) -> InfoType:
         raise NotImplementedError()
 

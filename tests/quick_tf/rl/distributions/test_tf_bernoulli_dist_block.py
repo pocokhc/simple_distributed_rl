@@ -30,14 +30,14 @@ def test_loss():
             print(f"{i}: {loss.numpy()}")
 
     x_true, y_true = _create_dataset(10)
-    dist = block.call_dist(x_true)
+    dist = block(x_true)
     print(x_true.reshape(-1))
     print(y_true)
     for p in dist.prob().numpy():
         print(f"{p[0]:.5f}")
 
     x_true, y_true = _create_dataset(1000)
-    dist = block.call_dist(x_true)
+    dist = block(x_true)
     rmse = np.sqrt(np.mean(y_true - dist.prob()) ** 2)
     print(f"rmse: {rmse}")
     assert rmse < 0.01

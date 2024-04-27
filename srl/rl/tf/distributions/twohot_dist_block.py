@@ -3,7 +3,7 @@ from typing import Tuple
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.rl.tf.common_tf import symexp, symlog, twohot_decode, twohot_encode
+from srl.rl.tf.functions import symexp, symlog, twohot_decode, twohot_encode
 
 kl = keras.layers
 
@@ -30,10 +30,6 @@ class TwoHotDist:
         return x
 
 
-class TwoHotGradDist(TwoHotDist):
-    pass
-
-
 class TwoHotDistBlock(keras.Model):
     def __init__(
         self,
@@ -43,14 +39,12 @@ class TwoHotDistBlock(keras.Model):
         hidden_layer_sizes: Tuple[int, ...] = (),
         activation: str = "relu",
         use_symlog: bool = True,
-        use_mse: bool = False,
     ):
         super().__init__()
         self.bins = bins
         self.low = low
         self.high = high
         self.use_symlog = use_symlog
-        self.use_mse = use_mse
 
         self.hidden_layers = []
         for i in range(len(hidden_layer_sizes)):
@@ -60,34 +54,19 @@ class TwoHotDistBlock(keras.Model):
     def call(self, x, training=False):
         for layer in self.hidden_layers:
             x = layer(x, training=training)
-        return self.out_layer(x)
-
-    def get_dist(self, logits):
-        return TwoHotDist(logits, self.low, self.high, self.use_symlog)
-
-    def get_grad_dist(self, logits):
-        return TwoHotGradDist(logits, self.low, self.high, self.use_symlog)
-
-    def call_dist(self, x):
-        return self.get_dist(self(x, training=False))
-
-    def call_grad_dist(self, x):
-        return self.get_grad_dist(self(x, training=True))
+        return TwoHotDist(self.out_layer(x), self.low, self.high, self.use_symlog)
 
     @tf.function
     def compute_train_loss(self, x, y):
-        dist = self.get_grad_dist(self(x, training=True))
+        dist = self(x, training=True)
         probs = dist.probs()
 
         if self.use_symlog:
             y = symlog(y)
         y = twohot_encode(y, self.bins, self.low, self.high)
 
-        if self.use_mse:
-            return tf.reduce_mean(tf.square(y - probs))
-        else:
-            # クロスエントロピーの最小化
-            # -Σ p * log(q)
-            probs = tf.clip_by_value(probs, 1e-10, 1)  # log(0)回避用
-            loss = -tf.reduce_sum(y * tf.math.log(probs), axis=1)
-            return tf.reduce_mean(loss)
+        # クロスエントロピーの最小化
+        # -Σ p * log(q)
+        probs = tf.clip_by_value(probs, 1e-10, 1)  # log(0)回避用
+        loss = -tf.reduce_sum(y * tf.math.log(probs), axis=1)
+        return tf.reduce_mean(loss)

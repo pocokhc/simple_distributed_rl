@@ -12,20 +12,36 @@ class BernoulliDist:
         self._logits = logits
         self._probs = 1 / (1 + tf.exp(-self._logits))
 
+    def logits(self):
+        return self._logits
+
+    def mean(self):
+        raise NotImplementedError()
+
+    def mode(self):
+        return tf.math.greater_equal(self._probs, tf.constant(0.5))
+
+    def variance(self):
+        raise NotImplementedError()
+
+    def prob(self):
+        return self._probs
+
     def sample(self):
         r = tf.random.uniform(tf.shape(self._probs))
         r = tf.math.greater_equal(self._probs, r)
         return r
 
-    def mode(self):
-        return tf.math.greater_equal(self._probs, tf.constant(0.5))
+    def rsample(self):
+        r = tf.random.uniform(tf.shape(self._probs))
+        r = tf.math.greater_equal(self._probs, r)
+        return r
 
-    def prob(self):
-        return self._probs
+    def log_probs(self):
+        raise NotImplementedError()  # TODO
 
-
-class BernoulliGradDist(BernoulliDist):
-    pass
+    def log_prob(self, a):
+        raise NotImplementedError()  # TODO
 
 
 class BernoulliDistBlock(keras.Model):
@@ -48,23 +64,11 @@ class BernoulliDistBlock(keras.Model):
     def call(self, x, training=False):
         for layer in self.hidden_layers:
             x = layer(x, training=training)
-        return self.out_layer(x)
-
-    def get_dist(self, logits):
-        return BernoulliDist(logits)
-
-    def get_grad_dist(self, logits):
-        return BernoulliGradDist(logits)
-
-    def call_dist(self, x):
-        return self.get_dist(self(x, training=False))
-
-    def call_grad_dist(self, x):
-        return self.get_grad_dist(self(x, training=True))
+        return BernoulliDist(self.out_layer(x))
 
     @tf.function
     def compute_train_loss(self, x, y):
-        logits = self(x, training=True)
+        logits = self(x, training=True).logits()
         # クロスエントロピーの最小化
         # - (p log(q) + (1-p) log(1-q))
         return self.loss_function(y, logits)

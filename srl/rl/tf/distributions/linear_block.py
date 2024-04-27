@@ -3,27 +3,23 @@ from typing import Tuple
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.rl.tf.common_tf import symexp, symlog
+from srl.rl.tf.functions import symexp, symlog
 
 kl = keras.layers
 
 
 class Linear:
     def __init__(self, y, use_symlog: bool = False):
-        self.y = y
-        self.use_symlog = use_symlog
-
-    def sample(self):
-        if self.use_symlog:
-            return symexp(self.y)
+        if use_symlog:
+            self.y = symexp(y)
         else:
-            return self.y
+            self.y = y
 
     def mode(self):
-        if self.use_symlog:
-            return symexp(self.y)
-        else:
-            return self.y
+        return self.y
+
+    def sample(self):
+        return self.y
 
 
 class LinearBlock(keras.Model):
@@ -46,29 +42,10 @@ class LinearBlock(keras.Model):
     def call(self, x, training=False):
         for layer in self.hidden_layers:
             x = layer(x, training=training)
-        return self.out_layer(x)
-
-    def get_dist(self, x):
-        return Linear(x, self.use_symlog)
-
-    def get_grad_dist(self, x):
-        return Linear(x, self.use_symlog)
-
-    def call_dist(self, x):
-        return self.get_dist(self(x, training=False))
-
-    def call_grad_dist(self, x):
-        return self.get_grad_dist(self(x, training=True))
+        return Linear(self.out_layer(x), self.use_symlog)
 
     @tf.function
     def compute_train_loss(self, x, y):
-        pred = self(x, training=True)
-        if self.use_symlog:
-            y = symlog(y)
-        return tf.reduce_mean(tf.square(y - pred))
-
-    def sample(self, x):
-        y = self(x)
-        if self.use_symlog:
-            y = symexp(y)
-        return y
+        dist = self(x, training=True)
+        y = symlog(y)
+        return tf.reduce_mean(tf.square(y - dist.y))

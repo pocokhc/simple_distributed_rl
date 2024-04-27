@@ -6,13 +6,12 @@ from typing import Any, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.config import RLConfig
+from srl.base.define import InfoType
+from srl.base.rl.algorithms.base_ql import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker import RLWorker
-from srl.rl.functions import helper
+from srl.rl import functions as funcs
 from srl.rl.memories.sequence_memory import SequenceMemory
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -37,12 +36,6 @@ class Config(RLConfig):
 
     def __post_init__(self):
         super().__post_init__()
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
 
     def get_framework(self) -> str:
         return ""
@@ -277,7 +270,7 @@ class Worker(RLWorker):
         return {}
 
     def policy(self, worker) -> Tuple[int, InfoType]:
-        self.state = self.observation_space.to_str(worker.state)
+        self.state = self.config.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
 
         if self.training:
@@ -286,7 +279,9 @@ class Worker(RLWorker):
             epsilon = self.config.test_epsilon
 
         if random.random() < epsilon:
-            self.action = random.choice([a for a in range(self.action_space.n) if a not in self.invalid_actions])
+            self.action = random.choice(
+                [a for a in range(self.config.action_space.n) if a not in self.invalid_actions]
+            )
         else:
             q = self.parameter.get_action_values(self.state, self.invalid_actions)
             q = np.asarray(q)
@@ -301,7 +296,7 @@ class Worker(RLWorker):
 
         batch = {
             "state": self.state,
-            "next_state": self.observation_space.to_str(worker.state),
+            "next_state": self.config.observation_space.to_str(worker.state),
             "action": self.action,
             "reward": worker.reward,
             "done": worker.terminated,
@@ -327,4 +322,4 @@ class Worker(RLWorker):
             s += f", done {model.sample_done(self.state, a)}"
             return s
 
-        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)

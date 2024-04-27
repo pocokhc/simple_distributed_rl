@@ -1,27 +1,26 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, Union, cast
+from typing import Any, List, Optional, Union, cast
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLBaseTypes, SpaceTypes
+from srl.base.define import SpaceTypes
 from srl.base.exception import UndefinedError
-from srl.base.rl.config import RLConfig
+from srl.base.rl.algorithms.base_ppo import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker import RLWorker
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
-from srl.rl.functions import helper
+from srl.rl import functions as funcs
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
-from srl.rl.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
+from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.utils.common import compare_less_version
 
@@ -89,19 +88,13 @@ class Config(
     #: 勾配爆発の対策, 平均、分散、ランダムアクションで大きい値を出さないようにclipする
     enable_stable_gradients: bool = True
     #: enable_stable_gradients状態での標準偏差のclip
-    stable_gradients_stddev_range: tuple = (1e-10, 10)
+    stable_gradients_scale_range: tuple = (1e-10, 10)
 
     def __post_init__(self):
         super().__post_init__()
         self.memory.capacity = 1000
         self.policy_hidden_block.set((64, 64, 64))
         self.q_hidden_block.set((128, 128, 128))
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return "tensorflow"
@@ -137,7 +130,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _PolicyNetwork(keras.Model):
+class PolicyNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
         self.config = config
@@ -151,14 +144,16 @@ class _PolicyNetwork(keras.Model):
 
         # layers
         self.hidden_block = config.policy_hidden_block.create_block_tf()
-        if self.config.action_space.stype == SpaceTypes.DISCRETE:
-            self.policy_dist_block = CategoricalGumbelDistBlock(config.action_space.n)
-        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
+
+        # out
+        if isinstance(config.action_space, DiscreteSpace):
+            self.policy_dist_block = CategoricalDistBlock(config.action_space.n)
+        elif isinstance(config.action_space, ArrayContinuousSpace):
             self.policy_dist_block = NormalDistBlock(
                 cast(ArrayContinuousSpace, config.action_space).size,
                 enable_squashed=self.config.enable_normal_squashed,
                 enable_stable_gradients=self.config.enable_stable_gradients,
-                stable_gradients_stddev_range=self.config.stable_gradients_stddev_range,
+                stable_gradients_scale_range=self.config.stable_gradients_scale_range,
             )
         else:
             raise UndefinedError(self.config.action_space)
@@ -171,19 +166,16 @@ class _PolicyNetwork(keras.Model):
         x = self.hidden_block(x, training=training)
         return self.policy_dist_block(x)
 
-    def policy(self, state):
-        return self.policy_dist_block.get_dist(self(state, training=False))
-
     @tf.function
     def compute_train_loss(self, state, q1_model, q2_model, alpha):
-        p_dist = self.policy_dist_block.get_grad_dist(self(state, training=True))
+        p_dist = self(state, training=True)
 
         if self.config.action_space.stype == SpaceTypes.DISCRETE:
-            action = p_dist.sample()
+            action = p_dist.rsample()
             logpi = p_dist.log_probs()
             entropy = -tf.reduce_sum(tf.exp(logpi) * logpi, axis=1, keepdims=True)
         elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
-            action, logpi = p_dist.sample_and_logprob()
+            action, logpi = p_dist.rsample_logprob()
             entropy = -logpi
         else:
             raise UndefinedError(self.config.action_space.stype)
@@ -215,7 +207,7 @@ class QNetwork(keras.Model):
 
         # build
         self._in_shape1 = config.observation_space.shape
-        if config.action_space.stype == SpaceTypes.DISCRETE:
+        if isinstance(config.action_space, DiscreteSpace):
             self._in_shape2 = (config.action_space.n,)
         else:
             self._in_shape2 = (config.action_space.size,)
@@ -248,7 +240,7 @@ class Parameter(RLParameter):
         super().__init__(*args)
         self.config: Config = self.config
 
-        self.policy = _PolicyNetwork(self.config)
+        self.policy = PolicyNetwork(self.config)
         self.q1_online = QNetwork(self.config)
         self.q1_target = QNetwork(self.config)
         self.q1_target.set_weights(self.q1_online.get_weights())
@@ -338,13 +330,13 @@ class Trainer(RLTrainer[Config, Parameter]):
         alpha = np.exp(self.parameter.log_alpha)
 
         # ポリシーより次の状態のアクションを取得し、次の状態のアクションlogpiを取得
-        n_p_dist = self.parameter.policy.policy(n_states)
+        n_p_dist = self.parameter.policy(n_states)
         if self.config.action_space.stype == SpaceTypes.DISCRETE:
-            n_action = n_p_dist.sample(onehot=True)
+            n_action = n_p_dist.rsample(onehot=True)
             n_logpi = n_p_dist.log_prob(n_action)
             entropy = -n_logpi
         elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
-            n_action, n_logpi = n_p_dist.sample_and_logprob()
+            n_action, n_logpi = n_p_dist.rsample_logprob()
             entropy = -n_logpi
         else:
             raise UndefinedError(self.config.action_space.stype)
@@ -428,19 +420,17 @@ class Trainer(RLTrainer[Config, Parameter]):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-    def on_reset(self, worker) -> dict:
+    def on_reset(self, worker):
         return {}
 
-    def policy(self, worker) -> Tuple[Any, dict]:
-        self.state = worker.state
-
-        p_dist = self.parameter.policy.policy(self.state[np.newaxis, ...])
+    def policy(self, worker):
+        p_dist = self.parameter.policy(worker.state[np.newaxis, ...])
         if isinstance(self.config.action_space, DiscreteSpace):
             self.action = p_dist.sample(onehot=True).numpy()[0]
             env_action = int(np.argmax(self.action))
@@ -453,34 +443,20 @@ class Worker(RLWorker):
 
         elif isinstance(self.config.action_space, ArrayContinuousSpace):
             act_space = self.config.action_space
-            if self.training:
-                self.action = p_dist.sample().numpy()[0]
-            else:
-                self.action = p_dist.mean().numpy()[0]
-
-            if self.config.enable_normal_squashed:
-                # Squashed Gaussian Policy (-1, 1) -> (action range)
-                env_action = (self.action + 1) / 2
-                env_action = act_space.low + env_action * (act_space.high - act_space.low)
-            else:
-                env_action = np.clip(self.action, act_space.low, act_space.high)
-            env_action = env_action.tolist()
-
-            if self.rendering:
-                self.mean = p_dist.mean().numpy()[0]
-                self.stddev = p_dist.stddev().numpy()[0]
-
+            self.action, env_action = p_dist.policy((act_space.low, act_space.high), self.training)
+            self.action = self.action.numpy()[0]
+            env_action = env_action.numpy()[0].tolist()
         else:
             raise UndefinedError(self.config.action_space)
 
         return env_action, {}
 
-    def on_step(self, worker) -> dict:
+    def on_step(self, worker):
         if not self.training:
             return {}
 
         batch = {
-            "state": self.state,
+            "state": worker.prev_state,
             "action": self.action,
             "next_state": worker.state,
             "reward": worker.reward,
@@ -491,31 +467,34 @@ class Worker(RLWorker):
         return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
-        if self.config.action_space.stype == SpaceTypes.DISCRETE:
+        # policy -> render -> env.step
+        state = worker.state[np.newaxis, ...]
+        if isinstance(self.config.action_space, DiscreteSpace):
             maxa = np.argmax(self.probs)
 
             def _render_sub(a: int) -> str:
                 onehot_a = np.identity(self.config.action_space.n, dtype=np.float32)[a][np.newaxis, ...]
-                q1 = self.parameter.q1_online([self.state[np.newaxis, ...], onehot_a])
-                q2 = self.parameter.q2_online([self.state[np.newaxis, ...], onehot_a])
+                q1 = self.parameter.q1_online([state, onehot_a])
+                q2 = self.parameter.q2_online([state, onehot_a])
                 q1 = q1.numpy()[0][0]
                 q2 = q2.numpy()[0][0]
 
                 s = f"{self.probs[a] * 100:5.1f}%, q1 {q1:.5f}, q2 {q2:.5f} "
                 return s
 
-            helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+            funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)
 
-        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
-            q1 = self.parameter.q1_online([self.state[np.newaxis, ...], self.action[np.newaxis, ...]])
-            q2 = self.parameter.q2_online([self.state[np.newaxis, ...], self.action[np.newaxis, ...]])
+        elif isinstance(self.config.action_space, ArrayContinuousSpace):
+            dist = self.parameter.policy(state)
+            print(f"action: {self.action}")
+            print(f"mean  : {dist.mean().numpy()[0][0]}")
+            print(f"stddev: {dist.stddev().numpy()[0][0]}")
+            q1 = self.parameter.q1_online([state, self.action[np.newaxis, ...]])
+            q2 = self.parameter.q2_online([state, self.action[np.newaxis, ...]])
             q1 = q1.numpy()[0][0]
             q2 = q2.numpy()[0][0]
             print(f"q1 {q1:8.5f}")
             print(f"q2 {q2:8.5f}")
-            print(f"action: {self.action}")
-            print(f"mean  : {self.mean}")
-            print(f"stddev: {self.stddev}")
 
         else:
             raise UndefinedError(self.config.action_space.stype)

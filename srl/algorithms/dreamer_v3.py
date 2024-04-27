@@ -8,24 +8,23 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow import keras
 
-from srl.base.define import DoneTypes, InfoType, RLBaseTypes, SpaceTypes
+from srl.base.define import DoneTypes, RLBaseTypes, SpaceTypes
 from srl.base.exception import UndefinedError
-from srl.base.rl.config import RLConfig
+from srl.base.rl.algorithms.base_ppo import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker import RLWorker
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
-from srl.rl.functions import helper
+from srl.rl import functions as funcs
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.distributions.bernoulli_dist_block import BernoulliDistBlock
-from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock, CategoricalGradDist
+from srl.rl.tf.distributions.categorical_dist_block import CategoricalDist, CategoricalDistBlock
 from srl.rl.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
-from srl.rl.tf.distributions.linear_block import Linear, LinearBlock
+from srl.rl.tf.distributions.linear_block import LinearBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.rl.tf.distributions.twohot_dist_block import TwoHotDistBlock
 from srl.utils.common import compare_less_version
@@ -79,7 +78,7 @@ class Config(
     #: Parameters:
     #:   "linear": MSEで学習（use_symlogの影響を受けます）
     #:   "normal": ガウス分布による学習（use_symlogの影響はうけません）
-    #:   "normal_fixed_stddev": ガウス分布による学習ですが、分散は1で固定（use_symlogの影響はうけません）
+    #:   "normal_fixed_scale": ガウス分布による学習ですが、分散は1で固定（use_symlogの影響はうけません）
     #:   "twohot": TwoHotエンコーディングによる学習（use_symlogの影響を受けます）
     reward_type: str = "twohot"
     #: reward_typeが"twohot"の時のみ有効、bins
@@ -155,7 +154,7 @@ class Config(
     #: Parameters:
     #:   "linear" : MSEで学習（use_symlogの影響を受けます）
     #:   "normal" : 正規分布（use_symlogの影響は受けません）
-    #:   "normal_fixed_stddev": 分散1固定の正規分布（use_symlogの影響は受けません）
+    #:   "normal_fixed_scale": 分散1固定の正規分布（use_symlogの影響は受けません）
     #:   "twohot" : TwoHotカテゴリカル分布（use_symlogの影響を受けます）
     critic_type: str = "twohot"
     #: critic_typeが"dreamer_v3"の時のみ有効、bins
@@ -280,7 +279,7 @@ class Config(
         self.rssm_activation = "elu"
         self.rssm_unimix = 0
         # --- other model layers
-        self.reward_type = "normal_fixed_stddev"
+        self.reward_type = "normal_fixed_scale"
         self.reward_layer_sizes = (400, 400)
         self.cont_layer_sizes = (400, 400)
         self.critic_layer_sizes = (400, 400, 400)
@@ -305,7 +304,7 @@ class Config(
         self.loss_scale_kl_rep = 0.5
         # --- actor/critic
         self.critic_target_update_interval = 0
-        self.critic_type = "normal_fixed_stddev"
+        self.critic_type = "normal_fixed_scale"
         self.actor_discrete_unimix = 0
         # Behavior
         self.horizon = 15
@@ -357,7 +356,7 @@ class Config(
         # --- actor/critic
         self.critic_target_update_interval = 100
         self.critic_target_soft_update = 1
-        self.critic_type = "normal_fixed_stddev"
+        self.critic_type = "normal_fixed_scale"
         self.actor_discrete_unimix = 0
         # Behavior
         self.horizon = 15
@@ -450,12 +449,6 @@ class Config(
                     enable_norm=True,
                 )
             ]
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return "tensorflow"
@@ -554,10 +547,10 @@ class _RSSM(keras.Model):
             # (batch, stoch, classes) -> (batch * stoch, classes)
             batch = x.shape[0]
             x = tf.reshape(x, (batch * self.stoch_size, self.classes))
-            dist = CategoricalGradDist(x, self.unimix)
+            dist = CategoricalDist(x, self.unimix)
             # (batch * stoch, classes) -> (batch, stoch, classes) -> (batch, stoch * classes)
             stoch = tf.cast(
-                tf.reshape(dist.sample(), (batch, self.stoch_size, self.classes)),
+                tf.reshape(dist.rsample(), (batch, self.stoch_size, self.classes)),
                 tf.float32,
             )
             stoch = tf.reshape(stoch, (batch, self.stoch_size * self.classes))
@@ -565,9 +558,9 @@ class _RSSM(keras.Model):
             probs = dist.probs()
             prior = {"stoch": stoch, "probs": probs}
         else:
-            dist = self.img_norm_dist_block.call_grad_dist(x)
+            dist = self.img_norm_dist_block(x)
             prior = {
-                "stoch": dist.sample(),
+                "stoch": dist.rsample(),
                 "mean": dist.mean(),
                 "stddev": dist.stddev(),
             }
@@ -587,10 +580,10 @@ class _RSSM(keras.Model):
             # (batch, stoch, classes) -> (batch * stoch, classes)
             batch = x.shape[0]
             x = tf.reshape(x, (batch * self.stoch_size, self.classes))
-            dist = CategoricalGradDist(x, self.unimix)
+            dist = CategoricalDist(x, self.unimix)
             # (batch * stoch, classes) -> (batch, stoch, classes) -> (batch, stoch * classes)
             stoch = tf.cast(
-                tf.reshape(dist.sample(), (batch, self.stoch_size, self.classes)),
+                tf.reshape(dist.rsample(), (batch, self.stoch_size, self.classes)),
                 tf.float32,
             )
             stoch = tf.reshape(stoch, (batch, self.stoch_size * self.classes))
@@ -598,9 +591,9 @@ class _RSSM(keras.Model):
             probs = dist.probs()
             post = {"stoch": stoch, "probs": probs}
         else:
-            dist = self.obs_norm_dist_block.call_grad_dist(x)
+            dist = self.obs_norm_dist_block(x)
             post = {
-                "stoch": dist.sample(),
+                "stoch": dist.rsample(),
                 "mean": dist.mean(),
                 "stddev": dist.stddev(),
             }
@@ -919,9 +912,9 @@ class _ImageDecoder(keras.Model):
             self.blocks.append([res_blocks_layers, cnn_layers])
 
         if dist_type == "linear":
-            self.out_dist = LinearBlock(depth, activation=activation)
+            self.out_dist = LinearBlock(depth)
         elif dist_type == "normal":
-            self.out_dist = NormalDistBlock(depth, activation=activation)
+            self.out_dist = NormalDistBlock(depth)
         else:
             raise UndefinedError(dist_type)
 
@@ -949,21 +942,11 @@ class _ImageDecoder(keras.Model):
 
     @tf.function
     def compute_train_loss(self, feat, state):
-        y_pred = self(feat)
+        dist = self(feat)
         if self.dist_type == "linear":
-            return tf.reduce_mean(tf.square(state - y_pred))
+            return tf.reduce_mean(tf.square(state - dist.y))
         elif self.dist_type == "normal":
-            dist = self.out_dist.get_grad_dist(y_pred)
             return -tf.reduce_mean(dist.log_prob(state))
-        else:
-            raise UndefinedError(self.dist_type)
-
-    def call_dist(self, x):
-        x = self(x)
-        if self.dist_type == "linear":
-            return Linear(x)
-        elif self.dist_type == "normal":
-            return self.out_dist.get_dist(x)
         else:
             raise UndefinedError(self.dist_type)
 
@@ -1075,7 +1058,7 @@ class Parameter(RLParameter):
         elif self.config.reward_type == "normal":
             self.reward = NormalDistBlock(1, self.config.reward_layer_sizes, (), (), self.config.dense_act)
             logger.info("Reward: Normal")
-        elif self.config.reward_type == "normal_fixed_stddev":
+        elif self.config.reward_type == "normal_fixed_scale":
             self.reward = NormalDistBlock(1, self.config.reward_layer_sizes, (), (), self.config.dense_act, 1)
             logger.info("Reward: Normal(stddev=1)")
         else:
@@ -1105,18 +1088,18 @@ class Parameter(RLParameter):
             self.critic = NormalDistBlock(1, self.config.critic_layer_sizes, (), (), self.config.dense_act)
             self.critic_target = NormalDistBlock(1, self.config.critic_layer_sizes, (), (), self.config.dense_act)
             logger.info("Critic: Normal")
-        elif self.config.critic_type == "normal_fixed_stddev":
+        elif self.config.critic_type == "normal_fixed_scale":
             self.critic = NormalDistBlock(
                 1,
                 self.config.critic_layer_sizes,
                 activation=self.config.dense_act,
-                fixed_stddev=1,
+                fixed_scale=1,
             )
             self.critic_target = NormalDistBlock(
                 1,
                 self.config.critic_layer_sizes,
                 activation=self.config.dense_act,
-                fixed_stddev=1,
+                fixed_scale=1,
             )
             logger.info("Critic: Normal(stddev=1)")
         elif self.config.critic_type == "twohot":
@@ -1204,7 +1187,7 @@ class Parameter(RLParameter):
 
     def summary(self, **kwargs):
         self.encode.summary(**kwargs)
-        self.dynamics.summary(self.config, **kwargs)
+        # self.dynamics.summary(self.config, **kwargs)
         self.decode.summary(**kwargs)
         self.reward.summary(**kwargs)
         self.cont.summary(**kwargs)
@@ -1240,15 +1223,6 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.seq_undone = [[] for _ in range(self.config.batch_size)]
         self.seq_unterminated = [[] for _ in range(self.config.batch_size)]
         self.stoch, self.deter = self.parameter.dynamics.get_initial_state(self.batch_size)
-
-        self.decode_loss = None
-        self.reward_loss = None
-        self.cont_loss = None
-        self.kl_loss = None
-        self.act_v_loss = None
-        self.entropy_loss = None
-        self.actor_loss = None
-        self.critic_loss = None
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
@@ -1342,16 +1316,19 @@ class Trainer(RLTrainer[Config, Parameter]):
             )
 
             # --- embed loss
-            self.decode_loss = self.parameter.decode.compute_train_loss(feats, next_states)
-            self.reward_loss = self.parameter.reward.compute_train_loss(feats, rewards)
-            self.cont_loss = self.parameter.cont.compute_train_loss(feats, unterminated)
+            decode_loss = self.parameter.decode.compute_train_loss(feats, next_states)
+            reward_loss = self.parameter.reward.compute_train_loss(feats, rewards)
+            cont_loss = self.parameter.cont.compute_train_loss(feats, unterminated)
 
             loss = (
-                self.config.loss_scale_pred * (self.decode_loss + self.reward_loss + self.cont_loss)
+                self.config.loss_scale_pred * (decode_loss + reward_loss + cont_loss)
                 + self.config.loss_scale_kl_dyn * kl_loss_dyn
                 + self.config.loss_scale_kl_rep * kl_loss_rep
             )
-        self.kl_loss = kl_loss_dyn
+        self.info["decode_loss"] = np.mean(decode_loss.numpy())
+        self.info["reward_loss"] = np.mean(reward_loss.numpy())
+        self.info["cont_loss"] = np.mean(cont_loss.numpy())
+        self.info["kl_loss"] = np.mean(kl_loss_dyn.numpy())
 
         if self.config.enable_train_model:
             variables = [
@@ -1388,11 +1365,16 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.parameter.actor.trainable = True
             self.parameter.critic.trainable = False
             with tf.GradientTape() as tape:
-                self.actor_loss, self.act_v_loss, self.entropy_loss, horizon_feat, horizon_V = (
-                    self._compute_horizon_step(stochs, deters, feats)
+                actor_loss, act_v_loss, entropy_loss, horizon_feat, horizon_V = self._compute_horizon_step(
+                    stochs, deters, feats
                 )
-            grads = tape.gradient(self.actor_loss, self.parameter.actor.trainable_variables)
+            grads = tape.gradient(actor_loss, self.parameter.actor.trainable_variables)
             self._actor_opt.apply_gradients(zip(grads, self.parameter.actor.trainable_variables))
+            if act_v_loss is not None:
+                self.info["act_v_loss"] = act_v_loss.numpy()
+            if entropy_loss is not None:
+                self.info["entropy_loss"] = entropy_loss.numpy()
+            self.info["actor_loss"] = actor_loss.numpy()
 
             if self.lr_sch_actor.update(self.train_count):
                 self._actor_opt.learning_rate = self.lr_sch_actor.get_rate()
@@ -1409,9 +1391,10 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.parameter.actor.trainable = False
             self.parameter.critic.trainable = True
             with tf.GradientTape() as tape:
-                self.critic_loss = self.parameter.critic.compute_train_loss(horizon_feat, tf.stop_gradient(horizon_V))
-            grads = tape.gradient(self.critic_loss, self.parameter.critic.trainable_variables)
+                critic_loss = self.parameter.critic.compute_train_loss(horizon_feat, tf.stop_gradient(horizon_V))
+            grads = tape.gradient(critic_loss, self.parameter.critic.trainable_variables)
             self._critic_opt.apply_gradients(zip(grads, self.parameter.critic.trainable_variables))
+            self.info["critic_loss"] = critic_loss.numpy()
 
             if self.lr_sch_critic.update(self.train_count):
                 self._critic_opt.learning_rate = self.lr_sch_critic.get_rate()
@@ -1430,35 +1413,6 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         return
 
-    def create_info(self) -> InfoType:
-        d = {}
-        if self.decode_loss is not None:
-            d["decode_loss"] = np.mean(self.decode_loss.numpy())
-        if self.reward_loss is not None:
-            d["reward_loss"] = np.mean(self.reward_loss.numpy())
-        if self.cont_loss is not None:
-            d["cont_loss"] = np.mean(self.cont_loss.numpy())
-        if self.kl_loss is not None:
-            d["kl_loss"] = np.mean(self.kl_loss.numpy())
-        if self.act_v_loss is not None:
-            d["act_v_loss"] = self.act_v_loss.numpy()
-        if self.entropy_loss is not None:
-            d["entropy_loss"] = self.entropy_loss.numpy()
-        if self.actor_loss is not None:
-            d["actor_loss"] = self.actor_loss.numpy()
-        if self.critic_loss is not None:
-            d["critic_loss"] = self.critic_loss.numpy()
-
-        self.decode_loss = None
-        self.reward_loss = None
-        self.cont_loss = None
-        self.kl_loss = None
-        self.act_v_loss = None
-        self.entropy_loss = None
-        self.actor_loss = None
-        self.critic_loss = None
-        return d
-
     @tf.function
     def _compute_horizon_step(self, stoch, deter, feat, is_critic: bool = False):
         # featはアクション後の状態でQに近いイメージ
@@ -1468,8 +1422,8 @@ class Trainer(RLTrainer[Config, Parameter]):
         for t in range(self.config.horizon):
             # --- calc action
             if self.config.action_space.stype == SpaceTypes.DISCRETE:
-                dist = self.parameter.actor.call_grad_dist(feat)
-                action = dist.sample()
+                dist = self.parameter.actor(feat)
+                action = dist.rsample()
                 if self.config.horizon_policy == "random":
                     action = tf.one_hot(
                         np.random.randint(0, self.config.action_space.n - 1, size=stoch.shape[0]),
@@ -1478,8 +1432,8 @@ class Trainer(RLTrainer[Config, Parameter]):
                 log_probs = dist.log_probs()
                 entropy += -tf.reduce_sum(tf.exp(log_probs) * log_probs, axis=-1)
             elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
-                dist = self.parameter.actor.call_grad_dist(feat)
-                action, log_prob = dist.sample_and_logprob()
+                dist = self.parameter.actor(feat)
+                action, log_prob = dist.rsample_logprob()
                 horizon_logpi.append(log_prob)
                 entropy += -tf.squeeze(log_prob, axis=-1)
                 if self.config.horizon_policy == "random":
@@ -1495,12 +1449,12 @@ class Trainer(RLTrainer[Config, Parameter]):
         horizon_feat = tf.stack(horizon_feat)
         horizon_logpi = tf.stack(horizon_logpi)
 
-        horizon_reward = self.parameter.reward.call_grad_dist(horizon_feat).mode()
-        horizon_cont = tf.cast(self.parameter.cont.call_grad_dist(horizon_feat).mode(), dtype=tf.float32)
+        horizon_reward = self.parameter.reward(horizon_feat).mode()
+        horizon_cont = tf.cast(self.parameter.cont(horizon_feat).mode(), dtype=tf.float32)
         if self.config.critic_target_update_interval > 0:
-            horizon_v = self.parameter.critic_target.call_grad_dist(horizon_feat).mode()
+            horizon_v = self.parameter.critic_target(horizon_feat).mode()
         else:
-            horizon_v = self.parameter.critic.call_grad_dist(horizon_feat).mode()
+            horizon_v = self.parameter.critic(horizon_feat).mode()
 
         # --- compute V
         # (horizon+1, batch_size*batch_length, shape) -> (batch_size*batch_length, shape)
@@ -1686,14 +1640,14 @@ class Worker(RLWorker):
                 raise UndefinedError(self.config.action_space.stype)
             return env_action, {}
 
-        dist = self.parameter.actor.call_dist(self.feat)
+        dist = self.parameter.actor(self.feat)
         if self.config.action_space.stype == SpaceTypes.DISCRETE:  # int
             self.action = dist.sample(onehot=True)
             env_action = int(np.argmax(self.action[0]))
         elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:  # float,list[float]
             act_space = cast(ArrayContinuousSpace, self.config.action_space)
 
-            self.action, self.logpi = dist.sample_and_logprob()
+            self.action, self.logpi = dist.rsample_logprob()
             env_action = self.action[0].numpy()
             if self.config.actor_continuous_enable_normal_squashed:
                 # Squashed Gaussian Policy (-1, 1) -> (action range)
@@ -1736,16 +1690,16 @@ class Worker(RLWorker):
 
     def render_terminal(self, worker, **kwargs) -> None:
         # --- decode
-        pred_state = self.parameter.decode.call_dist(self.feat).sample()[0].numpy()
-        pred_reward = self.parameter.reward.call_dist(self.feat).mode()[0][0].numpy()
-        pred_cont = self.parameter.cont.call_dist(self.feat).prob()[0][0].numpy()
-        value = self.parameter.critic.call_dist(self.feat).mode()[0][0].numpy()
+        pred_state = self.parameter.decode(self.feat).sample()[0].numpy()
+        pred_reward = self.parameter.reward(self.feat).mode()[0][0].numpy()
+        pred_cont = self.parameter.cont(self.feat).prob()[0][0].numpy()
+        value = self.parameter.critic(self.feat).mode()[0][0].numpy()
 
         print(pred_state)
         print(f"reward: {pred_reward:.5f}, done: {(1-pred_cont)*100:4.1f}%, v: {value:.5f}")
 
         if self.config.action_space.stype == SpaceTypes.DISCRETE:
-            act_dist = self.parameter.actor.call_dist(self.feat)
+            act_dist = self.parameter.actor(self.feat)
             act_probs = act_dist.probs().numpy()[0]
             maxa = np.argmax(act_probs)
 
@@ -1756,11 +1710,11 @@ class Worker(RLWorker):
                 feat = tf.concat([prior["stoch"], deter], axis=1)
 
                 # サンプルを表示
-                next_state = self.parameter.decode.call_dist(feat).sample()
-                reward = self.parameter.reward.call_dist(feat).mode()
-                cont = self.parameter.cont.call_dist(feat).sample()
-                # cont = self.parameter.cont.call_dist(feat).prob()
-                value = self.parameter.critic.call_dist(feat).mode()
+                next_state = self.parameter.decode(feat).sample()
+                reward = self.parameter.reward(feat).mode()
+                cont = self.parameter.cont(feat).sample()
+                # cont = self.parameter.cont(feat).prob()
+                value = self.parameter.critic(feat).mode()
                 s = f"{act_probs[a]*100:4.1f}%"
                 s += f", {next_state[0].numpy()}"
                 s += f", reward {reward.numpy()[0][0]:.5f}"
@@ -1768,17 +1722,17 @@ class Worker(RLWorker):
                 s += f", value {value.numpy()[0][0]:.5f}"
                 return s
 
-            helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+            funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)
         elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
-            act_dist = cast(NormalDistBlock, self.parameter.actor).call_dist(self.feat)
+            act_dist = cast(NormalDistBlock, self.parameter.actor)(self.feat)
             action = act_dist.mean()
             deter, prior = self.parameter.dynamics.img_step(self.stoch, self.deter, action)
             feat = tf.concat([prior["stoch"], deter], axis=1)
 
-            next_state = self.parameter.decode.call_dist(feat).sample()
-            reward = self.parameter.reward.call_dist(feat).mode()
-            cont = self.parameter.cont.call_dist(feat).prob()
-            value = self.parameter.critic.call_dist(feat).mode()
+            next_state = self.parameter.decode(feat).sample()
+            reward = self.parameter.reward(feat).mode()
+            cont = self.parameter.cont(feat).prob()
+            value = self.parameter.critic(feat).mode()
 
             print(
                 f"act   : {action.numpy()[0]}, mean {act_dist.mean().numpy()[0]}, std {act_dist.stddev().numpy()[0]}"
@@ -1812,10 +1766,10 @@ class Worker(RLWorker):
         pw.draw_fill(self.screen, color=(0, 0, 0))
 
         # --- decode
-        pred_state = self.parameter.decode.call_dist(self.feat).sample()[0].numpy()
-        pred_reward = self.parameter.reward.call_dist(self.feat).mode()[0][0].numpy()
-        pred_cont = self.parameter.cont.call_dist(self.feat).prob()[0][0].numpy()
-        value = self.parameter.critic.call_dist(self.feat).mode()[0][0].numpy()
+        pred_state = self.parameter.decode(self.feat).sample()[0].numpy()
+        pred_reward = self.parameter.reward(self.feat).mode()[0][0].numpy()
+        pred_cont = self.parameter.cont(self.feat).prob()[0][0].numpy()
+        value = self.parameter.critic(self.feat).mode()[0][0].numpy()
         rmse = np.sqrt(np.mean((state - pred_state) ** 2))
 
         img1 = np.clip(state * 255, 0, 255).astype(np.int64)
@@ -1855,7 +1809,7 @@ class Worker(RLWorker):
         )
 
         if self.config.action_space.stype == SpaceTypes.DISCRETE:
-            act_dist = cast(CategoricalDistBlock, self.parameter.actor).call_dist(self.feat)
+            act_dist = self.parameter.actor(self.feat)
             act_probs = act_dist.probs().numpy()[0]
 
             # 横にアクション後の結果を表示
@@ -1877,10 +1831,10 @@ class Worker(RLWorker):
                 deter, prior = self.parameter.dynamics.img_step(self.stoch, self.deter, action)
                 feat = tf.concat([prior["stoch"], deter], axis=1)
 
-                next_state = self.parameter.decode.call_dist(feat).sample()
-                reward = self.parameter.reward.call_dist(feat).mode()
-                cont = self.parameter.cont.call_dist(feat).mode()
-                value = self.parameter.critic.call_dist(feat).mode()
+                next_state = self.parameter.decode(feat).sample()
+                reward = self.parameter.reward(feat).mode()
+                cont = self.parameter.cont(feat).mode()
+                value = self.parameter.critic(feat).mode()
 
                 n_img = next_state[0].numpy() * 255
                 reward = reward.numpy()[0][0]
@@ -1913,15 +1867,15 @@ class Worker(RLWorker):
                 pw.draw_image_rgb_array(self.screen, x, y + STR_H * 3, n_img)
 
         elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
-            act_dist = cast(NormalDistBlock, self.parameter.actor).call_dist(self.feat)
+            act_dist = self.parameter.actor(self.feat)
             action = act_dist.mean()
             deter, prior = self.parameter.dynamics.img_step(self.stoch, self.deter, action)
             feat = tf.concat([prior["stoch"], deter], axis=1)
 
-            next_state = self.parameter.decode.call_dist(feat).sample()
-            reward = self.parameter.reward.call_dist(feat).mode()
-            cont = self.parameter.cont.call_dist(feat).prob()
-            value = self.parameter.critic.call_dist(feat).mode()
+            next_state = self.parameter.decode(feat).sample()
+            reward = self.parameter.reward(feat).mode()
+            cont = self.parameter.cont(feat).prob()
+            value = self.parameter.critic(feat).mode()
 
             n_img = next_state[0].numpy() * 255
             s = f"act {action.numpy()[0]}, mean {act_dist.mean().numpy()[0]}, std {act_dist.stddev().numpy()[0]}"

@@ -6,18 +6,15 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import InfoType, RLBaseTypes
+from srl.base.define import RLBaseTypes
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import UndefinedError
-from srl.base.rl.config import RLConfig
+from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker import RLWorker
-from srl.base.spaces.box import BoxSpace
-from srl.base.spaces.discrete import DiscreteSpace
-from srl.rl.functions import helper
+from srl.rl import functions as funcs
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
@@ -43,7 +40,7 @@ https://github.com/AppliedDataSciencePartners/DeepReinforcementLearning
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig[DiscreteSpace, BoxSpace],
+    RLConfig,
     RLConfigComponentExperienceReplayBuffer,
     RLConfigComponentFramework,
 ):
@@ -107,9 +104,6 @@ class Config(
 
     def get_processors(self) -> List[Optional[ObservationProcessor]]:
         return [self.input_image_block.get_processor()]
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
 
     def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.IMAGE
@@ -327,11 +321,11 @@ class Trainer(RLTrainer[Config, Parameter]):
         rewards = np.asarray(rewards, dtype=np.float32)
 
         with tf.GradientTape() as tape:
-            loss, self.value_loss, self.policy_loss = self.parameter.network.compute_train_loss(
-                states, rewards, policies
-            )
+            loss, value_loss, policy_loss = self.parameter.network.compute_train_loss(states, rewards, policies)
         grads = tape.gradient(loss, self.parameter.network.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.network.trainable_variables))
+        self.info["value_loss"] = value_loss.numpy()
+        self.info["policy_loss"] = policy_loss.numpy()
 
         self.train_count += 1
 
@@ -342,13 +336,6 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         # 学習したらキャッシュは削除
         self.parameter.reset_cache()
-
-    def create_info(self) -> InfoType:
-        return {
-            "value_loss": self.value_loss.numpy(),
-            "policy_loss": self.policy_loss.numpy(),
-            "lr": self.lr_sch.get_rate(),
-        }
 
 
 # ------------------------------------------------------
@@ -374,7 +361,7 @@ class Worker(RLWorker[Config, Parameter]):
 
     def policy(self, worker) -> Tuple[int, dict]:
         self.state = worker.state
-        self.state_str = self.observation_space.to_str(self.state)
+        self.state_str = self.config.observation_space.to_str(self.state)
         self.invalid_actions = worker.get_invalid_actions()
         self._init_state(self.state_str)
 
@@ -390,7 +377,7 @@ class Worker(RLWorker[Config, Parameter]):
 
         # --- episodeの序盤は試行回数に比例した確率でアクションを選択、それ以外は最大試行回数
         if self.sampling_step < self.config.sampling_steps:
-            action = helper.random_choice_by_probs(self.N[self.state_str])
+            action = funcs.random_choice_by_probs(self.N[self.state_str])
         else:
             counts = np.asarray(self.N[self.state_str])
             action = np.random.choice(np.where(counts == counts.max())[0])
@@ -413,7 +400,7 @@ class Worker(RLWorker[Config, Parameter]):
         player_index = env.next_player_index
         n_state, rewards = self.worker.env_step(env, action)
         reward = rewards[player_index]
-        n_state_str = self.observation_space.to_str(n_state)
+        n_state_str = self.config.observation_space.to_str(n_state)
         enemy_turn = player_index != env.next_player_index
 
         if env.done:
@@ -540,4 +527,4 @@ class Worker(RLWorker[Config, Parameter]):
             )
             return s
 
-        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)

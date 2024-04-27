@@ -6,15 +6,12 @@ from typing import Any, List, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.config import RLConfig
+from srl.base.define import InfoType
+from srl.base.rl.algorithms.base_ql import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker import RLWorker
-from srl.base.spaces.array_discrete import ArrayDiscreteSpace
-from srl.base.spaces.discrete import DiscreteSpace
-from srl.rl.functions import helper
+from srl.rl import functions as funcs
 from srl.rl.memories.sequence_memory import SequenceMemory
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -31,7 +28,7 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig[DiscreteSpace, ArrayDiscreteSpace]):
+class Config(RLConfig):
     #: ε-greedy parameter for Test
     test_epsilon: float = 0
     #: <:ref:`scheduler`> ε-greedy parameter for Train
@@ -50,15 +47,6 @@ class Config(RLConfig[DiscreteSpace, ArrayDiscreteSpace]):
 
     def __post_init__(self):
         super().__post_init__()
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
-
-    def get_framework(self) -> str:
-        return ""
 
     def get_name(self) -> str:
         return "QL"
@@ -168,7 +156,7 @@ class Worker(RLWorker[Config, Parameter]):
         return {}
 
     def policy(self, worker) -> Tuple[int, InfoType]:
-        self.state = self.observation_space.to_str(worker.state)
+        self.state = self.config.observation_space.to_str(worker.state)
         invalid_actions = worker.get_invalid_actions()
 
         if self.training:
@@ -178,11 +166,11 @@ class Worker(RLWorker[Config, Parameter]):
 
         if random.random() < epsilon:
             # epsilonより低いならランダムに移動
-            self.action = random.choice([a for a in range(self.action_space.n) if a not in invalid_actions])
+            self.action = random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
         else:
             # 最大値を選択
             q = self.parameter.get_action_values(self.state)
-            self.action = helper.get_random_max_index(q, invalid_actions)
+            self.action = funcs.get_random_max_index(q, invalid_actions)
 
         return self.action, {"epsilon": epsilon}
 
@@ -201,7 +189,7 @@ class Worker(RLWorker[Config, Parameter]):
         """
         batch = [
             self.state,
-            self.observation_space.to_str(worker.state),
+            self.config.observation_space.to_str(worker.state),
             self.action,
             worker.reward,
             worker.terminated,
@@ -217,4 +205,4 @@ class Worker(RLWorker[Config, Parameter]):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        helper.render_discrete_action(int(maxa), self.action_space.n, worker.env, _render_sub)
+        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)

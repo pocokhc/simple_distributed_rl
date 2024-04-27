@@ -7,14 +7,11 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import InfoType, RLBaseTypes
-from srl.base.rl.config import RLConfig
+from srl.base.define import InfoType
+from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import ObservationProcessor
-from srl.base.rl.worker import RLWorker
-from srl.base.spaces.box import BoxSpace
-from srl.base.spaces.discrete import DiscreteSpace
-from srl.rl.functions import common, helper
+from srl.rl import functions as funcs
 from srl.rl.memories.priority_experience_replay import (
     PriorityExperienceReplay,
     RLConfigComponentPriorityExperienceReplay,
@@ -62,7 +59,7 @@ Other
 # ------------------------------------------------------
 @dataclass
 class Config(
-    RLConfig[DiscreteSpace, BoxSpace],
+    RLConfig,
     RLConfigComponentPriorityExperienceReplay,
     RLConfigComponentFramework,
 ):
@@ -154,12 +151,6 @@ class Config(
 
     def get_processors(self) -> List[Optional[ObservationProcessor]]:
         return [self.input_image_block.get_processor()]
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return self.create_framework_str()
@@ -288,13 +279,13 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
             maxq = np.max(n_q_target, axis=1)
 
         if self.config.enable_rescale:
-            maxq = common.inverse_rescaling(maxq)
+            maxq = funcs.inverse_rescaling(maxq)
 
         # --- Q値を計算
         target_q = rewards + dones * batch_discount * maxq
 
         if self.config.enable_rescale:
-            target_q = common.rescaling(target_q)
+            target_q = funcs.rescaling(target_q)
 
         return target_q
 
@@ -302,19 +293,19 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, CommonInterfaceParameter]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config
         self.parameter: CommonInterfaceParameter = self.parameter
 
-        self.dummy_state = np.full(self.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
+        self.dummy_state = np.full(self.config.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
         self.discount = 0
 
         # actor
-        self.beta_list = common.create_beta_list(self.config.actor_num)
-        self.epsilon_list = common.create_epsilon_list(self.config.actor_num)
-        self.discount_list = common.create_discount_list(self.config.actor_num)
+        self.beta_list = funcs.create_beta_list(self.config.actor_num)
+        self.epsilon_list = funcs.create_epsilon_list(self.config.actor_num)
+        self.discount_list = funcs.create_discount_list(self.config.actor_num)
 
         # ucb
         self.actor_index = -1
@@ -390,7 +381,7 @@ class Worker(RLWorker):
             ucbs.append(ucb)
 
         # UCB値最大のポリシー（複数あればランダム）
-        return helper.get_random_max_index(ucbs)
+        return funcs.get_random_max_index(ucbs)
 
     def policy(self, worker) -> Tuple[int, InfoType]:
 
@@ -575,9 +566,9 @@ class Worker(RLWorker):
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.config.enable_rescale:
-            q = common.inverse_rescaling(self.q)
-            q_ext = common.inverse_rescaling(self.q_ext)
-            q_int = common.inverse_rescaling(self.q_int)
+            q = funcs.inverse_rescaling(self.q)
+            q_ext = funcs.inverse_rescaling(self.q_ext)
+            q_int = funcs.inverse_rescaling(self.q_int)
         else:
             q = self.q
             q_ext = self.q_ext
@@ -587,4 +578,4 @@ class Worker(RLWorker):
         def _render_sub(a: int) -> str:
             return f"{q[a]:6.3f} = {q_ext[a]:6.3f} + {self.beta:.3f} * {q_int[a]:6.3f}"
 
-        helper.render_discrete_action(int(maxa), self.config.action_space.n, worker.env, _render_sub)
+        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)

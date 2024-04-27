@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-
-def unimix(probs, unimix: float):
-    uniform = tf.ones_like(probs) / probs.shape[-1]
-    return (1 - unimix) * probs + unimix * uniform
+"""
+tfに関する処理を助けるライブラリ群
+tfに依存していない処理はfunctionsへ
+"""

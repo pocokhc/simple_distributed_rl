@@ -3,10 +3,10 @@ import copy
 import torch
 import torch.nn as nn
 
-
-def unimix(probs, unimix: float):
-    uniform = torch.ones_like(probs) / probs.shape[-1]
-    return (1 - unimix) * probs + unimix * uniform
+"""
+torchに関する処理を助けるライブラリ群
+torchに依存していない処理はfunctionsへ
+"""
 
 
 def encode_sequence_batch(x: torch.Tensor):
@@ -66,30 +66,3 @@ def model_backup(model: nn.Module, to_cpu: bool = False):
             return copy.deepcopy(model).to("cpu").state_dict()
     else:
         return model.state_dict()
-
-
-def twohot_encode(x: torch.Tensor, size: int, low: float, high: float, device) -> torch.Tensor:
-    x = x.clamp(low, high)
-    # 0-bins のサイズで正規化
-    x = (size - 1) * (x - low) / (high - low)
-    # 整数部:idx 小数部:weight
-    idx = x.floor().to(torch.int32)
-    w = (x - idx).unsqueeze(-1)
-
-    onehot = torch.eye(size, dtype=torch.float32).to(device)
-    onehot = torch.vstack([onehot, torch.zeros(size)])
-    onehot1 = onehot[idx]
-    onehot2 = onehot[idx + 1]
-    return onehot1 * (1 - w) + onehot2 * w
-
-
-def twohot_decode(x: torch.Tensor, size: int, low: float, high: float, device):
-    bins = torch.arange(0, size).to(device)
-    bins = bins.unsqueeze(0).tile((x.shape[0], 1))
-    x = x * bins
-    x = x.sum(1)
-    return (x / (size - 1)) * (high - low) + low
-
-
-def binary_onehot_decode(x: torch.Tensor):
-    return x[:, 0]

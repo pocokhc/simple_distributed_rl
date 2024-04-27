@@ -42,13 +42,13 @@ def test_loss(use_symlog, use_mse):
             print(f"{i}: {loss.numpy()}")
 
     x_true, y_true = _create_dataset(10)
-    dist = m.call_dist(x_true)
+    dist = m(x_true)
     print(x_true)
     print(y_true)
     print(dist.mode())
 
     x_true, y_true = _create_dataset(1000)
-    dist = m.call_dist(x_true)
+    dist = m(x_true)
     y_pred = dist.mode()
     rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
     print(f"rmse: {rmse}")

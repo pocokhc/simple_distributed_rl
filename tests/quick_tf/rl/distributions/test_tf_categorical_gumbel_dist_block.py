@@ -32,13 +32,13 @@ def test_loss(use_mse):
             print(f"{i}: {loss.numpy()}")
 
     x_true, y_true = _create_dataset(5)
-    dist = m.call_dist(x_true)
+    dist = m(x_true)
     print(x_true.reshape(-1))
     print(y_true)
     print(dist.sample())
 
     x_true, y_true = _create_dataset(1000)
-    dist = m.call_dist(x_true)
+    dist = m(x_true)
     y_pred = dist.sample(onehot=True)
     rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
     print(f"rmse: {rmse}")
@@ -67,7 +67,7 @@ def test_loss_grad():
     for i in range(1000):
         x_train, y_train = _create_dataset(64)
         with tf.GradientTape() as tape:
-            dist = m.call_grad_dist(x_train)
+            dist = m(x_train)
             x = dist.sample()
             x = m2(x)
             loss = tf.reduce_mean(tf.square(x_train - x))
@@ -79,12 +79,12 @@ def test_loss_grad():
             print(f"{i}: {loss.numpy()}")
 
     x_true, y_true = _create_dataset(10)
-    dist = m.call_dist(x_true)
+    dist = m(x_true)
     print(x_true.reshape(-1))
     print(m2(dist.sample(onehot=True)))
 
     x_true, y_true = _create_dataset(1000)
-    dist = m.call_dist(x_true)
+    dist = m(x_true)
     x_pred = m2(dist.sample(onehot=True))
     rmse = np.sqrt(np.mean((x_true - x_pred) ** 2))
     print(f"rmse: {rmse}")

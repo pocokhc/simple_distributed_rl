@@ -1,83 +1,146 @@
+import functools
+import math
 from typing import Tuple
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.rl.tf.common_tf import compute_normal_logprob_in_log, compute_normal_logprob_sgp_in_log
-
 kl = keras.layers
 
 
+def compute_normal_logprob(loc, scale, log_scale, x):
+    """
+    log π(a|s) when the policy is normally distributed
+    https://ja.wolframalpha.com/input?i2d=true&i=Log%5BDivide%5B1%2C+%5C%2840%29Sqrt%5B2+*+Pi+*+Power%5B%CF%83%2C2%5D%5D%5C%2841%29%5D+*+Exp%5B-+Divide%5BPower%5B%5C%2840%29x+-+%CE%BC%5C%2841%29%2C2%5D%2C+2+*+Power%5B%CF%83%2C2%5D%5D%5D%5D
+    -0.5 * log(2*pi) - log(stddev) - 0.5 * ((x - mean) / stddev)^2
+    """
+    return -0.5 * math.log(2 * math.pi) - log_scale - 0.5 * (((x - loc) / scale) ** 2)
+
+
+def compute_normal_logprob_sgp(loc, scale, log_scale, x, epsilon: float = 1e-10):
+    """
+    Squashed Gaussian Policy log π(a|s)
+    Paper: https://arxiv.org/abs/1801.01290
+    """
+    # xはsquashed前の値
+    logmu = compute_normal_logprob(loc, scale, log_scale, x)
+    x = 1.0 - tf.square(tf.tanh(x))
+    x = tf.clip_by_value(x, epsilon, 1.0)  # log(0)回避用
+    return logmu - tf.reduce_sum(
+        tf.math.log(x),
+        axis=-1,
+        keepdims=True,
+    )
+
+
 class NormalDist:
-    def __init__(
-        self,
-        mean,
-        log_stddev,
-        enable_squashed: bool = False,
-        enable_stable_gradients: bool = True,
-        stable_gradients_stddev_range: tuple = (1e-10, 10),
-    ):
-        self._mean = mean
-        self._log_stddev = log_stddev
-        self.enable_squashed = enable_squashed
-        if enable_stable_gradients:
-            self._log_stddev = tf.clip_by_value(
-                self._log_stddev,
-                np.log(stable_gradients_stddev_range[0]),
-                np.log(stable_gradients_stddev_range[1]),
-            )
-
-    def sample(self):
-        stddev = tf.exp(self._log_stddev)
-        e = tf.random.normal(shape=self._mean.shape)
-        y = self._mean + stddev * e
-        self.y_org = y
-        if self.enable_squashed:
-            y = tf.tanh(y)
-        return y
-
-    def sample_and_logprob(self):
-        stddev = tf.exp(self._log_stddev)
-        e = tf.random.normal(shape=self._mean.shape)
-        y = self._mean + stddev * e
-
-        # Squashed Gaussian PolicyのlogはSquash前のアクションを渡す必要あり
-        if self.enable_squashed:
-            log_prob = compute_normal_logprob_sgp_in_log(y, self._mean, self._log_stddev)
-            y = tf.tanh(y)
-        else:
-            log_prob = compute_normal_logprob_in_log(y, self._mean, self._log_stddev)
-        return y, log_prob
-
-    def mode(self):
-        y = self._mean
-        if self.enable_squashed:
-            y = tf.tanh(y)
-        return y
+    def __init__(self, loc, log_scale):
+        self._loc = loc
+        self._log_scale = log_scale
 
     def mean(self):
-        y = self._mean
-        if self.enable_squashed:
-            y = tf.tanh(y)
-        return y
+        return self._loc
+
+    def mode(self):
+        return self._loc
+
+    @functools.lru_cache
+    def stddev(self):
+        return tf.math.exp(self._log_scale)
+
+    @functools.lru_cache
+    def variance(self):
+        return self.stddev() ** 2
+
+    def sample(self):
+        return tf.random.normal(self._loc.shape, self._loc, self.stddev())
+
+    def rsample(self):
+        e = tf.random.normal(shape=self._loc.shape)
+        return self._loc + self.stddev() * e
+
+    def log_prob(self, x):
+        return compute_normal_logprob(self._loc, self.stddev(), self._log_scale, x)
+
+    @functools.lru_cache
+    def entropy(self):
+        return 0.5 + 0.5 * math.log(2 * math.pi) + self._log_scale
+
+    # -------------
+    def rsample_logprob(self):
+        e = tf.random.normal(shape=self._loc.shape)
+        y = self._loc + self.stddev() * e
+        log_prob = compute_normal_logprob(self._loc, self.stddev(), self._log_scale, y)
+        return y, log_prob
+
+    def policy(self, range_: Tuple[float, float] = (-np.inf, np.inf), training: bool = False):
+        if training:
+            y = tf.random.normal(self._loc.shape, self._loc, self.stddev())
+        else:
+            y = self.mean()
+        y_range = tf.clip_by_value(y, range_[0], range_[1])
+        return y, y_range
+
+
+class NormalDistSquashed:
+    def __init__(self, loc, log_scale):
+        self._loc = loc
+        self._log_scale = log_scale
+        self._scale = tf.math.exp(self._log_scale)
+
+    @functools.lru_cache
+    def mean(self):
+        return tf.tanh(self._loc)
+
+    @functools.lru_cache
+    def mode(self):
+        return tf.tanh(self._loc)
 
     def stddev(self):
-        if self.enable_squashed:
-            # enable_squashed時の分散は未確認（TODO）
-            return tf.exp(self._log_stddev)
+        return tf.ones_like(self._loc, self._loc.dtype)  # 多分…
+
+    @functools.lru_cache
+    def variance(self):
+        return self.stddev() ** 2
+
+    def sample(self):
+        y = tf.random.normal(self._loc.shape, self._loc, self._scale)
+        return tf.tanh(y)
+
+    def rsample(self):
+        e = tf.random.normal(shape=self._loc.shape)
+        y = self._loc + self._scale * e
+        return tf.tanh(y)
+
+    def log_prob(self, y, squashed: bool = False):
+        if squashed:
+            y = tf.atanh(y)
+        return compute_normal_logprob_sgp(self._loc, self._scale, self._log_scale, y)
+
+    def entropy(self):
+        # squashedは未確認（TODO）
+        raise NotImplementedError()
+
+    # -------------
+
+    def rsample_logprob(self):
+        e = tf.random.normal(shape=self._loc.shape)
+        y = self._loc + self._scale * e
+        log_prob = compute_normal_logprob_sgp(self._loc, self._scale, self._log_scale, y)
+        squashed_y = tf.tanh(y)
+        return squashed_y, log_prob
+
+    def policy(self, range_: Tuple[float, float] = (-np.inf, np.inf), training: bool = False):
+        if training:
+            y = tf.random.normal(self._loc.shape, self._loc, self._scale)
+            y = tf.tanh(y)
         else:
-            return tf.exp(self._log_stddev)
-
-    def log_prob(self, y_org):
-        if self.enable_squashed:
-            return compute_normal_logprob_sgp_in_log(y_org, self._mean, self._log_stddev)
-        else:
-            return compute_normal_logprob_in_log(y_org, self._mean, self._log_stddev)
-
-
-class NormalGradDist(NormalDist):
-    pass
+            y = self.mean()
+        # Squashed Gaussian Policy (-1, 1) -> (action range)
+        y_range = (y + 1) / 2
+        y_range = range_[0] + y_range * (range_[1] - range_[0])
+        return y, y_range
 
 
 class NormalDistBlock(keras.Model):
@@ -85,92 +148,89 @@ class NormalDistBlock(keras.Model):
         self,
         out_size: int,
         hidden_layer_sizes: Tuple[int, ...] = (),
-        mean_layer_sizes: Tuple[int, ...] = (),
-        stddev_layer_sizes: Tuple[int, ...] = (),
+        loc_layer_sizes: Tuple[int, ...] = (),
+        scale_layer_sizes: Tuple[int, ...] = (),
         activation: str = "relu",
-        fixed_stddev: float = -1,
+        fixed_scale: float = -1,
         enable_squashed: bool = False,
         enable_stable_gradients: bool = True,
-        stable_gradients_stddev_range: tuple = (1e-10, 10),
+        stable_gradients_scale_range: tuple = (1e-10, 10),
     ):
         super().__init__()
         self.out_size = out_size
         self.enable_squashed = enable_squashed
         self.enable_stable_gradients = enable_stable_gradients
-        self.stable_gradients_stddev_range = stable_gradients_stddev_range
+
+        if enable_stable_gradients:
+            self.stable_gradients_scale_range = (
+                np.log(stable_gradients_scale_range[0]),
+                np.log(stable_gradients_scale_range[1]),
+            )
 
         self.hidden_layers = []
         for i in range(len(hidden_layer_sizes)):
             self.hidden_layers.append(kl.Dense(hidden_layer_sizes[i], activation=activation))
 
-        # --- mean
-        self.mean_layers = []
-        for i in range(len(mean_layer_sizes)):
-            self.mean_layers.append(kl.Dense(mean_layer_sizes[i], activation=activation))
-        self.mean_layers.append(
+        # --- loc
+        self.loc_layers = []
+        for i in range(len(loc_layer_sizes)):
+            self.loc_layers.append(kl.Dense(loc_layer_sizes[i], activation=activation))
+        self.loc_layers.append(
             kl.Dense(
                 out_size,
                 bias_initializer="truncated_normal",
             )
         )
 
-        # --- stddev
-        if fixed_stddev > 0:
-            self.fixed_log_stddev = np.log(fixed_stddev)
+        # --- scale
+        if fixed_scale > 0:
+            self.fixed_log_scale = np.log(fixed_scale)
         else:
-            self.fixed_log_stddev = None
-            self.log_stddev_layers = []
-            for i in range(len(stddev_layer_sizes)):
-                self.log_stddev_layers.append(
+            self.fixed_log_scale = None
+            self.log_scale_layers = []
+            for i in range(len(scale_layer_sizes)):
+                self.log_scale_layers.append(
                     kl.Dense(
-                        stddev_layer_sizes[i],
+                        scale_layer_sizes[i],
                         activation=activation,
                     )
                 )
-            self.log_stddev_layers.append(kl.Dense(out_size, bias_initializer="zeros"))
+            self.log_scale_layers.append(
+                kl.Dense(out_size, bias_initializer="zeros"),
+            )
 
     def call(self, x, training=False):
         for layer in self.hidden_layers:
             x = layer(x, training=training)
-        mean = x
-        for layer in self.mean_layers:
-            mean = layer(mean, training=training)
-        if self.fixed_log_stddev is not None:
-            log_stddev = tf.ones_like(mean) * self.fixed_log_stddev
+
+        # --- loc
+        loc = x
+        for layer in self.loc_layers:
+            loc = layer(loc, training=training)
+
+        # --- scale
+        if self.fixed_log_scale is not None:
+            log_scale = tf.ones_like(loc) * self.fixed_log_scale
         else:
-            log_stddev = x
-            for layer in self.log_stddev_layers:
-                log_stddev = layer(log_stddev, training=training)
+            log_scale = x
+            for layer in self.log_scale_layers:
+                log_scale = layer(log_scale, training=training)
 
-        return [mean, log_stddev]
+        if self.enable_stable_gradients:
+            log_scale = tf.clip_by_value(
+                log_scale,
+                self.stable_gradients_scale_range[0],
+                self.stable_gradients_scale_range[1],
+            )
 
-    def get_dist(self, x):
-        return NormalDist(
-            mean=x[0],
-            log_stddev=x[1],
-            enable_squashed=self.enable_squashed,
-            enable_stable_gradients=self.enable_stable_gradients,
-            stable_gradients_stddev_range=self.stable_gradients_stddev_range,
-        )
-
-    def get_grad_dist(self, x):
-        return NormalGradDist(
-            mean=x[0],
-            log_stddev=x[1],
-            enable_squashed=self.enable_squashed,
-            enable_stable_gradients=self.enable_stable_gradients,
-            stable_gradients_stddev_range=self.stable_gradients_stddev_range,
-        )
-
-    def call_dist(self, x):
-        return self.get_dist(self(x, training=False))
-
-    def call_grad_dist(self, x):
-        return self.get_grad_dist(self(x, training=True))
+        if self.enable_squashed:
+            return NormalDistSquashed(loc, log_scale)
+        else:
+            return NormalDist(loc, log_scale)
 
     @tf.function
     def compute_train_loss(self, x, y):
-        dist = self.get_grad_dist(self(x, training=True))
+        dist = self(x, training=True)
 
         # 対数尤度の最大化
         log_likelihood = dist.log_prob(y)

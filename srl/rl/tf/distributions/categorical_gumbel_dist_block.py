@@ -1,3 +1,4 @@
+import functools
 from typing import Tuple
 
 import tensorflow as tf
@@ -15,6 +16,20 @@ class CategoricalGumbelDist:
         self.classes = logits.shape[-1]
         self.logits = logits
 
+    def mean(self):
+        raise NotImplementedError()
+
+    @functools.lru_cache
+    def mode(self):
+        return tf.argmax(self.logits, -1)
+
+    def variance(self):
+        raise NotImplementedError()
+
+    @functools.lru_cache
+    def probs(self, temperature: float = 1):
+        return tf.nn.softmax(self.logits / temperature)
+
     def sample(self, onehot: bool = False):
         rnd = tf.random.uniform(tf.shape(self.logits), minval=1e-10, maxval=1.0)
         logits = self.logits + gumbel_inverse(rnd)
@@ -24,9 +39,13 @@ class CategoricalGumbelDist:
         else:
             return tf.expand_dims(act, axis=-1)
 
-    def probs(self, temperature: float = 1):
-        return tf.nn.softmax(self.logits / temperature)
+    def rsample(self, temperature: float = 1):
+        # Gumbel-Max trick
+        rnd = tf.random.uniform(tf.shape(self.logits), minval=1e-10, maxval=1.0)
+        logits = self.logits + gumbel_inverse(rnd)
+        return tf.nn.softmax(logits / temperature)
 
+    @functools.lru_cache
     def log_probs(self, temperature: float = 1):
         probs = self.probs(temperature)
         probs = tf.clip_by_value(probs, 1e-10, 1)  # log(0)回避用
@@ -40,29 +59,15 @@ class CategoricalGumbelDist:
         return tf.expand_dims(log_prob, axis=-1)
 
 
-class CategoricalGumbelGradDist(CategoricalGumbelDist):
-    def __init__(self, logits) -> None:
-        self.classes = logits.shape[-1]
-        self.logits = logits
-
-    def sample(self, temperature: float = 1):
-        # Gumbel-Max trick
-        rnd = tf.random.uniform(tf.shape(self.logits), minval=1e-10, maxval=1.0)
-        logits = self.logits + gumbel_inverse(rnd)
-        return tf.nn.softmax(logits / temperature)
-
-
 class CategoricalGumbelDistBlock(keras.Model):
     def __init__(
         self,
         classes: int,
         hidden_layer_sizes: Tuple[int, ...] = (),
         activation: str = "relu",
-        use_mse: bool = False,
     ):
         super().__init__()
         self.classes = classes
-        self.use_mse = use_mse
 
         self.hidden_layers = []
         for i in range(len(hidden_layer_sizes)):
@@ -72,31 +77,15 @@ class CategoricalGumbelDistBlock(keras.Model):
     def call(self, x, training=False):
         for layer in self.hidden_layers:
             x = layer(x, training=training)
-        return self.out_layer(x)
-
-    def get_dist(self, logits):
-        return CategoricalGumbelDist(logits)
-
-    def get_grad_dist(self, logits):
-        return CategoricalGumbelGradDist(logits)
-
-    def call_dist(self, x):
-        return self.get_dist(self(x, training=False))
-
-    def call_grad_dist(self, x):
-        return self.get_grad_dist(self(x, training=True))
+        return CategoricalGumbelDist(self.out_layer(x))
 
     @tf.function
     def compute_train_loss(self, x, y, temperature: float = 1):
-        logits = self(x, training=True)
-        dist = self.get_grad_dist(logits)
+        dist = self(x, training=True)
         probs = dist.probs(temperature)
 
-        if self.use_mse:
-            return tf.reduce_mean((y - probs) ** 2)
-        else:
-            # クロスエントロピーの最小化
-            # -Σ p * log(q)
-            probs = tf.clip_by_value(probs, 1e-10, 1)  # log(0)回避用
-            loss = -tf.reduce_sum(y * tf.math.log(probs), axis=1)
-            return tf.reduce_mean(loss)
+        # クロスエントロピーの最小化
+        # -Σ p * log(q)
+        probs = tf.clip_by_value(probs, 1e-10, 1)  # log(0)回避用
+        loss = -tf.reduce_sum(y * tf.math.log(probs), axis=1)
+        return tf.reduce_mean(loss)

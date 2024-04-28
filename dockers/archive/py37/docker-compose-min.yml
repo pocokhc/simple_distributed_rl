@@ -5,6 +5,6 @@ services:
     build:
       dockerfile: ./dockerfile_min
     volumes:
-      - ../:/code/
+      - ../../../:/code/
     command: /bin/bash
     tty: true

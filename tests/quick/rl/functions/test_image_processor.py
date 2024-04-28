@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from srl.base.define import SpaceTypes
-from srl.rl.functions import helper
+from srl.rl.functions import image_processor
 
 
 @pytest.mark.parametrize(
@@ -21,7 +21,7 @@ def test_image(img_shape, from_space_type, to_space_type, resize, trimming, shap
     pytest.importorskip("cv2")
 
     img = np.ones(img_shape).astype(np.uint8)
-    img = helper.image_processor(img, from_space_type, to_space_type, resize, trimming, shape_order)
+    img = image_processor(img, from_space_type, to_space_type, resize, trimming, shape_order)
 
     # trimming -> resize
     assert len(true_base_shape) == 2

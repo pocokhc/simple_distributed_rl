@@ -3,10 +3,10 @@ import math
 from typing import Tuple
 
 import numpy as np
-import tensorflow as tf
-from tensorflow import keras
+import torch
+import torch.nn as nn
 
-kl = keras.layers
+from srl.rl.torch_.converter import convert_activation_torch
 
 
 def compute_normal_logprob(loc, scale, log_scale, x):
@@ -25,9 +25,9 @@ def compute_normal_logprob_sgp(loc, scale, log_scale, x, epsilon: float = 1e-10)
     """
     # xはsquashed前の値
     logmu = compute_normal_logprob(loc, scale, log_scale, x)
-    x = 1.0 - tf.square(tf.tanh(x))
-    x = tf.clip_by_value(x, epsilon, 1.0)  # log(0)回避用
-    return logmu - tf.reduce_sum(tf.math.log(x), axis=-1, keepdims=True)
+    x = 1.0 - torch.tanh(x) ** 2
+    x = torch.clamp(x, epsilon, 1.0)
+    return logmu - torch.sum(torch.log(x), dim=-1, keepdim=True)
 
 
 class NormalDist:
@@ -43,17 +43,17 @@ class NormalDist:
 
     @functools.lru_cache
     def stddev(self):
-        return tf.math.exp(self._log_scale)
+        return torch.exp(self._log_scale)
 
     @functools.lru_cache
     def variance(self):
         return self.stddev() ** 2
 
     def sample(self):
-        return tf.random.normal(self._loc.shape, self._loc, self.stddev())
+        return torch.normal(self._loc, self.stddev())
 
     def rsample(self):
-        e = tf.random.normal(shape=self._loc.shape)
+        e = torch.normal(torch.zeros_like(self._loc), torch.ones_like(self._loc))
         return self._loc + self.stddev() * e
 
     def log_prob(self, x):
@@ -64,8 +64,9 @@ class NormalDist:
         return 0.5 + 0.5 * math.log(2 * math.pi) + self._log_scale
 
     # -------------
+
     def rsample_logprob(self):
-        e = tf.random.normal(shape=self._loc.shape)
+        e = torch.normal(torch.zeros_like(self._loc), torch.ones_like(self._loc))
         y = self._loc + self.stddev() * e
         log_prob = compute_normal_logprob(self._loc, self.stddev(), self._log_scale, y)
         return y, log_prob
@@ -75,7 +76,7 @@ class NormalDist:
             y = self.sample()
         else:
             y = self.mean()
-        y_range = tf.clip_by_value(y, range_[0], range_[1])
+        y_range = torch.clamp(y, range_[0], range_[1])
         return y, y_range
 
 
@@ -83,35 +84,35 @@ class NormalDistSquashed:
     def __init__(self, loc, log_scale):
         self._loc = loc
         self._log_scale = log_scale
-        self._scale = tf.math.exp(self._log_scale)
+        self._scale = torch.exp(self._log_scale)
 
     @functools.lru_cache
     def mean(self):
-        return tf.tanh(self._loc)
+        return torch.tanh(self._loc)
 
     @functools.lru_cache
     def mode(self):
-        return tf.tanh(self._loc)
+        return torch.tanh(self._loc)
 
     def stddev(self):
-        return tf.ones_like(self._loc, self._loc.dtype)  # 多分…
+        return torch.ones_like(self._loc)  # 多分…
 
-    @functools.lru_cache
     def variance(self):
         return self.stddev() ** 2
 
+    @functools.lru_cache
     def sample(self):
-        y = tf.random.normal(self._loc.shape, self._loc, self._scale)
-        return tf.tanh(y)
+        y = torch.normal(self._loc, self._scale)
+        return torch.tanh(y)
 
     def rsample(self):
-        e = tf.random.normal(shape=self._loc.shape)
+        e = torch.normal(torch.zeros_like(self._loc), torch.ones_like(self._loc))
         y = self._loc + self._scale * e
-        return tf.tanh(y)
+        return torch.tanh(y)
 
     def log_prob(self, y, squashed: bool = False):
         if squashed:
-            y = tf.atanh(y)
+            y = torch.atanh(y)
         return compute_normal_logprob_sgp(self._loc, self._scale, self._log_scale, y)
 
     def entropy(self):
@@ -121,10 +122,10 @@ class NormalDistSquashed:
     # -------------
 
     def rsample_logprob(self):
-        e = tf.random.normal(shape=self._loc.shape)
+        e = torch.normal(torch.zeros_like(self._loc), torch.ones_like(self._loc))
         y = self._loc + self._scale * e
         log_prob = compute_normal_logprob_sgp(self._loc, self._scale, self._log_scale, y)
-        squashed_y = tf.tanh(y)
+        squashed_y = torch.tanh(y)
         return squashed_y, log_prob
 
     def policy(self, range_: Tuple[float, float] = (-np.inf, np.inf), training: bool = False):
@@ -138,14 +139,15 @@ class NormalDistSquashed:
         return y, y_range
 
 
-class NormalDistBlock(keras.Model):
+class NormalDistBlock(nn.Module):
     def __init__(
         self,
+        in_size: int,
         out_size: int,
         hidden_layer_sizes: Tuple[int, ...] = (),
         loc_layer_sizes: Tuple[int, ...] = (),
         scale_layer_sizes: Tuple[int, ...] = (),
-        activation: str = "relu",
+        activation="ReLU",
         fixed_scale: float = -1,
         enable_squashed: bool = False,
         enable_stable_gradients: bool = True,
@@ -155,6 +157,7 @@ class NormalDistBlock(keras.Model):
         self.out_size = out_size
         self.enable_squashed = enable_squashed
         self.enable_stable_gradients = enable_stable_gradients
+        activation = convert_activation_torch(activation)
 
         if enable_stable_gradients:
             self.stable_gradients_scale_range = (
@@ -162,57 +165,56 @@ class NormalDistBlock(keras.Model):
                 np.log(stable_gradients_scale_range[1]),
             )
 
-        self.hidden_layers = []
-        for i in range(len(hidden_layer_sizes)):
-            self.hidden_layers.append(kl.Dense(hidden_layer_sizes[i], activation=activation))
+        in_size = in_size
+        self.h_layers = nn.ModuleList()
+        for size in hidden_layer_sizes:
+            self.h_layers.append(nn.Linear(in_size, size))
+            self.h_layers.append(activation(inplace=True))
+            in_size = size
+        h_out_size = in_size
 
         # --- loc
-        self.loc_layers = []
-        for i in range(len(loc_layer_sizes)):
-            self.loc_layers.append(kl.Dense(loc_layer_sizes[i], activation=activation))
-        self.loc_layers.append(
-            kl.Dense(
-                out_size,
-                bias_initializer="truncated_normal",
-            )
-        )
+        in_size = h_out_size
+        self.loc_layers = nn.ModuleList()
+        for size in loc_layer_sizes:
+            self.loc_layers.append(nn.Linear(in_size, size))
+            self.loc_layers.append(activation(inplace=True))
+            in_size = size
+        self.loc_layers.append(nn.Linear(in_size, out_size))
+        in_size = out_size
 
         # --- scale
         if fixed_scale > 0:
             self.fixed_log_scale = np.log(fixed_scale)
         else:
             self.fixed_log_scale = None
-            self.log_scale_layers = []
-            for i in range(len(scale_layer_sizes)):
-                self.log_scale_layers.append(
-                    kl.Dense(
-                        scale_layer_sizes[i],
-                        activation=activation,
-                    )
-                )
-            self.log_scale_layers.append(
-                kl.Dense(out_size, bias_initializer="zeros"),
-            )
+            in_size = h_out_size
+            self.log_scale_layers = nn.ModuleList()
+            for size in scale_layer_sizes:
+                self.log_scale_layers.append(nn.Linear(in_size, size))
+                self.log_scale_layers.append(activation(inplace=True))
+                in_size = size
+            self.log_scale_layers.append(nn.Linear(in_size, out_size))
 
-    def call(self, x, training=False):
-        for layer in self.hidden_layers:
-            x = layer(x, training=training)
+    def forward(self, x):
+        for layer in self.h_layers:
+            x = layer(x)
 
         # --- loc
         loc = x
         for layer in self.loc_layers:
-            loc = layer(loc, training=training)
+            loc = layer(loc)
 
         # --- scale
         if self.fixed_log_scale is not None:
-            log_scale = tf.ones_like(loc) * self.fixed_log_scale
+            log_scale = torch.ones_like(loc) * self.fixed_log_scale
         else:
             log_scale = x
             for layer in self.log_scale_layers:
-                log_scale = layer(log_scale, training=training)
+                log_scale = layer(log_scale)
 
         if self.enable_stable_gradients:
-            log_scale = tf.clip_by_value(
+            log_scale = torch.clamp(
                 log_scale,
                 self.stable_gradients_scale_range[0],
                 self.stable_gradients_scale_range[1],
@@ -223,10 +225,9 @@ class NormalDistBlock(keras.Model):
         else:
             return NormalDist(loc, log_scale)
 
-    @tf.function
     def compute_train_loss(self, x, y):
-        dist = self(x, training=True)
+        dist = self(x)
 
         # 対数尤度の最大化
         log_likelihood = dist.log_prob(y)
-        return -tf.reduce_mean(log_likelihood)
+        return -log_likelihood.mean()

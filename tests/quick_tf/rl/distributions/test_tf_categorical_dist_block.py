@@ -9,20 +9,14 @@ def _create_dataset(data_num):
 
 
 @pytest.mark.parametrize("unimix", [0, 0.1])
-@pytest.mark.parametrize("use_mse", [False, True])
-def test_loss(unimix, use_mse):
+def test_loss(unimix):
     pytest.importorskip("tensorflow")
     import tensorflow as tf
     from tensorflow import keras
 
     from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 
-    m = CategoricalDistBlock(
-        5,
-        (32, 32),
-        unimix=unimix,
-        use_mse=use_mse,
-    )
+    m = CategoricalDistBlock(5, (32, 32), unimix=unimix)
     m.build((None, 1))
     m.summary()
 
@@ -59,44 +53,52 @@ def test_loss_grad(unimix):
 
     from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 
-    m = CategoricalDistBlock(20, (128, 128, 128), unimix=unimix)
-    m2 = keras.Sequential(
-        [
-            keras.layers.Dense(128, activation="relu"),
-            keras.layers.LayerNormalization(),
-            keras.layers.Dense(128, activation="relu"),
-            keras.layers.Dense(1),
-        ]
-    )
-    m.build((None, 1))
-    m.summary()
+    # autoencoder
+    class _Model(keras.Model):
+        def __init__(self):
+            super().__init__()
+            self.h1 = [
+                keras.layers.Dense(128, activation="relu"),
+            ]
+            self.block = CategoricalDistBlock(5, unimix=unimix)
+            self.h2 = [
+                keras.layers.Dense(128, activation="relu"),
+                keras.layers.Dense(1),
+            ]
 
-    optimizer = keras.optimizers.legacy.Adam(learning_rate=0.0005)
-    for i in range(1000):
-        x_train, y_train = _create_dataset(64)
+        def call(self, x):
+            for h in self.h1:
+                x = h(x)
+            dist = self.block(x)
+            x = dist.rsample()
+            for h in self.h2:
+                x = h(x)
+            return x
+
+    model = _Model()
+    optimizer = keras.optimizers.legacy.Adam(learning_rate=0.001)
+    mse_loss = keras.losses.MeanSquaredError()
+    for i in range(500):
+        x_train, _ = _create_dataset(128)
         with tf.GradientTape() as tape:
-            dist = m(x_train)
-            x = dist.sample()
-            x = m2(x)
-            loss = tf.reduce_mean(tf.square(x_train - x))
-        grads = tape.gradient(loss, [m.trainable_variables, m2.trainable_variables])
-        optimizer.apply_gradients(zip(grads[0], m.trainable_variables))
-        optimizer.apply_gradients(zip(grads[1], m2.trainable_variables))
+            y = model(x_train)
+            loss = mse_loss(x_train, y)
+        grads = tape.gradient(loss, model.trainable_variables)
+        optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
         if i % 10 == 0:
             print(f"{i}: {loss.numpy()}")
 
-    x_true, y_true = _create_dataset(10)
-    dist = m(x_true)
+    x_true, _ = _create_dataset(10)
+    y_pred = model(x_true)
     print(x_true.reshape(-1))
-    print(m2(dist.sample(onehot=True)))
+    print(y_pred)
 
-    x_true, y_true = _create_dataset(1000)
-    dist = m(x_true)
-    x_pred = m2(dist.sample(onehot=True))
-    rmse = np.sqrt(np.mean((x_true - x_pred) ** 2)) / 1000
+    x_true, _ = _create_dataset(1000)
+    y_pred = model(x_true)
+    rmse = np.sqrt(np.mean((x_true - y_pred) ** 2))
     print(f"rmse: {rmse}")
-    assert rmse < 0.001 + unimix
+    assert rmse < 1 + unimix
 
 
 def test_inf():
@@ -129,6 +131,6 @@ def test_inf():
 
 
 if __name__ == "__main__":
-    # test_loss(0.1, True)
+    # test_loss(0.1)
     test_loss_grad(0)
     # test_inf()

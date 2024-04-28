@@ -179,7 +179,7 @@ def test_image_enc_dec(normalization_type, resize_type, dist_type):
     # encode.build((None,) + img.shape)
     # decode.build((None, 100))
 
-    dec_img = decode.call_dist(encode(img[np.newaxis, ...])).sample()
+    dec_img = decode(encode(img[np.newaxis, ...])).sample()
     print(dec_img.shape)
     assert img.shape == dec_img.shape[1:]
 

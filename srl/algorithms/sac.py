@@ -19,6 +19,7 @@ from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLC
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.tf import helper as helper_tf
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
@@ -390,20 +391,17 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.info["alpha_loss"] = log_alpha_loss.numpy()
             self.info["alpha"] = alpha
 
-        # --- soft target update
-        self.parameter.q1_target.set_weights(
-            (1 - self.config.soft_target_update_tau) * np.array(self.parameter.q1_target.get_weights(), dtype=object)
-            + (self.config.soft_target_update_tau) * np.array(self.parameter.q1_online.get_weights(), dtype=object)
-        )
-        self.parameter.q2_target.set_weights(
-            (1 - self.config.soft_target_update_tau) * np.array(self.parameter.q2_target.get_weights(), dtype=object)
-            + (self.config.soft_target_update_tau) * np.array(self.parameter.q2_online.get_weights(), dtype=object)
-        )
-
-        # --- hard target sync
+        # --- target sync
         if self.train_count % self.config.hard_target_update_interval == 0:
             self.parameter.q1_target.set_weights(self.parameter.q1_online.get_weights())
             self.parameter.q2_target.set_weights(self.parameter.q2_online.get_weights())
+        else:
+            helper_tf.model_soft_sync(
+                self.parameter.q1_target, self.parameter.q1_online, self.config.soft_target_update_tau
+            )
+            helper_tf.model_soft_sync(
+                self.parameter.q2_target, self.parameter.q2_online, self.config.soft_target_update_tau
+            )
 
         # lr_schedule
         if self.lr_q_sch.update(self.train_count):

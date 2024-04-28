@@ -1,29 +1,27 @@
 import math
-from typing import cast
 
 import numpy as np
 import pytest
-
-from srl.utils.common import is_package_installed
 
 
 def _create_dataset(data_num):
     x = np.random.uniform(0, 1, size=(data_num, 1))
     noise = np.random.normal(loc=0, scale=0.05, size=(data_num, 1))
     y = 5 + 0.5 * np.sin(2 * np.pi * x) + x + noise
-    return x.astype(np.float32), y.astype(np.float32)
+    return np.asarray(x, np.float32), np.asarray(y, np.float32)
 
 
 @pytest.mark.parametrize("fixed_scale", [-1, 0.1])
 @pytest.mark.parametrize("enable_squashed", [False, True])
-def test_loss(fixed_scale, enable_squashed, is_plot=False):
-    pytest.importorskip("tensorflow")
-    import tensorflow as tf
-    from tensorflow import keras
+def test_train(fixed_scale, enable_squashed, is_plot=False):
+    pytest.importorskip("torch")
 
-    from srl.rl.tf.distributions.normal_dist_block import NormalDist, NormalDistBlock
+    import torch
+
+    from srl.rl.torch_.distributions.normal_dist_block import NormalDistBlock
 
     block = NormalDistBlock(
+        1,
         1,
         (64, 64, 64),
         (),
@@ -31,22 +29,26 @@ def test_loss(fixed_scale, enable_squashed, is_plot=False):
         fixed_scale=fixed_scale,
         enable_squashed=enable_squashed,
     )
-    block.build((None, 1))
 
-    optimizer = keras.optimizers.Adam(learning_rate=0.001)
+    optimizer = torch.optim.Adam(block.parameters(), lr=0.001)
     for i in range(1000):
         x_train, y_train = _create_dataset(64)
-        with tf.GradientTape() as tape:
-            loss = block.compute_train_loss(x_train, y_train)
-        grads = tape.gradient(loss, block.trainable_variables)
-        optimizer.apply_gradients(zip(grads, block.trainable_variables))
+        x_train = torch.FloatTensor(x_train)
+        y_train = torch.FloatTensor(y_train)
+
+        optimizer.zero_grad()
+        loss = block.compute_train_loss(x_train, y_train)
+        loss.backward()
+        optimizer.step()
 
         if i % 10 == 0:
-            print(f"{i}: {loss.numpy()}")
+            print(f"{i}: {loss.item()}")
 
     x_true, y_true = _create_dataset(1000)
-    dist = cast(NormalDist, block(x_true))
-    y_pred = dist.sample()
+    x_true = torch.FloatTensor(x_true)
+    dist = block(x_true)
+    y_pred = dist.sample().detach().numpy()
+
     if enable_squashed:
         y_pred = np.arctanh(y_pred)
 
@@ -63,8 +65,9 @@ def test_loss(fixed_scale, enable_squashed, is_plot=False):
     if fixed_scale < 0:
         assert rmse < 0.1
         if not enable_squashed:
-            print("stddev", np.mean(dist.stddev()))
-            assert np.abs(np.mean(dist.stddev()) - 0.05) < 0.1
+            stddev = dist.stddev().detach().numpy()
+            print("stddev", np.mean(stddev))
+            assert np.abs(np.mean(stddev) - 0.05) < 0.1
     else:
         assert rmse < 0.4
 
@@ -76,43 +79,60 @@ def _create_dataset2(data_num):
 
 @pytest.mark.parametrize("fixed_scale", [-1, 0.1])
 @pytest.mark.parametrize("enable_squashed", [False, True])
-def test_loss_grad(fixed_scale, enable_squashed):
-    pytest.importorskip("tensorflow")
-    import tensorflow as tf
-    from tensorflow import keras
+def test_autoencoder(fixed_scale, enable_squashed):
+    pytest.importorskip("torch")
+    import torch
 
-    from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
+    from srl.rl.torch_.distributions.normal_dist_block import NormalDistBlock
 
-    class _Model(keras.Model):
+    class _Model(torch.nn.Module):
         def __init__(self):
             super().__init__()
-            self.h1 = keras.layers.Dense(32, activation="relu")
-            self.block = NormalDistBlock(32, fixed_scale=fixed_scale, enable_squashed=enable_squashed)
-            self.h2 = keras.layers.Dense(1, activation="relu")
+            self.h1 = torch.nn.ModuleList(
+                [
+                    torch.nn.Linear(1, 32),
+                    torch.nn.ReLU(inplace=True),
+                ]
+            )
+            self.block = NormalDistBlock(32, 32, fixed_scale=fixed_scale, enable_squashed=enable_squashed)
+            self.h2 = torch.nn.ModuleList(
+                [
+                    torch.nn.Linear(32, 1),
+                    torch.nn.ReLU(inplace=True),
+                ]
+            )
 
-        def call(self, x):
-            x = self.h1(x)
+        def forward(self, x):
+            for h in self.h1:
+                x = h(x)
             dist = self.block(x)
             x = dist.rsample()
-            x = self.h2(x)
+            for h in self.h2:
+                x = h(x)
             return x
 
     model = _Model()
-    optimizer = keras.optimizers.Adam(learning_rate=0.001)
-    mse_loss = keras.losses.MeanSquaredError()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    mse_loss = torch.nn.MSELoss()
     for i in range(1000):
         x_train, y_train = _create_dataset2(128)
-        with tf.GradientTape() as tape:
-            y = model(x_train)
-            loss = mse_loss(y_train, y)
-        grads = tape.gradient(loss, model.trainable_variables)
-        optimizer.apply_gradients(zip(grads, model.trainable_variables))
+        x_train = torch.FloatTensor(x_train)
+        y_train = torch.FloatTensor(y_train)
+
+        optimizer.zero_grad()
+        y = model(x_train)
+        loss = mse_loss(y_train, y)
+        loss.backward()
+        optimizer.step()
 
         if i % 10 == 0:
-            print(f"{i}: {loss.numpy()}")
+            print(f"{i}: {loss.item()}")
 
     x_true, y_true = _create_dataset2(1000)
+    x_true = torch.FloatTensor(x_true)
     y_pred = model(x_true)
+    y_pred = y_pred.detach().numpy()
+
     rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
     print(f"rmse: {rmse}")
     if fixed_scale < 0:
@@ -122,40 +142,39 @@ def test_loss_grad(fixed_scale, enable_squashed):
 
 
 def test_dist():
-    pytest.importorskip("tensorflow")
-    assert is_package_installed("tensorflow_probability")
-    import tensorflow as tf
-    from tensorflow_probability import distributions as tfd
+    pytest.importorskip("torch")
 
-    from srl.rl.tf.distributions.normal_dist_block import NormalDist
+    import torch
 
-    loc = tf.Variable(np.array([[-1], [1]], dtype=np.float32))
-    scale = tf.Variable(np.array([[0.1], [5]], dtype=np.float32))
+    from srl.rl.torch_.distributions.normal_dist_block import NormalDist
 
-    dist_tf = tfd.Normal(loc, scale)
-    dist = NormalDist(loc, tf.math.log(scale))
+    loc = torch.FloatTensor(np.array([[-1], [1]], dtype=np.float32))
+    scale = torch.FloatTensor(np.array([[0.1], [5]], dtype=np.float32))
 
-    n1 = dist_tf.mean().numpy()
-    n2 = dist.mean().numpy()
+    dist_t = torch.distributions.Normal(loc, scale)
+    dist = NormalDist(loc, torch.log(scale))
+
+    n1 = dist_t.mean.numpy()
+    n2 = dist.mean().detach().numpy()
     print(n1)
     print(n2)
     assert np.allclose(n1, n2)
 
-    n1 = dist_tf.stddev().numpy()
-    n2 = dist.stddev().numpy()
+    n1 = dist_t.stddev.numpy()
+    n2 = dist.stddev().detach().numpy()
     print(n1)
     print(n2)
     assert np.allclose(n1, n2)
 
-    n1 = dist_tf.entropy().numpy()
-    n2 = dist.entropy().numpy()
+    n1 = dist_t.entropy().numpy()
+    n2 = dist.entropy().detach().numpy()
     print(n1)
     print(n2)
     assert np.allclose(n1, n2)
 
-    x = tf.Variable(np.array([[-1.1, 1.1]], dtype=np.float32))
-    n1 = dist_tf.log_prob(x).numpy()
-    n2 = dist.log_prob(x).numpy()
+    x = torch.FloatTensor([[-1.1, 1.1]])
+    n1 = dist_t.log_prob(x).detach().numpy()
+    n2 = dist.log_prob(x).detach().numpy()
     print(n1)
     print(n2)
     assert np.allclose(n1, n2)
@@ -178,11 +197,11 @@ def _normal(x, mean, stddev, epsilon=1e-10):
     ],
 )
 def test_compute_normal_logprob_sgp(action, mean, stddev):
-    pytest.importorskip("tensorflow")
+    pytest.importorskip("torch")
 
-    import tensorflow as tf
+    import torch
 
-    from srl.rl.tf.distributions.normal_dist_block import compute_normal_logprob_sgp
+    from srl.rl.torch_.distributions.normal_dist_block import compute_normal_logprob_sgp
 
     np_mu = _normal(action, mean, stddev)
     np_logmu = np.log(np_mu)
@@ -190,12 +209,12 @@ def test_compute_normal_logprob_sgp(action, mean, stddev):
     np_pi = np.exp(np_logpi)
 
     logpi = compute_normal_logprob_sgp(
-        tf.constant([[mean]], dtype=np.float32),
-        tf.constant([[stddev]], dtype=np.float32),
-        tf.constant(np.log([[stddev]]), dtype=np.float32),
-        tf.constant([[action]], dtype=np.float32),
+        torch.FloatTensor([[mean]]),
+        torch.FloatTensor([[stddev]]),
+        torch.FloatTensor(np.log([[stddev]])),
+        torch.FloatTensor([[action]]),
     )
-    pi = tf.exp(logpi)  # logpiが-130ぐらいだと-infになる
+    pi = torch.exp(logpi)  # logpiが-130ぐらいだと-infになる
     pi = pi.numpy()[0][0]
     logpi = logpi.numpy()[0][0]
 

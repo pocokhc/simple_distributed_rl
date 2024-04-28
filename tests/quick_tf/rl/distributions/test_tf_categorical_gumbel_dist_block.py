@@ -8,15 +8,14 @@ def _create_dataset(data_num):
     return x.astype(np.float32), y.astype(np.float32)
 
 
-@pytest.mark.parametrize("use_mse", [False, True])
-def test_loss(use_mse):
+def test_loss():
     pytest.importorskip("tensorflow")
     import tensorflow as tf
     from tensorflow import keras
 
     from srl.rl.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
 
-    m = CategoricalGumbelDistBlock(5, (32, 32, 32), use_mse=use_mse)
+    m = CategoricalGumbelDistBlock(5, (32, 32, 32))
     m.build((None, 1))
     m.summary()
 
@@ -68,7 +67,7 @@ def test_loss_grad():
         x_train, y_train = _create_dataset(64)
         with tf.GradientTape() as tape:
             dist = m(x_train)
-            x = dist.sample()
+            x = dist.rsample()
             x = m2(x)
             loss = tf.reduce_mean(tf.square(x_train - x))
         grads = tape.gradient(loss, [m.trainable_variables, m2.trainable_variables])

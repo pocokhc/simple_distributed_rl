@@ -52,7 +52,7 @@ class CategoricalDist:
 
     def log_prob(self, a, onehot: bool = False):
         if onehot:
-            a = tf.squeeze(a, axis=1)
+            a = tf.squeeze(a, axis=-1)
             a = tf.one_hot(a, self.classes, dtype=tf.float32)
         a = tf.reduce_sum(self.log_probs() * a, axis=-1)
         return tf.expand_dims(a, axis=-1)

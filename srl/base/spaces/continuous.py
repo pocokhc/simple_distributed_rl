@@ -12,13 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class ContinuousSpace(SpaceBase[float]):
-    def __init__(
-        self,
-        low: float = -np.inf,
-        high: float = np.inf,
-    ) -> None:
+    def __init__(self, low: float = -np.inf, high: float = np.inf, dtype=np.float32) -> None:
         self._low = float(low)
         self._high = float(high)
+        self._dtype = dtype
 
         assert self.low <= self.high
 
@@ -42,7 +39,7 @@ class ContinuousSpace(SpaceBase[float]):
 
     @property
     def dtype(self):
-        return np.float32
+        return self._dtype
 
     def sample(self, mask: List[float] = []) -> float:
         if len(mask) > 0:

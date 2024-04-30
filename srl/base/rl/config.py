@@ -90,6 +90,8 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     #: action/observationの値を厳密にチェックし、おかしい場合は例外を出力します。
     #: enable_assertionが有効な場合は、enable_sanitizeは無効です。
     enable_assertion: bool = False
+    #: dtype
+    dtype = np.float32
 
     def __post_init__(self) -> None:
         self._is_setup = False
@@ -379,7 +381,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                     env_space.np_shape,
                     env_space.np_low,
                     env_space.np_high,
-                    np.float32,
+                    self.dtype,
                     rl_type,
                 )
             elif SpaceTypes.is_image(rl_type):
@@ -387,7 +389,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                     env_space.np_shape,
                     env_space.np_low,
                     env_space.np_high,
-                    np.float32,
+                    self.dtype,
                     rl_type,
                 )
             elif rl_type == SpaceTypes.MULTI:
@@ -504,13 +506,14 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                     env_space.list_float_size,
                     env_space.list_float_low,
                     env_space.list_float_high,
+                    self.dtype,
                 )
             elif SpaceTypes.is_image(rl_type):
                 return BoxSpace(
                     env_space.np_shape,
                     env_space.np_low,
                     env_space.np_high,
-                    env_space.dtype,
+                    self.dtype,
                     stype=rl_type,
                 )
             elif rl_type == SpaceTypes.MULTI:

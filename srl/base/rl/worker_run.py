@@ -264,9 +264,9 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if rl_stype == SpaceTypes.DISCRETE:
             rl_state = env_space.encode_to_list_int(env_state)
         elif rl_stype == SpaceTypes.CONTINUOUS:
-            rl_state = env_space.encode_to_np(env_state, np.float32)
+            rl_state = env_space.encode_to_np(env_state, self.config.dtype)
         elif SpaceTypes.is_image(rl_stype):
-            rl_state = env_space.encode_to_np(env_state, np.float32)
+            rl_state = env_space.encode_to_np(env_state, self.config.dtype)
         elif rl_stype == SpaceTypes.MULTI:
             rl_state = env_state
         else:

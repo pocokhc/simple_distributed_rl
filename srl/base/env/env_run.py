@@ -157,7 +157,7 @@ class EnvRun:
             env_done = self.sanitize_done(env_done, "'done' in 'env.reset may' not be bool.")
 
         self._render.cache_reset()
-        step_rewards = np.array(rewards, dtype=np.float32)
+        step_rewards = np.array(rewards)
 
         # --- skip frame
         for _ in range(self.config.frameskip + frameskip):
@@ -174,7 +174,7 @@ class EnvRun:
                 state = self.sanitize_state(state, "'state' in 'env.step' may not be SpaceType.")
                 rewards = self.sanitize_rewards(rewards, "'rewards' in 'env.step' may not be List[float].")
                 env_done = self.sanitize_done(env_done, "'done' in 'env.reset may' not be bool.")
-            step_rewards += np.array(rewards, dtype=np.float32)
+            step_rewards += np.array(rewards)
             self._render.cache_reset()
 
             if frameskip_function is not None:

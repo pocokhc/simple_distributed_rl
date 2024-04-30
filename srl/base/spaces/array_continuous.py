@@ -17,10 +17,14 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
         size: int,
         low: Union[float, List[float], Tuple[float, ...], np.ndarray] = -np.inf,
         high: Union[float, List[float], Tuple[float, ...], np.ndarray] = np.inf,
+        dtype=np.float32,
     ) -> None:
         self._size = size
-        self._low: np.ndarray = np.full((size,), low, dtype=np.float32) if np.isscalar(low) else np.asarray(low)
-        self._high: np.ndarray = np.full((size,), high, dtype=np.float32) if np.isscalar(high) else np.asarray(high)
+        self._low: np.ndarray = np.full((size,), low) if np.isscalar(low) else np.asarray(low)
+        self._high: np.ndarray = np.full((size,), high) if np.isscalar(high) else np.asarray(high)
+        self._low = self._low.astype(dtype)
+        self._high = self._high.astype(dtype)
+        self._dtype = dtype
 
         assert len(self._low) == size
         assert len(self._high) == size
@@ -48,7 +52,7 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
 
     @property
     def dtype(self):
-        return np.float32
+        return self._dtype
 
     def sample(self, mask: List[List[float]] = []) -> List[float]:
         if len(mask) > 0:

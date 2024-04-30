@@ -5,15 +5,34 @@
 // (MARL) マルコフ過程みたいなモデルがある？Actor同士の通信方法の定義が見当たらずに保留
 // (jax) batch数(32)ぐらいの量だとnumpyの方が早かったので見送り
 // (tf/torchの互換パラメータの作成)
+// RLTrainerでinfoの計算コストは保留（metricsを別途導入案も保留）
+// cached_propertyでちょっと高速化?→予想外のバグがでそうなので保留
 1. keras3対応？
 1. Async-SGD
 1. (distribution)オリジナルrl/env対応
 1. RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
-1. RLWorkerからworker_run.stateで特定の型を指定する方法が分からない…
 1. DemoMemory
 1. configのjson保存
-1. RLTrainerでinfoの計算コストをどうするか
-1. metrics?
+1. train部分のみのthread化による高速？
+
+1. memoryを一般でも使用できるように+dtype対応
+
+
+# v0.15.4
+
+**MainUpdates**
+
+1. [base.rl] new: 型アノテーション整備
+1. [rl.functions] move: common,helperをfunctionsに移動し整理
+1. [rl.tf/torch] update: functionsとhelperを作り整理
+1. [rl.tf/torch.distributions] update: 整理して更新
+1. [base.rl.config] new: dtypeを追加
+1. [base.rl/env] change: processor周りを整理（名前の変更、envにもprocessorを追加）
+
+**Bug Fixes**
+
+1. [base.rl.worker_run] fix: doneを保持するように修正
+
 
 # v0.15.3
 
@@ -25,7 +44,7 @@
 1. [base.rl.registration] change: rulebaseにRLConfigを設定できるように変更 
 1. [base.run] update: callbacksの処理を変更（多分少し早くなる）
 1. [base.run.callback] add: on_step_action_afterを追加
-1. [base.run.callbacks] change: on_tainer_loopをon_train_afterに変更し、on_train_beforeを追加
+1. [base.run.callbacks] change: on_trainer_loopをon_train_afterに変更し、on_train_beforeを追加
 1. [runner.callbacks] history をリファクタリング
    1. change: history_on_fileでdirを指定しない場合tmpに出力するように変更
    1. change: on_filetとon_memoryのinfo参照をprintと同じで取得時のみに変更し軽量化

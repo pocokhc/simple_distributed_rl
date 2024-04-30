@@ -71,12 +71,12 @@ class NormalDist:
         log_prob = compute_normal_logprob(self._loc, self.stddev(), self._log_scale, y)
         return y, log_prob
 
-    def policy(self, range_: Tuple[float, float] = (-np.inf, np.inf), training: bool = False):
+    def policy(self, low=None, high=None, training: bool = False):
         if training:
             y = self.sample()
         else:
             y = self.mean()
-        y_range = torch.clamp(y, range_[0], range_[1])
+        y_range = torch.clamp(y, low, high)
         return y, y_range
 
 
@@ -128,14 +128,17 @@ class NormalDistSquashed:
         squashed_y = torch.tanh(y)
         return squashed_y, log_prob
 
-    def policy(self, range_: Tuple[float, float] = (-np.inf, np.inf), training: bool = False):
+    def policy(self, low=None, high=None, training: bool = False):
         if training:
             y = self.sample()
         else:
             y = self.mean()
         # Squashed Gaussian Policy (-1, 1) -> (action range)
         y_range = (y + 1) / 2
-        y_range = range_[0] + y_range * (range_[1] - range_[0])
+        low = 0 if low is None else low
+        if high is not None:
+            y_range = y_range * (high - low)
+        y_range = y_range + low
         return y, y_range
 
 

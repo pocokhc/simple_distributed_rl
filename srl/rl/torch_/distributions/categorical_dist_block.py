@@ -1,8 +1,5 @@
-import functools
-import math
-from typing import Tuple
+from typing import Tuple, cast
 
-import numpy as np
 import torch
 import torch.nn as nn
 
@@ -10,66 +7,60 @@ from srl.rl.torch_.converter import convert_activation_torch
 
 
 class CategoricalDist:
-    def __init__(self, logits, unimix: float = 0):
+    def __init__(self, logits):
         self.classes = logits.shape[-1]
-        self.logits = logits
-        self.unimix = unimix
+        self._dist = torch.distributions.Categorical(logits=logits)
+        self._logits = logits
 
-    @functools.lru_cache
+    def set_unimix(self, unimix: float):
+        probs = torch.softmax(self._logits, -1)
+        uniform = torch.ones_like(probs) / probs.shape[-1]
+        probs = (1 - unimix) * probs + unimix * uniform
+        self._dist = torch.distributions.Categorical(probs=probs)
+
+    def logits(self):
+        return self._dist.logits
+
     def mean(self):
-        return torch.full(
-            self.logits.shape(),
-            torch.nan,
-            dtype=self.logits.dtype,
-            device=self.logits.device,
-        )
+        return self._dist.mean
 
-    @functools.lru_cache
     def mode(self):
-        return torch.argmax(self.logits, -1)
+        return self._dist.mode
 
-    @functools.lru_cache
     def variance(self):
-        return torch.full(
-            self.logits.shape(),
-            torch.nan,
-            dtype=self.logits.dtype,
-            device=self.logits.device,
-        )
+        return self._dist.variance
 
-    @functools.lru_cache
     def probs(self):
-        probs = torch.softmax(self.logits, -1)
-        if self.unimix > 0:
-            uniform = torch.ones_like(probs) / probs.shape[-1]
-            probs = (1 - self.unimix) * probs + self.unimix * uniform
-        return probs
+        return cast(torch.Tensor, self._dist.probs)
 
     def sample(self, onehot: bool = False):
-        a = torch.multinomial(self.probs(), num_samples=1)
+        a = self._dist.sample()
         if onehot:
-            a = torch.squeeze(a, dim=1)
             a = torch.nn.functional.one_hot(a, num_classes=self.classes).float()
+        else:
+            a = torch.unsqueeze(a, -1)
         return a
 
     def rsample(self, onehot: bool = True):
-        a = torch.multinomial(self.probs(), num_samples=1)
+        a = self._dist.sample()
         if onehot:
-            a = torch.squeeze(a, dim=1)
             a = torch.nn.functional.one_hot(a, num_classes=self.classes).float()
-        return (a - self.probs()).detach() + self.probs()
+        else:
+            a = torch.unsqueeze(a, -1)
+        probs = self.probs()
+        return (a - probs).detach() + probs
 
-    @functools.lru_cache
     def log_probs(self):
-        probs = torch.clamp(self.probs(), 1e-10, 1)
-        return torch.log(probs)
+        return self._dist.log_prob
 
     def log_prob(self, a, onehot: bool = False):
         if onehot:
             a = torch.squeeze(a, dim=-1)
             a = torch.nn.functional.one_hot(a, self.classes).float()
-        a = (self.log_probs() * a).sum(dim=-1)
-        return torch.unsqueeze(a, axis=-1)
+        return self._dist.log_prob(a)
+
+    def entropy(self):
+        return torch.unsqueeze(self._dist.entropy(), dim=-1)
 
 
 class CategoricalDistBlock(nn.Module):
@@ -79,11 +70,9 @@ class CategoricalDistBlock(nn.Module):
         classes: int,
         hidden_layer_sizes: Tuple[int, ...] = (),
         activation="ReLU",
-        unimix: float = 0,
     ):
         super().__init__()
         self.classes = classes
-        self.unimix = unimix
         activation = convert_activation_torch(activation)
 
         in_size = in_size
@@ -97,7 +86,7 @@ class CategoricalDistBlock(nn.Module):
     def forward(self, x):
         for layer in self.h_layers:
             x = layer(x)
-        return CategoricalDist(x, self.unimix)
+        return CategoricalDist(x)
 
     def compute_train_loss(self, x, y):
         dist = self(x)

@@ -51,6 +51,8 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._prev_action: TActType = cast(TActType, 0)
         self._reward: float = 0
         self._step_reward: float = 0
+        self._done: DoneTypes = DoneTypes.RESET
+        self._done_reason: str = ""
         self._prev_invalid_actions: List[TActType] = []
         self._invalid_actions: List[TActType] = []
         self._total_step: int = 0
@@ -117,19 +119,19 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def done(self) -> bool:
-        return self._env._done != DoneTypes.NONE
+        return self._done != DoneTypes.NONE
 
     @property
     def terminated(self) -> bool:
-        return self._env._done == DoneTypes.TERMINATED
+        return self._done == DoneTypes.TERMINATED
 
     @property
     def done_type(self) -> DoneTypes:
-        return self._env._done
+        return self._done
 
     @property
     def done_reason(self) -> str:
-        return self._env._done_reason
+        return self._done_reason
 
     @property
     def prev_invalid_actions(self) -> List[TActType]:
@@ -176,6 +178,8 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._prev_action = cast(TActType, 0)
         self._reward = 0
         self._step_reward = 0
+        self._done = DoneTypes.NONE
+        self._done_reason = ""
         self._set_invalid_actions()
 
         [r.on_reset(self._env) for r in self._config.episode_processors]
@@ -226,7 +230,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._step_reward += self._env.step_rewards[self.player_index]
 
         # 終了ならon_step実行
-        if self.done:
+        if self._env._done != DoneTypes.NONE:
             self._on_step()
             if self._context.rendering:
                 self._render.cache_reset()
@@ -244,7 +248,8 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             is_dummy=False,
         )
         self._reward = self.reward_encode(self._step_reward, self._env)
-        self._env._done = self.done_encode(self._env._done, self._env)
+        self._done = self.done_encode(self._env._done, self._env)
+        self._done_reason = self._env._done_reason
         self._info = self._worker.on_step(self)
         if self._info is None:
             self._info = {}

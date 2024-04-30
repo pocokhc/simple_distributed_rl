@@ -6,7 +6,8 @@ import numpy as np
 from srl.base.define import EnvObservationType
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import ObservationProcessor
+from srl.base.rl.processor import Processor
+from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
@@ -15,15 +16,10 @@ from srl.base.spaces.discrete import DiscreteSpace
 
 
 @dataclass
-class NormalizeProcessor(ObservationProcessor):
+class NormalizeProcessor(Processor):
     feature_rang: Tuple[float, float] = (0, 1)
 
-    def preprocess_observation_space(
-        self,
-        env_observation_space: SpaceBase,
-        env: EnvRun,
-        rl_config: RLConfig,
-    ) -> SpaceBase:
+    def remap_observation_space(self, env_observation_space: SpaceBase, env: EnvRun, rl_config: RLConfig) -> SpaceBase:
         self._old_space = env_observation_space
         assert self.feature_rang[0] <= self.feature_rang[1]
 
@@ -44,7 +40,7 @@ class NormalizeProcessor(ObservationProcessor):
 
         return env_observation_space
 
-    def preprocess_observation(self, state: EnvObservationType, env: EnvRun) -> EnvObservationType:
+    def remap_observation(self, state: EnvObservationType, worker: WorkerRun, env: EnvRun) -> EnvObservationType:
         _min = self.feature_rang[0]
         _max = self.feature_rang[1]
 

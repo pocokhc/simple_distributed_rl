@@ -12,7 +12,7 @@ from srl.base.define import RLMemoryTypes, SpaceTypes
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.processor import ObservationProcessor
+from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
@@ -72,7 +72,7 @@ class Config(RLConfig, RLConfigComponentFramework):
             "blx_a",
         ]
 
-    def get_processors(self) -> List[ObservationProcessor]:
+    def get_processors(self) -> List[Processor]:
         return [
             ImageProcessor(
                 image_type=SpaceTypes.COLOR,

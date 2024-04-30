@@ -33,12 +33,12 @@ def test_1(space, true_space, state, true_state):
     env = srl.make_env("Grid")
 
     # --- change space
-    new_space = processor.preprocess_observation_space(space, env, DummyRLConfig())
+    new_space = processor.remap_observation_space(space, env, DummyRLConfig())
     print(new_space)
     assert new_space == true_space
 
     # --- decode
-    new_state = processor.preprocess_observation(state, env)
+    new_state = processor.remap_observation(state, None, env)
     print(new_state)
     if isinstance(true_state, np.ndarray):
         assert (new_state == true_state).all()

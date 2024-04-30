@@ -1,5 +1,5 @@
 import logging
-from typing import Generic, List, Optional, Tuple, cast
+from typing import Any, Generic, List, Optional, Tuple, cast
 
 import numpy as np
 
@@ -57,6 +57,9 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._invalid_actions: List[TActType] = []
         self._total_step: int = 0
         self._dummy_rl_states_one_step = self._config.observation_space_one_step.get_default()
+
+        self._processors_on_reset: Any = [c for c in self._config.episode_processors if hasattr(c, "remap_on_reset")]
+        self._processors_reward: Any = [c for c in self._config.episode_processors if hasattr(c, "remap_reward")]
 
     # ------------------------------------
     # episode functions
@@ -182,7 +185,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._done_reason = ""
         self._set_invalid_actions()
 
-        [r.on_reset(self._env) for r in self._config.episode_processors]
+        [r.remap_on_reset(self, self._env) for r in self._processors_on_reset]
 
     def policy(self) -> EnvActionType:
         if not self._is_reset:
@@ -248,7 +251,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             is_dummy=False,
         )
         self._reward = self.reward_encode(self._step_reward, self._env)
-        self._done = self.done_encode(self._env._done, self._env)
+        self._done = self._env._done
         self._done_reason = self._env._done_reason
         self._info = self._worker.on_step(self)
         if self._info is None:
@@ -311,7 +314,8 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             # --- processor
             for i in range(len(env_states)):
                 for p in self._config.observation_processors_list[i]:
-                    env_states[i] = p.preprocess_observation(env_states[i], env)
+                    p = cast(Any, p)
+                    env_states[i] = p.remap_observation(env_states[i], self, env)
 
             # --- encode
             env_space = self._config.observation_space_of_env
@@ -466,15 +470,9 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     def reward_encode(self, reward: float, env: EnvRun) -> float:
         if self._config.enable_reward_encode:
-            for p in self._config.episode_processors:
-                reward = p.preprocess_reward(reward, env)
+            for p in self._processors_reward:
+                reward = p.remap_reward(reward, self, env)
         return reward
-
-    def done_encode(self, done: DoneTypes, env: EnvRun) -> DoneTypes:
-        if self._config.enable_done_encode:
-            for p in self._config.episode_processors:
-                done = p.preprocess_done(done, env)
-        return done
 
     # ------------------------------------
     # invalid

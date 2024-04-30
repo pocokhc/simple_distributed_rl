@@ -9,7 +9,7 @@ from srl.base.env import registration
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.kaggle_wrapper import KaggleWorker, KaggleWrapper
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import ObservationProcessor
+from srl.base.rl.processor import Processor
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
@@ -94,12 +94,9 @@ class NegaMax(KaggleWorker):
         return negamax_agent(observation, configuration)
 
 
-class LayerProcessor(ObservationProcessor):
-    def preprocess_observation_space(
-        self,
-        env_observation_space: SpaceBase,
-        env: EnvRun,
-        rl_config: RLConfig,
+class LayerProcessor(Processor):
+    def remap_observation_space(
+        self, env_observation_space: SpaceBase, env: EnvRun, rl_config: RLConfig
     ) -> Tuple[SpaceBase, SpaceTypes]:
         _env = cast(ConnectX, env.env)
         observation_space = BoxSpace(
@@ -110,7 +107,7 @@ class LayerProcessor(ObservationProcessor):
         )
         return observation_space
 
-    def preprocess_observation(self, observation: np.ndarray, env: EnvRun) -> np.ndarray:
+    def remap_observation(self, observation: np.ndarray, worker, env: EnvRun) -> np.ndarray:
         _env = cast(ConnectX, env.env)
 
         # Layer0: my player field (0 or 1)

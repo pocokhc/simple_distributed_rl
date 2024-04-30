@@ -12,7 +12,7 @@ from srl.base.env import registration
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.genre import SinglePlayEnv
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import ObservationProcessor
+from srl.base.rl.processor import Processor
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
@@ -478,13 +478,8 @@ class Grid(SinglePlayEnv):
         return np.mean(rewards)
 
 
-class LayerProcessor(ObservationProcessor):
-    def preprocess_observation_space(
-        self,
-        env_observation_space: SpaceBase,
-        env: EnvRun,
-        rl_config: RLConfig,
-    ) -> SpaceBase:
+class LayerProcessor(Processor):
+    def remap_observation_space(self, env_observation_space: SpaceBase, env: EnvRun, rl_config: RLConfig) -> SpaceBase:
         _env = cast(Grid, env.unwrapped)
         observation_space = BoxSpace(
             shape=(_env.H, _env.W, 1),
@@ -495,7 +490,7 @@ class LayerProcessor(ObservationProcessor):
         )
         return observation_space
 
-    def preprocess_observation(self, state: np.ndarray, env: EnvRun) -> np.ndarray:
+    def remap_observation(self, state: np.ndarray, worker, env: EnvRun) -> np.ndarray:
         _env = cast(Grid, env.unwrapped)
 
         px = _env.player_pos[0]

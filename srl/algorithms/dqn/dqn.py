@@ -8,7 +8,7 @@ import numpy as np
 from srl.base.define import InfoType
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.processor import ObservationProcessor
+from srl.base.rl.processor import Processor
 from srl.rl import functions as funcs
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
@@ -96,7 +96,7 @@ class Config(
         self.enable_double_dqn = False
         self.enable_rescale = False
 
-    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+    def get_processors(self) -> List[Optional[Processor]]:
         return [self.input_image_block.get_processor()]
 
     def get_framework(self) -> str:

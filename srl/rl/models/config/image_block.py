@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 
 from srl.base.define import SpaceTypes
 from srl.base.exception import UndefinedError
-from srl.base.rl.processor import ObservationProcessor
+from srl.base.rl.processor import Processor
 from srl.rl.processors.image_processor import ImageProcessor
 
 
@@ -12,7 +12,7 @@ class ImageBlockConfig:
     def __post_init__(self):
         self._name: str = ""
         self._kwargs: dict = {}
-        self._processor: Optional[ObservationProcessor] = None
+        self._processor: Optional[Processor] = None
 
         self.set_dqn_block()
 
@@ -104,7 +104,7 @@ class ImageBlockConfig:
         self._processor = ImageProcessor(image_type, resize, enable_norm=True)
         return self
 
-    def set_custom_block(self, entry_point: str, kwargs: dict, processor: Optional[ObservationProcessor] = None):
+    def set_custom_block(self, entry_point: str, kwargs: dict, processor: Optional[Processor] = None):
         self._name = "custom"
         self._kwargs = dict(entry_point=entry_point, kwargs=kwargs)
         self._processor = processor
@@ -112,7 +112,7 @@ class ImageBlockConfig:
 
     # ----------------------------------------------------------------
 
-    def get_processor(self) -> Optional[ObservationProcessor]:
+    def get_processor(self) -> Optional[Processor]:
         return self._processor
 
     def create_block_tf(self, enable_rnn: bool = False):

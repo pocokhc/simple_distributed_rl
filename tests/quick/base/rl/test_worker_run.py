@@ -28,9 +28,9 @@ _M = MultiSpace
 
 
 class StubEnv(SinglePlayEnv):
-    def __init__(self):
-        self._action_space: SpaceBase = DiscreteSpace(5)
-        self._observation_space: SpaceBase = DiscreteSpace(5)
+    def __init__(self, action_space=DiscreteSpace(7), observation_space=DiscreteSpace(7)):
+        self._action_space = action_space
+        self._observation_space = observation_space
 
         self.s_state: Any = 0
         self.s_reward = 0.0
@@ -137,9 +137,7 @@ def _test_action(
     env_act,
 ):
     common.logger_print()
-    env = srl.make_env("Stub")
-    env_org = cast(StubEnv, env.unwrapped)
-    env_org._action_space = env_act_space
+    env = srl.make_env(srl.EnvConfig("Stub", {"action_space": env_act_space}))
 
     rl_config = StubRLConfig()
     rl_config.enable_assertion = True
@@ -394,9 +392,8 @@ def _test_obs(
         pytest.importorskip("pygame")
 
     common.logger_print()
-    env = srl.make_env("Stub")
+    env = srl.make_env(srl.EnvConfig("Stub", {"observation_space": env_obs_space}))
     env_org = cast(StubEnv, env.unwrapped)
-    env_org._observation_space = env_obs_space
     env_org.s_state = env_state
 
     rl_config = StubRLConfig()
@@ -1016,9 +1013,7 @@ def test_obs_override():
 )
 def test_sample_action(env_act_space, rl_act_type):
     common.logger_print()
-    env = srl.make_env("Stub")
-    env_org = cast(StubEnv, env.unwrapped)
-    env_org._action_space = env_act_space
+    env = srl.make_env(srl.EnvConfig("Stub", {"action_space": env_act_space}))
 
     rl_config = StubRLConfig()
     rl_config.enable_assertion = True
@@ -1046,10 +1041,7 @@ def test_sample_action(env_act_space, rl_act_type):
     ],
 )
 def test_sample_action_for_env(env_act_space, is_raise):
-    env = srl.make_env("Stub")
-    env_org = cast(StubEnv, env.unwrapped)
-    env_org._action_space = env_act_space
-
+    env = srl.make_env(srl.EnvConfig("Stub", {"action_space": env_act_space}))
     rl_config = StubRLConfig()
 
     if is_raise:  # rangeの定義がない場合actionを定義できない

@@ -11,7 +11,7 @@ from srl.base.context import RunContext
 from srl.base.define import ObservationModes, RenderModes, RLBaseTypes, SpaceTypes, TActSpace, TObsSpace
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.exception import NotSupportedError
-from srl.base.rl.processor import EpisodeProcessor, ObservationProcessor, ProcessorType
+from srl.base.rl.processor import Processor
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
@@ -66,7 +66,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     use_rl_processor: bool = True
 
     #: Processorを使う場合、定義したProcessorのリスト
-    processors: List[ProcessorType] = field(default_factory=list)
+    processors: List[Processor] = field(default_factory=list)
 
     # --- Worker Config
     #: state_encodeを有効にするか
@@ -142,7 +142,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     def setup_from_actor(self, actor_num: int, actor_id: int) -> None:
         pass  # NotImplemented
 
-    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+    def get_processors(self) -> List[Optional[Processor]]:
         return []  # NotImplemented
 
     def get_changeable_parameters(self) -> List[str]:
@@ -200,23 +200,25 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         # -------------------------------------------------
         # processor
         # -------------------------------------------------
-        obs_processors: List[ObservationProcessor] = []
-        self._episode_processors: List[EpisodeProcessor] = []
+        obs_processors: List[Processor] = []
+        self._episode_processors: List[Processor] = []
 
         # user processor
         for p in self.processors:
-            if isinstance(p, ObservationProcessor):
+            if hasattr(p, "remap_observation"):
                 obs_processors.append(p)
-            elif isinstance(p, EpisodeProcessor):
-                self._episode_processors.append(p)
+            self._episode_processors.append(p.copy())
 
         # rl processor
         if self.use_rl_processor:
             for p in self.get_processors():
-                if isinstance(p, ObservationProcessor):
+                if p is None:
+                    continue
+                if hasattr(p, "remap_observation"):
                     obs_processors.append(p)
-                elif isinstance(p, EpisodeProcessor):
-                    self._episode_processors.append(p)
+                self._episode_processors.append(p.copy())
+
+        [p.setup(env, self) for p in self._episode_processors]
 
         # -------------------------------------------------
         # observation space, 4種類
@@ -264,18 +266,21 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             env_obs_space_list.append(BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.COLOR))
 
         if self.observation_mode & ObservationModes.RENDER_TERMINAL:
-            env_obs_space_list.append(TextSpace(TODO))
+            env.setup(RunContext(render_mode=RenderModes.ansi))
+            env.reset()
+            texts = env.render_ansi()
+            env_obs_space_list.append(TextSpace(len(texts)))
 
         # --- apply processors
-        self._obs_processors_list: List[List[ObservationProcessor]] = []
+        self._obs_processors_list: List[List[Processor]] = []
         if self.enable_state_encode:
             # 各spaceに適用する
             for i in range(len(env_obs_space_list)):
                 p_list = []
                 for p in obs_processors:
                     p = p.copy()
-                    p.setup(env, self)  # processors setup
-                    new_env_obs_space = p.preprocess_observation_space(env_obs_space_list[i], env, self)
+                    p.setup(env, self)
+                    new_env_obs_space = p.remap_observation_space(env_obs_space_list[i], env, self)
                     if enable_log and (env_obs_space_list[i] != new_env_obs_space):
                         logger.info(f"apply obs processor: {repr(p)}")
                         logger.info(f"   {env_obs_space_list[i]}")
@@ -558,11 +563,11 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         return self._is_setup
 
     @property
-    def observation_processors_list(self) -> List[List[ObservationProcessor]]:
+    def observation_processors_list(self) -> List[List[Processor]]:
         return self._obs_processors_list
 
     @property
-    def episode_processors(self) -> List[EpisodeProcessor]:
+    def episode_processors(self) -> List[Processor]:
         return self._episode_processors
 
     @property

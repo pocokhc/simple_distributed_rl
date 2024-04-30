@@ -5,12 +5,10 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import InfoType, RLBaseTypes
+from srl.base.define import InfoType
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.processor import ObservationProcessor
-from srl.base.spaces.box import BoxSpace
-from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.rl.processor import Processor
 from srl.rl import functions as funcs
 from srl.rl.functions import create_epsilon_list, inverse_rescaling, rescaling
 from srl.rl.memories.priority_experience_replay import (
@@ -151,7 +149,7 @@ class Config(
         # other
         self.enable_rescale = False
 
-    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+    def get_processors(self) -> List[Optional[Processor]]:
         return [self.input_image_block.get_processor()]
 
     def get_framework(self) -> str:

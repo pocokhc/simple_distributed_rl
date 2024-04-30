@@ -10,13 +10,15 @@ from tensorflow import keras
 from srl.base.define import InfoType, RLBaseTypes
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.processor import ObservationProcessor
+from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.rl import functions as funcs
 from srl.rl.functions import inverse_rescaling, rescaling
 from srl.rl.memories.priority_experience_replay import (
-    PriorityExperienceReplay, RLConfigComponentPriorityExperienceReplay)
+    PriorityExperienceReplay,
+    RLConfigComponentPriorityExperienceReplay,
+)
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
@@ -119,7 +121,7 @@ class Config(
         self.weight_decay = 0.0001
         self.enable_rescale = True
 
-    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+    def get_processors(self) -> List[Optional[Processor]]:
         return [self.input_image_block.get_processor()]
 
     def get_base_observation_type(self) -> RLBaseTypes:

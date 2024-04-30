@@ -9,7 +9,7 @@ from srl.base.define import SpaceTypes
 from srl.base.exception import UndefinedError
 from srl.base.rl.algorithms.base_ppo import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.processor import ObservationProcessor
+from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
@@ -138,7 +138,7 @@ class Config(
     def get_framework(self) -> str:
         return "tensorflow"
 
-    def get_processors(self) -> List[Optional[ObservationProcessor]]:
+    def get_processors(self) -> List[Optional[Processor]]:
         return [self.input_image_block.get_processor()]
 
     def get_name(self) -> str:

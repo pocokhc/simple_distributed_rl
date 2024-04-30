@@ -12,7 +12,7 @@ from srl.base.define import DoneTypes, RLBaseTypes, SpaceTypes
 from srl.base.exception import UndefinedError
 from srl.base.rl.algorithms.base_ppo import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.processor import ObservationProcessor
+from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
@@ -432,7 +432,7 @@ class Config(
         self.entropy_rate: float = 3e-4
         self.reinforce_baseline: str = "v"
 
-    def get_processors(self) -> List[ObservationProcessor]:
+    def get_processors(self) -> List[Processor]:
         if self.cnn_resize_type == "stride3":
             return [
                 ImageProcessor(

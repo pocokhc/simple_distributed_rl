@@ -47,7 +47,7 @@ def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val, ena
     env = srl.make_env("Grid")
 
     # --- change space
-    new_space = processor.preprocess_observation_space(space, env, DummyRLConfig())
+    new_space = processor.remap_observation_space(space, env, DummyRLConfig())
     assert new_space.stype == img_type
     if enable_norm:
         assert new_space.dtype == np.float32
@@ -69,7 +69,7 @@ def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val, ena
         true_state = np.ones(true_shape).astype(np.float32) / 255
     else:
         true_state = np.ones(true_shape).astype(np.uint8)
-    new_obs = cast(np.ndarray, processor.preprocess_observation(image, env))
+    new_obs = cast(np.ndarray, processor.remap_observation(image, None, env))
     assert true_state.shape == new_obs.shape
     if check_val:
         np.testing.assert_array_equal(true_state, new_obs)
@@ -85,6 +85,7 @@ def test_image_atari():
         enable_norm=True,
     )
     env = srl.make_env("ALE/Tetris-v5")
+    env.setup()
     env.reset()
     in_image = np.ones((210, 160, 3))
     out_image = np.ones((84, 84)).astype(np.float32) / 255
@@ -92,14 +93,14 @@ def test_image_atari():
     assert in_image.shape == env.state.shape
 
     # --- space
-    new_space = processor.preprocess_observation_space(env.observation_space, env, DummyRLConfig())
+    new_space = processor.remap_observation_space(env.observation_space, env, DummyRLConfig())
     assert new_space.stype == SpaceTypes.GRAY_2ch
     assert new_space.dtype == np.float32
     assert isinstance(new_space, BoxSpace)
     assert new_space.shape == out_image.shape
 
     # --- decode
-    new_state = processor.preprocess_observation(env.state, env)
+    new_state = processor.remap_observation(env.state, None, env)
     assert isinstance(new_state, np.ndarray)
     assert new_state.shape == out_image.shape
 
@@ -116,7 +117,7 @@ def test_trimming():
     env = srl.make_env("Grid")
 
     # --- space
-    new_space = processor.preprocess_observation_space(space, env, DummyRLConfig())
+    new_space = processor.remap_observation_space(space, env, DummyRLConfig())
     assert new_space.stype == SpaceTypes.GRAY_2ch
     assert isinstance(new_space, BoxSpace)
     new_space = cast(BoxSpace, new_space)
@@ -127,6 +128,6 @@ def test_trimming():
     # --- decode
     image = np.ones((210, 160, 3)).astype(np.uint8)  # image
     true_state = np.ones((10, 10)).astype(np.float32) / 255
-    new_state = processor.preprocess_observation(image, env)
+    new_state = processor.remap_observation(image, None, env)
     assert isinstance(new_state, np.ndarray)
     assert true_state.shape == new_state.shape

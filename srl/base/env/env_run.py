@@ -27,6 +27,22 @@ class EnvRun:
 
         self.config = config
         self.env = make_base(self.config)
+
+        # --- processor
+        self._processors = [c.copy() for c in self.config.processors]
+        self._processors_reset: Any = [c for c in self._processors if hasattr(c, "remap_reset")]
+        self._processors_step_action: Any = [c for c in self._processors if hasattr(c, "remap_step_action")]
+        self._processors_step: Any = [c for c in self._processors if hasattr(c, "remap_step")]
+        self._processors_step_invalid_actions: Any = [
+            c for c in self._processors if hasattr(c, "remap_step_invalid_actions")
+        ]
+        self._action_space = self.env.action_space
+        self._observation_space = self.env.observation_space
+        for p in self._processors:
+            self._action_space = p.remap_action_space(self._action_space, self)
+            self._observation_space = p.remap_observation_space(self._observation_space, self)
+
+        # --- init val
         self.config._update_env_info(self.env)  # config update
         self._render = Render(self.env)
         self._reset_vals()
@@ -73,6 +89,9 @@ class EnvRun:
             render_mode = self.config.override_render_mode
         self._render.set_render_mode(render_mode)
 
+        # --- processor
+        [p.setup(self) for p in self._processors]
+
         # --- env
         self.env.setup(**context.to_dict())
         self._has_start = True
@@ -92,6 +111,12 @@ class EnvRun:
                 self._state, rewards, env_done, self._info = self.env.step(self.env.action_space.get_default())
                 assert not DoneTypes.done(env_done), "Terminated during noop step."
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
+
+        # --- processor
+        for p in self._processors_reset:
+            p.remap_reset(self)
+
+        # --- check
         if self.config.enable_assertion:
             assert self.observation_space.check_val(self._state)
             [self.assert_invalid_actions(a) for a in self._invalid_actions_list]
@@ -125,6 +150,10 @@ class EnvRun:
         if self._is_direct_step and (not self.env.can_simulate_from_direct_step):
             raise SRLError("env does not support 'step' after 'direct_step'.")
 
+        # --- action processor
+        for p in self._processors_step_action:
+            action = p.remap_step_action(action, self)
+
         # --- env step
         if self.config.enable_assertion:
             self.assert_action(action)
@@ -132,9 +161,30 @@ class EnvRun:
             action = self.sanitize_action(action, "The format of 'action' entered in 'env.step' was wrong.")
         self._prev_player_index = self.env.next_player_index
 
+        state, rewards, env_done, info = self._step1(action)
+        self._render.cache_reset()
+        step_rewards = np.array(rewards)
+
+        # --- skip frame
+        for _ in range(self.config.frameskip + frameskip):
+            if DoneTypes.done(env_done):
+                break
+            state, rewards, env_done, info = self._step1(action)
+
+            step_rewards += np.array(rewards)
+            self._render.cache_reset()
+
+            if frameskip_function is not None:
+                frameskip_function()
+
+        return self._step2(state, step_rewards, env_done, info)
+
+    def _step1(self, action):
         f_except = None
         try:
             state, rewards, env_done, info = self.env.step(action)
+            for p in self._processors_step:
+                state, rewards, env_done, info = p.remap_step(state, rewards, env_done, info, self)
         except Exception:
             f_except = traceback.format_exc()
 
@@ -150,45 +200,22 @@ class EnvRun:
             s = "An exception occurred in env.step. Recreate.\n" + f_except
             print(s)
             logger.warning(s)
-            return
+            return state, rewards, env_done, info
         elif self.config.enable_sanitize:
             state = self.sanitize_state(state, "'state' in 'env.step' may not be SpaceType.")
             rewards = self.sanitize_rewards(rewards, "'rewards' in 'env.step' may not be List[float].")
             env_done = self.sanitize_done(env_done, "'done' in 'env.reset may' not be bool.")
+        return state, rewards, env_done, info
 
-        self._render.cache_reset()
-        step_rewards = np.array(rewards)
-
-        # --- skip frame
-        for _ in range(self.config.frameskip + frameskip):
-            if DoneTypes.done(env_done):
-                break
-
-            assert self.player_num == 1, "not support"
-            state, rewards, env_done, info = self.env.step(action)
-            if self.config.enable_assertion:
-                self.assert_state(state)
-                self.assert_rewards(rewards)
-                self.assert_done(env_done)
-            elif self.config.enable_sanitize:
-                state = self.sanitize_state(state, "'state' in 'env.step' may not be SpaceType.")
-                rewards = self.sanitize_rewards(rewards, "'rewards' in 'env.step' may not be List[float].")
-                env_done = self.sanitize_done(env_done, "'done' in 'env.reset may' not be bool.")
-            step_rewards += np.array(rewards)
-            self._render.cache_reset()
-
-            if frameskip_function is not None:
-                frameskip_function()
-
-        return self._step(state, step_rewards, env_done, info)
-
-    def _step(self, state: EnvObservationType, rewards: np.ndarray, env_done: Union[bool, DoneTypes], info: InfoType):
+    def _step2(self, state: EnvObservationType, rewards: np.ndarray, env_done: Union[bool, DoneTypes], info: InfoType):
         self._state = state
         self._step_rewards = rewards
         self._done = DoneTypes.from_bool(env_done)
         self._info = info
 
         invalid_actions = self.env.get_invalid_actions(self.next_player_index)
+        for p in self._processors_step_invalid_actions:
+            invalid_actions = p.remap_step_invalid_actions(invalid_actions, self)
         if self.config.enable_assertion:
             self.assert_invalid_actions(invalid_actions)
         elif self.config.enable_sanitize:
@@ -201,7 +228,9 @@ class EnvRun:
 
         # action check
         if not self._done and len(invalid_actions) > 0:
-            assert len(invalid_actions) < self.action_space.n
+            # 有効なアクションがある事
+            if isinstance(self.action_space, DiscreteSpace):
+                assert len(invalid_actions) < self.action_space.n
 
         # done step
         if self._done == DoneTypes.NONE:
@@ -226,6 +255,7 @@ class EnvRun:
             self._info,
             self._t0,
             self._is_direct_step,
+            [p.copy() for p in self._processors],
         ]
         data: list = [pickle.dumps(d)]
         if include_env:
@@ -246,6 +276,15 @@ class EnvRun:
         self._info = d[8]
         self._t0 = d[9]
         self._is_direct_step = d[10]
+
+        self._processors = [p.copy() for p in d[11]]
+        self._processors_reset = [c for c in self._processors if hasattr(c, "remap_reset")]
+        self._processors_step_action = [c for c in self._processors if hasattr(c, "remap_step_action")]
+        self._processors_step = [c for c in self._processors if hasattr(c, "remap_step")]
+        self._processors_step_invalid_actions = [
+            c for c in self._processors if hasattr(c, "remap_step_invalid_actions")
+        ]
+
         if self._is_direct_step:
             if not self.env.can_simulate_from_direct_step:
                 logger.warning("env does not support 'step' after 'direct_step'.")
@@ -315,9 +354,7 @@ class EnvRun:
         else:
             assert False, f"The type of reward is different. {done}({type(done)})"
 
-    def sanitize_invalid_actions(
-        self, invalid_actions: List[EnvActionType], error_msg: str = ""
-    ) -> List[EnvActionType]:
+    def sanitize_invalid_actions(self, invalid_actions, error_msg: str = "") -> List[EnvActionType]:
         try:
             for j in range(len(invalid_actions)):
                 invalid_actions[j] = self.action_space.sanitize(invalid_actions[j])
@@ -326,7 +363,7 @@ class EnvRun:
             logger.error(f"{invalid_actions}, {error_msg}, {e}")
         return []
 
-    def assert_invalid_actions(self, invalid_actions: List[EnvActionType]):
+    def assert_invalid_actions(self, invalid_actions):
         assert isinstance(
             invalid_actions, list
         ), f"invalid_actions must be arrayed. {invalid_actions}({type(invalid_actions)})"
@@ -334,7 +371,7 @@ class EnvRun:
             assert self.action_space.check_val(a), f"The type of invalid_action is different. {a}({type(a)})"
 
     # ------------------------------------
-    # No internal state change
+    # property
     # ------------------------------------
     @property
     def name(self) -> str:
@@ -342,11 +379,11 @@ class EnvRun:
 
     @property
     def action_space(self) -> SpaceBase:
-        return self.env.action_space
+        return self._action_space
 
     @property
     def observation_space(self) -> SpaceBase:
-        return self.env.observation_space
+        return self._observation_space
 
     @property
     def max_episode_steps(self) -> int:
@@ -522,7 +559,7 @@ class EnvRun:
 
         if self.is_start_episode:
             self._reset_vals()
-        self._step(state, np.zeros((self.player_num,)), False, info)
+        self._step2(state, np.zeros((self.player_num,)), False, info)
 
     def decode_action(self, action: EnvActionType) -> Any:
         if self.config.enable_assertion:

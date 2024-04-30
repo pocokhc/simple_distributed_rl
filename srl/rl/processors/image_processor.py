@@ -7,7 +7,8 @@ import numpy as np
 from srl.base.define import EnvObservationType, SpaceTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import ObservationProcessor
+from srl.base.rl.processor import Processor
+from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces.box import BoxSpace
 from srl.utils.common import is_package_installed
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ImageProcessor(ObservationProcessor):
+class ImageProcessor(Processor):
     image_type: SpaceTypes = SpaceTypes.GRAY_2ch
     resize: Optional[Tuple[int, int]] = None  # (w, h)
     enable_norm: bool = False
@@ -25,9 +26,7 @@ class ImageProcessor(ObservationProcessor):
         self.before_observation_type = SpaceTypes.UNKNOWN
         self.max_val = 0
 
-    def preprocess_observation_space(
-        self, env_observation_space: SpaceBase, env: EnvRun, rl_config: RLConfig
-    ) -> SpaceBase:
+    def remap_observation_space(self, env_observation_space: SpaceBase, env: EnvRun, rl_config: RLConfig) -> SpaceBase:
         self.before_observation_space = env_observation_space
         self.is_valid = False
 
@@ -112,7 +111,7 @@ class ImageProcessor(ObservationProcessor):
         new_space = BoxSpace(new_shape, low, high, new_dtype, self.image_type)
         return new_space
 
-    def preprocess_observation(self, state: EnvObservationType, env: EnvRun) -> EnvObservationType:
+    def remap_observation(self, state: EnvObservationType, worker: WorkerRun, env: EnvRun) -> EnvObservationType:
         if not self.is_valid:
             return state
         import cv2

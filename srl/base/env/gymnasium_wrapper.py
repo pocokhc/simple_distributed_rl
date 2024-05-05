@@ -224,23 +224,28 @@ def space_decode_to_srl_from_gym(gym_space: gym_spaces.Space, srl_space: SpaceBa
 
 
 class GymnasiumWrapper(EnvBase):
+    is_print_log = True
+
     def __init__(self, config: EnvConfig):
         self.config = config
         self.seed = None
 
         os.environ["SDL_VIDEODRIVER"] = "dummy"
-        logger.info("set SDL_VIDEODRIVER='dummy'")
+        if GymnasiumWrapper.is_print_log:
+            logger.info("set SDL_VIDEODRIVER='dummy'")
 
         self.env = self.make_gymnasium_env()
-        logger.info(f"gym action_space: {self.env.action_space}")
-        logger.info(f"gym obs_space   : {self.env.observation_space}")
+        if GymnasiumWrapper.is_print_log:
+            logger.info(f"gym action_space: {self.env.action_space}")
+            logger.info(f"gym obs_space   : {self.env.observation_space}")
 
         # metadata
         self.fps = 60
         self.render_mode = RenderModes.none
         self.render_modes = ["ansi", "human", "rgb_array"]
         if hasattr(self.env, "metadata"):
-            logger.info(f"gym metadata    : {self.env.metadata}")
+            if GymnasiumWrapper.is_print_log:
+                logger.info(f"gym metadata    : {self.env.metadata}")
             self.fps = self.env.metadata.get("render_fps", 60)
             self.render_modes = self.env.metadata.get("render_modes", ["ansi", "human", "rgb_array"])
 
@@ -267,10 +272,12 @@ class GymnasiumWrapper(EnvBase):
         self._action_space: SpaceBase = act_space
         self._observation_space: SpaceBase = obs_space
 
-        logger.info(f"use wrapper act: {self.use_wrapper_act}")
-        logger.info(f"action         : {self._action_space}")
-        logger.info(f"use wrapper obs: {self.use_wrapper_obs}")
-        logger.info(f"observation    : {self._observation_space}")
+        if GymnasiumWrapper.is_print_log:
+            logger.info(f"use wrapper act: {self.use_wrapper_act}")
+            logger.info(f"action         : {self._action_space}")
+            logger.info(f"use wrapper obs: {self.use_wrapper_obs}")
+            logger.info(f"observation    : {self._observation_space}")
+        GymnasiumWrapper.is_print_log = False
 
     def make_gymnasium_env(self, **kwargs) -> gymnasium.Env:
         if self.config.gym_make_func is None:

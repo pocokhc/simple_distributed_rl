@@ -75,7 +75,7 @@ class PlayableGame(GameWindow):
         # ---------------------------
 
         # 初期設定
-        self.set_image(self.env.render_rgb_array(), None)
+        self.set_image(self.env.render_rgb_array(), None, None)
         self.env_interval = self.env.config.render_interval
         self.scene = "START"
         self.mode = "Turn"  # "Turn" or "RealTime"
@@ -201,7 +201,7 @@ class PlayableGame(GameWindow):
                     break
 
             self.env._render.cache_reset()
-            self.set_image(self.env.render_rgb_array(), None)
+            self.set_image(self.env.render_rgb_array(), None, None)
             self._set_cursor_action()
 
             self.step_t0 = time.time()
@@ -231,7 +231,11 @@ class PlayableGame(GameWindow):
                 break
         self.step_time = time.time() - t0
 
-        self.set_image(self.env.render_rgb_array(), self.run_worker.render_rgb_array())
+        self.set_image(
+            self.env.render_rgb_array(),
+            self.run_worker.render_rgb_array(),
+            self.run_worker.render_rl_image(),
+        )
         self._set_cursor_action()
 
     def _on_loop_start(self):

@@ -147,27 +147,10 @@ class Rendering(RunCallback):
             self.rl_maxw = max(self.rl_maxw, self.rl_img.shape[1])
             self.rl_maxh = max(self.rl_maxh, self.rl_img.shape[0])
 
-            # rlへの入力が画像なら表示
-            if SpaceTypes.is_image(worker.config.observation_space.stype):
-                # COLOR画像に変換
-                if worker.config.window_length > 1:
-                    _img = worker._recent_states[-1].copy()
-                else:
-                    _img = worker.state.copy()
-                if _img.max() <= 1:
-                    _img *= 255
-                if worker.config.observation_space.stype == SpaceTypes.GRAY_2ch:
-                    _img = _img[..., np.newaxis]
-                    _img = np.tile(_img, (1, 1, 3))
-                elif worker.config.observation_space.stype == SpaceTypes.GRAY_3ch:
-                    _img = np.tile(_img, (1, 1, 3))
-                elif worker.config.observation_space.stype == SpaceTypes.COLOR:
-                    pass
-                elif worker.config.observation_space.stype == SpaceTypes.IMAGE:
-                    return
-                else:
-                    raise UndefinedError(worker.config.observation_space)
-                self.rl_state_image = _img.astype(np.uint8)
+            # rlへの入力
+            rl_state_img = worker.render_rl_image()
+            if rl_state_img is not None:
+                self.rl_state_image = rl_state_img
                 self.rl_state_maxw = max(self.rl_state_maxw, self.rl_state_image.shape[1])
                 self.rl_state_maxh = max(self.rl_state_maxh, self.rl_state_image.shape[0])
 

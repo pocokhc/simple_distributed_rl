@@ -244,7 +244,9 @@ def image_processor(
             right = w
         rgb_array = rgb_array[top:bottom, left:right]
 
-    if resize is not None:
+    w = rgb_array.shape[1]
+    h = rgb_array.shape[0]
+    if resize is not None and (w, h) != resize:
         rgb_array = cv2.resize(rgb_array, resize)
 
     if from_space_type == SpaceTypes.GRAY_3ch and to_space_type == SpaceTypes.GRAY_2ch and len(rgb_array.shape) == 3:

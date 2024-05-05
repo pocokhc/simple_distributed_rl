@@ -515,6 +515,31 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             return np.zeros((4, 4, 3), dtype=np.uint8)  # dummy
         return self._render.render_rgb_array(worker=self, **kwargs)
 
+    def render_rl_image(self) -> Optional[np.ndarray]:
+        if not SpaceTypes.is_image(self._config._rl_obs_space_one_step.stype):
+            return None
+        if self._config.window_length > 1:
+            img = cast(np.ndarray, self._recent_states[-1]).copy()
+        else:
+            img = cast(np.ndarray, self._state).copy()
+        if img.max() <= 1:
+            img *= 255
+        if self._config._rl_obs_space_one_step.stype == SpaceTypes.GRAY_2ch:
+            img = img[..., np.newaxis]
+            img = np.tile(img, (1, 1, 3))
+        elif self._config._rl_obs_space_one_step.stype == SpaceTypes.GRAY_3ch:
+            img = np.tile(img, (1, 1, 3))
+        elif self._config._rl_obs_space_one_step.stype == SpaceTypes.COLOR:
+            pass
+        elif self._config._rl_obs_space_one_step.stype == SpaceTypes.IMAGE:
+            if len(img.shape) == 3 and img.shape[-1] == 3:
+                pass
+            else:
+                return None
+        else:
+            return None
+        return img.astype(np.uint8)
+
     # ------------------------------------
     # utils
     # ------------------------------------

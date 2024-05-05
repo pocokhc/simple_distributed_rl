@@ -5,9 +5,6 @@ from typing import Callable
 
 import numpy as np
 
-from srl.font import get_font_path
-from srl.utils.common import compare_less_version
-
 logger = logging.getLogger(__name__)
 
 
@@ -41,12 +38,16 @@ def text_to_rgb_array(
     import PIL.ImageDraw
     import PIL.ImageFont
 
+    from srl.utils.common import compare_less_version
+
     global _g_fonts
 
     if text == "":
         return np.zeros((1, 1, 3), dtype=np.uint8)
 
     if font_name == "":
+        from srl.font import get_font_path
+
         font_name = get_font_path()
     if font_name in _g_fonts:
         font = _g_fonts[font_name]
@@ -77,3 +78,16 @@ def text_to_rgb_array(
     img = np.array(img).astype(np.uint8)
 
     return img
+
+
+def add_border(image: np.ndarray, border_width: int, border_color=(255, 255, 255)):
+    height, width = image.shape[:2]
+
+    new_image = np.zeros((height + border_width * 2, width + border_width * 2, 3), dtype=np.uint8)
+    new_image[border_width : height + border_width, border_width : width + border_width] = image
+
+    new_image[:border_width, :] = border_color
+    new_image[-border_width:, :] = border_color
+    new_image[:, :border_width] = border_color
+    new_image[:, -border_width:] = border_color
+    return new_image

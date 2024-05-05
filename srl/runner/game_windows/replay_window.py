@@ -59,6 +59,7 @@ class _GetRGBCallback(RunCallback):
         for i, w in enumerate(state.workers):
             d[f"work{i}_info"] = w.info
             d[f"work{i}_rgb_array"] = w.render_rgb_array()
+            d[f"work{i}_state_image"] = w.render_rl_image()
 
         self.step_info_worker: dict = d
 
@@ -124,9 +125,11 @@ class RePlayableGame(GameWindow):
             self._set_image(0)
 
     def _set_image(self, step: int):
-        env_image = self.episode_data[step]["env_rgb_array"]
-        rl_image = self.episode_data[step].get("work0_rgb_array", None)
-        self.set_image(env_image, rl_image)
+        self.set_image(
+            env_image=self.episode_data[step]["env_rgb_array"],
+            rl_image=self.episode_data[step].get("work0_rgb_array", None),
+            rl_state_image=self.episode_data[step].get("work0_state_image", None),
+        )
 
     def on_loop(self, events: List[pygame.event.Event]):
         if self.get_key(pygame.K_UP) == KeyStatus.PRESSED:

@@ -85,7 +85,7 @@ class ImageProcessor(Processor):
             new_shape = (self.right - self.left, self.bottom - self.top)
 
         # resize
-        if self.resize is not None:
+        if self.resize is not None and new_shape != self.resize:
             new_shape = self.resize
 
         # norm
@@ -114,26 +114,36 @@ class ImageProcessor(Processor):
     def remap_observation(self, state: EnvObservationType, worker: WorkerRun, env: EnvRun) -> EnvObservationType:
         if not self.is_valid:
             return state
+
         import cv2
 
-        state = np.asarray(state).astype(np.uint8)
+        state = cast(np.ndarray, state)
 
         if self.image_type == SpaceTypes.COLOR and (
             self.before_observation_type == SpaceTypes.GRAY_2ch or self.before_observation_type == SpaceTypes.GRAY_3ch
         ):
             # gray -> color
-            state = cv2.applyColorMap(state, cv2.COLORMAP_HOT)
+            if "float" in str(state.dtype):
+                if self.before_observation_type == SpaceTypes.GRAY_2ch:
+                    state = state[..., np.newaxis]
+                state = np.tile(state, (1, 1, 3))
+            else:
+                state = np.asarray(state).astype(np.uint8)
+                state = cv2.applyColorMap(state, cv2.COLORMAP_HOT)
         elif self.before_observation_type == SpaceTypes.COLOR and (
             self.image_type == SpaceTypes.GRAY_2ch or self.image_type == SpaceTypes.GRAY_3ch
         ):
             # color -> gray
-            state = cv2.cvtColor(state, cv2.COLOR_RGB2GRAY)
+            if "float" in str(state.dtype):
+                pass
+            else:
+                state = np.asarray(state).astype(np.uint8)
+                state = cv2.cvtColor(state, cv2.COLOR_RGB2GRAY)
 
         if self.trimming is not None:
-            state = cast(np.ndarray, state)
             state = state[self.top : self.bottom, self.left : self.right]
 
-        if self.resize is not None:
+        if (self.resize is not None) and ("float" not in str(state.dtype)):
             state = cv2.resize(state, self.resize)
 
         state = cast(np.ndarray, state)

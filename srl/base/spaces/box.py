@@ -39,7 +39,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
         self.division_tbl = None
         self.decode_int_tbl = None
         self.encode_int_tbl = None
-        self._f_stack_gray_2ch_shape = None
+        self._is_stack_gray_2ch = False
 
     @property
     def shape(self):
@@ -125,7 +125,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
         o.division_tbl = self.division_tbl
         o.decode_int_tbl = self.decode_int_tbl
         o.encode_int_tbl = self.encode_int_tbl
-        o._f_stack_gray_2ch_shape = self._f_stack_gray_2ch_shape
+        o._is_stack_gray_2ch = self._is_stack_gray_2ch
         return o
 
     def __eq__(self, o: "BoxSpace") -> bool:
@@ -149,7 +149,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
     # --- stack
     def create_stack_space(self, length: int):
         if self._stype == SpaceTypes.GRAY_2ch:
-            self._f_stack_gray_2ch_shape = self._shape + (length,)
+            self._is_stack_gray_2ch = True
             return BoxSpace(
                 self._shape + (length,),
                 np.min(self._low),
@@ -167,10 +167,10 @@ class BoxSpace(SpaceBase[np.ndarray]):
             )
 
     def encode_stack(self, val: List[np.ndarray]) -> np.ndarray:
-        if self._f_stack_gray_2ch_shape is not None:
-            return np.asarray(val, self._dtype).reshape(self._f_stack_gray_2ch_shape)
-        else:
-            return np.asarray(val, self._dtype)
+        state = np.asarray(val, self._dtype)
+        if self._is_stack_gray_2ch:
+            state = np.transpose(state, (1, 2, 0))
+        return state
 
     # --------------------------------------
     # create_division_tbl

@@ -193,7 +193,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._set_invalid_actions()
             self._prev_state = self._state
             self._state = self.state_encode(
-                self.env.state,
+                self._env.state,
                 self._env,
                 create_env_sate=True,
                 enable_state_encode=self._config.enable_state_encode,

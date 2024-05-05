@@ -23,8 +23,8 @@ class Processor(ABC):
         pass
 
     # --- 実装されている場合に実行
-    # def remap_reset(self, env: "EnvRun") -> None:
-    #    pass
+    # def remap_reset(self, state, info, env: "EnvRun") -> None:
+    #    return state, info
 
     # def remap_step_action(self, action, env: "EnvRun"):
     #    return action

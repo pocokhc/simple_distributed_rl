@@ -114,7 +114,7 @@ class EnvRun:
 
         # --- processor
         for p in self._processors_reset:
-            p.remap_reset(self)
+            self._state, self._info = p.remap_reset(self._state, self._info, self)
 
         # --- check
         if self.config.enable_assertion:
@@ -300,23 +300,23 @@ class EnvRun:
                 if action == inv_act:
                     logger.error(f"{action}({type(action)}), {error_msg}, invalid action {self.get_invalid_actions()}")
                     break
-            return self.env.action_space.sanitize(action)
+            return self._action_space.sanitize(action)
         except Exception as e:
             logger.error(f"{action}({type(action)}), {error_msg}, {e}")
-        return self.env.action_space.get_default()
+        return self._action_space.get_default()
 
     def assert_action(self, action: EnvActionType):
-        assert self.action_space.check_val(action), f"The type of action is different. {action}({type(action)})"
+        assert self._action_space.check_val(action), f"The type of action is different. {action}({type(action)})"
 
     def sanitize_state(self, state: EnvObservationType, error_msg: str = "") -> EnvObservationType:
         try:
-            return self.env.observation_space.sanitize(state)
+            return self._observation_space.sanitize(state)
         except Exception as e:
             logger.error(f"{state}({type(state)}), {error_msg}, {e}")
-        return self.env.observation_space.get_default()
+        return self._observation_space.get_default()
 
     def assert_state(self, state: EnvObservationType):
-        assert self.observation_space.check_val(state), f"The type of state is different. {state}({type(state)})"
+        assert self._observation_space.check_val(state), f"The type of state is different. {state}({type(state)})"
 
     def sanitize_rewards(self, rewards: List[float], error_msg: str = "") -> List[float]:
         try:

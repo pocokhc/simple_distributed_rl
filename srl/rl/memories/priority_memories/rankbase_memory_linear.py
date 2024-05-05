@@ -38,6 +38,7 @@ class RankBaseMemoryLinear(IPriorityMemory):
     alpha: float = 1.0
     beta_initial: float = 0.4
     beta_steps: int = 1_000_000
+    dtype: type = np.float32
 
     def __post_init__(self):
         self.clear()
@@ -62,7 +63,7 @@ class RankBaseMemoryLinear(IPriorityMemory):
 
     def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         batchs = []
-        weights = np.ones(batch_size, dtype=np.float32)
+        weights = np.ones(batch_size, dtype=self.dtype)
 
         # βは最初は低く、学習終わりに1にする。
         beta = self.beta_initial + (1 - self.beta_initial) * step / self.beta_steps

@@ -25,6 +25,7 @@ class RankBaseMemory(IPriorityMemory):
     beta_initial: float = 0.4
     #: βを何stepで1にするか
     beta_steps: int = 1_000_000
+    dtype: type = np.float32
 
     def __post_init__(self):
         self.clear()
@@ -78,7 +79,7 @@ class RankBaseMemory(IPriorityMemory):
         index_list.sort()
 
         batchs = []
-        weights = np.ones(batch_size, dtype=np.float32)
+        weights = np.ones(batch_size, dtype=self.dtype)
 
         for i, index in enumerate(index_list):
             memory_idx = N - 1 - index

@@ -107,6 +107,7 @@ class ProportionalMemory(IPriorityMemory):
     has_duplicate: bool = True
     #: priorityを0にしないための小さい値
     epsilon: float = 0.0001
+    dtype: type = np.float32
 
     def __post_init__(self):
         self.clear()
@@ -133,7 +134,7 @@ class ProportionalMemory(IPriorityMemory):
     def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         indices = []
         batchs = []
-        weights = np.empty(batch_size, dtype=np.float32)
+        weights = np.empty(batch_size, dtype=self.dtype)
         total = self.tree.total()
 
         # βは最初は低く、学習終わりに1にする

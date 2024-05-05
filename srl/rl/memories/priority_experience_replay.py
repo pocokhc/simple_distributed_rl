@@ -1,9 +1,13 @@
+import pickle
+import zlib
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 
 from srl.base.define import RLMemoryTypes
+from srl.base.exception import UndefinedError
+from srl.base.rl.config import RLConfig
 from srl.base.rl.memory import RLMemory
 from srl.rl.memories.priority_memories.imemory import IPriorityMemory
 
@@ -73,47 +77,6 @@ class _PriorityExperienceReplayConfig:
         )
         return self
 
-    # ---------------------------
-
-    def create_memory(self) -> IPriorityMemory:
-        if self._name == "ReplayMemory":
-            from .priority_memories.replay_memory import ReplayMemory
-
-            memory = ReplayMemory(self.capacity)
-        elif self._name == "ProportionalMemory":
-            from .priority_memories.proportional_memory import ProportionalMemory
-
-            memory = ProportionalMemory(self.capacity, **self._kwargs)
-
-        elif self._name == "RankBaseMemory":
-            from .priority_memories.rankbase_memory import RankBaseMemory
-
-            memory = RankBaseMemory(self.capacity, **self._kwargs)
-
-        elif self._name == "RankBaseMemoryLinear":
-            from .priority_memories.rankbase_memory_linear import RankBaseMemoryLinear
-
-            memory = RankBaseMemoryLinear(self.capacity, **self._kwargs)
-        elif self._name == "custom":
-            from srl.utils.common import load_module
-
-            return load_module(self._kwargs["entry_point"])(**self._kwargs["kwargs"])
-        else:
-            raise ValueError(self._name)
-
-        return memory
-
-    def requires_priority(self) -> bool:
-        if self._name == "ReplayMemory":
-            return False
-        elif self._name == "ProportionalMemory":
-            return True
-        elif self._name == "RankBaseMemory":
-            return True
-        elif self._name == "RankBaseMemoryLinear":
-            return True
-        return False
-
 
 @dataclass
 class RLConfigComponentPriorityExperienceReplay:
@@ -147,12 +110,60 @@ class RLConfigComponentPriorityExperienceReplay:
         assert self.batch_size <= self.memory.warmup_size
 
 
-class PriorityExperienceReplay(RLMemory):
+class PriorityExperienceReplay(RLMemory[RLConfigComponentPriorityExperienceReplay]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: PriorityExperienceReplayConfig = self.config
         self.batch_size = self.config.batch_size
-        self.memory = self.config.memory.create_memory()
+        self.memory = self.create_memory(
+            self.config.memory._name,
+            self.config.memory.capacity,
+            self.config.memory._kwargs,
+            cast(RLConfig, self.config).dtype,
+        )
+
+    def create_memory(self, name: str, capacity: int, kwargs, dtype=np.float32) -> IPriorityMemory:
+        if name == "ReplayMemory":
+            from .priority_memories.replay_memory import ReplayMemory
+
+            memory = ReplayMemory(dtype=dtype, **kwargs)
+        elif name == "ProportionalMemory":
+            from .priority_memories.proportional_memory import ProportionalMemory
+
+            memory = ProportionalMemory(capacity, dtype=dtype, **kwargs)
+
+        elif name == "RankBaseMemory":
+            from .priority_memories.rankbase_memory import RankBaseMemory
+
+            memory = RankBaseMemory(capacity, dtype=dtype, **kwargs)
+
+        elif name == "RankBaseMemoryLinear":
+            from .priority_memories.rankbase_memory_linear import RankBaseMemoryLinear
+
+            memory = RankBaseMemoryLinear(capacity, dtype=dtype, **kwargs)
+        elif name == "custom":
+            from srl.utils.common import load_module
+
+            return load_module(kwargs["entry_point"])(capacity, dtype=dtype, **kwargs["kwargs"])
+        else:
+            raise UndefinedError(name)
+
+        return memory
+
+    def requires_priority(self) -> bool:
+        name = self.config.memory._name
+        if name == "ReplayMemory":
+            return False
+        elif name == "ProportionalMemory":
+            return True
+        elif name == "RankBaseMemory":
+            return True
+        elif name == "RankBaseMemoryLinear":
+            return True
+        elif name == "custom":
+            return True
+        return False
+
+    # ---------------------------
 
     @property
     def memory_type(self) -> RLMemoryTypes:
@@ -165,15 +176,18 @@ class PriorityExperienceReplay(RLMemory):
         return self.memory.length() < self.config.memory.warmup_size
 
     def add(self, batch: Any, priority: Optional[float] = None):
-        self.memory.add(self.conditional_compress(batch), priority)
+        if cast(RLConfig, self.config).memory_compress:
+            batch = zlib.compress(pickle.dumps(batch), level=cast(RLConfig, self.config).memory_compress_level)
+        self.memory.add(batch, priority)
 
     def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         index_list, batchs, weights = self.memory.sample(batch_size, step)
-        batchs = [self.conditional_decompress(b) for b in batchs]
+        if cast(RLConfig, self.config).memory_compress:
+            batchs = [pickle.loads(zlib.decompress(b)) for b in batchs]
         return index_list, batchs, weights
 
     def update(self, indices: List[int], batchs: List[Any], priorities: np.ndarray) -> None:
-        batchs = [self.conditional_compress(b) for b in batchs]
+        batchs = [pickle.loads(zlib.decompress(b)) for b in batchs]
         self.memory.update(indices, batchs, priorities)
 
     def call_backup(self, **kwargs):

@@ -54,7 +54,6 @@ class IRLMemoryTrainer(_IRLMemoryBase):
 class RLMemory(IRLMemoryWorker, IRLMemoryTrainer, Generic[_TConfig]):
     def __init__(self, config: Optional[_TConfig]):
         self.config: _TConfig = cast(_TConfig, DummyRLConfig() if config is None else config)
-        self.compress = cast(RLConfig, self.config).memory_compress
 
     @abstractmethod
     def call_backup(self, **kwargs) -> Any:
@@ -121,20 +120,6 @@ class RLMemory(IRLMemoryWorker, IRLMemoryTrainer, Generic[_TConfig]):
                 dat = pickle.load(f)
         self.call_restore(dat, **kwargs)
         logger.info(f"memory loaded (size: {self.length()}, time: {time.time() - t0:.1f}s): {path}")
-
-    def conditional_compress(self, dat: Any) -> bytes:
-        if not self.compress:
-            return dat
-        import zlib
-
-        return zlib.compress(pickle.dumps(dat))
-
-    def conditional_decompress(self, raw: bytes) -> Any:
-        if not self.compress:
-            return raw
-        import zlib
-
-        return pickle.loads(zlib.decompress(raw))
 
 
 class DummyRLMemory(RLMemory):

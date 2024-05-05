@@ -68,6 +68,11 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     #: Processorを使う場合、定義したProcessorのリスト
     processors: List[Processor] = field(default_factory=list)
 
+    #: memoryデータを圧縮してやり取りするかどうか
+    memory_compress: bool = True
+    #: memory(zlib)の圧縮レベル
+    memory_compress_level: int = 1
+
     # --- Worker Config
     #: state_encodeを有効にするか
     enable_state_encode: bool = True
@@ -79,9 +84,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     enable_done_encode: bool = True
     #: 過去Nステップをまとめて状態とします
     window_length: int = 1
-
-    #: memoryデータを圧縮してやり取りするかどうか
-    memory_compress: bool = True
 
     # --- other
     #: action/observationの値をエラーが出ないように可能な限り変換します。

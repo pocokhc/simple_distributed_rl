@@ -10,6 +10,7 @@ from .imemory import IPriorityMemory
 @dataclass
 class ReplayMemory(IPriorityMemory):
     capacity: int
+    dtype: type = np.float32
 
     def __post_init__(self):
         self.clear()
@@ -32,7 +33,7 @@ class ReplayMemory(IPriorityMemory):
 
     def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
         batchs = random.sample(self.memory, batch_size)
-        return [], batchs, np.ones((batch_size,), dtype=np.float32)
+        return [], batchs, np.ones((batch_size,), dtype=self.dtype)
 
     def update(self, indices: List[int], batchs: List[Any], priorities: np.ndarray) -> None:
         pass

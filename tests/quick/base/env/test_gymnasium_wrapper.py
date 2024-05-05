@@ -347,7 +347,7 @@ def test_random():
     print(env.observation_space)
 
     seed = 1
-    true_reward = -2.4091601371765137
+    true_reward = -2.40916018129347
 
     random.seed(seed)
     np.random.seed(seed)

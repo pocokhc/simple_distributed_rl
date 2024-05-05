@@ -88,8 +88,9 @@ class CategoricalDistBlock(nn.Module):
             x = layer(x)
         return CategoricalDist(x)
 
-    def compute_train_loss(self, x, y):
+    def compute_train_loss(self, x, y, unimix: float = 0):
         dist = self(x)
+        dist.set_unimix(unimix)
 
         # 対数尤度の最大化
         log_likelihood = dist.log_prob(y)

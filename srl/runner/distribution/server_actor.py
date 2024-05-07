@@ -1,12 +1,10 @@
 import datetime
 import logging
-import pickle
 import queue
 import random
 import threading
 import time
 import traceback
-import zlib
 from typing import List, Optional, cast
 
 import srl
@@ -45,21 +43,23 @@ class _ActorRLMemoryThread(IRLMemoryWorker):
         share_q: queue.Queue,
         share_data: _ShareData,
         dist_queue_capacity: int,
+        base_memory: IRLMemoryWorker,
     ):
         self.q = share_q
         self.share_data = share_data
         self.dist_queue_capacity = dist_queue_capacity
+        self.base_memory = base_memory
 
     @property
     def memory_type(self) -> RLMemoryTypes:
         return RLMemoryTypes.NONE
 
-    def add(self, *args) -> None:
+    def add(self, *args, serialized: bool = False) -> None:
         t0 = time.time()
         while True:
             if self.q.qsize() < self.dist_queue_capacity / 2:
-                args = zlib.compress(pickle.dumps(args))
-                self.q.put(args)
+                raw = self.base_memory.serialize_add_args(*args)
+                self.q.put(raw)
                 break
 
             if self.share_data.end_signal:
@@ -77,6 +77,9 @@ class _ActorRLMemoryThread(IRLMemoryWorker):
 
     def length(self) -> int:
         return self.share_data.q_send_count
+
+    def serialize_add_args(self, *args):
+        raise NotImplementedError("Unused")
 
 
 class _ActorInterruptThread(RunCallback):
@@ -202,7 +205,7 @@ def _parameter_communicate(
 # no thread(step -> add)
 # ------------------------------------------
 class _ActorRLMemoryNoThread(IRLMemoryWorker):
-    def __init__(self, manager: ServerManager, dist_queue_capacity: int):
+    def __init__(self, manager: ServerManager, dist_queue_capacity: int, base_memory: IRLMemoryWorker):
         self.task_manager = manager.get_task_manager()
         self.remote_memory = manager.get_memory_sender()
 
@@ -210,6 +213,7 @@ class _ActorRLMemoryNoThread(IRLMemoryWorker):
         self.q_send_count = 0
         self.q = queue.Queue()
         self.actor_num = self.task_manager.get_actor_num()
+        self.base_memory = base_memory
 
         self.keepalive_t0 = 0
 
@@ -217,7 +221,7 @@ class _ActorRLMemoryNoThread(IRLMemoryWorker):
     def memory_type(self) -> RLMemoryTypes:
         return RLMemoryTypes.NONE
 
-    def add(self, *args) -> None:
+    def add(self, *args, serialized: bool = False) -> None:
         t0 = time.time()
         while True:
             # --- server check
@@ -237,8 +241,8 @@ class _ActorRLMemoryNoThread(IRLMemoryWorker):
                 # --- qが一定以下のみ送信
                 if remote_qsize < self.dist_queue_capacity:
                     try:
-                        args = zlib.compress(pickle.dumps(args))
-                        self.remote_memory.memory_add(args)
+                        raw = self.base_memory.serialize_add_args(*args)
+                        self.remote_memory.memory_add(raw)
                         self.q_send_count += 1
                     except Exception as e:
                         logger.error(e)
@@ -263,6 +267,9 @@ class _ActorRLMemoryNoThread(IRLMemoryWorker):
 
     def length(self) -> int:
         return self.q_send_count
+
+    def serialize_add_args(self, *args):
+        raise NotImplementedError("Unused")
 
 
 class _ActorInterruptNoThread(RunCallback):
@@ -348,13 +355,18 @@ def _run_actor(manager: ServerManager, runner: srl.Runner):
             share_q,
             share_data,
             runner.config.dist_queue_capacity,
+            runner.make_memory(is_load=False),
         )
         callbacks.append(_ActorInterruptThread(share_data, memory_ps, parameter_ps))
     else:
         memory_ps = None
         parameter_ps = None
         share_data = None
-        memory = _ActorRLMemoryNoThread(manager, runner.config.dist_queue_capacity)
+        memory = _ActorRLMemoryNoThread(
+            manager,
+            runner.config.dist_queue_capacity,
+            runner.make_memory(is_load=False),
+        )
         callbacks.append(
             _ActorInterruptNoThread(
                 manager,

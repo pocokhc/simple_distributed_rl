@@ -31,11 +31,11 @@ class ReplayMemory(IPriorityMemory):
         if self.idx >= self.capacity:
             self.idx = 0
 
-    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
+    def sample(self, batch_size: int, step: int):
         batchs = random.sample(self.memory, batch_size)
-        return [], batchs, np.ones((batch_size,), dtype=self.dtype)
+        return batchs, np.ones((batch_size,), dtype=self.dtype), []
 
-    def update(self, indices: List[int], batchs: List[Any], priorities: np.ndarray) -> None:
+    def update(self, update_args: List[Any], priorities: np.ndarray) -> None:
         pass
 
     def backup(self):

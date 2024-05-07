@@ -131,7 +131,7 @@ class ProportionalMemory(IPriorityMemory):
         if self.size > self.capacity:
             self.size = self.capacity
 
-    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
+    def sample(self, batch_size: int, step: int):
         indices = []
         batchs = []
         weights = np.empty(batch_size, dtype=self.dtype)
@@ -165,11 +165,11 @@ class ProportionalMemory(IPriorityMemory):
         # 最大値で正規化
         weights = weights / weights.max()
 
-        return indices, batchs, weights
+        return batchs, weights, indices
 
-    def update(self, indices: List[int], batchs: List[Any], priorities: np.ndarray) -> None:
+    def update(self, indices: List[Any], priorities: np.ndarray) -> None:
         priorities = (np.abs(priorities) + self.epsilon) ** self.alpha
-        for i in range(len(batchs)):
+        for i in range(len(indices)):
             priority = float(priorities[i])
             self.tree.update(indices[i], priority)
             if self.max_priority < priority:

@@ -3,10 +3,9 @@ import pickle
 import random
 import zlib
 from dataclasses import dataclass, field
-from typing import Any, List, cast
+from typing import Any, List
 
 from srl.base.define import RLMemoryTypes
-from srl.base.rl.config import RLConfig
 from srl.base.rl.memory import RLMemory
 
 logger = logging.getLogger(__name__)
@@ -42,6 +41,11 @@ class RLConfigComponentExperienceReplayBuffer:
     batch_size: int = 32
     memory: _ExperienceReplayBufferConfig = field(init=False, default_factory=lambda: _ExperienceReplayBufferConfig())
 
+    #: memoryデータを圧縮してやり取りするかどうか
+    memory_compress: bool = True
+    #: memory(zlib)の圧縮レベル
+    memory_compress_level: int = -1
+
     def assert_params_memory(self):
         assert self.batch_size > 0
         assert self.memory.warmup_size <= self.memory.capacity
@@ -49,11 +53,9 @@ class RLConfigComponentExperienceReplayBuffer:
 
 
 class RandomMemory:
-    def __init__(self, capacity: int, compress: bool, compress_level: int = 1):
+    def __init__(self, capacity: int, warmup_size: int):
         self.capacity = capacity
-        self.compress = compress
-        self.compress_level = compress_level
-
+        self.warmup_size = warmup_size
         self.memory = []
         self.idx = 0
 
@@ -61,9 +63,6 @@ class RandomMemory:
         return len(self.memory)
 
     def add(self, batch: Any) -> None:
-        if self.compress:
-            batch = zlib.compress(pickle.dumps(batch), level=self.compress_level)
-
         if len(self.memory) < self.capacity:
             self.memory.append(batch)
         else:
@@ -73,11 +72,7 @@ class RandomMemory:
             self.idx = 0
 
     def sample(self, batch_size: int) -> List[Any]:
-        batchs = random.sample(self.memory, batch_size)
-        if self.compress:
-            return [pickle.loads(zlib.decompress(b)) for b in batchs]
-        else:
-            return batchs
+        return random.sample(self.memory, batch_size)
 
     def call_backup(self, **kwargs):
         return [
@@ -100,12 +95,7 @@ class RandomMemory:
 class ExperienceReplayBuffer(RandomMemory, RLMemory[RLConfigComponentExperienceReplayBuffer]):
     def __init__(self, *args):
         RLMemory.__init__(self, *args)
-        RandomMemory.__init__(
-            self,
-            self.config.memory.capacity,
-            cast(RLConfig, self.config).memory_compress,
-            cast(RLConfig, self.config).memory_compress_level,
-        )
+        RandomMemory.__init__(self, self.config.memory.capacity, self.config.memory.warmup_size)
 
     @property
     def memory_type(self) -> RLMemoryTypes:
@@ -113,3 +103,28 @@ class ExperienceReplayBuffer(RandomMemory, RLMemory[RLConfigComponentExperienceR
 
     def is_warmup_needed(self) -> bool:
         return len(self.memory) < self.config.memory.warmup_size
+
+    def add(self, batch: Any, serialized: bool = False) -> None:
+        if serialized:
+            if self.config.memory_compress:
+                pass  # nothing
+            else:
+                batch = pickle.loads(batch)
+        else:
+            if self.config.memory_compress:
+                batch = zlib.compress(pickle.dumps(batch), self.config.memory_compress_level)
+            else:
+                pass  # nothing
+        RandomMemory.add(self, batch)
+
+    def serialize_add_args(self, batch: Any):
+        batch = pickle.dumps(batch)
+        if self.config.memory_compress:
+            batch = zlib.compress(batch, level=self.config.memory_compress_level)
+        return batch
+
+    def sample(self, batch_size: int) -> List[Any]:
+        batchs = RandomMemory.sample(self, batch_size)
+        if self.config.memory_compress:
+            batchs = [pickle.loads(zlib.decompress(b)) for b in batchs]
+        return batchs

@@ -325,7 +325,7 @@ class Trainer(RLTrainer[Config, Parameter]):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        indices, batchs, weights = self.memory.sample(self.batch_size, self.train_count)
+        batchs, weights, update_args = self.memory.sample(self.batch_size, self.train_count)
 
         device = self.parameter.device
 
@@ -443,7 +443,7 @@ class Trainer(RLTrainer[Config, Parameter]):
         else:
             batch_beta = np.array([self.beta_list[a] for a in actor_idx], np.float32)
             priorities = np.abs(td_errors_ext + batch_beta * td_errors_int)
-        self.memory.update(indices, batchs, priorities)
+        self.memory.update(update_args, priorities)
 
         # --- sync target
         if self.train_count % self.config.target_model_update_interval == 0:

@@ -30,6 +30,9 @@ class _DummyValue:
     def __init__(self, v) -> None:
         self.value = v
 
+    def set(self, d):
+        self.value = d
+
 
 @pytest.mark.parametrize("interrupt_stop", [False, True])
 @pytest.mark.timeout(5)  # pip install pytest_timeout
@@ -127,21 +130,17 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
 
     # --- add queue
     for _ in range(100):
-        remote_queue.put(
-            (
-                {
-                    "states": ["1,3", "1,2"],
-                    "actions": [3],
-                    "probs": [0.25],
-                    "ext_rewards": [-0.03999999910593033],
-                    "int_rewards": [5.0],
-                    "invalid_actions": [[], []],
-                    "done": False,
-                    "discount": 0.9999,
-                },
-                0,
-            ),
-        )
+        batch = {
+            "states": ["1,3", "1,2"],
+            "actions": [3],
+            "probs": [0.25],
+            "ext_rewards": [-0.03999999910593033],
+            "int_rewards": [5.0],
+            "invalid_actions": [[], []],
+            "done": False,
+            "discount": 0.9999,
+        }
+        remote_queue.put(runner.make_memory().serialize_add_args(batch, -1))
 
     # --- run
     _run_trainer(

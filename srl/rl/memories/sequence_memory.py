@@ -1,3 +1,4 @@
+import pickle
 from typing import Any, List
 
 from srl.base.define import RLMemoryTypes
@@ -9,6 +10,7 @@ class SequenceMemory(RLMemory):
 
     FIFO形式でやりとりするシンプルなメモリです。
     パラメータは特にありません。
+    圧縮は行いません。
     """
 
     def __init__(self, *args):
@@ -25,8 +27,13 @@ class SequenceMemory(RLMemory):
     def is_warmup_needed(self) -> bool:
         return len(self.buffer) == 0
 
-    def add(self, batch: Any) -> None:
+    def add(self, batch: Any, serialized: bool = False) -> None:
+        if serialized:
+            batch = pickle.loads(batch)
         self.buffer.append(batch)
+
+    def serialize_add_args(self, batch: Any):
+        return pickle.dumps(batch)
 
     def sample(self) -> List[Any]:
         buffer = self.buffer

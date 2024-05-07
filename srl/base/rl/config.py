@@ -68,11 +68,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     #: Processorを使う場合、定義したProcessorのリスト
     processors: List[Processor] = field(default_factory=list)
 
-    #: memoryデータを圧縮してやり取りするかどうか
-    memory_compress: bool = True
-    #: memory(zlib)の圧縮レベル
-    memory_compress_level: int = 1
-
     # --- Worker Config
     #: state_encodeを有効にするか
     enable_state_encode: bool = True

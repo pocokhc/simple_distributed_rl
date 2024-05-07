@@ -29,8 +29,9 @@ class LinearBlock(keras.Model):
         hidden_layer_sizes: Tuple[int, ...] = (),
         activation: str = "relu",
         use_symlog: bool = False,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.out_size = out_size
         self.use_symlog = use_symlog
 

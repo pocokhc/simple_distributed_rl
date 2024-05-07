@@ -50,8 +50,9 @@ class BernoulliDistBlock(keras.Model):
         out_size: int,
         hidden_layer_sizes: Tuple[int, ...] = (),
         activation: str = "relu",
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.out_size = out_size
 
         self.hidden_layers = []

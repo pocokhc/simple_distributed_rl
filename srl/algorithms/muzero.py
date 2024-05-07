@@ -23,7 +23,6 @@ from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.tf.blocks.input_block import create_in_block_out_image
-from srl.utils.common import compare_less_version
 
 kl = keras.layers
 logger = logging.getLogger(__name__)
@@ -434,10 +433,9 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
 
-        if compare_less_version(tf.__version__, "2.11.0"):
-            self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
-        else:
-            self.optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch.get_rate())
+        self.opt_rep = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
+        self.opt_pre = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
+        self.opt_dyn = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
 
     def _cross_entropy_loss(self, y_true, y_pred):
         y_pred = tf.clip_by_value(y_pred, 1e-6, y_pred)  # log(0)回避用
@@ -508,7 +506,15 @@ class Trainer(RLTrainer[Config, Parameter]):
             loss += tf.reduce_sum(self.parameter.prediction_network.losses)
             loss += tf.reduce_sum(self.parameter.dynamics_network.losses)
 
-        priorities = np.abs(value_loss.numpy())
+        variables = [
+            self.parameter.representation_network.trainable_variables,
+            self.parameter.prediction_network.trainable_variables,
+            self.parameter.dynamics_network.trainable_variables,
+        ]
+        grads = tape.gradient(loss, variables)
+        self.opt_rep.apply_gradients(zip(grads[0], variables[0]))
+        self.opt_pre.apply_gradients(zip(grads[1], variables[1]))
+        self.opt_dyn.apply_gradients(zip(grads[2], variables[2]))
 
         self.train_count += 1
         self.info = {
@@ -521,20 +527,14 @@ class Trainer(RLTrainer[Config, Parameter]):
         # lr_schedule
         if self.lr_sch.update(self.train_count):
             lr = self.lr_sch.get_rate()
-            self.optimizer.learning_rate = lr
+            self.opt_rep.learning_rate = lr
+            self.opt_pre.learning_rate = lr
+            self.opt_dyn.learning_rate = lr
             self.info["lr"] = lr
 
-        variables = [
-            self.parameter.representation_network.trainable_variables,
-            self.parameter.prediction_network.trainable_variables,
-            self.parameter.dynamics_network.trainable_variables,
-        ]
-        grads = tape.gradient(loss, variables)
-        for i in range(len(variables)):
-            self.optimizer.apply_gradients(zip(grads[i], variables[i]))
-
         # memory update
-        self.memory.update(indices, batchs, priorities)
+        priorities = np.abs(value_loss.numpy())
+        self.memory.update(update_args, priorities)
 
         # 学習したらキャッシュは削除
         self.parameter.reset_cache()

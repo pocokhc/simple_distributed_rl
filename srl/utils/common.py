@@ -282,6 +282,18 @@ def compare_equal_version(v1, v2) -> bool:
         return LooseVersion(v1) == LooseVersion(v2)
 
 
+def compare_between_version(v_low, v_target, v_high) -> bool:
+    try:
+        from packaging import version
+
+        return version.parse(v_low) <= version.parse(v_target) < version.parse(v_high)
+
+    except ImportError:
+        from distutils.version import LooseVersion
+
+        return LooseVersion(v_low) <= LooseVersion(v_target) < LooseVersion(v_high)
+
+
 __cache_device_name = {}
 
 

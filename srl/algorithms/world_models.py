@@ -1,4 +1,5 @@
 import collections
+import pickle
 import random
 from dataclasses import dataclass
 from functools import reduce
@@ -19,8 +20,10 @@ from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_input_image_layers
+from srl.utils.common import compare_less_version
 
 kl = keras.layers
+v216_older = compare_less_version(tf.__version__, "2.16.0")
 
 """
 vae ref: https://developers-jp.googleblog.com/2019/04/tensorflow-probability-vae.html
@@ -136,7 +139,17 @@ class Memory(RLMemory):
             return len(self.rnn_buffer)
         return len(self.vae_buffer) + len(self.rnn_buffer)
 
-    def add(self, type_: str, batch: Any) -> None:
+    def is_warmup_needed(self) -> bool:
+        if self.config.train_mode == 1:
+            return len(self.vae_buffer) < self.config.memory_warmup_size
+        elif self.config.train_mode == 2:
+            return len(self.rnn_buffer) < self.config.memory_warmup_size
+        else:
+            return False
+
+    def add(self, type_: str, batch: Any, serialized: bool = False) -> None:
+        if serialized:
+            batch = pickle.loads(batch)
         if type_ == "vae":
             self.vae_buffer.append(batch)
         elif type_ == "rnn":
@@ -149,13 +162,8 @@ class Memory(RLMemory):
         else:
             raise ValueError(type_)
 
-    def is_warmup_needed(self) -> bool:
-        if self.config.train_mode == 1:
-            return len(self.vae_buffer) < self.config.memory_warmup_size
-        elif self.config.train_mode == 2:
-            return len(self.rnn_buffer) < self.config.memory_warmup_size
-        else:
-            return False
+    def serialize_add_args(self, type_: str, batch: Any):
+        return type_, pickle.dumps(batch)
 
     def sample(self, batch_size: int, step: int) -> Any:
         if batch_size < 0:
@@ -239,8 +247,7 @@ class VAE(keras.Model):
             ]
 
         # build
-        self._in_shape = config.observation_space.shape
-        self.build((None,) + self._in_shape)
+        self.build((None,) + config.observation_space.shape)
 
     def call(self, x, training=False):
         return self.decode(self.encode(x, training=training), training=training)
@@ -292,9 +299,13 @@ class MDNRNN(keras.Model):
         self.mdn_layer = kl.Dense(config.z_size * config.num_mixture * 3)
 
         # 重みを初期化
-        dummy_z = np.zeros(shape=(1, 1, config.z_size), dtype=np.float32)
-        dummy_onehot_action = np.zeros(shape=(1, 1, config.action_space.n), dtype=np.float32)
-        self(dummy_z, dummy_onehot_action, None, return_rnn_only=False, training=False)
+        self(
+            np.zeros(shape=(1, 1, config.z_size), dtype=config.dtype),
+            np.zeros(shape=(1, 1, config.action_space.n), dtype=config.dtype),
+            self.get_initial_state(1),
+            return_rnn_only=False,
+            training=False,
+        )
 
     def call(self, z, onehot_actions, hidden_state, return_rnn_only, training=False):
         batch_size = z.shape[0]
@@ -302,9 +313,7 @@ class MDNRNN(keras.Model):
 
         # (batch, timesteps, z + action) -> (batch, timesteps, lstm_dim)
         x = tf.concat([z, onehot_actions], axis=2)
-        x, h, c = self.lstm_layer(
-            x, initial_state=hidden_state, training=training
-        )  # type:ignore , ignore check "None"
+        x, h, c = self.lstm_layer(x, initial_state=hidden_state, training=training)
         if return_rnn_only:
             return [h, c]
 
@@ -359,8 +368,11 @@ class MDNRNN(keras.Model):
 
         return samples
 
-    def get_initial_state(self):
-        return self.lstm_layer.cell.get_initial_state(batch_size=1, dtype=tf.float32)
+    def get_initial_state(self, batch_size=1):
+        if v216_older:
+            return self.lstm_layer.cell.get_initial_state(batch_size=batch_size, dtype=self.dtype)
+        else:
+            return self.lstm_layer.cell.get_initial_state(batch_size)
 
 
 class Controller(keras.Model):
@@ -521,7 +533,7 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         # encode
         states = states.reshape((self.config.batch_size * (self.config.sequence_length + 1),) + states.shape[2:])
-        z = self.parameter.vae.encode(states).numpy()  # type:ignore , ignore check "None"
+        z = self.parameter.vae.encode(states).numpy()
         z = z.reshape((self.config.batch_size, self.config.sequence_length + 1, -1))
 
         # --- MDN-RNN
@@ -529,9 +541,7 @@ class Trainer(RLTrainer[Config, Parameter]):
         z2 = z[:, 1:, ...]
         z2 = z2.reshape((self.config.batch_size * self.config.sequence_length, -1, 1))
         with tf.GradientTape() as tape:
-            pi, mu, log_sigma, _ = self.parameter.rnn(
-                z1, onehot_actions, None, return_rnn_only=False, training=True
-            )  # type:ignore , ignore check "None"
+            pi, mu, log_sigma, _ = self.parameter.rnn(z1, onehot_actions, None, return_rnn_only=False, training=True)
 
             # log softmax
             pi = pi - tf.reduce_max(pi, axis=2, keepdims=True)  # overflow_protection
@@ -543,7 +553,7 @@ class Trainer(RLTrainer[Config, Parameter]):
             # loss
             loss = tf.reduce_sum(tf.exp(log_pi + log_gauss), axis=2, keepdims=True)
             loss = tf.maximum(loss, 1e-6)  # log(0) 回避
-            loss = -tf.math.log(loss)  # type:ignore , ignore check "None"
+            loss = -tf.math.log(loss)
             loss = tf.reduce_mean(loss)
             loss += tf.reduce_sum(self.parameter.rnn.losses)  # 正則化項
 
@@ -741,9 +751,7 @@ class Worker(RLWorker[Config, Parameter]):
             if i > _view_action:
                 break
 
-            pi, mu, log_sigma, _ = self.parameter.rnn.forward(
-                self.z, a, self.prev_hidden_state, return_rnn_only=False
-            )  # type:ignore , ignore check "None"
+            pi, mu, log_sigma, _ = self.parameter.rnn.forward(self.z, a, self.prev_hidden_state, return_rnn_only=False)
             pw.draw_text(
                 self.screen,
                 (IMG_W + PADDING) * i,

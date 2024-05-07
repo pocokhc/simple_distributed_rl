@@ -65,8 +65,9 @@ class CategoricalGumbelDistBlock(keras.Model):
         classes: int,
         hidden_layer_sizes: Tuple[int, ...] = (),
         activation: str = "relu",
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.classes = classes
 
         self.hidden_layers = []

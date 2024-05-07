@@ -23,7 +23,6 @@ from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.tf.blocks.input_block import create_in_block_out_image
-from srl.utils.common import compare_less_version
 
 kl = keras.layers
 logger = logging.getLogger(__name__)
@@ -592,10 +591,12 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
 
-        if compare_less_version(tf.__version__, "2.11.0"):
-            self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
-        else:
-            self.optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch.get_rate())
+        self.opt_rep = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
+        self.opt_dyn = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
+        self.opt_pre = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
+        self.opt_after_dyn = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
+        self.opt_after_pre = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
+        self.opt_vq_vae = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
 
     def _cross_entropy_loss(self, y_true, y_pred):
         y_pred = tf.clip_by_value(y_pred, 1e-6, y_pred)  # log(0)回避用
@@ -686,13 +687,6 @@ class Trainer(RLTrainer[Config, Parameter]):
             loss += tf.reduce_sum(self.parameter.afterstate_prediction_network.losses)
             loss += tf.reduce_sum(self.parameter.vq_vae.losses)
 
-        priorities = np.abs(v_loss.numpy())
-
-        # lr_schedule
-        if self.lr_sch.update(self.train_count):
-            lr = self.lr_sch.get_rate()
-            self.optimizer.learning_rate = lr
-
         variables = [
             self.parameter.representation_network.trainable_variables,
             self.parameter.dynamics_network.trainable_variables,
@@ -702,10 +696,25 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.parameter.vq_vae.trainable_variables,
         ]
         grads = tape.gradient(loss, variables)
-        for i in range(len(variables)):
-            self.optimizer.apply_gradients(zip(grads[i], variables[i]))
+        self.opt_rep.apply_gradients(zip(grads[0], variables[0]))
+        self.opt_dyn.apply_gradients(zip(grads[1], variables[1]))
+        self.opt_pre.apply_gradients(zip(grads[2], variables[2]))
+        self.opt_after_dyn.apply_gradients(zip(grads[3], variables[3]))
+        self.opt_after_pre.apply_gradients(zip(grads[4], variables[4]))
+        self.opt_vq_vae.apply_gradients(zip(grads[5], variables[5]))
 
         self.train_count += 1
+
+        # lr_schedule
+        if self.lr_sch.update(self.train_count):
+            lr = self.lr_sch.get_rate()
+            self.opt_rep.learning_rate = lr
+            self.opt_pre.learning_rate = lr
+            self.opt_dyn.learning_rate = lr
+            self.opt_after_dyn.learning_rate = lr
+            self.opt_after_pre.learning_rate = lr
+            self.opt_vq_vae.learning_rate = lr
+            self.info["lr"] = lr
 
         # memory update
         self.memory.update(indices, batchs, priorities)

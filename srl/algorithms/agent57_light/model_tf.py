@@ -33,6 +33,8 @@ class QNetwork(keras.Model):
             enable_rnn=False,
         )
 
+        self.concat_layer = kl.Concatenate(axis=-1)
+
         # out
         self.hidden_block = config.hidden_block.create_block_tf(
             config.action_space.n,
@@ -40,11 +42,14 @@ class QNetwork(keras.Model):
         )
 
         # build
-        self.build(
-            (None,) + config.observation_space.shape,
-            (None, 1),
-            (None, config.action_space.n),
-            (None, config.actor_num),
+        self(
+            [
+                np.zeros((1,) + config.observation_space.shape),
+                np.zeros((1, 1)),
+                np.zeros((1, 1)),
+                np.zeros((1, config.action_space.n)),
+                np.zeros((1, config.actor_num)),
+            ]
         )
 
     @tf.function
@@ -70,43 +75,10 @@ class QNetwork(keras.Model):
         if self.input_action:
             uvfa_list.append(onehot_action)
         uvfa_list.append(onehot_actor)
-        x = tf.concat(uvfa_list, axis=1)
+        x = self.concat_layer(uvfa_list)
 
         x = self.hidden_block(x, training=training)
         return x
-
-    def build(
-        self,
-        in_state_shape,
-        in_reward_shape,
-        in_action_shape,
-        in_actor_shape,
-    ):
-        self.__in_state_shape = in_state_shape
-        self.__in_reward_shape = in_reward_shape
-        self.__in_action_shape = in_action_shape
-        self.__in_actor_shape = in_actor_shape
-        super().build(
-            [
-                self.__in_state_shape,
-                self.__in_reward_shape,
-                self.__in_reward_shape,
-                self.__in_action_shape,
-                self.__in_actor_shape,
-            ]
-        )
-
-    def summary(self, name="", **kwargs):
-        x = [
-            kl.Input(self.__in_state_shape[1:], name="state"),
-            kl.Input(self.__in_reward_shape[1:], name="reward_ext"),
-            kl.Input(self.__in_reward_shape[1:], name="reward_int"),
-            kl.Input(self.__in_action_shape[1:], name="action"),
-            kl.Input(self.__in_actor_shape[1:], name="actor"),
-        ]
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
-        model.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -126,14 +98,15 @@ class EmbeddingNetwork(keras.Model):
         # emb_block
         self.emb_block = config.episodic_emb_block.create_block_tf()
 
+        self.concat_layer = kl.Concatenate(axis=-1)
+
         # out_block
         self.out_block = config.episodic_out_block.create_block_tf()
         self.out_block_normalize = kl.LayerNormalization()
         self.out_block_out = kl.Dense(config.action_space.n, activation="softmax")
 
         # build
-        self._in_shape = config.observation_space.shape
-        self.build([(None,) + self._in_shape, (None,) + self._in_shape])
+        self([np.zeros((1,) + config.observation_space.shape), np.zeros((1,) + config.observation_space.shape)])
         self.loss_func = keras.losses.MeanSquaredError()
 
     def _emb_block_call(self, x, training=False):
@@ -144,7 +117,7 @@ class EmbeddingNetwork(keras.Model):
         x1 = self._emb_block_call(x[0], training=training)
         x2 = self._emb_block_call(x[1], training=training)
 
-        x = tf.concat([x1, x2], axis=1)
+        x = self.concat_layer([x1, x2])
         x = self.out_block(x, training=training)
         x = self.out_block_normalize(x, training=training)
         x = self.out_block_out(x, training=training)
@@ -180,8 +153,7 @@ class LifelongNetwork(keras.Model):
         self.hidden_normalize = kl.LayerNormalization()
 
         # build
-        self._in_shape = config.observation_space.shape
-        self.build((None,) + self._in_shape)
+        self(np.zeros((1,) + config.observation_space.shape))
         self.loss_func = keras.losses.MeanSquaredError()
 
     def call(self, x, training=False):

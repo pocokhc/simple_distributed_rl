@@ -39,8 +39,9 @@ class TwoHotDistBlock(keras.Model):
         hidden_layer_sizes: Tuple[int, ...] = (),
         activation: str = "relu",
         use_symlog: bool = True,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.bins = bins
         self.low = low
         self.high = high

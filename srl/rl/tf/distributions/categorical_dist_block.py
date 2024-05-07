@@ -65,8 +65,9 @@ class CategoricalDistBlock(keras.Model):
         hidden_layer_sizes: Tuple[int, ...] = (),
         activation: str = "relu",
         unimix: float = 0,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.classes = classes
         self.unimix = unimix
 

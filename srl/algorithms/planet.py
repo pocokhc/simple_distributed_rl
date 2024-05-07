@@ -22,6 +22,7 @@ from srl.utils.common import compare_less_version
 
 kl = keras.layers
 tfd = tfp.distributions
+v216_older = compare_less_version(tf.__version__, "2.16.0")
 
 
 """
@@ -122,11 +123,11 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _RSSM(keras.Model):
-    def __init__(self, stoch=30, deter=200, hidden=200, act=tf.nn.elu):
-        super().__init__()
+class RSSM(keras.Model):
+    def __init__(self, stoch=30, deter=200, hidden=200, act=tf.nn.elu, **kwargs):
+        super().__init__(**kwargs)
 
-        self.rnn_cell = kl.GRUCell(deter)
+        self.gru_cell = kl.GRUCell(deter)
         self.obs1 = kl.Dense(hidden, activation=act)
         self.obs_mean = kl.Dense(stoch, activation=None)
         self.obs_std = kl.Dense(stoch, activation=None)
@@ -151,7 +152,7 @@ class _RSSM(keras.Model):
     def img_step(self, prev_stoch, prev_deter, prev_action, training=False, _summary: bool = False):
         x = tf.concat([prev_stoch, prev_action], -1)
         x = self.img1(x)
-        x, deter = self.rnn_cell(x, [prev_deter], training=training)  # type:ignore , ignore check "None"
+        x, deter = self.gru_cell(x, [prev_deter], training=training)
         deter = deter[0]
         x = self.img2(x)
         mean = self.img_mean(x)
@@ -164,33 +165,22 @@ class _RSSM(keras.Model):
         return deter, prior
 
     def get_initial_state(self, batch_size: int = 1):
-        return self.rnn_cell.get_initial_state(None, batch_size, dtype=tf.float32)
+        if v216_older:
+            return self.gru_cell.get_initial_state(None, batch_size, dtype=self.dtype)
+        else:
+            return self.gru_cell.get_initial_state(batch_size)[0]
 
-    def build(self, config):
-        in_stoch = np.zeros((1, config.stoch_size), dtype=np.float32)
+    def build_call(self, config):
+        in_stoch = np.zeros((1, config.stoch_size), dtype=config.dtype)
         in_deter = self.get_initial_state()
-        in_action = np.zeros((1, config.action_space.n), dtype=np.float32)
-        in_embed = np.zeros((1, 32 * config.cnn_depth), dtype=np.float32)
+        in_action = np.zeros((1, config.action_space.n), dtype=config.dtype)
+        in_embed = np.zeros((1, 32 * config.cnn_depth), dtype=config.dtype)
         self.obs_step(in_stoch, in_deter, in_action, in_embed)
-        self.built = True
-
-    def summary(self, config, **kwargs):
-        in_stoch = kl.Input((config.stoch_size,))
-        in_deter = kl.Input((config.deter_size,))
-        in_action = kl.Input((config.action_space.n,))
-        in_embed = kl.Input((32 * config.cnn_depth,))
-
-        model = keras.Model(
-            inputs=[in_stoch, in_deter, in_action, in_embed],
-            outputs=self.obs_step(in_stoch, in_deter, in_action, in_embed, _summary=True),
-            name="RSSM",
-        )
-        return model.summary(**kwargs)
 
 
-class _ConvEncoder(keras.Model):
-    def __init__(self, depth: int = 32, act=tf.nn.relu):
-        super().__init__()
+class ConvEncoder(keras.Model):
+    def __init__(self, depth: int = 32, act=tf.nn.relu, **kwargs):
+        super().__init__(**kwargs)
 
         kwargs = dict(kernel_size=4, strides=2, activation=act)
         self.conv1 = kl.Conv2D(filters=1 * depth, **kwargs)
@@ -207,20 +197,10 @@ class _ConvEncoder(keras.Model):
         x = self.hout(x)
         return x
 
-    def build(self, input_shape):
-        self._input_shape = input_shape
-        super().build((1,) + self._input_shape)
 
-    def summary(self, name="", **kwargs):
-        x = kl.Input(shape=self._input_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x), name=name)
-        return model.summary(**kwargs)
-
-
-class _ConvDecoder(keras.Model):
-    def __init__(self, depth: int = 32, act=tf.nn.relu):
-        super().__init__()
+class ConvDecoder(keras.Model):
+    def __init__(self, depth: int = 32, act=tf.nn.relu, **kwargs):
+        super().__init__(**kwargs)
 
         kwargs = dict(strides=2, activation=act)
         self.in_layer = kl.Dense(32 * depth)
@@ -247,20 +227,10 @@ class _ConvDecoder(keras.Model):
             reinterpreted_batch_ndims=len(x.shape) - 1,  # type:ignore , ignore check "None"
         )
 
-    def build(self, input_shape):
-        self._input_shape = input_shape
-        super().build((1,) + self._input_shape)
 
-    def summary(self, name="", **kwargs):
-        x = kl.Input(shape=self._input_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x, _summary=True), name=name)
-        return model.summary(**kwargs)
-
-
-class _DenseDecoder(keras.Model):
-    def __init__(self, out_shape, layers: int, units: int, dist: str = "normal", act=tf.nn.elu):
-        super().__init__()
+class DenseDecoder(keras.Model):
+    def __init__(self, out_shape, layers: int, units: int, dist: str = "normal", act=tf.nn.elu, **kwargs):
+        super().__init__(**kwargs)
         self._out_shape = out_shape
         self._dist = dist
 
@@ -284,16 +254,6 @@ class _DenseDecoder(keras.Model):
             return tfd.Independent(tfd.Bernoulli(x), reinterpreted_batch_ndims=len(self._out_shape))
         raise NotImplementedError(self._dist)
 
-    def build(self, input_shape):
-        self._input_shape = input_shape
-        super().build((1,) + self._input_shape)
-
-    def summary(self, name="", **kwargs):
-        x = kl.Input(shape=self._input_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self.call(x, _summary=True), name=name)
-        return model.summary(**kwargs)
-
 
 # ------------------------------------------------------
 # Parameter
@@ -303,15 +263,16 @@ class Parameter(RLParameter):
         super().__init__(*args)
         self.config: Config = self.config
 
-        self.encode = _ConvEncoder(self.config.cnn_depth, self.config.cnn_act)
-        self.dynamics = _RSSM(self.config.stoch_size, self.config.deter_size, self.config.deter_size)
-        self.decode = _ConvDecoder(self.config.cnn_depth, self.config.cnn_act)
-        self.reward = _DenseDecoder((1,), 2, self.config.num_units, "normal", self.config.dense_act)
+        self.encode = ConvEncoder(self.config.cnn_depth, self.config.cnn_act)
+        self.dynamics = RSSM(self.config.stoch_size, self.config.deter_size, self.config.deter_size)
+        self.decode = ConvDecoder(self.config.cnn_depth, self.config.cnn_act)
+        self.reward = DenseDecoder((1,), 2, self.config.num_units, "normal", self.config.dense_act, name="Reward")
 
-        self.encode.build((None,) + self.config.observation_space.shape)
-        self.dynamics.build(self.config)
-        self.decode.build((None,) + (self.config.deter_size + self.config.stoch_size,))
-        self.reward.build((None,) + (self.config.deter_size + self.config.stoch_size,))
+        # build
+        self.encode(np.zeros((1,) + self.config.observation_space.shape, self.config.dtype))
+        self.dynamics.build_call(self.config)
+        self.decode(np.zeros((1, self.config.deter_size + self.config.stoch_size), self.config.dtype))
+        self.reward(np.zeros((1, self.config.deter_size + self.config.stoch_size), self.config.dtype))
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.encode.set_weights(data[0])
@@ -328,10 +289,11 @@ class Parameter(RLParameter):
         ]
 
     def summary(self, **kwargs):
-        self.encode.summary("Encoder", **kwargs)
-        self.dynamics.summary(self.config, **kwargs)
-        self.decode.summary("Decoder", **kwargs)
-        self.reward.summary("Reward", **kwargs)
+        self.encode.summary(**kwargs)
+        if not v216_older:
+            self.dynamics.summary(**kwargs)
+        self.decode.summary(**kwargs)
+        self.reward.summary(**kwargs)
 
 
 # ------------------------------------------------------
@@ -345,10 +307,10 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
 
-        if compare_less_version(tf.__version__, "2.11.0"):
-            self.optimizer = keras.optimizers.Adam(self.lr_sch.get_rate())
-        else:
-            self.optimizer = keras.optimizers.legacy.Adam(self.lr_sch.get_rate())
+        self.opt_encode = keras.optimizers.Adam(self.lr_sch.get_rate())
+        self.opt_dynamics = keras.optimizers.Adam(self.lr_sch.get_rate())
+        self.opt_decode = keras.optimizers.Adam(self.lr_sch.get_rate())
+        self.opt_reward = keras.optimizers.Adam(self.lr_sch.get_rate())
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():
@@ -449,17 +411,22 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.parameter.reward.trainable_variables,
         ]
         grads = tape.gradient(loss, variables)
-        for i in range(len(variables)):
-            self.optimizer.apply_gradients(zip(grads[i], variables[i]))
+        self.opt_encode.apply_gradients(zip(grads[0], variables[0]))
+        self.opt_dynamics.apply_gradients(zip(grads[1], variables[1]))
+        self.opt_decode.apply_gradients(zip(grads[2], variables[2]))
+        self.opt_reward.apply_gradients(zip(grads[3], variables[3]))
 
         if self.lr_sch.update(self.train_count):
             lr = self.lr_sch.get_rate()
-            self.optimizer.learning_rate = lr
+            self.opt_encode.learning_rate = lr
+            self.opt_dynamics.learning_rate = lr
+            self.opt_decode.learning_rate = lr
+            self.opt_reward.learning_rate = lr
 
         return {
             "img_loss": -image_loss.numpy() / (64 * 64 * 3),
             "reward_loss": -reward_loss.numpy(),
-            "kl_loss": kl_loss.numpy(),  # type:ignore , ignore check "None"
+            "kl_loss": kl_loss.numpy(),
         }
 
     def _train_latent_overshooting_loss(self, batchs):
@@ -552,13 +519,22 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.parameter.reward.trainable_variables,
         ]
         grads = tape.gradient(loss, variables)
-        for i in range(len(variables)):
-            self.optimizer.apply_gradients(zip(grads[i], variables[i]))
+        self.opt_encode.apply_gradients(zip(grads[0], variables[0]))
+        self.opt_dynamics.apply_gradients(zip(grads[1], variables[1]))
+        self.opt_decode.apply_gradients(zip(grads[2], variables[2]))
+        self.opt_reward.apply_gradients(zip(grads[3], variables[3]))
+
+        if self.lr_sch.update(self.train_count):
+            lr = self.lr_sch.get_rate()
+            self.opt_encode.learning_rate = lr
+            self.opt_dynamics.learning_rate = lr
+            self.opt_decode.learning_rate = lr
+            self.opt_reward.learning_rate = lr
 
         return {
             "img_loss": -image_loss.numpy() / (64 * 64 * 3),
             "reward_loss": -reward_loss.numpy(),
-            "kl_loss": kl_loss.numpy(),  # type:ignore , ignore check "None"
+            "kl_loss": kl_loss.numpy(),
         }
 
 

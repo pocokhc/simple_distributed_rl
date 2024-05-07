@@ -1,11 +1,9 @@
 import datetime
 import logging
-import pickle
 import queue
 import threading
 import time
 import traceback
-import zlib
 from typing import Any, List, Optional, cast
 
 import srl
@@ -58,8 +56,7 @@ class _TrainerRLMemoryThreadPrepareBatch(IRLMemoryTrainer):
 
     def recv(self, dat) -> None:
         if dat is not None:
-            dat = pickle.loads(zlib.decompress(dat))
-            self.base_memory.add(*dat)
+            self.base_memory.add(*dat, serialized=True)
         if dat is None and self.base_memory.is_warmup_needed():
             time.sleep(0.1)
         if not self.base_memory.is_warmup_needed():
@@ -128,8 +125,7 @@ def _memory_communicate(
                 else:
                     q_recv_count += 1
                     share_data.q_recv_count = q_recv_count
-                    dat = pickle.loads(zlib.decompress(dat))
-                    memory.add(*dat)
+                    memory.add(*dat, serialized=True)
 
     except Exception:
         share_data.th_error = traceback.format_exc()
@@ -228,8 +224,7 @@ class _TrainerInterruptNoThread(TrainerCallback):
             dat = self.memory_receiver.memory_recv()
             if dat is not None:
                 self.q_recv_count += 1
-                dat = pickle.loads(zlib.decompress(dat))
-                state.memory.add(*dat)
+                state.memory.add(*dat, serialized=True)
                 state.trainer_recv_q = self.q_recv_count
         else:
             dat = None

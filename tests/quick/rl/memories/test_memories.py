@@ -69,11 +69,11 @@ def _play_memory_sub(
             assert len(batchs) == 5
             assert memory.length() == capacity
         else:
-            indices, batchs, weights = memory.sample(batch_size, i)
+            batchs, weights, update_args = memory.sample(batch_size, i)
             assert len(batchs) == 5
             assert len(weights) == 5
 
-            memory.update(indices, batchs, np.array([b[3] for b in batchs]))
+            memory.update(update_args, np.array([b[3] for b in batchs]))
             assert memory.length() == capacity
             assert not memory.is_warmup_needed()
 

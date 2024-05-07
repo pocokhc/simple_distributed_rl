@@ -114,7 +114,7 @@ class Trainer(RLTrainer[Config, Parameter]):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        indices, batchs, weights = self.memory.sample(self.batch_size, self.train_count)
+        batchs, weights, update_args = self.memory.sample(self.batch_size, self.train_count)
 
         device = self.parameter.device
         self.parameter.q_online.to(device)
@@ -148,7 +148,7 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         # --- update
         priorities = np.abs((target_q - q).to("cpu").detach().numpy())
-        self.memory.update(indices, batchs, priorities)
+        self.memory.update(update_args, priorities)
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:

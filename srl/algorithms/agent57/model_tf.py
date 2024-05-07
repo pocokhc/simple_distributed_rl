@@ -293,7 +293,7 @@ class Trainer(RLTrainer[Config, Parameter]):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        indices, batchs, weights = self.memory.sample(self.batch_size, self.train_count)
+        batchs, weights, update_args = self.memory.sample(self.batch_size, self.train_count)
 
         (
             burnin_states,
@@ -416,7 +416,7 @@ class Trainer(RLTrainer[Config, Parameter]):
         else:
             priorities = np.abs(td_error_ext + beta_list * td_error_int)
 
-        self.memory.update(indices, batchs, priorities)
+        self.memory.update(update_args, priorities)
 
         # --- sync target
         if self.train_count % self.config.target_model_update_interval == 0:

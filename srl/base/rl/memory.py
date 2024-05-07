@@ -25,7 +25,13 @@ class _IRLMemoryBase(ABC):
 
 class IRLMemoryWorker(_IRLMemoryBase):
     @abstractmethod
-    def add(self, *args) -> None:
+    def add(self, *args, serialized: bool = False) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def serialize_add_args(self, *args):
+        """addの引数をpickleできる形に変換"""
+        # return *args
         raise NotImplementedError()
 
 
@@ -35,6 +41,9 @@ class DummyRLMemoryWorker(IRLMemoryWorker):
         return RLMemoryTypes.NONE
 
     def add(self, *args) -> None:
+        raise NotImplementedError("Unused")
+
+    def serialize_add_args(self, *args):
         raise NotImplementedError("Unused")
 
 
@@ -137,6 +146,9 @@ class DummyRLMemory(RLMemory):
         pass
 
     def add(self, *args) -> None:
+        pass
+
+    def serialize_add_args(self, *args):
         pass
 
     def is_warmup_needed(self) -> bool:

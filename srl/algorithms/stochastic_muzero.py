@@ -609,7 +609,7 @@ class Trainer(RLTrainer[Config, Parameter]):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        indices, batchs, weights = self.memory.sample(self.batch_size, self.train_count)
+        batchs, weights, update_args = self.memory.sample(self.batch_size, self.train_count)
 
         # (batch, dict, steps, val) -> (steps, batch, val)
         states_list = []
@@ -717,7 +717,8 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.info["lr"] = lr
 
         # memory update
-        self.memory.update(indices, batchs, priorities)
+        priorities = np.abs(v_loss.numpy())
+        self.memory.update(update_args, priorities)
 
         # 学習したらキャッシュは削除
         self.parameter.reset_cache()

@@ -37,7 +37,7 @@ def test_priority_memory(memory: IPriorityMemory, use_priority: bool, check_dup:
     # --- 複数回やって比率をだす
     counter = []
     for i in range(10000):
-        (indices, batchs, weights) = memory.sample(5, step=1)
+        (batchs, weights, update_args) = memory.sample(5, step=1)
         assert len(batchs) == 5
         assert len(weights) == 5
 
@@ -50,7 +50,7 @@ def test_priority_memory(memory: IPriorityMemory, use_priority: bool, check_dup:
             counter.append(batch[0])
 
         # update priority
-        memory.update(indices, batchs, np.array([b[3] for b in batchs]))
+        memory.update(update_args, np.array([b[3] for b in batchs]))
         assert memory.length() == capacity
 
         # save/load
@@ -144,7 +144,7 @@ def _check_weights(memory: IPriorityMemory, priorities, true_priorities):
     for i, priority in enumerate(priorities):
         assert priority >= 0
         memory.add((i, i, i, i), priority=priority)
-    indices, batchs, weights = memory.sample(N, step=1)
+    batchs, weights, update_args = memory.sample(N, step=1)
 
     # 順番が変わっているので batch より元のindexを取得し比較
     for i, b in enumerate(batchs):

@@ -62,7 +62,7 @@ class RankBaseMemory(IPriorityMemory):
         elif len(self.memory) > self.capacity:
             self.memory.pop(0)
 
-    def sample(self, batch_size: int, step: int) -> Tuple[List[int], List[Any], np.ndarray]:
+    def sample(self, batch_size: int, step: int):
         # βは最初は低く、学習終わりに1にする。
         beta = self.beta_initial + (1 - self.beta_initial) * step / self.beta_steps
         if beta > 1:
@@ -92,9 +92,9 @@ class RankBaseMemory(IPriorityMemory):
         # 最大値で正規化
         weights = weights / weights.max()
 
-        return [], batchs, weights
+        return batchs, weights, batchs
 
-    def update(self, indices: List[int], batchs: List[Any], priorities: np.ndarray) -> None:
+    def update(self, batchs: List[Any], priorities: np.ndarray) -> None:
         for i in range(len(batchs)):
             priority = float(priorities[i])
             if self.max_priority < priority:

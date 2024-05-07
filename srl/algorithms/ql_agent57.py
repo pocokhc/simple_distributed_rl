@@ -266,7 +266,7 @@ class Trainer(RLTrainer[Config, Parameter]):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        indices, batchs, weights = self.memory.sample(self.batch_size, self.train_count)
+        batchs, weights, update_args = self.memory.sample(self.batch_size, self.train_count)
 
         lr_ext = self.lr_ext_sch.get_and_update_rate(self.train_count)
         lr_int = self.lr_int_sch.get_and_update_rate(self.train_count)
@@ -300,7 +300,7 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         # 外部Qを優先
         # priority = abs(ext_td_error) + batch["beta"] * abs(int_td_error)
-        self.memory.update(indices, batchs, np.abs(ext_td_errors))
+        self.memory.update(update_args, np.abs(ext_td_errors))
 
         self.info = {
             "size": len(self.parameter.Q_ext),

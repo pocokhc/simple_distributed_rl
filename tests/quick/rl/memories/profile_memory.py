@@ -1,8 +1,9 @@
 import cProfile
 import random
 
-from srl.rl.memories.proportional_memory import ProportionalMemory
 from tqdm import tqdm
+
+from srl.rl.memories.priority_memories.proportional_memory import ProportionalMemory
 
 
 def main():
@@ -35,13 +36,13 @@ def _run(memory):
         step += 1
 
         # sample
-        indices, batchs, weights = memory.sample(batch_size, step)
+        batchs, weights, update_args = memory.sample(batch_size, step)
         assert len(batchs) == batch_size
         assert len(weights) == batch_size
 
         # update priority
         priorities = [random.random() for _ in range(batch_size)]
-        memory.update(indices, batchs, priorities)
+        memory.update(update_args, priorities)
 
 
 if __name__ == "__main__":

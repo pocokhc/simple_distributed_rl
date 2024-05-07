@@ -62,7 +62,7 @@ def test_loss_grad():
     m.build((None, 1))
     m.summary()
 
-    optimizer = keras.optimizers.legacy.Adam(learning_rate=0.01)
+    optimizer = keras.optimizers.Adam(learning_rate=0.01)
     for i in range(1000):
         x_train, y_train = _create_dataset(64)
         with tf.GradientTape() as tape:

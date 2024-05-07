@@ -23,7 +23,6 @@ from srl.rl.tf import helper as helper_tf
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
-from srl.utils.common import compare_less_version
 
 kl = keras.layers
 
@@ -286,16 +285,10 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.lr_policy_sch = SchedulerConfig.create_scheduler(self.config.lr_policy)
         self.lr_alpha_sch = SchedulerConfig.create_scheduler(self.config.lr_alpha)
 
-        if compare_less_version(tf.__version__, "2.11.0"):
-            self.q1_optimizer = keras.optimizers.Adam(learning_rate=self.lr_q_sch.get_rate())
-            self.q2_optimizer = keras.optimizers.Adam(learning_rate=self.lr_q_sch.get_rate())
-            self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.lr_policy_sch.get_rate())
-            self.alpha_optimizer = keras.optimizers.Adam(learning_rate=self.lr_alpha_sch.get_rate())
-        else:
-            self.q1_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_q_sch.get_rate())
-            self.q2_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_q_sch.get_rate())
-            self.policy_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_policy_sch.get_rate())
-            self.alpha_optimizer = keras.optimizers.legacy.Adam(learning_rate=self.lr_alpha_sch.get_rate())
+        self.q1_optimizer = keras.optimizers.Adam(learning_rate=self.lr_q_sch.get_rate())
+        self.q2_optimizer = keras.optimizers.Adam(learning_rate=self.lr_q_sch.get_rate())
+        self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.lr_policy_sch.get_rate())
+        self.alpha_optimizer = keras.optimizers.Adam(learning_rate=self.lr_alpha_sch.get_rate())
 
         # エントロピーαの目標値、-1*アクション数が良いらしい
         if self.config.action_space.stype == SpaceTypes.DISCRETE:

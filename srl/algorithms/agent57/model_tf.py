@@ -8,10 +8,12 @@ from srl.base.rl.trainer import RLTrainer
 from srl.rl.functions import create_beta_list, create_discount_list
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
+from srl.utils.common import compare_less_version
 
 from .agent57 import CommonInterfaceParameter, Config
 
 kl = keras.layers
+v216_older = compare_less_version(tf.__version__, "2.16.0")
 
 
 # ------------------------------------------------------
@@ -34,6 +36,8 @@ class QNetwork(keras.Model):
             enable_rnn=True,
         )
 
+        self.concat_layer = kl.Concatenate(axis=-1)
+
         # --- lstm
         self.lstm_layer = kl.LSTM(
             config.lstm_units,
@@ -48,11 +52,14 @@ class QNetwork(keras.Model):
         )
 
         # build
-        self.build(
-            (None, config.sequence_length) + config.observation_space.shape,
-            (None, config.sequence_length, 1),
-            (None, config.sequence_length, config.action_space.n),
-            (None, config.sequence_length, config.actor_num),
+        self(
+            [
+                np.zeros((1, config.sequence_length) + config.observation_space.shape, config.dtype),
+                np.zeros((1, config.sequence_length, 1), config.dtype),
+                np.zeros((1, config.sequence_length, 1), config.dtype),
+                np.zeros((1, config.sequence_length, config.action_space.n), config.dtype),
+                np.zeros((1, config.sequence_length, config.actor_num), config.dtype),
+            ]
         )
 
     @tf.function()
@@ -78,7 +85,7 @@ class QNetwork(keras.Model):
         if self.input_action:
             uvfa_list.append(onehot_action)
         uvfa_list.append(onehot_actor)
-        x = tf.concat(uvfa_list, axis=2)
+        x = self.concat_layer(uvfa_list)
 
         # lstm
         x, h, c = self.lstm_layer(x, initial_state=hidden_states, training=training)
@@ -88,46 +95,16 @@ class QNetwork(keras.Model):
         return x, [h, c]
 
     def get_initial_state(self, batch_size=1):
-        return self.lstm_layer.cell.get_initial_state(batch_size=batch_size, dtype=tf.float32)
-
-    def build(
-        self,
-        in_state_shape,
-        in_reward_shape,
-        in_action_shape,
-        in_actor_shape,
-    ):
-        self.__in_state_shape = in_state_shape
-        self.__in_reward_shape = in_reward_shape
-        self.__in_action_shape = in_action_shape
-        self.__in_actor_shape = in_actor_shape
-        super().build(
-            [
-                self.__in_state_shape,
-                self.__in_reward_shape,
-                self.__in_reward_shape,
-                self.__in_action_shape,
-                self.__in_actor_shape,
-            ]
-        )
-
-    def summary(self, name="", **kwargs):
-        x = [
-            kl.Input(self.__in_state_shape[1:], name="state"),
-            kl.Input(self.__in_reward_shape[1:], name="reward_ext"),
-            kl.Input(self.__in_reward_shape[1:], name="reward_int"),
-            kl.Input(self.__in_action_shape[1:], name="action"),
-            kl.Input(self.__in_actor_shape[1:], name="actor"),
-        ]
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
-        model.summary(**kwargs)
+        if v216_older:
+            return self.lstm_layer.cell.get_initial_state(batch_size=batch_size, dtype=self.dtype)
+        else:
+            return self.lstm_layer.cell.get_initial_state(batch_size)
 
 
 # ------------------------------------------------------
 # エピソード記憶部(episodic_reward)
 # ------------------------------------------------------
-class _EmbeddingNetwork(keras.Model):
+class EmbeddingNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -141,14 +118,15 @@ class _EmbeddingNetwork(keras.Model):
         # emb_block
         self.emb_block = config.episodic_emb_block.create_block_tf()
 
+        self.concat_layer = kl.Concatenate(axis=-1)
+
         # out_block
         self.out_block = config.episodic_out_block.create_block_tf()
         self.out_block_normalize = kl.LayerNormalization()
         self.out_block_out = kl.Dense(config.action_space.n, activation="softmax")
 
         # build
-        self._in_shape = config.observation_space.shape
-        self.build([(None,) + self._in_shape, (None,) + self._in_shape])
+        self([np.zeros((1,) + config.observation_space.shape), np.zeros((1,) + config.observation_space.shape)])
         self.loss_func = keras.losses.MeanSquaredError()
 
     def _emb_block_call(self, x, training=False):
@@ -159,7 +137,7 @@ class _EmbeddingNetwork(keras.Model):
         x1 = self._emb_block_call(x[0], training=training)
         x2 = self._emb_block_call(x[1], training=training)
 
-        x = tf.concat([x1, x2], axis=1)
+        x = self.concat_layer([x1, x2])
         x = self.out_block(x, training=training)
         x = self.out_block_normalize(x, training=training)
         x = self.out_block_out(x, training=training)
@@ -179,7 +157,7 @@ class _EmbeddingNetwork(keras.Model):
 # ------------------------------------------------------
 # 生涯記憶部(life long novelty module)
 # ------------------------------------------------------
-class _LifelongNetwork(keras.Model):
+class LifelongNetwork(keras.Model):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -195,8 +173,7 @@ class _LifelongNetwork(keras.Model):
         self.hidden_normalize = kl.LayerNormalization()
 
         # build
-        self._in_shape = config.observation_space.shape
-        self.build((None,) + self._in_shape)
+        self(np.zeros((1,) + config.observation_space.shape))
         self.loss_func = keras.losses.MeanSquaredError()
 
     def call(self, x, training=False):
@@ -225,9 +202,9 @@ class Parameter(CommonInterfaceParameter):
         self.q_ext_target = QNetwork(self.config)
         self.q_int_online = QNetwork(self.config)
         self.q_int_target = QNetwork(self.config)
-        self.emb_network = _EmbeddingNetwork(self.config)
-        self.lifelong_target = _LifelongNetwork(self.config)
-        self.lifelong_train = _LifelongNetwork(self.config)
+        self.emb_network = EmbeddingNetwork(self.config)
+        self.lifelong_target = LifelongNetwork(self.config)
+        self.lifelong_train = LifelongNetwork(self.config)
 
         self.q_ext_target.set_weights(self.q_ext_online.get_weights())
         self.q_int_target.set_weights(self.q_int_online.get_weights())

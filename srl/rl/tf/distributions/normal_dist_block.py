@@ -153,8 +153,9 @@ class NormalDistBlock(keras.Model):
         enable_squashed: bool = False,
         enable_stable_gradients: bool = True,
         stable_gradients_scale_range: tuple = (1e-10, 10),
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.out_size = out_size
         self.enable_squashed = enable_squashed
         self.enable_stable_gradients = enable_stable_gradients

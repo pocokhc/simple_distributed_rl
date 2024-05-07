@@ -22,8 +22,10 @@ from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
+from srl.utils.common import compare_less_version
 
 kl = keras.layers
+v216_older = compare_less_version(tf.__version__, "2.16.0")
 
 """
 ・Paper
@@ -107,7 +109,6 @@ class Config(
         e = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
         self.epsilon = e
 
-    # 論文のハイパーパラメーター
     def set_atari_config(self):
         # model
         self.lstm_units = 512
@@ -195,8 +196,7 @@ class QNetwork(keras.Model):
         )
 
         # build
-        self._in_shape = (config.sequence_length,) + config.observation_space.shape
-        self.build((None,) + self._in_shape)
+        self.build((None,) + (config.sequence_length,) + config.observation_space.shape)
 
     @tf.function()
     def call(self, x, hidden_states=None, training=False):
@@ -211,8 +211,11 @@ class QNetwork(keras.Model):
         x = self.hidden_block(x, training=training)
         return x, [h, c]
 
-    def init_hidden_state(self):
-        return self.lstm_layer.cell.get_initial_state(batch_size=1, dtype=tf.float32)
+    def get_initial_state(self, batch_size=1):
+        if v216_older:
+            return self.lstm_layer.cell.get_initial_state(batch_size=batch_size, dtype=self.dtype)
+        else:
+            return self.lstm_layer.cell.get_initial_state(batch_size)
 
 
 # ------------------------------------------------------
@@ -255,10 +258,10 @@ class Trainer(RLTrainer[Config, Parameter]):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        indices, batchs, weights = self.memory.sample(self.batch_size, self.train_count)
+        batchs, weights, update_args = self.memory.sample(self.batch_size, self.train_count)
 
         td_errors, loss = self._train_on_batchs(batchs, np.array(weights).reshape(-1, 1))
-        self.memory.update(indices, batchs, np.array(td_errors))
+        self.memory.update(update_args, np.array(td_errors))
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
@@ -415,7 +418,7 @@ class Worker(RLWorker[Config, Parameter]):
         self.recent_done = [False for _ in range(self.config.sequence_length)]
         self.recent_invalid_actions = [[] for _ in range(self.config.sequence_length + 1)]
 
-        self.hidden_state = self.parameter.q_online.init_hidden_state()
+        self.hidden_state = self.parameter.q_online.get_initial_state()
         self.recent_hidden_states = [
             [self.hidden_state[0][0], self.hidden_state[1][0]]
             for _ in range(self.config.burnin + self.config.sequence_length + 1)

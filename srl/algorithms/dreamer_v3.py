@@ -8,7 +8,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow import keras
 
-from srl.base.define import DoneTypes, RLBaseTypes, SpaceTypes
+from srl.base.define import DoneTypes, SpaceTypes
 from srl.base.exception import UndefinedError
 from srl.base.rl.algorithms.base_ppo import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
@@ -16,6 +16,7 @@ from srl.base.rl.processor import Processor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
+from srl.base.spaces.discrete import DiscreteSpace
 from srl.rl import functions as funcs
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
@@ -31,8 +32,10 @@ from srl.utils.common import compare_less_version
 
 kl = keras.layers
 tfd = tfp.distributions
+v216_older = compare_less_version(tf.__version__, "2.16.0")
 
 logger = logging.getLogger(__name__)
+
 
 """
 paper: https://browse.arxiv.org/abs/2301.04104v1
@@ -481,7 +484,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _RSSM(keras.Model):
+class RSSM(keras.Model):
     def __init__(
         self,
         deter: int,
@@ -492,8 +495,9 @@ class _RSSM(keras.Model):
         activation: Any,
         use_norm_layer: bool,
         use_categorical_distribution: bool,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.use_categorical_distribution = use_categorical_distribution
         self.stoch_size = stoch
         self.classes = classes
@@ -504,7 +508,7 @@ class _RSSM(keras.Model):
         if use_norm_layer:
             self.img_in_layers.append(kl.LayerNormalization())
         self.img_in_layers.append(kl.Activation(activation))
-        self.rnn_cell = kl.GRUCell(deter)
+        self.gru_cell = kl.GRUCell(deter)
         self.img_out_layers = [kl.Dense(hidden_units)]
         if use_norm_layer:
             self.img_out_layers.append(kl.LayerNormalization())
@@ -515,6 +519,8 @@ class _RSSM(keras.Model):
         if use_norm_layer:
             self.obs_layers.append(kl.LayerNormalization())
         self.obs_layers.append(kl.Activation(activation))
+
+        self.concat_layer = kl.Concatenate(axis=-1)
 
         # --- dist
         if self.use_categorical_distribution:
@@ -535,7 +541,7 @@ class _RSSM(keras.Model):
         x = tf.concat([prev_stoch, prev_onehot_action], -1)
         for layer in self.img_in_layers:
             x = layer(x, training=training)
-        x, deter = cast(Any, self.rnn_cell(x, [prev_deter], training=training))
+        x, deter = self.gru_cell(x, [prev_deter], training=training)
         deter = deter[0]
         for layer in self.img_out_layers:
             x = layer(x, training=training)
@@ -601,8 +607,11 @@ class _RSSM(keras.Model):
         return post
 
     def get_initial_state(self, batch_size: int = 1):
-        stoch = tf.zeros((batch_size, self.stoch_size * self.classes), dtype=tf.float32)
-        deter = self.rnn_cell.get_initial_state(None, batch_size, dtype=tf.float32)
+        stoch = tf.zeros((batch_size, self.stoch_size * self.classes), dtype=self.dtype)
+        if v216_older:
+            deter = self.gru_cell.get_initial_state(None, batch_size, dtype=self.dtype)
+        else:
+            deter = self.gru_cell.get_initial_state(batch_size)[0]
         return stoch, deter
 
     @tf.function
@@ -670,7 +679,7 @@ class _RSSM(keras.Model):
         # (seq, batch, shape) -> (seq*batch, shape)
         stochs = tf.reshape(stochs, (batch_length * batch_size,) + stochs.shape[2:])
         deters = tf.reshape(deters, (batch_length * batch_size,) + deters.shape[2:])
-        feats = tf.concat([stochs, deters], -1)
+        feats = self.concat_layer([stochs, deters])
 
         # --- KL loss
         kl_loss_dyn = tfd.kl_divergence(tf.stop_gradient(post_dist), prior_dist)
@@ -680,42 +689,21 @@ class _RSSM(keras.Model):
 
         return stochs, deters, feats, kl_loss_dyn, kl_loss_rep, stoch, deter
 
-    def build(self, config: Config, embed_size: int):
+    def build_call(self, config: Config, embed_size: int):
         self._embed_size = embed_size
         in_stoch, in_deter = self.get_initial_state()
-        if config.action_space.stype == SpaceTypes.DISCRETE:
+        if isinstance(config.action_space, DiscreteSpace):
             n = config.action_space.n
-        else:
+        elif isinstance(config.action_space, ArrayContinuousSpace):
             n = config.action_space.size
         in_onehot_action = np.zeros((1, n), dtype=np.float32)
         in_embed = np.zeros((1, embed_size), dtype=np.float32)
         deter, prior = self.img_step(in_stoch, in_deter, in_onehot_action)
         post = self.obs_step(deter, in_embed)
-        self.built = True
-        return tf.concat([post["stoch"], deter], axis=1)
-
-    def summary(self, config: Config, **kwargs):
-        _stoch, _deter = self.get_initial_state()
-        in_deter = kl.Input((_deter.shape[1],), batch_size=1)
-        in_stoch = kl.Input((_stoch.shape[1],), batch_size=1)
-        if config.action_space.stype == SpaceTypes.DISCRETE:
-            n = config.action_space.n
-        else:
-            n = config.action_space.size
-        in_onehot_action = kl.Input((n,), batch_size=1)
-        in_embed = kl.Input((self._embed_size,), batch_size=1)
-
-        deter, prior = self.img_step(in_stoch, in_deter, in_onehot_action)
-        post = self.obs_step(deter, in_embed)
-        model = keras.Model(
-            inputs=[in_stoch, in_deter, in_onehot_action, in_embed],
-            outputs=post,
-            name="RSSM",
-        )
-        return model.summary(**kwargs)
+        return self.concat_layer([post["stoch"], deter])
 
 
-class _ImageEncoder(keras.Model):
+class ImageEncoder(keras.Model):
     def __init__(
         self,
         img_shape: tuple,
@@ -725,8 +713,9 @@ class _ImageEncoder(keras.Model):
         normalization_type: str,
         resize_type: str,
         resized_image_size: int,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         assert normalization_type in ["none", "layer"]
         self._in_shape = img_shape
         self.img_shape = img_shape
@@ -832,17 +821,11 @@ class _ImageEncoder(keras.Model):
         else:
             return x_out
 
-    def summary(self, name="", **kwargs):
-        x = kl.Input(shape=self._in_shape)
-        name = self.__class__.__name__ if name == "" else name
-        model = keras.Model(inputs=x, outputs=self._call(x), name=name)
-        return model.summary(**kwargs)
 
-
-class _ImageDecoder(keras.Model):
+class ImageDecoder(keras.Model):
     def __init__(
         self,
-        encoder: _ImageEncoder,
+        encoder: ImageEncoder,
         use_sigmoid: bool,
         depth: int,
         res_blocks: int,
@@ -850,8 +833,9 @@ class _ImageDecoder(keras.Model):
         normalization_type: str,
         resize_type: str,
         dist_type: str,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.use_sigmoid = use_sigmoid
         self.dist_type = dist_type
 
@@ -951,13 +935,14 @@ class _ImageDecoder(keras.Model):
             raise UndefinedError(self.dist_type)
 
 
-class _LinearEncoder(keras.Model):
+class LinearEncoder(keras.Model):
     def __init__(
         self,
         hidden_layer_sizes: Tuple[int, ...],
         activation: str,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
 
         self.hidden_layers = []
         for size in hidden_layer_sizes:
@@ -981,7 +966,7 @@ class Parameter(RLParameter):
 
         # --- encode/decode
         if SpaceTypes.is_image(self.config.observation_space.stype):
-            self.encode = _ImageEncoder(
+            self.encode = ImageEncoder(
                 self.config.observation_space.shape,
                 self.config.cnn_depth,
                 self.config.cnn_blocks,
@@ -989,8 +974,9 @@ class Parameter(RLParameter):
                 self.config.cnn_normalization_type,
                 self.config.cnn_resize_type,
                 self.config.cnn_resized_image_size,
+                name="ImageEncoder",
             )
-            self.decode = _ImageDecoder(
+            self.decode = ImageDecoder(
                 self.encode,
                 self.config.cnn_use_sigmoid,
                 self.config.cnn_depth,
@@ -999,12 +985,14 @@ class Parameter(RLParameter):
                 self.config.cnn_normalization_type,
                 self.config.cnn_resize_type,
                 self.config.encoder_decoder_dist,
+                name="ImageDecoder",
             )
             logger.info(f"Encoder/Decoder: Image({self.config.encoder_decoder_dist})")
         else:
-            self.encode = _LinearEncoder(
+            self.encode = LinearEncoder(
                 self.config.encoder_decoder_mlp,
                 self.config.dense_act,
+                name="LinearEncoder",
             )
             if self.config.encoder_decoder_dist == "linear":
                 self.decode = LinearBlock(
@@ -1012,6 +1000,7 @@ class Parameter(RLParameter):
                     list(reversed(self.config.encoder_decoder_mlp)),
                     activation=self.config.dense_act,
                     use_symlog=self.config.use_symlog,
+                    name="LinearDecoder",
                 )
                 logger.info("Encoder/Decoder: Linear" + ("(symlog)" if self.config.use_symlog else ""))
             elif self.config.encoder_decoder_dist == "normal":
@@ -1019,13 +1008,14 @@ class Parameter(RLParameter):
                     self.config.observation_space.shape[-1],
                     list(reversed(self.config.encoder_decoder_mlp)),
                     activation=self.config.dense_act,
+                    name="LinearDecoder",
                 )
                 logger.info("Encoder/Decoder: Normal")
             else:
                 raise UndefinedError(self.config.encoder_decoder_dist)
 
         # --- dynamics
-        self.dynamics = _RSSM(
+        self.dynamics = RSSM(
             self.config.rssm_deter_size,
             self.config.rssm_stoch_size,
             self.config.rssm_classes,
@@ -1034,6 +1024,7 @@ class Parameter(RLParameter):
             self.config.rssm_activation,
             self.config.rssm_use_norm_layer,
             self.config.rssm_use_categorical_distribution,
+            name="RSSM",
         )
 
         # --- reward
@@ -1043,6 +1034,7 @@ class Parameter(RLParameter):
                 self.config.reward_layer_sizes,
                 self.config.dense_act,
                 use_symlog=self.config.use_symlog,
+                name="RewardModel",
             )
             logger.info("Reward: Linear" + ("(symlog)" if self.config.use_symlog else ""))
         elif self.config.reward_type == "twohot":
@@ -1053,19 +1045,24 @@ class Parameter(RLParameter):
                 self.config.reward_layer_sizes,
                 self.config.dense_act,
                 use_symlog=self.config.use_symlog,
+                name="RewardModel",
             )
             logger.info("Reward: TwoHot" + ("(symlog)" if self.config.use_symlog else ""))
         elif self.config.reward_type == "normal":
-            self.reward = NormalDistBlock(1, self.config.reward_layer_sizes, (), (), self.config.dense_act)
+            self.reward = NormalDistBlock(
+                1, self.config.reward_layer_sizes, (), (), self.config.dense_act, name="RewardModel"
+            )
             logger.info("Reward: Normal")
         elif self.config.reward_type == "normal_fixed_scale":
-            self.reward = NormalDistBlock(1, self.config.reward_layer_sizes, (), (), self.config.dense_act, 1)
+            self.reward = NormalDistBlock(
+                1, self.config.reward_layer_sizes, (), (), self.config.dense_act, 1, name="RewardModel"
+            )
             logger.info("Reward: Normal(stddev=1)")
         else:
             raise UndefinedError(self.config.reward_type)
 
         # --- continue
-        self.cont = BernoulliDistBlock(1, self.config.cont_layer_sizes, self.config.dense_act)
+        self.cont = BernoulliDistBlock(1, self.config.cont_layer_sizes, self.config.dense_act, name="ContinueModel")
         logger.info("Continue: Bernoulli")
 
         # --- critic
@@ -1076,17 +1073,23 @@ class Parameter(RLParameter):
                 self.config.critic_layer_sizes,
                 self.config.dense_act,
                 self.config.use_symlog,
+                name="Critic",
             )
             self.critic_target = LinearBlock(
                 1,
                 self.config.critic_layer_sizes,
                 self.config.dense_act,
                 self.config.use_symlog,
+                name="CriticTarget",
             )
             logger.info("Critic: Linear" + ("(symlog)" if self.config.use_symlog else ""))
         elif self.config.critic_type == "normal":
-            self.critic = NormalDistBlock(1, self.config.critic_layer_sizes, (), (), self.config.dense_act)
-            self.critic_target = NormalDistBlock(1, self.config.critic_layer_sizes, (), (), self.config.dense_act)
+            self.critic = NormalDistBlock(
+                1, self.config.critic_layer_sizes, (), (), self.config.dense_act, name="Critic"
+            )
+            self.critic_target = NormalDistBlock(
+                1, self.config.critic_layer_sizes, (), (), self.config.dense_act, name="CriticTarget"
+            )
             logger.info("Critic: Normal")
         elif self.config.critic_type == "normal_fixed_scale":
             self.critic = NormalDistBlock(
@@ -1094,12 +1097,14 @@ class Parameter(RLParameter):
                 self.config.critic_layer_sizes,
                 activation=self.config.dense_act,
                 fixed_scale=1,
+                name="Critic",
             )
             self.critic_target = NormalDistBlock(
                 1,
                 self.config.critic_layer_sizes,
                 activation=self.config.dense_act,
                 fixed_scale=1,
+                name="CriticTarget",
             )
             logger.info("Critic: Normal(stddev=1)")
         elif self.config.critic_type == "twohot":
@@ -1110,6 +1115,7 @@ class Parameter(RLParameter):
                 self.config.critic_layer_sizes,
                 self.config.dense_act,
                 use_symlog=self.config.use_symlog,
+                name="Critic",
             )
             self.critic_target = TwoHotDistBlock(
                 self.config.critic_twohot_bins,
@@ -1118,6 +1124,7 @@ class Parameter(RLParameter):
                 self.config.critic_layer_sizes,
                 self.config.dense_act,
                 use_symlog=self.config.use_symlog,
+                name="CriticTarget",
             )
             logger.info("Critic: TwoHot" + ("(symlog)" if self.config.use_symlog else ""))
         else:
@@ -1125,41 +1132,44 @@ class Parameter(RLParameter):
 
         # --- actor
         logger.info(f"Actor loss: {self.config.actor_loss_type}")
-        if self.config.action_space.stype == SpaceTypes.DISCRETE:
+        if isinstance(self.config.action_space, DiscreteSpace):
             if self.config.actor_discrete_type == "categorical":
                 self.actor = CategoricalDistBlock(
                     self.config.action_space.n,
                     self.config.actor_layer_sizes,
                     unimix=self.config.actor_discrete_unimix,
+                    name="Actor",
                 )
                 logger.info(f"Actor: Categorical(unimix={self.config.actor_discrete_unimix})")
             elif self.config.actor_discrete_type == "gumbel_categorical":
                 self.actor = CategoricalGumbelDistBlock(
                     self.config.action_space.n,
                     self.config.actor_layer_sizes,
+                    name="Actor",
                 )
                 logger.info("Actor: GumbelCategorical")
             else:
                 raise UndefinedError(self.config.actor_discrete_type)
-        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
+        elif isinstance(self.config.action_space, ArrayContinuousSpace):
             self.actor = NormalDistBlock(
                 self.config.action_space.size,
                 self.config.actor_layer_sizes,
                 enable_squashed=self.config.actor_continuous_enable_normal_squashed,
+                name="Actor",
             )
             logger.info("Actor: Normal")
         else:
-            raise ValueError(self.config.action_space.stype)
+            raise ValueError(self.config.action_space)
 
         # --- build
-        self.encode.build((None,) + self.config.observation_space.shape)
-        embed = self.dynamics.build(self.config, self.encode.out_size)
-        self.decode.build((None, embed.shape[1]))
-        self.reward.build((None, embed.shape[1]))
-        self.cont.build((None, embed.shape[1]))
-        self.critic.build((None, embed.shape[1]))
-        self.critic_target.build((None, embed.shape[1]))
-        self.actor.build((None, embed.shape[1]))
+        self.encode(np.zeros((1,) + self.config.observation_space.shape, self.config.dtype))
+        embed: Any = self.dynamics.build_call(self.config, self.encode.out_size)
+        self.decode(np.zeros((1, embed.shape[1]), self.config.dtype))
+        self.reward(np.zeros((1, embed.shape[1]), self.config.dtype))
+        self.cont(np.zeros((1, embed.shape[1]), self.config.dtype))
+        self.critic(np.zeros((1, embed.shape[1]), self.config.dtype))
+        self.critic_target(np.zeros((1, embed.shape[1]), self.config.dtype))
+        self.actor(np.zeros((1, embed.shape[1]), self.config.dtype))
 
         # --- sync target
         self.critic_target.set_weights(self.critic.get_weights())
@@ -1187,7 +1197,8 @@ class Parameter(RLParameter):
 
     def summary(self, **kwargs):
         self.encode.summary(**kwargs)
-        # self.dynamics.summary(self.config, **kwargs)
+        if not v216_older:
+            self.dynamics.summary(**kwargs)
         self.decode.summary(**kwargs)
         self.reward.summary(**kwargs)
         self.cont.summary(**kwargs)
@@ -1208,14 +1219,13 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.lr_sch_critic = SchedulerConfig.create_scheduler(self.config.lr_critic)
         self.lr_sch_actor = SchedulerConfig.create_scheduler(self.config.lr_actor)
 
-        if compare_less_version(tf.__version__, "2.11.0"):
-            self._model_opt = keras.optimizers.Adam(learning_rate=self.lr_sch_model.get_rate())
-            self._critic_opt = keras.optimizers.Adam(learning_rate=self.lr_sch_critic.get_rate())
-            self._actor_opt = keras.optimizers.Adam(learning_rate=self.lr_sch_actor.get_rate())
-        else:
-            self._model_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_model.get_rate())
-            self._critic_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_critic.get_rate())
-            self._actor_opt = keras.optimizers.legacy.Adam(learning_rate=self.lr_sch_actor.get_rate())
+        self.opt_encode = keras.optimizers.Adam(learning_rate=self.lr_sch_model.get_rate())
+        self.opt_decode = keras.optimizers.Adam(learning_rate=self.lr_sch_model.get_rate())
+        self.opt_dynamics = keras.optimizers.Adam(learning_rate=self.lr_sch_model.get_rate())
+        self.opt_reward = keras.optimizers.Adam(learning_rate=self.lr_sch_model.get_rate())
+        self.opt_cont = keras.optimizers.Adam(learning_rate=self.lr_sch_model.get_rate())
+        self.opt_critic = keras.optimizers.Adam(learning_rate=self.lr_sch_critic.get_rate())
+        self.opt_actor = keras.optimizers.Adam(learning_rate=self.lr_sch_actor.get_rate())
 
         self.seq_action = [[] for _ in range(self.config.batch_size)]
         self.seq_next_state = [[] for _ in range(self.config.batch_size)]
@@ -1292,6 +1302,7 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.parameter.decode.trainable = True
         self.parameter.dynamics.trainable = True
         self.parameter.reward.trainable = True
+        self.parameter.cont.trainable = True
         self.parameter.actor.trainable = False
         self.parameter.critic.trainable = False
         with tf.GradientTape() as tape:
@@ -1339,11 +1350,18 @@ class Trainer(RLTrainer[Config, Parameter]):
                 self.parameter.cont.trainable_variables,
             ]
             grads = tape.gradient(loss, variables)
-            for i in range(len(variables)):
-                self._model_opt.apply_gradients(zip(grads[i], variables[i]))
+            self.opt_encode.apply_gradients(zip(grads[0], variables[0]))
+            self.opt_dynamics.apply_gradients(zip(grads[1], variables[1]))
+            self.opt_decode.apply_gradients(zip(grads[2], variables[2]))
+            self.opt_reward.apply_gradients(zip(grads[3], variables[3]))
+            self.opt_cont.apply_gradients(zip(grads[4], variables[4]))
 
             if self.lr_sch_model.update(self.train_count):
-                self._model_opt.learning_rate = self.lr_sch_model.get_rate()
+                self.opt_encode.learning_rate = self.lr_sch_model.get_rate()
+                self.opt_dynamics.learning_rate = self.lr_sch_model.get_rate()
+                self.opt_decode.learning_rate = self.lr_sch_model.get_rate()
+                self.opt_reward.learning_rate = self.lr_sch_model.get_rate()
+                self.opt_cont.learning_rate = self.lr_sch_model.get_rate()
 
         if (not self.config.enable_train_actor) and (not self.config.enable_train_critic):
             # WorldModelsのみ学習
@@ -1355,6 +1373,7 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.parameter.decode.trainable = False
         self.parameter.dynamics.trainable = False
         self.parameter.reward.trainable = False
+        self.parameter.cont.trainable = False
 
         # ------------------------
         # Actor
@@ -1369,7 +1388,7 @@ class Trainer(RLTrainer[Config, Parameter]):
                     stochs, deters, feats
                 )
             grads = tape.gradient(actor_loss, self.parameter.actor.trainable_variables)
-            self._actor_opt.apply_gradients(zip(grads, self.parameter.actor.trainable_variables))
+            self.opt_actor.apply_gradients(zip(grads, self.parameter.actor.trainable_variables))
             if act_v_loss is not None:
                 self.info["act_v_loss"] = act_v_loss.numpy()
             if entropy_loss is not None:
@@ -1377,7 +1396,7 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.info["actor_loss"] = actor_loss.numpy()
 
             if self.lr_sch_actor.update(self.train_count):
-                self._actor_opt.learning_rate = self.lr_sch_actor.get_rate()
+                self.opt_actor.learning_rate = self.lr_sch_actor.get_rate()
 
         # ------------------------
         # critic
@@ -1393,11 +1412,11 @@ class Trainer(RLTrainer[Config, Parameter]):
             with tf.GradientTape() as tape:
                 critic_loss = self.parameter.critic.compute_train_loss(horizon_feat, tf.stop_gradient(horizon_V))
             grads = tape.gradient(critic_loss, self.parameter.critic.trainable_variables)
-            self._critic_opt.apply_gradients(zip(grads, self.parameter.critic.trainable_variables))
+            self.opt_critic.apply_gradients(zip(grads, self.parameter.critic.trainable_variables))
             self.info["critic_loss"] = critic_loss.numpy()
 
             if self.lr_sch_critic.update(self.train_count):
-                self._critic_opt.learning_rate = self.lr_sch_critic.get_rate()
+                self.opt_critic.learning_rate = self.lr_sch_critic.get_rate()
 
             # --- target update
             if self.config.critic_target_update_interval > 0:

@@ -76,7 +76,7 @@ def test_loss_grad(unimix):
             return x
 
     model = _Model()
-    optimizer = keras.optimizers.legacy.Adam(learning_rate=0.001)
+    optimizer = keras.optimizers.Adam(learning_rate=0.001)
     mse_loss = keras.losses.MeanSquaredError()
     for i in range(500):
         x_train, _ = _create_dataset(128)

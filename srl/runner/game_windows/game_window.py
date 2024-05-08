@@ -223,7 +223,7 @@ class GameWindow(ABC):
         window_h = max(max(self.env_h + self.rl_state_h, self.rl_h), self.info_h) + self.padding * 2
 
         window_w = min(window_w, 1400)
-        window_h = min(window_h, 1000)
+        window_h = min(window_h, 900)
         self.screen = pygame.display.set_mode((window_w, window_h))
 
     def draw_texts(

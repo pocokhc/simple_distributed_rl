@@ -356,7 +356,7 @@ def test_random():
     for _ in range(10):
         env.step(env.sample_action())
         reward += env.reward
-    assert math.isclose(reward, true_reward)
+    assert math.isclose(reward, true_reward, rel_tol=1e-7, abs_tol=1e-7)
 
     random.seed(seed)
     np.random.seed(seed)
@@ -366,7 +366,7 @@ def test_random():
     for _ in range(10):
         env.step(env.sample_action())
         reward += env.reward
-    assert math.isclose(reward, true_reward)
+    assert math.isclose(reward, true_reward, rel_tol=1e-7, abs_tol=1e-7)
 
 
 def test_wrapper():

@@ -27,6 +27,9 @@ class RunnerFacade(Runner):
         max_steps: int = -1,
         max_train_count: int = -1,
         max_memory: int = -1,
+        # --- thread
+        use_train_thread: bool = False,
+        thread_queue_capacity: int = 10,
         # --- play config
         shuffle_player: bool = True,
         # --- progress
@@ -68,6 +71,9 @@ class RunnerFacade(Runner):
         self.context.training = True
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
+        # thread
+        self.context.use_train_thread = use_train_thread
+        self.context.thread_queue_capacity = thread_queue_capacity
 
         # --- progress ---
         if enable_progress:
@@ -133,6 +139,8 @@ class RunnerFacade(Runner):
         self.context.training = True
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
+        # thread
+        self.context.use_train_thread = False
 
         # --- progress ---
         if enable_progress:
@@ -170,6 +178,9 @@ class RunnerFacade(Runner):
         # --- stop config
         timeout: float = -1,
         max_train_count: int = -1,
+        # --- thread
+        use_train_thread: bool = False,
+        thread_queue_capacity: int = 10,
         # --- progress
         enable_progress: bool = True,
         # --- other
@@ -197,6 +208,9 @@ class RunnerFacade(Runner):
         self.context.training = True
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
+        # thread
+        self.context.use_train_thread = use_train_thread
+        self.context.thread_queue_capacity = thread_queue_capacity
 
         # --- progress ---
         if enable_progress:
@@ -233,6 +247,9 @@ class RunnerFacade(Runner):
         # --- stop config
         timeout: float = -1,
         max_train_count: int = -1,
+        # --- thread
+        use_train_thread: bool = False,
+        thread_queue_capacity: int = 10,
         # --- play config
         shuffle_player: bool = True,
         # --- progress
@@ -266,6 +283,9 @@ class RunnerFacade(Runner):
         self.context.training = True
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
+        # thread
+        self.context.use_train_thread = use_train_thread
+        self.context.thread_queue_capacity = thread_queue_capacity
 
         if enable_progress:
             from srl.runner.callbacks.print_progress import PrintProgress
@@ -408,6 +428,9 @@ class RunnerFacade(Runner):
         # --- stop config
         timeout: float = -1,
         max_train_count: int = -1,
+        # --- thread
+        use_train_thread: bool = False,
+        thread_queue_capacity: int = 10,
         # --- play config
         shuffle_player: bool = True,
         # --- progress
@@ -447,6 +470,9 @@ class RunnerFacade(Runner):
         self.context.training = True
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
+        # thread
+        self.context.use_train_thread = use_train_thread
+        self.context.thread_queue_capacity = thread_queue_capacity
 
         # --- remote progress ---
         if True:
@@ -499,6 +525,9 @@ class RunnerFacade(Runner):
         # --- stop config
         timeout: float = -1,
         max_train_count: int = -1,
+        # --- thread
+        use_train_thread: bool = False,
+        thread_queue_capacity: int = 10,
         # --- play config
         shuffle_player: bool = True,
         # --- other
@@ -530,6 +559,9 @@ class RunnerFacade(Runner):
         self.context.training = True
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
+        # thread
+        self.context.use_train_thread = use_train_thread
+        self.context.thread_queue_capacity = thread_queue_capacity
 
         # --- remote progress ---
         if True:
@@ -602,6 +634,8 @@ class RunnerFacade(Runner):
         self.context.training = False
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
+        # thread
+        self.context.use_train_thread = False
 
         # --- progress ---
         if enable_progress:
@@ -671,6 +705,8 @@ class RunnerFacade(Runner):
         self.context.training = False
         self.context.rendering = True
         self.context.render_mode = mode
+        # thread
+        self.context.use_train_thread = False
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -746,6 +782,8 @@ class RunnerFacade(Runner):
         self.context.training = False
         self.context.rendering = True
         self.context.render_mode = mode
+        # thread
+        self.context.use_train_thread = False
 
         # --- rendering
         from srl.runner.callbacks.rendering import Rendering
@@ -837,6 +875,8 @@ class RunnerFacade(Runner):
         self.context.training = False
         self.context.rendering = True
         self.context.render_mode = mode
+        # thread
+        self.context.use_train_thread = False
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -931,6 +971,8 @@ class RunnerFacade(Runner):
         self.context.training = False
         self.context.rendering = True
         self.context.render_mode = mode
+        # thread
+        self.context.use_train_thread = False
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -1024,6 +1066,8 @@ class RunnerFacade(Runner):
         self.context.training = False
         self.context.rendering = True
         self.context.render_mode = mode
+        # thread
+        self.context.use_train_thread = False
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -1109,6 +1153,8 @@ class RunnerFacade(Runner):
         self.context.training = False
         self.context.rendering = True
         self.context.render_mode = mode
+        # thread
+        self.context.use_train_thread = False
 
         # --- progress ---
         if enable_progress:
@@ -1166,6 +1212,8 @@ class RunnerFacade(Runner):
         self.context.training = False
         self.context.rendering = True
         self.context.render_mode = mode
+        # thread
+        self.context.use_train_thread = False
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -1236,6 +1284,8 @@ class RunnerFacade(Runner):
         self.context.training = enable_memory
         self.context.rendering = True
         self.context.render_mode = mode
+        # thread
+        self.context.use_train_thread = False
 
         from srl.utils.common import is_packages_installed
 

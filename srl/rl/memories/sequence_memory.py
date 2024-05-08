@@ -32,8 +32,8 @@ class SequenceMemory(RLMemory):
             batch = pickle.loads(batch)
         self.buffer.append(batch)
 
-    def serialize_add_args(self, batch: Any):
-        return pickle.dumps(batch)
+    def serialize_add_args(self, batch: Any) -> tuple:
+        return (pickle.dumps(batch),)
 
     def sample(self) -> List[Any]:
         buffer = self.buffer

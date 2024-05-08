@@ -162,7 +162,7 @@ class Memory(RLMemory):
         else:
             raise ValueError(type_)
 
-    def serialize_add_args(self, type_: str, batch: Any):
+    def serialize_add_args(self, type_: str, batch: Any) -> tuple:
         return type_, pickle.dumps(batch)
 
     def sample(self, batch_size: int, step: int) -> Any:

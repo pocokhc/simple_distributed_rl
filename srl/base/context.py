@@ -46,6 +46,10 @@ class RunContext:
     rendering: bool = False
     render_mode: Union[str, RenderModes] = RenderModes.none
 
+    # --- thread
+    use_train_thread: bool = False
+    thread_queue_capacity: int = 10
+
     # --- mp
     actor_id: int = 0
     actor_num: int = 1

@@ -191,11 +191,11 @@ class PriorityExperienceReplay(RLMemory[RLConfigComponentPriorityExperienceRepla
                 pass  # nothing
         self.memory.add(batch, priority)
 
-    def serialize_add_args(self, batch: Any, priority: Optional[float]):
+    def serialize_add_args(self, batch: Any, priority: Optional[float]) -> tuple:
         batch = pickle.dumps(batch)
         if self.config.memory_compress:
             batch = zlib.compress(batch, level=self.config.memory_compress_level)
-        return batch, priority
+        return (batch, priority)
 
     def sample(self, batch_size: int, step: int) -> Tuple[List[Any], np.ndarray, List[Any]]:
         batchs, weights, update_args = self.memory.sample(batch_size, step)

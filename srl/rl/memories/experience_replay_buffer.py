@@ -53,9 +53,8 @@ class RLConfigComponentExperienceReplayBuffer:
 
 
 class RandomMemory:
-    def __init__(self, capacity: int, warmup_size: int):
+    def __init__(self, capacity: int):
         self.capacity = capacity
-        self.warmup_size = warmup_size
         self.memory = []
         self.idx = 0
 
@@ -95,7 +94,7 @@ class RandomMemory:
 class ExperienceReplayBuffer(RandomMemory, RLMemory[RLConfigComponentExperienceReplayBuffer]):
     def __init__(self, *args):
         RLMemory.__init__(self, *args)
-        RandomMemory.__init__(self, self.config.memory.capacity, self.config.memory.warmup_size)
+        RandomMemory.__init__(self, self.config.memory.capacity)
 
     @property
     def memory_type(self) -> RLMemoryTypes:
@@ -117,11 +116,11 @@ class ExperienceReplayBuffer(RandomMemory, RLMemory[RLConfigComponentExperienceR
                 pass  # nothing
         RandomMemory.add(self, batch)
 
-    def serialize_add_args(self, batch: Any):
+    def serialize_add_args(self, batch: Any) -> tuple:
         batch = pickle.dumps(batch)
         if self.config.memory_compress:
             batch = zlib.compress(batch, level=self.config.memory_compress_level)
-        return batch
+        return (batch,)
 
     def sample(self, batch_size: int) -> List[Any]:
         batchs = RandomMemory.sample(self, batch_size)

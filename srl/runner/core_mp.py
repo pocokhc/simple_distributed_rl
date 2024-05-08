@@ -6,7 +6,6 @@ import queue
 import threading
 import time
 import traceback
-import zlib
 from multiprocessing import sharedctypes
 from typing import List, Optional, cast
 
@@ -53,12 +52,14 @@ class _ActorRLMemory(IRLMemoryWorker):
         remote_q_capacity: int,
         end_signal: ctypes.c_bool,
         actor_id: int,
+        base_memory: IRLMemoryWorker,
     ):
         self.remote_queue = remote_queue
         self.remote_qsize = remote_qsize
         self.remote_q_capacity = remote_q_capacity
         self.end_signal = end_signal
         self.actor_id = actor_id
+        self.base_memory = base_memory
         self.q_send = 0
         self.t0_health = time.time()  # [2]
 
@@ -66,14 +67,14 @@ class _ActorRLMemory(IRLMemoryWorker):
     def memory_type(self) -> RLMemoryTypes:
         return RLMemoryTypes.NONE
 
-    def add(self, *args) -> None:
+    def add(self, *args, serialized: bool = False) -> None:
         t0 = time.time()
         while True:
             if self.end_signal.value:
                 break
             if self.remote_qsize.value < self.remote_q_capacity:
-                args = zlib.compress(pickle.dumps(args))
-                self.remote_queue.put(args)
+                raw = self.base_memory.serialize_add_args(*args)
+                self.remote_queue.put(raw)
                 with self.remote_qsize.get_lock():
                     self.remote_qsize.value += 1
                 self.q_send += 1
@@ -99,6 +100,9 @@ class _ActorRLMemory(IRLMemoryWorker):
 
     def length(self) -> int:
         return self.remote_qsize.value
+
+    def serialize_add_args(self, *args):
+        raise NotImplementedError("Unused")
 
 
 class _ActorInterrupt(RunCallback):
@@ -175,7 +179,14 @@ def _run_actor(
         # --- memory
         memory = cast(
             RLMemory,
-            _ActorRLMemory(remote_queue, remote_qsize, remote_q_capacity, end_signal, actor_id),
+            _ActorRLMemory(
+                remote_queue,
+                remote_qsize,
+                remote_q_capacity,
+                end_signal,
+                actor_id,
+                runner.make_memory(is_load=False),
+            ),
         )
 
         # --- callback
@@ -191,6 +202,7 @@ def _run_actor(
         # --- play
         runner.context.training = True
         runner.context.disable_trainer = True
+        runner.context.use_train_thread = False
         runner.base_run_play(
             parameter=parameter,
             memory=memory,
@@ -236,8 +248,7 @@ def _memory_communicate(
                 batch = remote_queue.get(timeout=5)
                 with remote_qsize.get_lock():
                     remote_qsize.value -= 1
-                batch = pickle.loads(zlib.decompress(batch))
-                memory.add(*batch)
+                memory.add(*batch, serialized=True)
                 share_dict["q_recv"] += 1
     except MemoryError:
         import gc
@@ -246,13 +257,13 @@ def _memory_communicate(
 
         logger.error(traceback.format_exc())
         end_signal.value = True
-        logger.info("[trainer] end_signal=True (memory thread MemoryError)")
+        logger.info("[trainer, memory thread] end_signal=True (MemoryError)")
     except Exception:
         logger.error(traceback.format_exc())
         end_signal.value = True
-        logger.info("[trainer] end_signal=True (memory thread error)")
+        logger.info("[trainer, memory thread] end_signal=True (error)")
     finally:
-        logger.info("[trainer] memory thread end")
+        logger.info("[trainer, memory thread] end")
 
 
 def _parameter_communicate(
@@ -276,13 +287,13 @@ def _parameter_communicate(
 
         logger.error(traceback.format_exc())
         end_signal.value = True
-        logger.info("[trainer] end_signal=True (parameter thread MemoryError)")
+        logger.info("[trainer, parameter thread] end_signal=True (MemoryError)")
     except Exception:
         logger.error(traceback.format_exc())
         end_signal.value = True
-        logger.info("[trainer] end_signal=True (parameter thread error)")
+        logger.info("[trainer, parameter thread] end_signal=True (error)")
     finally:
-        logger.info("[trainer] parameter thread end")
+        logger.info("[trainer, parameter thread] end")
 
 
 class _TrainerInterrupt(TrainerCallback):

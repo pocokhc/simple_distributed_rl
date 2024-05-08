@@ -1,6 +1,8 @@
 import logging
+import queue
 import random
 import time
+import traceback
 from dataclasses import dataclass, field
 from typing import Any, Generator, List, Optional, Tuple
 
@@ -9,7 +11,7 @@ from srl.base.define import EnvActionType
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.memory import IRLMemoryWorker
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.trainer import FLAG_1STEP, RLTrainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.utils import common
 from srl.utils.serialize import convert_for_json
@@ -44,6 +46,11 @@ class RunStateActor:
     # train
     is_step_trained: bool = False
 
+    # thread
+    thread_shared_dict: dict = field(default_factory=dict)
+    thread_in_queue: Optional[queue.Queue] = None
+    thread_out_queue: Optional[queue.Queue] = None
+
     # distributed
     sync_actor: int = 0
     actor_send_q: int = 0
@@ -56,6 +63,38 @@ class RunStateActor:
     def to_dict(self) -> dict:
         dat: dict = convert_for_json(self.__dict__)
         return dat
+
+
+def _train_thread(
+    trainer: RLTrainer,
+    in_queue: queue.Queue,
+    out_queue: queue.Queue,
+    thread_shared_dict: dict,
+    thread_queue_capacity: int,
+):
+    try:
+        while not thread_shared_dict["end_signal"]:
+            if in_queue.empty() or (out_queue.qsize() >= thread_queue_capacity):
+                time.sleep(0.1)
+            else:
+                setup_data = in_queue.get(timeout=1)
+                if setup_data == FLAG_1STEP:
+                    run_data = trainer.train()  # 互換用
+                else:
+                    run_data = trainer.train(setup_data)
+                out_queue.put(run_data)
+    except MemoryError:
+        import gc
+
+        gc.collect()
+
+        logger.error(traceback.format_exc())
+        logger.info("[TrainerThread] MemoryError")
+    except Exception:
+        logger.error(traceback.format_exc())
+        logger.info("[TrainerThread] error")
+    finally:
+        logger.info("[TrainerThread] end")
 
 
 def play(
@@ -118,6 +157,9 @@ def _play(
         trainer,
     )
 
+    if state.trainer is None:
+        context.use_train_thread = False
+
     # --- 1 setup_from_actor
     if context.distributed:
         main_worker.config.setup_from_actor(context.actor_num, context.actor_id)
@@ -135,7 +177,6 @@ def _play(
 
     # --- 4 init
     state.worker_indices = [i for i in range(state.env.player_num)]
-    state.elapsed_t0 = time.time()
 
     # --- 5 callbacks
     _calls_on_episode_begin: List[Any] = [c for c in callbacks if hasattr(c, "on_episode_begin")]
@@ -156,131 +197,183 @@ def _play(
 
     [c.on_episodes_begin(context, state) for c in callbacks]
 
-    # --- 6 loop
-    if context.run_name != RunNameTypes.eval:
-        logger.info(f"[{context.run_name}] loop start")
-    while True:
-        # --- stop check
-        if context.timeout > 0 and (time.time() - state.elapsed_t0) >= context.timeout:
-            state.end_reason = "timeout."
-            break
+    # --- thread
+    if context.use_train_thread:
+        assert state.trainer is not None
+        import threading
 
-        if context.max_steps > 0 and state.total_step >= context.max_steps:
-            state.end_reason = "max_steps over."
-            break
-
-        if state.trainer is not None:
-            if context.max_train_count > 0 and state.trainer.get_train_count() >= context.max_train_count:
-                state.end_reason = "max_train_count over."
-                break
-
-        if state.memory is not None:
-            if context.max_memory > 0 and state.memory.length() >= context.max_memory:
-                state.end_reason = "max_memory over."
-                break
-
-        # ------------------------
-        # episode end / init
-        # ------------------------
-        if state.env.done:
-            state.episode_count += 1
-            if context.max_episodes > 0 and state.episode_count >= context.max_episodes:
-                state.end_reason = "episode_count over."
-                break  # end
-
-            # env reset
-            state.env.reset(seed=state.episode_seed)
-
-            if state.episode_seed is not None:
-                state.episode_seed += 1
-
-            # shuffle
-            if context.shuffle_player:
-                random.shuffle(state.worker_indices)
-            state.worker_idx = state.worker_indices[state.env.next_player_index]
-
-            # worker reset
-            [w.on_reset(state.worker_indices[i]) for i, w in enumerate(state.workers)]
-
-            # callbacks
-            [c.on_episode_begin(context, state) for c in _calls_on_episode_begin]
-
-        # ------------------------
-        # step
-        # ------------------------
-
-        # action
-        state.env.render()
-        [c.on_step_action_before(context, state) for c in _calls_on_step_action_before]
-        state.action = state.workers[state.worker_idx].policy()
-        state.workers[state.worker_idx].render()
-        [c.on_step_action_after(context, state) for c in _calls_on_step_action_after]
-
-        # env step
-        [c.on_step_begin(context, state) for c in _calls_on_step_begin]
-        state.env.step(
-            state.action,
-            state.workers[state.worker_idx].config.frameskip,
-            __skip_func_arg,
+        state.thread_shared_dict = {"end_signal": False}
+        state.thread_in_queue = queue.Queue()
+        state.thread_out_queue = queue.Queue()
+        train_ps = threading.Thread(
+            target=_train_thread,
+            args=(
+                state.trainer,
+                state.thread_in_queue,
+                state.thread_out_queue,
+                state.thread_shared_dict,
+                context.thread_queue_capacity,
+            ),
         )
+        logger.info(f"[{context.run_name}] train thread start")
+        t0_train_count = state.trainer.get_train_count()
+        train_ps.start()
 
-        # rl step
-        [w.on_step() for w in state.workers]
+    # --- 6 loop
+    try:
+        if context.run_name != RunNameTypes.eval:
+            logger.info(f"[{context.run_name}] loop start")
+        state.elapsed_t0 = time.time()
+        while True:
+            # --- stop check
+            if context.timeout > 0 and (time.time() - state.elapsed_t0) >= context.timeout:
+                state.end_reason = "timeout."
+                break
 
-        # step update
-        state.total_step += 1
+            if context.max_steps > 0 and state.total_step >= context.max_steps:
+                state.end_reason = "max_steps over."
+                break
 
-        # trainer
-        if state.trainer is not None:
-            state.is_step_trained = state.trainer.core_train()
+            if state.trainer is not None:
+                if context.max_train_count > 0 and state.trainer.get_train_count() >= context.max_train_count:
+                    state.end_reason = "max_train_count over."
+                    break
 
-        _stop_flags = [c.on_step_end(context, state) for c in _calls_on_step_end]
-        state.worker_idx = state.worker_indices[state.env.next_player_index]  # on_step_end の後
+            if state.memory is not None:
+                if context.max_memory > 0 and state.memory.length() >= context.max_memory:
+                    state.end_reason = "max_memory over."
+                    break
 
-        if state.env.done:
+            # ------------------------
+            # episode end / init
+            # ------------------------
+            if state.env.done:
+                state.episode_count += 1
+                if context.max_episodes > 0 and state.episode_count >= context.max_episodes:
+                    state.end_reason = "episode_count over."
+                    break  # end
+
+                # env reset
+                state.env.reset(seed=state.episode_seed)
+
+                if state.episode_seed is not None:
+                    state.episode_seed += 1
+
+                # shuffle
+                if context.shuffle_player:
+                    random.shuffle(state.worker_indices)
+                state.worker_idx = state.worker_indices[state.env.next_player_index]
+
+                # worker reset
+                [w.on_reset(state.worker_indices[i]) for i, w in enumerate(state.workers)]
+
+                # callbacks
+                [c.on_episode_begin(context, state) for c in _calls_on_episode_begin]
+
+            # ------------------------
+            # step
+            # ------------------------
+
+            # action
             state.env.render()
-            for w in state.workers:
-                if w.rendering:
-                    # 最後のrender用policyは実施しない(RLWorker側で対処)
-                    # try:
-                    #    w.policy()
-                    # except Exception:
-                    #    logger.info(traceback.format_exc())
-                    #    logger.info("Policy error in termination status (for rendering)")
-                    w.render()
+            [c.on_step_action_before(context, state) for c in _calls_on_step_action_before]
+            state.action = state.workers[state.worker_idx].policy()
+            state.workers[state.worker_idx].render()
+            [c.on_step_action_after(context, state) for c in _calls_on_step_action_after]
 
-            # reward
-            worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
-            state.episode_rewards_list.append(worker_rewards)
+            # env step
+            [c.on_step_begin(context, state) for c in _calls_on_step_begin]
+            state.env.step(
+                state.action,
+                state.workers[state.worker_idx].config.frameskip,
+                __skip_func_arg,
+            )
 
-            state.last_episode_step = state.env.step_num
-            state.last_episode_time = state.env.elapsed_time
-            state.last_episode_rewards = worker_rewards
-            [c.on_episode_end(context, state) for c in _calls_on_episode_end]
+            # rl step
+            [w.on_step() for w in state.workers]
 
-        if True in _stop_flags:
-            state.end_reason = "callback.intermediate_stop"
-            break
-    if context.run_name != RunNameTypes.eval:
-        logger.info(f"[{context.run_name}] loop end({state.end_reason})")
+            # step update
+            state.total_step += 1
 
-    # --- 7 end
-    [w.on_end() for w in state.workers]
-    if state.trainer is not None:
-        state.trainer.train_end()
+            # --- trainer
+            if state.trainer is not None:
+                if context.use_train_thread:
+                    assert train_ps.is_alive()
+                    # Q send
+                    if state.thread_in_queue.qsize() < context.thread_queue_capacity:
+                        setup_data = state.trainer.train_setup()
+                        if setup_data is not None:
+                            state.thread_in_queue.put(setup_data)
+                    # Q recv
+                    if not state.thread_out_queue.empty():
+                        for _ in range(state.thread_out_queue.qsize()):
+                            run_data = state.thread_out_queue.get(timeout=1)
+                            state.trainer.train_teardown(run_data)
+                    
+                    state.is_step_trained = state.trainer.get_train_count() > t0_train_count
+                    t0_train_count = state.trainer.get_train_count()
+                else:
+                    state.is_step_trained = state.trainer.core_train()
 
-    # rewardは学習中は不要
-    if not context.training:
-        # 一度もepisodeを終了していない場合は例外で途中経過を保存
-        if state.episode_count == 0:
-            worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
-            state.episode_rewards_list.append(worker_rewards)
-            state.last_episode_step = state.env.step_num
-            state.last_episode_time = state.env.elapsed_time
-            state.last_episode_rewards = worker_rewards
+            _stop_flags = [c.on_step_end(context, state) for c in _calls_on_step_end]
+            state.worker_idx = state.worker_indices[state.env.next_player_index]  # on_step_end の後
 
-    # 8 callbacks
-    [c.on_episodes_end(context, state) for c in callbacks]
+            if state.env.done:
+                state.env.render()
+                for w in state.workers:
+                    if w.rendering:
+                        # 最後のrender用policyは実施しない(RLWorker側で対処)
+                        # try:
+                        #    w.policy()
+                        # except Exception:
+                        #    logger.info(traceback.format_exc())
+                        #    logger.info("Policy error in termination status (for rendering)")
+                        w.render()
+
+                # reward
+                worker_rewards = [
+                    state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)
+                ]
+                state.episode_rewards_list.append(worker_rewards)
+
+                state.last_episode_step = state.env.step_num
+                state.last_episode_time = state.env.elapsed_time
+                state.last_episode_rewards = worker_rewards
+                [c.on_episode_end(context, state) for c in _calls_on_episode_end]
+
+            if True in _stop_flags:
+                state.end_reason = "callback.intermediate_stop"
+                break
+    finally:
+        if context.use_train_thread:
+            state.thread_shared_dict["end_signal"] = True
+
+        if context.run_name != RunNameTypes.eval:
+            logger.info(f"[{context.run_name}] loop end({state.end_reason})")
+
+        # --- 7 end
+        [w.on_end() for w in state.workers]
+        if state.trainer is not None:
+            state.trainer.train_end()
+
+        # rewardは学習中は不要
+        if not context.training:
+            # 一度もepisodeを終了していない場合は例外で途中経過を保存
+            if state.episode_count == 0:
+                worker_rewards = [
+                    state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)
+                ]
+                state.episode_rewards_list.append(worker_rewards)
+                state.last_episode_step = state.env.step_num
+                state.last_episode_time = state.env.elapsed_time
+                state.last_episode_rewards = worker_rewards
+
+        # 8 callbacks
+        [c.on_episodes_end(context, state) for c in callbacks]
+
+        if context.use_train_thread:
+            train_ps.join(timeout=10)
+
     return state
 
 

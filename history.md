@@ -7,15 +7,13 @@
 // (tf/torchの互換パラメータの作成)
 // RLTrainerでinfoの計算コストは保留（metricsを別途導入案も保留）
 // cached_propertyでちょっと高速化?→予想外のバグがでそうなので保留
+// RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 1. keras3対応？
 1. Async-SGD
 1. (distribution)オリジナルrl/env対応
-1. RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 1. DemoMemory
 1. configのjson保存
 1. train部分のみのthread化による高速？
-
-1. memoryを一般でも使用できるように+dtype対応
 
 
 # v0.15.4
@@ -23,11 +21,21 @@
 **MainUpdates**
 
 1. [base.rl] new: 型アノテーション整備
+1. [base.rl.config] new: dtypeを追加
+1. [base.rl.memory] change: serializeとcompressを整理し更新（priority memoryの引数を一部変更）
+1. [base.rl/env] change: processor周りを整理（名前の変更、envにもprocessorを追加）
+1. [base.spaces] new: TextSpaceを追加
+1. [rendering] add: rlへのstateが画像だった場合に表示するように変更
+1. [base.run] new: trainのみthread化をテスト導入
+
+**OtherUpdates**
+
 1. [rl.functions] move: common,helperをfunctionsに移動し整理
 1. [rl.tf/torch] update: functionsとhelperを作り整理
 1. [rl.tf/torch.distributions] update: 整理して更新
-1. [base.rl.config] new: dtypeを追加
-1. [base.rl/env] change: processor周りを整理（名前の変更、envにもprocessorを追加）
+1. [rl.memories] update: memoryを一般でも使用できるように+dtype対応
+1. [algorithms] update: TF2.16.0対応
+
 
 **Bug Fixes**
 

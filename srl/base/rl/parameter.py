@@ -28,7 +28,8 @@ class RLParameter(ABC, Generic[_TConfig]):
         self.call_restore(data, **kwargs)
 
     def backup(self, **kwargs) -> Any:
-        return self.call_backup(**kwargs)
+        dat = self.call_backup(**kwargs)
+        return None if dat == [] else dat
 
     def save(self, path: str) -> None:
         logger.debug(f"parameter save: {path}")

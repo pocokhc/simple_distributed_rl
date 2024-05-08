@@ -29,7 +29,7 @@ class QNetwork(keras.Model):
         self.hidden_block = config.hidden_block.create_block_tf(config.action_space.n)
 
         # build
-        self.build(self.input_block.create_batch_shape((None,)))
+        self(np.zeros(self.input_block.create_batch_shape((1,)), config.dtype))
 
         self.loss_func = keras.losses.Huber()
 

@@ -670,18 +670,18 @@ def test_obs_image(env_stype):
 
 def test_obs_image_window_gray_2ch():
     _test_obs(
-        env_obs_space=BoxSpace((64,), stype=SpaceTypes.GRAY_2ch),
+        env_obs_space=BoxSpace((64, 32), stype=SpaceTypes.GRAY_2ch),
         rl_obs_type=RLBaseTypes.IMAGE,
         rl_obs_mode=ObservationModes.ENV,
         rl_obs_type_override=SpaceTypes.UNKNOWN,
         rl_obs_div_num=-1,
-        true_obs_space=BoxSpace((64, 2), stype=SpaceTypes.IMAGE),
-        true_obs_env_space=BoxSpace((64,), stype=SpaceTypes.GRAY_2ch),
+        true_obs_space=BoxSpace((64, 32, 2), stype=SpaceTypes.IMAGE),
+        true_obs_env_space=BoxSpace((64, 32), stype=SpaceTypes.GRAY_2ch),
         window_length=2,
-        true_obs_space_one_step=BoxSpace((64,), stype=SpaceTypes.GRAY_2ch),
-        env_state=np.zeros((64,)),
-        true_state1=np.zeros((64, 2)),
-        true_state2=np.zeros((64, 2)),
+        true_obs_space_one_step=BoxSpace((64, 32), stype=SpaceTypes.GRAY_2ch),
+        env_state=np.zeros((64, 32)),
+        true_state1=np.zeros((64, 32, 2)),
+        true_state2=np.zeros((64, 32, 2)),
     )
 
 

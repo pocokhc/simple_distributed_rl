@@ -64,7 +64,7 @@ def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val, ena
         np.testing.assert_array_equal(new_space.high, np.full(true_shape, 255))
 
     # --- decode
-    image = np.ones(env_img_shape).astype(np.float32)  # image
+    image = np.ones(env_img_shape).astype(np.uint8)  # image
     if enable_norm:
         true_state = np.ones(true_shape).astype(np.float32) / 255
     else:

@@ -223,7 +223,7 @@ class GymWrapper(EnvBase):
     def __init__(self, config: EnvConfig):
         self.config = config
         self.seed = None
-        self.v0260_older = compare_less_version(gym.__version__, "0.26.0")  # type: ignore
+        self.v0260_older = compare_less_version(gym.__version__, "0.26.0")
         if False:
             if is_package_installed("ale_py"):
                 import ale_py

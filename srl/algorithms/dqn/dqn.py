@@ -252,7 +252,6 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
     def render_terminal(self, worker, **kwargs) -> None:
         # policy -> render -> env.step
         q = self.parameter.pred_single_q(worker.state)
-        print(q, worker.state)
         maxa = np.argmax(q)
         if self.config.enable_rescale:
             q = funcs.inverse_rescaling(q)

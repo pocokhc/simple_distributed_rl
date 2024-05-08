@@ -62,7 +62,8 @@ def test_loss_grad():
     m.build((None, 1))
     m.summary()
 
-    optimizer = keras.optimizers.Adam(learning_rate=0.01)
+    opt1 = keras.optimizers.Adam(learning_rate=0.01)
+    opt2 = keras.optimizers.Adam(learning_rate=0.01)
     for i in range(1000):
         x_train, y_train = _create_dataset(64)
         with tf.GradientTape() as tape:
@@ -71,8 +72,8 @@ def test_loss_grad():
             x = m2(x)
             loss = tf.reduce_mean(tf.square(x_train - x))
         grads = tape.gradient(loss, [m.trainable_variables, m2.trainable_variables])
-        optimizer.apply_gradients(zip(grads[0], m.trainable_variables))
-        optimizer.apply_gradients(zip(grads[1], m2.trainable_variables))
+        opt1.apply_gradients(zip(grads[0], m.trainable_variables))
+        opt2.apply_gradients(zip(grads[1], m2.trainable_variables))
 
         if i % 10 == 0:
             print(f"{i}: {loss.numpy()}")

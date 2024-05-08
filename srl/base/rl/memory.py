@@ -43,7 +43,7 @@ class DummyRLMemoryWorker(IRLMemoryWorker):
     def add(self, *args) -> None:
         raise NotImplementedError("Unused")
 
-    def serialize_add_args(self, *args):
+    def serialize_add_args(self, *args) -> tuple:
         raise NotImplementedError("Unused")
 
 

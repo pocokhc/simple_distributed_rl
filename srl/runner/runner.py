@@ -19,8 +19,7 @@ from srl.base.env.registration import make as make_env
 from srl.base.rl.config import DummyRLConfig, RLConfig
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.registration import (make_memory, make_parameter,
-                                      make_trainer, make_worker, make_workers)
+from srl.base.rl.registration import make_memory, make_parameter, make_trainer, make_worker, make_workers
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run import core_play, core_train_only
@@ -32,8 +31,7 @@ from srl.utils.serialize import convert_for_json
 if TYPE_CHECKING:
     import psutil
 
-    from srl.runner.callbacks.history_viewer import (HistoryViewer,
-                                                     HistoryViewers)
+    from srl.runner.callbacks.history_viewer import HistoryViewer, HistoryViewers
 
 logger = logging.getLogger(__name__)
 
@@ -723,6 +721,9 @@ class Runner:
         r.context.training = False
         r.context.rendering = False
         r.context.seed = None  # mainと競合するのでNone
+        # thread
+        r.context.use_train_thread = False
+
         return r
 
     def callback_play_eval(self, parameter: RLParameter):
@@ -993,8 +994,7 @@ class Runner:
         # --- history ---
         if self._history_on_memory_kwargs is not None:
             if enable_history_on_memory:
-                from srl.runner.callbacks.history_on_memory import \
-                    HistoryOnMemory
+                from srl.runner.callbacks.history_on_memory import HistoryOnMemory
 
                 callbacks.append(HistoryOnMemory(**self._history_on_memory_kwargs))
                 logger.info("add callback HistoryOnMemory")

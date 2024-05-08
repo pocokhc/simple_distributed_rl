@@ -111,6 +111,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self.t0_print_time = _time
         self.t0_step_count = 0
         self.t0_episode_count = 0
+        self.t0_train_count = 0
         self.t0_memory_count = 0
         self.t0_actor_send_q = 0
 
@@ -159,11 +160,13 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             diff_time = 0.1
         diff_step = state.total_step - self.t0_step_count
         diff_episode = state.episode_count - self.t0_episode_count
+        diff_train = 0 if state.trainer is None else state.trainer.get_train_count() - self.t0_train_count
         step_time = diff_time / diff_step if diff_step > 0 else np.inf
         episode_time = diff_time / diff_episode if diff_episode > 0 else np.inf
         self.t0_print_time = _time
         self.t0_step_count = state.total_step
         self.t0_episode_count = state.episode_count
+        self.t0_train_count = 0 if state.trainer is None else state.trainer.get_train_count()
 
         # calc memory
         memory_time = np.inf
@@ -205,28 +208,45 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         # [step time]
         _c = diff_step / diff_time
         if _c < 10:
-            s += f",{_c:6.2f}st/s"
+            s += f" {_c:4.2f}st/s"
         else:
-            s += f",{int(_c):6d}st/s"
+            s += f" {int(_c):4d}st/s"
 
-        # [all step]
-        s += f",{state.total_step:7d}st"
+        # [thread train time]
+        if context.use_train_thread:
+            _c = diff_train / diff_time
+            if _c < 10:
+                s += f" {_c:4.2f}tr/s"
+            else:
+                s += f" {int(_c):4d}tr/s"
 
         # [memory]
         if state.memory is not None:
-            s += f",{state.memory.length():6d}mem"
+            s += f" {state.memory.length():5d}mem"
 
-        # [sync]
+        # [train]
+        if state.trainer is not None:
+            s += " {:5d}tr".format(state.trainer.get_train_count())
+
+        # [distributed]
         if context.distributed:
             diff_q = state.actor_send_q - self.t0_actor_send_q
-            s += f", Q {int(diff_q / diff_time):4d}send/s({state.actor_send_q:8d})"
+            s += f", {int(diff_q / diff_time):4d}send/s"
             self.t0_actor_send_q = state.actor_send_q
-            s += f", {state.sync_actor:4d} recv Param"
+            s += f" {state.sync_actor:4d}recv(param)"
 
-        # [all episode] [train]
-        s += f", {state.episode_count:3d}ep"
-        if state.trainer is not None:
-            s += ", {:5d}tr".format(state.trainer.get_train_count())
+        # [all episode]
+        s += f" {state.episode_count:4d}ep"
+
+        # [all step]
+        s += f" {state.total_step:6d}st"
+
+        # [thread]
+        if context.use_train_thread:
+            assert state.thread_in_queue is not None
+            assert state.thread_out_queue is not None
+            s += f" {state.thread_in_queue.qsize():2d}q(in)"
+            s += f" {state.thread_out_queue.qsize():2d}q(out)"
 
         if diff_episode <= 0:
             if diff_step <= 0:
@@ -235,7 +255,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             else:
                 # --- steps info
                 # [episode step]
-                s += f", {state.env.step_num}st"
+                s += f" {state.env.step_num}st/ep"
 
                 # [reward]
                 r_list = [to_str_reward(r) for r in state.env.episode_rewards]
@@ -245,14 +265,14 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             # --- episode info
             # [mean episode step]
             _s = [h["episode_step"] for h in self.progress_history]
-            s += f", {int(np.mean(_s)):3d}st"
+            s += f" {int(np.mean(_s)):3d}st/ep"
 
             # [reward]
             _r = [h["episode_reward"] for h in self.progress_history]
             _r_min = to_str_reward(min(_r))
             _r_mid = to_str_reward(float(np.mean(_r)), check_skip=True)
             _r_max = to_str_reward(max(_r))
-            s += f",{_r_min} {_r_mid} {_r_max} re"
+            s += f"|{_r_min} {_r_mid} {_r_max} re"
 
             # [eval reward]
             s += self._eval_str(context, state.parameter)
@@ -285,7 +305,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             return ""
 
         # ,CPU100% M100%,GPU0 100% M100%
-        s = ""
+        s = " "
         if self.runner.context.actor_id == 0:
             try:
                 memory_percent, cpu_percent = self.runner.read_psutil()
@@ -380,23 +400,30 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         # [train time]
         _c = diff_train_count / diff_time
         if _c < 10:
-            s += f",{_c:6.2f}tr/s"
+            s += f" {_c:4.2f}tr/s"
         else:
-            s += f",{int(_c):6d}tr/s"
-
-        # [train count]
-        s += ",{:7d}tr".format(train_count)
+            s += f" {int(_c):4d}tr/s"
 
         # [memory]
         if state.memory is not None:
-            s += f",{state.memory.length():6d}mem"
+            s += f" {state.memory.length():5d}mem"
 
         # [distributed]
         if context.distributed:
             diff_q = state.trainer_recv_q - self.t0_trainer_recv_q
-            s += f", Q {int(diff_q / diff_time):4d}recv/s({state.trainer_recv_q:8d})"
+            s += f", {int(diff_q / diff_time):4d}recv/s"
             self.t0_trainer_recv_q = state.trainer_recv_q
-            s += f", {state.sync_trainer:4d} send Param"
+            s += f" {state.sync_trainer:4d}send(param)"
+
+        # [all train count]
+        s += " {:5d}tr".format(train_count)
+
+        # [thread]
+        if context.use_train_thread:
+            assert state.thread_in_queue is not None
+            assert state.thread_out_queue is not None
+            s += f" {state.thread_in_queue.qsize():2d}q(in)"
+            s += f" {state.thread_out_queue.qsize():2d}q(out)"
 
         if train_count == 0:
             # no info

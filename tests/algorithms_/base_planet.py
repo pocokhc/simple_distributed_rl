@@ -13,7 +13,6 @@ class QuickCase(CommonQuickCase):
     def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
 
         pytest.importorskip("tensorflow_probability")
-        pytest.importorskip("pygame")
 
         from srl.algorithms import planet
 

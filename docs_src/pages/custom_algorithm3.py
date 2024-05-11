@@ -44,6 +44,6 @@ memory.add(1, priority=1)
 memory.add(2, priority=2)
 memory.add(3, priority=3)
 memory.add(4, priority=4)
-indices, batchs, weights = memory.sample(batch_size=1, step=0)
+batchs, weights, update_args = memory.sample(batch_size=1, step=0)
 print(batchs)  # [2]
-memory.update(indices, batchs, np.array([5, 10, 15, 20, 11]))
+memory.update(update_args, np.array([5, 10, 15, 20, 11]))

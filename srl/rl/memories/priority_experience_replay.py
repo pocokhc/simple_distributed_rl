@@ -21,6 +21,7 @@ class _PriorityExperienceReplayConfig:
 
     def set_replay_memory(self):
         self._name = "ReplayMemory"
+        self._kwargs = {}
         return self
 
     def set_proportional_memory(

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Make Original Algorithm &mdash; SimpleDistributedRL 0.15.3.0 ドキュメント</title>
+  <title>Make Original Algorithm &mdash; SimpleDistributedRL 0.15.3.3 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=a0fdc85c"></script>
+        <script src="../_static/documentation_options.js?v=97054236"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -264,7 +264,7 @@
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 分散学習でactorが指定されたときに呼び出されます。Actor関係の初期化がある場合は記載してください。 &quot;&quot;&quot;</span>
       <span class="k">pass</span>
 
-   <span class="k">def</span> <span class="nf">get_processors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">ObservationProcessor</span><span class="p">]]:</span>
+   <span class="k">def</span> <span class="nf">get_processors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">Processor</span><span class="p">]]:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 前処理を追加したい場合設定してください &quot;&quot;&quot;</span>
       <span class="k">return</span> <span class="p">[]</span>
 
@@ -443,9 +443,9 @@
 <span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 <span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-<span class="n">indices</span><span class="p">,</span> <span class="n">batchs</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">memory</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">batchs</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">update_args</span> <span class="o">=</span> <span class="n">memory</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">batchs</span><span class="p">)</span>  <span class="c1"># [2]</span>
-<span class="n">memory</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">batchs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">11</span><span class="p">]))</span>
+<span class="n">memory</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">update_args</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">11</span><span class="p">]))</span>
 </pre></div>
 </div>
 </section>
@@ -510,10 +510,6 @@
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="c1"># (option)</span>
-   <span class="k">def</span> <span class="nf">create_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; infoの設定をします。こちらは必要な場合のみ取得します &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">}</span>
 
 <span class="c1"># --- 実装時に関数内で使う事を想定しているプロパティ・関数となります</span>
 <span class="n">trainer</span> <span class="o">=</span> <span class="n">MyTrainer</span><span class="p">()</span>
@@ -650,14 +646,8 @@
 <h2>型アノテーション<a class="headerlink" href="#id4" title="Link to this heading"></a></h2>
 <p>動作に影響はないですが、ジェネリック型を追加し実装を簡単にしています。
 適用方法は以下です。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># RLConfig[_TActSpace, _TObsSpace] と指定できます。</span>
-<span class="c1">#   _TActSpace : ActionSpaceを表すSpaceBase型</span>
-<span class="c1">#   _TObsSpace : ObservationSpaceを表すSpaceBase型</span>
-<span class="c1"># 実装例</span>
-<span class="kn">from</span> <span class="nn">srl.base.spaces.box</span> <span class="kn">import</span> <span class="n">BoxSpace</span>
-<span class="kn">from</span> <span class="nn">srl.base.spaces.discrete</span> <span class="kn">import</span> <span class="n">DiscreteSpace</span>
-<span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">Config</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">[</span><span class="n">DiscreteSpace</span><span class="p">,</span> <span class="n">BoxSpace</span><span class="p">]):</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Config</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">):</span>
    <span class="k">pass</span>
 
 <span class="c1"># RLParameter[_TConfig]</span>
@@ -788,11 +778,11 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">InfoType</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">{}</span>
 
-    <span class="k">def</span> <span class="nf">policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">InfoType</span><span class="p">]:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">observation_space</span><span class="o">.</span><span class="n">to_str</span><span class="p">(</span><span class="n">worker</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">observation_space</span><span class="o">.</span><span class="n">to_str</span><span class="p">(</span><span class="n">worker</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
 
         <span class="c1"># 学習中かどうかで探索率を変える</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span><span class="p">:</span>
@@ -818,7 +808,7 @@
 
         <span class="n">batch</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">,</span>
-            <span class="s2">&quot;next_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">observation_space</span><span class="o">.</span><span class="n">to_str</span><span class="p">(</span><span class="n">worker</span><span class="o">.</span><span class="n">state</span><span class="p">),</span>
+            <span class="s2">&quot;next_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">observation_space</span><span class="o">.</span><span class="n">to_str</span><span class="p">(</span><span class="n">worker</span><span class="o">.</span><span class="n">state</span><span class="p">),</span>
             <span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">action</span><span class="p">,</span>
             <span class="s2">&quot;reward&quot;</span><span class="p">:</span> <span class="n">worker</span><span class="o">.</span><span class="n">reward</span><span class="p">,</span>
             <span class="s2">&quot;done&quot;</span><span class="p">:</span> <span class="n">worker</span><span class="o">.</span><span class="n">terminated</span><span class="p">,</span>
@@ -830,7 +820,7 @@
     <span class="k">def</span> <span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="o">.</span><span class="n">get_action_values</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
         <span class="n">maxa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">action_space</span><span class="o">.</span><span class="n">n</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">action_space</span><span class="o">.</span><span class="n">n</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">a</span> <span class="o">==</span> <span class="n">maxa</span><span class="p">:</span>
                 <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;*&quot;</span>
             <span class="k">else</span><span class="p">:</span>

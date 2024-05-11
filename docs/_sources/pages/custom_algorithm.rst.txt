@@ -128,7 +128,7 @@ RLConfig で実装が必要な関数・プロパティは以下です。
          """ 分散学習でactorが指定されたときに呼び出されます。Actor関係の初期化がある場合は記載してください。 """
          pass
 
-      def get_processors(self) -> List[Optional[ObservationProcessor]]:
+      def get_processors(self) -> List[Optional[Processor]]:
          """ 前処理を追加したい場合設定してください """
          return []
 
@@ -269,10 +269,6 @@ Trainer
          """
          raise NotImplementedError()
       
-      # (option)
-      def create_info(self):
-         """ infoの設定をします。こちらは必要な場合のみ取得します """
-         return {"loss": 0.0}
 
    # --- 実装時に関数内で使う事を想定しているプロパティ・関数となります
    trainer = MyTrainer()
@@ -423,14 +419,8 @@ Worker
 
 .. code-block:: python
 
-   # RLConfig[_TActSpace, _TObsSpace] と指定できます。
-   #   _TActSpace : ActionSpaceを表すSpaceBase型
-   #   _TObsSpace : ObservationSpaceを表すSpaceBase型
-   # 実装例
-   from srl.base.spaces.box import BoxSpace
-   from srl.base.spaces.discrete import DiscreteSpace
    @dataclass
-   class Config(RLConfig[DiscreteSpace, BoxSpace]):
+   class Config(RLConfig):
       pass
 
    # RLParameter[_TConfig]

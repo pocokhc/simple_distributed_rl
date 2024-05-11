@@ -13,7 +13,6 @@
 1. (distribution)オリジナルrl/env対応
 1. DemoMemory
 1. configのjson保存
-1. train部分のみのthread化による高速？
 
 
 # v0.15.4

@@ -98,9 +98,9 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         self.sync_count = 0
 
-    def train(self) -> None:
+    def train_setup(self):
         if self.memory.is_warmup_needed():
-            return
+            return None
         batchs = self.memory.sample(self.batch_size)
         state, n_state, onehot_action, reward, done, next_invalid_actions = zip(*batchs)
         state = self.parameter.q_online.input_block.create_batch_stack_data(state)
@@ -115,15 +115,16 @@ class Trainer(RLTrainer[Config, Parameter]):
             done,
             next_invalid_actions,
         )
+        return state, onehot_action, target_q
+
+    def train(self, setup_data):
+        state, onehot_action, target_q = setup_data
 
         with tf.GradientTape() as tape:
             loss = self.parameter.q_online.compute_train_loss(state, onehot_action, target_q)
         grad = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grad, self.parameter.q_online.trainable_variables))
         self.info["loss"] = loss.numpy()
-
-        if self.lr_sch.update(self.train_count):
-            self.optimizer.learning_rate = self.lr_sch.get_rate()
 
         # --- targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
@@ -132,3 +133,9 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         self.info["sync"] = self.sync_count
         self.train_count += 1
+
+        return None
+
+    def train3(self, run_data):
+        if self.lr_sch.update(self.train_count):
+            self.optimizer.learning_rate = self.lr_sch.get_rate()

@@ -104,13 +104,16 @@ class BaseCase(CommonBaseCase):
         rl_config.enable_value_clip = True
         rl_config.enable_state_normalized = True
         runner, tester = self.create_runner("Grid", rl_config)
-        runner.train(max_train_count=20000)
+        runner.train(max_train_count=30000)
         tester.eval(runner, baseline=-1)
 
-    def test_EasyGrid_continue(self):
+    def test_Grid_continue(self):
         self.check_skip()
         rl_config = self._create_rl_config()
         rl_config.lr = 0.001
+        rl_config.hidden_block.set((64, 64))
+        rl_config.value_block.set(())
+        rl_config.policy_block.set(())
         rl_config.experience_collection_method = "GAE"
         rl_config.baseline_type = ""
         rl_config.surrogate_type = "clip"
@@ -118,6 +121,6 @@ class BaseCase(CommonBaseCase):
         rl_config.enable_state_normalized = False
         rl_config.entropy_weight = 1.0
         rl_config.override_action_type = SpaceTypes.CONTINUOUS
-        runner, tester = self.create_runner("EasyGrid", rl_config)
+        runner, tester = self.create_runner("Grid", rl_config)
         runner.train(max_train_count=40000)
         tester.eval(runner)

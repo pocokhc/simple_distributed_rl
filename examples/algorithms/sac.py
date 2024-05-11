@@ -8,15 +8,15 @@ common.logger_print()
 
 
 def main_discrete():
-    env_config = srl.EnvConfig("EasyGrid")
+    env_config = srl.EnvConfig("Grid")
     rl_config = sac.Config()
     rl_config.batch_size = 32
     rl_config.lr_policy = 0.0002
     rl_config.lr_q = 0.001
     rl_config.memory.capacity = 10000
     rl_config.memory.warmup_size = 1000
-    rl_config.policy_hidden_block.set((32, 32, 32))
-    rl_config.q_hidden_block.set((32, 32, 32))
+    rl_config.policy_hidden_block.set((64, 64))
+    rl_config.q_hidden_block.set((64, 64))
     rl_config.entropy_bonus_exclude_q = True
     rl_config.entropy_alpha = 0.1
     rl_config.entropy_alpha_auto_scale = False
@@ -59,5 +59,5 @@ def main_continuous():
 
 
 if __name__ == "__main__":
-    main_discrete()
+    # main_discrete()
     main_continuous()

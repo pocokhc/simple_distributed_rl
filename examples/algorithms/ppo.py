@@ -9,7 +9,7 @@ common.logger_print()
 
 
 def main(mode: str):
-    env_config = srl.EnvConfig("EasyGrid")
+    env_config = srl.EnvConfig("Grid")
     rl_config = ppo.Config(
         batch_size=32,
         baseline_type="",
@@ -46,4 +46,4 @@ def main(mode: str):
 
 if __name__ == "__main__":
     main("DISCRETE")
-    main("CONTINUOUS")
+    # main("CONTINUOUS")

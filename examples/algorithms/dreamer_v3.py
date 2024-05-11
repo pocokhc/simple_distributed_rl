@@ -42,6 +42,8 @@ def train_grid(mode: str):
 
     # --- train
     runner = srl.Runner(env_config, rl_config)
+    runner.model_summary()
+
     if mode == "v1":
         runner.train(max_train_count=3_000)
     elif mode == "v2":
@@ -98,7 +100,7 @@ if __name__ == "__main__":
     common.logger_print()
 
     train_grid("v1")
-    train_grid("v2")
-    train_grid("v3")
+    # train_grid("v2")
+    # train_grid("v3")
 
-    train_Pendulum()
+    # train_Pendulum()

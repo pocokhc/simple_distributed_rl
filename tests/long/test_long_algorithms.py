@@ -20,20 +20,16 @@ class Test_mcts_base(_CommonOption, base_mcts.BaseCase):
     pass
 
 
-
 class Test_ql_base(_CommonOption, base_ql.BaseCase):
     pass
-
 
 
 class Test_ql_agent57_base(_CommonOption, base_ql_agent57.BaseCase):
     pass
 
 
-
 class Test_search_dynaq_base(_CommonOption, base_search_dynaq.BaseCase):
     pass
-
 
 
 class Test_vanilla_policy_base(_CommonOption, base_vanilla_policy.BaseCase):

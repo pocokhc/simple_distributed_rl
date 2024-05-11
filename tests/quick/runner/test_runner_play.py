@@ -7,39 +7,47 @@ import pytest
 
 import srl
 from srl.algorithms import ql, ql_agent57
+from srl.utils import common
 from srl.utils.common import is_available_pygame_video_device
 
 
-def test_train():
+@pytest.mark.parametrize("use_train_thread", [False, True])
+def test_train(use_train_thread):
+    common.logger_print()
+
     runner = srl.Runner("OX", ql.Config())
 
-    state = runner.train(max_episodes=10)
+    state = runner.train(max_episodes=10, use_train_thread=use_train_thread)
     assert state.episode_count == 10
 
     t0 = time.time()
-    runner.train(timeout=1)
+    runner.train(timeout=1, use_train_thread=use_train_thread)
     assert time.time() - t0 >= 0.9
 
-    state = runner.train(max_steps=10)
+    state = runner.train(max_steps=10, use_train_thread=use_train_thread)
     assert state.total_step == 10
 
-    state = runner.train(max_train_count=10)
+    state = runner.train(max_train_count=10, use_train_thread=use_train_thread)
     assert state.trainer is not None
-    assert state.trainer.get_train_count() == 10
+    if use_train_thread:
+        assert state.trainer.get_train_count() > 10
+    else:
+        assert state.trainer.get_train_count() == 10
 
 
-def test_train_multi_runner():
+@pytest.mark.parametrize("use_train_thread", [False, True])
+def test_train_multi_runner(use_train_thread):
     runner1 = srl.Runner("Grid", ql.Config())
     runner2 = srl.Runner("OX", ql.Config())
     runner3 = srl.Runner("OX", ql.Config())
 
-    runner1.train_mp(max_train_count=10)
-    runner1.train(max_train_count=10)
+    runner1.train_mp(max_train_count=10, use_train_thread=use_train_thread)
+    runner1.train(max_train_count=10, use_train_thread=use_train_thread)
 
-    runner3.train(max_train_count=10)
-    runner3.train_mp(max_train_count=10)
-    runner2.train(max_train_count=10)
-    runner1.train(max_train_count=10)
+    runner3.train(max_train_count=10, use_train_thread=use_train_thread)
+    runner3.train_mp(max_train_count=10, use_train_thread=use_train_thread)
+    runner2.train(max_train_count=10, use_train_thread=use_train_thread)
+    runner1.train(max_train_count=10, use_train_thread=use_train_thread)
 
 
 def test_rollout():
@@ -51,7 +59,8 @@ def test_rollout():
     assert runner.memory.length() == 100
 
 
-def test_train_only():
+@pytest.mark.parametrize("use_train_thread", [False, True])
+def test_train_only(use_train_thread):
     rl_config = ql_agent57.Config()
     runner = srl.Runner("Grid", rl_config)
 
@@ -60,7 +69,7 @@ def test_train_only():
     assert runner.memory.length() > 1000
 
     rl_config.memory.warmup_size = 1000
-    runner.train_only(max_train_count=50_000)
+    runner.train_only(max_train_count=50_000, use_train_thread=use_train_thread, thread_queue_capacity=1000)
 
     rewards = runner.evaluate(max_episodes=100)
     reward = np.mean(rewards)

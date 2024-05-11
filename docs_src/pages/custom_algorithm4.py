@@ -105,11 +105,11 @@ class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
 
-    def on_reset(self, worker) -> InfoType:
+    def on_reset(self, worker):
         return {}
 
-    def policy(self, worker) -> Tuple[int, InfoType]:
-        self.state = self.observation_space.to_str(worker.state)
+    def policy(self, worker):
+        self.state = self.config.observation_space.to_str(worker.state)
 
         # 学習中かどうかで探索率を変える
         if self.training:
@@ -135,7 +135,7 @@ class Worker(RLWorker[Config, Parameter]):
 
         batch = {
             "state": self.state,
-            "next_state": self.observation_space.to_str(worker.state),
+            "next_state": self.config.observation_space.to_str(worker.state),
             "action": self.action,
             "reward": worker.reward,
             "done": worker.terminated,
@@ -147,7 +147,7 @@ class Worker(RLWorker[Config, Parameter]):
     def render_terminal(self, worker, **kwargs) -> None:
         q = self.parameter.get_action_values(self.state)
         maxa = np.argmax(q)
-        for a in range(self.action_space.n):
+        for a in range(self.config.action_space.n):
             if a == maxa:
                 s = "*"
             else:

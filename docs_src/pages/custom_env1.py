@@ -4,8 +4,9 @@ import srl
 from srl.envs import sample_env  # noqa F401
 
 env = srl.make_env("SampleEnv")
+env.setup(render_mode="terminal")
 
-state = env.reset(render_mode="terminal")
+state = env.reset()
 total_reward = 0
 env.render()
 

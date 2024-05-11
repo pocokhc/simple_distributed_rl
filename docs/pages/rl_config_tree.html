@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RLConfig Parameters &mdash; SimpleDistributedRL 0.15.3.0 ドキュメント</title>
+  <title>RLConfig Parameters &mdash; SimpleDistributedRL 0.15.3.3 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=a0fdc85c"></script>
+        <script src="../_static/documentation_options.js?v=97054236"></script>
         <script src="../_static/doctools.js?v=888ff710"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
@@ -119,31 +119,51 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="rl_config_memory.html">Memory</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html#sequencememory">SequenceMemory</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.sequence_memory.SequenceMemory"><code class="docutils literal notranslate"><span class="pre">SequenceMemory</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.sequence_memory.SequenceMemory"><code class="docutils literal notranslate"><span class="pre">SequenceMemory</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.sequence_memory.SequenceMemory.serialize_add_args"><code class="docutils literal notranslate"><span class="pre">SequenceMemory.serialize_add_args()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html#experiencereplaybuffer">ExperienceReplayBuffer</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentExperienceReplayBuffer</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentExperienceReplayBuffer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.batch_size"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentExperienceReplayBuffer.batch_size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_compress"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentExperienceReplayBuffer.memory_compress</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_compress_level"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentExperienceReplayBuffer.memory_compress_level</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html#priorityexperiencereplay">PriorityExperienceReplay</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentPriorityExperienceReplay</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.replay_memory.ReplayMemory"><code class="docutils literal notranslate"><span class="pre">ReplayMemory</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentPriorityExperienceReplay</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_compress"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentPriorityExperienceReplay.memory_compress</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_compress_level"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentPriorityExperienceReplay.memory_compress_level</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.replay_memory.ReplayMemory"><code class="docutils literal notranslate"><span class="pre">ReplayMemory</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.replay_memory.ReplayMemory.dtype"><code class="docutils literal notranslate"><span class="pre">ReplayMemory.dtype</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.alpha"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory.alpha</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.beta_initial"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory.beta_initial</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.beta_steps"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory.beta_steps</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.has_duplicate"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory.has_duplicate</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.epsilon"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory.epsilon</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.dtype"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory.dtype</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory"><code class="docutils literal notranslate"><span class="pre">RankBaseMemory</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.alpha"><code class="docutils literal notranslate"><span class="pre">RankBaseMemory.alpha</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_initial"><code class="docutils literal notranslate"><span class="pre">RankBaseMemory.beta_initial</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_steps"><code class="docutils literal notranslate"><span class="pre">RankBaseMemory.beta_steps</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.dtype"><code class="docutils literal notranslate"><span class="pre">RankBaseMemory.dtype</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory_linear.RankBaseMemoryLinear"><code class="docutils literal notranslate"><span class="pre">RankBaseMemoryLinear</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory_linear.RankBaseMemoryLinear"><code class="docutils literal notranslate"><span class="pre">RankBaseMemoryLinear</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="rl_config_memory.html#srl.rl.memories.priority_memories.rankbase_memory_linear.RankBaseMemoryLinear.dtype"><code class="docutils literal notranslate"><span class="pre">RankBaseMemoryLinear.dtype</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>

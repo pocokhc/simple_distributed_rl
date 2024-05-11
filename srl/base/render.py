@@ -71,17 +71,19 @@ class Render:
     def render_rgb_array(self, **kwargs) -> np.ndarray:
         if self.rgb_array is None:
             self.rgb_array = self._render_obj.render_rgb_array(**kwargs)
-            if self.scale != 1.0:
-                import cv2
-
-                w = int(self.rgb_array.shape[1] * self.scale)
-                h = int(self.rgb_array.shape[0] * self.scale)
-                self.rgb_array = cv2.resize(self.rgb_array, (w, h))
         if self.rgb_array is None:
             text = self.render_ansi(**kwargs)
             if text == "":
                 return np.zeros((4, 4, 3), dtype=np.uint8)  # dummy
             self.rgb_array = text_to_rgb_array(text, self.font_name, self.font_size)
+
+        if self.scale != 1.0:
+            import cv2
+
+            w = int(self.rgb_array.shape[1] * self.scale)
+            h = int(self.rgb_array.shape[0] * self.scale)
+            self.rgb_array = cv2.resize(self.rgb_array, (w, h))
+
         return self.rgb_array.astype(np.uint8)
 
     def _render_window(self, **kwargs) -> np.ndarray:

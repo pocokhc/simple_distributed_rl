@@ -75,9 +75,11 @@ class EnvRun:
     # ------------------------------------
     # run functions
     # ------------------------------------
-    def setup(self, context: Optional[RunContext] = None):
+    def setup(self, context: Optional[RunContext] = None, render_mode: Union[str, RenderModes] = RenderModes.none):
         if context is None:
             context = RunContext()
+        if render_mode != RenderModes.none:
+            context.render_mode = render_mode
 
         # --- reset前の状態を設定
         self._done = DoneTypes.RESET

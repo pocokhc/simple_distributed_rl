@@ -98,9 +98,9 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
         self.sync_count = 0
 
-    def train(self) -> None:
+    def train_setup(self):
         if self.memory.is_warmup_needed():
-            return
+            return None
         batchs, weights, update_args = self.memory.sample(self.batch_size, self.train_count)
 
         if self.config.multisteps == 1:
@@ -108,11 +108,29 @@ class Trainer(RLTrainer[Config, Parameter]):
         else:
             target_q, states, onehot_actions = self.parameter.calc_target_q(batchs, training=True)
 
+        return states, onehot_actions, target_q, weights, update_args
+
+    def train(self, setup_data):
+        states, onehot_actions, target_q, weights, update_args = setup_data
+
         with tf.GradientTape() as tape:
             loss, q = self.parameter.q_online.compute_train_loss(states, onehot_actions, target_q, weights)
         grad = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grad, self.parameter.q_online.trainable_variables))
-        self.info["loss"] = loss.numpy()
+
+        # --- sync target
+        if self.train_count % self.config.target_model_update_interval == 0:
+            self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
+            self.sync_count += 1
+        self.info["sync"] = self.sync_count
+        self.train_count += 1
+
+        return loss.numpy(), target_q, q, update_args
+
+    def train_teardown(self, run_data):
+        loss, target_q, q, update_args = run_data
+
+        self.info["loss"] = loss
 
         if self.lr_sch.update(self.train_count):
             self.optimizer.learning_rate = self.lr_sch.get_rate()
@@ -120,11 +138,3 @@ class Trainer(RLTrainer[Config, Parameter]):
         # --- update
         priorities = np.abs(target_q - q)
         self.memory.update(update_args, priorities)
-
-        # --- sync target
-        if self.train_count % self.config.target_model_update_interval == 0:
-            self.parameter.q_target.set_weights(self.parameter.q_online.get_weights())
-            self.sync_count += 1
-
-        self.info["sync"] = self.sync_count
-        self.train_count += 1

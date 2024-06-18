@@ -49,6 +49,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._prev_state: TObsType = cast(TObsType, [])  # None
         self._state: TObsType = cast(TObsType, [])  # None
         self._prev_action: TActType = cast(TActType, 0)
+        self._action: TActType = cast(TActType, 0)
         self._reward: float = 0
         self._step_reward: float = 0
         self._done: DoneTypes = DoneTypes.RESET
@@ -117,6 +118,10 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._prev_action
 
     @property
+    def action(self) -> TActType:
+        return self._action
+
+    @property
     def reward(self) -> float:
         return self._reward
 
@@ -178,6 +183,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             is_dummy=True,
         )
         self._prev_state = self._state
+        self._action = cast(TActType, 0)
         self._prev_action = cast(TActType, 0)
         self._reward = 0
         self._step_reward = 0
@@ -210,12 +216,13 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
         # worker policy
         action, info = self._worker.policy(self)
-        self._prev_action = cast(TActType, action)
+        self._prev_action = self._action
+        self._action = cast(TActType, action)
         if self._config.enable_assertion:
-            assert self._config.action_space.check_val(self._prev_action)
+            assert self._config.action_space.check_val(self._action)
         elif self._config.enable_sanitize:
-            self._prev_action = self._config.action_space.sanitize(self._prev_action)
-        env_action = self.action_decode(self._prev_action)
+            self._action = self._config.action_space.sanitize(self._action)
+        env_action = self.action_decode(self._action)
         self._info.update(info)
 
         if self._context.rendering:

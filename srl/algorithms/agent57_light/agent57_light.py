@@ -491,9 +491,9 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             )[0]
 
             if self.config.disable_int_priority or not self.config.enable_intrinsic_reward:
-                priority = abs(target_q_ext - self.q_ext[worker.prev_action])
+                priority = abs(target_q_ext - self.q_ext[worker.action])
             elif self.beta == 0:
-                priority = abs(target_q_ext - self.q_ext[worker.prev_action])
+                priority = abs(target_q_ext - self.q_ext[worker.action])
             else:
                 target_q_int = self.parameter.calc_target_q(
                     False,
@@ -501,7 +501,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
                     *_params,
                 )[0]
 
-                priority = abs((target_q_ext + self.beta * target_q_int) - self.q[worker.prev_action])
+                priority = abs((target_q_ext + self.beta * target_q_int) - self.q[worker.action])
 
         self.memory.add(batch, priority)
         return _info

@@ -381,7 +381,8 @@ Worker
       def on_step(self, worker: "WorkerRun") -> dict:
          worker.prev_state      # step前の状態(policyのworker.stateと等価)
          worker.state           # step後の状態
-         worker.prev_action     # step前のアクション(policyで返したアクションと等価)
+         worker.prev_action     # step前の前のアクション
+         worker.action          # step前のアクション(policyで返したアクションと等価)
          worker.reward          # step後の即時報酬
          worker.done            # step後に終了フラグが立ったか
          worker.terminated      # step後にenvが終了フラグを立てたか

@@ -241,7 +241,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         batch = [
             worker.prev_state,
             worker.state,
-            funcs.one_hot(worker.prev_action, self.config.action_space.n),
+            funcs.one_hot(worker.action, self.config.action_space.n),
             reward,
             int(not worker.terminated),
             worker.get_invalid_actions(),

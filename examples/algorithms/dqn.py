@@ -26,7 +26,7 @@ def main():
     rl_config.enable_reward_clip = False  # 報酬clipしない
 
     # frameworkを指定したい場合 tensorflow or torch
-    # rl_config.framework.set_tensorflow()
+    # rl_config.set_torch()
 
     runner = srl.Runner(env_config, rl_config)
     runner.model_summary()

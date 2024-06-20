@@ -1,17 +1,14 @@
 import logging
 import pickle
-import pprint
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Generic, List, Optional, Type, Union, cast
 
 import numpy as np
 
-from srl.base.context import RunContext
-from srl.base.define import ObservationModes, RenderModes, RLBaseTypes, SpaceTypes, TActSpace, TObsSpace
+from srl.base.define import ObservationModes, PlayerType, RenderModes, RLBaseTypes, SpaceTypes, TActSpace, TObsSpace
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.exception import NotSupportedError
-from srl.base.rl.processor import Processor
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
@@ -22,6 +19,9 @@ from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
     from srl.base.rl.algorithms.extend_worker import ExtendWorker
+    from srl.base.rl.memory import IRLMemoryTrainer, IRLMemoryWorker
+    from srl.base.rl.parameter import RLParameter
+    from srl.base.rl.processor import Processor
     from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     use_rl_processor: bool = True
 
     #: Processorを使う場合、定義したProcessorのリスト
-    processors: List[Processor] = field(default_factory=list)
+    processors: List["Processor"] = field(default_factory=list)
 
     # --- Worker Config
     #: state_encodeを有効にするか
@@ -139,7 +139,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     def setup_from_actor(self, actor_num: int, actor_id: int) -> None:
         pass  # NotImplemented
 
-    def get_processors(self) -> List[Optional[Processor]]:
+    def get_processors(self) -> List[Optional["Processor"]]:
         return []  # NotImplemented
 
     def get_changeable_parameters(self) -> List[str]:
@@ -564,11 +564,11 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         return self._is_setup
 
     @property
-    def observation_processors_list(self) -> List[List[Processor]]:
+    def observation_processors_list(self) -> List[List["Processor"]]:
         return self._obs_processors_list
 
     @property
-    def episode_processors(self) -> List[Processor]:
+    def episode_processors(self) -> List["Processor"]:
         return self._episode_processors
 
     @property

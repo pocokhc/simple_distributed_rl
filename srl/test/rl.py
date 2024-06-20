@@ -58,7 +58,7 @@ class TestRL:
 
             runner = srl.Runner(test_env_config, test_rl_config)
             runner.set_device("CPU")
-            device_actors = "CPU"
+            actor_devices = "CPU"
 
             if not test_mp:
                 print(f"--- {test_env_config.name} sequence test start ---")
@@ -79,7 +79,7 @@ class TestRL:
                 if "max_steps" in train_kwargs_:
                     train_kwargs_["max_train_count"] = train_kwargs_["max_steps"]
                     del train_kwargs_["max_steps"]
-                runner.train_mp(actor_num=2, device_actors=device_actors, **train_kwargs_)
+                runner.train_mp(actor_num=2, actor_devices=actor_devices, **train_kwargs_)
 
             # --- test eval
             runner.evaluate(max_episodes=2, max_steps=10)
@@ -115,10 +115,10 @@ class TestRL:
 
             runner = srl.Runner(env_config, rl_config)
             runner.set_device(device="CPU")
-            device_actors = "CPU"
+            actor_devices = "CPU"
             if enable_gpu:
                 runner.set_device(device="AUTO")
-                device_actors = "AUTO"
+                actor_devices = "AUTO"
 
             if not is_mp:
                 # --- check sequence
@@ -135,7 +135,7 @@ class TestRL:
 
             else:
                 print(f"--- {env_config.name} mp check start ---")
-                runner.train_mp(actor_num=2, device_actors=device_actors, **train_kwargs_)
+                runner.train_mp(actor_num=2, actor_devices=actor_devices, **train_kwargs_)
 
             runner.evaluate(max_episodes=2, max_steps=10)
 

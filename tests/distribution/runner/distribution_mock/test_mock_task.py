@@ -5,7 +5,8 @@ import srl
 from srl.algorithms import ql
 from srl.base.context import RunContext
 from srl.base.rl.parameter import DummyRLParameter
-from srl.runner.runner import RunnerConfig, TaskConfig
+from srl.runner.distribution.task_manager import TaskConfig
+from srl.runner.runner import RunnerConfig
 from tests.distribution.runner.distribution_external.memory_test_functions import memory_connector_test
 from tests.distribution.runner.distribution_mock.server_mock import (
     create_gcp_mock,

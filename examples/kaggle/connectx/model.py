@@ -7,7 +7,6 @@ import srl
 from srl.algorithms import dqn
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.algorithms.extend_worker import ExtendWorker
-from srl.base.rl.worker_run import WorkerRun
 from srl.envs import connectx
 
 
@@ -23,7 +22,7 @@ class MyConnectXWorker(ExtendWorker):
         self.max_depth = 3
 
     def call_on_reset(self, worker) -> dict:
-        self.action_num = cast(connectx.ConnectX, worker.env.get_env_base()).action_space.n
+        self.action_num = cast(connectx.ConnectX, worker.env.unwrapped).action_space.n
         self._is_rl = False
         self.scores = [0] * self.action_num
         self.minmax_time = 0

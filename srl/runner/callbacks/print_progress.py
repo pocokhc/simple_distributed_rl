@@ -157,13 +157,15 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             diff_time = 0.1
         diff_step = state.total_step - self.t0_step_count
         diff_episode = state.episode_count - self.t0_episode_count
-        diff_train = 0 if state.trainer is None else state.trainer.get_train_count() - self.t0_train_count
         step_time = diff_time / diff_step if diff_step > 0 else np.inf
         episode_time = diff_time / diff_episode if diff_episode > 0 else np.inf
         self.t0_print_time = _time
         self.t0_step_count = state.total_step
         self.t0_episode_count = state.episode_count
-        self.t0_train_count = 0 if state.trainer is None else state.trainer.get_train_count()
+        if state.trainer is not None:
+            diff_train = state.trainer.get_train_count() - self.t0_train_count
+            train_time = diff_time / diff_train if diff_train > 0 else np.inf
+            self.t0_train_count = state.trainer.get_train_count()
 
         # calc memory
         memory_time = np.inf
@@ -190,7 +192,7 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
         if state.trainer is not None:
             train_count = state.trainer.get_train_count()
             if (context.max_train_count > 0) and (train_count > 0):
-                remain_train = (context.max_train_count - train_count) * step_time
+                remain_train = (context.max_train_count - train_count) * train_time
         remain_memory = np.inf
         if state.memory is not None:
             if context.max_memory > 0 and state.memory.length() > 0:

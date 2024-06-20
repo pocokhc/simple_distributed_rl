@@ -170,15 +170,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         self._check_parameter = False
         self.observation_mode: ObservationModes = ObservationModes.from_str(self.observation_mode)
 
-        if enable_log:
-            logger.info(f"--- {self.get_name()}")
-            logger.info(f"max_episode_steps      : {env.max_episode_steps}")
-            logger.info(f"player_num             : {env.player_num}")
-            logger.info(f"act_space(original env): {env.action_space}")
-            logger.info(f"obs_space(original env): {env.observation_space}")
-            logger.info(f"act_base_type(rl)      : {self.get_base_action_type()}")
-            logger.info(f"obs_base_type(rl)      : {self.get_base_observation_type()}")
-
         # env property
         self.env_max_episode_steps = env.max_episode_steps
         self.env_player_num = env.player_num
@@ -549,13 +540,19 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         self._check_parameter = True
         self._is_setup = True
         if enable_log:
-            logger.info(f"act_space(env)         : {self._env_act_space}")
-            logger.info(f"obs_space(env)         : {self._env_obs_space_in_rl}")
-            logger.info(f"act_space(rl)          : {self._rl_act_space}")
+            logger.info(f"--- {env.config.name}, {self.get_name()}")
+            logger.info(f"max_episode_steps      : {env.max_episode_steps}")
+            logger.info(f"player_num             : {env.player_num}")
+            logger.info(f"action_space (RL requires '{self.get_base_action_type()}' type)")
+            logger.info(f" original: {env.action_space}")
+            logger.info(f" env     : {self._env_act_space}")
+            logger.info(f" rl      : {self._rl_act_space}")
+            logger.info(f"observation_space (RL requires '{self.get_base_observation_type()}' type)")
+            logger.info(f" original    : {env.observation_space}")
+            logger.info(f" env         : {self._env_obs_space_in_rl}")
             if self.window_length > 1:
-                logger.info(f"obs_spaces_one_step(rl): {self._rl_obs_space_one_step}")
-            logger.info(f"obs_space(rl)          : {self._rl_obs_space}")
-            logger.info("Configuration after setup" + "\n" + pprint.pformat(self.to_dict()))
+                logger.info(f" rl(one_step): {self._rl_obs_space_one_step}")
+            logger.info(f" rl          : {self._rl_obs_space}")
 
     # --- setup property
 

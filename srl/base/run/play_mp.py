@@ -209,7 +209,7 @@ def _run_actor(
         # --- play
         context.training = True
         context.disable_trainer = True
-        context.use_train_thread = False
+        context.enable_train_thread = False
         # context.max_episodes = -1
         # context.max_memory = -1
         # context.max_steps = -1

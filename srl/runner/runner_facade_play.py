@@ -62,7 +62,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
         # thread
-        self.context.use_train_thread = False
+        self.context.enable_train_thread = False
 
         self._base_run_before(
             enable_progress=enable_progress,
@@ -124,7 +124,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rendering = True
         self.context.render_mode = mode
         # thread
-        self.context.use_train_thread = False
+        self.context.enable_train_thread = False
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -204,7 +204,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rendering = True
         self.context.render_mode = mode
         # thread
-        self.context.use_train_thread = False
+        self.context.enable_train_thread = False
 
         # --- rendering
         from srl.runner.callbacks.rendering import Rendering
@@ -290,7 +290,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rendering = True
         self.context.render_mode = mode
         # thread
-        self.context.use_train_thread = False
+        self.context.enable_train_thread = False
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -379,7 +379,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rendering = True
         self.context.render_mode = mode
         # thread
-        self.context.use_train_thread = False
+        self.context.enable_train_thread = False
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -467,7 +467,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rendering = True
         self.context.render_mode = mode
         # thread
-        self.context.use_train_thread = False
+        self.context.enable_train_thread = False
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -546,7 +546,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rendering = True
         self.context.render_mode = mode
         # thread
-        self.context.use_train_thread = False
+        self.context.enable_train_thread = False
 
         self._base_run_before(
             enable_progress=enable_progress,
@@ -598,7 +598,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rendering = True
         self.context.render_mode = mode
         # thread
-        self.context.use_train_thread = False
+        self.context.enable_train_thread = False
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -672,7 +672,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rendering = True
         self.context.render_mode = mode
         # thread
-        self.context.use_train_thread = False
+        self.context.enable_train_thread = False
 
         from srl.utils.common import is_packages_installed
 

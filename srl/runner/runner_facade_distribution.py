@@ -30,7 +30,7 @@ class RunnerFacadeDistribution(RunnerBase):
         timeout: float = -1,
         max_train_count: int = -1,
         # --- thread
-        use_train_thread: bool = False,
+        enable_train_thread: bool = False,
         thread_queue_capacity: int = 10,
         # --- play config
         shuffle_player: bool = True,
@@ -70,7 +70,7 @@ class RunnerFacadeDistribution(RunnerBase):
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
         # thread
-        self.context.use_train_thread = use_train_thread
+        self.context.enable_train_thread = enable_train_thread
         self.context.thread_queue_capacity = thread_queue_capacity
 
         self._base_run_before(
@@ -130,7 +130,7 @@ class RunnerFacadeDistribution(RunnerBase):
         timeout: float = -1,
         max_train_count: int = -1,
         # --- thread
-        use_train_thread: bool = False,
+        enable_train_thread: bool = False,
         thread_queue_capacity: int = 10,
         # --- play config
         shuffle_player: bool = True,
@@ -160,7 +160,7 @@ class RunnerFacadeDistribution(RunnerBase):
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
         # thread
-        self.context.use_train_thread = use_train_thread
+        self.context.enable_train_thread = enable_train_thread
         self.context.thread_queue_capacity = thread_queue_capacity
 
         self._base_run_before(

@@ -8,7 +8,7 @@ from typing import Any, List, Optional
 from srl.base.context import RunContext
 from srl.base.rl.memory import IRLMemoryTrainer
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.trainer import FLAG_1STEP, RLTrainer
+from srl.base.rl.trainer import RLTrainer
 from srl.utils import common
 from srl.utils.serialize import convert_for_json
 
@@ -30,6 +30,7 @@ class RunStateTrainer:
     is_step_trained: bool = False  # 非同期でタイミングを取るのに重要
 
     # thread
+    enable_train_thread: bool = False
     thread_shared_dict: dict = field(default_factory=dict)
     thread_in_queue: Optional[queue.Queue] = None
     thread_out_queue: Optional[queue.Queue] = None
@@ -56,10 +57,7 @@ def _train_thread(
                 time.sleep(0.1)
             else:
                 setup_data = in_queue.get(timeout=1)
-                if setup_data == FLAG_1STEP:
-                    run_data = trainer.train()  # 互換用
-                else:
-                    run_data = trainer.train(setup_data)
+                run_data = trainer.thread_train(setup_data)
                 out_queue.put(run_data)
     except MemoryError:
         import gc
@@ -99,6 +97,8 @@ def _play_trainer_only(
     callbacks: List[TrainCallback],
 ):
     state = RunStateTrainer(trainer, trainer.memory, trainer.parameter)
+    if context.enable_train_thread and trainer.implement_thread_train():
+        state.enable_train_thread = True
 
     # --- 1 start
     state.trainer.on_start(context)
@@ -109,7 +109,7 @@ def _play_trainer_only(
     [c.on_trainer_start(context, state) for c in callbacks]
 
     # --- thread
-    if context.use_train_thread:
+    if state.enable_train_thread:
         import threading
 
         state.thread_shared_dict = {"end_signal": False}
@@ -149,25 +149,31 @@ def _play_trainer_only(
             [c.on_train_before(context, state) for c in _calls_on_train_before]
 
             # --- train
-            if context.use_train_thread:
-                assert train_ps.is_alive()
+            if state.enable_train_thread:
                 # Q send
-                if state.thread_in_queue.qsize() < context.thread_queue_capacity:
-                    setup_data = state.trainer.train_setup()
+                if cast(queue.Queue, state.thread_in_queue).qsize() < context.thread_queue_capacity:
+                    setup_data = state.trainer.thread_train_setup()
                     if setup_data is not None:
-                        state.thread_in_queue.put(setup_data)
-                else:
-                    time.sleep(0.1)
+                        cast(queue.Queue, state.thread_in_queue).put(setup_data)
                 # Q recv
-                if not state.thread_out_queue.empty():
-                    for _ in range(state.thread_out_queue.qsize()):
-                        run_data = state.thread_out_queue.get(timeout=1)
-                        state.trainer.train_teardown(run_data)
+                if not cast(queue.Queue, state.thread_out_queue).empty():
+                    for _ in range(cast(queue.Queue, state.thread_out_queue).qsize()):
+                        run_data = cast(queue.Queue, state.thread_out_queue).get(timeout=1)
+                        state.trainer.thread_train_teardown(run_data)
 
                 state.is_step_trained = state.trainer.get_train_count() > t0_train_count
                 t0_train_count = state.trainer.get_train_count()
+            elif not state.trainer.implement_thread_train():
+                _prev_train = state.trainer.train_count
+                state.trainer.train()
+                state.is_step_trained = state.trainer.train_count > _prev_train
             else:
-                state.is_step_trained = state.trainer.core_train()
+                setup_data = state.trainer.thread_train_setup()
+                if setup_data is not None:
+                    _prev_train = state.trainer.train_count
+                    train_data = state.trainer.thread_train(setup_data)
+                    state.trainer.thread_train_teardown(train_data)
+                    state.is_step_trained = state.trainer.train_count > _prev_train
 
             # callbacks
             _stop_flags = [c.on_train_after(context, state) for c in _calls_on_train_after]
@@ -175,7 +181,7 @@ def _play_trainer_only(
                 state.end_reason = "callback.trainer_intermediate_stop"
                 break
     finally:
-        if context.use_train_thread:
+        if state.enable_train_thread:
             state.thread_shared_dict["end_signal"] = True
 
     logger.info(f"loop end({state.end_reason})")

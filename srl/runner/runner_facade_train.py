@@ -25,7 +25,7 @@ class RunnerFacadeTrain(RunnerBase):
         max_train_count: int = -1,
         max_memory: int = -1,
         # --- thread
-        use_train_thread: bool = False,
+        enable_train_thread: bool = False,
         thread_queue_capacity: int = 10,
         # --- play config
         shuffle_player: bool = True,
@@ -71,7 +71,7 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
         # thread
-        self.context.use_train_thread = use_train_thread
+        self.context.enable_train_thread = enable_train_thread
         self.context.thread_queue_capacity = thread_queue_capacity
 
         self._base_run_before(
@@ -136,7 +136,7 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
         # thread
-        self.context.use_train_thread = False
+        self.context.enable_train_thread = False
 
         self._base_run_before(
             enable_progress=enable_progress,
@@ -169,7 +169,7 @@ class RunnerFacadeTrain(RunnerBase):
         timeout: float = -1,
         max_train_count: int = -1,
         # --- thread
-        use_train_thread: bool = False,
+        enable_train_thread: bool = False,
         thread_queue_capacity: int = 10,
         # --- progress
         enable_progress: bool = True,
@@ -200,7 +200,7 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
         # thread
-        self.context.use_train_thread = use_train_thread
+        self.context.enable_train_thread = enable_train_thread
         self.context.thread_queue_capacity = thread_queue_capacity
 
         self._base_run_before(
@@ -234,7 +234,7 @@ class RunnerFacadeTrain(RunnerBase):
         timeout: float = -1,
         max_train_count: int = -1,
         # --- thread
-        use_train_thread: bool = False,
+        enable_train_thread: bool = False,
         thread_queue_capacity: int = 10,
         # --- play config
         shuffle_player: bool = True,
@@ -268,7 +268,7 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
         # thread
-        self.context.use_train_thread = use_train_thread
+        self.context.enable_train_thread = enable_train_thread
         self.context.thread_queue_capacity = thread_queue_capacity
 
         self._base_run_before(

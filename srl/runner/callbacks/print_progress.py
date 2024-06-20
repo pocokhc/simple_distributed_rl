@@ -212,7 +212,7 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             s += f" {int(_c):4d}st/s"
 
         # [thread train time]
-        if context.use_train_thread:
+        if state.enable_train_thread:
             _c = diff_train / diff_time
             if _c < 10:
                 s += f" {_c:4.2f}tr/s"
@@ -244,7 +244,7 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
         s += f" {state.total_step:6d}st"
 
         # [thread]
-        if context.use_train_thread:
+        if state.enable_train_thread:
             assert state.thread_in_queue is not None
             assert state.thread_out_queue is not None
             s += f" {state.thread_in_queue.qsize():2d}q(in)"
@@ -423,7 +423,7 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
         s += " {:5d}tr".format(train_count)
 
         # [thread]
-        if context.use_train_thread:
+        if state.enable_train_thread:
             assert state.thread_in_queue is not None
             assert state.thread_out_queue is not None
             s += f" {state.thread_in_queue.qsize():2d}q(in)"

@@ -5,21 +5,50 @@ import time
 import traceback
 import uuid
 import zlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, List, Optional, cast
 
 import srl
+from srl.base.context import RunContext
 from srl.base.rl.parameter import RLParameter
+from srl.base.run.callback import CallbackType, RunCallback, TrainCallback
 from srl.runner.distribution.connectors.parameters import RedisParameters
 from srl.runner.distribution.connectors.redis_ import RedisConnector
 from srl.runner.distribution.interface import IMemoryReceiver
-from srl.runner.runner import TaskConfig
+from srl.runner.runner import Runner
 from srl.utils.common import compare_equal_version
 
 if TYPE_CHECKING:
     from srl.runner.distribution.callback import DistributionCallback
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class TaskConfig:
+    context: RunContext
+    callbacks: List[CallbackType] = field(default_factory=list)
+
+    queue_capacity: int = 1000
+    trainer_parameter_send_interval: int = 1  # sec
+    actor_parameter_sync_interval: int = 1  # sec
+    enable_prepare_sample_batch: bool = False
+    enable_trainer_thread: bool = True
+    enable_actor_thread: bool = True
+
+    def get_distribution_callback(self) -> List["DistributionCallback"]:
+        from srl.runner.distribution.callback import DistributionCallback
+
+        return cast(
+            List[DistributionCallback],
+            [c for c in self.callbacks if issubclass(c.__class__, DistributionCallback)],
+        )
+
+    def get_run_callback(self) -> List[RunCallback]:
+        return cast(List[RunCallback], [c for c in self.callbacks if issubclass(c.__class__, RunCallback)])
+
+    def get_train_callback(self) -> List[TrainCallback]:
+        return cast(List[TrainCallback], [c for c in self.callbacks if issubclass(c.__class__, TrainCallback)])
 
 
 @dataclass
@@ -93,17 +122,9 @@ class TaskManager:
     def get_now_str(self) -> str:
         return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S %z")
 
-    def create_task(
-        self,
-        task_config: TaskConfig,
-        parameter: RLParameter,
-        uid: str = "",
-    ) -> None:
-        assert (
-            task_config.context.max_train_count > 0 or task_config.context.timeout > 0
-        ), "Please specify 'max_train_count' or 'timeout'."
+    def create_task(self, task_config: TaskConfig, parameter: RLParameter, uid: str = "") -> None:
+        task_config.context.check_stop_config()
         self._connector.set(f"{self.task_name}:status", "END")  # first
-
         self.params.task_id = str(uuid.uuid4()) if uid == "" else uid
         self.params.version = srl.__version__
         self.config = task_config
@@ -172,13 +193,13 @@ class TaskManager:
         body = pickle.loads(zlib.decompress(body))
         self._config = cast(TaskConfig, body)
 
-        # device
-        self._config.context.set_device(
-            self.params.framework,
-            self.params.used_device_tf,
-            self.params.used_device_torch,
-            self._config.rl_config,
-        )
+        # device info
+        self._config.context.framework = self.params.framework
+        self._config.context.used_device_tf = self.params.used_device_tf
+        self._config.context.used_device_torch = self.params.used_device_torch
+        assert self._config.context.rl_config is not None
+        self._config.context.rl_config._used_device_tf = self.params.used_device_tf
+        self._config.context.rl_config._used_device_torch = self.params.used_device_torch
 
         # local
         self.params.actor_num = self._config.context.actor_num
@@ -325,19 +346,23 @@ class TaskManager:
         parameter.restore(params, from_cpu=True)
         return True
 
-    def create_runner(self, read_parameter: bool = True) -> Optional[srl.Runner]:
+    def create_runner(self, read_parameter: bool = True) -> Optional[Runner]:
         task_config = self.get_config()
         if task_config is None:
             return None
-        runner = srl.Runner(
-            task_config.env_config,
-            task_config.rl_config,
-            task_config.config,
-            task_config.context,
-        )
+
+        runner = Runner.create(task_config.context)
         if read_parameter:
             self.read_parameter(runner.make_parameter())
         return runner
+
+    def create_parameter(self) -> Optional[RLParameter]:
+        task_config = self.get_config()
+        if task_config is None:
+            return None
+        parameter = task_config.context.rl_config.make_parameter(is_load=False)
+        self.read_parameter(parameter)
+        return parameter
 
     # ---------------------------------
     # facade

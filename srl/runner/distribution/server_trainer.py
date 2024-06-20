@@ -6,19 +6,19 @@ import time
 import traceback
 from typing import Any, List, Optional, cast
 
-import srl
 from srl.base.context import RunContext, RunNameTypes
 from srl.base.define import RLMemoryTypes
 from srl.base.rl.memory import IRLMemoryTrainer, RLMemory
 from srl.base.rl.parameter import RLParameter
-from srl.base.run.callback import TrainerCallback
+from srl.base.run import core_train_only
+from srl.base.run.callback import TrainCallback
 from srl.base.run.core_train_only import RunStateTrainer
+from srl.base.system.device import setup_device
 from srl.runner.distribution.callback import TrainerServerCallback
 from srl.runner.distribution.connectors.parameters import RedisParameters
 from srl.runner.distribution.interface import IMemoryServerParameters
 from srl.runner.distribution.server_manager import ServerManager
-from srl.runner.distribution.task_manager import TaskManager, TaskManagerParams
-from srl.runner.runner import Runner
+from srl.runner.distribution.task_manager import TaskConfig, TaskManager, TaskManagerParams
 
 logger = logging.getLogger(__name__)
 
@@ -174,13 +174,13 @@ def _parameter_communicate(
         logger.info("trainer parameter thread end.")
 
 
-class _TrainerInterruptThread(TrainerCallback):
+class _TrainerInterruptThread(TrainCallback):
     def __init__(self, memory_ps: threading.Thread, parameter_ps: threading.Thread, share_data: _ShareData) -> None:
         self.memory_ps = memory_ps
         self.parameter_ps = parameter_ps
         self.share_data = share_data
 
-    def on_train_before(self, context: RunContext, state: RunStateTrainer) -> bool:
+    def on_train_before(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
         if not state.is_step_trained:
             # warmupなら待機
             time.sleep(1)
@@ -198,7 +198,7 @@ class _TrainerInterruptThread(TrainerCallback):
 # ------------------------------------------
 # no thread(add -> sample -> train -> update)
 # ------------------------------------------
-class _TrainerInterruptNoThread(TrainerCallback):
+class _TrainerInterruptNoThread(TrainCallback):
     def __init__(
         self,
         manager: ServerManager,
@@ -214,7 +214,7 @@ class _TrainerInterruptNoThread(TrainerCallback):
         self.sync_parameter_t0 = time.time()
         self.start_train_count = self.task_manager.get_train_count()
 
-    def on_train_before(self, context: RunContext, state: RunStateTrainer) -> bool:
+    def on_train_before(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
         state.memory = cast(RLMemory, state.memory)
 
         # --- recv memory
@@ -257,7 +257,7 @@ class _TrainerInterruptNoThread(TrainerCallback):
 
         return False
 
-    def on_trainer_end(self, context: RunContext, state: RunStateTrainer):
+    def on_trainer_end(self, context: RunContext, state: RunStateTrainer, **kwargs):
         self.task_manager.set_trainer("q_recv_count", str(self.q_recv_count))
         _keepalive(
             self.task_manager,
@@ -266,33 +266,28 @@ class _TrainerInterruptNoThread(TrainerCallback):
         )
 
 
-def _run_trainer(manager: ServerManager, runner: srl.Runner):
+def _run_trainer(manager: ServerManager, task_config: TaskConfig, parameter: RLParameter):
     task_manager = manager.get_task_manager()
     parameter_writer = manager.get_parameter_writer()
-
-    _t = task_manager.get_config()
-    callbacks = [] if _t is None else _t.callbacks
+    callbacks = task_config.get_train_callback()
 
     # --- parameter
-    parameter = runner.make_parameter(is_load=False)
-    params = manager.get_parameter_reader().parameter_read()
-    if params is None:
-        logger.warning("Missing initial parameters")
-    else:
-        parameter.restore(params, from_cpu=True)
+    params = parameter.backup(to_cpu=True)
+    if params is not None:
+        parameter_writer.parameter_update(params)
 
     # --- memory
-    memory = runner.make_memory(is_load=False)
+    memory = task_config.context.rl_config.make_memory(is_load=False)
 
     memory_ps = None
     parameter_ps = None
     share_data = None
     try:
         # --- thread
-        if runner.config.dist_enable_trainer_thread:
+        if task_config.enable_trainer_thread:
             share_data = _ShareData()
-            if runner.config.dist_enable_prepare_sample_batch:
-                batch_size = getattr(runner.rl_config, "batch_size", 1)
+            if task_config.enable_prepare_sample_batch:
+                batch_size = getattr(task_config.context.rl_config, "batch_size", 1)
                 memory = _TrainerRLMemoryThreadPrepareBatch(memory, batch_size, share_data)
 
             _manager_copy_args = manager._copy_args()
@@ -302,7 +297,7 @@ def _run_trainer(manager: ServerManager, runner: srl.Runner):
                     _manager_copy_args,
                     memory,
                     share_data,
-                    runner.config.dist_enable_prepare_sample_batch,
+                    task_config.enable_prepare_sample_batch,
                 ),
             )
             parameter_ps = threading.Thread(
@@ -311,7 +306,7 @@ def _run_trainer(manager: ServerManager, runner: srl.Runner):
                     _manager_copy_args,
                     parameter,
                     share_data,
-                    runner.config.trainer_parameter_send_interval,
+                    task_config.trainer_parameter_send_interval,
                 ),
             )
             memory_ps.start()
@@ -321,17 +316,18 @@ def _run_trainer(manager: ServerManager, runner: srl.Runner):
             callbacks.append(
                 _TrainerInterruptNoThread(
                     manager,
-                    runner.config.trainer_parameter_send_interval,
+                    task_config.trainer_parameter_send_interval,
                 )
             )
 
         # --- play
-        runner.base_run_play_trainer_only(
-            parameter=parameter,
-            memory=cast(RLMemory, memory),
-            trainer=None,
-            callbacks=callbacks,
-        )
+        context = task_config.context
+        context.training = True
+        context.distributed = True
+        context.train_only = False
+        trainer = context.rl_config.make_trainer(parameter, memory)
+        core_train_only.play_trainer_only(context, trainer, callbacks)
+
     except Exception:
         raise
     finally:
@@ -359,15 +355,17 @@ def _keepalive(task_manager: TaskManager, start_train_count: int, train_count: i
     task_manager.set_trainer("update_time", task_manager.get_now_str())
 
 
-def _task_assign(task_manager: TaskManager) -> Optional[srl.Runner]:
+def _task_assign(task_manager: TaskManager):
     if task_manager.get_status() != "ACTIVE":
         return None
 
-    # --- runnerが作れるか
-    runner = task_manager.create_runner(read_parameter=True)
-    if runner is None:
+    # --- init parameter & check
+    task_config = task_manager.get_config()
+    if task_config is None:
         return None
-    runner.context.run_name = RunNameTypes.trainer
+    task_config.context.run_name = RunNameTypes.trainer
+    parameter = task_config.context.rl_config.make_parameter(is_load=False)
+    task_manager.read_parameter(parameter)
 
     # --- アサイン時にhealthチェック ---
     now_utc = datetime.datetime.now(datetime.timezone.utc)
@@ -387,7 +385,7 @@ def _task_assign(task_manager: TaskManager) -> Optional[srl.Runner]:
     task_manager.set_trainer("update_time", task_manager.get_now_str())
     task_manager.add_log(f"Trainer assigned({task_manager.params.uid})")
     task_manager.check_version()
-    return runner
+    return task_config, parameter
 
 
 def run_forever(
@@ -398,10 +396,17 @@ def run_forever(
     callbacks: List[TrainerServerCallback] = [],
     framework: str = "tensorflow",
     device: str = "AUTO",
+    set_CUDA_VISIBLE_DEVICES_if_CPU: bool = True,
+    tf_enable_memory_growth: bool = True,
     run_once: bool = False,
     is_remote_memory_purge: bool = True,
 ):
-    used_device_tf, used_device_torch = Runner.setup_device(framework, device)
+    used_device_tf, used_device_torch = setup_device(
+        framework,
+        device,
+        set_CUDA_VISIBLE_DEVICES_if_CPU,
+        tf_enable_memory_growth,
+    )
     task_manager_params = TaskManagerParams(
         "trainer",
         keepalive_interval,
@@ -439,12 +444,12 @@ def run_forever(
 
             # --- task check
             task_manager.reset()
-            runner = _task_assign(task_manager)
-            if runner is not None:
+            run_params = _task_assign(task_manager)
+            if run_params is not None:
                 print(f"train start: {uid}")
                 logger.info(f"train start: {uid}")
                 task_manager.setup_memory(memory_receiver, is_remote_memory_purge)
-                _run_trainer(manager, runner)
+                _run_trainer(manager, *run_params)
                 logger.info(f"train end: {uid}")
                 if run_once:
                     break

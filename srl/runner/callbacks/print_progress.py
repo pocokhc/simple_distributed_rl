@@ -58,12 +58,11 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             self.progress_timeout = self.interval_limit
 
     def _eval_str(self, context: RunContext, parameter: RLParameter) -> str:
-        assert self.runner is not None
-        if not self.setup_eval_runner(self.runner):
+        if not self.enable_eval:
             return ""
         if context.distributed:
             if context.actor_id == 0:
-                eval_rewards = self.run_eval(parameter)
+                eval_rewards = self.run_eval(context.env_config, context.rl_config, parameter)
                 if eval_rewards is None:
                     return " " * 12
                 else:
@@ -71,7 +70,7 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             else:
                 return " " * 12
         else:
-            eval_rewards = self.run_eval(parameter)
+            eval_rewards = self.run_eval(context.env_config, context.rl_config, parameter)
             if eval_rewards is None:
                 return " " * 12
             else:
